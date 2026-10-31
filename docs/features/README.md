@@ -37,3 +37,5 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 - Every new user-visible behaviour the owner approves gets an entry in the same
   commit as the code.
 - Tests that protect an entry mention its ID (see `AGENTS.md`).
+- `checkFeatureCatalog` runs before every test task: IDs must be unique and in their
+  area's file, and every ID cited by a test, an entry or the backlog must exist.

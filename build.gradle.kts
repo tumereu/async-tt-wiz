@@ -89,3 +89,45 @@ tasks.register("verifyModuleBoundaries") {
         logger.lifecycle("PASS normal Android runtime has no mandatory GMS/Firebase dependency")
     }
 }
+
+// The feature catalog (docs/features) is the list of behaviours the owner wants kept. This keeps its IDs unique and in
+// the right file, and fails when a test, a catalog entry or the backlog cites an ID that no longer exists, so removing
+// an entry forces a look at the tests that protect it. Runs before every test task.
+val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
+    val catalog = fileTree("docs/features") { include("*.md"); exclude("README.md") }
+    val backlog = file("docs/backlog.md")
+    val tests = fileTree(".") {
+        include("*/src/*Test/**/*.kt", "*/src/test/**/*.kt")
+        exclude("**/build/**")
+    }
+    inputs.files(catalog, backlog, tests).withPathSensitivity(PathSensitivity.RELATIVE)
+    val marker = layout.buildDirectory.file("feature-catalog/checked")
+    outputs.file(marker)
+    val root = rootDir
+    doLast {
+        val prefixes = mapOf("table.md" to setOf("TBL"), "zones.md" to setOf("ZON"),
+            "turns-combat-stack.md" to setOf("TRN", "CMB", "STK"), "history.md" to setOf("HIS"),
+            "lobby.md" to setOf("LOB"), "draft.md" to setOf("DRF"), "rules.md" to setOf("SYS"))
+        val id = Regex("""\b(?:${prefixes.values.flatten().joinToString("|")})-\d{3}\b""")
+        val entry = Regex("""^- \*\*([A-Z]{3}-\d{3})\*\* \S""")
+        val problems = mutableListOf<String>()
+        val defined = mutableMapOf<String, String>()
+        catalog.files.sortedBy { it.name }.forEach { file ->
+            val allowed = prefixes[file.name] ?: emptySet<String>().also { problems += "${file.name}: not a known catalog file" }
+            file.readLines().forEach { line ->
+                val found = entry.find(line)?.groupValues?.get(1) ?: return@forEach
+                if (found.substringBefore('-') !in allowed) problems += "${file.name}: $found has the wrong prefix for this file"
+                defined.put(found, file.name)?.let { problems += "$found is defined in both $it and ${file.name}" }
+            }
+        }
+        fun cited(file: File) = file.readLines().withIndex().flatMap { (index, line) ->
+            id.findAll(line).map { it.value to "${file.relativeTo(root)}:${index + 1}" }.toList()
+        }
+        (catalog.files + backlog + tests.files).flatMap(::cited).forEach { (cite, where) ->
+            if (cite !in defined) problems += "$where cites $cite, which is not in docs/features"
+        }
+        check(problems.isEmpty()) { "Feature catalog check failed:\n" + problems.joinToString("\n") }
+        marker.get().asFile.apply { parentFile.mkdirs(); writeText("${defined.size} entries\n") }
+    }
+}
+subprojects { tasks.withType<Test>().configureEach { dependsOn(checkFeatureCatalog) } }

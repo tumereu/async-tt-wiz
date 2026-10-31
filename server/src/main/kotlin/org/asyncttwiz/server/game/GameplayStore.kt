@@ -129,7 +129,7 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
         val play = game.currentPlay ?: return null
         val checkpoint = GameplayEndpoint.checkpoint(sql, play)
         val state = StoredData.decode("game play", game.id) { json.decodeFromString<PlayState>(checkpoint.payload) }
-        check(state.gameId == game.id.toString() && state.id == play.toString())
+        StoredData.intact("game", game.id, "checkpoint identity", state.gameId == game.id.toString() && state.id == play.toString())
         return read(sql, state, game.revision, checkpoint)
     }
 

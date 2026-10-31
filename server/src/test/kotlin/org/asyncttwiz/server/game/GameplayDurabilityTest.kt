@@ -20,14 +20,15 @@ internal fun gameplayAwait(check: () -> Boolean) {
     val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
     while (!check()) { assertTrue(System.nanoTime() < end, "Timed out"); Thread.sleep(20) }
 }
-internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 5, rulesText: String = "") {
+internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 5, rulesText: String = "",
+    players: Pair<String, String> = "PlayA" to "PlayB") {
     val games = GameService(runtime)
     private fun account(name: String): AccountService.Principal {
         val accounts = AccountService(runtime)
         accounts.register(name, "$name@example.invalid", "synthetic password")
         return accounts.authenticate(accounts.login("$name@example.invalid", "synthetic password")!!.token)!!
     }
-    val a = account("PlayA"); val b = account("PlayB")
+    val a = account(players.first); val b = account(players.second)
     val game: GameSummary
     val owner: Stream
     val recipient: Stream

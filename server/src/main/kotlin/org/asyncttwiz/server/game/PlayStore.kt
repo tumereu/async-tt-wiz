@@ -7,16 +7,35 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.Game.GAME
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
+import org.asyncttwiz.server.generated.tables.GameplayTreeControl.GAMEPLAY_TREE_CONTROL
 import org.jooq.DSLContext
+import org.jooq.JSONB
+import org.jooq.impl.DSL
 
 /** Persistence/entropy adapter. Initialization semantics are pure shared Kotlin. */
 internal object PlayStore {
     private val random = SecureRandom()
     private fun seed() = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
-    fun read(sql: DSLContext, game: UUID): PlayState? = sql.select(GAME_PLAY.PAYLOAD).from(GAME)
-        .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
-        .where(GAME.ID.eq(game)).fetchOne(GAME_PLAY.PAYLOAD)?.let {
-            StoredData.decode("game play", game) { GameWire.json.decodeFromString<PlayState>(it) } }
+    private fun control(kind: String) = DSL.field(DSL.select(GAMEPLAY_TREE_CONTROL.PAYLOAD).from(GAMEPLAY_TREE_CONTROL)
+        .where(GAMEPLAY_TREE_CONTROL.PLAY_ID.eq(GAME_PLAY.ID)).and(GAMEPLAY_TREE_CONTROL.KIND.eq(kind))
+        .and(GAMEPLAY_TREE_CONTROL.ID.eq("current")))
+
+    /** The current play, refused unless it passes the same integrity check as startup recovery: a damaged game is
+     * contained like an unreadable one (SYS-052). Only explicit maintenance reads it [unverified] to rebuild it. */
+    fun read(sql: DSLContext, game: UUID, unverified: Boolean = false): PlayState? {
+        val current = control("current"); val branch = control("selected-branch")
+        val row = sql.select(GAME_PLAY.PAYLOAD, GAME_PLAY.CHECKPOINT_VERSION, GAME_PLAY.CHECKPOINT_REVISION,
+            GAME_PLAY.CHECKPOINT_DIGEST, current, branch).from(GAME)
+            .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
+            .where(GAME.ID.eq(game)).fetchOne() ?: return null
+        val payload = row.value1()!!
+        val state = StoredData.decode("game play", game) { GameWire.json.decodeFromString<PlayState>(payload) }
+        if (unverified) return state
+        GameplayEndpoint.intactCheckpoint(game, row.value2(), row.value3(), row.value4(), payload)
+        fun pointer(value: JSONB?) = value?.let { StoredData.decode("game", game) { GameWire.json.decodeFromString<String>(it.data()) } }
+        GameplayEndpoint.intactPointers(state, pointer(row.value5()), pointer(row.value6()))
+        return state
+    }
 
     fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand, summary: (UUID) -> GameSummary): String? {
         val id = UUID.fromString(game.id)

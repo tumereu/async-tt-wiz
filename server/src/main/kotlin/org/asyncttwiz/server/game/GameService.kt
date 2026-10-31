@@ -530,8 +530,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
 
     /** Recovery validates the newly implemented durable worker inputs, not forgotten client queues. */
     fun validatePending() = transaction { sql ->
-        // A game or pending request the current code can't decode is logged and left to fail on its own; the service still
-        // starts (SYS-052). Integrity failures still stop readiness until explicit maintenance repairs them.
+        // A game or pending request the current code can't decode, or a game that fails its integrity check, is logged and
+        // left to fail on its own; the service still starts (SYS-052). Only explicit maintenance repairs a damaged game.
         for (game in sql.selectFrom(GAME).where(GAME.LIFECYCLE.eq("ACTIVE")).orderBy(GAME.ID).forUpdate().fetch()) {
             StoredData.orSkip("game", game.id) { PlayStore.read(sql, game.id!!)?.let { gameplayStore.recover(sql, it) } }
         }
@@ -546,7 +546,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     /** Explicit offline maintenance; no normal command or recovery invokes exhaustive replay. */
     fun checkpointGameplay() = transaction { sql ->
         for (game in sql.selectFrom(GAME).where(GAME.LIFECYCLE.eq("ACTIVE")).orderBy(GAME.ID).forUpdate().fetch())
-            PlayStore.read(sql, game.id!!)?.let { gameplayStore.rebuild(sql, it, game.revision!!) }
+            PlayStore.read(sql, game.id!!, unverified = true)?.let { gameplayStore.rebuild(sql, it, game.revision!!) }
     }
     data class Publication(val id: Long, val gameId: String, val accountId: String, val revision: String?, val result: String)
     fun publications(): List<Publication> = transaction { sql ->

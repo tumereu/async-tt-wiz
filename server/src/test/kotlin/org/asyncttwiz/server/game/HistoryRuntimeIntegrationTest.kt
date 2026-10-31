@@ -7,6 +7,8 @@ import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
+import org.asyncttwiz.server.database.UnreadableStoredData
+import org.asyncttwiz.server.lobby.LobbyService
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 import org.junit.jupiter.api.Assertions.*
@@ -208,6 +210,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
+    // SYS-052
     @Test fun `real FIFO selects successive own candidates across devices and original controls never execute twice`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -247,11 +250,24 @@ class HistoryRuntimeIntegrationTest {
                 assertEquals(finalTree, exported); assertTrue(manifest.statuses.all { it.status == "final" })
                 sql(db, "UPDATE game_play SET payload=jsonb_set(payload::jsonb, '{board,players,0,life}', '\"corrupt checkpoint\"')::text")
             }
+            // SYS-052: a game failing the startup integrity check is contained; the server starts for everyone else.
             ServiceRuntime(db.settings).use { runtime ->
-                val games = GameService(runtime)
+                val games = GameService(runtime); runtime.attachWorker(games::validatePending) { true }
                 runtime.start(); gameplayAwait(runtime::ready)
-                assertThrows(org.asyncttwiz.server.database.OwnershipFailure::class.java) { games.validatePending() }
-                gameplayAwait(runtime::ready)
+                val lobby = LobbyService(runtime)
+                assertEquals(f.game.id, assertThrows(UnreadableStoredData::class.java) { games.head(f.a, f.game.id) }.id())
+                assertThrows(UnreadableStoredData::class.java) { lobby.head(f.b, f.game.id) }
+                assertThrows(UnreadableStoredData::class.java) { games.baseline(f.a, f.game.id, emptyList()) }
+                assertThrows(UnreadableStoredData::class.java) { games.history(f.a, f.game.id, f.root.id, "0") }
+                for (player in listOf(f.a, f.b)) assertEquals(emptyList<String>(),
+                    GameWire.json.decodeFromString<GameList>(lobby.list(player, null, invitations = false).body).games.map { it.id })
+                val other = GameplayFixture(runtime, players = "OtherA" to "OtherB")
+                assertEquals("accepted", other.owner.execute(other.owner.command(PlayAction.AdjustLife(other.a.account.accountId, "-1"))).outcome)
+                assertEquals(listOf(other.game.id),
+                    GameWire.json.decodeFromString<GameList>(lobby.list(other.a, null, invitations = false).body).games.map { it.id })
+                assertEquals("corrupt checkpoint", db.connection().use { c -> c.createStatement().executeQuery(
+                    "SELECT payload::jsonb #>> '{board,players,0,life}' FROM game_play WHERE game_id = '${f.game.id}'")
+                    .use { assertTrue(it.next()); it.getString(1) } }, "a damaged game is never repaired or rewritten by startup")
                 games.checkpointGameplay() // Corruption repair is explicit maintenance, not readiness replay.
                 games.validatePending()
                 assertEquals(result, games.results(f.a, f.game.id, listOf(original.requestId)).statuses.single().result)

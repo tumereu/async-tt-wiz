@@ -4,6 +4,7 @@ import java.util.UUID
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.GameplayMutation.GAMEPLAY_MUTATION
 import org.asyncttwiz.server.generated.tables.GameplayTreeControl.GAMEPLAY_TREE_CONTROL
@@ -92,7 +93,8 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         } }, { sizes.keys.filter { sizes[it]!! > 0 }.toSet() })
         val current = controls<String>("current")["current"]
         val branch = controls<String>("selected-branch")["current"]
-        check(current == state.currentNodeId && branch == state.currentBranchId && checkpoint.revision >= 0)
+        intactPointers(state, current, branch)
+        StoredData.intact("game", state.gameId, "checkpoint revision", checkpoint.revision >= 0)
         return GameplayTree(root, nodes, state.currentNodeId, redo, controls("removed-parent"), controls("branch-lineage"),
             state.currentBranchId, controls("branch-head"), controls<String>("selection-control")["current"])
             .restoreEndpoint(state.copy(annotations = annotations()), RetainedIndex(edges("children"), edges("readers"), map("position"), true, edges("annotations")))
@@ -195,12 +197,22 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
     data class Checkpoint(val payload: String, val revision: Long)
     companion object {
         fun checkpoint(sql: DSLContext, id: UUID): Checkpoint {
-            val row = sql.select(GAME_PLAY.CHECKPOINT_VERSION, GAME_PLAY.CHECKPOINT_REVISION, GAME_PLAY.CHECKPOINT_DIGEST, GAME_PLAY.PAYLOAD)
-                .from(GAME_PLAY).where(GAME_PLAY.ID.eq(id)).fetchSingle()
-            check(row.value1() == 1) { "Run server checkpoint-gameplay after upgrading" }
-            check(row.value3() == digest(row.value4()!!, row.value2()!!)) { "Invalid gameplay checkpoint; run explicit maintenance" }
+            val row = sql.select(GAME_PLAY.CHECKPOINT_VERSION, GAME_PLAY.CHECKPOINT_REVISION, GAME_PLAY.CHECKPOINT_DIGEST, GAME_PLAY.PAYLOAD,
+                GAME_PLAY.GAME_ID).from(GAME_PLAY).where(GAME_PLAY.ID.eq(id)).fetchSingle()
+            intactCheckpoint(row.value5(), row.value1(), row.value2(), row.value3(), row.value4()!!)
             return Checkpoint(row.value4()!!, row.value2()!!)
         }
+
+        /** Integrity check of a stored checkpoint. A game that fails it is contained (SYS-052) until the explicit
+         * checkpoint-gameplay maintenance rebuilds it; its damaged state is never served. */
+        fun intactCheckpoint(game: Any?, version: Int?, revision: Long?, digest: String?, payload: String) {
+            StoredData.intact("game", game, "checkpoint version", version == 1)
+            StoredData.intact("game", game, "checkpoint digest", revision != null && digest == digest(payload, revision))
+        }
+
+        /** The stored current node and branch pointers must match the checkpoint (SYS-052 when they don't). */
+        fun intactPointers(state: PlayState, current: String?, branch: String?) = StoredData.intact("game", state.gameId,
+            "tree pointers", current == state.currentNodeId && branch == state.currentBranchId)
         private fun digest(payload: String, revision: Long) = GameplaySync.digest("1/$revision/$payload".toByteArray(Charsets.UTF_8))
     }
 }

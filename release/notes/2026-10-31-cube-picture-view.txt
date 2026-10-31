@@ -1,0 +1,1 @@
+mod: A saved cube now shows its cards as pictures grouped by type, like a saved deck, with a columns setting.

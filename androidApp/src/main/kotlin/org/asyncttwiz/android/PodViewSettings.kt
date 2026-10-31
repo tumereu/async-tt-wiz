@@ -1,6 +1,7 @@
 package org.asyncttwiz.android
 
 import android.content.Context
+import android.content.res.Configuration
 import android.content.SharedPreferences
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.DropdownMenu
@@ -52,9 +53,13 @@ internal fun rememberPodBuildSideBySide(): PodBuildColumns {
 
 internal val DeckViewColumnRange = 1..10
 
-/** Personal per-orientation tile columns of a visual deck view, 3 by default. Game preparation ([DeckViewScreen.PREPARATION])
- * and saved-deck viewing ([DeckViewScreen.SAVED]) keep separate counts, as the draft's pick and Build views do. */
-internal enum class DeckViewScreen(internal val key: String) { PREPARATION("preparation"), SAVED("saved") }
+/** Personal per-orientation tile columns of a visual deck view. Game preparation ([DeckViewScreen.PREPARATION]),
+ * saved-deck viewing ([DeckViewScreen.SAVED]) and saved-cube viewing ([DeckViewScreen.CUBE]) keep separate counts,
+ * as the draft's pick and Build views do. Decks start at 3 columns; cubes (360–540 cards) at 5 in portrait, 8 in landscape. */
+internal enum class DeckViewScreen(internal val key: String, private val portrait: Int, private val landscape: Int) {
+    PREPARATION("preparation", 3, 3), SAVED("saved", 3, 3), CUBE("cube", 5, 8);
+    fun defaultColumns(orientation: Int) = if (orientation == Configuration.ORIENTATION_LANDSCAPE) landscape else portrait
+}
 
 @Composable
 internal fun rememberDeckViewColumns(screen: DeckViewScreen): PodBuildColumns {
@@ -62,7 +67,7 @@ internal fun rememberDeckViewColumns(screen: DeckViewScreen): PodBuildColumns {
     val orientation = LocalConfiguration.current.orientation
     val preferences = remember(context) { context.getSharedPreferences("deck-view", Context.MODE_PRIVATE) }
     return remember(preferences, orientation, screen) {
-        PodBuildColumns(preferences, deckViewColumnsKey(screen, orientation), DeckViewColumnRange, 3)
+        PodBuildColumns(preferences, deckViewColumnsKey(screen, orientation), DeckViewColumnRange, screen.defaultColumns(orientation))
     }
 }
 

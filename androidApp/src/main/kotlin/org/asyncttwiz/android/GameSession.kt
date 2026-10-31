@@ -7,33 +7,6 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import org.asyncttwiz.storage.GameplayTreeStore
 
-/** Captured original identity, never a mutable selection or enqueue receipt. */
-data class InspectionRequest(val requestId: String, val scope: GameScope, val accountId: String,
-    val lifetimeId: String, val action: PlayAction.InspectFace)
-
-sealed interface InspectionEvent {
-    val request: InspectionRequest
-    /** Both accepted tree proof and the still-applicable exact card/face/region are present. */
-    data class Accepted(override val request: InspectionRequest, val disclosure: GameplayDisclosure,
-        val mutation: GameplayMutation, val throughRevision: String, val state: PlayState) : InspectionEvent
-    /** Original final no-op/rejection, or a definitive non-retryable admission refusal. */
-    data class NotAccepted(override val request: InspectionRequest, val result: GameResult? = null,
-        val admissionError: GameAdmissionError? = null) : InspectionEvent
-}
-
-/** Closing cancels presentation only. It neither withdraws/retries an original nor erases exposure. */
-class InspectionSubscription internal constructor(val request: InspectionRequest) : AutoCloseable {
-    @Volatile internal var active = true
-        private set
-    override fun close() { active = false }
-}
-
-/** Adapter for an ALREADY authorized ActivityTarget.GROUP (never a raw push hint). Group metadata
- * labels the captured target; the exact boundary alone selects review, including parent fallback. */
-data class CapturedHistoryTarget(val accountId: String, val gameId: String, val playId: String,
-    val groupId: String?, val boundaryNodeId: String)
-data class CapturedHistoryReview(val target: CapturedHistoryTarget, val view: DownloadedHistoryState)
-
 /** Main-thread, process-memory queue. Results settle intent; only revisioned reads change accepted state. */
 class GameSession(private val connection: GameConnection, private val credential: () -> String?,
     private val post: (() -> Unit) -> Unit, private val authenticationRequired: (String) -> Unit,
@@ -946,17 +919,7 @@ class GameSession(private val connection: GameConnection, private val credential
             else resultIntents.remove(result.requestId)
             retireSelections(original.scope.gameId)
         }
-        error = if (result.outcome in setOf("accepted", "noOp")) null else historyControlFailure(original.action, result.reason) ?: when (result.reason) {
-            "sourceChanged" -> "This saved deck changed. Choose it again to use the current version."
-            "sourceUnavailable" -> "This saved deck is no longer available. Choose another deck."
-            "deckRequired" -> "Select your deck to get ready."
-            "mainTooSmall" -> "Main must contain at least 40 cards including basics."
-            "sideboardLimit" -> "Side exceeds this pod's sideboard limit. Move cards to Main."
-            "podDeckFixed" -> "This game's deck is fixed to your submitted pod deck."
-            "starterRequired" -> "Choose the starting player to get ready."
-            "branched" -> "Your opponent went back to an earlier point — your last action wasn't applied."
-            else -> "This game has changed. Refresh and try again."
-        }
+        error = if (result.outcome in setOf("accepted", "noOp")) null else historyControlFailure(original.action, result.reason) ?: refusalText(result.reason)
         if (result.outcome != "accepted") inspections.remove(result.requestId)?.let { observer ->
             presentInspection(observer, InspectionEvent.NotAccepted(observer.subscription.request, result = result)) }
         notifyInspections()
@@ -965,24 +928,6 @@ class GameSession(private val connection: GameConnection, private val credential
             send(SubscribeGame(original.scope.gameId, result.commitRevision ?: "0"))
         }
         settled(original, result)
-    }
-
-    private fun historyControlFailure(action: GameAction?, reason: String?): String? {
-        val verb = when (action) { GameAction.Undo -> "undo"; GameAction.Redo -> "redo"; else -> return null }
-        val explanation = when (reason) {
-            "tooFarBack" -> "your opponent has made too many moves since your last one."
-            "noCandidate" -> "there is no action to $verb. Keep playing."
-            "forkBoundary" -> "that would change an existing branch. Use History to choose a continuation."
-            "suffixUnavailable", "workLimit" -> "that history is too large or branched to check safely. Use History to review it, or keep playing."
-            "referenceBlocked" -> "a later event refers to that action. Use History to review it, or keep playing."
-            "replayBlocked", "targetTransitionBlocked" -> "that would change another recorded transition. Use History to review it, or keep playing."
-            "missingAnchor" -> "the original place for that action is no longer available. Keep playing or open History."
-            "lifecycleEnded", "inapplicable" -> "the original play is no longer active. Return to the games list."
-            "accessDenied" -> "this game is no longer available to this account. Return to the games list."
-            "historyUnavailable", "missingReference" -> "the required history is unavailable. Reconnect to synchronize it."
-            else -> "the request could not be used. Keep playing or open History."
-        }
-        return "Can't $verb: $explanation"
     }
 
     private fun currentInspection(observer: InspectionObserver): Boolean {

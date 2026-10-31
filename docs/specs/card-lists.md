@@ -14,6 +14,13 @@ Owner-approved 2026-10-31. Delivered as one change; when it is built, its behavi
 - Differences between the two stay small: decks import from Archidekt links, cubes from Cube Cobra links;
   cubes show more picture columns by default; decks are picked for games, cubes for pods.
 
+## Section colours
+
+Each section has one colour used everywhere it appears: section headers, the destination buttons, the
+×N chips and the small other-section counts. **Main green** and **Side blue**, as the preparation
+headers already are (DRF-126), and **Maybe yellow** (a darker amber where yellow text would be hard to
+read on a light background).
+
 ## Saved list view (decks and cubes)
 
 The same picture view for both (LOB-056): sections Main, Side (decks), Maybe, cards grouped in the

@@ -38,11 +38,10 @@ class CardMenuLayoutTest {
         assertEquals(ids(CardMenuLayout.CARD).drop(1), ids(CardMenuLayout.CARD, token = true, attacker = true).drop(1))
     }
 
-    // TBL-071, TBL-089, TBL-091, TBL-092, ZON-007
+    // TBL-071, TBL-089, TBL-091, ZON-007
     @Test fun singlePageLayoutsHaveExactCells() {
         assertEquals(listOf(listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat", "Graveyard", "Exile", "Hand",
             "Deal to target", "Deal to target or creatures", "Link", "Links")), ids(CardMenuLayout.COMBAT))
-        assertEquals(listOf(listOf("inspect", "note", "Ping / Unping", "Remove Stack effect", "Link", "Links")), ids(CardMenuLayout.STACK_EFFECT))
         assertEquals(listOf(listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top",
             "Library bottom", "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4",
             "Discard random", "Reveal random", "Exile random", "Random to library bottom")), ids(CardMenuLayout.HAND))
@@ -78,7 +77,8 @@ class CardMenuLayoutTest {
         assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, sentinel.id))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("attacker1")))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("blocker")))
-        assertEquals(CardMenuLayout.STACK_EFFECT, CardRingPages.context(board, f.id("effect")))
+        // Stack entries have no card menu: Manage Stack holds their actions (STK-019).
+        assertNull(CardRingPages.context(board, f.id("effect")))
         val stackCard = CombatStackRules.stack(board).cards.single { it != f.id("effect") }
         assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, stackCard))
         val hand = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
@@ -103,7 +103,7 @@ class CardMenuLayoutTest {
         val board = play.board
         val hand = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         val library = board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
-        val views = listOf(f.source(f.a, "1/3").id, f.id("attacker1"), f.id("blocker"), f.id("effect"), hand.cards.first(), library.cards.first(),
+        val views = listOf(f.source(f.a, "1/3").id, f.id("attacker1"), f.id("blocker"), hand.cards.first(), library.cards.first(),
             CombatStackRules.stack(board).cards.single { it != f.id("effect") })
         val removed = listOf("Select / deselect", "Tap selected scope", "Untap selected scope", "Source actions", "Temp pile")
         val dropZones = CombatStackPresentation.combat(board, 48f, 68f).destinations.map { it.label }

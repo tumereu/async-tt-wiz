@@ -64,7 +64,6 @@ internal fun ringShortLabel(name: String): String = when (name) {
     "Declare without tapping" -> "Declare"
     "Ping / Unping" -> "Ping"
     "Add Stack effect" -> "Effect"
-    "Remove Stack effect" -> "Rm effect"
     "Remove from combat" -> "Rm combat"
     else -> name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
 }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -23,7 +24,9 @@ internal object StackMenuActions {
         PlayAction.Stack(StackAction.CopyEffect(entryId, CombatStackRules.stackDigest(state)))
     fun changeController(state: PlayState, entryId: String): PlayAction = PlayAction.Stack(StackAction.SetController(entryId,
         state.board.players.single { it.accountId != CombatStackRules.controller(state.board, entryId) }.accountId))
-    fun controls(state: PlayState, entryId: String, enabled: Boolean, perform: (TableIntent) -> Unit): List<MenuControl> {
+    /** [note] and [ping] act on the entry itself, never on its real card (STK-009). */
+    fun controls(state: PlayState, entryId: String, enabled: Boolean, perform: (TableIntent) -> Unit,
+        note: (() -> Unit)? = null, ping: (() -> Unit)? = null): List<MenuControl> {
         val effect = state.board.stackEffects.find { it.id == entryId }
         val movable = effect?.isCopy != true
         return listOf(
@@ -31,7 +34,14 @@ internal object StackMenuActions {
             MenuControl("Put to battlefield", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
             MenuControl("Put to graveyard", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
             MenuControl("Copy", enabled) { perform(TableIntent.Submit(copy(state, entryId), null)) },
-            MenuControl("Change controller", enabled && effect != null) { perform(TableIntent.Submit(changeController(state, entryId), null)) })
+            MenuControl("Change controller", enabled && effect != null) { perform(TableIntent.Submit(changeController(state, entryId), null)) },
+            MenuControl("Edit note", enabled && effect != null && note != null) { note?.invoke() },
+            MenuControl("Ping / Unping", enabled && ping != null) { ping?.invoke() })
+    }
+    /** Pings the entry: an effect entry as its own occurrence, a real card on the Stack as that card. */
+    fun ping(state: PlayState, entryId: String, annotations: TableMenuAnnotations): Boolean {
+        val kind = if (state.board.stackEffects.any { it.id == entryId }) PingTargetKind.OCCURRENCE else PingTargetKind.CARD
+        return annotations.submit(tablePingIntent(state, annotations.reference, PingTarget(kind, entryId)).actions())
     }
     fun destination(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
         require(entryId in CombatStackRules.stack(state.board).cards)
@@ -54,7 +64,8 @@ internal object StackMenuActions {
 /** Exceptional Stack edits stay in one compact, live shared-state view. */
 @Composable
 internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolean, dismiss: () -> Unit,
-    perform: (TableIntent) -> Unit) {
+    perform: (TableIntent) -> Unit, editNote: ((String) -> Unit)? = null) {
+    val annotations = LocalTableMenuAnnotations.current
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
@@ -68,7 +79,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
-    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", height = 520.dp, key = "manage-stack", sheet = true) {
+    // Wide enough for one row of seven 48 dp entry buttons.
+    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
@@ -96,8 +108,10 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         val icons = listOf(Icons.Outlined.Close, Icons.Outlined.TableRows, Icons.Outlined.Inventory2,
-                            Icons.Outlined.ContentCopy, Icons.Outlined.SwapHoriz)
-                        StackMenuActions.controls(state, id, enabled, perform).forEachIndexed { action, control ->
+                            Icons.Outlined.ContentCopy, Icons.Outlined.SwapHoriz, Icons.AutoMirrored.Outlined.StickyNote2,
+                            Icons.Outlined.AdsClick)
+                        StackMenuActions.controls(state, id, enabled, perform, note = editNote?.let { { it(id) } },
+                            ping = annotations?.let { { StackMenuActions.ping(state, id, it) } }).forEachIndexed { action, control ->
                             FilledTonalIconButton(onClick = control.click, enabled = control.enabled,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).ringInputTarget()) {
                                 Icon(icons[action], control.name, Modifier.size(22.dp))

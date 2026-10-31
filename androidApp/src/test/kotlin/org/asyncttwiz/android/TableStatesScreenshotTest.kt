@@ -139,8 +139,8 @@ class TableStatesScreenshotTest {
             "tokens-contents" -> compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
             "tokens-menu" -> compose.runOnIdle { toolkit.openCard(TableScope(f.source(f.a, "1/3").id, listOf(f.source(f.a, "1/3").id))) }
             "tokens-inspector" -> compose.runOnIdle { toolkit.inspect(f.source(f.a, "1/3").id) }
-            "stack-menu-card", "stack-menu-effect" -> compose.runOnIdle {
-                val id = CombatStackRules.stack(current().board).cards[if (kind == "stack-menu-card") 1 else 0]
+            "stack-menu-card" -> compose.runOnIdle {
+                val id = CombatStackRules.stack(current().board).cards[1]
                 toolkit.openCard(TableScope(id, listOf(id)))
             }
             "continue" -> {
@@ -363,11 +363,10 @@ class TableStatesScreenshotTest {
     }
     // STK-003
     @Test fun stackCardOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-card") }
-    @Test fun stackEffectOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-effect") }
     private fun assertNoStackTapControls(kind: String) {
         val sent = render(kind, false)
-        // A Stack card has the three battlefield pages; an effect marker has one page without a header.
-        if (kind == "stack-menu-card") compose.ringPage(3)
+        // A Stack card has the three battlefield pages.
+        compose.ringPage(3)
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
         assertTrue(sent.isEmpty())

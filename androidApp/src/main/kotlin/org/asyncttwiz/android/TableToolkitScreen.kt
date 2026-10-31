@@ -56,7 +56,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             } }
         }
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, enabled, toolkit::dismiss,
-            perform = { toolkit.handle(it) })
+            perform = { toolkit.handle(it) }, editNote = { id -> toolkit.manual.projectionNote(play, id, toolkit.viewer) })
         "table" -> {
             val suggestion = accepted?.board?.resultSuggestion
             TableActionMenu(play, toolkit.viewer, context, toolkit.table, endingColor, toolkit::dismiss,
@@ -88,8 +88,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             }
         } }
         "occurrence" -> if (bound != null && toolkit.manual.editor == null) {
-            // The source left play: the same combat/effect layout, with source-dependent cells disabled.
-            val layout = if (play.board.stackEffects.any { it.id == bound.contextViewId }) CardMenuLayout.STACK_EFFECT else CardMenuLayout.COMBAT
+            // The source left play: the same combat layout, with source-dependent cells disabled.
+            val layout = CardMenuLayout.COMBAT
             val occurrenceTools = listOf(MenuControl("Inspect") { toolkit.inspect(bound.contextViewId) },
                 MenuControl("Edit card note", enabled) { editProjectionNote(bound.contextViewId) }) +
                 projectionMenuTools(toolkit, play, bound, names, enabled, annotations)
@@ -145,7 +145,7 @@ internal fun cardContextTools(toolkit: TableToolkitController, play: PlayState, 
     names: Map<String, String>, enabled: Boolean, annotations: TableMenuAnnotations?): List<MenuControl> =
     when (CardRingPages.context(play.board, bound.contextViewId)) {
         CardMenuLayout.HAND -> handMenuTools(toolkit, play, bound, selection, names, enabled)
-        CardMenuLayout.COMBAT, CardMenuLayout.STACK_EFFECT -> projectionMenuTools(toolkit, play, bound, names, enabled, annotations)
+        CardMenuLayout.COMBAT -> projectionMenuTools(toolkit, play, bound, names, enabled, annotations)
         else -> cardMenuTools(toolkit, play, bound, names, enabled, annotations) + cardExtraTools(toolkit, play, bound, names, enabled)
     }
 
@@ -180,11 +180,10 @@ internal fun cardPingTool(toolkit: TableToolkitController, play: PlayState, boun
     }
 }
 
-/** Combat copies and Stack effect markers: only projection controls, never card modifications.
- * Every cell of both layouts is returned; cells needing a live source are disabled once it left play. */
+/** Combat copies: only projection controls, never card modifications.
+ * Every cell of the layout is returned; cells needing a live source are disabled once it left play. */
 internal fun projectionMenuTools(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture,
     names: Map<String, String>, enabled: Boolean, annotations: TableMenuAnnotations?): List<MenuControl> {
-    val effects = bound.viewIds.filter { id -> play.board.stackEffects.any { it.id == id } }
     val combat = bound.viewIds.filter { id -> CombatStackRules.occurrences(play.board.combat).any { it.id == id } }
     val live = combat.filter { CombatStackRules.liveSource(play.board, it) != null }
     val sources = live.mapNotNull { CombatStackRules.liveSource(play.board, it)?.id }.distinct()
@@ -205,9 +204,6 @@ internal fun projectionMenuTools(toolkit: TableToolkitController, play: PlayStat
             toolkit.dismiss()
         },
         move("Exile"), move("Hand"),
-        MenuControl("Remove Stack effect", enabled && effects.isNotEmpty()) {
-            if (toolkit.removeOccurrences(bound.copy(viewIds = effects))) toolkit.dismiss()
-        },
         MenuControl("Link", enabled && linking && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
         MenuControl("Links", linking) { toolkit.tokens.links(); toolkit.dismiss() }) +
         combatDamageMenuTools(toolkit, play, bound, enabled)

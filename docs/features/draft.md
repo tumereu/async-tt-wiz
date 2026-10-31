@@ -13,7 +13,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-007** A cube holds at most 3000 copies; the total copy count shows before saving. (r16)
 - **DRF-008** The top bar's "Import from link" dialog takes a Cube Cobra link or cube ID found anywhere in pasted text (https/www optional, query ignored); its paste icon pastes and imports at once. (r20)
 - **DRF-009** A Cube Cobra import takes the mainboard only and replaces the list; an unnamed cube gets the Cube Cobra ID as its name; failures say why. (r19)
-- **DRF-010** The Saved cube screen shows the list with Edit at the top, a separate Rename, Delete cube (confirmed), and "Draft this cube", which opens New pod with that cube chosen. (r21)
+- **DRF-010** The Saved cube screen has Edit at the top, the name and "N total copies" with a columns control (5 by default in portrait, 8 in landscape, remembered per orientation apart from decks), a separate Rename, Delete cube (confirmed), and "Draft this cube", which opens New pod with that cube chosen; below them the cards show in the saved deck's picture view (LOB-056) by type, without section headers. (?) (r35)
 
 ### Pods list and navigation
 

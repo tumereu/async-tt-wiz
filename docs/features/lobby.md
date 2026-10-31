@@ -80,7 +80,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 - **LOB-054** Manage decks has Decks and Cubes tabs and an "Import deck" button at the top right; the Decks tab shows "SAVED LISTS (N)" with cover, name and "N main / M side", and pull-to-refresh only (no background refresh). (r21)
 - **LOB-055** Every submitted pod deck is kept as a draft deck in its own section under Decks (newest 20 kept); it can be played in any game, and "Save as deck" makes an editable copy that is kept. (r31)
-- **LOB-056** A saved deck opens as a read-only picture view with Mainboard and Sideboard sections like the prepare screen: tap inspects, hold previews. (r31)
+- **LOB-056** A saved deck opens as a read-only picture view with Mainboard and Sideboard sections like the prepare screen: tap inspects, hold previews. A saved cube uses the same view (DRF-010). (r35)
 - **LOB-057** The saved deck screen has "Edit" (opens the import editor with its list) and "Delete saved deck" at the bottom, confirmed with "Deletion cannot be undone." A draft deck instead shows "Save as deck", a note about where it was drafted, and "Delete draft deck". (r31)
 - **LOB-058** Each deck has a cover chosen from its own cards. (r1)
 

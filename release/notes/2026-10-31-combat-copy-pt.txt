@@ -1,0 +1,1 @@
+add: A combat copy's menu has P/T, between Hand and Damage, to change the real card's power and toughness.

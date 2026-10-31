@@ -123,6 +123,36 @@ class MenuInvitationTest {
         } finally { pods.close(); worker.drain() }
     }
 
+    // DRF-014
+    @Test fun menuPodPanelRowsShowTheSideMenusCompactStackAndInvitationsTheirCreator() {
+        val worker = Worker()
+        val pods = PodController(proxy<Pods> { name, _ -> when (name) {
+            "list" -> PodList(emptyList(), emptyList())
+            "close" -> Unit
+            else -> error("Unexpected pod call: $name")
+        } }, proxy<Cubes> { _, _ -> Unit }, { "token" }, worker, { it() })
+        val others = (1..3).map { AccountIdentity("o$it", "Other $it") }
+        val pod = PodSummary("active", "My pod", PodPhase.DRAFTING, self, listOf(self) + others, PodAttention.YOUR_PICK, 1,
+            invitation.invitedAt)
+        pods.seed(PodState(loaded = true, pods = listOf(pod), invitations = listOf(invitation)))
+        try {
+            compose.setContent { ScreenTheme {
+                ShellContent(ShellDestination.MENU, true, {}, {}, null, null, null, null, self.accountId, pods = pods)
+            } }
+            fun avatars(tag: String, name: String) = compose.onAllNodes(hasContentDescription("$name's avatar") and
+                hasAnyAncestor(hasTestTag(tag)), useUnmergedTree = true)
+            avatars("quick-pod-active", "Other 1").assertCountEquals(1)
+            avatars("quick-pod-active", "Other 2").assertCountEquals(1)
+            avatars("quick-pod-active", "Other 3").assertCountEquals(0)
+            avatars("quick-pod-active", self.username).assertCountEquals(0)
+            compose.onNode(hasText("+1") and hasAnyAncestor(hasTestTag("quick-pod-active")), useUnmergedTree = true).assertExists()
+            avatars("quick-pod-${invitation.podId}", other.username).assertCountEquals(1)
+            val names = listOf(pod.name, invitation.name).map {
+                compose.onNodeWithText(it, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left }
+            assertEquals(names[0], names[1], "Pod and invitation names line up")
+        } finally { pods.close(); worker.drain() }
+    }
+
     private inline fun <reified T> proxy(crossinline call: (String, Array<out Any?>) -> Any?): T =
         Proxy.newProxyInstance(T::class.java.classLoader, arrayOf(T::class.java)) { _, method, args ->
             call(method.name, args.orEmpty())

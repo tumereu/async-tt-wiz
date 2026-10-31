@@ -41,7 +41,8 @@ class FaceDownInspectionTest {
 
     // TBL-109, ZON-075
     @Test fun onlyTheOwnerMayInspectAFaceDownFrontWhereverItLies() {
-        for (container in listOf("a/BATTLEFIELD", "stack", "a/EXILE", "a/GRAVEYARD")) {
+        // A real card is never in the Stack itself (STK-003).
+        for (container in listOf("a/BATTLEFIELD", "a/EXILE", "a/GRAVEYARD")) {
             val (play, card) = state(container)
             assertTrue(ManualDisclosure.permittedFaces(play, card, f.a, inspecting = true).isNotEmpty(), container)
             assertTrue(ManualDisclosure.permittedFaces(play, card, f.b, inspecting = true).isEmpty(), container)
@@ -68,7 +69,7 @@ class FaceDownInspectionTest {
         }
         compose.onNodeWithText("Face down").assertIsDisplayed()
         compose.onAllNodesWithText("Secret morph").onFirst().assertExists()
-        for (place in listOf("a/BATTLEFIELD", "stack", "a/EXILE", "a/GRAVEYARD")) {
+        for (place in listOf("a/BATTLEFIELD", "a/EXILE", "a/GRAVEYARD")) {
             compose.runOnIdle { viewer.value = f.b; container.value = place; explicit.value = false }
             compose.waitForIdle()
             compose.onNodeWithText("Covered card").assertIsDisplayed()
@@ -79,7 +80,7 @@ class FaceDownInspectionTest {
             compose.onNodeWithText("Face down").assertIsDisplayed()
             compose.onNodeWithText("Morph {3}{U}").assertExists()
         }
-        compose.runOnIdle { viewer.value = f.a; container.value = "stack"; explicit.value = false }
+        compose.runOnIdle { viewer.value = f.a; container.value = "a/GRAVEYARD"; explicit.value = false }
         compose.waitForIdle()
         compose.onNodeWithText("Face down").assertIsDisplayed()
         compose.onNodeWithText("Morph {3}{U}").assertExists()

@@ -24,7 +24,7 @@ import kotlin.test.*
 class TurnControlsLayoutTest {
     @get:Rule val compose = createComposeRule()
 
-    // TRN-008
+    // TRN-007, TRN-008, TRN-017
     @Test fun pickerLabelsFitAt412dp() = picker()
     @Test @Config(qualifiers = "w360dp-h800dp-port-mdpi") fun pickerLabelsFitAt360dp() = picker()
     @Test fun advanceLabelsFitAt412dp() = advance()
@@ -50,18 +50,14 @@ class TurnControlsLayoutTest {
         } }
         // TRN-008: every step square's short name sits on one line.
         for (step in TurnPosition.entries) {
-            val text = assertFits(phaseSquareLabel(step), maxLines = 1, within = step.label)
+            val text = assertFits(stepLabel(step), maxLines = 1, within = step.label)
             val square = compose.onNodeWithContentDescription(step.label).fetchSemanticsNode().boundsInRoot
             assertEquals(48f, square.width, .5f)
             assertTrue(text.left >= square.left && text.right <= square.right, step.label)
             assertTrue(text.top >= square.top && text.bottom <= square.bottom, step.label)
         }
         assertEquals(listOf("Untap", "Upkeep", "Draw", "Main 1", "Begin", "Attackers", "Blockers", "Damage", "End", "Main 2", "End", "Cleanup"),
-            TurnPosition.entries.map(::phaseSquareLabel))
-        // The step button and step arrow keep their own names.
-        assertEquals("Begin combat", stepLabel(TurnPosition.BEGIN_COMBAT))
-        assertEquals("End combat", stepLabel(TurnPosition.END_COMBAT))
-        assertEquals("End step", stepLabel(TurnPosition.END_STEP))
+            TurnPosition.entries.map(::stepLabel))
     }
 
     private fun advance() {

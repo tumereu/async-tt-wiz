@@ -71,11 +71,8 @@ internal class BasicTableFixture {
         val scope = TableScope(id(n), listOf(id(n)))
         return basic.handle(TableIntent.Move(scope, destination, BasicTableController.sources(play, scope.cardIds, top)))
     }
-    fun legacyStack(n: Int): Boolean {
-        val card = card(n)
-        return lobby.gameplay(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
-            MoveDestination(container(PlayZone.STACK), MoveInsertion.TOP), GameplayRules.stackDigest(play)))
-    }
+    /** A Stack entry pointing at card [n]; the card stays where it is (STK-003). */
+    fun stackEntry(n: Int): Boolean = lobby.gameplay(PlayAction.Stack(StackAction.AddEffect(card(n).id, GameplayRules.stackDigest(play))))
     fun update(from: PlayState, command: GameCommand, base: Int, author: String = actor): GameRevision {
         updateTree?.takeIf { it.currentNodeId == from.currentNodeId }?.let { before ->
             val change = HistoryContinuation.change(before, author, command)
@@ -201,10 +198,11 @@ class BasicTableControllerTest {
     // TBL-044
     @Test fun rotateSkipsStackMembersOfMixedSelection() {
         val f = BasicTableFixture(); f.connect()
-        assertTrue(f.legacyStack(40))
+        assertTrue(f.stackEntry(40))
+        val entry = f.play.board.stackEffects.single().id
         assertTrue(f.move(41, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0)))
         val before = f.commands().size
-        assertTrue(f.basic.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(f.id(40), f.id(41))), true)))
+        assertTrue(f.basic.handle(TableIntent.Rotate(TableScope(f.id(41), listOf(entry, f.id(41))), true)))
         assertEquals(listOf(PlayAction.SetTapped(f.id(41), true)), f.commands().drop(before).map { (it.action as GameAction.Play).action })
         assertFalse(f.card(40).tapped)
     }

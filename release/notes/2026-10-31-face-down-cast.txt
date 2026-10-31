@@ -1,0 +1,1 @@
+mod: A card cast face down goes straight onto the battlefield face down instead of first passing through the Stack.

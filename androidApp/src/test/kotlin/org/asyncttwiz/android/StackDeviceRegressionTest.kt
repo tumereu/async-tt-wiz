@@ -13,7 +13,7 @@ class StackDeviceRegressionTest {
             try {
                 val ui = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
                 assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), true))
-                if (populated) assertTrue(f.legacyStack(41))
+                if (populated) assertTrue(f.stackEntry(41))
                 val events = mutableListOf<TableIntent>()
                 lateinit var gestures: TableGestureCoordinator
                 gestures = TableGestureCoordinator({ intent ->
@@ -43,7 +43,7 @@ class StackDeviceRegressionTest {
                 assertEquals(listOf(f.id(40)), events.filterIsInstance<TableIntent.Move>().single().scope.cardIds)
                 assertEquals(f.container(PlayZone.HAND), f.card(40).containerId)
                 assertTrue(f.commands().drop(before).all { (it.action as? GameAction.Play)?.action is PlayAction.Stack })
-                val entry = f.play.board.stackEffects.single().id
+                val entry = f.play.board.stackEffects.single { it.sourceId == f.id(40) }.id
                 assertEquals(entry, ui.stackBubbleEntry)
                 val after = scene()
                 val bubble = assertNotNull(after.stackBubbles)

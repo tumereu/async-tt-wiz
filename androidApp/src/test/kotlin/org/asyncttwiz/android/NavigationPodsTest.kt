@@ -84,6 +84,26 @@ class NavigationPodsTest {
             .assert(!hasContentDescription("alex's avatar")).assert(hasContentDescription("riley's avatar"))
     }
 
+    // LOB-019, LOB-024
+    @Test fun sideMenuGameRowsShowLastActivityLikeOtherGameListsNotTheCreationDate() {
+        val now = AppClock.clock().instant()
+        val created = "2025-03-04T12:00:00Z"
+        val today = fixtures.lobby.state.games.first().copy(id = "today", gameName = "Played today", createdAt = created,
+            updatedAt = now.toString())
+        val earlier = fixtures.lobby.state.games.first().copy(id = "earlier", gameName = "Played earlier", createdAt = created,
+            updatedAt = now.minus(java.time.Duration.ofDays(40)).toString())
+        fixtures.lobby.seed(LobbyState(loaded = true, games = listOf(today, earlier)))
+        showNavigation()
+        for (game in listOf(today, earlier)) {
+            val row = compose.onNodeWithTag("navigation-game-${game.id}")
+            row.assert(hasText("riley · In play · ${gameLastActivity(game)}"))
+            row.assert(!hasText(gameDate(game), substring = true))
+        }
+        // The time if today, else the date.
+        assertTrue(Regex("\\d{2}:\\d{2}").matches(gameLastActivity(today)))
+        assertFalse(':' in gameLastActivity(earlier))
+    }
+
     // DRF-015
     @Test fun everyMemberPodAppearsWithoutInvitationsOrMainMenuThreeItemLimit() {
         val entries = listOf(pod("setup", PodPhase.SETUP), pod("draft"), pod("build", PodPhase.DRAFTED), pod("fourth"))

@@ -51,11 +51,10 @@ class GameplayMergeVerificationTest {
         assertEquals(GameplayFieldChange(card.id, GameplayField.COUNTER, "8", "9", CounterColor.RED),
             live.mutation!!.transition.fields.single())
         assertEquals("replayBlocked", GameplayHistory.replay(remote, captured.mutation!!).reason)
-        val addition = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
-            MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(root), faceDown = true)
-        val added = gameplayChange(live.state!!, addition, 223)
+        fun addition(id: String, digest: String) = PlayAction.Stack(StackAction.AddEffect(id, digest))
+        val added = gameplayChange(live.state!!, addition(card.id, GameplayRules.stackDigest(root)), 223)
         assertEquals("accepted", added.outcome) // Manual edits did not change semantic Stack contents.
-        assertTrue(added.state!!.board.cards.first().counters.isEmpty())
+        assertEquals(live.state.board.cards, added.state!!.board.cards) // An entry leaves its real card as it is.
         // Stack order is a merged transition: traverse the complete retained tree, not the scalar inverse helper.
         val addedTree = GameplayTree(root,
             listOf(remoteChange.mutation!!, live.mutation, added.mutation!!).associateBy { it.id }, added.state.currentNodeId)
@@ -66,9 +65,9 @@ class GameplayMergeVerificationTest {
         assertEquals(added.mutation.id, withoutAdded.targetId)
         val restoredLive = assertNotNull(withoutAdded.tree)
         assertEquals(live.state.board, assertNotNull(restoredLive.stateAt(restoredLive.currentNodeId)).board)
-        val later = addition.copy(cardId = root.board.cards[1].id, source = MoveSource(root.board.cards[1].containerId))
-        assertEquals("stackConflict", gameplayChange(added.state, later, 224).reason)
-        val fresh = gameplayChange(added.state, later.copy(expectedStackDigest = GameplayRules.stackDigest(added.state)), 225)
+        val later = addition(root.board.cards[1].id, GameplayRules.stackDigest(root))
+        assertEquals("stackChanged", gameplayChange(added.state, later, 224).reason)
+        val fresh = gameplayChange(added.state, addition(root.board.cards[1].id, GameplayRules.stackDigest(added.state)), 225)
         assertEquals("accepted", fresh.outcome)
         assertEquals(fresh, GameplayHistory.replay(added.state, fresh.mutation!!))
         val freshTree = addedTree.copy(nodes = addedTree.nodes + (fresh.mutation!!.id to fresh.mutation),

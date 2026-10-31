@@ -101,13 +101,7 @@ class CombatAndStackTest {
         assertEquals("stackChanged", change(next, PlayAction.Stack(StackAction.CopyEffect(original.id, CombatStackRules.stackDigest(controlled))), 8006).reason)
     }
 
-    @Test fun realStackCardsAndFrozenEffectsCanBeCopiedWithoutMovingOrRevivingSources() {
-        val base = state()
-        val real = apply(base, PlayAction.MoveCard(id(20), MoveSource(id(10), base.board.cards.first().placement),
-            MoveDestination(id(12), MoveInsertion.TOP), CombatStackRules.stackDigest(base)), 8100)
-        val copied = apply(real, PlayAction.Stack(StackAction.CopyEffect(id(20), CombatStackRules.stackDigest(real))), 8101)
-        assertEquals(real.board.cards, copied.board.cards)
-        assertTrue(copied.board.stackEffects.single().isCopy)
+    @Test fun frozenEffectsCanBeCopiedWithoutRevivingSources() {
         val projected = effect(state(), 25, 8102)
         val frozen = apply(projected, PlayAction.RemoveToken(id(25)), 8103)
         val entry = frozen.board.stackEffects.single()

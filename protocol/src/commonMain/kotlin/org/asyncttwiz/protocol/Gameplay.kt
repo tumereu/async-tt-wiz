@@ -62,8 +62,8 @@ import kotlinx.serialization.json.*
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @Serializable @SerialName("moveCard") data class MoveCard(val cardId: String, val source: MoveSource,
         val destination: MoveDestination, val expectedStackDigest: String? = null,
-        /** Null uses zone-entry defaults; Battlefield-to-Battlefield (and, from rules v24, Stack-to-Battlefield)
-         * preserves explicit covering. True also puts a card onto the Stack face down (morph/disguise cast). */
+        /** Null uses zone-entry defaults; Battlefield-to-Battlefield preserves explicit covering. True puts the
+         * card onto the Battlefield face down (manifest, face-down cast). */
         @EncodeDefault(EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null,
         /** Pulling a top Stack projection moves its source and removes the projection in ONE Undo. */
         @EncodeDefault(EncodeDefault.Mode.NEVER) val removeStackEntryId: String? = null) : PlayAction
@@ -135,6 +135,15 @@ import kotlinx.serialization.json.*
 data class GameplayChange(val state: PlayState? = null, val mutation: GameplayMutation? = null,
     val reason: String? = null) {
     val outcome: String get() = if (reason != null) "rejected" else if (mutation == null) "noOp" else "accepted"
+}
+
+/** SYS-053: refusal reasons for actions the rules don't allow; the app shows each with a message saying why. */
+object RuleRefusals {
+    /** Anything that would put a real card into the Stack (STK-003); only entries pointing at it go there. */
+    const val REAL_CARD_ON_STACK = "realCardOnStack"
+    /** Damage or an until-end-of-turn mark (or a note) on a card that isn't on the Battlefield. */
+    const val OFF_BATTLEFIELD = "offBattlefield"
+    val ALL = setOf(REAL_CARD_ON_STACK, OFF_BATTLEFIELD)
 }
 
 /** The sole gameplay processor, used for volatile prediction and authoritative execution alike. */
@@ -473,9 +482,9 @@ object GameplayRules {
         if (slice.isNotEmpty() && (source.zone != PlayZone.LIBRARY || slice.first() != card.id ||
                 sourceMembers.takeLast(slice.size) != slice)) return reject("movementConflict")
         val destination = action.destination
-        val addingStack = target.zone == PlayZone.STACK && source.zone != PlayZone.STACK
-        if (addingStack && action.expectedStackDigest != stackDigest(state)) return reject("stackConflict")
-        if (!addingStack && action.expectedStackDigest != null) return reject("invalidInput")
+        // STK-003, SYS-053 (rules v35): a real card is never in the Stack; only entries pointing at it are (STK-001).
+        if (target.zone == PlayZone.STACK) return reject(RuleRefusals.REAL_CARD_ON_STACK)
+        if (action.expectedStackDigest != null) return reject("invalidInput")
         TokenLinkRules.disappearForMove(state, actor, command, action)?.let { return it }
         val placement: PlayPlacement?
         val reduced = target.cards.filter { it != card.id }
@@ -510,7 +519,7 @@ object GameplayRules {
                     }
                 }
             }
-            PlayZone.LIBRARY, PlayZone.STACK -> {
+            PlayZone.LIBRARY -> {
                 if (destination.insertion !in setOf(MoveInsertion.TOP, MoveInsertion.BOTTOM, MoveInsertion.GAP)) return reject("invalidInput")
                 if (destination.position != null || destination.pileId != null) return reject("invalidInput")
                 if (destination.insertion != MoveInsertion.GAP && (destination.afterId != null || destination.beforeId != null)) return reject("invalidInput")
@@ -536,6 +545,7 @@ object GameplayRules {
                     destination.afterId != null || destination.beforeId != null) return reject("invalidInput")
                 placement = null; ordered = if (rulesVersion >= PileOrder.RULES_VERSION) reduced else emptyList()
             }
+            PlayZone.STACK -> return reject(RuleRefusals.REAL_CARD_ON_STACK)
         }
         val index = when (destination.insertion) {
             MoveInsertion.TOP, MoveInsertion.PILE_TOP, MoveInsertion.EMPTY, MoveInsertion.UNORDERED -> 0
@@ -571,8 +581,7 @@ object GameplayRules {
         val hiddenZone = target.zone == PlayZone.LIBRARY || target.zone == PlayZone.HAND
         val leaving = coverRulesVersion >= 7 && source.zone == PlayZone.BATTLEFIELD && target.zone != PlayZone.BATTLEFIELD
         val faceDown = !hiddenZone && if (leaving) target.zone == PlayZone.EXILE && card.isFaceDown
-            else (action.faceDown ?: ((source.zone == PlayZone.BATTLEFIELD || rulesVersion >= 24 && source.zone == PlayZone.STACK) &&
-                target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
+            else (action.faceDown ?: (source.zone == PlayZone.BATTLEFIELD && target.zone == PlayZone.BATTLEFIELD && card.isFaceDown))
         val front = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces?.firstOrNull()
         val publicFaceDown = FaceDownCorner.transition(source.zone == PlayZone.BATTLEFIELD && card.isFaceDown,
             target.zone == PlayZone.BATTLEFIELD && faceDown)
@@ -590,8 +599,7 @@ object GameplayRules {
             knownToAll = coverRulesVersion < 5 && card.knownToAll && (source.id == target.id || board.contentsDisplays.any {
                 card.id in it.cardIds && (it.reveal || card.id in it.revealedIds) && hiddenZone &&
                     (target.zone == PlayZone.HAND || destination.insertion == MoveInsertion.TOP) }),
-            tapped = if (source.zone == PlayZone.STACK || target.zone == PlayZone.STACK ||
-                coverRulesVersion >= 6 && target.zone != PlayZone.BATTLEFIELD) false else card.tapped,
+            tapped = if (coverRulesVersion >= 6 && target.zone != PlayZone.BATTLEFIELD) false else card.tapped,
             covered = if (coverRulesVersion == 1) card.covered else hiddenZone || faceDown,
             explicitlyCovered = if (coverRulesVersion == 1) card.explicitlyCovered else faceDown)
         val removedLinks = if (leaving) board.links.filter { it.first.id == card.id || it.second.id == card.id } else emptyList()
@@ -607,7 +615,6 @@ object GameplayRules {
         val to = location(next, card.id, orderedHand = coverRulesVersion >= 3, orderedPiles = orderedPiles)
         if (from == to && card == moved && board.contentsDisplays.none { card.id in it.cardIds } &&
             LibraryKnowledge.after(board, next, action, command.requestId) == board) return GameplayChange(state)
-        val stackChanged = source.zone == PlayZone.STACK || target.zone == PlayZone.STACK
         val fields = listOf(
             GameplayFieldChange(card.id, GameplayField.TAPPED, card.tapped.toString(), moved.tapped.toString()),
             GameplayFieldChange(card.id, GameplayField.COVERED, card.covered.toString(), moved.covered.toString()),
@@ -629,9 +636,7 @@ object GameplayRules {
             disclosures = if (newViewers.isEmpty()) emptyList() else listOf(
                 GameplayDisclosure(card.id, moved.faceId, target.id, newViewers)),
             movement = GameplayMoveChange(card.id, from, to,
-            if (target.zone == PlayZone.BATTLEFIELD) ordered.size else null,
-            if (stackChanged) stackDigest(state) else null,
-            if (stackChanged) stackDigest(state.copy(board = next)) else null, coverRulesVersion))
+            if (target.zone == PlayZone.BATTLEFIELD) ordered.size else null, coverRulesVersion = coverRulesVersion))
         return record(state, actor, command, next, transition, contentsRulesVersion = if (coverRulesVersion >= 5) 2 else 1,
             rulesVersion = rulesVersion)
     }

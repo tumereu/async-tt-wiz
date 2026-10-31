@@ -8,8 +8,8 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class FaceDownRuntimeTest {
-    // STK-005
-    @Test fun `face-down casts, a face-down resolve and manifest top are accepted and replay exactly`() {
+    // STK-005, STK-003
+    @Test fun `face-down casts go straight onto the battlefield, manifest top too, and both replay exactly`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
@@ -22,32 +22,26 @@ class FaceDownRuntimeTest {
                     .copy(action = GameAction.PlayBatch(actions)))
                 val library = state().board.zoneContainer(owner, PlayZone.LIBRARY)!!
                 val hand = state().board.zoneContainer(owner, PlayZone.HAND)!!
+                val field = state().board.zoneContainer(owner, PlayZone.BATTLEFIELD)!!
                 assertEquals("accepted", batch(LibraryActions.draw(state().board, library.id, hand.id, 2)).outcome)
                 val ids = state().board.containers.single { it.id == hand.id }.cards.take(2)
                 // Each cast is lowered against the predicted state, like the client's batch draft.
                 var predicted = state()
                 val casts = ids.map { id ->
-                    HandActions.castFaceDown(predicted, id).also { cast ->
+                    HandActions.castFaceDown(predicted, id)!!.also { cast ->
                         predicted = GameplayRules.change(predicted, owner, f.owner.command(cast)).state!!
                     }
                 }
                 val cast = batch(casts)
                 assertEquals("accepted", cast.outcome, cast.reason)
-                val stack = CombatStackRules.stack(state().board)
-                assertEquals(ids.reversed(), stack.cards)
+                assertTrue(CombatStackRules.stack(state().board).cards.isEmpty())
                 for (id in ids) {
                     val card = state().board.cards.single { it.id == id }
+                    assertEquals(field.id, card.containerId)
                     assertTrue(card.isFaceDown)
+                    assertEquals("2/2", card.corner)
                     assertFalse(CardVisibility.isVisibleFaceUp(state().board, card, opponent))
                 }
-                val top = stack.cards.first()
-                val resolve = f.owner.execute(f.owner.command(
-                    StackQuickActions.actions(state(), top, PlayZone.BATTLEFIELD).single()))
-                assertEquals("accepted", resolve.outcome, resolve.reason)
-                assertTrue(resolve.mutation!!.transition.disclosures.isEmpty())
-                val resolved = state().board.cards.single { it.id == top }
-                assertTrue(resolved.isFaceDown)
-                assertEquals("2/2", resolved.corner)
                 val manifestCard = state().board.containers.single { it.id == library.id }.cards.first()
                 val manifest = f.owner.execute(f.owner.command(LibraryActions.manifestTop(state().board, library.id)!!))
                 assertEquals("accepted", manifest.outcome, manifest.reason)

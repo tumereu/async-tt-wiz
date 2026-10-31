@@ -1,0 +1,1 @@
+mod: The step button at the top and the next-step arrow at the bottom use the same short step names as the phase dialog.

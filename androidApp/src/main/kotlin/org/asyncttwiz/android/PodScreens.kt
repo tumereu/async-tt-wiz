@@ -25,6 +25,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -89,7 +90,7 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                             }
                         }
                     }
-                    else -> PodsList(state, controller::open, controller::respond) { controller.refresh(requested = true) }
+                    else -> PodsList(state, accountId, controller::open, controller::respond) { controller.refresh(requested = true) }
                 }
                 if (!pickTab) {
                     FloatingTransientError(state.error ?: state.notice, controller::dismissError, Modifier.align(Alignment.BottomCenter))
@@ -168,10 +169,12 @@ private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodP
 }
 
 @Composable
-internal fun PodsList(state: PodState, open: (String) -> Unit, respond: (String, Boolean) -> Unit, refresh: () -> Unit) {
+internal fun PodsList(state: PodState, accountId: String?, open: (String) -> Unit, respond: (String, Boolean) -> Unit,
+    refresh: () -> Unit) {
     InitialLoadArea(state.loaded, failed = state.error != null, retry = refresh, loading = state.loading) {
         // DRF-012: one list in the shared pod order (DRF-013), invitations answered in place.
         val entries = orderedPods(state.pods, state.invitations)
+        val stackWidth = podStackWidth(state.pods, accountId)
         LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             item {
                 Text("MY PODS (${state.pods.size})", style = MaterialTheme.typography.labelLarge)
@@ -179,7 +182,7 @@ internal fun PodsList(state: PodState, open: (String) -> Unit, respond: (String,
             }
             items(entries, key = { if (it.invitation != null) "invitation:${it.id}" else it.id }) { entry ->
                 val invitation = entry.invitation
-                if (invitation == null) PodRow(requireNotNull(entry.pod), { open(entry.id) })
+                if (invitation == null) PodRow(requireNotNull(entry.pod), accountId, { open(entry.id) }, stackWidth = stackWidth)
                 else OutlinedCard(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(invitation.name, fontWeight = FontWeight.Bold)
@@ -198,15 +201,15 @@ internal fun PodsList(state: PodState, open: (String) -> Unit, respond: (String,
 }
 
 @Composable
-internal fun PodRow(pod: PodSummary, open: () -> Unit, modifier: Modifier = Modifier, quick: Boolean = false) {
+internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modifier: Modifier = Modifier, quick: Boolean = false,
+    stackWidth: Dp = podStackWidth(listOf(pod), accountId)) {
     val highlighted = pod.attention == PodAttention.YOUR_PICK
-    Surface(onClick = open, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
-        color = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+    val fill = if (highlighted) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+    Surface(onClick = open, modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium, color = fill,
         border = BorderStroke(1.dp, if (highlighted) MaterialTheme.colorScheme.primary else ScreenBorder)) {
         Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.widthIn(max = 136.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                pod.members.forEach { Avatar(it) }
-            }
+            // DRF-012: the side menu's compact stack of the other members (DRF-015).
+            AvatarStack(podNavigationAvatars(pod.members, accountId), ring = fill, width = stackWidth)
             Column(Modifier.weight(1f)) {
                 Text(pod.name, fontWeight = FontWeight.SemiBold)
                 Text(if (quick) "Your pick" else podStatus(pod), style = MaterialTheme.typography.bodySmall)

@@ -138,10 +138,6 @@ class TableStatesScreenshotTest {
             "tokens-contents" -> compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
             "tokens-menu" -> compose.runOnIdle { toolkit.openCard(TableScope(f.source(f.a, "1/3").id, listOf(f.source(f.a, "1/3").id))) }
             "tokens-inspector" -> compose.runOnIdle { toolkit.inspect(f.source(f.a, "1/3").id) }
-            "stack-menu-card" -> compose.runOnIdle {
-                val id = CombatStackRules.stack(current().board).cards[1]
-                toolkit.openCard(TableScope(id, listOf(id)))
-            }
             "continue" -> {
                 // HIS-036: holding Auto is the only way to branch.
                 compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
@@ -203,7 +199,6 @@ class TableStatesScreenshotTest {
             "tokens-menu" -> "$combat with several tokens, card menu open on your token attacker"
             "tokens-inspector" -> "$combat with several tokens, Inspect view open for your token attacker"
             "tokens-stack-card" -> "$combat with several tokens, a token card on top of the Stack"
-            "stack-menu-card" -> "$combat in Select mode, card menu open on the card on the Stack"
             "stack-contents" -> "$combat, after double-tapping the Stack: Manage Stack lists its two entries"
             "graveyard-contents" -> "after double-tapping your three-card graveyard: its panel lists the cards grouped by type"
             "history-start" -> "reviewing history at the game's start, auto-advance off"
@@ -386,16 +381,6 @@ class TableStatesScreenshotTest {
         assertEquals(listOf(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP),
             MoveDestination(f.id("b/HAND"), MoveInsertion.UNORDERED))), sent)
         compose.onNodeWithText("Library contents").assertDoesNotExist()
-    }
-    // STK-003
-    @Test fun stackCardOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-card") }
-    private fun assertNoStackTapControls(kind: String) {
-        val sent = render(kind, false)
-        // A Stack card has the three battlefield pages.
-        compose.ringPage(3)
-        compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
-        assertTrue(sent.isEmpty())
     }
     // CMB-008, STK-018, TBL-046, ZON-058
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }

@@ -48,7 +48,9 @@ class CombatMenuInteractionTest {
     @Test fun projectionUsesTheCombatOnlyPageAndRemovalUsesTheCapturedMultiselection() {
         render(menu = true)
         compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Set corner").assertDoesNotExist()
+        // P/T is the real card's (CMB-003); the copy has no other battlefield controls.
+        compose.onNodeWithContentDescription("Set corner").assertIsEnabled()
+        compose.onNodeWithContentDescription("Set blue counter").assertDoesNotExist()
         compose.onNodeWithContentDescription("Attack →").assertExists()
         compose.ringClick("Remove from combat")
         val actions = batches.single().map { assertIs<PlayAction.Combat>(it).action }

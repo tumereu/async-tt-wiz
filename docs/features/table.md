@@ -129,13 +129,13 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 ### Hand, combat and Stack menus
 
 - **TBL-089** The hand card menu is one page: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1–4, Discard random, Reveal random, Exile random, Random to library bottom. (r28)
-- **TBL-090** Hand "Play" does the same as double-tapping the card; "Face down" puts it on the Stack face down and it resolves straight onto the battlefield as a face-down 2/2. (r21)
+- **TBL-090** Hand "Play" does the same as double-tapping the card; "Face down" puts it on the Stack face down and it resolves straight onto the battlefield as a face-down 2/2. (r21) (?) since r35 it goes straight onto the battlefield face down, never through the Stack (STK-003).
 - **TBL-091** The combat copy menu has Inspect, Note, Ping, Attack →, Remove from combat, Graveyard, Exile, Hand, Deal to target, Deal to target or creatures, Link and Links, and nothing that changes the real card (tap the real card for that). (r28)
 
 ### Card state rules
 
 - **TBL-093** A card leaving the battlefield loses its notes, P/T changes, counters, links and owner changes, turns to its front face and untaps; face-down survives only a move to exile. (r13)
-- **TBL-094** Buttons that change a card are greyed out outside the battlefield. Stack entries and combat copies can have their own notes and pings; combat copies also set damage and the until-end-of-turn marks on the real card (CMB-003). (r35)
+- **TBL-094** Buttons that change a card are greyed out outside the battlefield. Stack entries and combat copies can have their own notes and pings; combat copies also set P/T, damage and the until-end-of-turn marks on the real card (CMB-003). (r35)
 - **TBL-095** Damage, until-end-of-turn P/T and until-end-of-turn notes clear from every card when the turn passes and when a card changes zone; moving between battlefields keeps them. (r16)
 - **TBL-096** On hidden cards the menu shows "—" instead of values, but notes, damage and marks can still be edited without seeing them. (r30)
 - **TBL-097** The owner is whose deck the card came from; the controller is whichever battlefield it is on; only the Owner button on tokens changes the owner. (r5)

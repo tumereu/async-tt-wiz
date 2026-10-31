@@ -13,14 +13,15 @@ object HandActions {
         return PlayAction.RandomHand(handId, selectedIds, seed, result, picked)
     }
 
-    /** Morph/disguise cast: the hand card itself enters the Stack top FACE DOWN in one move, never a
-     * projection (which would reveal its hand source). Rules v24 keep it face down when it resolves. */
-    fun castFaceDown(state: PlayState, cardId: String): PlayAction.MoveCard {
+    /** Morph/disguise cast (STK-005): the hand card goes straight onto its owner's Battlefield FACE DOWN (a
+     * public 2/2) in one move, like Manifest: never a Stack entry, which would reveal its hand source, and
+     * never the real card in the Stack (STK-003). */
+    fun castFaceDown(state: PlayState, cardId: String): PlayAction.MoveCard? {
         val card = state.board.cards.single { it.id == cardId }
         val hand = state.board.containers.single { it.id == card.containerId && it.zone == PlayZone.HAND }
-        return PlayAction.MoveCard(card.id, MoveSource(hand.id),
-            MoveDestination(CombatStackRules.stack(state.board).id, MoveInsertion.TOP),
-            expectedStackDigest = GameplayRules.stackDigest(state), faceDown = true)
+        val field = state.board.zoneContainer(card.owner, PlayZone.BATTLEFIELD) ?: return null
+        return PlayAction.MoveCard(card.id, MoveSource(hand.id), MoveDestination(field.id, MoveInsertion.EMPTY,
+            BattlefieldPlacement.cell(state, field.id, card, faceDown = true)), faceDown = true)
     }
 }
 

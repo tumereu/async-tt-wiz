@@ -35,8 +35,12 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
     var displayTree: GameplayTree? = null
         private set
     fun predicted(requestId: String) = predictions[requestId]?.withdrawn == false
+    /** The shared rules' reason for the last refused [predict], e.g. a [RuleRefusals] code (SYS-053). */
+    var predictionRefusal: String? = null
+        private set
 
     fun predict(command: GameCommand, actor: String): Boolean {
+        predictionRefusal = null
         if (command.requestId in predictions) return false
         val base = display ?: return false
         val retained = displayTree
@@ -44,8 +48,8 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
         if (retained != null) {
             // A valid no-op (e.g. an already-reset corner after a move) still belongs on the
             // ordinary queue. It has no predicted node, but is not an enqueue failure.
-            if (predictChange(retained, actor, command).reason != null) return false
-        } else if (GameplayRules.change(base, actor, command).state == null) return false
+            predictChange(retained, actor, command).reason?.let { predictionRefusal = it; return false }
+        } else GameplayRules.change(base, actor, command).let { if (it.state == null) { predictionRefusal = it.reason; return false } }
         predictions[command.requestId] = Prediction(command, actor)
         rebase()
         effects(base, retained)

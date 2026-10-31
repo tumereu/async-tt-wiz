@@ -141,11 +141,10 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
         }
     }
 
-    /** Keyword toggles edit Battlefield/Stack cards like notes; EOT keywords edit Battlefield cards only, like the EOT marks. */
+    /** Keyword toggles and EOT keywords edit Battlefield cards only, like notes and the EOT marks (SYS-053). */
     fun keywordCards(state: PlayState, eot: Boolean = false): List<PlayCard> {
-        val zones = if (eot) setOf(PlayZone.BATTLEFIELD) else setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)
         return if (!usable(state) || player) emptyList() else targetIds.mapNotNull { id -> state.board.cards.singleOrNull { it.id == id } }
-            .filter { card -> state.board.containers.any { it.id == card.containerId && it.zone in zones } }
+            .filter { card -> state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }
     }
 
     /** Each captured source emits one ordinary request; inapplicable numeric targets are skipped. */

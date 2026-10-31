@@ -33,7 +33,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-021** Defaults: Booster 3 packs × 15 cards, keep 1, burn 0; Glimpse 9 packs × 15, keep 1, burn 2; both discard at 0, 1 pack open at once; Grid 18 grids, 1 open at once; Rochester 3 packs per player × 15 cards, packs open at once one per player; Rotisserie 45 cards per player; Winston 3 packs per player, 3 piles; Winchester 3 packs per player, 4 piles; Sealed 6 boosters per player from a set, 45 cards per player from a cube. Winston and Winchester packs from a cube hold 15 cards. (?) (r35)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. Rochester's "Open packs" tile reads "1 each" (one per player) until a number is set; its dialog has a square "1 each" toggle like the sideboard's ∞. (?) (r35)
 - **DRF-023** Limits: packs 1–30, pack size 1–30, keep at least 1, keep + burn at most the pack size, open packs up to the pack count; grids 1–60; Rochester, Winston and Winchester packs per player 1–15 and pack size 5–30; Rochester packs open at once 1 up to all (any count above the number of packs opens them all); Rotisserie and cube Sealed cards per player 5–225; Winston piles 2–6, Winchester piles 2–8; set Sealed boosters per player 1–30. (?) (r35)
-- **DRF-024** The pack size tile shows only for cubes and for set packs without a booster recipe; set recipes fix their own size. (r16)
+- **DRF-024** The pack size tile (Booster, Rochester, Winston and Winchester) shows only for cubes and for set packs without a booster recipe; set recipes fix their own size. (?) (r35)
 - **DRF-025** Sideboard limit is a tile, default unlimited (∞), with a square ∞ toggle inside its dialog; 0 is allowed. (r17)
 - **DRF-026** "Color balancing" is a square On/Off toggle tile for cube Booster/Glimpse, default on: each pack gets a card of every colour when the cube allows. (r19)
 - **DRF-027** "Fresh boosters" toggle tile (default on) is always shown and greyed out unless the pod drafts grids from a set. (r29)
@@ -44,7 +44,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Presets
 
 - **DRF-031** A Presets button on New pod and on the creator's pod setup opens a dialog listing the built-in presets Booster and Glimpse first, then your saved presets, with search; there are no preset chips. (r35)
-- **DRF-032** A preset stores the draft settings and source under a name; rows read like "Booster · My cube · 3×15", and a deleted cube shows "Cube missing". Built-in presets hold settings only and read "Glimpse · Built-in · 9×15"; choosing one keeps the pod's current source. (?) (r35)
+- **DRF-032** A preset stores the draft settings and source under a name; rows read like "Booster · My cube · 3×15" ("Rotisserie · My cube · 45 cards each", "Sealed · Dominaria United · 6 boosters"), and a deleted cube shows "Cube missing". Built-in presets hold settings only and read "Glimpse · Built-in · 9×15"; choosing one keeps the pod's current source. (?) (r35)
 - **DRF-033** "Save current settings as preset…" asks a name (up to 60 characters); an existing name asks "Replace preset"; rows can be renamed and deleted (confirmed). Built-in rows can't be renamed, replaced or deleted. (?) (r35)
 - **DRF-034** Presets are saved on the server, so they appear on all your devices; up to 200 presets. (r31)
 
@@ -96,7 +96,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-068** A refused pick restores that pack and its marks with a short message; an unconfirmed one offers Retry. (r16)
 - **DRF-069** Your keep, burn and Librarian marks are kept when you switch tabs or close the app (saved on the server about half a second after the last change). (r22)
 - **DRF-070** Card pictures for the whole shown pack and the next queued pack start downloading at once; missing pictures keep a named placeholder and retry forever. (r19)
-- **DRF-071** With no pack to pick, a faded centred text shows, each part on its own line: "Waiting for <names>" then "N packs will come back to you", or "All your picks are done" then "<names> is finishing" ("Other players are finishing" when unknown); then "Round x of y" (Grid: "Waiting for <names> · Round x of y"). (r22)
+- **DRF-071** With no pack to pick, a faded centred text shows, each part on its own line: "Waiting for <names>" then "N packs will come back to you", or "All your picks are done" then "<names> is finishing" ("Other players are finishing" when unknown); then "Round x of y" (Grid: "Waiting for <names> · Round x of y"). In Rochester, Rotisserie, Winston and Winchester the board stays on screen and its header line names whose pick it is ("Waiting for <name>"). (?) (r35)
 - **DRF-072** Under the waiting text a borderless "Main menu" link leaves the pod; there is no Build button there. (r20)
 
 ### Pod header and tabs
@@ -131,6 +131,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-148** The Winston pick screen lists the piles one under another ("Pile 2 · 3 cards", "· you look at it" or "· Bob looks at it" on the pile in play), cards you have seen face up and the rest as card backs, under a line like "Your pick · Stack: 31 cards"; on your turn "Pass" ("Pass · take top card" on the last pile) and "Take pile N" sit at the bottom. Tapping a card opens the inspector; holding previews it. (?) (r35)
 - **DRF-149** Winchester: the packs' cards are shuffled into a face-down stack; there are N face-up piles (default 4). Each turn every pile gets one card from the stack, then the player whose turn it is takes one whole pile; turns go round the table, and the draft ends when the stack and piles are empty. (?) (r35)
 - **DRF-150** The Winchester pick screen lists the face-up piles one under another ("Pile 2 · 3 cards") under a line like "Your pick · Stack: 24 cards"; on your turn tap a card of a pile to frame that pile, then "Take pile N (k cards)"; tapping a card of the framed pile, or any card on another's turn, opens the inspector, and holding previews it. (?) (r35)
+- **DRF-151** Winston, Winchester and Grid have a "Picks" button at the top right of the Draft tab; it opens a dialog with a chip per opponent (avatar, name and card count) and that opponent's picks, in order, newest first. A card shows face up if you have seen it (always in Winchester and Grid; in Winston only cards you had seen in a pile), otherwise as a card back; tapping a card inspects it. Rochester and Rotisserie show picks on the board itself. (?) (r35)
 
 ### Set boosters
 

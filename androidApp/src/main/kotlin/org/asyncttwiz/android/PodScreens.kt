@@ -308,6 +308,9 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         PodDraftTabs(tabs, selected, controller::tab) {
             PodOverflow(controller, detail.creator.accountId == accountId, detail.phase, compact = true)
         }
+        // DRF-151: Winston, Winchester and Grid show each opponent's picks on request.
+        if (selected == PodTab.DRAFT && podHasPicksView(detail.settings.mode))
+            PodPicksButton(detail, accountId, definitions, controller.inspection)
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
                 PodTab.DRAFT -> if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,

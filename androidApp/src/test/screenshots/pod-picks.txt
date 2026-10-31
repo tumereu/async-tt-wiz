@@ -1,0 +1,1 @@
+Picks dialog of a Winston draft showing Bob's picks newest first: cards Alice saw face up, the others as card backs, with a chip per opponent.

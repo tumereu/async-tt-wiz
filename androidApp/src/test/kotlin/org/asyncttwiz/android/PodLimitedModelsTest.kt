@@ -68,4 +68,29 @@ class PodLimitedModelsTest {
         assertEquals("Pile 2 · 2 cards · Bob looks at it", podPileHeader(1, 2, view.copy(currentPlayer = "b"), members))
         assertEquals("Your pick · Stack: 0 cards", podPileTurnText(view, members))
     }
+
+    // DRF-151: each opponent's picks newest first, unseen cards as backs; Grid from its public log.
+    @Test fun opponentPicksNewestFirstWithUnseenCardsHidden() {
+        val members = listOf("a", "b", "c").map { PodMember(AccountIdentity(it, it.uppercase())) }
+        val c = (0..5).map { DraftCopy("c$it", "d$it") }
+        val limited = LimitedView(DraftMode.WINSTON, "a", listOf("a", "b", "c"), emptyList(), false, picks = listOf(
+            LimitedPickView("b", listOf(c[0], null), pile = 0), LimitedPickView("a", listOf(c[1])),
+            LimitedPickView("b", listOf(null), fromStack = true), LimitedPickView("c", listOf(c[2]), pile = 1)))
+        val detail = PodDetail("p", "Pod", PodPhase.DRAFTING, members[0].account, DraftSettings.winston(), PodSource(), DraftSupply(0, 0),
+            members, emptyList(), updatedAt = "", limited = limited)
+        val picks = podOpponentPicks(detail, "a")
+        assertEquals(listOf("b", "c"), picks.map { it.account.accountId })
+        assertEquals(listOf(null, c[0], null), picks[0].cards)
+        assertEquals(listOf(c[2]), picks[1].cards)
+        val grid = PodGridView(GridPublicView(1, 2, false, listOf("b", "a"), emptyList(), listOf(
+            GridPublicPickLog("b", "g1", GridLine(GridLineType.ROW, 0), listOf(c[3], c[4]), emptyList()),
+            GridPublicPickLog("a", "g1", GridLine(GridLineType.ROW, 1), listOf(c[5]), emptyList()),
+            GridPublicPickLog("b", "g2", null, emptyList(), emptyList()),
+            GridPublicPickLog("b", "g2", GridLine(GridLineType.COLUMN, 0), listOf(c[0]), emptyList()))), GridPrivateView("a", emptyList(), null))
+        val gridPicks = podOpponentPicks(detail.copy(settings = DraftSettings.grid(), limited = null, grid = grid), "a")
+        assertEquals(listOf("b"), gridPicks.map { it.account.accountId })
+        assertEquals(listOf(c[0], c[3], c[4]), gridPicks.single().cards)
+        assertTrue(listOf(DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.GRID).all(::podHasPicksView))
+        assertFalse(listOf(DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.BOOSTER, DraftMode.SEALED).any(::podHasPicksView))
+    }
 }

@@ -808,6 +808,8 @@ private fun podError(failure: Exception): String = when ((failure as? PodFailure
     "librarian_definition_unavailable" -> "Librarian unavailable."
     "insufficient_supply" -> "The source cube does not have enough cards."
     "too_many_members" -> "Too many members for this draft mode."
+    "not_your_turn", "stale_turn", "wrong_pile", "unknown_card", "empty_pile", "cannot_pass" ->
+        "That move is no longer possible; the draft has moved on."
     "too_many_players" -> "Too many players are joined or invited for this draft mode."
     "main_too_small" -> "Main must contain at least 40 cards including basics."
     "sideboard_limit" -> "Move surplus sideboard cards to Trash before submitting."

@@ -177,4 +177,15 @@ class PodLimitedScreenshotTest {
         shot("pod-winchester", "Winchester draft on Alice's turn after she taps a card of pile 3: the four face-up piles, " +
             "pile 3 framed, and \"Take pile 3 (3 cards)\" below.")
     }
+
+    // DRF-151
+    @Test fun picksDialogShowsSeenCardsAndBacksNewestFirst() {
+        val picks = listOf(PodOpponentPicks(bob, listOf(null, copies[0], copies[1], null, copies[2])), PodOpponentPicks(carol, emptyList()))
+        show({ "pod-picks-${it.id}" }, copies.take(3)) {
+            PodPicksDialog(picks, definitions, remember { CardInspectionController() }) {}
+        }
+        File(SCREENSHOTS).mkdirs()
+        captureShot(File(SCREENSHOTS, "pod-picks.png").path, "Picks dialog of a Winston draft showing Bob's picks newest " +
+            "first: cards Alice saw face up, the others as card backs, with a chip per opponent.")
+    }
 }

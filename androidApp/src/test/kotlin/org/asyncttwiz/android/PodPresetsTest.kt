@@ -25,6 +25,12 @@ class PodPresetsTest {
         assertEquals("Booster · DMU · 1 pack", podPresetSummary(preset("x", DraftSettings(packsPerPlayer = 1, packsOpenAtOnce = 1), setCode = "DMU")))
         assertEquals("Booster · Old cube · 3×15", podPresetSummary(preset("old", DraftSettings(mode = DraftMode.GLIMPSE), cubeName = "Old cube")))
         assertEquals(listOf("Booster · Built-in · 3×15", "Glimpse · Built-in · 9×15"), PodBuiltInPresets.map(::podPresetSummary))
+        // Each engine's size in its own terms.
+        assertEquals("Rotisserie · Cube · 45 cards each", podPresetSummary(DraftSettings.rotisserie(), "Cube", set = false))
+        assertEquals("Sealed · Cube · 45 cards each", podPresetSummary(DraftSettings.sealed(), "Cube", set = false))
+        assertEquals("Sealed · DMU · 6 boosters", podPresetSummary(DraftSettings.sealed(), "DMU", set = true))
+        assertEquals("Winston · Cube · 3×15", podPresetSummary(DraftSettings.winston(), "Cube", set = false))
+        assertEquals("Rochester · DMU · 3 packs", podPresetSummary(DraftSettings.rochester(), "DMU", set = true))
     }
 
     // DRF-031, DRF-033

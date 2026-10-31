@@ -364,6 +364,13 @@ async def serve(args):
         app.listeners.append(await asyncio.start_server(lambda r, w: app.http(r, w, True), args.admin_bind, args.admin_port, limit=65536))
         app.listeners.append(await asyncio.start_server(app.smtp, args.smtp_bind, args.smtp_port, limit=65536))
         store.probe()
+        if args.ports_file:
+            # Port 0 lets the kernel pick and hold each port at bind; the owner learns them here
+            # instead of pre-picking ports another process could take before this bind.
+            bound = dict(zip(("http", "admin", "smtp"), (s.sockets[0].getsockname()[1] for s in app.listeners)))
+            partial = args.ports_file.with_name(args.ports_file.name + ".partial")
+            partial.write_text(json.dumps(bound))
+            os.replace(partial, args.ports_file)
         print("synthetic adapters started", flush=True)
         await stopped.wait()
     finally:
@@ -390,6 +397,7 @@ def main():
     parser.add_argument("--http-port", type=int, default=8080)
     parser.add_argument("--admin-port", type=int, default=8081)
     parser.add_argument("--smtp-port", type=int, default=2525)
+    parser.add_argument("--ports-file", type=Path, help="write the bound ports as JSON once all listeners serve")
     args = parser.parse_args()
     try:
         if not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_-]{0,63}", args.instance):

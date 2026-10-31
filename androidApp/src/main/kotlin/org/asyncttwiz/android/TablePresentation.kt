@@ -401,7 +401,9 @@ object TablePresentation {
         }
         fun card(card: PlayCard, b: TableBounds, footprint: TableBounds, region: String?, zone: PlayZone, viewport: String,
             viewId: String = card.id, projection: Boolean = false, frozen: Boolean = false, draw: Boolean = true): TableItem {
-            val hidden = if (!frozen) !CardVisibility.isVisibleFaceUp(play.board, card, viewer)
+            // A face-down entry (STK-005) is a card back for both players, like a face-down card (ZON-073).
+            val hidden = projection && CombatStackRules.faceDownEntry(play.board, viewId) ||
+                if (!frozen) !CardVisibility.isVisibleFaceUp(play.board, card, viewer)
                 else !CardVisibility.isVisibleFaceUp(card, zone, region, viewer)
             val f = face(card)
             // A face-down Battlefield card hides its face, but its values are public (rules v23).

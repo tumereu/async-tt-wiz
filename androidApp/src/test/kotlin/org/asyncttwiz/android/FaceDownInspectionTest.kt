@@ -85,4 +85,30 @@ class FaceDownInspectionTest {
         compose.onNodeWithText("Face down").assertIsDisplayed()
         compose.onNodeWithText("Morph {3}{U}").assertExists()
     }
+
+    // STK-005, TBL-109, ZON-075: a face-down Stack entry's front is its hand card's holder's alone.
+    @Test fun aFaceDownStackEntryShowsItsHolderTheMarkedFrontAndTheOpponentNothing() {
+        val (base, held) = state("a/HAND")
+        val card = held.copy(explicitlyCovered = false)
+        val entry = f.id("face-down-entry")
+        val play = base.copy(board = base.board.copy(cards = base.board.cards.map { if (it.id == card.id) card else it }, stackEffects = listOf(StackEffect(entry, card.id, faceDown = true)),
+            containers = base.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(entry)) else it }))
+        val inspected = CombatStackRules.inspection(play.board, entry)!!
+        assertTrue(ManualDisclosure.permittedFaces(play, inspected, f.b, inspecting = true).isEmpty())
+        val viewer = mutableStateOf(f.a)
+        compose.setContent {
+            MaterialTheme {
+                GameplayCardInspection(play, viewer.value, ManualInspection(play.gameId, play.id, entry,
+                    ManualDisclosure.permittedFaces(play, inspected, viewer.value, inspecting = true).map { it.faceId },
+                    stackEntryId = entry), {})
+            }
+        }
+        compose.onNodeWithText("Face down").assertIsDisplayed()
+        compose.onNodeWithText("Morph {3}{U}").assertExists()
+        compose.runOnIdle { viewer.value = f.b }
+        compose.waitForIdle()
+        compose.onNodeWithText("Covered card").assertIsDisplayed()
+        compose.onAllNodesWithText("Secret morph", substring = true).assertCountEquals(0)
+        compose.onAllNodesWithText("Morph {3}{U}", substring = true).assertCountEquals(0)
+    }
 }

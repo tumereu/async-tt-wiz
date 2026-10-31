@@ -20,7 +20,8 @@ private val contentsOrder = compareBy<ContentsEntry>({ contentsCategoryRank(it.c
 fun contentsEntries(state: PlayState, pile: PileContents, viewer: String, search: String = ""): List<ContentsEntry> {
     val entries = pile.cardIds.mapIndexed { index, id ->
         val card = CombatStackRules.inspection(state.board, id)
-        val visible = card != null && CardVisibility.isVisibleFaceUp(state.board, card, viewer)
+        val visible = card != null && !CombatStackRules.faceDownEntry(state.board, id) &&
+            CardVisibility.isVisibleFaceUp(state.board, card, viewer)
         val face = if (visible) state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
             ?.singleOrNull { it.faceId == card.faceId } else null
         val effect = state.board.stackEffects.singleOrNull { it.id == id }

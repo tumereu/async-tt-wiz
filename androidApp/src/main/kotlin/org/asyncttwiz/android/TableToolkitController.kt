@@ -404,15 +404,21 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 BasicTableController.sources(play, listOf(id)), handDoubleTap = true))
         }
     }
-    /** Morph/disguise: every selected hand card goes onto its owner's Battlefield face down (a 2/2), all in
-     * one batch (one-step Undo). */
+    /** Morph/disguise (STK-005): every selected hand card gets a face-down Stack entry that, always being a 2/2
+     * permanent, auto-resolves onto its owner's Battlefield face down like a hand double-tap: separate history
+     * group, same invocation (one-step Undo), all in one batch. */
     fun castFaceDown(ids: List<String>): Boolean = batchResult {
         ids.isNotEmpty() && ids.distinct().all { id ->
             val play = current() ?: return@all false
-            val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
-            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND }) return@all false
-            // STK-005: straight onto the Battlefield face down (a 2/2), never through the Stack (STK-003).
-            submit(HandActions.castFaceDown(play, id) ?: return@all false)
+            val before = CombatStackRules.stack(play.board).cards.toSet()
+            if (!submit(HandActions.castFaceDown(play, id) ?: return@all false)) return@all false
+            val next = current()?.takeIf { enabled() } ?: return@all true
+            val entry = CombatStackRules.stack(next.board).cards.firstOrNull { entry -> entry !in before &&
+                next.board.stackEffects.any { it.id == entry && it.sourceId == id && it.faceDown } } ?: return@all true
+            // Exactly the manual resolver, as the double-tap uses: it keeps the card face down as a 2/2.
+            for (action in StackMenuActions.destination(next, entry, PlayZone.BATTLEFIELD))
+                if (!enqueue(action, invocation)) break
+            true
         }
     }
     fun randomHand(handId: String, selectedIds: List<String>, result: HandRandomResult): Boolean {

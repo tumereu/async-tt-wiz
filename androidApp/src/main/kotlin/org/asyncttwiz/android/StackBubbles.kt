@@ -32,7 +32,8 @@ internal fun stackMarkColor(index: Int) = StackMarkPalette[index.mod(StackMarkPa
 /** A live projection is not a disclosure grant for a source that has since entered a hidden zone. */
 internal fun stackTextOptions(state: PlayState, entryId: String, viewer: String): List<StackTextOption> {
     val card = CombatStackRules.inspection(state.board, entryId) ?: return emptyList()
-    return if (CardVisibility.isVisibleFaceUp(state.board, card, viewer)) StackText.options(state, entryId) else emptyList()
+    // A face-down entry (STK-005) shows no text to anyone.
+    return if (!CombatStackRules.faceDownEntry(state.board, entryId) && CardVisibility.isVisibleFaceUp(state.board, card, viewer)) StackText.options(state, entryId) else emptyList()
 }
 
 data class StackBubbleGeometry(val entryId: String, val anchor: TableBounds, val controls: List<TableItem>,

@@ -13,15 +13,14 @@ object HandActions {
         return PlayAction.RandomHand(handId, selectedIds, seed, result, picked)
     }
 
-    /** Morph/disguise cast (STK-005): the hand card goes straight onto its owner's Battlefield FACE DOWN (a
-     * public 2/2) in one move, like Manifest: never a Stack entry, which would reveal its hand source, and
-     * never the real card in the Stack (STK-003). */
-    fun castFaceDown(state: PlayState, cardId: String): PlayAction.MoveCard? {
-        val card = state.board.cards.single { it.id == cardId }
-        val hand = state.board.containers.single { it.id == card.containerId && it.zone == PlayZone.HAND }
-        val field = state.board.zoneContainer(card.owner, PlayZone.BATTLEFIELD) ?: return null
-        return PlayAction.MoveCard(card.id, MoveSource(hand.id), MoveDestination(field.id, MoveInsertion.EMPTY,
-            BattlefieldPlacement.cell(state, field.id, card, faceDown = true)), faceDown = true)
+    /** Morph/disguise cast (STK-005): a face-down Stack entry pointing at the hand card, like every other cast
+     * (STK-001); the real card stays in the Hand (STK-003) and its front stays hidden from the opponent. The
+     * entry resolves like a creature with [StackQuickActions.actions] onto its owner's Battlefield face down. */
+    fun castFaceDown(state: PlayState, cardId: String): PlayAction.Stack? {
+        val card = state.board.cards.singleOrNull { it.id == cardId } ?: return null
+        if (state.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND }) return null
+        if (!CombatStackRules.canProject(state.board, card)) return null
+        return PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(state), faceDown = true))
     }
 }
 

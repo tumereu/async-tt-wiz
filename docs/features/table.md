@@ -98,7 +98,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-068** A tap outside the menu closes it and still goes through to the table (double taps and drags work); only buttons and chips count as inside, gaps do not. Back also closes it. (r11)
 - **TBL-069** A press that starts within 280 ms of the menu opening does nothing, so a fast second tap cannot hit a button by accident. (?) (r8)
 - **TBL-070** Menu buttons are always shown and greyed out when they don't apply; a button only changes when it has a twin for the card's state (Face down ↔ Face up, Hand ↔ Remove token, Declare ↔ Attack →). (r28)
-- **TBL-071** Each kind of card has one fixed layout: battlefield and Stack cards have three pages (Everyday, Counters, More); combat copies and hand cards have one page each. Stack entries have no card menu; Manage Stack holds their actions (STK-019). (r35)
+- **TBL-071** Each kind of card has one fixed layout: battlefield cards have three pages (Everyday, Counters, More); combat copies and hand cards have one page each. Stack entries have no card menu: tapping one shows its Stack bubbles (STK-010), and Manage Stack holds their other actions (STK-019). (r35)
 - **TBL-072** Menus offer the same actions on your opponent's cards as on yours; moves always go to the card owner's zones and labels show no player names. (r30)
 
 ### Everyday page

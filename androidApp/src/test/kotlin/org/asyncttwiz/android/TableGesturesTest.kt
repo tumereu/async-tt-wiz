@@ -209,6 +209,49 @@ class TableGesturesTest {
         }
     }
 
+    // ZON-032
+    @Test fun holdingAGraveyardOrExilePilePreviewsItsTopCardWithoutActionsOrSearch() {
+        val base = TableFixture.play(board = 1)
+        val piles = listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)
+        val faceUp = (0..1).map { n -> PlayCard("pile$n", TableFixture.submitted.digest, "a", "", "face", covered = false) }
+        // Each owner's graveyard and exile hold two face-up cards, top first.
+        val cards = listOf("a", "b").flatMap { owner -> piles.flatMap { zone -> faceUp.map {
+            it.copy(id = "$owner/$zone/${it.id}", owner = owner, containerId = TableFixture.container(owner, zone)) } } }
+        val play = base.copy(board = base.board.copy(cards = base.board.cards + cards, containers = base.board.containers.map { c ->
+            if (c.zone in piles) c.copy(cards = cards.filter { it.containerId == c.id }.map { it.id }) else c }))
+        val scene = TableFixture.scene(play)
+        for (owner in listOf("a", "b")) for (zone in piles) {
+            val pile = scene.items.single { it.id == TableFixture.container(owner, zone) }
+            assertEquals(listOf("$owner/$zone/pile0", "$owner/$zone/pile1"), pile.cards)
+            val events = mutableListOf<TableIntent>()
+            val gestures = TableGestureCoordinator(events::add)
+            gestures.update(scene, TableSelection(), true)
+            val p = pile.bounds.center
+            gestures.down(p, 0); gestures.tick(1000); gestures.up(p, 1050); gestures.tick(2000)
+            assertEquals(listOf<TableIntent>(TableIntent.Peek("$owner/$zone/pile0"), TableIntent.Peek(null)), events, pile.id)
+        }
+    }
+
+    // TBL-010
+    @Test fun pinchZoomStaysBetweenPointSixFiveAndTwoAndATwoFingerDragOnlyPans() {
+        val scene = TableFixture.scene()
+        val world = scene.world!!
+        val center = world.viewport.center
+        for ((scale, expected) in listOf(10f to 2f, .1f to .65f)) {
+            val f = Fixture(scene)
+            f.gestures.transform(TablePoint(0f, 0f), scale, center)
+            assertEquals(expected, f.events.filterIsInstance<TableIntent.Camera>().last().camera.zoom)
+            f.gestures.cancel(); f.gestures.tick(0); f.gestures.tick(1000)
+            assertEquals(expected, f.events.filterIsInstance<TableIntent.Camera>().last().camera.zoom, "after release")
+        }
+        val f = Fixture(scene)
+        val before = scene.camera
+        f.gestures.transform(TablePoint(20f, -15f), 1f, center)
+        val camera = f.events.filterIsInstance<TableIntent.Camera>().single().camera
+        assertEquals(before.zoom, camera.zoom)
+        assertTrue(camera.x < before.x && camera.y > before.y, "the battlefield follows the fingers: $before -> $camera")
+    }
+
     @Test fun hitTestingSamplesTheDrawnSceneWithoutCompositionUpdates() {
         val card = TableItem("card/a", TableBounds(0f, 0f, 28f, 40f), "Card", "",
             kind = TableItemKind.CARD, cardId = "a")

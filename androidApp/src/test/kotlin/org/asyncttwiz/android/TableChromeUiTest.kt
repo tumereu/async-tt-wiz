@@ -191,6 +191,39 @@ class TableChromeUiTest {
         assertEquals(0, selected)
     }
 
+    // HIS-010
+    @Test fun timelineStripEndsWithSettingsAndTreeAndBelowItPreviousAutoAndNextAsBorderlessArrows() {
+        val playback = LiveTableFixture.playback()
+        compose.setContent { MaterialTheme {
+            HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 60_000, {}, onSettings = {}, onTree = {})
+        } }
+        fun bounds(name: String) = compose.onNodeWithContentDescription(name).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val width = compose.onRoot().fetchSemanticsNode().boundsInRoot.right
+        val gear = bounds("Playback settings")
+        val tree = bounds("Open game tree")
+        val previous = bounds("Previous")
+        val auto = bounds("Auto advance")
+        val next = bounds("Next")
+        // The strip row ends with the gear, then the game tree button at its very end.
+        assertEquals(gear.center.y, tree.center.y, 1f)
+        assertTrue(gear.right <= tree.left + .5f, "gear $gear before tree $tree")
+        assertEquals(width, tree.right, 1f)
+        // Below it, left to right: Previous, Auto, Next.
+        for (control in listOf(previous, auto, next)) assertTrue(control.top >= maxOf(gear.bottom, tree.bottom) - .5f, "$control below the strip")
+        assertTrue(previous.right <= auto.left + .5f && auto.right <= next.left + .5f, "$previous, $auto, $next")
+        // Previous and Next are plain arrows: their edges show the bar behind them, while Auto has a border.
+        val output = File("build/outputs/roborazzi/timeline-transport-borders.png").also { it.parentFile!!.mkdirs() }
+        compose.onRoot().captureRoboImage(output.path, ScratchCapture)
+        val pixels = ImageIO.read(output)
+        val bar = pixels.getRGB(previous.left.toInt() - 4, previous.center.y.toInt())
+        for (arrow in listOf(previous, next)) {
+            val y = arrow.center.y.toInt(); val x = arrow.center.x.toInt()
+            for ((px, py) in listOf(arrow.left.toInt() + 1 to y, arrow.right.toInt() - 2 to y, x to arrow.top.toInt() + 1, x to arrow.bottom.toInt() - 2))
+                assertEquals(bar, pixels.getRGB(px, py), "$arrow edge at $px,$py")
+        }
+        assertNotEquals(bar, pixels.getRGB(auto.left.toInt(), auto.center.y.toInt()), "Auto keeps its border")
+    }
+
     @Test fun playStripHasNoWholeAreaClickOrPressedTintAndOnlyIconToggleEnters() {
         val playback = LiveTableFixture.playback()
         var entered = 0

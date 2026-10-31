@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.pods
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -12,6 +10,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
@@ -25,11 +25,10 @@ class PodPresetHttpTest {
     @Test fun `presets are saved listed renamed overwritten and deleted per account`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+            val config = EphemeralPorts.settings(db.settings)
             val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
-            SpringService(settings).use { service ->
-                service.start()
+            SpringService(config).use { service ->
+                val settings = service.startBound(config)
                 val deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos()
                 while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(), HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
                     check(System.nanoTime() < deadline); Thread.sleep(20)

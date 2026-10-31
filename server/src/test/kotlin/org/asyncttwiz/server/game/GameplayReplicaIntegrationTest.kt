@@ -1,8 +1,6 @@
 package org.asyncttwiz.server.game
 
 import java.io.ByteArrayOutputStream
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -14,6 +12,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test
 
 class GameplayReplicaIntegrationTest {
     private val json = GameWire.json
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
 
     @Test fun `one FIFO retains guarded later move manual tuples relational rows and coherent HTTP baseline`() {
         FreshDatabase().start().use { db ->
@@ -88,8 +87,8 @@ class GameplayReplicaIntegrationTest {
                 assertEquals(results[2], f.owner.admit(commands[2]))
             }
             // A fresh runtime reads the same committed relational/state/revision/result bytes over real HTTP.
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-                InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
             val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
             fun request(path: String, body: String? = null): ByteArray {
                 val input = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path"))
@@ -100,8 +99,8 @@ class GameplayReplicaIntegrationTest {
                 assertEquals("no-store", response.headers().firstValue("Cache-Control").orElse(""))
                 return response.body()
             }
-            SpringService(settings).use { service ->
-                service.start()
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 gameplayAwait { client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
                     HttpResponse.BodyHandlers.discarding()).statusCode() == 200 }
                 val lookup = json.encodeToString(LookupGameResults(results.map { it.requestId }))

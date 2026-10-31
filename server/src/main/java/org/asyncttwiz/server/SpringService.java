@@ -10,6 +10,7 @@ import org.springframework.boot.Banner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.web.server.Shutdown;
+import org.springframework.boot.web.server.context.WebServerApplicationContext;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -70,6 +71,17 @@ public final class SpringService implements AutoCloseable {
             activity.start();
             runtime.start();
         } catch (RuntimeException failure) { close(); throw failure; }
+    }
+
+    /** The public listener's actual port once started: the configured port, or the ephemeral one chosen for 0. */
+    public synchronized int publicPort() { return boundPort(publicApi); }
+
+    /** The health listener's actual port once started: the configured port, or the ephemeral one chosen for 0. */
+    public synchronized int healthPort() { return boundPort(health); }
+
+    private int boundPort(ConfigurableApplicationContext context) {
+        if (closed || !(context instanceof WebServerApplicationContext web)) throw new IllegalStateException("Service not running");
+        return web.getWebServer().getPort();
     }
 
     private ConfigurableApplicationContext context(InetAddress address, int port, boolean isHealth) {

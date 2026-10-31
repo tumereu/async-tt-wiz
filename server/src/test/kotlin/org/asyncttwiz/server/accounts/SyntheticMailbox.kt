@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.accounts
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -89,7 +87,6 @@ class SyntheticMailbox(private val directory: Path) : AutoCloseable {
         println("CLEANUP owned synthetic SMTP process terminated; messages/tokens not logged")
     }
     companion object {
-        fun freePort() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
         /** Synthetic file inputs for existing installed-service tests, never production credentials. */
         fun environment(directory: Path): Map<String, String> {
             val key = directory.resolve("reset-mail-key")

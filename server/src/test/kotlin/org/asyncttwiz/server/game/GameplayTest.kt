@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.game
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.*
 import java.time.Duration
@@ -13,6 +11,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
@@ -21,7 +21,6 @@ import org.junit.jupiter.api.Test
 class GameplayTest {
     private val json = GameWire.json
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
     private fun request(settings: ServiceSettings, method: String, path: String, token: String? = null, body: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path")).timeout(Duration.ofSeconds(15))
             .header("Content-Type", "application/json").method(method, body?.let(HttpRequest.BodyPublishers::ofString) ?: HttpRequest.BodyPublishers.noBody())
@@ -70,10 +69,10 @@ class GameplayTest {
     @Test fun `real decks mulligan move tap undo undo redo through authenticated sockets and durable Postgres`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
-                InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start()
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 gameplayAwait { client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
                     HttpResponse.BodyHandlers.ofString()).statusCode() == 200 }
                 val a = account(settings, "UndoAlice"); val b = account(settings, "UndoBob")
@@ -232,10 +231,10 @@ class GameplayTest {
     @Test fun `authenticated two socket gameplay predicts same reducer and HTTP retains concrete mutations and guarded Stack outcomes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
-                InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start()
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 gameplayAwait { client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
                     HttpResponse.BodyHandlers.ofString()).statusCode() == 200 }
                 val a = account(settings, "GameplaySocketA"); val b = account(settings, "GameplaySocketB"); val other = account(settings, "GameplayOther")
@@ -361,10 +360,10 @@ class GameplayTest {
     @Test fun `two sockets refuse a move that raced with the opponent's continuation and leave same line play and undo as before`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
-                InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start()
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 gameplayAwait { client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
                     HttpResponse.BodyHandlers.ofString()).statusCode() == 200 }
                 val a = account(settings, "RaceA"); val b = account(settings, "RaceB")

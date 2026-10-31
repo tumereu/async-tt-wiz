@@ -1,6 +1,5 @@
 package org.asyncttwiz.server.accounts
 
-import java.net.InetAddress
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -13,6 +12,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
@@ -24,8 +25,7 @@ class PasswordResetHttpTest {
     @TempDir lateinit var directory: Path
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private val json = AccountJson.format
-    private fun settings(db: TestPostgres, mail: ResetMailSettings) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-        InetAddress.getByName("127.0.0.1"), SyntheticMailbox.freePort(), InetAddress.getByName("127.0.0.1"), SyntheticMailbox.freePort(), mail)
+    private fun settings(db: TestPostgres, mail: ResetMailSettings) = EphemeralPorts.settings(db.settings, mail)
     private fun request(settings: ServiceSettings, method: String, path: String, body: String? = null,
                         headers: Map<String, String> = emptyMap()): HttpResponse<String> {
         val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path"))
@@ -63,9 +63,10 @@ class PasswordResetHttpTest {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             SyntheticMailbox(directory.resolve("mail")).use { box ->
-                val settings = settings(db, box.settings())
-                SpringService(settings).use { server ->
-                    server.start(); ready(settings)
+                val config = settings(db, box.settings())
+                lateinit var settings: ServiceSettings
+                SpringService(config).use { server ->
+                    settings = server.startBound(config); ready(settings)
                     val email = "reset@example.invalid"
                     assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount("Reset wizard", email, "old-password"))).statusCode())
                     val first = session(settings, email, "old-password")
@@ -139,10 +140,11 @@ class PasswordResetHttpTest {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
             SyntheticMailbox(directory.resolve("mail")).use { box ->
-                val settings = settings(db, box.settings())
+                val config = settings(db, box.settings())
+                lateinit var settings: ServiceSettings
                 box.fault("temporary")
-                SpringService(settings).use { server ->
-                    server.start(); ready(settings)
+                SpringService(config).use { server ->
+                    settings = server.startBound(config); ready(settings)
                     assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount("Restart wizard", "restart@example.invalid", "password"))).statusCode())
                     assertEquals(202, post(settings, "/password-reset-requests", json.encodeToString(RequestPasswordReset("restart@example.invalid"))).statusCode())
                     val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
@@ -155,9 +157,9 @@ class PasswordResetHttpTest {
                 }
                 val mail = box.settings()
                 val wrong = ResetMailSettings(mail.host, mail.port, mail.tls, null, null, mail.from, mail.resetOrigin, ByteArray(32) { 99 })
-                val bad = ServiceSettings(settings.database(), settings.publicBaseUrl(), settings.publicAddress(), settings.publicPort(), settings.healthAddress(), settings.healthPort(), wrong)
+                val bad = ServiceSettings(config.database(), config.publicBaseUrl(), config.publicAddress(), config.publicPort(), config.healthAddress(), config.healthPort(), wrong)
                 SpringService(bad).use { server ->
-                    server.start()
+                    settings = server.startBound(bad)
                     Thread.sleep(1000)
                     val response = client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(), HttpResponse.BodyHandlers.ofString())
                     assertEquals(503, response.statusCode())
@@ -167,8 +169,8 @@ class PasswordResetHttpTest {
                 db.connection().use { it.createStatement().execute("UPDATE reset_mail SET next_attempt_at=now()") }
                 box.fault("ok")
                 val started = System.nanoTime()
-                SpringService(settings).use { server ->
-                    server.start(); ready(settings); box.awaitLinks(1)
+                SpringService(config).use { server ->
+                    settings = server.startBound(config); ready(settings); box.awaitLinks(1)
                     assertTrue(box.links().size == 1)
                 }
                 assertTrue(System.nanoTime() - started < TimeUnit.SECONDS.toNanos(30))

@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.decks
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.Socket
 import java.net.URI
 import java.net.http.HttpClient
@@ -16,6 +14,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
@@ -28,9 +28,7 @@ class DeckHttpTest {
     private val json = DeckJson.format
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private fun id() = UUID.randomUUID().toString()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-        InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+    private fun settings(db: TestPostgres) = EphemeralPorts.settings(db.settings)
     private fun ready(settings: ServiceSettings) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
         do {
@@ -70,7 +68,7 @@ class DeckHttpTest {
     @Test fun `HTTP complete definitions exact deck concurrent original outcome restart and private readback`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
+            val config = settings(db)
             val first = submitted(card())
             val changed = submitted(card().copy(faces = card().faces.map { it.copy(corner = "3/4") }))
             val frontId = id(); val backId = id()
@@ -86,8 +84,8 @@ class DeckHttpTest {
             lateinit var foreign: SessionCreated
             lateinit var saved: SavedDeck
             lateinit var original: String
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 owner = account(settings, "owner"); foreign = account(settings, "foreign")
                 val accepted = post(settings, "/v1/definitions", definitions, owner.token)
                 assertEquals(200, accepted.statusCode(), accepted.body())
@@ -124,8 +122,8 @@ class DeckHttpTest {
                 assertEquals(404, missing.statusCode())
             }
             // New normal service instance, retained actual PostgreSQL. No public catalog/art service exists.
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 assertEquals(original, post(settings, "/v1/decks", create, owner.token).body()) // lost-response retry
                 val list = json.decodeFromString<DeckList>(request(settings, "GET", "/v1/decks", token = owner.token).body())
                 assertEquals(listOf(saved.deck), list.decks); assertNull(list.next)
@@ -148,9 +146,9 @@ class DeckHttpTest {
     @Test fun `whole set validation strict HTTP and interrupted body retain no partial definitions or deck`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "owner")
                 val good = submitted(card())
                 val badFace = card().copy(faces = card().faces.map { it.copy(otherFaceIds = listOf(id())) })
@@ -199,9 +197,9 @@ class DeckHttpTest {
     @Test fun `database failure rolls back effects identity and outcome and same request can recover`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "owner")
                 val good = submitted(card())
                 val alternate = submitted(card("Different content"))
@@ -241,9 +239,9 @@ class DeckHttpTest {
     @Test fun `owned list keyset pages preserve equal names and maximum quantity without deck legality rules`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "owner")
                 val good = submitted(card())
                 assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(good)), owner.token).statusCode())
@@ -269,9 +267,9 @@ class DeckHttpTest {
     @Test fun `draft deck listing and Save as deck copy routes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "copier"); val other = account(settings, "stranger")
                 val good = submitted(card())
                 assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(good)), owner.token).statusCode())
@@ -298,9 +296,9 @@ class DeckHttpTest {
     @Test fun `owned metadata deletion serialization privacy and original retries never upsert or rewrite definitions`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "owner"); val foreign = account(settings, "foreign")
                 val first = submitted(card()); val second = submitted(card("Sideboard cover")); val outside = submitted(card("Not in deck"))
                 assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(first, second, outside)), owner.token).statusCode())
@@ -355,9 +353,9 @@ class DeckHttpTest {
     @Test fun `metadata and deletion effects roll back with outcome failure and retain exact retries`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "owner"); val definition = submitted(card())
                 post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(definition)), owner.token)
                 val saved = json.decodeFromString<SavedDeck>(post(settings, "/v1/decks", CreateDeck(id(), "Retained", listOf(
@@ -392,7 +390,7 @@ class DeckHttpTest {
     @Test fun `contextual imports serialize additive sections preserve immutable content and recover original outcomes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
+            val config = settings(db)
             lateinit var owner: SessionCreated
             lateinit var saved: SavedDeck
             lateinit var merge: UpdateDeck
@@ -400,8 +398,8 @@ class DeckHttpTest {
             val first = submitted(card())
             // Same claimed name, printing and face IDs, distinct actual content. Never rewrite the old snapshot.
             val changed = submitted(card().copy(faces = card().faces.map { it.copy(rulesText = "Changed external record") }))
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 owner = account(settings, "owner"); val foreign = account(settings, "foreign")
                 assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(first)), owner.token).statusCode())
                 val initial = listOf(SavedDeckEntry(SavedDeckSection.MAINBOARD, first.digest, 4),
@@ -458,8 +456,8 @@ class DeckHttpTest {
                 assertEquals(current, read())
                 println("PASS four duplicate Merges add once, concurrent independent Merges serialize, section/untouched retention, target/mode/account intent binding, private attachment, conflicting external names/IDs retain both snapshots, default Overwrite clears sideboard and retains deck metadata, legacy retry identity")
             }
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val path = "/v1/decks/${saved.deck.id}"
                 assertEquals(original, request(settings, "PUT", path, json.encodeToString(merge), owner.token).body())
                 val current = json.decodeFromString<SavedDeck>(request(settings, "GET", path, token = owner.token).body())
@@ -476,9 +474,9 @@ class DeckHttpTest {
     @Test fun `invalid overflowing and interrupted contextual imports preserve the entire accepted deck`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "owner"); val definition = submitted(card())
                 post(settings, "/v1/definitions", SubmitDefinitions(id(), listOf(definition)), owner.token)
                 val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, definition.digest, 4)
@@ -539,9 +537,9 @@ class DeckHttpTest {
 
     @Test fun `explicit V3 to current upgrade preserves account data and routes never self migrate`() {
         FreshDatabase(migrated = false).start().use { db ->
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start()
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config)
                 assertEquals(503, request(settings, "GET", "/v1/decks", token = "A".repeat(43)).statusCode())
                 assertEquals(0, count(db, "pg_tables WHERE schemaname='public'"))
             }

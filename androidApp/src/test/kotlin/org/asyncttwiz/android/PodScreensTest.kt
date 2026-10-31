@@ -163,10 +163,32 @@ class PodScreensTest {
         var opened = false
         val pod = PodSummary("pod", "Synergy", PodPhase.DRAFTING, alice, listOf(alice, bob),
             PodAttention.YOUR_PICK, 2, "2026-10-26T00:00:00Z")
-        compose.setContent { ScreenTheme { PodRow(pod, { opened = true }) } }
+        compose.setContent { ScreenTheme { PodRow(pod, alice.accountId, { opened = true }) } }
         compose.onNodeWithText("Your pick · 2 packs").assertIsDisplayed()
         compose.onNodeWithText("Synergy").performClick()
         assertTrue(opened)
+    }
+
+    // DRF-012, DRF-015
+    @Test fun podRowsShowTheSideMenusCompactStackOfOtherMembersWithNamesLinedUp() {
+        val others = (1..4).map { AccountIdentity("o$it", "Other $it") }
+        val group = PodSummary("group", "Big draft", PodPhase.DRAFTING, alice, listOf(alice) + others,
+            PodAttention.YOUR_PICK, 1, "2026-10-26T00:00:00Z")
+        val solo = PodSummary("solo", "Lonely draft", PodPhase.SETUP, alice, listOf(alice),
+            PodAttention.NONE, 0, "2026-10-25T00:00:00Z")
+        compose.setContent { ScreenTheme { PodsList(PodState(loaded = true, pods = listOf(solo, group)), alice.accountId,
+            {}, { _, _ -> }, {}) } }
+        fun avatar(name: String) = compose.onAllNodesWithContentDescription("$name's avatar", useUnmergedTree = true)
+        avatar("Other 1").assertCountEquals(1)
+        avatar("Other 2").assertCountEquals(1)
+        avatar("Other 3").assertCountEquals(0)
+        avatar("Other 4").assertCountEquals(0)
+        compose.onNodeWithText("+2", useUnmergedTree = true).assertIsDisplayed()
+        // Alone in a pod you see only yourself; with others you are left out.
+        avatar("Alice").assertCountEquals(1)
+        val names = listOf("Big draft", "Lonely draft").map {
+            compose.onNodeWithText(it, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.left }
+        assertEquals(names[0], names[1], "One stack width for every row lines the names up")
     }
 
     // DRF-012, DRF-013
@@ -178,7 +200,7 @@ class PodScreensTest {
         var state by mutableStateOf(PodState(loaded = true, pods = listOf(pod, pick),
             invitations = listOf(PodInvitation("invited", "Join this draft", bob, "2026-10-25T00:00:00Z"))))
         var response: Pair<String, Boolean>? = null
-        compose.setContent { ScreenTheme { PodsList(state, {}, { id, accept -> response = id to accept }, {}) } }
+        compose.setContent { ScreenTheme { PodsList(state, alice.accountId, {}, { id, accept -> response = id to accept }, {}) } }
         val tops = listOf("MY PODS (2)", "Pick now", "Join this draft", "My draft")
             .map { compose.onNodeWithText(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.top }
         assertEquals(tops.sorted(), tops)
@@ -214,7 +236,7 @@ class PodScreensTest {
             view = androidx.compose.ui.platform.LocalView.current
             highlight = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer
             plain = androidx.compose.material3.MaterialTheme.colorScheme.surface
-            PodsList(PodState(loaded = true, pods = pods.reversed()), {}, { _, _ -> }, {})
+            PodsList(PodState(loaded = true, pods = pods.reversed()), alice.accountId, {}, { _, _ -> }, {})
         } }
         val tops = statuses.map { compose.onNodeWithText(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.top }
         assertEquals(tops.sorted(), tops, "Rows follow the shared pod order, pods needing you first")
@@ -250,7 +272,7 @@ class PodScreensTest {
         var state by mutableStateOf(LobbyState())
         var retries = 0
         compose.setContent { ScreenTheme { Box(Modifier.fillMaxSize()) {
-            PodsList(PodState(loaded = true), {}, { _, _ -> }, {})
+            PodsList(PodState(loaded = true), alice.accountId, {}, { _, _ -> }, {})
             PodChallengeFeedback(state, { retries++ }, { state = state.copy(error = null) }, Modifier.matchParentSize())
         } } }
         compose.onNodeWithText("MY PODS (0)").assertIsDisplayed()
@@ -388,7 +410,7 @@ class PodScreensTest {
     @Test fun podBackgroundRefreshDoesNotAddALoaderOrMoveTheList() {
         val pod = PodSummary("pod", "My draft", PodPhase.SETUP, alice, listOf(alice), PodAttention.NONE, 0, "now")
         var state by mutableStateOf(PodState(loaded = true, pods = listOf(pod)))
-        compose.setContent { ScreenTheme { PodsList(state, {}, { _, _ -> }, {}) } }
+        compose.setContent { ScreenTheme { PodsList(state, alice.accountId, {}, { _, _ -> }, {}) } }
         val before = compose.onNodeWithText("My draft").fetchSemanticsNode().boundsInRoot
         compose.runOnIdle { state = state.copy(loading = true, pending = 1) }
         assertEquals(before, compose.onNodeWithText("My draft").fetchSemanticsNode().boundsInRoot)

@@ -31,6 +31,7 @@ import androidx.compose.ui.window.DialogProperties
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.asyncttwiz.protocol.AccountIdentity
+import org.asyncttwiz.protocol.PodSummary
 import org.asyncttwiz.storage.ArtworkReference
 import org.asyncttwiz.storage.CatalogAvatar
 import org.asyncttwiz.storage.CatalogPhase
@@ -63,6 +64,10 @@ internal fun podNavigationAvatars(members: List<AccountIdentity>, selfId: String
     if (others.isEmpty()) return AvatarStackContent(members.take(1), 0)
     return AvatarStackContent(others.take(2), (others.size - 2).coerceAtLeast(0))
 }
+
+/** One stack width for every row of a pod list (DRF-012, DRF-014, DRF-015), so the names line up. */
+internal fun podStackWidth(pods: List<PodSummary>, selfId: String?): Dp =
+    pods.maxOfOrNull { podNavigationAvatars(it.members, selfId).width } ?: 32.dp
 
 /** [width] is shared by every row so names line up; later circles overlap earlier ones by 12dp with a [ring] edge. */
 @Composable

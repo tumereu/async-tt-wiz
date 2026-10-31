@@ -41,10 +41,10 @@ class CardMenuLayoutTest {
     // CMB-003, TBL-064, TBL-071, TBL-089, TBL-091, ZON-007
     @Test fun singlePageLayoutsHaveExactCells() {
         val combat = listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat", "Graveyard", "Exile", "Hand",
-            "damage", "eotCorner", "eotNote", "eotKeywords", "Deal to target", "Deal to target or creatures", "Link", "Links")
+            "corner", "damage", "eotCorner", "eotNote", "eotKeywords", "Deal to target", "Deal to target or creatures", "Link", "Links")
         assertEquals(listOf(combat), ids(CardMenuLayout.COMBAT))
-        // Four rows of 5: Damage closes row 2, EOT P/T opens row 3.
-        assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17), CardRingPages.layout(combat).map { it.cell })
+        // Four full rows of 5: P/T closes row 2, Damage and EOT P/T open row 3.
+        assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 15, 16, 17, 18, 19), CardRingPages.layout(combat).map { it.cell })
         assertEquals(listOf(listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top",
             "Library bottom", "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4",
             "Discard random", "Reveal random", "Exile random", "Random to library bottom")), ids(CardMenuLayout.HAND))
@@ -80,10 +80,11 @@ class CardMenuLayoutTest {
         assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, sentinel.id))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("attacker1")))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("blocker")))
-        // Stack entries have no card menu: Manage Stack holds their actions (STK-019).
+        // Stack entries have no card menu: Manage Stack holds their actions (STK-019). A real card in the Stack, only
+        // in a state recorded before r35 (STK-003), has none either.
         assertNull(CardRingPages.context(board, f.id("effect")))
         val stackCard = CombatStackRules.stack(board).cards.single { it != f.id("effect") }
-        assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, stackCard))
+        assertNull(CardRingPages.context(board, stackCard))
         val hand = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         assertEquals(CardMenuLayout.HAND, CardRingPages.context(board, hand.cards.first()))
         val library = board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
@@ -106,8 +107,7 @@ class CardMenuLayoutTest {
         val board = play.board
         val hand = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         val library = board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
-        val views = listOf(f.source(f.a, "1/3").id, f.id("attacker1"), f.id("blocker"), hand.cards.first(), library.cards.first(),
-            CombatStackRules.stack(board).cards.single { it != f.id("effect") })
+        val views = listOf(f.source(f.a, "1/3").id, f.id("attacker1"), f.id("blocker"), hand.cards.first(), library.cards.first())
         val removed = listOf("Select / deselect", "Tap selected scope", "Untap selected scope", "Source actions", "Temp pile")
         val dropZones = CombatStackPresentation.combat(board, 48f, 68f).destinations.map { it.label }
         assertTrue(dropZones.isNotEmpty())
@@ -175,7 +175,7 @@ class CardMenuLayoutTest {
         val marks = leftPlayMarkEntries().associateBy { it.id }
         val combat = CardRingPages.pages(CardMenuLayout.COMBAT).single().actions - setOf("inspect", "note")
         assertEquals(emptyList(), combat.filter { it !in controls && it !in marks })
-        // CMB-003: the real card is gone, so its damage and EOT marks are greyed out.
+        // CMB-003: the real card is gone, so its P/T, damage and EOT marks are greyed out.
         assertTrue(marks.values.none { it.control.enabled || it.compound?.minus?.enabled == true || it.compound?.plus?.enabled == true })
         assertFalse(controls.getValue("Graveyard").enabled)
         assertFalse(controls.getValue("Exile").enabled)

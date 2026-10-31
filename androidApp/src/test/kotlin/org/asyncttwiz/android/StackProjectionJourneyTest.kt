@@ -202,33 +202,25 @@ class StackProjectionJourneyTest {
                 }
     }
 
-    @Test fun legacyRealStackCardRingGraveyardReplaysAndQueuesNoopConveniences() = Journey().use { j ->
+    // STK-003, SYS-053
+    @Test fun oldClientRealStackRequestIsRefusedWithItsMessageAndChangesNothing() = Journey().use { j ->
         assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
         val card = j.f.card(40)
-        // Deliberate old-client wire request: production UI may no longer construct this path.
-        assertTrue(j.f.lobby.gameplay(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
+        val before = j.f.play
+        val sent = j.f.commands().size
+        // Deliberate old-client wire request: the production UI no longer constructs this path.
+        assertFalse(j.f.lobby.gameplay(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
             MoveDestination(j.f.container(PlayZone.STACK), MoveInsertion.TOP), GameplayRules.stackDigest(j.f.play))))
-        j.sync(); j.undoRedo()
-        j.ring(card.id, PlayZone.GRAVEYARD); j.sync(); j.undoRedo()
-        assertEquals(j.f.container(PlayZone.GRAVEYARD), j.f.card(40).containerId)
+        assertEquals(refusalText(RuleRefusals.REAL_CARD_ON_STACK), j.f.lobby.state.connectionMessage)
+        assertEquals(sent, j.f.commands().size)
+        assertEquals(before, j.f.play)
     }
 
-    @Test fun legacyRealStackBubblesStillMoveTheCardAndReplayBothDirections() {
-        for (target in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD))
-            for (defaults in listOf(false, true)) Journey(defaults = defaults).use { j ->
-                assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
-                assertTrue(j.f.legacyStack(40)); j.sync(); j.undoRedo()
-                j.reversible { j.bubble(j.f.id(40), target) }
-                assertEquals(j.f.container(target), j.f.card(40).containerId)
-                assertTrue(CombatStackRules.stack(j.f.play.board).cards.isEmpty())
-            }
-    }
-
-    @Test fun ownerReportedMoveThenRingGraveyardWorksBeforeAnyAcknowledgementForOldAndNewPaths() {
-        for (legacy in listOf(false, true)) for (defaults in listOf(false, true)) Journey(defaults = defaults).use { j ->
+    @Test fun ownerReportedMoveThenRingGraveyardWorksBeforeAnyAcknowledgement() {
+        for (defaults in listOf(false, true)) Journey(defaults = defaults).use { j ->
             assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
-            if (legacy) assertTrue(j.f.legacyStack(40)) else assertNotNull(j.drag(listOf(j.f.id(40))))
-            val entry = if (legacy) j.f.id(40) else j.f.play.board.stackEffects.single().id
+            assertNotNull(j.drag(listOf(j.f.id(40))))
+            val entry = j.f.play.board.stackEffects.single().id
             j.ring(entry, PlayZone.GRAVEYARD)
             assertNull(j.ui.error)
             j.sync(); j.undoRedo()
@@ -236,22 +228,20 @@ class StackProjectionJourneyTest {
         }
     }
 
-    @Test fun pendingStackRingMovesAndTerminalUndoRedoShareOnePredictedQueue() {
-        for (legacy in listOf(false, true)) Journey().use { j ->
-            assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
-            if (legacy) assertTrue(j.f.legacyStack(40)) else assertNotNull(j.drag(listOf(j.f.id(40))))
-            val entry = if (legacy) j.f.id(40) else j.f.play.board.stackEffects.single().id
-            j.ring(entry, PlayZone.GRAVEYARD)
-            val graveyard = j.f.play.board
-            assertTrue(j.f.lobby.historyControl(GameAction.Undo))
-            assertEquals(j.f.container(if (legacy) PlayZone.STACK else PlayZone.BATTLEFIELD), j.f.card(40).containerId)
-            assertTrue(j.f.lobby.historyControl(GameAction.Redo))
-            assertEquals(graveyard, j.f.play.board)
-            // Move again before any result/revision, using the predecessor predicted by Redo.
-            j.ring(j.f.id(40), PlayZone.HAND)
-            j.sync()
-            assertEquals(j.f.container(PlayZone.HAND), j.f.card(40).containerId)
-        }
+    @Test fun pendingStackRingMovesAndTerminalUndoRedoShareOnePredictedQueue() = Journey().use { j ->
+        assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD)); j.sync()
+        assertNotNull(j.drag(listOf(j.f.id(40))))
+        val entry = j.f.play.board.stackEffects.single().id
+        j.ring(entry, PlayZone.GRAVEYARD)
+        val graveyard = j.f.play.board
+        assertTrue(j.f.lobby.historyControl(GameAction.Undo))
+        assertEquals(j.f.container(PlayZone.BATTLEFIELD), j.f.card(40).containerId)
+        assertTrue(j.f.lobby.historyControl(GameAction.Redo))
+        assertEquals(graveyard, j.f.play.board)
+        // Move again before any result/revision, using the predecessor predicted by Redo.
+        j.ring(j.f.id(40), PlayZone.HAND)
+        j.sync()
+        assertEquals(j.f.container(PlayZone.HAND), j.f.card(40).containerId)
     }
 
     @Test fun mixedSourceMultiDragAndEachBubbleUndoAndRedoAsOneUserOperation() = Journey(defaults = false).use { j ->

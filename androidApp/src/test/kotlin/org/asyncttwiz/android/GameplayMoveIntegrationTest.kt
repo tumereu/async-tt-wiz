@@ -133,9 +133,11 @@ class GameplayMoveIntegrationTest {
                     MoveDestination(f.field, MoveInsertion.EMPTY, BoardPosition(n, round))))
                 send(PlayAction.SetTapped(card.id, true))
                 card = f.card(f.session.play(f.data.game), n)
-                send(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
-                    MoveDestination(f.data.id(22), MoveInsertion.TOP), expectedStackDigest = GameplayRules.stackDigest(f.session.play(f.data.game)!!)))
-                send(PlayAction.MoveCard(card.id, MoveSource(f.data.id(22)), MoveDestination(f.hand, MoveInsertion.UNORDERED)))
+                // Onto the Stack as an entry (STK-003), then the entry pulls its card into the Hand.
+                send(PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(f.session.play(f.data.game)!!))))
+                val entry = f.session.play(f.data.game)!!.board.stackEffects.single { it.sourceId == card.id }.id
+                send(PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), MoveDestination(f.hand, MoveInsertion.UNORDERED),
+                    removeStackEntryId = entry))
             }
         }
         send(PlayAction.CreateToken(TokenCatalog.blank))

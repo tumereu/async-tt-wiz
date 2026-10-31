@@ -31,5 +31,8 @@ internal fun refusalText(reason: String?): String = when (reason) {
     "podDeckFixed" -> "This game's deck is fixed to your submitted pod deck."
     "starterRequired" -> "Choose the starting player to get ready."
     "branched" -> "Your opponent went back to an earlier point — your last action wasn't applied."
+    // SYS-053
+    RuleRefusals.REAL_CARD_ON_STACK -> "A card can't go into the Stack itself. Put it on the Stack as an entry instead; the card stays where it is."
+    RuleRefusals.OFF_BATTLEFIELD -> "That card isn't on the battlefield. Damage, notes and until-end-of-turn marks go only on battlefield cards."
     else -> "This game has changed. Refresh and try again."
 }

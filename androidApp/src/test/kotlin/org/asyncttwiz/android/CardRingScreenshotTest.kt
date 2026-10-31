@@ -149,6 +149,40 @@ class CardRingScreenshotTest {
             "a single page with no page header.")
     }
 
+    @OptIn(ExperimentalRoborazziApi::class)
+    private fun combatPage(landscape: Boolean) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        CardRingPageStore(context, f.a, f.game.id).write(1, CardMenuLayout.COMBAT)
+        val play = f.combat()
+        val copy = f.id("attacker1")
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> error("Opening must remain local") })
+        toolkit.openCard(TableScope(copy, listOf(copy)))
+        compose.setContent { MaterialTheme { NoRipples {
+            TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize(), toolkit = toolkit)
+        } } }
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("Card action grid").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
+        // Four full rows of five: P/T sits between Hand and Damage and edits the real card (CMB-003).
+        val slots = CardRingPages.layout(CardRingPages.combat.single().actions)
+        assertEquals(20, slots.last().cell + slots.last().span)
+        val inspect = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
+        for ((name, cell) in listOf("Hand" to 7, "Set corner" to 8, "Set damage" to 10, "Set EOT P/T" to 12, "Links" to 19)) {
+            val bounds = compose.onNodeWithContentDescription(name).performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            assertEquals(inspect.top + cell / 5 * (inspect.height + 2f), bounds.top, .5f, name)
+        }
+        compose.onNodeWithContentDescription("Set corner").assertIsEnabled()
+        val file = File("$SCREENSHOTS/ring-combat-${if (landscape) "landscape" else "portrait"}.png")
+        file.parentFile!!.mkdirs()
+        captureShot(file.path, "${if (landscape) "Landscape" else "Portrait"} table in combat: the one-page Combat menu of your " +
+            "attacking Meadow Sentinel's combat copy, with P/T between Hand and Damage.")
+    }
+
+    // CMB-003, TBL-094
+    @Test fun combatPageHasPowerToughnessBetweenHandAndDamagePortrait() { combatPage(false) }
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun combatPageHasPowerToughnessBetweenHandAndDamageLandscape() { combatPage(true) }
+
     @Test fun handPageHasNoHeaderAndFixedCellsPortrait() { handPage(false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun handPageHasNoHeaderAndFixedCellsLandscape() { handPage(true) }

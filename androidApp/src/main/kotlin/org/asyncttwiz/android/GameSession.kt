@@ -335,7 +335,15 @@ class GameSession(private val connection: GameConnection, private val credential
         // not authority to suppress the server's processing-time candidate.
         // Replica prediction is limited to exact terminal controls; selective suffixes stay server-only.
         // The accepted delta is prepared by the serial tree worker before publication.
-        if (action.isPlay && !replica.predict(command, actor)) return refused("predictionRefused")
+        if (action.isPlay && !replica.predict(command, actor)) {
+            // SYS-053: a rules refusal says why, exactly as the server's refusal of the same action would.
+            val rule = replica.predictionRefusal?.takeIf { it in RuleRefusals.ALL }
+                ?: return refused("predictionRefused")
+            DebugLatency.tap(game.id, "dropped:$rule")
+            error = refusalText(rule)
+            statusChanged()
+            return null
+        }
         if (!action.isPlay && resultIntents.values.none { it.command.scope.gameId == game.id &&
                 !replica.predicted(it.command.requestId) }) replica.predict(command, actor)
         pending[command.requestId] = command

@@ -24,14 +24,14 @@ class BattlefieldOrientationTest {
     @Test fun movesOutsideBattlefieldUntapAndRecordedInverseRestoresTheTap() {
         val root = inZone(PlayZone.BATTLEFIELD, tapped = true)
         val card = root.board.cards.first()
-        for (target in root.board.containers) {
+        // A real card never enters the Stack (STK-003).
+        for (target in root.board.containers.filter { it.zone != PlayZone.STACK }) {
             val destination = when (target.zone) {
                 PlayZone.BATTLEFIELD -> MoveDestination(target.id, MoveInsertion.EMPTY, BoardPosition(10, 0))
-                PlayZone.LIBRARY, PlayZone.STACK -> MoveDestination(target.id, MoveInsertion.TOP)
+                PlayZone.LIBRARY -> MoveDestination(target.id, MoveInsertion.TOP)
                 else -> MoveDestination(target.id, MoveInsertion.UNORDERED)
             }
-            val action = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), destination,
-                if (target.zone == PlayZone.STACK) GameplayRules.stackDigest(root) else null)
+            val action = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), destination)
             val change = gameplayChange(root, action)
             val next = assertNotNull(change.state, change.reason)
             assertEquals(target.zone == PlayZone.BATTLEFIELD, next.board.cards.first().tapped)

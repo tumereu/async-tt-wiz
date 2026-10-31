@@ -133,12 +133,14 @@ class StackQuickActionsRuntimeTest {
                 val card = hidden.board.cards.single { it.id == cardId }
                 assertFalse(CardVisibility.isVisibleFaceUp(hidden.board, card, opponent))
                 assertTrue(ManualDisclosure.permittedFaces(hidden, card, opponent, true).isEmpty())
-                // Old real-card Stack events remain accepted and replayable.
+                // A real card is never moved into the Stack itself (STK-003, SYS-053).
                 move(PlayZone.BATTLEFIELD)
                 val old = state()
                 val real = old.board.cards.single { it.id == cardId }
-                apply(PlayAction.MoveCard(real.id, MoveSource(real.containerId, real.placement),
-                    MoveDestination(CombatStackRules.stack(old.board).id, MoveInsertion.TOP), GameplayRules.stackDigest(old)))
+                val refused = f.owner.execute(f.owner.command(PlayAction.MoveCard(real.id, MoveSource(real.containerId, real.placement),
+                    MoveDestination(CombatStackRules.stack(old.board).id, MoveInsertion.TOP), GameplayRules.stackDigest(old))))
+                assertEquals(RuleRefusals.REAL_CARD_ON_STACK, refused.reason)
+                assertEquals(old, state())
                 move(PlayZone.GRAVEYARD); undoRedo()
                 var replay = f.root
                 f.games.history(f.b, f.game.id, f.root.id, "0").mutations.forEach {

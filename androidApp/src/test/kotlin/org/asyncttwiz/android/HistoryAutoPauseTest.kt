@@ -182,9 +182,11 @@ class HistoryAutoPauseTest {
         }
         step(PlayAction.MoveCard(cards[0].id, MoveSource(hand), MoveDestination(F.id(10), MoveInsertion.EMPTY, BoardPosition(0, 2))), 501)
         assertTrue(tree.nodes.getValue(tree.currentNodeId).transition.disclosures.isNotEmpty(), "Land becoming public reproduces the original reveal bug")
-        step(PlayAction.MoveCard(cards[1].id, MoveSource(hand), MoveDestination(F.id(14), MoveInsertion.TOP),
-            expectedStackDigest = GameplayRules.stackDigest(tree.preparedState(tree.currentNodeId)!!)), 502)
-        step(PlayAction.MoveCard(cards[1].id, MoveSource(F.id(14)), MoveDestination(F.id(10), MoveInsertion.EMPTY, BoardPosition(2, 2))), 503)
+        // Cast: a Stack entry pointing at the hand card (STK-001), then it resolves onto the battlefield.
+        step(PlayAction.Stack(StackAction.AddEffect(cards[1].id, GameplayRules.stackDigest(tree.preparedState(tree.currentNodeId)!!))), 502)
+        val entry = tree.preparedState(tree.currentNodeId)!!.board.stackEffects.single().id
+        step(PlayAction.MoveCard(cards[1].id, MoveSource(hand), MoveDestination(F.id(10), MoveInsertion.EMPTY, BoardPosition(2, 2)),
+            removeStackEntryId = entry), 503)
         step(PlayAction.Combat(CombatAction.Open), 504)
         val combat = tree.preparedState(tree.currentNodeId)!!.board.combat!!.id
         step(PlayAction.Combat(CombatAction.Declare(combat, cards[1].id)), 505)
@@ -192,7 +194,7 @@ class HistoryAutoPauseTest {
         assertEquals(listOf(emptySet(), setOf(PlaybackAutoPause.STACK_ADDED), emptySet(), emptySet(), emptySet(),
             setOf(PlaybackAutoPause.ATTENTION)), results.map { it.intersect(PlaybackAutoPause.defaults) })
         assertEquals(setOf(PlaybackAutoPause.LAND_FROM_HAND), results.first())
-        assertEquals(setOf(PlaybackAutoPause.STACK_REMOVED), results[2])
+        assertEquals(setOf(PlaybackAutoPause.STACK_REMOVED, PlaybackAutoPause.NONLAND_FROM_HAND), results[2])
     }
 
     // HIS-025, HIS-026

@@ -265,6 +265,7 @@ object HistoryGrouping {
             val sameZone = from == to && fromContainer.temp == toContainer.temp && (!fromContainer.temp || fromContainer.id == toContainer.id)
             when {
                 action.removeStackEntryId != null -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS_CLEAR)
+                // Real cards in the Stack: only events recorded before rules v35 (STK-003).
                 from == PlayZone.STACK && to == PlayZone.STACK ->
                     HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.OPEN_WITH)
                 from == PlayZone.STACK -> HistorySemantic(HistorySignificance.STACK_REMOVAL,

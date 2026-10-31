@@ -51,10 +51,9 @@ class GameplayMergeVerificationTest {
         val t = Fixture(); t.connect()
         fun add(card: Int) {
             val display = t.session.play(t.f.game)!!
-            t.submit(PlayAction.MoveCard(t.f.id(card), MoveSource(t.library),
-                MoveDestination(t.stack, MoveInsertion.TOP), GameplayRules.stackDigest(display)))
+            t.submit(PlayAction.Stack(StackAction.AddEffect(t.f.id(card), GameplayRules.stackDigest(display))))
         }
-        add(9); add(10); t.submit(PlayAction.SetNote(t.f.id(9), " preserved "))
+        add(9); add(10); t.submit(PlayAction.AdjustCounter(CounterTarget.PLAYER, t.f.actor, CounterColor.RED, "1"))
         val originals = t.commands
         assertEquals(3, originals.size)
         val endpoint = t.session.play(t.f.game)!!.board
@@ -72,6 +71,27 @@ class GameplayMergeVerificationTest {
         assertTrue(t.endpoints.isNotEmpty()); assertTrue(t.endpoints.all { it == endpoint })
         assertFalse(t.session.pending(t.f.game.id)); assertEquals(originals, t.commands)
         assertEquals(originals.map { it.requestId }.reversed(), t.settled)
+        t.session.close()
+    }
+
+    // SYS-053
+    @Test fun rulesRefusalsShowTheirMessageWhetherTheAppOrTheServerRefuses() {
+        val t = Fixture(); t.connect()
+        // The app's own prediction refuses it: nothing is sent and the message says why.
+        assertFalse(t.session.gameplay(t.f.game, t.f.actor, PlayAction.SetDamage(t.f.id(9), "2")))
+        assertEquals(refusalText(RuleRefusals.OFF_BATTLEFIELD), t.session.error)
+        assertTrue(t.commands.isEmpty())
+        assertFalse(t.session.gameplay(t.f.game, t.f.actor, PlayAction.MoveCard(t.f.id(9), MoveSource(t.library),
+            MoveDestination(t.stack, MoveInsertion.TOP), GameplayRules.stackDigest(t.root))))
+        assertEquals(refusalText(RuleRefusals.REAL_CARD_ON_STACK), t.session.error)
+        // The server refuses an action the app predicted on an older board: the same message, like other refusals.
+        t.submit(PlayAction.AdjustCounter(CounterTarget.PLAYER, t.f.actor, CounterColor.RED, "1"))
+        val original = t.commands.single()
+        for (reason in listOf(RuleRefusals.OFF_BATTLEFIELD, RuleRefusals.REAL_CARD_ON_STACK)) {
+            assertNotEquals(refusalText(null), refusalText(reason))
+        }
+        t.receive(GameResult(original.requestId, original.scope, "rejected", RuleRefusals.OFF_BATTLEFIELD, "1"))
+        assertEquals(refusalText(RuleRefusals.OFF_BATTLEFIELD), t.session.error)
         t.session.close()
     }
 

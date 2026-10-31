@@ -36,7 +36,7 @@ internal fun nextPrintedFace(state: PlayState, card: PlayCard): PlayAction.SetFa
 }
 
 internal fun cardModificationEnabled(zone: PlayZone, note: Boolean = false, projection: Boolean = false) =
-    if (note) projection || zone == PlayZone.BATTLEFIELD || zone == PlayZone.STACK
+    if (note) projection || zone == PlayZone.BATTLEFIELD
     else !projection && zone == PlayZone.BATTLEFIELD
 
 internal fun resetCardCounters(state: PlayState, scope: ManualScope): List<PlayAction> =
@@ -45,10 +45,11 @@ internal fun resetCardCounters(state: PlayState, scope: ManualScope): List<PlayA
             PlayAction.ClearCardCounter(card.id, color) else null
     } }
 
-/** The combat layout's damage and EOT cells for a copy whose real card left play: shown, greyed out (CMB-003). */
+/** The combat layout's P/T, damage and EOT cells for a copy whose real card left play: shown, greyed out (CMB-003). */
 internal fun leftPlayMarkEntries(): List<RingEntry> {
     fun off(name: String) = MenuControl(name, false) {}
     return listOf(
+        RingEntry("corner", "P/T", off("Set corner"), RingCompound("—", off("Decrease corner"), off("Increase corner"), corner = true)),
         RingEntry("damage", "Damage", MenuControl("Set damage", false, color = Color(0xffb3261e)) {},
             RingCompound("—", off("Decrease damage"), off("Increase damage"))),
         RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", false, color = Color(EotPowerToughnessColor)) {},

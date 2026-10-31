@@ -79,8 +79,8 @@ class HistoryRuntimeIntegrationTest {
                 val bobCard = bobLibrary.cards.first()
                 play(PlayAction.MoveCard(bobCard, MoveSource(bobLibrary.id, edge = MoveSourceEdge.TOP),
                     MoveDestination(zone(PlayZone.HAND, bob).id, MoveInsertion.UNORDERED)), f.recipient)
-                play(PlayAction.MoveCard(bobCard, MoveSource(zone(PlayZone.HAND, bob).id),
-                    MoveDestination(zone(PlayZone.STACK).id, MoveInsertion.TOP), GameplayRules.stackDigest(state())), f.recipient)
+                play(PlayAction.Stack(StackAction.AddEffect(bobCard, GameplayRules.stackDigest(state()))), f.recipient)
+                val bobEntry = state().board.stackEffects.single { it.sourceId == bobCard }.id
                 val library = zone(PlayZone.LIBRARY)
                 val card = library.cards.first()
                 play(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
@@ -102,25 +102,23 @@ class HistoryRuntimeIntegrationTest {
                         assertEquals("accepted", continued.outcome, "retained continuation: ${continued.reason}")
                         assertEquals(3, tree(db, f).branchHeads.size)
                     }
-                    for (projection in listOf(false, true)) {
-                        val source = state().board.cards.single { it.id == card }
-                        reversible(if (projection) PlayAction.Stack(StackAction.AddEffect(card, GameplayRules.stackDigest(state())))
-                            else PlayAction.MoveCard(card, MoveSource(source.containerId, source.placement),
-                                MoveDestination(zone(PlayZone.STACK).id, MoveInsertion.TOP), GameplayRules.stackDigest(state())))
+                    // Every way onto the Stack is an entry: a real card is never in the Stack (STK-003).
+                    run {
+                        reversible(PlayAction.Stack(StackAction.AddEffect(card, GameplayRules.stackDigest(state()))))
                         val entry = CombatStackRules.stack(state().board).cards.first()
                         reversible(PlayAction.Stack(StackAction.MarkText(entry, 0)))
                         reversible(PlayAction.Stack(StackAction.MarkText(entry, null)))
                         // Both projection removal + source move are separate Undo boundaries.
                         val actions = StackQuickActions.actions(state(), entry, PlayZone.GRAVEYARD)
                         actions.forEach(::reversible)
-                        repeat(if (projection) 2 else 1) {
+                        repeat(2) {
                             assertEquals("accepted", f.owner.execute(control(f.owner, GameAction.Undo)).outcome)
                         }
                         StackQuickActions.actions(state(), entry, PlayZone.BATTLEFIELD).forEach(::reversible)
                     }
                 }
-                // Alice can also resolve Bob's real Stack card, then Undo her own latest mutation.
-                StackQuickActions.actions(state(), bobCard, PlayZone.GRAVEYARD).forEach(::reversible)
+                // Alice can also resolve Bob's Stack entry, then Undo her own latest mutation.
+                StackQuickActions.actions(state(), bobEntry, PlayZone.GRAVEYARD).forEach(::reversible)
             }
         }
     }

@@ -6,21 +6,24 @@ class StackQuickActionsTest {
     private fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
     private val owner = id(7)
     private val actor = id(8)
+    /** One Stack entry, id(30), pointing at card id(20): on the owner's Battlefield with [projection], else in the
+     * owner's Hand. A real card is never in the Stack itself (STK-003). */
     private fun initial(projection: Boolean = false, token: Boolean = false, frozen: Boolean = false,
         occupied: Boolean = false): PlayState {
         val face = DefinitionFace(id(11), "Fable", rulesText = "First paragraph\n\nSecond paragraph\nThird paragraph")
         val definition = CardDefinition(face.name, listOf(face))
-        val card = PlayCard(id(20), DeckJson.digest(definition), owner, if (projection) id(10) else id(12), face.faceId,
+        val card = PlayCard(id(20), DeckJson.digest(definition), owner, if (projection) id(10) else id(16), face.faceId,
             covered = false, token = token, placement = if (projection) PlayPlacement(BoardPosition(8, 2), id(120)) else null)
         val other = card.copy(id = id(21), containerId = id(10), token = false, placement = PlayPlacement(BoardPosition(3, 1), id(121)))
         val cards = (if (frozen) emptyList() else listOf(card)) + if (occupied) listOf(other) else emptyList()
         return PlayState(id(1), id(2), id(3), id(4), PlayRoot(id(5), id(6)), id(5),
             BoardState(listOf(PlayPlayer(owner), PlayPlayer(actor)), cards,
                 listOf(PlayContainer(id(10), PlayZone.BATTLEFIELD, owner, cards.filter { it.containerId == id(10) }.map { it.id }),
-                    PlayContainer(id(12), PlayZone.STACK, cards = listOf(if (projection) id(30) else card.id)),
+                    PlayContainer(id(12), PlayZone.STACK, cards = listOf(id(30))),
                     PlayContainer(id(13), PlayZone.GRAVEYARD, owner), PlayContainer(id(14), PlayZone.BATTLEFIELD, actor),
-                    PlayContainer(id(15), PlayZone.GRAVEYARD, actor)), TurnState(actor),
-                stackEffects = if (projection) listOf(StackEffect(id(30), card.id, if (frozen) card else null)) else emptyList()),
+                    PlayContainer(id(15), PlayZone.GRAVEYARD, actor),
+                    PlayContainer(id(16), PlayZone.HAND, owner, cards.filter { it.containerId == id(16) }.map { it.id })), TurnState(actor),
+                stackEffects = listOf(StackEffect(id(30), card.id, if (frozen) card else null))),
             listOf(SubmittedDefinition(card.definition, definition)), emptyList(), InitialStarter(StarterChoice(owner), owner))
     }
     private var request = 1000
@@ -59,8 +62,8 @@ class StackQuickActionsTest {
             assertEquals(id(10), card.containerId) // opponent's battlefield, not the acting player's
             assertEquals(BoardPosition(0, 1), card.placement!!.position)
             val swapped = initial.copy(board = initial.board.copy(players = initial.board.players.reversed()))
-            assertEquals(StackQuickActions.actions(initial, id(20), PlayZone.BATTLEFIELD),
-                StackQuickActions.actions(swapped, id(20), PlayZone.BATTLEFIELD))
+            assertEquals(StackQuickActions.actions(initial, id(30), PlayZone.BATTLEFIELD),
+                StackQuickActions.actions(swapped, id(30), PlayZone.BATTLEFIELD))
         }
     }
     // STK-011
@@ -73,7 +76,7 @@ class StackQuickActionsTest {
         }
     }
     // STK-012, TBL-103
-    @Test fun graveyardMovesRealCardsAndLiteralProjectionSourcesAndDisappearsTokens() {
+    @Test fun graveyardMovesTheEntrysLiteralSourceAndDisappearsTokens() {
         for (projection in listOf(false, true)) for (token in listOf(false, true)) {
             val initial = initial(projection, token)
             val tree = resolve(initial, PlayZone.GRAVEYARD)

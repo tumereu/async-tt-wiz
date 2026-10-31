@@ -138,7 +138,9 @@ object CombatStackRules {
             rulesVersion >= 21 && source.zone == PlayZone.LIBRARY ||
             source.zone == PlayZone.HAND && source.accountId == card.owner
     }
-    /** Top first; the Stack container holds real card IDs AND independent effect occurrence IDs. */
+    /** Top first. New play only ever puts effect entries into the Stack (STK-003); the "card" kind remains so
+     * the digests of recorded states from before rules v35, when a face-down cast moved the real card through
+     * the Stack, still compute. */
     fun identities(board: BoardState): List<StackIdentity> = stack(board).cards.map { id ->
         val effect = board.stackEffects.singleOrNull { it.id == id }
         if (effect != null) StackIdentity("effect", id, effect.sourceId) else {

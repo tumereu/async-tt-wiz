@@ -17,10 +17,10 @@ class CardRingTest {
         assertNull(nextPrintedFace(play.copy(definitions = listOf(submitted.copy(definition = definition.copy(faces = definition.faces.take(1))))), card))
     }
     // TBL-094
-    @Test fun battlefieldModificationsAreDisabledElsewhereExceptStackAndProjectionNotes() {
+    @Test fun battlefieldModificationsAreDisabledElsewhereExceptProjectionNotes() {
         for (zone in PlayZone.entries) {
             assertEquals(zone == PlayZone.BATTLEFIELD, cardModificationEnabled(zone))
-            assertEquals(zone in listOf(PlayZone.BATTLEFIELD, PlayZone.STACK), cardModificationEnabled(zone, note = true))
+            assertEquals(zone == PlayZone.BATTLEFIELD, cardModificationEnabled(zone, note = true))
             assertFalse(cardModificationEnabled(zone, projection = true))
             assertTrue(cardModificationEnabled(zone, note = true, projection = true))
         }

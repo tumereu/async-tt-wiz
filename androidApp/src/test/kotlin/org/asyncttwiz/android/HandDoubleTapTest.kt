@@ -100,8 +100,8 @@ class HandDoubleTapTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
-    // HIS-055, HIS-085, STK-005, SYS-010, TBL-090, ZON-008
-    @Test fun faceDownCastAutoResolvesAsASeparatePausedGroupAndOneUndoRestoresTheHand() {
+    // HIS-085, STK-003, STK-005, SYS-010, TBL-090, ZON-008
+    @Test fun faceDownCastGoesStraightOntoTheBattlefieldAndOneUndoRestoresTheHand() {
         val f = BasicTableFixture()
         val definition = f.definition.copy(faces = f.definition.faces.map { it.copy(typeLine = "Instant") })
         val digest = DeckJson.digest(definition)
@@ -119,34 +119,28 @@ class HandDoubleTapTest {
         f.connect(initial)
         try {
             val toolkit = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
-            assertTrue(toolkit.castFaceDown(listOf(f.id(42))))
-            assertEquals(field, f.card(42).containerId)
-            assertEquals(BoardPosition(1, 1), f.card(42).placement!!.position)
-            assertTrue(f.card(42).isFaceDown)
-            assertEquals("2/2", f.card(42).corner)
+            assertTrue(toolkit.castFaceDown(listOf(f.id(42), f.id(43))))
+            for ((id, column) in listOf(f.id(42) to 1, f.id(43) to 2)) {
+                val card = f.play.board.cards.single { it.id == id }
+                assertEquals(field, card.containerId)
+                assertEquals(BoardPosition(column, 1), card.placement!!.position)
+                assertTrue(card.isFaceDown)
+                assertEquals("2/2", card.corner)
+                assertTrue(ManualDisclosure.permittedFaces(f.play, card, f.other, inspecting = true).isEmpty())
+            }
+            // Never through the Stack: one face-down move per card, all in one batch.
+            assertTrue(CombatStackRules.stack(f.play.board).cards.isEmpty())
             assertIs<GameAction.PlayBatch>(f.commands().single().action)
             val commands = f.commands().playMembers()
             assertEquals(2, commands.size)
+            assertTrue(commands.all { (it.action as GameAction.Play).action.let { a -> a is PlayAction.MoveCard && a.faceDown == true &&
+                a.destination.containerId == field } })
             assertEquals(1, commands.map { it.invocationId }.distinct().size)
 
             var tree = GameplayTree(initial)
-            val boards = mutableListOf(initial)
-            for (command in commands) {
-                tree = assertNotNull(HistoryContinuation.change(tree, f.actor, command).tree)
-                boards += assertNotNull(tree.stateAt(tree.currentNodeId))
-            }
-            assertEquals(f.play.board, boards.last().board)
-            val onStack = boards[1].board.cards.single { it.id == f.id(42) }
-            assertEquals(CombatStackRules.stack(boards[1].board).id, onStack.containerId)
-            assertTrue(ManualDisclosure.permittedFaces(boards[1], onStack, f.other, inspecting = true).isEmpty())
-            assertNotEquals(boards[1].currentGroup!!.id, boards[2].currentGroup!!.id)
-            val playback = HistoryPlayback(HistoryTree.ingest(tree, "accepted"))
-            playback.openFrom(initial.currentNodeId); playback.play()
-            playback.next(true, f.other, board = initial.board, definitions = initial.definitions)
-            assertEquals(boards[1].currentNodeId, playback.position.cursorId)
-            assertTrue(playback.pauseAfterAnimation())
-
-            // One Undo removes both the resolve and the cast: the card is back in the Hand.
+            for (command in commands) tree = assertNotNull(HistoryContinuation.change(tree, f.actor, command).tree)
+            assertEquals(f.play.board, tree.stateAt(tree.currentNodeId)!!.board)
+            // One Undo takes back the whole cast: both cards are back in the Hand.
             val undo = GameCommand(f.id(990), GameScope(initial.gameId, playId = initial.id), GameAction.Undo, f.id(991), "1")
             val undone = assertNotNull(SelectiveUndo.change(tree, f.actor, undo).tree)
             assertEquals(initial.board, undone.stateAt(undone.currentNodeId)!!.board)

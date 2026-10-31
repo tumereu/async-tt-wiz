@@ -50,32 +50,24 @@ class CardVisibilityTest {
             PlayAction.Stack(StackAction.AddEffect(source.id, GameplayRules.stackDigest(foreignHand))), 208).reason)
     }
 
-    @Test fun realStackMovesReplayButSchemaOneMovesAreRejected() {
+    // STK-003, SYS-053: a real card never enters the Stack, face up or face down; only entries pointing at it do.
+    @Test fun realCardMovesIntoTheStackAreRefusedAndSchemaOneMovesAreNotReplayed() {
         val field = move(gameplayFixture(), PlayZone.BATTLEFIELD, 300).state!!
         val card = field.board.cards.first()
         val effect = gameplayChange(field, PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(field))), 301).state!!
         val hand = move(effect, PlayZone.HAND, 302).state!!
-        val realStack = gameplayChange(hand, PlayAction.MoveCard(card.id, MoveSource(hand.board.cards.first().containerId),
-            MoveDestination(CombatStackRules.stack(hand.board).id, MoveInsertion.TOP), GameplayRules.stackDigest(hand)), 303)
-        assertEquals("accepted", realStack.outcome)
-        assertEquals(realStack, GameplayHistory.replay(hand, realStack.mutation!!))
-        assertTrue(realStack.mutation!!.transition.disclosures.isEmpty()) // Already revealed by the projection.
-        val legacy = realStack.mutation.copy(schemaVersion = 1, bookkeeping = null, transition = realStack.mutation.transition.copy(delta = null,
-            movement = realStack.mutation.transition.movement!!.copy(coverRulesVersion = 3),
-            disclosures = listOf(GameplayDisclosure(card.id, card.faceId, CombatStackRules.stack(hand.board).id, listOf(gameplayId(8))))),
-            revealsInformation = true)
+        for (faceDown in listOf(null, true)) {
+            val realStack = gameplayChange(hand, PlayAction.MoveCard(card.id, MoveSource(hand.board.cards.first().containerId),
+                MoveDestination(CombatStackRules.stack(hand.board).id, MoveInsertion.TOP), GameplayRules.stackDigest(hand),
+                faceDown = faceDown), 303)
+            assertEquals(RuleRefusals.REAL_CARD_ON_STACK, realStack.reason)
+        }
+        val discard = move(hand, PlayZone.GRAVEYARD, 304)
+        val legacy = discard.mutation!!.copy(schemaVersion = 1, bookkeeping = null, transition = discard.mutation.transition.copy(delta = null,
+            movement = discard.mutation.transition.movement!!.copy(coverRulesVersion = 3)))
         assertEquals("replayBlocked", GameplayHistory.replay(hand, legacy).reason)
-        val replayed = GameplayHistory.replay(hand, realStack.mutation)
-        assertNotNull(replayed.state)
-        val target = replayed.state.board.containers.single { it.zone == PlayZone.GRAVEYARD }
-        val removed = gameplayChange(replayed.state, PlayAction.MoveCard(card.id, MoveSource(CombatStackRules.stack(replayed.state.board).id),
-            MoveDestination(target.id, MoveInsertion.UNORDERED)), 304)
-        assertEquals("accepted", removed.outcome)
-        assertEquals(removed, GameplayHistory.replay(replayed.state, removed.mutation!!))
-        val graveyard = removed.state!!
-        // Both old Stack entries remain addressable: removing the real card leaves the effect.
-        assertEquals(listOf(effect.board.stackEffects.single().id), CombatStackRules.stack(graveyard.board).cards)
-        assertEquals(PlayZone.GRAVEYARD, graveyard.board.containers.single { it.id == graveyard.board.cards.first().containerId }.zone)
+        // The entry stays addressable after its source moved on.
+        assertEquals(listOf(effect.board.stackEffects.single().id), CombatStackRules.stack(discard.state!!.board).cards)
     }
 
     private fun move(state: PlayState, zone: PlayZone, request: Int, faceDown: Boolean? = null,
@@ -84,11 +76,10 @@ class CardVisibilityTest {
         val target = state.board.containers.single { it.zone == zone }
         val destination = when (zone) {
             PlayZone.BATTLEFIELD -> MoveDestination(target.id, MoveInsertion.EMPTY, position)
-            PlayZone.LIBRARY, PlayZone.STACK -> MoveDestination(target.id, MoveInsertion.TOP)
+            PlayZone.LIBRARY -> MoveDestination(target.id, MoveInsertion.TOP)
             else -> MoveDestination(target.id, MoveInsertion.UNORDERED)
         }
         val action = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), destination,
-            if (zone == PlayZone.STACK && card.containerId != target.id) GameplayRules.stackDigest(state) else null,
             faceDown = faceDown)
         val change = gameplayChange(state, action, request)
         assertEquals("accepted", change.outcome)
@@ -160,7 +151,7 @@ class CardVisibilityTest {
 
     // ZON-073
     @Test fun libraryToPublicZonesIsFaceUpUnlessMoveExplicitlyRequestsFaceDown() {
-        for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) {
+        for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE)) {
             val revealed = move(gameplayFixture(), zone, 100)
             assertFalse(revealed.state!!.board.cards.first().covered)
             assertTrue(revealed.mutation!!.revealsInformation)

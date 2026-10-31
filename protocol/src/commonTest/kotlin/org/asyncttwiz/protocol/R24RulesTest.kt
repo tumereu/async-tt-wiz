@@ -2,7 +2,8 @@ package org.asyncttwiz.protocol
 
 import kotlin.test.*
 
-/** Rules v24: face-down casting (Hand -> Stack face down), resolving keeps it face down, Manifest top. */
+/** Rules v24: face-down casting, Manifest top. From rules v35 a face-down cast goes straight from the Hand onto
+ * the Battlefield face down: a real card is never in the Stack (STK-003). */
 class R24RulesTest {
     private val a = gameplayId(7)
     private val b = gameplayId(8)
@@ -42,7 +43,7 @@ class R24RulesTest {
 
     private fun castFaceDown(): PlayState {
         val start = inHand()
-        val change = accepted(start, HandActions.castFaceDown(start, gameplayId(10)), 101)
+        val change = accepted(start, HandActions.castFaceDown(start, gameplayId(10))!!, 101)
         assertTrue(change.mutation!!.transition.disclosures.isEmpty())
         assertFalse(change.mutation.revealsInformation)
         return change.state!!
@@ -50,39 +51,31 @@ class R24RulesTest {
 
     @Test fun rulesVersionIsAtLeast24() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 24)
 
-    // STK-005, TBL-090, ZON-008
-    @Test fun castingFaceDownPutsTheHandCardOntoTheStackWithoutRevealingIt() {
+    // STK-005, STK-003, TBL-090, ZON-008
+    @Test fun castingFaceDownPutsTheHandCardStraightOntoTheBattlefieldAsAFaceDown22WithoutRevealingIt() {
         val cast = castFaceDown()
         val down = card(cast, 10)
-        assertEquals(stack, down.containerId)
-        assertEquals(listOf(gameplayId(10)), cast.board.containers.single { it.id == stack }.cards)
+        assertEquals(field, down.containerId)
+        assertEquals(BoardPosition(0, 1), down.placement!!.position, "face down lands in the main row")
+        assertTrue(cast.board.containers.single { it.id == stack }.cards.isEmpty(), "the real card never enters the Stack")
         assertTrue(cast.board.containers.single { it.id == hand }.cards.isEmpty())
         assertTrue(cast.board.stackEffects.isEmpty())
         assertTrue(down.isFaceDown)
+        assertEquals("2/2", down.corner)
         assertFalse(CardVisibility.isVisibleFaceUp(cast.board, down, b))
-        // Its owner may still peek at it, like at an own face-down Battlefield card; the opponent may not.
+        // Its owner may still peek at it, like at any own face-down Battlefield card; the opponent may not.
         assertEquals(listOf(gameplayId(30)), ManualDisclosure.permittedFaces(cast, down, a, inspecting = true).map { it.faceId })
         assertTrue(ManualDisclosure.permittedFaces(cast, down, b, inspecting = true).isEmpty())
-        assertEquals(HistorySignificance.STACK_ENTRY, HistoryGrouping.classify(
-            HandActions.castFaceDown(inHand(), gameplayId(10)), inHand().board.containers).significance)
     }
 
-    // STK-005, TBL-090, ZON-008
-    @Test fun resolvingAFaceDownStackCardKeepsItFaceDownAsAPublic22() {
-        val cast = castFaceDown()
-        val resolve = StackQuickActions.actions(cast, gameplayId(10), PlayZone.BATTLEFIELD).single() as PlayAction.MoveCard
-        assertNull(resolve.faceDown)
-        val change = accepted(cast, resolve, 102)
-        val resolved = card(change.state!!, 10)
-        assertEquals(field, resolved.containerId)
-        assertTrue(resolved.isFaceDown)
-        assertEquals("2/2", resolved.corner)
-        assertTrue(change.mutation!!.transition.disclosures.isEmpty())
-        assertFalse(CardVisibility.isVisibleFaceUp(change.state.board, resolved, b))
-        // Other destinations from the Stack keep the existing face-up rule.
-        val buried = accepted(cast, StackQuickActions.actions(cast, gameplayId(10), PlayZone.GRAVEYARD).single(), 103).state!!
-        assertFalse(card(buried, 10).isFaceDown)
-    }
+    /** A state recorded before rules v35: card 10 cast face down sits in the Stack itself. */
+    private fun legacyCast(): PlayState = inHand().let { s -> s.copy(board = s.board.copy(
+        cards = s.board.cards.map { if (it.id == gameplayId(10)) it.copy(containerId = stack, covered = true, explicitlyCovered = true) else it },
+        containers = s.board.containers.map { when (it.id) {
+            hand -> it.copy(cards = it.cards - gameplayId(10))
+            stack -> it.copy(cards = listOf(gameplayId(10)))
+            else -> it
+        } })) }
 
     /** Seal the v23 acceptance path exactly as it was recorded then. */
     private fun retained(original: PlayState, change: GameplayChange): GameplayMutation {
@@ -100,16 +93,17 @@ class R24RulesTest {
         return decoded
     }
 
+    // STK-003: retained events that moved a real card out of the Stack still replay exactly.
     @Test fun retainedV23ResolveStillTurnsTheCardFaceUpOnReplay() {
-        val cast = castFaceDown()
-        val resolve = StackQuickActions.actions(cast, gameplayId(10), PlayZone.BATTLEFIELD).single() as PlayAction.MoveCard
+        val cast = legacyCast()
+        val resolve = PlayAction.MoveCard(gameplayId(10), MoveSource(stack),
+            MoveDestination(field, MoveInsertion.EMPTY, BoardPosition(0, 1)))
         val old = GameplayRules.move(cast, a, command(GameAction.Play(resolve), 102, cast), resolve, rulesVersion = 23)
         val event = retained(cast, old)
         assertEquals(23, event.transition.rulesVersion)
         val replayed = GameplayHistory.replay(cast, event).state!!
         assertFalse(card(replayed, 10).isFaceDown)
         assertEquals(card(cast, 10).corner, card(replayed, 10).corner)
-        assertTrue(card(gameplayChange(cast, resolve, 102).state!!, 10).isFaceDown)
     }
 
     // ZON-018
@@ -135,30 +129,24 @@ class R24RulesTest {
         assertNull(LibraryActions.manifestTop(empty.board, library))
     }
 
-    @Test fun undoingTheResolveIsBlockedByALaterEditOfThePublicCorner() {
+    @Test fun undoingTheCastIsBlockedByALaterEditOfThePublicCorner() {
         val root = handRoot()
-        fun resolved(): GameplayTree {
-            var tree = GameplayTree(root)
-            tree = assertNotNull(tree.play(a, command(GameAction.Play(HandActions.castFaceDown(root, gameplayId(10))), 200, root)).tree)
-            val cast = tree.stateAt(tree.currentNodeId)!!
-            val resolve = StackQuickActions.actions(cast, gameplayId(10), PlayZone.BATTLEFIELD).single()
-            return assertNotNull(tree.play(a, command(GameAction.Play(resolve), 201, root)).tree)
-        }
-        val edited = assertNotNull(resolved().play(b, command(GameAction.Play(
+        fun cast(): GameplayTree = assertNotNull(GameplayTree(root).play(a, command(GameAction.Play(
+            HandActions.castFaceDown(root, gameplayId(10))!!), 200, root)).tree)
+        val edited = assertNotNull(cast().play(b, command(GameAction.Play(
             PlayAction.AdjustCorner(gameplayId(10), CornerPart.BOTH, 1)), 202, root)).tree)
         assertEquals("3/3", card(edited.stateAt(edited.currentNodeId)!!, 10).corner)
         assertNull(SelectiveUndo.change(edited, a, command(GameAction.Undo, 900, root)).tree,
-            "resolving face down assigned the corner the later edit depends on")
-        // Without the dependent edit both steps undo exactly, back to the Hand.
-        var tree = resolved()
-        repeat(2) { n -> tree = assertNotNull(SelectiveUndo.change(tree, a, command(GameAction.Undo, 900 + n, root)).tree, "undo $n") }
-        assertEquals(root.board, tree.stateAt(tree.currentNodeId)!!.board)
+            "casting face down assigned the corner the later edit depends on")
+        // Without the dependent edit one Undo goes exactly back to the Hand.
+        val undone = assertNotNull(SelectiveUndo.change(cast(), a, command(GameAction.Undo, 900, root)).tree)
+        assertEquals(root.board, undone.stateAt(undone.currentNodeId)!!.board)
     }
 
     @Test fun undoingAFaceDownCastIsBlockedOnceTheCardWasTurnedFaceUp() {
         val root = handRoot()
         var tree = GameplayTree(root)
-        tree = assertNotNull(tree.play(a, command(GameAction.Play(HandActions.castFaceDown(root, gameplayId(10))), 300, root)).tree)
+        tree = assertNotNull(tree.play(a, command(GameAction.Play(HandActions.castFaceDown(root, gameplayId(10))!!), 300, root)).tree)
         tree = assertNotNull(tree.play(b, command(GameAction.Play(PlayAction.SetCovered(gameplayId(10), false)), 301, root)).tree)
         assertNull(SelectiveUndo.change(tree, a, command(GameAction.Undo, 901, root)).tree)
     }

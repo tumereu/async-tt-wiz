@@ -70,8 +70,8 @@ class HandMenuTest {
             changed.state!!.board.cards.single { it.id == discard.cardId }.containerId)
         assertTrue(play.board.cards.filter { it.containerId == hand }.none { CardVisibility.isVisibleFaceUp(play.board, it, f.b) })
     }
-    // STK-005, SYS-010, TBL-090, ZON-008
-    @Test fun faceDownCastsAndAutoResolvesTheWholeSelectionInOneBatchWithoutProjections() {
+    // STK-003, STK-005, SYS-010, TBL-090, ZON-008
+    @Test fun faceDownCastsTheWholeSelectionStraightOntoTheBattlefieldInOneBatchWithoutProjections() {
         val (play, ids) = handPlay("Creature", "Instant")
         val singles = mutableListOf<PlayAction>()
         val batches = mutableListOf<List<PlayAction>>()
@@ -82,15 +82,13 @@ class HandMenuTest {
         handMenuTools(toolkit, play, bound, TableSelection(ids = ids.toSet()), emptyMap(), true).single { it.name == "Face down" }.click()
         assertTrue(singles.isEmpty())
         val moves = batches.single().map { assertIs<PlayAction.MoveCard>(it) }
-        // Each card: Hand -> Stack face down, then the manual resolver Stack -> Battlefield, whatever its printed type.
-        assertEquals(ids.flatMap { listOf(it, it) }, moves.map { it.cardId })
-        val stack = CombatStackRules.stack(play.board).id
+        // Each card: Hand -> its owner's Battlefield face down in the main row, whatever its printed type; never the Stack.
+        assertEquals(ids, moves.map { it.cardId })
         val field = play.board.zoneContainer(f.a, PlayZone.BATTLEFIELD)!!.id
-        for ((cast, resolve) in moves.chunked(2)) {
-            assertTrue(cast.faceDown == true && cast.destination.containerId == stack && cast.removeStackEntryId == null)
-            assertEquals(stack, resolve.source.containerId)
-            assertEquals(field, resolve.destination.containerId)
-            assertEquals(1, resolve.destination.position?.y)
+        for (cast in moves) {
+            assertTrue(cast.faceDown == true && cast.removeStackEntryId == null && cast.expectedStackDigest == null)
+            assertEquals(field, cast.destination.containerId)
+            assertEquals(1, cast.destination.position?.y)
         }
         // The batch applies in order and nothing is disclosed to the opponent.
         var state = play

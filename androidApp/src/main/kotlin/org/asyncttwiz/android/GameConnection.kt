@@ -15,6 +15,7 @@ import java.io.InputStream
 import java.io.ByteArrayOutputStream
 import kotlinx.serialization.json.decodeFromStream
 import org.asyncttwiz.storage.StoredPayload
+import org.asyncttwiz.storage.evictConnectionsInBackground
 
 data class GameplayTreeTransfer(val manifest: GameplayManifest, val plan: TreeDownloadPlan,
     val openChunk: (Int) -> InputStream)
@@ -224,7 +225,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
         return true
     }
     override fun disconnect() { socket?.cancel(); socket = null; token = null }
-    override fun close() { disconnect(); reads.shutdown(); client.dispatcher.executorService.shutdown(); client.connectionPool.evictAll() }
+    override fun close() { disconnect(); reads.shutdown(); client.dispatcher.executorService.shutdown(); client.evictConnectionsInBackground() }
 }
 
 private fun InputStream.bounded(limit: Int): ByteArray {

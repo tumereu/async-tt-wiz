@@ -59,16 +59,31 @@ internal data class QuickContinuePod(val pod: PodSummary? = null, val invitation
     val updatedAt: String get() = pod?.updatedAt ?: requireNotNull(invitation).invitedAt
 }
 
+/** The pod order shared by the Pods screen, the Menu panel and the drawer, mirroring the game order (LOB-022). */
+internal enum class PodOrderGroup {
+    /** Your pick or your deck build is waiting: longest waiting first. */
+    YOURS,
+    /** Pod invitations waiting for your answer: newest first. */
+    INVITATION,
+    /** Everything else: newest first. */
+    OTHER,
+}
+
+internal fun podOrderGroup(entry: QuickContinuePod): PodOrderGroup = when {
+    entry.invitation != null -> PodOrderGroup.INVITATION
+    entry.pod?.attention == PodAttention.YOUR_PICK || entry.pod?.attention == PodAttention.BUILD -> PodOrderGroup.YOURS
+    else -> PodOrderGroup.OTHER
+}
+
+/** Pods and the invitations to pods you are not yet in, in the shared pod order. */
+internal fun orderedPods(pods: List<PodSummary>, invitations: List<PodInvitation>): List<QuickContinuePod> =
+    (pods.distinctBy { it.id }.map { QuickContinuePod(pod = it) } + invitations.distinctBy { it.podId }
+        .filter { invite -> pods.none { it.id == invite.podId } }.map { QuickContinuePod(invitation = it) })
+        .sortedWith(panelOrder({ it.id }, { it.updatedAt }) { podOrderGroup(it).ordinal })
+
+/** Menu panel: the first three of the shared pod order. */
 internal fun quickContinuePods(pods: List<PodSummary>, invitations: List<PodInvitation>): List<QuickContinuePod> =
-    (pods.map { QuickContinuePod(pod = it) } + invitations.filter { invite -> pods.none { it.id == invite.podId } }
-        .map { QuickContinuePod(invitation = it) })
-        .sortedWith(panelOrder({ it.id }, { it.updatedAt }) {
-            when {
-                it.invitation != null -> 2
-                it.pod?.attention == PodAttention.YOUR_PICK || it.pod?.attention == PodAttention.BUILD -> 0
-                else -> 1
-            }
-        }).take(3)
+    orderedPods(pods, invitations).take(3)
 
 private fun <T> panelOrder(id: (T) -> String, time: (T) -> String, priority: (T) -> Int): Comparator<T> =
     Comparator { a, b ->

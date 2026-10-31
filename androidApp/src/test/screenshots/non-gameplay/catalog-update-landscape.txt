@@ -1,0 +1,1 @@
+Landscape Update card records? dialog over the main menu: 450 MB on a metered connection, with Not now and Download.

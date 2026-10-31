@@ -1,0 +1,1 @@
+Settings screen on a very tall portrait screen for a signed-in player, scrolled to bring the timeline playback settings into view.

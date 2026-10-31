@@ -95,7 +95,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 projectionMenuTools(toolkit, play, bound, names, enabled, annotations)
             CardActionRing(play.gameId, toolkit.viewer, bound.contextViewId, bound.contextViewId,
                 occurrenceTools.map { RingEntry(when (it.name) { "Inspect" -> "inspect"; "Edit card note" -> "note"; else -> it.name },
-                    if (it.name == "Edit card note") "Note" else ringShortLabel(it.name), it) },
+                    if (it.name == "Edit card note") "Note" else ringShortLabel(it.name), it) } + leftPlayMarkEntries(),
                 own = false, OpponentTableColor, toolkit::dismiss, layout)
         }
         "stackDestination" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Stack destination") {

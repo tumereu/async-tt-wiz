@@ -94,7 +94,8 @@ tasks.register("verifyModuleBoundaries") {
 // the right file, and fails when a test, a catalog entry or the backlog cites an ID that no longer exists, so removing
 // an entry forces a look at the tests that protect it. Runs before every test task.
 val checkFeatureCatalog = tasks.register("checkFeatureCatalog") {
-    val catalog = fileTree("docs/features") { include("*.md"); exclude("README.md") }
+    // Hidden files (e.g. a .review.md the owner is filling in) are scratch notes, not catalog.
+    val catalog = fileTree("docs/features") { include("*.md"); exclude("README.md", ".*") }
     val backlog = file("docs/backlog.md")
     val tests = fileTree(".") {
         include("*/src/*Test/**/*.kt", "*/src/test/**/*.kt")

@@ -1,0 +1,1 @@
+Settings screen in landscape for a signed-in player, scrolled to bring the card size settings into view.

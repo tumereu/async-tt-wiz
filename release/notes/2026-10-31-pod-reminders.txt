@@ -1,0 +1,1 @@
+add: If you have not looked at a pod waiting for your pick or deck, the app reminds you of it the same way it reminds you of games.

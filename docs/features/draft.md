@@ -13,15 +13,15 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-007** A cube holds at most 3000 copies; the total copy count shows before saving. (r16)
 - **DRF-008** The top bar's "Import from link" dialog takes a Cube Cobra link or cube ID found anywhere in pasted text (https/www optional, query ignored); its paste icon pastes and imports at once. (r20)
 - **DRF-009** A Cube Cobra import takes the mainboard only and replaces the list; an unnamed cube gets the Cube Cobra ID as its name; failures say why. (r19)
-- **DRF-010** The Saved cube screen shows the list with Edit at the top, a separate Rename, Delete cube (confirmed), and "Draft this cube", which opens New pod with that cube chosen. (r21)
+- **DRF-010** The Saved cube screen has Edit at the top, the name and "N total copies" with a columns control (5 by default in portrait, 8 in landscape, remembered per orientation apart from decks), a separate Rename, Delete cube (confirmed), and "Draft this cube", which opens New pod with that cube chosen; below them the cards show in the saved deck's picture view (LOB-056) by type, without section headers. (?) (r35)
 
 ### Pods list and navigation
 
 - **DRF-011** The main menu has a Pods entry between Games and Manage decks; the Pods screen has a New pod button at the top right. (r21)
-- **DRF-012** The Pods screen lists pod invitations with Accept and Decline at the top, then "MY PODS (N)" with each pod's avatars, name and status. (r16)
-- **DRF-013** Pod statuses read "Your pick · 2 packs", "Build your deck", "Setup", "Drafting" or "Deck submitted"; pods needing you come first and "Your pick" rows are highlighted. (r16)
-- **DRF-014** The main menu's Pods panel lists up to 3 pods: your pick or build first, then other pods, then invitations (answered in place); it is hidden when empty. (r17)
-- **DRF-015** The side menu lists every pod under Pods with a compact stack of the other members' avatars, the name and a two-line status. (r23)
+- **DRF-012** The Pods screen shows "MY PODS (N)" (N counts your pods) above one list in the shared pod order (DRF-013): pod rows with avatars, name and status, and pod invitations with Accept and Decline. (?) (r35)
+- **DRF-013** Pod statuses read "Your pick · 2 packs", "Build your deck", "Setup", "Drafting" or "Deck submitted"; "Your pick" rows are highlighted. One pod order everywhere (Pods screen, menu panel, side menu), shaped like the game order (LOB-022): pods waiting for your pick or build (longest waiting first), then pod invitations to you (newest first), then the rest (newest first). (r35)
+- **DRF-014** The main menu's Pods panel lists the first 3 pods and pod invitations of the shared pod order (DRF-013), invitations answered in place; it is hidden when empty. (r35)
+- **DRF-015** The side menu lists every pod under Pods, in the shared pod order (DRF-013), with a compact stack of the other members' avatars, the name and a two-line status. (r35)
 
 ### Pod setup
 
@@ -190,7 +190,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Notifications
 
 - **DRF-135** Draft notifications use their own "Draft activity" channel, one per pod, updated rather than stacked. (r16)
-- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid: your turn) arrives while none were waiting; more packs only update the counts. (r16)
+- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid: your turn) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (?) (r35)
 - **DRF-137** Other pod notifications: "New pod invitation", "Draft complete: build your deck", "Decks ready — <pod name>" (to everyone but the last submitter), "Draft cancelled", "Pod destroyed", "Auto-start off — <pod name>". (r21)
 - **DRF-138** A pod's notification clears, and none is posted, while that pod is open in the app; pod invitation notifications likewise while the Pods list is shown. (r19)
 

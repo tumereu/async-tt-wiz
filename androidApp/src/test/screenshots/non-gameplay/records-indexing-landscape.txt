@@ -1,0 +1,1 @@
+Landscape Games screen while downloaded card records are indexed, showing bytes and cards processed.

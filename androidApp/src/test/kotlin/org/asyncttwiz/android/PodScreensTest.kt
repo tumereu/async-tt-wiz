@@ -169,35 +169,42 @@ class PodScreensTest {
         assertTrue(opened)
     }
 
-    // DRF-012
-    @Test fun pendingInvitationsAppearAboveMyPodsAndHeaderDisappearsWhenEmpty() {
+    // DRF-012, DRF-013
+    @Test fun invitationsSitBetweenPodsNeedingYouAndOtherPodsAndAreAnsweredInPlace() {
+        val pick = PodSummary("pick", "Pick now", PodPhase.DRAFTING, alice, listOf(alice, bob),
+            PodAttention.YOUR_PICK, 1, "2026-10-26T00:00:00Z")
         val pod = PodSummary("pod", "My draft", PodPhase.SETUP, alice, listOf(alice, bob),
-            PodAttention.NONE, 0, "2026-10-26T00:00:00Z")
-        var state by mutableStateOf(PodState(loaded = true, pods = listOf(pod),
-            invitations = listOf(PodInvitation("invited", "Join this draft", bob, "now"))))
+            PodAttention.NONE, 0, "2026-10-27T00:00:00Z")
+        var state by mutableStateOf(PodState(loaded = true, pods = listOf(pod, pick),
+            invitations = listOf(PodInvitation("invited", "Join this draft", bob, "2026-10-25T00:00:00Z"))))
         var response: Pair<String, Boolean>? = null
         compose.setContent { ScreenTheme { PodsList(state, {}, { id, accept -> response = id to accept }, {}) } }
-        val invitation = compose.onNodeWithText("Invitations").fetchSemanticsNode().boundsInRoot
-        val myPods = compose.onNodeWithText("MY PODS (1)").fetchSemanticsNode().boundsInRoot
-        assertTrue(invitation.bottom < myPods.top)
-        compose.onNodeWithText("Join this draft").assertIsDisplayed()
+        val tops = listOf("MY PODS (2)", "Pick now", "Join this draft", "My draft")
+            .map { compose.onNodeWithText(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.top }
+        assertEquals(tops.sorted(), tops)
+        compose.onNodeWithText("Invitations").assertDoesNotExist()
         compose.onNodeWithText("Accept").performClick()
         assertEquals("invited" to true, response)
         compose.onNodeWithText("Refresh").assertDoesNotExist()
         compose.runOnIdle { state = state.copy(invitations = emptyList()) }
-        compose.onNodeWithText("Invitations").assertDoesNotExist()
+        compose.onNodeWithText("Join this draft").assertDoesNotExist()
         compose.onNodeWithText("No pending pod invitations.").assertDoesNotExist()
-        compose.onNodeWithText("MY PODS (1)").assertIsDisplayed()
+        compose.onNodeWithText("No pods yet").assertDoesNotExist()
+        compose.onNodeWithText("MY PODS (2)").assertIsDisplayed()
+        compose.runOnIdle { state = state.copy(pods = emptyList()) }
+        compose.onNodeWithText("MY PODS (0)").assertIsDisplayed()
+        compose.onNodeWithText("No pods yet").assertIsDisplayed()
     }
 
     // DRF-013
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun podRowsReadTheirStatusInListOrderAndOnlyYourPickRowsAreHighlighted() {
-        fun pod(id: String, phase: PodPhase, attention: PodAttention, waiting: Int = 0) =
-            PodSummary(id, "Pod $id", phase, alice, listOf(alice, bob), attention, waiting, "2026-10-26T00:00:00Z")
-        val pods = listOf(pod("pick", PodPhase.DRAFTING, PodAttention.YOUR_PICK, 2), pod("build", PodPhase.DRAFTED, PodAttention.BUILD),
-            pod("setup", PodPhase.SETUP, PodAttention.NONE), pod("drafting", PodPhase.DRAFTING, PodAttention.NONE),
-            pod("submitted", PodPhase.DRAFTED, PodAttention.NONE))
+        fun pod(id: String, phase: PodPhase, attention: PodAttention, hour: Int, waiting: Int = 0) =
+            PodSummary(id, "Pod $id", phase, alice, listOf(alice, bob), attention, waiting, "2026-10-26T0$hour:00:00Z")
+        // Longest-waiting pick or build first, then the other pods newest first.
+        val pods = listOf(pod("pick", PodPhase.DRAFTING, PodAttention.YOUR_PICK, 1, 2), pod("build", PodPhase.DRAFTED, PodAttention.BUILD, 2),
+            pod("setup", PodPhase.SETUP, PodAttention.NONE, 5), pod("drafting", PodPhase.DRAFTING, PodAttention.NONE, 4),
+            pod("submitted", PodPhase.DRAFTED, PodAttention.NONE, 3))
         val statuses = listOf("Your pick · 2 packs", "Build your deck", "Setup", "Drafting", "Deck submitted")
         assertEquals(statuses, pods.map(::podStatus))
         var highlight = androidx.compose.ui.graphics.Color.Unspecified
@@ -207,10 +214,10 @@ class PodScreensTest {
             view = androidx.compose.ui.platform.LocalView.current
             highlight = androidx.compose.material3.MaterialTheme.colorScheme.primaryContainer
             plain = androidx.compose.material3.MaterialTheme.colorScheme.surface
-            PodsList(PodState(loaded = true, pods = pods), {}, { _, _ -> }, {})
+            PodsList(PodState(loaded = true, pods = pods.reversed()), {}, { _, _ -> }, {})
         } }
         val tops = statuses.map { compose.onNodeWithText(it).assertIsDisplayed().fetchSemanticsNode().boundsInRoot.top }
-        assertEquals(tops.sorted(), tops, "Rows keep the server's order, pods needing you first")
+        assertEquals(tops.sorted(), tops, "Rows follow the shared pod order, pods needing you first")
         val image = compose.runOnIdle {
             android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
                 .also { view.draw(android.graphics.Canvas(it)) }

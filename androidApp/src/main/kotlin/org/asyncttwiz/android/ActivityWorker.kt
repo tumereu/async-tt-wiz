@@ -108,7 +108,7 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         opened = true; jobs.cancelAllWorkByTag(WAITING_TAG) // Opening the app resets the waiting-check backoff.
         owner?.let { enqueue(it.binding) }
     }
-    /** The app went to the background or closed: check for games waiting for this account on [WaitingChecks]' schedule. */
+    /** The app went to the background or closed: check for games and pods waiting for this account on [WaitingChecks]' schedule. */
     fun background(): Unit = synchronized(lock) {
         opened = false
         val binding = owner?.binding ?: return
@@ -124,11 +124,11 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
                 .setConstraints(constraints()).addTag(TAG).addTag(WAITING_TAG).setInputData(input)
                 .setInitialDelay(WaitingChecks.offsetMinutes(WaitingChecks.OFFSETS_MINUTES.size), TimeUnit.MINUTES).build())
     }
-    /** Posts the shared game notification for each game now waiting for the account, unless one is showing
-     * or the player swiped it away while the game still waits on the same latest event. */
+    /** Posts the shared game or pod notification for each game or pod now waiting for the account, unless one is
+     * showing or the player swiped it away while it still waits on the same latest event (for pods: pick or build). */
     suspend fun checkWaiting(binding: String) {
         val expected = synchronized(lock) { owner?.takeIf { it.binding == binding && !opened } } ?: return
-        if (!notifications.allowed(ActivityKind.GAME)) return
+        if (!notifications.allowed(ActivityKind.GAME) && !notifications.allowed(ActivityKind.POD_YOUR_PICK)) return
         val stored = ProtectedSessionStore(context, BuildConfig.ACCOUNT_ORIGIN).load()
         val token = (stored as? StoredSession.Present)?.token ?: run { clear(binding); return }
         if (synchronized(lock) { owner != expected || ownerFingerprint != fingerprint(token) }) return
@@ -138,14 +138,18 @@ class AndroidActivityDelivery private constructor(private val context: Context) 
         } catch (failure: Exception) { AppLog.warn("activity", "Waiting-game check failed", failure); return }
         synchronized(lock) {
             if (owner != expected || opened) return
-            WaitingChecks.select(waiting.games, notifications.showingGames(expected)) {
+            val games = WaitingChecks.select(waiting.games, notifications.showingGames(expected)) {
                 WaitingDismissal.decode(preferences.getString("dismissed:$it", null))
-            }.forEach { notifications.post(expected, ActivityNotice(it.notificationKey(), it, silent = false)) }
+            }
+            val pods = WaitingChecks.selectPods(waiting.games, notifications.showingPods(expected)) {
+                WaitingDismissal.decode(preferences.getString("dismissed-pod:$it", null))
+            }
+            (games + pods).forEach { notifications.post(expected, ActivityNotice(it.notificationKey(), it, silent = false)) }
         }
     }
-    fun dismissed(binding: String, game: String, mark: WaitingDismissal): Unit = synchronized(lock) {
+    fun dismissed(binding: String, game: String, mark: WaitingDismissal, pod: Boolean = false): Unit = synchronized(lock) {
         if (owner?.binding != binding || !DeckValidation.uuid(game)) return
-        preferences.edit().putString("dismissed:$game", mark.encode()).apply()
+        preferences.edit().putString(if (pod) "dismissed-pod:$game" else "dismissed:$game", mark.encode()).apply()
     }
     fun accepts(account: String?, binding: String?) = synchronized(lock) { account != null && binding != null && owner == ActivityOwner(account, binding) }
     fun rejected(token: String) = synchronized(lock) { if (ownerFingerprint == fingerprint(token)) clear() }

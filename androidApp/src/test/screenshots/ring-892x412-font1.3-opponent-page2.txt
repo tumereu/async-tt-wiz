@@ -1,0 +1,1 @@
+892x412 landscape screen, text size 1.3x: card menu for the opponent's card in the top-left corner, on its Counters page.

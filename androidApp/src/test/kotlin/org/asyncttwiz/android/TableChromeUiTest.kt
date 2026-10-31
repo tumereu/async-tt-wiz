@@ -66,7 +66,10 @@ class TableChromeUiTest {
             if (who != turn && who == move) compose.onNodeWithContentDescription("No blocks + next").assertIsDisplayed()
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
             val output = File("$SCREENSHOTS/$prefix.png").also { it.parentFile!!.mkdirs() }
-            compose.onRoot().captureRoboImage(output.path)
+            val situation = "${if (landscape) "Landscape" else "Portrait"} table seen by player ${who.uppercase()}: " +
+                "player ${turn.uppercase()}'s turn, player ${move.uppercase()} to move, " +
+                "${if (who != turn && who == move) "declare blockers" else "untap"} step"
+            compose.onRoot().captureShot(output.path, "$situation, live play.")
             val pixels = ImageIO.read(output)
             val tint = tableBarColor(play.board, who).toArgb()
             assertEquals(tint, pixels.getRGB(2, 35))
@@ -101,7 +104,7 @@ class TableChromeUiTest {
             val transport = compose.onNodeWithContentDescription("Auto advance").fetchSemanticsNode().boundsInRoot
             if (visible) assertEquals(pixels.height - 4f, transport.bottom)
             val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
-            compose.onRoot().captureRoboImage(reviewOutput)
+            compose.onRoot().captureShot(reviewOutput, "$situation, after tapping Timeline mode: history at the latest event.")
             val reviewPixels = ImageIO.read(File(reviewOutput))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(2, 35))
             assertEquals(TimelineBarColor.toArgb(), reviewPixels.getRGB(reviewPixels.width - 2, 35))

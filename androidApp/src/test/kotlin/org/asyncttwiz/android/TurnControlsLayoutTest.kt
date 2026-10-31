@@ -30,13 +30,15 @@ class TurnControlsLayoutTest {
     @Test fun advanceLabelsFitAt412dp() = advance()
     @Test @Config(qualifiers = "w360dp-h800dp-port-mdpi") fun advanceLabelsFitAt360dp() = advance()
 
-    private fun assertFits(label: String): androidx.compose.ui.geometry.Rect {
-        val node = compose.onNodeWithText(label, useUnmergedTree = true).assertIsDisplayed()
+    private fun assertFits(label: String, maxLines: Int = 2, within: String? = null): androidx.compose.ui.geometry.Rect {
+        // Two squares read "End" (End of combat, End step): each label is found inside its own square.
+        val matcher = if (within == null) hasText(label) else hasText(label) and hasAnyAncestor(hasContentDescription(within))
+        val node = compose.onNode(matcher, useUnmergedTree = true).assertIsDisplayed()
         val results = mutableListOf<TextLayoutResult>()
         node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
         val text = results.single()
         assertFalse(text.hasVisualOverflow, "Clipped label: $label, size=${text.size}, paragraph=${text.multiParagraph.width}x${text.multiParagraph.height}")
-        assertTrue(text.lineCount <= 2, label)
+        assertTrue(text.lineCount <= maxLines, "$label: ${text.lineCount} lines")
         return node.fetchSemanticsNode().boundsInRoot
     }
 
@@ -46,15 +48,20 @@ class TurnControlsLayoutTest {
         compose.setContent { MaterialTheme {
             PhaseStepPicker(play, play.board.turn.accountId, Color.Blue, controller, {})
         } }
+        // TRN-008: every step square's short name sits on one line.
         for (step in TurnPosition.entries) {
-            val text = assertFits(stepLabel(step))
+            val text = assertFits(phaseSquareLabel(step), maxLines = 1, within = step.label)
             val square = compose.onNodeWithContentDescription(step.label).fetchSemanticsNode().boundsInRoot
             assertEquals(48f, square.width, .5f)
             assertTrue(text.left >= square.left && text.right <= square.right, step.label)
             assertTrue(text.top >= square.top && text.bottom <= square.bottom, step.label)
         }
+        assertEquals(listOf("Untap", "Upkeep", "Draw", "Main 1", "Begin", "Attackers", "Blockers", "Damage", "End", "Main 2", "End", "Cleanup"),
+            TurnPosition.entries.map(::phaseSquareLabel))
+        // The step button and step arrow keep their own names.
         assertEquals("Begin combat", stepLabel(TurnPosition.BEGIN_COMBAT))
         assertEquals("End combat", stepLabel(TurnPosition.END_COMBAT))
+        assertEquals("End step", stepLabel(TurnPosition.END_STEP))
     }
 
     private fun advance() {

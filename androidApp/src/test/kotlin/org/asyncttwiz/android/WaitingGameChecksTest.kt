@@ -76,4 +76,46 @@ class WaitingGameChecksTest {
         assertEquals("group", delete.savedIntent.getStringExtra("identity"))
         assertEquals(time, delete.savedIntent.getLongExtra("when", 0))
     }
+
+    private fun podHint(pod: String = "p", activity: Int = 4, kind: ActivityKind = ActivityKind.POD_YOUR_PICK, attempt: String = "attempt") =
+        ActivityHint(activity.toString(), kind, pod, attempt, resourceName = "Friday cube")
+
+    // LOB-076, DRF-136
+    @Test fun podsWaitingForYourPickOrBuildAreRemindedLikeGamesUnlessShowingOrSwipedForTheSameWait() {
+        val none: (String) -> WaitingDismissal? = { null }
+        val waiting = listOf(hint(), podHint(), podHint("q", 5, ActivityKind.POD_DRAFT_COMPLETE))
+        assertEquals(listOf("p", "q"), WaitingChecks.selectPods(waiting, emptySet(), none).map { it.gameId })
+        assertEquals(listOf("g"), WaitingChecks.select(waiting, emptySet(), none).map { it.gameId }, "Game checks ignore pods")
+        assertTrue(WaitingChecks.selectPods(listOf(podHint(kind = ActivityKind.POD_DECKS_READY),
+            podHint(kind = ActivityKind.POD_INVITATION)), emptySet(), none).isEmpty())
+        assertEquals(listOf("q"), WaitingChecks.selectPods(waiting, setOf("p"), none).map { it.gameId })
+        val marks = mapOf("p" to WaitingDismissal("attempt", 4))
+        assertEquals(listOf("q"), WaitingChecks.selectPods(waiting, emptySet(), marks::get).map { it.gameId })
+        // A new pick arriving at an empty queue, or the draft ending with a build to do, is something new.
+        assertEquals(listOf("p"), WaitingChecks.selectPods(listOf(podHint(activity = 7)), emptySet(), marks::get).map { it.gameId })
+        assertEquals(listOf("p"), WaitingChecks.selectPods(listOf(podHint(activity = 8, kind = ActivityKind.POD_DRAFT_COMPLETE)),
+            emptySet(), marks::get).map { it.gameId })
+        assertEquals(listOf("p"), WaitingChecks.selectPods(listOf(podHint(attempt = "redraft")), emptySet(), marks::get).map { it.gameId })
+    }
+
+    // LOB-076, DRF-136
+    @Test fun aPodPickNoticeRecordsItsSwipeAgainstThePickThatStartedTheWait() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        shadowOf(context as android.app.Application).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)
+        val owner = ActivityOwner("account", "binding")
+        val notifications = ActivityNotifications(context).also { it.channels() }
+        val waiting = podHint()
+        notifications.post(owner, ActivityNotice(waiting.notificationKey(), waiting, silent = false))
+        val shown = shadowOf(context.getSystemService(NotificationManager::class.java)).allNotifications.single()
+        assertEquals("Your pick — Friday cube", shown.extras.getString("android.title"))
+        assertEquals(setOf("p"), notifications.showingPods(owner))
+        assertTrue(notifications.showingGames(owner).isEmpty())
+        assertTrue(WaitingChecks.selectPods(listOf(waiting), notifications.showingPods(owner)) { null }.isEmpty())
+        val delete = shadowOf(shown.deleteIntent).savedIntent
+        assertEquals(ActivityDismissReceiver::class.java.name, delete.component?.className)
+        assertTrue(delete.getBooleanExtra("pod", false))
+        assertEquals("p", delete.getStringExtra("game"))
+        assertEquals("attempt", delete.getStringExtra("identity"))
+        assertEquals(4L, delete.getLongExtra("when", 0))
+    }
 }

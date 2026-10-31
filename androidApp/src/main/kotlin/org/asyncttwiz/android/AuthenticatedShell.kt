@@ -203,9 +203,11 @@ internal fun Navigation(controller: AuthController, close: Boolean, lobby: Lobby
             }
             if (!pods?.state?.pods.isNullOrEmpty()) {
                 Column {
+                    // DRF-015: the shared pod order (DRF-013); invitations are answered on the Pods screen.
+                    val podRows = orderedPods(pods?.state?.pods.orEmpty(), emptyList()).mapNotNull { it.pod }
                     val stackWidth = pods?.state?.pods.orEmpty().maxOfOrNull {
                         podNavigationAvatars(it.members, controller.state.account?.accountId).width } ?: 32.dp
-                    for (pod in pods?.state?.pods.orEmpty()) {
+                    for (pod in podRows) {
                         val selectedPod = controller.state.destination == ShellDestination.PODS && pods?.state?.selected == pod.id
                         Surface(Modifier.padding(start = 20.dp).fillMaxWidth().heightIn(min = 72.dp)
                             .testTag("navigation-pod-${pod.id}")

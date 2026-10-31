@@ -300,7 +300,7 @@ class ImportScreenTest {
     }
 
     // DRF-010
-    @Test fun savedCubeShowsListUnderEditWithRenameConfirmedDeleteAndDraftThisCube() {
+    @Test fun savedCubeShowsPicturesUnderEditWithRenameConfirmedDeleteAndDraftThisCube() {
         val worker = Worker()
         val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")))
         val digest = DeckJson.digest(card)
@@ -327,11 +327,13 @@ class ImportScreenTest {
         try {
             compose.setContent { ScreenTheme { CubeScreen(controller, null, draftCube = { drafted += it }) } }
             compose.onNodeWithText("Saved cube").assertIsDisplayed()
-            compose.onNodeWithText("3 Rune Bear").assertIsDisplayed()
+            val tile = "Rune Bear, 3 copies, Cube"
+            compose.onNodeWithTag("cube-view").performScrollToNode(hasContentDescription(tile))
+            val list = compose.onNodeWithContentDescription(tile).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+            compose.onNodeWithTag("cube-view").performScrollToIndex(0)
             val edit = compose.onNodeWithText("Edit").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            val list = compose.onNodeWithText("3 Rune Bear").fetchSemanticsNode().boundsInRoot
             val rename = compose.onNodeWithText("Rename").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue(edit.bottom <= rename.top && edit.bottom <= list.top, "Edit sits in the top bar above the list")
+            assertTrue(edit.bottom <= rename.top && edit.bottom <= list.top, "Edit sits in the top bar above the pictures")
 
             compose.onNodeWithText("Draft this cube").assertIsDisplayed().performClick()
             assertEquals(listOf(saved.cube.id), drafted)

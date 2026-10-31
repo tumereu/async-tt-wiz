@@ -8,6 +8,7 @@ VERSION_FILE=release/version.json
 
 branch=$(git symbolic-ref --quiet --short HEAD) || die "Check out a branch first; HEAD is detached."
 git diff --quiet HEAD -- "$VERSION_FILE" || die "$VERSION_FILE has uncommitted changes."
+scripts/review.sh check || die "The owner has not approved every catalog and screenshot change yet."
 
 # Append the next allocation in place so the file keeps its hand-written layout.
 read -r code name < <(python3 - "$VERSION_FILE" "${1:-}" <<'PY'

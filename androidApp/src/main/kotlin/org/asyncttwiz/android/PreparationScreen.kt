@@ -116,14 +116,14 @@ internal fun PreparationScreen(controller: LobbyController, actor: String, lands
     DeckCardInspection(controller.inspection)
 }
 
-/** One section of the visual deck shared by game preparation and saved-deck viewing: a coloured "Mainboard · 60" header,
- * optional [basics] steppers, then type groups of card tiles [columns] wide drawn by [tile]. */
+/** One section of the visual deck shared by game preparation, saved-deck and saved-cube viewing: a coloured "Mainboard · 60"
+ * [header] (a cube has no sections), optional [basics] steppers, then type groups of card tiles [columns] wide drawn by [tile]. */
 internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
-    basics: (@Composable () -> Unit)? = null, tile: @Composable (PreparationTile) -> Unit) {
+    basics: (@Composable () -> Unit)? = null, header: Boolean = true, tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
     val color = source.preparationColor()
     if (source == SavedDeckSection.SIDEBOARD) item("gap-$source") { Spacer(Modifier.height(16.dp)) }
-    item("header-$source") {
+    if (header) item("header-$source") {
         Surface(Modifier.fillMaxWidth().animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
             color = color.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer)) {
             Text("$title · $count", Modifier.padding(horizontal = PreparationGutter, vertical = 10.dp)

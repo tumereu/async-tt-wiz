@@ -14,7 +14,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
-import com.github.takahirom.roborazzi.captureRoboImage
 import org.asyncttwiz.protocol.HistoryIcon
 import org.junit.Rule
 import org.junit.Test
@@ -69,7 +68,8 @@ class DirectionIconsScreenshotTest {
         }
         val output = File("$SCREENSHOTS/history/direction-icons.png")
         output.parentFile!!.mkdirs()
-        compose.onNodeWithTag("capture").captureRoboImage(output.path)
+        compose.onNodeWithTag("capture").captureShot(output.path,
+            "Reference sheet of the life, counter, P/T, damage, step, turn and closing history icons, each with a sample history text.")
         val image = ImageIO.read(output)
         assertTrue(image.width > 0 && image.height > 0)
     }

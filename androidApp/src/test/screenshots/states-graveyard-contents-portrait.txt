@@ -1,0 +1,1 @@
+Portrait table after double-tapping your three-card graveyard: its panel lists the cards grouped by type.

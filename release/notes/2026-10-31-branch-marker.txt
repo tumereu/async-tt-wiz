@@ -1,0 +1,1 @@
+mod: The timeline marks a branch in the gap where it splits off, with a small arrow; holding Auto to branch shows the coming split the same way.

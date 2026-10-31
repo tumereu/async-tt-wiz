@@ -305,7 +305,7 @@ class PodHttpTest {
     }
 
     // DRF-013
-    @Test fun `pod list puts pods needing you first ahead of newer ones`() = fixture { f ->
+    @Test fun `pod list puts pods needing you first longest waiting first then the rest newest first`() = fixture { f ->
         val settings = DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0)
         fun pod(): String = f.create(DraftMode.GLIMPSE).id.also { f.join(it); f.configure(it, settings) }
         val build = pod(); f.start(build); f.finish(build, listOf(f.a, f.b))
@@ -314,12 +314,41 @@ class PodHttpTest {
         val setup = pod()
         val listed = f.list(f.a).pods
         assertEquals(listOf(pick, build, setup, waiting).toSet(), listed.map { it.id }.toSet())
-        assertEquals(listOf(PodAttention.YOUR_PICK, PodAttention.BUILD), listed.take(2).map { it.attention })
-        assertEquals(listOf(pick, build), listed.take(2).map { it.id })
-        assertEquals(1, listed.first().packsWaiting)
+        // Your pick and your build are one group, the longest waiting (the older build) first.
+        assertEquals(listOf(PodAttention.BUILD, PodAttention.YOUR_PICK), listed.take(2).map { it.attention })
+        assertEquals(listOf(build, pick), listed.take(2).map { it.id })
+        assertEquals(1, listed[1].packsWaiting)
         // Pods not needing A follow, newest change first.
         assertEquals(listOf(setup, waiting), listed.drop(2).map { it.id })
         assertTrue(listed.drop(2).all { it.attention == PodAttention.NONE })
+    }
+
+    // LOB-076, DRF-136
+    @Test fun `waiting list holds pods waiting for your pick or build until you act`() = fixture { f ->
+        fun waiting(who: SessionCreated): List<ActivityHint> {
+            val response = f.request(who, "GET", "/activity/waiting")
+            assertEquals(200, response.statusCode(), response.body())
+            return ActivityWire.json.decodeFromString<WaitingGames>(response.body()).games
+        }
+        val pod = f.create(DraftMode.GLIMPSE).id; f.join(pod)
+        f.configure(pod, DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0))
+        assertTrue(waiting(f.a).isEmpty(), "Setup waits for nobody's pick")
+        val attempt = f.start(pod).draftAttemptId
+        for (who in listOf(f.a, f.b)) {
+            val hint = waiting(who).single()
+            assertEquals(ActivityKind.POD_YOUR_PICK, hint.kind); assertEquals(pod, hint.gameId)
+            assertEquals(attempt, hint.identity); assertEquals("Fixture pod", hint.resourceName)
+            assertEquals(f.activity(who, "0").entries.single { it.kind == ActivityKind.POD_YOUR_PICK }.activityId, hint.activityId)
+        }
+        f.pick(f.a, pod)
+        assertTrue(waiting(f.a).none { it.kind == ActivityKind.POD_YOUR_PICK }, "Picked; B's pack has not reached A yet")
+        f.finish(pod, listOf(f.a, f.b))
+        for (who in listOf(f.a, f.b)) assertEquals(ActivityKind.POD_DRAFT_COMPLETE, waiting(who).single().kind)
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt!!, PodDeckBasics(plains = 40)))
+        f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+        assertTrue(waiting(f.a).isEmpty(), "Submitted: the build no longer waits")
+        assertEquals(1, waiting(f.b).size)
+        assertTrue(waiting(f.c).isEmpty(), "Never another account's pods")
     }
 
     // DRF-105

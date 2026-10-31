@@ -1,0 +1,1 @@
+Portrait game lobby with the deck picker open on three saved decks, the first selected.

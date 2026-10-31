@@ -98,7 +98,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-068** A tap outside the menu closes it and still goes through to the table (double taps and drags work); only buttons and chips count as inside, gaps do not. Back also closes it. (r11)
 - **TBL-069** A press that starts within 280 ms of the menu opening does nothing, so a fast second tap cannot hit a button by accident. (?) (r8)
 - **TBL-070** Menu buttons are always shown and greyed out when they don't apply; a button only changes when it has a twin for the card's state (Face down ↔ Face up, Hand ↔ Remove token, Declare ↔ Attack →). (r28)
-- **TBL-071** Each kind of card has one fixed layout: battlefield and Stack cards have three pages (Everyday, Counters, More); combat copies and hand cards have one page each. Stack entries have no card menu; Manage Stack holds their actions (STK-019). (r35)
+- **TBL-071** Each kind of card has one fixed layout: battlefield cards have three pages (Everyday, Counters, More); combat copies and hand cards have one page each. Stack entries have no card menu: tapping one shows its Stack bubbles (STK-010), and Manage Stack holds their other actions (STK-019). (r35)
 - **TBL-072** Menus offer the same actions on your opponent's cards as on yours; moves always go to the card owner's zones and labels show no player names. (r30)
 
 ### Everyday page
@@ -106,7 +106,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-073** Everyday holds, in order: Inspect, Note, P/T, Stack, Declare, Face down/up, Switch face, Graveyard, Exile, Clone, Ping, Hand, Library top, Library bottom, Shuffle into library, EOT P/T, Battlefield. (r34)
 - **TBL-074** "Stack" puts the card on the Stack; "Declare" declares it in combat without tapping it, and becomes "Attack →" once the card is a declared attacker. (r28)
 - **TBL-075** On tokens, Hand becomes "Remove token", and Library top, Library bottom and Shuffle into library remove the token. (r28)
-- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. (r13)
+- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
 - **TBL-077** Clone makes a token copy of the card; a non-land copy appears in the main row. (r30)
 
 ### Counters page
@@ -135,7 +135,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 ### Card state rules
 
 - **TBL-093** A card leaving the battlefield loses its notes, P/T changes, counters, links and owner changes, turns to its front face and untaps; face-down survives only a move to exile. (r13)
-- **TBL-094** Buttons that change a card are greyed out outside the battlefield, except that notes, damage and the until-end-of-turn marks (EOT P/T, EOT note, EOT keywords) also work on a card on the Stack; Stack and combat copies can have their own notes and pings. (r35)
+- **TBL-094** Buttons that change a card are greyed out outside the battlefield. Stack entries and combat copies can have their own notes and pings; combat copies also set damage and the until-end-of-turn marks on the real card (CMB-003). (r35)
 - **TBL-095** Damage, until-end-of-turn P/T and until-end-of-turn notes clear from every card when the turn passes and when a card changes zone; moving between battlefields keeps them. (r16)
 - **TBL-096** On hidden cards the menu shows "—" instead of values, but notes, damage and marks can still be edited without seeing them. (r30)
 - **TBL-097** The owner is whose deck the card came from; the controller is whichever battlefield it is on; only the Owner button on tokens changes the owner. (r5)

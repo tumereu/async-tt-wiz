@@ -130,15 +130,28 @@ class QuickContinueTest {
     }
 
     // DRF-014, LOB-017
-    @Test fun podInvitationsRankLastOnlyFillFreeSlotsAndEmptyPanelHasNoEntries() {
+    @Test fun podInvitationsFollowYourPicksAndBuildsAheadOfOtherPodsAndEmptyPanelHasNoEntries() {
         val invitations = listOf(invitation("invite-old", 0), invitation("invite-new", 23))
         val pods = listOf(pod("active", 10), pod("pick", 20, PodAttention.YOUR_PICK))
-        assertEquals(listOf("pick", "active", "invite-new"), quickContinuePods(pods, invitations).map { it.id })
-        assertEquals(listOf("pick", "active", "other"),
-            quickContinuePods(pods + pod("other", 1), invitations).map { it.id })
+        assertEquals(listOf("pick", "invite-new", "invite-old"), quickContinuePods(pods, invitations).map { it.id })
+        assertEquals(listOf("active", "other"), quickContinuePods(listOf(pods[0], pod("other", 1)), emptyList()).map { it.id })
         assertTrue(quickContinuePods(emptyList(), emptyList()).isEmpty())
         assertEquals(listOf("active"), quickContinuePods(listOf(pods[0]), listOf(invitation("active", 23))).map { it.id })
         assertNotNull(quickContinuePods(emptyList(), invitations).first().invitation)
+    }
+
+    // DRF-012, DRF-013, DRF-015, LOB-022
+    @Test fun sharedPodOrderIsYourPicksAndBuildsLongestWaitingThenInvitationsNewestThenTheRestNewest() {
+        val pods = listOf(pod("pick-new", 9, PodAttention.YOUR_PICK), pod("build-old", 2, PodAttention.BUILD, PodPhase.DRAFTED),
+            pod("setup-new", 8, phase = PodPhase.SETUP), pod("drafting-old", 3), pod("submitted", 5, phase = PodPhase.DRAFTED))
+        val invitations = listOf(invitation("invite-old", 1), invitation("invite-new", 7))
+        val expected = listOf("build-old", "pick-new", "invite-new", "invite-old", "setup-new", "submitted", "drafting-old")
+        assertEquals(expected, orderedPods(pods.shuffled(java.util.Random(3)), invitations.reversed()).map { it.id })
+        assertEquals(listOf(PodOrderGroup.YOURS, PodOrderGroup.YOURS, PodOrderGroup.INVITATION, PodOrderGroup.INVITATION,
+            PodOrderGroup.OTHER, PodOrderGroup.OTHER, PodOrderGroup.OTHER), orderedPods(pods, invitations).map(::podOrderGroup))
+        // The same pod listed twice, or invited to while already a member, appears once as a pod.
+        assertEquals(listOf("pick-new"), orderedPods(listOf(pods[0], pods[0]), listOf(invitation("pick-new", 1))).map { it.id })
+        assertNotNull(orderedPods(listOf(pods[0]), listOf(invitation("pick-new", 1))).single().pod)
     }
 
     @Test fun podTimestampsUseInstantsAndStableIdentityTies() {

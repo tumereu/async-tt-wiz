@@ -1,0 +1,1 @@
+Portrait game lobby with the Cancel game confirmation, with Keep game and Cancel game.

@@ -1,0 +1,1 @@
+Change highlight layer alone on white for an attacking card's ability effect on the Stack: text mark added played backwards, mid-animation.

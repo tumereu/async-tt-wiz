@@ -65,7 +65,8 @@ class ActivityNotifications(private val context: Context, private val podName: (
             .setContentText(gameText?.text)
             .apply { gameText?.let { setWhen(it.whenMillis); setShowWhen(true) } }
             .setContentIntent(pending).setAutoCancel(true).setOnlyAlertOnce(notice.silent)
-            .apply { if (notice.hint.kind == ActivityKind.GAME) setDeleteIntent(dismissal(owner, notice, gameText)) }
+            .apply { if (notice.hint.kind == ActivityKind.GAME || notice.hint.kind in WaitingChecks.POD_KINDS)
+                setDeleteIntent(dismissal(owner, notice, gameText)) }
             // Platform Notification.Builder has no setSilent. A child-only group
             // with summary-only alerts also silences an extension after dismissal.
             .setGroup("activity:${owner.binding}:${notice.key}")
@@ -73,19 +74,21 @@ class ActivityNotifications(private val context: Context, private val podName: (
             .setVisibility(Notification.VISIBILITY_PRIVATE).build()
         manager.notify("activity:${owner.binding}:${notice.key}", 1, notification)
     }
-    /** Swiping a game notice away (any source) is remembered against its latest event; see [WaitingChecks]. */
-    private fun dismissal(owner: ActivityOwner, notice: ActivityNotice, text: GameNotificationText?): PendingIntent =
-        PendingIntent.getBroadcast(context, 0, Intent(context, ActivityDismissReceiver::class.java)
+    /** Swiping a game or pod pick/build notice away (any source) is remembered against its latest event; see [WaitingChecks]. */
+    private fun dismissal(owner: ActivityOwner, notice: ActivityNotice, text: GameNotificationText?): PendingIntent {
+        val pod = notice.hint.kind in WaitingChecks.POD_KINDS
+        return PendingIntent.getBroadcast(context, 0, Intent(context, ActivityDismissReceiver::class.java)
             .setData(android.net.Uri.parse("atw-dismiss://${owner.binding}/${notice.key}"))
             .putExtra("binding", owner.binding).putExtra("game", notice.hint.gameId).putExtra("identity", notice.hint.identity)
-            .putExtra("when", text?.whenMillis ?: Long.MAX_VALUE),
+            .putExtra("pod", pod).putExtra("when", if (pod) WaitingChecks.podMark(notice.hint) else text?.whenMillis ?: Long.MAX_VALUE),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-    /** Game IDs whose notification (push, feed or fallback; same tag) is showing now. */
-    fun showingGames(owner: ActivityOwner): Set<String> {
-        val prefix = "activity:${owner.binding}:game:"
-        return runCatching { manager.activeNotifications }.getOrNull().orEmpty()
-            .mapNotNull { it.tag?.takeIf { tag -> tag.startsWith(prefix) }?.removePrefix(prefix) }.toSet()
     }
+    /** Game IDs whose notification (push, feed or fallback; same tag) is showing now. */
+    fun showingGames(owner: ActivityOwner): Set<String> = showing("activity:${owner.binding}:game:")
+    /** Pod IDs whose pod notification (feed or fallback; same tag) is showing now. */
+    fun showingPods(owner: ActivityOwner): Set<String> = showing("activity:${owner.binding}:pod:")
+    private fun showing(prefix: String): Set<String> = runCatching { manager.activeNotifications }.getOrNull().orEmpty()
+        .mapNotNull { it.tag?.takeIf { tag -> tag.startsWith(prefix) }?.removePrefix(prefix) }.toSet()
     /** Clears notifications for what the app now shows; pod invitations are found among active ones. */
     fun cancelShown(owner: ActivityOwner, screen: ActivityScreen) {
         val prefix = "activity:${owner.binding}:"

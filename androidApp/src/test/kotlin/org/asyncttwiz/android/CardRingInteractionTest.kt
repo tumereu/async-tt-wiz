@@ -3,6 +3,9 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
@@ -124,8 +127,8 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
         compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
         compose.onNodeWithContentDescription("Attack →").assertIsEnabled()
-        // No card-modifying controls on a projection: those live on the real card.
-        for (name in listOf("Set corner", "Declare without tapping", "Set damage", "Clone", "Stack"))
+        // No battlefield controls on a projection: those live on the real card (damage and EOT marks are the exception, CMB-003).
+        for (name in listOf("Set corner", "Declare without tapping", "Set blue counter", "Clone", "Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
         compose.ringClick("Edit card note")
         compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
@@ -138,6 +141,32 @@ class CardRingInteractionTest {
         compose.runOnIdle {
             assertEquals(PingTarget(PingTargetKind.OCCURRENCE, id), assertIs<PlayAction.Ping>(sent.last()).target)
         }
+    }
+
+    // CMB-003, TBL-094
+    @Test fun combatCopyMarksChangeEverySelectedRealCard() {
+        val sentinel = f.source(f.a, "1/3").id
+        val river = f.source(f.a, "1/2").id
+        val play = f.combat()
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true },
+            playBatch = { actions, _ -> batches += actions.toList(); sent += actions; true })
+        toolkit.openCard(TableScope(f.id("attacker1"), listOf(f.id("attacker1"), f.id("attacker2"))))
+        compose.setContent { MaterialTheme {
+            TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
+        } }
+        compose.waitForIdle()
+        for (name in listOf("Set damage", "Set EOT P/T", "Edit EOT note", "Edit EOT keywords")) compose.onNodeWithContentDescription(name).assertIsEnabled()
+        compose.ringClick("Increase damage")
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustDamage(sentinel, "1"), PlayAction.AdjustDamage(river, "1")), batches.last()) }
+        compose.ringClick("Increase EOT P/T")
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustEotCorner(sentinel, CornerPart.BOTH, 1),
+            PlayAction.AdjustEotCorner(river, CornerPart.BOTH, 1)), batches.last()) }
+        compose.ringClick("Edit EOT note")
+        compose.onNode(hasSetTextAction()).performTextReplacement("+2/+0")
+        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetEotNote(sentinel, "+2/+0"), PlayAction.SetEotNote(river, "+2/+0")), batches.last()) }
+        // The copy's own note stays separate from the real card's marks (CMB-005).
+        assertTrue(sent.none { it is PlayAction.SetProjectionNote || it is PlayAction.SetNote })
     }
 
     private fun zoneEnablement(zone: PlayZone) {
@@ -159,9 +188,17 @@ class CardRingInteractionTest {
             enabled(name, zone == PlayZone.BATTLEFIELD)
         enabled("Stack", zone != PlayZone.STACK)
         compose.onNodeWithContentDescription("Declare + tap").assertDoesNotExist()
+        // TBL-094: damage and the EOT marks are battlefield-only; a Stack card no longer offers them.
+        enabled("Set EOT P/T", zone == PlayZone.BATTLEFIELD)
+        enabled("Increase EOT P/T", zone == PlayZone.BATTLEFIELD)
         compose.ringPage(2)
         enabled("Set blue counter", zone == PlayZone.BATTLEFIELD)
         enabled("Increase blue counter", zone == PlayZone.BATTLEFIELD)
+        enabled("Edit EOT note", zone == PlayZone.BATTLEFIELD)
+        compose.ringPage(3)
+        enabled("Set damage", zone == PlayZone.BATTLEFIELD)
+        enabled("Increase damage", zone == PlayZone.BATTLEFIELD)
+        enabled("Edit EOT keywords", zone == PlayZone.BATTLEFIELD)
     }
 
     // TBL-084
@@ -436,5 +473,44 @@ class CardRingInteractionTest {
         }
         compose.ringPage(3)
         compose.onNodeWithContentDescription("Inspect other side").assertIsNotEnabled()
+    }
+
+    // TBL-076, TBL-021: Switch face also shows the new face's printed corner.
+    @Test fun switchFaceShowsTheNewFacesPrintedCorner() {
+        val source = f.source(f.a, "1/3")
+        val start = f.combat()
+        val old = start.definitions.single { it.digest == source.definition }.definition
+        val front = old.faces.single { it.faceId == source.faceId }
+        val night = DefinitionFace(f.id("night"), "Night Form", listOf(front.faceId), typeLine = "Creature — Werewolf",
+            power = "4", toughness = "5")
+        val definition = old.copy(faces = listOf(front.copy(otherFaceIds = listOf(night.faceId)), night))
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        var play by mutableStateOf(start.copy(definitions = start.definitions + submitted,
+            board = start.board.copy(cards = start.board.cards.map {
+                if (it.id == source.id) it.copy(definition = submitted.digest, corner = "3/3") else it })))
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ ->
+            sent += action
+            // The shared engine is the app's prediction path.
+            val change = GameplayRules.change(play, f.a, GameCommand(java.util.UUID.randomUUID().toString(),
+                GameScope(play.gameId, playId = play.id), GameAction.Play(action), f.id("client"), "1"))
+            play = assertNotNull(change.state, change.reason); true
+        })
+        compose.setContent {
+            MaterialTheme {
+                TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
+            }
+        }
+        // The table draws each card's corner from its scene item.
+        fun shown() = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false, toolkit.layoutState.value).items
+            .single { it.cardId == source.id && !it.projection }
+        assertEquals("3/3", shown().corner)
+        assertTrue(shown().changedPowerToughness)
+        compose.runOnIdle { toolkit.openCard(TableScope(source.id, listOf(source.id))) }
+        compose.waitForIdle()
+        compose.ringPage(1)
+        compose.ringClick("Switch face")
+        assertEquals(listOf<PlayAction>(PlayAction.SetFace(source.id, night.faceId)), sent)
+        assertEquals("4/5", shown().corner)
+        assertFalse(shown().changedPowerToughness, "The printed value is not shown as changed")
     }
 }

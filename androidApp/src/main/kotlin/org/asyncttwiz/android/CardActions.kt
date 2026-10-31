@@ -45,6 +45,18 @@ internal fun resetCardCounters(state: PlayState, scope: ManualScope): List<PlayA
             PlayAction.ClearCardCounter(card.id, color) else null
     } }
 
+/** The combat layout's damage and EOT cells for a copy whose real card left play: shown, greyed out (CMB-003). */
+internal fun leftPlayMarkEntries(): List<RingEntry> {
+    fun off(name: String) = MenuControl(name, false) {}
+    return listOf(
+        RingEntry("damage", "Damage", MenuControl("Set damage", false, color = Color(0xffb3261e)) {},
+            RingCompound("—", off("Decrease damage"), off("Increase damage"))),
+        RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", false, color = Color(EotPowerToughnessColor)) {},
+            RingCompound("—", off("Decrease EOT P/T"), off("Increase EOT P/T"), corner = true)),
+        RingEntry("eotNote", "EOT note", off("Edit EOT note")),
+        RingEntry("eotKeywords", "EOT keywords", off("Edit EOT keywords")))
+}
+
 /** Captures no board snapshot: every composition reads the provided current accepted/predicted state. */
 @Composable
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
@@ -93,9 +105,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
     fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, battlefield && requests.isNotEmpty()) { emit(requests) }
-    val marksEnabled = enabled && !projection && zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)
+    // Damage and the EOT marks change battlefield cards only; a combat copy sets them on its real card (CMB-003).
+    val marksEnabled = enabled && zone == PlayZone.BATTLEFIELD
     fun markActions(factory: (PlayCard) -> PlayAction?) = scope.cardActions(state) { target ->
-        if (state.board.containers.any { it.id == target.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) }) factory(target) else null
+        if (state.board.containers.any { it.id == target.containerId && it.zone == PlayZone.BATTLEFIELD }) factory(target) else null
     }
     fun markAdjustment(name: String, requests: List<PlayAction>) = MenuControl(name, marksEnabled && requests.isNotEmpty()) { emit(requests) }
     fun damage(delta: Long) = markActions {
@@ -119,7 +132,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     })
     // Keywords follow the note gates; a note with any non-keyword text disables its toggles. The toggles would show
     // a hidden card's note, so that card offers the blind note editor instead.
-    fun keywordsParseable(eot: Boolean) = CardKeywords.state(scope.keywordCards(state).map { CardKeywords.note(it, eot) }) != null
+    fun keywordsParseable(eot: Boolean) = CardKeywords.state(scope.keywordCards(state, eot).map { CardKeywords.note(it, eot) }) != null
     add("keywords", "Keywords", MenuControl("Edit keywords",
         enabled && !hidden && cardModificationEnabled(zone, note = true) && keywordsParseable(false)) { actions.keywords(false, state) })
     add("eotKeywords", "EOT keywords", MenuControl("Edit EOT keywords", marksEnabled && !hidden && keywordsParseable(true)) {

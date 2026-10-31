@@ -30,9 +30,10 @@ internal object CardRingPages {
             "keywords", "eotKeywords") + tempPiles + listOf("Deal to target", "Deal to target or creatures",
             // Round 34: rarely needed, so last on More rather than on Everyday.
             "damage")))
-    /** Attacker/blocker copies in the combat area: combat-only, nothing that modifies the real card. */
+    /** Attacker/blocker copies in the combat area: combat controls, plus damage/EOT marks and moves of the real card (CMB-003). */
     val combat = listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat",
-        "Graveyard", "Exile", "Hand", "Deal to target", "Deal to target or creatures", "Link", "Links")))
+        "Graveyard", "Exile", "Hand", "damage", "eotCorner", "eotNote", "eotKeywords",
+        "Deal to target", "Deal to target or creatures", "Link", "Links")))
     val hand = listOf(CardRingPage("Hand", listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile") +
         libraryMoves + tempPiles + listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
     /** Search, look, reveal, graveyard, exile and Temp contents. */

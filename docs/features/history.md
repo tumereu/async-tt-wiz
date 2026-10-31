@@ -8,7 +8,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-002** The strip can be panned by hand to look back; it snaps back to the newest event whenever a new event arrives, with no idle-time snap-back. Panning never changes the board. (r17)
 - **HIS-003** Tapping an event on the strip shows its text in a small dark popup that fades after about 1.6 s; holding keeps it shown. No ripple on the strip. (r17)
 - **HIS-004** A history icon button at the end of the strip enters timeline mode; Table actions has a "Timeline" entry that does the same. Both open timeline mode paused at the newest event. (r17)
-- **HIS-005** Each event is a 20 dp icon at a 24 dp pitch, coloured by who made it (your teal, the opponent's red, system grey). A faint vertical line separates event groups, and a small fork line marks events that have other branches. (r6)
+- **HIS-005** Each event is a 20 dp icon at a 24 dp pitch, coloured by who made it (your teal, the opponent's red, system grey). A faint vertical line separates event groups. Where another branch splits off, a branch marker sits in the gap between the two events: a short line rising from the strip and turning right, ending in a small triangle arrowhead. (r35)
 
 ### Timeline mode
 
@@ -51,7 +51,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 ### Branches and rewind
 
-- **HIS-036** In timeline mode at a past point, holding Auto arms a continuation at once, with no dialog; it is the only way to branch (the top bar has no branch button). (r35)
+- **HIS-036** In timeline mode at a past point, holding Auto arms a continuation at once, with no dialog; it is the only way to branch (the top bar has no branch button). While armed, the strip shows the coming split with the branch marker (HIS-005) in the gap after the current event. (r35)
 - **HIS-037** While a continuation is armed, a fork icon shows in the top bar; tapping it cancels. The next action starts a new branch from that point and the old future is kept. No continuation is offered at the newest event. (r6)
 - **HIS-038** If the opponent continued from an earlier point (on opening, on returning, or live while you watch), the table switches to timeline mode paused where you were, with an orange "Opponent branched" chip and the Auto button showing Rewind. (r33)
 - **HIS-039** While "Opponent branched" is pending, Previous/Next and the strip are locked and holding Auto does not branch: you choose when the rewind starts and must watch it. During the rewind the settings and tree buttons are disabled too. (r31)

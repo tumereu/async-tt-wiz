@@ -84,6 +84,9 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     val state = controller.state
     BackHandler { controller.back() }
     if (state.editing) { CubeImportScreen(controller, navigation, landscape); return }
+    val columns = rememberDeckViewColumns(DeckViewScreen.CUBE)
+    var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
+    val previewScroll = rememberScrollState()
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             ScreenHeader("Saved cube", navigation) {
@@ -93,11 +96,17 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
             }
             InitialLoadArea(state.detail != null, Modifier.weight(1f), state.error != null, controller::retry, loading = state.busy) {
                 val detail = state.detail
-                if (detail != null) LazyColumn(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
-                            Text("${detail.saved.cube.totalCopies} total copies")
+                // DRF-010, LOB-056: the saved deck's read-only picture view; tap inspects, hold previews.
+                if (detail != null) LazyColumn(Modifier.fillMaxSize().testTag("cube-view"), contentPadding = PaddingValues(bottom = 16.dp)) {
+                    item("cube-header") {
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
+                                    Text("${detail.saved.cube.totalCopies} total copies")
+                                }
+                                DeckViewColumnsControl(columns)
+                            }
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 ScreenOutlinedButton(onClick = { controller.dialog(CubeDialog.RENAME) }) {
                                     EntryIcon(null, "rename"); Spacer(Modifier.width(6.dp)); Text("Rename")
@@ -110,16 +119,28 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                             }
                         }
                     }
-                    // Main only until the saved list view shows Maybe.
-                    items(detail.saved.entries.filter { it.section == SavedDeckSection.MAINBOARD }, key = { it.definition }) { entry ->
-                        Text("${entry.quantity} ${detail.definitions.getValue(entry.definition).name}")
-                        HorizontalDivider()
+                    visualDeckSection(SavedDeckSection.MAINBOARD, detail.saved.cube.totalCopies,
+                        preparationGroups(detail.saved, detail.definitions), columns.count, header = false) { tile ->
+                        val key = "cube/${tile.digest}"
+                        VisualDeckCard(tile, key, "Cube", { controller.inspect(tile.digest) }, onHold = { open ->
+                            if (open) {
+                                previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
+                                held = key to tile
+                            } else if (held?.first == key) held = null
+                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
                     }
                 }
             }
         }
         if (state.dialog == null) FloatingTransientError(state.error, controller::dismissError, Modifier.align(Alignment.BottomCenter))
     }
+    held?.second?.let { tile ->
+        val card = remember(tile.digest, tile.definition) {
+            tile.definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(tile.digest, it) }
+        }
+        PodCardArtPreview(card, tile.name, previewScroll)
+    }
+    DeckCardInspection(controller.inspection)
     if (state.dialog != null) {
         val deleting = state.dialog == CubeDialog.DELETE
         ScreenDialog(controller::dismiss, error = state.error, dismissError = controller::dismissError,

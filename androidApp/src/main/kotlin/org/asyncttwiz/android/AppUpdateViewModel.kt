@@ -13,6 +13,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.asyncttwiz.storage.evictConnectionsInBackground
 
 class AppUpdateViewModel(application: Application) : AndroidViewModel(application) {
     private val preferences = application.getSharedPreferences("app-update", 0)
@@ -146,6 +147,6 @@ class AppUpdateViewModel(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         client.dispatcher.cancelAll()
         worker.shutdownNow()
-        client.connectionPool.evictAll()
+        client.evictConnectionsInBackground()
     }
 }

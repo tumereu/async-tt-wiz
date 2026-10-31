@@ -1,0 +1,1 @@
+Portrait table mid-game with a floating error message about a refused undo, shown above the table controls.

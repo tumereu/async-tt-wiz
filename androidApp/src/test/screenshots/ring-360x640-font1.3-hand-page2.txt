@@ -1,0 +1,1 @@
+360x640 portrait screen, text size 1.3x: card menu for your card in the bottom-right corner, on its Counters page.

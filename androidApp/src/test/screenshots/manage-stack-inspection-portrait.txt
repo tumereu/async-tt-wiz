@@ -1,0 +1,1 @@
+Manage Stack dialog in combat with two entries, holding the top row: its card peek opens above the dialog.

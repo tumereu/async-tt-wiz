@@ -65,6 +65,16 @@ class HistoryTimelineTest {
         assertTrue(historyIconGlyph(events.last().icon).isNotBlank())
     }
 
+    // HIS-005, HIS-036
+    @Test fun branchSplitsAfterTheSharedEventOrTheArmedPointInTheGapCentre() {
+        val plain = HistoryTimelineEvent("a", HistoryIcon.FLAG, "", null, null)
+        assertFalse(HistoryTimelineLayout.splitsAfter(plain, null))
+        assertTrue(HistoryTimelineLayout.splitsAfter(plain.copy(alternatives = 2), null))
+        assertTrue(HistoryTimelineLayout.splitsAfter(plain, "a"))
+        assertFalse(HistoryTimelineLayout.splitsAfter(plain, "b"))
+        assertEquals(112f, HistoryTimelineLayout.splitGapX(100f, 24f))
+    }
+
     // HIS-079
     @Test fun pingUniformSelectionOrderExplicitUnpingAndModeLifetime() {
         val reference = EventReference(id(1), id(2))

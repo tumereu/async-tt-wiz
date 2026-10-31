@@ -63,6 +63,14 @@ object ManualDisclosure {
 
 /** Called only through GameplayRules, after its scope/access/wire checks. No second authoritative path. */
 object ManualEditRules {
+    /** Rules v35: switching a face-up card's face also sets its corner to the new face's printed value
+     * ([faceCornerResets]). Events recorded under older rules keep the face-only change. */
+    const val FACE_CORNER_RULES_VERSION = 35
+
+    /** A face-down card keeps its corner (the public face-down value on the Battlefield, see [FaceDownCorner]). */
+    internal fun faceCornerResets(card: PlayCard, faceId: String, rulesVersion: Int): Boolean =
+        rulesVersion >= FACE_CORNER_RULES_VERSION && card.faceId != faceId && !card.isFaceDown
+
     fun valid(action: PlayAction.Manual): Boolean = when (action) {
         is PlayAction.SetDamage -> DeckValidation.uuid(action.cardId) && DeckValidation.text(action.value.trim()) &&
             (action.value.isBlank() || TableActions.numeric(action.value.trim()))
@@ -84,7 +92,8 @@ object ManualEditRules {
         is PlayAction.InspectFace -> listOf(action.cardId, action.faceId, action.containerId).all(DeckValidation::uuid)
     }
 
-    internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction.Manual): GameplayChange {
+    internal fun change(state: PlayState, actor: String, command: GameCommand, action: PlayAction.Manual,
+        rulesVersion: Int = CURRENT_GAMEPLAY_RULES_VERSION): GameplayChange {
         if (action is PlayAction.SetProjectionNote) {
             val board = state.board
             val id = action.occurrenceId
@@ -95,14 +104,15 @@ object ManualEditRules {
                 combat = board.combat?.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
                     attackers = pair.attackers.map { if (it.id == id) it.copy(note = value) else it },
                     blockers = pair.blockers.map { if (it.id == id) it.copy(note = value) else it }) }) })
-            return GameplayRules.record(state, actor, command, next, GameplayTransition())
+            return GameplayRules.record(state, actor, command, next, GameplayTransition(), rulesVersion = rulesVersion)
         }
-        val transition = transition(state, actor, action) ?: return GameplayChange(reason = "inapplicable")
+        val transition = transition(state, actor, action, rulesVersion) ?: return GameplayChange(reason = "inapplicable")
         if (transition.fields.isEmpty() && transition.disclosures.isEmpty()) return GameplayChange(state)
-        return GameplayRules.record(state, actor, command, apply(state.board, transition.fields), transition)
+        return GameplayRules.record(state, actor, command, apply(state.board, transition.fields), transition,
+            rulesVersion = rulesVersion)
     }
 
-    private fun transition(state: PlayState, actor: String, action: PlayAction.Manual): GameplayTransition? {
+    private fun transition(state: PlayState, actor: String, action: PlayAction.Manual, rulesVersion: Int): GameplayTransition? {
         val board = state.board
         fun field(id: String, type: GameplayField, from: String?, to: String?, color: CounterColor? = null,
             reads: List<GameplayRead> = emptyList(), disclosures: List<GameplayDisclosure> = emptyList()) =
@@ -167,13 +177,19 @@ object ManualEditRules {
             is PlayAction.SetNote -> field(id, GameplayField.NOTE, card.note, action.value.trim())
             is PlayAction.SetOwner -> if (board.players.none { it.accountId == action.accountId }) null
                 else field(id, GameplayField.OWNER, card.owner, action.accountId)
-            is PlayAction.SetFace -> if (faces.none { it.faceId == action.faceId }) null
-                else field(id, GameplayField.FACE, card.faceId, action.faceId,
+            is PlayAction.SetFace -> {
+                val face = faces.firstOrNull { it.faceId == action.faceId } ?: return null
+                val switched = field(id, GameplayField.FACE, card.faceId, action.faceId,
                     reads = listOf(GameplayRead(id, GameplayField.COVERED, card.covered.toString()),
                         GameplayRead(id, GameplayField.EXPLICITLY_COVERED, card.explicitlyCovered.toString()),
                         GameplayRead(id, GameplayField.CONTAINER, card.containerId)),
                     disclosures = CardVisibility.viewers(board, card).takeIf { card.faceId != action.faceId && it.isNotEmpty() }
                         ?.let { listOf(exposure(action.faceId, it)) }.orEmpty())
+                // TBL-076 (rules v35): the corner follows the new face in the same event, so one Undo takes back both.
+                val corner = face.defaultCorner()
+                if (!faceCornerResets(card, action.faceId, rulesVersion) || card.corner == corner) switched
+                else switched.copy(fields = switched.fields + GameplayFieldChange(id, GameplayField.CORNER, card.corner, corner))
+            }
             is PlayAction.SetCovered -> {
                 val flipped = card.copy(covered = action.covered, explicitlyCovered = action.covered)
                 val battlefield = zone == PlayZone.BATTLEFIELD

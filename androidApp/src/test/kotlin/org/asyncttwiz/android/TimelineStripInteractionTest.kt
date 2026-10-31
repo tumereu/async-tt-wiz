@@ -99,4 +99,26 @@ class TimelineStripInteractionTest {
         assertEquals("0", selected)
         assertTrue(pauses > 0)
     }
+
+    // HIS-005, HIS-036
+    @Test fun branchMarkerSitsInTheGapWhereTheBranchSplitsAndAnArmedPointShowsTheComingSplit() {
+        var armed by mutableStateOf<String?>(null)
+        val events = (0..4).map { if (it == 1) event(it).copy(alternatives = 1) else event(it) }
+        compose.setContent { MaterialTheme {
+            HistoryTimeline(events, "2", "me", {}, {}, readOnly = true, armedSplit = armed)
+        } }
+        fun chip(n: Int) = compose.onNodeWithContentDescription("Event $n", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        fun markers() = compose.onAllNodesWithTag(BranchMarkerTag, useUnmergedTree = true).fetchSemanticsNodes().map { it.boundsInRoot }
+        fun assertInGapAfter(n: Int, marker: androidx.compose.ui.geometry.Rect) {
+            assertTrue(marker.left > chip(n).right && marker.left < chip(n + 1).left, "Marker starts in the gap after event $n")
+            assertTrue(marker.right > chip(n + 1).left, "Marker turns right over the next event")
+        }
+        assertInGapAfter(1, markers().single())
+        compose.runOnIdle { armed = "3" }
+        val both = markers().sortedBy { it.left }
+        assertEquals(2, both.size)
+        assertInGapAfter(1, both[0]); assertInGapAfter(3, both[1])
+        compose.runOnIdle { armed = "1" }
+        assertEquals(1, markers().size, "An armed point that already splits shows one marker")
+    }
 }

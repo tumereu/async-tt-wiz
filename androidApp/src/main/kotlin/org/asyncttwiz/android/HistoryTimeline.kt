@@ -65,6 +65,10 @@ object HistoryTimelineLayout {
         x(index, selected.toFloat(), width, pitch)
     fun x(index: Int, center: Float, width: Float, pitch: Float) =
         width / 2f + (index - center) * pitch
+    /** HIS-005/HIS-036: the split sits after the shared event; an armed continuation splits after its cursor. */
+    fun splitsAfter(event: HistoryTimelineEvent, armedSplit: String?) = event.alternatives > 0 || event.id == armedSplit
+    /** The centre of the gap after the event at [x]. */
+    fun splitGapX(x: Float, pitch: Float) = x + pitch / 2f
     fun selectedAfterDrag(start: Int, delta: Float, pitch: Float, count: Int): Int {
         require(count > 0 && pitch > 0)
         return (start - (delta / pitch).roundToInt()).coerceIn(0, count - 1)
@@ -81,7 +85,7 @@ object HistoryTimelineLayout {
 @Composable
 fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, viewer: String,
     onPause: () -> Unit, onSelect: (String) -> Unit, modifier: Modifier = Modifier,
-    readOnly: Boolean = false,
+    readOnly: Boolean = false, armedSplit: String? = null,
     eventIcon: @Composable (HistoryIcon) -> Unit = { HistoryEventIcon(it) }) {
     val positions = remember(IdentityKey(events)) { if (events is HistoryTimelineLayout.IndexedHistoryEvents) null else events.withIndex().associate { it.value.id to it.index } }
     val selected = (events as? HistoryTimelineLayout.IndexedHistoryEvents)?.positionOf(selectedId) ?: positions?.get(selectedId) ?: -1
@@ -135,14 +139,10 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
             val event = events[i]; val x = HistoryTimelineLayout.x(i, windowCenter, width, pitch)
             if (abs(x - width / 2f) > width / 2f + 12f) continue
             val authorColor = historyAuthorColor(event.author, viewer)
-            if (event.alternatives > 0) Canvas(Modifier.offset(x.dp).width(24.dp).fillMaxHeight()) {
-                // Time runs left to right: fork at this event, then continue in a parallel lane.
-                val fork = Offset(0f, center.y)
-                val corner = Offset(0f, 5.dp.toPx())
-                val edge = Color(0xff98abaa)
-                drawLine(edge, fork, corner, 1.dp.toPx())
-                drawLine(edge, corner, Offset(size.width, corner.y), 1.dp.toPx())
-            }
+            // HIS-005/HIS-036: a branch splits off after this event (or will, once the armed continuation acts).
+            if (HistoryTimelineLayout.splitsAfter(event, armedSplit)) BranchSplitMarker(
+                Modifier.offset(HistoryTimelineLayout.splitGapX(x, pitch).dp).width(BranchMarkerWidth.dp).fillMaxHeight()
+                    .semantics { testTag = BranchMarkerTag })
             TimelineEventChip(event, authorColor, i == selected,
                 Modifier.align(Alignment.CenterStart).offset((x - 10f).dp), eventIcon, describeOnTap = readOnly) {
                 pause(); select(event.id)
@@ -152,6 +152,25 @@ fun HistoryTimeline(events: List<HistoryTimelineEvent>, selectedId: String, view
             }
         }
     }
+}
+
+internal const val BranchMarkerTag = "Branch marker"
+private const val BranchMarkerWidth = 14f
+
+/** Drawn from the gap's centre line: rises from the strip above the event icons, turns right and ends in a
+ * small filled arrowhead pointing forward in time. */
+@Composable
+private fun BranchSplitMarker(modifier: Modifier) = Canvas(modifier) {
+    val edge = Color(0xff98abaa)
+    val stroke = 1.dp.toPx()
+    val turn = 7.dp.toPx()
+    val head = 5.dp.toPx()
+    drawLine(edge, Offset(0f, center.y), Offset(0f, turn), stroke)
+    drawLine(edge, Offset(-stroke / 2f, turn), Offset(size.width - head, turn), stroke)
+    drawPath(androidx.compose.ui.graphics.Path().apply {
+        moveTo(size.width - head, turn - 3.dp.toPx()); lineTo(size.width, turn)
+        lineTo(size.width - head, turn + 3.dp.toPx()); close()
+    }, edge)
 }
 
 /** A recognized hold describes the event and consumes the tap; it never moves the review cursor. */
@@ -224,7 +243,7 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     definitions: List<org.asyncttwiz.protocol.SubmittedDefinition> = emptyList(),
     background: Color = TimelineBarColor, readOnly: Boolean = false, onEnter: () -> Unit = {},
     playControls: (@Composable () -> Unit)? = null, playCursorId: String = playback.tree.sharedHeadId,
-    rewindPauseMillis: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS) {
+    rewindPauseMillis: Long = HistoryPlaybackPreferences.DEFAULT_REWIND_PAUSE_MILLIS, armedSplit: String? = null) {
     require(pauseMillis > 0)
     val position = playback.position
     val stripCursor = if (readOnly) playCursorId else position.cursorId
@@ -258,7 +277,7 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
     val timeline: @Composable () -> Unit = {
         Box(Modifier.fillMaxWidth().height(TableTimelineHeight.dp)) {
             HistoryTimeline(events, stripCursor, viewer, playback::pauseFromStrip, playback::scrubFromStrip,
-                Modifier.fillMaxWidth(), readOnly = readOnly)
+                Modifier.fillMaxWidth(), readOnly = readOnly, armedSplit = armedSplit)
             Row(Modifier.align(Alignment.CenterEnd).background(background)) {
                 if (readOnly) IconButton(onClick = onEnter,
                     modifier = Modifier.size(if (landscape) 36.dp else 40.dp)) {

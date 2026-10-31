@@ -3,6 +3,9 @@ package org.asyncttwiz.android
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
@@ -436,5 +439,44 @@ class CardRingInteractionTest {
         }
         compose.ringPage(3)
         compose.onNodeWithContentDescription("Inspect other side").assertIsNotEnabled()
+    }
+
+    // TBL-076, TBL-021: Switch face also shows the new face's printed corner.
+    @Test fun switchFaceShowsTheNewFacesPrintedCorner() {
+        val source = f.source(f.a, "1/3")
+        val start = f.combat()
+        val old = start.definitions.single { it.digest == source.definition }.definition
+        val front = old.faces.single { it.faceId == source.faceId }
+        val night = DefinitionFace(f.id("night"), "Night Form", listOf(front.faceId), typeLine = "Creature — Werewolf",
+            power = "4", toughness = "5")
+        val definition = old.copy(faces = listOf(front.copy(otherFaceIds = listOf(night.faceId)), night))
+        val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
+        var play by mutableStateOf(start.copy(definitions = start.definitions + submitted,
+            board = start.board.copy(cards = start.board.cards.map {
+                if (it.id == source.id) it.copy(definition = submitted.digest, corner = "3/3") else it })))
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ ->
+            sent += action
+            // The shared engine is the app's prediction path.
+            val change = GameplayRules.change(play, f.a, GameCommand(java.util.UUID.randomUUID().toString(),
+                GameScope(play.gameId, playId = play.id), GameAction.Play(action), f.id("client"), "1"))
+            play = assertNotNull(change.state, change.reason); true
+        })
+        compose.setContent {
+            MaterialTheme {
+                TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
+            }
+        }
+        // The table draws each card's corner from its scene item.
+        fun shown() = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false, toolkit.layoutState.value).items
+            .single { it.cardId == source.id && !it.projection }
+        assertEquals("3/3", shown().corner)
+        assertTrue(shown().changedPowerToughness)
+        compose.runOnIdle { toolkit.openCard(TableScope(source.id, listOf(source.id))) }
+        compose.waitForIdle()
+        compose.ringPage(1)
+        compose.ringClick("Switch face")
+        assertEquals(listOf<PlayAction>(PlayAction.SetFace(source.id, night.faceId)), sent)
+        assertEquals("4/5", shown().corner)
+        assertFalse(shown().changedPowerToughness, "The printed value is not shown as changed")
     }
 }

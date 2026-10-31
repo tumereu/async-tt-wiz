@@ -377,7 +377,12 @@ internal object GameplayConcerns {
                 is StackAction.RemoveEffect -> projection(stack.occurrenceId)
                 is StackAction.ReorderEffect -> projection(stack.occurrenceId)
             }
-            is PlayAction.SetFace -> definition(card(a.cardId).definition)
+            is PlayAction.SetFace -> {
+                definition(card(a.cardId).definition)
+                // Rules v35 assigns the new face's printed corner, even when it happens to be unchanged.
+                if (ManualEditRules.faceCornerResets(card(a.cardId), a.faceId, mutation.transition.rulesVersion))
+                    entity("card", a.cardId, "corner")
+            }
             is PlayAction.ResetCorner -> { definition(card(a.cardId).definition); entity("card", a.cardId, "faceId") }
             is PlayAction.InspectFace -> definition(card(a.cardId).definition)
             is PlayAction.SetCovered -> {

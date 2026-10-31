@@ -306,7 +306,9 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                   background = tableBarColor(play.board, accountId, reviewing = !editable),
                                    readOnly = editable, playCursorId = stripCursor,
                                    onEnter = { history.select(stripCursor) },
-                                   playControls = playControls, rewindPauseMillis = playbackRewindPause)
+                                   playControls = playControls, rewindPauseMillis = playbackRewindPause,
+                                   // HIS-036: until its first action lands, the armed point shows the coming split.
+                                   armedSplit = history.armed?.takeIf { !history.provisional })
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
                         opponentBranched = playback?.branched == true, oldBranch = playback?.oldBranch == true,

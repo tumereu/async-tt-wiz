@@ -120,9 +120,9 @@ class ManualEditsTest {
         assertEquals(id(11), switchVisible.mutation!!.transition.disclosures.single().faceId)
         assertEquals("4/5", state().definitions.single().definition.faces.last().corner)
         // Rules v23: turning a face-down Battlefield card up resets to the shown face's printed corner;
-        // a later face switch still leaves the corner alone.
+        // rules v35 (TBL-076): a later face switch sets the new face's printed corner too.
         assertEquals("4/5", uncover.state.board.cards.single().corner)
-        assertEquals("4/5", switchVisible.state!!.board.cards.single().corner)
+        assertEquals("2/3", switchVisible.state!!.board.cards.single().corner)
         assertEquals("noOp", change(switchVisible.state, PlayAction.SetCovered(id(9), false)).outcome)
     }
 

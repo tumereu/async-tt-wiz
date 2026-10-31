@@ -257,18 +257,21 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PodSettingsForm(edit?.name ?: detail.name, settings, source, detail.members.size, enabled,
             { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings)
-        Text("Members (${detail.members.size}/${if (settings.mode == DraftMode.GRID) 4 else 8})", style = MaterialTheme.typography.titleMedium)
+        Text("Members (${detail.members.size}/${settings.mode.players.last})", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { MemberLine(it.account, "accepted") }
         detail.pendingInvitations.forEach { MemberLine(it, "invitation pending") }
         if (creator) {
             ScreenOutlinedButton({ controller.chooseMember(true); lobby?.contacts(false) },
                 enabled = lobby != null && detail.members.size + detail.pendingInvitations.size < 8) { EntryIcon("Invite player", "person") }
-            detail.autoStartOff?.let { Text(podAutoStartOffText(it), color = MaterialTheme.colorScheme.error) }
+            detail.autoStartOff?.let { Text(podAutoStartOffText(it, settings.mode), color = MaterialTheme.colorScheme.error) }
             val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain
+            val limit = podPlayerLimitText(detail.copy(settings = settings))
             if (detail.pendingInvitations.isEmpty())
                 ScreenButton(controller::start, enabled = idle && podCanStart(detail)) { Text("Start draft") }
             else if (detail.autoStart) ScreenOutlinedButton({ controller.autoStart(false) }, enabled = idle) { Text(podAutoStartLabel(detail)) }
-            else ScreenButton({ controller.autoStart(true) }, enabled = idle) { Text(podAutoStartLabel(detail)) }
+            else ScreenButton({ controller.autoStart(true) }, enabled = idle && limit == null) { Text(podAutoStartLabel(detail)) }
+            // DRF-035, DRF-036: why Start or auto-start is not offered with this many players.
+            limit?.let { Text(it, Modifier.testTag("pod-player-limit"), color = MaterialTheme.colorScheme.error) }
         } else if (detail.autoStart) {
             Text("Starts automatically when everyone accepts", style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -292,7 +295,7 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
     val tabs = podTabs(detail.phase)
     val selected = state.tab.takeIf { it in tabs } ?: podDefaultTab(detail.phase, detail.submitted)
     val build = detail.build ?: PodDeckBuild()
-    val copies = (detail.grid?.mine?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
+    val copies = (detail.grid?.mine?.pool ?: detail.limited?.pool ?: detail.draft?.pool).orEmpty().associateBy { it.id }
     val definitions = detail.definitions.associate { it.digest to it.definition }
     val pickColumns = rememberPodPickColumns()
     val buildColumns = rememberPodBuildColumns()
@@ -307,7 +310,10 @@ private fun PodDraftScreen(controller: PodController, detail: PodDetail, account
         }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (selected) {
-                PodTab.DRAFT -> if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
+                PodTab.DRAFT -> if (detail.settings.mode.limited) PodLimitedDraftView(detail, accountId, definitions,
+                    state.picking || state.uncertain, controller::turn, Modifier.fillMaxSize(), pickColumns, waiting, mainMenu,
+                    controller.inspection)
+                else if (detail.settings.mode == DraftMode.GRID) PodGridView(detail.grid, detail.settings.grids,
                     definitions, detail.members.map { it.account }, state.picking || state.uncertain,
                     controller::gridSelect, Modifier.fillMaxSize(), waitingText = waiting, onMainMenu = mainMenu,
                     inspection = controller.inspection)
@@ -397,6 +403,7 @@ internal fun podBadgeText(waiting: Int) = when { waiting <= 0 -> "✓"; waiting 
 
 /** Who still holds packs (or grid turns), plus the caller's round. */
 internal fun podWaitingText(detail: PodDetail, accountId: String): String {
+    detail.limited?.let { return podLimitedWaitingText(detail, it, accountId) }
     val grid = detail.grid?.publicView?.takeIf { detail.settings.mode == DraftMode.GRID }
     val busy = detail.members.filter { it.packsWaiting > 0 }.map { it.account.accountId }.toSet()
     val names = detail.members.map { it.account }.filter { it.accountId != accountId && it.accountId in busy }.map { it.username }

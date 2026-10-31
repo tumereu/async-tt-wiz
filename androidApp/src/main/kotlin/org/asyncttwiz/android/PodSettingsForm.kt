@@ -14,21 +14,34 @@ import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 internal enum class PodSetting(val label: String) {
     PACKS("Packs"), PACK_SIZE("Pack size"), KEEP("Keep"), BURN("Burn"), DISCARD("Discard"),
-    OPEN_PACKS("Open packs"), GRIDS("Grids"), OPEN_GRIDS("Open grids"), SIDEBOARD("Sideboard"), LIBRARIANS("Librarians");
+    OPEN_PACKS("Open packs"), GRIDS("Grids"), OPEN_GRIDS("Open grids"), SIDEBOARD("Sideboard"), LIBRARIANS("Librarians"),
+    /** Rochester: packs open at once across the table; empty = one per player. */
+    TABLE_OPEN("Open packs"),
+    /** Rotisserie and cube Sealed. */
+    CARDS_EACH("Cards each"),
+    /** Winston and Winchester. */
+    PILES("Piles"),
+    /** Sealed from a set. */
+    BOOSTERS("Boosters");
 
     fun value(s: DraftSettings): Int? = when (this) {
         PACKS -> s.packsPerPlayer; PACK_SIZE -> s.cardsPerPack; KEEP -> s.keep; BURN -> s.burn
         DISCARD -> s.discardRemainingAt; OPEN_PACKS -> s.packsOpenAtOnce; GRIDS -> s.grids
         OPEN_GRIDS -> s.gridsOpenAtOnce; SIDEBOARD -> s.sideboardLimit
         LIBRARIANS -> s.librarians
+        TABLE_OPEN -> s.tablePacksOpen; CARDS_EACH -> s.cardsPerPlayer; PILES -> s.piles; BOOSTERS -> s.packsPerPlayer
     }
+    /** The empty value's tile and toggle text: Sideboard ∞, Rochester's open packs "1 each" (one per player). */
+    val emptyText: String? get() = when (this) { SIDEBOARD -> "∞"; TABLE_OPEN -> "1 each"; else -> null }
     fun range(s: DraftSettings): IntRange = when (this) {
-        PACKS -> s.packsOpenAtOnce..30
-        PACK_SIZE -> maxOf(1, s.keep + s.burn, s.discardRemainingAt)..30
+        PACKS -> if (s.mode.limited) 1..15 else s.packsOpenAtOnce..30
+        PACK_SIZE -> if (s.mode.limited) 5..30 else maxOf(1, s.keep + s.burn, s.discardRemainingAt)..30
         KEEP -> 1..(s.cardsPerPack - s.burn)
         BURN -> 0..(s.cardsPerPack - s.keep)
         DISCARD -> 0..s.cardsPerPack
@@ -37,10 +50,14 @@ internal enum class PodSetting(val label: String) {
         OPEN_GRIDS -> 1..s.grids
         SIDEBOARD -> 0..Int.MAX_VALUE
         LIBRARIANS -> 0..10
+        TABLE_OPEN -> 1..s.packsPerPlayer * DraftMode.ROCHESTER.players.last
+        CARDS_EACH -> 5..225
+        PILES -> if (s.mode == DraftMode.WINCHESTER) 2..8 else 2..6
+        BOOSTERS -> 1..30
     }
     fun limit(s: DraftSettings): String = when (this) {
-        PACKS -> "Open packs: ${s.packsOpenAtOnce}; maximum 30"
-        PACK_SIZE -> "Keep + burn: ${s.keep + s.burn}; discard: ${s.discardRemainingAt}; maximum 30"
+        PACKS -> if (s.mode.limited) "1–15" else "Open packs: ${s.packsOpenAtOnce}; maximum 30"
+        PACK_SIZE -> if (s.mode.limited) "5–30" else "Keep + burn: ${s.keep + s.burn}; discard: ${s.discardRemainingAt}; maximum 30"
         KEEP -> "Pack size − burn: ${s.cardsPerPack - s.burn}"
         BURN -> "Pack size − keep: ${s.cardsPerPack - s.keep}"
         DISCARD -> "Pack size: ${s.cardsPerPack}"
@@ -49,10 +66,16 @@ internal enum class PodSetting(val label: String) {
         OPEN_GRIDS -> "Grids: ${s.grids}"
         SIDEBOARD -> "Minimum 0"
         LIBRARIANS -> "0–10"
+        TABLE_OPEN -> "1–${range(s).last}; more than all packs opens them all"
+        CARDS_EACH -> "5–225"
+        PILES -> "${range(s).first}–${range(s).last}"
+        BOOSTERS -> "1–30"
     }
     /** Plain-words meaning shown in the value dialog. */
-    val explanation: String get() = when (this) {
-        PACKS -> "How many packs each player opens during the draft."
+    fun explanation(s: DraftSettings): String = when (this) {
+        PACKS -> if (s.mode == DraftMode.WINSTON || s.mode == DraftMode.WINCHESTER)
+            "How many packs each player brings. All their cards are shuffled into one face-down stack."
+            else "How many packs each player opens during the draft."
         PACK_SIZE -> "How many cards each pack starts with."
         KEEP -> "How many cards you take from a pack on each pick."
         BURN -> "How many extra cards you remove from the pack on each pick. Burned cards go to nobody."
@@ -62,6 +85,10 @@ internal enum class PodSetting(val label: String) {
         OPEN_GRIDS -> "How many grids can be open at the same time, so players don't have to wait for each other."
         SIDEBOARD -> "The most cards a deck may have in its sideboard. ∞ = no limit."
         LIBRARIANS -> "Cogwork Librarians each player starts with. Spend one to take an extra card from a pack; the Librarian goes into that pack."
+        TABLE_OPEN -> "How many packs lie open at the same time, so players don't have to wait for each other. 1 each = one pack per player."
+        CARDS_EACH -> if (s.mode == DraftMode.SEALED) "How many random cube cards each player gets." else "How many cards each player picks from the pool."
+        PILES -> if (s.mode == DraftMode.WINCHESTER) "How many face-up piles lie on the table." else "How many piles lie on the table."
+        BOOSTERS -> "How many boosters each player opens."
     }
     fun valid(text: String, s: DraftSettings) = text.toIntOrNull()?.let { it in range(s) } == true
     fun apply(s: DraftSettings, value: Int?): DraftSettings = when (this) {
@@ -71,7 +98,23 @@ internal enum class PodSetting(val label: String) {
         GRIDS -> s.copy(grids = value!!); OPEN_GRIDS -> s.copy(gridsOpenAtOnce = value!!)
         SIDEBOARD -> s.copy(sideboardLimit = value)
         LIBRARIANS -> s.copy(librarians = value!!)
+        TABLE_OPEN -> s.copy(tablePacksOpen = value)
+        CARDS_EACH -> s.copy(cardsPerPlayer = value!!); PILES -> s.copy(piles = value!!); BOOSTERS -> s.copy(packsPerPlayer = value!!)
     }
+}
+
+/** The tiles a mode shows (DRF-022), Sideboard last; the pack size only where the source doesn't fix it (DRF-024). */
+internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<PodSetting> {
+    val packSize = source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE
+    return when (settings.mode) {
+        DraftMode.GRID -> listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS)
+        DraftMode.ROCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.TABLE_OPEN)
+        DraftMode.ROTISSERIE -> listOf(PodSetting.CARDS_EACH)
+        DraftMode.WINSTON, DraftMode.WINCHESTER -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize }, PodSetting.PILES)
+        DraftMode.SEALED -> listOf(if (source.kind == PodSourceKind.SET) PodSetting.BOOSTERS else PodSetting.CARDS_EACH)
+        DraftMode.BOOSTER, DraftMode.GLIMPSE -> listOfNotNull(PodSetting.PACKS, PodSetting.PACK_SIZE.takeIf { packSize },
+            PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS)
+    } + PodSetting.SIDEBOARD
 }
 
 /** Mode chips (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
@@ -80,17 +123,19 @@ internal val PodModeChips = listOf(DraftMode.BOOSTER, DraftMode.GRID)
 internal fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
     DraftMode.GRID -> "Grid"
+    DraftMode.ROCHESTER -> "Rochester"
+    DraftMode.ROTISSERIE -> "Rotisserie"
+    DraftMode.WINSTON -> "Winston"
+    DraftMode.WINCHESTER -> "Winchester"
+    DraftMode.SEALED -> "Sealed"
 }
 /** The chip a mode shows as selected. */
 internal fun podModeChip(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
 
-internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = when (mode) {
-    DraftMode.BOOSTER -> DraftSettings.booster()
-    DraftMode.GLIMPSE -> DraftSettings.glimpse()
-    DraftMode.GRID -> DraftSettings.grid()
-}.copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters,
-    librarians = if (mode == DraftMode.GRID) 0 else current.librarians,
-    librarianDefinition = if (mode == DraftMode.GRID) null else current.librarianDefinition)
+internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = DraftSettings.defaults(mode)
+    .copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters,
+    librarians = if (mode.packPassing) current.librarians else 0,
+    librarianDefinition = if (mode.packPassing) current.librarianDefinition else null)
 
 /** The same complete form is used before and after creation. */
 @Composable
@@ -117,16 +162,10 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
             { change { podModeSettings(mode, it) } }, enabled = enabled,
             label = { Text(podModeName(mode)) }) }
     }
-    val fields = if (settings.mode == DraftMode.GRID) listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS)
-        else buildList {
-            add(PodSetting.PACKS)
-            if (source.kind == PodSourceKind.CUBE || source.boosterKind == SetBoosterKind.APPROXIMATE) add(PodSetting.PACK_SIZE)
-            addAll(listOf(PodSetting.KEEP, PodSetting.BURN, PodSetting.DISCARD, PodSetting.OPEN_PACKS, PodSetting.LIBRARIANS))
-        }
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        (fields + PodSetting.SIDEBOARD).forEach { field -> key(field) { PodSettingTile(field, settings, enabled, change) } }
-        if (settings.mode != DraftMode.GRID && source.kind == PodSourceKind.CUBE) key("colorBalance") {
+        podSettingFields(settings, source).forEach { field -> key(field) { PodSettingTile(field, settings, enabled, change) } }
+        if (settings.mode.packPassing && source.kind == PodSourceKind.CUBE) key("colorBalance") {
             PodToggleTile("Color balancing", settings.colorBalance, enabled) { value -> change { it.copy(colorBalance = value) } }
         }
         // Always shown, greyed out unless the pod drafts grids from a set.
@@ -164,11 +203,13 @@ private fun PodSettingTile(field: PodSetting, settings: DraftSettings, enabled: 
         shape = MaterialTheme.shapes.small, border = BorderStroke(1.dp, ScreenBorder)) {
         Box(Modifier.fillMaxSize().padding(6.dp)) {
             Text(field.label, Modifier.align(Alignment.TopCenter), style = MaterialTheme.typography.labelSmall)
-            Text(field.value(settings)?.toString() ?: "∞", Modifier.align(Alignment.Center), style = MaterialTheme.typography.headlineMedium)
+            val value = field.value(settings)
+            Text(value?.toString() ?: field.emptyText.orEmpty(), Modifier.align(Alignment.Center),
+                style = if (value == null && field == PodSetting.TABLE_OPEN) MaterialTheme.typography.titleMedium else MaterialTheme.typography.headlineMedium)
         }
     }
     if (open) PodSettingPopup(field, settings, { open = false }) { number ->
-        change { current -> if (number == null && field == PodSetting.SIDEBOARD || number != null && number in field.range(current))
+        change { current -> if (number == null && field.emptyText != null || number != null && number in field.range(current))
             field.apply(current, number) else current }
         open = false
     }
@@ -176,8 +217,9 @@ private fun PodSettingTile(field: PodSetting, settings: DraftSettings, enabled: 
 
 @Composable
 internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss: () -> Unit, save: (Int?) -> Unit) {
-    val input = rememberDialogField((field.value(settings) ?: 0).toString())
-    var unlimited by remember { mutableStateOf(field == PodSetting.SIDEBOARD && settings.sideboardLimit == null) }
+    val input = rememberDialogField((field.value(settings) ?: if (field == PodSetting.TABLE_OPEN) 1 else 0).toString())
+    // Sideboard's ∞ and Rochester's "1 each" are the setting left empty.
+    var unlimited by remember { mutableStateOf(field.emptyText != null && field.value(settings) == null) }
     val range = field.range(settings)
     val saveEnabled = unlimited || field.valid(input.text, settings)
     val confirm = { save(if (unlimited) null else input.text.toInt()) }
@@ -185,18 +227,19 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
         DialogCancelButton("Cancel", dismiss)
         DialogMainButton("Save", confirm, enabled = saveEnabled)
     }) {
-        Text(field.explanation, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(field.explanation(settings), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(input.value, { input.value = it }, Modifier.weight(1f).dialogField(input), enabled = !unlimited, singleLine = true,
                 label = { Text("${range.first}–${range.last}") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                 keyboardActions = submitKeyboardActions(saveEnabled, submit = confirm))
-            if (field == PodSetting.SIDEBOARD) OutlinedButton({ unlimited = !unlimited }, Modifier.size(56.dp)
-                .semantics { contentDescription = "Unlimited sideboard"; selected = unlimited },
+            field.emptyText?.let { empty -> OutlinedButton({ unlimited = !unlimited }, Modifier.size(56.dp)
+                .semantics { contentDescription = if (field == PodSetting.SIDEBOARD) "Unlimited sideboard" else "One pack per player"; selected = unlimited },
                 contentPadding = PaddingValues(0.dp), shape = MaterialTheme.shapes.small,
                 colors = ButtonDefaults.outlinedButtonColors(containerColor = if (unlimited) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)) {
-                Text(if (unlimited) "∞ ✓" else "∞")
-            }
+                Text(if (unlimited) "$empty ✓" else empty, fontSize = if (field == PodSetting.SIDEBOARD) TextUnit.Unspecified else 11.sp,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            } }
         }
     }
 }

@@ -30,16 +30,16 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-018** The source shows as its name (or "No source") with an edit button opening a Source dialog with searchable Cubes | Sets tabs and a Manage cubes button. (r17)
 - **DRF-019** Choosing a source closes the dialog and shows it at once; getting it ready finishes in the background, and a failure restores the previous source. (r17)
 - **DRF-020** Mode chips Booster and Grid load that mode's default settings, keeping the sideboard limit and Librarians (Grid always has no Librarians). Glimpse is a built-in preset of Booster, and a pod's mode always reads "Booster", also for pods created as Glimpse. (r35)
-- **DRF-021** Defaults: Booster 3 packs × 15 cards, keep 1, burn 0; Glimpse 9 packs × 15, keep 1, burn 2; both discard at 0, 1 pack open at once; Grid 18 grids, 1 open at once. (r16)
+- **DRF-021** Defaults: Booster 3 packs × 15 cards, keep 1, burn 0; Glimpse 9 packs × 15, keep 1, burn 2; both discard at 0, 1 pack open at once; Grid 18 grids, 1 open at once; Rochester 3 packs per player × 15 cards, packs open at once one per player; Rotisserie 45 cards per player; Winston 3 packs per player, 3 piles; Winchester 3 packs per player, 4 piles; Sealed 6 boosters per player from a set, 45 cards per player from a cube. Winston and Winchester packs from a cube hold 15 cards. (?) (r35)
 - **DRF-022** Settings are square tiles (small label, big value); tapping one opens a dialog that saves only valid in-range values, with a short explanation of the setting and its limits. (r29)
-- **DRF-023** Limits: packs 1–30, pack size 1–30, keep at least 1, keep + burn at most the pack size, open packs up to the pack count; grids 1–60. (r16)
+- **DRF-023** Limits: packs 1–30, pack size 1–30, keep at least 1, keep + burn at most the pack size, open packs up to the pack count; grids 1–60; Rochester, Winston and Winchester packs per player 1–15 and pack size 5–30; Rochester packs open at once 1 up to all (any count above the number of packs opens them all); Rotisserie and cube Sealed cards per player 5–225; Winston piles 2–6, Winchester piles 2–8; set Sealed boosters per player 1–30. (?) (r35)
 - **DRF-024** The pack size tile shows only for cubes and for set packs without a booster recipe; set recipes fix their own size. (r16)
 - **DRF-025** Sideboard limit is a tile, default unlimited (∞), with a square ∞ toggle inside its dialog; 0 is allowed. (r17)
 - **DRF-026** "Color balancing" is a square On/Off toggle tile for cube Booster/Glimpse, default on: each pack gets a card of every colour when the cube allows. (r19)
 - **DRF-027** "Fresh boosters" toggle tile (default on) is always shown and greyed out unless the pod drafts grids from a set. (r29)
 - **DRF-028** Grid has a "Two picks each" option, only for 2 players. (r16)
 - **DRF-029** Only the creator edits name, source and settings; members see them read-only. Edits apply at once without disabling anything and save in the background. (r17)
-- **DRF-030** Setup lists members and pending invitations with "Members (N/8)" (Grid: N/4); the creator invites through the shared player picker. (r17)
+- **DRF-030** Setup lists members and pending invitations with "Members (N/L)", L the engine's player limit (DRF-141: 8, or 4 for Grid, Winston and Winchester); the creator invites through the shared player picker, up to 8 members and invitations together. (?) (r35)
 
 ### Presets
 
@@ -50,7 +50,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 ### Starting, leaving and cancelling
 
-- **DRF-035** The creator's "Start draft" needs at least 2 accepted members, settings that fit them and a source with enough cards; there is no Ready step. (r16)
+- **DRF-035** The creator's "Start draft" needs at least 2 accepted members and no more than the engine allows (DRF-141), settings that fit them and a source with enough cards; there is no Ready step. (r35)
 - **DRF-036** While invitations are pending the button is "Start when everyone accepts"; armed, it reads "Starts when N more accept · Cancel" and members see "Starts automatically when everyone accepts". (r21)
 - **DRF-037** Auto-start begins the draft when the last invitee accepts; a decline or a failed start turns it off with a setup line like "Bob declined; auto-start is off" and a notification. (r21)
 - **DRF-038** The pod ⋮ menu offers "Start now" while invitations are pending (confirmed; pending invitations are cancelled), Cancel draft while drafting (creator), and Destroy (creator) or Leave. (r21)
@@ -58,6 +58,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-040** Cancelling keeps source, settings and remaining members; starting again deals a fresh shuffle from the same source. One completed draft per pod. (r16)
 - **DRF-041** Leaving after the draft withdraws your unaccepted challenges; when only one member is left the pod is destroyed. Destroy is confirmed and removes the pod for everyone. (r16)
 - **DRF-042** Games already started from a pod survive any leave, cancel or destroy and stay in the normal Games list. (r16)
+- **DRF-141** Each engine has a player limit: Booster, Rochester, Rotisserie and Sealed 2–8, Grid, Winston and Winchester 2–4. Start is refused when more members have joined than the engine allows, with the reason under it ("Grid takes at most 4 players; 5 have joined."); auto-start can't be armed while members plus pending invitations exceed the limit ("Grid takes at most 4 players; 5 are joined or invited."). Changing settings keeps an armed auto-start, but a change that puts the pod over the new engine's limit, or an invitation past it, switches auto-start off and tells the creator why ("Auto-start off — <pod>"; setup line "Too many players for Winston (at most 4); auto-start is off"). (?) (r35)
 
 ### Draft rules (Booster and Glimpse)
 

@@ -446,6 +446,14 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         val input = SelectPodGrid(requestId(), attempt, gridId, line, index)
         enqueue(Write(detail.id, attempt, pick = true, send = { api.gridSelect(it, detail.id, input) }))
     }
+    /** A Rochester, Rotisserie, Winston or Winchester move; nothing is predicted, the server's answer shows. */
+    fun turn(action: LimitedAction, turn: Int, card: String? = null, packId: String? = null, pile: Int? = null) {
+        val detail = state.detail?.takeIf { it.phase == PodPhase.DRAFTING && it.limited != null } ?: return
+        val attempt = detail.draftAttemptId ?: return
+        if (state.picking || state.uncertain) return
+        val input = PodTurn(requestId(), attempt, action, turn, card, packId, pile)
+        enqueue(Write(detail.id, attempt, pick = true, send = { api.turn(it, detail.id, input) }))
+    }
     fun move(copyId: String, category: PodDeckCategory) {
         val detail = editable() ?: return
         val from = detail.build?.copies?.firstOrNull { it.copyId == copyId }?.category ?: return
@@ -739,15 +747,34 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
 internal fun podCanStart(detail: PodDetail) = detail.phase == PodPhase.SETUP && detail.members.size >= 2 &&
     detail.settings.validate(detail.members.size).isEmpty() && detail.supply.sufficient
 
+/**
+ * Why Start (too many members) or auto-start (too many members plus invitations) is not offered for this engine's
+ * player limit (DRF-035, DRF-036); null within the limit.
+ */
+internal fun podPlayerLimitText(detail: PodDetail): String? {
+    val most = detail.settings.mode.players.last
+    val name = podModeName(detail.settings.mode)
+    val members = detail.members.size
+    val invited = members + detail.pendingInvitations.size
+    return when {
+        members > most -> "$name takes at most $most players; $members have joined."
+        detail.pendingInvitations.isNotEmpty() && !detail.autoStart && invited > most ->
+            "$name takes at most $most players; $invited are joined or invited."
+        else -> null
+    }
+}
+
+/** Turn-based engines have one turn at a time, so "Your pick" has no pack count (Rochester counts its packs). */
 internal fun podStatus(pod: PodSummary): String = when (pod.attention) {
-    PodAttention.YOUR_PICK -> "Your pick · ${podPackCount(pod.packsWaiting)}"
+    PodAttention.YOUR_PICK -> if (pod.mode.limited && pod.mode != DraftMode.ROCHESTER) "Your pick"
+        else "Your pick · ${podPackCount(pod.packsWaiting)}"
     PodAttention.BUILD -> "Build your deck"
     PodAttention.NONE -> when (pod.phase) { PodPhase.SETUP -> "Setup"; PodPhase.DRAFTING -> "Drafting"; PodPhase.DRAFTED -> "Deck submitted" }
 }
 internal fun podMemberStatus(member: PodMember, phase: PodPhase, mode: DraftMode = DraftMode.BOOSTER): String = when {
     member.submitted -> "submitted"
     phase == PodPhase.SETUP -> "accepted"
-    mode == DraftMode.GRID && phase == PodPhase.DRAFTING -> if (member.picking) "picking" else "waiting"
+    (mode == DraftMode.GRID || mode.limited) && phase == PodPhase.DRAFTING -> if (member.picking) "picking" else "waiting"
     member.packsWaiting > 0 -> "picking · ${podPackCount(member.packsWaiting)}"
     phase == PodPhase.DRAFTED || member.building -> "building"
     else -> "waiting"
@@ -766,8 +793,10 @@ private fun podPendingCount(count: Int) = if (count == 1) "The pending invitatio
 /** The creator's Start control while invitations are pending: arm, or show progress and cancel. */
 internal fun podAutoStartLabel(detail: PodDetail): String =
     if (detail.autoStart) "Starts when ${detail.pendingInvitations.size} more accept · Cancel" else "Start when everyone accepts"
-internal fun podAutoStartOffText(off: PodAutoStartOff): String = when (off.reason) {
+internal fun podAutoStartOffText(off: PodAutoStartOff, mode: DraftMode = DraftMode.BOOSTER): String = when (off.reason) {
     "declined" -> "${off.account?.username ?: "An invitee"} declined; auto-start is off"
+    "too_many_players" -> "Too many players for ${podModeName(mode)} (at most ${mode.players.last}); auto-start is off"
+    "too_many_members" -> "Could not start automatically: too many members for ${podModeName(mode)}. Auto-start is off"
     "not_enough_members" -> "Could not start automatically: not enough members. Auto-start is off"
     "invalid_settings" -> "Could not start automatically: the settings do not fit the members. Auto-start is off"
     "insufficient_supply" -> "Could not start automatically: the source does not have enough cards. Auto-start is off"
@@ -778,6 +807,8 @@ private fun podError(failure: Exception): String = when ((failure as? PodFailure
     "invalid_settings" -> "Invalid settings."
     "librarian_definition_unavailable" -> "Librarian unavailable."
     "insufficient_supply" -> "The source cube does not have enough cards."
+    "too_many_members" -> "Too many members for this draft mode."
+    "too_many_players" -> "Too many players are joined or invited for this draft mode."
     "main_too_small" -> "Main must contain at least 40 cards including basics."
     "sideboard_limit" -> "Move surplus sideboard cards to Trash before submitting."
     "not_found" -> "This pod is no longer available."

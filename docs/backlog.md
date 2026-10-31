@@ -17,6 +17,8 @@ Changes the owner wants but that are not built yet. The feature catalog
 - Notifications use a proper single-colour app icon (the logo's silhouette) as their status-bar icon instead of Android's generic info icon. (LOB-072)
 - The timeline's branch marker sits in the gap between the two events where the branch splits off: a short line rising from the strip and turning right, ending in a small triangle arrowhead. Holding Auto to branch shows the coming split the same way, in the gap after the current event. (HIS-005, HIS-036)
 - Switching a card's face (either direction) also sets its corner to the new face's printed value: P/T, loyalty for planeswalkers, defense for battles, 1 for sagas, empty when the face has none; one Undo takes back both. New rules version; recorded events keep their old behaviour. (TBL-076, SYS-031)
+- Side menu game rows show the last activity like every other game list, not the creation date. (LOB-019, LOB-024)
+- Booster and Glimpse become built-in presets of one pack-draft mode named "Booster": mode chips Booster and Grid; the built-ins are listed first in the same preset list as your own presets and can't be edited or deleted; a pod's mode always reads "Booster". (DRF-020, DRF-032)
 
 ## Specified, not started
 
@@ -24,7 +26,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Needs discussion
 
-- Booster and Glimpse are the same engine; turn them into built-in presets of one mode? (DRF-020, DRF-032)
+- More limited engines (Draftmancer's modes plus Sealed) and player limits per engine: in discussion.
 
 ## Later (nice to have)
 

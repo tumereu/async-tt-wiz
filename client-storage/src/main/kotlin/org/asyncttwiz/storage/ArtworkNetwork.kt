@@ -177,9 +177,10 @@ class HttpArtworkTransport(private val policy: ArtworkUrlPolicy = ArtworkUrlPoli
         }
         error("Artwork redirect limit")
     }
-    /** Drops pooled connections, which can be dead after the app's network was cut off. */
+    /** Drops pooled connections, which can be dead after the app's network was cut off. Blocks on the
+     * network: never call it on the main thread. */
     fun evictConnections() = client.connectionPool.evictAll()
-    override fun close() { client.connectionPool.evictAll(); client.dispatcher.executorService.shutdown() }
+    override fun close() { client.evictConnectionsInBackground(); client.dispatcher.executorService.shutdown() }
     companion object {
         fun retryAfter(value: String?, now: Long): Long = runCatching {
             val seconds = value?.toLongOrNull()

@@ -131,12 +131,15 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
     }
 
     /** Waiting artwork retries run now, over fresh connections: after the app's network was cut
-     * off (app in background, network change) pooled connections can be dead. */
+     * off (app in background, network change) pooled connections can be dead. Callers include
+     * onResume, so the work runs off the main thread (closing a connection writes to the network). */
     fun wake(reason: String) {
-        transport.evictConnections()
-        repository.connectivityRestored()
-        connection.value += 1
-        diagnostics.woke(reason)
+        background.launch {
+            transport.evictConnections()
+            repository.connectivityRestored()
+            connection.value += 1
+            diagnostics.woke(reason)
+        }
     }
     private val decodes = Semaphore(2)
     val loader = ImageLoader.Builder(application)

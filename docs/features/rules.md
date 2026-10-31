@@ -48,7 +48,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 
 - **SYS-031** Game rules are versioned. Each recorded event keeps the behaviour and history icon of the rules version it was made under, so old games play back unchanged. Event texts are rebuilt by the app. (r33)
 - **SYS-032** If a game has events from newer rules than the app knows, the app shows "Update the app to continue this game" and the update screen. If the server is the older side, it shows "Server update pending" and retries every 30 s. (r16)
-- **SYS-033** New server behaviour that older apps don't know is switched on only for apps that say they support it, so a compatible older app keeps working. (?) (r33)
+- **SYS-033** Only one compatible set of apps and server is kept working: a server change may require the newest app, and older apps then only show the update screen (SYS-032). (r35)
 - **SYS-034** Unknown event kinds or icons from a newer version never crash the app; they show a fallback. (r31)
 - **SYS-035** If local data was written by a newer app, the app says "Local data needs a newer app. Update the app without uninstalling." It never erases local data when storage fails to open. (r1)
 

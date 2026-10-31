@@ -62,6 +62,9 @@ catalog wins. Where neither says, ask rather than pick.
   and report it instead of retrying.
 - Never weaken or delete a test just to make it pass. A test may change only
   when it encodes behaviour your task names (see "Protecting existing features").
+- Only one compatible set of apps and server is maintained; do not keep old app
+  versions working. A change that deletes or invalidates existing games (e.g. a
+  migration, or retiring an old rules version) needs the owner's permission first.
 - Every user-visible change gets a release note: one file per change,
   `release/notes/<YYYY-MM-DD>-<slug>.txt`, holding one line `add: <text>`,
   `mod: <text>` or `fix: <text>`. Plain words a player understands, no

@@ -51,7 +51,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-033** Tapping either player's graveyard or exile opens its menu: Search, All top, All bottom (random order), Shuffle all into library, All → Exile (or → Graveyard), All → Temp 1; there is no "All to hand". (r29)
 - **ZON-034** Each mass pile move sends the cards to their owners' zones as one Undo step. (r29)
 - **ZON-035** Double-tapping a graveyard or exile pile opens its search view, as does Search in the pile menu (also while reviewing or offline). (r29)
-- **ZON-036** The graveyard/exile view is personal: no history, and it doesn't count toward the one-panel limit. (r10) (?) code differs from r34: the opponent never sees it, though r34 wanted it visible.
+- **ZON-036** Graveyards and exiles are public, so looking through either player's is free: the view is personal, records no history, is never shown to the opponent, and doesn't count toward the one-panel limit. (r35)
 - **ZON-037** The view groups cards under coloured type headers with counts like "Creature (3)" (non-empty types only), types and names alphabetical, copies grouped ×N. (r14)
 - **ZON-038** The view closes on ✕, on a tap outside it, or when its pile empties; changing the interaction mode keeps it open. (r29)
 

@@ -56,13 +56,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var explicitStack by mutableStateOf<ExplicitStackTarget?>(null); private set
     var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
     var stackBubbleEntry by mutableStateOf<String?>(null); private set
-    private var tapReturnPanel: String? = null
-    fun dismissTapUi() {
-        val previous = tapReturnPanel
-        tapReturnPanel = null
-        dismiss(); showStackBubbles(null)
-        panel = previous
-    }
+    fun dismissTapUi() { dismiss(); showStackBubbles(null) }
     private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String, val effect: Boolean)
     private var pendingStackBubble: PendingStackBubble? = null
     private data class PendingStackAdvance(val nodeId: String, val entryId: String)
@@ -169,7 +163,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return true
     }
 
-    fun dismiss() { panel = null; library = null; manual.close(); capture = null; tapReturnPanel = null; popupItem = null }
+    fun dismiss() { panel = null; library = null; manual.close(); capture = null; popupItem = null }
     internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
         manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
         tokens.showingCatalog || tokens.showingLinks
@@ -234,8 +228,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null); dismiss() }
     fun publicContents(): PileContents? {
-        val id = panel?.takeIf { it.startsWith("contents/") }?.substringAfter('/')
-            ?: layoutState.value.localPileId?.takeIf { panel == null } ?: return null
+        val id = layoutState.value.localPileId?.takeIf { panel == null } ?: return null
         val play = current() ?: return null
         val container = play.board.containers.singleOrNull { it.id == id } ?: return null
         val stack = container.zone == PlayZone.STACK
@@ -258,9 +251,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
-        val previous = panel?.takeIf { it.startsWith("contents/") }
         dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
-        tapReturnPanel = previous
         explicitStack = if (scope.contextId in CombatStackRules.stack(play.board).cards) {
             val context = StackContexts.context(play, scope.contextId)
             when (context.kind) {

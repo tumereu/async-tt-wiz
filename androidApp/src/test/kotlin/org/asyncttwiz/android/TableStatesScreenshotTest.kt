@@ -251,7 +251,7 @@ class TableStatesScreenshotTest {
         val ui = TableToolkitController(f.a, { state }, { true }, { _, _ -> error("Browsing is local") })
         ui.stackContents()
         compose.setContent { MaterialTheme {
-            TableToolkitScreen(ui, state, f.game, false, TableSelection(), {})
+            TableToolkitScreen(ui, state, f.game, false, TableSelection())
         } }
         compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
         compose.runOnIdle {

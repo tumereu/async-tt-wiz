@@ -55,7 +55,7 @@ class CardRingScreenshotTest {
                         SideEffect { actualAnchor = anchor }
                         Box(Modifier.offset(anchor.x.dp, anchor.y.dp)) { ManualCardPreview(play, f.a, card.id, 1) }
                         CompositionLocalProvider(LocalCardRingAnchors provides mapOf(card.id to anchor)) {
-                            TableToolkitScreen(toolkit, play, f.game, landscape, TableSelection(), {})
+                            TableToolkitScreen(toolkit, play, f.game, landscape, TableSelection())
                         }
                     }
                 } }

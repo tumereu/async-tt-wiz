@@ -3,7 +3,7 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled: Boolean, scope: TableScope,
-    sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit, topCard: Boolean = false): List<MenuControl> = buildList {
+    sources: Map<String, TableMoveSource>, request: (TableIntent) -> Boolean, dismiss: () -> Unit): List<MenuControl> = buildList {
     val context = CombatStackRules.liveSource(play.board, scope.contextId) ?: return@buildList
     val owner = context.owner
     val current = play.board.containers.single { it.id == context.containerId }

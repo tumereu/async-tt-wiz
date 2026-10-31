@@ -1,0 +1,1 @@
+mod: Glimpse is now a built-in preset of Booster: the Presets list starts with Booster and Glimpse, which keep your chosen cube or set.

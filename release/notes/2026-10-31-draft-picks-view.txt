@@ -1,0 +1,1 @@
+add: Winston, Winchester and Grid drafts have a Picks button showing what each opponent has taken, newest first; cards you never saw show as card backs.

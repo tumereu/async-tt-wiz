@@ -71,21 +71,24 @@ class PodService(private val runtime: ServiceRuntime) {
         val finite = settings(row).supply(players, source(row))
         return if (!isSetSource(row)) finite else finite.copy(available = Long.MAX_VALUE)
     }
-    private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode != DraftMode.GRID }
+    private fun state(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.packPassing }
         ?.let { stored(row) { json.decodeFromString<DraftState>(it.data()) } }
     private fun gridState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode == DraftMode.GRID }
         // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
         ?.let { stored(row) { GridEngine.resume(json.decodeFromString<GridState>(it.data())) } }
+    private fun limitedState(row: PodRecord) = row.draftState?.takeIf { settings(row).mode.limited }
+        ?.let { stored(row) { json.decodeFromString<LimitedDraftState>(it.data()) } }
     /** A pod's stored draft, decoded once per request. Settings are read only when there is a draft. */
-    private class Draft(val booster: DraftState?, val grid: GridState?)
+    private class Draft(val booster: DraftState?, val grid: GridState?, val limited: LimitedDraftState? = null)
     private fun draft(row: PodRecord, settings: DraftSettings? = row.draftState?.let { settings(row) }): Draft {
         val data = row.draftState ?: return Draft(null, null)
-        return if (settings!!.mode != DraftMode.GRID) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
+        return if (settings!!.mode.packPassing) Draft(stored(row) { json.decodeFromString<DraftState>(data.data()) }, null)
+            else if (settings.mode.limited) Draft(null, null, stored(row) { json.decodeFromString<LimitedDraftState>(data.data()) })
             // Snapshots from before per-member opening are brought to the current model (their remaining grids dealt).
             else Draft(null, stored(row) { GridEngine.resume(json.decodeFromString<GridState>(data.data())) })
     }
-    private fun pools(row: PodRecord) = gridState(row)?.pools ?: state(row)!!.pools
-    private fun copies(row: PodRecord) = gridState(row)?.copies ?: state(row)!!.copies
+    private fun pools(row: PodRecord) = gridState(row)?.pools ?: limitedState(row)?.pools ?: state(row)!!.pools
+    private fun copies(row: PodRecord) = gridState(row)?.copies ?: limitedState(row)?.copies ?: state(row)!!.copies
     /** Grids the member can select from in a row if nobody else acts (see [GridEngine.consecutivePicks]). */
     private fun gridWaiting(state: GridState?, player: String) = state?.let { GridEngine.consecutivePicks(it, player) } ?: 0
     private fun members(sql: DSLContext, pod: UUID) = sql.selectFrom(MEMBER).where(MEMBER.POD_ID.eq(pod)).orderBy(MEMBER.ACCOUNT_ID).fetch()
@@ -171,11 +174,7 @@ class PodService(private val runtime: ServiceRuntime) {
             input.setSource?.let { validateSet(it)?.let { failure -> return@business failure } }
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@business error(404, "cube_not_found") }
             input.setSource?.let { storeSet(sql, it) }
-            val settings = input.settings ?: when (input.mode) {
-                DraftMode.GLIMPSE -> DraftSettings.glimpse()
-                DraftMode.GRID -> DraftSettings.grid()
-                DraftMode.BOOSTER -> DraftSettings.booster()
-            }
+            val settings = input.settings ?: DraftSettings.defaults(input.mode)
             validateLibrarian(settings)?.let { return@business it }
             storeLibrarian(sql, settings)
             val row = sql.insertInto(POD).set(POD.ID, UUID.randomUUID()).set(POD.CREATOR_ID, owner)
@@ -192,8 +191,10 @@ class PodService(private val runtime: ServiceRuntime) {
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "SETUP") return@mutate error(409, "not_setup")
             if (input.name?.let { !validName(it) } == true) return@mutate error(400, "invalid_name")
-            // Setup may have only its creator; validate settings against the minimum startable membership.
-            if (input.settings?.validate(members(sql, row.id!!).size.coerceAtLeast(2))?.isNotEmpty() == true)
+            // Setup may have only its creator; validate settings against the minimum startable membership. Too many
+            // members for the engine is allowed here: Start is refused and an armed auto-start switches off instead.
+            val members = members(sql, row.id!!).size
+            if (input.settings?.validate(members.coerceAtLeast(2))?.any { it != DraftSettingsIssue.PLAYERS } == true)
                 return@mutate error(400, "invalid_settings")
             if (input.cubeId != null && input.setSource != null) return@mutate error(400, "invalid_source")
             input.setSource?.let { validateSet(it)?.let { failure -> return@mutate failure } }
@@ -205,6 +206,7 @@ class PodService(private val runtime: ServiceRuntime) {
             // A newly chosen source starts unprepared: the cube's own Main and Maybe.
             snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe) }
             input.setSource?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot); row.sourceMaybe = null }
+            overLimit(sql, row)
             save(sql, row)
             detail(sql, row, owner)
         }
@@ -281,6 +283,7 @@ class PodService(private val runtime: ServiceRuntime) {
                 .onConflict(INVITE.POD_ID, INVITE.ACCOUNT_ID).doUpdate().set(INVITE.STATE, "PENDING")
                 .set(INVITE.INVITED_AT, DSL.currentOffsetDateTime()).execute()
             ActivityService.record(sql, target, ActivityKind.POD_INVITATION, row.id!!, UUID.randomUUID(), owner)
+            overLimit(sql, row)
             save(sql, row); detail(sql, row, owner)
         }
 
@@ -306,11 +309,20 @@ class PodService(private val runtime: ServiceRuntime) {
             creator(row, owner)?.let { return@mutate it }
             if (row.phase != "SETUP") return@mutate error(409, "not_setup")
             if (input.enabled && pending(sql, row.id!!).isEmpty()) return@mutate error(409, "no_pending_invitations")
+            if (input.enabled && members(sql, row.id!!).size + pending(sql, row.id!!).size > settings(row).mode.players.last)
+                return@mutate error(409, "too_many_players")
             row.autoStart = input.enabled; row.autoStartOffReason = null; row.autoStartOffAccount = null
             save(sql, row); detail(sql, row, owner)
         }
 
     private fun code(failure: Result) = json.decodeFromString<PodError>(failure.body).code
+
+    /** An armed auto-start switches off, telling the creator, once members plus invitations exceed the engine's limit. */
+    private fun overLimit(sql: DSLContext, row: PodRecord) {
+        if (row.autoStart != true) return
+        if (members(sql, row.id!!).size + pending(sql, row.id!!).size > settings(row).mode.players.last)
+            autoStartOff(sql, row, "too_many_players")
+    }
 
     /** Switches auto-start off and tells the creator why; [author] is the member who declined, if any. */
     private fun autoStartOff(sql: DSLContext, row: PodRecord, reason: String, author: UUID? = null) {
@@ -331,6 +343,7 @@ class PodService(private val runtime: ServiceRuntime) {
         val players = members(sql, row.id!!).map { it.accountId.toString() }
         if (players.size < 2) return error(409, "not_enough_members")
         val settings = settings(row); val cube = source(row)
+        if (players.size > settings.mode.players.last) return error(409, "too_many_members")
         if (settings.validate(players.size).isNotEmpty()) return error(400, "invalid_settings")
         validateLibrarian(settings)?.let { return it }
         if (!supply(row, players.size).sufficient) return error(409, "insufficient_supply")
@@ -340,7 +353,11 @@ class PodService(private val runtime: ServiceRuntime) {
         sql.update(INVITE).set(INVITE.STATE, "LAPSED").where(INVITE.POD_ID.eq(row.id)).and(INVITE.STATE.eq("PENDING")).execute()
         sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.initialBuild(settings.sideboardLimit))).where(MEMBER.POD_ID.eq(row.id)).execute()
         val set = setSource(row)
-        if (settings.mode == DraftMode.GRID) {
+        if (settings.mode.limited) {
+            val next = if (set == null) LimitedEngine.startFromCube(players, cube, settings, seed)
+                else LimitedEngine.startFromSet(players, set, settings, seed)
+            advanceLimited(sql, row, null, next)
+        } else if (settings.mode == DraftMode.GRID) {
             val next = if (set == null) GridEngine.start(players, cube, settings, seed)
             else if (settings.freshBoosters) {
                 // One fresh booster per grid; its nine cards and refill cards are drawn at random from it.
@@ -367,7 +384,7 @@ class PodService(private val runtime: ServiceRuntime) {
         mutate(principal, id, input.requestId, "pickPod", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
             member(sql, row, owner)?.let { return@mutate it }
             if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
-            if (settings(row).mode == DraftMode.GRID) return@mutate error(409, "wrong_draft_mode")
+            if (!settings(row).mode.packPassing) return@mutate error(409, "wrong_draft_mode")
             val previous = state(row)!!
             val result = DraftEngine.pick(previous, DraftPick(owner.toString(), input.packId, input.keep, input.burn, input.librarians))
             if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
@@ -468,6 +485,18 @@ class PodService(private val runtime: ServiceRuntime) {
             val result = GridEngine.pick(previous, GridPick(owner.toString(), input.gridId, GridLine(input.line, input.index)))
             if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
             advanceGrid(sql, row, previous, result.state!!)
+            detail(sql, row, owner)
+        }
+
+    fun turn(principal: AccountService.Principal, id: String, input: PodTurn): Result =
+        mutate(principal, id, input.requestId, "podTurn", json.encodeToJsonElement(input), input.draftAttemptId) { sql, owner, row ->
+            member(sql, row, owner)?.let { return@mutate it }
+            if (row.phase != "DRAFTING") return@mutate error(409, "not_drafting")
+            if (!settings(row).mode.limited) return@mutate error(409, "wrong_draft_mode")
+            val previous = limitedState(row)!!
+            val result = LimitedEngine.act(previous, LimitedMove(owner.toString(), input.action, input.turn, input.card, input.packId, input.pile))
+            if (result.reason != null) return@mutate error(409, result.reason!!.name.lowercase())
+            advanceLimited(sql, row, previous, result.state!!)
             detail(sql, row, owner)
         }
 
@@ -734,6 +763,26 @@ class PodService(private val runtime: ServiceRuntime) {
         save(sql, row)
     }
 
+    private fun advanceLimited(sql: DSLContext, row: PodRecord, previous: LimitedDraftState?, next: LimitedDraftState) {
+        row.draftState = encoded(next); row.phase = if (next.finished) "DRAFTED" else "DRAFTING"
+        for (member in members(sql, row.id!!)) {
+            val owner = member.accountId!!; val player = owner.toString()
+            val build = build(row, member.build!!.data())
+            sql.update(MEMBER).set(MEMBER.BUILD, encoded(PodDeckRules.withAwards(build, next.pools.getValue(player))))
+                .where(MEMBER.POD_ID.eq(row.id)).and(MEMBER.ACCOUNT_ID.eq(owner)).execute()
+            // "Your pick" when it becomes the member's turn (Rochester: a pack's pick) while none was waiting.
+            val queue = next.queues[player].orEmpty()
+            val hadTurn = previous?.queues?.get(player).orEmpty().any { it in queue }
+            if (!hadTurn && queue.isNotEmpty())
+                ActivityService.record(sql, owner, ActivityKind.POD_YOUR_PICK, row.id!!, row.draftAttemptId!!)
+        }
+        if (next.finished && previous?.finished != true) {
+            clearDraftHints(sql, row.id!!)
+            notify(sql, row, ActivityKind.POD_DRAFT_COMPLETE)
+        }
+        save(sql, row)
+    }
+
     private fun clearDraftHints(sql: DSLContext, id: UUID) {
         val summary = org.asyncttwiz.server.generated.tables.ActivitySummary.ACTIVITY_SUMMARY
         val push = org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH
@@ -800,14 +849,16 @@ class PodService(private val runtime: ServiceRuntime) {
             val members = memberships[row.id].orEmpty()
             val mine = members.firstOrNull { it.accountId == owner } ?: return@orSkip null
             val draft = draft(row)
-            val waiting = draft.booster?.let { DraftEngine.consecutivePicks(it, owner.toString()) } ?: gridWaiting(draft.grid, owner.toString())
+            val waiting = draft.booster?.let { DraftEngine.consecutivePicks(it, owner.toString()) }
+                ?: draft.limited?.let { LimitedEngine.consecutivePicks(it, owner.toString()) } ?: gridWaiting(draft.grid, owner.toString())
             val attention = when {
                 waiting > 0 -> PodAttention.YOUR_PICK
                 row.phase == "DRAFTED" && mine.submittedDeck == null -> PodAttention.BUILD
                 else -> PodAttention.NONE
             }
             PodSummary(row.id.toString(), row.name!!, PodPhase.valueOf(row.phase!!), names.getValue(row.creatorId!!),
-                members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString())
+                members.map { names.getValue(it.accountId!!) }, attention, waiting, row.updatedAt!!.toInstant().toString(),
+                settings(row).mode)
         } }.sortedWith(podListOrder)
         val invitations = invited.map {
             PodInvitation(it[INVITE.POD_ID].toString(), it[POD.NAME]!!, names.getValue(it[POD.CREATOR_ID]!!), it[INVITE.INVITED_AT]!!.toInstant().toString())
@@ -826,12 +877,14 @@ class PodService(private val runtime: ServiceRuntime) {
         val public = draft?.let(DraftEngine::publicStatus)
         val grid = stored.grid
         val gridView = grid?.let { PodGridView(GridEngine.publicView(it, owner.toString()), GridEngine.privateView(it, owner.toString())) }
+        val limited = stored.limited
+        val limitedView = limited?.let { LimitedEngine.view(it, owner.toString()) }
         val mine = members.first { it.accountId == owner }
         val visible = view?.head?.cards.orEmpty() + view?.queuedPacks.orEmpty().flatMap { it.cards } +
             view?.pool.orEmpty() + gridView?.mine?.pool.orEmpty() +
             (gridView?.publicView?.grids.orEmpty() + gridView?.publicView?.finishedGrids.orEmpty())
                 .flatMap { it.positions.filterNotNull() + it.slots.mapNotNull { slot -> slot.copy } } +
-            gridView?.publicView?.log.orEmpty().flatMap { it.kept + it.discarded }
+            gridView?.publicView?.log.orEmpty().flatMap { it.kept + it.discarded } + limitedView.cards()
         val cards = StoredDefinitions.read(sql, visible.map { it.definition }.toSet())
         val set = setSource(row)
         val cube = source(row)
@@ -850,8 +903,9 @@ class PodService(private val runtime: ServiceRuntime) {
             members.map { member ->
                 val player = member.accountId.toString()
                 val progress = public?.members?.firstOrNull { it.player == player }
-                val waiting = progress?.packsWaiting ?: gridWaiting(grid, player)
-                PodMember(names.getValue(member.accountId!!), waiting, progress?.picksMade ?: grid?.log?.count { it.player == player } ?: 0,
+                val waiting = progress?.packsWaiting ?: limited?.let { LimitedEngine.consecutivePicks(it, player) } ?: gridWaiting(grid, player)
+                PodMember(names.getValue(member.accountId!!), waiting, progress?.picksMade ?: grid?.log?.count { it.player == player }
+                    ?: limited?.let { LimitedEngine.picksMade(it, player) } ?: 0,
                     row.phase == "DRAFTED" && member.submittedDeck == null, member.submittedDeck != null, waiting > 0)
             }, pending.map { names.getValue(it.accountId!!) }, row.draftAttemptId?.toString(), view,
             if (row.draftState != null) build(row, mine.build!!.data()) else null,
@@ -860,9 +914,15 @@ class PodService(private val runtime: ServiceRuntime) {
             row.phase == "SETUP" && row.autoStart == true,
             row.autoStartOffReason?.takeIf { row.phase == "SETUP" && owner == row.creatorId }
                 ?.let { PodAutoStartOff(it, offAccount?.let(names::getValue)) },
-            notes(sql, row, owner))
+            notes(sql, row, owner), limitedView)
         return Result(status, json.encodeToString(result))
     }
+
+    /** Every card a limited view shows, for its definitions. */
+    private fun LimitedView?.cards(): List<DraftCopy> = this?.let { view ->
+        view.pool + view.board.map { it.copy } + view.packs.flatMap { pack -> pack.slots.map { it.copy } } +
+            view.piles.flatten().filterNotNull() + view.picks.flatMap { it.cards.filterNotNull() }
+    }.orEmpty()
 
     private fun mutate(principal: AccountService.Principal, id: String, request: String, kind: String, input: JsonElement,
         attempt: String? = null, action: (DSLContext, UUID, PodRecord) -> Result): Result {

@@ -62,7 +62,7 @@ class PodPresetsDialogTest {
         compose.onNodeWithTag("pod-preset-search").assertIsDisplayed()
         compose.onNodeWithText("Friday cube 1").assertIsDisplayed()
         compose.onAllNodesWithText("Booster · Vintage cube · 3×15").onFirst().assertIsDisplayed()
-        compose.onAllNodesWithText("Glimpse · Dominaria United · 4 packs").onFirst().assertIsDisplayed()
+        compose.onAllNodesWithText("Booster · Dominaria United · 4 packs").onFirst().assertIsDisplayed()
         compose.onAllNodesWithText("Grid · Cube missing · 15 grids").onFirst().assertIsDisplayed()
         compose.onNodeWithText("Save current settings as preset…").assertIsDisplayed().assertIsEnabled()
         shot("presets-30")

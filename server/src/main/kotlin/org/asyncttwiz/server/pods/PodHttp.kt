@@ -43,7 +43,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                 path == "/v1/pods" -> "GET, POST"
                 parts.size == 1 && id.isNotEmpty() -> "GET, PUT, DELETE"
                 action == "cube" -> "GET"
-                action in listOf("cube/definitions", "invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "submit", "leave", "cancel", "challenge") -> "POST"
+                action in listOf("cube/definitions", "invitations", "accept", "decline", "start", "auto-start", "pick", "grid/select", "turn", "submit", "leave", "cancel", "challenge") -> "POST"
                 action in listOf("cube/move", "build/move", "build/basics", "build/name", "build/notes", "draft/marks") -> "PUT"
                 else -> { error(response, 404, "not_found"); return true }
             }
@@ -76,6 +76,7 @@ class PodHttp(private val runtime: ServiceRuntime) {
                     action == "auto-start" -> pods.autoStart(principal, id, json.decodeFromString<SetPodAutoStart>(text))
                      action == "pick" -> pods.pick(principal, id, json.decodeFromString<PickPod>(text))
                      action == "grid/select" -> pods.selectGrid(principal, id, json.decodeFromString<SelectPodGrid>(text))
+                    action == "turn" -> pods.turn(principal, id, json.decodeFromString<PodTurn>(text))
                     action == "build/move" -> pods.move(principal, id, json.decodeFromString<MovePodCopy>(text))
                      action == "build/basics" -> pods.basics(principal, id, json.decodeFromString<SetPodBasics>(text))
                      action == "build/name" -> pods.deckName(principal, id, json.decodeFromString<SetPodDeckName>(text))

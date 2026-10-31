@@ -34,14 +34,54 @@ class PodSettingsRangesTest {
     }
 
     @Test fun everyOfferedValuePreservesServerValidationForItsMode() {
-        for (settings in listOf(DraftSettings(), DraftSettings.glimpse(), DraftSettings.grid())) {
-            val fields = if (settings.mode == DraftMode.GRID) listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS, PodSetting.SIDEBOARD)
-                else PodSetting.entries.filter { it !in listOf(PodSetting.GRIDS, PodSetting.OPEN_GRIDS) }
-            for (field in fields) {
+        val sources = listOf(PodSource("Cube", 540), PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.APPROXIMATE),
+            PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED))
+        for (mode in DraftMode.entries) for (source in sources) {
+            val settings = DraftSettings.defaults(mode)
+            for (field in podSettingFields(settings, source)) {
                 val range = field.range(settings)
-                for (number in listOf(range.first, range.last)) assertTrue(field.apply(settings, number).validate(2).isEmpty())
+                for (number in listOf(range.first, range.last)) assertTrue(field.apply(settings, number).validate(2).isEmpty(), "$mode $field $number")
             }
         }
         assertNull(PodSetting.SIDEBOARD.apply(DraftSettings(sideboardLimit = 3), null).sideboardLimit)
+        assertNull(PodSetting.TABLE_OPEN.apply(DraftSettings.rochester().copy(tablePacksOpen = 3), null).tablePacksOpen)
+    }
+
+    // DRF-022, DRF-024: each engine's tiles, the pack size only where the source doesn't fix it.
+    @Test fun eachEngineShowsItsOwnTiles() {
+        val cube = PodSource("Cube", 540)
+        val recipe = PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED)
+        fun fields(settings: DraftSettings, source: PodSource = cube) = podSettingFields(settings, source)
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester()))
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.TABLE_OPEN, PodSetting.SIDEBOARD), fields(DraftSettings.rochester(), recipe))
+        assertEquals(listOf(PodSetting.CARDS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.rotisserie(), recipe))
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PACK_SIZE, PodSetting.PILES, PodSetting.SIDEBOARD), fields(DraftSettings.winston()))
+        assertEquals(listOf(PodSetting.PACKS, PodSetting.PILES, PodSetting.SIDEBOARD), fields(DraftSettings.winchester(), recipe))
+        assertEquals(listOf(PodSetting.CARDS_EACH, PodSetting.SIDEBOARD), fields(DraftSettings.sealed()))
+        assertEquals(listOf(PodSetting.BOOSTERS, PodSetting.SIDEBOARD), fields(DraftSettings.sealed(), recipe))
+        assertEquals(1..15, PodSetting.PACKS.range(DraftSettings.winston()))
+        assertEquals(5..30, PodSetting.PACK_SIZE.range(DraftSettings.rochester()))
+        assertEquals(2..6, PodSetting.PILES.range(DraftSettings.winston()))
+        assertEquals(2..8, PodSetting.PILES.range(DraftSettings.winchester()))
+        assertEquals(1..24, PodSetting.TABLE_OPEN.range(DraftSettings.rochester()))
+        assertEquals(5..225, PodSetting.CARDS_EACH.range(DraftSettings.rotisserie()))
+        assertEquals(1..30, PodSetting.BOOSTERS.range(DraftSettings.sealed()))
+        assertEquals("1 each", PodSetting.TABLE_OPEN.emptyText)
+    }
+
+    // DRF-030, DRF-150
+    @Test fun playerLimitTextsNameTheEngineAndCount() {
+        fun account(n: Int) = AccountIdentity("id-$n", "P$n")
+        fun detail(settings: DraftSettings, members: Int, invited: Int = 0, armed: Boolean = false) = PodDetail("pod", "Pod",
+            PodPhase.SETUP, account(0), settings, PodSource("Cube", 540), DraftSupply(0, 540),
+            List(members) { PodMember(account(it)) }, List(invited) { account(100 + it) }, updatedAt = "", autoStart = armed)
+        assertNull(podPlayerLimitText(detail(DraftSettings.grid(), 4)))
+        assertEquals("Grid takes at most 4 players; 5 have joined.", podPlayerLimitText(detail(DraftSettings.grid(), 5)))
+        assertFalse(podCanStart(detail(DraftSettings.grid(), 5)))
+        assertEquals("Winston takes at most 4 players; 5 are joined or invited.",
+            podPlayerLimitText(detail(DraftSettings.winston(), 3, invited = 2)))
+        assertNull(podPlayerLimitText(detail(DraftSettings.rotisserie(), 3, invited = 5)))
+        assertEquals("Too many players for Winston (at most 4); auto-start is off",
+            podAutoStartOffText(PodAutoStartOff("too_many_players"), DraftMode.WINSTON))
     }
 }

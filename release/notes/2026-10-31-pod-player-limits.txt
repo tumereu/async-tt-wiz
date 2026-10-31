@@ -1,0 +1,1 @@
+add: Each pod mode says how many players it takes; a pod with too many players can't start, and you're told why.

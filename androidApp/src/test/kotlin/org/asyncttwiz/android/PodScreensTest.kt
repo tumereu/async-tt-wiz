@@ -286,7 +286,7 @@ class PodScreensTest {
         var settings by mutableStateOf(DraftSettings())
         compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }
         compose.onNodeWithText("Booster").assertIsSelected()
-        compose.onNodeWithText("Glimpse").assertExists()
+        compose.onNodeWithText("Glimpse").assertDoesNotExist()
         compose.onNodeWithText("Grid").assertExists().performClick().assertIsSelected()
         compose.runOnIdle { assertEquals(DraftSettings.grid(), settings) }
         compose.onNodeWithText("18").assertExists()
@@ -300,11 +300,22 @@ class PodScreensTest {
         }
         compose.onNode(twoPicks).assertIsEnabled().performClick()
         compose.runOnIdle { assertTrue(settings.twoPicks) }
-        compose.onNodeWithText("Glimpse").performClick()
-        compose.runOnIdle { assertEquals(DraftSettings.glimpse(), settings) }
+        compose.onNodeWithText("Booster").performClick()
+        compose.runOnIdle { assertEquals(DraftSettings.booster(), settings) }
         compose.onNodeWithText("Grids").assertDoesNotExist()
         compose.onNodeWithText("Two picks each").assertDoesNotExist()
         compose.onNodeWithText("Pack size").assertExists()
+    }
+
+    // DRF-020, DRF-022, DRF-151
+    @Test fun engineChipsLoadTheirDefaultsAndKeepTheSideboardLimit() {
+        var settings by mutableStateOf(DraftSettings(sideboardLimit = 7, librarians = 2))
+        compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }
+        compose.onNodeWithText("Sealed").performClick().assertIsSelected()
+        compose.runOnIdle { assertEquals(DraftSettings.sealed().copy(sideboardLimit = 7), settings) }
+        compose.onNodeWithText("Cards each").assertExists()
+        compose.onNodeWithText("Librarians").assertDoesNotExist()
+        compose.onNodeWithText("Keep").assertDoesNotExist()
     }
 
     // DRF-028
@@ -338,7 +349,7 @@ class PodScreensTest {
         compose.runOnIdle { assertFalse(settings.freshBoosters) }
         compose.onNode(freshBoosters).assertIsOff()
         // Switching modes keeps the choice; a cube source makes it inapplicable again.
-        compose.onNodeWithText("Glimpse").performClick()
+        compose.onNodeWithText("Booster").performClick()
         compose.onNodeWithText("Grid").performClick()
         compose.runOnIdle { assertFalse(settings.freshBoosters) }
         compose.runOnIdle { source = PodSource("Cube", 540) }

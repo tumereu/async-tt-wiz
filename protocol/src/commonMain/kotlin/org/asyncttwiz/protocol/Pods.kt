@@ -10,6 +10,8 @@ import kotlinx.serialization.Serializable
     val id: String, val name: String, val phase: PodPhase, val creator: AccountIdentity,
     val members: List<AccountIdentity>, val attention: PodAttention, val packsWaiting: Int,
     val updatedAt: String,
+    /** The pod's engine; turn-based engines read "Your pick" without a pack count. */
+    val mode: DraftMode = DraftMode.BOOSTER,
 )
 @Serializable data class PodInvitation(val podId: String, val name: String, val creator: AccountIdentity, val invitedAt: String)
 @Serializable data class PodList(val pods: List<PodSummary>, val invitations: List<PodInvitation>)
@@ -55,6 +57,8 @@ import kotlinx.serialization.Serializable
     val autoStartOff: PodAutoStartOff? = null,
     /** Caller-only notes for the current draft attempt; null until first saved. */
     val notes: PodDeckNotes? = null,
+    /** Rochester, Rotisserie, Winston, Winchester and Sealed: what the caller may see of the draft. */
+    val limited: LimitedView? = null,
 )
 /** A member's private deck notes and tally counters (W, U, B, R, G, C, gold, neutral) for one draft attempt. */
 @Serializable data class PodDeckNotes(val text: String = "", val counters: List<Int> = List(COUNTERS) { 0 }) {
@@ -79,8 +83,10 @@ import kotlinx.serialization.Serializable
 /** POST /v1/pods/{id}/{start,accept,decline,leave}; DELETE /v1/pods/{id} destroys.
  * Leave is membership-scoped, even while drafting: it cancels whichever draft is current. */
 @Serializable data class PodRequest(val requestId: String)
-/** POST /v1/pods/{id}/auto-start (creator, setup). Arming needs a pending invitation; settings edits keep it armed.
- * A decline, or a start failure at the last acceptance, switches it off and notifies the creator. */
+/** POST /v1/pods/{id}/auto-start (creator, setup). Arming needs a pending invitation and members plus invitations within
+ * the engine's player limit (409 too_many_players); settings edits keep it armed unless they put the pod over the new
+ * engine's limit. A decline, going over the limit, or a start failure at the last acceptance switches it off and
+ * notifies the creator. */
 @Serializable data class SetPodAutoStart(val requestId: String, val enabled: Boolean)
 /** POST /v1/pods/{id}/cancel (and submit, see [SubmitPodDeck]). The attempt must still be current, including on retries. */
 @Serializable data class PodDraftRequest(val requestId: String, val draftAttemptId: String)
@@ -100,6 +106,9 @@ import kotlinx.serialization.Serializable
 /** POST /v1/pods/{id}/grid/select; index is zero-based (0..2). */
 @Serializable data class SelectPodGrid(val requestId: String, val draftAttemptId: String, val gridId: String,
     val line: GridLineType, val index: Int)
+/** POST /v1/pods/{id}/turn: a Rochester, Rotisserie, Winston or Winchester move ([LimitedMove] without the player). */
+@Serializable data class PodTurn(val requestId: String, val draftAttemptId: String, val action: LimitedAction, val turn: Int,
+    val card: String? = null, val packId: String? = null, val pile: Int? = null)
 /** PUT /v1/pods/{id}/build/move. */
 @Serializable data class MovePodCopy(val requestId: String, val draftAttemptId: String, val copyId: String, val category: PodDeckCategory)
 /** PUT /v1/pods/{id}/build/basics. [side] sets the Side lands instead of Main. */

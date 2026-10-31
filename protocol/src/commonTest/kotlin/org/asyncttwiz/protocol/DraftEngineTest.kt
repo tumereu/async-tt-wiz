@@ -45,10 +45,10 @@ class DraftEngineTest {
         return state
     }
 
-    // DRF-021, DRF-023
+    // DRF-020, DRF-021, DRF-023: Glimpse is a built-in preset of Booster.
     @Test fun presetsAndSettingsBoundaries() {
         assertEquals(DraftSettings(DraftMode.BOOSTER, 3, 15, 1, 0, 0, 1, true, null), DraftSettings.booster())
-        assertEquals(DraftSettings(DraftMode.GLIMPSE, 9, 15, 1, 2, 0, 1, true, null), DraftSettings.glimpse())
+        assertEquals(DraftSettings(DraftMode.BOOSTER, 9, 15, 1, 2, 0, 1, true, null), DraftSettings.glimpse())
         val base = DraftSettings.booster()
         for (players in 2..8) assertTrue(base.validate(players).isEmpty())
         for (players in listOf(-1, 0, 1, 9)) assertContains(base.validate(players), DraftSettingsIssue.PLAYERS)

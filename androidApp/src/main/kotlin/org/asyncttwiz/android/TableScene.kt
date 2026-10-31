@@ -5,7 +5,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -352,84 +351,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     }
                 }
             }
-            for (field in scene.fields.filter { it.bounds.width > 0 && it.bounds.height > 0 }) Box(Modifier.offset(field.bounds.x.dp, field.bounds.y.dp)
-                .size(field.bounds.width.dp, field.bounds.height.dp).semantics {
-                    val player = if (field.owner == game.inviter.accountId) game.inviter else game.recipient
-                    contentDescription = "${player.username} Battlefield, ${play.board.containers.single { it.id == field.containerId }.cards.size} cards"
-                    stateDescription = if (field.holdsAttention) "${player.username}'s move" else "Waiting for move"
-                    if (runtime.ping != null && runtime.controlsConnected == true) customActions = annotations.locations(field).map { (target, _) ->
-                        val captured = tablePingIntent(play, pingReference, target, pingProjection)
-                        val position = requireNotNull(target.position)
-                        CustomAccessibilityAction("${if (captured.add) "Ping" else "Unping"} location column ${position.x}, row ${Math.floorDiv(position.y, 2)}") {
-                            currentRuntime.controlsConnected == true && currentRuntime.ping?.invoke(captured) == true
-                        }
-                    }
-                })
-            for (ping in activePings) annotations.endpoint(ping.target)?.let { point ->
-                val captured = EventPingIntent(ping.reference.reference, listOf(ping.target), false)
-                Box(Modifier.tableFrameBounds {
-                    val p = TableAnnotationGeometry(rendered.value.scene, game.inviter.accountId).endpoint(ping.target) ?: point
-                    TableBounds(p.x - 10, p.y - 10, 20f, 20f)
-                }.semantics {
-                    contentDescription = "Ping ${ping.to!!.ordinal}, ${ping.target.kind.name.lowercase()}, author ${ping.recording.author}"
-                    if (runtime.ping != null && runtime.controlsConnected == true) onClick("Unping") {
-                        currentRuntime.controlsConnected == true && currentRuntime.ping?.invoke(captured) == true
-                    }
-                })
-            }
-            // Semantics-only children do not install a second pointer detector. Dock piles expose
-            // the same minimum touch rectangle used by the scene's pointer hit testing.
-            for (item in semanticItems) {
-                if (item.kind == TableItemKind.HAND && item.cards.isNotEmpty()) continue
-                key(item.id) {
-                    Box(Modifier.tableFrameBounds {
-                        rendered.value.items[item.id]?.let { current ->
-                            if (current.touchBounds != null) current.touchBounds
-                            else if (current.zone == PlayZone.STACK && current.kind == TableItemKind.PILE) current.stackBadge
-                            else current.visible.maxByOrNull { it.width * it.height }
-                        }
-                    }.semantics {
-                        contentDescription = item.label
-                         if (item.peekOwners.isNotEmpty()) stateDescription = "Visible card owners: " + item.peekOwners.joinToString { owner ->
-                            if (owner == game.inviter.accountId) game.inviter.username else game.recipient.username
-                        }
-                          selected = item.cardId in rendered.value.scene.highlightedSelection(preview, selection) ||
-                              toolkit?.panel?.startsWith("panelCard/") == true && item.cardId == toolkit.popupItem?.cardId
-                         if (item.sourceId != null && scene.items.any { it.cardId != item.cardId && it.sourceId == item.sourceId })
-                             stateDescription = "Related source and projections share this source identity; selection is independent"
-                        onClick("Actions") { coordinator.actions(item); true }
-                        val commands = mutableListOf<CustomAccessibilityAction>()
-                        if (item.cardId == null && !item.covered && item.cards.isNotEmpty())
-                            commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
-                        if (item.cardId != null) {
-                            commands += CustomAccessibilityAction("Inspect") { coordinator.inspect(item); true }
-                             if (!runtime.reviewing) commands += CustomAccessibilityAction("Select or deselect") { coordinator.select(item); true }
-                            if (writable && scene.canDrag(item)) {
-                                if (item.zone == PlayZone.BATTLEFIELD && !item.projection) {
-                                    commands += CustomAccessibilityAction("Tap selected scope") { coordinator.rotate(item, true); true }
-                                    commands += CustomAccessibilityAction("Untap selected scope") { coordinator.rotate(item, false); true }
-                                }
-                                for ((label, destination) in libraryDestinations(play.board, sourceIds = listOf(item.cardId))) {
-                                    val zone = play.board.containers.single { it.id == destination.containerId }.zone
-                                    val bound = destination.position?.let { TableDestination.Grid.auto(destination.containerId) }
-                                        ?: TableDestination.Container(destination.containerId, zone, destination.insertion == MoveInsertion.BOTTOM)
-                                    commands += CustomAccessibilityAction(label) { coordinator.accessibleMove(item, bound); true }
-                                }
-                            }
-                        }
-                        scene.viewports.firstOrNull { it.id == item.viewport && it.maxScroll > 0 }?.let { port ->
-                            commands += CustomAccessibilityAction("Scroll toward start") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll - port.bounds.width / 2).coerceAtLeast(0f))); true }
-                            commands += CustomAccessibilityAction("Scroll toward end") { layout = layout.copy(scroll = layout.scroll + (port.id to (port.scroll + port.bounds.width / 2).coerceAtMost(port.maxScroll))); true }
-                        }
-                          val ping = tablePingTarget(play, item)?.let { tablePingIntent(play, pingReference, it) }
-                          if (ping != null && runtime.ping != null && runtime.controlsConnected == true)
-                              commands += CustomAccessibilityAction(if (ping.add) "Ping this target" else "Unping this target") {
-                                  currentRuntime.controlsConnected == true && currentRuntime.ping?.invoke(ping) == true
-                              }
-                         customActions = commands
-                    })
-                }
-            }
+            TableSemanticNodes(game, play, scene, semanticItems, rendered, annotations, pingProjection, pingReference,
+                activePings, runtime, { currentRuntime }, coordinator, writable, toolkit, selectionState, { preview }, layoutState)
             for (item in scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }) {
                 play.board.stackTextMarks[item.cardId]?.let { indices ->
                     StackMarkChips(indices, Modifier.offset {
@@ -445,68 +368,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 callback?.invoke(intent)
             }
         }
-        if (runtime.reviewing) scene.world?.visibleViewport?.let { board ->
-            // Purely visual siblings: no pointer handlers, so review gestures and chrome stay usable.
-            Box(Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp)
-                .background(Color.Black.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-                TimelineCentreText(runtime.opponentBranched, runtime.timelinePlayback ?: TimelinePlaybackStatus.PAUSED, runtime.oldBranch)
-            }
-        }
-        // Outside the review condition: the end of playback (back to live) still flashes the pause.
-        scene.world?.visibleViewport?.let { board ->
-            PlaybackStatusFlash(runtime.timelinePlayback, Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp))
-        }
-        TableChangeOverlay(runtime.changes, accountId, scene.appearance,
-            item = { id -> rendered.value.items[id] })
-        TableEventFeedbackOverlay(runtime.changes?.feedback, accountId, game.inviter.accountId, scene,
-            renderedScene = { rendered.value.scene },
-            usernames = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username))
-        ResultActions.pendingPresentation(game, play, accountId)?.let { result ->
-            val board = scene.world?.visibleViewport
-            Box(if (board == null) Modifier.fillMaxSize() else
-                Modifier.offset(board.x.dp, board.y.dp).size(board.width.dp, board.height.dp),
-                contentAlignment = Alignment.Center) {
-                ResultTablePanel(result, runtime.resultControls, Modifier.padding(8.dp))
-            }
-        }
+        TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, writable, toolkit)
-        val playControls: @Composable () -> Unit = {
-            Box(Modifier.fillMaxWidth().height(TableControlsHeight.dp)) {
-                if (toolkit != null) {
-                    val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
-                    QuickActionStrip(play, toolkitQuickContext(play, selection, toolkit.explicitStack, accountId)
-                        .copy(combatDamageEdits = toolkit.combatDamageEdits(play)), toolkit.table, endingColor,
-                        Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform)
-                    runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
-                        Modifier.align(Alignment.CenterStart).padding(start = 10.dp), holdName = if (runtime.redo != null) "Redo" else null,
-                        onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
-                }
-            }
-        }
-        if (runtime.bottomPanel != null) runtime.bottomPanel.invoke(playControls)
-        else {
-            if (runtime.reviewing) runtime.reviewPanel?.invoke()
-            if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomStart else Alignment.BottomCenter)
-                .padding(bottom = if (landscape) 4.dp else TableControlsHeight.dp)
-                .fillMaxWidth(if (landscape) .5f else 1f).height(TableTimelineHeight.dp)) { runtime.liveTimeline?.invoke() }
-            if (!runtime.reviewing) Box(Modifier.align(if (landscape) Alignment.BottomEnd else Alignment.BottomCenter)
-                .fillMaxWidth(if (landscape) .5f else 1f)) { playControls() }
-        }
-        FloatingTransientError(runtime.errorMessage ?: toolkit?.error ?: gestureError,
-            { if (runtime.errorMessage != null) runtime.dismissError?.invoke() else if (toolkit?.error != null) toolkit.dismissError() else gestureError = null },
-            Modifier.align(Alignment.BottomCenter).padding(bottom = 64.dp))
-        // Screen-fixed personal control remains reachable; it does not compete over card hit regions.
-        // Beside the own hand row's outer end; the hand row is shortened by its width.
-        val modeButton = scene.modeButton
-        if (!runtime.reviewing) Box(Modifier.offset(
-            (modeButton?.x ?: (maxWidth.value - 56f)).dp, (modeButton?.y ?: (maxHeight.value - 112f)).dp)) {
-            ActionSquare("Interaction mode", "", !runtime.gameActionsBlocked,
-                modifier = Modifier.size((modeButton?.width ?: 48f).dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
-                    contentDescription = "Interaction mode"; stateDescription = "${selection.mode.name.lowercase()}, ${selection.ids.size} selected"
-                }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
-                onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true) })
-        }
+        TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, selectionState, coordinator,
+            { gestureError }, { gestureError = null })
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
          if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { if (!runtime.reviewing) selection = selection.toggle(it) }, accepted,
               tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,

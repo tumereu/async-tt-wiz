@@ -1,7 +1,8 @@
 # Design documentation — high level to low level
 
 **Current behaviour lives in the [feature catalog](features/README.md)**; the
-direction is in the [roadmap](roadmap.md). The tiered design below is older and
+direction is in the [roadmap](roadmap.md), and approved changes not built yet are in the
+[backlog](backlog.md). The tiered design below is older and
 partly superseded: where it disagrees with the catalog, the catalog wins.
 
 Start with **[Tier 1: product and usability principles](design/01-product/overview.md)**.

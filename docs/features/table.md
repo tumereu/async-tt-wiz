@@ -91,7 +91,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 ### Card menus
 
 - **TBL-063** Every card menu is one floating popup: square, solid, bordered buttons with a light shadow on the board, with no sheet, title or close button. (r10)
-- **TBL-064** Menu buttons sit in a grid of 5 columns of 48 dp cells, each an icon plus one short label; holding a button shows its full name above it (below near the top edge), never under the finger. (r16)
+- **TBL-064** Card menus (battlefield, hand, Stack, combat and panel cards) put their buttons in a grid of 5 columns of 48 dp cells, each an icon plus one short label; a menu with fewer buttons just has fewer rows. Holding a button shows its full name above it (below near the top edge), never under the finger. (r16)
 - **TBL-065** Paged menus have a "◀ title ▶" header (arrows wrap; tapping the title lists the pages); swiping also changes page, and the last page is remembered per game. (r16)
 - **TBL-066** A paged menu keeps room for its tallest page, so the header and buttons never jump when you change page. (r16)
 - **TBL-067** The menu opens on the side of the card with the most room, preferring above your own cards and below the opponent's. (r4)

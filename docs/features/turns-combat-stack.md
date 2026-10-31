@@ -87,7 +87,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **CMB-001** Combat uses a temporary combat area between the two battlefields. It is created from Table actions, or by itself when the first attacker is declared. It stays open through step changes and closes only on purpose: Close combat area, or a quick action that closes it. (r16)
 - **CMB-002** Attackers and blockers are combat copies of real cards: the real card stays where it is, and anything done to a copy's card applies to the real card. A card has at most one copy per combat area. (r1)
-- **CMB-003** Combat copies are always upright and can't be tapped. Tapping one opens its one-page Combat menu: Inspect, Note, Ping / Unping, Attack →, Remove from combat, Graveyard, Exile, Hand, Deal to target, Deal to target or creatures, Link, Links. It has no controls that change the real card's state (tap the real card for those); double-tap does nothing; hold inspects. (r28)
+- **CMB-003** Combat copies are always upright and can't be tapped. Tapping one opens its own one-page Combat menu, not the normal card menu: Inspect, Note, Ping / Unping, Attack →, Remove from combat, Graveyard, Exile, Hand, Deal to target, Deal to target or creatures, Link, Links. It has no tap, counter, flip or other battlefield controls (use the real card for those); Graveyard, Exile and Hand move the real card on purpose (CMB-004). Double-tap does nothing; hold inspects. (r28)
 - **CMB-004** Remove from combat removes only the copy (the real card is not untapped). Graveyard, Exile and Hand move the real card to its owner's zone (Hand is greyed for a token's copy). (r28)
 - **CMB-005** Combat copies can have their own notes and pings, separate from the real card. (r13)
 - **CMB-006** When the real card leaves the battlefield, all its combat copies disappear; surviving blockers of a removed attacker stay in place. Closing the area removes all copies but leaves real cards and their state unchanged. (r1)
@@ -95,7 +95,6 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **CMB-008** Pairs are packed groups with single faint dividers (no per-column borders), centred as a group and re-centred when added; cards sit centred in their slot (one attacker over two blockers is centred), with about two card-border widths of margin. (r7)
 - **CMB-009** Dragging a battlefield card into the combat area makes its copy there. Dropping left or right of all groups makes a new pair at that end; near a divider, a new pair there. While dragging, a faint shorter divider shows where it lands; reordering works the same both ways. Dragging a copy between rows changes its role. (r7)
 - **CMB-010** Dragging a combat copy to a real zone (e.g. graveyard) moves the real card there. (r1)
-- **CMB-011** No three neighbouring cards ever overlap in any tapped combination, including mid tap animation. (r5)
 
 ### Attack targets
 
@@ -126,7 +125,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **STK-001** Every way of putting a card on the Stack (from battlefield, hand, graveyard, exile or library) adds a Stack entry pointing at the real card; the real card stays where it is. Several entries may come from the same card. (r17)
 - **STK-002** A hand card's entry is shown face up to both players while it is on the Stack. (r2)
 - **STK-003** Stack cards are always upright and can't be tapped. (r1)
-- **STK-004** Double-tapping a hand card plays it as if dragged: a land goes to the first free spot of the land row; anything else goes to the Stack. A card that is a non-land permanent on all its faces then resolves onto the main battlefield row by itself, as one Undo. (r15)
+- **STK-004** A hand card double-tapped onto the Stack (ZON-004) that is a non-land permanent on all its faces resolves onto the main battlefield row by itself; play and resolve are one Undo. (r15)
 - **STK-005** "Face down" in the hand menu puts the card on the Stack face down, and it resolves straight onto the battlefield, still face down (2/2). (r21)
 - **STK-006** Adding an entry shows a ghost card flying from the card to the Stack; removing one flies back. An entry leaving to the graveyard, battlefield or exile flies to that destination. Undo reverses the flight. (r14)
 

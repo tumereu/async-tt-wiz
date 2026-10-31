@@ -19,7 +19,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-010** A player action that needs several game actions (for example, a double-tap cast followed by its resolve) goes to the server as one all-or-nothing batch. (r15)
 - **SYS-011** Ordinary edits apply to the current state. Only card moves (the source must still match) and Stack additions (the Stack must be unchanged) are refused when the board changed underneath them. A refusal never creates a branch. (r1)
 - **SYS-012** The active branch changes only through a deliberate branch action, never as a side effect of play. An ordinary move sent just as the opponent branched is refused with "Your opponent went back to an earlier point — your last action wasn't applied." (?) (r33)
-- **SYS-013** Game actions need a connection, and there is no offline queue of actions. Downloaded games are meant to stay readable offline. (?) not verified in the app (r1)
+- **SYS-013** Playing and viewing a game need a connection; there is no offline queue of actions and no offline mode. (r1)
 - **SYS-014** After a reconnect, actions that were already sent are recovered automatically: no duplicates and no manual resend. If the app process dies, it restarts from the server's state, and actions it had not sent yet may be lost. (r1)
 - **SYS-015** Recovery from missed updates is automatic. There is no manual "download history" or resync button. (r15)
 - **SYS-016** Losing the connection in a game shows "Reconnecting…" / "Game actions unavailable." with a "Back to games list" button. The dialog can be dismissed. (?) not verified whether actions stay blocked after dismissing (r1)
@@ -54,7 +54,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 
 ### Player access policy
 
-- **SYS-036** Every gameplay action is available to both players, on either player's cards, zones, panels and piles. The "phone test": you could run the game for an opponent who only sees the board and tells you over the phone what to do. (r30)
+- **SYS-036** Every gameplay action is available to both players, on either player's cards, zones, panels and piles. The "phone test": you could run the game for an opponent who only sees the board and tells you over the phone what to do. Hidden information stays hidden by default, so reaching it for them (e.g. their hand) takes an extra action. (r30)
 - **SYS-037** The only allowed differences: quick actions and defaults can fit the acting player, hidden information the opponent owns is not shown by default, and an action may ask for an extra confirmation. Who is acting never hard-blocks an action. (r30)
 - **SYS-038** These rules still hold: cards go to their owner's hand, library, graveyard, exile and Temp piles (drops redirect and the preview shows it; owner is separate from controller), only game members can act, you undo only your own actions, and personal proposals belong to their author (withdrawing a result suggestion, your own status). (r30)
 - **SYS-039** The app hides hidden information on screen only, a deliberate trust-the-client choice. Normal or accidental inspection never shows a hidden side; seeing it takes a deliberate, recorded action. (r21)
@@ -63,7 +63,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 
 ### Shared UI rules
 
-- **SYS-042** Every context menu uses one floating popup: square, opaque, bordered buttons on the board, with no sheet, title or Close button. Tapping outside or pressing Back dismisses it. Only buttons and chips count as inside; gaps count as outside, and outside taps also pass through to the table. The phase/step picker is a dialog instead. (r11)
+- **SYS-042** Every context menu on the game table uses one floating popup: square, opaque, bordered buttons on the board, with no sheet, title or Close button. Tapping outside or pressing Back dismisses it. Only buttons and chips count as inside; gaps count as outside, and outside taps also pass through to the table. The phase/step picker is a dialog instead. Menus outside a game (lobby, pods) are ordinary drop-down menus. (r11)
 - **SYS-043** Only one popup can be open at a time; tapping with several fingers never opens more. (r19)
 - **SYS-044** Every custom button shows press feedback. (r4)
 - **SYS-045** Holding a short-label button shows its full name in a tooltip above the button (below it near the top edge), never under the finger. (r3)
@@ -72,3 +72,4 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-048** Dialogs on regular screens share one style: a title, a close button and Cancel/main action buttons, never a lone left button. Gameplay, inspect and special popups are excluded. (r21)
 - **SYS-049** Every hold preview behaves like the in-game one: it opens at once, closes on release, and early finger movement goes to the scroll or swipe underneath. (r30)
 - **SYS-050** System Back first closes open menus, dialogs, panels and modes. It never undoes game actions. On the bare table, leaving needs a second Back within 2 s ("Press back again to leave"). Top-level menu destinations reset the back stack. (r30)
+- **SYS-051** Shared card type order: Creatures, Planeswalkers, Battles, Instants, Sorceries, Artifacts, Enchantments, Lands, Other. Used by deck preparation (LOB-047, DRF-126) and saved decks (LOB-056). (r24)

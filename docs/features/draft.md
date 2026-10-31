@@ -175,7 +175,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Game preparation
 
 - **DRF-126** Preparing a deck shows the cards as pictures on one scrolling page: green Mainboard and blue Sideboard headers with counts, cards grouped by type. (r24)
-- **DRF-127** Type groups go Creatures, Planeswalkers, Battles, Instants, Sorceries, Artifacts, Enchantments, Lands, Other; empty groups are left out, cards sorted by name, ×N badge for copies. (r24)
+- **DRF-127** Type groups follow the shared card type order (SYS-051); empty groups are left out, cards sorted by name, ×N badge for copies. (r24)
 - **DRF-128** Preparation has a columns setting 1–10, default 3, saved per device and orientation. (r31)
 - **DRF-129** Swiping a card sideways (20 dp) moves one copy to the other section; tap opens "Move one to …", "Move all N to …"/"Move to …" and Inspect; hold previews until release. (r24)
 - **DRF-130** A short fading line reports each move ("2× Opt → Sideboard"); when disconnected it reads "Disconnected · preparation is read-only". (r23)

@@ -68,7 +68,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Deck preparation for a game
 
-- **LOB-047** "Prepare deck" opens one scrolling page with Mainboard · N and Sideboard · N headers, cards as pictures grouped by type (Creatures, Planeswalkers, Battles, Instants, Sorceries, Artifacts, Enchantments, Lands, Other) and ×N badges for copies. (r24)
+- **LOB-047** "Prepare deck" opens one scrolling page with Mainboard · N and Sideboard · N headers, cards as pictures grouped by type in the shared order (SYS-051) and ×N badges for copies. (r24)
 - **LOB-048** Swipe a card sideways to move one copy to the other section; hold to preview it; tap for "Move one to…", "Move all N to…" and "Inspect". (r24)
 - **LOB-049** A round floating Undo button at the bottom left, shown only when there is something to undo, takes back moved cards and basic land changes one at a time. (r23)
 - **LOB-050** A line under the title briefly says what you last moved; while disconnected it reads "Disconnected · preparation is read-only". (r21)

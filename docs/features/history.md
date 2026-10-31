@@ -19,13 +19,13 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-010** The timeline panel has the strip with a playback settings gear and a game tree button at its end, and below it Previous, the Auto button and Next. Previous/Next are plain borderless arrows. (r21)
 - **HIS-011** Swiping the strip or tapping an event moves the review cursor to that exact event (also mid-group); holding an event shows its text without moving the cursor. (r33)
 - **HIS-012** Previous and Next step one event group along the visible line: the live line, or the old branch being viewed from its start to its own tip. The strip shows that whole visible line. (r31)
-- **HIS-013** The Auto button reads "Auto: off" (green play icon) or "Auto: on" (orange pause icon); tapping toggles automatic playback. (r6) (?) code differs from r7: the small "Tap: toggle · Hold: branch" hint line is gone
+- **HIS-013** The Auto button reads "Auto: off" (green play icon) or "Auto: on" (orange pause icon); tapping toggles automatic playback. There is no hint line under it. (r6)
 - **HIS-014** Auto always heads for the live game. On an old branch, or when the opponent branched, the button shows the rewind sign and "Rewind": it first rewinds to where the lines split, then plays on. (r31)
 - **HIS-015** Navigating to the last event by hand stays in timeline mode; only automatic playback reaching the end returns to play mode, even if the last event would auto-pause, and its animation still plays. (r14)
 - **HIS-016** In timeline mode double tap does nothing (no error), multi-select is off, a one-finger drag on empty table pans, and card menus and bubbles do not act on the game. (r13)
 - **HIS-017** Hold-inspect works on every face-up card in timeline mode too, and holding a card pauses playback. (r8)
 - **HIS-018** "Return to current" in the top bar leaves timeline mode for the live game. Back leaves timeline mode at once without playing the rest back. (r6)
-- **HIS-019** Leaving timeline mode never asks a question; the old "Leave history? Back to latest / Continue from here" dialog cannot be reached. (r6) (?) code differs from r6: dialog was meant to appear when the history toggle is turned off away from the head
+- **HIS-019** Leaving timeline mode never asks a question and always returns to the live game; branching needs its own action (HIS-036). (r6)
 - **HIS-020** A pending win/loss/draw suggestion never blocks the timeline. In timeline mode it locks play only where the shown board already includes it; continuing from an earlier point or another branch is allowed and leaves the suggestion behind. (r27)
 
 ### Playback
@@ -34,8 +34,8 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-022** Rewinding to a branch point steps back group by group with its own "Rewind pause", 0.1 s by default, adjustable from 0.02 s to 2 s. (r29)
 - **HIS-023** Starting Auto or a rewind takes its first step right away; later steps keep the pause. (r31)
 - **HIS-024** Auto stops after an opponent's group that matches an enabled auto-pause trigger, after that group's animation. Your own actions never auto-pause. (r12)
-- **HIS-025** Auto-pause triggers and defaults: Added to Stack on, Removed from Stack off, Reveal on, Pings / comments on, Die / coin results off, Your life / cards hit on, Move passes to you on, Attackers declared off. (r15)
-- **HIS-026** Two more triggers, both off by default: "Opponent plays a land" and "Opponent puts a nonland card onto the battlefield from hand". A hand-to-battlefield move never counts as a Reveal. (r13)
+- **HIS-025** Auto-pause triggers and defaults: Added to Stack on, Removed from Stack off, Reveal on, Pings / comments on, Die / coin results off, Your life / cards hit on, Move passes to you on, Attackers declared off, Opponent plays a land off, Opponent puts a nonland card onto the battlefield from hand off. (r15)
+- **HIS-026** A hand-to-battlefield move never counts as a Reveal. (r13)
 - **HIS-027** "Move passes to you" pauses only if the next event is not your own. Status changes never auto-pause; opening a graveyard/exile panel is not a reveal. (r17) (?)
 - **HIS-028** Playback settings live in Settings under "Timeline playback" and in a dialog from the timeline's gear: the auto-pause switches ("Stop Auto after an opponent's matching action"), "History playback pause", "Rewind pause", the auto-rewind switches and Card move speed. (r31)
 - **HIS-029** Live play: when the opponent reveals cards in a panel, the table holds the face-up panel for one playback pause before moving on, without entering timeline mode. The board just before an opponent's result suggestion is likewise shown before the suggestion. (r8) (?)

@@ -160,4 +160,21 @@ class PodLimitedScreenshotTest {
         shot("pod-winston", "Winston draft on Alice's turn while she looks at pile 2: cards she has seen are face up, " +
             "cards added since are backs, with Pass and Take pile 2 below.")
     }
+
+    // DRF-150
+    @Test fun winchesterFaceUpPilesWithAChosenPile() {
+        val piles = listOf(listOf(copies[0], copies[1]), listOf(copies[2]), listOf(copies[3], copies[4], copies[5]), listOf(copies[6]))
+        val view = LimitedView(DraftMode.WINCHESTER, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
+            turn = 2, stack = 24, piles = piles)
+        show({ "pod-winchester-${it.id}" }, piles.flatten()) {
+            PodWinchesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns,
+                remember { CardInspectionController() })
+        }
+        compose.onNodeWithTag("pod-winchester-copy-4").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        compose.onNodeWithText("Take pile 3 (3 cards)").assertIsEnabled()
+        shot("pod-winchester", "Winchester draft on Alice's turn after she taps a card of pile 3: the four face-up piles, " +
+            "pile 3 framed, and \"Take pile 3 (3 cards)\" below.")
+    }
 }

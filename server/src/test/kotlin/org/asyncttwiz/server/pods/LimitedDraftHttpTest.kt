@@ -325,4 +325,33 @@ class LimitedDraftHttpTest {
         assertEquals(20, listOf(x, y).sumOf { f.get(it, pod).limited!!.pool.size })
         for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
     }
+
+    // DRF-149, DRF-150, DRF-139: face-up piles for everyone, whole piles taken in seat order, the stack only counted.
+    @Test fun `Winchester HTTP public piles turn order notifications and end`() = fixture { f ->
+        val pod = f.create(DraftSettings.winchester().copy(packsPerPlayer = 1, cardsPerPack = 6))
+        f.join(pod, f.b, f.c)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        val attempt = started.draftAttemptId!!
+        val seating = started.limited!!.seating.map(f::session)
+        val views = seating.map { f.get(it, pod) }
+        assertTrue(views.all { it.limited!!.piles == views[0].limited!!.piles && it.limited!!.piles.flatten().all { card -> card != null } })
+        assertEquals(14, views[0].limited!!.stack)
+        // Only the face-up piles are named; the stack's cards are not.
+        assertEquals(views[0].limited!!.piles.flatten().map { it!!.definition }.toSet(), views[0].definitions.map { it.digest }.toSet())
+        assertEquals("not_your_turn", f.code(f.turn(seating[1], pod, PodTurn(id(), attempt, LimitedAction.TAKE_PILE, 0, pile = 0), 409)))
+        val order = mutableListOf<SessionCreated>()
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            val view = f.get(f.a, pod).limited!!
+            val current = f.session(view.currentPlayer!!)
+            order += current
+            f.turn(current, pod, PodTurn(id(), attempt, LimitedAction.TAKE_PILE, view.turn, pile = view.piles.indexOfFirst { it.isNotEmpty() }))
+            assertTrue(order.size < 60)
+        }
+        assertEquals(order.indices.map { seating[it % 3] }, order)
+        assertEquals(18, seating.sumOf { f.get(it, pod).limited!!.pool.size })
+        // A member's turn notifies them each time it comes round.
+        for ((index, who) in seating.withIndex()) assertEquals(order.indices.count { it % 3 == index }, f.count(ActivityKind.POD_YOUR_PICK, pod, who))
+        // The Picks view shows every take face up.
+        assertTrue(f.get(seating[0], pod).limited!!.picks.all { take -> take.cards.all { it != null } })
+    }
 }

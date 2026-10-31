@@ -68,6 +68,7 @@ internal fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitio
         DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, inspection)
         DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns, inspection)
         DraftMode.WINSTON -> PodWinstonView(view, members, definitions, busy, send, modifier, columns, inspection)
+        DraftMode.WINCHESTER -> PodWinchesterView(view, members, definitions, busy, send, modifier, columns, inspection)
         else -> Box(modifier, contentAlignment = Alignment.Center) { PodPickWaiting(waitingText, onMainMenu) }
     }
 }
@@ -359,6 +360,27 @@ internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, d
             Button({ send(LimitedAction.TAKE_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-take"),
                 enabled = !busy && view.piles.getOrNull(view.pile)?.isNotEmpty() == true) { Text("Take pile ${view.pile + 1}") }
         }
+    }
+    PodLimitedPreviewHost(preview, definitions, inspection)
+}
+
+/**
+ * Winchester (DRF-150): every pile face up with the stack's count. On your turn tap a card of a pile to choose that
+ * pile, then "Take pile N".
+ */
+@Composable
+internal fun PodWinchesterView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
+    val mine = view.currentPlayer == view.player && !view.finished
+    var chosen by remember(view.turn) { mutableStateOf<Int?>(null) }
+    val preview = remember { PodLimitedPreview() }
+    Column(modifier.padding(horizontal = 8.dp)) {
+        PodPiles(view, members, definitions, columns, preview, { it == chosen }, "winchester", Modifier.weight(1f).fillMaxWidth(),
+            onTap = { pile, copy ->
+                if (mine && chosen != pile) chosen = pile else inspection.openPodCard(copy.definition, definitions[copy.definition])
+            })
+        if (mine) PodLimitedConfirm(chosen?.let { "Take pile ${it + 1} (${podCardCount(view.piles[it].size)})" } ?: "Confirm",
+            !busy && chosen != null) { chosen?.let { send(LimitedAction.TAKE_PILE, view.turn, null, null, it) } }
     }
     PodLimitedPreviewHost(preview, definitions, inspection)
 }

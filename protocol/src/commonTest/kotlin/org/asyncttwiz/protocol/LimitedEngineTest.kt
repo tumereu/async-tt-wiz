@@ -227,4 +227,36 @@ class LimitedEngineTest {
         assertEquals(state.copies.map { it.id }.toSet(), state.pools.values.flatten().toSet())
         assertTrue(state.queues.values.all { it.isEmpty() })
     }
+
+    // DRF-149: every pile gets a card from the stack each turn, then the player takes one whole pile.
+    @Test fun winchesterDealsToEveryPileEachTurnAndTakesWholePiles() {
+        val three = players.take(3)
+        var state = LimitedEngine.startFromCube(three, cube(30), DraftSettings.winchester().copy(packsPerPlayer = 1, cardsPerPack = 5), seed)
+        val seating = state.seating
+        assertEquals(listOf(1, 1, 1, 1), state.piles.map { it.size })
+        assertEquals(11, state.stack.size)
+        // Piles are face up for everyone; the stack is only counted.
+        assertTrue(three.all { player -> LimitedEngine.view(state, player).piles.flatten().all { it != null } })
+        assertEquals(LimitedRejection.NOT_YOUR_TURN, move(state, seating[1], LimitedAction.TAKE_PILE, pile = 0).reason)
+        assertEquals(LimitedRejection.WRONG_PILE, move(state, seating[0], LimitedAction.TAKE_PILE, pile = 4).reason)
+        assertEquals(LimitedRejection.WRONG_ACTION, move(state, seating[0], LimitedAction.PASS_PILE, pile = 0).reason)
+        assertEquals(LimitedRejection.EMPTY_PILE, move(state.copy(piles = listOf(emptyList<String>()) + state.piles.drop(1)),
+            seating[0], LimitedAction.TAKE_PILE, pile = 0).reason)
+        state = ok(move(state, seating[0], LimitedAction.TAKE_PILE, pile = 2))
+        assertEquals(listOf(2, 2, 1, 2), state.piles.map { it.size })
+        assertEquals(7, state.stack.size)
+        assertEquals(LimitedRejection.STALE_TURN, move(state, seating[1], LimitedAction.TAKE_PILE, pile = 0, turn = 0).reason)
+        val order = mutableListOf(seating[0])
+        var guard = 0
+        while (!state.finished) {
+            val player = state.queues.entries.single { it.value.isNotEmpty() }.key
+            order += player
+            state = ok(move(state, player, LimitedAction.TAKE_PILE, pile = state.piles.indexOfFirst { it.isNotEmpty() }))
+            assertTrue(++guard < 100)
+        }
+        assertEquals(order.indices.map { seating[it % 3] }, order)
+        assertEquals(15, state.pools.values.sumOf { it.size })
+        // Everyone's takes are public.
+        assertTrue(LimitedEngine.view(state, seating[1]).picks.all { take -> take.cards.all { it != null } })
+    }
 }

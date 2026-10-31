@@ -111,5 +111,9 @@ tasks.withType<Test>().configureEach {
     // Launch the real installed executable, not a second test-only migration CLI.
     dependsOn(tasks.installDist)
     systemProperty("asyncttwiz.migrationExecutable", layout.buildDirectory.file("install/server/bin/server").get().asFile.absolutePath)
+    // ProductionUpgradeTest compares against the committed fixture in src/test/resources/upgrade; -PupgradeFixture=record rewrites it.
+    val recordUpgradeFixture = providers.gradleProperty("upgradeFixture").orNull == "record"
+    systemProperty("asyncttwiz.recordUpgradeFixture", recordUpgradeFixture.toString())
+    inputs.property("upgradeFixtureMode", recordUpgradeFixture)
     testLogging { events("passed", "skipped", "failed"); showStandardStreams = true }
 }

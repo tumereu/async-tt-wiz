@@ -5,6 +5,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.generated.tables.AccountDefinition.ACCOUNT_DEFINITION
 import org.asyncttwiz.server.generated.tables.AccountRequest.ACCOUNT_REQUEST
@@ -178,10 +179,13 @@ class DeckService(private val runtime: ServiceRuntime) {
 
     private fun summary(sql: DSLContext, row: SavedDeckRecord, entries: List<SavedDeckEntry> = entries(sql, row.id!!)): DeckSummary {
         val cover = (row.coverDigest?.takeIf { digest -> entries.any { it.definition == digest } } ?: entries.firstOrNull()?.definition)?.let { digest ->
-            val definition = json.decodeFromString<CardDefinition>(sql.select(DEFINITION.PAYLOAD).from(DEFINITION)
-                .where(DEFINITION.DIGEST.eq(digest)).fetchSingle(DEFINITION.PAYLOAD)!!)
-            val face = definition.faces.first()
-            DeckCover(digest, definition.name, face.scryfallId, face.imageUri)
+            val payload = sql.select(DEFINITION.PAYLOAD).from(DEFINITION).where(DEFINITION.DIGEST.eq(digest)).fetchSingle(DEFINITION.PAYLOAD)!!
+            // A cover card whose stored definition can't be read leaves the deck without a cover (SYS-052).
+            StoredData.orSkip("card definition", digest) {
+                val definition = json.decodeFromString<CardDefinition>(payload)
+                val face = definition.faces.first()
+                DeckCover(digest, definition.name, face.scryfallId, face.imageUri)
+            }
         }
         return DeckSummary(row.id.toString(), row.name!!, row.revision.toString(), row.createdAt!!.toInstant().toString(),
             entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() },

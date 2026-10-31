@@ -3,6 +3,7 @@ package org.asyncttwiz.server.game
 import java.util.UUID
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.Definition.DEFINITION
 import org.asyncttwiz.server.generated.tables.GameDefinition.GAME_DEFINITION
 import org.asyncttwiz.server.generated.tables.PlayerPreparation.PLAYER_PREPARATION
@@ -19,7 +20,8 @@ internal object PreparationStore {
     fun definitions(sql: DSLContext, digests: Set<String>): List<SubmittedDefinition> =
         sql.select(DEFINITION.DIGEST, DEFINITION.PAYLOAD).from(DEFINITION).where(DEFINITION.DIGEST.`in`(digests))
             .orderBy(DEFINITION.DIGEST).fetch().map {
-                SubmittedDefinition(it[DEFINITION.DIGEST]!!, json.decodeFromString<CardDefinition>(it[DEFINITION.PAYLOAD]!!))
+                SubmittedDefinition(it[DEFINITION.DIGEST]!!, StoredData.decode("card definition", it[DEFINITION.DIGEST]) {
+                    json.decodeFromString<CardDefinition>(it[DEFINITION.PAYLOAD]!!) })
             }
 
     fun read(sql: DSLContext, summary: GameSummary): LobbyPreparation {
@@ -34,9 +36,11 @@ internal object PreparationStore {
             val row = rows[player.accountId]
             val shown = row?.deckShown == true
             // A pod deck's private name reaches the opponent only while its player shows the deck.
-            player.copy(ready = row?.ready ?: false, deck = row?.deck?.let { json.decodeFromString<PreparedDeck>(it) },
+            player.copy(ready = row?.ready ?: false, deck = row?.deck?.let {
+                StoredData.decode("game preparation", game) { json.decodeFromString<PreparedDeck>(it) } },
                 deckShown = shown, shownPodDeckName = row?.podDeckName?.takeIf { shown })
-        }, definitions = definitions(sql, digests), starter = starter?.let { json.decodeFromString<StarterChoice>(it) } ?: StarterChoice(),
+        }, definitions = definitions(sql, digests), starter = starter?.let {
+            StoredData.decode("game preparation", game) { json.decodeFromString<StarterChoice>(it) } } ?: StarterChoice(),
             alternateStarter = alternate,
             podRules = if (summary.podId == null) null else PodGameRules(sql.select(GAME.POD_SIDEBOARD_LIMIT).from(GAME)
                 .where(GAME.ID.eq(game)).fetchSingle(GAME.POD_SIDEBOARD_LIMIT))) }

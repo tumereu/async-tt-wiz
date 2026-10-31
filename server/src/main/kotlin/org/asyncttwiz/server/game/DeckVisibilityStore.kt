@@ -2,6 +2,7 @@ package org.asyncttwiz.server.game
 
 import java.util.UUID
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.Account.ACCOUNT
 import org.asyncttwiz.server.generated.tables.FinishedDeckMatchup.FINISHED_DECK_MATCHUP
 import org.asyncttwiz.server.generated.tables.Game.GAME
@@ -82,7 +83,12 @@ internal object DeckVisibilityStore {
                 .where(PLAYER_PREPARATION.GAME_ID.`in`(games.keys)).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(account))
                 .and(PLAYER_PREPARATION.DECK_SHOWN.isFalse).and(PLAYER_PREPARATION.DECK_SHOWN_CHOSEN.isFalse)
                 .and(PLAYER_PREPARATION.DECK.isNotNull).fetch()
-                .filter { sourceId(GameWire.json.decodeFromString<PreparedDeck>(it.value2()!!).sourceId) == source }
+                // Another lobby game whose stored preparation can't be read is left alone; it fails on its own (SYS-052).
+                .filter { row -> StoredData.orSkip("game preparation", row.value1()) {
+                    val matches = sourceId(GameWire.json.decodeFromString<PreparedDeck>(row.value2()!!).sourceId) == source
+                    if (matches && row.value1() != finished) PreparationStore.read(sql, summary(row.value1()!!)) // its revision below reads it
+                    matches
+                } == true }
             for (row in rows) {
                 sql.update(PLAYER_PREPARATION).set(PLAYER_PREPARATION.DECK_SHOWN, true)
                     .where(PLAYER_PREPARATION.GAME_ID.eq(row.value1())).and(PLAYER_PREPARATION.ACCOUNT_ID.eq(account)).execute()

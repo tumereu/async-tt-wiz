@@ -4,6 +4,7 @@ import java.util.UUID
 import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.accounts.AccountFields
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.accounts.InvalidAccountField
@@ -130,8 +131,9 @@ class LobbyService(private val runtime: ServiceRuntime) {
                 .where(access).and(GAME.LIFECYCLE.`in`("LOBBY", "ACTIVE"))
                 .and(if (after == null) DSL.trueCondition() else GAME.ID.gt(UUID.fromString(after)))
                 .orderBy(GAME.ID).limit(101).forShare().fetch(GAME.ID)
-            val games = ids.take(100).map { summary(sql, it!!) }
-            Result(200, json.encodeToString(GameList(games, if (ids.size > 100) games.last().id else null)))
+            // A game whose stored play can't be read is left out; opening it fails on its own (SYS-052).
+            val games = ids.take(100).mapNotNull { StoredData.orSkip("game", it) { summary(sql, it!!) } }
+            Result(200, json.encodeToString(GameList(games, if (ids.size > 100) ids[99].toString() else null)))
         }
     }
 

@@ -518,6 +518,38 @@ class GameSocketTest {
         }
     }
 
+    // SYS-052
+    @Test fun `an unreadable unpublished revision is skipped and later revisions still reach subscribers`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            SpringService(settings).use { service ->
+                service.start(); ready(settings)
+                val a = account(settings, "SkipOwner"); val b = account(settings, "SkipRecipient")
+                val (_, game) = create(settings, a, b)
+                Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->
+                    owner.negotiate(); recipient.negotiate()
+                    owner.subscribe(game); val stream = recipient.open(game)
+                    // A stored revision the current code can't decode, still waiting to be published with its readable result.
+                    val stale = id()
+                    val staleResult = GameWire.encode(GameResult(stale, GameScope(game.id), "accepted", ingressOrdinal = "1000"))
+                    db.connection().use { it.createStatement().execute("""
+                        INSERT INTO request_identity VALUES ('$stale','${b.account.accountId}','gameCommand','${game.id}','${"0".repeat(64)}');
+                        INSERT INTO game_inbox(request_id,game_id,account_id,ingress_ordinal,stream_id,generation,command,result)
+                            VALUES ('$stale','${game.id}','${b.account.accountId}',1000,'${id()}',1,'{}','{}');
+                        INSERT INTO game_outbox(game_id,account_id,request_id,revision,result)
+                            VALUES ('${game.id}','${b.account.accountId}','$stale','{"type":"retiredRevision"}','$staleResult')""") }
+                    val decline = command(game, stream, GameAction.DeclineInvitation)
+                    recipient.send(decline); assertEquals("accepted", recipient.result(decline.requestId).outcome)
+                    assertEquals(InvitationState.DECLINED, owner.revision(decline.requestId).summary.invitationState)
+                    db.connection().use { c -> c.createStatement().executeQuery(
+                        "SELECT published, revision FROM game_outbox WHERE request_id = '$stale'").use { row ->
+                        assertTrue(row.next()); assertTrue(row.getBoolean(1)); assertEquals("{\"type\":\"retiredRevision\"}", row.getString(2))
+                    } }
+                } }
+            }
+        }
+    }
+
     private fun Socket.resultFromRead(settings: ServiceSettings, token: String, gameId: String, requestId: String) =
         json.decodeFromString<GameRequestStatus>(request(settings, "GET", "/v1/games/$gameId/results/$requestId", token).body()).result!!
 }

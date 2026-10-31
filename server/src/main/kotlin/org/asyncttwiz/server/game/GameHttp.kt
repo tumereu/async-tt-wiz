@@ -12,6 +12,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceRuntime.UnavailabilityBoundary
 import org.asyncttwiz.server.accounts.AccountService
+import org.asyncttwiz.server.database.UnreadableStoredData
 
 /** Socket upgrade, authorized reads and private chat cursors; no second gameplay write ingress. */
 class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
@@ -117,6 +118,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
                 "requestIdentityMismatch" -> 409
                 else -> 400
             }, failure.code)
+        } catch (_: UnreadableStoredData) { error(500, "internal_error") // SYS-052, already logged
         } catch (_: IllegalArgumentException) { error(400, "invalid_request")
         } catch (_: java.nio.charset.CharacterCodingException) { error(400, "invalid_request")
         } catch (failure: Exception) {

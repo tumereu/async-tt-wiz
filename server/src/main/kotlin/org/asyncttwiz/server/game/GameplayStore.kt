@@ -8,6 +8,7 @@ import java.util.zip.GZIPOutputStream
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
+import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.GameplayGroup.GAMEPLAY_GROUP
 import org.asyncttwiz.server.generated.tables.GameplayMutation.GAMEPLAY_MUTATION
@@ -127,7 +128,7 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
     fun readCurrent(sql: DSLContext, game: org.asyncttwiz.server.generated.tables.records.GameRecord): GameplayTree? {
         val play = game.currentPlay ?: return null
         val checkpoint = GameplayEndpoint.checkpoint(sql, play)
-        val state = json.decodeFromString<PlayState>(checkpoint.payload)
+        val state = StoredData.decode("game play", game.id) { json.decodeFromString<PlayState>(checkpoint.payload) }
         check(state.gameId == game.id.toString() && state.id == play.toString())
         return read(sql, state, game.revision, checkpoint)
     }
@@ -136,8 +137,9 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
         checkpoint: GameplayEndpoint.Checkpoint? = null): GameplayTree {
         val cached = synchronized(heads) { heads[state.id]?.takeIf { it.revision == revision } }
         cached?.tree?.takeIf { it.preparedState(it.currentNodeId) == state }?.let { return it.materializedCopy() }
-        val root = cached?.root ?: json.decodeFromString<PlayState>(sql.select(GAME_PLAY.INITIAL_PAYLOAD).from(GAME_PLAY)
-            .where(GAME_PLAY.ID.eq(id(state.id))).fetchSingle(GAME_PLAY.INITIAL_PAYLOAD)!!)
+        val root = cached?.root ?: sql.select(GAME_PLAY.INITIAL_PAYLOAD).from(GAME_PLAY).where(GAME_PLAY.ID.eq(id(state.id)))
+            .fetchSingle(GAME_PLAY.INITIAL_PAYLOAD)!!.let { StoredData.decode("game play start", state.gameId) {
+                json.decodeFromString<PlayState>(it) } }
         val records = cached?.records?.copy() ?: EndpointReadCache()
         val endpoint = GameplayEndpoint(sql, state.id, records)
         return endpoint.read(state, root, checkpoint ?: GameplayEndpoint.checkpoint(sql, id(state.id)))

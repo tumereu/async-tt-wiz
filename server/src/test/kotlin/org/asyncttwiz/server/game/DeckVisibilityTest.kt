@@ -150,6 +150,24 @@ class DeckVisibilityTest {
         f.select(a2, x); assertTrue(f.shown(a2))
     }
 
+    // SYS-052
+    @Test fun `finishing a game still reveals decks when another lobby game of the pair can't be read`() = fixture { f ->
+        val x = f.deck(f.a, "Deck X"); val bDeck = f.deck(f.b, "Deck B")
+        val (a1, b1) = f.game(f.a, f.b)
+        f.select(a1, x); b1.execute(GameAction.AcceptInvitation); f.select(b1, bDeck)
+        val (waiting, _) = f.game(f.a, f.b); f.select(waiting, x)
+        val (broken, brokenB) = f.game(f.a, f.b)
+        f.select(broken, x); brokenB.execute(GameAction.AcceptInvitation); f.select(brokenB, bDeck)
+        // B's stored deck in that other lobby game is in a form the current code can't read.
+        f.db.connection().use { it.createStatement().execute("UPDATE player_preparation SET deck = '{\"retiredField\":true,' || " +
+            "substr(deck, 2) WHERE game_id = '${broken.gameId}' AND account_id = '${f.b.account.accountId}'") }
+        f.finish(a1, b1)
+        assertTrue(f.shown(a1)); assertTrue(f.shown(b1)); assertTrue(f.shown(waiting))
+        assertThrows(org.asyncttwiz.server.database.UnreadableStoredData::class.java) { f.games.head(f.a, broken.gameId) }
+        f.db.connection().use { c -> c.createStatement().executeQuery(
+            "SELECT bool_or(deck_shown) FROM player_preparation WHERE game_id = '${broken.gameId}'").use { assertTrue(it.next()); assertFalse(it.getBoolean(1)) } }
+    }
+
     @Test fun `the migration shows lobby decks that already finished a game against the same opponent`() = fixture { f ->
         val x = f.deck(f.a, "Deck X"); val y = f.deck(f.a, "Deck Y"); val bDeck = f.deck(f.b, "Deck B")
         val (a1, b1) = f.game(f.a, f.b)

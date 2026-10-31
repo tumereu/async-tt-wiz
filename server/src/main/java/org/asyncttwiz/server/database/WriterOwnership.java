@@ -143,6 +143,8 @@ public final class WriterOwnership implements AutoCloseable {
                     throw failure;
                 }
             } catch (Exception failure) {
+                // One unreadable stored row fails only its own request (rolled back above), never ownership.
+                if (failure instanceof UnreadableStoredData unreadable) throw new UnreadableStoredData(unreadable.kind(), unreadable.id());
                 recheckOwnership(token);
                 diagnostic(phase, failure, token.epoch);
                 // No COMMIT was sent in these phases. PostgreSQL rolls back a lost session;

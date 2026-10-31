@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.accounts
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -12,6 +10,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
@@ -24,9 +24,9 @@ class AccountHttpTest {
     @Test fun `profile updates validate names and avatars and project current identities everywhere`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 fun account(name: String): SessionCreated {
                     assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount(name, "$name@example.invalid", "password"))).statusCode())
                     return json.decodeFromString(post(settings, "/sessions", json.encodeToString(CreateSession("$name@example.invalid", "password"))).body())
@@ -77,7 +77,8 @@ class AccountHttpTest {
     @Test fun `token favorites are authenticated account scoped durable and distinguish defaults from empty`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
+            val config = settings(db)
+            lateinit var settings: ServiceSettings
             val path = "/account/token-favorites"
             lateinit var token: String
             lateinit var secondDevice: String
@@ -85,8 +86,8 @@ class AccountHttpTest {
             fun put(session: String?, favorites: TokenFavorites) = request(settings, "PUT", path,
                 json.encodeToString(favorites).toByteArray(), token = session)
             val key = TokenIdentity.key(TokenCatalog.blank.definition)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                settings = service.startBound(config); ready(settings)
                 for (method in listOf("GET", "PUT")) assertEquals(401, request(settings, method, path, "{}".toByteArray()).statusCode())
                 assertEquals(201, post(settings, "/accounts", json.encodeToString(RegisterAccount("Favorites", "favorites@example.invalid", "password"))).statusCode())
                 fun login(email: String) = json.decodeFromString<SessionCreated>(post(settings, "/sessions",
@@ -109,8 +110,8 @@ class AccountHttpTest {
                 assertNull(json.decodeFromString<TokenFavorites>(get(other).body()).keys)
                 assertEquals(405, request(settings, "POST", path, token = token).statusCode())
             }
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                settings = service.startBound(config); ready(settings)
                 assertEquals(TokenFavorites(emptyList()), json.decodeFromString<TokenFavorites>(get(secondDevice).body()))
                 assertEquals(204, request(settings, "DELETE", "/session", token = token).statusCode())
                 assertEquals(401, get(token).statusCode())
@@ -122,12 +123,13 @@ class AccountHttpTest {
     @Test fun `account settings default to show after first game and are authenticated account scoped and shared by devices`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
+            val config = settings(db)
+            lateinit var settings: ServiceSettings
             val path = "/account/settings"
             fun get(session: String) = request(settings, "GET", path, token = session)
             fun put(session: String?, body: String) = request(settings, "PUT", path, body.toByteArray(), token = session)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                settings = service.startBound(config); ready(settings)
                 for (method in listOf("GET", "PUT")) assertEquals(401, request(settings, method, path, "{}".toByteArray()).statusCode())
                 fun login(email: String) = json.decodeFromString<SessionCreated>(post(settings, "/sessions",
                     json.encodeToString(CreateSession(email, "password"))).body()).token
@@ -151,9 +153,7 @@ class AccountHttpTest {
     }
     private val json = AccountJson.format
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-        InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+    private fun settings(db: TestPostgres) = EphemeralPorts.settings(db.settings)
     private fun request(settings: ServiceSettings, method: String, path: String, body: ByteArray? = null,
                         token: String? = null, contentType: String = "application/json", xff: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path"))
@@ -182,13 +182,13 @@ class AccountHttpTest {
     @Test fun `real entry privacy exact credentials independent sessions restart and idempotent logout`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
+            val config = settings(db)
             val exact = " \tPäSS e\u0301😀\n"
             lateinit var token: String
             lateinit var otherToken: String
             lateinit var identity: AccountIdentity
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val registration = post(settings, "/accounts", json.encodeToString(RegisterAccount("  Cafe\u0301  ", " Private@BÜCHER.example ", exact)))
                 assertEquals(201, registration.statusCode())
                 identity = json.decodeFromString(registration.body())
@@ -222,8 +222,8 @@ class AccountHttpTest {
                 assertEquals(405, request(settings, "GET", "/sessions").statusCode())
                 db.connection().use { it.createStatement().execute("UPDATE account_session SET created_at='1900-01-01T00:00:00Z'") }
             }
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 assertEquals(200, request(settings, "GET", "/account", token = token).statusCode())
                 assertEquals(204, request(settings, "DELETE", "/session", token = token).statusCode())
                 assertEquals(204, request(settings, "DELETE", "/session", token = token).statusCode())
@@ -238,9 +238,9 @@ class AccountHttpTest {
     @Test fun `strict malformed and bounded JSON failures never reflect secrets or create accounts`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val inputs = listOf(
                     byteArrayOf(0xc3.toByte(), 0x28),
                     "{\"email\":\"secret@example.invalid\",\"password\":\"abcdefgh\\ud800\"}".toByteArray(),
@@ -268,9 +268,9 @@ class AccountHttpTest {
     @Test fun `HTTP rate limits use actual peer and normalized email and keep responses generic`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 repeat(5) {
                     assertEquals(400, post(settings, "/accounts", json.encodeToString(RegisterAccount("", "x@example.invalid", "password"))).statusCode())
                     val email = if (it % 2 == 0) "UNKNOWN@example.invalid" else " unknown@EXAMPLE.INVALID "
@@ -291,9 +291,9 @@ class AccountHttpTest {
 
     @Test fun `account routes never migrate or bypass writer admission`() {
         FreshDatabase(migrated = false).start().use { db ->
-            val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start()
+            val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config)
                 val registration = post(settings, "/accounts", json.encodeToString(RegisterAccount("name", "user@example.invalid", "password")))
                 assertEquals(503, registration.statusCode())
                 assertEquals(503, request(settings, "GET", "/account", token = "A".repeat(43)).statusCode())

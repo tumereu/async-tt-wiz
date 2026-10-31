@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.game
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.*
 import java.time.Duration
@@ -13,6 +11,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
@@ -23,9 +23,7 @@ class GameSocketTest {
     private val json = GameWire.json
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     private fun id() = UUID.randomUUID().toString()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-        InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+    private fun settings(db: TestPostgres) = EphemeralPorts.settings(db.settings)
     private fun ready(settings: ServiceSettings) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
         do {
@@ -100,9 +98,9 @@ class GameSocketTest {
     // SYS-033
     @Test fun `gameplay rules negotiation rejects old and missing versions before opening streams`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "RulesOwner"); val b = account(settings, "RulesRecipient")
                 val (_, game) = create(settings, a, b)
                 for (version in listOf<Int?>(null, CURRENT_GAMEPLAY_RULES_VERSION - 1)) {
@@ -133,9 +131,9 @@ class GameSocketTest {
 
     @Test fun `presence flips reach the opponent's minor 1 socket only and heads carry presence`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "PresenceOwner"); val b = account(settings, "PresenceRecipient")
                 val (_, game) = create(settings, a, b)
                 val modern = GameHello(id(), id(), maxMinor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
@@ -165,11 +163,11 @@ class GameSocketTest {
 
     @Test fun `real authenticated sockets decline reinvite stale decision accept and recover private original outcomes`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
             lateinit var a: SessionCreated; lateinit var b: SessionCreated; lateinit var game: GameSummary
             lateinit var accepted: GameCommand
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 a = account(settings, "SocketOwner"); b = account(settings, "SocketRecipient"); val stranger = account(settings, "SocketStranger")
                 val (create, initial) = create(settings, a, b); game = initial
                 Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient -> Socket(settings, stranger.token).use { outsider ->
@@ -240,8 +238,8 @@ class GameSocketTest {
                     assertEquals(404, post(settings, "/v1/games/${game.id}/reinvite", LookupGameResults(emptyList()), a.token).statusCode())
                 } } }
             }
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 assertEquals(game, json.decodeFromString<GameSummary>(request(settings, "GET", "/v1/games/${game.id}/head", a.token).body()))
                 val results = post(settings, "/v1/games/${game.id}/results:lookup", LookupGameResults(listOf(accepted.requestId, id())), b.token)
                 assertEquals(200, results.statusCode())
@@ -254,9 +252,9 @@ class GameSocketTest {
 
     @Test fun `actual socket resume replaces old connection without fencing other installations and revoked credentials stop new requests`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "ResumeOwner"); val b = account(settings, "ResumeRecipient")
                 val (_, game) = create(settings, a, b)
                 Socket(settings, b.token).use { old ->
@@ -299,9 +297,9 @@ class GameSocketTest {
 
     @Test fun `actual socket prepared selection publishes coherent private copies and accepted recipient receives retained definitions`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "PickerOwner"); val b = account(settings, "PickerRecipient")
                 val stranger = account(settings, "PickerOther"); val (_, game) = create(settings, a, b)
                 val front = id(); val back = id()
@@ -386,11 +384,11 @@ class GameSocketTest {
 
     @Test fun `authenticated Ready sockets publish one actual initial board and restart resume retains root orders and original result`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
             lateinit var a: SessionCreated; lateinit var b: SessionCreated; lateinit var game: GameSummary
             lateinit var start: GameCommand; lateinit var hello: GameHello; lateinit var accepted: GameHead; lateinit var original: GameResult
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 a = account(settings, "InitialSocketA"); b = account(settings, "InitialSocketB"); game = create(settings, a, b).second
                 fun source(actor: SessionCreated): SavedDeck {
                     val definition = CardDefinition("Start text fallback", listOf(DefinitionFace(id(), "Start face", corner = "4/6")), sourceVersion = "synthetic-start")
@@ -447,8 +445,8 @@ class GameSocketTest {
                     assertEquals(accepted, returning.next<GameHead>())
                 }
             }
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 Socket(settings, b.token, hello).use { resumed ->
                     resumed.negotiate(); resumed.send(ResumeGameStream(game.id, start.streamId, listOf(start.requestId)))
                     val ready = resumed.next<GameStreamReady>(); assertEquals(original, ready.statuses.single().result)
@@ -467,9 +465,9 @@ class GameSocketTest {
 
     @Test fun `cancelled sockets lose ordinary access but private original recovery and authenticated lifecycle notification survive`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "CancelSocketA"); val b = account(settings, "CancelSocketB"); val other = account(settings, "CancelSocketOther")
                 val (create, game) = create(settings, a, b)
                 Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->
@@ -521,9 +519,9 @@ class GameSocketTest {
     // SYS-052
     @Test fun `an unreadable unpublished revision is skipped and later revisions still reach subscribers`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "SkipOwner"); val b = account(settings, "SkipRecipient")
                 val (_, game) = create(settings, a, b)
                 Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->

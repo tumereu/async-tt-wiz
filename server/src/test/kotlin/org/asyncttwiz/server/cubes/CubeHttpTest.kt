@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.cubes
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -12,6 +10,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
@@ -21,7 +21,6 @@ class CubeHttpTest {
     private val json = DeckJson.format
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private fun id() = UUID.randomUUID().toString()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
     private fun request(settings: ServiceSettings, method: String, path: String, body: String? = null, token: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path"))
             .timeout(Duration.ofSeconds(25)).header("Content-Type", "application/json")
@@ -36,9 +35,10 @@ class CubeHttpTest {
     @Test fun `definition batches require ownership and attached digests and enforce the size cap`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start()
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 val deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos()
                 while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(), HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
                     check(System.nanoTime() < deadline); Thread.sleep(20)
@@ -83,9 +83,10 @@ class CubeHttpTest {
     @Test fun `cube CRUD ownership validation and retained retry outcomes over real HTTP`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start()
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 val deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos()
                 while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(), HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
                     check(System.nanoTime() < deadline); Thread.sleep(20)

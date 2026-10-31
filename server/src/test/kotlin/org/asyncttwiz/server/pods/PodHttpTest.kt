@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.pods
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -14,6 +12,8 @@ import kotlinx.serialization.json.encodeToJsonElement
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
@@ -25,16 +25,16 @@ class PodHttpTest {
     private fun id() = UUID.randomUUID().toString()
 
     private inner class Fixture(val db: TestPostgres) : AutoCloseable {
-        private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-        val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
-        val service = SpringService(settings)
+        private val config = EphemeralPorts.settings(db.settings)
+        val service = SpringService(config)
+        val settings: ServiceSettings
         val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
         val a: SessionCreated
         val b: SessionCreated
         val c: SessionCreated
         val cube: SavedCube
         init {
-            service.start()
+            settings = service.startBound(config)
             val deadline = System.nanoTime() + Duration.ofSeconds(20).toNanos()
             while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(), HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
                 check(System.nanoTime() < deadline); Thread.sleep(20)

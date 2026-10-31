@@ -2,8 +2,6 @@ package org.asyncttwiz.server.game
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.*
 import java.time.Duration
@@ -15,6 +13,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
@@ -283,7 +283,6 @@ class GameChatTest {
         }
     }
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
     private fun http(settings: ServiceSettings, path: String, token: String? = null, method: String = "GET", body: String? = null): HttpResponse<String> {
         val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path"))
             .timeout(Duration.ofSeconds(10)).method(method, body?.let(HttpRequest.BodyPublishers::ofString) ?: HttpRequest.BodyPublishers.noBody())
@@ -333,10 +332,10 @@ class GameChatTest {
                 b = accounts.login("ChatB@example.invalid", "synthetic password")!!
                 other = accounts.login("ChatOther@example.invalid", "synthetic password")!!
             }
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-                InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start(); val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config); val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
                 while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
                         HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
                     assertTrue(System.nanoTime() < end); Thread.sleep(20)

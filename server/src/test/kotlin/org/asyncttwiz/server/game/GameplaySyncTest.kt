@@ -1,8 +1,6 @@
 package org.asyncttwiz.server.game
 
 import java.io.ByteArrayOutputStream
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.*
 import java.time.Clock
@@ -17,6 +15,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
@@ -117,7 +117,6 @@ class GameplaySyncTest {
     private val json = GameWire.json
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3)).build()
     private fun id() = UUID.randomUUID().toString()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
     private fun request(settings: ServiceSettings, path: String, token: String? = null, body: String? = null): HttpResponse<ByteArray> {
         val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path"))
             .timeout(Duration.ofSeconds(20))
@@ -227,10 +226,10 @@ class GameplaySyncTest {
                 a = account(runtime, "SyncA"); b = account(runtime, "SyncB"); other = account(runtime, "SyncOther")
                 started = start(runtime, a, b)
             }
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-                InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config); ready(settings)
                 val path = "/v1/games/${started.head.gameId}/baselines"
                 val input = json.encodeToString(LookupGameResults(listOf(started.last.requestId, id())))
                 assertEquals(401, request(settings, path, body = input).statusCode())

@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.activity
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -16,6 +14,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.junit.jupiter.api.Assertions.*
@@ -26,7 +26,6 @@ class ActivityPublicLifecycleTest {
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private val json = ActivityWire.json
     private fun id() = UUID.randomUUID().toString()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
     private fun await(message: String, condition: () -> Boolean) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
         while (!condition()) { check(System.nanoTime() < end) { message }; Thread.sleep(25) }
@@ -53,8 +52,8 @@ class ActivityPublicLifecycleTest {
     @Test fun `public authenticated activity and provider independent scheduled maintenance stop with real service`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-                InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
             fun ready() = await("public service readiness") {
                 request(settings.healthPort(), "GET", "/health/ready").statusCode() == 200
             }
@@ -70,8 +69,8 @@ class ActivityPublicLifecycleTest {
                     json.encodeToString(CreateInvitation(id(), recipient.account.accountId, "Private game name")))
                 assertEquals(201, result.statusCode()); return json.decodeFromString(result.body())
             }
-            SpringService(settings).use { service ->
-                service.start(); ready()
+            SpringService(config).use { service ->
+                settings = service.startBound(config); ready()
                 await("maintenance worker started without Firebase") { (workers() - before).size == 1 }
                 scheduled = (workers() - before).single()
                 assertEquals(401, request(settings.publicPort(), "GET", "/activity").statusCode())
@@ -108,7 +107,7 @@ class ActivityPublicLifecycleTest {
             val pause = AtomicBoolean()
             val sending = CountDownLatch(1)
             val release = CountDownLatch(1)
-            SpringService(settings, ActivityPushAdapter { token, hint ->
+            SpringService(config, ActivityPushAdapter { token, hint ->
                 deliveries += token to hint
                 if (pause.get()) {
                     sending.countDown()
@@ -118,7 +117,7 @@ class ActivityPublicLifecycleTest {
                 }
                 PushResult(PushStatus.DELIVERED)
             }).use { service ->
-                service.start(); ready()
+                settings = service.startBound(config); ready()
                 val game = invite()
                 await("explicit adapter scheduled delivery") { deliveries.size == 1 && number("SELECT count(*) FROM activity_push") == 0L }
                 assertEquals("synthetic-push", deliveries.single().first)

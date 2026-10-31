@@ -1,7 +1,5 @@
 package org.asyncttwiz.server.lobby
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.URLEncoder
 import java.net.http.HttpClient
@@ -17,6 +15,8 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.database.TestPostgres
@@ -28,9 +28,7 @@ class LobbyHttpTest {
     private val json = DeckJson.format
     private val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
     private fun id() = UUID.randomUUID().toString()
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-    private fun settings(db: TestPostgres) = ServiceSettings(db.settings, URI("https://synthetic.invalid"),
-        InetAddress.getByName("127.0.0.1"), port(), InetAddress.getByName("127.0.0.1"), port())
+    private fun settings(db: TestPostgres) = EphemeralPorts.settings(db.settings)
     private fun ready(settings: ServiceSettings) {
         val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
         do {
@@ -62,11 +60,11 @@ class LobbyHttpTest {
     // LOB-001, LOB-032
     @Test fun `username search unilateral synchronized contacts atomic duplicate creation privacy and restart`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
             lateinit var owner: SessionCreated; lateinit var recipient: SessionCreated; lateinit var stranger: SessionCreated
             lateinit var create: CreateInvitation; lateinit var game: GameSummary; lateinit var original: String
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 owner = account(settings, "Inviter", "private-owner@example.invalid")
                 recipient = account(settings, "Straße Élan", "private-recipient@example.invalid")
                 stranger = account(settings, "Stranger", "private-stranger@example.invalid")
@@ -113,8 +111,8 @@ class LobbyHttpTest {
                 assertNotEquals(game.preparationRound, equalName.preparationRound); assertEquals(game.gameName, equalName.gameName)
                 assertEquals(405, post(settings, "/v1/games/${game.id}/head", create, owner.token).statusCode())
             }
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 assertEquals(original, post(settings, "/v1/invitations", create, owner.token).body())
                 assertEquals(original, request(settings, "GET", "/v1/games/${game.id}/head", token = owner.token).body())
                 assertEquals(2, count(db, "game")); assertEquals(2, count(db, "invitation"))
@@ -128,9 +126,9 @@ class LobbyHttpTest {
     // LOB-006
     @Test fun `two sessions of one account see the same saved decks contacts and games`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val phone = account(settings, "Owner", "owner@example.invalid")
                 val tablet = json.decodeFromString<SessionCreated>(request(settings, "POST", "/sessions",
                     json.encodeToString(CreateSession("owner@example.invalid", "password😀"))).body())
@@ -159,9 +157,9 @@ class LobbyHttpTest {
     // LOB-030
     @Test fun `removing a contact is authenticated unilateral idempotent and preserves invitations`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "Owner", "owner@example.invalid")
                 val other = account(settings, "Other", "other@example.invalid")
                 val stranger = account(settings, "Stranger", "stranger@example.invalid")
@@ -190,9 +188,9 @@ class LobbyHttpTest {
 
     @Test fun `invalid inputs and failed invitation or outcome roll back all creation effects`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "Owner", "owner@example.invalid"); val recipient = account(settings, "Recipient", "recipient@example.invalid")
                 val input = CreateInvitation(id(), recipient.account.accountId, "Atomic Spark")
                 assertEquals(400, post(settings, "/v1/invitations", input, owner.token).statusCode())
@@ -228,9 +226,9 @@ class LobbyHttpTest {
 
     @Test fun `search is bounded and literal while contact list pages preserve all identities`() {
         FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings); val settings = settings(db)
-            SpringService(settings).use { service ->
-                service.start(); ready(settings)
+            FoundationMigrations.migrate(db.settings); val config = settings(db)
+            SpringService(config).use { service ->
+                val settings = service.startBound(config); ready(settings)
                 val owner = account(settings, "Owner", "owner@example.invalid")
                 val ids = (1..101).map { index ->
                     val id = id(); val name = "Bounded${index.toString().padStart(3, '0')}"

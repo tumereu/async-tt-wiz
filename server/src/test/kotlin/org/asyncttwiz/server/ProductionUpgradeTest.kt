@@ -1,7 +1,5 @@
 package org.asyncttwiz.server
 
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -297,9 +295,8 @@ class ProductionUpgradeTest {
             for ((table, rows) in tables)
                 assertEquals(rows.size, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(), "$table rows after upgrade")
 
-            fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
-                InetAddress.getByName("127.0.0.1"), port())
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
             val client = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build()
             fun request(path: String, token: String? = null, body: String? = null): HttpResponse<String> {
                 val builder = HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path")).timeout(Duration.ofSeconds(15))
@@ -308,8 +305,8 @@ class ProductionUpgradeTest {
                 token?.let { builder.header("Authorization", "Bearer $it") }
                 return client.send(builder.build(), HttpResponse.BodyHandlers.ofString())
             }
-            SpringService(settings).use { service ->
-                service.start()
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 // Readiness includes startup recovery, which reads every started game.
                 val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
                 while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),

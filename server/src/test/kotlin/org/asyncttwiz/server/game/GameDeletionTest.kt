@@ -2,8 +2,6 @@ package org.asyncttwiz.server.game
 
 import java.util.UUID
 import java.util.concurrent.TimeUnit
-import java.net.InetAddress
-import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.net.http.HttpRequest
@@ -17,6 +15,8 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.ServiceRuntime
 import org.asyncttwiz.server.ServiceSettings
 import org.asyncttwiz.server.SpringService
+import org.asyncttwiz.server.EphemeralPorts
+import org.asyncttwiz.server.startBound
 import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
@@ -249,10 +249,10 @@ class GameDeletionTest {
                 assertEquals(GameLifecycle.DELETED, projected.summary.lifecycle)
                 assertTrue(projected.chat.isEmpty()); assertNull(projected.play); assertNull(projected.preparation)
             }
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
-                InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start()
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
                 while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
                         HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {
@@ -296,7 +296,6 @@ class GameDeletionTest {
         }
     }
 
-    private fun port() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1")).use { it.localPort }
     private fun request(settings: ServiceSettings, path: String, token: String): HttpResponse<String> = client.send(
         HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.publicPort()}$path")).timeout(Duration.ofSeconds(5))
             .header("Authorization", "Bearer $token").build(), HttpResponse.BodyHandlers.ofString())
@@ -340,10 +339,10 @@ class GameDeletionTest {
                 val game = create(runtime, a, b); val games = GameService(runtime)
                 active = start(runtime, Stream(games, a, game), Stream(games, b, game))
             }
-            val settings = ServiceSettings(db.settings, URI("https://synthetic.invalid"), InetAddress.getByName("127.0.0.1"), port(),
-                InetAddress.getByName("127.0.0.1"), port())
-            SpringService(settings).use { service ->
-                service.start()
+            val config = EphemeralPorts.settings(db.settings)
+            lateinit var settings: ServiceSettings
+            SpringService(config).use { service ->
+                settings = service.startBound(config)
                 val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
                 while (client.send(HttpRequest.newBuilder(URI("http://127.0.0.1:${settings.healthPort()}/health/ready")).build(),
                         HttpResponse.BodyHandlers.ofString()).statusCode() != 200) {

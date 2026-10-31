@@ -11,7 +11,8 @@ import java.util.Locale
 import java.util.UUID
 import java.util.logging.Logger
 
-internal const val CATALOG_INDEX_VERSION = 2
+// 3: printings keep rarity, colour identity and legal formats for card search (search_card is built when finishing).
+internal const val CATALOG_INDEX_VERSION = 3
 data class CatalogMetadata(val date: String, val version: String, val checksum: String = "", val records: Long = 0,
     val indexVersion: Int = CATALOG_INDEX_VERSION)
 
@@ -139,6 +140,14 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         }
     }
 
+    /**
+     * Worker-only Scryfall-style card search (CardSearchQuery syntax) over the installed generation: distinct cards
+     * sorted by name, each shown with its preferred matching printing. At most [budget] cards are evaluated per
+     * call; continue with [CatalogCardSearch.Page.next]. Malformed queries return [CatalogCardSearch.Invalid].
+     */
+    fun searchCards(query: String, cursor: CatalogCardCursor? = null, limit: Int = 60, budget: Int = 3000): CatalogCardSearch =
+        synchronized(lock) { searchCatalogCards(activeFile(), openDriver, query, cursor, limit, budget) }
+
     /** Keep every line/face of an import on one generation while a refresh waits. */
     internal fun <T> snapshot(read: (CatalogIndex?) -> T): T = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { read(it) } } ?: read(null)
@@ -165,6 +174,7 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
                     val records = index.validate()
                     index.prepareTokenSearch()
                     index.prepareAvatarChoices(rebuild = true)
+                    index.rebuildCardSearch()
                     completed = result.copy(records = records)
                     tokenChoices = index.rebuildTokenChoices(completed)
                     index.finish(completed)
@@ -196,7 +206,9 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("PRAGMA page_size=4096")
         check(long("PRAGMA max_page_count=1048576") == 1048576L) // Row-returning PRAGMA on Android as well as JDBC
         sql("CREATE TABLE metadata (date TEXT NOT NULL, version TEXT NOT NULL, checksum TEXT NOT NULL, records INTEGER NOT NULL)")
-        sql("CREATE TABLE printing (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, normalized TEXT NOT NULL, set_code TEXT NOT NULL, number TEXT NOT NULL, language TEXT NOT NULL, side TEXT NOT NULL, scryfall TEXT, token INTEGER NOT NULL, json TEXT NOT NULL)")
+        // Search columns follow json so positional reads of the first ten columns stay valid.
+        sql("CREATE TABLE printing (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, normalized TEXT NOT NULL, set_code TEXT NOT NULL, number TEXT NOT NULL, language TEXT NOT NULL, side TEXT NOT NULL, scryfall TEXT, token INTEGER NOT NULL, json TEXT NOT NULL, " +
+            "oracle TEXT NOT NULL DEFAULT '', rarity TEXT NOT NULL DEFAULT '', identity INTEGER, legal INTEGER NOT NULL DEFAULT 0)")
         sql("CREATE INDEX name_lookup ON printing(normalized, set_code, number)")
         sql("CREATE TABLE face (source TEXT NOT NULL, target TEXT NOT NULL, PRIMARY KEY(source, target))")
         sql("CREATE INDEX face_target ON face(target, source)")
@@ -259,14 +271,20 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("DELETE FROM catalog_set WHERE code=?", listOf(code))
     }
 
-    fun addBatch(records: List<CatalogPrinting>) = transaction {
-        records.forEach { record ->
-            sql("INSERT OR IGNORE INTO printing VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", listOf(record.id, record.name,
-                record.name.lowercase(Locale.ROOT), record.set, record.number, record.language, record.side,
-                record.scryfallId, if (record.token) "1" else "0", record.json))
-            if (long("SELECT changes()") == 0L) { duplicateRecords++; return@forEach }
+    fun addBatch(records: List<CatalogPrinting>) = addBatch(records, emptyList())
+
+    /** [traits] parallels [records]; missing entries leave the search traits unknown. */
+    internal fun addBatch(records: List<CatalogPrinting>, traits: List<CatalogPrintingTraits?>) = transaction {
+        records.forEachIndexed { position, record ->
+            val json = JsonParser.parseString(record.json).asJsonObject
+            val trait = traits.getOrNull(position)
+            sql("INSERT OR IGNORE INTO printing (id, name, normalized, set_code, number, language, side, scryfall, token, json, oracle, rarity, identity, legal) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                listOf(record.id, record.name, record.name.lowercase(Locale.ROOT), record.set, record.number, record.language, record.side,
+                record.scryfallId, if (record.token) "1" else "0", record.json, cardSearchKey(record, json), trait?.rarity.orEmpty(),
+                trait?.identity?.toString(), (trait?.legal ?: 0L).toString()))
+            if (long("SELECT changes()") == 0L) { duplicateRecords++; return@forEachIndexed }
             record.otherFaces.forEach { target -> sql("INSERT INTO face VALUES (?, ?)", listOf(record.id, target)) }
-            addImportNames(record)
+            addImportNames(record, json)
         }
     }
 
@@ -427,8 +445,8 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
 
     private fun createImportNames() = sql("CREATE TABLE import_name (normalized TEXT NOT NULL, printing_id TEXT NOT NULL, PRIMARY KEY(normalized, printing_id))")
 
-    private fun addImportNames(record: CatalogPrinting) {
-        val faceName = JsonParser.parseString(record.json).asJsonObject.get("faceName")?.takeUnless { it.isJsonNull }?.asString
+    private fun addImportNames(record: CatalogPrinting, json: com.google.gson.JsonObject = JsonParser.parseString(record.json).asJsonObject) {
+        val faceName = json.get("faceName")?.takeUnless { it.isJsonNull }?.asString
         listOfNotNull(record.name, faceName?.takeIf { it.isNotEmpty() }).map { it.lowercase(Locale.ROOT) }.distinct().forEach {
             sql("INSERT INTO import_name VALUES (?, ?)", listOf(it, record.id))
         }
@@ -444,13 +462,13 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
                 check(!Thread.currentThread().isInterrupted)
                 val batch = rows("SELECT * FROM printing WHERE id>? ORDER BY id LIMIT 256", listOf(after))
                 if (batch.isEmpty()) break
-                batch.forEach(::addImportNames)
+                batch.forEach { addImportNames(it) }
                 after = batch.last().id
             }
         }
     }
 
-    private val releaseDates: Map<String, String> by lazy {
+    internal val releaseDates: Map<String, String> by lazy {
         if (long("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='catalog_set'") == 0L) emptyMap()
         else driver.executeQuery(null, "SELECT code, release_date FROM catalog_set", { cursor ->
             val dates = mutableMapOf<String, String>()
@@ -509,7 +527,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         return rows("SELECT p.* FROM $from WHERE $where ORDER BY $prefix.normalized, $prefix.$id LIMIT $limit", args)
     }
 
-    private fun rows(query: String, args: List<String>, enrich: Boolean = true): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->
+    internal fun rows(query: String, args: List<String>, enrich: Boolean = true): List<CatalogPrinting> = driver.executeQuery(null, query, { cursor ->
         val rows = mutableListOf<CatalogPrinting>()
         while (cursor.next().value) {
             val id = cursor.getString(0)!!
@@ -523,17 +541,44 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             releaseDate = releaseDates[record.set].orEmpty())
     }
 
-    private fun sql(query: String, args: List<String?> = emptyList()) {
+    internal fun sql(query: String, args: List<String?> = emptyList()) {
         driver.execute(null, query, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }
     }
-    private fun long(query: String): Long = driver.executeQuery(null, query, { cursor ->
+    internal fun long(query: String): Long = driver.executeQuery(null, query, { cursor ->
         check(cursor.next().value); QueryResult.Value(cursor.getLong(0)!!)
     }, 0).value
-    private fun texts(query: String, args: List<String> = emptyList()): List<String> = driver.executeQuery(null, query, { cursor ->
+    internal fun texts(query: String, args: List<String> = emptyList()): List<String> = driver.executeQuery(null, query, { cursor ->
         val result = mutableListOf<String>()
         while (cursor.next().value) result += cursor.getString(0)!!
         QueryResult.Value(result)
     }, args.size) { args.forEachIndexed { index, value -> bindString(index, value) } }.value
+
+    /** Typed binding (String, Long, Int, Double or null). A non-null [cached] id reuses the prepared statement;
+     * give it only to constant SQL text. */
+    internal fun <T> select(query: String, args: List<Any?>, cached: Int? = null, read: (app.cash.sqldelight.db.SqlCursor) -> T): List<T> =
+        driver.executeQuery(cached, query, { cursor ->
+            val result = mutableListOf<T>()
+            while (cursor.next().value) result += read(cursor)
+            QueryResult.Value(result)
+        }, args.size) { args.forEachIndexed { index, value -> when (value) {
+            null -> bindString(index, null)
+            is String -> bindString(index, value)
+            is Long -> bindLong(index, value)
+            is Int -> bindLong(index, value.toLong())
+            is Double -> bindDouble(index, value)
+            else -> error("Unsupported argument")
+        } } }.value
+
+    internal fun execute(query: String, args: List<Any?>, cached: Int? = null) {
+        driver.execute(cached, query, args.size) { args.forEachIndexed { index, value -> when (value) {
+            null -> bindString(index, null)
+            is String -> bindString(index, value)
+            is Long -> bindLong(index, value)
+            is Int -> bindLong(index, value.toLong())
+            is Double -> bindDouble(index, value)
+            else -> error("Unsupported argument")
+        } } }
+    }
 
     override fun close() = driver.close()
 }

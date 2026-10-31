@@ -311,17 +311,17 @@ class DeckImportResolver(private val repository: CatalogRepository) {
         .thenByDescending { it.printing.releaseDate }
         .thenComparator { a, b -> compareCollectorNumbers(a.printing.number, b.printing.number) }
         .thenBy { it.printing.number }.thenBy { it.printing.set }.thenBy { it.printing.id }
+}
 
-    /** Numeric ordering (2 before 10), with deterministic handling of provider suffixes like 12a. */
-    private fun compareCollectorNumbers(a: String, b: String): Int {
-        val parts = Regex("[0-9]+|[^0-9]+")
-        val left = parts.findAll(a).map { it.value }.toList()
-        val right = parts.findAll(b).map { it.value }.toList()
-        for ((x, y) in left.zip(right)) {
-            val compared = if (x.first() in '0'..'9' && y.first() in '0'..'9') x.toBigInteger().compareTo(y.toBigInteger())
-                else x.compareTo(y, ignoreCase = true)
-            if (compared != 0) return compared
-        }
-        return left.size.compareTo(right.size)
+/** Numeric ordering (2 before 10), with deterministic handling of provider suffixes like 12a. */
+internal fun compareCollectorNumbers(a: String, b: String): Int {
+    val parts = Regex("[0-9]+|[^0-9]+")
+    val left = parts.findAll(a).map { it.value }.toList()
+    val right = parts.findAll(b).map { it.value }.toList()
+    for ((x, y) in left.zip(right)) {
+        val compared = if (x.first() in '0'..'9' && y.first() in '0'..'9') x.toBigInteger().compareTo(y.toBigInteger())
+            else x.compareTo(y, ignoreCase = true)
+        if (compared != 0) return compared
     }
+    return left.size.compareTo(right.size)
 }

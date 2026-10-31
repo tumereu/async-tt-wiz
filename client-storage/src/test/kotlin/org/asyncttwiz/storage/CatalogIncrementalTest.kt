@@ -50,7 +50,7 @@ class CatalogIncrementalTest {
         dropped.forEach { card.addProperty(it, "unnecessary data".repeat(100)) }
         card.getAsJsonObject("identifiers").addProperty("mtgArenaId", "123")
         val metadata = install(root)
-        assertEquals(2, metadata.indexVersion)
+        assertEquals(3, metadata.indexVersion)
         val record = repo().printing(card.get("uuid").asString)!!
         val stored = JsonParser.parseString(record.json).asJsonObject
         kept.filter { card.has(it) }.forEach { assertEquals(card[it], stored[it], it) }

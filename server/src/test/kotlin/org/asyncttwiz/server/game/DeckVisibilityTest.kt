@@ -178,16 +178,17 @@ class DeckVisibilityTest {
         fun sql(statement: String) = f.db.connection().use { it.createStatement().execute(statement) }
         sql("UPDATE player_preparation SET deck_shown = false")
         f.settings.set(f.b.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
-        // Back to the V45 schema: undo V47 (Maybe sections) and V46, then migrate forward again.
+        // Back to the V45 schema: undo V48 (prepared cube), V47 (Maybe sections) and V46, then migrate forward again.
         sql("""
+            ALTER TABLE pod DROP COLUMN source_maybe;
             ALTER TABLE cube_entry DROP CONSTRAINT cube_entry_cube_id_section_definition_digest_key;
             ALTER TABLE cube_entry DROP COLUMN section;
             ALTER TABLE cube_entry ADD CONSTRAINT cube_entry_cube_id_definition_digest_key UNIQUE (cube_id, definition_digest);
             ALTER TABLE deck_entry DROP CONSTRAINT deck_entry_section_check;
             ALTER TABLE deck_entry ADD CONSTRAINT deck_entry_section_check CHECK (section IN ('MAINBOARD', 'SIDEBOARD'));
-            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47')
+            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48')
         """.trimIndent())
-        assertEquals(2, FoundationMigrations.migrate(f.db.settings))
+        assertEquals(3, FoundationMigrations.migrate(f.db.settings))
         assertTrue(f.shown(a1)); assertTrue(f.shown(b1, f.a))
         assertFalse(f.shown(b1), "An account that hides its decks stays hidden")
         assertFalse(f.shown(other), "Another deck has not finished a game against B")

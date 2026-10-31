@@ -28,7 +28,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-019** The opponent's library menu offers every action, Mulligan included; cards still go to the library owner's zones. (r10)
 - **ZON-020** "Keep top card revealed" is an on/off button (eye icon) that either player can switch on any library, recorded in history; while on, the top card shows face up on the pile for both. (r13)
 - **ZON-021** While it is on, the top card stays known: branch re-rolls never change it, while a real shuffle (Shuffle, closing a Search, mulligan) re-randomizes it and the new top shows at once; no auto-pause per new top card. (r13)
-- **ZON-022** A library card can't be dragged or sent from the library menu onto the Stack; from a Search, Look or Reveal panel "Stack" puts it there, shown to both players while on the Stack. (r17)
+- **ZON-022** Dragging a library's top card onto the Stack works like "Stack" in a Search, Look or Reveal panel: it goes there, shown to both players while on the Stack. The library menu has no Stack action, and other library cards can't be dragged there. (r35)
 
 ### Library order
 

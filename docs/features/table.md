@@ -136,7 +136,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 ### Card state rules
 
 - **TBL-093** A card leaving the battlefield loses its notes, P/T changes, counters, links and owner changes, turns to its front face and untaps; face-down survives only a move to exile. (r13)
-- **TBL-094** Buttons that change a card are greyed out outside the battlefield, except that notes also work on the Stack; Stack and combat copies can have their own notes and pings. (r13)
+- **TBL-094** Buttons that change a card are greyed out outside the battlefield, except that notes, damage and the until-end-of-turn marks (EOT P/T, EOT note, EOT keywords) also work on a card on the Stack; Stack and combat copies can have their own notes and pings. (r35)
 - **TBL-095** Damage, until-end-of-turn P/T and until-end-of-turn notes clear from every card when the turn passes and when a card changes zone; moving between battlefields keeps them. (r16)
 - **TBL-096** On hidden cards the menu shows "—" instead of values, but notes, damage and marks can still be edited without seeing them. (r30)
 - **TBL-097** The owner is whose deck the card came from; the controller is whichever battlefield it is on; only the Owner button on tokens changes the owner. (r5)

@@ -180,6 +180,7 @@ class DeckSaveTest {
         assertTrue(library.state.decks.isEmpty()); assertFalse(library.state.loaded)
         library.refresh(); library.clear(); worker.drain(); assertEquals(2, api.pages)
     }
+    // LOB-065
     @Test fun contextualImportCapturesTargetDefaultsOverwriteAndRetriesMergeWithoutChangingIdentity() {
         val worker = Worker(); val posts = mutableListOf<() -> Unit>(); val attempts = mutableListOf<DeckSavePlan>()
         val controller = DeckImportController({ result() }, worker) { posts += it }

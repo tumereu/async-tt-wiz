@@ -36,6 +36,7 @@ class PileOrderTest {
 
     @Test fun rulesVersionIs27() { assertEquals(27, PileOrder.RULES_VERSION); assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= PileOrder.RULES_VERSION) }
 
+    // ZON-030
     @Test fun newestArrivalIsTheTopAndRecordsItsNeighbours() {
         val root = gameplayFixture(); val ids = cards(root, library)
         val first = change(root, toPile(ids[3]), 100)
@@ -54,6 +55,7 @@ class PileOrderTest {
         assertEquals(listOf(ids[1], ids[4]), cards(exiled, exile))
     }
 
+    // ZON-030
     @Test fun millingSeveralPutsTheLastMilledOnTop() {
         val root = gameplayFixture(); val ids = cards(root, library)
         val mill = LibraryActions.moveSlice(root.board, library, ContentsSelection.TOP, 3, MoveDestination(graveyard, MoveInsertion.UNORDERED))
@@ -66,6 +68,7 @@ class PileOrderTest {
         assertEquals(listOf(ids[4], ids[3]), cards(back, exile))
     }
 
+    // ZON-030
     @Test fun removingTheTopShowsTheNextCardAndSamePileMovesKeepTheirPlace() {
         val root = gameplayFixture(); val ids = cards(root, library)
         val pile = run(root, ids.take(3).map { toPile(it) }, 100)
@@ -80,6 +83,7 @@ class PileOrderTest {
         assertNull(same.mutation); assertEquals(pile, same.state)
     }
 
+    // ZON-030
     @Test fun cardsAlreadyThereKeepTheirOrderAndOnlyNewArrivalsGoOnTop() {
         val root = gameplayFixture(); val ids = cards(root, library)
         // An old game's id-sorted graveyard is not migrated.
@@ -105,6 +109,7 @@ class PileOrderTest {
         assertEquals(setOf(ids[3], ids[4]), (cards(drawn, hand)).toSet())
     }
 
+    // SYS-031
     @Test fun olderRecordedMovesReplayUnchangedAsUnorderedBins() {
         val root = gameplayFixture(); val ids = cards(root, library)
         val (first, firstEvent) = legacyPileMove(root, toPile(ids[3]), 100)
@@ -142,6 +147,7 @@ class PileOrderTest {
         GameCommand(gameplayId(request++), GameScope(tree.initial.gameId, playId = tree.initial.id), GameAction.Undo, gameplayId(80), "1"))
     private fun state(tree: GameplayTree) = assertNotNull(tree.stateAt(tree.currentNodeId))
 
+    // HIS-087
     @Test fun undoIsBlockedOnlyWhenALaterMoveDependsOnTheChangedPileOrder() {
         val root = gameplayFixture(); val ids = cards(root, library)
         // Own latest arrival: undo takes it off the top again.

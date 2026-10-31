@@ -52,6 +52,7 @@ class TurnMarksTest {
             PlayAction.SetEotCorner(id(9), "*/2"), PlayAction.AdjustEotCorner(id(9), CornerPart.WHOLE, 1))) assertFalse(GameplayRules.valid(action))
     }
 
+    // TBL-095, TRN-003
     @Test fun turnPassClearsAllCardsInsideOneEventAndOneUndoRestoresThem() {
         for (action in listOf(PlayAction.EndTurn, PlayAction.NextStep)) {
             val initial = marked().let { s -> s.copy(board = s.board.copy(turn = s.board.turn.copy(phase = "ENDING", step = "CLEANUP"),
@@ -69,6 +70,7 @@ class TurnMarksTest {
         }
     }
 
+    // TBL-095
     @Test fun zoneLeaveResetsMarksAndWitnessesEmptyAssignmentsButPlacementDoesNot() {
         for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) {
             val initial = marked(zone)

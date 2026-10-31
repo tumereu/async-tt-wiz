@@ -17,6 +17,7 @@ class PodPresetsTest {
         preset("Bare"),
     )
 
+    // DRF-032
     @Test fun summariesShowModeSourceAndSize() {
         assertEquals(listOf("Booster · Vintage cube · 3×15", "Glimpse · Dominaria United · 9 packs",
             "Grid · March of the Machine · 12 grids", "Booster · Cube missing · 3×15", "Booster · No source · 3×15"),
@@ -24,6 +25,7 @@ class PodPresetsTest {
         assertEquals("Booster · DMU · 1 pack", podPresetSummary(preset("x", DraftSettings(packsPerPlayer = 1, packsOpenAtOnce = 1), setCode = "DMU")))
     }
 
+    // DRF-031
     @Test fun filteringMatchesEveryWordInNameSummaryOrSetCodeIgnoringCase() {
         fun names(query: String) = podPresetFilter(presets, query).map { it.name }
         assertEquals(presets.map { it.name }, names(""))

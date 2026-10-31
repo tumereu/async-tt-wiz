@@ -24,6 +24,7 @@ import kotlin.test.*
 class TurnControlsLayoutTest {
     @get:Rule val compose = createComposeRule()
 
+    // TRN-008
     @Test fun pickerLabelsFitAt412dp() = picker()
     @Test @Config(qualifiers = "w360dp-h800dp-port-mdpi") fun pickerLabelsFitAt360dp() = picker()
     @Test fun advanceLabelsFitAt412dp() = advance()

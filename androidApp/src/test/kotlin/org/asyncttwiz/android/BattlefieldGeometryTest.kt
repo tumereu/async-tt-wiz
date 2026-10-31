@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class BattlefieldGeometryTest {
+    // TBL-003
     @Test fun rowsFollowRenderedCardHeightWithMarginsAndOverflowIsReachable() {
         val initial = TableFixture.play(board = 15)
         val positions = initial.board.cards.filter { it.containerId.endsWith("BATTLEFIELD") }.associate { card ->
@@ -52,6 +53,7 @@ class BattlefieldGeometryTest {
         }
     }
 
+    // STK-008
     @Test fun stackHasEqualPaddingOnEverySideInBothOrientations() {
         for (landscape in listOf(false, true)) for (scale in listOf(.5f, 1f, 3f)) {
             val scene = TablePresentation.scene(TableFixture.game, TableFixture.play(), "a",

@@ -58,6 +58,7 @@ class R29EnteredTurnTest {
     private fun fieldMove(state: PlayState, n: Int, destination: MoveDestination) =
         PlayAction.MoveCard(gameplayId(n), MoveSource(card(state, n).containerId, card(state, n).placement), destination)
 
+    // TBL-027
     @Test fun enteringFromEveryOtherContainerStoresTheTurnNumber() {
         var state = start()
         listOf(10 to hand, 11 to graveyard, 12 to exile, 13 to stack).forEachIndexed { i, (n, from) ->
@@ -80,6 +81,7 @@ class R29EnteredTurnTest {
         assertTrue(marked(state, 14))
     }
 
+    // TBL-027
     @Test fun tokensAndClonesAreCreatedEnteredThisTurn() {
         val state = onField(start(), 10, "2")
         val token = accepted(state, PlayAction.CreateToken(TokenCatalog.blank), 100)
@@ -91,6 +93,7 @@ class R29EnteredTurnTest {
         assertEquals("2", card(state, 10).enteredTurn)
     }
 
+    // TBL-027
     @Test fun movingToTheOtherPlayersBattlefieldEntersButRearrangingDoesNot() {
         val state = onField(start(), 10, "2")
         val moved = accepted(state, fieldMove(state, 10, MoveDestination(field, MoveInsertion.EMPTY, BoardPosition(9, 9))), 100)
@@ -108,6 +111,7 @@ class R29EnteredTurnTest {
         assertTrue(marked(stolen, 10))
     }
 
+    // TBL-027
     @Test fun leavingClearsAndTurnChangeLapses() {
         val state = onField(start(), 10, "3")
         assertTrue(marked(state, 10))

@@ -21,6 +21,7 @@ class PreparationTest {
         definitions: List<SubmittedDefinition> = listOf(submitted)) =
         PreparationRules.select(summary, current, actor, id(1), inputScope, action, saved, definitions)
 
+    // LOB-037
     @Test fun exactCopyPartitionDefinitionsAndOwnReadyClearing() {
         val before = PreparationRules.empty(game).copy(players = PreparationRules.empty(game).players.map { it.copy(ready = true) })
         val state = select(current = before).state!!
@@ -42,6 +43,7 @@ class PreparationTest {
         assertNull(before.players[0].deck) // Original accepted base was not mutated.
     }
 
+    // TBL-076
     @Test fun existingSavedMultipartDeckNormalizesOnlyItsNewGameSnapshot() {
         val old = definition.copy(layout = "adventure")
         val digest = DeckJson.digest(old)
@@ -57,6 +59,7 @@ class PreparationTest {
         assertEquals(1, selected.definitions.single().definition.faces.size)
     }
 
+    // LOB-033
     @Test fun invitationAttemptAndUnrelatedRevisionsDoNotLockPreparation() {
         val selected = select().state!!
         val next = game.copy(invitationId = id(50), invitationState = InvitationState.DECLINED, revision = "8")
@@ -67,6 +70,7 @@ class PreparationTest {
         assertEquals("accessDenied", select(actor = id(99)).reason)
     }
 
+    // LOB-053
     @Test fun staleScopeSourceAndMissingDefinitionsNeverSubstituteOrClearReady() {
         assertEquals("inapplicable", select(inputScope = scope.copy(preparationId = id(77))).reason)
         assertEquals("lifecycleEnded", select(summary = game.copy(lifecycle = GameLifecycle.ACTIVE)).reason)

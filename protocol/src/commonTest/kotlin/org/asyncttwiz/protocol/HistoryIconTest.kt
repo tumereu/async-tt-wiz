@@ -18,6 +18,7 @@ class HistoryIconTest {
         }
     }
 
+    // HIS-074, SYS-034
     @Test fun anUnknownNameDecodesAsUnknownInsteadOfFailing() {
         val semantic = GameWire.json.decodeFromString(HistorySemantic.serializer(),
             """{"significance":"PING","icon":"added_in_a_later_release"}""")
@@ -25,6 +26,7 @@ class HistoryIconTest {
         assertEquals(HistoryIcon.UNKNOWN, HistoryIcon.fromWire(""))
     }
 
+    // SYS-034
     @Test fun anUnknownSignificanceDecodesAsUnknownWithOrWithoutAKey() {
         for (stored in listOf("""{"significance":"ADDED_LATER","icon":"open_with"}""",
                 """{"significance":"ADDED_LATER","icon":"open_with","key":"a/b"}""")) {
@@ -44,6 +46,7 @@ class HistoryIconTest {
         assertEquals(known, HistoryGrouping.choose(unknown, known))
     }
 
+    // SYS-034
     @Test fun anUnknownGroupCategoryContinuesWithoutFailing() {
         val previous = GameplayGroup("g", "me", "n1", "n1", "added-later", null, "1")
         val comment = HistorySemantic(HistorySignificance.EVENT_COMMENT, HistoryIcon.CHAT_BUBBLE)

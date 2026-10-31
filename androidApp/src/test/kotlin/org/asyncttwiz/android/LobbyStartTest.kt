@@ -69,6 +69,7 @@ class LobbyStartTest {
         override fun close() { lobby.close() }
     }
 
+    // LOB-037
     @Test fun capturedRoundAndSharedPredictionClearOnlyActorWithoutPrestartRoll() = Fixture().use { f ->
         val both = f.base.copy(players = f.base.players.map { it.copy(ready = true) })
         f.head(game.copy(revision = "1"), both)
@@ -109,6 +110,7 @@ class LobbyStartTest {
         }
     }
 
+    // SYS-007
     @Test fun readyAndWithdrawalPredictButOnlyRevisionCanInstallPlayAndLateReadCannotReopenLobby() = Fixture().use { f ->
         f.lobby.ready(); val ready = f.commands().single(); assertTrue(GameWire.valid(ready))
         assertTrue(f.lobby.state.preparation!!.players[0].ready); assertFalse(f.base.players[0].ready)
@@ -152,6 +154,7 @@ class LobbyStartTest {
         assertNull(f.lobby.state.play); assertNull(f.lobby.state.preparation); assertTrue(f.lobby.state.pendingGames.isEmpty())
     }
 
+    // LOB-045, SYS-018
     @Test fun lobbyTapsWhileReconnectingRunOnceInOrderWhenTheConnectionIsReady() = Fixture().use { f ->
         f.wire.listener.disconnected(false)
         assertFalse(game.id in f.lobby.state.connectedGames)

@@ -61,6 +61,7 @@ class DraftEarlyOpeningTest {
         return state
     }
 
+    // DRF-047
     @Test fun twoPlayersOpenEarlyWhenOnlyTheOpponentsFinalPickRemains() {
         var state = start()
         assertEquals(listOf(0, 0), listOf(opened(state, 0), opened(state, 1)))
@@ -91,6 +92,7 @@ class DraftEarlyOpeningTest {
         assertEquals(2, DraftEngine.publicStatus(final).round)
     }
 
+    // DRF-047
     @Test fun burnsKeepOnlyPicksAndDiscardThresholdDecideWhetherAPackReturns() {
         // 7 cards, keep 1, burn 2: 7 -> 4 -> 1 (automatic). B's pack cannot return to B after A's single pick.
         var state = start(cards = 7, burn = 2)
@@ -119,6 +121,7 @@ class DraftEarlyOpeningTest {
         }
     }
 
+    // DRF-047, DRF-048
     @Test fun threePlayersOpenIndividuallyAndANextRoundPackStaysHiddenUntilTheReceiversRoundIsDone() {
         // Three cards, keep 1: each pack gets a manual pick from its opener and the next seat, then an automatic award.
         var state = start(players = 3)
@@ -157,6 +160,7 @@ class DraftEarlyOpeningTest {
         assertTrue(final.log.all { log -> log.round == final.packs.first { it.id == log.packId }.round })
     }
 
+    // DRF-047
     @Test fun membersCanRunSeveralRoundsAheadOnlyWhenNothingCanReachThem() {
         // Two cards, keep 1, burn 1: every pack is emptied by its opener, so nothing ever passes.
         var state = start(packs = 3, cards = 2, burn = 1)
@@ -209,6 +213,7 @@ class DraftEarlyOpeningTest {
         finish(state)
     }
 
+    // DRF-055
     @Test fun librarianLeftInAPackPassesOnAsAnOrdinaryCard() {
         // 4 cards, keep 1: A spends one Librarian on a 3-card pack and keeps 2 cards; 1 card + the Librarian pass to B.
         var state = start(cards = 4, librarians = 1)

@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class OwnerMoveDestinationsTest {
+    // SYS-038, TBL-055, TBL-072, ZON-070
     @Test fun opponentControlledCardsMoveToTheirOwnersZonesViaMenuAndDrag() {
         for (zone in ownerOnlyZones) for (menu in listOf(true, false)) {
             val f = BasicTableFixture()
@@ -47,6 +48,7 @@ class OwnerMoveDestinationsTest {
         containers = f.root.board.containers.map { container -> container.copy(cards =
             if (container.id == f.container(PlayZone.BATTLEFIELD)) (40..43).map(f::id) else emptyList()) }))
 
+    // SYS-038, TBL-072, ZON-070
     @Test fun menuOffersOneOwnerRelativeChoicePerZoneAndMixedSelectionsRoutePerOwner() {
         for (label in listOf("Hand", "Battlefield", "Library top", "Library bottom", "Graveyard", "Exile")) {
             val f = BasicTableFixture(); f.connect(mixed(f))
@@ -73,6 +75,7 @@ class OwnerMoveDestinationsTest {
         }
     }
 
+    // SYS-038, TBL-055, ZON-070
     @Test fun dragRedirectsEveryPersonalZoneAndLandingToOwnerButNotBattlefields() {
         for (zone in ownerOnlyZones) {
             val f = BasicTableFixture(); f.connect(mixed(f))
@@ -101,6 +104,7 @@ class OwnerMoveDestinationsTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // TBL-055, ZON-070
     @Test fun mixedOwnerHandDragHighlightsBothHandsAndDiscardsForeignGap() {
         val f = BasicTableFixture(); f.connect(mixed(f))
         try {
@@ -119,6 +123,7 @@ class OwnerMoveDestinationsTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // ZON-070
     @Test fun libraryContentsMovesRouteMixedOwnersAndKeepTopSliceGuardsInOriginalOrder() {
         val f = BasicTableFixture()
         val initial = f.root.copy(board = f.root.board.copy(cards = f.root.board.cards.mapIndexed { index, card ->

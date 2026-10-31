@@ -60,6 +60,7 @@ class BlockersBoundaryGroupingTest {
         }
     }
 
+    // CMB-019, HIS-057
     @Test fun v29StepIntoDeclareBlockersEndsTheAttackerDeclarationGroup() {
         val tap = HistoryGrouping.classify(PlayAction.SetTapped(id(20), true), emptyList(), v(29))
         val open = HistoryGrouping.classify(PlayAction.Combat(CombatAction.Open), emptyList(), v(29))
@@ -94,6 +95,7 @@ class BlockersBoundaryGroupingTest {
         }
     }
 
+    // HIS-057
     @Test fun v29StepIntoDeclareBlockersAfterAnotherGroupIsItsOwnClosedGroup() {
         val semantic = classify(PlayAction.NextStep, TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, 29)
         val declared = HistoryGrouping.classify(declare, emptyList(), v(29))
@@ -124,6 +126,7 @@ class BlockersBoundaryGroupingTest {
         }
     }
 
+    // CMB-019, HIS-057
     @Test fun tapDeclareAndAssumeNoBlocksGiveTheDefenderADeclareBlockersEndpoint() {
         var tree = GameplayTree(state(TurnPosition.DECLARE_ATTACKERS))
         tree = assertNotNull(tree.play(a, play(PlayAction.SetTapped(id(20), true), 20)).tree)

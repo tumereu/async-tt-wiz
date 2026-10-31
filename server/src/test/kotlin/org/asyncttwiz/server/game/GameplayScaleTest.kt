@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameplayScaleTest {
+    // SYS-026
     @Test fun warmServerHeadAndReducerDoNotScanTenThousandStoredActions() {
         val tree = F.build(10000)
         val store = GameplayStore()

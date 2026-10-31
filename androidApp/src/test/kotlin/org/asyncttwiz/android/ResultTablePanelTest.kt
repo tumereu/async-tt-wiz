@@ -35,6 +35,7 @@ class ResultTablePanelTest {
         assertEquals(Icons.Outlined.Download, menuIcon("Draw N"))
     }
 
+    // TRN-047
     @Test fun panelShowsTheSuggestersReasonUnderTheSuggestionLineOnlyWhenPresent() {
         val target = ResultAcceptanceTarget(ResultTarget("game", "play"), "suggestion")
         var note by mutableStateOf("Infinite combo")
@@ -57,6 +58,7 @@ class ResultTablePanelTest {
         assertNotEquals(menuIcon("P/T +1/+0"), menuIcon("EOT P/T +1/+0"))
     }
 
+    // TRN-047
     @Test fun onTablePanelHasRoleSpecificButtonsWithoutModalBackOrOutsideTapHandling() {
         val target = ResultAcceptanceTarget(ResultTarget("game", "play"), "suggestion")
         var opponent by mutableStateOf(false)

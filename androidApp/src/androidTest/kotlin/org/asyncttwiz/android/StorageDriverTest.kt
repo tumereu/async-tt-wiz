@@ -132,6 +132,7 @@ class StorageDriverTest {
         open().use { assertEquals(9007199254740993, it.accepted("replica-a")!!.revision) }
     }
 
+    // SYS-035
     @Test fun futureSchemaRefusesWithoutWritableHandleOrByteChanges() {
         retained()
         execute("PRAGMA user_version=900")
@@ -158,6 +159,7 @@ class StorageDriverTest {
         assertArrayEquals(malformed, file.readBytes())
     }
 
+    // SYS-035
     @Test fun corruptFileDoesNotInvokeDestructiveAndroidRecovery() {
         val bytes = "not SQLite; private synthetic sentinel".toByteArray()
         file.writeBytes(bytes)

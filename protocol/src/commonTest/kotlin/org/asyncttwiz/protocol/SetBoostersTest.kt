@@ -17,6 +17,7 @@ class SetBoostersTest {
         SetBoosterSheet(cards.mapIndexed { index, card -> card.uuid to weight(index) }.toMap())
     private fun generate(source: SetSourceSnapshot, count: Int = 1) = SetBoosters.generate(source, count, seed)
 
+    // DRF-090
     @Test fun recipePreferenceDoesNotDependOnMapOrderAndDoesNotChooseOtherProducts() {
         val base = recipe(sheet(listOf(card(1))))
         val play = base.copy(name = "Play")
@@ -154,6 +155,7 @@ class SetBoostersTest {
         }
     }
 
+    // DRF-090
     @Test fun fallbackUsesTenCommonsThreeUncommonsRareAndWildcard() {
         val cards = listOf(card(1, SetCardRarity.COMMON), card(2, SetCardRarity.UNCOMMON), card(3, SetCardRarity.RARE))
         for (pack in generate(source(cards), 100)) {

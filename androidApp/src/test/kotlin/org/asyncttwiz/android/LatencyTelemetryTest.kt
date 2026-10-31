@@ -17,6 +17,7 @@ class LatencyTelemetryTest {
     private fun sample(n: Int = 0, apply: Double = 21.0, frame: Double? = null, predicted: Boolean = true) =
         ActionLatency("2026-10-24T12:00:00Z", "game", "action-$n", n, predicted, apply, frame)
 
+    // SYS-030
     @Test fun onlySlowOrUnpredictedSubmittedActionsAreBufferedAndOldestIsDropped() {
         val buffer = LatencyBuffer(true)
         buffer.record("fast", sample(apply = 20.0, frame = 20.0))
@@ -76,6 +77,7 @@ class LatencyTelemetryTest {
         }
     }
 
+    // SYS-030
     @Test fun disabledRecorderAndBufferDoNothingNotEvenReadTheClock() {
         val buffer = LatencyBuffer(false)
         buffer.record("a", sample(predicted = false))

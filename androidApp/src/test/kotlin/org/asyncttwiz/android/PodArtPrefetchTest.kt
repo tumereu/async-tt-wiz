@@ -26,6 +26,7 @@ class PodArtPrefetchTest {
         fail("Prefetch did not settle")
     }
 
+    // DRF-070
     @Test fun everyCardOfTheShownAndNextPackIsRequestedAtTileSizeWithBoundedParallelism() = runBlocking {
         val references = podPrefetchArtwork(listOf(shown, next), definitions)
         assertEquals(29, references.size)
@@ -55,6 +56,7 @@ class PodArtPrefetchTest {
         assertEquals(references.size, requested.size)
     }
 
+    // DRF-070
     @Test fun advancingKeepsTheNextPackRunningAndCancelsOnlyArtNoLongerShown() = runBlocking {
         val started = mutableListOf<ArtworkReference>()
         val cancelled = mutableListOf<ArtworkReference>()

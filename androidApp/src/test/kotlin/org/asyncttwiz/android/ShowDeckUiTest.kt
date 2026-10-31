@@ -21,6 +21,7 @@ class ShowDeckUiTest {
     @get:Rule val compose = createComposeRule()
     private fun id() = UUID.randomUUID().toString()
 
+    // DRF-125, LOB-043
     @Test fun opponentSeesTheDeckNameOnlyAfterTheOwnerSwitchesShowOnAndAgainHiddenAfterOff() {
         val owner = id(); val viewer = id()
         val deck = PreparedDeck(id(), id(), "1", "Pod name", null, id(), emptyList())

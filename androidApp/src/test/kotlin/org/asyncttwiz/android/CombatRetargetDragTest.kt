@@ -111,21 +111,25 @@ class CombatRetargetDragTest {
         }
     }
 
+    // CMB-015
     @Test fun dragIntoAnEmptyPlaneswalkerLaneAtTheEndRetargets() {
         // Both pairs attack the player; the one planeswalker lane is empty and last.
         assertRetargets("empty lane at the end", state(1, listOf(null, null)), f.id("attacker2"), walker(0), f.id("pair2"))
     }
 
+    // CMB-015
     @Test fun dragIntoAnEmptyLaneInTheMiddleRetargets() {
         // pair1 attacks the player, pair2 the second walker; the first walker's lane is empty and in the middle.
         assertRetargets("empty lane in the middle", state(2, listOf(null, walker(1))), f.id("attacker1"), walker(0), f.id("pair1"))
     }
 
+    // CMB-015
     @Test fun dragIntoTheEmptyFirstPlayerLaneRetargets() {
         // Both pairs attack the walker; the player lane is empty and first.
         assertRetargets("empty player lane first", state(1, listOf(walker(0), walker(0))), f.id("attacker2"), null, f.id("pair2"))
     }
 
+    // CMB-015
     @Test fun dragIntoTheEmptyPartOfAnOccupiedOtherLaneRetargets() {
         // pair1 attacks the player, pair2 the walker: drop pair1's attacker beside pair2's attacker in the walker lane.
         assertRetargets("occupied other lane", state(1, listOf(null, walker(0)), "Ajani, Long-Named Walker"),

@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class SingleCardPopupTest {
+    // SYS-043
     @Test fun tapsOnSeveralCardsLeaveOnlyTheLatestMenuAndTwoFingerPressesOpenNone() {
         val f = TableStatesFixture
         val play = f.initial

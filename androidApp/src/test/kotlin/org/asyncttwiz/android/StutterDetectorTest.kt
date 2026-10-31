@@ -17,6 +17,7 @@ class StutterDetectorTest {
         detector.flush(4_000_000_000)
         assertTrue(episodes.isEmpty())
     }
+    // SYS-030
     @Test fun slidingWindowDetectsThreeJanksAcrossSecondBoundariesAndKeepsStatsAndContext() {
         frame(800, 8.0); frame(900, 15.0, true, local = true); frame(1100, 18.0, true, tree = true)
         frame(1500, 20.0, true); frame(1600, 8.0)

@@ -32,6 +32,7 @@ class DeckEditorTest {
         override fun isTerminated() = false
         override fun awaitTermination(timeout: Long, unit: TimeUnit) = true
     }
+    // LOB-057
     @Test fun prefillUsesImporterSyntaxAndRoundTripsExactPrintingsSnapshotsSectionsQuantitiesAndCover() {
         val worker = Worker()
         val editor = DeckImportController({ error("Retained cards must not require another catalog lookup") }, worker) { it() }
@@ -137,6 +138,7 @@ class DeckEditorTest {
             }
         }
     }
+    // LOB-058
     @Test fun coverRemovedFromListIsClearedAndInvalidListCannotSaveAndCancelConfirmsDirtyInput() {
         val worker = Worker()
         val editor = DeckImportController({ text -> DeckImportResult(text, emptyList(), listOf(ImportIssue(2, "Unknown card")), null) }, worker) { it() }

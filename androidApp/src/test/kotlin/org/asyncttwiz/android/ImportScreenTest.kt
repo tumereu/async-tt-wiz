@@ -43,6 +43,7 @@ class ImportScreenTest {
         ResolvedDeckEntry(DeckSection.MAINBOARD, 2, listOf(printing), listOf(2)),
         ResolvedDeckEntry(DeckSection.SIDEBOARD, 1, listOf(printing), listOf(4))), emptyList(), null)
 
+    // LOB-061
     @Test fun deckLinkDialogOpensFromTheTopBarAndAutopastesOnlyOnceWithoutFetching() {
         val worker = Worker()
         val controller = DeckImportController({ error("No lookup expected") }, worker) { it() }
@@ -70,6 +71,7 @@ class ImportScreenTest {
         } finally { controller.close() }
     }
 
+    // LOB-061
     @Test fun deckPasteIconImportsAtOnceTypedLinksWaitForImportAndTheResultIsAnEditablePasteList() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val controller = DeckImportController({ resolved(it) }, worker) { it() }
@@ -117,6 +119,7 @@ class ImportScreenTest {
         } finally { controller.close() }
     }
 
+    // LOB-061
     @Test @Config(qualifiers = "w360dp-h740dp-port-mdpi")
     fun narrowPortraitShowsTheLinkActionAsAnIconWithADescription() {
         val controller = DeckImportController({ resolved(it) }, Worker()) { it() }
@@ -151,6 +154,7 @@ class ImportScreenTest {
         } finally { controller.close() }
     }
 
+    // LOB-059, LOB-060
     @Test fun deckSaveIsEnabledOnlyForANamedResolvedListAndPasteIconOnlyFillsTheList() {
         val worker = Worker()
         val controller = DeckImportController({ text ->
@@ -198,6 +202,7 @@ class ImportScreenTest {
         } finally { controller.close(); models.clear() }
     }
 
+    // DRF-003
     @Test fun cubeEditorIsThePasteListAndTheLinkDialogDoesNotImportClipboardAutomatically() {
         val worker = Worker()
         val controller = CubeController(DeckApi("https://invalid.example"), { null }, { _, _ -> error("No lookup expected") },
@@ -222,6 +227,7 @@ class ImportScreenTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    // DRF-008, DRF-009
     @Test fun cubePasteIconImportsAtOnceWhileTypedLinksWaitForImportAndSaveNeedsAName() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val result = DeckImportResult("1 Rune Bear", listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing), listOf(1))),

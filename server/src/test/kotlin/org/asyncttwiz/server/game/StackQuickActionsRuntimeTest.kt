@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class StackQuickActionsRuntimeTest {
+    // STK-019
     @Test fun `Stack copies and controllers are validated persisted and exactly undoable without changing the source`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -60,6 +61,7 @@ class StackQuickActionsRuntimeTest {
         }
     }
 
+    // STK-002
     @Test fun `hand projections reveal and hide in opponent views and all source destinations replay with Undo Redo`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -160,6 +160,7 @@ class PodControllerTest {
         }
         override fun close() = Unit
     }
+    // SYS-020
     @Test fun automaticRefreshFailuresStayQuietForThirtySeconds(): Unit = Fixture().use { f ->
         f.open()
         f.api.readFailure = "network"
@@ -177,6 +178,7 @@ class PodControllerTest {
         assertFalse(f.controller.state.unreachable)
     }
 
+    // SYS-021, SYS-022
     @Test fun requestedRefreshAndFirstLoadReportFailures(): Unit = Fixture().use { f ->
         f.api.readFailure = "network"
         f.open()
@@ -251,6 +253,7 @@ class PodControllerTest {
         }
     }
 
+    // DRF-077
     @Test fun submissionPredictsWithoutBlockingEarlierBuildEditsAndDefaultsToGamesOnReopen() = Fixture(PodPhase.DRAFTED).use { f ->
         f.open()
         assertEquals(PodTab.BUILD, f.controller.state.tab)
@@ -279,6 +282,7 @@ class PodControllerTest {
         }
     }
 
+    // DRF-069
     @Test fun marksSurviveTabSwitchesAndSaveDebouncedLatestWinsOffThePickQueue(): Unit = Fixture().use { f ->
         f.open()
         val pack = f.controller.state.detail!!.draft!!.head!!
@@ -316,6 +320,7 @@ class PodControllerTest {
         assertTrue(f.timers.isEmpty())
     }
 
+    // DRF-106
     @Test fun buildUndoRevertsMovesAndBasicTapsInReverseAsOrdinaryEditsDuringTheDraft(): Unit = Fixture().use { f ->
         f.open()
         assertFalse(f.controller.canUndoBuild); assertNull(f.controller.undoBuild())
@@ -336,6 +341,7 @@ class PodControllerTest {
         assertEquals(f.api.saved.build, f.controller.state.detail!!.build)
     }
 
+    // DRF-106
     @Test fun buildUndoRestoresTheBasicsRowThatChanged(): Unit = Fixture().use { f ->
         f.open()
         f.controller.adjustBasic(1, 1, side = true); f.controller.adjustBasic(0, 1)
@@ -386,6 +392,7 @@ class PodControllerTest {
         assertFalse(f.controller.canUndoBuild); assertNull(f.controller.undoBuild())
     }
 
+    // DRF-118
     @Test fun deckNotesSurviveTabSwitchesSaveDebouncedLatestWinsAndStayEditableAfterSubmit(): Unit = Fixture(PodPhase.DRAFTED).use { f ->
         f.open()
         assertEquals(PodDeckNotes(), f.controller.notes())
@@ -430,6 +437,7 @@ class PodControllerTest {
         Fixture(PodPhase.SETUP).use { setup -> setup.open(); assertNull(setup.controller.notes()) }
     }
 
+    // DRF-069
     @Test fun savedMarksAreAdoptedOnlyWithoutLocalMarks(): Unit = Fixture().use { f ->
         f.api.saved = f.api.saved.copy(draft = f.api.saved.draft!!.copy(
             marks = DraftMarks(head.id, keeps = listOf(copy.id, "unknown"), burns = listOf("burn"))))
@@ -532,6 +540,7 @@ class PodControllerTest {
         assertEquals(saved, f.controller.state.detail!!.settings)
     }
 
+    // DRF-029
     @Test fun setupPredictsImmediatelyAndAcknowledgementsDoNotReplaceNewerEdits() = Fixture(PodPhase.SETUP).use { f ->
         f.open()
         f.controller.editSetup(name = "Renamed")
@@ -620,6 +629,7 @@ class PodControllerTest {
         assertEquals(cube.id, f.controller.state.creating!!.cubeId)
     }
 
+    // DRF-019
     @Test fun cachedSetSelectionDuringPendingSaveClosesImmediatelyAndSurvivesQueuedRefresh() = Fixture(PodPhase.SETUP).use { f ->
         f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
         f.controller.editSetup(name = "Renamed"); f.controller.flushSetup()
@@ -645,6 +655,7 @@ class PodControllerTest {
         assertEquals(listOf("sets", "sets", "load:TST"), f.sets.calls)
     }
 
+    // DRF-019
     @Test fun cachedSetSelectionDuringRefreshRevertsPreviewOnPreparationFailure() = Fixture(PodPhase.SETUP).use { f ->
         f.open(); f.controller.chooseSet(); f.deliver(); f.controller.setPicker.dismiss()
         val original = f.controller.state.detail!!.source
@@ -663,6 +674,7 @@ class PodControllerTest {
         assertFalse(f.controller.setPicker.state.busy)
     }
 
+    // DRF-019
     @Test fun setCreatePreparesOnWorkerAndRetainsExactUploadAndRequestIdentityAcrossRetries() = Fixture(PodPhase.SETUP).use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.chooseSet()
@@ -817,6 +829,7 @@ class PodControllerTest {
         assertEquals(f.api.saved.build, f.controller.state.detail!!.build)
     }
 
+    // DRF-067
     @Test fun queuedPicksAdvanceImmediatelyAndSendInOrderWithoutResponseFlicker() = Fixture().use { f ->
         f.open()
         f.controller.pick(listOf("copy"), emptyList())
@@ -845,6 +858,7 @@ class PodControllerTest {
         assertFalse(f.controller.state.picking)
     }
 
+    // DRF-068
     @Test fun rejectedPickRestoresItsPackAndDropsDependentUnsentPicks() = Fixture().use { f ->
         f.open(); f.api.pickFailure = "wrong_counts"
         val original = f.controller.state.detail
@@ -865,6 +879,7 @@ class PodControllerTest {
         assertNull(f.controller.state.error)
     }
 
+    // DRF-068
     @Test fun laterPickRejectionRestoresOnlyTheRejectedPack() = Fixture().use { f ->
         f.open()
         f.controller.pick(listOf("copy"), emptyList())
@@ -878,6 +893,7 @@ class PodControllerTest {
         assertEquals("Pick rejected.", f.controller.state.error)
     }
 
+    // DRF-068
     @Test fun ambiguousQueuedPickKeepsPredictionsAndRetriesOriginalIdentityBeforeLaterPicks() = Fixture().use { f ->
         f.open(); f.api.pickFailure = "network"
         f.controller.pick(listOf("copy"), emptyList())
@@ -975,6 +991,7 @@ class PodControllerTest {
         }
     }
 
+    // DRF-035
     @Test fun gridMemberStatusUsesPickingFlagAndStartRequiresTwoToFourMembers() {
         assertEquals("picking", podMemberStatus(PodMember(self, picking = true), PodPhase.DRAFTING, DraftMode.GRID))
         assertEquals("waiting", podMemberStatus(PodMember(self, packsWaiting = 3), PodPhase.DRAFTING, DraftMode.GRID))
@@ -984,6 +1001,7 @@ class PodControllerTest {
         }
     }
 
+    // DRF-093
     @Test fun freshAwardsJoinMainWithoutLosingQueuedBuildIntents() = Fixture().use { f ->
         f.open()
         f.controller.move("copy", PodDeckCategory.TRASH)
@@ -1026,6 +1044,7 @@ class PodControllerTest {
 
     private val invitee = AccountIdentity(UUID.randomUUID().toString(), "Carol")
 
+    // DRF-036
     @Test fun autoStartArmsOnlyWithPendingInvitationsAndCancels() = Fixture(PodPhase.SETUP).use { f ->
         f.open()
         f.controller.autoStart(true); f.deliver()
@@ -1044,6 +1063,7 @@ class PodControllerTest {
         assertEquals(2, f.api.calls.count { it.first == "autoStart" })
     }
 
+    // DRF-038
     @Test fun startNowConfirmationStartsWithPendingInvitationsAndSaysTheyAreCancelled() = Fixture(PodPhase.SETUP).use { f ->
         f.api.saved = f.api.saved.copy(pendingInvitations = listOf(invitee))
         f.open()
@@ -1055,6 +1075,7 @@ class PodControllerTest {
         assertNull(f.controller.state.confirmation)
     }
 
+    // DRF-037, DRF-137
     @Test fun autoStartOffHintRefreshesAndNoticeTextExplainsWhy() = Fixture(PodPhase.SETUP).use { f ->
         f.open()
         val reads = f.api.reads
@@ -1068,6 +1089,7 @@ class PodControllerTest {
         assertEquals("Auto-start off — Pod", podActivityText(ActivityKind.POD_AUTO_START_OFF, "Pod"))
     }
 
+    // DRF-039
     @Test fun startInviteAndConfirmedLifecycleActionsHaveRequestsAndRefresh() {
         Fixture(PodPhase.SETUP).use { f ->
             f.open(); assertTrue(podCanStart(f.controller.state.detail!!))
@@ -1182,6 +1204,7 @@ class PodControllerTest {
         assertEquals(cube.id, (f.api.calls.single().second as CreatePod).cubeId)
     }
 
+    // DRF-074
     @Test fun avatarBadgeShowsCheckDigitsAndNinePlus() {
         assertEquals(listOf("✓", "1", "9", "9+", "9+"), listOf(0, 1, 9, 10, 270).map(::podBadgeText))
     }
@@ -1195,6 +1218,7 @@ class PodControllerTest {
         }
     }
 
+    // DRF-077
     @Test fun completionOpensBuildAndCancellationNoticeSurvivesUntilNextOpen() = Fixture().use { f ->
         f.open(); f.api.saved = f.api.saved.copy(phase = PodPhase.DRAFTED)
         f.controller.hint(ActivityHint("1", ActivityKind.POD_DRAFT_COMPLETE, id, attempt)); f.deliver()
@@ -1211,6 +1235,7 @@ class PodControllerTest {
         setCode: String? = null) = PodPreset(UUID.randomUUID().toString(), name, settings, cubeId,
         if (cubeId != null && !missing) cube.name else null, missing, setCode, setCode?.let { "Test set" }, "2026-10-30T00:00:00Z")
 
+    // DRF-032
     @Test fun savingAPresetStoresTheNewPodFormWithoutNameOrLibrarianSnapshot() = Fixture().use { f ->
         f.controller.newPod(cube.id); f.deliver()
         f.controller.newMode(DraftMode.GLIMPSE)
@@ -1236,6 +1261,7 @@ class PodControllerTest {
         assertEquals(DraftMode.GLIMPSE, f.controller.state.creating!!.mode)
     }
 
+    // DRF-033
     @Test fun savingUnderAnExistingNameAsksBeforeReplacingIt() = Fixture().use { f ->
         val old = preset("Weekly cube", cubeId = cube.id)
         f.api.presets += old
@@ -1259,6 +1285,7 @@ class PodControllerTest {
         assertFalse((f.api.calls.single().second as SavePodPreset).overwrite)
     }
 
+    // DRF-033
     @Test fun presetsAreRenamedAndDeletedAfterConfirmation() = Fixture().use { f ->
         val first = preset("Alpha"); val second = preset("Beta")
         f.api.presets += listOf(first, second)

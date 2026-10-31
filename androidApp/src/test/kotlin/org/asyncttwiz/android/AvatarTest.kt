@@ -22,6 +22,7 @@ class AvatarTest {
     private val viewModels = androidx.lifecycle.ViewModelStore()
     @After fun clearViewModels() { viewModels.clear() }
 
+    // LOB-091
     @Test fun catalogDownloadHasVisibleProgressWithoutBlockingLoginOrRegistration() {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false))
@@ -39,6 +40,7 @@ class AvatarTest {
         compose.onNodeWithText(progress.label()).assertIsDisplayed()
     }
 
+    // LOB-011, LOB-012
     @Test fun firstLoginShowsWaitingChooserAndSkipDoesNotNagOnNextLogin() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context.getSharedPreferences("avatar-chooser", 0).edit().clear().commit()
@@ -57,6 +59,7 @@ class AvatarTest {
         assertFalse(AvatarPromptMemory(context).shouldShow(ScreenFixtures.alex))
     }
 
+    // LOB-013
     @Test @Config(qualifiers = "w412dp-h892dp-port-mdpi")
     fun compactProfileFitsWithoutScrollingAndCancelKeepsName() {
         val fixture = ScreenFixtures()
@@ -79,6 +82,7 @@ class AvatarTest {
         compose.onNodeWithText("Save").assertDoesNotExist()
     }
 
+    // LOB-012
     @Test fun waitingChooserBecomesAvailableInPlaceWhenCatalogIsInstalled() {
         val fixture = ScreenFixtures()
         fixture.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, avatarChooser = true))
@@ -94,6 +98,7 @@ class AvatarTest {
         compose.onNodeWithText("Skip").assertIsDisplayed()
     }
 
+    // LOB-011
     @Test fun shownOrSkippedIsRememberedPerAccountAcrossMemoryInstances() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         context.getSharedPreferences("avatar-chooser", 0).edit().clear().commit()
@@ -106,6 +111,7 @@ class AvatarTest {
         assertFalse(memory.shouldShow(account.copy(avatar = AvatarIdentity(java.util.UUID.randomUUID().toString()))))
     }
 
+    // LOB-010
     @Test fun fallbackIsInitialWithStableAccountColor() {
         compose.setContent { MaterialTheme { Avatar(AccountIdentity("stable", "Alice")) } }
         compose.onNodeWithText("A").assertIsDisplayed()
@@ -115,6 +121,7 @@ class AvatarTest {
         assertEquals("?", avatarInitial(""))
     }
 
+    // DRF-015
     @Test fun podNavigationShowsOtherMembersAsCompactStack() {
         val me = AccountIdentity("me", "Me")
         val others = (1..4).map { AccountIdentity("o$it", "Other $it") }
@@ -128,6 +135,7 @@ class AvatarTest {
             podNavigationAvatars(listOf(me) + others.take(2), "me").width, podNavigationAvatars(listOf(me) + others, "me").width))
     }
 
+    // LOB-010
     @Test fun unavailableArtworkStillShowsInitial() {
         compose.setContent { MaterialTheme { Avatar(AccountIdentity("stable", "Bob", AvatarIdentity("unavailable"))) } }
         compose.onNodeWithText("B").assertIsDisplayed()

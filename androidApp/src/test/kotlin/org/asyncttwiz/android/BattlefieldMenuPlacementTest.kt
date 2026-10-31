@@ -25,6 +25,7 @@ class BattlefieldMenuPlacementTest {
                 exile -> listOf(40, 41, 43).map(f::id); field -> listOf(f.id(42)); else -> emptyList() }) }))
     }
 
+    // TBL-007
     @Test fun menuBattlefieldPutsAPlaneswalkerOnTheMainRowAndLandsOnTheLandRowOfTheirOwnersBattlefields() {
         val f = BasicTableFixture(); f.connect(exiled(f))
         try {
@@ -39,6 +40,7 @@ class BattlefieldMenuPlacementTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // TBL-007, TBL-008
     @Test fun libraryDestinationsAndStackResolutionUseTheCardsRow() {
         val f = BasicTableFixture()
         val play = exiled(f)

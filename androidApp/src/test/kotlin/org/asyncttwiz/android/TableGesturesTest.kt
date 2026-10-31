@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableGesturesTest {
+    // ZON-006
     @Test fun doubleTapInHandMovesOnlyThatCardEvenWithBattlefieldCardsSelected() {
         val hand = TableItem("card/hand", TableBounds(0f, 0f, 28f, 40f), "Hand card", "",
             kind = TableItemKind.CARD, cardId = "hand", zone = PlayZone.HAND)
@@ -60,6 +61,7 @@ class TableGesturesTest {
         first(6000); g.cancel(); first(6100)
         assertEquals(listOf("nearMiss:cancelled"), diagnostics)
     }
+    // TBL-016
     @Test fun firstDownOwnsPanAcrossAllViewportBoundariesAndPinchScalesUntilRelease() {
         val world = TableWorld(TableBounds(200f, 0f, 300f, 400f), TableBounds(0f, 0f, 800f, 800f))
         val ports = listOf(
@@ -93,6 +95,7 @@ class TableGesturesTest {
         assertEquals(ports.first().id, events.filterIsInstance<TableIntent.Scroll>().single().viewportId)
     }
 
+    // TBL-016
     @Test fun oneFingerViewportScrollAndSecondPointerKeepOriginalOwnerAcrossWorld() {
         val port = TableViewport("cardPanel/test", TableBounds(0f, 0f, 100f, 200f), 100f, 0f,
             contentHeight = 600f)
@@ -122,6 +125,7 @@ class TableGesturesTest {
         return TableScene(listOf(panelCard("p1", 10f), panelCard("p2", 60f), field), emptyList(), listOf(panelPort), world = world)
     }
 
+    // ZON-061
     @Test fun oneFingerDragOnEmptyPanelSpaceDrawsARectangleSelectingOnlyThatPanelsCards() {
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
@@ -138,6 +142,7 @@ class TableGesturesTest {
         assertTrue(events.none { it is TableIntent.Scroll })
     }
 
+    // TBL-058
     @Test fun multiSelectRectangleAddsToTheSelectionWhileOutsideMultiSelectItReplacesIt() {
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
@@ -158,6 +163,7 @@ class TableGesturesTest {
         assertEquals(setOf("p1"), TableSelection(ids = setOf("f")).withRectangle(setOf("p1")).ids)
     }
 
+    // ZON-061
     @Test fun panelDoubleTapDragAndTwoFingersScrollOverCardsWhileOneFingerDragsTheCard() {
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
@@ -182,6 +188,7 @@ class TableGesturesTest {
         assertTrue(events.none { it is TableIntent.Camera })
     }
 
+    // TBL-046, ZON-035
     @Test fun graveyardPileTapOpensActionsAndDoubleTapSearchesWithoutPingModeDoubleTaps() {
         val grave = TableItem("grave", TableBounds(200f, 300f, 28f, 40f), "Graveyard", "", zone = PlayZone.GRAVEYARD, cards = listOf("g"))
         val exile = TableItem("exile", TableBounds(250f, 300f, 28f, 40f), "Exile", "", zone = PlayZone.EXILE, cards = listOf("e"))
@@ -216,6 +223,7 @@ class TableGesturesTest {
         assertEquals(card.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
     }
 
+    // TBL-014
     @Test fun panAndPinchRubberBandThenSpringBackOnBothAxesForLargeAndSmallContent() {
         for (extent in listOf(100f, 800f)) for (pinch in listOf(false, true)) {
             val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, extent, extent))
@@ -249,6 +257,7 @@ class TableGesturesTest {
         }
     }
 
+    // TBL-014
     @Test fun incrementalTransformsDoNotCompoundRubberResistanceAndNewPressInterruptsSpring() {
         val world = TableWorld(TableBounds(0f, 0f, 400f, 400f), TableBounds(0f, 0f, 400f, 400f))
         val events = mutableListOf<TableIntent>()
@@ -270,6 +279,7 @@ class TableGesturesTest {
             "Even a stationary grab must resume spring-back on release")
     }
 
+    // SYS-029, TBL-011, TBL-012, TBL-060
     @Test fun emptySingleTapIsImmediateDoubleTapFitsAndDoubleTapHoldDragPansInsteadOfSelecting() {
         val scene = TableFixture.scene(TableFixture.play(board = 2), ui = TableLayoutState(TableCamera(zoom = 1.4f)))
         val point = TablePoint(scene.world!!.viewport.center.x, scene.world.viewport.center.y)
@@ -297,6 +307,7 @@ class TableGesturesTest {
         assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Peek })
     }
 
+    // TBL-057
     @Test fun ordinaryEmptyDragStillSelectsAndEmptyDoubleTapDoesNotRecognizeAcrossHud() {
         val scene = TableFixture.scene()
         val f = Fixture(scene)
@@ -318,6 +329,7 @@ class TableGesturesTest {
         assertTrue(f.events.isEmpty())
     }
 
+    // TBL-001
     @Test fun pinchUsesOneCentroidTransformAcrossBothFieldsAndCenterBandAndClampsPan() {
         val scene = TableFixture.scene()
         val world = scene.world!!
@@ -362,6 +374,7 @@ class TableGesturesTest {
         assertEquals("card/a/BATTLEFIELD/1", f.events.filterIsInstance<TableIntent.Actions>().single().itemId)
     }
 
+    // SYS-029, TBL-046, ZON-013
     @Test fun librarySingleTapIsImmediateAndDoubleDismissesThenDrawsWithoutOpeningSharedContents() {
         val scene = TableFixture.scene()
         val library = scene.items.single { it.id == "a/LIBRARY" }
@@ -385,6 +398,7 @@ class TableGesturesTest {
         assertTrue(events.none { it is TableIntent.Submit })
     }
 
+    // TBL-104
     @Test fun peekEndsOnReleaseCancelAndSecondPointerButExplicitInspectPersists() {
         for (end in 0..2) {
             val f = Fixture(); val point = f.point()
@@ -401,6 +415,7 @@ class TableGesturesTest {
         }
     }
 
+    // TBL-104
     @Test fun heldPointerScrollsInspectionIncrementallyInDpWithoutMovingCardsAndStopsOnRelease() {
         for (density in listOf(1f, 2.625f)) {
             val events = mutableListOf<TableIntent>()
@@ -428,6 +443,7 @@ class TableGesturesTest {
         }
     }
 
+    // ZON-002
     @Test fun handInsertionExcludesDraggedMembersAndUsesSamePreviewAndReleaseGap() {
         val f = Fixture(TableFixture.scene(TableFixture.play(board = 1, hand = 5)))
         val hand = f.scene.items.single { it.kind == TableItemKind.HAND && it.owner == "a" }
@@ -451,6 +467,7 @@ class TableGesturesTest {
         }
     }
 
+    // TBL-052
     @Test fun landingOutlinesTrackSnappedRowsMultiCardOffsetsAndContainers() {
         val scene = TableFixture.scene(TableFixture.play(board = 2))
         val scope = TableScope("a/BATTLEFIELD/0", listOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1"))
@@ -472,6 +489,7 @@ class TableGesturesTest {
         assertTrue(tableDragLanding(scene, TableGesturePreview(scope = scope)).outlines.isEmpty())
     }
 
+    // TBL-004
     @Test fun transformedLandsBandsStillTargetRowZero() {
         for (zoom in listOf(.65f, 1f, 2f)) for (pan in listOf(-12f, 0f, 12f)) for (owner in listOf("a", "b")) {
             val home = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 892f, 412f, true)
@@ -494,6 +512,7 @@ class TableGesturesTest {
         }
     }
 
+    // TBL-004
     @Test fun landsBandsAndAdjacentMainRowsUseTheDrawnGridForDropsAndLocationPings() {
         for ((width, height, landscape) in listOf(Triple(412f, 892f, false), Triple(892f, 412f, true),
             Triple(640f, 360f, true), Triple(892f, 364f, true))) {
@@ -530,6 +549,7 @@ class TableGesturesTest {
         }
     }
 
+    // CMB-009
     @Test fun combatInsertionDragBindsOnlyTheRequestedOccurrenceAndCancellingDoesNotCreatePairs() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -555,6 +575,7 @@ class TableGesturesTest {
         }
     }
 
+    // CMB-003, TBL-044
     @Test fun combatTapOpensNormalCardActionsDoubleTapDoesNothingAndHoldInspects() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -601,6 +622,7 @@ class TableGesturesTest {
         assertEquals(other.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
     }
 
+    // CMB-009
     @Test fun combatDropEndsAreUnboundedDividersAreLenientAndPreviewIsUprightAtLanding() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -649,6 +671,7 @@ class TableGesturesTest {
         }
     }
 
+    // CMB-005, HIS-082
     @Test fun combatPingShortcutTogglesItsOccurrenceNotAMarkerUnderTheBubble() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -675,6 +698,7 @@ class TableGesturesTest {
         }
     }
 
+    // STK-010
     @Test fun stackSingleTapOpensBubblesDoubleTapActionsHoldInspectsAndBadgeRequiresDoubleTap() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -702,6 +726,7 @@ class TableGesturesTest {
         gesture.down(point, 1200); gesture.tick(1750); gesture.up(point, 1800)
         assertEquals(listOf<TableIntent>(TableIntent.Peek(top.cardId!!), TableIntent.Peek(null)), events)
     }
+    // STK-016
     @Test fun stackMarkerDragUsesOnlyVerticalDistanceAndNoRequestOnReturningOrCancelling() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -728,6 +753,7 @@ class TableGesturesTest {
         assertEquals(org.asyncttwiz.protocol.PlayAction.Stack(org.asyncttwiz.protocol.StackAction.MarkText(entry, null)),
             events.filterIsInstance<TableIntent.Submit>().single().action)
     }
+    // STK-016
     @Test fun markTextDownSelectsFirstEvenWithOneOptionAndFollowsReadingOrderAtBothDensities() {
         for (density in listOf(1f, 2.625f)) {
             assertMarkDrag(density, null, 1, 28f * density, 0)
@@ -759,6 +785,7 @@ class TableGesturesTest {
             requests.single().action)
     }
 
+    // TBL-042
     @Test fun pointerPixelsKeepSlopDoubleTapRadiusAndValueStepInDpAtBothDensities() {
         for (density in listOf(1f, 2.625f)) {
             val scene = TableFixture.scene()
@@ -795,6 +822,7 @@ class TableGesturesTest {
             assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", null, -2)), events)
         }
     }
+    // TBL-042
     @Test fun doubleTapAllowsFourHundredMillisAndThirtyTwoDpButNotBeyondEither() {
         for (density in listOf(1f, 2.625f)) for (delay in listOf(399L, 401L)) for (distance in listOf(31f, 33f)) {
             val card = TableItem("card/a", TableBounds(0f, 0f, 100f, 100f), "Card", "",
@@ -878,6 +906,7 @@ class TableGesturesTest {
         fun tap(time: Long, point: TablePoint = point()) { gestures.down(point, time); gestures.up(point, time + 20) }
         fun refresh(writable: Boolean = true) = gestures.update(scene, selection, writable)
     }
+    // SYS-029, TBL-041, TBL-062
     @Test fun normalSingleImmediatelyOpensCapturedActionsAndTimeoutDoesNotRepeatIt() {
         val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1")))
         f.tap(0); assertEquals(1, f.events.size); f.gestures.tick(419); assertEquals(1, f.events.size)
@@ -887,6 +916,7 @@ class TableGesturesTest {
         assertEquals(listOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1"), action.scope!!.cardIds)
         assertTrue(f.events.none { it is TableIntent.Rotate })
     }
+    // TBL-043
     @Test fun doubleTapRotatesOnceUsingTriggerOrientationAndFirstCapturedScope() {
         val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1")))
         f.tap(0); f.gestures.update(f.scene, TableSelection(setOf("a/BATTLEFIELD/2")), true); f.tap(100)
@@ -898,6 +928,7 @@ class TableGesturesTest {
         assertEquals(TableIntent.DismissTapUi, f.events[1])
         assertTrue(f.events.none { it is TableIntent.Inspect })
     }
+    // TBL-043
     @Test fun doubleUnselectedClearsSelectionButSingleUnselectedPreservesIt() {
         val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/1")))
         f.tap(0); f.gestures.tick(420); assertEquals(setOf("a/BATTLEFIELD/1"), f.selection.ids)
@@ -911,6 +942,7 @@ class TableGesturesTest {
         assertEquals(2, f.events.filterIsInstance<TableIntent.Ping>().size)
         assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate })
     }
+    // TBL-061
     @Test fun selectDoubleTapTogglesCapturedGroupInTriggerDirectionAndReturnsToNormal() {
         for (tapped in listOf(false, true)) {
             val scene = TableFixture.scene().let { scene -> scene.copy(items = scene.items.map {
@@ -932,6 +964,7 @@ class TableGesturesTest {
         assertEquals(initial, f.selection)
         assertEquals(listOf("a/BATTLEFIELD/0"), f.events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds)
     }
+    // STK-003, TBL-044
     @Test fun selectDoubleTapNeverTapsStackEntriesEvenInMixedScope() {
         val scene = TableFixture.scene().let { scene -> scene.copy(items = scene.items.map {
             if (it.cardId == "a/BATTLEFIELD/1") it.copy(zone = PlayZone.STACK) else it
@@ -945,6 +978,7 @@ class TableGesturesTest {
         g.tap(0, stack.visible.first().center); g.refresh(); g.tap(100, stack.visible.first().center)
         assertTrue(g.events.none { it is TableIntent.Rotate })
     }
+    // TBL-047, TBL-048
     @Test fun holdConsumesTapAndCannotTurnIntoDragOrExposePile() {
         val f = Fixture(); val p = f.point()
         f.gestures.down(p, 0); f.gestures.tick(500)
@@ -954,6 +988,7 @@ class TableGesturesTest {
         f.events.clear(); f.gestures.down(pile, 1200); f.gestures.tick(1800); f.gestures.up(pile, 1810)
         assertTrue(f.events.isEmpty())
     }
+    // TBL-051
     @Test fun dragCapturesIdsDuringReflowAndEmitsOnlyOnceOnValidRelease() {
         val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1")))
         val start = f.point(); val dest = TablePoint(350f, f.scene.fields.last().bounds.center.y)
@@ -968,6 +1003,7 @@ class TableGesturesTest {
         assertEquals(setOf("a/BATTLEFIELD/0", "a/BATTLEFIELD/1"), f.selection.ids)
         assertTrue(f.events.none { it is TableIntent.Actions || it is TableIntent.Rotate || it is TableIntent.Inspect })
     }
+    // TBL-052
     @Test fun cancellationInvalidDropLostTargetAndDisconnectNeverMutateOrClearSelection() {
         for (variant in 0..3) {
             val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/1")))
@@ -994,6 +1030,7 @@ class TableGesturesTest {
         assertTrue(f.events.none { it is TableIntent.Move || it is TableIntent.Actions || it is TableIntent.Inspect })
         assertEquals(TableGesturePreview(), f.gestures.preview)
     }
+    // TBL-057, TBL-060
     @Test fun emptyTapClearsAndRectangleReplacesByAnyVisibleOverlap() {
         val f = Fixture(initial = TableSelection(setOf("a/HAND/0")))
         val empty = TablePoint(350f, f.scene.fields.last().bounds.center.y)
@@ -1026,6 +1063,7 @@ class TableGesturesTest {
         f.gestures.transform(TablePoint(-20f, 0f), 1f, p)
         assertEquals(TableIntent.Scroll("a/HAND", 20f), f.events.single())
     }
+    // SYS-029, ZON-013, ZON-014
     @Test fun librarySingleTapOpensActionsImmediatelyAndDragBindsActualTop() {
         val f = Fixture()
         val pile = f.scene.items.single { it.id == "a/LIBRARY" }; val p = pile.visible.first().center
@@ -1040,6 +1078,7 @@ class TableGesturesTest {
         assertTrue(f.events.filterIsInstance<TableIntent.Move>().single().sources.getValue("a/LIBRARY/0").libraryTop)
     }
 
+    // TBL-046, ZON-013
     @Test fun libraryDoubleTapDismissesImmediateActionsAndDrawsEitherOwnersCapturedTop() {
         for (owner in listOf("a", "b")) for (writable in listOf(true, false)) for (mode in listOf(TableMode.NORMAL, TableMode.SELECT)) {
             val f = Fixture(initial = TableSelection(setOf("a/BATTLEFIELD/0"), mode), writable = writable)
@@ -1052,6 +1091,7 @@ class TableGesturesTest {
         }
     }
 
+    // STK-003, TBL-044
     @Test fun stackDoubleTapAndAccessibilityNeverProduceRotateIncludingMixedSelections() {
         val scene = TableFixture.scene()
         val card = scene.items.first { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }
@@ -1099,6 +1139,7 @@ class TableGesturesTest {
             f.events.filterIsInstance<TableIntent.Camera>().last().camera)
     }
 
+    // TBL-053
     @Test fun ordinaryPileCapacityRejectsWholeSelectionWithoutPartialMove() {
         val p = TableFixture.play(board = 5)
         val placements = p.board.cards.filter { it.containerId.endsWith("BATTLEFIELD") }.associate { c ->
@@ -1114,6 +1155,7 @@ class TableGesturesTest {
         assertEquals(setOf("a/BATTLEFIELD/3", "a/BATTLEFIELD/4"), f.selection.ids)
     }
 
+    // SYS-005
     @Test fun twoFingerCompactSidebarPanIsPersonalNotABoardMove() {
         val scene = TablePresentation.scene(TableFixture.game, TableFixture.play(), "a", 640f, 260f, true,
             TableLayoutState(TableCamera(zoom = 2f)))

@@ -52,6 +52,7 @@ class PodGridViewTest {
         assertFalse(PodGridRules(sparse.copy(id = "later"), mine).canSelect(row))
     }
 
+    // DRF-083
     @Test fun arrowsHighlightLinesAndConfirmSendsGridLineWithoutChangingBoard() {
         var confirmed: Triple<String, GridLineType, Int>? = null
         show(onConfirm = { grid, line, index -> confirmed = Triple(grid, line, index) })
@@ -79,6 +80,7 @@ class PodGridViewTest {
         compose.onAllNodesWithContentDescription("Empty slot").assertCountEquals(3)
     }
 
+    // DRF-081, DRF-082, DRF-083
     @Test fun yourPickComesFirstThenOtherOpenGridsThenFinishedOnesWithArrowsOnlyOnYourPick() {
         var busy by mutableStateOf(false)
         val later = board.copy(id = "later", number = 2)
@@ -126,6 +128,7 @@ class PodGridViewTest {
         compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
     }
 
+    // DRF-084
     @Test fun gridUsesInstantReleaseToClosePreviewWithoutSelectingALine() {
         show()
         assertHoldPreview(slot(0))
@@ -133,6 +136,7 @@ class PodGridViewTest {
         repeat(9) { assertHighlighted(it, false) }
     }
 
+    // DRF-084
     @Test fun tapOnAGridCardOpensTheFullInspectorWithoutSelectingALine() {
         show()
         slot(4).performClick()
@@ -163,6 +167,7 @@ class PodGridViewTest {
         repeat(9) { assertHighlighted(it, it < 3) }
     }
 
+    // DRF-081, DRF-086
     @Test fun cardsStayInPlaceWithPickersRefillsAndDiscardsInsteadOfATextLog() {
         val slots = cards.mapIndexed { index, copy -> when (index) {
             0, 1, 2 -> GridPublicSlot(copy.copy(id = "new-$index"), if (index == 1) "bob" else null, refill = true)
@@ -198,6 +203,7 @@ class PodGridViewTest {
         assertHoldPreview(slot(3))
     }
 
+    // DRF-083
     @Test fun selectionDimsOtherLiveCardsButNeverPickedOrDiscardedOnes() {
         val plain = PodGridCell(cards[0], null, false, false)
         assertEquals(1f, podGridArtAlpha(plain, live = true, highlighted = false, selecting = false))
@@ -208,6 +214,7 @@ class PodGridViewTest {
         assertEquals(1f, podGridArtAlpha(plain.copy(pickedBy = "bob"), live = false, highlighted = false, selecting = true))
     }
 
+    // DRF-085
     @Test fun bandsRunAlongEachPickedLineWithEarlierPicksOnTop() {
         fun pick(player: String, line: GridLine) = GridPublicPickLog(player, "grid-0", line, emptyList(), emptyList())
         val picks = listOf(pick("alice", GridLine(GridLineType.ROW, 0)), pick("bob", GridLine(GridLineType.COLUMN, 1)),
@@ -225,12 +232,14 @@ class PodGridViewTest {
         assertEquals(listOf("carol", "bob"), players(7))
     }
 
+    // DRF-086
     @Test fun onlyRefilledGridsGetBoardLabels() {
         assertNull(podGridStageLabel(0, 1))
         assertEquals(listOf("Before refill", "After refill"), List(2) { podGridStageLabel(it, 2) })
         assertEquals(listOf("Before refill", "After refill 1", "After refill 2"), List(3) { podGridStageLabel(it, 3) })
     }
 
+    // DRF-086
     @Test fun liveRefilledGridShowsTheEarlierBoardAboveWithArrowsOnlyOnTheCurrentOne() {
         val refills = List(3) { DraftCopy("refill-$it", "definition-$it") }
         val live = board.copy(positions = refills + cards.drop(3),
@@ -256,6 +265,7 @@ class PodGridViewTest {
         compose.onNodeWithTag("pod-grid-plain-stage0-slot-0").assertDoesNotExist()
     }
 
+    // DRF-085
     @Test fun pickerColoursUseYourTableColourAndDistinctOthers() {
         val colors = podGridColors(listOf("bob", "alice", "carol"), "alice")
         assertEquals(OwnTableColor, colors["alice"])

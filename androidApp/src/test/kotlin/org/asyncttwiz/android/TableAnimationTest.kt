@@ -45,6 +45,7 @@ class TableAnimationTest {
         }
     }
 
+    // TBL-040, ZON-002
     @Test fun handSurvivorsSlideForDrawPlayDiscardAndUndoForBothPlayersAndOrientations() {
         for (landscape in listOf(false, true)) for (owner in listOf("a", "b")) {
             val initial = TableFixture.play(hand = 3)
@@ -94,6 +95,7 @@ class TableAnimationTest {
         }
     }
 
+    // TBL-039
     @Test fun rotationFinishesAtNinetyMillisBesideALongMoveAndFlipAndFadeUseTheirOwnClocks() {
         fun card(id: String, x: Float, tapped: Boolean = false) = TableItem(id, TableBounds(x, 0f, 28f, 40f), id, id,
             kind = TableItemKind.CARD, cardId = id, tapped = tapped,
@@ -116,6 +118,7 @@ class TableAnimationTest {
         assertEquals(90f, animation.frame(.8f).single { it.item.cardId == "tap" }.item.cardTransform!!.rotation)
     }
 
+    // TBL-039
     @Test fun sceneEndsWithItsLongestNaturalChannelAndShortMovesHoldTheirEndpoint() {
         val bounds = TableBounds(0f, 0f, 28f, 40f)
         val card = TableItem("card", bounds, "card", "", cardId = "card", kind = TableItemKind.CARD)
@@ -189,6 +192,7 @@ class TableAnimationTest {
     private fun halfwayX(from: TableBounds, to: TableBounds, duration: Int): Float = from.center.x +
         (to.center.x - from.center.x) * cardMoveProgress(from, to, .5f, duration, DEFAULT_CARD_MOVE_SPEED) -
         (from.width + (to.width - from.width) * cardMoveProgress(from, to, .5f, duration, DEFAULT_CARD_MOVE_SPEED)) / 2
+    // TBL-037
     @Test fun tapAndUntapUseNinetyMillisButMovesDrawsAndMixedChangesUseTheirNaturalDurations() {
         val initial = TableFixture.play(board = 2, hand = 1)
         fun tapped(play: PlayState, id: String) = play.copy(board = play.board.copy(cards = play.board.cards.map {
@@ -219,6 +223,7 @@ class TableAnimationTest {
         }
     }
 
+    // TBL-002
     @Test fun adjacentColumnsKeepFixedCentersThroughoutRotationsAndEndpointsDoNotIntersect() {
         // Null placement is the old-game fallback; retained integer and fractional presentation
         // anchors must behave identically. All columns remain one grid unit apart.
@@ -274,6 +279,7 @@ class TableAnimationTest {
         stackEffects = ids.map { StackEffect(it, source) }, containers = state.board.containers.map {
             if (it.zone == PlayZone.STACK) it.copy(cards = ids) else it }))
 
+    // STK-006
     @Test fun stackGhostFliesFromRealCardAndBackWithUndoRedoWithoutMovingRealDrawing() {
         for (landscape in listOf(false, true)) for (zone in listOf(PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.BATTLEFIELD)) {
             val sourceId = "a/HAND/0"
@@ -368,6 +374,7 @@ class TableAnimationTest {
         assertEquals(initial, endpoint.live(correction.copy(currentNodeId = "remote-node"), initial, awaitingIndex = true))
     }
 
+    // SYS-009
     @Test fun matchingConfirmationDoesNotRestartEvenMidFlightOrChangeCardIdentity() {
         val initial = TableFixture.play(hand = 1)
         val predicted = TableFixture.scene(moved(initial, listOf("a/HAND/0"), "a/BATTLEFIELD"))
@@ -385,6 +392,7 @@ class TableAnimationTest {
             animation.frame(1f).single { it.item.cardId == "a/HAND/0" }.bounds)
     }
 
+    // SYS-009
     @Test fun correctionStartsAtCurrentDrawnBoundsAndRemainsVisibleAcrossViewports() {
         val initial = TableFixture.play(hand = 1)
         val target = TableFixture.scene(moved(initial, listOf("a/HAND/0"), "a/BATTLEFIELD"))
@@ -402,6 +410,7 @@ class TableAnimationTest {
         assertTrue(rendered.items.single { it.cardId == "a/HAND/0" }.visible.isNotEmpty())
     }
 
+    // TBL-040
     @Test fun drawsStartAtLibraryAndReachEachHandSlotForBothPlayersAndOrientations() {
         for (landscape in listOf(false, true)) for (owner in listOf("a", "b")) for (count in listOf(1, 3)) {
             val initial = TableFixture.play(hand = 2)
@@ -444,6 +453,7 @@ class TableAnimationTest {
         assertEquals(1f, cards.single().alpha)
     }
 
+    // HIS-030, TBL-040, ZON-046
     @Test fun cardsFlyFaceDownBetweenTempPilesAndIntoAndOutOfThem() {
         // a's Temp piles 1 and 2 exist; pile 1 holds one card. Moves: Temp 1 -> Temp 2 (and back, as an undo),
         // Temp 2 -> Library, Graveyard -> Temp 1.
@@ -493,6 +503,7 @@ class TableAnimationTest {
         return flights
     }
 
+    // HIS-030, TBL-040, ZON-046
     @Test fun millGraveyardExileAndBatchMovesFlyBetweenEitherPlayersPiles() {
         for (landscape in listOf(false, true)) for (owner in listOf("a", "b")) {
             val base = TableFixture.play(library = 4)

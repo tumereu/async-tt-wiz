@@ -26,6 +26,7 @@ import kotlin.test.*
 class AttentionHeaderTest {
     @get:Rule val compose = createComposeRule()
 
+    // TRN-005, TRN-006
     @Test fun pillFitsHeaderInBothOrientationsAndHoldAndReviewNeverPass() {
         val initial = TableFixture.play()
         val play = mutableStateOf(initial)

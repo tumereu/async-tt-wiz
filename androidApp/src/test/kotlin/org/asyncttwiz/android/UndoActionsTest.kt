@@ -5,6 +5,7 @@ import kotlin.test.*
 import org.junit.Test
 
 class UndoActionsTest {
+    // HIS-083
     @Test fun tapAndHoldAreMutuallyExclusiveCancelAndUnavailableHoldNeverUndo() {
         val actions = mutableListOf<UndoIntent>()
         var availability = UndoAvailability(true, true, true)

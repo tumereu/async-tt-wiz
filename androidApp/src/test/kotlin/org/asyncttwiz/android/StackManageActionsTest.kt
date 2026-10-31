@@ -7,6 +7,7 @@ import kotlin.test.*
 class StackManageActionsTest {
     private val f = TableStatesFixture
 
+    // STK-019, STK-021
     @Test fun fiveIdentityBoundControlsHaveNoReorderOrSourceOwnerAction() {
         val state = f.combat()
         val id = state.board.stackEffects.first().id
@@ -25,6 +26,7 @@ class StackManageActionsTest {
         assertTrue(StackMenuActions.controls(state, id, false, {}).none { it.enabled })
     }
 
+    // STK-019
     @Test fun copiesDisableRealDestinationsAndRealCardsDisableProjectionOnlyEdits() {
         val state = f.combat()
         val id = state.board.stackEffects.first().id

@@ -38,6 +38,7 @@ internal class GameplayFixture {
 }
 
 class GameplayReplicaTest {
+    // SYS-007
     @Test fun concernBasedUndoRedoPredictionMatchesAuthoritativeEngineIncludingDisclosuresAndVacancy() {
         val f = GameplayFixture()
         val initial = f.initial.let { state -> state.copy(board = state.board.copy(
@@ -95,6 +96,7 @@ class GameplayReplicaTest {
         assertEquals("27", f.life(replica.display)); assertTrue(replica.pendingIds.isEmpty())
         assertEquals(CommandIds.uuidV5(commands[1].requestId, "board-node"), replica.accepted!!.currentNodeId)
     }
+    // SYS-007
     @Test fun failedPredictionsStayWithdrawnWhileIndependentOriginalAndLateAcceptedWorkSurvive() {
         val f = GameplayFixture(); val replica = GameplayReplica(); replica.root(f.head())
         val first = f.command(PlayAction.AdjustLife(f.actor, "1"))
@@ -112,6 +114,7 @@ class GameplayReplicaTest {
         replica.result(f.result(second, outcome = "rejected")); assertEquals("21", f.life(replica.display))
         assertEquals(listOf(independent.requestId), replica.pendingIds)
     }
+    // SYS-009
     @Test fun stagedBaselineCatchesUpBeforeAtomicSwitchAndNeverRewindsPublishedAcceptedState() {
         val f = GameplayFixture(); val replica = GameplayReplica(); replica.root(f.head())
         val own = f.command(PlayAction.AdjustLife(f.actor, "5")); replica.predict(own, f.actor)

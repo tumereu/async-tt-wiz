@@ -50,6 +50,7 @@ class StackQuickActionsTest {
         assertEquals(initial.board, tree.stateAt(tree.currentNodeId)!!.board)
         return final
     }
+    // STK-011
     @Test fun battlefieldUsesOwnersNearestMainRowAndFirstFreeSlot() {
         for (occupied in listOf(false, true)) {
             val initial = initial(occupied = occupied)
@@ -62,6 +63,7 @@ class StackQuickActionsTest {
                 StackQuickActions.actions(swapped, id(20), PlayZone.BATTLEFIELD))
         }
     }
+    // STK-011
     @Test fun battlefieldProjectionOnlyRemovesOccurrenceAndFrozenEffectOnlyRemovesItself() {
         for (frozen in listOf(false, true)) for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD)) {
             if (!frozen && zone == PlayZone.GRAVEYARD) continue
@@ -70,6 +72,7 @@ class StackQuickActionsTest {
             assertEquals(initial.board.cards, tree.stateAt(tree.currentNodeId)!!.board.cards)
         }
     }
+    // STK-012, TBL-103
     @Test fun graveyardMovesRealCardsAndLiteralProjectionSourcesAndDisappearsTokens() {
         for (projection in listOf(false, true)) for (token in listOf(false, true)) {
             val initial = initial(projection, token)
@@ -118,6 +121,7 @@ class StackQuickActionsTest {
         assertEquals(state.board.cards, sameZone.state!!.board.cards)
         assertTrue(sameZone.state.board.stackEffects.isEmpty())
     }
+    // STK-017
     @Test fun markerSetClearNoOpAndLeavingCleanupAreSharedReplayableAndUndoable() {
         for (projection in listOf(false, true)) {
             val initial = initial(projection)
@@ -143,6 +147,7 @@ class StackQuickActionsTest {
             assertTrue(tree.stateAt(tree.currentNodeId)!!.board.stackTextMarks.isEmpty())
         }
     }
+    // STK-020
     @Test fun multipleMarksToggleReplaceAndLeaveWithExactWireEventInverses() {
         for (projection in listOf(false, true)) {
             val initial = initial(projection)
@@ -190,6 +195,7 @@ class StackQuickActionsTest {
             assertTrue(state.board.stackTextMarks.isEmpty())
         }
     }
+    // STK-016
     @Test fun definitionOptionsAreTitlesThenLiteralParagraphsForEveryMultipartLayout() {
         for (layout in listOf("split", "adventure", "modal_dfc", "transform", "flip")) {
             val definition = CardDefinition("Both", listOf(

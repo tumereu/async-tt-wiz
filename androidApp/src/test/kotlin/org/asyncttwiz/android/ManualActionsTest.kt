@@ -94,6 +94,7 @@ class ManualActionsTest {
         assertEquals("3", scope.value(updated, ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), manualId(7)))
     }
 
+    // SYS-039
     @Test fun localInspectionIsRegionBasedAndNeverSubmitsOrLeaksOtherSide() {
         val state = manualState()
         val ui = ManualActions()

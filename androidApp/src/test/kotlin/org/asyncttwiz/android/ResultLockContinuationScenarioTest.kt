@@ -166,6 +166,7 @@ class ResultLockContinuationScenarioTest {
         override fun close() { lobby.close(); worker.shutdown(); assertTrue(worker.awaitTermination(10, TimeUnit.SECONDS)) }
     }
 
+    // HIS-020, TRN-050
     @Test fun continuingBeforeASuggestionBranchesAwayAndBothPlayersKeepPlayingWhileTheOldBranchStaysLocked() = Server().use { server ->
         val alice = server.join(a)
         val bob = server.join(b)
@@ -263,6 +264,7 @@ class ResultLockContinuationScenarioTest {
     }
 
     /** Owner rule 2026-10-30: only a deliberate branch changes the active line; a move that raced with one is refused. */
+    // SYS-012
     @Test fun aMoveMadeJustAsTheOpponentContinuesFromAnEarlierPointIsRefusedNotMovedToTheirNewLine() = Server().use { server ->
         val alice = server.join(a)
         val bob = server.join(b)

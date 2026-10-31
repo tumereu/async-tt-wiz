@@ -44,6 +44,7 @@ class DraftConsecutivePicksTest {
         return picks
     }
 
+    // DRF-074
     @Test fun ownersExampleThreeQueuedPacksPlusTwoOwnNextRoundPacksMakeFive() {
         // Three players, three-card packs, keep one: a pack is picked by its opener and the next seat, then awarded.
         var state = start(players = 3, packs = 4, cards = 3, open = 2)
@@ -57,6 +58,7 @@ class DraftConsecutivePicksTest {
         assertEquals(5, DraftEngine.publicStatus(state).members.first { it.player == state.seating[0] }.packsWaiting)
     }
 
+    // DRF-074
     @Test fun inTheLastRoundOnlyTheQueueCounts() {
         var state = start(players = 3, packs = 2, cards = 3, open = 2)
         state = pick(state, 0)
@@ -65,6 +67,7 @@ class DraftConsecutivePicksTest {
         assertEquals(3, count(state, 0))
     }
 
+    // DRF-074
     @Test fun packsThatReturnThroughOtherMembersDoNotCount() {
         val state = start(players = 2, packs = 2, cards = 5)
         assertEquals(1, queue(state, 0).size)
@@ -74,6 +77,7 @@ class DraftConsecutivePicksTest {
         assertEquals(0, count(after, 0))
     }
 
+    // DRF-074
     @Test fun heldPacksReleasedByOpeningCount() {
         var state = start(players = 3, packs = 4, cards = 3, open = 2)
         // Seat 1 finishes round 1 and opens round 2 early; its first round-2 pack passes back to seat 0 and is held.
@@ -117,6 +121,7 @@ class DraftConsecutivePicksTest {
      * Over whole drafts with random choices and Librarian spends: the count matches the public pick API, is positive
      * exactly when the member holds packs (busy text and badge colour), and drops by exactly one per own pick.
      */
+    // DRF-074
     @Test fun countMatchesRealPicksIsPositiveExactlyWithPacksAndDropsByOnePerOwnPick() {
         val configs = listOf(
             start(players = 2, packs = 3, cards = 6),

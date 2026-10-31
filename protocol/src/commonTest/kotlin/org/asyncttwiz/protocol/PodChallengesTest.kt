@@ -75,6 +75,7 @@ class PodChallengesTest {
         assertEquals(next, edit(next).state)
     }
 
+    // DRF-124
     @Test fun readinessUsesFortyIncludingBasicsAndGameLocalSideLimitAndSavedSelectionIsForbidden() {
         assertEquals("mainTooSmall", StartRules.change(game, state, id(2), scope, GameAction.Ready).reason)
         val next = edit().state!!
@@ -89,6 +90,7 @@ class PodChallengesTest {
             GameAction.SelectDeck(id(31), "1"), null, emptyList()).reason)
     }
 
+    // DRF-124
     @Test fun sideBasicsAreSideboardCopiesEditedSeparatelyAndCountTowardTheSideLimit() {
         fun section(current: LobbyPreparation, basics: PodDeckBasics, section: SavedDeckSection) = PodGamePreparation.setBasics(game, current,
             id(2), scope, GameAction.SetPodGameBasics(deck.id, basics, definitions, section))

@@ -9,6 +9,7 @@ class CombatDamageActionsTest {
         QuickActions.contextual(play, QuickContext(viewer = viewer),
             TableActionController({ play }, { true }, { true }, RecordingRoutes()))
 
+    // CMB-022
     @Test fun damageQuickOfferingsOnlyAtDamageStepForTurnPlayerAndSplitForEitherSidesKeywords() {
         for (keywords in listOf("", "First strike", "Double strike")) {
             val f = CombatDamageFixture(keyword = keywords)
@@ -28,6 +29,7 @@ class CombatDamageActionsTest {
         assertEquals(listOf("First strike damage", "Regular damage", "Close + next"), offerings(blockerStrike).map { it.name })
     }
 
+    // CMB-022
     @Test fun quickDamageAndCloseEachSendOneBatchAndUndoAllTheirEditsTogether() {
         val f = CombatDamageFixture(blockers = listOf("2/2"), note = "Trample Lifelink")
         var tree = GameplayTree(f.play)
@@ -77,6 +79,7 @@ class CombatDamageActionsTest {
         assertEquals(initial, undoClose.tree!!.stateAt(undoClose.tree!!.currentNodeId)!!.board)
     }
 
+    // CMB-026
     @Test fun projectionMenuUsesCapturedProjectionSelectionAndManualNotesAreFloating() {
         val f = CombatDamageFixture(attackers = listOf("*/2", "3/3"), blockers = listOf("1/2"))
         val submitted = mutableListOf<List<PlayAction>>()
@@ -96,6 +99,7 @@ class CombatDamageActionsTest {
         assertTrue(combatDamageMenuTools(toolkit, f.play, sourceBound, true).all { it.enabled })
     }
 
+    // CMB-022
     @Test fun firstStrikeQuickActionFiltersDealersButNotRecipientsAndThenTurnsOffMultiselect() {
         val f = CombatDamageFixture(blockers = listOf("2/2"), note = "First strike")
         val sent = mutableListOf<PlayAction>()

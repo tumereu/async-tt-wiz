@@ -108,6 +108,7 @@ class AttackTargetsTest {
             else -> it
         } }))
 
+    // CMB-012
     @Test fun rulesV28AttackOwnFaceUpSiegesAndPlaneswalkersOnTheDefenderOnly() {
         val original = declared()
         val siege = ownBattle(original)

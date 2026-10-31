@@ -142,6 +142,7 @@ class GameConnectionLifecycleTest {
         assertEquals(2, owner.wire.opens)
         assertEquals(1, owner.wire.closes)
     }
+    // SYS-019
     @Test fun resumedDisconnectedTableKeepsNormalControlsWithoutReadOnlyLabelOrReconnectDialog() {
         val owner = Owner()
         compose.runOnIdle { owner.lobby.open(owner.data.game.id); owner.accept() }
@@ -154,6 +155,7 @@ class GameConnectionLifecycleTest {
             compose.runOnIdle { assertNotNull(owner.lobby.state.play); assertNull(owner.lobby.state.connectionMessage) }
         } finally { compose.runOnIdle { owner.close() } }
     }
+    // SYS-032
     @Test fun rulesUpgradeMessageStaysVisibleAfterTransientErrorTimeoutAndDismissal() {
         val owner = Owner()
         compose.runOnIdle { owner.lobby.open(owner.data.game.id); owner.accept() }

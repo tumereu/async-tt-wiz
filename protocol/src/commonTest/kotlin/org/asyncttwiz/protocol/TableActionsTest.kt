@@ -14,6 +14,7 @@ class TableActionsTest {
         GameAction.Play(action), id(13), "1")
     private fun change(state: PlayState, action: PlayAction, n: Int = 12) = GameplayRules.change(state, id(8), command(action, n))
 
+    // TRN-001, TRN-002
     @Test fun everyManualPositionAndCleanupTurnBoundaryHasLiteralReplay() {
         assertEquals(12, TurnPosition.entries.size)
         val initial = state()
@@ -41,6 +42,7 @@ class TableActionsTest {
         assertEquals(TurnState(id(7), "3"), again.state!!.board.turn)
     }
 
+    // TRN-004, TRN-014
     @Test fun arbitraryPickerSkipsPreservePlayerNumberAndAllNonTrackingState() {
         for (from in TurnPosition.entries) for (to in TurnPosition.entries) {
             val original = state(TurnState(id(8), "27", from.phase, from.step))
@@ -52,6 +54,7 @@ class TableActionsTest {
         }
     }
 
+    // TRN-002, TRN-004
     @Test fun endTurnFromEveryPositionUsesCurrentPlayerAndNumberWithNoOtherOperations() {
         for (position in TurnPosition.entries) for (player in listOf(id(7), id(8))) {
             val before = state(TurnState(player, "42", position.phase, position.step))
@@ -167,6 +170,7 @@ class TableActionsTest {
         assertNotEquals(edit.state.currentGroup.id, opponent.state!!.currentGroup!!.id)
     }
 
+    // SYS-038
     @Test fun ordinaryAuthorityAndIncarnationChecksApplyToAllNewActions() {
         for (action in listOf(PlayAction.EndTurn, PlayAction.NextStep, PlayAction.ChooseStep(TurnPosition.DRAW),
                 PlayAction.RollDie(6, 1), PlayAction.FlipCoin(CoinFace.HEADS), PlayAction.AdjustPlayerCounter(id(7), CounterColor.GRAY, "1"))) {

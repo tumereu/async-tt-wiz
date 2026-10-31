@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlin.test.*
 
 class EventAnnotationsTest {
+    // HIS-082
     @Test fun actualRetainedPingRegistryDistinguishesSourceCombatOccurrenceStackEffectAndArea() {
         val before = state().let { root -> root.copy(board = root.board.copy(
             containers = listOf(root.board.containers.single().copy(zone = PlayZone.BATTLEFIELD),

@@ -82,6 +82,7 @@ class GameSessionTest {
             }
         }
     }
+    // SYS-032
     @Test fun olderClientIsPersistentlyBlockedWithoutReconnectOrCommandSubmission() {
         val f = Fixture(); val game = game()
         try {
@@ -100,6 +101,7 @@ class GameSessionTest {
             assertFalse(f.session.reconnecting(game.id))
         } finally { f.session.close() }
     }
+    // SYS-032
     @Test fun newerClientWaitsForServerUpdateBeforeOpeningStreamsAndRetriesOnlyHandshake() {
         for (response in listOf(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION - 1),
             GameWelcome(), GameAdmissionError("invalidInput", false))) {
@@ -126,6 +128,7 @@ class GameSessionTest {
             } finally { f.session.close() }
         }
     }
+    // SYS-019
     @Test fun socketReasonAndSilentLifecycleRecoveryAreRecordedThroughTheAcceptedHead() {
         val f = Fixture(); val game = game()
         f.connect(listOf(game))
@@ -159,6 +162,7 @@ class GameSessionTest {
         assertEquals(count, f.reconnects.size)
         assertFalse(f.session.reconnecting(game.id))
     }
+    // SYS-008, SYS-013
     @Test fun multipleInFlightCapturedIdentityNoOfflineActionsAndResultsNeverRewindRevision() {
         val f = Fixture(); val a = game(); val b = game()
         assertFalse(f.session.submit(a, GameAction.AcceptInvitation))
@@ -178,6 +182,7 @@ class GameSessionTest {
         f.message(GameResult(commands[0].requestId, commands[0].scope, "accepted", ingressOrdinal = "1"))
         assertEquals(1, f.results.size)
     }
+    // SYS-014
     @Test fun fencedResumeRetriesOnlyNotAdmittedInOriginalOrderAndKeepsPendingUntilFinal() {
         val f = Fixture(); val a = game(); val b = game(); val c = game()
         f.connect(listOf(a, b, c)); listOf(a, b, c).forEach { assertTrue(f.session.submit(it, GameAction.DeclineInvitation)) }
@@ -193,6 +198,7 @@ class GameSessionTest {
         assertTrue(f.session.pending(a.id)); assertTrue(f.session.pending(b.id)); assertFalse(f.session.pending(c.id))
         assertEquals(listOf(a, b, c).map { it.id }, f.wire.frames.filterIsInstance<ResumeGameStream>().takeLast(3).map { it.gameId })
     }
+    // SYS-014
     @Test fun sameAccountReauthKeepsOriginalButClearAndFreshProcessNeverReconstructQueueOrAcceptOldCallbacks() {
         val f = Fixture(); val a = game(); f.connect(listOf(a)); f.session.submit(a, GameAction.AcceptInvitation)
         val original = f.wire.frames.filterIsInstance<GameCommand>().single(); val old = f.wire.listener
@@ -209,6 +215,7 @@ class GameSessionTest {
         f.connect(listOf(a)); assertEquals(openCount + 1, f.wire.frames.filterIsInstance<OpenGameStream>().size)
         val fresh = Fixture(); fresh.connect(listOf(a)); assertTrue(fresh.wire.frames.filterIsInstance<GameCommand>().isEmpty())
     }
+    // SYS-008
     @Test fun terminalUnadmittedDoesNotBlockIndependentLaterWorkAndUnavailableIsNeverARejection() {
         val f = Fixture(); val a = game(); val b = game(); f.connect(listOf(a, b))
         f.session.submit(a, GameAction.AcceptInvitation)

@@ -25,6 +25,7 @@ class CardAnnotationLayoutTest {
             }
     }
 
+    // TBL-026
     @Test fun moreThanTwoCountersUseExactlyTwoRows() {
         for (count in 1..6) {
             val counters = cardAnnotationLayout(11f, 30f, 10f, 10f, false, count).counters

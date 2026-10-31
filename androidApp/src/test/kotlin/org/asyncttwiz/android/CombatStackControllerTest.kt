@@ -44,6 +44,7 @@ class CombatStackControllerTest {
         return accepted
     }
 
+    // CMB-004
     @Test fun undeclareNeverUntapsAndGraveyardMovesSourceToOwnerThroughReplayableActions() {
         val commands = CombatCommands()
         val initial = combatState().let { it.copy(board = it.board.copy(
@@ -71,6 +72,7 @@ class CombatStackControllerTest {
         }
     }
 
+    // CMB-019
     @Test fun combinedDeclarationHasIndividualNodesAndDoesNotForceUntap() {
         val state = combatState().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
             if (card.id == combatId(21)) card.copy(tapped = true) else card

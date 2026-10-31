@@ -228,6 +228,7 @@ class GameplayTest {
         }
     }
 
+    // SYS-007
     @Test fun `authenticated two socket gameplay predicts same reducer and HTTP retains concrete mutations and guarded Stack outcomes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -356,6 +357,7 @@ class GameplayTest {
         }
     }
 
+    // SYS-012
     @Test fun `two sockets refuse a move that raced with the opponent's continuation and leave same line play and undo as before`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -44,6 +44,7 @@ class ActivityReminderTest {
         fun reminders() = service.page(f.b, null).readyNotices!!.filter { it.notice?.reminder == true }
     }
 
+    // LOB-075
     @Test fun `one reminder five minutes after the opponent's last move and opening the game is not an answer`() {
         ActivityFixture().use { f ->
             val s = Scenario(f)
@@ -74,6 +75,7 @@ class ActivityReminderTest {
         }
     }
 
+    // LOB-075
     @Test fun `reminder time is exact and the opponent's continued input postpones it`() {
         ActivityFixture().use { f ->
             val s = Scenario(f)
@@ -89,6 +91,7 @@ class ActivityReminderTest {
         }
     }
 
+    // LOB-075
     @Test fun `a recipient in the game at the mark delays the reminder until five minutes after leaving`() {
         ActivityFixture().use { f ->
             val s = Scenario(f)
@@ -102,6 +105,7 @@ class ActivityReminderTest {
         }
     }
 
+    // LOB-075
     @Test fun `the recipient's move answers the stretch and the opponent's next move starts a new one`() {
         ActivityFixture().use { f ->
             val s = Scenario(f)

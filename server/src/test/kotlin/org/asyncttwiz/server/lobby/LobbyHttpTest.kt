@@ -59,6 +59,7 @@ class LobbyHttpTest {
     }
     private fun count(db: TestPostgres, table: String) = db.connection().use { c -> c.createStatement().executeQuery("SELECT count(*) FROM $table").use { it.next(); it.getInt(1) } }
 
+    // LOB-001, LOB-032
     @Test fun `username search unilateral synchronized contacts atomic duplicate creation privacy and restart`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)
@@ -124,6 +125,7 @@ class LobbyHttpTest {
         }
     }
 
+    // LOB-030
     @Test fun `removing a contact is authenticated unilateral idempotent and preserves invitations`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)

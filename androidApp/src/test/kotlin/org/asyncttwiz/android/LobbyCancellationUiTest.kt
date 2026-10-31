@@ -21,6 +21,7 @@ class LobbyCancellationUiTest {
         f.lobby.open(f.game.id); assertEquals(preparation, f.lobby.state.preparation)
     }
 
+    // LOB-026
     @Test fun holdContextDoesNotOpenOrSendAndCancelChoiceCapturesSameGame() = CancellationFixture().use { f ->
         f.lobby.back(); assertNull(f.lobby.state.selected)
         f.lobby.showGameContext(f.game)
@@ -33,6 +34,7 @@ class LobbyCancellationUiTest {
         assertNull(f.lobby.state.selected)
     }
 
+    // LOB-026, LOB-039
     @Test fun onlyUnstartedAdmittedRowsOfferCancelAndClearOrNavigationDropsPersonalIntent() = CancellationFixture().use { f ->
         assertTrue(f.lobby.offersSetupCancellation(f.game))
         assertFalse(f.lobby.offersSetupCancellation(f.game.copy(lifecycle = GameLifecycle.ACTIVE)))

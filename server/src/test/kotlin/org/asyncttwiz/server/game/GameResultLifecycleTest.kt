@@ -150,6 +150,7 @@ class GameResultLifecycleTest {
         }
     }
 
+    // LOB-038, TRN-026
     @Test fun `alternate starter hands the next play to whoever did not start the last one and can be switched off`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -248,6 +249,7 @@ class GameResultLifecycleTest {
         }
     }
 
+    // TRN-050
     @Test fun `continuing from before a pending suggestion branches away and both players keep playing`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -279,6 +281,7 @@ class GameResultLifecycleTest {
         }
     }
 
+    // SYS-006, TRN-048
     @Test fun `suggester withdraws restored decline after life edit as an ordinary undoable event`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

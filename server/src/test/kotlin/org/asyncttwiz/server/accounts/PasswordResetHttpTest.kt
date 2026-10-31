@@ -58,6 +58,7 @@ class PasswordResetHttpTest {
         key + "=" + URLEncoder.encode(value, Charsets.UTF_8)
     }
 
+    // LOB-003
     @Test fun `actual HTTP JSON and HTTPS link fallback form use explicit CSRF confirmation not GET`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

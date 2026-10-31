@@ -108,6 +108,7 @@ class AuthControllerTest {
         assertNull(importer.state.result); assertEquals("", importer.state.text)
         worker.drain(); auth.close(); importer.close()
     }
+    // LOB-004
     @Test fun savedLoginNetworkFailureIsQuietAndForegroundRetriesWithoutErasingCredential() {
         val api = Api(); val worker = Worker(); val store = Store()
         store.value = StoredSession.Present("A".repeat(43)); api.failure = AccountFailure("network")
@@ -241,6 +242,7 @@ class AuthControllerTest {
         assertIs<StoredSession.Empty>(store.value)
     }
 
+    // LOB-004
     @Test fun persistedSessionRestoreDistinguishesNetworkFailureRevocationAndKeyLoss() {
         val api = Api(); val store = Store(); val worker = Worker()
         store.value = StoredSession.Present("A".repeat(43))
@@ -293,6 +295,7 @@ class AuthControllerTest {
         }
     }
 
+    // LOB-020
     @Test fun shellBackDrawerAndSameAccountRestoreKeepPersonalContextWithoutRequests() {
         val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
         store.value = StoredSession.Present("A".repeat(43))
@@ -310,6 +313,7 @@ class AuthControllerTest {
         controller.back(); assertEquals(ShellDestination.MENU, controller.state.destination)
     }
 
+    // LOB-020, SYS-050
     @Test fun topLevelSwitchesResetHistoryToMenuWhileInFlowStepsReturnWhereTheyCameFrom() {
         val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
         store.value = StoredSession.Present("A".repeat(43))
@@ -339,6 +343,7 @@ class AuthControllerTest {
         controller.push(ShellDestination.MENU); assertEquals(emptyList(), controller.state.backStack)
     }
 
+    // LOB-007
     @Test fun logoutFencesQueuedCallbacksAndStorageAndNewAccountCannotInheritContext() {
         val api = Api(); val worker = Worker(); val store = Store(); val local = Local()
         val posts = ArrayDeque<() -> Unit>(); val revoked = mutableListOf<String>()
@@ -386,6 +391,7 @@ class AuthControllerTest {
         assertNotNull(controller.state.account)
     }
 
+    // LOB-007
     @Test fun failedBestEffortRevocationDoesNotDelayOrUndoLocalLogout() {
         val store = Store(); val worker = Worker()
         store.value = StoredSession.Present("A".repeat(43))
@@ -398,6 +404,7 @@ class AuthControllerTest {
         assertFalse(controller.state.logoutFailed)
     }
 
+    // LOB-005
     @Test fun failedOfflineStartupCanLogoutLocallyInsteadOfWaitingForConnectivity() {
         val store = Store(); val worker = Worker(); val local = Local(); val api = Api()
         api.failure = AccountFailure("network")

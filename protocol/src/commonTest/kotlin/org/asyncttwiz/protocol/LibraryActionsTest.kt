@@ -39,6 +39,7 @@ class LibraryActionsTest {
     }
     private fun members(state: PlayState, container: Int = 10) = state.board.containers.single { it.id == id(container) }.cards
 
+    // ZON-019
     @Test fun nonOwnerAuthorsLookRevealSearchAndRestTargetsTheOriginalOwnersLibrary() {
         for (selection in ContentsSelection.entries) for (reveal in listOf(false, true)) {
             val initial = state()
@@ -56,6 +57,7 @@ class LibraryActionsTest {
         }
     }
 
+    // ZON-017, ZON-019
     @Test fun nonOwnerDrawAndMulliganUseTheLibraryOwnersHand() {
         val initial = state(hand = listOf(24, 25))
         val drawn = apply(initial, LibraryActions.draw(initial.board, id(10), id(11), 1))

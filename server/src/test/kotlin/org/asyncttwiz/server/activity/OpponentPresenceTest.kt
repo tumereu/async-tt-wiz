@@ -12,6 +12,7 @@ class OpponentPresenceTest {
     private fun id() = UUID.randomUUID().toString()
     private val start = OffsetDateTime.parse("2026-10-27T12:00:00Z")
 
+    // TRN-042
     @Test fun `state comes from live rows idle from the freshest input and last seen from the newest heartbeat`() {
         fun row(heartbeat: Long, input: Long, left: Boolean = false) =
             PresenceRow(UUID.randomUUID(), start.plusSeconds(heartbeat), start.plusSeconds(input), left)

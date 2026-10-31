@@ -46,6 +46,7 @@ class HandActionsTest {
         }
         assertEquals(0, RandomV1.sample(7, listOf(4294967295L, 7L).iterator()::next))
     }
+    // ZON-010
     @Test fun randomSelectionSubsetAndEmptySelectionWholeHandHaveRecordedDeterministicResults() {
         val state = root()
         val subset = listOf(id(21), id(25))
@@ -102,6 +103,7 @@ class HandActionsTest {
         val reveal = exact(original, HandActions.random(original.board, id(11), listOf(id(20)), seed, HandRandomResult.REVEAL))
         assertEquals(id(11), reveal.state!!.board.cards.single { it.id == id(20) }.containerId)
     }
+    // ZON-009
     @Test fun revealDonePreservesHandOrderHidesAllRemainingCardsAndIsOneUndoableEvent() {
         val state = root()
         val revealed = exact(state, PlayAction.RevealHand(id(11), listOf(id(21), id(23)))).state!!
@@ -118,6 +120,7 @@ class HandActionsTest {
         assertTrue(done.board.contentsDisplays.isEmpty())
         assertTrue(done.board.cards.none { CardVisibility.isVisibleFaceUp(done.board, it, b) })
     }
+    // ZON-055
     @Test fun movingRevealedCardsIncludingBackToHandExpiresTheirVisibilityAndClosesEmptyPanel() {
         val revealed = exact(root(), PlayAction.RevealHand(id(11), listOf(id(20), id(21)))).state!!
         val returned = exact(revealed, PlayAction.MoveCard(id(20), MoveSource(id(11)), MoveDestination(id(11), MoveInsertion.UNORDERED))).state!!

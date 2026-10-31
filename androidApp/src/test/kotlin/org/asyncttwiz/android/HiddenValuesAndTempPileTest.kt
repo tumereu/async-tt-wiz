@@ -39,6 +39,7 @@ class HiddenValuesAndTempPileTest {
 
     private fun card(play: PlayState, id: String) = play.board.cards.single { it.id == id }
 
+    // SYS-039, TBL-029, TBL-030, TBL-096, ZON-076
     @Test fun hiddenCardsExposeNoValuesButFaceDownBattlefieldCardsDo() {
         val play = play()
         val board = play.board
@@ -76,6 +77,7 @@ class HiddenValuesAndTempPileTest {
         assertTrue(opponentHand.counters.isEmpty())
     }
 
+    // TBL-096, ZON-076
     @Test fun faceDownStackCardMenuEditsValuesBlind() {
         val initial = play()
         val stack = initial.board.containers.single { it.zone == PlayZone.STACK }
@@ -113,6 +115,7 @@ class HiddenValuesAndTempPileTest {
                 PlayContainer(temp, PlayZone.LIBRARY, "a", ids, temp = true)))
     }
 
+    // ZON-040
     @Test fun tempPileOneIsAlwaysShownAndNoOtherPileMoves() {
         val base = play()
         val temp = TempPiles.containerId(playId, "a")
@@ -160,6 +163,7 @@ class HiddenValuesAndTempPileTest {
     private val tempMenuMoves = listOf("Shuffle", "Look", "Shuffle into library", "All to library top", "All to library bottom",
         "All to graveyard", "All to exile")
 
+    // SYS-040, ZON-040, ZON-041
     @Test fun tempPileMenuShowsEveryButtonAndDisablesOnlyWhatCannotApply() {
         // a's Temp 2 holds a card; Temp 3 does not exist yet; Temp 4 exists and is empty.
         val base = withTemp(play(), emptyList())
@@ -216,6 +220,7 @@ class HiddenValuesAndTempPileTest {
         assertFalse(tempPileMenuState(shown.board, one, true).mayLook, "another panel is open")
     }
 
+    // SYS-038
     @Test fun ownerRedirectKeepsTempAndLibraryApart() {
         val play = withTemp(play(), listOf("a/GRAVEYARD/0"))
         val temp = TempPiles.containerId(playId, "a")

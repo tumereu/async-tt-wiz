@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.*
 
 class BattlefieldOrientationTest {
+    // TBL-044
     @Test fun onlyBattlefieldCardsAcceptEitherOrientationEvenWhenAssignmentWouldBeANoop() {
         for (zone in PlayZone.entries) {
             val root = inZone(zone)
@@ -19,6 +20,7 @@ class BattlefieldOrientationTest {
         }
     }
 
+    // TBL-044, ZON-071
     @Test fun movesOutsideBattlefieldUntapAndRecordedInverseRestoresTheTap() {
         val root = inZone(PlayZone.BATTLEFIELD, tapped = true)
         val card = root.board.cards.first()
@@ -41,6 +43,7 @@ class BattlefieldOrientationTest {
     }
 
     /** The battlefield feels infinite: drags may place cards at negative columns, which the rules accept and replay. */
+    // TBL-006
     @Test fun battlefieldMovesAcceptNegativeColumnsAndReplayExactly() {
         val root = inZone(PlayZone.BATTLEFIELD)
         val card = root.board.cards.first()
@@ -56,6 +59,7 @@ class BattlefieldOrientationTest {
         assertEquals(next, GameplayHistory.apply(root, decoded))
     }
 
+    // TBL-044
     @Test fun legacyTappedCardsAreNormalizedByOtherNonBattlefieldMovesToo() {
         val root = inZone(PlayZone.HAND, tapped = true)
         val card = root.board.cards.first()

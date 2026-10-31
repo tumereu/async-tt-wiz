@@ -12,6 +12,7 @@ class AccountsTest {
         val updated = legacy.copy(avatar = Avatar("00000000-0000-0000-0000-000000000001", 1))
         assertEquals(updated, AccountJson.format.decodeFromString<AccountIdentity>(AccountJson.format.encodeToString(updated)))
     }
+    // LOB-080
     @Test fun accountSettingsDefaultToShowAfterFirstGameAndRoundTrip() {
         assertEquals(AccountSettings(DeckVisibility.AFTER_FIRST_GAME), AccountJson.format.decodeFromString<AccountSettings>("{}"))
         assertEquals("{}", AccountJson.format.encodeToString(AccountSettings()))

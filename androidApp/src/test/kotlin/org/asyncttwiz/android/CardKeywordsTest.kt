@@ -8,6 +8,7 @@ class CardKeywordsTest {
     private fun card(id: String, note: String = "", eotNote: String = "") =
         PlayCard(id, "definition", "a", "zone", "face", note = note, eotNote = eotNote)
 
+    // TBL-086
     @Test fun parsesCaseInsensitiveTrimmedCommaListsAndRejectsAnyOtherToken() {
         assertEquals(emptySet(), CardKeywords.parse(""))
         assertEquals(emptySet(), CardKeywords.parse("  "))
@@ -18,6 +19,7 @@ class CardKeywordsTest {
         assertEquals(setOf("Trample"), CardKeywords.granted("Trample, X=3, no flying"))
     }
 
+    // TBL-085, TBL-086
     @Test fun formatsInListOrderAndRoundTripsEveryKeyword() {
         assertEquals("Flying, Trample", CardKeywords.format(setOf("Trample", "Flying")))
         assertEquals("", CardKeywords.format(emptySet()))
@@ -27,6 +29,7 @@ class CardKeywordsTest {
         assertEquals(CardKeywords.all.toSet(), CardKeywords.parse(everything.uppercase()))
     }
 
+    // TBL-086
     @Test fun togglingAddsAndRemovesWithoutTouchingOtherKeywords() {
         val trample = card("a", note = "trample")
         assertEquals(listOf<PlayAction>(PlayAction.SetNote("a", "Flying, Trample")),
@@ -37,6 +40,7 @@ class CardKeywordsTest {
         assertTrue(CardKeywords.toggle(listOf(card("a", note = "Custom text")), "Flying", eot = false).isEmpty())
     }
 
+    // TBL-086
     @Test fun multiSelectionIsOnOnlyWhenAllHaveItAndTogglesAllOrDisables() {
         val cards = listOf(card("a", note = "Flying, Trample"), card("b", note = "Flying"), card("c"))
         assertEquals(emptySet(), CardKeywords.state(cards.map { it.note }))

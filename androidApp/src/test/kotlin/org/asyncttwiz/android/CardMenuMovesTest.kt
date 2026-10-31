@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class CardMenuMovesTest {
+    // SYS-040
     @Test fun currentZoneMovesAreDisabledAndTokensHaveNoHandOrLibraryMoves() {
         val f = BasicTableFixture()
         for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.HAND, PlayZone.STACK)) for (token in listOf(false, true)) {

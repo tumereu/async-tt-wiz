@@ -26,6 +26,7 @@ class DraftQueueOrderTest {
     private fun rank(state: DraftState, id: String) = state.packs.first { it.id == id }.round to picksTaken(state, id)
     private val order = compareBy<Pair<Int, Int>>({ it.first }, { it.second })
 
+    // DRF-049
     @Test fun ownFreshPacksComeBeforeHeldHalfPickedPacksWhenARoundOpens() {
         // 18 packs per player, 3 open at once (6 rounds), 15 cards, keep 1 burn 4: every pack sees 15 -> 10 -> 5 -> 0.
         var state = start(players = 2, packs = 18, cards = 15, keep = 1, burn = 4, open = 3)
@@ -52,6 +53,7 @@ class DraftQueueOrderTest {
         assertEquals(6 to 6, view.round to view.rounds)
     }
 
+    // DRF-049
     @Test fun arrivalsTakeTheirSortedPlaceButNeverGoAheadOfTheHead() {
         // One round, 2 packs each, keep 1 burn 0. b's head has three picks taken, the pack behind it two.
         val settings = DraftSettings(packsPerPlayer = 2, cardsPerPack = 6, keep = 1, burn = 0, packsOpenAtOnce = 2, colorBalance = false)
@@ -80,6 +82,7 @@ class DraftQueueOrderTest {
         assertEquals(listOf(2 to "a", 3 to "a"), view.queuedPacks.map { it.pick to it.passedBy })
     }
 
+    // DRF-049
     @Test fun visibleQueuesStaySortedBehindAnUnchangedHead() {
         val players = 3
         var state = start(players = players, packs = 4, cards = 9, keep = 1, burn = 1, open = 2)

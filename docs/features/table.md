@@ -68,7 +68,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-047** Holding a card for 350 ms opens its preview without changing anything; moving the finger first starts a drag instead, and an open preview never turns into a move. (r2)
 - **TBL-048** Holding empty hand space shows nothing, and holding a library never reveals its cards. (r29)
 - **TBL-049** In timeline mode double taps do nothing (no error) and the selection is cleared with multi-select off. (r13)
-- **TBL-050** Back first closes menus, dialogs and timeline mode; on the bare table it takes a second Back within 2 s to leave, with the hint "Press back again to leave". (r4)
+- **TBL-050** Back first closes menus, dialogs and timeline mode, then clears the selection; on the bare table it takes a second Back within 2 s to leave, with the hint "Press back again to leave". (r4)
 
 ### Dragging and battlefield piles
 

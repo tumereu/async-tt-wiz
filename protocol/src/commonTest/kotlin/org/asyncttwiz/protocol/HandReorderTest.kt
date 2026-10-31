@@ -9,6 +9,7 @@ class HandReorderTest {
             containers = state.board.containers.map { it.copy(cards = if (it.id == hand.id) state.board.cards.map { c -> c.id } else emptyList()) }))
     }
 
+    // ZON-002
     @Test fun gapReorderCodecReplayInverseAndNoDisclosure() {
         val state = handState()
         val hand = state.board.containers.single { it.zone == PlayZone.HAND }
@@ -38,6 +39,7 @@ class HandReorderTest {
         }
     }
 
+    // ZON-002
     @Test fun staleGapRejectsAndNewDrawPreservesPersonalOrder() {
         val state = handState()
         val hand = state.board.containers.single { it.zone == PlayZone.HAND }

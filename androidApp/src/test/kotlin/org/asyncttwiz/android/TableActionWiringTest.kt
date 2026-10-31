@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableActionWiringTest {
+    // SYS-008
     @Test fun actualSelectedDragSendsOrderedPileRequestsWithoutWaitingForAcknowledgements() {
         val f = BasicTableFixture(); f.connect()
         f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1))
@@ -35,6 +36,7 @@ class TableActionWiringTest {
         assertEquals(f.root, f.lobby.state.acceptedPlay)
     }
 
+    // SYS-005, TBL-017
     @Test fun productionCoordinatorDrawDragAndDoubleTapReachRealLobbyRequestsWhileHoldAndCameraStayPersonal() {
         val f = BasicTableFixture(); f.connect()
         var selection = TableSelection()

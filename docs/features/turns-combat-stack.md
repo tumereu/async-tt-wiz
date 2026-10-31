@@ -14,7 +14,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **TRN-005** The top bar's first line reads "Your turn · N" or "<name>'s turn · N" in the turn player's colour; only the name shortens on a narrow screen. (r11)
 - **TRN-006** Under it, the move pill: a solid green "Your move" when you hold the move, otherwise an outlined "Waiting · <name>". Tapping the pill passes the move to the other player; anyone can pass, and it always flips to the other player. It does nothing in timeline mode or while disconnected. (r11)
 - **TRN-007** The step button in the top bar is a square in the current phase's colour, showing the step's icon and short name (no border colour, no turn number). It flashes on a step change and opens the phase dialog. (r13)
-- **TRN-008** The phase dialog is a real dialog, not a floating popup. Its title is the step with its phase (e.g. "Combat · Declare attackers"), then the turn player ("Your turn" / "<name>'s turn"); phase labels sit above each row of step squares, and the current step is outlined in the turn player's colour. Step names fit on the phone without wrapping. (r16)
+- **TRN-008** The phase dialog is a real dialog, not a floating popup. Its title is the step with its phase (e.g. "Combat · Declare attackers"), then the turn player ("Your turn" / "<name>'s turn"); phase labels sit above each row of step squares, and the current step is outlined in the turn player's colour. Step names are never cut off on a phone, using at most two lines. (r16)
 - **TRN-009** The phase dialog has Next step and End turn buttons. Choosing a later step records the steps passed on the way; choosing an earlier step is one single correction event. (r33)
 - **TRN-010** The top bar's Table actions button opens the Table actions dialog: Create combat area or Close combat area (only the one that applies), Create token, Roll die…, Flip coin, Timeline, and Suggest game end (or Accept result while the opponent's suggestion is waiting). (r15)
 - **TRN-011** Opening a game shows "Loading table…" until the table loads; "Table unavailable" only when it really fails. (r13)
@@ -76,7 +76,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 ### Result suggestions
 
-- **TRN-046** Suggest game end opens a chooser My win / My loss / Draw game, then a confirm dialog ("Suggest win?") with an optional one-line "Reason", at most 200 characters (placeholder "Infinite combo"). (r24)
+- **TRN-046** Suggest game end opens a chooser My win / My loss / Draw game, then a confirm dialog ("Suggest my win?", "Suggest my loss?" or "Suggest draw?") with an optional one-line "Reason", at most 200 characters (placeholder "Infinite combo"). (r24)
 - **TRN-047** A waiting suggestion shows as a panel on the table, not a dialog: "<name> proposed their win." (or loss, or "a draw"; "You proposed your win." for the author) with the reason in quotes. The opponent gets Decline and Accept, the author Withdraw. (r24)
 - **TRN-048** Decline and Withdraw are their own events, not undos. (r18)
 - **TRN-049** While a suggestion waits, every other game action is blocked for both players; chat, timeline browsing, hold-preview and Inspect still work. (r27)

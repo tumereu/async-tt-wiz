@@ -36,6 +36,7 @@ class CombatQuickActionsTest {
         }
     }
 
+    // CMB-018
     @Test fun assumeNoBlocksOnlyForTheTurnPlayerWithDeclaredAttackersAndNothingSelected() {
         val f = CombatDamageFixture()
         val declared = at(f.play, TurnPosition.DECLARE_ATTACKERS)
@@ -52,6 +53,7 @@ class CombatQuickActionsTest {
             assertTrue(offerings(at(f.play, position)).none { it.name == QuickActions.ASSUME_NO_BLOCKS })
     }
 
+    // CMB-018
     @Test fun assumeNoBlocksRecordsTwoSeparateStepsAndGroupsWithDeclareBlockersAsAnEndpoint() {
         val f = CombatDamageFixture()
         val h = Harness(at(f.play, TurnPosition.DECLARE_ATTACKERS), f.actor)
@@ -78,6 +80,7 @@ class CombatQuickActionsTest {
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(h.current().board.turn))
     }
 
+    // CMB-019
     @Test fun declareAndTapThenAssumeNoBlocksIsOneGroupEndingAtDeclareBlockers() {
         val f = CombatDamageFixture(attackers = listOf("2/2", "3/3"))
         val start = at(f.play, TurnPosition.DECLARE_ATTACKERS).let { it.copy(board = it.board.copy(combat = null)) }
@@ -106,6 +109,7 @@ class CombatQuickActionsTest {
         assertEquals(f.defender, h.tree.stateAt(blockers.id)!!.board.attentionHolder)
     }
 
+    // CMB-023
     @Test fun singleDamageButtonLocksAfterItsDamageAndUndoUnlocksIt() {
         val f = CombatDamageFixture(blockers = listOf("2/2"), note = "Trample Lifelink")
         val h = Harness(f.play, f.actor)
@@ -122,6 +126,7 @@ class CombatQuickActionsTest {
         assertEquals(mapOf("Deal combat damage" to true, "Close + next" to true), buttons())
     }
 
+    // CMB-023
     @Test fun splitDamageLocksFirstStrikeAfterOneAndRegularAfterTwo() {
         val f = CombatDamageFixture(attackers = listOf("3/3", "2/2"), keyword = "Double strike")
         val h = Harness(f.play, f.actor)

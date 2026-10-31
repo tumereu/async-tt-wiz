@@ -96,6 +96,7 @@ class PodChallengeTest {
         }
     }
 
+    // DRF-104
     @Test fun `side basics start at seventeen when unlimited and become sideboard lands in challenge decks`() = fixture { f ->
         assertEquals(PodDeckBuild().sideBasics, f.detail(f.a, f.pod()).build!!.sideBasics)
         val pod = f.pod(sideboardLimit = null)
@@ -123,6 +124,7 @@ class PodChallengeTest {
         assertEquals(PodDeckBasics(8, 8, 8, 8, 8), PodGamePreparation.basics(edited))
     }
 
+    // DRF-123, DRF-140
     @Test fun `challenge authorization submitted decks name basics validation idempotency and parallel games`() = fixture { f ->
         val pod = f.pod()
         fun input(opponent: String = f.b.account.accountId) = ChallengeFromPod(id(), opponent, "Game", basics)
@@ -175,6 +177,7 @@ class PodChallengeTest {
         assertEquals(own, f.preparation(game).players.first { it.accountId == f.a.account.accountId }.deck)
     }
 
+    // DRF-137
     @Test fun `decks ready goes immediately to every member except last submitter once`() = fixture { f ->
         val pod = f.pod(three = true)
         val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
@@ -191,6 +194,7 @@ class PodChallengeTest {
         assertEquals(1, ready(f.a).size); assertEquals(1, ready(f.b).size)
     }
 
+    // DRF-125, LOB-042
     @Test fun `pod deck names are private head metadata never shared preparation or replay`() = fixture { f ->
         val pod = f.pod()
         val attempt = f.detail(f.a, pod).draftAttemptId!!
@@ -221,6 +225,7 @@ class PodChallengeTest {
         checkHeads()
     }
 
+    // DRF-125
     @Test fun `a shown pod deck sends its private name to the opponent only while shown`() = fixture { f ->
         val pod = f.pod()
         val attempt = f.detail(f.a, pod).draftAttemptId!!
@@ -340,6 +345,7 @@ class PodChallengeTest {
         assertNull(f.games.subscriptionHead(f.a, withdrawn.id).preparation)
     }
 
+    // DRF-042
     @Test fun `pod readiness sideboarding basics and accepted games stay independent after destroy`() = fixture { f ->
         val pod = f.pod(); f.submit(f.a, pod); f.submit(f.b, pod)
         val game = f.challenge(pod); val owner = f.stream(f.a, game); val recipient = f.stream(f.b, game)
@@ -382,6 +388,7 @@ class PodChallengeTest {
         assertTrue(rematch.preparation!!.players.all { !it.ready })
     }
 
+    // DRF-041
     @Test fun `leave withdraws only departed members unaccepted challenges and final leave destroys pod`() = fixture { f ->
         val pod = f.pod(three = true)
         listOf(f.a, f.b, f.c).forEach { f.submit(it, pod) }
@@ -397,6 +404,7 @@ class PodChallengeTest {
         assertEquals(200, f.lobby.head(f.c, accepted.id).status)
     }
 
+    // DRF-122
     @Test fun `challenge before the opponent submits is held until they submit then plays through to a started game`() = fixture { f ->
         val pod = f.pod(sideboardLimit = 3)
         val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
@@ -443,6 +451,7 @@ class PodChallengeTest {
         assertEquals(80, started.play!!.board.cards.size) // Each main lost one card to the side.
     }
 
+    // DRF-122
     @Test fun `a held challenge can be declined and reinvited before submitting and notifies only on release`() = fixture { f ->
         val pod = f.pod()
         val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)

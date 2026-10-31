@@ -6,6 +6,7 @@ import kotlin.test.*
 
 /** The same production adapter mounted by TableScreen, feeding LobbyController/GameSession. */
 class TableToolkitWiringTest {
+    // SYS-004
     @Test fun resetColoredCountersIsOneAtomicBatchPreservesCornerAndUndoRestoresEveryColor() {
         val f = BasicTableFixture()
         val id = f.id(40)
@@ -85,6 +86,7 @@ class TableToolkitWiringTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // ZON-041, ZON-043
     @Test fun tempPileMenuMovesAreSingleInvocationsAndItsLookClosesWithoutRestChoicesOrShuffle() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
         var server = GameplayTree(f.root)
@@ -140,6 +142,7 @@ class TableToolkitWiringTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // ZON-019
     @Test fun opponentsLibraryOpensTheSameToolsAndActionsKeepOwnerZonesAndActingPanelAuthor() {
         val f = BasicTableFixture()
         val root = f.root.copy(board = f.root.board.copy(
@@ -187,6 +190,7 @@ class TableToolkitWiringTest {
             toolkitQuickContext(play, ui.selectionState.value, null, ui.viewer), ui.table).single { it.name == name }.intent)
     }
 
+    // HIS-085, TRN-023
     @Test fun turnShortcutsShareOneInvocationAndUndoTheWholeReproducibleDrawShortcut() {
         for ((position, name) in listOf(TurnPosition.UNTAP to "Untap, draw → main", TurnPosition.UPKEEP to "Draw + go to main")) {
             // The starting player's first turn offers no draw shortcuts.
@@ -216,6 +220,7 @@ class TableToolkitWiringTest {
         }
     }
 
+    // CMB-017, TRN-020
     @Test fun attackShortcutsOwnOnlyAutomaticModeAndDeclarationsClearSelectionInOneInvocation() {
         for (tap in listOf(false, true)) {
             val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
@@ -252,6 +257,7 @@ class TableToolkitWiringTest {
         }
     }
 
+    // CMB-018
     @Test fun noAttackClosesOnlyEmptyCombatAndGroupsWithProgression() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
         try {
@@ -278,6 +284,7 @@ class TableToolkitWiringTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // HIS-085
     @Test fun selectedDoubleTapUsesOneInvocationAndOneUndoThroughProductionAdapter() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
         try {
@@ -334,6 +341,7 @@ class TableToolkitWiringTest {
         assertTrue(ui.handle(TableIntent.Rotate(TableScope(combat, stackIds + combat), true)))
         assertEquals(listOf<PlayAction>(PlayAction.SetTapped(f.source(f.a, "1/3").id, true)), sent)
     }
+    // ZON-036
     @Test fun publicPileTapsOpenPileMenusAndSearchRoutesToLiveContentsWithoutRequests() {
         var play = TableStatesFixture.combat()
         val sent = mutableListOf<PlayAction>()
@@ -372,6 +380,7 @@ class TableToolkitWiringTest {
         assertTrue(play.board.contentsDisplays.isEmpty())
     }
 
+    // ZON-035
     @Test fun publicBrowsingAndHoldRemainLocalOfflineAndCannotBypassLibraryView() {
         val play = TableStatesFixture.initial
         val ui = TableToolkitController(TableStatesFixture.a, { play }, { false }, { _, _ -> error("No browsing requests") })
@@ -672,6 +681,7 @@ class TableToolkitWiringTest {
         assertEquals(sent, f.commands().size)
     }
 
+    // ZON-048
     @Test fun sharedPanelsSurvivePersonalMenusAndPreventAnotherPanelUntilResolved() {
         val f = BasicTableFixture(); f.connect(); val ui = toolkit(f)
         for (reveal in listOf(false, true)) {

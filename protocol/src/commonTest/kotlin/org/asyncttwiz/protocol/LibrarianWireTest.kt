@@ -19,6 +19,7 @@ class LibrarianWireTest {
         assertEquals(log, Json.decodeFromString<DraftPickLog>(Json.encodeToString(log)))
     }
 
+    // DRF-051
     @Test fun librarianBoundsAndGridRestriction() {
         for (mode in listOf(DraftMode.BOOSTER, DraftMode.GLIMPSE)) {
             for (count in 0..10) assertTrue(DraftSettings(mode = mode, librarians = count).validate(2).isEmpty())

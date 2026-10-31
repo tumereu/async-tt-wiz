@@ -8,6 +8,7 @@ class HistoryContinuationTest {
         f.command(GameAction.Play(action), n).copy(invocationId = f.id(800),
             continuation = at?.let { Continuation(it, true) })
 
+    // HIS-037
     @Test fun firstSuccessfulMutationOnlyAndImmutableSharedPrefix() {
         val prefix = f.tap(GameplayTree(f.root()))
         val live = f.tap(prefix, f.b, 12, n = 101)

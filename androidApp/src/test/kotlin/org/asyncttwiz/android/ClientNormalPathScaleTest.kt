@@ -35,6 +35,7 @@ class ClientNormalPathScaleTest {
         emptyList(), tree.currentNodeId, tree.currentNodeId, containers = tree.initial.board.containers,
         source = tree, previous = previous)
 
+    // SYS-026
     @Test fun ingestionPreparesGeometryAndCatchUpNeverReplaysThePrefix() {
         val tree = large.materializedCopy()
         val navigation = HistoryPlayback(index(tree))
@@ -288,6 +289,7 @@ class ClientNormalPathScaleTest {
             p.preparationRound, F.id(99), InvitationState.ACCEPTED, GameLifecycle.ACTIVE, revision = "10001", playId = p.id)
         return GameHead(p.gameId, summary.revision, summary, play = p)
     }
+    // SYS-025
     @Test fun predictionAndReviewTelemetryStaysUnderTwentyMilliseconds() {
         for (action in listOf("Play", "Undo", "Redo", "HistoryReview")) scale("telemetry $action", 20.0) { fixture ->
             val tree = if (action == "Redo") F.change(fixture, F.command(fixture, GameAction.Undo, 800003)) else fixture

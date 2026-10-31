@@ -7,6 +7,7 @@ import kotlin.test.*
 class DeckUrlImportTest {
     private fun fixture(name: String) = javaClass.getResource("/import/$name")!!.readText()
 
+    // LOB-061
     @Test fun detectsCopiedUrlsAndSiteQualifiedIds() {
         listOf("https://archidekt.com/decks/12345", "https://www.archidekt.com/decks/12345/my_deck?share=true#cards", "archidekt:12345").forEach {
             assertEquals(DeckImportLocation(DeckImportSite.ARCHIDEKT, "12345"), DeckUrlImport.location(it))

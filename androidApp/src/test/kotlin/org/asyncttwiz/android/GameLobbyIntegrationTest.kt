@@ -75,6 +75,7 @@ class GameLobbyIntegrationTest {
         }
         fun close() { lobby.close(); auth.close(); drain() }
     }
+    // LOB-034
     @Test fun nativeControllerCapturesAttemptAcceptOpensSameLobbyAndStaleHttpCannotRewindIt() {
         val f = Fixture()
         try {

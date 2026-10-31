@@ -16,6 +16,7 @@ class PreparationPresentationTest {
     private val base = LobbyPreparation(id(), id(), listOf(PlayerPreparation(actor, deck = deck)), listOf(submitted))
     private fun capture(all: Boolean = true) = PreparationRules.capture(base, actor, submitted.digest, SavedDeckSection.MAINBOARD, all)!!
 
+    // DRF-125, LOB-042
     @Test fun deckNamesAreOnlyPresentedToTheirOwnerIncludingPodGames() {
         val secret = "Unexpected sideboard strategy"
         assertEquals(secret, gameDeckName(actor, actor, secret))
@@ -23,6 +24,7 @@ class PreparationPresentationTest {
         assertEquals("Deck", gameDeckName(actor, null, secret))
     }
 
+    // LOB-042
     @Test fun deckCoverArtIsOnlyPresentedToItsOwner() {
         val cover = submitted.digest
         assertEquals(cover, gameDeckCover(actor, actor, cover))
@@ -31,6 +33,7 @@ class PreparationPresentationTest {
         assertNull(gameDeckCover(actor, actor, null))
     }
 
+    // DRF-125
     @Test fun aShownDeckPresentsItsNameAndCoverToTheOpponentWithThePodNameFirst() {
         val viewer = id(); val cover = submitted.digest
         assertEquals("Mono red", gameDeckName(actor, viewer, "Mono red", shown = true))
@@ -43,6 +46,7 @@ class PreparationPresentationTest {
         assertEquals(cover, gameDeckCover(actor, actor, cover, shown = false))
     }
 
+    // DRF-129, LOB-048
     @Test fun swipeMovesOnlyPastTheThresholdInEitherDirection() {
         val threshold = 60f
         assertFalse(preparationSwipeCommits(59f, threshold)); assertFalse(preparationSwipeCommits(-59f, threshold))
@@ -51,6 +55,7 @@ class PreparationPresentationTest {
         assertEquals(.5f, preparationSwipeProgress(-30f, threshold)); assertEquals(1f, preparationSwipeProgress(900f, threshold))
     }
 
+    // DRF-127
     @Test fun cardTypesUseTheFirstMatchingGroupFromTheFrontTypeLineOnly() {
         assertEquals(PreparationTypeGroup.CREATURES, preparationTypeGroup("Artifact Creature — Golem"))
         assertEquals(PreparationTypeGroup.CREATURES, preparationTypeGroup("Enchantment Creature - God"))
@@ -67,6 +72,7 @@ class PreparationPresentationTest {
         assertEquals(PreparationTypeGroup.OTHER, preparationTypeGroup("Tribal — Landfall Creature")) // Subtypes never decide.
     }
 
+    // DRF-127, LOB-047, SYS-051
     @Test fun groupsFollowTypeOrderSkipEmptyGroupsSortByNameAndLeaveSuppliedBasicsToSteppers() {
         fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)))
             .let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -95,6 +101,7 @@ class PreparationPresentationTest {
         assertTrue(preparationGroups(unknown, SavedDeckSection.MAINBOARD, definitions).isEmpty())
     }
 
+    // LOB-056, SYS-051
     @Test fun aSavedDeckUsesTheSameTypeGroupsWithEveryEntryBasicsIncludedAsATile() {
         fun card(name: String, type: String) = CardDefinition(name, listOf(DefinitionFace(id(), name, typeLine = type)))
             .let { SubmittedDefinition(DeckJson.digest(it), it) }
@@ -112,6 +119,7 @@ class PreparationPresentationTest {
             preparationGroups(saved, SavedDeckSection.SIDEBOARD, definitions))
     }
 
+    // DRF-131, LOB-049
     @Test fun undoInvertsTheExactCopiesAndBasicsAndIsScopedToTheShownRoundAndDeck() {
         val one = capture(false)
         val moved = PreparationRules.previewTransfer(base, actor, one)
@@ -134,6 +142,7 @@ class PreparationPresentationTest {
         assertEquals(PreparationStep.Basics(SavedDeckSection.MAINBOARD, PodDeckBasics(plains = 11)), full.steps.first())
     }
 
+    // DRF-130, LOB-050
     @Test fun actualDisplayedPartialTransferAndRollbackReplaceFeedbackButReceiptsAndIdenticalReadsDoNot() {
         val one = capture(false)
         val moved = PreparationRules.previewTransfer(base, actor, one)

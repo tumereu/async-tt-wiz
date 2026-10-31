@@ -93,6 +93,7 @@ class GameplayMoveIntegrationTest {
         assertTrue(f.endpoints.all { it == predicted }); assertEquals(3, f.commands().size)
     }
 
+    // SYS-008
     @Test fun rejectedEarlierMoveDoesNotDropGuardedLaterOriginalOrReviveItsWithdrawnPrediction() {
         val f = Fixture(); f.connect()
         fun draw(id: Int) = PlayAction.MoveCard(f.data.id(id), MoveSource(f.library, edge = MoveSourceEdge.TOP),

@@ -66,10 +66,12 @@ class TableInteractionsScreenshotTest {
         assertTrue(sent.isEmpty())
     }
 
+    // TBL-063
     @Test fun contextMenuNormal() { menu(412f, 892f, 1f) }
     @Test @Config(qualifiers = "w360dp-h640dp-port-mdpi") fun contextMenuSmallLargeFont() { menu(360f, 640f, 1.3f) }
     @Test @Config(qualifiers = "w640dp-h360dp-land-mdpi") fun contextMenuLandscapeLargeFont() { menu(640f, 360f, 1.3f) }
 
+    // SYS-042, TBL-042, TBL-068
     @Test fun physicalSecondTapThroughJustOpenedMenuRotatesOnceAndDismissesIt() {
         val (toolkit, scene) = render()
         val item = scene.items.single { it.cardId == f.source(f.a, "1/3").id }
@@ -106,6 +108,7 @@ class TableInteractionsScreenshotTest {
         }
     }
 
+    // TBL-052
     @Test fun dragShowsLandingPlaceholders() { drag(false) }
     @Test fun handDragShowsInsertionLine() { drag(true) }
 }

@@ -89,6 +89,7 @@ class LobbyCancellationTest {
         assertTrue(f.lobby.state.games.isEmpty()); assertTrue(f.lobby.state.invitations.isEmpty())
         assertNull(f.lobby.state.preparation); assertNull(f.lobby.state.play)
     }
+    // LOB-039
     @Test fun eitherParticipantDispatchesCapturedRoundButNeverCurrentReplacementOrStartedPlay() {
         for (actor in listOf(owner, other)) Fixture(actor).use { f ->
             assertTrue(f.lobby.cancelSetup(game)); val command = f.commands().single()
@@ -114,6 +115,7 @@ class LobbyCancellationTest {
         assertEquals(List(4) { f.creates[0] }, f.creates); assertEquals(opens, f.opens)
         assertNull(f.lobby.state.selected); assertTrue(f.lobby.state.games.isEmpty())
     }
+    // LOB-036
     @Test fun leavingAndReopeningDoesNotCancelOrWithdrawAcceptedReady() = Fixture().use { f ->
         val prepared = PreparationRules.empty(game).let { it.copy(players = it.players.map { player -> player.copy(ready = true) }) }
         f.head(game.copy(revision = "1"), prepared)

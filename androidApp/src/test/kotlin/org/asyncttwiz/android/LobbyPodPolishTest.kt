@@ -81,6 +81,7 @@ class LobbyPodPolishTest {
         } finally { fixture.lobby.close() }
     }
 
+    // DRF-126, DRF-129, LOB-047, LOB-048
     @Test fun preparationShowsBothSectionsInOneScrollWithTypeGroupsAndATapMenu() {
         val fixture = ScreenFixtures().also { it.configure("prepare-deck-faded") }
         try {

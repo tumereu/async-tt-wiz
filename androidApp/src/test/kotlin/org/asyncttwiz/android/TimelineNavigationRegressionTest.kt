@@ -33,6 +33,7 @@ class TimelineNavigationRegressionTest {
         return root
     }
 
+    // HIS-036, HIS-037
     @Test fun leftForkButtonArmsSelectedPastWithoutMutatingAndKeepsStripMounted() {
         val f = BasicTableFixture()
         try {
@@ -72,6 +73,7 @@ class TimelineNavigationRegressionTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // HIS-018, HIS-019
     @Test fun returnToCurrentStartsCatchupWithoutArmingOrOfferingContinuation() {
         val f = BasicTableFixture()
         try {

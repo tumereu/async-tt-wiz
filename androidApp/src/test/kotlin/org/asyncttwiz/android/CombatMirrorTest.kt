@@ -11,6 +11,7 @@ class CombatMirrorTest {
 
     private fun flipped(b: TableBounds, height: Float) = b.copy(y = height - b.y - b.height)
 
+    // CMB-007
     @Test fun defenderGeometryIsTheAttackersMirroredVertically() {
         val state = attackTargetState()
         val names = mapOf(defender to "Bob")
@@ -46,6 +47,7 @@ class CombatMirrorTest {
             mirror.destinations.map { TableBounds(it.landing.x, it.landing.y, 0f, 0f) })
     }
 
+    // CMB-007
     @Test fun defenderTableDropsDividersAndLabelsFollowTheMirror() {
         val f = TableStatesFixture
         val play = f.combat()

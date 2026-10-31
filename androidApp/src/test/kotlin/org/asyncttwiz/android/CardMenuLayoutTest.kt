@@ -16,6 +16,7 @@ class CardMenuLayoutTest {
     private fun ids(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false) =
         CardRingPages.pages(layout, token, attacker).map { it.actions }
 
+    // SYS-040, TBL-070, TBL-071, TBL-073, TBL-074, TBL-075, TBL-078, TBL-082
     @Test fun battlefieldLayoutHasExactCellsOnThreePagesWithTwins() {
         assertEquals(listOf("Everyday", "Counters", "More"), CardRingPages.pages(CardMenuLayout.CARD).map { it.name })
         val (everyday, counters, more) = ids(CardMenuLayout.CARD)
@@ -37,6 +38,7 @@ class CardMenuLayoutTest {
         assertEquals(ids(CardMenuLayout.CARD).drop(1), ids(CardMenuLayout.CARD, token = true, attacker = true).drop(1))
     }
 
+    // TBL-071, TBL-089, TBL-091, TBL-092, ZON-007
     @Test fun singlePageLayoutsHaveExactCells() {
         assertEquals(listOf(listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat", "Graveyard", "Exile", "Hand",
             "Deal to target", "Deal to target or creatures", "Link", "Links")), ids(CardMenuLayout.COMBAT))
@@ -51,6 +53,7 @@ class CardMenuLayoutTest {
             assertEquals(ids(layout), ids(layout, token = true, attacker = true))
     }
 
+    // SYS-040, TBL-064, TBL-071
     @Test fun everyLayoutFitsItsPagesWithoutHolesOrDuplicates() {
         for (layout in CardMenuLayout.entries) for (token in listOf(false, true)) for (attacker in listOf(false, true)) {
             val pages = CardRingPages.pages(layout, token, attacker)
@@ -67,6 +70,7 @@ class CardMenuLayoutTest {
         }
     }
 
+    // TBL-071
     @Test fun contextPicksTheLayoutFromTheTappedView() {
         val play = f.combat()
         val board = play.board
@@ -115,6 +119,7 @@ class CardMenuLayoutTest {
         }
     }
 
+    // CMB-016, TBL-070, TBL-074
     @Test fun declaredAttackerRetargetsItsCopiesAndBlockerCopiesCannotAttack() {
         val play = f.combat()
         val toolkit = toolkit(play)
@@ -137,6 +142,7 @@ class CardMenuLayoutTest {
         assertTrue(notInCombat.single { it.name == "Temp 2" }.enabled)
     }
 
+    // TBL-075
     @Test fun tokenLibraryCellsRemoveTheToken() {
         val base = f.combat()
         val sentinel = f.source(f.a, "1/3")
@@ -153,6 +159,7 @@ class CardMenuLayoutTest {
         assertEquals("Remove token", CardRingPages.pages(CardMenuLayout.CARD, token = true)[0].actions[11])
     }
 
+    // SYS-040
     @Test fun projectionWhoseSourceLeftPlayKeepsTheLayoutWithSourceCellsDisabled() {
         val base = f.combat()
         val sentinel = f.source(f.a, "1/3")
@@ -171,6 +178,7 @@ class CardMenuLayoutTest {
         assertTrue(controls.getValue("Attack →").enabled)
     }
 
+    // TBL-048, ZON-003
     @Test fun holdingTheHandBackgroundPreviewsNothingButAHandCardStillDoes() {
         val play = f.initial
         val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)

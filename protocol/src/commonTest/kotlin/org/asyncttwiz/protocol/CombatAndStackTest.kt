@@ -76,6 +76,7 @@ class CombatAndStackTest {
         assertFalse(declare(reopened, 20).board.combat!!.pairs.single().blocked)
     }
 
+    // STK-019
     @Test fun copyingAndControllerChangesAreProjectionOnlyExactDeltas() {
         val initial = effect(state(), 20, 8000)
         val original = initial.board.stackEffects.single()
@@ -115,6 +116,7 @@ class CombatAndStackTest {
         assertEquals(frozen.board.cards, second.board.cards)
     }
 
+    // CMB-002
     @Test fun pairedSlotsRoleChangeAndSourceUniqueness() {
         val original = open()
         var state = declare(original, 20)
@@ -169,6 +171,7 @@ class CombatAndStackTest {
         assertTrue(state.board.combat.pairs.none { it.id == first })
     }
 
+    // CMB-006
     @Test fun occurrenceRemovalAndClosureCleanLinksButNeverSourcesOrSiblingEffects() {
         var state = effect(effect(declare(open(), 20), 20, 1130), 20, 1131)
         val combat = CombatStackRules.occurrences(state.board.combat).single()
@@ -199,6 +202,7 @@ class CombatAndStackTest {
         assertEquals("noOp", change(closed, PlayAction.Combat(CombatAction.Close(old)), 1144).outcome)
     }
 
+    // SYS-011
     @Test fun stackAdmissionGuardIsSemanticAndLaterPredictionUsesPredecessor() {
         val original = state()
         val digest = CombatStackRules.stackDigest(original)
@@ -218,6 +222,7 @@ class CombatAndStackTest {
         assertEquals(second.board.cards, original.board.cards)
     }
 
+    // STK-001
     @Test fun distinctEffectsNoCapacityAndReadThroughSource() {
         var state = state()
         repeat(27) { state = effect(state, 20, 2000 + it) }
@@ -248,6 +253,7 @@ class CombatAndStackTest {
         assertEquals(replayed.state, GameplayHistory.apply(initial, retained))
     }
 
+    // SYS-011
     @Test fun reorderAndRemovalInvalidateStaleAdditionWithoutComparingOnlyTop() {
         val state = effect(effect(effect(state(), 20, 1180), 20, 1181), 20, 1182)
         val ids = CombatStackRules.stack(state.board).cards
@@ -267,6 +273,7 @@ class CombatAndStackTest {
     private fun recordCandidate(state: PlayState, candidate: BoardState, request: Int): GameplayChange =
         GameplayRules.record(state, id(8), command(PlayAction.SetTapped(id(20), true), request), candidate, GameplayTransition())
 
+    // CMB-006
     @Test fun sourceDepartureHookRetainsLiveEffectsAndBlockerOnlyPair() {
         var state = declare(open(), 20)
         state = place(state, 21, state.board.combat!!.pairs.single().id, CombatRole.BLOCKER, 1190)

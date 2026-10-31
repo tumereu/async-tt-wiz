@@ -148,6 +148,7 @@ class PodChallengeLobbyTest {
         assertTrue(f.calls.isEmpty()); assertNull(f.controller.state.selected)
     }
 
+    // DRF-124, LOB-052
     @Test fun basicsUseServerCommandOwnReadyClearsAndSavedPickerIsUnavailable() = Fixture().use { f ->
         f.challenge()
         val selection = id()
@@ -171,6 +172,7 @@ class PodChallengeLobbyTest {
         f.wire.listener.disconnected(); assertFalse(f.controller.changePodBasic(BasicLand.ISLAND, 1))
     }
 
+    // LOB-049
     @Test fun sideBasicsAndTransfersUndoAsOrdinaryInverseRequestsUntilTheRoundChanges() = Fixture().use { f ->
         f.challenge()
         val card = CardDefinition("Pool card", listOf(DefinitionFace(id(), "Pool card")))
@@ -222,6 +224,7 @@ class PodChallengeLobbyTest {
         assertEquals(first, podBasicDefinitions(repository))
     }
 
+    // DRF-122
     @Test fun buildingMembersCanBeChallengedOnceDraftedAndHeldChallengesWaitForTheirDeck() {
         val detail = PodDetail(pod, "Limited pod", PodPhase.DRAFTED, a, DraftSettings(), PodSource("Cube", 540), DraftSupply(90, 540),
             listOf(PodMember(a, submitted = true), PodMember(b, building = true)), emptyList(), updatedAt = "2026-10-26T00:00:00Z")

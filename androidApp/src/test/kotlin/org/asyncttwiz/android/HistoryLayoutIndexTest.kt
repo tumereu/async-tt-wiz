@@ -72,6 +72,7 @@ class HistoryLayoutIndexTest {
         } finally { explorer.close() }
     }
 
+    // SYS-026
     @Test fun twentyThousandEventsFiftyBranchesOpenAppendAndSelectWithoutHistorySizedWork() {
         var tree = GameplayTree(F.root())
         repeat(20_000) { n ->
@@ -131,6 +132,7 @@ class HistoryLayoutIndexTest {
         } finally { explorer.close(); history.close() }
     }
 
+    // HIS-048
     @Test fun midChipForkNeverSplitsOrMovesOriginalChipsAndSwitchOnlyChangesHighlight() {
         var main = GameplayTree(F.root())
         val cursors = mutableListOf<String>()
@@ -158,6 +160,7 @@ class HistoryLayoutIndexTest {
         assertEquals(graph.positions[cursors[0]], graph.positions[cursors[2]])
     }
 
+    // HIS-086
     @Test fun undoPopAndBulkRollbackRemoveTailChipsAndRetainSurvivingCoordinates() {
         var tree = GameplayTree(F.root())
         repeat(12) { tree = F.play(tree, PlayAction.EndTurn, 200 + it) }
@@ -289,6 +292,7 @@ class HistoryLayoutIndexTest {
         explorer.close()
     }
 
+    // HIS-048
     @Test fun reparentedForkKeepsItsLaneAndUpdatesItsAncestryAfterSelectiveRemoval() {
         val initial = F.root()
         val prefix = GameplayMutation(F.id(600), initial.root.id, initial.root.branchId, F.id(700), F.a,

@@ -28,6 +28,7 @@ class GameplayTest {
         assertEquals("noOp", GameplayRules.change(change.state, id(8), command).outcome)
     }
 
+    // SYS-011
     @Test fun concurrentLifeEditsReadActualInputWithoutPreviousValueLock() {
         val first = GameplayRules.change(state(), id(7), command(PlayAction.AdjustLife(id(7), "1")))
         val second = GameplayRules.change(first.state!!, id(8), command(PlayAction.AdjustLife(id(7), "1"), 14))
@@ -52,6 +53,7 @@ class GameplayTest {
         for (a in -20..20) for (b in -20..20) assertEquals((a + b).toString(), GameplayNumbers.add(a.toString(), b.toString()))
     }
 
+    // SYS-011
     @Test fun capturedDrawNeverSubstitutesAndMembershipMoveIgnoresUnrelatedChanges() {
         val state = gameplayFixture()
         val library = state.board.containers[0]; val hand = state.board.containers[1]
@@ -115,6 +117,7 @@ class GameplayTest {
         assertEquals("accepted", gameplayChange(state, reorder.copy(destination = MoveDestination(bin.id, MoveInsertion.UNORDERED)), 95).outcome)
     }
 
+    // SYS-011
     @Test fun stackChecksumIsSemanticAndQueuedAdditionsUsePredictedStack() {
         val state = gameplayFixture(); val library = state.board.containers[0]; val stack = state.board.containers.last()
         val action = PlayAction.MoveCard(library.cards[0], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(state))
@@ -130,6 +133,7 @@ class GameplayTest {
         assertEquals(GameplayRules.stackDigest(first.state), GameplayRules.stackDigest(alteredStackCard))
     }
 
+    // STK-003
     @Test fun stackCardsRejectOrientationAndEnterAndLeaveUprightWithReplay() {
         val original = gameplayFixture().withBattlefieldCards(gameplayId(10))
         val card = original.board.cards.first()

@@ -82,6 +82,7 @@ class IndexedEndpointScaleTest {
         } }
     }
 
+    // SYS-026
     @Test fun coldWarmAnnotationsChatRecoveryAndPagesStayBoundedAtTenThousandActions() {
         val results = linkedMapOf<Int, Map<String, Double>>()
         val endpointBytes = linkedMapOf<Int, Int>()

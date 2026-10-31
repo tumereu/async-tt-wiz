@@ -12,6 +12,7 @@ import java.util.zip.GZIPOutputStream
 import kotlinx.serialization.encodeToString
 
 class GameplaySessionTest {
+    // SYS-014
     @Test fun tapDuringReconnectWithUncertainOriginalIsPredictedAndResentOnlyAfterNotAdmittedRecovery() {
         val f = Fixture(); val d = f.data; f.connect()
         assertTrue(f.gameplay(PlayAction.SetTapped(d.id(9), true)))
@@ -83,6 +84,7 @@ class GameplaySessionTest {
         assertTrue(f.reconnects.isEmpty())
         f.session.close()
     }
+    // SYS-015
     @Test fun missingDeltaRecoversAfterBoundedGraceEvenWhenHeartbeatsKeepArriving() {
         val f = Fixture(); val d = f.data; f.connect()
         val update = d.update(d.initial, d.command(PlayAction.SetTapped(d.id(9), true)), "1", "2")
@@ -98,6 +100,7 @@ class GameplaySessionTest {
         assertEquals(update.play, f.session.acceptedPlay(d.game))
         f.session.close()
     }
+    // SYS-007
     @Test fun passIsPredictedImmediatelyAndAuthoritativeAcceptanceKeepsTheSameHolder() {
         val f = Fixture(); val d = f.data; f.connect()
         val initialHolder = d.initial.board.effectiveAttentionHolder
@@ -115,6 +118,7 @@ class GameplaySessionTest {
         f.session.close()
     }
 
+    // SYS-008, SYS-009
     @Test fun actualSessionSendsMultipleInflightAndResultDeltaOrdersNeverAnimateAcknowledgement() {
         val f = Fixture(); val d = f.data
         assertFalse(f.gameplay(PlayAction.AdjustLife(d.actor, "1"))); f.connect()
@@ -132,6 +136,7 @@ class GameplaySessionTest {
         f.message(d.result(commands[2], outcome = "noOp")); assertFalse(f.session.pending(d.game.id))
         assertEquals("22", d.life(f.session.play(d.game)))
     }
+    // HIS-089
     @Test fun rejectedUndoAndRedoExplainTheBlockWithoutRefreshAndDoNotBlockNewPlay() {
         val f = Fixture(); val d = f.data; f.connect()
         for ((action, reason, explanation) in listOf(

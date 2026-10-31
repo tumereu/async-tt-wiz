@@ -12,6 +12,7 @@ class OpponentPresenceViewTest {
     private val wall = ZonedDateTime.of(2026, 10, 29, 15, 0, 0, 0, ZoneOffset.UTC)
     private fun received(state: PresenceState, idle: Int? = null, seen: Int? = null) = ReceivedPresence(OpponentPresence(state, idle, seen), 1_000)
 
+    // TRN-042
     @Test fun dotFollowsServerStateAndOnlineTurnsIdleLocallyAfterTwoMinutes() {
         val online = received(PresenceState.ONLINE, idle = 100, seen = 0)
         assertEquals(PresenceDot.ONLINE, PresenceText.dot(online, 1_000))
@@ -26,6 +27,7 @@ class OpponentPresenceViewTest {
             PresenceDot.entries.map { it.color })
     }
 
+    // TRN-043
     @Test fun infoLineSaysOnlineIdleMinutesOrWhenLastSeen() {
         fun line(r: ReceivedPresence, elapsed: Long = 0) = PresenceText.line(r, r.receivedAt + elapsed, wall)
         assertEquals("Online", line(received(PresenceState.ONLINE, idle = 0, seen = 0)))
@@ -50,6 +52,7 @@ class OpponentPresenceViewTest {
         assertFalse(PresenceText.same(idle, ReceivedPresence(OpponentPresence(PresenceState.ONLINE, 2, 0), 31_000)))
     }
 
+    // TRN-042
     @Test fun sessionOffersMinorOneKeepsPresenceFromHeadsAndUpdatesAndDropsItOnDisconnect() {
         val a = AccountIdentity(id(), "A"); val b = AccountIdentity(id(), "B")
         val game = GameSummary(id(), "Presence", "2026-10-29T00:00:00Z", a, b, id(), id(), InvitationState.PENDING)

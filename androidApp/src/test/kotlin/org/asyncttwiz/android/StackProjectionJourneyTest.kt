@@ -165,6 +165,7 @@ class StackProjectionJourneyTest {
         override fun close() { f.lobby.close(); f.worker.drain() }
     }
 
+    // STK-001, STK-012
     @Test fun dragEverySourceAndBubbleBothDirectionsWithUndoRedoAndServerPredictionAgreement() {
         for (source in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND))
             for (target in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD)) Journey().use { j ->
@@ -265,6 +266,7 @@ class StackProjectionJourneyTest {
         assertTrue(j.f.play.board.stackEffects.isEmpty())
     }
 
+    // STK-011
     @Test fun battlefieldBubbleLeavesASourceOnTheOtherPlayersFieldInPlace() = Journey().use { j ->
         assertTrue(j.move(j.f.id(40), PlayZone.BATTLEFIELD, j.f.other)); j.sync()
         j.reversible { assertTrue(j.move(j.f.id(40), PlayZone.STACK)) }
@@ -291,6 +293,7 @@ class StackProjectionJourneyTest {
         j.sync(); j.undoRedo()
     }
 
+    // STK-001
     @Test fun loggedContentsMoveControlsProjectCardsFromAllSupportedSourceZones() {
         for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND, PlayZone.LIBRARY)) Journey().use { j ->
             if (zone != PlayZone.LIBRARY) assertTrue(j.move(j.f.id(40), zone))
@@ -304,6 +307,7 @@ class StackProjectionJourneyTest {
         }
     }
 
+    // STK-002, ZON-022, ZON-074
     @Test fun hiddenLibraryHasNoDragTargetAndOpponentHandRevealLifetime() = Journey().use { j ->
         val library = j.scene().items.single { it.zone == PlayZone.LIBRARY && it.owner == j.f.actor && !it.temp }
         val before = j.f.commands().size
@@ -343,6 +347,7 @@ class StackProjectionJourneyTest {
         opponent.inspect(j.f.id(40)); assertTrue(opponent.inspection!!.faceIds.isEmpty())
     }
 
+    // ZON-022
     @Test fun hiddenLibraryMemberHasNoDragTargetButDirectStackActionWorks() = Journey().use { j ->
         assertTrue(j.move(j.f.id(40), PlayZone.HAND)); j.sync()
         val before = j.f.commands().size
@@ -356,6 +361,7 @@ class StackProjectionJourneyTest {
         j.sync()
     }
 
+    // STK-002
     @Test fun undoRedoOfHandProjectionAndRemovalUpdatesOpponentFacesAndInspectionAtEveryEndpoint() = Journey().use { j ->
         assertTrue(j.move(j.f.id(40), PlayZone.HAND))
         assertTrue(j.move(j.f.id(41), PlayZone.HAND)); j.sync()

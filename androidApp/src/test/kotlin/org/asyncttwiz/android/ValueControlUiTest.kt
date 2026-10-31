@@ -19,6 +19,7 @@ import kotlin.test.*
 class ValueControlUiTest {
     @get:Rule val compose = createComposeRule()
 
+    // SYS-046, TBL-079, TBL-081, TRN-036
     @Test fun minusSquareValuePlusShareOrderingAndDisabledAndSetBehaviour() {
         var value by mutableIntStateOf(100)
         var opened = 0

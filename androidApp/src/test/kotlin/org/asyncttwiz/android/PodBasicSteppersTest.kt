@@ -14,6 +14,7 @@ import kotlin.test.assertEquals
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class PodBasicSteppersTest {
+    // LOB-052
     @get:Rule val compose = createComposeRule()
     @Test fun fiveBasicSteppersHaveAccessibleCountsAndDisableNegativeDisconnectedAndFullDeckEdits() {
         var basics by mutableStateOf(PodDeckBasics(plains = 1))

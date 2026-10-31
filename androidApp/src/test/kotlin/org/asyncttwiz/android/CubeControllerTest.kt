@@ -31,6 +31,7 @@ class CubeControllerTest {
         controller.close(); worker.drain()
     }
 
+    // DRF-009
     @Test fun cobraImportReplacesTheListKeepsATypedNameAndCancelDropsTheFetch() {
         val worker = Worker(); val api = Api(); var fetches = 0
         val controller = CubeController(api, { "token" }, { _, _ -> result() }, { result() }, worker, { it() },
@@ -46,6 +47,7 @@ class CubeControllerTest {
         controller.close(); worker.drain()
     }
 
+    // DRF-008, DRF-009
     @Test fun sharedCobraTextImportsItsCubeAndFetchFailuresKeepTheirReason() {
         val worker = Worker(); val api = Api(); val requested = mutableListOf<String>()
         var failure: Exception? = null

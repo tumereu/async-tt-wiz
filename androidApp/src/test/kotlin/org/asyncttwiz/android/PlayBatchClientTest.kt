@@ -47,6 +47,7 @@ class PlayBatchClientTest {
         }
     }
 
+    // HIS-085, SYS-004
     @Test fun shuffleIntoLibrarySendsMovesAndEveryOwnersShuffleAsOneUndoableRequest() {
         for (count in listOf(1, 2)) {
             val f = BasicTableFixture()
@@ -83,6 +84,7 @@ class PlayBatchClientTest {
         }
     }
 
+    // HIS-085, SYS-004
     @Test fun selectedPingAndUnpingFlattenIntoOneBatchAndUndoTogether() {
         val f = BasicTableFixture(); f.connect()
         try {
@@ -179,6 +181,7 @@ class PlayBatchClientTest {
         }
     }
 
+    // SYS-010
     @Test fun drawNClampsToRemainingCardsAndRejectionWithdrawsTheWholePrediction() {
         val f = BasicTableFixture(); f.connect()
         try {
@@ -219,6 +222,7 @@ class PlayBatchClientTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // SYS-009
     @Test fun predictionAndConfirmationAnimateTheSameIndividualEventsOnlyOnce() {
         val f = BasicTableFixture()
         val changes = mutableListOf<TableChangeBatch>()

@@ -15,6 +15,7 @@ class GameResultLifecycleTest {
     private fun suggest(outcome: SuggestedResult = SuggestedResult.WIN, actor: String = a.accountId, n: Int = 10) =
         GameplayRules.change(play(), actor, command(GameAction.Play(PlayAction.SuggestResult(outcome)), n))
 
+    // TRN-048
     @Test fun declineIsExactOpponentOnlyVersion22StateAndItsUndoProtectsTheSuggestionTuple() {
         val proposalCommand = command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))
         val proposedTree = GameplayTree(play()).play(a.accountId, proposalCommand).tree!!
@@ -62,6 +63,7 @@ class GameResultLifecycleTest {
         }
     }
 
+    // SYS-038, TRN-048
     @Test fun withdrawIsExactSuggesterOnlyVersion22EventWithRecordedReplayAndInverse() {
         for (outcome in SuggestedResult.entries) {
             val proposed = suggest(outcome).state!!
@@ -102,6 +104,7 @@ class GameResultLifecycleTest {
         }
     }
 
+    // SYS-006
     @Test fun restoredDeclineCanBeWithdrawnAfterAuthorsLaterLifeEditAndWithdrawHasOrdinarySelectiveUndo() {
         val proposed = GameplayTree(play()).play(a.accountId,
             command(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))).tree!!
@@ -126,6 +129,7 @@ class GameResultLifecycleTest {
         assertEquals("replayBlocked", GameplayHistory.replay(play(), withdrawn.nodes[withdrawn.currentNodeId]!!).reason)
     }
 
+    // HIS-060
     @Test fun strictSingletonHasBothBoundariesIncludingTapAndSameAuthorEdit() {
         val initial = play().let { it.copy(board = it.board.copy(
             cards = listOf(PlayCard(id(20), "retained", a.accountId, id(21), id(22),
@@ -145,6 +149,7 @@ class GameResultLifecycleTest {
         assertEquals(proposal.state.board.resultSuggestion, following.state.board.resultSuggestion)
     }
 
+    // LOB-046
     @Test fun exactOtherPlayerAcceptanceReturnsLastPreparationWithBothReadyClearedAndNewRound() {
         val play = suggest().state!!
         val suggestion = play.board.resultSuggestion!!
@@ -164,6 +169,7 @@ class GameResultLifecycleTest {
         assertEquals("lifecycleEnded", GameResultRules.accept(game.copy(lifecycle = GameLifecycle.LOBBY, playId = null), null, returned, b.accountId, accept).reason)
     }
 
+    // LOB-038, TRN-026
     @Test fun alternatingHandsTheNextStartToWhoeverDidNotStartTheResolvedPlayAndCanBeTurnedOff() {
         val accept = { play: PlayState -> command(GameAction.AcceptResult(play.board.resultSuggestion!!.id), 15) }
         val proposed = suggest().state!!

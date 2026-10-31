@@ -247,6 +247,7 @@ class HistoryRuntimeIntegrationTest {
             finish(connects = 1)
         } }
     }
+    // SYS-015
     @Test fun genuineCatchUpTransportFailureStillReconnects() {
         Fixture().use { x -> with(EndedPlayResume(x)) {
             resume()
@@ -645,6 +646,7 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
+    // SYS-014
     @Test fun freshOfflineSessionLoadsCompleteAcceptedRecordsWithoutRecreatingCommands() {
         Fixture().use { x ->
             x.token = null

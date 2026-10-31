@@ -35,6 +35,7 @@ class CardSettingsUiTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     @Before fun clear() { context.getSharedPreferences("card-appearance", Context.MODE_PRIVATE).edit().clear().commit() }
 
+    // LOB-081, TBL-034, TBL-036
     @Test fun typedValuesValidateLimitsAndLiveSampleTracksSliderAndCustomization() {
         val preferences = CardAppearancePreferences(context)
         compose.setContent { MaterialTheme { Column(Modifier.verticalScroll(rememberScrollState())) { CardSettings(preferences) } } }
@@ -114,6 +115,7 @@ class CardSettingsUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeSizeExtremes() { screenshots(true) }
 
+    // TBL-026
     @Test fun portraitAnnotationTextAndZoomExtremes() { screenshots(false, annotations = true) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeAnnotationTextAndZoomExtremes() { screenshots(true, annotations = true) }

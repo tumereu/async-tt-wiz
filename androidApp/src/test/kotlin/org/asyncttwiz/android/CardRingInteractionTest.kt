@@ -45,6 +45,7 @@ class CardRingInteractionTest {
         return toolkit
     }
 
+    // TBL-070, TBL-084
     @Test fun realCardMenuShowsTheOwnerEntryDisabledOnlyOnMore() {
         render()
         for (page in 1..2) {
@@ -55,6 +56,7 @@ class CardRingInteractionTest {
         compose.onNode(hasContentDescription("; switch to other player", substring = true)).assertIsDisplayed().assertIsNotEnabled()
     }
 
+    // TBL-089
     @Test fun handUsesOneFixedPageWithoutBattlefieldControlsAndRandomDefaultsToWholeHand() {
         val play = f.initial
         val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
@@ -71,9 +73,11 @@ class CardRingInteractionTest {
         assertTrue(action.cardId in hand.cards)
     }
 
+    // STK-009, TBL-094
     @Test fun stackEnablesNoteButDisablesBattlefieldOnlyWidgets() = zoneEnablement(PlayZone.STACK)
     @Test fun battlefieldEnablesItsWidgetsAndNote() = zoneEnablement(PlayZone.BATTLEFIELD)
 
+    // TBL-074
     @Test fun everydayStackButtonAddsProjectionWithoutDeclaringOrTapping() {
         val play = f.combat()
         val toolkit = render(play = play)
@@ -85,6 +89,7 @@ class CardRingInteractionTest {
         assertNull(toolkit.capture)
     }
 
+    // HIS-082, STK-009
     @Test fun stackProjectionFromHandEnablesNoteAndPingAndTargetsTheProjection() {
         val initial = f.combat()
         val source = f.source(f.a, "1/2").id
@@ -96,6 +101,7 @@ class CardRingInteractionTest {
         projectionNoteAndPing(play, f.id("effect"), battlefield = false)
     }
 
+    // CMB-003, CMB-005, HIS-082, TBL-091
     @Test fun combatProjectionHasOnlyCombatControlsAndTargetsItsOwnNoteAndPing() {
         projectionNoteAndPing(f.combat(), f.id("attacker1"), battlefield = true)
     }
@@ -146,6 +152,7 @@ class CardRingInteractionTest {
         enabled("Increase blue counter", zone == PlayZone.BATTLEFIELD)
     }
 
+    // TBL-084
     @Test fun tokenOwnerEntryStaysOnMoreAndSkipsRealCardsInMixedSelection() {
         val source = f.source(f.a, "1/3").id
         val initial = f.combat()
@@ -162,6 +169,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetOwner(source, f.b)), sent) }
     }
 
+    // TBL-069
     @Test fun bubblePressDuringGuardCannotFireEvenWhenReleasedAfterTheWindow() {
         compose.mainClock.autoAdvance = false
         val toolkit = render()
@@ -176,6 +184,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertNotNull(toolkit.inspection) }
     }
 
+    // TBL-068
     @Test fun outsideTapDismissesWithoutActivatingTableChrome() {
         val toolkit = render()
         compose.ringPage(1)
@@ -193,6 +202,7 @@ class CardRingInteractionTest {
         return Offset(point.x, point.y)
     }
 
+    // TBL-042, TBL-068
     @Test fun delayedDoubleTapThroughOpenRingTapsCardOnceWithoutReopeningRing() {
         val toolkit = render()
         val point = sourcePoint()
@@ -231,6 +241,7 @@ class CardRingInteractionTest {
         }
     }
 
+    // SYS-042, TBL-068
     @Test fun outsideDragSurvivesRingDismissalAndMovesCard() {
         render()
         compose.mainClock.advanceTimeBy(600)
@@ -243,6 +254,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertIs<PlayAction.MoveCard>(sent.single()) }
     }
 
+    // SYS-042, TBL-068
     @Test fun outsideRectangleAndPinchRemainTableGestures() {
         val toolkit = render()
         compose.mainClock.advanceTimeBy(600)
@@ -265,6 +277,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertTrue(toolkit.layoutState.value.camera.zoom > 1f); assertTrue(sent.isEmpty()) }
     }
 
+    // TBL-079
     @Test fun cornerCellsAdjustBothPartsForEverySelectedSourceAndValueOpensEditor() {
         val toolkit = render(multi = true)
         compose.ringPage(1)
@@ -303,6 +316,7 @@ class CardRingInteractionTest {
         }
     }
 
+    // TBL-080
     @Test fun counterDragShowsRelativeResultAndDoesNotSwipePagesOrOpenEditor() {
         val toolkit = render()
         compose.ringPage(2)
@@ -321,6 +335,7 @@ class CardRingInteractionTest {
         compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()
     }
 
+    // TBL-079
     @Test fun counterCellsKeepSetAndAdjustmentCallbacks() {
         val toolkit = render()
         compose.ringPage(2)
@@ -332,6 +347,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor?.field) }
     }
 
+    // TBL-080
     @Test fun cornerWidgetOnEverydayPageDragsBothPartsAndRetainsItsEditor() {
         val toolkit = render(multi = true)
         compose.ringPage(1)
@@ -349,6 +365,7 @@ class CardRingInteractionTest {
         compose.runOnIdle { assertEquals(ManualValueKind.CORNER, toolkit.manual.editor?.field?.kind) }
     }
 
+    // TBL-069
     @Test fun counterValueDragDuringOpeningGuardIsInert() {
         CardRingPageStore(ApplicationProvider.getApplicationContext(), f.a, f.game.id).write(1)
         val toolkit = render()
@@ -362,6 +379,7 @@ class CardRingInteractionTest {
         compose.onNode(hasContentDescription("Action page 2 of ", substring = true)).assertIsDisplayed()
     }
 
+    // TBL-065
     @Test fun swipeChangesPageAndAnotherCardRemembersItAfterClosingTheRing() {
         val toolkit = render()
         compose.ringPage(2)
@@ -392,6 +410,7 @@ class CardRingInteractionTest {
         assertTrue(sent.isEmpty())
     }
 
+    // TBL-070
     @Test fun pagesSizeToTheirContentAndDisabledActionsStayDisabled() {
         render()
         compose.ringPage(1)

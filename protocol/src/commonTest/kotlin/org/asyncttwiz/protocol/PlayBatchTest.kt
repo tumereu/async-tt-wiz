@@ -15,6 +15,7 @@ class PlayBatchTest {
         }
     }
 
+    // HIS-085, SYS-004
     @Test fun successIsConsecutiveDeterministicAndUndoRedoIsOneInvocation() {
         val tree = GameplayTree(f.root())
         val command = command(listOf(PlayAction.SetTapped(f.id(9), true), PlayAction.SetTapped(f.id(12), true)))
@@ -35,6 +36,7 @@ class PlayBatchTest {
         assertEquals(next.nodes, assertNotNull(f.redo(undone).tree).nodes)
     }
 
+    // SYS-010
     @Test fun firstRefusalPublishesNothingEvenAfterSuccessfulMembers() {
         val tree = GameplayTree(f.root())
         val before = tree.stateAt(tree.currentNodeId)

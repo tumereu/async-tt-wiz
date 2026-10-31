@@ -80,6 +80,7 @@ class DraftDeckTest {
         }
     }
 
+    // DRF-132, DRF-133, LOB-055
     @Test fun `submitting saves a private read-only draft deck of the whole pool that follows the private name`() = fixture { f ->
         val pod = f.pod()
         val built = f.build(f.a, pod)
@@ -148,6 +149,7 @@ class DraftDeckTest {
         assertEquals(42L, second.mainboard); assertEquals(1L, second.sideboard)
     }
 
+    // DRF-132, LOB-055
     @Test fun `the twenty-first draft deck drops the oldest without disturbing a game that selected it`() = fixture { f ->
         val first = f.pod()
         f.build(f.a, first); assertEquals(200, f.submit(f.a, first))

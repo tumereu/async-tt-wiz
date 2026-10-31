@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class TurnMarksIntegrationTest {
+    // TRN-003
     @Test fun `temporary marks persist replay and clear in one reversible server event`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

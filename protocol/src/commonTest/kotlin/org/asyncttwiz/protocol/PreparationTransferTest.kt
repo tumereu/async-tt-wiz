@@ -20,6 +20,7 @@ class PreparationTransferTest {
         who: String = actor, bound: GameScope = scope) = PreparationRules.transfer(summary, state, who, bound, action)
     private fun cards(deck: PreparedDeck) = deck.entries.flatMap { entry -> List(entry.quantity) { deck.card(entry, it) } }.associateBy { it.id }
 
+    // LOB-053
     @Test fun individualMovesSplitAndRecompactRangesWithoutChangingAnyIdentityOrSavedMetadata() {
         val captured = capture(); var state = initial
         val originalCards = cards(deck)

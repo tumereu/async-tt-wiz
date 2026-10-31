@@ -6,6 +6,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableChromeTest {
+    // SYS-017, TRN-011
     @Test fun initialAdmissionAndCatchupAreLoadingNotUnavailable() {
         val game = TableFixture.game.id
         val connecting = LobbyState()
@@ -19,6 +20,7 @@ class TableChromeTest {
         assertTrue(tableIsLoading(connecting.copy(reconnectingGames = setOf("other")).tableView(), game, null))
     }
 
+    // TRN-013, TRN-015, TRN-018
     @Test fun quickVisibilityAndAdvanceStyleUseTurnAndMoveIndependentlyForBothPlayers() {
         val play = TableFixture.play()
         for (viewer in listOf("a", "b")) for (turn in listOf("a", "b")) for (move in listOf("a", "b")) {

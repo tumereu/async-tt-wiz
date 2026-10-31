@@ -130,6 +130,7 @@ class HistoryLargePlayVerificationTest {
         assertEquals(warm, second.stateAt(second.currentNodeId))
     }
 
+    // HIS-084
     @Test fun warmInternalCurrentCannotHide50Versus51RetainedSuccessorsForUndoOrRedo() {
         val own = f.tap(GameplayTree(f.root()))
         var future = own

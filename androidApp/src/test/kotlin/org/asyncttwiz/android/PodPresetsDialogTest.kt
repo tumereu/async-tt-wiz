@@ -54,6 +54,7 @@ class PodPresetsDialogTest {
         captureScreenRoboImage(File(dir, "$name.png").path)
     }
 
+    // DRF-031
     @Test fun manyPresetsScrollFilterAndLoad() {
         val applied = mutableListOf<PodPreset>()
         val controller = controller(applied)
@@ -77,6 +78,7 @@ class PodPresetsDialogTest {
         assertFalse(controller.state.open)
     }
 
+    // DRF-033
     @Test fun rowActionsOpenRenameAndDeletePrompts() {
         val controller = controller()
         compose.setContent { ScreenTheme { if (controller.state.open) PodPresetsDialog(controller) } }

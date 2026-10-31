@@ -23,6 +23,7 @@ class MenuInvitationTest {
         "round", "invite", InvitationState.PENDING)
     private val invitation = PodInvitation("pod", "Incoming pod", other, "2026-10-27T00:00:00Z")
 
+    // LOB-016
     @Test fun gameAcceptSendsCapturedInvitationActionWithoutRowNavigation() = gameResponse(true)
     @Test fun gameDeclineSendsCapturedInvitationActionWithoutRowNavigation() = gameResponse(false)
 
@@ -59,6 +60,7 @@ class MenuInvitationTest {
         } finally { lobby.close(); worker.drain() }
     }
 
+    // LOB-017
     @Test fun podAcceptUsesControllerResponse() = podResponse(true)
     @Test fun podDeclineUsesControllerResponse() = podResponse(false)
 

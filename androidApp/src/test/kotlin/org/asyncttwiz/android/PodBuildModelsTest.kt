@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodBuildModelsTest {
+    // DRF-094
     @Test fun mainHeaderSplitsNonlandCardsFromAllMainLands() {
         val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Creature — Elf")))
         val land = CardDefinition("Dual", listOf(DefinitionFace("front", "Dual", typeLine = "Land — Island Swamp")))
@@ -25,6 +26,7 @@ class PodBuildModelsTest {
         assertEquals("Side 1", podBuildSideTitle(build.copy(copies = listOf(PodDeckCopy("0", PodDeckCategory.SIDE))), copies, definitions))
     }
 
+    // DRF-076, DRF-077
     @Test fun tabsHideDraftAfterCompletionAndDefaultToSubmissionStatus() {
         assertEquals(listOf(PodTab.DRAFT, PodTab.BUILD, PodTab.STATS), podTabs(PodPhase.DRAFTING))
         assertEquals(listOf(PodTab.BUILD, PodTab.STATS, PodTab.GAMES), podTabs(PodPhase.DRAFTED))
@@ -35,6 +37,7 @@ class PodBuildModelsTest {
     private fun card(name: String, type: String = "Creature", cost: String = "{1}") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))
 
+    // DRF-098
     @Test fun duplicatesCombineOnlyWithinTheirSectionAndKeepTheirCopyIds() {
         val copies = listOf(DraftCopy("a", "same"), DraftCopy("b", "same"), DraftCopy("c", "same"), DraftCopy("d", "same")).associateBy { it.id }
         val build = PodDeckBuild(listOf(PodDeckCopy("a"), PodDeckCopy("b"), PodDeckCopy("c", PodDeckCategory.SIDE), PodDeckCopy("d", PodDeckCategory.TRASH)))
@@ -47,6 +50,7 @@ class PodBuildModelsTest {
         assertEquals(listOf("d"), podBuildColumns(build, PodDeckCategory.TRASH, copies, definitions, 7)[2].single().copyIds)
     }
 
+    // DRF-095
     @Test fun bucketsFitTheSliderAndKeepEmptyColumnsAndFrontFaceRules() {
         val definitions = mapOf(
             "land" to card("Land", "Land — Island", "{9}"),
@@ -67,6 +71,7 @@ class PodBuildModelsTest {
         assertTrue(podBuildColumns(build, PodDeckCategory.MAIN, copies, definitions, 7)[4].isEmpty())
     }
 
+    // DRF-098
     @Test fun sortUsesExplicitCopyColorsBeforeNameIncludingColorlessAndMulticolor() {
         val colors = listOf(setOf(DraftColor.G), emptySet(), setOf(DraftColor.W, DraftColor.U), setOf(DraftColor.U), setOf(DraftColor.W), setOf(DraftColor.B), setOf(DraftColor.R))
         val copies = colors.mapIndexed { index, color -> DraftCopy("$index", "$index", color) }.associateBy { it.id }
@@ -80,6 +85,7 @@ class PodBuildModelsTest {
             alphaCopies, mapOf("z" to card("Zulu"), "a" to card("alpha")), 7)[2].map { it.digest })
     }
 
+    // DRF-119
     @Test fun submitRequiresLifecycleMinimumPoolIntegrityAndSideLimit() {
         val copies = mapOf("main" to DraftCopy("main", "m"), "side" to DraftCopy("side", "s"))
         val valid = PodDeckBuild(listOf(PodDeckCopy("main"), PodDeckCopy("side", PodDeckCategory.SIDE)), PodDeckBasics(plains = 39))

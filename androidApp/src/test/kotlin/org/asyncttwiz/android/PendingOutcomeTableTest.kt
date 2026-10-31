@@ -109,6 +109,7 @@ class PendingOutcomeTableTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // HIS-020, LOB-071, TRN-047, TRN-049, TRN-050
     @Test fun authorCanWithdrawOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(false)
     @Test fun opponentCanDeclineOnTableWhileOtherActionsAreLockedAndTimelineAndChatWork() = pendingTable(true)
     @Test fun continuingFromBeforeTheSuggestionUnlocksTheTableOnTheNewBranch() = pendingTable(true, continueBefore = true)

@@ -41,6 +41,7 @@ class SettingsScreenTest {
 
     private fun selected(option: DeckVisibility) = compose.onNodeWithTag("deck-visibility-${option.name}")
 
+    // LOB-080
     @Test fun deckVisibilityShowsCachedThenServerValueAndSavesTheChoice() {
         val gate = CompletableDeferred<Unit>()
         val source = FakeSettings(AccountSettings(DeckVisibility.HIDDEN), AccountSettings(DeckVisibility.VISIBLE)).apply { refreshGate = gate }
@@ -57,6 +58,7 @@ class SettingsScreenTest {
         compose.onNodeWithText("Hidden until you've finished a game with that deck against that opponent").assertIsDisplayed()
     }
 
+    // LOB-080
     @Test fun deckVisibilityDefaultsToShowAfterFirstGameAndAFailedSaveKeepsTheChoiceWithAMessage() {
         val source = FakeSettings().apply { fail = true }
         compose.setContent { ScreenTheme { SettingsContent(null, "deck-visibility-fail", {}, null, source) } }
@@ -96,9 +98,11 @@ class SettingsScreenTest {
         }
     }
 
+    // LOB-079
     @Test @Config(qualifiers = "w412dp-h2600dp-port-xhdpi")
     fun fullPagePortraitScreenshot() = capture("settings-portrait-full")
 
+    // LOB-079
     @Test @Config(qualifiers = "w892dp-h412dp-land-xhdpi")
     fun landscapeScreenshots() = capture("settings-landscape")
 }

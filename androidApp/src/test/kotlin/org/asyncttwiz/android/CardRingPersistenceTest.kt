@@ -11,6 +11,7 @@ import kotlin.test.*
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class CardRingPersistenceTest {
+    // TBL-065
     @Test fun selectedPageSurvivesNewStoresAndIsIsolatedByAccountAndGameNotPlayOrCard() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("card-ring-pages", Context.MODE_PRIVATE).edit().clear().commit()
@@ -28,6 +29,7 @@ class CardRingPersistenceTest {
         assertEquals(0, first.read())
     }
 
+    // TBL-065
     @Test fun eachLayoutRemembersItsOwnPage() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("card-ring-pages", Context.MODE_PRIVATE).edit().clear().commit()

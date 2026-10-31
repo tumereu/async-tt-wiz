@@ -156,6 +156,7 @@ class TableChangesScreenshotTest {
         assertTrue(changedPixels(held, fading, pt) > 40, "Pill fades only after the hold")
     }
 
+    // HIS-031
     @Test fun realStackEntryHighlightsAndLinkGlowDrawInBothPlaybackDirections() = stackFeedback(projection = false)
 
     @Test fun projectedStackEntryHighlightsAndLinkGlowDrawInBothPlaybackDirections() = stackFeedback(projection = true)
@@ -239,6 +240,7 @@ class TableChangesScreenshotTest {
         assertEquals(0, changedPixels(before, capture("zero-counter-changefx-expired"), TableBounds(0f, 0f, 412f, 892f)))
     }
 
+    // HIS-031, TBL-033
     @Test fun accumulatedTagsAndHighlightsAtAMidAnimationFrame() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         CardAppearancePreferences(context).setSize(MIN_CARD_SCALE)

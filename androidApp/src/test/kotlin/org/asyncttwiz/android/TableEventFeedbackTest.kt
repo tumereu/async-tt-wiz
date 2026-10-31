@@ -18,6 +18,7 @@ class TableEventFeedbackTest {
             reference, target, null, PingPresence(target, "9", "ping"))
     }
 
+    // TRN-045
     @Test fun liveResultsHoldThenFadeAndSeveralRollsAndBothAuthorsRemainSeparate() {
         var time = 0L
         val feedback = TableEventFeedback { time }
@@ -38,6 +39,7 @@ class TableEventFeedbackTest {
         assertTrue(feedback.rolls.isEmpty())
     }
 
+    // TRN-045
     @Test fun stoppedGroupPersistsAfterExpiryAndJumpButDisappearsOnAnotherGroup() {
         var time = 0L
         val feedback = TableEventFeedback { time }
@@ -71,6 +73,7 @@ class TableEventFeedbackTest {
         assertTrue(feedback.rolls.isEmpty())
     }
 
+    // HIS-030, SYS-027
     @Test fun backwardsGroupTransportUsesBoundedUnapplyInsteadOfJumping() {
         var tree = GameplayTree(f.initial)
         tree = assertNotNull(tree.play(f.actor, f.command(PlayAction.RollDie("20", 14))).tree)
@@ -84,6 +87,7 @@ class TableEventFeedbackTest {
         assertTrue(batch.events.all { it.reverse })
     }
 
+    // HIS-081
     @Test fun departingPingsLingerInEitherDirectionButNeverBecomeInputOrNewGroupNumbers() {
         for (forward in listOf(true, false)) {
             var time = 0L

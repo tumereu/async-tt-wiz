@@ -13,6 +13,7 @@ class TableActionControllerTest {
     private val controller = TableActionController({ play }, { connected }, { sent += it; true }, routes,
         sample = { bound -> samples++; bound - 1 })
 
+    // TRN-044
     @Test fun freshDieAndCoinSampleExactlyOnceOnlyWhenSameGameConnected() {
         val scope = controller.scope()!!
         assertTrue(controller.rollDie(scope))

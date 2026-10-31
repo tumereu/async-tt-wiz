@@ -19,6 +19,7 @@ class PodBuildFeedModelTest {
         assertNull(podBuildFeed(PodDeckCategory.MAIN, buckets, labels, 1))
     }
 
+    // DRF-109
     @Test fun sectionFeedWalksColumnsInOrderAndNamesTheCurrentCardsColumn() {
         val feed = assertNotNull(podBuildFeed(PodDeckCategory.SIDE, buckets, labels, null))
         assertEquals(listOf("l1", "a1", "a2", "b1", "c1"), feed.cards.map { it.copyId })
@@ -30,6 +31,7 @@ class PodBuildFeedModelTest {
         assertEquals("5 / 5", done.progress)
     }
 
+    // DRF-107, DRF-108
     @Test fun keepAndDemoteFollowTheSectionAndTrashHasNoFeed() {
         assertEquals(PodDeckCategory.SIDE, podBuildFeedDemotion(PodDeckCategory.MAIN))
         assertEquals(PodDeckCategory.TRASH, podBuildFeedDemotion(PodDeckCategory.SIDE))
@@ -39,6 +41,7 @@ class PodBuildFeedModelTest {
         assertEquals(PodDeckCategory.TRASH, podBuildFeed(PodDeckCategory.SIDE, buckets, labels, null)!!.target)
     }
 
+    // DRF-110
     @Test fun decisionsCountIntoTheSummaryAndStopAtTheEnd() {
         val feed = podBuildFeed(PodDeckCategory.MAIN, buckets, labels, 2)!!
         val done = feed.decide(false).decide(true).decide(false)

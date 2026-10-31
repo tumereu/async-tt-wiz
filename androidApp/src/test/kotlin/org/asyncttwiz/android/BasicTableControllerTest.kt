@@ -96,6 +96,7 @@ internal class BasicTableFixture {
 }
 
 class BasicTableControllerTest {
+    // TBL-045, ZON-004
     @Test fun handDoubleTapLandAndNonlandUseTheDragRequestPath() {
         for (land in listOf(false, true)) {
             val f = BasicTableFixture()
@@ -128,6 +129,7 @@ class BasicTableControllerTest {
         }
     }
 
+    // TBL-044
     @Test fun nonBattlefieldOrientationIsIgnoredWithoutShowingAnError() {
         val f = BasicTableFixture(); f.connect()
         try {
@@ -170,6 +172,7 @@ class BasicTableControllerTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // ZON-002
     @Test fun handReorderUsesCapturedGapAndNormalPrediction() {
         val f = BasicTableFixture(); f.connect()
         val hand = f.container(PlayZone.HAND)
@@ -183,6 +186,7 @@ class BasicTableControllerTest {
         assertEquals(f.id(41), action.destination.beforeId)
     }
 
+    // TBL-046
     @Test fun libraryDoubleTapDrawUsesNormalTopMoveAndNeverSubstitutesAStaleTop() {
         val f = BasicTableFixture(); f.connect()
         val draw = TableIntent.Draw(f.container(PlayZone.LIBRARY), f.container(PlayZone.HAND), f.id(40))
@@ -194,6 +198,7 @@ class BasicTableControllerTest {
         assertEquals(1, f.commands().size)
     }
 
+    // TBL-044
     @Test fun rotateSkipsStackMembersOfMixedSelection() {
         val f = BasicTableFixture(); f.connect()
         assertTrue(f.legacyStack(40))
@@ -203,6 +208,7 @@ class BasicTableControllerTest {
         assertEquals(listOf(PlayAction.SetTapped(f.id(41), true)), f.commands().drop(before).map { (it.action as GameAction.Play).action })
         assertFalse(f.card(40).tapped)
     }
+    // TBL-053
     @Test fun selectedCardsEnterExistingPileInSourceOrderImmediatelyWithOneInvocationAndOriginalOutcomes() {
         val f = BasicTableFixture(); f.connect()
         f.move(42, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 2, 1))
@@ -290,6 +296,7 @@ class BasicTableControllerTest {
         assertEquals(count, f.commands().size)
     }
 
+    // SYS-008
     @Test fun normalControllerQueuesIndependentAndSameCardMovesBeforeAnyAckAndNeverRewindsOnOldResults() {
         val f = BasicTableFixture(); f.connect()
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.HAND), PlayZone.HAND), top = true))
@@ -371,6 +378,7 @@ class BasicTableControllerTest {
         assertNotEquals(moves.first().expectedStackDigest, moves.last().expectedStackDigest)
     }
 
+    // SYS-008
     @Test fun remoteConflictWithdrawsOnlyFailedPredictionsAndRetainsIndependentLifeWithoutDuplicateDispatch() {
         val f = BasicTableFixture(); f.connect()
         f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 0), true)
@@ -389,6 +397,7 @@ class BasicTableControllerTest {
         assertEquals(commands, f.commands()); assertEquals(endpoint, f.play.board)
     }
 
+    // TBL-053
     @Test fun realGridPileSingleMemberMovesPreservePlacementsAndCapacityRejectsWholeSelection() {
         val f = BasicTableFixture(); f.connect()
         f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 2, 1), true)

@@ -206,6 +206,7 @@ class ArtworkTest {
         } finally { pool.shutdownNow() }
     }
 
+    // LOB-098
     @Test fun gateBoundsDownloadsAndAdmitsVisibleBeforeQueuedPrefetch() {
         val gate = ArtworkGate(1)
         val running = AtomicInteger(); val peak = AtomicInteger()

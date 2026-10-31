@@ -100,6 +100,7 @@ class PodGridScreenshotTest {
         }
     }
 
+    // DRF-085, DRF-086
     @Test fun selectedRowAndColumnWithPickedAndDiscardedCards() {
         var generation by mutableIntStateOf(0)
         installArtwork(service)

@@ -23,6 +23,7 @@ import kotlin.test.assertTrue
 class PodPickChromeTest {
     @get:Rule val compose = createComposeRule()
 
+    // DRF-075
     @Test fun avatarBadgesNeverChangeTheSlimRowAndTheHeaderCogDrivesThePickGrid() {
         val alice = AccountIdentity("alice", "Alice")
         val bob = AccountIdentity("bob", "Bob")

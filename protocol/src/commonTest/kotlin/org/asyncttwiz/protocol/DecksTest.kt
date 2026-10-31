@@ -5,6 +5,7 @@ import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 
 class DecksTest {
+    // LOB-063
     @Test fun deckExpansionHasABoundedCombinedCardBudget() {
         val entry = SavedDeckEntry(SavedDeckSection.MAINBOARD, DeckJson.digest(card()), 1000)
         assertTrue(DeckValidation.entries(listOf(entry)))

@@ -8,6 +8,7 @@ import java.nio.file.Path
 class ArtworkRetryTest {
     @TempDir lateinit var temporary: Path
 
+    // LOB-098
     @Test fun failuresBackOffForeverAtThirtySecondsAndConnectivityWakesEveryPendingImage() {
         var clock = 0L
         var connection = 0L
@@ -64,6 +65,7 @@ class ArtworkRetryTest {
         assertNotNull(repository.load(custom)); assertEquals(before, calls, "reconnect retains good bytes")
     }
 
+    // LOB-098
     @Test fun partialRasterFilesAndNetworkExceptionsRetryUntilTheyRecover() {
         var clock = 0L
         var calls = 0

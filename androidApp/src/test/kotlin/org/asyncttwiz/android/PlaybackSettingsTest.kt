@@ -45,6 +45,7 @@ class PlaybackSettingsTest {
         assertEquals(1_500L, HistoryPlaybackPreferences(context, "old-default").pauseMillis)
     }
 
+    // LOB-081
     @Test fun togglesPersistAndNotifyOnlyTheirAccountAndAnimationSpeedIsAccountScoped() {
         val a = HistoryPlaybackPreferences(context, "options-a")
         val b = HistoryPlaybackPreferences(context, "options-b")
@@ -74,6 +75,7 @@ class PlaybackSettingsTest {
         assertEquals(1f, moves.multiplier)
     }
 
+    // HIS-028
     @Test fun timelineGearOpensTheSharedPlaybackSectionAndStopsAuto() {
         val settings = HistoryPlaybackPreferences(context, "dialog")
         val player = TableStatesFixture.playback()
@@ -104,6 +106,7 @@ class PlaybackSettingsTest {
         compose.onNode(isDialog()).assertDoesNotExist()
     }
 
+    // HIS-028, LOB-082
     @Test fun settingsShowsSameTogglesAndDelay() {
         val settings = HistoryPlaybackPreferences(context, "settings")
         compose.setContent { MaterialTheme { SettingsContent(null, "settings") {} } }
@@ -116,6 +119,7 @@ class PlaybackSettingsTest {
         compose.onNodeWithText("0.1 s after each rewound group").assertExists()
     }
 
+    // HIS-041, LOB-082
     @Test fun autoRewindSettingsDefaultOffAreSeparateAndAccountScoped() {
         val settings = HistoryPlaybackPreferences(context, "rewind")
         assertFalse(settings.autoRewindLive); assertFalse(settings.autoRewindOpen)
@@ -136,6 +140,7 @@ class PlaybackSettingsTest {
         stop()
     }
 
+    // HIS-015
     @Test fun terminalMatchingGroupKeepsAutoOnDuringAnimationThenGoesLiveWithoutAnotherDelay() {
         val event = GameplayMutation("one", "root", "branch", TableStatesFixture.id("request"), "opponent", null,
             PlayAction.RollDie(6, 4), GameplayTransition())

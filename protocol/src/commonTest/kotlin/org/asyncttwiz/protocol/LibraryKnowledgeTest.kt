@@ -60,6 +60,7 @@ class LibraryKnowledgeTest {
         return play(tree, LibraryActions.draw(board, library(tree, owner).id, hand.id, 1).single(), owner)
     }
 
+    // ZON-065
     @Test fun drawUndoSearchCloseRepeatedlyActuallyShuffles() {
         for (keepTop in listOf(false, true)) {
             var tree = GameplayTree(root())
@@ -81,6 +82,7 @@ class LibraryKnowledgeTest {
         }
     }
 
+    // ZON-023, ZON-026
     @Test fun topAndBottomOperationsConsumeFixedEdgesThenUnknownMiddle() {
         for (known in listOf(false, true)) for (end in listOf(ContentsSelection.TOP, ContentsSelection.BOTTOM)) {
             var tree = GameplayTree(root())
@@ -109,6 +111,7 @@ class LibraryKnowledgeTest {
         }
     }
 
+    // ZON-023
     @Test fun everyInsertionPathFixesKnownPositionsIncludingAnAlreadyTopCard() {
         for (insertion in listOf(MoveInsertion.TOP, MoveInsertion.BOTTOM)) {
             var tree = draw(GameplayTree(root()))
@@ -129,6 +132,7 @@ class LibraryKnowledgeTest {
         assertEquals(listOf(top), library(place(tree, top, MoveInsertion.TOP)).knownTop)
     }
 
+    // ZON-023
     @Test fun panelTopBottomRandomRestAndRevealTopFixBlocksAndShuffleSearchMulliganClearThem() {
         for (rest in ContentsRest.entries) {
             var tree = GameplayTree(root())
@@ -176,6 +180,7 @@ class LibraryKnowledgeTest {
         assertTrue(library(tree).knownTop.isEmpty()); assertTrue(library(tree).knownBottom.isEmpty())
     }
 
+    // HIS-042, ZON-024, ZON-026
     @Test fun ownDrawUndoOtherActionsDrawAndScryUndoRedoAreReproducible() {
         val tree = GameplayTree(root())
         val drawn = draw(tree)
@@ -197,6 +202,7 @@ class LibraryKnowledgeTest {
         assertEquals("noCandidate", HistoryContinuation.change(look, b, command(look, GameAction.Undo)).reason)
     }
 
+    // ZON-024
     @Test fun optBranchReseedsBothUnknownMiddlesPreservesKnownEdgesAndRestoresEveryTraversalExactly() {
         var tree = GameplayTree(root())
         for (owner in listOf(a, b)) {
@@ -250,6 +256,7 @@ class LibraryKnowledgeTest {
         assertEquals(original, decoded.stateAt(oldHead))
     }
 
+    // HIS-042, ZON-024
     @Test fun forkDrawUsesReseededTopAndRepeatedForkUndoDrawNeverRerollsIncludingLegacyGames() {
         for (secret in listOf(seed, null)) {
             var tree = play(GameplayTree(root(secret)), PlayAction.AdjustLife(b, "1"), b)

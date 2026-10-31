@@ -13,6 +13,7 @@ class CatchupPlaybackTest {
     private fun append(tree: GameplayTree, n: Int, actor: String = F.a) = F.play(tree,
         PlayAction.AdjustLife(actor, "1"), n, actor)
 
+    // HIS-034
     @Test fun noSavedPointOpensLiveAtTheNewestMove() {
         val head = append(append(GameplayTree(F.root()), 100), 101, F.b)
         val player = HistoryPlayback(index(head))
@@ -22,6 +23,7 @@ class CatchupPlaybackTest {
         assertFalse(player.branched)
     }
 
+    // HIS-033
     @Test fun descendantOpensPausedAtExactLastSeenThenPlaysWithNormalGroupPacing() {
         val root = GameplayTree(F.root())
         val seen = append(root, 100)
@@ -47,6 +49,7 @@ class CatchupPlaybackTest {
         assertFalse(player.position.playing)
     }
 
+    // HIS-038
     @Test fun branchIsDetectedPausedOnOpenAndAutoRewindsToCommonAncestorThenPlaysForwardNormally() {
         val common = append(GameplayTree(F.root()), 100)
         val old1 = append(common, 101, F.b)
@@ -82,6 +85,7 @@ class CatchupPlaybackTest {
         assertEquals(HistoryMode.LIVE, player.position.mode)
     }
 
+    // HIS-039
     @Test fun pendingBranchLocksTheStripUntilTheRewindHasPassedTheBranchPoint() {
         val common = append(GameplayTree(F.root()), 100)
         val old1 = append(common, 101, F.b)
@@ -110,6 +114,7 @@ class CatchupPlaybackTest {
         assertEquals(TimelinePlaybackStatus.PAUSED, player.status)
     }
 
+    // HIS-023
     @Test fun manualStartStepsAtOnceThenEveryLaterStepKeepsItsPause() {
         val common = append(GameplayTree(F.root()), 100)
         val old1 = append(common, 101, F.b)
@@ -179,6 +184,7 @@ class CatchupPlaybackTest {
         assertEquals(head.currentNodeId, player.position.cursorId)
     }
 
+    // HIS-032
     @Test fun onlyActuallyPresentedLiveEndpointsArePersistedIncludingOnLeaving() {
         val seen = append(GameplayTree(F.root()), 100)
         val head = append(seen, 101, F.b)
@@ -200,6 +206,7 @@ class CatchupPlaybackTest {
         assertEquals(listOf(state.gameId to state.currentNodeId, state.gameId to state.currentNodeId), saved)
     }
 
+    // HIS-038
     @Test fun branchArrivingWhilePausedIsDetectedAtOnceAndScrubbingEndsIt() {
         val common = append(GameplayTree(F.root()), 100)
         val old1 = append(common, 101, F.b)
@@ -222,6 +229,7 @@ class CatchupPlaybackTest {
         assertFalse(player.branched)
     }
 
+    // HIS-038
     @Test fun resumeAfterOpponentBranchedWhileAwayPausesAtLastSeenWithBranchPending() {
         val common = append(GameplayTree(F.root()), 100)
         val seen = append(common, 101)
@@ -237,6 +245,7 @@ class CatchupPlaybackTest {
         assertTrue(player.branched)
     }
 
+    // HIS-033
     @Test fun controllerOpensPausedAtLastSeenAndReportsAPendingBranch() {
         val common = append(GameplayTree(F.root()), 100)
         val old = append(common, 101)

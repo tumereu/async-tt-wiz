@@ -87,6 +87,7 @@ class HistoryUiSpineTest {
         }
     }
 
+    // HIS-078
     @Test fun locationPingCapturesLogicalTransformAndOriginalReferenceForOneExplicitUnping() {
         Harness().use { h ->
             fun scene(camera: TableCamera): TableScene {
@@ -132,6 +133,7 @@ class HistoryUiSpineTest {
         }
     }
 
+    // HIS-020
     @Test fun currentResultRequiresActuallyPresentedFinalBoardAndHistoricalSuggestionHasNoGate() {
         Harness().use { h ->
             h.update()

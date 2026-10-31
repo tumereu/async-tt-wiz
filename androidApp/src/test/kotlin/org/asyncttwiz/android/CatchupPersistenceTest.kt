@@ -13,6 +13,7 @@ import kotlin.test.*
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class CatchupPersistenceTest {
+    // HIS-032
     @Test fun debugBookmarksSurviveRealLogoutAndAccountActivationWithoutCrossingAccountOrGameScopes() {
         assertTrue(BuildConfig.DEBUG)
         val context = ApplicationProvider.getApplicationContext<Context>()

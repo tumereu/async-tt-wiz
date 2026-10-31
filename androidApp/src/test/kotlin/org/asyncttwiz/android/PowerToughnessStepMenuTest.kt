@@ -35,6 +35,7 @@ class PowerToughnessStepMenuTest {
         compose.ringPage(3)
     }
 
+    // TBL-083
     @Test fun stepsStayShownAndEnabledOnACardWithPowerToughness() {
         render("1/3")
         for (step in steps) {
@@ -43,6 +44,7 @@ class PowerToughnessStepMenuTest {
         }
     }
 
+    // SYS-040, TBL-070, TBL-083
     @Test fun stepsStayShownButDisabledOnACardWithoutPowerToughness() {
         render("")
         for (step in steps) compose.onNodeWithContentDescription("P/T $step").assertIsNotEnabled()

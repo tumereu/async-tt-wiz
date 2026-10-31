@@ -43,6 +43,7 @@ class GridBoardStagesTest {
         assertEquals(listOf(a, a, a, null, b, null, null, b, null), stage.slots.map { it.pickedBy })
     }
 
+    // DRF-086
     @Test fun threePlayersShowTheBoardBeforeTheRefillAndTheBoardAfterIt() {
         var state = start(3)
         val (a, b, c) = state.seating

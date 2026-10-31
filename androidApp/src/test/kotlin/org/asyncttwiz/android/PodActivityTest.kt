@@ -8,6 +8,7 @@ import kotlin.test.*
 class PodActivityTest {
     private val id = UUID.randomUUID().toString()
     private val identity = UUID.randomUUID().toString()
+    // DRF-137, LOB-077
     @Test fun textAndRoutesArePodSpecificAndUnknownKindsAreIgnored() {
         assertEquals("Your pick — Synergy", podActivityText(ActivityKind.POD_YOUR_PICK, "Synergy"))
         assertEquals("Decks ready — Synergy", podActivityText(ActivityKind.POD_DECKS_READY, "Synergy"))
@@ -23,6 +24,7 @@ class PodActivityTest {
         assertNull(ActivityRoute.parse(id, id, "POD_FUTURE", id, identity))
         assertNull(ActivityRoute.parse(id, id, "FUTURE", id, identity))
     }
+    // DRF-135
     @Test fun picksReplacePerPodNotPerPackAndNeverCollideWithGamesOrInvitations() {
         val savedMarks = mutableMapOf<String, ActivityWatermark>()
         var savedCursor: String? = null

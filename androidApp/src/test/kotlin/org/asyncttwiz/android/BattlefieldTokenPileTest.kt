@@ -35,6 +35,7 @@ class BattlefieldTokenPileTest {
         assertTrue((0..2).all { item(scene, it).visible.isNotEmpty() })
     }
 
+    // TBL-053
     @Test fun anIdenticalTokenCannotBeDroppedOntoAFullPileButOntoOneWithRoom() {
         val scene = TableFixture.scene(play())
         assertNull(destination(scene, from = 4, onto = 0))

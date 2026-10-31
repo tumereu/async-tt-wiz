@@ -23,6 +23,7 @@ class HeldChallengeVisibilityTest {
     private val held = GameSummary("held", "Held game", "2026-10-27T00:00:00Z", other, self, "round", "invite",
         InvitationState.PENDING, podId = "pod", podName = "Limited pod", updatedAt = "2026-10-27T10:00:00Z", invitationHeld = true)
 
+    // LOB-025
     @Test fun recipientStatusAsksForTheirDeckWhileChallengerWaits() {
         assertEquals("Challenged you · submit your deck to accept", gameStatus(held, self.accountId))
         assertEquals("Waiting for alex's deck", gameStatus(held, other.accountId))
@@ -30,6 +31,7 @@ class HeldChallengeVisibilityTest {
         assertEquals("Invitation pending", gameStatus(held.copy(invitationHeld = false), self.accountId))
     }
 
+    // LOB-022
     @Test fun drawerListsIncomingInvitationsNewestFirstAboveOwnMovesAndSetup() {
         fun game(id: String, hour: Int, inviter: AccountIdentity = self, recipient: AccountIdentity = other,
             state: InvitationState = InvitationState.ACCEPTED) = GameSummary(id, id, "2026-10-20T00:00:00Z", inviter, recipient,
@@ -45,6 +47,7 @@ class HeldChallengeVisibilityTest {
         assertFalse(incomingInvitation(held.copy(lifecycle = GameLifecycle.CANCELLED), self.accountId))
     }
 
+    // DRF-122, LOB-025
     @Test fun menuShowsHeldChallengeWithDeclineOnlyAndReleaseEnablesAccept() {
         val worker = Worker(); val wire = Wire()
         val lobby = LobbyController(proxy<Lobbies> { name, args -> when (name) {
@@ -102,6 +105,7 @@ class HeldChallengeVisibilityTest {
         } finally { lobby.close(); worker.drain() }
     }
 
+    // LOB-021
     @Test fun drawerInvitationRowOpensGamesListWithoutSelectingIt() {
         val fixtures = ScreenFixtures()
         val game = fixtures.lobby.state.games.first().copy(lifecycle = GameLifecycle.ACTIVE)
@@ -118,6 +122,7 @@ class HeldChallengeVisibilityTest {
         assertNull(fixtures.lobby.state.selected)
     }
 
+    // DRF-122
     @Test fun podGamesTabShowsHeldChallengeWithDeclineOnly() {
         val fixtures = ScreenFixtures()
         fixtures.lobby.seed(LobbyState(loaded = true, invitations = listOf(held), connectedGames = setOf(held.id)))

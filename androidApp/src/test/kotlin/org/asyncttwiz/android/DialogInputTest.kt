@@ -26,6 +26,7 @@ class DialogInputTest {
 
     private fun selection(start: Int, end: Int) = SemanticsMatcher.expectValue(SemanticsProperties.TextSelectionRange, TextRange(start, end))
 
+    // SYS-047
     @Test fun dialogFieldOpensFocusedWithAllTextSelectedAndShowsTheKeyboard() {
         var shown = 0
         val keyboard = object : SoftwareKeyboardController {
@@ -49,11 +50,13 @@ class DialogInputTest {
         compose.runOnIdle { assertEquals("New", typed) }
     }
 
+    // SYS-047
     @Test fun podSettingPopupOpensWithItsValueSelected() {
         compose.setContent { ScreenTheme { PodSettingPopup(PodSetting.PACKS, DraftSettings(packsPerPlayer = 12), {}) {} } }
         compose.onNode(hasSetTextAction()).assertIsFocused().assert(selection(0, 2))
     }
 
+    // SYS-047
     @Test fun scaleInputOpensWithItsValueSelected() {
         compose.setContent { ScreenTheme { CardScaleInput("Hand cards", 1.25f, {}) {} } }
         compose.onNodeWithTag("card-scale-input").assertIsFocused().assert(selection(0, 4))

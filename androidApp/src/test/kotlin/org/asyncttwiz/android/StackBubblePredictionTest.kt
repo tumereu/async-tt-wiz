@@ -24,6 +24,7 @@ import kotlin.test.*
 class StackBubblePredictionTest {
     @get:Rule val compose = createComposeRule()
 
+    // STK-010
     @Test fun deviceCardDropShowsBubblesBeforeAcceptanceAndRetainsFocusAcrossLaggingRenderedBoundary() = drop(false)
     @Test fun deviceProjectionDropShowsBubblesBeforeAcceptanceAndRetainsFocusAcrossLaggingRenderedBoundary() = drop(true)
 

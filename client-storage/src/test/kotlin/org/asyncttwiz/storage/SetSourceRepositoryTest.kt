@@ -167,6 +167,7 @@ class SetSourceRepositoryTest {
         assertTrue(source.downloads.isEmpty())
     }
 
+    // DRF-088
     @Test fun draftableTypesExcludeCommanderPromoAndUnknownAndLegacyTypesArePersistedFromSmallSetList() {
         val types = listOf("expansion", "core", "masters", "draft_innovation", "commander", "promo", "token", "unknown")
         val catalog = catalog(*types.mapIndexed { n, type -> set("S$n", "2026-10-${(n + 1).toString().padStart(2, '0')}", listOf(card(n)))
@@ -210,6 +211,7 @@ class SetSourceRepositoryTest {
         assertTrue(source.downloads.isEmpty())
     }
 
+    // DRF-089
     @Test fun oldSetCacheMissThenPermanentHitAcrossRepositoryInstancesAndManualRedownload() {
         val set = set().withRecipes("draft" to recipe(listOf(1)))
         val catalog = catalog(set)
@@ -228,6 +230,7 @@ class SetSourceRepositoryTest {
         assertEquals(listOf("OLD", "OLD"), source.downloads)
     }
 
+    // DRF-089
     @Test fun sixtyDayBoundaryAndFutureSetsRefreshDailyButOlderSetsDoNot() {
         val sets = listOf(set("OLD", today.minusDays(61).toString(), listOf(card(1))),
             set("REC", today.minusDays(59).toString(), listOf(card(2))),
@@ -249,6 +252,7 @@ class SetSourceRepositoryTest {
         assertEquals("EDGE", source.downloads.last())
     }
 
+    // DRF-090
     @Test fun recipePreferenceUsesProtocolOrderAndNoRecipeIsApproximate() {
         val set = set().withRecipes("default" to recipe(listOf(1)), "draft" to recipe(listOf(1)), "play" to recipe(listOf(1)))
         val catalog = catalog(set)

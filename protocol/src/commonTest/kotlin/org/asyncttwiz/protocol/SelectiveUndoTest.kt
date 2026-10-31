@@ -71,6 +71,7 @@ class SelectiveUndoTest {
         assertTrue(tree.redoByAccount.isEmpty())
     }
 
+    // HIS-085, SYS-004
     @Test fun consecutiveInvocationConstituentsUndoAndRedoTogetherWithoutChangingNodeGranularity() {
         val initial = GameplayTree(f.root())
         val invocation = f.id(800)
@@ -88,6 +89,7 @@ class SelectiveUndoTest {
         assertEquals(second.branchHeads, redone.branchHeads)
     }
 
+    // HIS-085
     @Test fun blockedInvocationPublishesNoPartialUndoAndDifferentInvocationsRemainSeparate() {
         val initial = GameplayTree(f.root())
         val invocation = f.id(800)
@@ -106,6 +108,7 @@ class SelectiveUndoTest {
         assertEquals(second.nodes, assertNotNull(f.undo(separate).tree).nodes)
     }
 
+    // HIS-087
     @Test fun revealingOpponentHandMoveIsReversible() {
         val root = gameplayFixture()
         val hand = f.play(GameplayTree(root), f.a, PlayAction.MoveCard(gameplayId(10),
@@ -216,6 +219,7 @@ class SelectiveUndoTest {
         assertNotNull(HistoryContinuation.change(drawn, f.a, f.command(GameAction.Undo, request++)).tree)
     }
 
+    // HIS-084, SYS-038
     @Test fun latestOwnAcrossDeviceStreamsAndStrictLastUndoneFirst() {
         val first = f.tap(GameplayTree(f.root()))
         val second = f.tap(first, card = 12, n = 101)
@@ -236,6 +240,7 @@ class SelectiveUndoTest {
         assertTrue(secondRedo.tree.redoByAccount.isEmpty())
     }
 
+    // HIS-087, SYS-027
     @Test fun scalarSameDeltaAndAbsoluteOverwriteStillRequireExactRelevantFromTo() {
         val first = f.play(GameplayTree(f.root()), f.a, PlayAction.AdjustLife(f.a, "1"), 100)
         for (action in listOf(PlayAction.AdjustLife(f.a, "1"), PlayAction.SetLife(f.a, "25"))) {
@@ -248,6 +253,7 @@ class SelectiveUndoTest {
         }
     }
 
+    // HIS-084, HIS-087
     @Test fun noSkippingBlockedOrRevealingLatestOwn() {
         val older = f.tap(GameplayTree(f.root()))
         val own = f.play(older, f.a, PlayAction.AdjustLife(f.a, "1"), 101)
@@ -308,6 +314,7 @@ class SelectiveUndoTest {
         assertEquals(independent.nodes, restored.nodes)
     }
 
+    // HIS-089
     @Test fun forkAtTargetOrAnyFutureDescendantBlocksButNotStrictlyAfterFork() {
         val a = f.tap(GameplayTree(f.root()))
         val b = f.tap(a, f.b, 12, n = 101)
@@ -328,6 +335,7 @@ class SelectiveUndoTest {
         assertEquals(branch.nodes, assertNotNull(f.redo(removedC, f.b).tree).nodes)
     }
 
+    // HIS-089
     @Test fun laterForkCannotBeHiddenByCurrentPointerAndRemovedForkIsNotPermanentLock() {
         val a = f.tap(GameplayTree(f.root()))
         val future = f.tap(a, f.b, 12, n = 101)
@@ -341,6 +349,7 @@ class SelectiveUndoTest {
         assertNotNull(f.undo(one).tree) // actual fork eliminated; replay the independent retained future
     }
 
+    // HIS-084
     @Test fun allSuccessorsCountTowardNAndNoPartialEditOnOverflow() {
         val a = f.tap(GameplayTree(f.root()))
         var tree = a
@@ -363,6 +372,7 @@ class SelectiveUndoTest {
         assertEquals(tree.nodes, assertNotNull(f.redo(removed).tree).nodes)
     }
 
+    // HIS-087
     @Test fun dependentEventReferenceBlocksRemovalUnrelatedLaterEventDoesNot() {
         val a = f.tap(GameplayTree(f.root()))
         val b = f.tap(a, f.b, 12, n = 101)

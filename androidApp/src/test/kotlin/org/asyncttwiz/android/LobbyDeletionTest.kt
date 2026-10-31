@@ -58,6 +58,7 @@ class LobbyDeletionTest {
         override fun close() { lobby.close(); drain() }
     }
 
+    // LOB-026
     @Test fun contextAndExtraWarningCaptureBothPlayersWithNoDispatchOnDismissAndEitherActorCanConfirm() {
         for (actor in listOf(a, b)) Fixture(actor).use { f ->
             f.connect(); f.lobby.gameContext(game)

@@ -27,6 +27,7 @@ class CombatDragGeometryTest {
         }
     }
 
+    // CMB-009
     @Test fun droppingEitherSlotExactlyOntoTheOtherSwapsOrderAndPreviewMatchesRecenteredResult() {
         val original = f.combat()
         val play = original.copy(board = original.board.copy(combat = original.board.combat!!.copy(
@@ -59,6 +60,7 @@ class CombatDragGeometryTest {
         }
     }
 
+    // CMB-009
     @Test fun sameSlotCardsReorderBothWaysAndLiveIndicatorFollowsResolvedInsertion() {
         val original = f.combat()
         val attackers = original.board.combat!!.pairs.flatMap { it.attackers }
@@ -90,6 +92,7 @@ class CombatDragGeometryTest {
         }
     }
 
+    // CMB-008
     @Test fun insertingIntoEmptyOpposingRowCentersTheCardInTheWiderSlot() {
         val original = f.combat()
         val first = original.board.combat!!.pairs.first()

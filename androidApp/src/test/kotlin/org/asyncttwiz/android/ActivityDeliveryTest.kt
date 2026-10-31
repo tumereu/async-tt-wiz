@@ -45,6 +45,7 @@ class ActivityDeliveryTest {
         next(6, true); assertEquals(5, posted.size); assertFalse(posted.last().silent)
     }
 
+    // LOB-074
     @Test fun firstNoticeAfterOpeningTheGameAndWaitingRemindersAlertAgain() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
@@ -83,6 +84,7 @@ class ActivityDeliveryTest {
         assertTrue(restarted.apply(alice, page(hint(5, "group-2"))) { true }); assertFalse(posted.last().silent)
         assertEquals(1, posted.map { it.key }.distinct().size)
     }
+    // DRF-135
     @Test fun laterPodPickAndCompletionAlertAgainWithSameAttemptAndReplacementKey() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
@@ -94,6 +96,7 @@ class ActivityDeliveryTest {
         assertEquals(listOf(false, false, false), posted.map { it.silent })
         assertEquals(listOf("pod:pod", "pod:pod", "pod:pod"), posted.map { it.key })
     }
+    // LOB-074
     @Test fun reviewIsActiveDisplayButBackgroundIsNotAndInvitesRemainIndependent() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice); it.display("game", true) }
@@ -105,6 +108,7 @@ class ActivityDeliveryTest {
         delivery.apply(alice, page(hint(4, "next-group"))) { true }
         assertEquals("game", posted.last().hint.gameId)
     }
+    // DRF-138
     @Test fun openPodAndPodListSuppressTheirNotificationsOnlyWhileResumed() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }

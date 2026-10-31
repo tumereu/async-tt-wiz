@@ -56,6 +56,7 @@ class GridEngineTest {
         assertTrue(state.grids.filter { it.finished }.all { it.positions.all { card -> card == null } })
     }
 
+    // DRF-021, DRF-023, DRF-028
     @Test fun defaultsBoundariesAndModeSpecificValidation() {
         val defaults = DraftSettings.grid()
         assertEquals(DraftMode.GRID, defaults.mode)
@@ -114,6 +115,7 @@ class GridEngineTest {
     }
     private fun booster(id: String) = id.substringBefore(":copy:")
 
+    // DRF-091
     @Test fun freshBoostersGiveEachGridRandomCardsFromItsOwnBooster() {
         val settings = settings(grids = 3)
         val cards = GridEngine.freshBoosterCards(setSource(), settings, 2, seed)
@@ -128,6 +130,7 @@ class GridEngineTest {
         assertConserved(finish(state))
     }
 
+    // DRF-091
     @Test fun freshBoosterRefillsComeFromTheGridsOwnBoosterWithSeveralGridsOpen() {
         val settings = settings(grids = 4, open = 2)
         val cards = GridEngine.freshBoosterCards(setSource(), settings, 3, seed)
@@ -157,6 +160,7 @@ class GridEngineTest {
         assertConserved(finish(GridEngine.startWithCards(listOf("a", "b"), cards, settings, seed)))
     }
 
+    // DRF-027
     @Test fun freshBoostersDefaultOnAndOldSettingsDecodeWithIt() {
         assertTrue(DraftSettings.grid().freshBoosters)
         assertTrue(Json.decodeFromString<DraftSettings>("""{"mode":"GRID"}""").freshBoosters)
@@ -202,6 +206,7 @@ class GridEngineTest {
         }
     }
 
+    // DRF-079
     @Test fun dealingAndRefillHappenOnlyAfterFirstSelection() {
         for (players in 2..4) {
             for (twoPicks in if (players == 2) listOf(false, true) else listOf(false)) {
@@ -282,6 +287,7 @@ class GridEngineTest {
         assertConserved(state)
     }
 
+    // DRF-079
     @Test fun selectionsTakeAllRemainingCardsAcrossGapsAndEmptyLinesAreRejected() {
         var state = start()
         val original = state.grids.single().positions
@@ -330,6 +336,7 @@ class GridEngineTest {
     }
 
     /** Owner's example: two players, three grids open; A opens round 2 alone once nothing of round 1 can come back. */
+    // DRF-080
     @Test fun aMemberOpensTheirNextRoundOfGridsOnceNoOpenGridCanReachThem() {
         var state = start(settings = settings(grids = 18, open = 3))
         val a = state.seating[0]
@@ -429,6 +436,7 @@ class GridEngineTest {
         assertConserved(final)
     }
 
+    // DRF-087
     @Test fun publicBoardsAndHistoryAreVisibleButUndealtCardsAndOtherPoolsStayPrivate() {
         var state = start(players = 3, settings = settings(grids = 4, open = 3), extra = 5)
         state = pick(state)
@@ -549,6 +557,7 @@ class GridEngineTest {
         return state
     }
 
+    // DRF-080
     @Test fun everyGridIsDealtUpFrontSoItsCardsNeverDependOnPickTiming() {
         for ((players, twoPicks) in listOf(3 to false, 4 to false, 2 to true, 2 to false)) {
             val initial = start(players, settings(grids = 7, open = 3, twoPicks = twoPicks), extra = 4)
@@ -571,6 +580,7 @@ class GridEngineTest {
         }
     }
 
+    // DRF-081
     @Test fun publicSlotsKeepDealtPositionsWithPickersRefillsAndDiscards() {
         // Three players refill the first selection's line.
         var state = start(players = 3, settings = settings())

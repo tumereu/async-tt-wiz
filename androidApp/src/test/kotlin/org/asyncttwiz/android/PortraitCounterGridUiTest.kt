@@ -48,6 +48,7 @@ class PortraitCounterGridUiTest {
         }
     }
 
+    // TRN-034
     @Test fun ownEmptyGridOpensOnlyCounters() = emptyGridOpensPlayerPopup("a")
     @Test fun opponentEmptyGridOpensOnlyCounters() = emptyGridOpensPlayerPopup("b")
 }

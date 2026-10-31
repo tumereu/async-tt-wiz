@@ -30,6 +30,7 @@ import kotlin.test.*
 class TableEventFeedbackScreenshotTest {
     @get:Rule val compose = createComposeRule()
 
+    // TRN-045
     @Test fun chipsAreOpaqueOnBothRollersHalvesStackedTouchTransparentAndExpire() {
         val play = LiveTableFixture.menuPlay()
         val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", 412f, 892f, false)
@@ -84,6 +85,7 @@ class TableEventFeedbackScreenshotTest {
         compose.onNodeWithText("d20 → 14").assertDoesNotExist()
     }
 
+    // HIS-081
     @Test fun lingeringPingDrawsOnlyUnnumberedRingsAndFadesWithoutAnInputNode() {
         val play = LiveTableFixture.menuPlay()
         val scene = TablePresentation.scene(LiveTableFixture.game, play, "a", 412f, 892f, false)

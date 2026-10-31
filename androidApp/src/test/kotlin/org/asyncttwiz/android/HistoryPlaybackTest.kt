@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class HistoryPlaybackTest {
+    // HIS-006
     @Test fun holdInspectPauseAtHeadAfterCatchupOrBranchNeverEntersTimeline() {
         val a = node(1, 0); val b = node(2, 1)
         val player = HistoryPlayback(tree(listOf(a, b)))
@@ -26,6 +27,7 @@ class HistoryPlaybackTest {
         assertFalse(player.position.playing)
     }
 
+    // HIS-006
     @Test fun remoteActionWhileLiveIncludingInspectionAndReconnectStaysLive() {
         val a = node(1, 0); val b = node(2, 1)
         val player = HistoryPlayback(tree(listOf(a)))
@@ -41,6 +43,7 @@ class HistoryPlaybackTest {
         assertEquals(id(1), player.position.cursorId)
     }
 
+    // HIS-035
     @Test fun resumeAfterRevisionBumpWithoutNewNodeStaysLive() {
         val a = node(1, 0); val b = node(2, 1)
         val player = HistoryPlayback(tree(listOf(a)))
@@ -56,6 +59,7 @@ class HistoryPlaybackTest {
         assertEquals(id(1), player.position.cursorId)
     }
 
+    // HIS-035
     @Test fun leavingPausesLiveSoEventsArrivingAfterReturnStayInTimeline() {
         val a = node(1, 0); val b = node(2, 1)
         val player = HistoryPlayback(tree(listOf(a)))
@@ -139,6 +143,7 @@ class HistoryPlaybackTest {
         assertEquals(id(5), playback.position.cursorId) // Racing continuation not lost in catch-up/live handoff.
     }
 
+    // HIS-029
     @Test fun onlyRemotePanelRevealsHoldLiveAcrossSeparateOrBatchedReceipts() {
         val open = node(1, 0).copy(action = PlayAction.ShowContents(id(80), ContentsSelection.TOP, 2))
         val reveal = node(2, 1).copy(action = PlayAction.RevealContentsCard(id(81), id(82)))
@@ -183,6 +188,7 @@ class HistoryPlaybackTest {
         assertEquals(id(0), playback.position.cursorId)
     }
 
+    // HIS-050
     @Test fun previousNextByGroupsExactScrubAndChangedPathCommonAncestorRollback() {
         val a = node(1,0); val b = node(2,1); val c = node(3,2, HistorySignificance.ORIENTATION)
         val d = node(4,3); val x = node(5,1, HistorySignificance.STACK_ENTRY)
@@ -277,6 +283,7 @@ class HistoryPlaybackTest {
         assertFails { tree(listOf(node(1,0),node(1,0))) }
     }
 
+    // HIS-015
     @Test fun autoAtHeadReturnsLiveSynchronouslyButArrivalWaitsForExactlyOneFinalAnimation() {
         for (automatic in listOf(false, true)) {
             val event = node(1, 0)
@@ -300,6 +307,7 @@ class HistoryPlaybackTest {
         }
     }
 
+    // HIS-015
     @Test fun exactManualSelectionAtHeadStaysPausedInTimelineAfterAnimationAndReceipt() {
         val events = listOf(node(1, 0), node(2, 1))
         val player = HistoryPlayback(tree(events))
@@ -323,6 +331,7 @@ class HistoryPlaybackTest {
             n(8, 3, 54), n(9, 3, 55)), head = 5)
     }
 
+    // HIS-012
     @Test fun previousAndNextStepOneGroupAlongTheLiveLineAndNeverPlay() {
         val player = HistoryPlayback(forked())
         player.scrub(id(1))
@@ -338,6 +347,7 @@ class HistoryPlaybackTest {
         assertFalse(player.position.playing)
     }
 
+    // HIS-012
     @Test fun anOldBranchIsTheVisibleLineToItsOwnTipFollowingItsBranchThenTheNewestOne() {
         val player = HistoryPlayback(forked())
         player.scrub(id(2)) // Picked in the game tree.
@@ -369,6 +379,7 @@ class HistoryPlaybackTest {
         assertFalse(player.oldBranch)
     }
 
+    // HIS-014
     @Test fun autoOnAnOldBranchRewindsToTheSplitThenPlaysTheLiveLine() {
         val player = HistoryPlayback(forked())
         player.scrub(id(9))
@@ -389,6 +400,7 @@ class HistoryPlaybackTest {
         player.next(); assertEquals(id(4), player.position.cursorId)
     }
 
+    // HIS-039
     @Test fun opponentBranchedStaysLockedUntilTheRewindStarts() {
         val player = HistoryPlayback(forked())
         player.openFrom(id(3))
@@ -427,6 +439,7 @@ class HistoryPlaybackTest {
         assertFalse(player.branched)
     }
 
+    // HIS-014, HIS-038
     @Test fun liveOpponentBranchPausesTimelineAtTheShownPointLikeOpeningThere() {
         val player = liveAt3()
         player.receive(forked(), id(71), id(5))
@@ -470,6 +483,7 @@ class HistoryPlaybackTest {
         assertEquals(HistoryMode.PLAYBACK, player.position.mode)
     }
 
+    // HIS-041
     @Test fun autoRewindDuringLivePlayStartsTheRewindByItself() {
         val player = liveAt3()
         player.autoRewindOpen = true // The other setting does not apply to live play.
@@ -485,6 +499,7 @@ class HistoryPlaybackTest {
         auto.next(true); assertEquals(id(2), auto.position.cursorId)
     }
 
+    // HIS-041
     @Test fun autoRewindWhenOpeningAndReturningToABranchedGame() {
         val live = HistoryPlayback(forked()).apply { autoRewindLive = true; openFrom(id(3)) }
         assertTrue(live.branched); assertFalse(live.position.playing, "The live setting does not apply to opening")

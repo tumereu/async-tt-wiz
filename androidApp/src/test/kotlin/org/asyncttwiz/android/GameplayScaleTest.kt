@@ -6,6 +6,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class GameplayScaleTest {
+    // SYS-026
     @Test fun acceptedTenThousandActionTreeKeepsIncrementalSyncAndReviewEndpoints() {
         val accepted = F.build(10000)
         val baseline = TreeSync.generation(accepted)

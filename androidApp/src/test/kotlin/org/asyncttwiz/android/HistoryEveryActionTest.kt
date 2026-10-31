@@ -249,6 +249,7 @@ class HistoryEveryActionTest {
         }
     }
 
+    // HIS-074, SYS-034
     @Test fun groupingsWithUnknownValuesFromANewerServerStillDraw() {
         val stored = listOf("""{"significance":"ADDED_LATER","icon":"added_later"}""",
             """{"significance":"ADDED_LATER","icon":"open_with","key":"a/b"}""",
@@ -262,6 +263,7 @@ class HistoryEveryActionTest {
     }
 
     /** Rules v32: a move's icon names its target; a move within one zone keeps the move icon. */
+    // HIS-070
     @Test fun everyMoveRecordsItsTargetIconAtCurrentRules() {
         val expected = listOf(
             move(30, library, hand, MoveSourceEdge.TOP) to HistoryIcon.DOWNLOAD, move(33, graveyard, hand) to HistoryIcon.DOWNLOAD,
@@ -316,6 +318,7 @@ class HistoryEveryActionTest {
         present(chain(expected.map { it.first }, CURRENT_GAMEPLAY_RULES_VERSION, true))
     }
 
+    // HIS-074, SYS-034
     @Test fun everyIconDrawsAndUnknownNamesDecodeToANeutralDot() {
         for (icon in HistoryIcon.entries) draw(icon)
         val semantic = HistorySemantic(HistorySignificance.PING, HistoryIcon.ADS_CLICK)

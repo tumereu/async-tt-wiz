@@ -16,6 +16,7 @@ class InspectionOrientationTest {
 
     private fun orientation(definition: CardDefinition, face: Int = 0) = InspectionOrientation.of(definition, definition.faces[face])
 
+    // TBL-108
     @Test fun cardsPrintedSidewaysTurnAQuarterClockwise() {
         for (definition in listOf(card("split", "Instant"), card("split", "Enchantment — Room", "Enchantment — Room"),
             card("room", "Enchantment — Room"), card("planar", "Plane — Zendikar"), card("planar", "Phenomenon"),
@@ -25,12 +26,14 @@ class InspectionOrientationTest {
         }
     }
 
+    // TBL-108
     @Test fun onlyTheBattleFrontOfATransformingSiegeIsSideways() {
         val siege = card("transform", "Battle — Siege", "Creature — Elemental")
         assertEquals(90, orientation(siege, 0).degrees)
         assertEquals(InspectionOrientation.UPRIGHT, orientation(siege, 1))
     }
 
+    // TBL-108
     @Test fun aftermathAndFlipStayUprightWithAPersonalTurn() {
         val aftermath = orientation(card("aftermath", "Instant"))
         assertEquals(0, aftermath.shown(turned = false))
@@ -79,6 +82,7 @@ class InspectionOrientationTest {
         assertSize(200f, 280f, inspectedArtworkSize(false, 900.dp, 280.dp))
     }
 
+    // TBL-108
     @Test fun sidewaysArtworkFillsTheWidthButIsNeverTallerThanACappedUprightCard() {
         val capped = inspectedArtworkSize(false, 900.dp)
         // Narrow room: the full width.

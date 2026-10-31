@@ -14,6 +14,7 @@ class AttentionTest {
     private fun command(action: GameAction, n: Int) = GameCommand(id(n), GameScope(id(1), playId = id(2)), action, id(9), "1")
     private fun play(action: PlayAction, n: Int) = command(GameAction.Play(action), n)
 
+    // TRN-014
     @Test fun everyAdvancePickerAndTurnBoundarySetsAttentionAndUndoRestoresExactPreviousHolder() {
         for (position in TurnPosition.entries) for (holder in listOf(null, a, b)) {
             val initial = state(position, holder)
@@ -34,6 +35,7 @@ class AttentionTest {
         }
     }
 
+    // HIS-050, HIS-051, HIS-086, TRN-006
     @Test fun eitherPlayerFlipsRatherThanAssignsAndDisplayGroupingNeverChangesUndo() {
         for (actor in listOf(a, b)) {
             val initial = state()
@@ -57,6 +59,7 @@ class AttentionTest {
         }
     }
 
+    // TRN-014
     @Test fun nonTrackingActionsDoNotPassAndSelectingCurrentStepIsANoOp() {
         val initial = state(holder = b)
         for (action in listOf(PlayAction.AdjustLife(a, "1"), PlayAction.RollDie(6, 4),
@@ -67,6 +70,7 @@ class AttentionTest {
         }
     }
 
+    // HIS-051
     @Test fun passJoinsEvenAnOpponentsEndingSuggestionForDisplayOnly() {
         val suggested = GameplayTree(state()).play(a, play(PlayAction.SuggestResult(SuggestedResult.WIN), 20)).tree!!
         val passed = suggested.play(b, play(PlayAction.PassAttention, 21)).tree!!
@@ -78,6 +82,7 @@ class AttentionTest {
         assertEquals(before.board, undone.stateAt(undone.currentNodeId)!!.board)
     }
 
+    // TRN-014
     @Test fun addingAStackEffectDoesNotPassAttention() {
         val definition = CardDefinition("Source", listOf(DefinitionFace(id(30), "Source")))
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)

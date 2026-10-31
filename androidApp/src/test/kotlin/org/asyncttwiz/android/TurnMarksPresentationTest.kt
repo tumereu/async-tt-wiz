@@ -7,6 +7,7 @@ import kotlin.test.*
 class TurnMarksPresentationTest {
     private val card = PlayCard("card", "definition", "owner", "field", "face", corner = "1/1", eotCorner = "+2/+2")
 
+    // TBL-110
     @Test fun effectivePowerToughnessAndInspectKeepDeltaSeparateFromPermanentValue() {
         assertEquals("3/3", effectiveCorner(card))
         assertEquals("3/3 (+2/+2 until end of turn)", inspectedCorner(card))
@@ -16,6 +17,7 @@ class TurnMarksPresentationTest {
         assertNotEquals(ChangedPowerToughnessColor, EotPowerToughnessColor)
     }
 
+    // TBL-024
     @Test fun damageFillIsOnlyANumericEffectiveToughnessHint() {
         assertFalse(damageIsLethal("2", effectiveCorner(card)))
         assertTrue(damageIsLethal("3", effectiveCorner(card)))
@@ -26,6 +28,7 @@ class TurnMarksPresentationTest {
         assertTrue(damageIsLethal("9999999999999999999999", "2/9999999999999999999998"))
     }
 
+    // TBL-025
     @Test fun eotAndPermanentNotesHaveSeparateChipsAndEditorsValidateMarks() {
         val layout = cardAnnotationLayout(9f, 29f, 9f, 10f, true, 6, hasEotNote = true)
         assertNotNull(layout.note); assertNotNull(layout.eotNote)
@@ -38,6 +41,7 @@ class TurnMarksPresentationTest {
         assertTrue(ManualValue(ManualValueKind.EOT_NOTE).multiline)
     }
 
+    // TBL-029, TBL-030
     @Test fun tablePresentationCarriesEffectiveValuesAndDoesNotLeakCoveredMarks() {
         val f = TableStatesFixture
         val initial = f.combat()

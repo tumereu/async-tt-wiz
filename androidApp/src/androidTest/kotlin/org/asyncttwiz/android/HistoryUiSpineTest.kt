@@ -11,6 +11,7 @@ import org.junit.Test
 /** Actual MainActivity normal route, not an unmounted component. Authoring/compilation only here;
  * the native resource owner supplies a signed-in UI-created active game before executing. */
 class HistoryUiSpineTest {
+    // SYS-005
     @get:Rule val app = createAndroidComposeRule<MainActivity>()
     @Test fun normalRouteReviewArmCancelTreeAndCurrentRemainPersonalUntilAnOrdinaryMutation() {
         lateinit var model: AuthViewModel

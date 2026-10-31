@@ -34,6 +34,7 @@ import kotlin.test.*
 class TableControlsInteractionTest {
     @get:Rule val compose = createComposeRule()
 
+    // TRN-032
     @Test fun playerValueDragCountsHorizontalDistanceFromDownAndCancelsWithoutSending() {
         val play = TableToolFixture.play()
         val sent = mutableListOf<PlayAction>()
@@ -52,6 +53,7 @@ class TableControlsInteractionTest {
         compose.runOnIdle { assertEquals(1, sent.size) }
     }
 
+    // SYS-044
     @Test fun undoShowsPressFeedbackOnDownAndTapsOnReleaseWithoutWaitingForRedoHold() {
         var undo = 0
         var redo = 0
@@ -80,6 +82,7 @@ class TableControlsInteractionTest {
         compose.mainClock.autoAdvance = true
     }
 
+    // HIS-078, TBL-056
     @Test fun modeButtonCyclesWithoutAMenuAndLivesAboveBottomControls() {
         val play = TableFixture.play(board = 2)
         val ui = TableToolkitController("a", { play }, { true }, { _, _ -> true })
@@ -116,6 +119,7 @@ class TableControlsInteractionTest {
         compose.onNodeWithText("Redo").assertDoesNotExist()
     }
 
+    // TBL-056
     @Test fun modeSquareScalesWithTheHandAndFitsItsRowInBothOrientations() {
         val play = TableFixture.play(hand = 12, board = 2)
         for (landscape in listOf(false, true)) for (size in listOf(.5f, .75f, 1f, 1.5f, 3f)) {
@@ -144,6 +148,7 @@ class TableControlsInteractionTest {
         }
     }
 
+    // TRN-016, TRN-017
     @Test fun singleContextualActionFillsSpaceBeforeRightCornerStepButton() {
         val play = TableToolFixture.play(TurnPosition.END_STEP)
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
@@ -158,6 +163,7 @@ class TableControlsInteractionTest {
         assertEquals(72f, next.width)
     }
 
+    // SYS-045, TBL-064
     @Test fun holdTooltipStaysOutsideButtonAndClampsAtScreenEdges() {
         val position = HoldTooltipPosition(8)
         val window = IntSize(412, 892)
@@ -166,6 +172,7 @@ class TableControlsInteractionTest {
         assertEquals(IntOffset(252, 56), position.calculatePosition(IntRect(364, 0, 412, 48), window, LayoutDirection.Rtl, label))
     }
 
+    // TRN-017
     @Test fun nextStepTapHasNoHapticAndEndTurnHoldTicksOnceWithoutNextOnRelease() {
         val play = TableToolFixture.play()
         val sent = mutableListOf<PlayAction>()
@@ -197,6 +204,7 @@ class TableControlsInteractionTest {
         assertEquals(1, ticks.size)
     }
 
+    // TBL-047
     @Test fun contentsPeekStartsAt350MillisWithoutHapticsOrActions() {
         val peeks = mutableListOf<Boolean>()
         val haptics = object : HapticFeedback {
@@ -222,6 +230,7 @@ class TableControlsInteractionTest {
         assertFalse(peeks.last())
     }
 
+    // TRN-008
     @Test fun pickerIsDialogWithPhaseLanesAndCurrentStepAndPlayer() {
         val play = TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS, "42")
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())

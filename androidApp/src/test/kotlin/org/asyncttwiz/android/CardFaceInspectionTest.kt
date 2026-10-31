@@ -69,6 +69,7 @@ class CardFaceInspectionTest {
         compose.waitForIdle()
     }
 
+    // TBL-106
     @Test fun peekShowsTheBackFaceOfATransformedCard() {
         val (play, card) = transformed()
         show(play, card, f.a, peek = true)
@@ -76,6 +77,7 @@ class CardFaceInspectionTest {
         compose.onNodeWithText("Front rules text.").assertDoesNotExist()
     }
 
+    // TBL-106, TBL-107
     @OptIn(ExperimentalRoborazziApi::class)
     @Test fun inspectOpensOnTheBackFaceAndStillSwitchesToTheFront() {
         val (play, card) = transformed()
@@ -93,6 +95,7 @@ class CardFaceInspectionTest {
         compose.onNodeWithContentDescription("Previous face").assertIsNotEnabled()
     }
 
+    // TBL-106
     @Test fun aFlippedFlipCardOpensTurnedOnItsFlippedHalf() {
         val (transformedPlay, card) = transformed()
         val play = transformedPlay.copy(definitions = transformedPlay.definitions.map {
@@ -119,6 +122,7 @@ class CardFaceInspectionTest {
         assertEquals(0, controller.state!!.degrees)
     }
 
+    // SYS-039, TBL-109, ZON-075
     @Test fun opponentStillSeesOnlyTheShownFaceAndNothingOfAHiddenCard() {
         val (play, card) = transformed()
         for (peek in listOf(true, false)) {

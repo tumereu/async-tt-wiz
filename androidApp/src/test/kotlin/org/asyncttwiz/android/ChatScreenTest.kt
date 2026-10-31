@@ -37,6 +37,7 @@ class ChatScreenTest {
             messages = (chat.messages as IndexedChatMessages).upsert(listOf(message(number))))))
     }
 
+    // LOB-067
     @Test fun opensAtLatestAndFollowsIncomingAtBottomWithoutMaterializingTheTranscript() {
         open(10_000)
         compose.onNodeWithText("Message 10000").assertIsDisplayed()
@@ -48,6 +49,7 @@ class ChatScreenTest {
         assertTrue(older.bottom < newest.top, "Messages remain in chronological visual order")
     }
 
+    // LOB-068
     @Test fun incomingPreservesHistoryAnchorAndSendReturnsToLatestIncludingDeliveryAcknowledgement() {
         open()
         compose.onNodeWithContentDescription("Chat messages").performScrollToIndex(30)
@@ -75,6 +77,7 @@ class ChatScreenTest {
         compose.onNodeWithText("Checking delivery…").assertDoesNotExist()
     }
 
+    // LOB-068, LOB-102
     @Test fun keyboardSendKeySendsLikeTheSendButton() {
         open()
         compose.onNodeWithContentDescription("Chat messages").performScrollToIndex(30)
@@ -88,8 +91,10 @@ class ChatScreenTest {
         compose.onNodeWithText("Message 100").assertIsDisplayed()
     }
 
+    // LOB-067
     @Test fun keyboardShrinksOnlyMessageViewportAndKeepsLatestAboveComposer() = checkKeyboardResize(300)
 
+    // LOB-067
     @Test
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeKeyboardAlsoKeepsHeaderComposerAndLatestVisible() = checkKeyboardResize(180)

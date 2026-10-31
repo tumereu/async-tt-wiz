@@ -64,6 +64,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "import-save", "import-link", "reconnecting", "gameplay-chat")
     }
 
+    // DRF-126, LOB-015, LOB-018, LOB-023, LOB-024, LOB-035, LOB-047, LOB-054, LOB-059, LOB-101
     @Test fun portrait() = capture(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscape() = capture(true)
 

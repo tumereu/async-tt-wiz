@@ -54,6 +54,7 @@ internal class CombatDamageFixture(
 }
 
 class CombatDamageTest {
+    // CMB-024
     @Test fun unblockedAndTargetOnlyDealFullPowerAndIgnoreBlockersAsDealers() {
         val unblocked = CombatDamageFixture()
         assertEquals(listOf(PlayAction.AdjustLife(unblocked.defender, "-5")), unblocked.assign().actions)
@@ -61,6 +62,7 @@ class CombatDamageTest {
         assertEquals(listOf(PlayAction.AdjustLife(blocked.defender, "-5")), blocked.assign(blocked.allViews, targetOnly = true).actions)
     }
 
+    // CMB-024
     @Test fun singleBlockGetsExcessAndBothSidesDealEvenIfLethalDamageIsAssigned() {
         val f = CombatDamageFixture(blockers = listOf("2/2"))
         val result = f.assign(f.allViews)
@@ -69,12 +71,14 @@ class CombatDamageTest {
         assertNull(f.life(result))
     }
 
+    // CMB-024
     @Test fun multipleBlockersGetLethalFirstAndLastGetsAllNontrampleExcess() {
         val f = CombatDamageFixture(attackers = listOf("9/9"), blockers = listOf("1/2", "1/3", "1/2"))
         val result = f.assign()
         assertEquals(listOf("2", "3", "4"), f.blockerIds.indices.map { f.damage(result, it) })
     }
 
+    // CMB-024
     @Test fun trampleRemainderGoesToPlayerAndDeathtouchLethalIsOne() {
         for ((keywords, expected, player) in listOf(
             Triple("Trample", listOf("2", "2"), "-1"),
@@ -95,6 +99,7 @@ class CombatDamageTest {
         assertNull(f.life(result))
     }
 
+    // CMB-024
     @Test fun markedDamageAndAssignmentsEarlierInTheSamePressReduceLethal() {
         val f = CombatDamageFixture(attackers = listOf("2/2", "5/5"), blockers = listOf("1/4", "1/4"), marked = "1", note = "Trample")
         val result = f.assign(f.attackerViews.reversed())
@@ -107,6 +112,7 @@ class CombatDamageTest {
         assertEquals(listOf(PlayAction.AdjustLife(f.defender, "-5")), f.assign().actions)
     }
 
+    // CMB-024
     @Test fun effectivePowerAndToughnessIncludeEotModifiers() {
         val f = CombatDamageFixture(attackers = listOf("3/3"), blockers = listOf("1/2"), eotCorner = "2/1", note = "Trample")
         val state = f.play.copy(board = f.play.board.copy(cards = f.play.board.cards.map {
@@ -117,6 +123,7 @@ class CombatDamageTest {
         assertEquals("-1", f.life(result))
     }
 
+    // CMB-024
     @Test fun displayOrderNotSelectionOrSourceIdOrderDeterminesRecipients() {
         val f = CombatDamageFixture(attackers = listOf("3/3"), blockers = listOf("1/2", "1/2"))
         val area = f.play.board.combat!!
@@ -146,6 +153,7 @@ class CombatDamageTest {
         assertNull(f.life(changed))
     }
 
+    // CMB-025
     @Test fun firstAndDoubleStrikeFilterBothSidesUsingCurrentNotesAndMetadata() {
         val f = CombatDamageFixture(attackers = listOf("1/1", "2/2", "3/3"))
         val state = f.play.copy(board = f.play.board.copy(cards = f.play.board.cards.mapIndexed { i, card ->
@@ -193,6 +201,7 @@ class CombatDamageTest {
         }
     }
 
+    // CMB-025
     @Test fun lifelinkGainsAllDamageIncludingOverkillForControllerNotOwner() {
         val f = CombatDamageFixture(blockers = listOf("1/1"), keyword = "Lifelink")
         val state = f.play.copy(board = f.play.board.copy(cards = f.play.board.cards.map {
@@ -207,6 +216,7 @@ class CombatDamageTest {
         assertEquals("-3", alone.life(alone.assign()))
     }
 
+    // CMB-025
     @Test fun infectWitherAndNonNumericPowerSkipWithManualNoteButOtherCreaturesStillDeal() {
         for (f in listOf(CombatDamageFixture(keyword = "Infect"), CombatDamageFixture(eotNote = "WITHER"),
             CombatDamageFixture(attackers = listOf("*/2")))) {
@@ -218,6 +228,7 @@ class CombatDamageTest {
         assertEquals(listOf("Combatant: assign manually"), mixed.assign().notes)
     }
 
+    // CMB-025
     @Test fun faceDownCombatantsIgnoreHiddenKeywordsAndNeverNameTheHiddenCard() {
         val f = CombatDamageFixture(keyword = "Infect")
         fun faceDown(corner: String) = f.play.copy(board = f.play.board.copy(cards = f.play.board.cards.map {
@@ -227,6 +238,7 @@ class CombatDamageTest {
         assertEquals(listOf("Face-down card: assign manually"), f.assign(state = faceDown("*/2")).notes)
     }
 
+    // CMB-025
     @Test fun keywordToggleNotesGrantCombatKeywordsIgnoringOtherTokensAndCountForFaceDownCards() {
         // Toggle-formatted note plus free text: the known keywords still apply.
         val f = CombatDamageFixture(blockers = listOf("2/2", "2/2"), note = "Flying, deathtouch, X=3",
@@ -249,6 +261,7 @@ class CombatDamageTest {
         assertEquals("-1", printed.life(printed.assign(state = faceDown("Trample"))))
     }
 
+    // CMB-025
     @Test fun keywordMatchingUsesWholeWordsAndOnlyCurrentFaceMetadataNotRulesText() {
         val f = CombatDamageFixture(note = "notinfect notwithered trampler", blockers = listOf("1/1"))
         assertEquals("5", f.damage(f.assign()))
@@ -259,6 +272,7 @@ class CombatDamageTest {
         assertTrue(f.assign(state = state).notes.isEmpty())
     }
 
+    // CMB-024
     @Test fun planeswalkerAndBattleTargetsLoseCornerNotLifeOrMarkedDamage() {
         val f = CombatDamageFixture(blockers = listOf("1/2"), targetCorner = "4", note = "Trample Lifelink")
         val result = f.assign()

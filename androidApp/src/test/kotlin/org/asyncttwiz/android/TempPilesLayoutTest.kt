@@ -42,6 +42,7 @@ class TempPilesLayoutTest {
         }
     }
 
+    // ZON-045
     @Test fun portraitCountersShrinkThenTakeTheirOwnRowOnlyWithSeveralPilesAndNoRoom() {
         val one = scene(play(listOf(1)))
         val three = scene(play(listOf(1, 2, 3)))
@@ -75,6 +76,7 @@ class TempPilesLayoutTest {
         assertTrue(own.all { it.bounds.bottom <= 892f })
     }
 
+    // ZON-045
     @Test fun largerPilesNeedTheirOwnCounterRowSooner() {
         val small = scene(play(listOf(1, 2)), size = 1f)
         val large = scene(play(listOf(1, 2)), size = 1.5f)
@@ -87,6 +89,7 @@ class TempPilesLayoutTest {
         assertTrue(single.counterItems("a").all { it.bounds.y < single.items.single { it.id == "a/LIBRARY" }.bounds.bottom })
     }
 
+    // ZON-045
     @Test fun landscapePilesShareTheCounterRowUntilCountersNeedTheirOwn() {
         val quiet = scene(play(listOf(1, 2, 3)), landscape = true)
         val exile = quiet.items.single { it.id == "a/EXILE" }.bounds
@@ -119,6 +122,7 @@ class TempPilesLayoutTest {
         assertEquals(TempPiles.containerId(playId, "b", 3), (board as TableDestination.Container).id)
     }
 
+    // SYS-040, ZON-042
     @Test fun cardMenuOffersAllFourPilesDisabledOnlyWhereNothingCanMove() {
         val base = play(listOf(1, 2))
         val two = TempPiles.containerId(playId, "a", 2)

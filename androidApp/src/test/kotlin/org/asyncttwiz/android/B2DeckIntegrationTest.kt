@@ -60,6 +60,7 @@ class B2DeckIntegrationTest {
         override fun close() = Unit
     }
 
+    // LOB-064
     @Test fun acceptedImportOpensRetainedDefinitionAndSyncDoesNotRetargetInspection() {
         val worker = Worker()
         val plan = DeckSavePlan.from(resolved, summary.name)

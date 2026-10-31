@@ -47,6 +47,7 @@ class R30AnyPlayerTest {
         assertTrue(AnyPlayer.RULES_VERSION <= CURRENT_GAMEPLAY_RULES_VERSION)
     }
 
+    // SYS-036, ZON-063
     @Test fun theOtherPlayerMovesAPrivateLookCardIntoTheOwnersHandBlind() {
         val look = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3), a).state!!
         val display = look.board.contentsDisplays.single()
@@ -65,6 +66,7 @@ class R30AnyPlayerTest {
         assertEquals("accessDenied", GameplayRules.move(look, b, command(move, look), move, rulesVersion = older).reason)
     }
 
+    // SYS-036, ZON-063
     @Test fun theOtherPlayerReordersAndBlindlyRevealsCardsOfAPrivateLookPanel() {
         val look = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3), a).state!!
         val display = look.board.contentsDisplays.single()
@@ -86,6 +88,7 @@ class R30AnyPlayerTest {
             rulesVersion = older).reason)
     }
 
+    // SYS-036
     @Test fun theOtherPlayerDiscardsFromARevealedHand() {
         // Thoughtseize: the owner reveals their hand and the other player picks the card to discard.
         val hand = root().board.containers.single { it.id == id(11) }.cards
@@ -97,6 +100,7 @@ class R30AnyPlayerTest {
         assertEquals("accessDenied", GameplayRules.move(revealed, b, command(discard, revealed), discard, rulesVersion = older).reason)
     }
 
+    // SYS-036, ZON-011
     @Test fun theOtherPlayerRevealsFromAndPicksAtRandomFromTheOwnersHand() {
         val state = root()
         val hand = state.board.containers.single { it.id == id(11) }.cards
@@ -116,6 +120,7 @@ class R30AnyPlayerTest {
         assertEquals(1, exiled.board.containers.single { it.id == id(13) }.cards.size)
     }
 
+    // SYS-036
     @Test fun theOtherPlayerReordersTheOwnersHandWithoutSeeingIt() {
         val state = root()
         val hand = state.board.containers.single { it.id == id(11) }.cards

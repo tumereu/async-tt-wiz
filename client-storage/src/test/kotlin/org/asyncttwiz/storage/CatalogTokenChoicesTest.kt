@@ -9,6 +9,7 @@ import java.nio.file.Path
 import java.io.File
 
 class CatalogTokenChoicesTest {
+    // TBL-021
     @Test fun deckAndTokenFacesShareLoyaltyDefenseAndSagaCorners() {
         for (token in listOf(false, true)) for ((type, fields, expected) in listOf(
             Triple("Legendary Planeswalker — Test", "\"loyalty\":\"4\"", "4"),

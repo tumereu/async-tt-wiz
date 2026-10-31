@@ -256,6 +256,7 @@ class TokenSearchTest {
         assertTrue(source.cachedError()!!.contains("not installed"))
     }
 
+    // TBL-100
     @Test fun productionSourceReusesPreparedSnapshotUntilImportPublishesAnotherGeneration() = runBlocking {
         var opens = 0
         val repository = CatalogRepository(temporary.newFolder("catalog")) {
@@ -322,6 +323,7 @@ class TokenSearchTest {
         controller.close(); scope.cancel()
     }
 
+    // TBL-100
     @Test fun cachedGenerationIsImmediateAcrossOpensAndFilteringFiveThousandTokensIsCheap() {
         val definitions = (1..5000).map { definition(it, "Token ${it.toString().padStart(4, '0')}") }
         val page = TokenSearchPage("prepared", definitions, null, definitions.map(CatalogTokenChoice::from))

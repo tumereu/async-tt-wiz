@@ -9,6 +9,7 @@ import kotlin.test.*
 class PodPickSwipeTest {
     private fun drag(offset: Float) = PodPickSwipeState().drag(offset)
 
+    // DRF-059
     @Test fun distanceThresholdMatchesFullTintInBothDirections() {
         for ((direction, mark) in listOf(1f to PodPickMark.KEEP, -1f to PodPickMark.BURN)) {
             assertEquals(.5f, drag(15f * direction).progress(100))
@@ -21,6 +22,7 @@ class PodPickSwipeTest {
         assertNull(drag(100f).finish(0, true).decision)
     }
 
+    // DRF-059
     @Test fun cancellationAndShortReleaseFadeAtTheirFinalOffsetWithoutCommitting() {
         for (finished in listOf(drag(80f).finish(100, true, cancelled = true), drag(-29f).finish(100, true))) {
             assertEquals(PodPickSwipePhase.FADING, finished.phase)
@@ -42,6 +44,7 @@ class PodPickSwipeTest {
         assertEquals(next.generation, next.drag(-40f).generation)
     }
 
+    // DRF-060
     @Test fun releaseRespectsDisabledBurnsAndTogglesExistingMarks() {
         assertNull(drag(-80f).finish(100, false).decision)
         val pack = DraftPrivatePack("pack", 1, (1..4).map { DraftCopy("$it", "definition") })

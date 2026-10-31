@@ -27,6 +27,7 @@ class PodScreensTest {
     private val alice = AccountIdentity("alice", "Alice")
     private val bob = AccountIdentity("bob", "Bob")
 
+    // DRF-022
     @Test fun numberPopupKeepsEditsLocalUntilSaveAndRejectsEmptyOverflowAndOutOfRange() {
         var saved: Int? = null
         compose.setContent { ScreenTheme {
@@ -45,6 +46,7 @@ class PodScreensTest {
         assertEquals(3, saved)
     }
 
+    // DRF-025
     @Test fun sideboardPopupUsesSquareUnlimitedToggleAndPreservesFiniteInput() {
         var saved: Int? = 10
         compose.setContent { ScreenTheme {
@@ -63,6 +65,7 @@ class PodScreensTest {
         field.assertIsEnabled().assertTextEquals("0–2147483647", "0")
     }
 
+    // DRF-088
     @Test fun setPickerSearchesNamesCodesAndDatesNewestFirstAndRedownloadsCachedRows() {
         var state by mutableStateOf(PodSetPickerState(open = true, loaded = true, rows = listOf(
             PodSetRow(DraftableSet("OLD", "Older set", "2000-01-01", 100, "core"), false),
@@ -115,6 +118,7 @@ class PodScreensTest {
         assertEquals("OLD", chosen)
     }
 
+    // DRF-018
     @Test fun sourceRowShowsOnlyTheNameWhenBoosterOrSupplyChanges() {
         var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, setCode = "TST", setName = "Test set",
             boosterKind = SetBoosterKind.RECIPE_BASED, boosterName = "play"))
@@ -133,6 +137,7 @@ class PodScreensTest {
         compose.onNodeWithText("Test set").assertDoesNotExist()
     }
 
+    // DRF-024, DRF-026
     @Test fun recipeSetsHidePackSizeAndAllSetsHideColorBalancing() {
         var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED))
         var settings by mutableStateOf(DraftSettings())
@@ -162,6 +167,7 @@ class PodScreensTest {
         assertTrue(opened)
     }
 
+    // DRF-012
     @Test fun pendingInvitationsAppearAboveMyPodsAndHeaderDisappearsWhenEmpty() {
         val pod = PodSummary("pod", "My draft", PodPhase.SETUP, alice, listOf(alice, bob),
             PodAttention.NONE, 0, "2026-10-26T00:00:00Z")
@@ -182,6 +188,7 @@ class PodScreensTest {
         compose.onNodeWithText("MY PODS (1)").assertIsDisplayed()
     }
 
+    // DRF-121
     @Test fun gamesTabDisplaysBuildingAndSubmittedWithoutPrematureChallenges() {
         val detail = PodDetail("pod", "Synergy", PodPhase.DRAFTED, alice, DraftSettings(),
             PodSource("Cube", 540), DraftSupply(90, 540),
@@ -197,6 +204,7 @@ class PodScreensTest {
         compose.onNodeWithText("Submit your deck to challenge other members.").assertDoesNotExist()
     }
 
+    // SYS-024
     @Test fun challengeErrorsDoNotShiftContentAndRetainedRetryOutlastsTransientErrorEvenWithoutPods() {
         var state by mutableStateOf(LobbyState())
         var retries = 0
@@ -232,6 +240,7 @@ class PodScreensTest {
         compose.onNodeWithText(error).assertIsDisplayed()
     }
 
+    // DRF-020
     @Test fun modeChipsSwitchToGridDefaultsAndHideBoosterSettingsIncludingAdvanced() {
         var settings by mutableStateOf(DraftSettings())
         compose.setContent { ScreenTheme { Column { PodSettingsFields(settings, 2, true) { settings = it(settings) } } } }
@@ -257,6 +266,7 @@ class PodScreensTest {
         compose.onNodeWithText("Pack size").assertExists()
     }
 
+    // DRF-028
     @Test fun twoPicksIsOnlyEnabledWithExactlyTwoMembersAndCreatorPermission() {
         var members by mutableIntStateOf(3)
         var enabled by mutableStateOf(true)
@@ -273,6 +283,7 @@ class PodScreensTest {
     private val twoPicks = isToggleable() and !hasText("Fresh boosters")
     private val freshBoosters = isToggleable() and hasText("Fresh boosters")
 
+    // DRF-027
     @Test fun freshBoostersIsAlwaysShownButOnlyTogglesForSetGrids() {
         var source by mutableStateOf(PodSource(kind = PodSourceKind.SET, boosterKind = SetBoosterKind.RECIPE_BASED))
         var settings by mutableStateOf(DraftSettings())
@@ -295,6 +306,7 @@ class PodScreensTest {
         compose.onNode(freshBoosters).assertExists().assertIsNotEnabled()
     }
 
+    // DRF-018, DRF-022
     @Test fun sharedFormShowsEverySettingAsASquareTileWithoutAdvancedToggle() {
         var settings by mutableStateOf(DraftSettings())
         compose.setContent { ScreenTheme { Column {
@@ -331,6 +343,7 @@ class PodScreensTest {
         } finally { fixture.lobby.close() }
     }
 
+    // DRF-078
     @Test fun podBackgroundRefreshDoesNotAddALoaderOrMoveTheList() {
         val pod = PodSummary("pod", "My draft", PodPhase.SETUP, alice, listOf(alice), PodAttention.NONE, 0, "now")
         var state by mutableStateOf(PodState(loaded = true, pods = listOf(pod)))
@@ -342,6 +355,7 @@ class PodScreensTest {
         compose.onNodeWithText("Uploading set source and saving pod…").assertDoesNotExist()
     }
 
+    // DRF-071
     @Test fun waitingTextNamesPlayersHoldingPacksAndGridRoundsWhenKnown() {
         val carol = AccountIdentity("carol", "Carol")
         val booster = PodDetail("pod", "Pod", PodPhase.DRAFTING, alice, DraftSettings(), PodSource("Cube", 540),
@@ -374,6 +388,7 @@ class PodScreensTest {
         assertEquals("Waiting for Bob · Round 3 of 6", podWaitingText(early, alice.accountId))
     }
 
+    // DRF-057
     @Test fun pickOrientationNamesRoundPickAndWhoPassedThePack() {
         val pack = org.asyncttwiz.protocol.DraftPrivatePack("pack", 1, emptyList(), pick = 2, passedBy = bob.accountId)
         val detail = PodDetail("pod", "Pod", PodPhase.DRAFTING, alice, DraftSettings(), PodSource("Cube", 540),

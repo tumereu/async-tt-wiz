@@ -16,6 +16,7 @@ class EnteredThisTurnPresentationTest {
     private fun items(state: PlayState, cardId: String) =
         TablePresentation.scene(f.game, state, f.a, 412f, 892f, false).items.filter { it.kind == TableItemKind.CARD && it.sourceId == cardId }
 
+    // TBL-027
     @Test fun markedBattlefieldCardAndItsCombatCopyHaveABlueTitleAndSayItInTheirDescription() {
         val source = f.source(f.a, "1/3")
         val state = withEntered(f.combat(), source.id, f.combat().board.turn.number)
@@ -28,6 +29,7 @@ class EnteredThisTurnPresentationTest {
         }
     }
 
+    // TBL-027
     @Test fun earlierTurnAndUnsetCardsKeepTheDefaultTitle() {
         val source = f.source(f.a, "1/3")
         val turn = f.combat().board.turn.number
@@ -40,6 +42,7 @@ class EnteredThisTurnPresentationTest {
         }
     }
 
+    // TBL-028
     @Test fun faceDownBattlefieldCardShowsAQuestionMarkTitleThatIsBlueWhenItEnteredThisTurn() {
         val source = f.source(f.a, "1/3")
         val turn = f.combat().board.turn.number

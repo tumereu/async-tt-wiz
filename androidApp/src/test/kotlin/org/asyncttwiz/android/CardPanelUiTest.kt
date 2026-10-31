@@ -48,6 +48,7 @@ class CardPanelUiTest {
     private fun panel() = f.play.board.contentsDisplays.single()
     @After fun close() { f.lobby.close(); f.worker.drain() }
 
+    // ZON-022
     @Test fun lookPanelOffersExistingStackAction() = stackFromPanel(PlayZone.LIBRARY, ContentsSelection.TOP)
     @Test fun searchPanelOffersExistingStackAction() = stackFromPanel(PlayZone.LIBRARY, ContentsSelection.ALL)
     @Test fun graveyardPanelOffersExistingStackAction() = stackFromPanel(PlayZone.GRAVEYARD)
@@ -72,6 +73,7 @@ class CardPanelUiTest {
         assertTrue(CardVisibility.isVisibleFaceUp(f.play.board, f.card(40), f.other))
     }
 
+    // ZON-066
     @Test fun libraryPanelAutoClosesOnLastMenuMoveAndAnotherCanOpenImmediately() {
         setup(); ui.openLibrary(f.container(PlayZone.LIBRARY)); mount()
         click("Look 1")
@@ -94,6 +96,7 @@ class CardPanelUiTest {
         assertTrue(f.play.board.contentsDisplays.isEmpty())
     }
 
+    // ZON-065
     @Test fun searchGroupsCopiesByNameAndCloseIsAShuffleNotADialogDismissal() {
         setup(); show(ContentsSelection.ALL); mount()
         assertEquals(1, scene().cardPanels.single().rows.size)
@@ -113,6 +116,7 @@ class CardPanelUiTest {
         assertEquals(f.play.currentNodeId, f.play.currentGroup!!.firstNodeId)
     }
 
+    // ZON-053
     @Test fun revealAndHandAreOneRequestWithSeparateHistoryGroups() {
         setup(); show(); mount()
         val item = scene().items.first { it.viewport.startsWith("cardPanel/") }
@@ -136,6 +140,7 @@ class CardPanelUiTest {
         assertTrue(historyText(moved, revealed, f.other).description.contains(f.definition.faces.single().name))
     }
 
+    // ZON-064
     @Test fun panelDragUsesTableLandingAndRestChooserPreservesPanelOrder() {
         setup(); show(); mount()
         val before = panel().cardIds
@@ -161,6 +166,7 @@ class CardPanelUiTest {
         assertEquals(before.drop(1), f.play.board.containers.single { it.id == f.container(PlayZone.LIBRARY) }.cards.takeLast(2))
     }
 
+    // ZON-050
     @Test fun lookDragReordersInsideTheSamePanelAndBothOrientationsStayNarrow() {
         setup(); show(); mount()
         val before = panel().cardIds
@@ -183,6 +189,7 @@ class CardPanelUiTest {
         }
     }
 
+    // HIS-017, ZON-050
     @Test fun opponentSeesBacksThenOneFlipAndCanHoldInspectDuringPausedReview() {
         setup(f.other); show(); var pauses = 0; mount(f.other, review = true) { pauses++ }
         val before = scene(f.other)
@@ -219,6 +226,7 @@ class CardPanelUiTest {
         assertNull(ui.peek)
     }
 
+    // ZON-049
     @Test fun twoCardPanelUsesThreeColumnsAndStaysInsideTheBattlefield() {
         setup(); show(count = 2); mount()
         compose.onNodeWithContentDescription("Your Look panel, 2 cards").assertWidthIsEqualTo(104.dp)
@@ -242,6 +250,7 @@ class CardPanelUiTest {
         return display
     }
 
+    // ZON-067
     @Test fun eitherPlayerClosesAForgottenLookPanelWithTheAuthorsChoices() {
         val display = opponentPanel(ContentsSelection.TOP)
         // Select all, card actions and closing are anyone's (rules v30).
@@ -257,6 +266,7 @@ class CardPanelUiTest {
         assertTrue(f.play.board.cards.none { CardVisibility.isVisibleFaceUp(f.play.board, it, f.actor) })
     }
 
+    // SYS-036, ZON-063
     @Test fun theOtherPlayerMovesALookCardIntoItsOwnersHandBlind() {
         // The opponent looks at their own Library top 2; this player moves one into the opponent's Hand without seeing it.
         val ids = listOf(f.id(40), f.id(41))
@@ -284,6 +294,7 @@ class CardPanelUiTest {
         assertFalse(historyText(moved, root, f.actor).description.contains(f.definition.faces.single().name))
     }
 
+    // ZON-067
     @Test fun eitherPlayerClosesAForgottenRevealWithTheFullRestChoice() {
         opponentPanel(ContentsSelection.TOP, reveal = true)
         click("Done opponent's Reveal panel")
@@ -293,6 +304,7 @@ class CardPanelUiTest {
         assertEquals(listOf(f.id(40), f.id(41)).toSet(), f.play.board.containers.single { it.id == f.container(PlayZone.GRAVEYARD) }.cards.toSet())
     }
 
+    // ZON-065, ZON-067
     @Test fun eitherPlayerClosesAForgottenSearchAsTheUsualShuffle() {
         val display = opponentPanel(ContentsSelection.ALL)
         click("Close opponent's Search panel")
@@ -344,6 +356,7 @@ class CardPanelUiTest {
             .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
     }
 
+    // ZON-058
     @Test fun localViewSitsBesideLookHasFixedGreyedMenuAndSupportsHoldAndDragOut() {
         setup()
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.GRAVEYARD), PlayZone.GRAVEYARD)))

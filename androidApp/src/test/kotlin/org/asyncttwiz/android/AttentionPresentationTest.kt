@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class AttentionPresentationTest {
+    // HIS-008, TRN-013
     @Test fun timelineBarsAreNeutralRegardlessOfTurnViewerOrAttention() {
         val initial = TableFixture.play().board
         for (turn in listOf("a", "b")) for (viewer in listOf("a", "b")) for (holder in listOf(null, "a", "b")) {
@@ -15,6 +16,7 @@ class AttentionPresentationTest {
         }
     }
 
+    // TRN-005, TRN-012
     @Test fun turnTextAndFieldColorsFollowDisplayedTurnNotTheMove() {
         val initial = TableFixture.play()
         for (turnPlayer in listOf("a", "b")) for (viewer in listOf("a", "b")) {
@@ -50,6 +52,7 @@ class AttentionPresentationTest {
         assertFalse(arrival(d.other, PlayAction.PassAttention, reviewAfter = true))
     }
 
+    // TRN-006
     @Test fun movePillIsIndependentOfTurnAndReviewDisablesPass() {
         val initial = TableFixture.play()
         for (holder in listOf(null, "a", "b")) for (viewer in listOf("a", "b")) {

@@ -35,6 +35,7 @@ class PodBuildViewTest {
         ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("pod-build", 0).edit().clear().commit()
     }
 
+    // DRF-098, DRF-099
     @Test fun swipesFollowTheTableAndMoveOnlyOneCopy() {
         var category by mutableStateOf(PodDeckCategory.MAIN)
         compose.setContent { MaterialTheme {
@@ -51,6 +52,7 @@ class PodBuildViewTest {
         assertEquals(6, moves.size)
     }
 
+    // DRF-099
     @Test fun swipeProjectionTargetAndColourFollowTheSwipeTable() {
         assertEquals(PodPickGreen, PodDeckCategory.MAIN.podBuildColor())
         assertEquals(PodBuildBlue, PodDeckCategory.SIDE.podBuildColor())
@@ -66,6 +68,7 @@ class PodBuildViewTest {
         assertEquals(PodDeckCategory.SIDE, podBuildSwipeTarget(PodDeckCategory.TRASH, -5f))
     }
 
+    // DRF-100
     @Test fun cardStaysWhileItsProjectionFollowsTheFingerAndSnapsBackBelowTheThreshold() {
         compose.setContent { MaterialTheme {
             Box(Modifier.width(160.dp)) { PodBuildCard(tile, PodDeckCategory.MAIN, true, { id, destination -> moves += id to destination }, {}) }
@@ -95,6 +98,7 @@ class PodBuildViewTest {
         compose.runOnIdle { assertEquals(listOf("first" to PodDeckCategory.SIDE), moves) }
     }
 
+    // DRF-097, DRF-101
     @Test fun cardsInOneColumnSitOneDpApartAndAMovedCardFadesOutWhereItWas() {
         var build by mutableStateOf(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("second"))))
         compose.setContent { MaterialTheme {
@@ -122,6 +126,7 @@ class PodBuildViewTest {
         compose.onNodeWithText("Side 1").assertExists()
     }
 
+    // DRF-102
     @Test fun tapOffersTwoDestinationsAndHoldInspects() {
         var inspections = 0
         compose.setContent { MaterialTheme {
@@ -137,6 +142,7 @@ class PodBuildViewTest {
         compose.onNodeWithText("→ Trash").assertDoesNotExist()
     }
 
+    // DRF-102
     @Test fun submittedCardsHaveNoMoveGesturesAndTheirMenuOnlyInspects() {
         var inspections = 0
         var opened = 0
@@ -156,6 +162,7 @@ class PodBuildViewTest {
         compose.runOnIdle { assertTrue(moves.isEmpty()); assertEquals(1, inspections); assertEquals(1, opened) }
     }
 
+    // DRF-102
     @Test fun menuInspectOpensTheFullInspectorWithTheBackFace() {
         val double = CardDefinition("Day // Night", listOf(DefinitionFace("day", "Day Side"), DefinitionFace("night", "Night Side")),
             layout = "transform")
@@ -183,6 +190,7 @@ class PodBuildViewTest {
         compose.runOnIdle { assertTrue(scroll.value > 0); assertTrue(moves.isEmpty()) }
     }
 
+    // DRF-064
     @Test fun doubleFacedPreviewClosesOnReleaseAndSimultaneousTapsOpenOneMenu() {
         val dfc = CardDefinition("Front // Back", listOf(DefinitionFace("a", "Front"), DefinitionFace("b", "Back")),
             layout = "modal_dfc")
@@ -206,6 +214,7 @@ class PodBuildViewTest {
         compose.onAllNodesWithText("→ Side").assertCountEquals(1)
     }
 
+    // DRF-094, DRF-103, DRF-119
     @Test fun buildShowsCountsValidatesSubmitAndReportsBasicsWithoutMutatingServerData() {
         var build by mutableStateOf(PodDeckBuild(listOf(PodDeckCopy("first")), PodDeckBasics(plains = 38)))
         var requestedBasics: PodDeckBasics? = null
@@ -252,6 +261,7 @@ class PodBuildViewTest {
         assertTrue(kotlin.math.abs(bounds.height / bounds.width - 1.4f) < .03f)
     }
 
+    // DRF-097, DRF-106
     @Test fun columnLabelsCountCopiesAndTheUndoSlotSitsLeftOfSubmit() {
         var canUndo by mutableStateOf(false)
         var undos = 0
@@ -275,6 +285,7 @@ class PodBuildViewTest {
         compose.onNodeWithText("→ Side").assertIsDisplayed()
     }
 
+    // DRF-120
     @Test fun submittedBuildHidesAllEditingControlsAndTrashStartsExpanded() {
         compose.setContent { MaterialTheme {
             PodBuildView(PodDeckBuild(listOf(PodDeckCopy("first", PodDeckCategory.TRASH))),
@@ -290,6 +301,7 @@ class PodBuildViewTest {
         compose.onNodeWithText("Trash 1").assertIsDisplayed()
     }
 
+    // DRF-097
     @Test fun buildContentSharesWideSideInsetsAcrossHeadersBasicsAndAllCardSections() {
         val copies = PodDeckCategory.entries.associate { it.name to DraftCopy(it.name, "land") }
         compose.setContent { MaterialTheme {
@@ -309,6 +321,7 @@ class PodBuildViewTest {
         }
     }
 
+    // DRF-094, DRF-103
     @Test fun sideBasicsHaveTheirOwnStepperRowUnderTheSideHeader() {
         var build by mutableStateOf(PodDeckBuild(sideBasics = PodDeckBasics(island = 17)))
         val side = mutableListOf<Pair<Int, Int>>()
@@ -351,6 +364,7 @@ class PodBuildViewTest {
         compose.runOnIdle { assertEquals(PodDeckBasics(), build.basics) }
     }
 
+    // DRF-095
     @Test
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeUsesItsOwnColumnPreferenceAndFitsAllColumns() {
@@ -403,6 +417,7 @@ class PodBuildViewTest {
         }
     }
 
+    // DRF-096
     @Test fun cardsSideBySideDefaultToOneAndLayOutRowByRowAtEqualWidths() {
         val preferences = ApplicationProvider.getApplicationContext<Context>().getSharedPreferences("pod-build", 0)
         lateinit var sideBySide: PodBuildColumns
@@ -437,6 +452,7 @@ class PodBuildViewTest {
         compose.runOnIdle { sideBySide.choose(9); assertEquals(3, sideBySide.count); sideBySide.choose(0); assertEquals(1, sideBySide.count) }
     }
 
+    // DRF-105
     @Test fun deckNameKeyboardDoneSavesTheName() {
         var renamed: String? = null
         compose.setContent { MaterialTheme {
@@ -453,6 +469,7 @@ class PodBuildViewTest {
         compose.onNode(hasSetTextAction()).assertDoesNotExist()
     }
 
+    // DRF-107, DRF-108, DRF-109, DRF-110
     @Test fun columnFeedReviewsEachCopyAndUndoMovesItBack() {
         val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("second"), PodDeckCopy("land"))))
         val land = card.copy(name = "Land card", faces = listOf(card.faces.single().copy(typeLine = "Land", manaCost = "")))
@@ -495,6 +512,7 @@ class PodBuildViewTest {
         compose.onNodeWithText("Next", substring = true).assertDoesNotExist()
     }
 
+    // DRF-107, DRF-110
     @Test fun columnFeedClosesAtItsEndAndSectionFeedsCoverEveryColumn() {
         val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("land"), PodDeckCopy("first"),
             PodDeckCopy("side", PodDeckCategory.SIDE), PodDeckCopy("trash", PodDeckCategory.TRASH))))
@@ -530,6 +548,7 @@ class PodBuildViewTest {
         compose.onNodeWithTag("pod-build-feed-label-TRASH-2").assertDoesNotExist()
     }
 
+    // DRF-092
     @Test
     @Config(qualifiers = "w412dp-h400dp-port-mdpi")
     fun submittedBuildOffersNoFeedAndTheDeckNameScrollsAway() {

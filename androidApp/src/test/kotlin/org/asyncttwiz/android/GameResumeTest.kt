@@ -44,6 +44,7 @@ class GameResumeTest {
         override fun close() = session.close()
     }
 
+    // SYS-019
     @Test fun resumeAndDisconnectAloneStaySilentIndefinitely() = Fixture().use { f ->
         f.listener.disconnected()
         repeat(20) { f.time += 1_000; f.session.tick() }
@@ -53,6 +54,7 @@ class GameResumeTest {
         assertEquals(2, f.opens)
     }
 
+    // SYS-014
     @Test fun actionWaitsForRecoveredStreamAndSendsItsOriginalExactlyOnce() = Fixture().use { f ->
         f.listener.disconnected()
         assertTrue(f.play())
@@ -67,6 +69,7 @@ class GameResumeTest {
         assertEquals(1, f.frames.filterIsInstance<GameCommand>().count { it.action is GameAction.SendChat })
     }
 
+    // SYS-014
     @Test fun queuedMovesUseRecoveredGenerationAndOldSocketCallbacksCannotCancelThem() = Fixture().use { f ->
         val old = f.listener
         old.disconnected()

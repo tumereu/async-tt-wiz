@@ -20,6 +20,7 @@ import kotlin.test.*
 class MulliganUiTest {
     @get:Rule val compose = createComposeRule()
 
+    // ZON-028
     @Test fun quantityIsRememberedOnlyForTheSameGameAndPlayer() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("mulligan-quantities", 0).edit().clear().commit()
@@ -31,6 +32,7 @@ class MulliganUiTest {
         assertEquals(7, MulliganQuantityStore(context, "a", "other-game").read())
     }
 
+    // ZON-029
     @Test fun nonTurnPlayersQuickMulliganOpensOnlyNumberDialogAndSharesLibraryPreference() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("mulligan-quantities", 0).edit().clear().commit()

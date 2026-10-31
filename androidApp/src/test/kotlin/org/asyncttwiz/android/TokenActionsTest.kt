@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TokenActionsTest {
+    // TBL-098, TBL-099
     @Test fun flatListDeduplicatesPrintingsAndSortsBlankAlphabeticallyWithinFavoritesAndOthers() {
         fun token(name: String, printing: String = name, rules: String = "") = CardDefinition(name,
             listOf(DefinitionFace(id(1), name, corner = "1/1", rulesText = rules)), token = true, printingId = printing)
@@ -39,6 +40,7 @@ class TokenActionsTest {
         assertEquals(TokenActions.detail(definition), org.asyncttwiz.storage.CatalogTokenChoice.from(submitted).detail)
     }
 
+    // TBL-098
     @Test fun searchIncludesBlankFiltersNonTokensAndPreservesExactPrintingIdentity() {
         fun soldier(printing: String): SubmittedDefinition = CardDefinition("Soldier", listOf(
             DefinitionFace(id(1), "Soldier", corner = "1/1")), token = true, printingId = printing)

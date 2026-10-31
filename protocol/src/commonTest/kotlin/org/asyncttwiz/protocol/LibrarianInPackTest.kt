@@ -15,6 +15,7 @@ class LibrarianInPackTest {
     private fun head(state: DraftState, player: String) = DraftEngine.privateView(state, player).head!!
     private fun owned(state: DraftState, player: String) = state.pools.getValue(player).filter { it.startsWith("librarian:") }
 
+    // DRF-053
     @Test fun keepingTheSpentLibrarianBackIsANoOpThatStillGrantsTheExtraSlot() {
         for (mode in listOf(DraftMode.BOOSTER, DraftMode.GLIMPSE)) {
             val burn = if (mode == DraftMode.GLIMPSE) 2 else 0
@@ -33,6 +34,7 @@ class LibrarianInPackTest {
         }
     }
 
+    // DRF-053
     @Test fun burningTheSpentLibrarianCountsAsOneOfTheBurns() {
         val state = start()
         val player = state.seating.first()
@@ -53,6 +55,7 @@ class LibrarianInPackTest {
             DraftPick(player, pack.id, ids.take(2), listOf(other, ids[2]), spent)).reason)
     }
 
+    // DRF-055
     @Test fun aLibrarianLeftInThePackPassesOnAndTheReceiverCanPickIt() {
         val state = start(DraftMode.BOOSTER, burn = 0)
         val (a, b) = state.seating
@@ -64,6 +67,7 @@ class LibrarianInPackTest {
         assertEquals(listOf(pack.id), next.queues.getValue(b).drop(1))
     }
 
+    // DRF-053
     @Test fun aFinalPickOffersTheSameChoicesAndLeftoversBurnAsBefore() {
         // 3 cards left, keep 1, burn 2: near the end with or without a spend.
         val state = start(size = 3)

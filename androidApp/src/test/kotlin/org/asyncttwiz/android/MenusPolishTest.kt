@@ -21,6 +21,7 @@ class MenusPolishTest {
     private val viewModels = ViewModelStore()
     @After fun clearViewModels() { viewModels.clear() }
 
+    // LOB-079
     @Test fun settingsIsReachableFromMainMenuAndDrawerAndOwnsCardRecordsAndLogout() {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex))
@@ -42,6 +43,7 @@ class MenusPolishTest {
         compose.onNodeWithText("Card records").performScrollTo().assertIsDisplayed()
     }
 
+    // LOB-016, LOB-024
     @Test fun quickContinueEntryShowsOpponentAndActivityAndOpensItsGame() {
         val fixtures = ScreenFixtures()
         val game = fixtures.lobby.state.games.first().copy(lifecycle = GameLifecycle.ACTIVE, attentionHolder = "a")

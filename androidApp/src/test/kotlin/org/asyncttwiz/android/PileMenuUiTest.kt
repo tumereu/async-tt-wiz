@@ -57,6 +57,7 @@ class PileMenuUiTest {
     }
     private fun newCommands(before: Int) = f.commands().drop(before)
 
+    // ZON-033, ZON-035
     @Test fun pileTapOpensItsMenuAndDoubleTapOpensTheSearchPanelForEitherPlayersPiles() {
         setup()
         mount()
@@ -83,6 +84,7 @@ class PileMenuUiTest {
         assertTrue(f.commands().isEmpty())
     }
 
+    // ZON-033
     @Test fun pileMenuShowsEveryButtonAlwaysNeverAllToHandAndGreysThemWhenEmpty() {
         setup()
         mount()
@@ -99,6 +101,7 @@ class PileMenuUiTest {
         compose.onNodeWithContentDescription("All to hand").assertDoesNotExist()
     }
 
+    // ZON-034
     @Test fun allToExileIsOneInvocationIntoEachOwnersExile() {
         setup()
         mount()
@@ -113,6 +116,7 @@ class PileMenuUiTest {
         assertNull(ui.panel)
     }
 
+    // ZON-034
     @Test fun allToLibraryTopIsOneRandomOrderInvocationIntoOwnersLibraries() = allToLibrary(bottom = false)
     @Test fun allToLibraryBottomIsOneRandomOrderInvocationIntoOwnersLibraries() = allToLibrary(bottom = true)
     private fun allToLibrary(bottom: Boolean) {
@@ -127,6 +131,7 @@ class PileMenuUiTest {
         assertNull(ui.panel)
     }
 
+    // ZON-034
     @Test fun shuffleAllIntoLibraryMovesAndShufflesEveryReceivingLibraryInOneInvocation() {
         setup(PlayZone.EXILE)
         mount()
@@ -151,6 +156,7 @@ class PileMenuUiTest {
         assertEquals((40..42).map(f::id).toSet(), temp.cards.toSet())
     }
 
+    // ZON-060
     @Test fun panelMenuActsOnTheSelectedCardsOfThatPanelOnlyAsOneInvocation() {
         setup(mixed = false)
         // A card elsewhere (Library) is selected too: it is never part of the panel action.
@@ -185,6 +191,7 @@ class PileMenuUiTest {
         assertEquals(f.container(PlayZone.EXILE), f.card(40).containerId)
     }
 
+    // ZON-061
     @Test fun panelRectangleSelectsEveryCopyOfAGroupedRowAndNothingElse() {
         setup(mixed = false)
         ui.openPublicPile(f.container(PlayZone.GRAVEYARD))
@@ -207,6 +214,7 @@ class PileMenuUiTest {
         assertEquals(f.container(PlayZone.GRAVEYARD), f.card(41).containerId)
     }
 
+    // ZON-038
     @Test fun changingTheInteractionModeKeepsGraveyardAndSearchPanelsOpen() {
         setup(mixed = false)
         assertTrue(f.lobby.gameplay(PlayAction.ShowContents(f.container(PlayZone.LIBRARY), ContentsSelection.ALL, 1, false)))

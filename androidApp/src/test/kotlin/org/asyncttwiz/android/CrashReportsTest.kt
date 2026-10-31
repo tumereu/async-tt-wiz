@@ -47,6 +47,7 @@ class CrashReportsTest {
         assertNull(CrashReportStore(directory).bufferedJank())
     }
 
+    // LOB-090
     @Test fun deletesOnlySuccessfulUploadsAndRetriesFailuresOnLaterStart() = runBlocking {
         val store = CrashReportStore(temporary.newFolder())
         repeat(3) { store.write(report(it)) }

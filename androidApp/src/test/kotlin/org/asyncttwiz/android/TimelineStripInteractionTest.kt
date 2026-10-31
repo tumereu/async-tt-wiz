@@ -25,6 +25,7 @@ class TimelineStripInteractionTest {
         compose.waitForIdle()
     }
 
+    // HIS-003
     @Test fun tapDescriptionFadesAfterShortDelayAndHoldPersistsUntilReleaseWithoutScrubbing() {
         var pauses = 0
         var selections = 0
@@ -53,6 +54,7 @@ class TimelineStripInteractionTest {
         assertEquals(0, selections)
     }
 
+    // HIS-002
     @Test fun livePanningOnlyChangesWindowAndEitherAuthorsNewEventAnimatesBackToEnd() {
         var events by mutableStateOf((0..200).map { event(it) })
         var pauses = 0
@@ -84,6 +86,7 @@ class TimelineStripInteractionTest {
         assertEquals(0, selections)
     }
 
+    // HIS-011
     @Test fun reviewTapStillSelectsAndHoldStillDoesNotMoveCursor() {
         var selected by mutableStateOf("1")
         var pauses = 0

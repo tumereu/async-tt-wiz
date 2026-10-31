@@ -3,6 +3,7 @@ package org.asyncttwiz.protocol
 import kotlin.test.*
 
 class CardVisibilityTest {
+    // ZON-074
     @Test fun handProjectionRevealsOnlyItsSourceAndOnlyWhileALiveEntryRemains() {
         val root = gameplayFixture()
         val drawn = move(root, PlayZone.HAND, 200)
@@ -157,6 +158,7 @@ class CardVisibilityTest {
         assertEquals(moved.state.board, GameplayHistory.reverse(up.state, up.mutation))
     }
 
+    // ZON-073
     @Test fun libraryToPublicZonesIsFaceUpUnlessMoveExplicitlyRequestsFaceDown() {
         for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) {
             val revealed = move(gameplayFixture(), zone, 100)
@@ -180,6 +182,7 @@ class CardVisibilityTest {
         assertEquals(placement, up.board.cards.first().placement)
     }
 
+    // ZON-071
     @Test fun leavingBattlefieldForAnotherPublicZoneTurnsExplicitFaceDownCardUp() {
         val covered = move(gameplayFixture(), PlayZone.BATTLEFIELD, 100, faceDown = true).state!!
         val graveyard = move(covered, PlayZone.GRAVEYARD, 101)

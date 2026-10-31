@@ -44,6 +44,7 @@ class CombatMenuInteractionTest {
         return toolkit
     }
 
+    // CMB-003, CMB-004
     @Test fun projectionUsesTheCombatOnlyPageAndRemovalUsesTheCapturedMultiselection() {
         render(menu = true)
         compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
@@ -85,6 +86,7 @@ class CombatMenuInteractionTest {
         assertTrue(notes.all { it.value == "combat note" })
     }
 
+    // CMB-004
     @Test fun projectionGraveyardMovesEverySelectedSourceInOneBatch() {
         render(menu = true)
         compose.ringClick("Graveyard")

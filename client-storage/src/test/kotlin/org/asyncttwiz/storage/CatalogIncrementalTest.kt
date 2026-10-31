@@ -63,6 +63,7 @@ class CatalogIncrementalTest {
         assertTrue(result.entries.single().faces.all { face -> face.otherFaces.all { repo().printing(it) != null } })
     }
 
+    // LOB-092, LOB-095
     @Test fun plansNewRecentBoundaryAndPreviewSetsButNotDailyBuildsOrOldSets() {
         val meta = CatalogMetadata("2026-10-24", "5.2.2")
         val old = CatalogSet("OLD", today.minusDays(61).toString())
@@ -82,6 +83,7 @@ class CatalogIncrementalTest {
         assertFalse(CatalogUpdatePolicy.canDownload(null, CatalogUpdatePlan(meta, full = true), false, false))
     }
 
+    // LOB-093
     @Test fun manualFullRefreshWorksEvenWithUnchangedMetadata() {
         val root = root()
         val before = install(root)

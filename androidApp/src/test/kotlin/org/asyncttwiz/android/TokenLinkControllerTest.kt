@@ -30,6 +30,7 @@ class TokenLinkControllerTest {
             listOf(PlayContainer(id(12), PlayZone.BATTLEFIELD, id(7), listOf(id(9), id(10), id(11)))), TurnState(id(7))),
         listOf(TokenCatalog.blank), emptyList(), InitialStarter(StarterChoice(id(7)), id(7)))
 
+    // TBL-062
     @Test fun selectedAndUnselectedContextScopeSurvivesReflowSelectionAndSync() {
         var current = state()
         val sent = mutableListOf<PlayAction>()
@@ -52,6 +53,7 @@ class TokenLinkControllerTest {
         assertTrue(current.board.cards.all { it.note == "sync" }) // no fake local shared edit
     }
 
+    // TBL-087
     @Test fun selectedPairsSkipExistingLinksAndShareOneInvocation() {
         fun endpoint(n: Int) = LinkEndpoint(LinkEndpointKind.CARD, id(n))
         val current = state().let { it.copy(board = it.board.copy(links = listOf(PlayLink(id(20), endpoint(10), endpoint(9))))) }

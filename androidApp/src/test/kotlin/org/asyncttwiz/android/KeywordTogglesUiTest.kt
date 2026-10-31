@@ -42,6 +42,7 @@ class KeywordTogglesUiTest {
         compose.onNodeWithContentDescription(description).performTouchInput { advanceEventTime(350); click() }
     }
 
+    // TBL-085, TBL-086
     @Test fun moreOpensATogglePopupThatSendsEachToggleAndStaysOpen() {
         val first = f.source(f.a, "1/3").id
         val second = f.source(f.a, "1/2").id
@@ -64,6 +65,7 @@ class KeywordTogglesUiTest {
         assertNotNull(toolkit.manual.keywords)
     }
 
+    // TBL-086
     @Test fun customNoteTextDisablesOnlyThatButton() {
         val first = f.source(f.a, "1/3").id
         render(mapOf(first to "Flying, X=3"), listOf(first))

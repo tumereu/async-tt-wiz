@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test
 
 /** Actual HTTP through normal Spring/Tomcat/Security handlers, real PostgreSQL and shared JSON. */
 class AccountHttpTest {
+    // LOB-010
     @Test fun `profile updates validate names and avatars and project current identities everywhere`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -72,6 +73,7 @@ class AccountHttpTest {
             }
         }
     }
+    // TBL-099
     @Test fun `token favorites are authenticated account scoped durable and distinguish defaults from empty`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -116,6 +118,7 @@ class AccountHttpTest {
             }
         }
     }
+    // LOB-080
     @Test fun `account settings default to show after first game and are authenticated account scoped and shared by devices`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -175,6 +178,7 @@ class AccountHttpTest {
         fail<Unit>("Service did not become ready")
     }
 
+    // LOB-001, LOB-002, LOB-004
     @Test fun `real entry privacy exact credentials independent sessions restart and idempotent logout`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

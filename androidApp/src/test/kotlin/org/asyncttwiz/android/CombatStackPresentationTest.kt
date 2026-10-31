@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class CombatStackPresentationTest {
+    // CMB-005, HIS-082, STK-009
     @Test fun projectionNoteChipsUseOccurrenceTextNotTheSourceNoteAndPingTargetsTheOccurrence() {
         val f = TableStatesFixture
         val original = f.combat()
@@ -20,6 +21,7 @@ class CombatStackPresentationTest {
         }
         assertTrue(scene.items.any { it.projection && it.note.isNotEmpty() })
     }
+    // STK-003
     @Test fun stackAndCombatDrawingsIgnoreTappedSourcesWithoutChangingRealCards() {
         val f = TableStatesFixture
         val original = f.combat()
@@ -49,6 +51,7 @@ class CombatStackPresentationTest {
             CombatDestination(declared.board.combat!!.id, CombatRole.BLOCKER, declared.board.combat!!.pairs.first().id), commands::command).prediction
     }
 
+    // CMB-008
     @Test fun packedPairWidthsUseUprightCardsAndOnlyInteriorDividers() {
         val state = populated().let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
             if (card.id == combatId(22)) card.copy(tapped = true) else card
@@ -123,6 +126,7 @@ class CombatStackPresentationTest {
         assertEquals(IdentityGap(pair.blockers.first().id, pair.blockers.last().id), gap.destination.cardGap)
     }
 
+    // CMB-008
     @Test fun eachRowIsCenteredInItsSlotWithUnchangedCardGapsAndDividerPadding() {
         val state = populated()
         for (width in listOf(28f, 48f, 56f)) {
@@ -140,6 +144,7 @@ class CombatStackPresentationTest {
         }
     }
 
+    // CMB-008
     @Test fun slotsRecenterOnAdditionAndRemovalInBothOrientationsWithoutResettingCamera() {
         val f = TableStatesFixture
         val initial = f.combat()
@@ -167,6 +172,7 @@ class CombatStackPresentationTest {
         }
     }
 
+    // STK-008
     @Test fun stackTopThreeDrawingAllOrderedContentsAndCountAtCommonScale() {
         val commands = CombatCommands()
         var state = combatState()

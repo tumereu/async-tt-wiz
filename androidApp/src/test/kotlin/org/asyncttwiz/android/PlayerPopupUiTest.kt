@@ -59,6 +59,7 @@ class PlayerPopupUiTest {
         }
     }
 
+    // TRN-030, TRN-031
     @Test fun ownPortraitLife() = life("a")
     @Test fun opponentPortraitLife() = life("b")
     @Test fun basicHostLife() = life("a", toolkitHost = false)
@@ -99,6 +100,7 @@ class PlayerPopupUiTest {
         }
     }
 
+    // TRN-031, TRN-033, TRN-035
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownLandscapeCounters() = counters("a")
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentLandscapeCounters() = counters("b")
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownEmptyLandscapeCounters() = counters("a", fallback = true)

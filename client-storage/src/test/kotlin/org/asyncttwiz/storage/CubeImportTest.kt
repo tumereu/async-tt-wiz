@@ -16,6 +16,7 @@ class CubeImportTest {
         repository.stage { index -> File(edition, "AllPrintings.json").inputStream().use { MtgJsonCatalog().import(it, index, metadata) } }
         return CubeImportResolver(repository)
     }
+    // DRF-007
     @Test fun includeSideboardIsOffByDefaultAndIgnoredLinesDoNotCountOrFail() {
         val resolver = resolver()
         val text = "Deck\n2000 Quiet Lattice Bolt\nSideboard\n1000 Velvet Prism Engine\nSB: 1 Unknown card"
@@ -31,6 +32,7 @@ class CubeImportTest {
         assertTrue(resolver.resolve("1 Quiet Lattice Bolt\n\nnot a valid sideboard entry").resolved)
         assertTrue(resolver.resolve("1 Quiet Lattice Bolt\nSB: not a card").resolved)
     }
+    // DRF-006
     @Test fun missingPrintingIsReportedButUnknownCardsBlockWithoutPartialEntries() {
         val resolver = resolver()
         val result = resolver.resolve("2 Quiet Lattice Bolt (UNKNOWN) 999")
@@ -44,6 +46,7 @@ class CubeImportTest {
         assertEquals(2, bad.issues.single().line)
         assertTrue(bad.issues.single().message.contains("Definitely Unknown"))
     }
+    // DRF-009
     @Test fun cubeCobraFixtureConvertsMainboardOnlyAndPreservesRequestedPrinting() {
         val parsed = CubeCobraImport.parse(javaClass.getResource("/cubecobra.json")!!.readText())
         assertTrue(parsed.issues.isEmpty())
@@ -69,6 +72,7 @@ class CubeImportTest {
         assertEquals("101", result.entries.single().printing.number)
         assertTrue(result.substitutions.isEmpty())
     }
+    // DRF-008
     @Test fun cubeCobraLinksAreFoundAnywhereInPastedOrSharedText() {
         for (input in listOf("https://cubecobra.com/cube/list/synergy", "http://cubecobra.com/cube/list/synergy",
             "cubecobra.com/cube/list/synergy", "www.cubecobra.com/cube/overview/synergy", "HTTPS://WWW.CubeCobra.com/cube/list/synergy",
@@ -100,6 +104,7 @@ class CubeImportTest {
     private fun cards(result: DeckImportResult) = result.entries.groupBy { it.printing.name }.mapValues { (_, rows) -> rows.sumOf { it.quantity } }
     private fun printing(result: DeckImportResult, name: String) = result.entries.single { it.printing.name == name }.printing.let { "${it.set} ${it.number}" }
 
+    // DRF-005, DRF-006
     @Test fun everyCubeCobraExportOfOneCubeResolvesToTheSameCards() {
         val resolver = CubeImportResolver(synergy())
         val json = resolver.resolve(CubeCobraImport.parse(synergyFile("cubeJSON.json")))
@@ -127,6 +132,7 @@ class CubeImportTest {
         assertTrue(printing(resolver.resolve(synergyFile("forge.txt")), "Thalia, Guardian of Thraben").startsWith("SLD "))
     }
 
+    // DRF-005
     @Test fun maybeboardRowsAndSectionsAreSkipped() {
         val resolver = CubeImportResolver(synergy())
         val plaintext = resolver.resolve(synergyFile("plaintext.txt") + "\r\n# maybeboard\r\nNot A Real Card\r\n")

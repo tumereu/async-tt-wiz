@@ -50,6 +50,7 @@ class NavigationPodsTest {
         compose.setContent { ScreenTheme { Navigation(fixtures.auth, close, fixtures.lobby, pods) } }
     }
 
+    // DRF-015, LOB-018
     @Test fun podsIsOneTopLevelSectionDirectlyBelowGamesWithMatchingIndentedRows() {
         val pod = pod()
         val game = fixtures.lobby.state.games.first()
@@ -83,6 +84,7 @@ class NavigationPodsTest {
             .assert(!hasContentDescription("alex's avatar")).assert(hasContentDescription("riley's avatar"))
     }
 
+    // DRF-015
     @Test fun everyMemberPodAppearsWithoutInvitationsOrMainMenuThreeItemLimit() {
         val entries = listOf(pod("setup", PodPhase.SETUP), pod("draft"), pod("build", PodPhase.DRAFTED), pod("fourth"))
         pods.seed(PodState(loaded = true, pods = entries,
@@ -114,6 +116,7 @@ class NavigationPodsTest {
         assertFalse(fixtures.auth.state.drawerOpen)
     }
 
+    // SYS-023
     @Test fun unloadedPodsHaveNoSpinnerAndCachedRowsStayInPlaceDuringRefreshAndFailure() {
         pods.seed(PodState(loading = true))
         showNavigation()
@@ -151,6 +154,7 @@ class NavigationPodsTest {
         compose.onNode(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertDoesNotExist()
     }
 
+    // DRF-016
     @Test fun newPodCreateStaysAtTheBottomWhileSettingsScroll() {
         pods.seed(PodState(creating = NewPodDraft("Draft", "cube")))
         compose.setContent { ScreenTheme { PodsDestination(pods, "a", null, null, {}) } }
@@ -176,8 +180,10 @@ class NavigationPodsTest {
         compose.onNodeWithTag("pod-member-strip").assertIsDisplayed()
     }
 
+    // DRF-073, DRF-075
     @Test fun portraitPodPlayHeaderHasModalHamburgerTitleAndAvatarsAboveTabs() = assertPodPlayHeader(false)
 
+    // DRF-073
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapePodPlayUsesTheModalHamburgerInsteadOfASideArea() = assertPodPlayHeader(true)
 

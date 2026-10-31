@@ -40,6 +40,7 @@ class PasswordResetTest {
     }
     private fun token(link: String) = URI(link).query.substringAfter("token=")
 
+    // LOB-003
     @Test fun `retained V2 upgrade and real mail reset preserve sessions until explicit atomic confirmation`() {
         FreshDatabase(migrated = false).start().use { db ->
             Flyway.configure().configuration(FoundationMigrations.flyway(db.settings).configuration).target("2").load().migrate()

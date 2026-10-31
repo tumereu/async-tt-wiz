@@ -69,6 +69,7 @@ class LobbyControllerTest {
         override fun close() = Unit
     }
 
+    // LOB-028
     @Test fun tabsDefaultToLocalContactsAndFilteringDoesNotIssueRequests() {
         val worker = Worker(); val api = Api()
         val controller = LobbyController(api, { "token" }, worker, { it() })
@@ -89,6 +90,7 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    // LOB-029
     @Test fun inviteAddsNonContactBeforeOpeningDraftAndRemovalWaitsForServer() {
         val worker = Worker(); val api = Api().apply { contacts = emptyList() }
         val controller = LobbyController(api, { "token" }, worker, { it() })
@@ -140,6 +142,7 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    // LOB-027, SYS-020, SYS-022
     @Test fun backgroundPollFailuresStayQuietForThirtySeconds() {
         val worker = Worker(); var failing = false; var now = 0L
         val api = object : Api() {
@@ -185,6 +188,7 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    // LOB-031
     @Test fun fantasySuggestionsUseFortyDistinctWordsPerList() {
         assertEquals(40, gameNameAdjectives.toSet().size)
         assertEquals(40, gameNameNouns.toSet().size)
@@ -209,6 +213,7 @@ class LobbyControllerTest {
         finally { api.close() }
     }
 
+    // LOB-031
     @Test fun capturedRecipientSuggestionsCancelBlankAndUncertainOriginalCreate() {
         val worker = Worker(); val api = Api(); var opens = 0; var names = 0
         val controller = LobbyController(api, { "A".repeat(43) }, worker, { it() }, { opens++ }, { "Suggestion ${++names}" })
@@ -248,6 +253,7 @@ class LobbyControllerTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    // LOB-027
     @Test fun backgroundRefreshRetainsAcceptedListsAndReportsRealErrors() {
         val worker = Worker(); val posts = ArrayDeque<() -> Unit>(); var failing = false; var code = "network"
         val api = object : Api() {
@@ -290,6 +296,7 @@ class LobbyControllerTest {
         assertFalse(lobbyLifecycleInterruption(LobbyFailure("invalid_response"), interrupted = true))
     }
 
+    // LOB-027
     @Test fun cancellationDuringBackgroundIsSilentAndResumeRetriesWithoutAnIndicator() {
         val worker = Worker(); var calls = 0
         lateinit var controller: LobbyController

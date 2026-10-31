@@ -46,6 +46,7 @@ class UndoOwnerRuleTest {
         return next to state(next).board.stackEffects.single().id
     }
 
+    // HIS-087
     @Test fun undoCannotRestoreCardIntoLaterEmptyCellMove() {
         var tree = move(GameplayTree(handSourceRoot()), a, id(10), grid(1))
         tree = move(tree, b, id(11), grid(0))
@@ -213,6 +214,7 @@ class UndoOwnerRuleTest {
         assertEquals("replayBlocked", control(tree).reason)
     }
 
+    // HIS-088
     @Test fun projectionPingProtectsProjectionRatherThanSourceCardOrAncestry() {
         var tree = play(GameplayTree(root()), b, PlayAction.Combat(CombatAction.Open))
          tree = play(tree, a, PlayAction.Combat(CombatAction.Declare(state(tree).board.combat!!.id, id(10))))
@@ -363,6 +365,7 @@ class UndoOwnerRuleTest {
         }
     }
 
+    // HIS-089
     @Test fun independentForkIsBlockedEvenWithTinySuffix() {
         var tree = play(GameplayTree(root()), a, PlayAction.SetTapped(id(10), true))
         val anchor = tree.currentNodeId
@@ -392,6 +395,7 @@ class UndoOwnerRuleTest {
         assertEquals(original, tree.nodes.getValue(suffix).transition.delta!!.libraryReseeds)
     }
 
+    // HIS-088
     @Test fun cardPingDoesNotLockWholeReferencedAncestry() {
         var tree = play(GameplayTree(root()), a, PlayAction.SetTapped(id(10), true))
         tree = play(tree, b, PlayAction.AdjustLife(b, "1"))
@@ -413,6 +417,7 @@ class UndoOwnerRuleTest {
         assertEquals(0, removed.work.fullHistoryScans)
     }
 
+    // HIS-087
     @Test fun exposedFaceAndRecordedRandomAreReversible() {
         val exposed = play(GameplayTree(root()), a, PlayAction.InspectFace(id(10), id(30), id(22)))
         assertNotNull(control(exposed).tree)

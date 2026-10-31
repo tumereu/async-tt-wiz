@@ -111,6 +111,7 @@ class CardRingScreenshotTest {
         assertTrue(sent.isEmpty())
     }
 
+    // TBL-063
     @Test fun portraitEveryPageMiddleHandAndOpponent() { matrix("412x892", false, 1f) }
     @Test @Config(qualifiers = "w360dp-h640dp-port-mdpi")
     fun smallLargeFontEveryPageMiddleHandAndOpponent() { matrix("360x640-font1.3", false, 1.3f) }

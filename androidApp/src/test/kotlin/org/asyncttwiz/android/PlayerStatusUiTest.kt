@@ -54,6 +54,7 @@ class PlayerStatusUiTest {
         compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
     }
 
+    // TRN-041
     @Test fun opponentPanelHasHideShowAndMuteUnmuteTogglesThatStayLocal() {
         val sent = open("b", other = "Got a response")
         compose.onNodeWithContentDescription("Show status bubble").assertDoesNotExist()
@@ -93,8 +94,10 @@ class PlayerStatusUiTest {
         compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
     }
 
+    // TRN-039
     @Test fun aLongOwnStatusIsReadableInFullInAShortScrollingLabel() = assertLongStatusReadableInFull("a")
 
+    // TRN-039
     @Test fun aLongOpponentStatusIsReadableInFullInAShortScrollingLabel() = assertLongStatusReadableInFull("b")
 
     @Test fun ownPanelAlsoHasTheToggles() {
@@ -105,6 +108,7 @@ class PlayerStatusUiTest {
         compose.onNodeWithContentDescription(lifeLabel).assertExists()
     }
 
+    // SYS-040, TRN-037
     @Test fun noStatusOffersMuteAndADisabledHide() {
         open("b")
         compose.onNodeWithContentDescription("Hide status bubble").assertIsNotEnabled()
@@ -112,6 +116,7 @@ class PlayerStatusUiTest {
         compose.onNodeWithContentDescription("Mute status bubble").assertExists()
     }
 
+    // TRN-037
     @Test fun ownPanelOffersPresetsAndAPresetSetsTheStatusAndClosesThePanel() {
         val sent = open("a", own = PlayerStatus.OPENING)
         compose.onNodeWithText("Status: “Mulliganing”").assertIsDisplayed()
@@ -131,6 +136,7 @@ class PlayerStatusUiTest {
         assertEquals(listOf<PlayAction>(PlayAction.SetStatus("")), sent)
     }
 
+    // TRN-037
     @Test fun noStatusHasADisabledClearButton() {
         open("a")
         compose.onNodeWithText("No status").assertIsDisplayed()
@@ -141,11 +147,13 @@ class PlayerStatusUiTest {
     private fun top(description: String) = compose.onNodeWithContentDescription(description).fetchSemanticsNode().boundsInRoot.top
     private fun lifeSquareCenterY() = compose.onNodeWithContentDescription(lifeLabel).fetchSemanticsNode().boundsInRoot.center.y
 
+    // TRN-030
     @Test fun lifeRowSitsOnThePanelEdgeNearestTheLifeSquare() {
         open("a", own = "Wait")
         assertTrue(top("Set life") > top("Mute status bubble"), "own panel opens above the square: life row last")
     }
 
+    // TRN-030
     @Test fun opponentLifeRowComesFirst() {
         open("b", other = "Wait")
         assertTrue(top("Set life") < top("Mute status bubble"), "opponent panel opens below the square: life row first")
@@ -157,12 +165,15 @@ class PlayerStatusUiTest {
         assertTrue(lifeSquareCenterY() in row.top..row.bottom, "${lifeSquareCenterY()} not in ${row.top}..${row.bottom}")
     }
 
+    // TRN-030
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscapeOwnLifeRowLinesUpWithTheLifeSquare() =
         assertLifeRowLevelWithSquare("a")
 
+    // TRN-030
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscapeOpponentLifeRowLinesUpWithTheLifeSquare() =
         assertLifeRowLevelWithSquare("b")
 
+    // TRN-038
     @Test fun penOpensAPrefilledFullySelectedFieldAndDoneSaves() {
         val sent = open("a", own = "Wait")
         compose.onNodeWithContentDescription("Edit status").performScrollTo().performClick()
@@ -191,6 +202,7 @@ class PlayerStatusUiTest {
         assertEquals(listOf<PlayAction>(PlayAction.SetStatus("")), sent)
     }
 
+    // TRN-037
     @Test fun opponentPanelShowsTheirFullStatusReadOnly() {
         val sent = open("b", other = "Got a response")
         compose.onNodeWithText("Status: “Got a response”").assertIsDisplayed()

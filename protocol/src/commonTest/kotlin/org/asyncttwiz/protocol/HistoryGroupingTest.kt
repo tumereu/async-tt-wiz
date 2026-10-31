@@ -16,6 +16,7 @@ class HistoryGroupingTest {
     private fun append(group: GameplayGroup?, category: HistoryCategory, n: Int, author: String = id(1000), key: String = "a") =
         HistoryGrouping.append(group, id(n), id(n + 100), author, semantic(category, key))
 
+    // HIS-052, HIS-053
     @Test fun complete182CellMatrixWithBothKeyAndTapPurityVariantsAndAuthorOverride() {
         val columns = "T M I E C K L V H F R P B S".split(' ')
         val matrix = mapOf(

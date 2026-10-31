@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class StackAndPingRegressionTest {
+    // HIS-080
     @Test fun activePingNumbersCloseGapsWithoutChangingRecordedHistory() {
         val f = BasicTableFixture()
         val group = f.id(700)
@@ -29,6 +30,7 @@ class StackAndPingRegressionTest {
         assertEquals(listOf("5", "8"), added.pings.map { it.to!!.ordinal })
     }
 
+    // STK-014
     @Test fun onlyTopEntryBubbleActionsAdvanceFocusIncludingDelayedPrediction() {
         for (kind in listOf("battlefield", "graveyard", "remove", "menuRemove", "menuDestination", "drag")) {
             val f = BasicTableFixture()
@@ -73,6 +75,7 @@ class StackAndPingRegressionTest {
         }
     }
 
+    // STK-020
     @Test fun manageStackTogglesArePredictedAndBubbleMarkReplacesTheSet() {
         val f = BasicTableFixture()
         val definition = f.definition.copy(faces = f.definition.faces.map { it.copy(rulesText = "First\nSecond") })
@@ -92,6 +95,7 @@ class StackAndPingRegressionTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // STK-016
     @Test fun multiMarkHandleReplacesEvenWhenDraggedBackToItsStartingOption() {
         val f = TableStatesFixture
         val entry = f.id("effect")

@@ -40,6 +40,7 @@ class InfiniteBattlefieldTest {
     private fun scene(play: PlayState, width: Float, height: Float, landscape: Boolean, camera: TableCamera = TableCamera()) =
         TablePresentation.scene(LiveTableFixture.game, play, "a", width, height, landscape, TableLayoutState(camera))
 
+    // SYS-041, TBL-005
     @Test fun battlefieldFeelsInfiniteFieldsCoverTheWholePanAreaOnBothSides() {
         // Rule: battlefield feels infinite; panning is limited only by distance from placed cards.
         for ((name, play) in cases) for ((width, height, landscape) in sizes) {
@@ -69,6 +70,7 @@ class InfiniteBattlefieldTest {
         }
     }
 
+    // SYS-041, TBL-013
     @Test fun battlefieldFeelsInfinitePanBoundsFollowPlacedCardsPlusMargin() {
         // Rule: battlefield feels infinite; panning is limited only by distance from placed cards.
         val base = LiveTableFixture.play()
@@ -83,6 +85,7 @@ class InfiniteBattlefieldTest {
         }
     }
 
+    // SYS-041, TBL-006
     @Test fun battlefieldFeelsInfiniteDragsLandAtNegativeColumnsAndShowThere() {
         // Rule: battlefield feels infinite; cards may be dragged anywhere in the pan area, including negative columns.
         val play = moved(LiveTableFixture.play()) { n, _ -> if (n == 0) -6 else null }
@@ -123,6 +126,7 @@ class InfiniteBattlefieldTest {
         }
     }
 
+    // SYS-041, TBL-006
     @Test fun automaticPlacementStillUsesTheFirstFreeColumnFromZero() {
         val play = moved(LiveTableFixture.play()) { n, _ -> if (n == 0) -6 else null }
         val scene = scene(play, 412f, 892f, false)

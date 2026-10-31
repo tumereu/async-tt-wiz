@@ -20,8 +20,10 @@ import kotlin.test.*
 class CardInspectionUiTest {
     @get:Rule val compose = createComposeRule()
 
+    // TBL-104
     @Test fun tableHoldScrollsToBottomAndBackWithoutRelease() = tableHold(false)
 
+    // TBL-104
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeTableHoldScrollsInfoWithoutRelease() = tableHold(true)
 

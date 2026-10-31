@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class HandDoubleTapTest {
+    // TBL-045, ZON-004
     @Test fun landShortcutUsesFrontFaceAndFirstFreeLandSlotNotTheSelectedBackFace() {
         val field = TableField(TableBounds(0f, 0f, 200f, 300f), "owner", "field")
         val hand = TableItem("hand-card", TableBounds(0f, 0f, 28f, 40f), "Card", "", owner = "owner",
@@ -15,6 +16,7 @@ class HandDoubleTapTest {
         assertNull(handDoubleTapDestination(scene, hand.copy(zone = PlayZone.GRAVEYARD)))
     }
 
+    // STK-004, TBL-045, ZON-005
     @Test fun allFacesMustBeClassifiableNonlandPermanents() {
         fun definition(vararg types: String) = CardDefinition("Fixture", types.mapIndexed { index, type ->
             DefinitionFace("face-$index", "Face", typeLine = type) })
@@ -28,6 +30,7 @@ class HandDoubleTapTest {
         assertFalse(StackContexts.permanentOnly(null))
     }
 
+    // HIS-055, STK-004, SYS-010, TBL-045, ZON-004, ZON-005
     @Test fun doubleTapUsesNormalCastThenSeparateResolveGroupWithPlaybackPauseAndFlights() {
         val f = BasicTableFixture()
         val definition = f.definition.copy(faces = f.definition.faces.map { it.copy(typeLine = "Creature") })
@@ -97,6 +100,7 @@ class HandDoubleTapTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // HIS-055, HIS-085, STK-005, SYS-010, TBL-090, ZON-008
     @Test fun faceDownCastAutoResolvesAsASeparatePausedGroupAndOneUndoRestoresTheHand() {
         val f = BasicTableFixture()
         val definition = f.definition.copy(faces = f.definition.faces.map { it.copy(typeLine = "Instant") })
@@ -149,6 +153,7 @@ class HandDoubleTapTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // STK-004, TBL-045, ZON-004
     @Test fun spellsAndAdventureFacesStayOnStackAndManualPermanentDragStillWaits() {
         for ((types, doubleTap) in listOf(listOf("Instant") to true, listOf("Sorcery") to true,
             listOf("Creature", "Instant — Adventure") to true, listOf("Creature", "Sorcery") to true,
@@ -172,6 +177,7 @@ class HandDoubleTapTest {
         }
     }
 
+    // STK-004, TBL-045
     @Test fun normalizedSpellHalfLayoutsStayOnStackAfterHandDoubleTapButPermanentFlipResolves() {
         for ((layout, types) in listOf(
             "adventure" to listOf("Creature — Giant", "Instant — Adventure"),

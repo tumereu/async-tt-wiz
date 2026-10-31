@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class PlayerStatusRuntimeTest {
+    // TRN-040
     @Test fun `status changes are ordinary own events that notify the opponent and never pass the move`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

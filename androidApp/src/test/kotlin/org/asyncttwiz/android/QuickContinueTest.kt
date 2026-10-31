@@ -15,6 +15,7 @@ class QuickContinueTest {
         self, other, "round", "invite", InvitationState.ACCEPTED, lifecycle,
         attentionHolder = holder, updatedAt = "2026-10-24T${hour.toString().padStart(2, '0')}:00:00Z")
 
+    // LOB-016
     @Test fun ownActivityComesFirstOldestFirstThenOtherActivityNewestFirstCappedAtThree() {
         val games = listOf(game("other-old", 1), game("own-new", 10, "a"),
             game("other-new", 20), game("own-old", 5, "a"))
@@ -41,6 +42,7 @@ class QuickContinueTest {
         assertEquals(listOf("a", "b", "c"), quickContinueGames(tied, "a").map { it.id })
     }
 
+    // LOB-024
     @Test fun sharedRowHighlightsOnlyTheViewerWhoseMoveFlag() {
         val own = game("own", 1, "a")
         assertEquals(GameRowMove("Your move", true), gameRowMove(own, "a"))
@@ -49,6 +51,7 @@ class QuickContinueTest {
         assertEquals(GameRowMove("Move not available", false), gameRowMove(own.copy(attentionHolder = null), "a"))
     }
 
+    // LOB-024
     @Test fun lastActivityUsesUpdatedAtAndLocalDayAndYear() {
         val clock = Clock.fixed(Instant.parse("2026-10-24T12:00:00Z"), ZoneId.of("Europe/Helsinki"))
         fun format(timestamp: String) = gameLastActivity(game("date", 1).copy(updatedAt = timestamp), clock)
@@ -75,6 +78,7 @@ class QuickContinueTest {
         game("own-old", 2), game("setup", 10, lifecycle = GameLifecycle.LOBBY),
         game("declined", 0, lifecycle = GameLifecycle.LOBBY).copy(invitationState = InvitationState.DECLINED))
 
+    // LOB-022
     @Test fun sharedOrderIsOpponentActedLongestWaitingThenInvitationsThenOwnMovesAndSentInvitationsThenTheRest() {
         assertEquals(ordered.map { it.id }, orderedGames(ordered.reversed() + ordered.shuffled(java.util.Random(4)), "a").map { it.id })
         assertEquals(listOf(GameOrderGroup.THEIR_EVENT, GameOrderGroup.THEIR_EVENT, GameOrderGroup.INVITATION, GameOrderGroup.INVITATION,
@@ -88,6 +92,7 @@ class QuickContinueTest {
         assertEquals(GameOrderGroup.OTHER, gameOrderGroup(incoming("ended", 1).copy(lifecycle = GameLifecycle.DELETED), "a"))
     }
 
+    // LOB-016
     @Test fun menuShowsTheFirstThreeOfTheSharedOrderAndInvitationsOnlyAfterOpponentMoves() {
         assertEquals(listOf("their-old", "their-new", "in-held"), quickContinueGames(ordered.shuffled(java.util.Random(1)), "a").map { it.id })
         val noTheirMoves = ordered.filter { gameOrderGroup(it, "a") != GameOrderGroup.THEIR_EVENT }
@@ -96,6 +101,7 @@ class QuickContinueTest {
         assertEquals(listOf("in-old"), quickContinueGames(listOf(incoming("in-old", 3), incoming("in-old", 3)), "a").map { it.id })
     }
 
+    // LOB-022
     @Test fun drawerUsesTheSharedOrderWithInvitationsFromEitherListOnce() {
         val (invitations, games) = ordered.partition { incomingInvitation(it, "a") }
         assertEquals(ordered.map { it.id }, navigationGameRows(games.reversed(), invitations.reversed(), "a").map { it.id })
@@ -114,6 +120,7 @@ class QuickContinueTest {
         "2026-10-24T${hour.toString().padStart(2, '0')}:00:00Z")
     private fun invitation(id: String, hour: Int) = PodInvitation(id, id, other, pod(id, hour).updatedAt)
 
+    // DRF-014, LOB-017
     @Test fun podPicksAndBuildActionsComeFirstOldestFirstThenOtherPodsNewestFirstCappedAtThree() {
         val pods = listOf(pod("other-old", 1), pod("pick-new", 10, PodAttention.YOUR_PICK),
             pod("other-new", 20, phase = PodPhase.SETUP), pod("build-old", 5, PodAttention.BUILD, PodPhase.DRAFTED))
@@ -122,6 +129,7 @@ class QuickContinueTest {
             quickContinuePods(pods.filter { it.attention == PodAttention.NONE }, emptyList()).map { it.id })
     }
 
+    // DRF-014, LOB-017
     @Test fun podInvitationsRankLastOnlyFillFreeSlotsAndEmptyPanelHasNoEntries() {
         val invitations = listOf(invitation("invite-old", 0), invitation("invite-new", 23))
         val pods = listOf(pod("active", 10), pod("pick", 20, PodAttention.YOUR_PICK))

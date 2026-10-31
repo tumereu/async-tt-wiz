@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TimelineLayoutTest {
+    // HIS-007
     @Test fun playAndTimelineReserveIdenticalHudAndCameraSpaceInBothOrientationsAtEveryZoom() {
         for ((width, height, landscape) in listOf(Triple(360f, 640f, false), Triple(412f, 892f, false),
             Triple(640f, 360f, true), Triple(892f, 412f, true))) for (zoom in listOf(.65f, 1f, 2f)) {

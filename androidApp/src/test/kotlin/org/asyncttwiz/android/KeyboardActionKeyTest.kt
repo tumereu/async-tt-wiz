@@ -26,6 +26,7 @@ class KeyboardActionKeyTest {
 
     private fun ime(action: ImeAction) = SemanticsMatcher.expectValue(SemanticsProperties.ImeAction, action)
 
+    // LOB-102, SYS-047
     @Test fun signInEmailMovesToPasswordAndGoSignsIn() {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, email = "a@example.test", password = "secret"))
@@ -37,6 +38,7 @@ class KeyboardActionKeyTest {
         compose.runOnIdle { assertTrue(fixtures.auth.state.busy) }
     }
 
+    // LOB-102, SYS-047
     @Test fun scaleInputDoneSavesOnlyAValidValue() {
         var saved: Float? = null
         compose.setContent { ScreenTheme { CardScaleInput("Hand cards", 1.25f, {}) { saved = it } } }
@@ -49,6 +51,7 @@ class KeyboardActionKeyTest {
         compose.runOnIdle { assertEquals(2f, saved) }
     }
 
+    // LOB-102, SYS-047
     @Test fun podSettingDoneSavesLikeTheSaveButton() {
         var saved: Int? = null
         compose.setContent { ScreenTheme { PodSettingPopup(PodSetting.PACKS, DraftSettings(packsPerPlayer = 3), {}) { saved = it } } }

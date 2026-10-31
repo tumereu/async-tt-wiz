@@ -28,6 +28,7 @@ class R23RulesTest {
 
     @Test fun rulesVersionIsAtLeast23() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 23)
 
+    // TBL-029
     @Test fun coveringABattlefieldCardMakesItAPublic22AndUncoveringRestoresPrinted() {
         val start = gameplayFixture().withBattlefieldCards(gameplayId(10))
         val covered = accepted(start, PlayAction.SetCovered(gameplayId(10), true), 100).state!!
@@ -55,6 +56,7 @@ class R23RulesTest {
         assertEquals(before, card(covered, 10).corner)
     }
 
+    // TBL-029
     @Test fun enteringTheBattlefieldFaceDownIs22AndLeavingResetsToPrinted() {
         val start = gameplayFixture()
         val inHand = accepted(start, PlayAction.MoveCard(gameplayId(10), MoveSource(library, edge = MoveSourceEdge.TOP),
@@ -104,6 +106,7 @@ class R23RulesTest {
         } }))
     }
 
+    // ZON-039, ZON-042
     @Test fun firstMoveIntoTempCreatesTheHiddenPileAndItsInverseRemovesIt() {
         val start = graveyardState()
         assertNull(TempPiles.container(start.board, a))
@@ -198,6 +201,7 @@ class R23RulesTest {
         assertEquals(gameplayId(13), bottom.board.containers.single { it.id == library }.cards.last())
     }
 
+    // ZON-042
     @Test fun tokensAreNotPutIntoAMissingTempPile() {
         val start = gameplayFixture()
         val token = accepted(start, PlayAction.CreateToken(TokenCatalog.blank), 100).state!!

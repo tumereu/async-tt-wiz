@@ -4,6 +4,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class CardMoveAnimationTest {
+    // TBL-038
     @Test fun travelDurationHasConstantSpeedFloorAndSceneCap() {
         assertEquals(1, cardMoveDurationMillis(0f))
         assertEquals(20, cardMoveDurationMillis(24f))
@@ -17,6 +18,7 @@ class CardMoveAnimationTest {
         assertFailsWith<IllegalArgumentException> { cardMoveDurationMillis(10f, 0f) }
     }
 
+    // TBL-038
     @Test fun eachCardEasesOutArrivesEarlyAndWaitsForScene() {
         val start = TableBounds(0f, 0f, 20f, 30f)
         val near = start.copy(x = 24f)
@@ -36,6 +38,7 @@ class CardMoveAnimationTest {
         assertEquals(far, animation.frame(1f)[1].bounds)
     }
 
+    // TBL-038
     @Test fun sceneUsesSpeedMultiplierAndLongerClockForLiveAndPlayback() {
         val start = TableItem("card/a", TableBounds(0f, 0f, 28f, 40f), "Card", "", kind = TableItemKind.CARD, cardId = "a")
         val target = start.copy(bounds = start.bounds.copy(x = 240f))

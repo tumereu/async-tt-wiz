@@ -39,6 +39,7 @@ class FaceDownInspectionTest {
         return play to play.board.cards.single { it.id == card.id }
     }
 
+    // TBL-109, ZON-075
     @Test fun onlyTheOwnerMayInspectAFaceDownFrontWhereverItLies() {
         for (container in listOf("a/BATTLEFIELD", "stack", "a/EXILE", "a/GRAVEYARD")) {
             val (play, card) = state(container)
@@ -52,6 +53,7 @@ class FaceDownInspectionTest {
         }
     }
 
+    // SYS-039, TBL-088, TBL-109, ZON-075
     @Test fun ownerSeesTheFrontUnderAFaceDownMarkAndOnlyADeliberateInspectShowsItToTheOpponent() {
         val viewer = mutableStateOf(f.a)
         val container = mutableStateOf("a/BATTLEFIELD")

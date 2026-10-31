@@ -150,6 +150,7 @@ class BranchedStackUndoTest {
         }
     }
 
+    // HIS-084
     @Test fun realSizedBranchedGameStillChecksEverySuccessorAndRejects51() {
         val target = ontoStack(beforeStackActions())
         var tree = target

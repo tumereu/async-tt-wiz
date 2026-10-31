@@ -60,6 +60,7 @@ class MoveTextTest {
     private fun says(expected: String, action: PlayAction, viewer: String = a) =
         assertEquals(expected, text(action, viewer).description, "viewer ${names[viewer]}: $action")
 
+    // HIS-063, HIS-065
     @Test fun intoHandDrawTakeAndReturn() {
         says("Drew Shock", move(shock, library, hand, MoveSourceEdge.TOP))
         says("Drew a card", move(shock, library, hand, MoveSourceEdge.TOP), viewer = b)
@@ -78,6 +79,7 @@ class MoveTextTest {
         assertEquals("Return", text(move(ponder, graveyard, hand)).label)
     }
 
+    // HIS-063, HIS-064, HIS-065
     @Test fun ontoTheBattlefieldAndGainingControl() {
         says("Put Opt onto the battlefield", move(opt, hand, battlefield), viewer = b)
         says("Put Ponder onto the battlefield from graveyard", move(ponder, graveyard, battlefield))
@@ -94,6 +96,7 @@ class MoveTextTest {
         assertEquals("Gain control", text(move(bear, battlefield, battlefieldB)).label)
     }
 
+    // HIS-063
     @Test fun ontoTheStackIsACast() {
         says("Cast Opt", move(opt, hand, stack), viewer = b)
         says("Cast Ponder from graveyard", move(ponder, graveyard, stack))
@@ -104,6 +107,7 @@ class MoveTextTest {
         assertEquals("Cast", text(move(opt, hand, stack)).label)
     }
 
+    // HIS-063, HIS-065
     @Test fun intoTheGraveyardNeverClaimsWhy() {
         says("Discarded Opt", move(opt, hand, graveyard), viewer = b)
         says("Milled Shock", move(shock, library, graveyard, MoveSourceEdge.TOP), viewer = b)
@@ -121,6 +125,7 @@ class MoveTextTest {
             move(shock, library, graveyard, MoveSourceEdge.TOP), move(bear, battlefield, graveyard)).map { text(it).label })
     }
 
+    // HIS-063
     @Test fun intoExile() {
         says("Exiled Grizzly Bears", move(bear, battlefield, exile))
         says("Exiled Ponder from graveyard", move(ponder, graveyard, exile))
@@ -129,6 +134,7 @@ class MoveTextTest {
         says("Exiled Shock from library", move(shock, library, exile, MoveSourceEdge.TOP))
     }
 
+    // HIS-063, HIS-065
     @Test fun intoALibrary() {
         says("Put Opt on top of library", move(opt, hand, library))
         says("Put a card on top of library", move(opt, hand, library), viewer = b)
@@ -146,6 +152,7 @@ class MoveTextTest {
             PlayAction.MoveToLibraryRandom(library, listOf(ponder, opt), false, seed), viewer = b)
     }
 
+    // HIS-063, HIS-064
     @Test fun tempPilesAndSamePlace() {
         says("Put Ponder into Temp 3", move(ponder, graveyard, temp3), viewer = b)
         says("Put a card into Temp 3", move(shock, library, temp3, MoveSourceEdge.TOP))
@@ -158,6 +165,7 @@ class MoveTextTest {
         assertEquals(HistoryText("Hand reordered", "Reorder hand"), text(move(opt, hand, hand)))
     }
 
+    // HIS-066
     @Test fun randomHandResultsSayAtRandom() {
         val seed = RandomV1.encodeSeed(ByteArray(32))
         fun random(result: HandRandomResult) = PlayAction.RandomHand(hand, listOf(opt), seed, result, opt)
@@ -168,6 +176,7 @@ class MoveTextTest {
         says("Revealed Opt from hand at random", random(HandRandomResult.REVEAL))
     }
 
+    // HIS-067
     @Test fun groupsMergeMovesByKindInOrderOfFirstAppearance() {
         val events = listOf(move(shock, library, hand, MoveSourceEdge.TOP), move(opt, hand, graveyard),
             move(second, library, hand, MoveSourceEdge.TOP), move(ponder, graveyard, exile), move(bear, battlefield, graveyard))

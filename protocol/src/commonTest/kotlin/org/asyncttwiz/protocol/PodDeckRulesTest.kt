@@ -8,6 +8,7 @@ class PodDeckRulesTest {
     private fun card(name: String, cost: String = "", type: String = "Creature") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost)))
 
+    // DRF-099
     @Test fun swipeTable() {
         val table = listOf(
             Triple(PodDeckCategory.MAIN, PodDeckCategory.SIDE, PodDeckCategory.TRASH),
@@ -20,6 +21,7 @@ class PodDeckRulesTest {
         }
     }
 
+    // DRF-093
     @Test fun newAwardsGoToMainWithoutMovingExistingCopiesOrChangingBasics() {
         val build = PodDeckBuild(listOf(PodDeckCopy("one", PodDeckCategory.SIDE), PodDeckCopy("two", PodDeckCategory.TRASH)),
             PodDeckBasics(plains = 17))
@@ -47,6 +49,7 @@ class PodDeckRulesTest {
         assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(PodDeckBuild(basics = huge), emptyList()))
     }
 
+    // DRF-119
     @Test fun submissionCapacityCountsMainSideAndBasicsButNotTrash() {
         val pool = List(1100) { "copy-$it" }
         val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, when {
@@ -62,6 +65,7 @@ class PodDeckRulesTest {
         assertEquals(listOf(PodDeckIssue.DECK_TOO_LARGE), PodDeckRules.validate(noBasics, pool))
     }
 
+    // DRF-119
     @Test fun submissionChecksOwnershipUniquenessCompletenessMainAndSideLimit() {
         val pool = List(50) { "copy-$it" }
         val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, when {
@@ -85,6 +89,7 @@ class PodDeckRulesTest {
         assertEquals(build, Json.decodeFromString<PodDeckBuild>(Json.encodeToString(build)))
     }
 
+    // DRF-104
     @Test fun sideBasicsCountTowardSideLimitAndCapacityButNotMain() {
         val pool = List(45) { "copy-$it" }
         val build = PodDeckBuild(pool.mapIndexed { index, id -> PodDeckCopy(id, if (index < 40) PodDeckCategory.MAIN else PodDeckCategory.SIDE) },
@@ -117,6 +122,7 @@ class PodDeckRulesTest {
         for ((cost, value, colors) in cases) assertEquals(PodDeckMana(value, colors), PodDeckManaCost.parse(cost), cost)
     }
 
+    // DRF-095
     @Test fun columnsHaveFixedLandZeroAndOverflowBucketsFromTwoToTen() {
         assertEquals(listOf("Lands", "0+"), PodDeckColumns.buckets(2).map { it.label })
         assertEquals(listOf("Lands", "0", "1+"), PodDeckColumns.buckets(3).map { it.label })
@@ -170,6 +176,7 @@ class PodDeckRulesTest {
         assertEquals(listOf(6, DraftColor.U.ordinal), listOf(devoid, vision).map { PodDeckColumns.colorRank(it) })
     }
 
+    // DRF-098
     @Test fun inColumnSortIsWubrgThenMulticolorThenColorlessThenName() {
         val cards = listOf(card("Z white", "{W}"), card("a White", "{W}"), card("Blue", "{U}"),
             card("Black", "{B}"), card("Red", "{R}"), card("Green", "{G}"),

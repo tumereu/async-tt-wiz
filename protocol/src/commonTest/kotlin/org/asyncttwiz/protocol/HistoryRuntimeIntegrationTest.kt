@@ -34,6 +34,7 @@ class HistoryRuntimeIntegrationTest {
         TreeSync.records(TreeSync.generation(tree)), tree.initial.gameId, tree.initial.id).tree.also {
              assertEquals(tree, it); assertEquals(tree.stateAt(tree.currentNodeId), it.stateAt(it.currentNodeId)) }
 
+    // HIS-043
     @Test fun legacyTreeJsonDiscardsArchiveMetadataAndPreviouslyArchivedBranchesStillPlay() {
         val original = play(GameplayTree(gameplayFixture()), PlayAction.SetLife(a, "21"))
         val alternative = play(original, PlayAction.SetLife(a, "30"), at = original.initial.root.id)
@@ -59,6 +60,7 @@ class HistoryRuntimeIntegrationTest {
         roundtrip(continued)
     }
 
+    // HIS-043
     @Test fun legacyFlatArchiveControlsAreIgnoredInCachedTreesAndDeltas() {
         val tree = play(GameplayTree(gameplayFixture()), PlayAction.SetLife(a, "21"))
         val generation = TreeSync.generation(tree)

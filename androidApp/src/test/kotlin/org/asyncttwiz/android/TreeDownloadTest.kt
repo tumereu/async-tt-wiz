@@ -320,6 +320,7 @@ class TreeDownloadTest {
         assertEquals(3, branched.nodes.size, "Inactive annotations remain in history, not the materialized projection")
     }
 
+    // SYS-026
     @Test fun tenThousandActionRecoveryAndColdCacheRestoreNeverReplayMutations() {
         var tree = f.root()
         repeat(10_000) { n -> tree = f.tap(tree, 1000 + n, tapped = n % 2 == 0) }
@@ -415,6 +416,7 @@ class TreeDownloadTest {
         assertEquals(0, replica.tree!!.tree.work.rootMaterializations)
     }
 
+    // SYS-015
     @Test fun automaticallyStagesEveryBoundedChunkAndPublishesWholeRetainedTreeOnlyAfterValidation() {
         val input = f.branched()
         val transfer = f.transfer(input)

@@ -79,6 +79,7 @@ class CubeHttpTest {
             }
         }
     }
+    // DRF-007
     @Test fun `cube CRUD ownership validation and retained retry outcomes over real HTTP`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

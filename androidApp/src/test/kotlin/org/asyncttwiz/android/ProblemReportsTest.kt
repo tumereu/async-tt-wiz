@@ -43,6 +43,7 @@ class ProblemReportsTest {
             "<- java.net.SocketException: reset", log.text())
     }
 
+    // LOB-089
     @Test fun `secrets are redacted`() {
         val token = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789_-abcde"
         assertEquals(43, token.length)
@@ -72,6 +73,7 @@ class ProblemReportsTest {
         assertSame(report, fitProblemReport(report, 1_000_000))
     }
 
+    // LOB-089
     @Test fun `sender shows the code or a failure the player can retry`() = runBlocking {
         val sent = mutableListOf<Pair<ProblemReport, String?>>()
         var fail = true

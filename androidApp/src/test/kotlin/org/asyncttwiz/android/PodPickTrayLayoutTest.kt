@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodPickTrayLayoutTest {
+    // DRF-065
     @Test fun exactFitUsesOneRowAndOneDpLessUsesTwo() {
         val width = podPickTrayWidth(1) + PodPickTrayGap + podPickTrayWidth(2)
         assertTrue(podPickTraysFit(width, 1, 2))
@@ -23,6 +24,7 @@ class PodPickTrayLayoutTest {
         assertEquals(8.dp + PodPickTrayCardWidth * 2 + PodPickTrayGap, podPickTrayWidth(2))
     }
 
+    // DRF-054
     @Test fun librarianPodsKeepAtLeastTwoCardsWide() {
         assertEquals(1, podPickKeepSlots(1, librarians = false))
         assertEquals(2, podPickKeepSlots(1, librarians = true))
@@ -34,6 +36,7 @@ class PodPickTrayLayoutTest {
         assertEquals(podPickTrayWidth(2), podPickTrayLayout(narrow, podPickKeepSlots(1, true), 8).keepWidth)
     }
 
+    // DRF-065
     @Test fun spareWidthIsSplitInProportionToRequiredWidths() {
         val keep = podPickTrayWidth(1)
         val burn = podPickTrayWidth(4)

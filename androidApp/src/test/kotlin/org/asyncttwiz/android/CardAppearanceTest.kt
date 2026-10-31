@@ -16,6 +16,7 @@ class CardAppearanceTest {
     private val context get() = ApplicationProvider.getApplicationContext<Context>()
     @Before fun clear() { context.getSharedPreferences("card-appearance", Context.MODE_PRIVATE).edit().clear().commit() }
 
+    // TBL-034, TBL-035
     @Test fun defaultsPersistAcrossInstancesAndCustomizationStartsAtMaster() {
         val preferences = CardAppearancePreferences(context)
         for (area in CardArea.entries) assertEquals(1f, preferences.read().size(area))
@@ -36,6 +37,7 @@ class CardAppearanceTest {
         for (part in CardTextScalePart.entries) assertEquals(1.2f, reopened.read().text(part))
     }
 
+    // TBL-036
     @Test fun changesNotifyOtherInstancesAndBoundsRejectNonfiniteInput() {
         val a = CardAppearancePreferences(context)
         val b = CardAppearancePreferences(context)
@@ -60,6 +62,7 @@ class CardAppearanceTest {
             a.setText(9f, part); assertEquals(3f, b.read().text(part)) }
     }
 
+    // TBL-034
     @Test fun areaSizesAreIndependentOfZoomAndKeepHudRegionsSeparateAtBothExtremes() {
         val f = TableStatesFixture
         val initial = f.combat()
@@ -127,6 +130,7 @@ class CardAppearanceTest {
         }
     }
 
+    // TBL-034
     @Test fun customizedAreasDoNotChangeBattlefieldAndPanelsReorderUsingScaledPitch() {
         val f = BasicTableFixture()
         val library = f.container(PlayZone.LIBRARY)

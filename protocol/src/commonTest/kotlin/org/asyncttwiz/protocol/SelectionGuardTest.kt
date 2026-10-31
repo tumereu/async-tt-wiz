@@ -13,6 +13,7 @@ class SelectionGuardTest {
     private fun life(tree: GameplayTree, account: String = f.a) =
         assertNotNull(tree.stateAt(tree.currentNodeId)).board.players.single { it.accountId == account }.life
 
+    // SYS-012
     @Test fun opponentsConcurrentActionOnTheSameLineStillComesFirstAndMineAppliesAfterIt() {
         val seen = f.tap(GameplayTree(f.root()))
         val opponent = f.play(seen, f.b, PlayAction.SetLife(f.a, "30"), 101)
@@ -25,6 +26,7 @@ class SelectionGuardTest {
         assertEquals(legacy.nodes, next.nodes); assertEquals(legacy.currentNodeId, next.currentNodeId)
     }
 
+    // SYS-012
     @Test fun opponentsUndoAndRedoBeforeMineDoNotRefuseIt() {
         val first = f.tap(GameplayTree(f.root()))
         val seen = f.tap(first, f.b, 12, n = 101)
@@ -38,6 +40,7 @@ class SelectionGuardTest {
         assertEquals(redone.currentNodeId, afterRedo.nodes.getValue(afterRedo.currentNodeId).parentId)
     }
 
+    // SYS-012
     @Test fun ownActionQueuedRightAfterOwnBranchApplies() {
         val split = f.tap(GameplayTree(f.root()))
         val live = f.play(split, f.b, PlayAction.SetLife(f.a, "30"), 101)
@@ -54,6 +57,7 @@ class SelectionGuardTest {
         assertEquals(server.selectionKey, next.selectionKey)
     }
 
+    // SYS-012
     @Test fun opponentsBranchBeforeMineArrivesRefusesMineWithoutAnyEdit() {
         val split = f.tap(GameplayTree(f.root()))
         val seen = f.play(split, f.b, PlayAction.SetLife(f.a, "30"), 101)

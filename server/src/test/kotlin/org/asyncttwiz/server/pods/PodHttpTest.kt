@@ -128,6 +128,7 @@ class PodHttpTest {
         Fixture(db).use(test)
     }
 
+    // DRF-023
     @Test fun `creation atomically accepts all settings and rejects invalid ranges`() = fixture { f ->
         val settings = DraftSettings.glimpse().copy(packsPerPlayer = 4, cardsPerPack = 12, keep = 2, burn = 3,
             discardRemainingAt = 1, packsOpenAtOnce = 2, colorBalance = false, sideboardLimit = 7)
@@ -144,6 +145,7 @@ class PodHttpTest {
         assertEquals(1, f.list(f.a).pods.size)
     }
 
+    // DRF-051
     @Test fun `Librarian settings snapshot privacy spending ownership and build synchronization over HTTP`() = fixture { f ->
         val card = CardDefinition("Cogwork Librarian", listOf(DefinitionFace(id(), "Cogwork Librarian", manaCost = "{4}")))
         val definition = SubmittedDefinition(DeckJson.digest(card), card)
@@ -217,6 +219,7 @@ class PodHttpTest {
         assertFalse(f.get(f.a, nativePod.id).draft!!.pool.any { it.id == pickedNative.id })
     }
 
+    // DRF-044, DRF-093, DRF-120, DRF-136, DRF-139, DRF-140
     @Test fun `Glimpse HTTP completion private builds locked submission and retained retries`() = fixture { f ->
         val create = CreatePod(id(), "Glimpse pod", f.cube.cube.id, DraftMode.GLIMPSE)
         val created = f.send(f.a, "POST", "/v1/pods", create, 201)
@@ -276,6 +279,7 @@ class PodHttpTest {
         assertEquals(PodAttention.NONE, f.list(f.a).pods.single().attention)
     }
 
+    // DRF-105
     @Test fun `deck name endpoint is owner scoped validated idempotent and attempt fenced`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)
@@ -317,6 +321,7 @@ class PodHttpTest {
         assertFalse(payload.contains("sourceSnapshot")); assertFalse(payload.contains("queues")); assertFalse(payload.contains("seating"))
     }
 
+    // DRF-136, DRF-140
     @Test fun `three player Booster passing queue notifications multi pack rounds and concurrent retries`() = fixture { f ->
         val pod = f.create().id
         f.join(pod); f.join(pod, f.c)
@@ -361,6 +366,7 @@ class PodHttpTest {
         assertEquals(3, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod))
     }
 
+    // DRF-047
     @Test fun `next round opens early once only the opponents final pick remains and notifies the opener`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)
@@ -412,6 +418,7 @@ class PodHttpTest {
     private fun respond(f: Fixture, pod: String, who: SessionCreated, accept: Boolean) =
         f.send(who, "POST", "/v1/pods/$pod/${if (accept) "accept" else "decline"}", PodRequest(id()))
 
+    // DRF-069
     @Test fun `draft marks are private to the caller head pack and cleared by the pick and cancellation`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)
@@ -466,6 +473,7 @@ class PodHttpTest {
         f.send(f.c, "PUT", "/v1/pods/$pod/draft/marks", SetPodDraftMarks(attempt, other.id), 404)
     }
 
+    // DRF-118
     @Test fun `deck notes are private per attempt, editable after submitting and cleared by cancellation`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)
@@ -513,6 +521,7 @@ class PodHttpTest {
         assertEquals(2, rows())
     }
 
+    // DRF-036
     @Test fun `auto start arms only with pending invitations and can be cancelled`() = fixture { f ->
         val pod = f.create().id
         assertEquals("no_pending_invitations", json.decodeFromString<PodError>(autoStart(f, pod, true, 409)).code)
@@ -528,6 +537,7 @@ class PodHttpTest {
         assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
     }
 
+    // DRF-037
     @Test fun `armed pod starts when the last invitation is accepted and settings edits keep it armed`() = fixture { f ->
         val pod = f.create().id
         invite(f, pod, f.b); invite(f, pod, f.c)
@@ -548,6 +558,7 @@ class PodHttpTest {
         assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
     }
 
+    // DRF-037
     @Test fun `a decline switches auto start off and tells the creator`() = fixture { f ->
         val pod = f.create().id
         invite(f, pod, f.b); invite(f, pod, f.c)
@@ -570,6 +581,7 @@ class PodHttpTest {
         assertEquals(PodPhase.SETUP, f.get(f.a, pod).phase) // 3 x 45 cards exceed the 90-card cube
     }
 
+    // DRF-037
     @Test fun `an armed pod that cannot start at the last acceptance stays in setup and tells the creator why`() = fixture { f ->
         val pod = f.create().id
         invite(f, pod, f.b); invite(f, pod, f.c)
@@ -589,6 +601,7 @@ class PodHttpTest {
         assertEquals(PodPhase.DRAFTING, started.phase); assertNull(started.autoStartOff)
     }
 
+    // DRF-038
     @Test fun `start now with pending invitations lapses them`() = fixture { f ->
         val pod = f.create().id
         f.join(pod); invite(f, pod, f.c)
@@ -601,6 +614,7 @@ class PodHttpTest {
         assertEquals(0, f.count(ActivityKind.POD_AUTO_START_OFF, pod))
     }
 
+    // DRF-029, DRF-035, DRF-050, DRF-140
     @Test fun `setup authorization supply snapshots invitation lifecycle and limits`() = fixture { f ->
         val pod = f.create().id
         assertEquals(401, f.request(null, "GET", "/v1/pods").statusCode())
@@ -648,6 +662,7 @@ class PodHttpTest {
         }
     }
 
+    // DRF-039, DRF-040, DRF-041
     @Test fun `leave cancel destroy clear attempts pools and builds and notify affected members`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)
@@ -691,6 +706,7 @@ class PodHttpTest {
         f.send(f.a, "DELETE", "/v1/pods/$setup", PodRequest(id()))
     }
 
+    // DRF-041
     @Test fun `after draft leaving preserves three member pod then destroys final two member pod`() = fixture { f ->
         val pod = f.create().id
         f.join(pod); f.join(pod, f.c)
@@ -709,6 +725,7 @@ class PodHttpTest {
         assertEquals(1, f.count(ActivityKind.POD_DESTROYED, drafted, f.b))
     }
 
+    // DRF-123
     @Test fun `challenge HTTP creates an ordinary invitation with supplied basic definitions`() = fixture { f ->
         val pod = f.create().id; f.join(pod)
         f.configure(pod, DraftSettings(packsPerPlayer = 1, cardsPerPack = 1)); f.start(pod)
@@ -843,6 +860,7 @@ class PodHttpTest {
         }
     }
 
+    // DRF-030
     @Test fun `accepted members plus pending invitations cap at eight and setup can replace its source`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)
@@ -935,6 +953,7 @@ class PodHttpTest {
         }
     }
 
+    // DRF-136
     @Test fun `two player Grid HTTP two picks parallel boards private builds notifications and submit`() = fixture { f ->
         val pod = f.create(DraftMode.GRID).id; f.join(pod)
         assertEquals(DraftMode.GRID, f.get(f.a, pod).settings.mode)
@@ -963,6 +982,7 @@ class PodHttpTest {
         assertTrue(f.get(player, pod).submitted); assertNull(f.get(other, pod).deck)
     }
 
+    // DRF-080
     @Test fun `Grid HTTP opens a member's next round early with attention and a hint while the other still picks`() = fixture { f ->
         val pod = f.create(DraftMode.GRID).id; f.join(pod)
         f.configure(pod, DraftSettings.grid().copy(grids = 6, gridsOpenAtOnce = 3))
@@ -1170,6 +1190,7 @@ class PodHttpTest {
         }
     }
 
+    // DRF-119
     @Test fun `oversized submitted deck is rejected without locking and can be corrected`() = fixture { f ->
         val pod = f.create().id
         f.join(pod)
@@ -1189,6 +1210,7 @@ class PodHttpTest {
         assertTrue(f.get(f.a, pod).submitted)
     }
 
+    // DRF-090
     @Test fun `set Grid generates ordered cards with unlimited supply and completes`() = fixture { f ->
         val upload = setUpload()
         val pod = f.create(DraftMode.GRID).id
@@ -1221,6 +1243,7 @@ class PodHttpTest {
         assertEquals(pod, game.podId)
     }
 
+    // DRF-091
     @Test fun `set Grid with fresh boosters gives each grid random cards from its own booster`() = fixture { f ->
         val upload = setUpload()
         val pod = f.create(DraftMode.GRID).id

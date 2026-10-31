@@ -15,6 +15,7 @@ import org.junit.Assert.*
 class AppUpdateTest {
     private val release = AppRelease(42, "1.2.3", "a".repeat(64), 100)
 
+    // LOB-084, SYS-033
     @Test fun `only newer releases or a rules incompatibility block entry`() {
         assertFalse(appUpdateRequired(42, null))
         assertFalse(appUpdateRequired(42, release))
@@ -50,6 +51,7 @@ class AppUpdateTest {
         assertEquals(release, AppRelease.parse(text.replace("\"URL\"", "42")))
     }
 
+    // LOB-085
     @Test fun `APK requires exact length and SHA256 including cache hits`() {
         val file = File.createTempFile("atw-update", ".apk")
         try {
@@ -88,6 +90,7 @@ class AppUpdateTest {
         exchange.responseBody.write(apk, start.toInt(), count)
     }
 
+    // LOB-085
     @Test fun `a dropped download resumes from the saved part and verifies the whole APK`() {
         val directory = Files.createTempDirectory("atw-update").toFile()
         val ranges = mutableListOf<Long?>()
@@ -139,6 +142,7 @@ class AppUpdateTest {
         } finally { directory.deleteRecursively() }
     }
 
+    // LOB-086
     @Test fun `failures explain themselves and only real download failures offer the browser`() {
         val offline = appUpdateProblem(UnknownHostException("pi5.example"))
         assertEquals("Can't reach the update server. Check your internet connection and try again.", offline.message)

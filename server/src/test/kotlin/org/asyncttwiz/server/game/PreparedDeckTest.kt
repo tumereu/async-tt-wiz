@@ -214,6 +214,7 @@ class PreparedDeckTest {
         }
     }
 
+    // LOB-037
     @Test fun `exact snapshots pure equivalence own Ready clearing and invitation changes share one ordered path`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -259,6 +260,7 @@ class PreparedDeckTest {
         }
     }
 
+    // LOB-053
     @Test fun `source mutation deletion privacy and stale lifecycle guards never substitute or rewrite chosen copies`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -35,6 +35,7 @@ class AppUpdateScreenTest {
     @Before fun reset() { preferences.edit().clear().commit() }
     @After fun close() { store.clear(); preferences.edit().clear().commit() }
 
+    // LOB-084
     @Test fun `cached update blocks main UI immediately without a network check`() {
         preferences.edit().putString("latest", """{"versionCode":${BuildConfig.VERSION_CODE + 1},"versionName":"1.2.3","sha256":"${"a".repeat(64)}","size":100}""").commit()
         val updates = model()
@@ -50,6 +51,7 @@ class AppUpdateScreenTest {
         compose.onNodeWithText("Main UI").assertDoesNotExist()
     }
 
+    // LOB-084, SYS-032
     @Test fun `rules incompatibility survives recreation but not an APK version change`() {
         model().requireForRules()
         store.clear()
@@ -59,6 +61,7 @@ class AppUpdateScreenTest {
         assertFalse(model().required)
     }
 
+    // LOB-086
     @Test fun `a failed update stays explained and offers the server download`() {
         preferences.edit().putString("latest", """{"versionCode":${BuildConfig.VERSION_CODE + 1},"versionName":"1.2.3","sha256":"${"a".repeat(64)}","size":100}""").commit()
         val updates = model()
@@ -71,6 +74,7 @@ class AppUpdateScreenTest {
         compose.onNodeWithText("Then open the downloaded file and install it. No need to uninstall this app first.").assertIsDisplayed()
     }
 
+    // LOB-086
     @Test fun `a failed update with a GitHub mirror offers both browser downloads`() {
         val github = "https://github.com/tumereu/async-tt-wiz/releases/download/v1.2.3/async-tabletop-wizards-1.2.3.apk"
         preferences.edit().putString("latest", """{"versionCode":${BuildConfig.VERSION_CODE + 1},"versionName":"1.2.3","sha256":"${"a".repeat(64)}","size":100,"githubUrl":"$github"}""").commit()
@@ -89,6 +93,7 @@ class AppUpdateScreenTest {
         compose.onNodeWithText("Send problem report").assertIsDisplayed()
     }
 
+    // LOB-086
     @Test fun `a failed update offers a problem report next to the browser download`() {
         preferences.edit().putString("latest", """{"versionCode":${BuildConfig.VERSION_CODE + 1},"versionName":"1.2.3","sha256":"${"a".repeat(64)}","size":100}""").commit()
         val updates = model()

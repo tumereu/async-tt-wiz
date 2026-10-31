@@ -92,6 +92,7 @@ class TreeSyncTest {
         assertEquals(0, published.tree.replayedNodes, "Undo must reverse the old head, not replay ancestry")
     }
 
+    // SYS-027
     @Test fun schemaOneAndMissingInverseDataAreRejectedRatherThanReexecuted() {
         val tree = f.tap(root())
         val node = tree.nodes.getValue(tree.currentNodeId)

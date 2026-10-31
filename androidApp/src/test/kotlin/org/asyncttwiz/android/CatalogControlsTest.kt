@@ -39,6 +39,7 @@ class CatalogControlsTest {
         assertEquals("Finishing up — verifying catalog…", progress.label())
     }
 
+    // LOB-091
     @Test fun firstLaunchWaitsForDownloadConsentThenLeavesLoginAndRegistrationUsable() {
         val downloads = AtomicInteger()
         val controller = initialCatalog(downloads)
@@ -87,6 +88,7 @@ class CatalogControlsTest {
         compose.onNodeWithText("Retry download").assertIsDisplayed()
     }
 
+    // LOB-091
     @Test fun exitFinishesActivityAndMissingCatalogPromptsAgainOnNextLaunch() {
         val downloads = AtomicInteger()
         val first = initialCatalog(downloads)
@@ -158,6 +160,7 @@ class CatalogControlsTest {
         shadowOf(Looper.getMainLooper()).idle()
     }
 
+    // LOB-093
     @Test fun manualFullRefreshShowsSizeAndRequiresConfirmationBeforeBulkDownload() {
         val controller = CatalogViewModel(ApplicationProvider.getApplicationContext<Application>())
         viewModels.put("catalog", controller)

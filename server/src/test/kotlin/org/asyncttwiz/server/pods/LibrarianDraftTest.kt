@@ -60,6 +60,7 @@ class LibrarianDraftTest {
             DraftPick(player, pack.id, pack.cards.take(2).map { it.id }, librarians = listOf(pack.cards.first().id))).reason)
     }
 
+    // DRF-053
     @Test fun `a librarian left in a pack with no further picks follows the leftover card rules`() {
         val state = start(size = 4, burn = 2, librarians = 2)
         val (a, b) = state.seating
@@ -77,6 +78,7 @@ class LibrarianDraftTest {
         assertTrue(next.pools.getValue(a).none { it in spent })
     }
 
+    // DRF-055
     @Test fun `a mid pack spend returns the librarian and the picked up librarian is spendable`() {
         var state = start(size = 8, burn = 2, librarians = 2)
         val a = state.seating.first(); val b = state.seating.last()
@@ -103,6 +105,7 @@ class LibrarianDraftTest {
             head.cards.drop(2).take(2).map { it.id }, listOf(spent.first()))).reason)
     }
 
+    // DRF-055
     @Test fun `automatic awards do not spend and librarians left at the discard threshold are discarded`() {
         val automatic = start(size = 1, burn = 0)
         assertTrue(automatic.finished)

@@ -23,6 +23,7 @@ import kotlin.test.*
 class BoardPresentationTest {
     @get:Rule val compose = createComposeRule()
 
+    // TBL-025
     @Test fun compactStackAndNoteChipsAtNormalCardSize() = render(1f)
     @Test fun noteChipsScaleWithWorldZoom() = render(2f)
 

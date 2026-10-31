@@ -4,6 +4,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableSelectionTest {
+    // TBL-062
     @Test fun actionsCaptureSelectionOrSingleWithoutMutatingSelection() {
         val selection = TableSelection(linkedSetOf("b", "a"), TableMode.SELECT)
         val captured = selection.scope("a", listOf("a", "b", "c"))
@@ -14,6 +15,7 @@ class TableSelectionTest {
         assertEquals(setOf("b", "c"), later.ids)
         assertEquals(setOf("b", "a"), selection.ids)
     }
+    // TBL-043, TBL-051
     @Test fun orientationAndSuccessfulDragClearOnlyForUnselectedContextAndRetainMode() {
         val s = TableSelection(setOf("a", "b"), TableMode.SELECT)
         assertEquals(s, s.afterMove("a")); assertEquals(s, s.orientation("a"))
@@ -21,6 +23,7 @@ class TableSelectionTest {
         assertEquals(emptySet(), s.orientation("c").ids)
         assertEquals(setOf("a"), s.retain(setOf("a", "c")).ids)
     }
+    // TBL-057
     @Test fun visibleRectangleSubtractDoesNotSelectHiddenBoundingBox() {
         val square = TableBounds(0f, 0f, 100f, 100f)
         val pieces = square.subtract(TableBounds(5f, 5f, 100f, 100f))

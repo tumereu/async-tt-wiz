@@ -45,6 +45,7 @@ class MoveIconsScreenshotTest {
         HistoryIcon.LAYERS_CLEAR to "Pulled from the Stack (kept)",
         HistoryIcon.DELETE to "Token removed (kept)")
 
+    // HIS-070
     @Test fun moveIconSheet() {
         compose.setContent {
             ScreenTheme {

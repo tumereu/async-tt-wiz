@@ -21,6 +21,7 @@ class TableFeelTest {
         assertEquals(listOf<TableIntent>(TableIntent.PlayerDelta("a", org.asyncttwiz.protocol.CounterColor.BLUE, 2)), events)
     }
 
+    // TBL-080, TRN-032
     @Test fun dominantAxisCompleteUnitStepsAndSigns() {
         // Every value drag (life, player and card counters, P/T, menu widgets) shares one 33.6dp unit: 70% of 48dp.
         assertEquals(48f * .7f, VALUE_DRAG_STEP_DP, .0001f)
@@ -48,6 +49,7 @@ class TableFeelTest {
         assertEquals(3L, drag.delta)
     }
 
+    // TBL-080, TRN-032
     @Test fun dragCurveIsMonotonicSymmetricDensityIndependentAndAcceleratesAfterThreeUnits() {
         val u = VALUE_DRAG_STEP_DP
         for (unit in 1..3) {
@@ -71,6 +73,7 @@ class TableFeelTest {
         assertTrue(valueDragDelta(175f, 0f) - valueDragDelta(140f, 0f) > valueDragDelta(70f, 0f) - valueDragDelta(35f, 0f))
     }
 
+    // TRN-032
     @Test fun lifeAndPlayerCountersSubtractTowardOtherPlayerInBothOrientations() {
         val f = TableStatesFixture
         for (landscape in listOf(false, true)) {
@@ -108,6 +111,7 @@ class TableFeelTest {
         }
     }
 
+    // SYS-050, TBL-050
     @Test fun backDismissesLayersBeforeReviewSelectionAndDoubleBackExit() {
         val back = TableBackStateMachine()
         assertEquals(TableBackAction.CLOSE_OVERLAY, back.back(0, true, true, true))
@@ -123,6 +127,7 @@ class TableFeelTest {
         assertEquals(TableBackAction.PROMPT, back.back(5004, false, false, false))
     }
 
+    // TBL-037
     @Test fun tapAndUndoRotateRigidFaceThroughMidpointsAndRetargetWithoutMorphing() {
         val card = TableItem("card/a", TableBounds(100f, 100f, 28f, 40f), "Card", "Card",
             kind = TableItemKind.CARD, cardId = "a")

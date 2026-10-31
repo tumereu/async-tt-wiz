@@ -12,6 +12,7 @@ class StatusBubbleTest {
         }))
     }
 
+    // TRN-039
     @Test fun bubbleSitsBelowTheTopLifeSquareAndAboveTheBottomOne() {
         val life = TableBounds(10f, 100f, 48f, 48f)
         val below = StatusBubble.bounds(life, below = true, textWidth = 40f)
@@ -31,6 +32,7 @@ class StatusBubbleTest {
         assertEquals("ab…", StatusBubble.fit("ab😀cd", 18f, measure))
     }
 
+    // TRN-039
     @Test fun longTextWrapsAtSpacesOntoAtMostFourLinesAndOnlyThenEllipsizes() {
         val measure = { text: String -> text.length * 6f }
         assertEquals(listOf("Wait"), StatusBubble.lines("Wait", 60f, measure))

@@ -25,6 +25,7 @@ class TableRefreshObservationTest {
         lobby.table.value; lobby.retainedTree(); lobby.displayTree(); lobby.retainedHistory(); lobby.resultLocked()
     }
 
+    // SYS-028
     @Test fun backgroundRefreshWithUnchangedDataWritesNothingTheTableReads() {
         val f = BasicTableFixture()
         try {

@@ -19,6 +19,7 @@ class R34DirectionIconsTest {
         assertTrue(HistoryGrouping.STEP_RUN_RULES_VERSION < HistoryGrouping.DIRECTION_ICONS_RULES_VERSION)
     }
 
+    // HIS-071, HIS-073
     @Test fun lifeGainIsAHeartAndLossABrokenHeart() {
         assertEquals(HistoryIcon.FAVORITE, icon(PlayAction.AdjustLife(a, "+3")))
         assertEquals(HistoryIcon.HEART_BROKEN, icon(PlayAction.AdjustLife(a, "-2")))
@@ -28,6 +29,7 @@ class R34DirectionIconsTest {
         assertEquals(HistoryIcon.FAVORITE, icon(PlayAction.SetLife(a, "lots"), field(GameplayField.LIFE, "20", "lots", a)))
     }
 
+    // HIS-071, HIS-073
     @Test fun cardCountersCountUpDownAndClear() {
         assertEquals(HistoryIcon.EXPOSURE_PLUS_1, icon(PlayAction.AdjustCounter(CounterTarget.CARD, card, CounterColor.GREEN, "1")))
         assertEquals(HistoryIcon.EXPOSURE_NEG_1, icon(PlayAction.AdjustCounter(CounterTarget.CARD, card, CounterColor.GREEN, "-1")))
@@ -42,6 +44,7 @@ class R34DirectionIconsTest {
             field(GameplayField.COUNTER, "3", null, color = CounterColor.GREEN)))
     }
 
+    // HIS-071, HIS-073
     @Test fun playerCountersPointUpOrDown() {
         assertEquals(HistoryIcon.ARROW_CIRCLE_UP, icon(PlayAction.AdjustPlayerCounter(a, CounterColor.RED, "1")))
         assertEquals(HistoryIcon.ARROW_CIRCLE_DOWN, icon(PlayAction.AdjustPlayerCounter(a, CounterColor.RED, "-1")))
@@ -55,6 +58,7 @@ class R34DirectionIconsTest {
             field(GameplayField.PLAYER_COUNTER, "5", "0", b, CounterColor.GRAY)))
     }
 
+    // HIS-071, HIS-073
     @Test fun powerToughnessTrendsByTheSumOfBothSides() {
         assertEquals(HistoryIcon.TRENDING_UP, icon(PlayAction.AdjustCorner(card, CornerPart.BOTH, 1)))
         assertEquals(HistoryIcon.TRENDING_DOWN, icon(PlayAction.AdjustCorner(card, CornerPart.LEFT, -1)))
@@ -74,6 +78,7 @@ class R34DirectionIconsTest {
         assertEquals(HistoryIcon.TRENDING_DOWN, icon(PlayAction.SetEotCorner(card, ""), field(GameplayField.EOT_CORNER, "+1/+1", "")))
     }
 
+    // HIS-071
     @Test fun damageBurnsAndHealing() {
         assertEquals(HistoryIcon.LOCAL_FIRE_DEPARTMENT, icon(PlayAction.AdjustDamage(card, "2")))
         assertEquals(HistoryIcon.HEALING, icon(PlayAction.AdjustDamage(card, "-1")))
@@ -81,6 +86,7 @@ class R34DirectionIconsTest {
         assertEquals(HistoryIcon.HEALING, icon(PlayAction.SetDamage(card, ""), field(GameplayField.DAMAGE, "3", "")))
     }
 
+    // HIS-072
     @Test fun stepsTurnsAndClosings() {
         val turn = field(GameplayField.TURN_PLAYER, a, b, id(4))
         val step = field(GameplayField.STEP, TurnPosition.UPKEEP.step, TurnPosition.DRAW.step, id(4))
@@ -119,6 +125,7 @@ class R34DirectionIconsTest {
         PlayAction.Combat(CombatAction.Close(id(32))) to emptyList(),
         PlayAction.Combat(CombatAction.SetAttackTarget(id(32), id(33), b)) to emptyList())
 
+    // HIS-074, SYS-031
     @Test fun olderEventsKeepTheirRecordedIconsAndOnlyTheIconChanges() {
         val old = mapOf(PlayAction.AdjustLife(a, "-2") to HistoryIcon.FAVORITE, PlayAction.NextStep to HistoryIcon.OUTLINED_FLAG,
             PlayAction.DismissContents(id(30)) to HistoryIcon.CLOSE, PlayAction.Combat(CombatAction.Close(id(32))) to HistoryIcon.LAYERS_CLEAR,
@@ -139,6 +146,7 @@ class R34DirectionIconsTest {
     }
 
     /** Real accepted events: each records its direction icon and replays (readsMatch) unchanged. */
+    // HIS-071
     @Test fun acceptedEditsRecordTheirDirectionAndReplay() {
         val definition = CardDefinition("Bear", listOf(DefinitionFace(id(40), "Bear", corner = "2/2")))
         val bear = PlayCard(card, "definition", a, id(14), id(40), covered = false, corner = "2/2",

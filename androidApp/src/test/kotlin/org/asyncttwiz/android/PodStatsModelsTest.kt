@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodStatsModelsTest {
+    // DRF-111
     @Test fun compactChartGroupsSevenPlusAndNormalizesDemandAndSourcesIndependently() {
         val stats = podStats(PodDeckBuild(), emptyMap(), emptyMap()).copy(curve = mapOf(
             0.0 to PodStatsCurveBucket(creatures = 1), 1.5 to PodStatsCurveBucket(noncreatures = 2),
@@ -29,6 +30,7 @@ class PodStatsModelsTest {
     private fun card(name: String, type: String, cost: String = "", text: String = "") =
         CardDefinition(name, listOf(DefinitionFace("front", name, typeLine = type, manaCost = cost, rulesText = text)))
 
+    // DRF-114
     @Test fun coloredPipsHandleHybridPhyrexianHalfPipsAndIgnoreGenericXAndBack() {
         val pips = podStatsPips("{3}{X}{W/U}{B/P}{2/R}{G}{G/U/P}{HW}{C}{S} // {R}{R}")
         assertEquals(1.0, pips[DraftColor.W])
@@ -38,6 +40,7 @@ class PodStatsModelsTest {
         assertEquals(1.5, pips[DraftColor.G])
     }
 
+    // DRF-116
     @Test fun pipPatternsKeepColoredAndColorlessSymbolsInPrintedOrderAndDropGenericXAndSnow() {
         assertEquals("{U}", podStatsPipPattern("{3}{U}"))
         assertEquals("{R/W}{R/W}", podStatsPipPattern("{1}{r/w}{R/W}"))
@@ -49,6 +52,7 @@ class PodStatsModelsTest {
         assertEquals(listOf("0", "4", "½", "4½", "1.3"), listOf(0.0, 4.0, .5, 4.5, 4.0 / 3).map(::podStatsPipText))
     }
 
+    // DRF-116
     @Test fun mainCardsGroupByPipPatternMostCommonFirstAndLandsWithoutColorAreCounted() {
         val definitions = mapOf("u" to card("Bird", "Creature", "{1}{U}"), "u2" to card("Fish", "Instant", "{U}"),
             "rw" to card("Boros", "Creature", "{R/W}{R/W}"), "ub" to card("Grixis", "Sorcery", "{U}{U}{B}"),
@@ -66,6 +70,7 @@ class PodStatsModelsTest {
         assertEquals(0L, stats.sources[DraftColor.R]) // Nonland costs never count as sources.
     }
 
+    // DRF-112
     @Test fun typeCountsComeFromFrontTypeLineWordsOfMainCardsAndBasicsMostCommonFirst() {
         val definitions = mapOf(
             "golem" to card("Golem", "Legendary Artifact Creature — Golem"),
@@ -91,6 +96,7 @@ class PodStatsModelsTest {
         assertTrue(podStats(PodDeckBuild(), emptyMap(), emptyMap()).types.isEmpty())
     }
 
+    // DRF-118
     @Test fun notesSanitizeAndCountersStayWithinTheirRange() {
         val notes = PodDeckNotes("a\r\nb\tc\u0000", listOf(1, 2, 3)).podNotesSanitized()
         assertEquals("a\nbc", notes.text)
@@ -102,6 +108,7 @@ class PodStatsModelsTest {
         assertFalse(PodDeckNotes("x".repeat(PodDeckNotes.MAX_TEXT + 1)).valid)
     }
 
+    // DRF-111, DRF-115
     @Test fun mainIncludesBasicsAndDuplicateCopiesButNotSideTrashOrNonlandSources() {
         val definitions = mapOf(
             "creature" to card("Elf", "Creature — Elf", "{G}", "{T}: Add {G}."),
@@ -144,6 +151,7 @@ class PodStatsModelsTest {
         assertEquals("", podStatsFrontCost(card.copy(faces = listOf(card.faces.first().copy(sourceData = "invalid")))))
     }
 
+    // DRF-115
     @Test fun landSourcesCountAColorOnceAndExcludeActivationCostsAndNonlands() {
         assertEquals(setOf(DraftColor.U, DraftColor.B), podStatsLandColors(card("Land", "Land", text = "{R}, {T}: Add {U}{U} or {B}. Spend {G} only on creatures.")))
         assertEquals(DraftColor.entries.toSet(), podStatsLandColors(card("Rainbow", "Land", text = "{T}: Add one mana of any color.")))
@@ -161,6 +169,7 @@ class PodStatsModelsTest {
         assertTrue(stats.colors.values.all { it == 0 })
     }
 
+    // DRF-117
     @Test fun colorsCountEveryMainNonlandCopyByIdentityAndExcludeLandsBasicsSideAndTrash() {
         val definitions = DraftColor.entries.associate { color -> color.name to card(color.name, "Creature", "{${color.name}}") } + mapOf(
             "gold" to card("Gold", "Instant", "{W/U}"),
@@ -183,6 +192,7 @@ class PodStatsModelsTest {
         assertEquals(1, stats.missingDefinitions)
     }
 
+    // DRF-117
     @Test fun colorIdentityUsesCatalogIdentityIncludingExplicitColorlessInsteadOfOnlyManaCost() {
         val artifact = card("Artifact", "Artifact", "{2}", "{T}: Add {G}.")
         val recorded = artifact.copy(faces = listOf(artifact.faces.single().copy(sourceData = """{"colorIdentity":["U","R"]}""")))

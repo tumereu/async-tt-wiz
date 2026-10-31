@@ -27,6 +27,7 @@ import kotlin.test.assertTrue
 class PodStatsViewTest {
     @get:Rule val compose = createComposeRule()
 
+    // DRF-114
     @Test fun manaTableShowsNumbersAndPipPatternsWithTheColorsDonutAndStackedCurve() {
         val card = CardDefinition("Hybrid", listOf(DefinitionFace("front", "Hybrid", typeLine = "Creature", manaCost = "{W/U}{B/P}")))
         compose.setContent { MaterialTheme {
@@ -55,6 +56,7 @@ class PodStatsViewTest {
         compose.onNodeWithText("Mana sources · approximate").assertDoesNotExist()
     }
 
+    // DRF-112, DRF-113
     @Test
     @Config(qualifiers = "w412dp-h892dp-port-xhdpi")
     fun typeCountsWrapBelowTheLegendAndAboveTheManaTable() {
@@ -96,6 +98,7 @@ class PodStatsViewTest {
         compose.onRoot().captureRoboImage(output.path)
     }
 
+    // DRF-113
     @Test
     @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun emptyStatsRenderZeroValuesInLandscape() {
@@ -128,6 +131,7 @@ class PodStatsViewTest {
         assertEquals(before, compose.onNodeWithTag("pod-stats-mana").getUnclippedBoundsInRoot())
     }
 
+    // DRF-114, DRF-116
     @Test fun pipListEndsWithCardsWithoutColoredPipsAndColorlessLandsAreNamed() {
         val spell = CardDefinition("Spell", listOf(DefinitionFace("front", "Spell", typeLine = "Instant", manaCost = "{1}{U}")))
         val rock = CardDefinition("Rock", listOf(DefinitionFace("front", "Rock", typeLine = "Artifact", manaCost = "{2}")))
@@ -143,6 +147,7 @@ class PodStatsViewTest {
         compose.onNodeWithText("Lands without a color: 1").assertIsDisplayed()
     }
 
+    // DRF-118
     @Test fun notesAndCountersEditThroughTheCallbackAndStayInRange() {
         var notes by mutableStateOf(PodDeckNotes(counters = listOf(0, 0, 0, 0, 0, 0, 0, PodDeckNotes.MAX_COUNTER)))
         compose.setContent { MaterialTheme {

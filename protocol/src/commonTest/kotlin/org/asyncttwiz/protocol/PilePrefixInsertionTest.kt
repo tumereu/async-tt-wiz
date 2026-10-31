@@ -94,6 +94,7 @@ class PilePrefixInsertionTest {
         assertEquals("movementConflict", gameplayChange(arrival, first, 134).reason)
     }
 
+    // SYS-011
     @Test fun unrelatedOrdinaryEditsStayLiveAndStackEqualityRemainsADistinctGuard() {
         val root = root(); val first = action(root, a, pending = listOf(b))
         var edited = gameplayChange(root, PlayAction.SetLife(gameplayId(7), "19"), 140).state!!

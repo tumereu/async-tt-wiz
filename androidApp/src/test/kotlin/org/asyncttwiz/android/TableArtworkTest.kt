@@ -29,6 +29,7 @@ class TableArtworkTest {
     private val full = ArtworkReference(printing, 0, "v1")
     private val custom = full.copy(customUrl = "https://example.com/card.png")
 
+    // TBL-019
     @Test fun tableUsesArtCropButCustomUrlTakesPrecedenceOverPrinting() {
         assertEquals("art_crop", full.forTable().size)
         assertEquals(TableArtworkMode.ART_CROP, tableArtworkMode(full.forTable(), true))
@@ -40,6 +41,7 @@ class TableArtworkTest {
         assertNotEquals(CardArtworkRequest(full, 100, 140).key, CardArtworkRequest(full.forTable(), 100, 140).key)
     }
 
+    // TBL-019
     @Test fun unavailableImagesKeepTheTypeIconFallback() {
         for (reference in listOf(full.forTable(), custom.forTable(), null)) {
             assertEquals(TableArtworkMode.TYPE_ICON, tableArtworkMode(reference, false))

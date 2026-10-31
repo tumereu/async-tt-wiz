@@ -97,6 +97,7 @@ class GameSocketTest {
     private fun command(game: GameSummary, stream: GameStreamReady, action: GameAction) =
         GameCommand(id(), GameScope(game.id, game.preparationRound, game.invitationId), action, stream.streamId, stream.generation)
 
+    // SYS-033
     @Test fun `gameplay rules negotiation rejects old and missing versions before opening streams`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val settings = settings(db)

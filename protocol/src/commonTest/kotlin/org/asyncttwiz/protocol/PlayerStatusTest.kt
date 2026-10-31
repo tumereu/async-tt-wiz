@@ -15,6 +15,7 @@ class PlayerStatusTest {
 
     @Test fun rulesVersionIsAtLeast26() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 26)
 
+    // TRN-038
     @Test fun statusIsEmptyOrTrimmedSingleLineAndAtMost512Characters() {
         fun valid(text: String) = GameWire.valid(command(text))
         for (good in listOf("", "Wait", "Thinking…", "x".repeat(65), "x".repeat(512), "Back in ten. ".repeat(39) + "Sorry",
@@ -36,6 +37,7 @@ class PlayerStatusTest {
         }
     }
 
+    // SYS-038, TRN-040
     @Test fun settingChangesOnlyTheActorsStatusNeverAttentionAndHistoryRestoresItExactly() {
         val before = play()
         val change = GameplayRules.change(before, b, command("Wait"))
@@ -61,6 +63,7 @@ class PlayerStatusTest {
         assertEquals(GameplayFieldChange(a, GameplayField.STATUS, "BRB", ""), cleared.mutation!!.transition.fields.single())
     }
 
+    // TRN-040
     @Test fun setAndClearAreUndoableAndRedoable() {
         val initial = play(PlayerStatus.OPENING)
         val ready = GameplayTree(initial).play(a, command("")).tree!!

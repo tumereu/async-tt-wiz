@@ -19,6 +19,7 @@ import kotlin.test.*
 class TokenMenuUiTest {
     @get:Rule val compose = createComposeRule()
 
+    // TRN-046
     @Test fun gameEndRequiresOutcomeAndConfirmationAndCancelDoesNotSubmit() {
         val play = LiveTableFixture.menuPlay()
         val controller = TableToolkitController("a", { play }, { true }, { _, _ -> error("No gameplay submission") }).table
@@ -44,6 +45,7 @@ class TokenMenuUiTest {
         assertTrue(dismissed)
     }
 
+    // SYS-047, TRN-046
     @Test fun suggestionDialogHasOptionalReasonAndKeyboardDoneConfirmsWithTheTrimmedReason() {
         val play = LiveTableFixture.menuPlay()
         val controller = TableToolkitController("a", { play }, { true }, { _, _ -> error("No gameplay submission") }).table
@@ -69,6 +71,7 @@ class TokenMenuUiTest {
         assertTrue(dismissed)
     }
 
+    // TBL-098
     @Test fun tokenRowsSupportInspectFavoriteFilteredDefaultsAndOneTapCreate() {
         val play = LiveTableFixture.menuPlay()
         fun token(name: String) = TokenCatalog.blank.definition.copy(name = name,

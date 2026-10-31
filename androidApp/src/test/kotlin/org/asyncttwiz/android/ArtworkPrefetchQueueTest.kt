@@ -59,6 +59,7 @@ class ArtworkPrefetchQueueTest {
         assertEquals(listOf(first.first()) + replacement, started)
     }
 
+    // LOB-099
     @Test fun inspectorPlaceholderText() {
         assertEquals("Downloading artwork…", inspectorArtworkStatus(false, null))
         assertEquals("Downloading artwork 13 of 80", inspectorArtworkStatus(false, ArtworkPrefetchProgress(12, 80)))

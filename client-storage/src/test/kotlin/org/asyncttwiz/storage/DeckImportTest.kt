@@ -13,6 +13,7 @@ import java.sql.DriverManager
 import java.util.UUID
 
 class DeckImportTest {
+    // LOB-063
     @Test fun oversizedImportsProduceOrdinaryLineIssuesWithoutAPartialPreview() {
         val resolver = DeckImportResolver(repository("prism"))
         for ((text, line) in listOf("2147483647 Quiet Lattice Bolt" to 1,
@@ -63,6 +64,7 @@ class DeckImportTest {
         } }
         return repository
     }
+    // LOB-062
     @Test fun commonSyntaxPreservesOriginalTextAndExplicitSectionsIgnoreBlankSpacing() {
         val text = "\r\nDeck\r\n4x Card  With Spaces (set) 007\r\n\r\n2 Other Card\r\nSideboard\r\n1 Side Card\r\n"
         val parsed = DeckTextParser.parse(text)
@@ -117,6 +119,7 @@ class DeckImportTest {
             }
         }
     }
+    // LOB-060
     @Test fun unknownAmbiguousMismatchMalformedUnsupportedAndOverflowBlockWholePreview() {
         val resolver = DeckImportResolver(repository("prism"))
         val cases = listOf("1 No Such Card", "1 Coppercloud Echo", "1 Coppercloud Surveyor (UNKNOWN) 1", "1 Velvet Prism Engine (ZPA) 999",
@@ -292,6 +295,7 @@ class DeckImportTest {
         return DeckImportResolver(repository)
     }
 
+    // LOB-062
     @Test fun commonSiteExportsResolveWithTheirSections() {
         val resolver = realSample()
         val moxfield = """
@@ -348,6 +352,7 @@ class DeckImportTest {
         assertEquals("Expansion // Explosion", resolver.resolve(mtgo).entries[2].printing.name)
     }
 
+    // LOB-062
     @Test fun sectionHeadersCommentsAndTagsAreParsedWithoutResolution() {
         val parsed = DeckTextParser.parse("Sideboard (15)\n1 A\n// Main\n2 B *F*\n#Commander\n3 C [Ramp]\n#Companion:\n4 D <extended> [M11]\n## a note\nMaybeboard\n5 E\n")
         assertEquals(emptyList<ImportIssue>(), parsed.issues)

@@ -104,6 +104,7 @@ class TableScreenshotTest {
         }
     }
 
+    // STK-008, SYS-024, TRN-007
     @Test fun livePortrait() = capture("live-portrait", false)
     @Test fun floatingErrorAboveTableControls() {
         val play = LiveTableFixture.play(5)
@@ -124,6 +125,7 @@ class TableScreenshotTest {
         assertEquals(412, image.width)
         assertEquals(892, image.height)
     }
+    // SYS-024
     @Test fun floatingErrorCanBeDismissedAndExpiresWithoutChangingTheTable() {
         val message = mutableStateOf<String?>("This action could not be used.")
         val play = LiveTableFixture.play(5)
@@ -141,6 +143,7 @@ class TableScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("Another error").assertDoesNotExist()
     }
+    // TRN-007
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun liveLandscape() = capture("live-landscape", true)
     @Test fun pausedPortrait() = capture("paused-portrait", false, paused = true)
@@ -159,6 +162,7 @@ class TableScreenshotTest {
     @Test @Config(qualifiers = "w640dp-h360dp-land-xhdpi")
     fun devicePausedLandscape() = capture("device-paused-landscape", true, paused = true)
 
+    // TRN-010
     @Test fun controlsPortrait() = capture("controls-portrait", false, controls = true)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun controlsLandscape() = capture("controls-landscape", true, controls = true)
@@ -263,6 +267,7 @@ class TableScreenshotTest {
         return toolkit to sent
     }
 
+    // SYS-045, TBL-081, TRN-008, TRN-010, TRN-032
     @Test fun cardActionsPortrait() { menu("card-actions", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cardActionsLandscape() { menu("card-actions", true) }
     @Test fun ownerChoicePortrait() { menu("owner-choice", false) }
@@ -336,6 +341,7 @@ class TableScreenshotTest {
         }
     }
 
+    // TRN-017
     @Test fun progressionHoldOnlyEndsTurn() {
         // From Cleanup ending the turn is the single End turn event. Longer runs (rules v33) are batched against the
         // real reducer, which this fixture's non-wire IDs cannot pass; StepRunActionsTest covers them.
@@ -367,6 +373,7 @@ class TableScreenshotTest {
         compose.onNodeWithContentDescription("Mulligan −1").performScrollTo().assertIsDisplayed()
     }
 
+    // TBL-071
     @Test fun battlefieldMenuHasExactlyItsThreePages() {
         val (_, sent) = menu("card-actions", false)
         compose.mainClock.advanceTimeBy(350)

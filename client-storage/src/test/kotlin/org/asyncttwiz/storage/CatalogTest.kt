@@ -249,6 +249,7 @@ class CatalogTest {
         assertTrue(cadence().due(now - 1))
     }
 
+    // LOB-092
     @Test fun initialAndMeteredDownloadsRequireConsentButUnchangedStartupNeverDownloads() {
         val old = CatalogMetadata("2026-01-01", "5.2.2")
         val new = old.copy(date = "2026-01-02", indexVersion = old.indexVersion + 1)

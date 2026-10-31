@@ -110,7 +110,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-074** Leaving with the Home button still notifies; after you open a game and close it, your opponent's next moves notify with sound again. (r29)
 - **LOB-075** One reminder "<opponent> is waiting for you" comes 5 minutes after your opponent moved and went idle, if you have not moved since; just opening the game does not count, and it waits until 5 minutes after you leave. (r28)
 - **LOB-076** If no notice reached you, the app itself reminds you of games waiting for your move: 15 min, 30 min, 1 h, 2 h, 4 h, 8 h and 16 h after it went to the background, then daily until you open it. A notification you swipe away stays away until your opponent does something new. (?) (r34)
-- **LOB-077** You get a notification when a game you are Ready for starts; pod notices cover a new pod invitation, "Your pick — <pod>", "Draft complete: build your deck", "Decks ready", "Draft cancelled", "Pod destroyed" and "Auto-start off". (r25)
+- **LOB-077** You get a notification when a game you are Ready for starts; pod notices cover a new pod invitation, "Your pick — <pod>", "Draft complete: build your deck", "Decks ready — <pod>", "Draft cancelled", "Pod destroyed" and "Auto-start off — <pod>". (r25)
 - **LOB-078** Tapping a notification opens that game or pod; a game's or pod's notification clears while you have it open. Android 13+ asks for notification permission once, on the Games list or Pods screen. (r19)
 
 ### Settings
@@ -142,7 +142,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-091** On first launch, before sign-in, "Download card records?" explains the app needs the card catalog, shows the size and metered/unmetered connection, and offers only Exit or Download. Sign-in works while it downloads, with a progress bar at the top. (r17)
 - **LOB-092** Automatic updates only fetch new sets and sets released in the last 60 days, and only on unmetered connections; on a metered one the app asks first ("Update card records?" with Not now). (r9)
 - **LOB-093** Settings → Card records shows the installed date and record count, progress while working, "Check for updates" and "Refresh full catalog" (confirm dialog; the only way to re-download everything). (r9)
-- **LOB-094** Progress reads "Downloading card records: x / y MB" (KB for small updates), "Indexing card records…", then "Finishing up — verifying catalog…", with a bar that fills steadily. (r30)
+- **LOB-094** Progress reads "Downloading card records: x / y MB" (KB for small updates), "Indexing card records: x / y MB processed · N cards", then "Finishing up — verifying catalog…"; the bar shows real progress where the size is known and moves without a fixed position while finishing or when the total is unknown. (r30)
 - **LOB-095** If the app needs a new catalog format, it deletes the old catalog and downloads it again at startup. (r17)
 - **LOB-096** While the first catalog downloads, deck and game screens show a busy overlay with its progress; the menu, Settings and an open game do not. (r17)
 
@@ -156,5 +156,5 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 - **LOB-100** Screen titles are one line in the same place on every screen; New/Import buttons sit at the top right of Games, Pods and Manage decks. (r21)
 - **LOB-101** Dialog buttons sit in one row on the right with the main action last and delete actions in red. (r21)
-- **LOB-102** The keyboard's Enter key does what the screen's button does: sign in, search, send a chat message, save a name or a value. (r24)
+- **LOB-102** The keyboard's Enter key does what the screen's button does: sign in, search, send a chat message, save a name or a value. Where search runs as you type, it just closes the keyboard. (r24)
 - **LOB-103** First loads show a full-area placeholder (with Retry on failure), errors appear as a floating message at the bottom, and screens keep their layout when states change. (r15)

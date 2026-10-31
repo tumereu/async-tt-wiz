@@ -60,6 +60,7 @@ class PodPickViewTest {
         }
     }
 
+    // DRF-060
     @Test fun swipeTogglesSwitchesAndDropsEarliestWhileMenuConfirmsCopyIds() {
         var confirmed: Pair<List<String>, List<String>>? = null
         show(settings = DraftSettings(keep = 1, burn = 1), onConfirm = { keep, burn -> confirmed = keep to burn })
@@ -82,6 +83,7 @@ class PodPickViewTest {
         assertEquals(listOf("2") to listOf("3"), confirmed)
     }
 
+    // DRF-062, DRF-063
     @Test fun menuUnmarkTrayTapAndHoldInspectionWork() {
         show()
         card("1").performClick()
@@ -96,6 +98,7 @@ class PodPickViewTest {
         assertHoldPreview(card("2"))
     }
 
+    // DRF-062
     @Test fun tapMenuInspectOpensTheFullInspectorWithTheBackFace() {
         val double = CardDefinition("Day // Night", listOf(DefinitionFace("day", "Day Side"), DefinitionFace("night", "Night Side")),
             layout = "transform")
@@ -129,6 +132,7 @@ class PodPickViewTest {
         compose.onNodeWithTag("pod-pick-art-preview").assertDoesNotExist()
     }
 
+    // DRF-052, DRF-054
     @Test fun librarianChipHoldSlotsRefundAndConfirmKeepTrayGeometryStable() {
         val librarian = DraftCopy("l1", "librarian", librarian = true)
         var confirmed: List<String>? = null
@@ -156,6 +160,7 @@ class PodPickViewTest {
         assertEquals(beforeBurn, burn.fetchSemanticsNode().boundsInRoot)
     }
 
+    // DRF-052, DRF-053
     @Test fun aSpentLibrarianShowsInThePackAndCanBeBurnedKeptOrRefunded() {
         val librarian = DraftCopy("l1", "librarian", librarian = true)
         var confirmed: Triple<List<String>, List<String>, List<String>>? = null
@@ -198,6 +203,7 @@ class PodPickViewTest {
         }
     }
 
+    // DRF-063, SYS-049
     @Test fun horizontalMoveEarlyInAHoldClosesThePreviewAndSwipes() {
         show()
         hold(card("1"))
@@ -209,6 +215,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Keep").assertDoesNotExist()
     }
 
+    // DRF-063, SYS-049
     @Test fun verticalMoveEarlyInAHoldClosesThePreviewAndScrollsTheList() {
         show()
         val before = card("1").getUnclippedBoundsInRoot().top
@@ -221,6 +228,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Keep").assertDoesNotExist()
     }
 
+    // DRF-063
     @Test fun settledHoldOwnsVerticalMotionAndHorizontalMoveDismissesWithoutMarking() {
         show()
         val before = card("1").getUnclippedBoundsInRoot().top
@@ -235,6 +243,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Keep").assertDoesNotExist()
     }
 
+    // DRF-064
     @Test fun simultaneousTapsOpenOnlyTheLatestCardMenu() {
         show()
         val first = card("1").fetchSemanticsNode().boundsInRoot.center
@@ -246,6 +255,7 @@ class PodPickViewTest {
         assertMark("1", "Unmarked")
     }
 
+    // DRF-065
     @Test fun trayCountIsACornerChipOverTheCards() {
         show()
         swipe("1", true)
@@ -258,6 +268,7 @@ class PodPickViewTest {
         assertMark("1", "Unmarked")
     }
 
+    // DRF-066
     @Test fun automaticBurnTrayWaitsForKeepAndIsNotSelectableAndSendsRest() {
         var result: Pair<List<String>, List<String>>? = null
         show(currentPack = { pack.copy(cards = pack.cards.take(3)) }, onConfirm = { keep, burn -> result = keep to burn })
@@ -277,6 +288,7 @@ class PodPickViewTest {
         assertEquals(listOf("1") to listOf("2", "3"), result)
     }
 
+    // DRF-060, DRF-066
     @Test fun boosterLeftSwipeDoesNothingAndHasNoBurnMenuOrTray() {
         show(settings = DraftSettings())
         swipe("1", true)
@@ -304,6 +316,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Confirm").assertIsNotEnabled()
     }
 
+    // DRF-067, DRF-068
     @Test fun queuedPackIsPickableBeforeResponseAndRejectionRestoresOriginalMarks() {
         val next = pack.copy(id = "next", cards = pack.cards.map { it.copy(id = "next-${it.id}") })
         var current by mutableStateOf<DraftPrivatePack?>(pack)
@@ -330,6 +343,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Confirm").assertIsEnabled()
     }
 
+    // DRF-068
     @Test fun lastQueuedPackShowsNormalWaitingImmediatelyAndRejectionRestoresMarks() {
         var current by mutableStateOf<DraftPrivatePack?>(pack)
         show(currentPack = { current }, settings = DraftSettings(),
@@ -345,6 +359,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Confirm").assertIsEnabled()
     }
 
+    // DRF-065
     @Test fun smallTraysShareOneRowAndKeepTheirSizeWhileMarking() {
         show()
         val keep = compose.onNodeWithTag("pod-pick-keep-tray")
@@ -361,6 +376,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Burn").assertDoesNotExist()
     }
 
+    // DRF-056
     @Test fun verticalScrollingKeepsTraysAndFullWidthConfirmFixed() {
         show()
         val tray = compose.onNodeWithTag("pod-pick-keep-tray").fetchSemanticsNode().boundsInRoot
@@ -406,6 +422,7 @@ class PodPickViewTest {
         assertTrue(with(compose.onNodeWithTag("pod-pick-burn-tray").getUnclippedBoundsInRoot()) { bottom - top } <= 64.dp)
     }
 
+    // DRF-065
     @Test fun overflowingKeepTrayPansWithoutUnmarkingHoldingOrSwipingGridCards() {
         show(settings = DraftSettings(keep = 14))
         for (id in 1..14) {
@@ -442,6 +459,7 @@ class PodPickViewTest {
             ?.let { assertTrue(it.boundsInRoot.top > first.bottom) }
     }
 
+    // DRF-056
     @Test fun portraitColumnChoiceIsSavedAndClampedToCurrentPackSize() {
         var current by mutableStateOf(pack)
         showWithSettings { current }
@@ -463,6 +481,7 @@ class PodPickViewTest {
         assertRowOf(7)
     }
 
+    // DRF-056
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeUsesFiveColumnsAndKeepsControlsVisible() {
         preferences.edit().putInt("columns-portrait", 7).commit()
@@ -477,6 +496,7 @@ class PodPickViewTest {
         compose.onNodeWithText("Confirm").assertIsDisplayed()
     }
 
+    // DRF-071, DRF-072
     @Test fun emptyQueueShowsCentredWaitingWithoutBuildButtonOrPickControls() {
         show(currentPack = { null })
         val waiting = compose.onNodeWithText("Waiting for other players").assertIsDisplayed().assertHasNoClickAction()
@@ -502,6 +522,7 @@ class PodPickViewTest {
         card("1").assertIsDisplayed()
     }
 
+    // DRF-072
     @Test fun waitingNamesWhoWeWaitForWithACentredMainMenuLink() {
         var menus = 0
         compose.setContent { ScreenTheme { Surface {

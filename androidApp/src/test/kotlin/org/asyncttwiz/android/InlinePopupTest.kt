@@ -20,6 +20,7 @@ class InlinePopupTest {
         assertEquals(expected, inlinePopupBounds(412f, 892f, anchor, true, CardRingGeometry.squareSide, CardRingGeometry.squareSide))
     }
 
+    // TBL-064
     @Test fun measuredContentKeepsOnlyOccupiedRowsAndCanFitBesideTheAnchor() {
         assertEquals(0, inlinePopupGridRows(emptyList()))
         assertEquals(1, inlinePopupGridRows(CardRingPages.layout(listOf("inspect"))))

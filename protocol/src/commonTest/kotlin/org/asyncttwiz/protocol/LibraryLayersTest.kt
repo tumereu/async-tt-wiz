@@ -64,6 +64,7 @@ class LibraryLayersTest {
     }
     private fun top(state: PlayState, card: Int) = exact(state, move(state, card, MoveDestination(libraryId, MoveInsertion.TOP)))
 
+    // ZON-023
     @Test fun newGamesStartWithOneHiddenLayerAndShuffleCollapsesEverythingIntoOne() {
         val start = root()
         assertEquals(listOf("U10"), shape(start))
@@ -74,6 +75,7 @@ class LibraryLayersTest {
         assertEquals(RandomV1.shuffle(library(known).cards, seed(3)), library(shuffled).cards)
     }
 
+    // ZON-025
     @Test fun randomTopAndBottomAddOneHiddenLayerEachAroundKnownCards() {
         var state = top(root(), 1100)
         val topLayer = library(state).layers.first()
@@ -93,6 +95,7 @@ class LibraryLayersTest {
         assertTrue(state.board.cards.filter { it.id in (1101..1104).map(::id) }.all { it.covered && it.containerId == libraryId })
     }
 
+    // ZON-025
     @Test fun randomMoveIsOneEventWithOrdinaryResetsAndValidatesItsInputs() {
         val start = root()
         val change = GameplayRules.change(start, a, command(start, random(listOf(1100, 1101), bottom = true)))
@@ -112,6 +115,7 @@ class LibraryLayersTest {
         assertEquals(setOf(1000, 1001, 1100).map(::id).toSet(), library(back).cards.takeLast(3).toSet())
     }
 
+    // ZON-072
     @Test fun plannerSendsEachOwnersCardsToTheirOwnLibraryAndSkipsTokens() {
         val start = root()
         val board = start.board.copy(cards = start.board.cards.map { if (it.id == id(1103)) it.copy(owner = b) else it })
@@ -121,6 +125,7 @@ class LibraryLayersTest {
             PlayAction.MoveToLibraryRandom(id(30), listOf(id(1103)), false, seed(1))), actions)
     }
 
+    // ZON-024
     @Test fun reseedsEachHiddenLayerWithItsOwnStableDeterministicSeed() {
         var state = top(root(), 1100)
         state = exact(state, random(listOf(1101, 1102, 1103), bottom = false))
@@ -144,6 +149,7 @@ class LibraryLayersTest {
         assertNull(LibraryKnowledge.applyReseeds(reseeded, reseeds, false))
     }
 
+    // ZON-024
     @Test fun forkingReseedsEveryHiddenLayerSameResultFromTheSamePointDifferentFromAnother() {
         var tree = GameplayTree(root())
         fun state() = assertNotNull(tree.stateAt(tree.currentNodeId))
@@ -189,6 +195,7 @@ class LibraryLayersTest {
         assertEquals(id(1100), library(state).cards[4])
     }
 
+    // ZON-023
     @Test fun placingALookedAtBlockMakesItKnownLookingAloneDoesNot() {
         var state = exact(root(), PlayAction.ShowContents(libraryId, ContentsSelection.TOP, 3))
         assertEquals(listOf("U10"), shape(state))
@@ -227,6 +234,7 @@ class LibraryLayersTest {
         assertEquals(after.board, assertNotNull(redone.stateAt(redone.currentNodeId)).board)
     }
 
+    // HIS-087
     @Test fun undoOnlyRefusedWhenALaterEventDependedOnTheSameHiddenLayer() {
         fun play(t: GameplayTree, actor: String, action: PlayAction): GameplayTree {
             val state = assertNotNull(t.stateAt(t.currentNodeId))

@@ -49,6 +49,7 @@ class PanelRevisionUiTest {
         }
     }
 
+    // ZON-038, ZON-069
     @Test fun lookAndLocalPortrait() = panels(false)
     @Test fun revealAndLocalPortrait() = panels(false, reveal = true)
     @Test fun searchAndLocalPortrait() = panels(false, ContentsSelection.ALL)

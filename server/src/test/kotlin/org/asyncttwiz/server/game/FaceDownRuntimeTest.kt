@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class FaceDownRuntimeTest {
+    // STK-005
     @Test fun `face-down casts, a face-down resolve and manifest top are accepted and replay exactly`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -42,6 +42,7 @@ class SidewaysInspectionUiTest {
         assertEquals(300f, bounds.width.value, .5f); assertEquals(200f, bounds.height.value, .5f)
     }
 
+    // TBL-108
     @Test fun splitCardInspectionIsLandscapeWithoutRotateButton() {
         val controller = CardInspectionController().apply { open(card("split", "Instant")) }
         compose.setContent { MaterialTheme { CardInspection(controller) } }
@@ -50,6 +51,7 @@ class SidewaysInspectionUiTest {
         compose.onNodeWithContentDescription("Rotate card").assertDoesNotExist()
     }
 
+    // TBL-108
     @Test fun aftermathInspectionTurnsOnlyOnRequest() {
         val controller = CardInspectionController().apply { open(card("aftermath", "Instant")) }
         compose.setContent { MaterialTheme { CardInspection(controller) } }

@@ -17,6 +17,7 @@ class HandMenuTest {
             containers = root.board.containers.map { if (it.id == hand.id) it.copy(cards = cards.map { c -> c.id }) else it }),
             definitions = root.definitions + definitions) to cards.map { it.id }
     }
+    // TBL-090
     @Test fun playUsesDoubleTapLoweringAndOneAtomicCallForMixedMultiselection() {
         val (play, ids) = handPlay("Land", "Creature", "Instant")
         val singles = mutableListOf<PlayAction>()
@@ -33,6 +34,7 @@ class HandMenuTest {
         assertTrue(actions.filterIsInstance<PlayAction.MoveCard>().any { it.cardId == ids[1] })
         assertTrue(actions.filterIsInstance<PlayAction.MoveCard>().none { it.cardId == ids[2] })
     }
+    // SYS-036, SYS-037, TBL-072, ZON-010, ZON-011
     @Test fun handMenusServeBothPlayersAndRevealCapturesWholeSelectionWhileRandomUsesActualSelection() {
         val (play, ids) = handPlay("Instant", "Instant", "Instant")
         val sent = mutableListOf<PlayAction>()
@@ -68,6 +70,7 @@ class HandMenuTest {
             changed.state!!.board.cards.single { it.id == discard.cardId }.containerId)
         assertTrue(play.board.cards.filter { it.containerId == hand }.none { CardVisibility.isVisibleFaceUp(play.board, it, f.b) })
     }
+    // STK-005, SYS-010, TBL-090, ZON-008
     @Test fun faceDownCastsAndAutoResolvesTheWholeSelectionInOneBatchWithoutProjections() {
         val (play, ids) = handPlay("Creature", "Instant")
         val singles = mutableListOf<PlayAction>()
@@ -103,6 +106,7 @@ class HandMenuTest {
         assertTrue(CombatStackRules.stack(state.board).cards.isEmpty())
         assertTrue(state.board.stackEffects.isEmpty())
     }
+    // ZON-018
     @Test fun manifestTopSendsOneFaceDownMoveFromTheLibraryTopToTheBattlefield() {
         val play = f.initial
         val library = play.board.zoneContainer(f.a, PlayZone.LIBRARY)!!
@@ -135,6 +139,7 @@ class HandMenuTest {
         assertEquals(listOf<PlayAction>(PlayAction.DismissContents(display.id)), sent)
         assertNull(toolkit.panel)
     }
+    // ZON-067
     @Test fun opponentMayPressDoneOnAForgottenHandReveal() {
         val (play, ids) = handPlay("Instant", "Instant")
         val hand = play.board.cards.single { it.id == ids[0] }.containerId

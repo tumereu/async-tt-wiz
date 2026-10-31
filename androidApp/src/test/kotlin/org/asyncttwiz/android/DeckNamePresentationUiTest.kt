@@ -17,6 +17,7 @@ import org.robolectric.annotation.Config
 class DeckNamePresentationUiTest {
     @get:Rule val compose = createComposeRule()
 
+    // LOB-042
     @Test fun preparedSummariesNeverRenderOpponentsTitleAndSwitchWithViewer() {
         val preparation = LobbyPreparation("game", "round", listOf(
             PlayerPreparation("a", deck = PreparedDeck("deck-a", "source-a", "1", "Own strategy", null, "select-a", emptyList())),

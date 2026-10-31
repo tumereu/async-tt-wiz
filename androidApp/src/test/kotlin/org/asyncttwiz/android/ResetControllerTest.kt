@@ -45,6 +45,7 @@ class ResetControllerTest {
         assertNull(ResetLinks.token(link, "http://reset.example"))
     }
 
+    // LOB-003
     @Test fun openChecksWithoutMutationDuplicateDeliveryPreservesInputAndExplicitSuccessClearsSecrets() {
         val api = Api(); val worker = Worker(); var success = 0
         val controller = ResetController(api, origin, worker, { success++ }) { it() }
@@ -59,6 +60,7 @@ class ResetControllerTest {
         assertEquals(1, success); assertNull(controller.state)
     }
 
+    // LOB-003
     @Test fun networkFailureIsRetryableButInvalidExpiredUsedLinksHaveNoPasswordAction() {
         val api = Api(); val worker = Worker()
         val controller = ResetController(api, origin, worker, { fail("No automatic success") }) { it() }

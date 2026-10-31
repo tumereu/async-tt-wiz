@@ -51,6 +51,7 @@ class LobbyDeckScreensTest {
         override fun close() = Unit
     }
 
+    // LOB-028, LOB-030
     @Test fun newGameAndContactsShareDefaultTabsAndLocalFilteringAndConfirmRemoval() {
         val worker = Worker(); val api = ContactsApi()
         val controller = LobbyController(api, { "token" }, worker, { it() })
@@ -82,6 +83,7 @@ class LobbyDeckScreensTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    // LOB-029
     @Test fun searchInviteAddsContactAndAddedStateKeepsActionGeometry() {
         val worker = Worker(); val api = ContactsApi()
         val controller = LobbyController(api, { "token" }, worker, { it() })
@@ -105,6 +107,7 @@ class LobbyDeckScreensTest {
         } finally { controller.close(); worker.drain() }
     }
 
+    // LOB-100
     @Test fun listScreensShareOneTitleRowWithTheCreateActionAtTheTopRight() {
         val fixture = ScreenFixtures()
         fixture.lobby.seed(LobbyState(loaded = true))
@@ -126,6 +129,7 @@ class LobbyDeckScreensTest {
         compose.onNodeWithTag("import-deck").assertDoesNotExist()
     }
 
+    // SYS-024
     @Test fun menuWaitsForFirstSnapshotAndRefreshAndMoveBadgeKeepGeometry() {
         val fixture = ScreenFixtures()
         val game = fixture.lobby.state.games.first().copy(attentionHolder = "a")
@@ -236,6 +240,7 @@ class LobbyDeckScreensTest {
         } finally { importer.close(); worker.drain() }
     }
 
+    // LOB-060, LOB-064
     @Test fun automaticLookupEnablesSingleStepSaveThenOpensSavedDeckForReview() {
         val worker = Worker()
         val printing = CatalogPrinting(id(), "Rune Bear", "TST", "1", "English", "", null, false, emptyList(), """{"name":"Rune Bear","type":"Creature"}""")

@@ -30,6 +30,7 @@ class NonGameplayBusyTest {
     private val viewModels = ViewModelStore()
     @After fun clearViewModels() { viewModels.clear() }
 
+    // LOB-027, SYS-023
     @Test fun refreshKeepsGamesStillAndShowsNoLoadingIndicator() {
         val fixtures = ScreenFixtures()
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { GamesContent(fixtures.lobby, "a") } } }
@@ -67,6 +68,7 @@ class NonGameplayBusyTest {
         compose.onAllNodes(hasProgressBarRangeInfo(ProgressBarRangeInfo.Indeterminate)).assertCountEquals(1)
     }
 
+    // LOB-096, SYS-023
     @Test fun shellCatalogChecksStaySilentAndOnlyTransfersSuppressScreenPills() {
         val fixtures = ScreenFixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = ScreenFixtures.alex, destination = ShellDestination.GAMES))
@@ -94,6 +96,7 @@ class NonGameplayBusyTest {
         compose.onAllNodesWithTag("floating-busy-pill").assertCountEquals(0)
     }
 
+    // LOB-027, SYS-023
     @Test fun onlyInitialForegroundLoadOfEmptyGamesShowsLoading() {
         val fixtures = ScreenFixtures()
         fixtures.lobby.seed(LobbyState(busy = true))
@@ -117,6 +120,7 @@ class NonGameplayBusyTest {
         compose.onNodeWithText("Download failed").assertIsDisplayed()
     }
 
+    // LOB-091
     @Test fun startupConsentHasOnlyTheTwoButtonActions() {
         var downloads = 0
         var dismissals = 0

@@ -45,6 +45,7 @@ class DraftEngineTest {
         return state
     }
 
+    // DRF-021, DRF-023
     @Test fun presetsAndSettingsBoundaries() {
         assertEquals(DraftSettings(DraftMode.BOOSTER, 3, 15, 1, 0, 0, 1, true, null), DraftSettings.booster())
         assertEquals(DraftSettings(DraftMode.GLIMPSE, 9, 15, 1, 2, 0, 1, true, null), DraftSettings.glimpse())
@@ -73,6 +74,7 @@ class DraftEngineTest {
         }
     }
 
+    // DRF-050
     @Test fun supplyAllowsExactCubeAndRejectsTooSmall() {
         val settings = DraftSettings.glimpse().copy(packsPerPlayer = 18, burn = 4)
         assertEquals(DraftSupply(540, 540), settings.supply(2, cube(540)))
@@ -102,6 +104,7 @@ class DraftEngineTest {
         }
     }
 
+    // DRF-050
     @Test fun countedCopiesAreStableUniqueAndNeverReplaced() {
         val entries = listOf(DraftCubeEntry("a", 7), DraftCubeEntry("a", 3), DraftCubeEntry("b", 20))
         val initial = DraftEngine.start(listOf("a", "b"), entries, settings(packs = 2), seed)
@@ -118,6 +121,7 @@ class DraftEngineTest {
         assertEquals(final.log.flatMap { it.kept }.toSet(), final.pools.values.flatten().toSet())
     }
 
+    // DRF-026
     @Test fun balancingGuaranteesAvailableColorsWithoutInventingCopies() {
         val entries = DraftColor.entries.map { DraftCubeEntry(it.name, 10, setOf(it)) }
         val state = DraftEngine.start(listOf("a", "b"), entries, settings(packs = 3, cards = 5).copy(colorBalance = true), seed)
@@ -135,6 +139,7 @@ class DraftEngineTest {
         assertEquals(4, start(settings(cards = 2).copy(colorBalance = true)).packs.sumOf { it.cards.size })
     }
 
+    // DRF-043
     @Test fun seededDraftIsDeterministicIncludingResultsAndInputOrder() {
         val settings = settings(packs = 4, cards = 7, burn = 2, open = 3).copy(colorBalance = true)
         val entries = List(56) { DraftCubeEntry("d-$it", 1, setOf(DraftColor.entries[it % 5])) }
@@ -149,6 +154,7 @@ class DraftEngineTest {
         assertTrue(seatings.distinct().size > 1)
     }
 
+    // DRF-043
     @Test fun twoAndThreePlayerPassingUsesFifoAndFlipsEachRound() {
         for (players in listOf(2, 3)) {
             var state = start(settings(packs = 3, cards = 4), players)
@@ -175,6 +181,7 @@ class DraftEngineTest {
         }
     }
 
+    // DRF-043
     @Test fun multipleOpenPacksAreFifoAndFinalRoundOpensOnlyRemainder() {
         for (open in listOf(1, 3)) {
             var state = start(settings(packs = 4, cards = 4, open = open), players = 3)
@@ -195,6 +202,7 @@ class DraftEngineTest {
         }
     }
 
+    // DRF-048
     @Test fun roundBarrierHoldsWhileACurrentPackCanStillReachTheMember() {
         var state = start(settings(packs = 2, cards = 3))
         val a = state.seating[0]
@@ -218,6 +226,7 @@ class DraftEngineTest {
         assertEquals(future, state.packs.filter { it.round == 1 })
     }
 
+    // DRF-045
     @Test fun automaticAwardsOnArrivalNeedNoActionAndCascadeAcrossRounds() {
         val allAuto = start(settings(packs = 7, cards = 2, keep = 2, open = 3), players = 3)
         assertTrue(allAuto.finished)
@@ -242,6 +251,7 @@ class DraftEngineTest {
         assertEquals(3, state.pools.getValue(recipient).size)
     }
 
+    // DRF-045
     @Test fun nearEndRequiresOnlyKeepsAndAllowsAnExactExplicitBurnList() {
         for (explicit in listOf(false, true)) {
             var state = start(settings(cards = 7, keep = 2, burn = 2))
@@ -267,6 +277,7 @@ class DraftEngineTest {
         assertEquals(2, after.log.last().burned.size)
     }
 
+    // DRF-046
     @Test fun discardThresholdRemovesRemainderBeforePassingOrAutomaticAward() {
         for (threshold in listOf(2, 3, 5)) {
             val initial = start(settings(cards = 5, keep = 2, burn = 1).copy(discardRemainingAt = threshold))
@@ -319,6 +330,7 @@ class DraftEngineTest {
             DraftEngine.pick(nearEnd, nearChoice.copy(burn = rest.take(1))).reason)
     }
 
+    // DRF-139
     @Test fun projectionsRevealOnlyOwnQueueAndAwardsAndNoCardsInPublicStatus() {
         var state = start(settings(packs = 3, cards = 5, burn = 1, open = 3), extra = 5)
         state = pick(state, state.seating.first())
@@ -370,6 +382,7 @@ class DraftEngineTest {
         assertEquals(view, Json.decodeFromString<DraftPrivateView>(Json.encodeToString(view)))
     }
 
+    // DRF-050
     @Test fun synergyCubeUsesAll540CopiesAndAwards54PerPlayerWithOneOrThreeOpenPacks() {
         for (open in listOf(1, 3)) {
             val settings = DraftSettings.glimpse().copy(packsPerPlayer = 18, burn = 4, packsOpenAtOnce = open)

@@ -13,6 +13,7 @@ class ActivityPresenceTest {
     private fun id() = UUID.randomUUID().toString()
     private val start = OffsetDateTime.parse("2026-10-27T12:00:00Z")
 
+    // LOB-073
     @Test fun `recipient present suppresses actor left or expired is immediate and idle thresholds are exact`() {
         fun due(seconds: Long, yourMove: Boolean, actor: List<PresenceLease>, recipient: List<PresenceLease> = emptyList()) =
             ActivityTiming.due(actor, recipient, start, yourMove, start.plusSeconds(seconds))
@@ -33,6 +34,7 @@ class ActivityPresenceTest {
         assertFalse(due(60, false, listOf(PresenceLease(start.plusSeconds(60), start), PresenceLease(start.plusSeconds(60), start.plusSeconds(59)))))
     }
 
+    // LOB-073
     @Test fun `durable presence gates scheduler and polling without holding the sync cursor and opening clears unseen`() {
         ActivityFixture().use { f ->
             val game = f.accept(f.create()); val clock = ActivityClock(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS))
@@ -93,6 +95,7 @@ class ActivityPresenceTest {
         }
     }
 
+    // LOB-073
     @Test fun `sixty second idle and expiry are enforced by real queue scheduler`() {
         ActivityFixture().use { f ->
             val game = f.accept(f.create()); val clock = ActivityClock(Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS)); val first = clock.time

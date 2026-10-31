@@ -62,6 +62,7 @@ class R30SearchQueueTest {
     private fun close(state: PlayState, seed: Int = 3, actor: String = a) =
         exact(state, PlayAction.DismissContents(display(state).id, ContentsRest.SHUFFLE, seed(seed)), actor)
 
+    // ZON-056
     @Test fun topAndBottomPutsFromThePanelAndFromElsewhereWaitAndArePlacedAfterTheShuffle() {
         var state = search()
         // From the panel itself (a), from the Graveyard (b, the other player), then onto the bottom.
@@ -83,6 +84,7 @@ class R30SearchQueueTest {
         assertEquals(listOf("O2", "U8", "O2"), shape(closed))
     }
 
+    // ZON-056
     @Test fun aBlockOfCardsPutOnTopKeepsItsOrderAsItWouldAfterTheShuffle() {
         var state = search()
         for (move in LibraryActions.moveCaptured(state.board, listOf(1102, 1101, 1100).map(::id), MoveDestination(libraryId, MoveInsertion.TOP)))

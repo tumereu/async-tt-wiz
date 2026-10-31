@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class StackInteractionsTest {
+    // STK-010
     @Test fun laterPublishedPredictionOpensBubblesAndRequestDerivedEffectIdentitySurvivesAcceptance() {
         val f = BasicTableFixture()
         f.connect()
@@ -37,6 +38,7 @@ class StackInteractionsTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // STK-010
     @Test fun realSessionAutomaticallyShowsNewEntriesAndBubblesUseOneInvocationWithOrdinaryRequests() {
         val f = BasicTableFixture()
         f.connect()

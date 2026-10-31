@@ -22,11 +22,13 @@ class WaitingGameChecksTest {
         GameNoticeContent("Friday", "Alex", at, yourMove, reminder = true))
     private val time = Instant.parse("2026-10-30T10:00:00Z").toEpochMilli()
 
+    // LOB-076
     @Test fun checksBackOffFromFifteenMinutesToSixteenHoursThenRunDaily() {
         assertEquals(listOf(15L, 30L, 60L, 120L, 240L, 480L, 960L, 2400L, 3840L, 5280L), (0..9).map(WaitingChecks::offsetMinutes))
         assertEquals(WaitingChecks.DAILY_MINUTES, WaitingChecks.offsetMinutes(8) - WaitingChecks.offsetMinutes(7))
     }
 
+    // LOB-076
     @Test fun onlyWaitingGamesWithoutAShowingOrDismissedNoticeArePosted() {
         val none: (String) -> WaitingDismissal? = { null }
         assertEquals(listOf("g"), WaitingChecks.select(listOf(hint()), emptySet(), none).map { it.gameId })
@@ -37,6 +39,7 @@ class WaitingGameChecksTest {
         assertEquals(listOf("other"), WaitingChecks.select(listOf(hint(), hint("other")), setOf("g"), none).map { it.gameId })
     }
 
+    // LOB-076
     @Test fun aSwipedAwayNoticeStaysAwayUntilTheGameWaitsOnANewEvent() {
         val marks = mapOf("g" to WaitingDismissal("group", time))
         fun posted(vararg waiting: ActivityHint) = WaitingChecks.select(waiting.toList(), emptySet(), marks::get).map { it.identity }
@@ -52,6 +55,7 @@ class WaitingGameChecksTest {
         assertNull(WaitingDismissal.decode("garbage")); assertNull(WaitingDismissal.decode(null))
     }
 
+    // LOB-076
     @Test fun theFallbackPostsTheSharedGameNotificationWhoseSwipeIsRecordedAndWhichIsNotRepostedWhileShowing() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         shadowOf(context as android.app.Application).grantPermissions(android.Manifest.permission.POST_NOTIFICATIONS)

@@ -27,6 +27,7 @@ internal fun attackTargetState(): PlayState {
 }
 
 class AttackTargetPresentationTest {
+    // CMB-013
     @Test fun readableLabelsReserveOneRowAndFollowCardAndTitleSettings() {
         val initial = TableFixture.play(board = 1, library = 0)
         val state = initial.copy(board = initial.board.copy(combat = CombatArea("combat", listOf(
@@ -48,6 +49,7 @@ class AttackTargetPresentationTest {
         }
     }
 
+    // CMB-012
     @Test fun groupingKeepsOneRowPerRoleAndReservedLabelsAndBoldLaneBoundaries() {
         val original = attackTargetState()
         val area = original.board.combat!!
@@ -72,6 +74,7 @@ class AttackTargetPresentationTest {
         }
     }
 
+    // CMB-013
     @Test fun everyLaneFitsItsIconAndFullNameOnOneRowAndPlayerLanesUseTheAvatar() {
         val original = attackTargetState()
         val area = original.board.combat!!
@@ -110,6 +113,7 @@ class AttackTargetPresentationTest {
         assertTrue(CombatStackPresentation.laneTextWidth(long, 10f) > CombatStackPresentation.laneTextWidth("Bob", 10f))
     }
 
+    // CMB-014
     @Test fun separatorsKeepClearOfCardsAndLaneNamesAtEveryCardSize() {
         val p = CombatStackPresentation
         // At the default 28dp card: 2dp lane lines over 1dp slot lines, each with 2dp free on both sides.
@@ -147,6 +151,7 @@ class AttackTargetPresentationTest {
         }
     }
 
+    // CMB-012, CMB-014
     @Test fun tableSceneEmptyLaneBetweenOccupiedLanesIsOneWholeDropAndItsSeparatorsCrossTheLabels() {
         val initial = TableFixture.play(board = 2, library = 0)
         val definition = TableFixture.definition.copy(faces = listOf(TableFixture.definition.faces.single().copy(
@@ -198,6 +203,7 @@ class AttackTargetPresentationTest {
         assertTrue(plain.label.startsWith("→ "))
     }
 
+    // CMB-012, CMB-013
     @Test fun emptyCombatHasDefaultPlayerLabelAndChoicesOnlyIncludeDefendingWalkersAndOwnSieges() {
         val original = attackTargetState()
         val empty = original.copy(board = original.board.copy(combat = original.board.combat!!.copy(pairs = emptyList())))
@@ -235,6 +241,7 @@ class AttackTargetPresentationTest {
         assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(original, mapOf(combatId(8) to "Bob"), combatId(7)).map { it.first })
     }
 
+    // CMB-012
     @Test fun lanesAndAttackMenuListPlayerThenDefenderWalkersThenAttackerSiegesInBattlefieldOrder() {
         val original = attackTargetState()
         val battlemage = CardDefinition("Battlemage", listOf(DefinitionFace(combatId(96), "Battlemage", typeLine = "Creature — Human Battlemage")))
@@ -266,6 +273,7 @@ class AttackTargetPresentationTest {
         assertEquals(listOf(null, combatId(83)), attackTargetChoices(swapped, emptyMap(), combatId(7)).map { it.first })
     }
 
+    // CMB-012
     @Test fun attackTargetChoicesExcludeFaceDownWalkersAndBattlesEvenWhenKnown() {
         val original = attackTargetState()
         for (known in listOf(false, true)) {
@@ -282,6 +290,7 @@ class AttackTargetPresentationTest {
         assertEquals(listOf(null, combatId(80), combatId(81)), attackTargetChoices(legacy, emptyMap(), combatId(7)).map { it.first })
     }
 
+    // CMB-013
     @Test fun laneLabelsAndArtFollowViewerVisibilityWithoutExposingHiddenFaces() {
         val initial = TableFixture.play(board = 1, library = 0)
         val definition = TableFixture.definition.copy(faces = listOf(TableFixture.definition.faces.single().copy(
@@ -313,6 +322,7 @@ class AttackTargetPresentationTest {
         }
     }
 
+    // CMB-015
     @Test fun multiAttackerRetargetAndCrossLaneDragAreSingleAtomicBatchesKeepingBlockers() {
         val original = attackTargetState()
         val pairs = original.board.combat!!.pairs
@@ -330,6 +340,7 @@ class AttackTargetPresentationTest {
         assertEquals(original.board.cards, drag.prediction.board.cards)
     }
 
+    // CMB-015
     @Test fun crossLaneBlockerRowDropMovesAttackerIdentityAndLeavesOriginalBlockersInPlace() {
         val original = attackTargetState()
         val commands = CombatCommands()

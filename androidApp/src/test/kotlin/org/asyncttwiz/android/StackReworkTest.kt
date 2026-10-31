@@ -9,6 +9,7 @@ class StackReworkTest {
     private fun toolkit(f: BasicTableFixture) = TableToolkitController(f.actor, { f.play }, { true }, f.lobby::gameplay, playBatch = f.lobby::gameplayBatch)
     private fun actions(f: BasicTableFixture, from: Int) = f.commands().drop(from).map { (it.action as GameAction.Play).action }
 
+    // STK-013
     @Test fun exileBubbleMovesTheSourceToItsOwnerAndIsUndoableForRealCardsAndEffects() {
         for (legacy in listOf(false, true)) {
             val f = BasicTableFixture(); f.connect()
@@ -30,6 +31,7 @@ class StackReworkTest {
         }
     }
 
+    // STK-008, STK-015, STK-018
     @Test fun onlyTopIsDrawnAndDraggableHoldInspectsAndDoubleTapManagesAllEntries() {
         val f = BasicTableFixture(); f.connect()
         try {
@@ -62,6 +64,7 @@ class StackReworkTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // STK-015
     @Test fun topDropToAnotherZoneMovesRealCardAndRemovesProjectionWithOneUndoAndRedo() {
         for (zone in listOf(PlayZone.HAND, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.LIBRARY)) {
             val f = BasicTableFixture(); f.connect()
@@ -91,6 +94,7 @@ class StackReworkTest {
         }
     }
 
+    // STK-015
     @Test fun sameZoneDropsAndShortcutsRemoveOnlyProjectionEvenOnOtherPlayersBattlefield() {
         for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.HAND)) {
             val f = BasicTableFixture(); f.connect()
@@ -114,6 +118,7 @@ class StackReworkTest {
         }
     }
 
+    // STK-015
     @Test fun stackDropIsANoopAndStaleOrLowerProjectionCannotMoveItsSource() {
         val f = BasicTableFixture(); f.connect()
         try {

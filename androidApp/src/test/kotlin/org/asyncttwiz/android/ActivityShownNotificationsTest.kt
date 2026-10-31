@@ -21,6 +21,7 @@ class ActivityShownNotificationsTest {
         Notification.Builder(context, ActivityChannels.DRAFT_ACTIVITY).setSmallIcon(android.R.drawable.ic_dialog_info).build())
     private fun active() = manager.activeNotifications.map { it.tag }.toSet()
 
+    // DRF-138, LOB-078
     @Test fun openingAGamePodOrThePodListClearsOnlyItsOwnNotifications() {
         ActivityNotifications(context).channels()
         listOf("game:g", "game:other", "pod:p", "pod:other", "pod-invite:a", "pod-invite:b", "invite:i").forEach { post(it) }

@@ -265,6 +265,7 @@ class DeckHttpTest {
         }
     }
 
+    // DRF-134, LOB-055
     @Test fun `draft deck listing and Save as deck copy routes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -293,6 +294,7 @@ class DeckHttpTest {
         }
     }
 
+    // LOB-058
     @Test fun `owned metadata deletion serialization privacy and original retries never upsert or rewrite definitions`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -386,6 +388,7 @@ class DeckHttpTest {
         }
     }
 
+    // LOB-065
     @Test fun `contextual imports serialize additive sections preserve immutable content and recover original outcomes`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

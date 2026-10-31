@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class GameStartTest {
+    // LOB-063
     @Test fun `oversized create and merged contents are terminal validation errors`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -88,6 +89,7 @@ class GameStartTest {
         }
     }
 
+    // LOB-077
     @Test fun `the Ready that starts the game notifies only the player who readied earlier`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -192,6 +194,7 @@ class GameStartTest {
         assertEquals(2, state.shuffles.map { it.seed }.distinct().size)
     }
 
+    // LOB-033, LOB-036, LOB-037
     @Test fun `inviter readies before acceptance edits clear only own and second accepted Ready starts exactly once`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

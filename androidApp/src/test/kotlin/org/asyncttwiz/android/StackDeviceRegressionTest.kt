@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class StackDeviceRegressionTest {
+    // STK-010
     @Test fun productionLayoutDragsSendRequestsAndOpenNewTopBubblesThenRouteFaceBadgeDoubleAndHold() {
         for ((width, height) in listOf(412f to 892f, 892f to 412f)) for (populated in listOf(false, true)) {
             val f = BasicTableFixture()

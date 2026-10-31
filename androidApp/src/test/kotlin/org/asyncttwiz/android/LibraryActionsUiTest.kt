@@ -57,6 +57,7 @@ class LibraryActionsUiTest {
         compose.mainClock.autoAdvance = true
     }
 
+    // ZON-015, ZON-017
     @Test fun inlineRowsFitAndOneTapActionsUseTopCard() {
         render()
         for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Manifest top", "Mulligan N…", "Mulligan −1"))
@@ -89,6 +90,7 @@ class LibraryActionsUiTest {
         compose.onAllNodes(isDialog()).assertCountEquals(0)
     }
 
+    // ZON-016
     @Test fun quantitiesAreIndependentAndRememberedPerActionAndAccount() {
         render()
         quantity("Draw", 3)
@@ -105,6 +107,7 @@ class LibraryActionsUiTest {
         assertEquals(1, LibraryQuantityStore(context, "b").read("Draw"))
     }
 
+    // ZON-028
     @Test fun mulligansAreIndependentOfQuantities() {
         render()
         for ((label, count) in listOf("Mulligan N…" to 7, "Mulligan −1" to hand.cards.size - 1)) {
@@ -120,6 +123,7 @@ class LibraryActionsUiTest {
         }
     }
 
+    // ZON-016
     @Test fun quantityFloatsInOneRowAndSelectsAllOnFocusAndEveryTap() {
         render()
         quantity("Draw", 12)
@@ -145,6 +149,7 @@ class LibraryActionsUiTest {
         assertEquals(1, sent.filterIsInstance<PlayAction.MoveCard>().size)
     }
 
+    // SYS-013
     @Test fun disconnectedActionsCannotDispatch() {
         render(false)
         for (label in labels.flatMap { listOf("$it 1", "$it N…") } + listOf("Search", "Shuffle", "Mulligan N…", "Mulligan −1"))
@@ -153,6 +158,7 @@ class LibraryActionsUiTest {
         assertTrue(sent.isEmpty())
     }
 
+    // ZON-020
     @Test fun ownerCanEnableContinuousRevealFromTheLibraryMenu() {
         render()
         compose.mainClock.advanceTimeBy(350)
@@ -161,6 +167,7 @@ class LibraryActionsUiTest {
         assertEquals(1, completed)
     }
 
+    // ZON-020
     @Test fun opponentCanEnableContinuousRevealFromAnotherLibraryMenu() {
         render(viewer = "b")
         compose.mainClock.advanceTimeBy(350)
@@ -169,6 +176,7 @@ class LibraryActionsUiTest {
         assertEquals(1, completed)
     }
 
+    // ZON-020
     @Test fun continuousRevealIsASelectedButtonRatherThanASwitchAndCanBeTurnedOff() {
         render(revealed = true)
         compose.mainClock.advanceTimeBy(350)

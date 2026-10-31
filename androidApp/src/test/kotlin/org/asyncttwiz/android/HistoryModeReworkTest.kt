@@ -21,6 +21,7 @@ import org.asyncttwiz.protocol.*
 class HistoryModeReworkTest {
     @get:Rule val compose = createComposeRule()
 
+    // HIS-047
     @Test fun treePinchAndPanKeepTurnTagsAttachedWithoutSelectingOrClosing() {
         val tree = F.play(GameplayTree(F.root()), PlayAction.EndTurn, 401)
         val controller = HistoryExplorerController(java.util.concurrent.Executor { it.run() }, { it() })
@@ -60,6 +61,7 @@ class HistoryModeReworkTest {
         } finally { controller.close() }
     }
 
+    // HIS-014, HIS-039
     @Test fun pendingBranchOffersRewindAndPlayWithoutHoldToBranchThenFastRollbackLocksTransportUntilCommonAncestor() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
@@ -107,6 +109,7 @@ class HistoryModeReworkTest {
         compose.mainClock.autoAdvance = true
     }
 
+    // HIS-012, HIS-014, HIS-040
     @Test fun anOldBranchPickedByThePlayerStepsAlongItsOwnLineAndOffersRewind() {
         val common = F.play(GameplayTree(F.root()), PlayAction.AdjustLife(F.a, "1"), 100)
         val old1 = F.play(common, PlayAction.AdjustLife(F.b, "1"), 101, F.b)
@@ -144,6 +147,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithTag("Rewind and play", useUnmergedTree = true).assertDoesNotExist()
     }
 
+    // HIS-008, HIS-038
     @Test fun tableCentreTextNamesAPendingBranchAndThePlaybackStatus() {
         var branched by mutableStateOf(true)
         var status by mutableStateOf(TimelinePlaybackStatus.PAUSED)
@@ -163,6 +167,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("Opponent branched").assertDoesNotExist()
     }
 
+    // HIS-013
     @Test fun autoButtonShowsStateAndTogglesFromBothStates() {
         val tree = TableStatesFixture.history()
         val player = TableStatesFixture.playback(tree)
@@ -183,6 +188,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("Auto: off").assertIsDisplayed()
     }
 
+    // HIS-036
     @Test fun runningAutoButtonHoldPausesAndBranchesAtOriginalCursorWithoutToggling() {
         val tree = TableStatesFixture.history()
         val player = TableStatesFixture.playback(tree)
@@ -203,6 +209,7 @@ class HistoryModeReworkTest {
         compose.onNodeWithText("Auto: off").assertIsDisplayed()
     }
 
+    // HIS-021, HIS-023
     @Test fun manualStartStepsAtOnceThenWaitsForAnimationAndFullPauseAndReadsSettingChangesLive() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val settings = HistoryPlaybackPreferences(context, "timing")
@@ -262,6 +269,7 @@ class HistoryModeReworkTest {
         compose.runOnIdle { assertNotEquals(second, player.position.cursorId); player.pause() }
     }
 
+    // HIS-021
     @Test fun pausePreferencePersistsPerAccountAndClampsReadsAndWrites() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
@@ -282,6 +290,7 @@ class HistoryModeReworkTest {
         assertEquals(10_000L, bob.pauseMillis)
     }
 
+    // HIS-022
     @Test fun rewindPausePreferenceIsSeparatePerAccountAndClamped() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val prefs = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)

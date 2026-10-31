@@ -55,6 +55,7 @@ class LibraryActionsTest {
     private fun display(selection: ContentsSelection = ContentsSelection.ALL, reveal: Boolean = false) =
         ContentsDisplay(id(30), id(8), id(10), selection, 3, reveal, listOf(id(20), id(21), id(22)))
 
+    // ZON-051
     @Test fun fullContentsAreCategoryAlphabeticalIndependentOfLibraryPositionsAndSearchIsPersonal() {
         val current = state()
         val first = contentsEntries(current, display(), id(8))
@@ -66,6 +67,7 @@ class LibraryActionsTest {
         assertEquals(listOf(id(21), id(20)), current.board.containers.first().cards)
     }
 
+    // ZON-050, ZON-052
     @Test fun coveredViewCannotLeakNamesTypesSearchOrPositionThroughPresentation() {
         val current = state()
         val entries = contentsEntries(current, display(), id(7), "Zulu")
@@ -77,6 +79,7 @@ class LibraryActionsTest {
         assertTrue(contentsEntries(current, display(reveal = true), id(7)).any { it.name == "Zulu" })
     }
 
+    // ZON-073
     @Test fun opponentSeesAnExileSearchFaceUpButALibrarySearchStaysHidden() {
         val current = state()
         val moved = current.copy(board = current.board.copy(

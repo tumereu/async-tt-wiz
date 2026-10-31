@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class CounterPresentationTest {
+    // TRN-034
     @Test fun portraitGridTilesThreeColumnsAndTwoRowsForBothPlayersAtCompactWidths() {
         for (width in listOf(320f, 360f, 412f)) {
             val play = TableFixture.play()
@@ -34,6 +35,7 @@ class CounterPresentationTest {
         }
     }
 
+    // TBL-026
     @Test fun zeroAndEmptyCardCountersAreHiddenWithoutChangingAuthoritativeValues() {
         val initial = TableFixture.play(board = 1)
         for (value in listOf("", " ", "0", "+0", "-000", "1", "-2", "X")) {

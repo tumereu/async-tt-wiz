@@ -74,6 +74,7 @@ class LibraryStackRulesTest {
         }
     }
 
+    // TRN-029
     @Test fun nonTurnPlayerCanMulliganOwnHandAtTurnOneUntap() {
         val original = state(PlayZone.LIBRARY).let { root -> root.copy(board = root.board.copy(
             turn = TurnState(f.b), containers = root.board.containers + PlayContainer(f.id(51), PlayZone.HAND, f.a))) }

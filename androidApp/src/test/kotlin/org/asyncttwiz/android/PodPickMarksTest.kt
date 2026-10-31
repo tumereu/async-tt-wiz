@@ -10,6 +10,7 @@ class PodPickMarksTest {
     private val rules = PodPickRules(pack, settings)
     private val empty = PodPickMarks().forPack(pack)
 
+    // DRF-060
     @Test fun sameDirectionUnmarksAndOppositeDirectionSwitches() {
         val keep = empty.toggle("1", PodPickMark.KEEP, rules)
         assertEquals(listOf("1"), keep.keeps)
@@ -22,6 +23,7 @@ class PodPickMarksTest {
         assertEquals(empty, burn.unmark("1"))
     }
 
+    // DRF-060
     @Test fun overflowDropsEarliestOfOnlyThatKind() {
         var marks = empty.toggle("8", PodPickMark.BURN, rules)
         for (id in listOf("3", "1", "2")) marks = marks.toggle(id, PodPickMark.KEEP, rules)
@@ -32,6 +34,7 @@ class PodPickMarksTest {
         assertEquals(listOf("1", "2"), marks.keeps)
     }
 
+    // DRF-060
     @Test fun remarkingAppendsToEndAndSwitchingDropsEarliestAtDestination() {
         val marks = empty.toggle("1", PodPickMark.KEEP, rules).toggle("2", PodPickMark.KEEP, rules)
             .toggle("1", PodPickMark.KEEP, rules).toggle("1", PodPickMark.KEEP, rules)
@@ -40,6 +43,7 @@ class PodPickMarksTest {
         assertTrue(marks.burns.isEmpty())
     }
 
+    // DRF-060
     @Test fun boosterIgnoresLeftSwipeEvenOnAKeptCard() {
         val booster = PodPickRules(pack, DraftSettings())
         val keep = empty.toggle("1", PodPickMark.KEEP, booster)
@@ -47,6 +51,7 @@ class PodPickMarksTest {
         assertEquals(empty, empty.toggle("1", PodPickMark.BURN, booster))
     }
 
+    // DRF-067
     @Test fun ordinaryPickRequiresExactCountsAndNotBusy() {
         var marks = empty
         assertFalse(rules.canConfirm(marks, false))
@@ -59,6 +64,7 @@ class PodPickMarksTest {
         assertFalse(rules.canConfirm(marks.unmark("4"), false))
     }
 
+    // DRF-045
     @Test fun nearEndAndExactBoundaryOnlyRequireKeepsAndExplicitlyBurnRest() {
         for (size in listOf(3, 4)) {
             val end = pack.copy(cards = pack.cards.take(size))
@@ -104,6 +110,7 @@ class PodPickMarksTest {
         assertFalse(rules.canConfirm(empty.copy(keeps = listOf("1", "2"), burns = listOf("3", "unknown")), false))
     }
 
+    // DRF-052
     @Test fun librarianSlotsIncreaseOverflowLimitAndRefundKeepsLatestMarks() {
         val available = listOf("l1", "l2", "l3")
         var marks = empty.spendLibrarian(available, pack, settings).spendLibrarian(available, pack, settings)
@@ -120,6 +127,7 @@ class PodPickMarksTest {
         assertTrue(marks.forPack(pack.copy(id = "next")).librarians.isEmpty())
     }
 
+    // DRF-053
     @Test fun aSpentLibrarianIsAPackCardThatCanBeKeptBurnedOrLeftAndRefundRemovesItsMark() {
         val s = DraftSettings(keep = 1, burn = 2)
         var marks = empty.spendLibrarian(listOf("l1"), pack, s)
@@ -144,6 +152,7 @@ class PodPickMarksTest {
         assertFalse(rules.canConfirm(marks.copy(librarians = emptyList()), false))
     }
 
+    // DRF-053
     @Test fun nearTheEndASpentLibrarianNotKeptBurnsWithTheRest() {
         val small = pack.copy(cards = pack.cards.take(3))
         val s = DraftSettings(keep = 1, burn = 2)
@@ -163,6 +172,7 @@ class PodPickMarksTest {
         assertEquals(marks, marks.spendLibrarian(listOf("l1", "l2", "l3"), small, s))
     }
 
+    // DRF-052
     @Test fun shownPackAppendsSpentLibrariansInSpendOrder() {
         val owned = listOf(DraftCopy("l1", "librarian", librarian = true), DraftCopy("l2", "librarian", librarian = true))
         assertEquals(pack, pack.withSpentLibrarians(emptyList(), owned))

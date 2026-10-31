@@ -35,6 +35,7 @@ class GameListOrderScreensTest {
         node.config.getOrElseNullable(SemanticsProperties.TestTag) { null }?.startsWith(prefix) == true
     }).fetchSemanticsNodes().map { it.config[SemanticsProperties.TestTag].removePrefix(prefix) }
 
+    // LOB-022, LOB-023
     @Test fun gamesScreenShowsOneListWithTheInvitationAnsweredInPlace() {
         val fixtures = fixtures()
         compose.setContent { ScreenTheme { GamesContent(fixtures.lobby, self.accountId) } }
@@ -46,6 +47,7 @@ class GameListOrderScreensTest {
         assertEquals(null, fixtures.lobby.state.selected)
     }
 
+    // LOB-016, LOB-022
     @Test fun menuQuickListShowsTheFirstThreeOfTheSameOrder() {
         val fixtures = fixtures()
         compose.setContent { ScreenTheme {
@@ -54,6 +56,7 @@ class GameListOrderScreensTest {
         assertEquals(expected.take(3), rows("quick-continue-"))
     }
 
+    // LOB-022
     @Test fun drawerListsTheSameOrder() {
         val fixtures = fixtures()
         fixtures.auth.seed(AuthState(restoring = false, account = self, destination = ShellDestination.DECKS, drawerOpen = true))

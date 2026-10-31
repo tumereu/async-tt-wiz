@@ -23,6 +23,7 @@ class ChatPresentationTest {
         local.presented(newWhileScrolled, setOf("1"))
         assertEquals(ReadChat("4"), local.pendingRead(game.id))
     }
+    // LOB-069
     @Test fun authoritativeCursorSurvivesFreshUiAndCountsUnloadedMessagesNotOwnEchoes() {
         val local = GameChat()
         local.accept(ChatReadState(game.id, "2", "10", 5))
@@ -40,6 +41,7 @@ class ChatPresentationTest {
         local.presented(messages, setOf("12")) // own visible message also advances the position
         assertEquals(0, local.presentation(game.id, "a", messages, emptyList()).unread)
     }
+    // LOB-070
     @Test fun draftIsPrivateNotAcceptedAndCannotSilentlyRebindToFreshPlay() {
         val local = GameChat(); local.compose(game, "  next\nmessage  ")
         val p = local.presentation(game.id, "a", emptyList(), emptyList())

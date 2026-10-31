@@ -95,7 +95,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-068** A refused pick restores that pack and its marks with a short message; an unconfirmed one offers Retry. (r16)
 - **DRF-069** Your keep, burn and Librarian marks are kept when you switch tabs or close the app (saved on the server about half a second after the last change). (r22)
 - **DRF-070** Card pictures for the whole shown pack and the next queued pack start downloading at once; missing pictures keep a named placeholder and retry forever. (r19)
-- **DRF-071** With no pack to pick, a faded centred text names who you wait for, then "N packs will come back to you" or "All your picks are done", then "Round x of y", each on its own line (Grid: "Waiting for <names> · Round x of y"). (r22)
+- **DRF-071** With no pack to pick, a faded centred text shows, each part on its own line: "Waiting for <names>" then "N packs will come back to you", or "All your picks are done" then "<names> is finishing" ("Other players are finishing" when unknown); then "Round x of y" (Grid: "Waiting for <names> · Round x of y"). (r22)
 - **DRF-072** Under the waiting text a borderless "Main menu" link leaves the pod; there is no Build button there. (r20)
 
 ### Pod header and tabs
@@ -154,7 +154,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Stats
 
 - **DRF-111** Stats covers Main including basics: a mana curve 0–6 and 7+ of nonland cards stacked creature/noncreature with totals, and "Creature / Noncreature / Land" counts. (r18)
-- **DRF-112** A type row counts Main cards per word of the front type line (e.g. Legendary, Creature, Basic, Land), showing only words present, most common first. (r32)
+- **DRF-112** A type row counts Main cards per supertype and card type word of the front type line (e.g. Legendary, Creature, Basic, Land; subtypes like Golem are not counted), showing only words present, most common first. (r32)
 - **DRF-113** Type row details: hidden when Main is empty, words as printed, each a grey pill with a bold count. (r32) (?)
 - **DRF-114** A table shows Pips and Land sources per colour W U B R G as plain numbers (half pips like "4½"), plus "Lands without a color: N". (r23)
 - **DRF-115** Land sources count only lands: basic land types and the lands' "Add" text; nonland sources are never counted. (r23)

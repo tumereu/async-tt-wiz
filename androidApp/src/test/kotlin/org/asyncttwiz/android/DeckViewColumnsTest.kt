@@ -31,6 +31,7 @@ class DeckViewColumnsTest {
     /** 412dp less the 16dp gutters, split into [columns] with 4dp gaps. */
     private fun expected(columns: Int) = (412f - 32f - 4f * (columns - 1)) / columns
 
+    // LOB-056
     @Test fun savedDeckShowsBothSectionsAsTypeGroupedTilesThatOnlyInspect() {
         val fixture = ScreenFixtures().also { it.configure("deck-detail") }
         try {
@@ -52,6 +53,7 @@ class DeckViewColumnsTest {
         } finally { fixture.library.close() }
     }
 
+    // LOB-051
     @Test fun deckViewDefaultsToThreeColumnsAndKeepsTheChosenCountApartFromPreparation() {
         val fixture = ScreenFixtures().also { it.configure("deck-detail") }
         try {
@@ -70,6 +72,7 @@ class DeckViewColumnsTest {
         } finally { fixture.library.close() }
     }
 
+    // LOB-051
     @Test fun preparationReadsItsOwnColumnCountAndOffersTheSameControl() {
         preferences.edit().putInt(preparationKey, 5).putInt(savedKey, 2).commit()
         val fixture = ScreenFixtures().also { it.configure("prepare-deck-faded") }

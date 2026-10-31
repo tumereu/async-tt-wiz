@@ -79,6 +79,7 @@ class DeckVisibilityTest {
         }
     }
 
+    // LOB-044
     @Test fun `show after first game reveals a deck only once it finished a game against the same opponent`() = fixture { f ->
         assertEquals(DeckVisibility.AFTER_FIRST_GAME, f.settings.read(f.a.account.accountId).deckVisibility)
         val x = f.deck(f.a, "Deck X"); val y = f.deck(f.a, "Deck Y"); val bDeck = f.deck(f.b, "Deck B")
@@ -127,6 +128,7 @@ class DeckVisibilityTest {
         f.select(a3, x); assertFalse(f.shown(a3))
     }
 
+    // LOB-043
     @Test fun `visible and hidden apply to every new deck selection and the per game toggle still overrides`() = fixture { f ->
         val x = f.deck(f.a, "Deck X"); val y = f.deck(f.a, "Deck Y"); val bDeck = f.deck(f.b, "Deck B")
         assertEquals(AccountSettings(DeckVisibility.VISIBLE), f.settings.set(f.a.account.accountId, AccountSettings(DeckVisibility.VISIBLE)))

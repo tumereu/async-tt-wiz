@@ -34,6 +34,7 @@ class GameplayDeltaTest {
         return next
     }
 
+    // SYS-027
     @Test fun everyPlayActionHasAnExactRecordedForwardAndInverseIncludingCompoundCleanup() {
         val root = gameplayFixture()
         val card = root.board.cards.first().id
@@ -176,6 +177,7 @@ class GameplayDeltaTest {
 
     // Speed is not timed here: the build machine's load makes timings unreliable, and real devices report slow
     // actions themselves (SYS-030). This keeps the long-game undo, review and 50-event boundary behaviour.
+    // HIS-084
     @Test fun longGameUndoAndCursorAndThe50EventBoundary() {
         val tree = longGame()
         val head = tree.nodes.getValue(tree.currentNodeId)

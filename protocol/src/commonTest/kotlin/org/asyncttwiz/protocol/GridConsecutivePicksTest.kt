@@ -32,6 +32,7 @@ class GridConsecutivePicksTest {
         return picks
     }
 
+    // DRF-074
     @Test fun queuedGridsPlusOwnNextRoundGrids() {
         // Two players, two grids a round: grid 1 goes p0 then p1, grid 2 goes p1 then p0.
         var state = start(players = 2, grids = 4, open = 2)
@@ -51,6 +52,7 @@ class GridConsecutivePicksTest {
         assertEquals(0, GridEngine.consecutivePicks(state, "stranger"))
     }
 
+    // DRF-074
     @Test fun countMatchesRealPicksIsPositiveExactlyWithGridsAndDropsByOnePerOwnSelection() {
         val configs = listOf(start(2, 6), start(2, 6, open = 3), start(2, 4, open = 2, twoPicks = true), start(3, 6, open = 2),
             start(4, 8, open = 4))

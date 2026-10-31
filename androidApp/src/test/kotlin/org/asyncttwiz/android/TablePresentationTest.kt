@@ -73,6 +73,7 @@ class TablePresentationTest {
         }
     }
 
+    // STK-007, TBL-009
     @Test fun landscapeSidebarIsCompactWithStackOnThePileMidlineAndFullPileTouchTargets() {
         for ((width, height) in listOf(900f to 412f, 640f to 360f)) for (scale in listOf(.5f, 1f)) {
             val scene = TablePresentation.scene(TableFixture.game, TableFixture.play(), "a", width, height, true,
@@ -152,6 +153,7 @@ class TablePresentationTest {
         }
     }
 
+    // ZON-012, ZON-020
     @Test fun continuousLibraryRevealRendersOnlyTheTopFaceAndEyeForBothViewersAndAllowsInspect() {
         val initial = TableFixture.play()
         for (enabled in listOf(false, true)) for (viewer in listOf("a", "b")) for (landscape in listOf(false, true)) {
@@ -235,6 +237,7 @@ class TablePresentationTest {
         assertEquals(0, landscape.items.count { it.kind == TableItemKind.COUNTER })
     }
 
+    // TBL-002
     @Test fun commonScaleAndEqualFootprintsAcrossOrientationOwnerRotationAndPiles() {
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) {
             val p = TableFixture.play(board = 3, hand = 3)
@@ -258,6 +261,7 @@ class TablePresentationTest {
         }
     }
 
+    // TBL-002
     @Test fun battlefieldColumnsHaveFixed42DpPitchAndRotateAroundTheSameCenter() {
         val play = TableFixture.play(board = 2)
         for (tapped in listOf(false, true)) {
@@ -272,6 +276,7 @@ class TablePresentationTest {
         }
     }
 
+    // ZON-012
     @Test fun knownLibraryTopsStayCoveredWithoutArtworkOrEyeBadgeForEitherViewer() {
         val play = TableFixture.play(library = 2, hand = 1).let { p -> p.copy(board = p.board.copy(
             cards = p.board.cards.map { it.copy(knownToAll = true, covered = false) })) }
@@ -289,6 +294,7 @@ class TablePresentationTest {
         }
     }
 
+    // TBL-054
     @Test fun groupsPeekTopLeftAndLandingPreviewsMatchDrawnCardsAndDropTargets() {
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) for (tapped in listOf(false, true)) {
             val p = TableFixture.play(board = 3)
@@ -446,6 +452,7 @@ class TablePresentationTest {
         }
     }
 
+    // STK-007
     @Test fun portraitStackIsScreenPinnedAndDocksAreOutsideHandsRegardlessOfCountersZoomOrReview() {
         for (counterOwners in listOf(emptySet(), setOf("a"), setOf("b"), setOf("a", "b"))) {
             val initial = TableFixture.play(hand = 2)
@@ -531,6 +538,7 @@ class TablePresentationTest {
         }
     }
 
+    // TBL-109, ZON-075
     @Test fun automaticInspectionUsesCurrentRegionNotOwnerAndNeverGrantsOpponentHiddenSide() {
         val p = TableFixture.play(hand = 1)
         val changed = p.copy(board = p.board.copy(cards = p.board.cards.map { c -> c.copy(owner = if (c.owner == "a") "b" else "a") }))
@@ -542,6 +550,7 @@ class TablePresentationTest {
         assertEquals("Covered card", TablePresentation.inspection(uncovered, "a", "b/HAND/0")!!.name)
     }
 
+    // ZON-001, ZON-073
     @Test fun handStripMenuPreviewAndInspectionAgreeForHolderAndOpponentRegardlessOfCoverFlag() {
         for (covered in listOf(false, true)) {
             val p = TableFixture.play(hand = 1).let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
@@ -567,6 +576,7 @@ class TablePresentationTest {
         }
     }
 
+    // ZON-073
     @Test fun legacyDefaultCoveredPublicCardsAreVisibleButExplicitFaceDownCardsStayHidden() {
         for (explicit in listOf(false, true)) {
             val p = TableFixture.play(board = 1).let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
@@ -584,6 +594,7 @@ class TablePresentationTest {
         }
     }
 
+    // ZON-012, ZON-073
     @Test fun libraryIsHiddenInOrdinaryPresentationForBothPlayersEvenWhenUncovered() {
         val p = TableFixture.play(library = 1).let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
             card.copy(covered = false)

@@ -114,6 +114,7 @@ class TableChromeUiTest {
         compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
     }
 
+    // HIS-001, HIS-004, HIS-007, HIS-008, TRN-013, TRN-015, TRN-016, TRN-018
     @Test fun portraitBothPlayersTurnAndMoveMatrix() = chrome(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscapeBothPlayersTurnAndMoveMatrix() = chrome(true)
 
@@ -159,6 +160,7 @@ class TableChromeUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeMaxLengthOpponentNameDoesNotCoverHandOrStep() = maxLengthOpponentNameDoesNotCoverControls(true)
 
+    // SYS-017, TRN-011
     @Test fun loadingHasSpinnerAndOnlyFailureOffersReconnect() {
         var state by mutableStateOf(LobbyState())
         compose.setContent { MaterialTheme {
@@ -217,6 +219,7 @@ class TableChromeUiTest {
         assertEquals(1, entered)
     }
 
+    // HIS-007
     @Test fun controlsCrossfadeWithoutMovingTheStripOrChangingPanelHeight() {
         val playback = LiveTableFixture.playback().apply { scrub(tree.sharedHeadId) }
         var live by mutableStateOf(true)

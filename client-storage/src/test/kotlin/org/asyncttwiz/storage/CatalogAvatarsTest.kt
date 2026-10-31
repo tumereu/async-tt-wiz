@@ -15,6 +15,7 @@ class CatalogAvatarsTest {
             emptyList(), MtgJsonCatalog.retainedRecord(JsonParser.parseString(
                 """{"name":"$name","type":"${if (legendary) "Legendary " else ""}$types — Wizard","types":["$types"],"supertypes":[${if (legendary) "\"Legendary\"" else ""}]}""").asJsonObject).toString())
 
+    // LOB-011
     @Test fun randomFilterAcceptsOnlyLegendaryCreaturesAndPlaneswalkersWithArtReferences() {
         val creature = card("Wizard", "Creature")
         val walker = card("Walker", "Planeswalker")
@@ -37,6 +38,7 @@ class CatalogAvatarsTest {
         assertTrue(repository.avatarChoices("%_").isEmpty())
     }
 
+    // LOB-011
     @Test fun randomSampleIsBoundedDeduplicatesReprintsAndRerollsWithoutRepeats() {
         val repository = CatalogRepository(directory.toFile()) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
         val cards = (1..270).map { card("Legend $it", "Creature") }

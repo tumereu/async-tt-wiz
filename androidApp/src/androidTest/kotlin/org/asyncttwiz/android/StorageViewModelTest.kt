@@ -79,6 +79,7 @@ class StorageViewModelTest {
         clearAndAwaitWorker(previous)
     }
 
+    // SYS-035
     @Test fun unsupportedVersionRemainsFailedUntilSameFileIsCompatibleThenRetryWorks() {
         file.parentFile!!.mkdirs()
         instrumentation.context.assets.open("1.db").use { file.writeBytes(it.readBytes()) }

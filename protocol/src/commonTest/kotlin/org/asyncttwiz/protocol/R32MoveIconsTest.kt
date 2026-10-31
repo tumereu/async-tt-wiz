@@ -16,11 +16,13 @@ class R32MoveIconsTest {
     private fun v(rules: Int) = GameplayTransition(rulesVersion = rules)
     private fun icon(action: PlayAction, rules: Int = 32) = HistoryGrouping.classify(action, containers, v(rules)).icon
 
+    // HIS-070
     @Test fun currentRulesRecordTargetIcons() {
         assertEquals(32, HistoryGrouping.MOVE_TARGET_ICONS_RULES_VERSION)
         assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= HistoryGrouping.MOVE_TARGET_ICONS_RULES_VERSION)
     }
 
+    // HIS-070
     @Test fun everyCrossZoneMoveTakesItsTargetIcon() {
         val expected = mapOf(PlayZone.HAND to HistoryIcon.DOWNLOAD, PlayZone.BATTLEFIELD to HistoryIcon.SPACE_DASHBOARD,
             PlayZone.STACK to HistoryIcon.LAYERS, PlayZone.GRAVEYARD to HistoryIcon.DELETE_SWEEP, PlayZone.EXILE to HistoryIcon.BLOCK,
@@ -45,6 +47,7 @@ class R32MoveIconsTest {
         assertEquals(HistoryIcon.LAYERS_CLEAR, icon(move(zone(PlayZone.BATTLEFIELD), zone(PlayZone.HAND), removeStackEntryId = id(50))))
     }
 
+    // HIS-070
     @Test fun randomMovesTakeTheirTargetIcons() {
         val seed = RandomV1.encodeSeed(ByteArray(32))
         assertEquals(HistoryIcon.LIBRARY_BOOKS, icon(PlayAction.MoveToLibraryRandom(zone(PlayZone.LIBRARY), listOf(id(10)), true, seed)))
@@ -56,6 +59,7 @@ class R32MoveIconsTest {
             else HistoryIcon.OPEN_WITH, icon(random(result), 31))
     }
 
+    // HIS-074, SYS-031
     @Test fun olderEventsKeepTheirRecordedIcons() {
         assertEquals(HistoryIcon.OPEN_WITH, icon(move(zone(PlayZone.HAND), zone(PlayZone.BATTLEFIELD)), 31))
         assertEquals(HistoryIcon.OPEN_WITH, icon(move(zone(PlayZone.HAND), zone(PlayZone.GRAVEYARD)), 31))

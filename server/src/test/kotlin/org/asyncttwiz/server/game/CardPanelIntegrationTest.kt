@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class CardPanelIntegrationTest {
+    // ZON-055
     @Test fun `opponent loses the current face grant after moving the last revealed panel card to hand`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

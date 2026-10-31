@@ -46,6 +46,7 @@ class GameplayMergeVerificationTest {
             ingressOrdinal = "1", commitRevision = update.resultRevision, mutation = update.mutation)
     }
 
+    // SYS-009
     @Test fun dependentStackOriginalsAndManualEditSurviveLastResultFirstWithoutRewindOrDoubleApplication() {
         val t = Fixture(); t.connect()
         fun add(card: Int) {
@@ -74,6 +75,7 @@ class GameplayMergeVerificationTest {
         t.session.close()
     }
 
+    // SYS-008
     @Test fun failedTopDoesNotCancelLaterGuardedOriginalAndLateResultDoesNotRewindAcceptedManualState() {
         val t = Fixture(); t.connect()
         fun draw(card: Int) = PlayAction.MoveCard(t.f.id(card), MoveSource(t.library, edge = MoveSourceEdge.TOP),

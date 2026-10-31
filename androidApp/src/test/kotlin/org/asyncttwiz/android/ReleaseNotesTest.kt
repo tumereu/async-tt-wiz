@@ -37,6 +37,7 @@ class ReleaseNotesTest {
         assertFails { ReleaseNotes.parse("""[{"id":"x","kind":"new","text":"t"}]""") }
     }
 
+    // LOB-087
     @Test fun groupsNewChangedFixedNewestFirst() {
         val grouped = ReleaseNotes.grouped(notes)
         assertEquals(listOf(ReleaseNoteKind.ADD, ReleaseNoteKind.MOD, ReleaseNoteKind.FIX), grouped.map { it.first })
@@ -45,6 +46,7 @@ class ReleaseNotesTest {
         assertEquals(listOf(ReleaseNoteKind.FIX), ReleaseNotes.grouped(notes.filter { it.kind == ReleaseNoteKind.FIX }).map { it.first })
     }
 
+    // LOB-087
     @Test fun freshInstallSeesNothingUpdateSeesAllButInitialStoredRecordSeesOnlyNewer() {
         val fresh = ReleaseNotes.seenRecord(null, notes, freshInstall = true)
         assertEquals(emptyList(), ReleaseNotes.unseen(notes, fresh))
@@ -55,6 +57,7 @@ class ReleaseNotesTest {
         assertEquals(notes.drop(2), ReleaseNotes.unseen(notes, ReleaseNotes.seenRecord(stored, notes, freshInstall = true)))
     }
 
+    // LOB-088
     @Test fun dialogShowsAtOnceExceptOverAnOpenGameOrPod() {
         assertTrue(ReleaseNotes.showDialog(notes, pendingNotificationRoute = false, ActivityScreen.NONE))
         assertTrue(ReleaseNotes.showDialog(notes, false, ActivityScreen(podList = true)))

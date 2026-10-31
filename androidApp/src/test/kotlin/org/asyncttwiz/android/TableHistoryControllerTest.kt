@@ -23,6 +23,7 @@ class TableHistoryControllerTest {
     private fun view(tree: GameplayTree) = DownloadedHistoryState(1L, tree.currentNodeId,
         state = tree.stateAt(tree.currentNodeId))
 
+    // HIS-029
     @Test fun livePanelRevealRequestsHistoricalFaceUpEndpointInsteadOfLatestMove() {
         val fixture = BasicTableFixture()
         fixture.connect()
@@ -62,6 +63,7 @@ class TableHistoryControllerTest {
         } finally { fixture.lobby.close(); fixture.worker.drain() }
     }
 
+    // HIS-037
     @Test fun continueAtCurrentHeadReturnsLiveWithoutConfirmationOrArming() {
         Harness().use { h ->
             val tree = f.tap(f.root())
@@ -110,6 +112,7 @@ class TableHistoryControllerTest {
         }
     }
 
+    // HIS-036
     @Test fun continuationRequestPausesAndImmediatelyArmsTheCapturedBoundary() {
         Harness().use { h ->
             val tree = f.tap(f.root())
@@ -130,6 +133,7 @@ class TableHistoryControllerTest {
         }
     }
 
+    // HIS-035
     @Test fun returnFromBackgroundDecidesLiveOrTimelineOnlyOnceTheCaughtUpTreeIsIndexed() {
         for (missed in listOf(false, true)) Harness().use { h ->
             val first = f.tap(f.root())
@@ -253,6 +257,7 @@ class TableHistoryControllerTest {
         }
     }
 
+    // HIS-037
     @Test fun cancellingArmedContinuationReturnsToLiveWithoutSendingRequests() {
         for (viaReturnCurrent in listOf(false, true)) Harness().use { h ->
             val tree = f.tap(f.root())

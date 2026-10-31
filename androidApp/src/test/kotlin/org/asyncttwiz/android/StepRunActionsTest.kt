@@ -81,6 +81,7 @@ class StepRunActionsTest {
         assertEquals(start.board, h.current().board)
     }
 
+    // TRN-009
     @Test fun endTurnHoldQuickActionAndDialogRecordEveryRemainingStep() {
         for (route in listOf("hold", "quick", "dialog")) {
             val start = at(TurnPosition.POSTCOMBAT_MAIN, holder = turnPlayer)
@@ -106,6 +107,7 @@ class StepRunActionsTest {
         assertOneRun(h, start)
     }
 
+    // TRN-004, TRN-014
     @Test fun endOpponentsTurnFromDeclareAttackersPassesBlockersWithoutHandingTheMoveOver() {
         val f = CombatDamageFixture()
         val start = f.play.let { it.copy(board = it.board.copy(turn = it.board.turn.copy(
@@ -119,6 +121,7 @@ class StepRunActionsTest {
         assertOneRun(h, start)
     }
 
+    // TRN-009
     @Test fun dialogChoosingALaterStepFillsTheStepsBetweenAndAnEarlierStepIsOneEvent() {
         val start = at(TurnPosition.PRECOMBAT_MAIN)
         val h = Harness(start, turnPlayer)
@@ -134,6 +137,7 @@ class StepRunActionsTest {
         assertEquals(listOf<PlayAction>(PlayAction.ChooseStep(TurnPosition.UPKEEP)), late.commands.single().playActions())
     }
 
+    // TRN-019
     @Test fun untapDrawToMainUntapsInUntapAndDrawsInTheDrawStep() {
         val start = at(TurnPosition.UNTAP)
         val h = Harness(start, turnPlayer)
@@ -152,6 +156,7 @@ class StepRunActionsTest {
         assertOneRun(h, start, groups = 2)
     }
 
+    // TRN-019
     @Test fun drawAndGoToMainDrawsInTheDrawStep() {
         val start = at(TurnPosition.UPKEEP)
         val h = Harness(start, turnPlayer)
@@ -165,6 +170,7 @@ class StepRunActionsTest {
         assertOneRun(h, start)
     }
 
+    // TRN-022
     @Test fun goToMainOnTurnOnePassesUpkeepOnly() {
         val start = at(TurnPosition.UNTAP, "1")
         val h = Harness(start, turnPlayer)
@@ -173,6 +179,7 @@ class StepRunActionsTest {
         assertOneRun(h, start)
     }
 
+    // TRN-020
     @Test fun selectAttackersAndSkipCombatPassBeginningOfCombat() {
         val start = at(TurnPosition.PRECOMBAT_MAIN)
         val select = Harness(start, turnPlayer)
@@ -190,6 +197,7 @@ class StepRunActionsTest {
         assertOneRun(skip, start)
     }
 
+    // CMB-018
     @Test fun noAttackClosesTheEmptyAreaThenPassesEndOfCombat() {
         val start = at(TurnPosition.DECLARE_ATTACKERS, combat = CombatArea(id(90)))
         val h = Harness(start, turnPlayer)

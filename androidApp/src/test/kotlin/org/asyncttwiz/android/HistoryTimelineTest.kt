@@ -65,6 +65,7 @@ class HistoryTimelineTest {
         assertTrue(historyIconGlyph(events.last().icon).isNotBlank())
     }
 
+    // HIS-079
     @Test fun pingUniformSelectionOrderExplicitUnpingAndModeLifetime() {
         val reference = EventReference(id(1), id(2))
         val x = PingTarget(PingTargetKind.CARD,id(3)); val y = PingTarget(PingTargetKind.CARD,id(4))

@@ -78,6 +78,7 @@ class GameChatTest {
             assertNotNull(games.head(a, game.id).play)
         }
     }
+    // LOB-069
     @Test fun `private read cursor is monotonic durable and counts only incoming messages including beyond page window`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -20,6 +20,7 @@ import kotlin.test.*
 class CombatDamageMenuTest {
     @get:Rule val compose = createComposeRule()
 
+    // CMB-026
     @Test fun experimentalDamageEntriesAreReachableInTheOrdinaryProjectionMenu() {
         val f = TableStatesFixture
         val state = f.combat()

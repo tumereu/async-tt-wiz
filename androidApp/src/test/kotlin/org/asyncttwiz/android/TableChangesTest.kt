@@ -6,6 +6,7 @@ import java.util.concurrent.Executor
 import kotlin.test.*
 
 class TableChangesTest {
+    // HIS-031, TBL-033
     @Test fun tagsHoldOpaqueForOneSecondThenFadeForHalfASecond() {
         for (elapsed in listOf(0L, 300L, 999L, TableChanges.HOLD_MS))
             assertEquals(1f, tableChangeTagAlpha(elapsed.toFloat() / TableChanges.WINDOW_MS), .0001f)
@@ -20,6 +21,7 @@ class TableChangesTest {
     private fun field(kind: GameplayField, from: String?, to: String?, color: CounterColor? = null) =
         GameplayFieldChange("target", kind, from, to, color)
 
+    // HIS-031, TBL-033
     @Test fun extractsEveryRequestedTransitionAndIgnoresExistingMotionAndPileCounts() {
         val link = PlayLink("link", LinkEndpoint(LinkEndpointKind.CARD, "card"), LinkEndpoint(LinkEndpointKind.PLAYER, "player"))
         val changes = TableChangeExtraction.extract(event(
@@ -40,6 +42,7 @@ class TableChangesTest {
         assertEquals(1, changes.count { it.key.kind == TableChangeKind.STEP })
     }
 
+    // HIS-031, TBL-033
     @Test fun accumulatesPerValueRestartsWindowAndExpiresWithoutRemovingANewerTag() {
         var time = 0L
         val effects = TableChanges { time }
@@ -94,6 +97,7 @@ class TableChangesTest {
         }
     }
 
+    // SYS-009, TBL-033
     @Test fun predictionAndAcceptanceAnimateOnceIncludingPredictedUndoAndRedoWhileSnapshotsNeverAnimate() {
         val batches = mutableListOf<TableChangeBatch>()
         val replica = GameplayReplica { batches += it }
@@ -141,6 +145,7 @@ class TableChangesTest {
         assertTrue(single.events.single().reverse)
     }
 
+    // TBL-033
     @Test fun playbackStepAndAutoEmitOnlyAfterTheMaterializedEndpointAndScrubsClearEffects() {
         var tree = GameplayTree(f.initial)
         repeat(3) { tree = assertNotNull(tree.play(f.actor, f.command(PlayAction.AdjustLife(f.actor, "-1"))).tree) }
@@ -214,6 +219,7 @@ class TableChangesTest {
         assertTrue(changes.shuffles("before").isEmpty())
     }
 
+    // HIS-031, TBL-033
     @Test fun liveEffectsWaitForTheirDisplayedEndpointAndJumpsDiscardPendingEffects() {
         val tree = GameplayTree(f.initial)
         val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> true }, { _, _, _ -> false })

@@ -23,6 +23,7 @@ import kotlin.test.*
 class TimelineStatusOverlayTest {
     @get:Rule val compose = createComposeRule()
 
+    // HIS-009
     @Test fun cornerFlashesOnlyActualPlayPauseChangesAndHoldsARewind() {
         assertNull(playbackFlashFor(PAUSED, PAUSED))
         assertEquals(PLAYING, playbackFlashFor(PAUSED, PLAYING))
@@ -34,6 +35,7 @@ class TimelineStatusOverlayTest {
         assertNull(playbackFlashFor(PAUSED, null)) // Leaving while paused.
     }
 
+    // HIS-009
     @Test fun flashShowsAtOnceThenFadesWhileARewindStaysUntilItEnds() {
         var status by mutableStateOf<TimelinePlaybackStatus?>(PAUSED)
         compose.mainClock.autoAdvance = false
@@ -63,6 +65,7 @@ class TimelineStatusOverlayTest {
         compose.onNodeWithTag("playback-flash").assertDoesNotExist()
     }
 
+    // HIS-040
     @Test fun oldBranchShowsANeutralGreyChipAboveTheUsualStatus() {
         var opponent by mutableStateOf(false)
         compose.setContent { MaterialTheme { TimelineCentreText(opponent, PAUSED, oldBranch = true) } }

@@ -6,6 +6,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class ReconnectTelemetryTest {
+    // SYS-030
     @Test fun recordsStartRetriesLifecycleAndEachRecoveryStageIncludingStalledEpisodes() {
         var now = 0L
         val values = mutableListOf<ReconnectEpisode>()
@@ -54,6 +55,7 @@ class ReconnectTelemetryTest {
         assertTrue(AccountJson.format.decodeFromString<LatencyBatch>("{\"actions\":[]}").reconnects.isEmpty())
     }
 
+    // SYS-030
     @Test fun releaseDoesNotReadClockOrBufferAnything() {
         val recorder = ReconnectRecorder(false, { error("clock") }, record = { error("record") })
         recorder.start("game", "cause"); recorder.step("game", "ready", true); recorder.stepAll("background")

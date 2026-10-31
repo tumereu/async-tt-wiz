@@ -4,6 +4,7 @@ import kotlin.test.*
 
 class CubesTest {
     private val digest = "sha256:" + "a".repeat(64)
+    // DRF-007
     @Test fun cubeLimitsAndWireRoundTrip() {
         val entries = listOf(SavedCubeEntry(digest, 3000))
         assertTrue(CubeValidation.entries(entries))

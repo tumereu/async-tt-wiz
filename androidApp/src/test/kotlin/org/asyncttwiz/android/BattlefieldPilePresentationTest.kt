@@ -19,6 +19,7 @@ class BattlefieldPilePresentationTest {
         listOf(b.center, TablePoint(b.x + .5f, b.y + .5f))
     }.first { scene.hit(it)?.id == item.id }
 
+    // TBL-054
     @Test fun eachBattlefieldPileMemberKeepsItsDrawingOffsetAndHitRegion() {
         for (landscape in listOf(false, true)) for (zoom in listOf(.65f, 1f, 2f)) {
             val base = TableFixture.scene(play(), landscape)
@@ -36,6 +37,7 @@ class BattlefieldPilePresentationTest {
         }
     }
 
+    // TBL-059
     @Test fun exposedPileMembersCanBeSelectedAndDoubleTappedAsASelection() {
         val scene = TableFixture.scene(play())
         val events = mutableListOf<TableIntent>()
@@ -60,6 +62,7 @@ class BattlefieldPilePresentationTest {
             events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds.toSet())
     }
 
+    // TBL-053
     @Test fun fullBattlefieldPileRejectsDropWithoutSendingMove() {
         val scene = TableFixture.scene(play())
         val events = mutableListOf<TableIntent>()

@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class PowerToughnessPresentationTest {
+    // TBL-022
     @Test fun onlyPrintedPowerToughnessIsComparedIncludingVariableValues() {
         val face = DefinitionFace("front", "Creature", power = "2", toughness = "3", corner = "2/3")
         assertFalse(changedPowerToughness("2/3", face))
@@ -17,6 +18,7 @@ class PowerToughnessPresentationTest {
         assertTrue(changedPowerToughness("4/5", variable))
     }
 
+    // TBL-022
     @Test fun sceneUsesCurrentFaceForRealCardsAndTokensAndDoesNotExposeHiddenChanges() {
         val front = DefinitionFace("front", "Front", power = "2", toughness = "3", corner = "2/3")
         val back = DefinitionFace("back", "Back", power = "4", toughness = "5", corner = "4/5")

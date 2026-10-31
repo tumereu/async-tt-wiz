@@ -38,6 +38,7 @@ class R30TokenStacksTest {
         assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= TokenStacks.RULES_VERSION)
     }
 
+    // TBL-101
     @Test fun sameTokenJoinsAPileWithRoomAndAFullPileMakesItStartANewOne() {
         var state = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         val first = created(state, 100)
@@ -62,6 +63,7 @@ class R30TokenStacksTest {
         assertEquals(listOf(created(state, 105).id), pile(state, created(state, 105)))
     }
 
+    // TBL-101
     @Test fun anIdenticalTokenFromAnEarlierTurnIsJoinedAndTheNewOneShowsItEnteredThisTurn() {
         val root = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         val old = created(root, 100)
@@ -74,6 +76,7 @@ class R30TokenStacksTest {
         assertEquals("0", card(next, old.id).enteredTurn)
     }
 
+    // TBL-102
     @Test fun onlyLandTokensGoToTheLandRow() {
         for (type in listOf("Token Creature — Elf", "Token Artifact — Treasure", "Card", "Dungeon", "", "Creature — Landshark"))
             assertEquals(1, TokenStacks.row(DefinitionFace(gameplayId(1), "Token", typeLine = type)), type)
@@ -82,6 +85,7 @@ class R30TokenStacksTest {
         assertEquals(1, TokenStacks.row(null))
     }
 
+    // TBL-101
     @Test fun aNewTokenStartsAPileAtTheFirstFreeCellOfItsRow() {
         val forest = token("Forest", 42, "Token Land — Forest")
         // A real card already sits at (0,1).
@@ -119,6 +123,7 @@ class R30TokenStacksTest {
         assertEquals(29, old.mutation!!.transition.rulesVersion)
     }
 
+    // TBL-101
     @Test fun visiblyDifferentPilesAreNotJoined() {
         val root = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         val id = created(root, 100).id
@@ -143,6 +148,7 @@ class R30TokenStacksTest {
         }
     }
 
+    // TBL-101
     @Test fun aPileWithAnyOtherCardIsNotJoined() {
         val root = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         val withCard = accepted(root, PlayAction.MoveCard(gameplayId(10), MoveSource(gameplayId(20), edge = MoveSourceEdge.TOP),
@@ -153,6 +159,7 @@ class R30TokenStacksTest {
         assertEquals(listOf(created(next, 103).id), pile(next, created(next, 103)))
     }
 
+    // TBL-101
     @Test fun ofSeveralPilesTheFullestWithRoomThenTheFirstInReadingOrder() {
         var state = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         state = accepted(state, PlayAction.CreateToken(soldier), 101)
@@ -173,6 +180,7 @@ class R30TokenStacksTest {
         assertEquals(2, pile(state, created(state, 105)).size)
     }
 
+    // TBL-101
     @Test fun cloneJoinsWhenItLooksTheSameAndNotWhenItCopiesATappedToken() {
         var state = accepted(gameplayFixture(), PlayAction.CreateToken(goblin), 100)
         val source = created(state, 100)
@@ -186,6 +194,7 @@ class R30TokenStacksTest {
         assertNotEquals(source.placement!!.position, created(copy, 103).placement!!.position)
     }
 
+    // TBL-101
     @Test fun aTokenPileStillHoldsThreeCards() {
         var state = gameplayFixture()
         for (n in 100..103) state = accepted(state, PlayAction.CreateToken(goblin), n)

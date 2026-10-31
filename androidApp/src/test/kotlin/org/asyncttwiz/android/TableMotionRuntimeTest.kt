@@ -121,9 +121,11 @@ class TableMotionRuntimeTest {
         compose.mainClock.autoAdvance = true
     }
 
+    // TBL-040
     @Test fun ownLibraryDrawMovesAcrossTheTableAndConfirmationDoesNotRestartClock() = draw("a")
     @Test fun opponentLibraryDrawMovesToCoveredHand() = draw("b")
 
+    // TBL-040, ZON-002
     @Test fun bothHandRailsSlideTheirSurvivorsInsteadOfJumping() = handReflow(false)
     @Test fun historyJumpSkipsHandReflowWithTheOtherSceneAnimations() = handReflow(true)
 
@@ -173,6 +175,7 @@ class TableMotionRuntimeTest {
         compose.mainClock.autoAdvance = true
     }
 
+    // TBL-031, TBL-037
     @Test fun tapAndUntapAccessibilityBoundsTrackTheDrawnFaceAndFinishInNinetyMillis() {
         val initial = TableFixture.play(board = 1)
         val state = mutableStateOf(initial)

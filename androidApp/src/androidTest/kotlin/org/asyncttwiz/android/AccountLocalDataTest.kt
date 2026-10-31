@@ -25,6 +25,7 @@ class AccountLocalDataTest {
     private fun <T> storage(context: Context, block: (ClientStorage) -> T): T =
         (AndroidClientStorage.open(AndroidClientStorage.databaseFile(context)) as StorageOpenResult.Opened).storage.use(block)
 
+    // LOB-007, LOB-008
     @Test fun actualProfileContextAndPrivateReplicaAreRetainedOnlyForSameAccount() = isolated { context, alias ->
         val session = ProtectedSessionStore(context, "https://synthetic.example", alias)
         try {

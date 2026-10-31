@@ -38,6 +38,7 @@ class ServiceRetryTest {
         assertEquals(1, calls)
     }
 
+    // SYS-020
     @Test fun quietFailuresReportOnlyAfterThirtySecondsOfContinuousFailure() {
         var now = 1_000L
         val failures = QuietRefreshFailures({ now })

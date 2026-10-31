@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class CardRingTest {
+    // TBL-076
     @Test fun printedFacesCycleIndividually() {
         val definition = CardDefinition("Two faces", listOf(DefinitionFace("front", "Front"), DefinitionFace("back", "Back")))
         val submitted = SubmittedDefinition("digest", definition)
@@ -15,6 +16,7 @@ class CardRingTest {
         assertEquals(PlayAction.SetFace("card", "front"), nextPrintedFace(play, card.copy(faceId = "back")))
         assertNull(nextPrintedFace(play.copy(definitions = listOf(submitted.copy(definition = definition.copy(faces = definition.faces.take(1))))), card))
     }
+    // TBL-094
     @Test fun battlefieldModificationsAreDisabledElsewhereExceptStackAndProjectionNotes() {
         for (zone in PlayZone.entries) {
             assertEquals(zone == PlayZone.BATTLEFIELD, cardModificationEnabled(zone))
@@ -41,12 +43,14 @@ class CardRingTest {
         assertEquals(11, calls)
     }
 
+    // TBL-065
     @Test fun pagesWrapInBothDirections() {
         val pages = CardRingPages.pages(CardMenuLayout.CARD)
         assertEquals(pages.lastIndex, CardRingPages.adjacent(0, -1, pages.size))
         assertEquals(0, CardRingPages.adjacent(pages.lastIndex, 1, pages.size))
     }
 
+    // TBL-079
     @Test fun onlyTheValueCellKeepsTheCounterDragCallbackAndRawValue() {
         var delta = 0L
         val entry = RingEntry("counter/BLUE", "blue", MenuControl("Set blue counter") {},
@@ -58,6 +62,7 @@ class CardRingTest {
         assertEquals(4L, delta)
     }
 
+    // TBL-069
     @Test fun inputGuardUsesPressStartNotReleaseAndIncludesTheWholeDoubleTapWindow() {
         val guard = CardRingInputGuard(1000)
         assertFalse(guard.accepts(999))
@@ -68,6 +73,7 @@ class CardRingTest {
         assertTrue(guard.accepts(1280))
     }
 
+    // TBL-080
     @Test fun cornerDragSupportsIntegersPairsNegativeStepsAndCheckedOverflow() {
         assertEquals("-2/3", cornerDragValue("2/7", -4))
         assertEquals("15", cornerDragValue("12", 3))
@@ -76,6 +82,7 @@ class CardRingTest {
         assertEquals("−4 → -2/3", cornerDragLabel("2/7", -4))
     }
 
+    // TBL-067
     @Test fun squareFitsWithoutCoveringTheCardAtEdgesAndCorners() {
         for ((width, height) in listOf(360f to 640f, 412f to 892f, 892f to 412f, 640f to 360f)) {
             for (x in listOf(0f, width / 2 - 24, width - 48))
@@ -90,6 +97,7 @@ class CardRingTest {
         }
     }
 
+    // TBL-067
     @Test fun largestFittingSideWinsAndOwnershipBreaksAboveBelowTies() {
         val portrait = TableBounds(182f, 412f, 48f, 68f)
         assertEquals(CardRingSide.ABOVE, CardRingGeometry.place(412f, 892f, portrait, true)?.side)

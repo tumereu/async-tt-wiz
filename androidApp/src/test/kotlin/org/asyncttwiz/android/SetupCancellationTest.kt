@@ -68,6 +68,7 @@ internal class CancellationFixture(recipient: Boolean = false, pendingInvite: Bo
 }
 
 class SetupCancellationTest {
+    // LOB-039
     @Test fun capturedScopeCodecAndSingleConfirmForBothAdmittedPlayersAndPendingInviter() {
         for ((recipient, pending) in listOf(false to false, true to false, false to true)) CancellationFixture(recipient, pending).use { f ->
             f.lobby.requestCancelSetup(f.game)

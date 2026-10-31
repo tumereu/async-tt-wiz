@@ -140,6 +140,7 @@ class LibraryControllerTest {
         assertEquals(1, samples); assertEquals(1, sent.size)
     }
 
+    // SYS-010
     @Test fun bottomMoveAndDrawCaptureIdsAndLocalAdmissionRefusesTheWholeBatch() {
         val state = initial()
         val sent = mutableListOf<PlayAction>()

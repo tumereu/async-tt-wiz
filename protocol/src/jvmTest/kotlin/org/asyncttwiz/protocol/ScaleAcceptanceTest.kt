@@ -16,6 +16,7 @@ class ScaleAcceptanceTest {
         assertTrue(work.indexedNodes <= limit * 4, "$label topology=${work.indexedNodes}")
     }
 
+    // SYS-026
     @Test fun tenThousandActionsHaveBoundedIncrementalWorkAndExactRoundTrips() {
         val tree = F.build(10000)
         assertEquals(10000, tree.nodes.size)
@@ -99,6 +100,7 @@ class ScaleAcceptanceTest {
         )
     }
 
+    // SYS-025
     @Test fun oneAndTenThousandActionMediansStayWithinDesktopBudgets() {
         val games = listOf(1000, 10000).associateWith { size ->
             lateinit var tree: GameplayTree

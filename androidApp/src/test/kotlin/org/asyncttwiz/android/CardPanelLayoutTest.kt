@@ -7,6 +7,7 @@ import kotlin.test.*
 class CardPanelLayoutTest {
     private val f = BasicTableFixture()
 
+    // ZON-054
     @Test fun eyeBadgesBelongOnlyToTheAuthorOfLookAndSearchAndSplitMixedVisibilityCopies() {
         val root = f.root
         val library = f.container(PlayZone.LIBRARY)
@@ -26,6 +27,7 @@ class CardPanelLayoutTest {
         }
     }
 
+    // ZON-056
     @Test fun aSearchShowsWhatWaitsForTheShuffleUnderItsHeaderForBothPlayers() {
         val root = f.root
         val library = f.container(PlayZone.LIBRARY)
@@ -57,6 +59,7 @@ class CardPanelLayoutTest {
         }
     }
 
+    // ZON-049
     @Test fun maximumColumnsAndLeftAlignedPartialRowsAreIndependentOfCardCount() {
         assertEquals(3, panelColumnCount(3))
         assertEquals(2, panelColumnCount(2))
@@ -78,6 +81,7 @@ class CardPanelLayoutTest {
             }) }, contentsDisplays = listOf(display)))
     }
 
+    // ZON-047, ZON-049
     @Test fun oneAndTwoPanelsFitBattlefieldWithoutCoveringOrShrinkingHands() {
         val play = manyCards()
         for (landscape in listOf(false, true)) for (two in listOf(false, true)) {
@@ -119,6 +123,7 @@ class CardPanelLayoutTest {
         }
     }
 
+    // ZON-037, ZON-051
     @Test fun graveyardTypesAndNamesAreAlphabeticCopiesGroupedAndHiddenCardsStayPrivate() {
         val specs = listOf("Zulu" to "Creature", "Alpha" to "Land", "Beta" to "Creature", "Beta" to "Creature", "Rock" to "Artifact")
         val definitions = specs.mapIndexed { n, (name, type) -> SubmittedDefinition("d$n",
@@ -174,6 +179,7 @@ class CardPanelLayoutTest {
         }
     }
 
+    // ZON-058, ZON-059
     @Test fun unifiedMenuGreysRevealedAndSameZoneCellsWithoutRemovingThem() {
         val play = manyCards()
         val display = play.board.contentsDisplays.single()
@@ -199,6 +205,7 @@ class CardPanelLayoutTest {
         }
     }
 
+    // ZON-060
     @Test fun panelTargetsAreTheTappedCardOrTheSelectedCardsOfThatPanelOnly() {
         val display = manyCards().board.contentsDisplays.single()
         val (a, b, c) = display.cardIds.take(3)
@@ -207,6 +214,7 @@ class CardPanelLayoutTest {
         assertEquals(listOf(a, c), panelCardTargets(display, c, setOf(c, a, "elsewhere")))
     }
 
+    // ZON-036
     @Test fun localPileTogglesReplacesSurvivesMenusAndUpdatesWithoutCommands() {
         var play = manyCards()
         val ui = TableToolkitController(f.actor, { play }, { true }, { _, _ -> error("Local view must not send") })
@@ -243,6 +251,7 @@ class CardPanelLayoutTest {
         } finally { f.lobby.close(); f.worker.drain() }
     }
 
+    // ZON-048
     @Test fun opponentsOpenPanelAlsoBlocksClientShowWithoutSending() {
         val initial = manyCards()
         val play = initial.copy(board = initial.board.copy(contentsDisplays = initial.board.contentsDisplays.map { it.copy(author = f.other) }))

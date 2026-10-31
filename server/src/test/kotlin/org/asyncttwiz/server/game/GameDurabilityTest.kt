@@ -37,6 +37,7 @@ class GameDurabilityTest {
     private fun command(game: GameSummary, stream: GameStreamReady, action: GameAction = GameAction.DeclineInvitation) =
         GameCommand(id(), GameScope(game.id, game.preparationRound, game.invitationId), action, stream.streamId, stream.generation)
 
+    // SYS-014
     @Test fun `committed pending dedup atomic execution rollback restart and original final recovery`() {
         OwnedPostgres().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -142,6 +142,7 @@ class LobbyPreparationTest {
         assertEquals(newer, f.lobby.state.acceptedPreparation)
     }
 
+    // LOB-053
     @Test fun staleDeletedAndChangedSourcesNeverSubstituteAndServerRejectionRemovesOnlyPrediction() {
         for (failure in listOf("changed", "deleted", "serverChanged")) Fixture().use { f ->
             f.lobby.chooseDeck(); f.drain(); f.lobby.highlightDeck(source.deck)
@@ -160,6 +161,7 @@ class LobbyPreparationTest {
         }
     }
 
+    // DRF-133, LOB-040, LOB-055
     @Test fun draftDecksArePlayableAndListedAfterOrdinaryDecksUnderTheirOwnHeading() = Fixture().use { f ->
         val draft = source.copy(deck = source.deck.copy(id = id(), name = "Friday pod draft", draft = DraftDeckOrigin(id(), "Friday pod")))
         f.decks = listOf(source); f.draftDecks = listOf(draft)
@@ -180,6 +182,7 @@ class LobbyPreparationTest {
         assertFalse(f.lobby.importedForPicker()); assertTrue(f.wire.frames.filterIsInstance<GameCommand>().isEmpty())
     }
 
+    // LOB-041
     @Test fun deckSavedFromPickerImportComesBackHighlightedButNotConfirmed() = Fixture().use { f ->
         f.lobby.chooseDeck(); f.drain(); f.lobby.highlightDeck(alternate.deck); f.lobby.importForPicker()
         val imported = source.copy(deck = source.deck.copy(id = id(), name = "Imported"))
@@ -195,6 +198,7 @@ class LobbyPreparationTest {
         f.lobby.closePicker(); assertFalse(f.lobby.importedForPicker(imported.deck))
     }
 
+    // LOB-045, SYS-018
     @Test fun chooseDeckWorksWhileReconnectingAndTheSelectionIsSentOnceConnected() {
         for (leave in listOf(false, true)) Fixture().use { f ->
             f.wire.listener.disconnected(false); f.drain()

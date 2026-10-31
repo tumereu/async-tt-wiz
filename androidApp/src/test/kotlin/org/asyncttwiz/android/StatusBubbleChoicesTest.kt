@@ -27,6 +27,7 @@ class StatusBubbleChoicesTest {
     private fun hidden(cursor: String, status: String, hide: StatusBubbleHide) =
         StatusBubbleRules.hidden(lookup, cursor, "b", status, hide)
 
+    // TRN-041
     @Test fun hideLastsThroughOtherEventsButANewStatusShowsAgain() {
         node("n1", "root", "Wait"); node("n2", "n1")
         val hide = StatusBubbleRules.hide(lookup, "n2", "b", "Wait")
@@ -37,6 +38,7 @@ class StatusBubbleChoicesTest {
         assertFalse(hidden("n5", "BRB", hide))
     }
 
+    // TRN-041
     @Test fun sameTextSetAgainByANewEventShowsAgain() {
         node("n1", "root", "Wait"); node("n2", "n1")
         val hide = StatusBubbleRules.hide(lookup, "n2", "b", "Wait")
@@ -44,6 +46,7 @@ class StatusBubbleChoicesTest {
         assertFalse(hidden("n4", "Wait", hide))
     }
 
+    // TRN-041
     @Test fun undoKeepsTheHideUntilTheStatusEventItselfIsUndoneOrRedone() {
         node("n1", "root", "Wait"); node("n2", "n1")
         val hide = StatusBubbleRules.hide(lookup, "n2", "b", "Wait")
@@ -55,6 +58,7 @@ class StatusBubbleChoicesTest {
         assertFalse(hidden("n1b", "Wait", hide))
     }
 
+    // TRN-041
     @Test fun openingStatusWithoutAnyEventCanBeHidden() {
         val hide = StatusBubbleRules.hide(lookup, "root", "b", PlayerStatus.OPENING)
         node("n1", "root"); node("n2", "n1")
@@ -62,6 +66,7 @@ class StatusBubbleChoicesTest {
         assertFalse(hidden("n2", "", hide))
     }
 
+    // TRN-041
     @Test fun modesMuteToADotAndNothingForEmptyStatus() {
         val hide = StatusBubbleHide("Wait", "n1", "n1")
         assertEquals(StatusBubbleMode.BUBBLE, StatusBubbleRules.mode("Wait", StatusBubbleChoice(), hidden = false))
@@ -79,6 +84,7 @@ class StatusBubbleChoicesTest {
         assertEquals(StatusBubble.DOT, StatusBubble.dot(life, below = false).width)
     }
 
+    // TRN-041
     @Test fun choicesSurviveNewStoresPerAccountGameAndPlayer() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("status-bubbles", Context.MODE_PRIVATE).edit().clear().commit()
@@ -94,6 +100,7 @@ class StatusBubbleChoicesTest {
         assertEquals(StatusBubbleChoice(), StatusBubbleStore(context, "alice", "game").choice("b"))
     }
 
+    // TRN-041
     @Test fun controllerTogglesAndModes() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         context.getSharedPreferences("status-bubbles", Context.MODE_PRIVATE).edit().clear().commit()

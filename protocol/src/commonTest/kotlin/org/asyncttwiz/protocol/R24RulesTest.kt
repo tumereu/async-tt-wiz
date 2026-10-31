@@ -50,6 +50,7 @@ class R24RulesTest {
 
     @Test fun rulesVersionIsAtLeast24() = assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= 24)
 
+    // STK-005, TBL-090, ZON-008
     @Test fun castingFaceDownPutsTheHandCardOntoTheStackWithoutRevealingIt() {
         val cast = castFaceDown()
         val down = card(cast, 10)
@@ -66,6 +67,7 @@ class R24RulesTest {
             HandActions.castFaceDown(inHand(), gameplayId(10)), inHand().board.containers).significance)
     }
 
+    // STK-005, TBL-090, ZON-008
     @Test fun resolvingAFaceDownStackCardKeepsItFaceDownAsAPublic22() {
         val cast = castFaceDown()
         val resolve = StackQuickActions.actions(cast, gameplayId(10), PlayZone.BATTLEFIELD).single() as PlayAction.MoveCard
@@ -110,6 +112,7 @@ class R24RulesTest {
         assertTrue(card(gameplayChange(cast, resolve, 102).state!!, 10).isFaceDown)
     }
 
+    // ZON-018
     @Test fun manifestTopEntersTheBattlefieldFaceDownWithoutRevealing() {
         val start = gameplayFixture()
         val top = start.board.containers.single { it.id == library }.cards.first()

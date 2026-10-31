@@ -119,6 +119,7 @@ class GameCancellationTest {
         }
     }
 
+    // LOB-039
     @Test fun `pending recipient and stale round cannot cancel and cancelled originals remain account intent and stream scoped`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

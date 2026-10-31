@@ -228,6 +228,7 @@ class TableStatesScreenshotTest {
         return sent
     }
 
+    // CMB-008, CMB-013, CMB-014, STK-008, STK-013, STK-017, STK-018, STK-021
     @Test fun combatPortrait() { render("combat", false) }
     @Test fun combatCardTargetPortrait() { render("combat-targets", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatCardTargetLandscape() { render("combat-targets", true) }
@@ -270,6 +271,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Manage Stack · 1").assertDoesNotExist()
         compose.runOnIdle { assertNull(ui.panel) }
     }
+    // STK-021
     @OptIn(ExperimentalRoborazziApi::class)
     @Test fun manageStackPeekAttachesAboveTheManageDialogAndReleasesBackToIt() {
         val state = f.combat()
@@ -313,6 +315,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Return target permanent to its owner's hand.").assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
+    // STK-017
     @OptIn(ExperimentalRoborazziApi::class)
     @Test fun explicitStackInspectStaysOpenAndKeepsItsTextMarker() {
         val sent = render("stack-bubbles", false)
@@ -336,6 +339,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithText("Return target permanent to its owner's hand.").assertExists() // The mark chip remains.
         assertTrue(sent.isEmpty())
     }
+    // STK-013, STK-016, TBL-018, ZON-013
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackBubblesLandscape() { render("stack-bubbles", true) }
     @Test fun stackPreviewPortrait() { render("stack-preview", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackPreviewLandscape() { render("stack-preview", true) }
@@ -354,6 +358,7 @@ class TableStatesScreenshotTest {
             MoveDestination(f.id("a/HAND"), MoveInsertion.UNORDERED))), sent)
         compose.onNodeWithText("Library contents").assertDoesNotExist()
     }
+    // ZON-013
     @Test fun opponentLibraryDoubleTapDrawsIntoOwnersHandWithoutView() {
         val sent = render("combat", false)
         compose.onNodeWithContentDescription("Bob library, 50 cards").performTouchInput { doubleClick() }
@@ -363,6 +368,7 @@ class TableStatesScreenshotTest {
             MoveDestination(f.id("b/HAND"), MoveInsertion.UNORDERED))), sent)
         compose.onNodeWithText("Library contents").assertDoesNotExist()
     }
+    // STK-003
     @Test fun stackCardOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-card") }
     @Test fun stackEffectOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-effect") }
     private fun assertNoStackTapControls(kind: String) {
@@ -373,6 +379,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
+    // CMB-008, STK-018, TBL-046, ZON-058
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatLandscape() { render("combat", true) }
     @Test fun stackPortrait() { render("stack-contents", false) }
     @Test fun graveyardBrowserPortrait() { render("graveyard-contents", false) }
@@ -397,6 +404,7 @@ class TableStatesScreenshotTest {
         }
         assertTrue(sent.isEmpty())
     }
+    // ZON-057
     @Test fun graveyardHoldInspectsWithoutOpeningActionsOrLogging() {
         val sent = render("graveyard-contents", false)
         compose.mainClock.autoAdvance = false
@@ -437,6 +445,7 @@ class TableStatesScreenshotTest {
         compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
     }
+    // HIS-005, HIS-036, HIS-037, HIS-044, STK-018
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackLandscape() { render("stack-contents", true) }
     @Test fun historyStartPortrait() { render("history-start", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun historyStartLandscape() { render("history-start", true) }
@@ -487,6 +496,7 @@ class TableStatesScreenshotTest {
         assertTrue(sent.isEmpty())
     }
 
+    // TRN-034
     @Test fun emptyPortraitCounterOpensOnlyCountersWithoutMutation() {
         val sent = render("combat", false)
         compose.onNodeWithContentDescription("Bob, red, no value").performClick()
@@ -496,6 +506,7 @@ class TableStatesScreenshotTest {
         assertTrue(sent.isEmpty())
     }
 
+      // HIS-036
       @Test fun pausedAutoHoldImmediatelyArmsWithoutDialogAndConsumesTap() {
          render("history-paused", false)
           compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
@@ -547,6 +558,7 @@ class TableStatesScreenshotTest {
           compose.onNodeWithContentDescription("Table actions").assertIsDisplayed()
      }
 
+    // HIS-043, HIS-045, HIS-046
     @Test fun treeCentersReviewGroupAndTapSelectsLastEventThenCloses() {
         val tree = f.history()
         val explorer = HistoryExplorerController(Executor { it.run() }, { it() })

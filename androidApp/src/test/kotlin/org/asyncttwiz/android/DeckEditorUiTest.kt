@@ -17,6 +17,7 @@ import kotlin.test.assertEquals
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class DeckEditorUiTest {
+    // LOB-057, LOB-064
     @get:Rule val compose = createComposeRule()
     @Test fun editReplacesActionAndPrefillsListAndBackConfirmsDiscardAndCoverIsDraftOnly() {
         val fixture = ScreenFixtures().apply { configure("deck-detail") }

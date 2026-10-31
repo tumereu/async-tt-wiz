@@ -46,6 +46,7 @@ class GameplayHistoryTest {
         assertNull(GameplayHistory.reverse(changedFace.copy(board = changedFace.board.copy(cards = changedFace.board.cards.map {
             if (it.id == card.id) it.copy(corner = reset.state.board.cards.first().corner) else it })), reset.mutation))
     }
+    // SYS-027
     @Test fun forwardReplayInverseAndMutationCodecRetainExactIndividualBoundaries() {
         val root = gameplayFixture(); var state = root
         val library = root.board.containers[0]; val hand = root.board.containers[1]

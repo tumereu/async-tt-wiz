@@ -23,6 +23,7 @@ import kotlin.test.assertEquals
 class PodArtPreviewTest {
     @get:Rule val compose = createComposeRule()
 
+    // DRF-063
     @Test fun doubleFacedHoldContentShowsOnlyTheFittedFrontLikeTheGameTable() {
         lateinit var scroll: ScrollState
         val card = InspectedCard(CardDefinition("Front // Back", listOf(DefinitionFace("a", "Front"),

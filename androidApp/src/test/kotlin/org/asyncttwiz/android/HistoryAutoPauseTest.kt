@@ -6,6 +6,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class HistoryAutoPauseTest {
+    // HIS-027
     @Test fun attentionLooksAheadOneEventEvenBeyondGroupAndIgnoresInactiveBranches() {
         val attention = node(PlayAction.PassAttention, GameplayTransition(attention = AttentionChange(opponent, me)))
         val own = node(PlayAction.RollDie(6, 1), author = me, id = "own", parent = attention.id)
@@ -31,6 +32,7 @@ class HistoryAutoPauseTest {
             me, setOf(PlaybackAutoPause.PINGS_COMMENTS), board))
     }
 
+    // HIS-027
     @Test fun alreadyActedAttentionDoesNotPausePlaybackAfterAnimation() {
         val attention = node(PlayAction.PassAttention, GameplayTransition(attention = AttentionChange(opponent, me)))
         for (nextAuthor in listOf(me, opponent)) {
@@ -44,6 +46,7 @@ class HistoryAutoPauseTest {
         }
     }
 
+    // ZON-021
     @Test fun toggleMayPauseUnderRevealButAutomaticallyExposedTopsNeverDo() {
         for (enabled in listOf(false, true)) assertEquals(setOf(PlaybackAutoPause.REVEAL),
             triggers(PlayAction.SetKeepTopRevealed("theirs", enabled)))
@@ -73,6 +76,7 @@ class HistoryAutoPauseTest {
     private fun triggers(action: PlayAction, transition: GameplayTransition = GameplayTransition(), author: String = opponent) =
         HistoryAutoPause(me, board).triggers(node(action, transition, author))
 
+    // HIS-024, HIS-025
     @Test fun opponentOnlyAndSeparateDefaultOffAttackers() {
         val actions = listOf(
             node(PlayAction.RollDie(6, 4)),
@@ -159,6 +163,7 @@ class HistoryAutoPauseTest {
         assertTrue(classifier.triggers(moved.nodes.getValue(moved.currentNodeId)).isEmpty())
     }
 
+    // HIS-025, HIS-026
     @Test fun typicalOpponentTurnOnlyPausesOnCastAndAttentionWithDefaults() {
         val land = CardDefinition("Forest", listOf(DefinitionFace(F.id(401), "Forest", typeLine = "Basic Land — Forest")))
         val creature = CardDefinition("Bear", listOf(DefinitionFace(F.id(402), "Bear", typeLine = "Creature — Bear")))
@@ -190,6 +195,7 @@ class HistoryAutoPauseTest {
         assertEquals(setOf(PlaybackAutoPause.STACK_REMOVED), results[2])
     }
 
+    // HIS-025, HIS-026
     @Test fun handBattlefieldTogglesAreIndependentDefaultOffAndExplicitInspectStillReveals() {
         assertTrue(listOf(PlaybackAutoPause.LAND_FROM_HAND, PlaybackAutoPause.NONLAND_FROM_HAND, PlaybackAutoPause.STACK_REMOVED)
             .none { it in PlaybackAutoPause.defaults })
@@ -270,6 +276,7 @@ class HistoryAutoPauseTest {
             GameplayTransition(fields = listOf(GameplayFieldChange(other.id, GameplayField.NOTE, "", "note"))))))
     }
 
+    // HIS-015, HIS-024
     @Test fun pauseIsAfterAnimationIncludesEarlierGroupMembersAndResumesWithoutRetriggering() {
         val ping = node(PlayAction.Ping(reference, PingTarget(PingTargetKind.AREA, "mine")))
         val tap = node(PlayAction.SetTapped(other.id, true), id = "two", parent = ping.id)
@@ -296,6 +303,7 @@ class HistoryAutoPauseTest {
         assertEquals(HistoryMode.LIVE, player.position.mode)
     }
 
+    // HIS-024
     @Test fun disabledTriggersAndManualStepsDoNotAutoPauseAndOnlyTraversedMembersAreInspected() {
         val first = node(PlayAction.RollDie(6, 1))
         val second = node(PlayAction.SetTapped(other.id, true), id = "two", parent = first.id)

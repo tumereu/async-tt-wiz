@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TimelineGesturesTest {
+    // HIS-016, TBL-049
     @Test fun doubleTappingInTimelineIsSilentForBattlefieldHandStackAndCombat() {
         for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.HAND, PlayZone.STACK)) {
             for (viewport in listOf("table", "combat")) {
@@ -24,6 +25,7 @@ class TimelineGesturesTest {
         }
     }
 
+    // HIS-016, TBL-049
     @Test fun reviewCannotRectangleSelectOrToggleSelectionEvenWithStaleSelectMode() {
         val scene = TableFixture.scene()
         val events = mutableListOf<TableIntent>()

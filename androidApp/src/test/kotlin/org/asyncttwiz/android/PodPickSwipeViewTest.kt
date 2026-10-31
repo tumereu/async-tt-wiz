@@ -43,6 +43,7 @@ class PodPickSwipeViewTest {
         compose.mainClock.advanceTimeByFrame()
     }
 
+    // DRF-058, DRF-059
     @Test fun originalStaysFixedWhileCopyLiftsAndFadesWithoutTravellingBack() {
         val originalBounds = card.fetchSemanticsNode().boundsInRoot
         startDrag(.4f)
@@ -67,6 +68,7 @@ class PodPickSwipeViewTest {
         assertEquals(originalBounds, card.fetchSemanticsNode().boundsInRoot)
     }
 
+    // DRF-059
     @Test fun shortFastReleaseAndCancelledLongSwipeNeverMark() {
         startDrag(.2f)
         lifted.assertExists()

@@ -17,6 +17,7 @@ import org.junit.Test
 class SetupCancellationTest {
     @get:Rule val app = createAndroidComposeRule<MainActivity>()
 
+    // LOB-039
     @Test fun productionTitleRowHoldAccessibilityAndLocalDismissalBeforeRealCancellation() {
         lateinit var model: AuthViewModel
         app.runOnUiThread { model = ViewModelProvider(app.activity)[AuthViewModel::class.java] }

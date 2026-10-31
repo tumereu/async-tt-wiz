@@ -8,6 +8,7 @@ class CatalogPromptTest {
     private val old = CatalogMetadata("2026-10-20", "5.2.2")
     private val newer = old.copy(date = "2026-10-21", indexVersion = old.indexVersion + 1)
 
+    // LOB-091
     @Test fun missingRecordsNeverAutomaticallyDownloadWithoutInitialConsent() {
         val policy = CatalogPromptPolicy()
         assertFalse(policy.shouldPrompt(CatalogUiState()))
@@ -56,6 +57,7 @@ class CatalogPromptTest {
         assertTrue(CatalogPromptPolicy().shouldPrompt(update))
     }
 
+    // LOB-094
     @Test fun progressLabelsUseCompressedMegabytesAndHandleUnknownTotals() {
         assertEquals("Downloading card records: 120 / 450 MB", CatalogProgress(CatalogPhase.DOWNLOADING, 120_000_000, 450_000_000).label())
         assertEquals("Indexing card records: 160 / 450 MB processed · 45,123 cards",
@@ -64,6 +66,7 @@ class CatalogPromptTest {
         assertEquals("Finishing up — verifying catalog…", CatalogProgress(CatalogPhase.FINISHING, 0, null).label())
     }
 
+    // LOB-094
     @Test fun smallUpdatesShowKilobytesOrOneDecimalInsteadOfZeroMegabytes() {
         assertEquals("Downloading card records: 120 / 450 KB", CatalogProgress(CatalogPhase.DOWNLOADING, 120_000, 450_000).label())
         assertEquals("Downloading card records: 0.3 / 2.5 MB", CatalogProgress(CatalogPhase.DOWNLOADING, 300_000, 2_500_000).label())

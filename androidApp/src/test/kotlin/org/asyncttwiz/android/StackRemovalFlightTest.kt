@@ -21,6 +21,7 @@ class StackRemovalFlightTest {
     private fun removeEffects(state: PlayState) = state.copy(board = state.board.copy(stackEffects = emptyList(),
         containers = state.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = emptyList()) else it }))
 
+    // STK-006
     @Test fun resolvingProjectionFliesFromItsStackSlotToEachSupportedDestinationForBothLayouts() {
         for (landscape in listOf(false, true)) for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.BATTLEFIELD, PlayZone.EXILE)) {
             val initial = TableFixture.play(hand = 1)
@@ -62,6 +63,7 @@ class StackRemovalFlightTest {
         }
     }
 
+    // STK-006
     @Test fun realSpellLeavingStackUsesItsSlotNotItsFormerHandOrPileIncludingBuriedSpells() {
         for (landscape in listOf(false, true)) for (buried in listOf(false, true))
             for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.BATTLEFIELD, PlayZone.EXILE)) {

@@ -52,6 +52,7 @@ class R13RulesTest {
             expectedStackDigest = if (zone == PlayZone.STACK) GameplayRules.stackDigest(s) else null)
     }
 
+    // SYS-002, TBL-093, ZON-071
     @Test fun battlefieldLeaveResetsEveryModificationAndIncidentLinkInTheMove() {
         for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD }) {
             val initial = root().let { s -> s.copy(board = s.board.copy(cards = s.board.cards.map { card ->
@@ -75,6 +76,7 @@ class R13RulesTest {
         }
     }
 
+    // SYS-002
     @Test fun noteClearsOnStackExitButBattlefieldPlacementPreservesIt() {
         var s = root()
         s = exact(s, PlayAction.SetNote(id(20), "battlefield")).state!!
@@ -87,6 +89,7 @@ class R13RulesTest {
         assertEquals("", s.board.cards.single { it.id == id(20) }.note)
     }
 
+    // STK-009, TBL-094
     @Test fun manualEditsAreZoneRestrictedAndStackNotesRemainAllowed() {
         for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD }) {
             val s = exact(root(), move(root(), zone)).state!!
@@ -100,6 +103,7 @@ class R13RulesTest {
         }
     }
 
+    // TBL-094
     @Test fun projectionsHaveIndependentNotesAndRemovalRetainsAnExactInverse() {
         var s = exact(root(), PlayAction.SetNote(id(20), "source")).state!!
         s = exact(s, PlayAction.Stack(StackAction.AddEffect(id(20), GameplayRules.stackDigest(s)))).state!!
@@ -186,6 +190,7 @@ class R13RulesTest {
         assertEquals(tree.stateAt(tree.currentNodeId), redone.stateAt(redone.currentNodeId))
     }
 
+    // ZON-027
     @Test fun mulliganIsOneDeterministicRecordedEventWithAtomicUndoRedoAndStaleHandRejection() {
         val s = root()
         val library = container(s, PlayZone.LIBRARY)
@@ -211,6 +216,7 @@ class R13RulesTest {
         assertEquals(tree.stateAt(tree.currentNodeId), redone.stateAt(redone.currentNodeId))
     }
 
+    // HIS-052, HIS-053
     @Test fun untapsOnlyJoinUntapsAndBackwardPingActionsWhileShuffleJoinsTheImmediatelyPriorLibraryEntry() {
         var s = root()
         s = exact(s, PlayAction.SetTapped(id(20), true)).state!!
@@ -242,6 +248,7 @@ class R13RulesTest {
         assertNotEquals(group.id, HistoryGrouping.append(group, id(82), id(83), b, untapSemantic).id)
     }
 
+    // SYS-031
     @Test fun legacySealedMovesAndOffBattlefieldNotesReplayWithoutNewDefaultsOrGrouping() {
         val s = root()
         val card = s.board.cards.single { it.id == id(30) }

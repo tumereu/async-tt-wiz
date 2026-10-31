@@ -159,6 +159,7 @@ class ProjectionLinkRuntimeTest {
         assertTrue(original.board.cards.isNotEmpty()); assertEquals(3, original.board.projectionLinks.size) // immutable history
     }
 
+    // SYS-027
     @Test fun exactInverseRefusesChangedEndpointsCompoundFamiliesAndBrokenUniqueness() {
         val initial = ready()
         val (a, b) = initial.board.stackEffects

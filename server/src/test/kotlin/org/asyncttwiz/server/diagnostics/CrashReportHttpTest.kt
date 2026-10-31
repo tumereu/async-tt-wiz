@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.boot.tomcat.servlet.TomcatServletWebServerFactory
 
 class CrashReportHttpTest {
+    // LOB-090
     @Test fun `authenticated endpoint retains latest jank per account and enforces crash and latency daily quotas`() {
         ActivityFixture().use { f ->
             val now = Instant.now()

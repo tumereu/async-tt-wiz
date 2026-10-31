@@ -19,6 +19,7 @@ class TokenFavoritesTest {
             assertNotEquals(key, TokenIdentity.key(token.copy(faces = listOf(face))))
     }
 
+    // TBL-099
     @Test fun neverSetAndExplicitlyEmptyAreDifferent() {
         assertTrue(TokenIdentity.favorite(token.copy(name = "Treasure"), TokenFavorites()))
         assertFalse(TokenIdentity.favorite(token.copy(name = "Treasure"), TokenFavorites(emptyList())))

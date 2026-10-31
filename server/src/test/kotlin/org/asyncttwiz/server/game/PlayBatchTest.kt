@@ -39,6 +39,7 @@ class PlayBatchTest {
         }
     }
 
+    // SYS-004
     @Test fun `batch commits consecutive nodes one ordered publication and one deduplicated result`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -93,6 +94,7 @@ class PlayBatchTest {
         }
     }
 
+    // SYS-010
     @Test fun `member refusal persists no prefix or publication and retry recovers same rejection`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

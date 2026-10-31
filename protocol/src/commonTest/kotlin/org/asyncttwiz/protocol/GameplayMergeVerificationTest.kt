@@ -4,6 +4,7 @@ import kotlin.test.*
 
 /** Independent regressions for the movement/Manual conflict resolution, not a capability audit. */
 class GameplayMergeVerificationTest {
+    // TBL-093
     @Test fun battlefieldLeaveRetainsFrontFaceResetOutputAndInverseWithoutFollowupEdits() {
         val original = gameplayFixture().withBattlefieldCards(gameplayId(10))
         val card = original.board.cards.first()
@@ -38,6 +39,7 @@ class GameplayMergeVerificationTest {
         assertNotEquals(changes[0].state!!.currentGroup!!.id, state.currentGroup!!.id)
     }
 
+    // SYS-011
     @Test fun liveManualUsesCurrentValueWhileReplayAndStackAdditionKeepTheirDifferentGuards() {
         val root = gameplayFixture().withBattlefieldCards(gameplayId(10)); val card = root.board.cards.first()
         val stack = root.board.containers.last()

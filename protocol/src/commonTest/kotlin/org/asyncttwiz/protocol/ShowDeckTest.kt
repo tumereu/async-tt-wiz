@@ -11,6 +11,7 @@ class ShowDeckTest {
     private val ready = PreparationRules.empty(lobby).copy(players = listOf(PlayerPreparation(a.accountId, true),
         PlayerPreparation(b.accountId, true, shownPodDeckName = null)))
 
+    // LOB-043
     @Test fun showDeckTogglesOnlyTheActorsOwnFlagAndNeverWithdrawsReady() {
         val shown = StartRules.change(lobby, ready, b.accountId, scope, GameAction.ShowDeck(true)).state!!
         assertEquals(listOf(PlayerPreparation(a.accountId, true), PlayerPreparation(b.accountId, true, deckShown = true)), shown.players)

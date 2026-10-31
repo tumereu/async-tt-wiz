@@ -78,6 +78,7 @@ class ClientStorageTest {
         assertEquals("3", scalar("PRAGMA user_version"))
     }
 
+    // LOB-007
     @Test fun accountActivationRetainsOnlySameProfileAndLogoutDeletesAllPrivateScopes() {
         open().use { storage ->
             storage.activateAccount("account-a")
@@ -220,6 +221,7 @@ class ClientStorageTest {
         println("PASS generated migration interrupted after real earlier ALTERs: no writable repository, driver closed, prior DB byte-identical/version1; normal retry succeeds")
     }
 
+    // SYS-035
     @Test fun realMigrationSqlErrorPreservesOldDataWithoutWipe() {
         retained()
         // A preexisting conflicting table makes the third generated statement fail in SQLite.
@@ -234,6 +236,7 @@ class ClientStorageTest {
         println("PASS real SQLite third-statement migration error preserves prior schema/data/version byte-for-byte")
     }
 
+    // SYS-035
     @Test fun newerVersionRefusesWithNoWritableHandleAndPreservesBytes() {
         retained()
         execute("PRAGMA user_version = 900")
@@ -273,6 +276,7 @@ class ClientStorageTest {
         assertEquals("0", scalar("SELECT count(*) FROM sqlite_master"))
     }
 
+    // SYS-035
     @Test fun invalidStoredPayloadVersionAndOrphanRowsRefuseWithoutErasure() {
         open().use { it.commitAccepted("replica-a", null, 1, listOf(first)) }
         execute("UPDATE accepted_record SET payload_version = 0")
@@ -287,6 +291,7 @@ class ClientStorageTest {
         assertEquals("1", scalar("SELECT count(*) FROM accepted_record"))
     }
 
+    // SYS-035
     @Test fun corruptFileAndInvalidPathOrFactoryFailureAreExplicitAndNeverDeleted() {
         val corrupt = "not a SQLite file; private sentinel".toByteArray()
         Files.write(file, corrupt)

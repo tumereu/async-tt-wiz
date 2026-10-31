@@ -20,6 +20,7 @@ class CancellationTest {
         val ready = GameStreamReady(id, other, "2", listOf(GameRequestStatus(id, "pending")), game.copy(lifecycle = GameLifecycle.CANCELLED))
         assertEquals(ready, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(ready)))
     }
+    // LOB-039
     @Test fun eitherAdmittedParticipantCanCancelOnlyCapturedUnstartedRound() {
         assertNull(CancellationRules.rejection(game, id, scope))
         assertEquals("accessDenied", CancellationRules.rejection(game, other, scope))

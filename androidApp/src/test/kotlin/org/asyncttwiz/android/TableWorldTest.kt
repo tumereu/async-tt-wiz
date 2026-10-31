@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableWorldTest {
+    // TBL-013
     @Test fun panExposesThreeEmptyColumnsBeyondBothBattlefieldsWithoutChangingFitBounds() {
         val f = TableStatesFixture
         val play = f.combat()
@@ -25,6 +26,7 @@ class TableWorldTest {
             assertTrue(world.bounds.width < world.panBounds.width)
         }
     }
+    // TBL-015
     @Test fun boundsAlignContentEdgesForLargeSmallAndMixedAxesAtEveryZoom() {
         val viewport = TableBounds(20f, 30f, 200f, 100f)
         for (width in listOf(80f, 400f)) for (height in listOf(30f, 300f))
@@ -46,6 +48,7 @@ class TableWorldTest {
             }
     }
 
+    // TBL-005
     @Test fun backgroundBandsCoverViewportWidthEvenWhenAllocatedWorldIsOffscreen() {
         val scene = TableFixture.scene(ui = TableLayoutState(TableCamera(800f, 0f, .65f)))
         val world = scene.world!!
@@ -63,6 +66,7 @@ class TableWorldTest {
         assertEquals(800f, scene.camera.x, "Presentation must not discard gesture overscroll")
     }
 
+    // TBL-001
     @Test fun worldScalesUniformlyWhileAllHudGeometryStaysFixed() {
         val f = TableStatesFixture
         for (landscape in listOf(false, true)) {

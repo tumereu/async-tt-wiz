@@ -126,6 +126,7 @@ class GameChatTest {
         oldCallback(ChatReadState(game.id, "3", "3", 0)); f.drain()
         assertEquals(3, f.personal.presentation(game.id, b.accountId, messages.map { it.copy(author = a.accountId) }, emptyList()).unread)
     }
+    // LOB-069
     @Test fun anotherDevicesReadCursorRefreshesDotWithoutAnyGameplayRevision() {
         val f = Fixture()
         val message = ChatMessage(id(), game.id, game.playId!!, b.accountId, "incoming", "1", "date")
@@ -176,6 +177,7 @@ class GameChatTest {
         f.receive(f.result(second, false)); assertNotNull(f.session.outgoingChat(game.id).single().failure)
         assertEquals(listOf(message), f.session.chat(game.id))
     }
+    // SYS-014
     @Test fun reconnectAfterLostResultUsesAcceptedHeadAndNoResendAndOldHeadCannotEraseChat() {
         val f = Fixture(); f.connect(); f.session.sendChat(game, "original"); val original = f.command()
         f.wire.listener.disconnected(); f.drain()

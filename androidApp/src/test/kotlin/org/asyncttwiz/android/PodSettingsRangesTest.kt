@@ -5,6 +5,7 @@ import org.junit.Test
 import kotlin.test.*
 
 class PodSettingsRangesTest {
+    // DRF-023
     @Test fun rangesDeriveFromPackAndKeepBurnAndParallelCounts() {
         val s = DraftSettings(cardsPerPack = 5, keep = 2, burn = 1, discardRemainingAt = 4,
             packsPerPlayer = 6, packsOpenAtOnce = 3, grids = 12, gridsOpenAtOnce = 2)
@@ -19,6 +20,7 @@ class PodSettingsRangesTest {
         assertEquals(0..Int.MAX_VALUE, PodSetting.SIDEBOARD.range(s))
     }
 
+    // DRF-022
     @Test fun validationRejectsMissingOverflowAndOutOfRangeAndAcceptsBothBounds() {
         val s = DraftSettings()
         for (field in PodSetting.entries) {

@@ -80,6 +80,7 @@ class ResultActionsTest {
         assertFalse(f.session.pending(game.id)); assertEquals(prediction, f.session.play(active))
     }
 
+    // TRN-049
     @Test fun pendingSuggestionBlocksBothClientsAtTheLiveEndpoint() {
         val proposed = proposed()
         assertFalse(ResultActions.blocksGameActions(active, initial))
@@ -113,6 +114,7 @@ class ResultActionsTest {
         }
     }
 
+    // SYS-006
     @Test fun authorWithdrawsRestoredSuggestionAfterLifeEditAndRejectionRestoresOnlySuggestion() = Fixture().use { f ->
         fun command(action: GameAction) = GameCommand(id(), GameScope(game.id, playId = initial.id), action, id(), "1")
         var tree = GameplayTree(initial)
@@ -234,6 +236,7 @@ class ResultActionsTest {
         // This is gate-validation coverage, not execution of final-board playback (owned by I22/I28b).
     }
 
+    // TRN-051
     @Test fun panelFollowsDisplayedBeforeAtAfterAndRemovedSuggestionWithButtonsOnlyAtLiveEnd() {
         fun advance(tree: GameplayTree, action: PlayAction, actor: String = a.accountId): GameplayTree =
             assertNotNull(tree.play(actor, GameCommand(id(), GameScope(game.id, playId = initial.id),
@@ -265,6 +268,7 @@ class ResultActionsTest {
             HistoryPosition(live.currentNodeId, displayVersion = "v")))
     }
 
+    // TRN-051
     @Test fun catchupAndLiveRevealShowFinalBoardBeforePanelAndEnableButtonsOnlyAfterArrival() {
         fun advance(tree: GameplayTree, action: PlayAction): GameplayTree = assertNotNull(tree.play(a.accountId,
             GameCommand(id(), GameScope(game.id, playId = initial.id), GameAction.Play(action), id(), "1")).tree)
@@ -295,6 +299,7 @@ class ResultActionsTest {
         assertTrue(ResultActions.canResolve(active, live, live, livePlayback.position))
     }
 
+    // TRN-050
     @Test fun timelineLocksOnlyOnceTheShownBoardIncludesTheSuggestion() {
         val proposed = proposed()
         // Reviewing a point before the suggestion (or another branch without it) is not locked.
@@ -309,6 +314,7 @@ class ResultActionsTest {
         assertFalse(ResultActions.blocksAt(active, initial, initial, null, inTimeline = true))
     }
 
+    // TRN-049
     @Test fun pendingResultStillLetsPlayersLookAtCards() {
         assertTrue(gameLockAllows(TableIntent.Peek("card")))
         assertTrue(gameLockAllows(TableIntent.Peek(null)))

@@ -18,6 +18,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class StartingPlayerUiTest {
+    // LOB-038, TRN-026
     @get:Rule val compose = createComposeRule()
     @Test fun randomIsSelectedAndRepeatedClicksAndAccountRecompositionNeverDeselect() {
         val fixture = ScreenFixtures()
@@ -43,6 +44,7 @@ class StartingPlayerUiTest {
         compose.onAllNodes(isSelected()).assertCountEquals(1)
     }
 
+    // LOB-038, TRN-026
     @Test fun alternateToggleSitsInTheCardHeaderOnByDefaultAndSendsItsNewState() {
         val fixture = ScreenFixtures()
         val game = fixture.lobby.state.games.last()

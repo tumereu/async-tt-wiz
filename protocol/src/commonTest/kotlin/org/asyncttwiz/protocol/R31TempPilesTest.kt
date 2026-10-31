@@ -62,6 +62,7 @@ class R31TempPilesTest {
         assertTrue(CURRENT_GAMEPLAY_RULES_VERSION >= TempPiles.SEARCH_RULES_VERSION)
     }
 
+    // ZON-043
     @Test fun closingATempPileSearchKeepsItsOrderAndKnowledge() {
         val start = root()
         // Either player searches and closes; the pile stays exactly as it was.
@@ -76,6 +77,7 @@ class R31TempPilesTest {
         }
     }
 
+    // SYS-031
     @Test fun olderRulesStillShuffleATempPileOnSearchClose() {
         val start = root()
         val open = exact(start, PlayAction.ShowContents(pile(start), ContentsSelection.ALL))
@@ -108,6 +110,7 @@ class R31TempPilesTest {
         assertEquals(start.board, board(tree))
     }
 
+    // ZON-041
     @Test fun topToAnotherPileMovesOnlyTheTopCardOntoItsTopAndCreatesThePile() {
         val start = root()
         assertTrue(TempPiles.topToPile(start.board, start.id, pile(start), 1).isEmpty())
@@ -125,6 +128,7 @@ class R31TempPilesTest {
         assertNull(TempPiles.container(board(tree), a, 3))
     }
 
+    // ZON-041
     @Test fun allToGraveyardAndExileEmptyThePile() {
         val start = root()
         for ((zone, target) in listOf(PlayZone.GRAVEYARD to graveyard, PlayZone.EXILE to exile)) {
@@ -139,6 +143,7 @@ class R31TempPilesTest {
         }
     }
 
+    // ZON-044
     @Test fun aLibrarySearchPutsACardFaceDownOnTopOfAnyTempPile() {
         val start = root()
         val open = exact(start, PlayAction.ShowContents(library, ContentsSelection.ALL))
@@ -166,6 +171,7 @@ class R31TempPilesTest {
         return exact(state, add, actor = b)
     }
 
+    // ZON-043
     @Test fun closingATempLookKeepsCardsAddedMeanwhileOnTopAndTheShownOrderBelow() {
         val open = lookReorderAndAdd(root())
         assertEquals(gameplayId(13), cards(open.board, pile(open)).first())

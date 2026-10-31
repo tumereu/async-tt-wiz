@@ -35,6 +35,7 @@ internal class RecordingRoutes : TableActionRoutes {
 }
 
 class QuickActionsTest {
+    // TRN-017
     @Test fun nextStepLabelOnlySaysEndTurnWhenNextPassesToOtherPlayer() {
         val fixture = GameplayFixture()
         for (step in TurnPosition.entries) {
@@ -52,6 +53,7 @@ class QuickActionsTest {
         return QuickActions.contextual(play, context.copy(viewer = play.board.turn.accountId), controller)
     }
 
+    // CMB-017, CMB-018
     @Test fun existingAttackersHideNoAttackAndOfferSelectingMoreButBlockersDoNot() {
         val initial = TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS)
         for (attackers in listOf(false, true)) {
@@ -66,6 +68,7 @@ class QuickActionsTest {
         }
     }
 
+    // TRN-019, TRN-020, TRN-021, TRN-022, TRN-024
     @Test fun completeTwelvePositionCatalogHasNoInferredOperations() {
         val expected = mapOf(
             TurnPosition.UNTAP to listOf("Untap all", "Untap all + next", "Go to main"),
@@ -90,6 +93,7 @@ class QuickActionsTest {
         assertEquals(listOf("Draw one", "Draw one + next"), catalog(TurnPosition.DRAW, "2").map { it.name })
     }
 
+    // CMB-017
     @Test fun declarationsRequireCapturedSelectionOnlyAtDeclareAttackers() {
         val selection = listOf(TableToolFixture.id(20), TableToolFixture.id(21), TableToolFixture.id(20))
         val context = QuickContext(selectMode = true, selectedSourceIds = selection)
@@ -105,6 +109,7 @@ class QuickActionsTest {
             context = context.copy(selectedSourceIds = emptyList())).map { it.name })
     }
 
+    // TRN-025
     @Test fun everyExplicitStackKindAppendsAfterPhaseActionsAtEveryPosition() {
         for (position in TurnPosition.entries) for (kind in StackTargetKind.entries) {
             val target = ExplicitStackTarget(TableToolFixture.id(90), kind)
@@ -117,6 +122,7 @@ class QuickActionsTest {
             ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT))).size)
     }
 
+    // CMB-020, TRN-015
     @Test fun stepActionsAreOnlyOfferedToTheirPlayerButExplicitStackActionsRemainAvailable() {
         for (position in TurnPosition.entries) {
             val play = TableToolFixture.play(position)
@@ -137,6 +143,7 @@ class QuickActionsTest {
         players = play.board.players.map { player -> statuses.firstOrNull { it.first == player.accountId }
             ?.let { player.copy(status = it.second) } ?: player }))
 
+    // TRN-027, ZON-029
     @Test fun openingMulligansUseEachViewersOwnHandAndLibraryWhileTheirStatusIsTheOpeningStatus() {
         val first = TableToolFixture.play()
         val mulliganing = first.board.players.map { it.accountId to PlayerStatus.OPENING }.toTypedArray()
@@ -173,6 +180,7 @@ class QuickActionsTest {
         assertFalse(QuickActions.visible(withStatus(first, *mulliganing), "spectator"))
     }
 
+    // TRN-028
     @Test fun startingPlayersTurnOneShortcutsWaitWhileEitherPlayerHasExactlyTheOpeningStatus() {
         val starter = TableToolFixture.id(7); val other = TableToolFixture.id(8)
         val normal = listOf("Untap all", "Untap all + next", "Go to main")
@@ -195,6 +203,7 @@ class QuickActionsTest {
             names(withStatus(TableToolFixture.play(number = "2"), other to PlayerStatus.OPENING)))
     }
 
+    // TRN-027
     @Test fun readyClearsTheViewersOwnStatus() {
         val other = TableToolFixture.id(8)
         val play = withStatus(TableToolFixture.play(), other to PlayerStatus.OPENING)
@@ -209,6 +218,7 @@ class QuickActionsTest {
         assertFalse(QuickActions.openingMulligan(change.state!!, other))
     }
 
+    // TRN-019
     @Test fun startTurnAndDrawToMainUseOrderedCapturedConstituents() {
         assertEquals("Untap, draw\n→ main", quickActionLabel("Untap, draw → main"))
         for ((position, name) in listOf(TurnPosition.UNTAP to "Untap, draw → main", TurnPosition.UPKEEP to "Draw + go to main")) {
@@ -226,6 +236,7 @@ class QuickActionsTest {
         assertTrue(CombatOfferings.advanceAndClose(TableToolFixture.play(TurnPosition.END_COMBAT).board.turn))
     }
 
+    // TRN-022
     @Test fun startingPlayersFirstTurnGoesToMainWithoutDrawing() {
         for (position in listOf(TurnPosition.UNTAP, TurnPosition.UPKEEP, TurnPosition.DRAW)) {
             val play = TableToolFixture.play(position)
@@ -243,6 +254,7 @@ class QuickActionsTest {
         assertTrue(catalog(TurnPosition.DRAW, "2").none { it.name == "Go to main" })
     }
 
+    // TRN-010
     @Test fun allUnderlyingRoutesRemainOutsideTheirQuickWindows() {
         val play = TableToolFixture.play(TurnPosition.CLEANUP, "9")
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())

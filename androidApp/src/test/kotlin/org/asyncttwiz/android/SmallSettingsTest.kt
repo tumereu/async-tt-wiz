@@ -17,6 +17,7 @@ import kotlin.test.*
 class SmallSettingsTest {
     @get:Rule val compose = createComposeRule()
 
+    // LOB-083
     @Test fun versionTextIncludesBuildAndDirtyCommitVerbatim() {
         assertEquals("Version 1.2.3 (45) debug · commit abcdef123456-dirty",
             appVersionText("1.2.3", 45, "debug", "abcdef123456-dirty"))
@@ -25,6 +26,7 @@ class SmallSettingsTest {
         assertTrue(appVersionText().contains(BuildConfig.GIT_COMMIT))
     }
 
+    // LOB-083
     @Test fun settingsDisplaysVersionAtBottomAndDebugSpeedControl() {
         compose.setContent { MaterialTheme { SettingsContent(null, logout = {}) } }
         compose.onNodeWithTag("card-move-speed").assertExists().performTouchInput { swipeRight() }

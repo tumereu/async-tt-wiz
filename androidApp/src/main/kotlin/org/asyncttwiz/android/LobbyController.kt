@@ -11,56 +11,6 @@ enum class ContactsTab { CONTACTS, SEARCH }
 data class DeckPickerState(val game: GameSummary, val decks: List<DeckSummary> = emptyList(),
     val draft: DeckSummary? = null, val loading: Boolean = true, val confirming: Boolean = false,
     val importing: Boolean = false, val error: String? = null, val loaded: Boolean = false)
-data class LobbyState(val contacts: List<AccountIdentity> = emptyList(), val query: String = "",
-    val results: List<AccountIdentity> = emptyList(), val searched: Boolean = false, val searching: Boolean = false,
-    val searchError: String? = null, val games: List<GameSummary> = emptyList(), val invitations: List<GameSummary> = emptyList(),
-    val selected: String? = null, val detail: GameSummary? = null, val draft: GameNameDraft? = null,
-    val busy: Boolean = false, val mutating: Boolean = false, val uncertain: Boolean = false,
-    val error: String? = null, val loaded: Boolean = false, val connectionMessage: String? = null,
-    val connectedGames: Set<String> = emptySet(), val pendingGames: Set<String> = emptySet(),
-    /** Games whose events missed while in the background have all been received (see GameSession.caughtUp). */
-    val syncedGames: Set<String> = emptySet(),
-    val picker: DeckPickerState? = null, val acceptedPreparation: LobbyPreparation? = null,
-    val preparation: LobbyPreparation? = null, val queuedTransferCards: Long = 0,
-    val preparing: Boolean = false, val transferFeedback: TransferFeedback? = null, val play: PlayState? = null,
-    val acceptedPlay: PlayState? = null, val activityTarget: ActivityTarget? = null,
-    val gameContext: GameSummary? = null, val deletion: GameDeletion? = null,
-    val chatOpen: Boolean = false, val chat: ChatPresentation = ChatPresentation(),
-    val reconnectingGames: Set<String> = emptySet(), val backgroundLoading: Boolean = false,
-    val choosingOpponent: Boolean = false, val contactsTab: ContactsTab = ContactsTab.CONTACTS,
-    val contactFilter: String = "", val removingContact: AccountIdentity? = null, val chatLoaded: Boolean = false,
-    val retryPodChallengeName: String? = null, val ownPodDeckName: String? = null,
-    /** The selected game's opponent presence, when the server sends it. */
-    val opponentPresence: ReceivedPresence? = null,
-    /** Games with lobby taps waiting for the game connection or an earlier request; each runs once. */
-    val queuedGames: Set<String> = emptySet(),
-    /** Background refreshes have kept failing for a while; the shown lists may be stale. */
-    val unreachable: Boolean = false) {
-    val filteredContacts get() = contacts.filter { it.username.contains(contactFilter.trim(), ignoreCase = true) }
-    internal fun tableView() = LobbyTableView(selected, detail, play, acceptedPlay, connectedGames, reconnectingGames,
-        syncedGames, activityTarget, chatOpen, chat.unread, connectionMessage, error, ownPodDeckName, opponentPresence)
-}
-
-/** The [LobbyState] fields an open table reads. Games-list refreshes flip busy/loading flags in the whole
- * state every few seconds; the table reads this narrow view ([LobbyController.table]) instead, so only a
- * change to one of these fields recomposes it. */
-internal data class LobbyTableView(val selected: String?, val detail: GameSummary?, val play: PlayState?,
-    val acceptedPlay: PlayState?, val connectedGames: Set<String>, val reconnectingGames: Set<String>,
-    val syncedGames: Set<String>, val activityTarget: ActivityTarget?, val chatOpen: Boolean, val chatUnread: Int,
-    val connectionMessage: String?, val error: String?, val ownPodDeckName: String?, val opponentPresence: ReceivedPresence?)
-
-/** [LobbyController.state] and its narrow table view, written together. An equal view is not written, so
- * the busy/loading flips of a list refresh never invalidate the table. (Not derivedStateOf: a pending
- * derived invalidation still recomposes a child whose parent recomposes in the same frame.) */
-private class LobbyStateHolder : MutableState<LobbyState> {
-    private val whole = mutableStateOf(LobbyState())
-    val table = mutableStateOf(LobbyState().tableView(), structuralEqualityPolicy())
-    override var value: LobbyState
-        get() = whole.value
-        set(next) { whole.value = next; table.value = next.tableView() }
-    override fun component1() = value
-    override fun component2(): (LobbyState) -> Unit = { value = it }
-}
 
 /** Accepted account data plus personal volatile input. Never an independently authoritative local game. */
 class LobbyController(private val api: Lobbies, private val credential: () -> String?,
@@ -884,22 +834,3 @@ internal val gameNameNouns = listOf("Spark", "Mist", "Wand", "Grove", "Rune", "P
     "Grimoire", "Haven", "Hydra", "Isle", "Labyrinth", "Lotus", "Moon", "Oracle", "Phoenix", "Portal", "Relic", "Sanctum",
     "Scepter", "Sigil", "Spire", "Star", "Tempest", "Thicket", "Tower", "Wisp")
 internal fun gameNameSuggestion(): String = gameNameAdjectives.random() + " " + gameNameNouns.random()
-internal fun lobbyLifecycleInterruption(failure: Throwable, interrupted: Boolean): Boolean = interrupted &&
-    (failure is kotlinx.coroutines.CancellationException || transientServiceFailure(failure))
-
-internal fun lobbyError(failure: Throwable): String = when ((failure as? LobbyFailure)?.code) {
-    "invalid_search" -> "Use 1–64 username characters without control characters."
-    "invalid_name" -> "Enter a game name."
-    "contact_required" -> "Add this player to your contacts first."
-    "authentication_required" -> "Please sign in again. Your unfinished request is kept."
-    "try_later" -> "Too many requests. Wait a moment and retry."
-    "request_conflict" -> "This request could not be reused. Close the dialog and try again."
-    "not_configured" -> "The game service is not configured in this build."
-    "basic_definitions_unavailable" -> "The five English M21 basic lands are missing. Update card records and retry."
-    "deck_not_submitted" -> "Submit your pod deck before challenging."
-    "opponent_not_member", "not_found" -> "This pod or player is no longer available."
-    "invalid_opponent" -> "Choose another member of this pod."
-    "invalid_basic_definitions" -> "Basic land definitions were refused. Update card records and retry."
-    "invalid_deck" -> "This deck exceeds the game's 1,000-card limit."
-    else -> "Could not reach the game service. Your input is kept. Check your connection and retry."
-}

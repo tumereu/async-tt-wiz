@@ -118,8 +118,8 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-082** Each grid has a header: "Your pick · Grid 4/18", "Your pick next · Grid 6/18", "Waiting for <name> · Grid 5/18" or "Finished · Grid 3/18". (r30)
 - **DRF-083** Only the grid you pick from has arrows beside each row and above each column; tapping one tints that line, slightly dims the other cards, and Confirm takes it. (r31)
 - **DRF-084** Tapping a grid card inspects it; holding shows the same 150 ms release-to-close preview as the pick screen. (r30)
-- **DRF-085** Each pick shows as a coloured band along its row or column (yours in your table colour, others in opponent colour, then blue and amber) plus the picker's small avatar at the top left of the card art. (r34) (?)
-- **DRF-086** Discarded cards of a finished grid are dimmed and refill cards are marked "New"; a refilled grid shows its "Before refill" and "After refill" boards framed together. (r34) (?)
+- **DRF-085** Each pick shows as a coloured band along its row or column (yours in your table colour, others in opponent colour, then blue and amber) plus the picker's small avatar at the top left of the card art. (r34)
+- **DRF-086** Discarded cards of a finished grid are dimmed and refill cards are marked "New"; a refilled grid shows its "Before refill" and "After refill" boards framed together. (r34)
 - **DRF-087** Grid boards and everyone's picks of grids you have seen are public to the pod. (r16)
 
 ### Rochester, Rotisserie, Winston, Winchester and Sealed
@@ -171,7 +171,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 
 - **DRF-111** Stats covers Main including basics: a mana curve 0–6 and 7+ of nonland cards stacked creature/noncreature with totals, and "Creature / Noncreature / Land" counts. (r18)
 - **DRF-112** A type row counts Main cards per supertype and card type word of the front type line (e.g. Legendary, Creature, Basic, Land; subtypes like Golem are not counted), showing only words present, most common first. (r32)
-- **DRF-113** Type row details: hidden when Main is empty, words as printed, each a grey pill with a bold count. (r32) (?)
+- **DRF-113** Type row details: hidden when Main is empty, words as printed, each a grey pill with a bold count. (r32)
 - **DRF-114** A table shows Pips and Land sources per colour W U B R G as plain numbers (half pips like "4½"), plus "Lands without a color: N". (r23)
 - **DRF-115** Land sources count only lands: basic land types and the lands' "Add" text; nonland sources are never counted. (r23)
 - **DRF-116** Under it, cards are grouped by their coloured mana symbols ("3× {R}{R}"), with "N× ∅" for cards without coloured pips. (r26)

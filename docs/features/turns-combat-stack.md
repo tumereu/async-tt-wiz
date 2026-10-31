@@ -151,7 +151,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 ### Manage Stack
 
-- **STK-018** Double-tapping the Stack (its card or count) opens "Manage Stack · N" with every entry, top first ("Top", "2", …), each with art, name and its marks. (r8) (?) code differs from r1: double-tap opens Manage Stack, not the full card menu.
+- **STK-018** Double-tapping the Stack (its card or count) opens "Manage Stack · N" with every entry, top first ("Top", "2", …), each with art, name and its marks. (r8)
 - **STK-019** Each entry has square icon buttons: Remove, Battlefield, Graveyard (same as the bubbles), Copy (a new entry for the same card on top of the Stack), Change controller (of the entry only; the real card's owner is unchanged), Note and Ping (both on that entry only, not its real card). Battlefield and Graveyard are greyed on copies; Note is greyed on a real card lying on the Stack. (r35)
 - **STK-020** Each entry lists its text options as toggle chips, so one entry can hold several marks. (r7)
 - **STK-021** The Stack order can't be changed: there is no reordering. Holding an entry inspects it above the Manage Stack view. (r11)

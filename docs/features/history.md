@@ -36,7 +36,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-024** Auto stops after an opponent's group that matches an enabled auto-pause trigger, after that group's animation. Your own actions never auto-pause. (r12)
 - **HIS-025** Auto-pause triggers and defaults: Added to Stack on, Removed from Stack off, Reveal on, Pings / comments on, Die / coin results off, Your life / cards hit on, Move passes to you on, Attackers declared off, Opponent plays a land off, Opponent puts a nonland card onto the battlefield from hand off. (r15)
 - **HIS-026** A hand-to-battlefield move never counts as a Reveal. (r13)
-- **HIS-027** "Move passes to you" pauses only if the next event is not your own. Status changes never auto-pause; opening a graveyard/exile panel is not a reveal. (r17) (?)
+- **HIS-027** "Move passes to you" pauses only if the next event is not your own. Status changes never auto-pause; opening a graveyard/exile panel is not a reveal. (r17)
 - **HIS-028** Playback settings live in Settings under "Timeline playback" and in a dialog from the timeline's gear: the auto-pause switches ("Stop Auto after an opponent's matching action"), "History playback pause", "Rewind pause", the auto-rewind switches and Card move speed. (r31)
 - **HIS-029** Live play: when the opponent reveals cards in a panel, the table holds the face-up panel for one playback pause before moving on, without entering timeline mode. The board just before an opponent's result suggestion is likewise shown before the suggestion. (r8)
 - **HIS-030** Playback and live opponent actions animate each change (cards fly, rotate, flip, fade; moves between piles fly too). Rewinds animate backwards. A jump (tree pick) shows no effects. (r31)
@@ -56,7 +56,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-038** If the opponent continued from an earlier point (on opening, on returning, or live while you watch), the table switches to timeline mode paused where you were, with an orange "Opponent branched" chip and the Auto button showing Rewind. (r33)
 - **HIS-039** While "Opponent branched" is pending, Previous/Next and the strip are locked and holding Auto does not branch: you choose when the rewind starts and must watch it. During the rewind the settings and tree buttons are disabled too. (r31)
 - **HIS-040** Viewing an old branch you went to yourself shows a grey "Old branch" chip while the visible line is that branch; it is not locked. (r31)
-- **HIS-041** Settings "Rewind automatically when the opponent branched": "During live play" and "When opening a game", both off by default; returning to the app uses the opening setting; already paused in the timeline never auto-rewinds. (r33) (?)
+- **HIS-041** Settings "Rewind automatically when the opponent branched": "During live play" and "When opening a game", both off by default; returning to the app uses the opening setting; already paused in the timeline never auto-rewinds. (r33)
 - **HIS-042** Every branch start re-randomizes the unknown parts of both libraries with a seed fixed by the fork point and the forking player, so draw, undo, draw (or branching again from the same point) gives the same cards. A kept-revealed top card stays known. (r13)
 - **HIS-043** There is no branch archiving and no "Make current" action anywhere. (r6)
 
@@ -64,7 +64,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 
 - **HIS-044** The game tree opens from the timeline's tree button as a full-screen dialog drawing the whole game as event groups with the same icons as the strip, branches as parallel lanes. (r4)
 - **HIS-045** The tree opens centred on the event being viewed, has no legend and no bottom buttons, and shows only the selected group's text (two lines) at the bottom. (r6)
-- **HIS-046** Tapping a group moves the review cursor to that group's last event and closes the tree; holding a group selects it and shows its text without closing. (r6) (?)
+- **HIS-046** Tapping a group moves the review cursor to that group's last event and closes the tree; holding a group selects it and shows its text without closing. (r6)
 - **HIS-047** The tree pans and pinch-zooms (also over chips). The first event of each turn has a "T5"-style label in that player's colour. (r13)
 - **HIS-048** Each branch keeps the lane it got when it was created; the current path is drawn highlighted in green, branch ends get a dot and the current event a ring. (r13)
 - **HIS-049** The "Game tree ▾" menu toggles between "Show hidden branches" and "Hide simple alternatives". (r4) (?)
@@ -80,7 +80,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-056** Revealing a card in a panel and moving it on are separate groups, so the opponent sees the flip before the card flies. Closing a Search, Look or Reveal panel is its own group that nothing joins. (r29)
 - **HIS-057** Taps come first, then attacker declarations, and the step into Declare blockers joins that declaration group and ends it, so the timeline always stops at Declare blockers for the defender. (r29)
 - **HIS-058** Ending the turn or skipping ahead records every step passed on the way as events (rules-accurate: the starting player's first draw step and blockers/damage without attackers are skipped). They stay in one group and one undo, and never pause playback, stop, pass the move or notify. (r33)
-- **HIS-059** A group of only passed steps waits for the same player's next real action in the reached step (e.g. the draw), which leads it; "Untap, draw → main" stays two groups. (r33) (?)
+- **HIS-059** A group of only passed steps waits for the same player's next real action in the reached step (e.g. the draw), which leads it; "Untap, draw → main" stays two groups. (r33)
 - **HIS-060** The keep-top-revealed toggle and result suggestions/answers are groups of their own. (r13)
 
 ### Event texts
@@ -88,9 +88,9 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-061** Every event has a short text: hold an icon on the strip or timeline, or select it in the tree. Texts put the subject first and the result last, with no actor name. (r16)
 - **HIS-062** Texts never reveal what the viewer could not see at that event (hand, library, face-down, the other player's look); hidden cards read "a card" or "N cards". (r27)
 - **HIS-063** Card moves read as plain sentences: "Drew …", "Took X from library", "Returned X to hand", "Put X onto the battlefield", "Cast X" (or "face down"), "Discarded …", "Milled …", "Put X into graveyard", "Exiled …", "Put X on top/the bottom of library", "Put X into Temp N". (r33)
-- **HIS-064** Moves to another player's battlefield read "<receiver> gains control of X"; moves within one place read "X moved on the battlefield" / "X moved within graveyard". (r33) (?)
-- **HIS-065** A player's name appears in a move text only when the zone isn't the moved card's owner's ("Drew a card into bob's hand"). (r33) (?) contradicts r27: names only for a battlefield that isn't the owner's
-- **HIS-066** Random moves read e.g. "Discarded X at random", "Exiled X from hand at random", "Put … on top of library in random order"; moves made during a search add "(after search)". (r33) (?)
+- **HIS-064** Moves to another player's battlefield read "<receiver> gains control of X"; moves within one place read "X moved on the battlefield" / "X moved within graveyard". (r33)
+- **HIS-065** A player's name appears in a move text only when the zone isn't the moved card's owner's ("Drew a card into bob's hand"). (r33)
+- **HIS-066** Random moves read e.g. "Discarded X at random", "Exiled X from hand at random", "Put … on top of library in random order"; moves made during a search add "(after search)". (r33)
 - **HIS-067** A group of card moves merges same-kind moves into one text, joined with "; " ("Drew Shock, Opt, 2 cards; Discarded a card"), listing every card the viewer saw; longer than 180 characters ends in "…". Other groups read as their most important event. (r33)
 - **HIS-068** Other texts include "Moved to <step>", "Turn N → <player>", "Move passed → <player>", "d20 → 14", "Heads / win" / "Tails / loss", "Mulligan to N", "Status → <first 48 characters>…", "Library searched → N cards" and "Search closed → Library shuffled". (r34)
 - **HIS-069** Texts are made when the event is applied and also exist for older moves; when the app lacks the board context it says only "X moved", never a guessed zone. (r30)
@@ -100,7 +100,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-070** A card move's icon shows where the card went: hand = the draw (download) icon, battlefield = dashboard, Stack = layers, graveyard = sweep, exile = block, library (top or bottom) = books, Temp pile = inbox; moves within the same place keep the move icon. (r33)
 - **HIS-071** Edit icons show the direction: heart / broken heart for life gained / lost, +1 / −1 / 0 for card counters, up / down arrows for player counters and P/T, a flame for damage and a bandage for removed damage. (r34)
 - **HIS-072** Step changes show an arrow, a new turn a skip-next sign, closing a view an eye-off, closing combat a check mark, choosing an attack target a crosshair, and passing the move a flag. (r34)
-- **HIS-073** An unchanged or non-numeric value counts as an increase, P/T reads by the sum of power and toughness, and setting a counter to empty shows the down icon (only clearing shows 0). (r34) (?)
+- **HIS-073** An unchanged or non-numeric value counts as an increase, P/T reads by the sum of power and toughness, and setting a counter to empty shows the down icon (only clearing shows 0). (r34)
 - **HIS-074** Events keep the icon they were recorded with, so older events keep older icons; an icon the app doesn't know shows as a neutral dot instead of crashing. (r31)
 
 ### Event text chip

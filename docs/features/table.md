@@ -11,7 +11,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-005** The battlefield feels endless: no field edge is visible anywhere you can pan, and its background covers the whole pan area on both sides. (r31)
 - **TBL-006** Drags may drop a card in any column, including left of where cards normally start; automatic placement still takes the first free spot from column 0 rightward. (r31)
 - **TBL-007** Cards put onto the battlefield from a menu (not dragged) go to the land row only if they are lands; everything else goes to the first free spot of the main row. (r34)
-- **TBL-008** Face-down cards put onto the battlefield always go to the main row, and a menu move of several cards puts each on the first free spot of its own row. (?) (r34)
+- **TBL-008** Face-down cards put onto the battlefield always go to the main row, and a menu move of several cards puts each on the first free spot of its own row. (r34)
 - **TBL-009** In landscape the piles, life, counters and Stack sit in a left sidebar; in portrait they sit above and below the battlefield. (r2)
 
 ### Pan and zoom
@@ -85,7 +85,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-058** In Normal mode a new box replaces the selection; in Select mode it adds to it. (r31)
 - **TBL-059** In Select mode a single tap adds or removes that card from the selection. (r2)
 - **TBL-060** Tapping empty table or empty hand space clears the selection without changing the mode. (r2)
-- **TBL-061** In Select mode, double-tapping a selected card taps or untaps the selection, then clears it and returns to Normal mode. (?) code differs from spec D-281: no double tap in Select mode. (r16)
+- **TBL-061** In Select mode, double-tapping a selected card taps or untaps the selection, then clears it and returns to Normal mode. (r16)
 - **TBL-062** A menu opened on a selected card acts on the whole selection and shows the count; on an unselected card it acts on that card only and keeps the selection. The targets are fixed when the menu opens. (r12)
 
 ### Card menus
@@ -96,7 +96,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-066** A paged menu keeps room for its tallest page, so the header and buttons never jump when you change page. (r16)
 - **TBL-067** The menu opens on the side of the card with the most room, preferring above your own cards and below the opponent's. (r4)
 - **TBL-068** A tap outside the menu closes it and still goes through to the table (double taps and drags work); only buttons and chips count as inside, gaps do not. Back also closes it. (r11)
-- **TBL-069** A press that starts within 280 ms of the menu opening does nothing, so a fast second tap cannot hit a button by accident. (?) (r8)
+- **TBL-069** A press that starts within 280 ms of the menu opening does nothing, so a fast second tap cannot hit a button by accident. (r8)
 - **TBL-070** Menu buttons are always shown and greyed out when they don't apply; a button only changes when it has a twin for the card's state (Face down ↔ Face up, Hand ↔ Remove token, Declare ↔ Attack →). (r28)
 - **TBL-071** Each kind of card has one fixed layout: battlefield cards have three pages (Everyday, Counters, More); combat copies and hand cards have one page each. Stack entries have no card menu: tapping one shows its Stack bubbles (STK-010), and Manage Stack holds their other actions (STK-019). (r35)
 - **TBL-072** Menus offer the same actions on your opponent's cards as on yours; moves always go to the card owner's zones and labels show no player names. (r30)

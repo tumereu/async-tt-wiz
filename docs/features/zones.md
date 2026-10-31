@@ -86,7 +86,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-059** Buttons that don't apply are greyed: Reveal ones on cards already visible or in Reveal and graveyard/exile panels, the panel's own zone, Shuffle into library in library panels (Library top/bottom stay on). (r29)
 - **ZON-060** If the tapped card is selected, the menu acts on every selected card of that panel only, as one Undo step. (r29)
 - **ZON-061** Drag a panel card out to move it. Drag on empty panel space for a selection box (it takes all copies of a grouped card); scroll a panel with two fingers or double-tap-drag. (r29)
-- **ZON-062** Panel cards sent to Battlefield take the first free cell of their row: lands the land row, others the main row. (?) (r34)
+- **ZON-062** Panel cards sent to Battlefield take the first free cell of their row: lands the land row, others the main row. (r34)
 - **ZON-063** Either player can use any panel's cards and menu, including the opponent's private Look or Search, where the cards stay face down for them. (r30)
 
 ### Closing panels

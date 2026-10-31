@@ -110,7 +110,7 @@ internal fun gameRowMove(game: GameSummary, accountId: String) =
         GameRowMove(quickContinueMove(game, accountId), game.attentionHolder == accountId)
     else GameRowMove(if (game.invitationState == InvitationState.PENDING) "Invitation" else "Setup", false)
 
-internal fun gameLastActivity(game: GameSummary, clock: Clock = Clock.systemDefaultZone()): String = runCatching {
+internal fun gameLastActivity(game: GameSummary, clock: Clock = AppClock.clock()): String = runCatching {
     val activity = Instant.parse(game.updatedAt).atZone(clock.zone)
     val today = LocalDate.now(clock)
     val pattern = when {

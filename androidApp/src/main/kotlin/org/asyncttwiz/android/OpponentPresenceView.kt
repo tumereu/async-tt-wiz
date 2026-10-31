@@ -93,7 +93,7 @@ internal fun rememberPresenceDot(received: ReceivedPresence?): PresenceDot? {
 internal fun rememberPresenceLine(received: ReceivedPresence): String {
     var now by remember { mutableLongStateOf(monotonicMillis()) }
     LaunchedEffect(received) { while (true) { now = monotonicMillis(); delay(20_000) } }
-    return PresenceText.line(received, maxOf(now, received.receivedAt), ZonedDateTime.now())
+    return PresenceText.line(received, maxOf(now, received.receivedAt), ZonedDateTime.now(AppClock.clock()))
 }
 
 /** The opponent's presence for the table's player panels; null hides the line (unknown or old server). */

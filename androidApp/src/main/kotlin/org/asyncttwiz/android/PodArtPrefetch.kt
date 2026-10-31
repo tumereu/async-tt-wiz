@@ -14,6 +14,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import org.asyncttwiz.protocol.CardDefinition
+import org.asyncttwiz.protocol.DraftCopy
 import org.asyncttwiz.protocol.DraftPrivatePack
 import org.asyncttwiz.storage.ArtworkPriority
 import org.asyncttwiz.storage.ArtworkReference
@@ -25,9 +26,13 @@ internal fun podTileArtwork(digest: String, definition: CardDefinition?): Artwor
     definition?.takeIf { it.faces.isNotEmpty() }?.let { InspectedCard.retained(digest, it) }
         ?.artwork?.firstOrNull()?.takeIf { it.printing != null || it.customUrl != null }?.copy(size = "normal")
 
+/** Every given card, in order, without duplicates. */
+internal fun podCardPrefetchArtwork(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =
+    cards.mapNotNull { podTileArtwork(it.definition, definitions[it.definition]) }.distinct()
+
 /** Every card of the given packs, in pack order, without duplicates. */
 internal fun podPrefetchArtwork(packs: List<DraftPrivatePack>, definitions: Map<String, CardDefinition>): List<ArtworkReference> =
-    packs.flatMap { it.cards }.mapNotNull { podTileArtwork(it.definition, definitions[it.definition]) }.distinct()
+    podCardPrefetchArtwork(packs.flatMap { it.cards }, definitions)
 
 /** Bounded parallel prefetch. Each load keeps the artwork service's own retry loop until it
  * succeeds; a reference is cancelled only when it leaves the wanted set, so a pack that moves
@@ -48,13 +53,13 @@ internal class ArtworkPrefetcher(private val scope: CoroutineScope, parallelism:
     fun cancel() { jobs.values.forEach { it.cancel() }; jobs.clear() }
 }
 
-/** Starts tile-sized downloads for whole packs, not only the tiles the lazy grid has composed.
- * The decode size matches the tiles, so a composed tile reuses the memory-cached image. */
+/** Starts tile-sized downloads for every card a draft screen shows (DRF-070), in screen order, not only the tiles
+ * the lazy grid has composed. The decode size matches the tiles, so a composed tile reuses the memory-cached image. */
 @Composable
-internal fun PodArtPrefetch(packs: List<DraftPrivatePack>, definitions: Map<String, CardDefinition>, tileSize: IntSize) {
+internal fun PodArtPrefetch(cards: List<DraftCopy>, definitions: Map<String, CardDefinition>, tileSize: IntSize) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val references = remember(packs, definitions) { podPrefetchArtwork(packs, definitions) }
+    val references = remember(cards, definitions) { podCardPrefetchArtwork(cards, definitions) }
     val width = tileSize.width.coerceIn(0, 4096)
     val height = tileSize.height.coerceIn(0, 4096)
     if (width == 0 || height == 0) return

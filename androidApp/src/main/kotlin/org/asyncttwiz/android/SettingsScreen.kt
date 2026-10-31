@@ -59,6 +59,7 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
             SettingsSection("About & account") {
                 WhatsNewEntry()
                 ProblemReportEntry { auth?.sessionToken() }
+                ReportsSetting()
                 SelectionContainer { Text(versionText, Modifier.fillMaxWidth().padding(vertical = 8.dp).testTag("app-version"),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 SettingsActionRow("Log out", "logout", logout, Modifier.testTag("logout"), color = MaterialTheme.colorScheme.error)

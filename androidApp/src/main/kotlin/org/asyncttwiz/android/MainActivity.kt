@@ -188,9 +188,12 @@ class MainActivity : ComponentActivity() {
                 val permissionPrefs = remember { getSharedPreferences("notification-permission", 0) }
                 var asked by remember { mutableStateOf(permissionPrefs.getBoolean("asked", false)) }
                 val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { auth.activity.foreground() }
-                if (whatsNew.isEmpty() && ActivityPermissionPrompt.shouldPrompt(android.os.Build.VERSION.SDK_INT, state.account != null,
+                val alertsPrompt = whatsNew.isEmpty() && ActivityPermissionPrompt.shouldPrompt(android.os.Build.VERSION.SDK_INT, state.account != null,
                     state.destination, auth.lobby.state.selected, asked, catalogBlocked,
-                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)) {
+                    checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == android.content.pm.PackageManager.PERMISSION_GRANTED)
+                val reportChoices = remember { ReportChoiceStore(this@MainActivity) }
+                var reportChoice by remember { mutableStateOf(reportChoices.choice) }
+                if (alertsPrompt) {
                     fun dismiss() { asked = true; permissionPrefs.edit().putBoolean("asked", true).apply() }
                     ScreenDialog({ dismiss() }, title = "Invitation, game and draft alerts", actions = {
                         DialogCancelButton("Not now", { dismiss() })
@@ -198,12 +201,17 @@ class MainActivity : ComponentActivity() {
                     }) {
                         Text("Enable Android notifications for invitations, opponent activity and drafts? You can change each channel in Android settings.")
                     }
+                } else if (ReportPrompt.shouldPrompt(Diagnostics.alwaysOn, reportChoice, state.account != null, state.destination,
+                        auth.lobby.state.selected, whatsNew.isNotEmpty() || catalogBlocked || notificationRoute != null)) {
+                    // LOB-104: asked once; closing the dialog counts as "No thanks".
+                    ReportsPromptDialog { on -> Diagnostics.choose(this@MainActivity, on); reportChoice = reportChoices.choice }
                 }
-                Surface(Modifier.fillMaxSize().then(if (BuildConfig.DIAGNOSTICS) Modifier.drawWithContent {
+                // Always attached: reports can be turned on at any time; drawn() records only while they are on.
+                Surface(Modifier.fillMaxSize().drawWithContent {
                     drawContent()
                     // A completed content draw, not Choreographer's pre-draw frame timestamp.
                     DebugLatency.drawn()
-                } else Modifier)) {
+                }) {
                     if (storage.state == StorageState.Ready) {
                         AccountEntry(auth.controller, auth.reset, catalog, auth.deckImport, auth.decks, auth.lobby, auth.cubes, exit = ::finish, pods = auth.pods,
                             catalogPrompts = whatsNew.isEmpty())

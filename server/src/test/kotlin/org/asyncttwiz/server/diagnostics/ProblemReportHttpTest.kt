@@ -77,6 +77,42 @@ class ProblemReportHttpTest {
         }
     }
 
+    // LOB-089
+    @Test fun `each account keeps only its newest problem reports and reports before sign-in only count toward the total`() {
+        ActivityFixture().use { f ->
+            val adapter = ProblemReportHttp(f.runtime, retained = 8, retainedPerAccount = 2)
+            val server = TomcatServletWebServerFactory(0).apply { setAddress(InetAddress.getByName("127.0.0.1")) }.getWebServer({ context ->
+                context.addServlet("problem-reports", object : HttpServlet() {
+                    override fun service(request: HttpServletRequest, response: HttpServletResponse) {
+                        if (!adapter.handle(request, response)) response.status = 404
+                    }
+                }).addMapping("/")
+            })
+            server.start()
+            try {
+                val client = HttpClient.newHttpClient()
+                fun post(description: String, token: String?) {
+                    val body = AccountJson.format.encodeToString(ProblemReport(Instant.now().toString(), "0.1.3", 4, "release", "d", "a", description))
+                    val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${server.port}/app/problem-reports"))
+                        .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(body))
+                    if (token != null) request.header("Authorization", "Bearer $token")
+                    assertEquals(201, client.send(request.build(), HttpResponse.BodyHandlers.ofString()).statusCode())
+                }
+                repeat(4) { post("a$it", f.tokenA) }
+                repeat(3) { post("anonymous$it", null) }
+                post("b0", f.tokenB)
+                fun descriptions(where: String) = f.number("SELECT count(*) FROM problem_report WHERE $where")
+                assertEquals(2L, descriptions("account_id='${f.a.account.accountId}' AND description IN ('a2', 'a3')"))
+                assertEquals(2L, descriptions("account_id='${f.a.account.accountId}'"))
+                assertEquals(3L, descriptions("account_id IS NULL"))
+                assertEquals(1L, descriptions("account_id='${f.b.account.accountId}'"))
+                repeat(5) { post("anonymous-late$it", null) }
+                assertEquals(8L, descriptions("true"))
+                assertEquals(0L, descriptions("description IN ('a2', 'anonymous0')"))
+            } finally { server.stop() }
+        }
+    }
+
     @Test fun `a flood from one address is rate limited`() {
         ActivityFixture().use { f ->
             val adapter = ProblemReportHttp(f.runtime, limits = AccountRateLimits { 0 })

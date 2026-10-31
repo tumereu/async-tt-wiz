@@ -22,6 +22,11 @@ internal class CrashReportStore(private val directory: File) {
         ?.filter { it.name !in setOf("latency-buffer.json", "jank-buffer.json") }
         .orEmpty().sortedWith(compareBy<File> { it.lastModified() }.thenBy { it.name })
 
+    /** Turning reports off deletes everything not yet sent, including the slow-action and stutter queues. */
+    @Synchronized fun clear() {
+        directory.listFiles()?.filter { it.isFile && (it.extension == "json" || it.extension == "part") }?.forEach { it.delete() }
+    }
+
     @Synchronized fun write(report: CrashReport) {
         check(directory.isDirectory || directory.mkdirs())
         pending().dropLast(9).forEach { check(it.delete()) }
@@ -76,12 +81,14 @@ internal class CrashReportStore(private val directory: File) {
 
 internal class CrashExceptionHandler(private val store: CrashReportStore,
     private val previous: Thread.UncaughtExceptionHandler?, private val version: String, private val device: String,
-    private val now: () -> Instant = Instant::now) : Thread.UncaughtExceptionHandler {
+    private val enabled: () -> Boolean = { true }, private val now: () -> Instant = Instant::now) : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(thread: Thread, failure: Throwable) {
         try {
+            if (!enabled()) return
             val timestamp = now().toString()
-            store.write(CrashReport(timestamp, version, device,
-                "Time: $timestamp\nThread: ${thread.name} (${thread.id})\nApp: $version\nDevice: $device\n\n${failure.stackTraceToString()}"))
+            // Exception messages could carry an email address or a token; reports never do (LOB-090).
+            store.write(CrashReport(timestamp, version, device, redactLog(
+                "Time: $timestamp\nThread: ${thread.name} (${thread.id})\nApp: $version\nDevice: $device\n\n${failure.stackTraceToString()}")))
         } catch (_: Throwable) {
             // Diagnostic failures (including a full disk) must not replace Android's crash handling.
         } finally { previous?.uncaughtException(thread, failure) }
@@ -99,7 +106,7 @@ class TabletopApplication : Application() {
             } finally { previous?.uncaughtException(thread, failure) }
         }
         AppLog.info("app", "Started. ${appVersionText()}; ${Build.MANUFACTURER} ${Build.MODEL}; API ${Build.VERSION.SDK_INT}")
-        if (BuildConfig.DIAGNOSTICS) DebugCrashes.install(this)
+        Diagnostics.start(this)
         AndroidTokenCatalog.source(this)
     }
 }
@@ -109,29 +116,43 @@ internal object DebugCrashes {
     private var store: CrashReportStore? = null
     private var pending: List<File> = emptyList()
     private val started = AtomicBoolean()
+    @Volatile private var token: String? = null
 
-    fun install(application: Application) {
-        if (!BuildConfig.DIAGNOSTICS || store != null) return
+    @Synchronized fun install(application: Application) {
+        if (!Diagnostics.enabled || store != null) return
         val reports = CrashReportStore(File(application.filesDir, "debug-crashes"))
         store = reports
         pending = reports.pending()
         val version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.BUILD_TYPE}; commit ${BuildConfig.GIT_COMMIT}"
         val device = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         Thread.setDefaultUncaughtExceptionHandler(CrashExceptionHandler(reports,
-            Thread.getDefaultUncaughtExceptionHandler(), version, device))
+            Thread.getDefaultUncaughtExceptionHandler(), version, device, enabled = { Diagnostics.enabled }))
         DebugLatency.install(application, reports, version, device)
         DebugJank.install(application, reports, version, device)
+        // Opting in after sign-in: start with the session the app already has.
+        token?.let(::authenticated)
+    }
+
+    /** Reports turned off: queued reports are deleted on disk and in memory; nothing more is recorded or sent. */
+    @Synchronized fun discard() {
+        pending = emptyList()
+        store?.clear()
+        DebugLatency.discard()
+        DebugJank.discard()
     }
 
     fun authenticated(token: String?) {
-        if (BuildConfig.DIAGNOSTICS) DebugJank.authenticated(token)
-        if (BuildConfig.DIAGNOSTICS) DebugLatency.authenticated(token)
-        if (!BuildConfig.DIAGNOSTICS || token == null || store == null || !started.compareAndSet(false, true)) return
-        val reports = store!!
-        if (pending.isEmpty()) return
+        this.token = token
+        if (!Diagnostics.enabled) return
+        DebugJank.authenticated(token)
+        DebugLatency.authenticated(token)
+        val reports = synchronized(this) { store }
+        if (token == null || reports == null || !started.compareAndSet(false, true)) return
+        val files = synchronized(this) { pending }
+        if (files.isEmpty()) return
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
-                AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api -> reports.upload(pending) { api.uploadCrashReport(token, it) } }
+                AccountApi(BuildConfig.ACCOUNT_ORIGIN).use { api -> reports.upload(files) { api.uploadCrashReport(token, it) } }
             } catch (_: Exception) { /* No UI, logs, or immediate retry. */ }
         }
     }

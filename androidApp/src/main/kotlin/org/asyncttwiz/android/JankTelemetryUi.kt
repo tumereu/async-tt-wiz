@@ -5,7 +5,7 @@ import androidx.compose.runtime.*
 @Composable
 internal fun JankTableState(reviewing: Boolean, mode: TableMode, popup: String?, dragging: Boolean,
     animating: () -> Boolean, visibleCards: () -> Int) {
-    if (!BuildConfig.DIAGNOSTICS) return
+    if (!Diagnostics.enabled) return
     SideEffect {
         DebugJank.state("table_mode" to if (reviewing) "timeline" else when (mode) {
             TableMode.PING -> "ping"; TableMode.SELECT -> "select"; else -> "play"

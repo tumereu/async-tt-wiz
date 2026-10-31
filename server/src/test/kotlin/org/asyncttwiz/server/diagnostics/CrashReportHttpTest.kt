@@ -148,4 +148,69 @@ class CrashReportHttpTest {
             } finally { server.stop(); server.destroy() }
         }
     }
+
+    // LOB-090
+    @Test fun `every report kind keeps only its newest per account and all kinds together keep only the newest in total`() {
+        ActivityFixture().use { f ->
+            val now = Instant.now()
+            val clock = ActivityClock(now)
+            val adapter = CrashReportHttp(f.runtime, clock, ReportLimits(crashPerAccount = 3, latencyPerAccount = 4,
+                stutterPerAccount = 2, total = 12, maxAgeDays = 5))
+            val server = TomcatServletWebServerFactory(0).apply { setAddress(InetAddress.getByName("127.0.0.1")) }.getWebServer({ context ->
+                context.addServlet("crash-reports", object : HttpServlet() {
+                    override fun service(request: HttpServletRequest, response: HttpServletResponse) {
+                        if (!adapter.handle(request, response)) response.status = 404
+                    }
+                }).addMapping("/")
+            })
+            server.start()
+            try {
+                val client = HttpClient.newHttpClient()
+                val latency = AccountJson.format.encodeToString(LatencyBatch(listOf(ActionLatency(now.toString(), "game", "Undo", 1, false, serverResultMs = 30.0))))
+                val jank = AccountJson.format.encodeToString(JankBatch(listOf(JankEpisode(now.toString(), 800.0, 3, 2, 710.0, 8.0, 710.0, 120f,
+                    emptyMap(), emptyList(), true, false, false))))
+                var second = 0L
+                fun post(kind: String, token: String) {
+                    clock.time = now.plusSeconds(++second)
+                    val body = when (kind) { "latency" -> latency; "jank" -> jank; else -> "trace $second" }
+                    val input = CrashReport(now.toString(), "1.0 release", "Model; Android 15", body, kind)
+                    val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${server.port}/debug/crash-reports"))
+                        .header("Content-Type", "application/json").header("Authorization", "Bearer $token")
+                        .POST(HttpRequest.BodyPublishers.ofString(AccountJson.format.encodeToString(input))).build()
+                    assertEquals(204, client.send(request, HttpResponse.BodyHandlers.ofString()).statusCode())
+                }
+                fun count(account: String, kind: String) =
+                    f.number("SELECT count(*) FROM debug_crash_report WHERE account_id='$account' AND kind='$kind'")
+                val a = f.a.account.accountId; val b = f.b.account.accountId
+                repeat(5) { post("crash", f.tokenA) }
+                repeat(6) { post("latency", f.tokenA) }
+                repeat(4) { post("jank", f.tokenA) }
+                assertEquals(listOf(3L, 4L, 2L), listOf("crash", "latency", "jank").map { count(a, it) })
+                // The newest are kept: crashes 3..5 of the five sent.
+                assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report WHERE account_id='$a' AND kind='crash' AND body='trace 3'"))
+                assertEquals(0L, f.number("SELECT count(*) FROM debug_crash_report WHERE account_id='$a' AND kind='crash' AND body='trace 2'"))
+                // Another account's reports fill the total; the oldest go first, whoever sent them.
+                repeat(3) { post("crash", f.tokenB) }
+                repeat(4) { post("latency", f.tokenB) }
+                assertEquals(12L, f.number("SELECT count(*) FROM debug_crash_report"))
+                assertEquals(listOf(0L, 3L, 2L), listOf("crash", "latency", "jank").map { count(a, it) })
+                assertEquals(listOf(3L, 4L), listOf("crash", "latency").map { count(b, it) })
+                // Older than the age limit goes as well.
+                second = 5L * 86_400 + 30
+                post("crash", f.tokenB)
+                assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report"))
+            } finally { server.stop(); server.destroy() }
+        }
+    }
+
+    // LOB-090
+    @Test fun `report bounds come from the environment with defaults for missing or invalid values`() {
+        assertEquals(ReportLimits(20, 60, 20, 500, 30), ReportLimits.fromEnvironment(emptyMap()))
+        assertEquals(ReportLimits(5, 60, 7, 1000, 30), ReportLimits.fromEnvironment(mapOf("CRASH_REPORT_LIMIT_PER_ACCOUNT" to "5",
+            "LATENCY_REPORT_LIMIT_PER_ACCOUNT" to "lots", "STUTTER_REPORT_LIMIT_PER_ACCOUNT" to " 7 ", "DIAGNOSTIC_REPORT_LIMIT" to "1000",
+            "DIAGNOSTIC_REPORT_MAX_AGE_DAYS" to "0")))
+        assertEquals(ProblemReportLimits(20, 200), ProblemReportLimits.fromEnvironment(emptyMap()))
+        assertEquals(ProblemReportLimits(3, 50), ProblemReportLimits.fromEnvironment(mapOf("PROBLEM_REPORT_LIMIT_PER_ACCOUNT" to "3",
+            "PROBLEM_REPORT_LIMIT" to "50")))
+    }
 }

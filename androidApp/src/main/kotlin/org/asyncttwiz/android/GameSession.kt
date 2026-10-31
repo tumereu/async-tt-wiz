@@ -20,13 +20,14 @@ class GameSession(private val connection: GameConnection, private val credential
     private val treeCache: ((String, String, String) -> GameplayTreeStore?)? = null,
     private val treeWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val now: () -> Long = { System.nanoTime() / 1_000_000 },
-    reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (BuildConfig.DIAGNOSTICS) DebugLatency.reconnect(it) },
+    reconnectTelemetry: (ReconnectEpisode) -> Unit = { if (Diagnostics.enabled) DebugLatency.reconnect(it) },
     private val reviewWorker: ExecutorService = DebugJank.treeExecutor(Executors.newSingleThreadExecutor()),
     private val tableChanges: (String, TableChangeBatch) -> Unit = { _, _ -> },
     private val personalChat: GameChat = GameChat(),
     private val openedGame: () -> String? = { null }) : AutoCloseable {
     private fun replica(gameId: String) = plays.getOrPut(gameId) { GameplayReplica { tableChanges(gameId, it) } }
-    private val reconnectTrace = ReconnectRecorder(BuildConfig.DIAGNOSTICS, now, record = reconnectTelemetry)
+    // Always traced: reports can be turned on mid-game; the default sink sends only while they are on.
+    private val reconnectTrace = ReconnectRecorder(true, now, record = reconnectTelemetry)
     private var backgrounded = false
     private var resumePending = false
     private var resumePing: String? = null
@@ -36,7 +37,7 @@ class GameSession(private val connection: GameConnection, private val credential
     private val uiThread = Thread.currentThread()
     private var latencyTrace: LatencyRecorder.Trace? = null
     private inline fun <T> measureLatency(game: GameSummary, action: GameAction, block: () -> T): T {
-        if (!BuildConfig.DIAGNOSTICS) return block()
+        if (!Diagnostics.enabled) return block()
         val previous = latencyTrace
         val trace = DebugLatency.begin(game.id, action.latencyType(), (plays[game.id]?.tree?.tree?.nodes?.size ?: 0) +
             if (plays[game.id]?.accepted != null) 1 else 0)
@@ -44,7 +45,7 @@ class GameSession(private val connection: GameConnection, private val credential
         try { return block() } finally { latencyTrace = previous; trace?.finish() }
     }
     private fun latencySubmitted(command: GameCommand, predicted: Boolean) {
-        if (BuildConfig.DIAGNOSTICS) latencyTrace?.submitted(command.requestId, predicted)
+        if (Diagnostics.enabled) latencyTrace?.submitted(command.requestId, predicted)
     }
     private val processId = UUID.randomUUID().toString()
     private val streams = linkedMapOf<String, SessionStream>()
@@ -417,7 +418,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     /** One release captures a row, but produces ordinary individual commands, never an atomic bulk. */
     fun transfer(game: GameSummary, actor: String, intent: PreparedTransfer): Boolean {
-        val timing = if (BuildConfig.DIAGNOSTICS) DebugLatency.begin(game.id, "TransferPreparedCard", 0) else null
+        val timing = if (Diagnostics.enabled) DebugLatency.begin(game.id, "TransferPreparedCard", 0) else null
         try {
         val current = summary(game)
         val deck = preparation(current)?.players?.find { it.accountId == actor }?.deck ?: return false
@@ -549,7 +550,7 @@ class GameSession(private val connection: GameConnection, private val credential
             is GameResult -> result(message)
             is GameReceipt -> Unit // Receipt is not acceptance and never removes an uncertain original.
             is GameAdmissionError -> {
-                if (BuildConfig.DIAGNOSTICS) message.requestId?.let(DebugLatency::result)
+                if (Diagnostics.enabled) message.requestId?.let(DebugLatency::result)
                 if (message.code == "gameplayRulesUpgradeRequired" || message.code == "serverUpdatePending" ||
                     (!welcome && message.code == "invalidInput" && message.requestId == null)) {
                     // Pre-handshake-field servers reject the new Hello as unknown input.
@@ -608,7 +609,7 @@ class GameSession(private val connection: GameConnection, private val credential
         inspections.notifyInspections()
     }
     private fun result(result: GameResult) {
-        if (BuildConfig.DIAGNOSTICS) DebugLatency.result(result.requestId)
+        if (Diagnostics.enabled) DebugLatency.result(result.requestId)
         val original = pending[result.requestId] ?: return
         require(result.scope == original.scope)
         plays[original.scope.gameId]?.result(result)

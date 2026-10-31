@@ -19,7 +19,8 @@ import org.asyncttwiz.server.accounts.AccountService
 import org.asyncttwiz.server.database.OwnershipFailure
 
 /** No read route. Reports are operational data, not a shared game mutation. */
-class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Clock = Clock.systemUTC()) {
+class CrashReportHttp @JvmOverloads constructor(private val runtime: ServiceRuntime, private val clock: Clock = Clock.systemUTC(),
+    private val limits: ReportLimits = ReportLimits.fromEnvironment()) {
     private val accounts = AccountService(runtime)
 
     fun handle(request: HttpServletRequest, response: HttpServletResponse): Boolean {
@@ -117,22 +118,23 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
                 .decode(ByteBuffer.wrap(bytes, 0, minOf(bytes.size, 65_536))).toString().replace("\u0000", "")
             it.setString(7, body); it.setString(8, input.kind); it.executeUpdate()
         }
-        if (input.kind == "jank") connection.prepareStatement("""
+        // Only the sender's rows grow, so only its kind is trimmed per account.
+        connection.prepareStatement("""
             DELETE FROM debug_crash_report WHERE id IN (
-                SELECT id FROM debug_crash_report WHERE account_id = ? AND kind = 'jank'
-                ORDER BY received_at DESC, id DESC OFFSET 20
+                SELECT id FROM debug_crash_report WHERE account_id = ? AND kind = ?
+                ORDER BY received_at DESC, id DESC OFFSET ?
             )
         """.trimIndent()).use {
-            it.setObject(1, account); it.executeUpdate()
+            it.setObject(1, account); it.setString(2, input.kind); it.setInt(3, limits.perAccount(input.kind)); it.executeUpdate()
         }
         connection.prepareStatement("DELETE FROM debug_crash_report WHERE received_at < ?").use {
-            it.setObject(1, now.minusDays(30)); it.executeUpdate()
+            it.setObject(1, now.minusDays(limits.maxAgeDays.toLong())); it.executeUpdate()
         }
-        connection.createStatement().use { it.executeUpdate("""
+        connection.prepareStatement("""
             DELETE FROM debug_crash_report WHERE id IN (
-                SELECT id FROM debug_crash_report ORDER BY received_at DESC, id DESC OFFSET 500
+                SELECT id FROM debug_crash_report ORDER BY received_at DESC, id DESC OFFSET ?
             )
-        """.trimIndent()) }
+        """.trimIndent()).use { it.setInt(1, limits.total); it.executeUpdate() }
         accepted
     }
 }

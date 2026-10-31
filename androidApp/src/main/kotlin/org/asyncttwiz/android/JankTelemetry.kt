@@ -16,10 +16,11 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
-/** Debug only. Frame callbacks copy bounded labels; persistence, percentiles and uploads run on IO. */
+/** Only while reports are on ([Diagnostics]). Frame callbacks copy bounded labels; persistence, percentiles and uploads run on IO. */
 internal object DebugJank {
     @Volatile private var token: String? = null
     private var installed = false
+    private val discarding = java.util.concurrent.atomic.AtomicBoolean()
     private val uploadQuota = JankUploadQuota()
     private val frames = Channel<RenderFrame>(4096)
     private val wake = Channel<Unit>(Channel.CONFLATED)
@@ -33,19 +34,19 @@ internal object DebugJank {
     private val animations = mutableSetOf<String>()
     private val catchUps = mutableSetOf<String>()
     @Synchronized fun catchUp(game: String, running: Boolean) {
-        if (!BuildConfig.DIAGNOSTICS) return
+        if (!Diagnostics.enabled) return
         if (running) catchUps.add(game) else catchUps.remove(game)
     }
-    @Synchronized fun catchingUp() = BuildConfig.DIAGNOSTICS && catchUps.isNotEmpty()
-    fun treeInFlight() = BuildConfig.DIAGNOSTICS && treeWork.get() > 0
+    @Synchronized fun catchingUp() = Diagnostics.enabled && catchUps.isNotEmpty()
+    fun treeInFlight() = Diagnostics.enabled && treeWork.get() > 0
     @Synchronized fun animation(owner: String, running: Boolean) {
-        if (!BuildConfig.DIAGNOSTICS) return
+        if (!Diagnostics.enabled) return
         if (running) animations.add(owner) else animations.remove(owner)
         state("animation" to animations.isNotEmpty().toString())
     }
 
     @Synchronized fun state(vararg values: Pair<String, String>) {
-        if (!BuildConfig.DIAGNOSTICS) return
+        if (!Diagnostics.enabled) return
         for ((key, value) in values) {
             if (tags[key] == value) continue
             tags[key] = value.take(100)
@@ -54,23 +55,24 @@ internal object DebugJank {
     }
 
     @Synchronized fun action(name: String) {
-        if (!BuildConfig.DIAGNOSTICS) return
+        if (!Diagnostics.enabled) return
         actions.addLast(name.take(100)); while (actions.size > 8) actions.removeFirst()
     }
 
     fun beginWork(kind: String): Long {
-        if (!BuildConfig.DIAGNOSTICS) return 0
+        if (!Diagnostics.enabled) return 0
         (if (kind == "tree") treeWork else localApply).incrementAndGet()
         return System.nanoTime()
     }
     @Synchronized fun endWork(kind: String, start: Long) {
-        if (!BuildConfig.DIAGNOSTICS) return
+        // Paired with beginWork, not the current switch: a change in between must not leave work counted.
+        if (start == 0L) return
         (if (kind == "tree") treeWork else localApply).decrementAndGet()
         work.addLast(Triple(start, System.nanoTime(), kind)); while (work.size > 128) work.removeFirst()
     }
 
-    fun treeExecutor(delegate: ExecutorService): ExecutorService = if (!BuildConfig.DIAGNOSTICS) delegate else object : AbstractExecutorService() {
-        override fun execute(command: Runnable) = delegate.execute {
+    fun treeExecutor(delegate: ExecutorService): ExecutorService = object : AbstractExecutorService() {
+        override fun execute(command: Runnable) = if (!Diagnostics.enabled) delegate.execute(command) else delegate.execute {
             val start = beginWork("tree")
             try { command.run() } finally { endWork("tree", start) }
         }
@@ -87,8 +89,9 @@ internal object DebugJank {
     }
 
     fun install(application: Application, store: CrashReportStore, version: String, device: String) {
-        if (!BuildConfig.DIAGNOSTICS || installed) return
+        if (!Diagnostics.enabled || installed) return
         installed = true
+        discarding.set(false)
         val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val buffer = JankBuffer()
         fun report(values: List<JankEpisode>) = CrashReport(Instant.now().toString(), version, device,
@@ -104,6 +107,12 @@ internal object DebugJank {
             wake.trySend(Unit)
             while (isActive) {
                 withTimeoutOrNull(1000) { wake.receive() }
+                if (discarding.getAndSet(false)) {
+                    while (frames.tryReceive().isSuccess) Unit
+                    buffer.acknowledge(buffer.snapshot()); dirty = false
+                    runCatching { store.bufferJank(null) }
+                }
+                if (!Diagnostics.enabled) continue
                 // One coroutine owns detector, queue, quota, disk and network. No frame object is retained.
                 while (true) { val frame = frames.tryReceive().getOrNull() ?: break; detector.frame(frame) }
                 detector.flush(System.nanoTime())
@@ -129,6 +138,7 @@ internal object DebugJank {
                     if (activity.isFinishing || activity.isDestroyed) return@post
                     val holder = PerformanceMetricsState.getHolderForHierarchy(activity.window.decorView)
                     val stats = JankStats.createAndTrack(activity.window) { frame ->
+                        if (!Diagnostics.enabled) return@createAndTrack
                         val end = frame.frameStartNanos + frame.frameDurationUiNanos
                         val context = context(frame.frameStartNanos, end)
                         frames.trySend(RenderFrame(frame.frameStartNanos, frame.frameDurationUiNanos, frame.isJank,
@@ -154,5 +164,7 @@ internal object DebugJank {
         })
     }
 
-    fun authenticated(value: String?) { if (BuildConfig.DIAGNOSTICS) { token = value; wake.trySend(Unit) } }
+    fun authenticated(value: String?) { if (Diagnostics.enabled) { token = value; wake.trySend(Unit) } }
+    /** Reports turned off: the loop drops queued stutters and deletes the saved batch. */
+    fun discard() { discarding.set(true); wake.trySend(Unit) }
 }

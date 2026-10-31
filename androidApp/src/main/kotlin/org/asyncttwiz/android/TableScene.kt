@@ -374,7 +374,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, selectionState, coordinator,
             { gestureError }, { gestureError = null })
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
-         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, select = { if (!runtime.reviewing) selection = selection.toggle(it) }, accepted,
+         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, accepted,
               tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
               selectionEnabled = !runtime.reviewing)
         }

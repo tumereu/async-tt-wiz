@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -66,6 +67,7 @@ internal fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitio
     when (view?.mode) {
         DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, inspection)
         DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns, inspection)
+        DraftMode.WINSTON -> PodWinstonView(view, members, definitions, busy, send, modifier, columns, inspection)
         else -> Box(modifier, contentAlignment = Alignment.Center) { PodPickWaiting(waitingText, onMainMenu) }
     }
 }
@@ -279,6 +281,83 @@ internal fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>,
                 val pack = choice?.let { (id, _) -> view.packs.firstOrNull { it.id == id } } ?: return@PodLimitedConfirm
                 send(LimitedAction.TAKE_CARD, pack.picks, choice.second, pack.id, null)
             }
+        }
+    }
+    PodLimitedPreviewHost(preview, definitions, inspection)
+}
+
+/** Whether the Winston player may pass the pile they look at: the stack still has cards, or a later pile does. */
+internal fun podWinstonCanPass(view: LimitedView): Boolean =
+    view.stack > 0 || view.piles.drop(view.pile + 1).any { it.isNotEmpty() }
+
+/** "Pile 2 · 3 cards", with who is looking at it during a turn. */
+internal fun podPileHeader(index: Int, size: Int, view: LimitedView, members: List<AccountIdentity>): String {
+    val base = "Pile ${index + 1} · ${podCardCount(size)}"
+    if (view.mode != DraftMode.WINSTON || view.finished || index != view.pile) return base
+    val who = if (view.currentPlayer == view.player) "you look at it"
+        else (members.firstOrNull { it.accountId == view.currentPlayer }?.username ?: "another player") + " looks at it"
+    return "$base · $who"
+}
+internal fun podCardCount(count: Int) = "$count ${if (count == 1) "card" else "cards"}"
+
+/** Header line of the pile engines: whose turn and what is left in the stack. */
+internal fun podPileTurnText(view: LimitedView, members: List<AccountIdentity>): String =
+    "${podTurnText(view.currentPlayer, view.player, members)} · Stack: ${podCardCount(view.stack)}"
+
+/** Piles as grid sections: a header line, then the pile's cards (face up or backs), [framed] piles outlined. */
+@Composable
+private fun PodPiles(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
+    columns: PodPickColumns, preview: PodLimitedPreview, framed: (Int) -> Boolean, tag: String, modifier: Modifier,
+    onTap: (pile: Int, copy: DraftCopy) -> Unit, footer: (Int) -> String? = { null }) {
+    val colors = remember(view.seating, view.player) { podGridColors(view.seating, view.player) }
+    LazyVerticalGrid(GridCells.Fixed(columns.columns(Int.MAX_VALUE)), modifier.testTag("pod-$tag-piles"),
+        contentPadding = PaddingValues(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        item(span = { GridItemSpan(maxLineSpan) }, key = "turn") {
+            Text(podPileTurnText(view, members), Modifier.padding(vertical = 6.dp).testTag("pod-limited-header"),
+                style = MaterialTheme.typography.bodySmall)
+        }
+        view.piles.forEachIndexed { index, pile ->
+            item(span = { GridItemSpan(maxLineSpan) }, key = "pile-$index") {
+                Column {
+                    if (index > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                    Text(podPileHeader(index, pile.size, view, members), Modifier.testTag("pod-$tag-pile-$index"),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (framed(index)) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    footer(index)?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+            if (pile.isEmpty()) item(span = { GridItemSpan(maxLineSpan) }, key = "empty-$index") {
+                Text("Empty", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+            itemsIndexed(pile, key = { position, _ -> "pile-$index-$position" }) { position, copy ->
+                if (copy == null) PodCardBack("pod-$tag-back-$index-$position")
+                else PodLimitedCard(copy, definitions[copy.definition], null, members, colors, framed(index),
+                    "pod-$tag-${copy.id}", preview) { onTap(index, copy) }
+            }
+        }
+    }
+}
+
+/**
+ * Winston (DRF-148): the piles, cards you have seen face up and the rest as backs, and the stack's count. On your turn
+ * you look at one pile at a time: take it, or pass (it gets one more card) and look at the next; passing the last pile
+ * takes the top card of the stack.
+ */
+@Composable
+internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
+    val mine = view.currentPlayer == view.player && !view.finished
+    val preview = remember { PodLimitedPreview() }
+    Column(modifier.padding(horizontal = 8.dp)) {
+        PodPiles(view, members, definitions, columns, preview, { mine && it == view.pile }, "winston", Modifier.weight(1f).fillMaxWidth(),
+            onTap = { _, copy -> inspection.openPodCard(copy.definition, definitions[copy.definition]) })
+        if (mine) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val last = view.piles.drop(view.pile + 1).none { it.isNotEmpty() }
+            OutlinedButton({ send(LimitedAction.PASS_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-pass"),
+                enabled = !busy && podWinstonCanPass(view)) { Text(if (last) "Pass · take top card" else "Pass") }
+            Button({ send(LimitedAction.TAKE_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-take"),
+                enabled = !busy && view.piles.getOrNull(view.pile)?.isNotEmpty() == true) { Text("Take pile ${view.pile + 1}") }
         }
     }
     PodLimitedPreviewHost(preview, definitions, inspection)

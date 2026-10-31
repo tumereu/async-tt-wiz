@@ -169,4 +169,62 @@ class LimitedEngineTest {
         val (singleEnd, _) = playRochester(single)
         assertEquals(seating + seating, singleEnd.packs.map { it.opener })
     }
+
+    // DRF-147, DRF-148: piles stay hidden until looked at, and what you have seen stays face up for you.
+    @Test fun winstonPilesHiddenUntilLookedAtAndTurnsRunToTheEnd() {
+        val two = players.take(2)
+        var state = LimitedEngine.startFromCube(two, cube(20), DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10), seed)
+        val (x, y) = state.seating
+        assertEquals(listOf(1, 1, 1), state.piles.map { it.size })
+        assertEquals(17, state.stack.size)
+        assertEquals(listOf("turn"), state.queues.getValue(x))
+        fun shown(player: String) = LimitedEngine.view(state, player).piles.map { pile -> pile.map { it != null } }
+        assertEquals(listOf(listOf(true), listOf(false), listOf(false)), shown(x))
+        assertEquals(listOf(listOf(false), listOf(false), listOf(false)), shown(y))
+        assertEquals(LimitedRejection.NOT_YOUR_TURN, move(state, y, LimitedAction.TAKE_PILE, pile = 0).reason)
+        assertEquals(LimitedRejection.WRONG_PILE, move(state, x, LimitedAction.TAKE_PILE, pile = 1).reason)
+        assertEquals(LimitedRejection.STALE_TURN, move(state, x, LimitedAction.PASS_PILE, pile = 0, turn = 1).reason)
+        assertEquals(LimitedRejection.WRONG_ACTION, move(state, x, LimitedAction.TAKE_CARD, card = state.piles[0][0]).reason)
+        // Passing puts one more card face down on the pile and looks at the next one.
+        state = ok(move(state, x, LimitedAction.PASS_PILE, pile = 0))
+        assertEquals(1, state.pile)
+        assertEquals(listOf(listOf(true, false), listOf(true), listOf(false)), shown(x))
+        val taken = state.piles[1]
+        state = ok(move(state, x, LimitedAction.TAKE_PILE, pile = 1))
+        assertEquals(taken, state.pools.getValue(x))
+        assertEquals(1, state.piles[1].size) // replaced from the stack
+        assertEquals(listOf("turn"), state.queues.getValue(y))
+        assertEquals(listOf(listOf(true, true), listOf(false), listOf(false)), shown(y))
+        // The other player never saw the taken card: it is a back in their view of x's picks.
+        assertEquals(listOf(null), LimitedEngine.view(state, y).picks.single().cards)
+        assertEquals(taken, LimitedEngine.view(state, x).picks.single().cards.map { it!!.id })
+        // y passes every pile and takes the top card of the stack.
+        val top = state.stack[state.stack.size - 4] // each pass first puts a card on its pile
+        repeat(3) { pile -> state = ok(move(state, y, LimitedAction.PASS_PILE, pile = pile)) }
+        assertEquals(listOf(top), state.pools.getValue(y))
+        assertTrue(LimitedEngine.view(state, y).picks.last().fromStack)
+        assertEquals(listOf(null), LimitedEngine.view(state, x).picks.last().cards)
+        // y still sees the two cards it looked at in pile 1; the card it added since is a back. x, whose turn starts, looks again.
+        assertEquals(listOf(true, true, false), shown(y)[0])
+        assertEquals(listOf(true, true, true), shown(x)[0])
+        // With the stack empty you can't pass the last pile, and the last stack card goes to you, not the pile.
+        assertEquals(2, state.turn)
+        val ending = state.copy(stack = listOf(state.stack.first()), pile = 2)
+        val last = ok(move(ending, x, LimitedAction.PASS_PILE, pile = 2, turn = 2))
+        assertEquals(ending.piles[2].size, last.piles[2].size)
+        assertEquals(ending.stack, last.log.last().cards)
+        assertEquals(LimitedRejection.CANNOT_PASS, move(ending.copy(stack = emptyList()), x, LimitedAction.PASS_PILE, pile = 2, turn = 2).reason)
+        // Play out: take a pile of two or more, or when passing is impossible.
+        var guard = 0
+        while (!state.finished) {
+            val player = state.queues.entries.single { it.value.isNotEmpty() }.key
+            val pile = state.piles[state.pile]
+            val canPass = state.stack.isNotEmpty() || state.piles.drop(state.pile + 1).any { it.isNotEmpty() }
+            state = ok(move(state, player, if (pile.size >= 2 || !canPass) LimitedAction.TAKE_PILE else LimitedAction.PASS_PILE, pile = state.pile))
+            assertTrue(++guard < 500)
+        }
+        assertEquals(20, state.pools.values.sumOf { it.size })
+        assertEquals(state.copies.map { it.id }.toSet(), state.pools.values.flatten().toSet())
+        assertTrue(state.queues.values.all { it.isEmpty() })
+    }
 }

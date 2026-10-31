@@ -53,4 +53,19 @@ class PodLimitedModelsTest {
         assertEquals(listOf("Waiting for Bob · Pack 1", "Your pick · Pack 2", "Finished · Pack 3"),
             view.packs.take(3).map { podRochesterHeader(it, view, members) })
     }
+
+    // DRF-147, DRF-148
+    @Test fun winstonPassAndPileHeaders() {
+        val members = listOf(AccountIdentity("a", "Ann"), AccountIdentity("b", "Bob"))
+        val card = DraftCopy("c", "d")
+        val view = LimitedView(DraftMode.WINSTON, "a", listOf("a", "b"), emptyList(), false, currentPlayer = "a",
+            stack = 0, piles = listOf(listOf(card), listOf(card, null), emptyList()), pile = 1)
+        assertFalse(podWinstonCanPass(view))
+        assertTrue(podWinstonCanPass(view.copy(pile = 0)))
+        assertTrue(podWinstonCanPass(view.copy(stack = 1)))
+        assertEquals("Pile 2 · 2 cards · you look at it", podPileHeader(1, 2, view, members))
+        assertEquals("Pile 1 · 1 card", podPileHeader(0, 1, view, members))
+        assertEquals("Pile 2 · 2 cards · Bob looks at it", podPileHeader(1, 2, view.copy(currentPlayer = "b"), members))
+        assertEquals("Your pick · Stack: 0 cards", podPileTurnText(view, members))
+    }
 }

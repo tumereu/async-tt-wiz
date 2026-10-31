@@ -119,7 +119,7 @@ internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<
 }
 
 /** Mode chips (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
-internal val PodModeChips = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.SEALED)
+internal val PodModeChips = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.SEALED)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
 internal fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"

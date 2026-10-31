@@ -147,4 +147,17 @@ class PodLimitedScreenshotTest {
         shot("pod-rochester", "Rochester draft for three, round 1: Alice's two packs to pick from come first, the pack " +
             "waiting for Bob last; taken cards are greyed with their picker's avatar and Alice has framed one card.")
     }
+
+    // DRF-148
+    @Test fun winstonPilesWithSeenCardsAndBacks() {
+        val piles = listOf(listOf(copies[0], null), listOf(copies[1], copies[2]), listOf(null))
+        val view = LimitedView(DraftMode.WINSTON, "alice", listOf("alice", "bob"), emptyList(), false, currentPlayer = "alice",
+            turn = 4, stack = 31, piles = piles, pile = 1)
+        show({ "pod-winston-${it.id}" }, piles.flatten().filterNotNull()) {
+            PodWinstonView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns,
+                remember { CardInspectionController() })
+        }
+        shot("pod-winston", "Winston draft on Alice's turn while she looks at pile 2: cards she has seen are face up, " +
+            "cards added since are backs, with Pass and Take pile 2 below.")
+    }
 }

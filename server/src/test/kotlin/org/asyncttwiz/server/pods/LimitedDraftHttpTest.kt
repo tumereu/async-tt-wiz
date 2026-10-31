@@ -283,4 +283,46 @@ class LimitedDraftHttpTest {
             assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
         }
     }
+
+    // DRF-147, DRF-148, DRF-139: Winston piles are hidden until looked at and stay visible to whoever looked.
+    @Test fun `Winston HTTP hides unseen piles keeps seen cards face up and plays to the end`() = fixture { f ->
+        val pod = f.create(DraftSettings.winston().copy(packsPerPlayer = 1, cardsPerPack = 10))
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        val attempt = started.draftAttemptId!!
+        val (x, y) = started.limited!!.seating.map(f::session)
+        val looking = f.get(x, pod)
+        assertEquals(listOf(1, 0, 0), looking.limited!!.piles.map { pile -> pile.count { it != null } })
+        assertEquals(looking.limited!!.piles[0].map { it!!.definition }.toSet(), looking.definitions.map { it.digest }.toSet())
+        val waiting = f.get(y, pod)
+        assertTrue(waiting.limited!!.piles.flatten().all { it == null })
+        assertTrue(waiting.definitions.isEmpty()) // nothing face down is named
+        assertEquals(17, waiting.limited!!.stack)
+        assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, x))
+        assertEquals(0, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
+        fun act(who: SessionCreated, action: LimitedAction, pile: Int, turn: Int, status: Int = 200) =
+            f.turn(who, pod, PodTurn(id(), attempt, action, turn, pile = pile), status)
+        assertEquals("wrong_pile", f.code(act(x, LimitedAction.TAKE_PILE, 1, 0, 409)))
+        assertEquals("not_your_turn", f.code(act(y, LimitedAction.TAKE_PILE, 0, 0, 409)))
+        act(x, LimitedAction.PASS_PILE, 0, 0)
+        val after = f.get(x, pod).limited!!
+        assertEquals(1, after.pile)
+        assertEquals(listOf(true, false), after.piles[0].map { it != null }) // the card added face down stays a back
+        assertEquals(listOf(true), after.piles[1].map { it != null })
+        assertEquals(0, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
+        act(x, LimitedAction.TAKE_PILE, 1, 0)
+        assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, y))
+        assertEquals(listOf(null), f.get(y, pod).limited!!.picks.single().cards)
+        var guard = 0
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            val current = f.session(f.get(f.a, pod).limited!!.currentPlayer!!)
+            val view = f.get(current, pod).limited!!
+            val canPass = view.stack > 0 || view.piles.drop(view.pile + 1).any { it.isNotEmpty() }
+            act(current, if (view.piles[view.pile].size >= 2 || !canPass) LimitedAction.TAKE_PILE else LimitedAction.PASS_PILE,
+                view.pile, view.turn)
+            assertTrue(++guard < 200)
+        }
+        assertEquals(20, listOf(x, y).sumOf { f.get(it, pod).limited!!.pool.size })
+        for (who in listOf(x, y)) assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
+    }
 }

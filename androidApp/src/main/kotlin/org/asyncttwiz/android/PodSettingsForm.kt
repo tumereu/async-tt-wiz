@@ -118,8 +118,8 @@ internal fun podSettingFields(settings: DraftSettings, source: PodSource): List<
     } + PodSetting.SIDEBOARD
 }
 
-/** Mode chips (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
-internal val PodModeChips = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED)
+/** The modes the mode button's popup lists (DRF-020); Glimpse is a built-in preset of Booster, not a mode. */
+internal val PodModes = listOf(DraftMode.BOOSTER, DraftMode.GRID, DraftMode.ROCHESTER, DraftMode.ROTISSERIE, DraftMode.WINSTON, DraftMode.WINCHESTER, DraftMode.SEALED)
 /** The name a pod's mode reads as: pods and presets saved as Glimpse read "Booster" (DRF-020). */
 internal fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.BOOSTER, DraftMode.GLIMPSE -> "Booster"
@@ -130,8 +130,10 @@ internal fun podModeName(mode: DraftMode): String = when (mode) {
     DraftMode.WINCHESTER -> "Winchester"
     DraftMode.SEALED -> "Sealed"
 }
-/** The chip a mode shows as selected. */
-internal fun podModeChip(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
+/** The listed mode a pod's mode is: a Glimpse pod is a Booster pod. */
+internal fun podModeChoice(mode: DraftMode): DraftMode = if (mode == DraftMode.GLIMPSE) DraftMode.BOOSTER else mode
+/** A mode with its engine's player range (DRF-150), e.g. "Winston · 2–4 players". */
+internal fun podModeOption(mode: DraftMode): String = "${podModeName(mode)} · ${mode.players.first}–${mode.players.last} players"
 
 internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = DraftSettings.defaults(mode)
     .copy(sideboardLimit = current.sideboardLimit, freshBoosters = current.freshBoosters,
@@ -158,12 +160,7 @@ internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodS
 @Composable
 internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: Boolean,
     source: PodSource = PodSource(), change: ((DraftSettings) -> DraftSettings) -> Unit) {
-    // The chips wrap onto a second row when they don't fit.
-    FlowRow(Modifier.testTag("pod-mode-chips"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        PodModeChips.forEach { mode -> FilterChip(podModeChip(settings.mode) == mode,
-            { change { podModeSettings(mode, it) } }, enabled = enabled,
-            label = { Text(podModeName(mode)) }) }
-    }
+    PodModeButton(settings.mode, enabled) { mode -> change { podModeSettings(mode, it) } }
     FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)) {
         podSettingFields(settings, source).forEach { field -> key(field) { PodSettingTile(field, settings, enabled, change) } }
@@ -181,6 +178,27 @@ internal fun PodSettingsFields(settings: DraftSettings, members: Int, enabled: B
     if (settings.mode == DraftMode.GRID) Row(verticalAlignment = Alignment.CenterVertically) {
         Checkbox(settings.twoPicks, { value -> change { it.copy(twoPicks = value) } }, enabled = enabled && members <= 2)
         Text("Two picks each")
+    }
+}
+
+/** DRF-020: one full-width button showing the pod's mode with a switch icon; it opens a popup list of the modes,
+ * each with its player range, the current one checked. */
+@Composable
+internal fun PodModeButton(mode: DraftMode, enabled: Boolean, choose: (DraftMode) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Box(Modifier.fillMaxWidth()) {
+        ScreenOutlinedButton({ open = true }, Modifier.fillMaxWidth().testTag("pod-mode"), enabled = enabled) {
+            Text(podModeName(mode), Modifier.weight(1f))
+            EntryIcon("Change mode", "switch")
+        }
+        DropdownMenu(open, { open = false }, Modifier.testTag("pod-modes")) {
+            PodModes.forEach { option ->
+                val current = podModeChoice(mode) == option
+                DropdownMenuItem(text = { Text(podModeOption(option)) }, onClick = { open = false; choose(option) },
+                    modifier = Modifier.semantics { selected = current },
+                    trailingIcon = if (current) ({ EntryIcon("Current mode", "ready") }) else null)
+            }
+        }
     }
 }
 

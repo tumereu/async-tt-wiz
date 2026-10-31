@@ -40,7 +40,8 @@ class BranchedStackUndoTest {
 
     /** Reconstructs the 42 retained mutations and two continuations read from dev play
      * 9e8007c4-179d-58d0-960f-c5c50ace896c. Synthetic cards replace catalog/private data.
-     * Includes its historical ping: validating that prefix also reconstructs the referenced board. */
+     * Includes its historical ping: validating that prefix also reconstructs the referenced board. Bob's card
+     * that went into the Stack itself there is a Stack entry here: a real card is never in the Stack (STK-003). */
     private fun beforeStackActions(branched: Boolean = true): GameplayTree {
         var tree = GameplayTree(root())
         fun state() = assertNotNull(tree.stateAt(tree.currentNodeId))
@@ -72,8 +73,7 @@ class BranchedStackUndoTest {
         val token = state().board.cards.single { it.token }.id
         act(PlayAction.Combat(CombatAction.Declare(state().board.combat!!.id, token)))
         act(PlayAction.SetTapped(token, true))
-        act(PlayAction.MoveCard(bobCards[1], MoveSource(f.id(26)), MoveDestination(f.id(30), MoveInsertion.TOP),
-            GameplayRules.stackDigest(state())), f.b)
+        act(PlayAction.Stack(StackAction.AddEffect(bobCards[1], GameplayRules.stackDigest(state()))), f.b)
         val reference = EventReference(tree.initial.id, tree.currentNodeId, tree.contextVersion(tree.currentNodeId))
         act(PlayAction.Ping(reference, PingTarget(PingTargetKind.CARD, bobCards[0])))
         repeat(13) { act(PlayAction.AdjustLife(f.a, if (it % 2 == 0) "1" else "-1")) }
@@ -84,12 +84,10 @@ class BranchedStackUndoTest {
         return tree
     }
 
-    private fun ontoStack(tree: GameplayTree, projection: Boolean = false): GameplayTree {
+    private fun ontoStack(tree: GameplayTree): GameplayTree {
         val state = tree.stateAt(tree.currentNodeId)!!
         val card = state.board.cards.single { !it.token && it.containerId == f.id(22) }
-        return play(tree, if (projection) PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(state)))
-            else PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
-                MoveDestination(f.id(30), MoveInsertion.TOP), GameplayRules.stackDigest(state)))
+        return play(tree, PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(state))))
     }
 
     private fun assertUndoRedo(before: GameplayTree, after: GameplayTree) {
@@ -121,8 +119,8 @@ class BranchedStackUndoTest {
     }
 
     @Test fun stackQuickActionsAndTextMarksUndoInStraightHistoryAndAfterBranchSwitch() {
-        for (branched in listOf(false, true)) for (projection in listOf(false, true)) {
-            val onStack = ontoStack(beforeStackActions(branched), projection)
+        for (branched in listOf(false, true)) {
+            val onStack = ontoStack(beforeStackActions(branched))
             val state = onStack.stateAt(onStack.currentNodeId)!!
             val entry = CombatStackRules.stack(state.board).cards.first()
             for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD)) {

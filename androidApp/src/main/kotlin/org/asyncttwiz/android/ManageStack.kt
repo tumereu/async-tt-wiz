@@ -38,24 +38,21 @@ internal object StackMenuActions {
             MenuControl("Edit note", enabled && effect != null && note != null) { note?.invoke() },
             MenuControl("Ping / Unping", enabled && ping != null) { ping?.invoke() })
     }
-    /** Pings the entry: an effect entry as its own occurrence, a real card on the Stack as that card. */
-    fun ping(state: PlayState, entryId: String, annotations: TableMenuAnnotations): Boolean {
-        val kind = if (state.board.stackEffects.any { it.id == entryId }) PingTargetKind.OCCURRENCE else PingTargetKind.CARD
-        return annotations.submit(tablePingIntent(state, annotations.reference, PingTarget(kind, entryId)).actions())
-    }
+    /** Pings the entry as its own occurrence, never its real card (STK-009). */
+    fun ping(state: PlayState, entryId: String, annotations: TableMenuAnnotations): Boolean =
+        annotations.submit(tablePingIntent(state, annotations.reference, PingTarget(PingTargetKind.OCCURRENCE, entryId)).actions())
     fun destination(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
         require(entryId in CombatStackRules.stack(state.board).cards)
         require(zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE))
         require(state.board.stackEffects.none { it.id == entryId && it.isCopy })
+        // Every entry points at a real card (STK-001); a real card is never in the Stack itself (STK-003).
         val source = CombatStackRules.liveSource(state.board, entryId)
-        if (state.board.stackEffects.any { it.id == entryId } && source != null &&
-            state.board.containers.single { it.id == source.containerId }.zone == zone) return listOf(remove(entryId))
+        if (source != null && state.board.containers.single { it.id == source.containerId }.zone == zone) return listOf(remove(entryId))
         if (zone == PlayZone.EXILE) {
             val card = source ?: return listOf(remove(entryId))
             val target = state.board.containers.single { it.accountId == card.owner && it.zone == PlayZone.EXILE }
             return GameplayRules.moveActions(state, PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
-                MoveDestination(target.id, MoveInsertion.UNORDERED),
-                removeStackEntryId = entryId.takeIf { state.board.stackEffects.any { effect -> effect.id == it } }))
+                MoveDestination(target.id, MoveInsertion.UNORDERED), removeStackEntryId = entryId))
         }
         return StackQuickActions.actions(state, entryId, zone)
     }

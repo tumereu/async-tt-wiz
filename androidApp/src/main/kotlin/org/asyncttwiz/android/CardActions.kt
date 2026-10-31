@@ -36,7 +36,7 @@ internal fun nextPrintedFace(state: PlayState, card: PlayCard): PlayAction.SetFa
 }
 
 internal fun cardModificationEnabled(zone: PlayZone, note: Boolean = false, projection: Boolean = false) =
-    if (note) projection || zone == PlayZone.BATTLEFIELD || zone == PlayZone.STACK
+    if (note) projection || zone == PlayZone.BATTLEFIELD
     else !projection && zone == PlayZone.BATTLEFIELD
 
 internal fun resetCardCounters(state: PlayState, scope: ManualScope): List<PlayAction> =

@@ -77,39 +77,6 @@ class HiddenValuesAndTempPileTest {
         assertTrue(opponentHand.counters.isEmpty())
     }
 
-    // TBL-094, TBL-096, ZON-076
-    @Test fun faceDownStackCardMenuEditsNoteBlindButOffersNoMarks() {
-        val initial = play()
-        val stack = initial.board.containers.single { it.zone == PlayZone.STACK }
-        val id = "00000000-0000-4000-8000-000000000555"
-        val play = initial.copy(board = initial.board.copy(
-            cards = initial.board.cards.map { if (it.id == "b/HAND/1") it.copy(id = id, containerId = stack.id, covered = true, explicitlyCovered = true) else it },
-            containers = initial.board.containers.map { when (it.id) {
-                stack.id -> it.copy(cards = listOf(id))
-                "b/HAND" -> it.copy(cards = it.cards - "b/HAND/1")
-                else -> it
-            } }))
-        val toolkit = TableToolkitController("a", { play }, { true }, { _, _ -> true })
-        toolkit.openCard(TableScope(id, listOf(id)))
-        compose.setContent { MaterialTheme {
-            TableSurface(game, play, "a", false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit)
-        } }
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription("Inspect").assertIsEnabled()
-        // Every action stays available (rules v30 policy); the values themselves stay hidden.
-        compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
-        compose.ringPage(3) // Damage is on More (round 34); damage and the EOT marks moved to combat copies (r35).
-        compose.onNodeWithContentDescription("Set damage").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Increase damage").assertIsNotEnabled()
-        compose.ringPage(1)
-        val scope = assertNotNull(toolkit.manual.scope)
-        for (kind in listOf(ManualValueKind.DAMAGE, ManualValueKind.EOT_CORNER, ManualValueKind.EOT_NOTE))
-            assertEquals(emptyList(), scope.actions(play, ManualValue(kind), "1", "a"), "$kind")
-        // The note editor starts empty: a blind edit never shows the stored note.
-        toolkit.manual.edit(ManualValue(ManualValueKind.NOTE), play, "a")
-        assertEquals("", assertNotNull(toolkit.manual.editor).text)
-    }
-
     private fun withTemp(play: PlayState, ids: List<String>): PlayState {
         val temp = TempPiles.containerId(play.id, "a")
         return play.copy(board = play.board.copy(

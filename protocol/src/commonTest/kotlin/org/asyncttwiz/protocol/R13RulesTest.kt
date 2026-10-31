@@ -46,15 +46,15 @@ class R13RulesTest {
         val card = s.board.cards.single { it.id == cardId }
         val target = container(s, zone)
         return PlayAction.MoveCard(cardId, MoveSource(card.containerId, card.placement), MoveDestination(target.id,
-            when (zone) { PlayZone.LIBRARY, PlayZone.STACK -> MoveInsertion.TOP
+            when (zone) { PlayZone.LIBRARY -> MoveInsertion.TOP
                 PlayZone.BATTLEFIELD -> MoveInsertion.EMPTY
-                else -> MoveInsertion.UNORDERED }, position = if (zone == PlayZone.BATTLEFIELD) BoardPosition(3, 4) else null),
-            expectedStackDigest = if (zone == PlayZone.STACK) GameplayRules.stackDigest(s) else null)
+                else -> MoveInsertion.UNORDERED }, position = if (zone == PlayZone.BATTLEFIELD) BoardPosition(3, 4) else null))
     }
 
     // SYS-002, TBL-093, ZON-071
     @Test fun battlefieldLeaveResetsEveryModificationAndIncidentLinkInTheMove() {
-        for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD }) {
+        // A real card never enters the Stack (STK-003).
+        for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD && it != PlayZone.STACK }) {
             val initial = root().let { s -> s.copy(board = s.board.copy(cards = s.board.cards.map { card ->
                 if (card.id != id(20)) card else card.copy(owner = b, faceId = id(41), corner = "9/9", tapped = true,
                     counters = CounterColor.entries.associateWith { "3" }, note = "target", covered = true, explicitlyCovered = true)
@@ -77,29 +77,28 @@ class R13RulesTest {
     }
 
     // SYS-002
-    @Test fun noteClearsOnStackExitButBattlefieldPlacementPreservesIt() {
+    @Test fun noteClearsOnBattlefieldExitButBattlefieldPlacementPreservesIt() {
         var s = root()
         s = exact(s, PlayAction.SetNote(id(20), "battlefield")).state!!
         s = exact(s, move(s, PlayZone.BATTLEFIELD)).state!!
         assertEquals("battlefield", s.board.cards.single { it.id == id(20) }.note)
-        s = exact(s, move(s, PlayZone.STACK)).state!!
-        assertEquals("", s.board.cards.single { it.id == id(20) }.note)
-        s = exact(s, PlayAction.SetNote(id(20), "X=3")).state!!
         s = exact(s, move(s, PlayZone.GRAVEYARD)).state!!
         assertEquals("", s.board.cards.single { it.id == id(20) }.note)
     }
 
-    // STK-009, TBL-094
-    @Test fun manualEditsAreZoneRestrictedAndStackNotesRemainAllowed() {
-        for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD }) {
+    // TBL-094
+    @Test fun manualEditsAreZoneRestrictedToTheBattlefield() {
+        for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD && it != PlayZone.STACK }) {
             val s = exact(root(), move(root(), zone)).state!!
             for (edit in listOf(PlayAction.SetCorner(id(20), "4/4"), PlayAction.AdjustCorner(id(20), CornerPart.BOTH, 1),
                 PlayAction.ResetCorner(id(20)), PlayAction.SetCounter(CounterTarget.CARD, id(20), CounterColor.RED, "2"),
                 PlayAction.AdjustCounter(CounterTarget.CARD, id(20), CounterColor.BLUE, "1"),
                 PlayAction.ClearCardCounter(id(20), CounterColor.GRAY), PlayAction.SetOwner(id(20), b)))
                 assertEquals("inapplicable", change(s, edit).reason, "$zone $edit")
-            if (zone == PlayZone.STACK) exact(s, PlayAction.SetNote(id(20), "target"))
-            else assertEquals("inapplicable", change(s, PlayAction.SetNote(id(20), "target")).reason)
+            for (edit in listOf(PlayAction.SetNote(id(20), "target"), PlayAction.SetDamage(id(20), "2"),
+                PlayAction.AdjustDamage(id(20), "1"), PlayAction.SetEotCorner(id(20), "+1/+1"),
+                PlayAction.AdjustEotCorner(id(20), CornerPart.LEFT, 1), PlayAction.SetEotNote(id(20), "flying")))
+                assertEquals("inapplicable", change(s, edit).reason, "$zone $edit")
         }
     }
 

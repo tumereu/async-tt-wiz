@@ -119,48 +119,44 @@ class GameplayTest {
 
     // SYS-011
     @Test fun stackChecksumIsSemanticAndQueuedAdditionsUsePredictedStack() {
-        val state = gameplayFixture(); val library = state.board.containers[0]; val stack = state.board.containers.last()
-        val action = PlayAction.MoveCard(library.cards[0], MoveSource(library.id), MoveDestination(stack.id, MoveInsertion.TOP), GameplayRules.stackDigest(state))
+        val state = gameplayFixture(); val library = state.board.containers[0]
+        fun add(card: String, digest: String) = PlayAction.Stack(StackAction.AddEffect(card, digest))
         val edited = gameplayChange(state, PlayAction.SetLife(gameplayId(7), "21"), 91).state!!
         assertEquals(GameplayRules.stackDigest(state), GameplayRules.stackDigest(edited))
-        val first = gameplayChange(edited, action, 92)
+        val first = gameplayChange(edited, add(library.cards[0], GameplayRules.stackDigest(state)), 92)
         assertEquals("accepted", first.outcome)
-        assertEquals("stackConflict", gameplayChange(first.state!!, action.copy(cardId = library.cards[1]), 93).reason)
-        val second = action.copy(cardId = library.cards[1], expectedStackDigest = GameplayRules.stackDigest(first.state))
+        assertEquals("stackChanged", gameplayChange(first.state!!, add(library.cards[1], GameplayRules.stackDigest(state)), 93).reason)
+        val second = add(library.cards[1], GameplayRules.stackDigest(first.state))
         assertEquals("accepted", gameplayChange(first.state, second, 94).outcome)
         assertNotEquals(GameplayRules.stackDigest(state), GameplayRules.stackDigest(state.copy(id = gameplayId(999))))
-        val alteredStackCard = first.state.let { it.copy(board = it.board.copy(cards = it.board.cards.map { c -> c.copy(tapped = !c.tapped, note = "changed", covered = !c.covered) })) }
-        assertEquals(GameplayRules.stackDigest(first.state), GameplayRules.stackDigest(alteredStackCard))
+        val alteredSource = first.state.let { it.copy(board = it.board.copy(cards = it.board.cards.map { c -> c.copy(tapped = !c.tapped, note = "changed", covered = !c.covered) })) }
+        assertEquals(GameplayRules.stackDigest(first.state), GameplayRules.stackDigest(alteredSource))
     }
 
-    // STK-003
-    @Test fun stackCardsRejectOrientationAndEnterAndLeaveUprightWithReplay() {
+    // STK-003, SYS-053
+    @Test fun stackEntriesCantBeTappedAndARealCardIsNeverMovedIntoTheStack() {
         val original = gameplayFixture().withBattlefieldCards(gameplayId(10))
         val card = original.board.cards.first()
         val stack = original.board.containers.single { it.zone == PlayZone.STACK }
         val tapped = gameplayChange(original, PlayAction.SetTapped(card.id, true)).state!!
-        val enter = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), MoveDestination(stack.id, MoveInsertion.TOP),
-            GameplayRules.stackDigest(tapped))
-        val entered = gameplayChange(tapped, enter, 91)
+        for (insertion in listOf(MoveInsertion.TOP, MoveInsertion.BOTTOM)) {
+            val enter = PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement), MoveDestination(stack.id, insertion),
+                GameplayRules.stackDigest(tapped))
+            val refused = gameplayChange(tapped, enter, 91)
+            assertEquals(RuleRefusals.REAL_CARD_ON_STACK, refused.reason)
+            assertNull(refused.mutation)
+            assertEquals(RuleRefusals.REAL_CARD_ON_STACK, gameplayChange(tapped, enter.copy(expectedStackDigest = null), 92).reason)
+        }
+        val entered = gameplayChange(tapped, PlayAction.Stack(StackAction.AddEffect(card.id, GameplayRules.stackDigest(tapped))), 93)
         val onStack = entered.state!!
-        assertFalse(onStack.board.cards.first { it.id == card.id }.tapped)
-        assertTrue(entered.mutation!!.transition.fields.contains(GameplayFieldChange(card.id, GameplayField.TAPPED, "true", "false")))
-        assertEquals(entered, GameplayHistory.replay(tapped, entered.mutation))
+        val entry = CombatStackRules.stack(onStack.board).cards.single()
+        assertTrue(onStack.board.stackEffects.any { it.id == entry && it.sourceId == card.id })
+        assertTrue(onStack.board.cards.single { it.id == card.id }.tapped, "the real card stays where it is, as it is")
         for (orientation in listOf(true, false)) {
-            val rejected = gameplayChange(onStack, PlayAction.SetTapped(card.id, orientation), 92)
-            assertEquals("inapplicable", rejected.reason)
+            val rejected = gameplayChange(onStack, PlayAction.SetTapped(entry, orientation), 94)
+            assertEquals("missingReference", rejected.reason)
             assertNull(rejected.mutation)
         }
-        // Also normalize a retained/legacy tapped Stack card on exit, without touching other cards.
-        val legacy = onStack.copy(board = onStack.board.copy(cards = onStack.board.cards.map {
-            if (it.id == card.id) it.copy(tapped = true) else it
-        }))
-        val field = legacy.board.containers.single { it.zone == PlayZone.BATTLEFIELD }
-        val leave = gameplayChange(legacy, PlayAction.MoveCard(card.id, MoveSource(stack.id),
-            MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))), 93)
-        assertFalse(leave.state!!.board.cards.first { it.id == card.id }.tapped)
-        assertEquals(leave, GameplayHistory.replay(legacy, leave.mutation!!))
-        assertEquals(legacy.board.cards.filterNot { it.id == card.id }, leave.state.board.cards.filterNot { it.id == card.id })
     }
 
     @Test fun battlefieldDestinationCleanupIsRecordedInOneMove() {

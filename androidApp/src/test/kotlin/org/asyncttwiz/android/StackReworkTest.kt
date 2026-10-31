@@ -10,13 +10,13 @@ class StackReworkTest {
     private fun actions(f: BasicTableFixture, from: Int) = f.commands().drop(from).map { (it.action as GameAction.Play).action }
 
     // STK-013
-    @Test fun exileBubbleMovesTheSourceToItsOwnerAndIsUndoableForRealCardsAndEffects() {
-        for (legacy in listOf(false, true)) {
+    @Test fun exileBubbleMovesTheSourceToItsOwnerAndIsUndoable() {
+        run {
             val f = BasicTableFixture(); f.connect()
             try {
                 assertTrue(f.move(40, TableDestination.Grid(f.container(PlayZone.BATTLEFIELD), 0, 1)))
                 val ui = toolkit(f)
-                if (legacy) assertTrue(f.legacyStack(40)) else assertTrue(ui.addEffects(listOf(f.id(40))))
+                assertTrue(ui.addEffects(listOf(f.id(40))))
                 val before = f.play.board
                 val top = CombatStackRules.stack(before).cards.first()
                 val count = f.commands().size

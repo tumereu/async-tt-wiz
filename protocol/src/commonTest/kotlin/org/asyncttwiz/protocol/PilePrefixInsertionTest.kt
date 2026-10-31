@@ -108,9 +108,9 @@ class PilePrefixInsertionTest {
             accepted.state.board.cards.single { it.id == a })
         assertNull(accepted.mutation!!.transition.movement!!.stackFrom)
         assertEquals("invalidInput", gameplayChange(root, first.copy(expectedStackDigest = GameplayRules.stackDigest(root)), 143).reason)
-        val stack = PlayAction.MoveCard(a, MoveSource(library), MoveDestination(gameplayId(25), MoveInsertion.TOP), GameplayRules.stackDigest(root))
+        val stack = PlayAction.Stack(StackAction.AddEffect(a, GameplayRules.stackDigest(root)))
         val onStack = gameplayChange(root, stack, 144).state!!
-        assertEquals("stackConflict", gameplayChange(onStack, stack.copy(cardId = b), 145).reason)
+        assertEquals("stackChanged", gameplayChange(onStack, PlayAction.Stack(StackAction.AddEffect(b, GameplayRules.stackDigest(root))), 145).reason)
         assertEquals("accepted", gameplayChange(onStack, first.copy(cardId = b,
             destination = first.destination.copy(pendingIds = emptyList())), 146).outcome)
     }
@@ -124,7 +124,6 @@ class PilePrefixInsertionTest {
         assertFalse(valid(first.destination.copy(pendingIds = listOf("not-an-id"))))
         assertFalse(valid(first.destination.copy(insertion = MoveInsertion.PILE_TOP)))
         assertEquals("invalidInput", gameplayChange(root, first.copy(destination = first.destination.copy(targetCardId = null)), 150).reason)
-        assertEquals("invalidInput", gameplayChange(root, first.copy(destination = first.destination.copy(containerId = gameplayId(25)),
-            expectedStackDigest = GameplayRules.stackDigest(root)), 151).reason)
+        assertEquals("invalidInput", gameplayChange(root, first.copy(destination = first.destination.copy(containerId = gameplayId(21))), 151).reason)
     }
 }

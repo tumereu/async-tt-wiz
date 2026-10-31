@@ -17,7 +17,7 @@ internal object CardRingPages {
     val tempPiles = listOf("Temp 1", "Temp 2", "Temp 3", "Temp 4")
     private val libraryMoves = listOf("Library top", "Library bottom", "Shuffle into library")
 
-    /** Battlefield, Stack, token and face-down cards. */
+    /** Battlefield, token and face-down cards. */
     val card = listOf(
         CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand") + libraryMoves + listOf("eotCorner", "Battlefield")),
@@ -54,13 +54,15 @@ internal object CardRingPages {
         CardMenuLayout.PANEL -> if (panelLayout) panel else pages(CardMenuLayout.CARD, token, attacker)
     }
 
-    /** Combat copies get the combat layout; a real card's zone picks the rest. Stack entries are managed in Manage Stack. */
+    /** Combat copies get the combat layout; a real card's zone picks the rest. Stack entries are managed in Manage Stack;
+     * a real card is never in the Stack (STK-003), so one shown from a state recorded before r35 has no menu either. */
     fun context(board: org.asyncttwiz.protocol.BoardState, viewId: String): CardMenuLayout? {
         if (org.asyncttwiz.protocol.CombatStackRules.occurrences(board.combat).any { it.id == viewId }) return CardMenuLayout.COMBAT
         val card = board.cards.singleOrNull { it.id == viewId } ?: return null
         return when (board.containers.singleOrNull { it.id == card.containerId }?.zone) {
             org.asyncttwiz.protocol.PlayZone.HAND -> CardMenuLayout.HAND
-            org.asyncttwiz.protocol.PlayZone.BATTLEFIELD, org.asyncttwiz.protocol.PlayZone.STACK, null -> CardMenuLayout.CARD
+            org.asyncttwiz.protocol.PlayZone.STACK -> null
+            org.asyncttwiz.protocol.PlayZone.BATTLEFIELD, null -> CardMenuLayout.CARD
             else -> if (panelLayout) CardMenuLayout.PANEL else CardMenuLayout.CARD
         }
     }

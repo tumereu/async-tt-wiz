@@ -51,10 +51,9 @@ class GameplayMergeVerificationTest {
         val t = Fixture(); t.connect()
         fun add(card: Int) {
             val display = t.session.play(t.f.game)!!
-            t.submit(PlayAction.MoveCard(t.f.id(card), MoveSource(t.library),
-                MoveDestination(t.stack, MoveInsertion.TOP), GameplayRules.stackDigest(display)))
+            t.submit(PlayAction.Stack(StackAction.AddEffect(t.f.id(card), GameplayRules.stackDigest(display))))
         }
-        add(9); add(10); t.submit(PlayAction.SetNote(t.f.id(9), " preserved "))
+        add(9); add(10); t.submit(PlayAction.AdjustCounter(CounterTarget.PLAYER, t.f.actor, CounterColor.RED, "1"))
         val originals = t.commands
         assertEquals(3, originals.size)
         val endpoint = t.session.play(t.f.game)!!.board

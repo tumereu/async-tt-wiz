@@ -39,18 +39,16 @@ object ManualText {
 
 /** A permission calculation, not evidence of a logged inspection or a cache-based disclosure grant. */
 object ManualDisclosure {
-    /** The shared Stack has no holder: its real cards (e.g. a face-down cast) count as their owner's. */
     fun ownRegion(state: PlayState, card: PlayCard, viewer: String): Boolean =
-        state.board.containers.singleOrNull { it.id == card.containerId }?.let {
-            it.accountId == viewer || it.zone == PlayZone.STACK && card.owner == viewer } == true
+        state.board.containers.singleOrNull { it.id == card.containerId }?.accountId == viewer
 
-    /** A face-down card outside Hand/Library (Battlefield, Stack, Graveyard, Exile, or a frozen snapshot). */
+    /** A face-down card outside Hand/Library (Battlefield, Graveyard, Exile, or a frozen snapshot). */
     fun faceDownOutsideHiddenZones(board: BoardState, card: PlayCard): Boolean = card.isFaceDown &&
         board.containers.singleOrNull { it.id == card.containerId }?.zone.let { it != PlayZone.HAND && it != PlayZone.LIBRARY }
 
     /** By default an opponent never sees a face-down card's front: ordinary inspection, menus and history keep it
      * hidden. Only the deliberate, logged InspectFace ("Inspect other side") shows it to the inspecting player.
-     * "Own" is the D-252 region rule: the zone's holder, or the card's owner on the shared Stack. */
+     * "Own" is the D-252 region rule: the zone's holder. */
     fun faceDownFrontHidden(state: PlayState, card: PlayCard, viewer: String): Boolean =
         faceDownOutsideHiddenZones(state.board, card) && !ownRegion(state, card, viewer)
 
@@ -152,10 +150,10 @@ object ManualEditRules {
         }
         val card = board.cards.singleOrNull { it.id == id } ?: return null
         val zone = board.containers.singleOrNull { it.id == card.containerId }?.zone ?: return null
+        // Notes, damage and the EOT marks go only on Battlefield cards: a real card is never in the Stack (STK-003).
         if ((action is PlayAction.SetDamage || action is PlayAction.AdjustDamage || action is PlayAction.SetEotCorner ||
-                action is PlayAction.AdjustEotCorner || action is PlayAction.SetEotNote) &&
-            zone !in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return null
-        if (action is PlayAction.SetNote && zone !in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return null
+                action is PlayAction.AdjustEotCorner || action is PlayAction.SetEotNote || action is PlayAction.SetNote) &&
+            zone != PlayZone.BATTLEFIELD) return null
         if ((action is PlayAction.SetCorner || action is PlayAction.AdjustCorner || action is PlayAction.ResetCorner ||
                 action is PlayAction.SetOwner) && zone != PlayZone.BATTLEFIELD) return null
         val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()

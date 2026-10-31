@@ -11,7 +11,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-005** A played hand card whose every face is a permanent goes onto the Stack and then resolves by itself onto the main battlefield row as a separate timeline step; one Undo takes back both. (r15)
 - **ZON-006** Hand cards can't be tapped; a double-tap never turns them. (r12)
 - **ZON-007** Tapping a hand card opens a one-page hand menu: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1–4, Discard random, Reveal random, Exile random, Random to library bottom. (r28)
-- **ZON-008** "Face down" puts the hand card onto the Stack face down (the opponent sees a back) and it resolves at once onto the battlefield as a face-down 2/2. (r21)
+- **ZON-008** "Face down" puts the hand card onto the Stack face down (the opponent sees a back) and it resolves at once onto the battlefield as a face-down 2/2. (r21) (?) since r35 it goes straight onto its owner's battlefield face down, never through the Stack (STK-003).
 - **ZON-009** Hand "Reveal" opens a Reveal panel of the chosen hand cards for both players; its "Done" button puts them back in the hand in their old places. (r16)
 - **ZON-010** The random hand actions pick one card at random from the selected hand cards, or from the whole hand when none is selected, with a fresh random seed of their own. (r16)
 - **ZON-011** Either player can use the hand menu on the opponent's hand; those cards stay face down for them, and Play picks the zone by the card's real type. (r30)

@@ -29,7 +29,9 @@ class TurnMarksTest {
     })) }
 
     @Test fun literalAndRelativeEditsReplayWithIndependentPermanentValues() {
-        for (zone in listOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) {
+        // Battlefield only: a real card is never in the Stack (STK-003, see R13RulesTest).
+        run {
+            val zone = PlayZone.BATTLEFIELD
             var current = state(zone)
             val actions = listOf(PlayAction.SetDamage(id(9), " 2 "), PlayAction.AdjustDamage(id(9), "-1"),
                 PlayAction.SetEotCorner(id(9), " +2/+2 "), PlayAction.AdjustEotCorner(id(9), CornerPart.LEFT, -1),

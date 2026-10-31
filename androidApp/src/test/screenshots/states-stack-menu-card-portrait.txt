@@ -1,1 +1,0 @@
-Portrait table in combat at declare attackers in Select mode, card menu open on the card on the Stack.

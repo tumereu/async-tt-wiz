@@ -77,7 +77,6 @@ class CardRingInteractionTest {
     }
 
     // STK-009, TBL-094
-    @Test fun stackEnablesNoteButDisablesBattlefieldOnlyWidgets() = zoneEnablement(PlayZone.STACK)
     @Test fun battlefieldEnablesItsWidgetsAndNote() = zoneEnablement(PlayZone.BATTLEFIELD)
 
     // TBL-074
@@ -188,7 +187,7 @@ class CardRingInteractionTest {
             enabled(name, zone == PlayZone.BATTLEFIELD)
         enabled("Stack", zone != PlayZone.STACK)
         compose.onNodeWithContentDescription("Declare + tap").assertDoesNotExist()
-        // TBL-094: damage and the EOT marks are battlefield-only; a Stack card no longer offers them.
+        // TBL-094: damage and the EOT marks are battlefield-only.
         enabled("Set EOT P/T", zone == PlayZone.BATTLEFIELD)
         enabled("Increase EOT P/T", zone == PlayZone.BATTLEFIELD)
         compose.ringPage(2)

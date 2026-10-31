@@ -23,8 +23,8 @@ object StackQuickActions {
         require(zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD))
         require(entryId in CombatStackRules.stack(state.board).cards)
         require(state.board.stackEffects.none { it.id == entryId && it.isCopy })
-        val remove = if (state.board.stackEffects.any { it.id == entryId })
-            listOf(PlayAction.Stack(StackAction.RemoveEffect(entryId))) else emptyList()
+        // Every Stack entry is an effect pointing at a real card (STK-001, STK-003).
+        val remove = listOf(PlayAction.Stack(StackAction.RemoveEffect(entryId)))
         val card = CombatStackRules.liveSource(state.board, entryId) ?: return remove
         val source = state.board.containers.single { it.id == card.containerId }
         if (source.zone == zone) return remove
@@ -34,6 +34,6 @@ object StackQuickActions {
             MoveDestination(target.id, MoveInsertion.EMPTY, BattlefieldPlacement.cell(state, target.id, card))
         else MoveDestination(target.id, MoveInsertion.UNORDERED)
         return GameplayRules.moveActions(state, PlayAction.MoveCard(card.id,
-            MoveSource(card.containerId, card.placement), destination, removeStackEntryId = entryId.takeIf { remove.isNotEmpty() }))
+            MoveSource(card.containerId, card.placement), destination, removeStackEntryId = entryId))
     }
 }

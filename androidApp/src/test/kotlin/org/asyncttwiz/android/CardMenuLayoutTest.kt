@@ -80,10 +80,11 @@ class CardMenuLayoutTest {
         assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, sentinel.id))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("attacker1")))
         assertEquals(CardMenuLayout.COMBAT, CardRingPages.context(board, f.id("blocker")))
-        // Stack entries have no card menu: Manage Stack holds their actions (STK-019).
+        // Stack entries have no card menu: Manage Stack holds their actions (STK-019). A real card in the Stack, only
+        // in a state recorded before r35 (STK-003), has none either.
         assertNull(CardRingPages.context(board, f.id("effect")))
         val stackCard = CombatStackRules.stack(board).cards.single { it != f.id("effect") }
-        assertEquals(CardMenuLayout.CARD, CardRingPages.context(board, stackCard))
+        assertNull(CardRingPages.context(board, stackCard))
         val hand = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         assertEquals(CardMenuLayout.HAND, CardRingPages.context(board, hand.cards.first()))
         val library = board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
@@ -106,8 +107,7 @@ class CardMenuLayoutTest {
         val board = play.board
         val hand = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         val library = board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
-        val views = listOf(f.source(f.a, "1/3").id, f.id("attacker1"), f.id("blocker"), hand.cards.first(), library.cards.first(),
-            CombatStackRules.stack(board).cards.single { it != f.id("effect") })
+        val views = listOf(f.source(f.a, "1/3").id, f.id("attacker1"), f.id("blocker"), hand.cards.first(), library.cards.first())
         val removed = listOf("Select / deselect", "Tap selected scope", "Untap selected scope", "Source actions", "Temp pile")
         val dropZones = CombatStackPresentation.combat(board, 48f, 68f).destinations.map { it.label }
         assertTrue(dropZones.isNotEmpty())

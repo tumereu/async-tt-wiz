@@ -57,20 +57,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var stackChoices by mutableStateOf<List<StackMoveChoice>>(emptyList()); private set
     var stackBubbleEntry by mutableStateOf<String?>(null); private set
     fun dismissTapUi() { dismiss(); showStackBubbles(null) }
-    private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String, val effect: Boolean)
+    private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String)
     private var pendingStackBubble: PendingStackBubble? = null
     private data class PendingStackAdvance(val nodeId: String, val entryId: String)
     private var pendingStackAdvance: PendingStackAdvance? = null
     fun showStackBubbles(id: String?) { pendingStackBubble = null; pendingStackAdvance = null; stackBubbleEntry = id }
     /** Follow the session's prediction as soon as it is published, without waiting for acceptance.
-     * Real card IDs and request-derived effect IDs are identical in prediction and accepted state. */
+     * Request-derived effect IDs are identical in prediction and accepted state. */
     fun refreshStackBubbles() {
         val play = current() ?: return
         val stack = play.board.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
         pendingStackBubble?.let { pending ->
             val added = stack.firstOrNull { id -> id !in pending.before &&
-                if (pending.effect) play.board.stackEffects.any { it.id == id && it.sourceId == pending.sourceId }
-                else id == pending.sourceId }
+                play.board.stackEffects.any { it.id == id && it.sourceId == pending.sourceId } }
             if (added != null) stackBubbleEntry = stack.firstOrNull()
             if (added != null || play.currentNodeId != pending.nodeId) pendingStackBubble = null
         }
@@ -120,15 +119,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
         val play = current()
-        val source = when (action) {
-            is PlayAction.MoveCard -> action.cardId.takeIf { id -> action.removeStackEntryId == null && play?.board?.containers?.any {
-                it.id == action.destination.containerId && it.zone == PlayZone.STACK && id !in it.cards } == true }
-            is PlayAction.Stack -> (action.action as? StackAction.AddEffect)?.sourceId
-            else -> null
-        }
+        val source = ((action as? PlayAction.Stack)?.action as? StackAction.AddEffect)?.sourceId
         val baseline = draft?.initial ?: play
         val pending = if (source != null && baseline != null) PendingStackBubble(baseline.currentNodeId,
-            CombatStackRules.stack(baseline.board).cards.toSet(), source, action is PlayAction.Stack) else null
+            CombatStackRules.stack(baseline.board).cards.toSet(), source) else null
         return (draft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
             if (!sent) error = "Action could not be queued. Reconnect and try again."
             else {
@@ -141,8 +135,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Convenience members are lowered against the current draft, then sent together. */
     fun submit(action: PlayAction, invocationId: String? = invocation): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        // A face-down cast moves the real card: a projection would reveal its hand source.
-        if (action is PlayAction.MoveCard && action.removeStackEntryId == null && action.faceDown != true && play.board.containers.any {
+        // Onto the Stack always as an entry pointing at the card: a real card is never in the Stack (STK-001, STK-003).
+        if (action is PlayAction.MoveCard && action.removeStackEntryId == null && play.board.containers.any {
                 it.id == action.destination.containerId && it.zone == PlayZone.STACK }) {
             return enqueue(BasicTableController.projection(play, action) ?: return false,
                 invocationId ?: UUID.randomUUID().toString())
@@ -410,20 +404,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 BasicTableController.sources(play, listOf(id)), handDoubleTap = true))
         }
     }
-    /** Morph/disguise: every selected hand card enters the Stack face down and, being always a 2/2
-     * permanent, auto-resolves onto the Battlefield like a hand double-tap: separate history group, same
-     * invocation (one-step Undo), all in one batch. */
+    /** Morph/disguise: every selected hand card goes onto its owner's Battlefield face down (a 2/2), all in
+     * one batch (one-step Undo). */
     fun castFaceDown(ids: List<String>): Boolean = batchResult {
         ids.isNotEmpty() && ids.distinct().all { id ->
             val play = current() ?: return@all false
             val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
             if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND }) return@all false
-            if (!submit(HandActions.castFaceDown(play, id))) return@all false
-            val next = current()?.takeIf { enabled() && id in CombatStackRules.stack(it.board).cards } ?: return@all true
-            // Exactly the manual resolver, as the double-tap uses: rules v24 keep it face down as a 2/2.
-            for (action in StackMenuActions.destination(next, id, PlayZone.BATTLEFIELD))
-                if (!enqueue(action, invocation)) break
-            true
+            // STK-005: straight onto the Battlefield face down (a 2/2), never through the Stack (STK-003).
+            submit(HandActions.castFaceDown(play, id) ?: return@all false)
         }
     }
     fun randomHand(handId: String, selectedIds: List<String>, result: HandRandomResult): Boolean {

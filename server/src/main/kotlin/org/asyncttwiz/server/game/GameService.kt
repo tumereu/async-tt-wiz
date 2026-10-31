@@ -140,17 +140,15 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     fun head(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
         readHead(sql, principal, gameId, locked(sql, uuid(gameId), actor(principal)))
     }
-    /** Stack reordering is retired: a same-Stack card move is the legacy reorder route, so new ones are refused here. */
-    private fun reordersStack(tree: GameplayTree, command: GameCommand): Boolean {
-        val batch = command.action as? GameAction.PlayBatch
-        if (batch != null) return batch.actions.any {
-            reordersStack(tree, command.copy(action = GameAction.Play(it))) ||
-                (it as? PlayAction.Stack)?.action is StackAction.ReorderEffect
+    /** Stack reordering is retired: new reorder commands, also inside a batch, are refused here. (A real card is
+     * never in the Stack, so a card move can't reorder it: the shared rules refuse any move into it, SYS-053.) */
+    private fun reordersStack(command: GameCommand): Boolean {
+        val actions = when (val action = command.action) {
+            is GameAction.Play -> listOf(action.action)
+            is GameAction.PlayBatch -> action.actions
+            else -> return false
         }
-        val move = (command.action as? GameAction.Play)?.action as? PlayAction.MoveCard ?: return false
-        if (move.source.containerId != move.destination.containerId) return false
-        return tree.stateAt(tree.currentNodeId)?.board?.containers
-            ?.any { it.id == move.source.containerId && it.zone == PlayZone.STACK } == true
+        return actions.any { (it as? PlayAction.Stack)?.action is StackAction.ReorderEffect }
     }
     /** A socket may learn removal and recover originals, never reopen the removed replica. */
     fun subscriptionHead(principal: AccountService.Principal, gameId: String, presence: Boolean = false): GameHead = transaction { sql ->
@@ -277,12 +275,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         var createdMutation: GameplayMutation? = null
         var batchMutations: List<GameplayMutation> = emptyList()
         var insertedChat: ChatMessage? = null
-        val gameplay = if (((command.action as? GameAction.Play)?.action as? PlayAction.Stack)?.action is StackAction.ReorderEffect)
-            GameplayTreeChange(reason = "stackReorderingRemoved")
+        val gameplay = if (reordersStack(command)) GameplayTreeChange(reason = "stackReorderingRemoved")
         else if (isGameplay) {
             val tree = if (game.lifecycle == "ACTIVE") gameplayStore.readCurrent(sql, game) else null
             if (tree == null) GameplayTreeChange(reason = "lifecycleEnded")
-            else if (reordersStack(tree, command)) GameplayTreeChange(reason = "stackReorderingRemoved")
             else {
                 historyLoaded = System.nanoTime()
                 HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->

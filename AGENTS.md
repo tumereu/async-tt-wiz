@@ -50,6 +50,10 @@ catalog wins. Where neither says, ask rather than pick.
   `androidApp/src/test/screenshots/`. Re-record only for an intended visual
   change (`./scripts/gradle.sh :androidApp:testDebugUnitTest -Pscreenshots=record
   --tests <Class>`) and list the changed images in your final reply.
+- Changed screenshots and catalog entries block releases until the owner has
+  reviewed them (`scripts/review.sh screenshots|catalog`). Only the owner
+  approves: never run `scripts/review.sh approve` or move the `catalog-approved`
+  / `screenshots-approved` tags yourself.
 
 ## Rules
 

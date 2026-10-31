@@ -73,21 +73,18 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
     private var prepared: HistoryTree? = null
     @Volatile private var epoch = 0L
     private var closed = false
-    private var showHidden = true
     private var graphTree: GameplayTree? = null
-    private var graphHidden = true
     private var cachedGraph: HistoryGraph? = null
     private var indexedTree: GameplayTree? = null
     private var index: HistoryIndex? = null
     private var reviewedIdentity: String? = null
     private var reviewedValue: PlayState? = null
 
-    fun update(value: GameplayTree, openingNodeId: String? = null, showHidden: Boolean = true,
-        indexed: HistoryTree? = null) {
+    fun update(value: GameplayTree, openingNodeId: String? = null, indexed: HistoryTree? = null) {
         if (closed) return
         val sameScope = tree?.initial?.let { it.gameId == value.initial.gameId && it.id == value.initial.id } == true
         if (!sameScope) state = HistoryExplorerState()
-        tree = value; prepared = indexed; this.showHidden = showHidden
+        tree = value; prepared = indexed
         val selection = openingNodeId ?: if (sameScope) state.selectedNodeId else null
         rebuild(selection ?: value.currentNodeId)
     }
@@ -105,7 +102,6 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
         val value = tree ?: return
         val supplied = prepared
         val generation = ++epoch
-        val includeHidden = showHidden
         state = state.copy(selectedNodeId = nodeId, busy = true, error = null)
         worker.execute {
             if (generation != epoch) return@execute
@@ -118,7 +114,7 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
                         (selected != value.currentNodeId || it.currentBranchId == value.currentBranchId)
                 } ?: checkNotNull(value.stateAt(selected)) { "Cannot reconstruct retained boundary $selected" }
                 reviewedIdentity = identity; reviewedValue = reviewed
-                val graph = cachedGraph?.takeIf { graphTree === value && graphHidden == includeHidden } ?: run {
+                val graph = cachedGraph?.takeIf { graphTree === value } ?: run {
                     val ready = supplied?.takeIf { it.nodes === value.nodes && it.rootId == value.initial.root.id }?.index
                     val next = ready ?: run {
                         val old = indexedTree?.takeIf { it.initial.root.id == value.initial.root.id }
@@ -127,8 +123,8 @@ class HistoryExplorerController(private val worker: Executor, private val post: 
                             index.takeIf { changed != null }, old?.nodes.orEmpty(), changed ?: value.nodes.keys, value.initial)
                     }
                     indexedTree = value; index = next
-                    HistoryGraph(value, next.layout, includeHidden, selected).also {
-                        graphTree = value; graphHidden = includeHidden; cachedGraph = it
+                    HistoryGraph(value, next.layout, selected).also {
+                        graphTree = value; cachedGraph = it
                     }
                 }
                 graph.select(selected)

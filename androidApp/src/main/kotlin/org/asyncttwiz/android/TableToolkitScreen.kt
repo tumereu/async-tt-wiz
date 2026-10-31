@@ -29,7 +29,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
-    val context = toolkitQuickContext(play, selection, toolkit.explicitStack, toolkit.viewer)
+    val context = toolkitQuickContext(play, selection, toolkit.viewer)
     val bound = toolkit.capture
     val popup = toolkit.popupItem
     fun editProjectionNote(id: String) {
@@ -98,18 +98,6 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                     if (it.name == "Edit card note") "Note" else ringShortLabel(it.name), it) } + leftPlayMarkEntries(),
                 own = false, OpponentTableColor, toolkit::dismiss, layout)
         }
-        "stackDestination" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Stack destination") {
-             val source = play.board.cards.singleOrNull { it.id == bound.contextViewId }
-            if (source != null) for (row in toolkit.stackChoices.chunked(4)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for (choice in row) InlinePopupCell(MenuControl(choice.label, enabled) {
-                    val capturedSource = bound.sources[source.id]
-                    if (capturedSource != null) {
-                        val placement = capturedSource.placement?.let { p -> p.pileId?.let { PlayPlacement(BoardPosition(p.column.toInt(), p.row.toInt()), it) } }
-                        if (toolkit.submit(PlayAction.MoveCard(source.id, MoveSource(capturedSource.containerId, placement), choice.destination))) toolkit.dismiss()
-                    }
-                })
-            }
-        }
         else -> if (panel?.startsWith("pile/") == true) {
             val pile = play.board.containers.singleOrNull { it.id == panel.substringAfter('/') && it.zone in PublicPiles.zones }
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
@@ -129,11 +117,10 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     if (toolkit.manual.scope?.usable(play) == false) LaunchedEffect(toolkit.manual.scope) { toolkit.manual.close() }
 }
 
-internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, explicit: ExplicitStackTarget?, viewer: String? = null): QuickContext = QuickContext(
+internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, viewer: String? = null): QuickContext = QuickContext(
     selectMode = selection.mode == TableMode.SELECT,
     selectedSourceIds = selection.ids.mapNotNull { CombatStackRules.liveSource(play.board, it)?.id }.distinct(),
-    combatAreaId = play.board.combat?.id,
-    stackTarget = explicit?.takeIf { it.id in CombatStackRules.stack(play.board).cards }, viewer = viewer)
+    combatAreaId = play.board.combat?.id, viewer = viewer)
 
 @Composable
 private fun ToolkitDialog(dismiss: () -> Unit, title: String? = null, content: @Composable ColumnScope.() -> Unit) {

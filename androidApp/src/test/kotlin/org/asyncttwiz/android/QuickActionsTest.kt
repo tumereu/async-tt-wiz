@@ -30,7 +30,6 @@ internal class RecordingRoutes : TableActionRoutes {
     override fun combat(intent: TableActionIntent.Combat) { intents += intent }
     override fun token(intent: TableActionIntent.Token) { intents += intent }
     override fun ending(intent: TableActionIntent.Ending) { intents += intent }
-    override fun stack(intent: TableActionIntent.Stack) { intents += intent }
     override fun player(intent: TableActionIntent.Player) { intents += intent }
 }
 
@@ -109,21 +108,8 @@ class QuickActionsTest {
             context = context.copy(selectedSourceIds = emptyList())).map { it.name })
     }
 
-    // TRN-025
-    @Test fun everyExplicitStackKindAppendsAfterPhaseActionsAtEveryPosition() {
-        for (position in TurnPosition.entries) for (kind in StackTargetKind.entries) {
-            val target = ExplicitStackTarget(TableToolFixture.id(90), kind)
-            val plain = catalog(position)
-            val actions = catalog(position, context = QuickContext(stackTarget = target))
-            assertEquals(plain, actions.dropLast(1))
-            assertEquals(TableActionIntent.Stack(TableActionScope(TableToolFixture.id(1), TableToolFixture.id(2)), target), actions.last().intent)
-        }
-        assertEquals(4, catalog(TurnPosition.UNTAP, context = QuickContext(stackTarget =
-            ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT))).size)
-    }
-
     // CMB-020, TRN-015
-    @Test fun stepActionsAreOnlyOfferedToTheirPlayerButExplicitStackActionsRemainAvailable() {
+    @Test fun stepActionsAreOnlyOfferedToTheirPlayer() {
         for (position in TurnPosition.entries) {
             val play = TableToolFixture.play(position)
             val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
@@ -134,8 +120,6 @@ class QuickActionsTest {
                 else -> emptyList()
             }, actions.map { it.name })
             assertTrue(QuickActions.contextual(play, QuickContext(), controller).isEmpty())
-            val target = ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT)
-            assertIs<TableActionIntent.Stack>(QuickActions.contextual(play, defender.copy(stackTarget = target), controller).last().intent)
         }
     }
 
@@ -152,8 +136,7 @@ class QuickActionsTest {
             val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
             assertTrue(QuickActions.visible(play, viewer))
             assertEquals(viewer != play.board.turn.accountId, QuickActions.mulliganOnly(play, viewer))
-            val actions = QuickActions.contextual(play, QuickContext(viewer = viewer,
-                stackTarget = ExplicitStackTarget(TableToolFixture.id(90), StackTargetKind.EFFECT)), controller)
+            val actions = QuickActions.contextual(play, QuickContext(viewer = viewer), controller)
             val mulligans = actions.mapNotNull { it.intent as? TableActionIntent.Library }
             assertEquals(listOf(LibraryTool.MULLIGAN_N, LibraryTool.MULLIGAN_MINUS_ONE), mulligans.map { it.tool })
             val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == viewer }.cards
@@ -165,8 +148,7 @@ class QuickActionsTest {
             }
             // Turn-1 shortcuts are hidden for the starting player too; the opponent sees only Mull/Ready.
             assertEquals(listOf("Mull N", "Mull −1", "Ready"), actions.take(3).map { it.name })
-            if (viewer != play.board.turn.accountId) assertEquals(3, actions.size)
-            else assertEquals(4, actions.size) // + the explicit Stack target
+            assertEquals(3, actions.size)
         }
         // Mulliganing does not depend on the step: it lasts until the status changes.
         val other = TableToolFixture.id(8)
@@ -272,8 +254,6 @@ class QuickActionsTest {
                 (it.intent as? TableActionIntent.Combat)?.tool }.filterNotNull().toSet())
         assertEquals(listOf(true, false), TableActionMenus.declaration(controller.scope()!!, null, listOf(TableToolFixture.id(20)))
             .mapNotNull { (it.intent as? TableActionIntent.Orient)?.tapped })
-        for (kind in StackTargetKind.entries) assertEquals(1,
-            TableActionMenus.stack(controller.scope()!!, ExplicitStackTarget(TableToolFixture.id(91), kind)).size)
         val pending = TableActionMenus.table(play, QuickContext(), controller, TableToolFixture.id(92), true)
         assertEquals(listOf(EndingTool.ACCEPT), pending.mapNotNull { (it.intent as? TableActionIntent.Ending)?.tool })
         val ownPending = TableActionMenus.table(play, QuickContext(), controller, TableToolFixture.id(92), false)

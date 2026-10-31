@@ -37,7 +37,6 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **TRN-022** On the starting player's turn 1 no quick action draws: Untap, Upkeep and Draw offer "Go to main" instead. (r25)
 - **TRN-023** Each quick action is one Undo step, however many changes it makes. (r15)
 - **TRN-024** There are no quick actions for tapping/untapping the selection or for the graveyard, and no automatic combat-damage maths outside the experimental damage buttons. (r3)
-- **TRN-025** While you have a Stack entry's card menu open, the quick actions add "Move to Graveyard" (instant or sorcery), "Move to Battlefield" (permanent) or "Remove this effect" (ability marker). (r1) (?)
 
 ### Game start and mulligans
 

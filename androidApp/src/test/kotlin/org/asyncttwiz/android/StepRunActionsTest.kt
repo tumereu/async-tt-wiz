@@ -28,7 +28,7 @@ class StepRunActionsTest {
             playBatch = ::enqueue, playTree = { tree })
         val scope get() = TableActionScope(start.gameId, start.id)
         fun quick(name: String) = toolkit.perform(QuickActions.contextual(current(),
-            toolkitQuickContext(current(), toolkit.selectionState.value, null, actor), toolkit.table).single { it.name == name }.intent)
+            toolkitQuickContext(current(), toolkit.selectionState.value, actor), toolkit.table).single { it.name == name }.intent)
         /** Events of the last command, oldest first. */
         fun nodes(): List<GameplayMutation> {
             val result = mutableListOf<GameplayMutation>()

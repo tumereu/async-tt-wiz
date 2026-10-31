@@ -48,12 +48,6 @@ object TableActionMenus {
         TableMenuAction("Declare + tap", TableActionIntent.Combat(scope, CombatTool.DECLARE_AND_TAP, areaId, sourceIds.distinct())),
         TableMenuAction("Tap", TableActionIntent.Orient(scope, sourceIds.distinct(), true)),
         TableMenuAction("Untap", TableActionIntent.Orient(scope, sourceIds.distinct(), false)))
-
-    fun stack(scope: TableActionScope, target: ExplicitStackTarget) = listOf(TableMenuAction(when (target.kind) {
-        StackTargetKind.INSTANT_OR_SORCERY -> "Move to Graveyard"
-        StackTargetKind.PERMANENT -> "Move to Battlefield"
-        StackTargetKind.EFFECT -> "Remove this effect"
-    }, TableActionIntent.Stack(scope, target)))
 }
 
 /** Actual phase and random input controls plus routes to the other capability components.

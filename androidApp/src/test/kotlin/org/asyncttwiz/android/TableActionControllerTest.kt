@@ -95,11 +95,10 @@ class TableActionControllerTest {
         val entries = TableActionMenus.table(play, QuickContext(combatAreaId = TableToolFixture.id(95)), controller) +
             TableActionMenus.library(play, controller.targets(play)!!, controller) +
             TableActionMenus.declaration(scope, TableToolFixture.id(95), listOf(TableToolFixture.id(20))) +
-            StackTargetKind.entries.flatMap { TableActionMenus.stack(scope, ExplicitStackTarget(TableToolFixture.id(96), it)) } +
             TableMenuAction("Player", TableActionIntent.Player(scope, TableToolFixture.id(8)))
         entries.forEach { controller.perform(it.intent) }
         val expected = entries.map { it.intent }.filter { it is TableActionIntent.Library || it is TableActionIntent.Combat ||
-            it is TableActionIntent.Token || it is TableActionIntent.Ending || it is TableActionIntent.Stack || it is TableActionIntent.Player }
+            it is TableActionIntent.Token || it is TableActionIntent.Ending || it is TableActionIntent.Player }
         assertEquals(expected, routes.intents)
         val mulligan = routes.intents.filterIsInstance<TableActionIntent.Library>().first { it.tool == LibraryTool.MULLIGAN_MINUS_ONE }
         assertEquals(listOf(TableToolFixture.id(23), TableToolFixture.id(24)), mulligan.handIds)

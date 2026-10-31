@@ -26,7 +26,7 @@ import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
 data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: List<String> = emptyList(),
-    val combatAreaId: String? = null, val stackTarget: ExplicitStackTarget? = null,
+    val combatAreaId: String? = null,
     val playable: Boolean = true, val viewer: String? = null,
     /** [CombatDamage.recentDamageEdits] on the shown path; only read at Combat damage. */
     val combatDamageEdits: Int = 0)
@@ -109,14 +109,6 @@ object QuickActions {
         if (!turnPlayer && play.board.players.any { it.accountId == context.viewer } &&
             TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_BLOCKERS)
             add("No blocks + next", "", TableActionIntent.Next(scope))
-        context.stackTarget?.let { target ->
-            val (label, glyph) = when (target.kind) {
-                StackTargetKind.INSTANT_OR_SORCERY -> "Move to Graveyard" to "▣"
-                StackTargetKind.PERMANENT -> "Move to Battlefield" to "▤"
-                StackTargetKind.EFFECT -> "Remove this effect" to "▱"
-            }
-            add(label, glyph, TableActionIntent.Stack(scope, target))
-        }
         return result
     }
 }

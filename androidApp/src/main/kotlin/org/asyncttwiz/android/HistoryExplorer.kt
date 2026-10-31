@@ -39,12 +39,11 @@ import kotlin.math.abs
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HistoryExplorer(controller: HistoryExplorerController,
-    authorColors: Map<String, Color>, showHidden: Boolean, onShowHidden: (Boolean) -> Unit,
+    authorColors: Map<String, Color>,
     onDismiss: () -> Unit, onReview: (org.asyncttwiz.protocol.PlayState) -> Unit,
     texts: Map<String, HistoryText> = emptyMap()) {
     val state = controller.state
     val graph = state.graph
-    var menu by remember { mutableStateOf(false) }
     var viewport by remember(controller) { mutableStateOf(HistoryTreeViewport()) }
     var picked by remember { mutableStateOf<String?>(null) }
     val density = LocalDensity.current.density
@@ -63,13 +62,6 @@ fun HistoryExplorer(controller: HistoryExplorerController,
         Surface(Modifier.fillMaxSize(), color = Color.White) {
             Column(Modifier.fillMaxSize().padding(8.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box {
-                        TextButton(onClick = { menu = true }) { Text("Game tree ▾", color = MenuInk) }
-                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                            DropdownMenuItem(text = { Text(if (showHidden) "Hide simple alternatives" else "Show hidden branches") },
-                                onClick = { onShowHidden(!showHidden); menu = false })
-                        }
-                    }
                     Spacer(Modifier.weight(1f))
                     IconButton(onDismiss) { Icon(menuIcon("Close"), "Close game tree", tint = MenuInk) }
                 }

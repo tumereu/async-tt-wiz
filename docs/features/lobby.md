@@ -68,7 +68,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Deck preparation for a game
 
-- **LOB-047** "Prepare deck" opens one scrolling page with Mainboard · N and Sideboard · N headers, cards as pictures grouped by type in the shared order (SYS-051) and ×N badges for copies. (r24)
+- **LOB-047** "Prepare deck" opens one scrolling page with Mainboard · N and Sideboard · N headers, cards as pictures grouped by type in the shared order (SYS-051) and ×N badges for copies. A deck's Maybe cards are not shown there and never reach a game. (r35)
 - **LOB-048** Swipe a card sideways to move one copy to the other section; hold to preview it; tap for "Move one to…", "Move all N to…" and "Inspect". (r24)
 - **LOB-049** A round floating Undo button at the bottom left, shown only when there is something to undo, takes back moved cards and basic land changes one at a time. (r23)
 - **LOB-050** A line under the title briefly says what you last moved; while disconnected it reads "Disconnected · preparation is read-only". (r21)
@@ -80,19 +80,23 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 - **LOB-054** Manage decks has Decks and Cubes tabs and an "Import deck" button at the top right; the Decks tab shows "SAVED LISTS (N)" with cover, name and "N main / M side", and pull-to-refresh only (no background refresh). (r21)
 - **LOB-055** Every submitted pod deck is kept as a draft deck in its own section under Decks (newest 20 kept); it can be played in any game, and "Save as deck" makes an editable copy that is kept. (r31)
-- **LOB-056** A saved deck opens as a read-only picture view with Mainboard and Sideboard sections like the prepare screen: tap inspects, hold previews. A saved cube uses the same view (DRF-010). (r35)
-- **LOB-057** The saved deck screen has "Edit" (opens the import editor with its list) and "Delete saved deck" at the bottom, confirmed with "Deletion cannot be undone." A draft deck instead shows "Save as deck", a note about where it was drafted, and "Delete draft deck". (r31)
+- **LOB-056** A saved deck or cube opens in the same read-only picture view (DRF-010): sections Main, Side (decks) and Maybe in their colours (SYS-053), cards grouped by type in the shared order (SYS-051), ×N badges, tap inspects, hold previews, and a columns control remembered per screen and orientation (LOB-051). Maybe shows only when it holds cards. (?) (r35)
+- **LOB-057** The saved deck screen has "Edit" at the top (opens the editor, LOB-059), and Rename and "Delete saved deck" under the name; deleting is confirmed with "Deletion cannot be undone." A draft deck instead shows "Save as deck", a note about where it was drafted, and "Delete draft deck". (?) (r35)
 - **LOB-058** Each deck has a cover chosen from its own cards. (r1)
 
-### Deck import
+### Deck and cube editor
 
-- **LOB-059** Import is one screen: cover and deck name on one row (tap the cover to choose it once the list resolves), a full-height list field with a paste icon, a fixed area for problems, and one full-width Save at the bottom. (r21)
+- **LOB-059** Decks and cubes share one editor: the name (a deck also its cover: tap the cover to choose it once the list resolves) on top, two tabs, Cards and Text, and one full-width Save at the bottom. The Text tab is the raw list with a paste icon and a fixed area for problems, its sections under Deck, Sideboard and Maybeboard headers. An existing list opens on Cards, a new one on Text. (?) (r35)
 - **LOB-060** The list is looked up about 0.4 s after you stop typing; Save works only for a named, fully resolved list. Unknown or ambiguous names are flagged with line numbers and never replaced silently. (r21)
-- **LOB-061** "Import from link" in the top bar (icon only on narrow phones) opens a dialog for Archidekt links or `archidekt:ID`; a matching link on the clipboard is prefilled, the paste icon pastes and imports at once, typed text waits for Import. (r20)
-- **LOB-062** Common list formats work: "4 Name", "4x", optional "(SET) number", Deck/Main/Sideboard/Commander/Companion headers (also with # or // and counts), "SB:", a blank line before the sideboard, comments, Forge, XMage and CSV exports; Maybeboard is skipped. (r19)
-- **LOB-063** A deck holds at most 1000 cards. (r15)
-- **LOB-064** Saving a new import from Manage decks opens its saved deck view; leaving with unsaved changes asks "Discard unsaved changes?" (Keep editing / Discard). (r15)
-- **LOB-065** Importing into an existing deck offers Overwrite (default) or Merge, where Merge adds quantities to matching cards. (r1)
+- **LOB-061** "Import from link" in the top bar (icon only on narrow phones) opens a dialog for Archidekt links or `archidekt:ID`; a matching link on the clipboard is prefilled, the paste icon pastes and imports at once, typed text waits for Import. An import replaces the list. (r35)
+- **LOB-062** Common list formats work: "4 Name", "4x", optional "(SET) number", Deck/Main/Sideboard/Commander/Companion headers (also with # or // and counts), "SB:", a blank line before the sideboard, comments, Forge, XMage and CSV exports; Maybeboard sections (and Archidekt's maybeboard) go to Maybe. (r35)
+- **LOB-063** A deck holds at most 1000 cards, counting every section. (r35)
+- **LOB-064** Changes in either tab are kept only by Save. Saving a new import from Manage decks opens its saved deck view; leaving a deck or cube editor with unsaved changes asks "Discard unsaved changes?" (Keep editing / Discard). (r35)
+- **LOB-105** The Cards tab shows the list as pictures by section (decks Main / Side / Maybe, cubes Main / Maybe), grouped in the shared type order (SYS-051) with ×N badges. Swipe a card sideways to move one copy to the next section (as in preparation, LOB-048); tap it for a small menu with +1, −1, Remove all, Move to… and Inspect; hold to preview (SYS-049). A round Add cards button at the bottom left opens search. (r35)
+- **LOB-106** Add cards opens a full-screen search page: the search field and quick filter chips (colours, card types, mana value) on top, results as pictures, and at the bottom a Main | Side | Maybe button group (cubes Main | Maybe) choosing where added cards go, then "Done · +N cards". Each result shows an ×N chip with its copies in the chosen section, plus small counts for other sections that have copies (e.g. "S2"). Tap a result to add one copy to the chosen section (its chip counts up with a short pulse); tap the ×N chip to remove one; hold to preview. The destination starts at Main each time the editor opens and is remembered for the rest of the edit session; Done or Back returns to the list with every change kept. (r35)
+- **LOB-107** Cards tab and search details: a swipe either way moves one copy to the next section, Maybe wrapping to Main; "Move to…" lists the other sections and moves every copy; a line above the pictures reads like "60 main · 15 side · 2 maybe" beside a columns control (decks 3, cubes 5 in portrait and 8 in landscape); while the list is being looked up or has problems, the Cards tab says so ("Fix them in the Text tab") and Add cards is off; a Cards change rewrites the Text tab's list in section order. Search chips are W U B R G C, mana value 0–6+ and Creature, Planeswalker, Instant, Sorcery, Artifact, Enchantment, Land: within a row any chosen chip matches, and rows and typed text all apply; results follow about 0.35 s after typing, sorted by name, 3 columns (5 in landscape), loading more while scrolling; with nothing typed or chosen the page shows a hint. The ×N chip shows from 1 copy; other sections show as M, S and Mb; another printing of a card already in the section adds to it; Done counts this visit's change ("Done" when none); adding past the limit says "A deck holds at most 1000 cards."; the search is kept for the next visit in the same edit session. (?) (r35)
+- **LOB-108** Search understands Scryfall-style syntax: name words, `t:` type, `o:` rules text, `c:`/`c=`/`c<=` colours, `id:` colour identity, `mv`/`cmc` mana value (from the mana cost), `pow`/`tou`/`loy`, `r:` rarity, `f:` format legality, `s:` set, `is:` layout (e.g. `is:dfc`), comparisons (`mv<=3`), `-` negation, `or` and parentheses. (r35)
+- **LOB-109** Search rules not taken from Scryfall's documentation: */X/? power or toughness counts as 0; a double-faced card's colours count per face; `!name` also matches a face name; rarities order common < uncommon < rare < special < mythic < bonus; `f:` counts restricted cards as legal; planes, schemes and vanguards show only with `include:extras`; Alchemy cards are included. (?) (r35)
 
 ### Game chat
 
@@ -146,6 +150,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-094** Progress reads "Downloading card records: x / y MB" (KB for small updates), "Indexing card records: x / y MB processed · N cards", then "Finishing up — verifying catalog…"; the bar shows real progress where the size is known and moves without a fixed position while finishing or when the total is unknown. (r30)
 - **LOB-095** If the app needs a new catalog format, it deletes the old catalog and downloads it again at startup. (r17)
 - **LOB-096** While the first catalog downloads, deck and game screens show a busy overlay with its progress; the menu, Settings and an open game do not. (r17)
+- **LOB-110** Card records include rarity, format legalities and colour identity for search (LOB-108); records downloaded before search are downloaded again once, asked as for any card records update. (r35)
 
 ### Card pictures
 

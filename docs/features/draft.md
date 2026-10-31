@@ -5,15 +5,15 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Cubes
 
 - **DRF-001** Manage decks has two tabs, Decks | Cubes; the Cubes tab lists "CUBES (N)" with a New cube button at the top right. (r21)
-- **DRF-002** A cube is a saved, named, counted card list, synced across your devices; drafting never uses it up and many pods can share one cube. (r16)
-- **DRF-003** The cube editor is the deck import screen: cube name and an "Include sideboard" checkbox (off by default) on one row, the card list, and one full-width Save. (r21)
+- **DRF-002** A cube is a saved, named, counted card list with Main and Maybe sections (no Side), synced across your devices; drafting never uses it up and many pods can share one cube. Maybe holds cards being considered: it is never drafted, and only Prepare cube (DRF-141) uses it. (r35)
+- **DRF-003** The cube editor is the deck editor (LOB-059, LOB-105, LOB-106) with the cube name in place of name and cover; Cube Cobra is its link source and search adds to Main or Maybe. (r35)
 - **DRF-004** A pasted cube list is checked by itself shortly after you stop typing; there is no separate "Import list" button. (r20)
-- **DRF-005** Cube lists accept every Cube Cobra export (plaintext, MTGO, Forge, XMage, CSV) and bare card names (one copy per line); maybeboard rows are skipped. (r19)
+- **DRF-005** Cube lists accept every Cube Cobra export (plaintext, MTGO, Forge, XMage, CSV) and bare card names (one copy per line); maybeboard rows and a pasted list's sideboard lines go to Maybe. (r35)
 - **DRF-006** A name shared by different cards does not block a cube: one is picked and listed with the other substitutions before saving; unknown cards block saving and name the bad lines. (r19)
-- **DRF-007** A cube holds at most 3000 copies; the total copy count shows before saving. (r16)
+- **DRF-007** A cube holds at most 3000 copies, counting Main and Maybe; the total copy count shows before saving. (r35)
 - **DRF-008** The top bar's "Import from link" dialog takes a Cube Cobra link or cube ID found anywhere in pasted text (https/www optional, query ignored); its paste icon pastes and imports at once. (r20)
-- **DRF-009** A Cube Cobra import takes the mainboard only and replaces the list; an unnamed cube gets the Cube Cobra ID as its name; failures say why. (r19)
-- **DRF-010** The Saved cube screen has Edit at the top, the name and "N total copies" with a columns control (5 by default in portrait, 8 in landscape, remembered per orientation apart from decks), a separate Rename, Delete cube (confirmed), and "Draft this cube", which opens New pod with that cube chosen; below them the cards show in the saved deck's picture view (LOB-056) by type, without section headers. (?) (r35)
+- **DRF-009** A Cube Cobra import replaces the list: the mainboard goes to Main and the maybeboard to Maybe, and the cube's basics are ignored; an unnamed cube gets the Cube Cobra ID as its name; failures say why. (r35)
+- **DRF-010** The Saved cube screen has Edit at the top, the name and "N total copies" with a columns control (5 by default in portrait, 8 in landscape, remembered per orientation apart from decks), a separate Rename, Delete cube (confirmed), and "Draft this cube", which opens New pod with that cube chosen; below them the cards show in the saved list view (LOB-056) with Main and, when it holds cards, Maybe. (?) (r35)
 
 ### Pods list and navigation
 
@@ -41,6 +41,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-029** Only the creator edits name, source and settings; members see them read-only. Edits apply at once without disabling anything and save in the background. (r17)
 - **DRF-030** Setup lists members and pending invitations with "Members (N/8)" (Grid: N/4); the creator invites through the shared player picker. (r17)
 - **DRF-141** Before drafting starts, pod setup offers "Prepare cube": the same picture-and-swipe screen as deck preparation (LOB-047, LOB-048), moving cards between the cube's Main and Maybe for this pod only; the saved cube does not change (DRF-002). Main is what gets drafted. Whoever can edit the pod's settings can prepare it. (r35)
+- **DRF-142** Prepare cube details: the pod creator's setup shows "Prepare cube" with "N main · M maybe" under the settings; the screen is titled "Prepare cube · <cube name>" with Done at the top right, has Mainboard and Maybeboard sections, a swipe either way moves one copy, tap offers "Move one to…", "Move all N to…" and "Inspect", a line briefly says what moved, a columns control starts at 5 (8 in landscape), and the floating Undo takes moves back one at a time. A pod starts from its cube's own Main and Maybe, and choosing a source again starts over. (?) (r35)
 
 ### Presets
 
@@ -69,7 +70,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-047** You open your next round's packs as soon as no pack of your opened rounds can come back to you for a pick. (r20)
 - **DRF-048** You never see a next-round pack while a pack of your current round can still reach you; such packs wait hidden and send no "your pick". (r21)
 - **DRF-049** Your queue is ordered by round, then fresher packs (fewer picks taken) first, then arrival; an arrival never replaces the pack you are looking at. (r22)
-- **DRF-050** Cube cards are drawn without replacement for the whole draft; a cube too small for the settings blocks Start, and using every card exactly is fine. (r16)
+- **DRF-050** Cube cards are drawn without replacement for the whole draft from the pod's prepared Main (DRF-141); a Main too small for the settings blocks Start, and using every card exactly is fine. (r35)
 
 ### Cogwork Librarian
 

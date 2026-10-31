@@ -482,7 +482,7 @@ internal fun PodBuildCard(
 @Composable
 internal fun PodBuildSwipeCopy(
     key: String, reference: ArtworkReference?, name: String, width: Int, drag: Float, progress: Float,
-    target: PodDeckCategory,
+    target: PodDeckCategory, tint: Color = target.podBuildColor(), label: String = target.podBuildLabel(),
 ) {
     val density = LocalDensity.current
     val cardWidth = with(density) { width.toDp() }
@@ -502,7 +502,7 @@ internal fun PodBuildSwipeCopy(
     )) {
         Box(Modifier.requiredSize(cardWidth + padding * 2, cardHeight + padding * 2).padding(padding)) {
             Box(Modifier.fillMaxSize().testTag("pod-build-swipe-copy-$key")
-                .clearAndSetSemantics { stateDescription = target.podBuildLabel() }
+                .clearAndSetSemantics { stateDescription = label }
                 .graphicsLayer {
                     alpha = .7f
                     rotationZ = 8f * progress * if (drag >= 0f) 1f else -1f
@@ -512,7 +512,7 @@ internal fun PodBuildSwipeCopy(
                 }) {
                 CardArtwork(reference, name, width, (width * 1.4f).roundToInt().coerceAtLeast(1), Modifier.fillMaxSize(),
                     placeholder = { PodCardPlaceholder(name) }, previewReference = reference)
-                Box(Modifier.matchParentSize().background(target.podBuildColor().copy(alpha = .35f * progress)))
+                Box(Modifier.matchParentSize().background(tint.copy(alpha = .35f * progress)))
             }
         }
     }

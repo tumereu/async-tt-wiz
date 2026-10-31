@@ -23,6 +23,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
@@ -59,11 +60,11 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
             "play", "games-loading", "catalog-startup", "catalog-update", "catalog-checking", "records-downloading", "records-downloading-unknown", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
             "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting",
-             "decks", "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-edit", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
+             "decks", "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-edit", "deck-edit-text", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
             "import-save", "import-link", "reconnecting", "gameplay-chat")
     }
 
-    // DRF-126, LOB-015, LOB-018, LOB-023, LOB-024, LOB-035, LOB-047, LOB-054, LOB-059, LOB-101
+    // DRF-126, LOB-015, LOB-018, LOB-023, LOB-024, LOB-035, LOB-047, LOB-054, LOB-056, LOB-057, LOB-059, LOB-101, LOB-105
     @Test fun portrait() = capture(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscape() = capture(true)
 
@@ -131,7 +132,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
                                     "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-art", "choose-cover", "delete-deck" ->
                                         SavedDeckScreen(fixtures.library, if (landscape) null else ({}), importDeck = {})
-                                     "deck-edit", "deck-edit-cover", "import-edit", "import-errors", "import-save", "import-link" ->
+                                     "deck-edit", "deck-edit-text", "deck-edit-cover", "import-edit", "import-errors", "import-save", "import-link" ->
                                         DeckImportScreen(fixtures.importer, landscape, if (landscape) null else ({}), null)
                                     else -> ShellContent(when (screen) {
                                         "play", "games-loading", "game-context", "delete-game" -> ShellDestination.GAMES
@@ -154,6 +155,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
         compose.waitForIdle()
         if (screen == "prepare-deck") { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         if (screen == "register-scrolled") compose.onNodeWithText("Sign in").performScrollTo()
+        if (screen == "deck-edit-text") compose.onNodeWithTag("card-list-tab-text").performClick()
         // Assert the important geometry/semantics, not just that a PNG could be produced.
         fun paired(first: String, second: String) {
             val a = compose.onNode(hasText(first) and hasClickAction()).fetchSemanticsNode().boundsInRoot
@@ -236,10 +238,11 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  val room = (if (landscape) 892f - 220f else 412f) - 32f
                  assertEquals((room - 4f * (columns - 1)) / columns, tile.width, 2f, "Tiles split the row into the chosen columns")
              }
-              "deck-edit" -> {
+              "deck-edit", "deck-edit-text" -> {
                   compose.onNodeWithTag("save-deck").assertIsDisplayed()
                  compose.onNodeWithText("Edit").assertDoesNotExist()
-                 compose.onNodeWithTag("deck-list").assertIsDisplayed()
+                 // LOB-059: an existing deck opens on Cards; the Text tab holds the list.
+                 compose.onNodeWithTag(if (screen == "deck-edit") "card-list-cards" else "deck-list").assertIsDisplayed()
                  compose.onNodeWithContentDescription("Choose deck cover").assertIsDisplayed()
              }
              "deck-edit-cover" -> {
@@ -294,10 +297,11 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "prepare-deck-faded" -> "deck preparation in the game lobby in its 3-column picture view, no recent move"
             "ready-waiting" -> "game lobby with your deck chosen and you ready, waiting for riley"
             "decks" -> "Manage decks screen listing three saved decks"
-            "deck-detail" -> "saved Training deck in its picture view: 60-card mainboard and sideboard in the default 3 columns"
+            "deck-detail" -> "saved Training deck in its picture view: Rename and Delete saved deck under the name, then the 60-card mainboard and sideboard in the default 3 columns"
             "deck-detail-columns" -> "saved Training deck in its picture view with the column setting changed to 5"
-            "draft-deck-detail" -> "deck saved from the Cube night draft pod, in its picture view with Save as deck"
-            "deck-edit" -> "Training deck opened for editing as a text list, with Save and a deck cover choice"
+            "draft-deck-detail" -> "deck saved from the Cube night draft pod, in its picture view with Save as deck and Delete draft deck"
+            "deck-edit" -> "Training deck opened for editing on its Cards tab: Mainboard and Sideboard as pictures, the round Add cards button, Save and a deck cover choice"
+            "deck-edit-text" -> "Training deck opened for editing and switched to its Text tab: the list as text with Save and a deck cover choice"
             "deck-edit-cover" -> "Training deck opened for editing with the Choose cover picker open"
             "deck-art" -> "saved Training deck with a Meadow Sentinel card opened in the Inspect view"
             "choose-cover" -> "saved Training deck with the Choose deck cover dialog open"

@@ -49,8 +49,10 @@ class DeckViewColumnsTest {
             fixture.library.inspection.close()
             compose.onNodeWithTag("deck-view").performScrollToNode(hasText("Sideboard · 15"))
             compose.onNodeWithContentDescription("Quiet Grove, 15 copies, Sideboard").assertExists()
-            compose.onNodeWithTag("deck-view").performScrollToNode(hasText("Delete saved deck"))
+            // LOB-057: Rename and Delete sit under the name, above the sections.
             compose.onNodeWithText("Delete saved deck").assertIsDisplayed()
+            compose.onNodeWithText("Rename").assertIsDisplayed()
+            compose.onNodeWithText("Maybeboard", substring = true).assertDoesNotExist()
         } finally { fixture.library.close() }
     }
 
@@ -124,10 +126,12 @@ class DeckViewColumnsTest {
         val cubes = cubeController()
         try {
             compose.setContent { ScreenTheme { CubeScreen(cubes, null) } }
-            val tile = "Rune Bear, 3 copies, Cube"
+            val tile = "Rune Bear, 3 copies, Mainboard"
             compose.onNodeWithText("Creatures · 3").assertIsDisplayed()
             compose.onNodeWithText("Instants · 1").assertIsDisplayed()
-            compose.onNodeWithText("Mainboard", substring = true).assertDoesNotExist()
+            // A cube has a Main section, and Maybe only when it holds cards.
+            compose.onNodeWithText("Mainboard · 4").assertIsDisplayed()
+            compose.onNodeWithText("Maybeboard", substring = true).assertDoesNotExist()
             compose.onNodeWithContentDescription("Columns").assert(hasText("5"))
             assertEquals(expected(5), tileWidth(tile), 1f)
             compose.onNodeWithContentDescription("More columns").performClick()
@@ -150,7 +154,7 @@ class DeckViewColumnsTest {
         try {
             compose.setContent { ScreenTheme { CubeScreen(cubes, null) } }
             compose.onNodeWithContentDescription("Columns").assert(hasText("8"))
-            assertEquals((892f - 32f - 4f * 7) / 8, tileWidth("Rune Bear, 3 copies, Cube"), 1f)
+            assertEquals((892f - 32f - 4f * 7) / 8, tileWidth("Rune Bear, 3 copies, Mainboard"), 1f)
         } finally { cubes.close() }
     }
 }

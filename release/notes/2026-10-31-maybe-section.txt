@@ -1,0 +1,1 @@
+add: Decks and cubes have a Maybe section for cards you are still considering; maybeboards from imports and a pasted cube's sideboard go there.

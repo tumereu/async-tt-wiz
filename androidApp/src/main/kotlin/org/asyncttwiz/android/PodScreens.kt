@@ -35,6 +35,8 @@ import org.asyncttwiz.protocol.*
 internal fun PodsDestination(controller: PodController, accountId: String, navigation: (() -> Unit)?,
     lobby: LobbyController?, manageCubes: () -> Unit, mainMenu: (() -> Unit)? = null) {
     val state = controller.state
+    // DRF-141: Prepare cube covers the pod screen until Done or Back.
+    if (controller.cubePreparation.state.open) { PodCubePreparationScreen(controller.cubePreparation); return }
     val pickTab = state.detail?.phase == PodPhase.DRAFTING && state.tab == PodTab.DRAFT
     val playScreen = state.detail?.phase?.let { it != PodPhase.SETUP } == true
     val pickMessages = remember { SnackbarHostState() }
@@ -257,6 +259,15 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         PodSettingsForm(edit?.name ?: detail.name, settings, source, detail.members.size, enabled,
             { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings)
+        // DRF-141: the creator moves this pod's cards between the cube's Main and Maybe before drafting.
+        if (creator && source.kind == PodSourceKind.CUBE && state.sourcePreview == null && edit?.cubeId == null && edit?.setSource == null)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ScreenOutlinedButton({ controller.cubePreparation.open(detail.id) }, Modifier.testTag("prepare-cube"),
+                    enabled = state.pending == 0 && !state.uncertain) {
+                    EntryIcon(null, "prepare"); Spacer(Modifier.width(8.dp)); Text("Prepare cube")
+                }
+                Text(podCubeSections(source), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         Text("Members (${detail.members.size}/${if (settings.mode == DraftMode.GRID) 4 else 8})", style = MaterialTheme.typography.titleMedium)
         detail.members.forEach { MemberLine(it.account, "accepted") }
         detail.pendingInvitations.forEach { MemberLine(it, "invitation pending") }
@@ -275,6 +286,9 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
         }
     }
 }
+
+/** "360 main · 12 maybe": the prepared cube's sections. */
+internal fun podCubeSections(source: PodSource) = "${source.totalCopies} main · ${source.maybeCopies} maybe"
 
 @Composable
 private fun PodChooseMember(controller: PodController, lobby: LobbyController, detail: PodDetail) {

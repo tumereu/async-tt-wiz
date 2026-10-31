@@ -1,0 +1,1 @@
+add: Decks and cubes have a new editor: see the cards as pictures, swipe a card to move it to another section, tap it for more, or switch to the text list.

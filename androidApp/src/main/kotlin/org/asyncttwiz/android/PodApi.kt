@@ -36,6 +36,10 @@ interface Pods : Closeable {
     suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = PodAcknowledged(id)
     /** Saves the caller's private deck notes for the current attempt; latest wins. */
     suspend fun notes(token: String, id: String, input: SetPodDeckNotes): PodAcknowledged = PodAcknowledged(id)
+    /** Prepare cube (creator, setup): the pod's prepared cube, its definitions and moves between Main and Maybe. */
+    suspend fun cube(token: String, id: String): PodCube = throw PodFailure("not_configured")
+    suspend fun cubeDefinitions(token: String, id: String, input: ReadCubeDefinitions): SubmittedDefinitions = throw PodFailure("not_configured")
+    suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube = throw PodFailure("not_configured")
     /** The caller's draft table presets (server-side, per account). */
     suspend fun presets(token: String): PodPresetList = throw PodFailure("not_configured")
     suspend fun savePreset(token: String, input: SavePodPreset): PodPreset = throw PodFailure("not_configured")
@@ -72,6 +76,11 @@ class PodApi(private val origin: String, private val client: HttpClient = Accoun
     override suspend fun destroy(token: String, id: String, input: PodRequest): PodAcknowledged = call(token, path(id), DeckJson.format.encodeToString(input), HttpMethod.Delete)
     override suspend fun marks(token: String, id: String, input: SetPodDraftMarks): PodAcknowledged = call(token, path(id, "/draft/marks"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     override suspend fun notes(token: String, id: String, input: SetPodDeckNotes): PodAcknowledged = call(token, path(id, "/build/notes"), DeckJson.format.encodeToString(input), HttpMethod.Put)
+    override suspend fun cube(token: String, id: String): PodCube = call(token, path(id, "/cube"))
+    override suspend fun cubeDefinitions(token: String, id: String, input: ReadCubeDefinitions): SubmittedDefinitions =
+        call(token, path(id, "/cube/definitions"), DeckJson.format.encodeToString(input))
+    override suspend fun moveCube(token: String, id: String, input: MovePodCubeCards): PodCube =
+        call(token, path(id, "/cube/move"), DeckJson.format.encodeToString(input), HttpMethod.Put)
     private fun presetPath(id: String): String {
         if (!DeckValidation.uuid(id)) throw PodFailure("invalid_request")
         return "/v1/pod-presets/$id"

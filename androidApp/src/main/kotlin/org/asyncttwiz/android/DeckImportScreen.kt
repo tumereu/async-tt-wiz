@@ -8,6 +8,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -34,6 +36,7 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         }
     }
     BackHandler { controller.back() }
+    var tab by rememberCardListTab(state.editing)
     if (state.choosingCover) {
         Column(Modifier.fillMaxSize()) {
             ScreenHeader("Choose cover", openNavigation)
@@ -53,13 +56,16 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
         }
         return
     }
-    ImportScaffold(if (state.editing) "Edit deck" else if (state.target == null) "Import deck" else "Import decklist",
-        openNavigation, landscape, controller::openLink, !state.saving, controller.canSave, state.saving, controller::save, "save-deck",
-        input = {
+    CardListEditorScaffold(if (state.editing) "Edit deck" else if (state.target == null) "Import deck" else "Import decklist",
+        openNavigation, landscape, controller, controller.search, tab, { tab = it }, controller::openLink, !state.saving,
+        controller.canSave, state.saving, controller::save, "save-deck",
+        lookupPending = state.busy || (state.text.isNotBlank() && state.result == null && !state.lookupFailed),
+        error = state.error, dismissError = controller::dismissError,
+        nameRow = {
             DeckMetadataHeader(state.name, controller.currentCover, controller::name,
                 if (state.result?.resolved == true) controller::chooseCover else null, padding = PaddingValues(0.dp))
-            ImportListField(state.text, controller::edit, "Deck list", "deck-list")
         },
+        listField = { ImportListField(state.text, controller::edit, "Deck list", "deck-list") },
         feedback = {
             ImportError(state.error)
             if (state.lookupFailed) ScreenOutlinedButton(onClick = { keyboard?.hide(); controller.lookup() },
@@ -71,11 +77,5 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
     if (state.linkDialog) ImportLinkDialog(state.url, controller::url, "Deck link or site:ID", "deck-url", "Paste deck link",
         controller::pasteUrl, controller::importUrl, state.url.isNotBlank() && !state.saving && (!state.busy || state.fetchingUrl),
         state.fetchingUrl, state.linkError, controller::closeLink)
-    if (state.discard) ScreenDialog(controller::keepEditing) {
-        Text("Discard unsaved changes?", style = MaterialTheme.typography.titleMedium)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            ScreenOutlinedButton(controller::keepEditing) { Text("Keep editing") }
-            ScreenButton(controller::exit) { Text("Discard") }
-        }
-    }
+    if (state.discard) DiscardChangesDialog(controller::keepEditing, controller::exit)
 }

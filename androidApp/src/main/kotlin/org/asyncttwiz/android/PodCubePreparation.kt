@@ -1,0 +1,128 @@
+package org.asyncttwiz.android
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import java.util.UUID
+import java.util.concurrent.ExecutorService
+import kotlinx.coroutines.runBlocking
+import org.asyncttwiz.protocol.*
+
+/** One Prepare cube move: [quantity] copies of [definition] from [from] to the other section. */
+data class PodCubeMove(val definition: String, val from: SavedDeckSection, val quantity: Int) {
+    val to get() = if (from == SavedDeckSection.MAINBOARD) SavedDeckSection.MAYBEBOARD else SavedDeckSection.MAINBOARD
+    fun inverse() = PodCubeMove(definition, to, quantity)
+}
+
+data class PodCubePreparationState(val pod: String? = null, val cube: PodCube? = null,
+    val definitions: Map<String, CardDefinition> = emptyMap(), val loading: Boolean = false, val error: String? = null,
+    val feedback: TransferFeedback? = null, val undo: List<PodCubeMove> = emptyList()) {
+    val open get() = pod != null
+    fun count(section: SavedDeckSection) = cube?.entries.orEmpty().filter { it.section == section }.sumOf { it.quantity.toLong() }
+}
+
+/** The prepared cube with [move] applied; copies join the target section's entry of the same card. */
+internal fun PodCube.moved(move: PodCubeMove): PodCube? {
+    val source = entries.firstOrNull { it.definition == move.definition && it.section == move.from } ?: return null
+    if (source.quantity < move.quantity) return null
+    val result = entries.mapNotNull {
+        if (it !== source) it else it.copy(quantity = it.quantity - move.quantity).takeIf { left -> left.quantity > 0 }
+    }.toMutableList()
+    val target = result.indexOfFirst { it.definition == move.definition && it.section == move.to }
+    if (target < 0) result += SavedCubeEntry(move.definition, move.quantity, move.to)
+    else result[target] = result[target].copy(quantity = result[target].quantity + move.quantity)
+    return copy(entries = result)
+}
+
+/**
+ * Prepare cube (DRF-141): the pod creator moves cards between the pod's Main and Maybe before drafting. The server's
+ * prepared cube is the truth; moves show at once and are sent in order, and the accepted cube is adopted when none is
+ * left in flight. Undo sends the inverse move. [changed] refreshes the pod (its source counts and supply).
+ */
+class PodCubePreparation(private val api: Pods, private val credential: () -> String?,
+    private val worker: ExecutorService, private val post: (() -> Unit) -> Unit, private val changed: () -> Unit) {
+    var state by mutableStateOf(PodCubePreparationState())
+        private set
+    val inspection = CardInspectionController()
+    @Volatile private var epoch = 0L
+    private var inFlight = 0
+    private var serial = 0L
+
+    fun open(pod: String) {
+        val token = credential() ?: return
+        val generation = ++epoch
+        inFlight = 0
+        state = PodCubePreparationState(pod = pod, loading = true)
+        worker.execute {
+            if (generation != epoch) return@execute
+            val outcome = runCatching { runBlocking {
+                val cube = serviceRetry(current = { generation == epoch }) { api.cube(token, pod) }
+                val definitions = cube.entries.map { it.definition }.distinct().chunked(CubeValidation.MAX_DEFINITIONS_PER_READ)
+                    .flatMap { batch -> serviceRetry(current = { generation == epoch }) {
+                        api.cubeDefinitions(token, pod, ReadCubeDefinitions(batch)) }.definitions }
+                cube to definitions.associate { it.digest to it.definition }
+            } }
+            post {
+                if (generation != epoch) return@post
+                state = outcome.fold({ (cube, definitions) -> state.copy(cube = cube, definitions = definitions, loading = false) },
+                    { state.copy(loading = false, error = "The cube could not be loaded. Go back and try again.") })
+            }
+        }
+    }
+
+    fun close() {
+        if (!state.open) return
+        reset()
+        changed()
+    }
+
+    /** Forgets the screen without refreshing the pod (sign-out, pod change). */
+    fun reset() { epoch++; inspection.close(); inFlight = 0; state = PodCubePreparationState() }
+
+    fun dismissError() { state = state.copy(error = null) }
+
+    fun inspect(digest: String) { state.definitions[digest]?.let { inspection.open(InspectedCard.retained(digest, it)) } }
+
+    /** Moves one copy, or all copies, of a card to the other section. */
+    fun move(digest: String, from: SavedDeckSection, all: Boolean): Boolean {
+        val quantity = state.cube?.entries?.firstOrNull { it.definition == digest && it.section == from }?.quantity ?: return false
+        return send(PodCubeMove(digest, from, if (all) quantity else 1), undoable = true)
+    }
+
+    fun undo() { state.undo.lastOrNull()?.let { last -> if (send(last.inverse(), undoable = false)) state = state.copy(undo = state.undo.dropLast(1)) } }
+
+    private fun send(move: PodCubeMove, undoable: Boolean): Boolean {
+        val pod = state.pod ?: return false
+        val token = credential() ?: return false
+        val cube = state.cube?.moved(move) ?: return false
+        val generation = epoch
+        val name = state.definitions[move.definition]?.name ?: "Card"
+        state = state.copy(cube = cube, error = null, feedback = TransferFeedback(++serial, "${move.quantity}× $name → ${move.to.sectionLabel()}"),
+            undo = if (undoable) (state.undo + move).takeLast(PreparationUndo.LIMIT) else state.undo)
+        inFlight++
+        val request = MovePodCubeCards(UUID.randomUUID().toString(), move.definition, move.from, move.quantity)
+        worker.execute {
+            if (generation != epoch) return@execute
+            val outcome = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.moveCube(token, pod, request) } } }
+            post {
+                if (generation != epoch) return@post
+                inFlight--
+                outcome.onSuccess { accepted -> if (inFlight == 0) state = state.copy(cube = accepted) }
+                outcome.onFailure {
+                    // The shown cube no longer matches the server's: start again from the accepted one.
+                    state = state.copy(undo = emptyList(), error = "The move was not saved. The cube was reloaded.")
+                    reload(pod, token, generation)
+                }
+            }
+        }
+        return true
+    }
+
+    private fun reload(pod: String, token: String, generation: Long) {
+        worker.execute {
+            if (generation != epoch) return@execute
+            val outcome = runCatching { runBlocking { serviceRetry(current = { generation == epoch }) { api.cube(token, pod) } } }
+            post { if (generation == epoch && inFlight == 0) outcome.onSuccess { state = state.copy(cube = it) } }
+        }
+    }
+}

@@ -24,50 +24,6 @@ import org.asyncttwiz.storage.DeckImportResult
 import org.asyncttwiz.storage.DeckSection
 import org.asyncttwiz.storage.ImportIssue
 
-/**
- * Deck and cube imports share one screen: the paste-list editor. The top bar has an
- * "Import from link" action (icon and label; an icon with a tooltip on narrow portrait screens), the input
- * column holds name/cover and the full-height list, then its result feedback and one full-width Save
- * at the bottom. Portrait stacks input above a fixed feedback area; landscape puts the feedback and
- * Save in a right column. Feedback never moves the input or Save.
- */
-@Composable
-internal fun ImportScaffold(title: String, navigation: (() -> Unit)?, landscape: Boolean,
-    openLink: () -> Unit, linkEnabled: Boolean, canSave: Boolean, saving: Boolean, save: () -> Unit,
-    saveTag: String, input: @Composable ColumnScope.() -> Unit, feedback: @Composable ColumnScope.() -> Unit) {
-    val keyboard = LocalSoftwareKeyboardController.current
-    val focus = LocalFocusManager.current
-    val saveButton: @Composable () -> Unit = {
-        ScreenButton(onClick = { keyboard?.hide(); focus.clearFocus(); save() },
-            Modifier.fillMaxWidth().testTag(saveTag), enabled = canSave) {
-            if (saving) CircularProgressIndicator(Modifier.size(20.dp), LocalContentColor.current, 2.dp)
-            else EntryIcon(null, "save")
-            Spacer(Modifier.width(8.dp)); Text("Save")
-        }
-    }
-    Column(Modifier.fillMaxSize()) {
-        ScreenHeader(title, navigation) {
-            val open = { keyboard?.hide(); focus.clearFocus(); openLink() }
-            if (landscape || LocalConfiguration.current.screenWidthDp >= 400) ScreenOutlinedButton(open, Modifier.testTag("open-import-link"), enabled = linkEnabled) {
-                EntryIcon(null, "link"); Spacer(Modifier.width(8.dp)); Text("Import from link")
-            } else ScreenIconButton(IMPORT_FROM_LINK, "link", open, Modifier.testTag("open-import-link"), enabled = linkEnabled)
-        }
-        if (landscape) Row(Modifier.weight(1f).fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp), content = input)
-            Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
-                saveButton()
-            }
-        } else Column(Modifier.weight(1f).fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp), content = input)
-            Column(Modifier.height(96.dp).fillMaxWidth().verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
-            saveButton()
-        }
-    }
-}
-
 internal const val IMPORT_FROM_LINK = "Import from link"
 
 /**

@@ -16,7 +16,8 @@ data class CubeState(val cubes: List<CubeSummary> = emptyList(), val loaded: Boo
     val name: String = "", val text: String = "",
     val cobraInput: String = "", val provenance: String? = null, val result: DeckImportResult? = null,
     val dialog: CubeDialog? = null, val linkDialog: Boolean = false, val clipboardRead: Boolean = false,
-    val saving: Boolean = false, val fetching: Boolean = false, val linkError: String? = null)
+    val saving: Boolean = false, val fetching: Boolean = false, val linkError: String? = null,
+    val destination: DeckSection = DeckSection.MAINBOARD, val discard: Boolean = false)
 
 /** A cube has Main and Maybe only. */
 internal fun ResolvedDeckEntry.cubeSection() =
@@ -27,9 +28,40 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private val resolve: (String) -> DeckImportResult,
     private val resolveCobra: (ParsedDeck) -> DeckImportResult,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit,
-    private val fetchCobra: (String) -> ParsedDeck = ::fetchCubeCobra) : AutoCloseable {
+    private val fetchCobra: (String) -> ParsedDeck = ::fetchCubeCobra) : AutoCloseable, CardListEditor {
     var state by mutableStateOf(CubeState())
         private set
+    /** The editor's catalog search page (Add cards). */
+    val search = CardListSearch(worker, post)
+    /** Name and text the editor opened with, to ask before discarding changes. */
+    private var initial: Pair<String, String> = "" to ""
+    override val kind get() = CardListKind.CUBE
+    override val entries: List<ResolvedDeckEntry>? get() = state.result?.takeIf { it.issues.isEmpty() }?.entries
+        ?: if (state.text.isBlank() && !state.busy) emptyList() else null
+    override val listCatalog get() = state.result?.catalog
+    override val editable get() = state.editing && !state.busy
+    override val destination get() = state.destination
+    override fun destination(section: DeckSection) { if (section in kind.sections) state = state.copy(destination = section) }
+    override fun retainedDefinition(printingId: String) = source?.definitions?.get(printingId)
+    override val cardsError get() = state.error
+    override fun cardsMessage(message: String?) { state = state.copy(error = message) }
+    /** A Cards tab or search edit: the list is replaced and its text rewritten, already resolved, so no lookup runs. */
+    override fun applyCards(entries: List<ResolvedDeckEntry>, catalog: CatalogMetadata?) {
+        if (closed || !editable) return
+        editInput()
+        val text = CardListEdits.text(kind, entries)
+        state = state.copy(text = text, result = DeckImportResult(text, entries, emptyList(), catalog ?: state.result?.catalog), error = null)
+    }
+    /** Leaving the editor: asks "Discard unsaved changes?" when the name or list changed. */
+    fun cancelEdit() {
+        if (state.name != initial.first || state.text != initial.second) state = state.copy(discard = true) else discardEdit()
+    }
+    fun keepEditing() { state = state.copy(discard = false) }
+    fun discardEdit() {
+        if (state.busy) { epoch++; state = state.copy(busy = false, saving = false, fetching = false) }
+        search.reset(); source = null; cobraSource = null; pendingSave = null
+        state = state.copy(editing = false, result = null, error = null, discard = false)
+    }
     @Volatile private var epoch = 0L
     private var closed = false
     private var source: CubeEditorSource? = null
@@ -40,20 +72,22 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private var pendingDelete: DeleteCube? = null
     // Replace on logout so an in-flight old request cannot populate the new session's cache.
     @Volatile private var definitionCache = ConcurrentHashMap<String, CardDefinition>()
-    val inspection = CardInspectionController()
+    override val inspection = CardInspectionController()
     fun inspect(identity: String) {
         val detail = state.detail ?: return
         if (!closed && state.dialog == null && !state.editing && detail.saved.entries.any { it.definition == identity })
             detail.definitions[identity]?.let { inspection.open(InspectedCard.retained(identity, it)) }
     }
-    fun clear() { inspection.close(); epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
+    fun clear() { inspection.close(); search.reset(); epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
     fun dismissError() { state = state.copy(error = null) }
     fun back() {
         if (inspection.state != null) { inspection.close(); return }
         if (state.busy) { epoch++; state = state.copy(busy = false, saving = false, fetching = false) }
         if (state.dialog != null) { dismiss(); return }
+        if (search.state.open) { search.close(); return }
         if (state.linkDialog) { closeLink(); return }
-        if (state.editing) { source = null; cobraSource = null; pendingSave = null; state = state.copy(editing = false, result = null, error = null); return }
+        if (state.discard) { keepEditing(); return }
+        if (state.editing) { cancelEdit(); return }
         state = state.copy(selected = null, detail = null, error = null)
         refresh()
     }
@@ -89,18 +123,21 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     }
     fun newCube() {
         if (state.busy) return
-        source = null; cobraSource = null; pendingSave = null
+        source = null; cobraSource = null; pendingSave = null; search.reset()
         state = state.copy(editing = true, target = null, name = "", text = "", cobraInput = "",
             provenance = null, result = null, error = null, linkDialog = false, clipboardRead = false,
-            linkError = null)
+            linkError = null, destination = DeckSection.MAINBOARD, discard = false)
+        initial = "" to ""
     }
     fun edit() {
         if (state.busy) return
         val detail = state.detail ?: return
-        val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null
+        val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null; search.reset()
         state = state.copy(editing = true, target = detail.saved.cube.id, name = detail.saved.cube.name,
             text = retained.text, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
-            result = null, error = null, linkDialog = false, clipboardRead = false, linkError = null)
+            result = null, error = null, linkDialog = false, clipboardRead = false, linkError = null,
+            destination = DeckSection.MAINBOARD, discard = false)
+        initial = state.name to state.text
         lookup()
     }
     private fun editInput() {
@@ -203,9 +240,9 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             return@work {
                 pendingSave = null
                 if (state.text == input.text && state.name == input.name) {
-                    source = null; cobraSource = null; state = state.copy(editing = false, result = null)
+                    source = null; cobraSource = null; search.reset(); state = state.copy(editing = false, result = null)
                     open(saved.cube.id)
-                } else state = state.copy(target = saved.cube.id)
+                } else { initial = input.name to input.text; state = state.copy(target = saved.cube.id) }
             }
         }
     }

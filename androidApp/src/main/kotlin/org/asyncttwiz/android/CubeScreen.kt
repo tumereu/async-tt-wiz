@@ -96,7 +96,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
             }
             InitialLoadArea(state.detail != null, Modifier.weight(1f), state.error != null, controller::retry, loading = state.busy) {
                 val detail = state.detail
-                // DRF-010, LOB-056: the saved deck's read-only picture view; tap inspects, hold previews.
+                // DRF-010, LOB-056: the saved list view shared with decks: Main and Maybe sections; tap inspects, hold previews.
                 if (detail != null) LazyColumn(Modifier.fillMaxSize().testTag("cube-view"), contentPadding = PaddingValues(bottom = 16.dp)) {
                     item("cube-header") {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -119,10 +119,11 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                             }
                         }
                     }
-                    visualDeckSection(SavedDeckSection.MAINBOARD, detail.saved.cube.totalCopies,
-                        preparationGroups(detail.saved, detail.definitions), columns.count, header = false) { tile ->
-                        val key = "cube/${tile.digest}"
-                        VisualDeckCard(tile, key, "Cube", { controller.inspect(tile.digest) }, onHold = { open ->
+                    for (section in savedListSections(listOf(SavedDeckSection.MAINBOARD), detail.saved.entries.map { it.section }))
+                    visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
+                        preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->
+                        val key = "$section/${tile.digest}"
+                        VisualDeckCard(tile, key, section.sectionLabel(), { controller.inspect(tile.digest) }, onHold = { open ->
                             if (open) {
                                 previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                 held = key to tile
@@ -159,7 +160,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     }
 }
 
-/** New/edit cube: the deck import screen (name only, cubes have no cover), with Cube Cobra as the link source. */
+/** New/edit cube: the deck editor (name only, cubes have no cover), with Cube Cobra as the link source. */
 @Composable
 private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit)?, landscape: Boolean) {
     val state = controller.state
@@ -173,14 +174,17 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
         val current = controller.state
         if (current.text.isNotBlank() && current.result == null && current.error == null && !current.busy) controller.lookup()
     }
-    ImportScaffold(if (state.target == null) "New cube" else "Edit cube", navigation, landscape,
-        controller::openLink, !state.saving, controller.canSave, state.saving, controller::save, "save-cube",
-        input = {
+    var tab by rememberCardListTab(state.target != null)
+    CardListEditorScaffold(if (state.target == null) "New cube" else "Edit cube", navigation, landscape, controller,
+        controller.search, tab, { tab = it }, controller::openLink, !state.saving, controller.canSave, state.saving,
+        controller::save, "save-cube", lookupPending = state.busy || (state.text.isNotBlank() && state.result == null && state.error == null),
+        error = state.error, dismissError = controller::dismissError,
+        nameRow = {
             ScreenTextField(state.name, controller::name, Modifier.fillMaxWidth().testTag("cube-name")
                 .semantics { contentDescription = "Cube name" }, placeholder = "Cube name",
                 keyboardOptions = imeOptions(ImeAction.Next))
-            ImportListField(state.text, controller::text, "Card list", "cube-list")
         },
+        listField = { ImportListField(state.text, controller::text, "Card list", "cube-list") },
         feedback = {
             ImportError(state.error)
             ImportResultSummary(state.result, deck = false, lineNumbers = true)
@@ -188,4 +192,5 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
     if (state.linkDialog) ImportLinkDialog(state.cobraInput, controller::cobraInput, "Cube Cobra link or ID", "cube-url",
         "Paste Cube Cobra link", controller::pasteCobra, controller::importCobra,
         state.cobraInput.isNotBlank() && !state.busy, state.fetching, state.linkError, controller::closeLink)
+    if (state.discard) DiscardChangesDialog(controller::keepEditing, controller::discardEdit)
 }

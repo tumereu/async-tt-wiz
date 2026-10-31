@@ -17,7 +17,7 @@ import kotlin.test.assertEquals
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w412dp-h892dp-port-mdpi")
 class DeckEditorUiTest {
-    // LOB-057, LOB-064
+    // LOB-057, LOB-059, LOB-064
     @get:Rule val compose = createComposeRule()
     @Test fun editReplacesActionAndPrefillsListAndBackConfirmsDiscardAndCoverIsDraftOnly() {
         val fixture = ScreenFixtures().apply { configure("deck-detail") }
@@ -39,6 +39,9 @@ class DeckEditorUiTest {
         compose.onNodeWithText("Edit").performClick()
         compose.onNodeWithText("Edit").assertDoesNotExist()
         compose.onNodeWithTag("save-deck").assertIsDisplayed()
+        // LOB-059: an existing deck opens on its Cards tab; the list text is in the Text tab.
+        compose.onNodeWithTag("card-list-cards").assertIsDisplayed()
+        compose.onNodeWithTag("card-list-tab-text").performClick()
         compose.onNodeWithTag("deck-list").assertTextContains("Deck\n4 Meadow Sentinel", substring = true)
         compose.onNodeWithContentDescription("Choose deck cover").performClick()
         compose.onNodeWithText("Aegis Ward").performClick()

@@ -327,7 +327,7 @@ class ImportScreenTest {
         try {
             compose.setContent { ScreenTheme { CubeScreen(controller, null, draftCube = { drafted += it }) } }
             compose.onNodeWithText("Saved cube").assertIsDisplayed()
-            val tile = "Rune Bear, 3 copies, Cube"
+            val tile = "Rune Bear, 3 copies, Mainboard"
             compose.onNodeWithTag("cube-view").performScrollToNode(hasContentDescription(tile))
             val list = compose.onNodeWithContentDescription(tile).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             compose.onNodeWithTag("cube-view").performScrollToIndex(0)

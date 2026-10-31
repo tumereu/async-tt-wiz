@@ -57,7 +57,9 @@ internal val DeckViewColumnRange = 1..10
  * saved-deck viewing ([DeckViewScreen.SAVED]) and saved-cube viewing ([DeckViewScreen.CUBE]) keep separate counts,
  * as the draft's pick and Build views do. Decks start at 3 columns; cubes (360–540 cards) at 5 in portrait, 8 in landscape. */
 internal enum class DeckViewScreen(internal val key: String, private val portrait: Int, private val landscape: Int) {
-    PREPARATION("preparation", 3, 3), SAVED("saved", 3, 3), CUBE("cube", 5, 8);
+    PREPARATION("preparation", 3, 3), SAVED("saved", 3, 3), CUBE("cube", 5, 8),
+    /** The card list editor's Cards tab (decks, cubes), Prepare cube and the editor's search results. */
+    EDITOR("editor", 3, 3), CUBE_EDITOR("cube-editor", 5, 8), CUBE_PREPARATION("cube-preparation", 5, 8), SEARCH("search", 3, 5);
     fun defaultColumns(orientation: Int) = if (orientation == Configuration.ORIENTATION_LANDSCAPE) landscape else portrait
 }
 

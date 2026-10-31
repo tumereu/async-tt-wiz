@@ -112,6 +112,8 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         else editSetup(setSource = source)
         state = state.copy(notice = upload.warnings.takeIf { it.isNotEmpty() }?.joinToString("\n"))
     }
+    /** Prepare cube for the open pod's setup (creator). */
+    val cubePreparation = PodCubePreparation(api, credential, worker, post) { refresh() }
     /** Draft table presets for the New pod form and the creator's setup form. */
     internal val presets = PodPresetController(api, credential, worker, post, ::presetForm, ::applyPreset)
 
@@ -119,6 +121,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         epoch++; active = false; refreshPending = false; refreshRequested = false; cubesPending = false
         quietFailures.succeeded()
         inspection.close()
+        cubePreparation.reset()
         setPicker.clear()
         presets.clear()
         lastCredential = credential()
@@ -134,6 +137,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         setPicker.dismiss()
         presets.dismiss()
         inspection.close()
+        cubePreparation.reset()
         accepted = null
         if (buildHistory?.pod != id) buildHistory = null
         state = state.copy(selected = id, detail = null, creating = null, setup = null,
@@ -152,6 +156,7 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
         setPicker.dismiss()
         presets.dismiss()
         inspection.close()
+        cubePreparation.reset()
         // Keep pending writes attached to their pod; navigation does not discard them.
         accepted = null
         state = state.copy(selected = null, detail = null, creating = null, setup = null,

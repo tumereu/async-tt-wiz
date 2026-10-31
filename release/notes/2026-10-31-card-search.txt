@@ -1,0 +1,1 @@
+add: Add cards to a deck or cube by searching your card records, with quick filters for colour, card type and mana value.

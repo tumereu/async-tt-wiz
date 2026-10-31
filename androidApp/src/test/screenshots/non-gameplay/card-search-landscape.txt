@@ -1,0 +1,1 @@
+Landscape Add cards search page of the Training deck editor: rune with the Creature chip, picture results with ×N chips for Main and small counts for other sections, the Main | Side | Maybe destination on Main and Done · +3 cards.

@@ -39,7 +39,7 @@ private val PreparationTileGap = 4.dp
 private val PreparationSwipeThreshold = 20.dp
 private val PreparationBadge = Color(0xE6202A2E)
 
-private fun SavedDeckSection.preparationColor() = if (this == SavedDeckSection.MAINBOARD) PodPickGreen else PodBuildBlue
+private fun SavedDeckSection.preparationColor() = sectionColor()
 
 @Composable
 internal fun PreparationScreen(controller: LobbyController, actor: String, landscape: Boolean, hamburger: (() -> Unit)? = null) {
@@ -122,7 +122,7 @@ internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Lo
     basics: (@Composable () -> Unit)? = null, header: Boolean = true, tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
     val color = source.preparationColor()
-    if (source == SavedDeckSection.SIDEBOARD) item("gap-$source") { Spacer(Modifier.height(16.dp)) }
+    if (source != SavedDeckSection.MAINBOARD) item("gap-$source") { Spacer(Modifier.height(16.dp)) }
     if (header) item("header-$source") {
         Surface(Modifier.fillMaxWidth().animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
             color = color.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer)) {
@@ -202,8 +202,8 @@ private fun PreparationGrid(columns: Int, gap: Dp, content: @Composable () -> Un
     }
 }
 
-/** The transfer captured when a swipe starts; its release submits exactly this object. */
-private class PreparationSwipe { var tried = false; var transfer: PreparedTransfer? = null }
+/** The move captured when a swipe starts; its release commits exactly this action. */
+private class DeckCardSwipe { var tried = false; var commit: (() -> Boolean)? = null }
 
 /** Tap opens the move menu, a short hold previews the card until release, a horizontal swipe either
  * way past the Build threshold moves one copy across. Only a real release commits; a cancelled gesture never moves. */
@@ -213,18 +213,44 @@ private fun PreparationCard(tile: PreparationTile, key: String, title: String, o
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
     val currentCapture by rememberUpdatedState(capture)
     val currentSubmit by rememberUpdatedState(submit)
+    val name = tile.name
+    val target = opposite.label()
+    fun move(all: Boolean) = currentCapture(all)?.let(currentSubmit) == true
+    SwipeDeckCard(tile, key, "preparation-card-$key", title, opposite, enabled, menus,
+        capture = { currentCapture(false)?.let { transfer -> { currentSubmit(transfer) } } }, inspect = inspect,
+        onHold = onHold, onHoldScroll = onHoldScroll,
+        actions = listOf(CustomAccessibilityAction("Move one $name to $target") { enabled && move(false) },
+            CustomAccessibilityAction("Move all $name to $target") { enabled && move(true) })) { close ->
+        if (tile.quantity > 1) DropdownMenuItem(text = { Text("Move one to $target") }, enabled = enabled,
+            onClick = { close(); move(false) })
+        DropdownMenuItem(text = { Text(if (tile.quantity > 1) "Move all ${tile.quantity} to $target" else "Move to $target") },
+            enabled = enabled, onClick = { close(); move(true) })
+        DropdownMenuItem(text = { Text("Inspect") }, onClick = { close(); inspect() })
+    }
+}
+
+/**
+ * A deck tile that moves: tap opens its [menu], a short hold previews the card until release, a horizontal swipe
+ * either way past the Build threshold commits the action [capture] returned when the swipe started (one copy to
+ * [target]). Only a real release commits; a cancelled gesture never moves. Shared by game preparation, the card list
+ * editor and Prepare cube.
+ */
+@Composable
+internal fun SwipeDeckCard(tile: PreparationTile, key: String, tag: String, title: String, target: SavedDeckSection,
+    enabled: Boolean, menus: PodCardMenuOwner, capture: () -> (() -> Boolean)?, inspect: () -> Unit,
+    onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit, actions: List<CustomAccessibilityAction> = emptyList(),
+    menu: @Composable ColumnScope.(close: () -> Unit) -> Unit) {
+    val currentCapture by rememberUpdatedState(capture)
     val currentHold by rememberUpdatedState(onHold)
     val currentHoldScroll by rememberUpdatedState(onHoldScroll)
     var drag by remember { mutableFloatStateOf(0f) }
     var snapBack by remember { mutableStateOf<Job?>(null) }
-    val swipe = remember { PreparationSwipe() }
+    val swipe = remember { DeckCardSwipe() }
     val scope = rememberCoroutineScope()
     LaunchedEffect(enabled) { if (!enabled) { snapBack?.cancel(); drag = 0f } }
     val threshold = with(LocalDensity.current) { PreparationSwipeThreshold.toPx() }
     val name = tile.name
-    val target = opposite.label()
-    fun move(all: Boolean) = currentCapture(all)?.let(currentSubmit) == true
-    BoxWithConstraints(Modifier.fillMaxWidth().testTag("preparation-card-$key")) {
+    BoxWithConstraints(Modifier.fillMaxWidth().testTag(tag)) {
         val width = with(LocalDensity.current) { maxWidth.roundToPx().coerceAtLeast(1) }
         val reference = remember(tile.digest, tile.definition) { podTileArtwork(tile.digest, tile.definition) }
         Box(Modifier.fillMaxWidth().aspectRatio(1f / 1.4f)
@@ -232,15 +258,15 @@ private fun PreparationCard(tile: PreparationTile, key: String, title: String, o
                 podPickGestures(onTap = { menus.open = key }, onInspect = { currentHold(it) }, onInspectScroll = { currentHoldScroll(it) },
                     onDrag = if (enabled) { x ->
                         snapBack?.cancel()
-                        if (!swipe.tried) { swipe.tried = true; swipe.transfer = currentCapture(false) }
+                        if (!swipe.tried) { swipe.tried = true; swipe.commit = currentCapture() }
                         drag = x
                     } else null,
                     onDragEnd = { x ->
-                        val transfer = swipe.transfer
-                        if (transfer != null && preparationSwipeCommits(x, threshold)) { drag = 0f; currentSubmit(transfer) }
+                        val commit = swipe.commit
+                        if (commit != null && preparationSwipeCommits(x, threshold)) { drag = 0f; commit() }
                     },
                     onEnd = {
-                        swipe.tried = false; swipe.transfer = null
+                        swipe.tried = false; swipe.commit = null
                         val from = drag
                         if (from != 0f) snapBack = scope.launch { animate(from, 0f, animationSpec = tween(150)) { value, _ -> drag = value } }
                     })
@@ -248,23 +274,18 @@ private fun PreparationCard(tile: PreparationTile, key: String, title: String, o
             .clearAndSetSemantics {
                 contentDescription = "$name, ${tile.quantity} copies, $title"
                 onClick("Actions for $name") { menus.open = key; true }
-                customActions = listOf(CustomAccessibilityAction("Move one $name to $target") { enabled && move(false) },
-                    CustomAccessibilityAction("Move all $name to $target") { enabled && move(true) },
-                    CustomAccessibilityAction("Inspect $name") { inspect(); true })
+                customActions = actions + CustomAccessibilityAction("Inspect $name") { inspect(); true }
             }) { PreparationTileFace(tile, width, reference) }
         if (drag != 0f) PodBuildSwipeCopy(key, reference, name, width, drag, preparationSwipeProgress(drag, threshold),
-            if (opposite == SavedDeckSection.MAINBOARD) PodDeckCategory.MAIN else PodDeckCategory.SIDE)
+            if (target == SavedDeckSection.MAINBOARD) PodDeckCategory.MAIN else PodDeckCategory.SIDE,
+            tint = target.sectionFill(), label = target.shortLabel())
         PodCardMenu(expanded = menus.open == key, dismiss = { if (menus.open == key) menus.open = null }) {
-            if (tile.quantity > 1) DropdownMenuItem(text = { Text("Move one to $target") }, enabled = enabled,
-                onClick = { menus.open = null; move(false) })
-            DropdownMenuItem(text = { Text(if (tile.quantity > 1) "Move all ${tile.quantity} to $target" else "Move to $target") },
-                enabled = enabled, onClick = { menus.open = null; move(true) })
-            DropdownMenuItem(text = { Text("Inspect") }, onClick = { menus.open = null; inspect() })
+            menu { if (menus.open == key) menus.open = null }
         }
     }
 }
 
-private fun SavedDeckSection.label() = if (this == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"
+private fun SavedDeckSection.label() = sectionLabel()
 
 @Composable
 internal fun PodBasicSteppers(basics: PodDeckBasics, enabled: Boolean, canAdd: Boolean,

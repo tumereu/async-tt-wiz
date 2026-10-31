@@ -1,1 +1,1 @@
-Portrait saved Training deck in its picture view: 60-card mainboard and sideboard in the default 3 columns.
+Portrait saved Training deck in its picture view: Rename and Delete saved deck under the name, then the 60-card mainboard and sideboard in the default 3 columns.

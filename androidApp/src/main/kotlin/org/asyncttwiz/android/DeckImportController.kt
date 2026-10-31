@@ -6,6 +6,8 @@ import androidx.compose.runtime.setValue
 import org.asyncttwiz.storage.DeckImportResult
 import org.asyncttwiz.storage.CatalogMetadata
 import org.asyncttwiz.storage.ParsedDeck
+import org.asyncttwiz.storage.DeckSection
+import org.asyncttwiz.storage.ResolvedDeckEntry
 import org.asyncttwiz.protocol.*
 import java.util.concurrent.ExecutorService
 
@@ -15,13 +17,35 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val editing: Boolean = false,
     val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
     val lookupFailed: Boolean = false, val linkDialog: Boolean = false, val url: String = "",
-    val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val linkError: String? = null)
+    val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val linkError: String? = null,
+    val destination: DeckSection = DeckSection.MAINBOARD)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
-    private val worker: ExecutorService, private val post: (() -> Unit) -> Unit) : AutoCloseable {
+    private val worker: ExecutorService, private val post: (() -> Unit) -> Unit) : AutoCloseable, CardListEditor {
     var state by mutableStateOf(DeckImportState())
         private set
+    /** The editor's catalog search page (Add cards). */
+    val search = CardListSearch(worker, post)
+    override val kind get() = CardListKind.DECK
+    override val entries: List<ResolvedDeckEntry>? get() = state.result?.takeIf { it.issues.isEmpty() }?.entries
+        ?: if (state.text.isBlank() && !state.busy) emptyList() else null
+    override val listCatalog get() = state.result?.catalog
+    override val editable get() = state.active && !state.saving && !state.busy
+    override val destination get() = state.destination
+    override fun destination(section: DeckSection) { if (section in kind.sections) state = state.copy(destination = section) }
+    override fun retainedDefinition(printingId: String) = source?.definitions?.get(printingId)
+    override val cardsError get() = state.error
+    override fun cardsMessage(message: String?) { state = state.copy(error = message) }
+    /** A Cards tab or search edit: the list is replaced and its text rewritten, already resolved, so no lookup runs. */
+    override fun applyCards(entries: List<ResolvedDeckEntry>, catalog: CatalogMetadata?) {
+        if (closed || !editable) return
+        epoch++; retryPlan = null; relookupAfterCurrent = false; saveAfterLookup = false
+        val text = CardListEdits.text(kind, entries)
+        state = state.copy(text = text, result = DeckImportResult(text, entries, emptyList(), catalog ?: state.result?.catalog),
+            preview = false, error = null, lookupFailed = false)
+        if (state.cover != null && coverCards.none { it.digest == state.cover }) { chosenCover = null; state = state.copy(cover = null) }
+    }
     @Volatile private var epoch = 0L
     private var closed = false
     private var retryPlan: DeckSavePlan? = null
@@ -141,7 +165,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             else if (state.lookupFailed || state.result?.issues?.isNotEmpty() == true) lookup()
         }
     }
-    val inspection = CardInspectionController()
+    override val inspection = CardInspectionController()
     fun inspect(entry: org.asyncttwiz.storage.ResolvedDeckEntry) {
         val result = state.result ?: return
         if (!closed && state.preview && entry in result.entries) {
@@ -176,7 +200,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             } } } }
         }, saved = saved)
     }
-    fun open() { if (!closed) { epoch++; inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
+    fun open() { if (!closed) { epoch++; search.reset(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
     fun openEditor(detail: DeckDetail) {
         open()
         if (closed) return
@@ -194,7 +218,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         open()
         if (!closed) state = state.copy(target = deck.id, name = deck.name)
     }
-    fun exit() { epoch++; inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
+    fun exit() { epoch++; search.reset(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active) { if (!state.saving) epoch++; retryPlan = null
             relookupAfterCurrent = false; saveAfterLookup = false
@@ -275,7 +299,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             }
         }
     }
-    fun back() { if (inspection.state != null) inspection.close() else if (state.linkDialog) closeLink()
+    fun back() { if (inspection.state != null) inspection.close() else if (search.state.open) search.close()
+        else if (state.linkDialog) closeLink()
         else if (state.choosingCover) closeCover()
         else if (state.discard) keepEditing() else if (state.preview) editList() else cancel() }
     override fun close() { closed = true; exit(); worker.shutdownNow() }

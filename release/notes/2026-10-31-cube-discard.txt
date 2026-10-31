@@ -1,0 +1,1 @@
+mod: Leaving a cube you are editing with unsaved changes now asks before discarding them.

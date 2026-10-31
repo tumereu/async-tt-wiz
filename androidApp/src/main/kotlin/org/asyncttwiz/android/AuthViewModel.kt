@@ -17,6 +17,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         Executors.newSingleThreadExecutor { Thread(it, "deck-import") }, { action -> main.post { action() } }).apply {
         connectUrl({ DeckImportResolver(catalog.repository).resolve(it) })
         acceptedDefinitions = { deck, definitions -> prefetchDeckArtwork(application, deck, definitions) }
+        search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
     }
     private val revocations = Executors.newSingleThreadExecutor { Thread(it, "best-effort-logout") }
     private val local = AndroidAccountLocalData(application)
@@ -61,7 +62,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     private val cubeResolver = org.asyncttwiz.storage.CubeImportResolver(catalog.repository)
     val cubes = CubeController(DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         controller::sessionToken, cubeResolver::resolve, cubeResolver::resolve,
-        Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> main.post { action() } })
+        Executors.newSingleThreadExecutor { Thread(it, "saved-cubes") }, { action -> main.post { action() } }).apply {
+        search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
+    }
     val pods = PodController(PodApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired),
         DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired), controller::sessionToken,
         Executors.newSingleThreadExecutor { Thread(it, "pods") }, { action -> main.post { action() } },

@@ -57,11 +57,19 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                 Text(draftDeckNote(origin), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            // The game preparation view, read-only: both sections in one scroll, tap inspects, hold previews.
+            // LOB-056, LOB-057: the saved list view shared with cubes: Rename and Delete under the name, then the sections.
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (detail.saved.deck.draft == null) ScreenOutlinedButton(onClick = { controller.edit(DeckDialog.RENAME) }, enabled = !state.mutating) {
+                    EntryIcon(null, "rename"); Spacer(Modifier.width(6.dp)); Text("Rename")
+                }
+                TextButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.heightIn(min = 48.dp),
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Text(if (detail.saved.deck.draft != null) "Delete draft deck" else "Delete saved deck") }
+            }
+            // The game preparation view, read-only: every section in one scroll, tap inspects, hold previews.
             LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("deck-view"), contentPadding = PaddingValues(bottom = 16.dp)) {
-                // Main and Side only until this view shows Maybe.
-                for (section in SavedDeckSection.PREPARED) {
-                    val title = if (section == SavedDeckSection.MAINBOARD) "Mainboard" else "Sideboard"
+                for (section in savedListSections(SavedDeckSection.PREPARED, detail.saved.entries.map { it.section })) {
+                    val title = section.sectionLabel()
                     visualDeckSection(section, detail.saved.entries.filter { it.section == section }.sumOf { it.quantity.toLong() },
                         preparationGroups(detail.saved, section, detail.definitions), columns.count) { tile ->
                         val key = "$section/${tile.digest}"
@@ -72,11 +80,6 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                             } else if (held?.first == key) held = null
                         }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
                     }
-                }
-                item("delete") {
-                    TextButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.padding(horizontal = 4.dp, vertical = 12.dp),
-                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                        Text(if (detail.saved.deck.draft != null) "Delete draft deck" else "Delete saved deck") }
                 }
             }
         }
@@ -115,6 +118,10 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
         }
     }
 }
+
+/** A saved list's sections: [always] shown (empty ones say "Empty"), then Maybe only when it holds cards. */
+internal fun savedListSections(always: List<SavedDeckSection>, present: List<SavedDeckSection>): List<SavedDeckSection> =
+    always + listOf(SavedDeckSection.MAYBEBOARD).filter { it !in always && it in present }
 
 @Composable
 private fun CoverScreen(controller: DeckLibraryController, navigation: (() -> Unit)?) {

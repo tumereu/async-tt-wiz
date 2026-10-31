@@ -1,0 +1,1 @@
+add: Pod setup has Prepare cube: choose which cards of the cube are drafted in this pod without changing the saved cube.

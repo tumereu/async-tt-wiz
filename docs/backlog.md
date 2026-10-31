@@ -10,7 +10,6 @@ Changes the owner wants but that are not built yet. The feature catalog
 ## Ready to build
 
 - Under the Auto button, show a "Hold to branch" hint whenever it does not show Rewind, and remove the top bar's "Continue playing from here" button, so holding Auto is the only way to branch. The top bar's cancel button while a continuation is armed stays. (HIS-013, HIS-036)
-- Pods get the same app-side reminders as games while a pick or build waits for you. (LOB-076, DRF-136)
 - Every place that groups cards by type uses the shared type order, starting with library search. (SYS-051, ZON-051)
 - Dragging the library's top card onto the Stack works like the panels' Stack action. (ZON-022)
 - Remove any code that keeps older app versions working. (SYS-033)

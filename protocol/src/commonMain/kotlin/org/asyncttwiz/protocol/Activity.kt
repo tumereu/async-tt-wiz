@@ -22,6 +22,7 @@ import kotlinx.serialization.json.Json
 /** Games now waiting for the account (GET /activity/waiting): in play, the opponent made the latest event and
  * left the move with the account, and the opponent is idle by the push rule. Each [ActivityHint] carries the
  * latest event's activity and identity and a waiting-reminder [GameNoticeContent]. */
+/** What waits for the account: GAME hints, then POD_YOUR_PICK / POD_DRAFT_COMPLETE hints of pods waiting for its pick or build. */
 @Serializable data class WaitingGames(val games: List<ActivityHint>)
 @Serializable data class GamePresence(val gameId: String, val presenceId: String,
     val didSomething: Boolean = false, val left: Boolean = false)

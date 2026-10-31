@@ -190,7 +190,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 ### Notifications
 
 - **DRF-135** Draft notifications use their own "Draft activity" channel, one per pod, updated rather than stacked. (r16)
-- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid: your turn) arrives while none were waiting; more packs only update the counts. (r16)
+- **DRF-136** "Your pick — <pod name>" comes only when a pack (Grid: your turn) arrives while none were waiting; more packs only update the counts. While a pick or deck build waits for you, the app's own reminders (LOB-076) show its notice again ("Your pick — <pod name>" or "Draft complete: build your deck"). (r35)
 - **DRF-137** Other pod notifications: "New pod invitation", "Draft complete: build your deck", "Decks ready — <pod name>" (to everyone but the last submitter), "Draft cancelled", "Pod destroyed", "Auto-start off — <pod name>". (r21)
 - **DRF-138** A pod's notification clears, and none is posted, while that pod is open in the app; pod invitation notifications likewise while the Pods list is shown. (r19)
 

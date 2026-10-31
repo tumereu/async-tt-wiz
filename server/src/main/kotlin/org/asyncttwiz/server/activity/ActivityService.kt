@@ -231,7 +231,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + notices)
     }
 
-    /** The app's own fallback when push and the feed poll missed a game: games in play where the opponent made
+    /** The app's own fallback when push and the feed poll missed a game or a pod: games in play where the opponent made
      * the latest event (the other player's row holds the account's own latest event), the move is the account's,
      * and the opponent is idle by the rule that makes a push due ([ActivityTiming.due]). Read only. */
     fun waiting(principal: AccountService.Principal): WaitingGames = transaction { sql ->
@@ -245,14 +245,30 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             .andNotExists(DSL.selectOne().from(own).where(own.GAME_ID.eq(SUMMARY.GAME_ID)).and(own.KIND.eq("GAME"))
                 .and(own.ACCOUNT_ID.ne(owner)).and(own.LAST_EVENT_AT.gt(SUMMARY.LAST_EVENT_AT)))
             .orderBy(SUMMARY.LAST_EVENT_AT.desc()).limit(50).fetch()
-        WaitingGames(rows.filter { row ->
+        val games = rows.filter { row ->
             ActivityTiming.due(ActivityTiming.leases(sql, row[SUMMARY.GAME_ID]!!, row[SUMMARY.AUTHOR_ID]!!),
                 ActivityTiming.leases(sql, row[SUMMARY.GAME_ID]!!, owner), row[SUMMARY.LAST_EVENT_AT]!!, true, time)
         }.map { row ->
             ActivityHint(row[SUMMARY.ACTIVITY_ID].toString(), ActivityKind.GAME, row[SUMMARY.GAME_ID].toString(),
                 row[SUMMARY.IDENTITY].toString(), row[SUMMARY.AUTHOR_ID].toString(), GameNoticeContent(row[GAME.GAME_NAME]!!,
                     row[ACCOUNT.USERNAME]!!, row[SUMMARY.LAST_EVENT_AT].toString(), true, row[SUMMARY.NEW_MESSAGE]!!, reminder = true))
-        })
+        }
+        WaitingGames(games + waitingPods(sql, owner))
+    }
+
+    /** Pods waiting for the account (DRF-136): its pick, with the hint of the pack that arrived at its empty queue,
+     * or its deck build after the draft, until it submits. Older apps only read the game hints. */
+    private fun waitingPods(sql: DSLContext, owner: UUID): List<ActivityHint> {
+        val unsubmitted = DSL.exists(DSL.selectOne().from(POD_MEMBER).where(POD_MEMBER.POD_ID.eq(SUMMARY.GAME_ID))
+            .and(POD_MEMBER.ACCOUNT_ID.eq(owner)).and(POD_MEMBER.SUBMITTED_DECK.isNull))
+        return sql.select(SUMMARY.ACTIVITY_ID, SUMMARY.KIND, SUMMARY.GAME_ID, SUMMARY.IDENTITY, POD.NAME).from(SUMMARY)
+            .join(POD).on(POD.ID.eq(SUMMARY.GAME_ID))
+            .where(SUMMARY.ACCOUNT_ID.eq(owner)).and(podVisible(DSL.`val`(owner), SUMMARY.KIND, SUMMARY.GAME_ID, SUMMARY.IDENTITY))
+            .and(SUMMARY.KIND.eq(ActivityKind.POD_YOUR_PICK.name).or(SUMMARY.KIND.eq(ActivityKind.POD_DRAFT_COMPLETE.name).and(unsubmitted)))
+            .orderBy(SUMMARY.LAST_EVENT_AT.desc(), SUMMARY.GAME_ID).limit(50).fetch().map { row ->
+                ActivityHint(row[SUMMARY.ACTIVITY_ID].toString(), ActivityKind.valueOf(row[SUMMARY.KIND]!!), row[SUMMARY.GAME_ID].toString(),
+                    row[SUMMARY.IDENTITY].toString(), resourceName = row[POD.NAME])
+            }
     }
 
     companion object {

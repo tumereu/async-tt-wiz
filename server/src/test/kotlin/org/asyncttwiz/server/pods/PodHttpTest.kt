@@ -323,6 +323,34 @@ class PodHttpTest {
         assertTrue(listed.drop(2).all { it.attention == PodAttention.NONE })
     }
 
+    // LOB-076, DRF-136
+    @Test fun `waiting list holds pods waiting for your pick or build until you act`() = fixture { f ->
+        fun waiting(who: SessionCreated): List<ActivityHint> {
+            val response = f.request(who, "GET", "/activity/waiting")
+            assertEquals(200, response.statusCode(), response.body())
+            return ActivityWire.json.decodeFromString<WaitingGames>(response.body()).games
+        }
+        val pod = f.create(DraftMode.GLIMPSE).id; f.join(pod)
+        f.configure(pod, DraftSettings.glimpse().copy(packsPerPlayer = 1, cardsPerPack = 3, sideboardLimit = 0))
+        assertTrue(waiting(f.a).isEmpty(), "Setup waits for nobody's pick")
+        val attempt = f.start(pod).draftAttemptId
+        for (who in listOf(f.a, f.b)) {
+            val hint = waiting(who).single()
+            assertEquals(ActivityKind.POD_YOUR_PICK, hint.kind); assertEquals(pod, hint.gameId)
+            assertEquals(attempt, hint.identity); assertEquals("Fixture pod", hint.resourceName)
+            assertEquals(f.activity(who, "0").entries.single { it.kind == ActivityKind.POD_YOUR_PICK }.activityId, hint.activityId)
+        }
+        f.pick(f.a, pod)
+        assertTrue(waiting(f.a).none { it.kind == ActivityKind.POD_YOUR_PICK }, "Picked; B's pack has not reached A yet")
+        f.finish(pod, listOf(f.a, f.b))
+        for (who in listOf(f.a, f.b)) assertEquals(ActivityKind.POD_DRAFT_COMPLETE, waiting(who).single().kind)
+        f.send(f.a, "PUT", "/v1/pods/$pod/build/basics", SetPodBasics(id(), attempt!!, PodDeckBasics(plains = 40)))
+        f.send(f.a, "POST", "/v1/pods/$pod/submit", PodDraftRequest(id(), attempt))
+        assertTrue(waiting(f.a).isEmpty(), "Submitted: the build no longer waits")
+        assertEquals(1, waiting(f.b).size)
+        assertTrue(waiting(f.c).isEmpty(), "Never another account's pods")
+    }
+
     // DRF-105
     @Test fun `deck name endpoint is owner scoped validated idempotent and attempt fenced`() = fixture { f ->
         val pod = f.create().id

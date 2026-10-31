@@ -255,7 +255,8 @@ class TableControlsInteractionTest {
         assertEquals("Ending · Cleanup", turnStepName(TableToolFixture.play(TurnPosition.CLEANUP).board.turn))
     }
 
-    @Test fun pickerAndIndicatorUseTheSameShortLabelsForEveryStep() {
+    // TRN-007, TRN-008: the step button keeps its short names; the phase dialog's squares use their one-line names.
+    @Test fun indicatorUsesStepNamesAndPickerUsesSquareNamesForEveryStep() {
         val initial = TableToolFixture.play()
         var turn by mutableStateOf(initial.board.turn)
         var picker by mutableStateOf(false)
@@ -270,7 +271,7 @@ class TableControlsInteractionTest {
         }
         compose.runOnIdle { picker = true }
         for (step in TurnPosition.entries) {
-            val label = hasText(stepLabel(step)) and hasAnyAncestor(hasContentDescription(step.label))
+            val label = hasText(phaseSquareLabel(step)) and hasAnyAncestor(hasContentDescription(step.label))
             compose.onNode(label, useUnmergedTree = true).assertExists()
         }
     }

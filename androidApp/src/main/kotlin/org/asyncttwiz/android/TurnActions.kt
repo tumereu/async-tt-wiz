@@ -72,6 +72,13 @@ internal fun stepLabel(position: TurnPosition): String = when (position) {
     else -> position.label
 }
 
+/** The phase dialog's step squares: names that always fit on one line; the phase label above the row gives the rest (TRN-008). */
+internal fun phaseSquareLabel(position: TurnPosition): String = when (position) {
+    TurnPosition.BEGIN_COMBAT -> "Begin"
+    TurnPosition.END_COMBAT, TurnPosition.END_STEP -> "End"
+    else -> stepLabel(position)
+}
+
 internal fun nextStep(turn: TurnState): TurnPosition? = TurnPosition.of(turn)?.let {
     TurnPosition.entries.getOrNull(it.ordinal + 1)
 }
@@ -86,11 +93,11 @@ internal fun TurnStepIcon(turn: TurnState) {
 }
 
 @Composable
-internal fun StepIcon(position: TurnPosition?) {
+internal fun StepIcon(position: TurnPosition?, square: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(horizontal = 2.dp).semantics { hideFromAccessibility() }) {
         MenuIcon(position?.label ?: "Choose phase / step", Modifier.size(20.dp), tint = LocalContentColor.current)
-        Text(position?.let(::stepLabel) ?: "?", Modifier.fillMaxWidth(), fontSize = 9.sp, lineHeight = 10.sp, letterSpacing = 0.sp,
-            maxLines = 2, textAlign = TextAlign.Center)
+        Text(position?.let(if (square) ::phaseSquareLabel else ::stepLabel) ?: "?", Modifier.fillMaxWidth(), fontSize = 9.sp, lineHeight = 10.sp,
+            letterSpacing = 0.sp, maxLines = if (square) 1 else 2, softWrap = !square, textAlign = TextAlign.Center)
     }
 }
 
@@ -129,7 +136,7 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
                         Modifier.border(1.dp, if (TurnPosition.of(turn) == step) endingPlayerColor else MenuBorder),
                         ink = if (TurnPosition.of(turn) == step) endingPlayerColor else MenuInk,
                         selected = TurnPosition.of(turn) == step,
-                        icon = { StepIcon(step) },
+                        icon = { StepIcon(step, square = true) },
                         onClick = { if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete() })
                 }
             }

@@ -619,7 +619,7 @@ class TableGesturesTest {
     }
 
     // CMB-003, TBL-044
-    @Test fun combatTapOpensNormalCardActionsDoubleTapDoesNothingAndHoldInspects() {
+    @Test fun combatTapOpensCombatMenuDoubleTapDoesNothingAndHoldInspects() {
         val f = TableStatesFixture
         val play = f.combat()
         val scene = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
@@ -630,39 +630,12 @@ class TableGesturesTest {
         val p = card.visible.first().center
         gesture.down(p, 0); gesture.up(p, 20)
         assertEquals(card.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
-        assertTrue(events.none { it is TableIntent.CombatBubbles })
         events.clear()
         gesture.down(p, 60); gesture.up(p, 80); gesture.tick(400)
         assertTrue(events.none { it is TableIntent.Rotate || it is TableIntent.Actions })
         events.clear()
         gesture.down(p, 500); gesture.tick(1100); gesture.up(p, 1150)
         assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null)), events)
-        val bubble = StackBubbleGeometry.combat(play.board, card.cardId!!, card.bounds, 412f, 892f)
-        assertTrue(bubble.controls.single { it.id.endsWith("/undeclare") }.bounds.bottom < card.bounds.y)
-        assertTrue(bubble.controls.single { it.id.endsWith("/graveyard") }.bounds.y > card.bounds.bottom)
-        val pingBounds = bubble.controls.single { it.id.endsWith("/ping") }.bounds
-        if (card.bounds.center.x > 412f / 2) assertTrue(pingBounds.right < card.bounds.x)
-        else assertTrue(pingBounds.x > card.bounds.right)
-        val pingPoint = bubble.controls.single { it.id.endsWith("/ping") }.bounds.center
-        val ping = TableAnnotationGeometry(scene.copy(combatBubbles = bubble), f.a)
-            .capture(play, org.asyncttwiz.protocol.EventReference(play.id, play.currentNodeId), pingPoint)!!
-        assertEquals(listOf(org.asyncttwiz.protocol.PingTarget(org.asyncttwiz.protocol.PingTargetKind.OCCURRENCE, card.cardId)), ping.targets)
-        for (control in bubble.controls) {
-            events.clear()
-            gesture.update(scene.copy(combatBubbles = bubble), TableSelection(), true)
-            gesture.down(control.bounds.center, 1500); gesture.up(control.bounds.center, 1520)
-            assertEquals(listOf(bubble.actions.getValue(control.id)), events)
-            events.clear()
-            gesture.update(scene.copy(combatBubbles = bubble), TableSelection(), false)
-            gesture.down(control.bounds.center, 1600); gesture.up(control.bounds.center, 1620)
-            assertTrue(events.isEmpty())
-        }
-        events.clear()
-        gesture.update(scene.copy(combatBubbles = bubble), TableSelection(), true)
-        val other = scene.items.first { it.kind == TableItemKind.LIFE && bubble.controls.none { b -> b.bounds.contains(it.bounds.center) } }
-        gesture.down(other.bounds.center, 2000); gesture.up(other.bounds.center, 2020)
-        assertEquals(TableIntent.CombatBubbles(null), events.first())
-        assertEquals(other.id, events.filterIsInstance<TableIntent.Actions>().single().itemId)
     }
 
     // CMB-009
@@ -715,17 +688,13 @@ class TableGesturesTest {
     }
 
     // CMB-005, HIS-082
-    @Test fun combatPingShortcutTogglesItsOccurrenceNotAMarkerUnderTheBubble() {
+    @Test fun combatPingTogglesItsOwnOccurrence() {
         val f = TableStatesFixture
         val play = f.combat()
         val base = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false)
         val id = f.id("attacker2")
         val card = base.items.single { it.cardId == id }
-        val bubble = StackBubbleGeometry.combat(play.board, id, card.bounds, 412f, 892f)
-        val control = bubble.controls.single { it.id.endsWith("/ping") }
-        val scene = base.copy(combatBubbles = bubble, items = base.items.map {
-            if (it.cardId == f.id("attacker1")) it.copy(bounds = control.bounds, visible = listOf(control.bounds)) else it
-        })
+        val point = card.visible.first().center
         val reference = EventReference(play.id, play.currentNodeId)
         val group = f.id("ping-group")
         val own = PingTarget(PingTargetKind.OCCURRENCE, id)
@@ -735,7 +704,7 @@ class TableGesturesTest {
                 target, null, PingPresence(target, "1", f.id("ping-node")))
             val marked = play.copy(currentGroup = GameplayGroup(group, f.a, play.currentNodeId, play.currentNodeId, "ping", null, "1"),
                 annotations = EventAnnotationState(pings = listOf(record)))
-            val intent = TableAnnotationGeometry(scene, f.a).capture(marked, reference, control.bounds.center)!!
+            val intent = TableAnnotationGeometry(base, f.a).capture(marked, reference, point)!!
             assertEquals(listOf(own), intent.targets)
             assertEquals(target != own, intent.add)
         }
@@ -885,9 +854,8 @@ class TableGesturesTest {
     @Test fun bubbleHitRegionsStayDistinctOnScreenAtAllCornersInBothOrientations() {
         for ((w, h) in listOf(412f to 892f, 892f to 412f)) for (x in listOf(0f, w - 28f)) for (y in listOf(0f, h - 40f)) {
             val anchor = TableBounds(x, y, 28f, 40f)
-            val f = TableStatesFixture
-            for (bubble in listOf(StackBubbleGeometry.create("entry", anchor, w, h, null, 4),
-                StackBubbleGeometry.combat(f.combat().board, f.id("attacker2"), anchor, w, h))) for (control in bubble.controls) {
+            val bubble = StackBubbleGeometry.create("entry", anchor, w, h, null, 4)
+            for (control in bubble.controls) {
                 assertTrue(control.bounds.x >= 0 && control.bounds.right <= w && control.bounds.y >= 0 && control.bounds.bottom <= h)
                 assertNull(control.bounds.intersection(anchor))
                 assertTrue(bubble.controls.filter { it != control }.none { it.bounds.intersection(control.bounds) != null })

@@ -129,7 +129,7 @@ class PlayerStatusUiTest {
         compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
     }
 
-    @Test fun clearIsOfferedOnlyWhileAStatusIsSet() {
+    @Test fun clearWithAStatusSetSendsAnEmptyStatus() {
         val sent = open("a", own = "Go ahead")
         compose.onNodeWithContentDescription("Set status Go ahead").assertIsSelected()
         compose.onNodeWithContentDescription("Clear status").performScrollTo().performClick()

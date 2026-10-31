@@ -217,7 +217,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     SideEffect { DebugJank.state("screen" to "table", "history_nodes" to (tree?.nodes?.size ?: 0).toString()) }
     DisposableEffect(Unit) { onDispose { DebugJank.state("screen" to "games", "table_mode" to "play",
         "history_nodes" to "0", "visible_cards" to "0", "popup" to "none", "dragging" to "false") } }
-    val overlay = toolkit.hasBackOverlay || explorerOpen || history.continuationTarget != null || state.chatOpen
+    val overlay = toolkit.hasBackOverlay || explorerOpen || state.chatOpen
     LaunchedEffect(overlay, reviewing, history.armed, selection) {
         if (overlay || reviewing || history.armed != null || selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty()) back.reset()
     }
@@ -226,7 +226,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty())) {
             TableBackAction.CLOSE_OVERLAY -> when {
                 state.chatOpen -> controller.closeChat()
-                history.continuationTarget != null -> history.dismissContinuation()
                 explorerOpen -> explorerOpen = false
                 else -> toolkit.dismissBackOverlay()
             }
@@ -325,10 +324,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         }
     }
     if (playbackSettingsOpen) PlaybackSettingsDialog(playbackPreferences, accountId) { playbackSettingsOpen = false }
-    history.continuationTarget?.let { target ->
-        HistoryContinueConfirmation(interactive && history.foreground && history.canArm(target),
-             history::dismissContinuation, { history.confirmContinuation() }, history::current)
-    }
     if (explorerOpen && tree != null) HistoryExplorer(explorer,
         mapOf(accountId to OwnTableColor, game.inviter.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor,
             game.recipient.accountId.takeIf { it != accountId }.orEmpty() to OpponentTableColor),

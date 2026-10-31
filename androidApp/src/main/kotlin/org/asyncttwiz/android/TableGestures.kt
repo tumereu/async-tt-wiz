@@ -97,8 +97,6 @@ class TableGestureCoordinator(
         val item = scene.hit(point)
         if (scene.stackBubbles != null && item?.id?.startsWith("stackBubble/") != true)
             emit(TableIntent.StackBubbles(null))
-        if (scene.combatBubbles != null && item?.id?.startsWith("combatBubble/") != true)
-            emit(TableIntent.CombatBubbles(null))
         val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE && item.zone != PlayZone.STACK) {
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
         } else null
@@ -109,7 +107,7 @@ class TableGestureCoordinator(
         val region = scene.panRegion(point)
         val next = Capture(item, point, time, selection, scope, scene.viewports.firstOrNull { it.id == region },
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() },
-            bubble = if (item?.id?.startsWith("combatBubble/") == true) scene.combatBubbles else scene.stackBubbles,
+            bubble = scene.stackBubbles,
             phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS,
             suppressTapUi = dismissedRingCard != null && (item?.cardId == dismissedRingCard || item?.id == dismissedRingCard),
             camera = navigationCamera ?: scene.camera, panRegion = region)
@@ -392,10 +390,6 @@ class TableGestureCoordinator(
     private fun targetsExist(scope: TableScope) = scope.cardIds.all { id -> scene.items.any { it.cardId == id || id in it.cards } }
     private fun single(c: Capture, explicit: Boolean = false) {
         val item = c.item
-        if (item?.id?.startsWith("combatBubble/") == true) {
-            if (writable) c.bubble?.actions?.get(item.id)?.let(emit)
-            return
-        }
         if (item?.id?.startsWith("stackBubble/") == true) {
             if (writable && c.bubble != null) when (item.id) {
                 "stackBubble/battlefield" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.BATTLEFIELD, fromBubble = true))

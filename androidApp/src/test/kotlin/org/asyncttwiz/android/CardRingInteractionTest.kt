@@ -411,7 +411,7 @@ class CardRingInteractionTest {
     }
 
     // TBL-070
-    @Test fun pagesSizeToTheirContentAndDisabledActionsStayDisabled() {
+    @Test fun pagesKeepTheSameWidthAndDisabledActionsStayDisabled() {
         render()
         compose.ringPage(1)
         val bounds = compose.onNodeWithContentDescription("Card action grid").fetchSemanticsNode().boundsInRoot

@@ -80,17 +80,9 @@ class LibraryActionsTest {
     }
 
     // ZON-073
-    @Test fun opponentSeesAnExileSearchFaceUpButALibrarySearchStaysHidden() {
-        val current = state()
-        val moved = current.copy(board = current.board.copy(
-            cards = current.board.cards.map { if (it.id == id(20)) it.copy(containerId = id(13), covered = false) else it },
-            containers = current.board.containers.map { when (it.id) {
-                id(10) -> it.copy(cards = listOf(id(21))); id(13) -> it.copy(cards = listOf(id(20))); else -> it } }))
-        val exile = ContentsDisplay(id(31), id(7), id(13), ContentsSelection.ALL, 1, false, listOf(id(20)))
-        assertEquals(listOf("Zulu"), contentsEntries(moved, exile, id(8)).map { it.name })
-        assertTrue(contentsEntries(moved, exile, id(8)).single().faceVisible)
+    @Test fun opponentSeesALibrarySearchAsCardBacks() {
         val library = ContentsDisplay(id(32), id(7), id(10), ContentsSelection.ALL, 1, false, listOf(id(21)))
-        assertEquals(listOf("Card back"), contentsEntries(moved, library, id(8)).map { it.name })
+        assertEquals(listOf("Card back"), contentsEntries(state(), library, id(8)).map { it.name })
     }
 
     @Test fun sliceRetainsAcceptedOrderBottomMarkerAndUpdatedLocationWithoutRefill() {

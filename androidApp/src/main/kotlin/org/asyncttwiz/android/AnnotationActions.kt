@@ -62,11 +62,6 @@ internal class TableAnnotationGeometry(private val scene: TableScene, private va
     fun capture(play: PlayState, reference: EventReference, point: TablePoint): EventPingIntent? {
         if (reference.playId != play.id || reference.nodeId != play.currentNodeId) return null
         val hit = scene.hit(point)
-        // A shortcut belongs to its captured card even if it covers another card's ping marker.
-        if (hit?.id == "combatBubble/ping") {
-            val card = scene.items.find { it.cardId == scene.combatBubbles?.entryId }
-            return tablePingTarget(play, card)?.let { tablePingIntent(play, reference, it, pings) }
-        }
         // A drawn marker addresses its recorded reference, not the newer node produced by its Ping.
         val marker = pings.records(play).asReversed().firstOrNull { record -> endpoint(record.target)?.let {
             hypot(point.x - it.x, point.y - it.y) <= 10f

@@ -13,7 +13,6 @@ class TableHistoryController(private val worker: Executor, private val post: (()
     var playback by mutableStateOf<HistoryPlayback?>(null); private set
     var view by mutableStateOf<DownloadedHistoryState?>(null); private set
     var armed by mutableStateOf<String?>(null); private set
-    var continuationTarget by mutableStateOf<String?>(null); private set
     var provisional by mutableStateOf(false); private set
     var error by mutableStateOf<String?>(null); private set
     var gate by mutableStateOf<ResultPlaybackGate?>(null); private set
@@ -210,32 +209,14 @@ class TableHistoryController(private val worker: Executor, private val post: (()
             return true
         }
         playback?.pause()
-        continuationTarget = null
         return arm(node)
-    }
-    /** Only toggling review off offers a choice; Back still abandons review immediately. */
-    fun requestExitReview(allowContinuation: Boolean = true) {
-        val player = playback
-        val cursor = player?.position?.cursorId
-        if (armed == null && player != null && cursor != null && cursor != player.tree.sharedHeadId &&
-            allowContinuation && canRequestContinuation(cursor)) {
-            player.pause()
-            continuationTarget = cursor
-        } else if (cursor != null && cursor == player.tree.sharedHeadId) cancelContinuation()
-        else current()
-    }
-    fun dismissContinuation() { continuationTarget = null }
-    fun confirmContinuation(): Boolean {
-        val target = continuationTarget ?: return false
-        continuationTarget = null
-        return requestContinuation(target)
     }
     fun arm(node: String): Boolean {
         if (!canArm(node)) return false
         armed = node; provisional = false; firstRequest = null; gate = null
         return true
     }
-    fun cancel() { armed = null; continuationTarget = null; provisional = false; firstRequest = null; gate = null }
+    fun cancel() { armed = null; provisional = false; firstRequest = null; gate = null }
     /** Abandon only local intent and show the live head; no gameplay or control request. */
     fun cancelContinuation() { clearChanges(); cancel(); playback?.continuationApplied() }
     fun current() { if (armed != null) cancelContinuation() else { cancel(); playback?.play() } }

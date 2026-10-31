@@ -17,19 +17,6 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val queuedBottom: List<List<String>> = emptyList()) {
     fun facesVisibleTo(accountId: String) = reveal || author == accountId
     fun faceVisibleTo(cardId: String, accountId: String) = facesVisibleTo(accountId) || cardId in revealedIds
-    /** What [accountId] sees of [cardId] in this panel: its grants above, and never less than the table shows.
-     * A Graveyard or Exile panel is a public zone, so its face-up cards show to both players (Library and hand
-     * searches stay hidden; a face-down card stays down). Presentation only: no state or history changes. */
-    fun faceShownTo(board: BoardState, cardId: String, accountId: String): Boolean {
-        if (faceVisibleTo(cardId, accountId)) return true
-        val card = board.cards.singleOrNull { it.id == cardId } ?: return false
-        val zone = board.containers.singleOrNull { it.id == card.containerId }?.zone ?: return false
-        return zone in PUBLIC_ZONES && CardVisibility.isVisibleFaceUp(card, zone, null, accountId)
-    }
-    companion object {
-        /** Zones whose cards lie face up for everyone. */
-        val PUBLIC_ZONES = setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.BATTLEFIELD, PlayZone.STACK)
-    }
     val search get() = selection == ContentsSelection.ALL && !reveal
     val title get() = if (reveal) "Reveal" else if (search) "Search" else "Look"
 }

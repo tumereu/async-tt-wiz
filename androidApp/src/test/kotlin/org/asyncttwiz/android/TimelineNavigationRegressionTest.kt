@@ -83,7 +83,6 @@ class TimelineNavigationRegressionTest {
             compose.onNode(isDialog()).assertDoesNotExist()
             compose.runOnIdle {
                 assertNull(f.lobby.history.armed)
-                assertNull(f.lobby.history.continuationTarget)
                 val position = f.lobby.history.playback!!.position
                 assertTrue(position.playing || position.mode == HistoryMode.LIVE)
                 assertEquals(sent, f.commands().size)

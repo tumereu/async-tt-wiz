@@ -23,7 +23,8 @@ class StatusBubbleTest {
         assertEquals(28f, StatusBubble.bounds(life, true, 2f).width) // never narrower than its tail
     }
 
-    @Test fun longTextIsEllipsizedOnOneLine() {
+    // [StatusBubble.lines] ellipsizes its last line with this.
+    @Test fun fitEllipsizesTheLongestPrefixWithoutSplittingASurrogatePair() {
         val measure = { text: String -> text.length * 6f }
         assertEquals("Wait", StatusBubble.fit("Wait", 60f, measure))
         assertEquals("Got a…", StatusBubble.fit("Got a response", 42f, measure))

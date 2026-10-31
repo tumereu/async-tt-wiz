@@ -179,7 +179,7 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val combatDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
     val stackBubbles: StackBubbleGeometry? = null, val stackRegion: TableBounds? = null,
     val world: TableWorld? = null, val stackProjections: List<TableItem> = emptyList(),
-    val combatBubbles: StackBubbleGeometry? = null, val cardOwners: Map<String, String> = emptyMap(),
+    val cardOwners: Map<String, String> = emptyMap(),
     internal val cardPanels: List<CardPanelGeometry> = emptyList(),
     val appearance: CardAppearance = CardAppearance(),
     val combatLabels: List<CombatLaneLabel> = emptyList(),
@@ -196,7 +196,6 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
         stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
         cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
     fun hit(point: TablePoint): TableItem? {
-        combatBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         stackBubbles?.controls?.firstOrNull { it.bounds.contains(point) }?.let { return it }
         items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) }?.let { return it }
         val stack = items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&

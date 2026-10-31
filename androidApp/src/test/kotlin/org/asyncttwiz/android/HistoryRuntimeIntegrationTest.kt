@@ -800,7 +800,7 @@ class HistoryRuntimeIntegrationTest {
             val group = x.tree.stateAt(boundary)!!.currentGroup!!.id
             val remote = GameCommand(f.id(950), first.scope, GameAction.Play(PlayAction.SetTapped(f.id(12), true)), first.streamId, "1")
             x.message(x.execute(remote, f.b))
-            val undo = first.copy(requestId = f.id(951), action = GameAction.Undo)
+            val undo = first.copy(requestId = f.id(951), action = GameAction.Undo, expectedSelection = null) // Play-only field
             x.message(x.execute(undo))
             val target = CapturedHistoryTarget(f.a, x.game.id, x.tree.initial.id, group, boundary)
             val current = x.tree.currentNodeId; val frames = x.wire.frames.size

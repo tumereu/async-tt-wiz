@@ -64,19 +64,30 @@ public final class ServiceRuntime implements AutoCloseable {
         }, 0, 500, TimeUnit.MILLISECONDS);
     }
 
-    public boolean ready() {
-        var token = ownership.token();
+    /** Readiness with ownership probed on the database now (health checks, startup). */
+    public boolean ready() { return ready(ownership.token()); }
+
+    /** The same check for every request and worker tick, without a database round trip: ownership as last
+     * verified (the recovery loop re-verifies it every 500 ms), and every transaction's fence checks it again. */
+    public boolean admitting() { return ready(ownership.current()); }
+
+    private boolean ready(java.util.Optional<WriterOwnership.Token> token) {
         return !stopping.get() && token.isPresent() && token.get().epoch() == recoveredEpoch
                 && workerAvailability.stream().allMatch(java.util.function.BooleanSupplier::getAsBoolean) && !stopping.get();
     }
 
-    public <T> T transaction(WriterOwnership.Transaction<T> work) {
+    public <T> T transaction(WriterOwnership.Transaction<T> work) { return admitted(work, true); }
+
+    /** A single read that needs no writer fence (see {@link WriterOwnership#read}), admitted like a transaction. */
+    public <T> T read(WriterOwnership.Transaction<T> work) { return admitted(work, false); }
+
+    private <T> T admitted(WriterOwnership.Transaction<T> work, boolean fenced) {
         if (stopping.get()) throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
         admission.readLock().lock();
         try {
             if (stopping.get()) throw new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER);
-            var token = ownership.token().orElseThrow(() -> new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER));
-            return ownership.transaction(token, work);
+            var token = ownership.current().orElseThrow(() -> new OwnershipFailure(OwnershipFailure.Reason.NOT_OWNER));
+            return fenced ? ownership.transaction(token, work) : ownership.read(token, work);
         } finally { admission.readLock().unlock(); }
     }
 

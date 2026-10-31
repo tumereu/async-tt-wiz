@@ -38,10 +38,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private fun actor(principal: AccountService.Principal) = uuid(principal.account.accountId)
     private fun <T> transaction(work: (DSLContext) -> T): T = runtime.transaction { connection ->
         // Expected protocol refusals are values at the ownership boundary, not database failures.
-        // A savepoint rolls back any tentative identity without releasing the writer epoch lock.
-        val savepoint = connection.setSavepoint()
+        // Rolling back drops any tentative identity; the commit that follows then has nothing to do.
         try { Result.success(work(DSL.using(connection, SQLDialect.POSTGRES))) }
-        catch (failure: GameProtocolFailure) { connection.rollback(savepoint); Result.failure<T>(failure) }
+        catch (failure: GameProtocolFailure) { connection.rollback(); Result.failure<T>(failure) }
     }.getOrThrow()
     private fun authorize(game: GameRecord?, actor: UUID, recovery: Boolean = false): GameRecord {
         if (game == null || actor !in listOf(game.inviterId, game.recipientId) ||
@@ -139,8 +138,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         }
     }
     fun head(principal: AccountService.Principal, gameId: String): GameHead = transaction { sql ->
-        locked(sql, uuid(gameId), actor(principal))
-        readHead(sql, principal, gameId)
+        readHead(sql, principal, gameId, locked(sql, uuid(gameId), actor(principal)))
     }
     /** Stack reordering is retired: a same-Stack card move is the legacy reorder route, so new ones are refused here. */
     private fun reordersStack(tree: GameplayTree, command: GameCommand): Boolean {
@@ -160,15 +158,16 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) {
             val summary = lobby.summary(sql, game.id!!)
             GameHead(gameId, summary.revision, summary)
-        } else readHead(sql, principal, gameId).let { head ->
+        } else readHead(sql, principal, gameId, game).let { head ->
             if (!presence) head else head.copy(opponentPresence = OpponentPresences.read(sql, game.id!!,
                 if (game.inviterId == actor(principal)) game.recipientId!! else game.inviterId!!,
                 java.time.OffsetDateTime.ofInstant(clock.instant(), java.time.ZoneOffset.UTC)))
         }
     }
-    private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String): GameHead {
-        val summary = lobby.summary(sql, uuid(gameId))
-        val play = PlayStore.read(sql, uuid(gameId))
+    /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. */
+    private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
+        val play = PlayStore.read(sql, game.id!!)
+        val summary = lobby.summary(sql, game, if (game.lifecycle == "ACTIVE") play?.board?.effectiveAttentionHolder else null)
         return GameHead(gameId, summary.revision, summary, preparation =
             if (play == null && canReadPreparation(summary, principal.account.accountId)) PreparationStore.read(sql, summary) else null,
             play = play, retainedTreeRequired = play != null, chatSync = ChatStore.sync(sql, uuid(gameId)), boundedEndpoint = true,

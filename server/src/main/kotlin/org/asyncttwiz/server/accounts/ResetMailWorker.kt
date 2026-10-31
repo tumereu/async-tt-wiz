@@ -12,7 +12,7 @@ class ResetMailWorker(private val runtime: ServiceRuntime, private val resets: P
     }
     fun start() {
         scheduler.scheduleWithFixedDelay({
-            try { if (runtime.ready()) resets.deliverDue(mailer) }
+            try { if (runtime.admitting()) resets.deliverDue(mailer) }
             catch (_: OwnershipFailure) { /* Ordinary ownership recovery, no network replay in a DB transaction. */ }
             catch (_: Exception) { runtime.invalidateWorkerRecovery() }
         }, 0, 500, TimeUnit.MILLISECONDS)

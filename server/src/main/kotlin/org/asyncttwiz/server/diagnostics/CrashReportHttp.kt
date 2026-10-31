@@ -27,7 +27,7 @@ class CrashReportHttp(private val runtime: ServiceRuntime, private val clock: Cl
         response.setHeader("Cache-Control", "no-store")
         response.setHeader("X-Content-Type-Options", "nosniff")
         try {
-            if (!runtime.ready()) { response.status = 503; return true }
+            if (!runtime.admitting()) { response.status = 503; return true }
             val token = request.getHeaders("Authorization").toList().singleOrNull()
                 ?.takeIf { it.startsWith("Bearer ", true) }?.substring(7)
             val principal = token?.let(accounts::authenticate)

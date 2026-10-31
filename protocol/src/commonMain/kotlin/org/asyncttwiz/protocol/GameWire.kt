@@ -7,9 +7,9 @@ import kotlinx.serialization.json.*
 
 /** Highest recorded-transition rules understood by this build; also used when recording new events. */
 const val CURRENT_GAMEPLAY_RULES_VERSION = 34
-/** Highest socket protocol minor this build speaks. 1: the opponent's presence on heads and [GamePresenceUpdate].
- *  2: servers understand [GameCommand.expectedSelection]; clients send it only after a welcome with minor >= 2.
- *  Clients offer it as [GameHello.maxMinor]; servers send minor-1 data only to sockets that offered it. */
+/** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
+ *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
+ *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
 const val GAME_PROTOCOL_MINOR = 2
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
@@ -49,7 +49,7 @@ const val GAME_PROTOCOL_MINOR = 2
 }
 @Serializable sealed interface GameClientMessage
 @Serializable @SerialName("hello") data class GameHello(val processId: String, val installationId: String,
-    val protocolMajor: Int = 1, val minMinor: Int = 0, val maxMinor: Int = 0,
+    val protocolMajor: Int = 1, val minMinor: Int = 0, val maxMinor: Int = GAME_PROTOCOL_MINOR,
     val engineVersions: List<Int> = listOf(1), val readFormats: List<Int> = listOf(1),
     val gameplayRulesVersion: Int = 1) : GameClientMessage
 @Serializable @SerialName("openStream") data class OpenGameStream(val gameId: String, val streamId: String) : GameClientMessage
@@ -57,7 +57,7 @@ const val GAME_PROTOCOL_MINOR = 2
     val requestIds: List<String>) : GameClientMessage
 @Serializable @SerialName("subscribe") data class SubscribeGame(val gameId: String, val revision: String = "0",
     val readFormats: List<Int> = listOf(1)) : GameClientMessage
-/** [expectedSelection] (protocol minor 2, ordinary play only): the active line the client acted on, as the
+/** [expectedSelection] (ordinary play only): the active line the client acted on, as the
  *  tree's selection control id ([GameplayTree.selectionKey]). It changes only when a continuation forks and
  *  becomes active, never by Undo/Redo or play on the same line. If it no longer matches, the action raced
  *  with a deliberate branch and is refused ("branched"), never moved to another line. Absent: no check. */
@@ -71,7 +71,7 @@ const val GAME_PROTOCOL_MINOR = 2
 @Serializable @SerialName("ping") data class GamePing(val correlationId: String, val presence: GamePresence? = null) : GameClientMessage
 
 @Serializable sealed interface GameServerMessage
-@Serializable @SerialName("welcome") data class GameWelcome(val protocolMajor: Int = 1, val minor: Int = 0,
+@Serializable @SerialName("welcome") data class GameWelcome(val protocolMajor: Int = 1, val minor: Int = GAME_PROTOCOL_MINOR,
     val engineVersion: Int = 1, val readFormat: Int = 1, val heartbeatSeconds: Int = 30,
     val commandBytes: Int = 1048576, val pendingRequests: Int = 1024,
     val gameplayRulesVersion: Int = 1) : GameServerMessage
@@ -96,7 +96,7 @@ const val GAME_PROTOCOL_MINOR = 2
     val chatSync: ChatSync? = null, val boundedEndpoint: Boolean = false,
     /** Authorized caller's private pod deck name; not replay state or revision data. */
     val ownPodDeckName: String? = null,
-    /** Protocol minor 1 only; omitted otherwise. Not replay state or revision data. */
+    /** Socket heads only; omitted otherwise. Not replay state or revision data. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val opponentPresence: OpponentPresence? = null) : GameServerMessage
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
@@ -104,7 +104,7 @@ const val GAME_PROTOCOL_MINOR = 2
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
     val mutation: GameplayMutation? = null, val group: GameplayGroup? = null,
     val chatMessage: ChatMessage? = null, val treeDelta: GameplayTreeDelta? = null) : GameServerMessage
-/** Protocol minor 1: the opponent's presence changed (opened/left the game, or came back from idle). */
+/** The opponent's presence changed (opened/left the game, or came back from idle). */
 @Serializable @SerialName("presence") data class GamePresenceUpdate(val gameId: String, val opponent: OpponentPresence) : GameServerMessage
 @Serializable @SerialName("pong") data class GamePong(val correlationId: String) : GameServerMessage
 @Serializable data class GameRevisions(val revisions: List<GameRevision>, val next: String? = null)

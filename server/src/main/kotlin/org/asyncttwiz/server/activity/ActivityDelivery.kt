@@ -74,7 +74,7 @@ class FcmActivityAdapter @JvmOverloads constructor(private val project: String, 
 class ActivityDelivery(private val runtime: ServiceRuntime, private val adapter: ActivityPushAdapter? = null,
     private val clock: Clock = Clock.systemUTC()) : AutoCloseable {
     private val worker = Executors.newSingleThreadScheduledExecutor { Thread(it, "activity-hints").apply { isDaemon = true } }
-    fun start() { worker.scheduleWithFixedDelay({ if (runtime.ready()) runCatching { deliverDue() } }, 0, 1, TimeUnit.SECONDS) }
+    fun start() { worker.scheduleWithFixedDelay({ if (runtime.admitting()) runCatching { deliverDue() } }, 0, 1, TimeUnit.SECONDS) }
     fun deliverDue() {
         ActivityService(runtime, clock).pruneExpired()
         runtime.transaction { connection ->

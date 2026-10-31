@@ -177,9 +177,28 @@ class DeckService(private val runtime: ServiceRuntime) {
         return SavedDeck(summary(sql, row, entries), entries)
     }
 
-    private fun summary(sql: DSLContext, row: SavedDeckRecord, entries: List<SavedDeckEntry> = entries(sql, row.id!!)): DeckSummary {
-        val cover = (row.coverDigest?.takeIf { digest -> entries.any { it.definition == digest } } ?: entries.firstOrNull()?.definition)?.let { digest ->
-            val payload = sql.select(DEFINITION.PAYLOAD).from(DEFINITION).where(DEFINITION.DIGEST.eq(digest)).fetchSingle(DEFINITION.PAYLOAD)!!
+    private fun summary(sql: DSLContext, row: SavedDeckRecord, entries: List<SavedDeckEntry> = entries(sql, row.id!!)): DeckSummary =
+        summary(row, entries) { digest -> sql.select(DEFINITION.PAYLOAD).from(DEFINITION).where(DEFINITION.DIGEST.eq(digest)).fetchSingle(DEFINITION.PAYLOAD)!! }
+
+    private fun coverDigest(row: SavedDeckRecord, entries: List<SavedDeckEntry>) =
+        row.coverDigest?.takeIf { digest -> entries.any { it.definition == digest } } ?: entries.firstOrNull()?.definition
+
+    /** A list's summaries with two queries in all (entries, cover cards) instead of two per deck. */
+    private fun summaries(sql: DSLContext, rows: List<SavedDeckRecord>): List<DeckSummary> {
+        if (rows.isEmpty()) return emptyList()
+        val entries = sql.selectFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.`in`(rows.map { it.id }))
+            .orderBy(DECK_ENTRY.DECK_ID, DECK_ENTRY.POSITION).fetch().groupBy({ it.deckId!! }) {
+                SavedDeckEntry(SavedDeckSection.valueOf(it.section!!), it.definitionDigest!!, it.quantity!!)
+            }
+        val covers = rows.mapNotNull { coverDigest(it, entries[it.id].orEmpty()) }.toSet()
+        val payloads = if (covers.isEmpty()) emptyMap() else sql.select(DEFINITION.DIGEST, DEFINITION.PAYLOAD).from(DEFINITION)
+            .where(DEFINITION.DIGEST.`in`(covers)).fetch().associate { it[DEFINITION.DIGEST]!! to it[DEFINITION.PAYLOAD]!! }
+        return rows.map { row -> summary(row, entries[row.id].orEmpty(), payloads::getValue) }
+    }
+
+    private fun summary(row: SavedDeckRecord, entries: List<SavedDeckEntry>, payloadOf: (String) -> String): DeckSummary {
+        val cover = coverDigest(row, entries)?.let { digest ->
+            val payload = payloadOf(digest)
             // A cover card whose stored definition can't be read leaves the deck without a cover (SYS-052).
             StoredData.orSkip("card definition", digest) {
                 val definition = json.decodeFromString<CardDefinition>(payload)
@@ -230,12 +249,12 @@ class DeckService(private val runtime: ServiceRuntime) {
             if (drafts) {
                 val rows = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ACCOUNT_ID.eq(owner)).and(SAVED_DECK.DRAFT_POD_ID.isNotNull)
                     .orderBy(SAVED_DECK.CREATED_AT.desc(), SAVED_DECK.ID.desc()).limit(100).forShare().fetch()
-                return@transaction Result(200, json.encodeToString(DeckList(rows.map { summary(sql, it) })))
+                return@transaction Result(200, json.encodeToString(DeckList(summaries(sql, rows))))
             }
             val rows = sql.selectFrom(SAVED_DECK).where(SAVED_DECK.ACCOUNT_ID.eq(owner)).and(SAVED_DECK.DRAFT_POD_ID.isNull)
                 .and(if (after == null) DSL.trueCondition() else SAVED_DECK.ID.gt(UUID.fromString(after)))
                 .orderBy(SAVED_DECK.ID).limit(101).forShare().fetch()
-            val decks = rows.take(100).map { summary(sql, it) }
+            val decks = summaries(sql, rows.take(100))
             Result(200, json.encodeToString(DeckList(decks, if (rows.size > 100) decks.last().id else null)))
         }
     }

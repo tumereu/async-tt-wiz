@@ -34,7 +34,7 @@ class GameHttp(private val runtime: ServiceRuntime, private val hub: GameHub) {
         }
         var boundary = UnavailabilityBoundary.GAME_HTTP_READY
         try {
-            if (!runtime.ready()) {
+            if (!runtime.admitting()) {
                 runtime.recordUnavailability(boundary, null)
                 error(503, "unavailable"); return true
             }

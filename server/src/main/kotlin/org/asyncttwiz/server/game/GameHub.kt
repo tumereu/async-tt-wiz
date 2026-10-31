@@ -45,7 +45,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         tasks.add(workers.scheduleWithFixedDelay({ games.evictExpiredBaselines() }, 1, 1, TimeUnit.SECONDS))
     }
     private fun guarded(boundary: UnavailabilityBoundary, action: () -> Unit) {
-        try { if (runtime.ready()) action() }
+        try { if (runtime.admitting()) action() }
         catch (failure: OwnershipFailure) {
             // Ownership recovery still stops all workers until validation succeeds.
             runtime.recordUnavailability(boundary, failure)
@@ -72,7 +72,6 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         private val connectionId = UUID.randomUUID()
         private lateinit var session: Session
         private var hello: GameHello? = null
-        @Volatile private var minor = 0
         private val subscriptions = ConcurrentHashMap.newKeySet<String>()
         private val streams = ConcurrentHashMap.newKeySet<String>()
         private val outgoing = ArrayDeque<String>()
@@ -89,7 +88,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
             session.addMessageHandler(String::class.java, MessageHandler.Whole<String> { receive(it) })
         }
         private fun principal(): AccountService.Principal {
-            if (!runtime.ready()) throw GameProtocolFailure("storageUnavailable", true)
+            if (!runtime.admitting()) throw GameProtocolFailure("storageUnavailable", true)
             return accounts.authenticate(token) ?: throw GameProtocolFailure("unauthorized")
         }
         private fun receive(text: String) {
@@ -99,7 +98,8 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
             }
             if (message is GameHello) {
                 if (hello != null) { send(GameAdmissionError("invalidInput", false)); return }
-                if (message.protocolMajor != 1 || message.minMinor > 0 || message.maxMinor < 0 ||
+                // SYS-033: only the current protocol is served; an older app is told to update.
+                if (message.protocolMajor != 1 || message.maxMinor < GAME_PROTOCOL_MINOR ||
                     1 !in message.engineVersions || 1 !in message.readFormats) {
                     send(GameUpgradeRequired()); return
                 }
@@ -109,8 +109,8 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 if (message.gameplayRulesVersion < CURRENT_GAMEPLAY_RULES_VERSION) {
                     send(GameAdmissionError("gameplayRulesUpgradeRequired", false)); return
                 }
-                hello = message; minor = minOf(message.maxMinor, GAME_PROTOCOL_MINOR)
-                send(GameWelcome(minor = minor, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); return
+                hello = message
+                send(GameWelcome(minor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)); return
             }
             val negotiated = hello ?: run { send(GameAdmissionError("upgradeRequired", false)); return }
             if (message is GamePing) {
@@ -163,7 +163,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
                                     if (failure.code != "accessDenied") throw failure
                                 }
                             }
-                            send(games.subscriptionHead(principal, gameId, presence = minor >= 1))
+                            send(games.subscriptionHead(principal, gameId, presence = true))
                         } catch (failure: Exception) { subscriptions.remove(gameId); throw failure }
                     }
                     else -> Unit
@@ -195,12 +195,12 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         fun heartbeat() {
             if (System.nanoTime() - lastTraffic > TimeUnit.SECONDS.toNanos(90)) { stop(); return }
             for (gameId in subscriptions) dispatcher.submit(gameId) {
-                send(games.subscriptionHead(principal(), gameId, presence = minor >= 1))
+                send(games.subscriptionHead(principal(), gameId, presence = true))
             }.whenComplete { _, failure -> if (failure != null) stop() }
             if (subscriptions.isEmpty()) send(GamePong("heartbeat"))
         }
         fun presence(change: org.asyncttwiz.server.activity.PresenceChange) {
-            if (minor >= 1 && change.accountId != accountId && change.gameId in subscriptions)
+            if (change.accountId != accountId && change.gameId in subscriptions)
                 send(GamePresenceUpdate(change.gameId, change.presence))
         }
         private fun send(message: GameServerMessage) = sendText(GameWire.encode(message))

@@ -106,7 +106,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 
 ### Hidden information
 
-- **ZON-073** Library cards are hidden from everyone, hand cards are seen only by their holder, and face-up graveyard, exile, battlefield and Stack cards are public; face-down cards show backs everywhere. (r30)
+- **ZON-073** Library cards are hidden from everyone, hand cards are seen only by their holder, and face-up graveyard, exile, battlefield cards and Stack entries are public; face-down cards show backs everywhere. (r35)
 - **ZON-074** A hand card put on the Stack is shown to both players while it is there. (r2)
 - **ZON-075** Ordinary inspects never show a face-down card's hidden front to the opponent; only the deliberate, logged "Inspect other side" does. The holder sees their own face-down card dimmed with "Face down". (r21)
 - **ZON-076** Hidden cards show no values (P/T, notes, counters) in menus, but they can still be edited blind. (r30)

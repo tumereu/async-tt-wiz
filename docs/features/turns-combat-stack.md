@@ -13,7 +13,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **TRN-005** The top bar's first line reads "Your turn · N" or "<name>'s turn · N" in the turn player's colour; only the name shortens on a narrow screen. (r11)
 - **TRN-006** Under it, the move pill: a solid green "Your move" when you hold the move, otherwise an outlined "Waiting · <name>". Tapping the pill passes the move to the other player; anyone can pass, and it always flips to the other player. It does nothing in timeline mode or while disconnected. (r11)
-- **TRN-007** The step button in the top bar is a square in the current phase's colour, showing the step's icon and short name (no border colour, no turn number). It flashes on a step change and opens the phase dialog. (r13)
+- **TRN-007** The step button in the top bar is a square in the current phase's colour, showing the step's icon and its short name, the same names as in the phase dialog (TRN-008) (no border colour, no turn number). It flashes on a step change and opens the phase dialog. (r35)
 - **TRN-008** The phase dialog is a real dialog, not a floating popup. Its title is the step with its phase (e.g. "Combat · Declare attackers"), then the turn player ("Your turn" / "<name>'s turn"); phase labels sit above each row of step squares, and the current step is outlined in the turn player's colour. Step squares use short names that always fit on one line on a phone: Untap, Upkeep, Draw · Main 1 · Begin, Attackers, Blockers, Damage, End · Main 2 · End, Cleanup. (r35)
 - **TRN-009** The phase dialog has Next step and End turn buttons. Choosing a later step records the steps passed on the way; choosing an earlier step is one single correction event. (r33)
 - **TRN-010** The top bar's Table actions button opens the Table actions dialog: Create combat area or Close combat area (only the one that applies), Create token, Roll die…, Flip coin, Timeline, and Suggest game end (or Accept result while the opponent's suggestion is waiting). (r15)
@@ -29,7 +29,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **TRN-015** The bottom bar shows quick actions only on your turn, or on the opponent's turn while you hold the move (that step's actions). Otherwise it shows a faded "Opponent's turn". (r13)
 - **TRN-016** Quick actions are equal-width buttons in the popup style (icon plus small black label, 48dp tall) filling the width left of the step arrow, with press feedback. A greyed quick action stays in place. (r14)
-- **TRN-017** The step arrow sits in the bottom-right corner, arrow-shaped, about 72dp wide, with the next step's icon above its short name ("End turn" when the next step passes the turn). Tap = Next step; hold = End turn, with a small haptic tick. (r16)
+- **TRN-017** The step arrow sits in the bottom-right corner, arrow-shaped, about 72dp wide, with the next step's icon above its short name, the same names as in the phase dialog (TRN-008) ("End turn" when the next step passes the turn). Tap = Next step; hold = End turn, with a small haptic tick. (r35)
 - **TRN-018** Step arrow style: your turn and your move = filled with your colour; opponent's turn and your move = white with an opponent-coloured border; not your move = grey border. (r13)
 - **TRN-019** Untap step: "Untap all", "Untap + next" and "Untap, draw → main" (untap, draw in the Draw step, then Main 1). Upkeep: "Draw + main". Draw: "Draw one" and "Draw one + next". (r33)
 - **TRN-020** Main 1: "Select attackers" (moves to Declare attackers and turns on multi-select) and "Skip combat" (moves to End step). (r16)
@@ -87,7 +87,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **CMB-001** Combat uses a temporary combat area between the two battlefields. It is created from Table actions, or by itself when the first attacker is declared. It stays open through step changes and closes only on purpose: Close combat area, or a quick action that closes it. (r16)
 - **CMB-002** Attackers and blockers are combat copies of real cards: the real card stays where it is, and anything done to a copy's card applies to the real card. A card has at most one copy per combat area. (r1)
-- **CMB-003** Combat copies are always upright and can't be tapped. Tapping one opens its own one-page Combat menu, not the normal card menu: Inspect, Note, Ping / Unping, Attack →, Remove from combat, Graveyard, Exile, Hand, Damage, EOT P/T, EOT note, EOT keywords, Deal to target, Deal to target or creatures, Link, Links. Damage and the EOT marks set the real card's values; Graveyard, Exile and Hand move the real card (CMB-004). It has no tap, counter, flip or other battlefield controls (use the real card for those). Double-tap does nothing; hold inspects. (r35)
+- **CMB-003** Combat copies are always upright and can't be tapped. Tapping one opens its own one-page Combat menu, not the normal card menu: Inspect, Note, Ping / Unping, Attack →, Remove from combat, Graveyard, Exile, Hand, P/T, Damage, EOT P/T, EOT note, EOT keywords, Deal to target, Deal to target or creatures, Link, Links. P/T, Damage and the EOT marks set the real card's values; Graveyard, Exile and Hand move the real card (CMB-004). It has no tap, counter, flip or other battlefield controls (use the real card for those). Double-tap does nothing; hold inspects. (r35)
 - **CMB-004** Remove from combat removes only the copy (the real card is not untapped). Graveyard, Exile and Hand move the real card to its owner's zone (Hand is greyed for a token's copy). (r28)
 - **CMB-005** Combat copies can have their own notes and pings, separate from the real card. (r13)
 - **CMB-006** When the real card leaves the battlefield, all its combat copies disappear; surviving blockers of a removed attacker stay in place. Closing the area removes all copies but leaves real cards and their state unchanged. (r1)
@@ -124,7 +124,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **STK-001** Every way of putting a card on the Stack (from battlefield, hand, graveyard, exile or library) adds a Stack entry pointing at the real card; the real card stays where it is. Several entries may come from the same card. (r17)
 - **STK-002** A hand card's entry is shown face up to both players while it is on the Stack. (r2)
-- **STK-003** Stack cards are always upright and can't be tapped. (r1)
+- **STK-003** Stack entries are always upright and can't be tapped. A real card is never in the Stack itself; only entries pointing at it are (STK-001). (r35)
 - **STK-004** A hand card double-tapped onto the Stack (ZON-004) that is a non-land permanent on all its faces resolves onto the main battlefield row by itself; play and resolve are one Undo. (r15)
 - **STK-005** "Face down" in the hand menu puts the card on the Stack face down, and it resolves straight onto the battlefield, still face down (2/2). (r21)
 - **STK-006** Adding an entry shows a ghost card flying from the card to the Stack; removing one flies back. An entry leaving to the graveyard, battlefield or exile flies to that destination. Undo reverses the flight. (r14)
@@ -133,7 +133,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **STK-007** Portrait: the Stack is a fixed-size HUD pinned at the right edge, vertically mid-screen. Landscape: it sits centred in the side area. (r17)
 - **STK-008** The Stack area has a ~3dp very dark purple border and a soft shadow (floating look), a fixed 12dp inset, and its count on the top-left corner of the border. Only the top entry is shown, at single-card size. (r14)
-- **STK-009** Notes are allowed on Stack cards, and Stack entries can have their own notes and pings, separate from the real card, set from Manage Stack (STK-019). (r35)
+- **STK-009** Stack entries can have their own notes and pings, separate from the real card, set from Manage Stack (STK-019). (r35)
 
 ### Stack bubbles
 
@@ -147,7 +147,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 ### Text marks
 
 - **STK-016** The bubble toward the centre is a "Mark text" handle: dragging up or down cycles through the card's text options, showing the selected text live; releasing sets one shared mark. Options are the rules-text paragraphs; for split, adventure, double-faced and similar cards the part titles come first. Nothing checks which text is legal. (r1)
-- **STK-017** A Stack card shows all its marks as coloured numbered dots in its corner (8 dark colours), also listed on inspect. Marks clear when the card leaves the Stack and never show on the original card. Hidden cards offer no text options. (r7)
+- **STK-017** A Stack entry shows all its marks as coloured numbered dots in its corner (8 dark colours), also listed on inspect. Marks clear when the entry leaves the Stack and never show on the original card. Hidden cards offer no text options. (r35)
 
 ### Manage Stack
 

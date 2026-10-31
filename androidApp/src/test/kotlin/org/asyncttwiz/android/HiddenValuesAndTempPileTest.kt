@@ -77,8 +77,8 @@ class HiddenValuesAndTempPileTest {
         assertTrue(opponentHand.counters.isEmpty())
     }
 
-    // TBL-096, ZON-076
-    @Test fun faceDownStackCardMenuEditsValuesBlind() {
+    // TBL-094, TBL-096, ZON-076
+    @Test fun faceDownStackCardMenuEditsNoteBlindButOffersNoMarks() {
         val initial = play()
         val stack = initial.board.containers.single { it.zone == PlayZone.STACK }
         val id = "00000000-0000-4000-8000-000000000555"
@@ -98,10 +98,13 @@ class HiddenValuesAndTempPileTest {
         compose.onNodeWithContentDescription("Inspect").assertIsEnabled()
         // Every action stays available (rules v30 policy); the values themselves stay hidden.
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
-        compose.ringPage(3) // Damage is on More (round 34).
-        compose.onNodeWithContentDescription("Set damage").assertIsEnabled()
-        compose.onNodeWithContentDescription("Increase damage").assertIsEnabled()
+        compose.ringPage(3) // Damage is on More (round 34); damage and the EOT marks moved to combat copies (r35).
+        compose.onNodeWithContentDescription("Set damage").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Increase damage").assertIsNotEnabled()
         compose.ringPage(1)
+        val scope = assertNotNull(toolkit.manual.scope)
+        for (kind in listOf(ManualValueKind.DAMAGE, ManualValueKind.EOT_CORNER, ManualValueKind.EOT_NOTE))
+            assertEquals(emptyList(), scope.actions(play, ManualValue(kind), "1", "a"), "$kind")
         // The note editor starts empty: a blind edit never shows the stored note.
         toolkit.manual.edit(ManualValue(ManualValueKind.NOTE), play, "a")
         assertEquals("", assertNotNull(toolkit.manual.editor).text)

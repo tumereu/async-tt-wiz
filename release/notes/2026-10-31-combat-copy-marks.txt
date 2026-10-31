@@ -1,0 +1,1 @@
+mod: Damage and until-end-of-turn marks are now set from a card's combat copy menu instead of on cards on the Stack.

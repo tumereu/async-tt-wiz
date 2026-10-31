@@ -38,10 +38,13 @@ class CardMenuLayoutTest {
         assertEquals(ids(CardMenuLayout.CARD).drop(1), ids(CardMenuLayout.CARD, token = true, attacker = true).drop(1))
     }
 
-    // TBL-071, TBL-089, TBL-091, ZON-007
+    // CMB-003, TBL-064, TBL-071, TBL-089, TBL-091, ZON-007
     @Test fun singlePageLayoutsHaveExactCells() {
-        assertEquals(listOf(listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat", "Graveyard", "Exile", "Hand",
-            "Deal to target", "Deal to target or creatures", "Link", "Links")), ids(CardMenuLayout.COMBAT))
+        val combat = listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat", "Graveyard", "Exile", "Hand",
+            "damage", "eotCorner", "eotNote", "eotKeywords", "Deal to target", "Deal to target or creatures", "Link", "Links")
+        assertEquals(listOf(combat), ids(CardMenuLayout.COMBAT))
+        // Four rows of 5: Damage closes row 2, EOT P/T opens row 3.
+        assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 13, 14, 15, 16, 17), CardRingPages.layout(combat).map { it.cell })
         assertEquals(listOf(listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top",
             "Library bottom", "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4",
             "Discard random", "Reveal random", "Exile random", "Random to library bottom")), ids(CardMenuLayout.HAND))
@@ -169,8 +172,11 @@ class CardMenuLayoutTest {
         toolkit.openCard(TableScope(f.id("attacker1"), listOf(f.id("attacker1"))))
         assertEquals("occurrence", toolkit.panel)
         val controls = projectionMenuTools(toolkit, play, assertNotNull(toolkit.capture), emptyMap(), true, null).associateBy { it.name }
+        val marks = leftPlayMarkEntries().associateBy { it.id }
         val combat = CardRingPages.pages(CardMenuLayout.COMBAT).single().actions - setOf("inspect", "note")
-        assertEquals(emptyList(), combat.filter { it !in controls })
+        assertEquals(emptyList(), combat.filter { it !in controls && it !in marks })
+        // CMB-003: the real card is gone, so its damage and EOT marks are greyed out.
+        assertTrue(marks.values.none { it.control.enabled || it.compound?.minus?.enabled == true || it.compound?.plus?.enabled == true })
         assertFalse(controls.getValue("Graveyard").enabled)
         assertFalse(controls.getValue("Exile").enabled)
         assertFalse(controls.getValue("Hand").enabled)

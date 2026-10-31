@@ -127,8 +127,8 @@ class CardRingInteractionTest {
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
         compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
         compose.onNodeWithContentDescription("Attack →").assertIsEnabled()
-        // No card-modifying controls on a projection: those live on the real card.
-        for (name in listOf("Set corner", "Declare without tapping", "Set damage", "Clone", "Stack"))
+        // No battlefield controls on a projection: those live on the real card (damage and EOT marks are the exception, CMB-003).
+        for (name in listOf("Set corner", "Declare without tapping", "Set blue counter", "Clone", "Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()
         compose.ringClick("Edit card note")
         compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
@@ -141,6 +141,32 @@ class CardRingInteractionTest {
         compose.runOnIdle {
             assertEquals(PingTarget(PingTargetKind.OCCURRENCE, id), assertIs<PlayAction.Ping>(sent.last()).target)
         }
+    }
+
+    // CMB-003, TBL-094
+    @Test fun combatCopyMarksChangeEverySelectedRealCard() {
+        val sentinel = f.source(f.a, "1/3").id
+        val river = f.source(f.a, "1/2").id
+        val play = f.combat()
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> sent += action; true },
+            playBatch = { actions, _ -> batches += actions.toList(); sent += actions; true })
+        toolkit.openCard(TableScope(f.id("attacker1"), listOf(f.id("attacker1"), f.id("attacker2"))))
+        compose.setContent { MaterialTheme {
+            TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, toolkit = toolkit, onIntent = toolkit::handle)
+        } }
+        compose.waitForIdle()
+        for (name in listOf("Set damage", "Set EOT P/T", "Edit EOT note", "Edit EOT keywords")) compose.onNodeWithContentDescription(name).assertIsEnabled()
+        compose.ringClick("Increase damage")
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustDamage(sentinel, "1"), PlayAction.AdjustDamage(river, "1")), batches.last()) }
+        compose.ringClick("Increase EOT P/T")
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.AdjustEotCorner(sentinel, CornerPart.BOTH, 1),
+            PlayAction.AdjustEotCorner(river, CornerPart.BOTH, 1)), batches.last()) }
+        compose.ringClick("Edit EOT note")
+        compose.onNode(hasSetTextAction()).performTextReplacement("+2/+0")
+        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetEotNote(sentinel, "+2/+0"), PlayAction.SetEotNote(river, "+2/+0")), batches.last()) }
+        // The copy's own note stays separate from the real card's marks (CMB-005).
+        assertTrue(sent.none { it is PlayAction.SetProjectionNote || it is PlayAction.SetNote })
     }
 
     private fun zoneEnablement(zone: PlayZone) {
@@ -162,9 +188,17 @@ class CardRingInteractionTest {
             enabled(name, zone == PlayZone.BATTLEFIELD)
         enabled("Stack", zone != PlayZone.STACK)
         compose.onNodeWithContentDescription("Declare + tap").assertDoesNotExist()
+        // TBL-094: damage and the EOT marks are battlefield-only; a Stack card no longer offers them.
+        enabled("Set EOT P/T", zone == PlayZone.BATTLEFIELD)
+        enabled("Increase EOT P/T", zone == PlayZone.BATTLEFIELD)
         compose.ringPage(2)
         enabled("Set blue counter", zone == PlayZone.BATTLEFIELD)
         enabled("Increase blue counter", zone == PlayZone.BATTLEFIELD)
+        enabled("Edit EOT note", zone == PlayZone.BATTLEFIELD)
+        compose.ringPage(3)
+        enabled("Set damage", zone == PlayZone.BATTLEFIELD)
+        enabled("Increase damage", zone == PlayZone.BATTLEFIELD)
+        enabled("Edit EOT keywords", zone == PlayZone.BATTLEFIELD)
     }
 
     // TBL-084

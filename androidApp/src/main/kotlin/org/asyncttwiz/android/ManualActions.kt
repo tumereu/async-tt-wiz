@@ -120,7 +120,7 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
         return targetIds.mapNotNull { id ->
             if (field.kind in listOf(ManualValueKind.DAMAGE, ManualValueKind.EOT_CORNER, ManualValueKind.EOT_NOTE) &&
                 state.board.cards.singleOrNull { it.id == id }?.let { card ->
-                    state.board.containers.any { it.id == card.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) }
+                    state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
                 } != true) return@mapNotNull null
             if (player) {
                 if (state.board.players.none { it.accountId == id }) null
@@ -141,10 +141,12 @@ data class ManualScope(val gameId: String, val playId: String, val contextId: St
         }
     }
 
-    /** Keyword toggles edit Battlefield/Stack cards only, like the EOT marks. */
-    fun keywordCards(state: PlayState): List<PlayCard> =
-        if (!usable(state) || player) emptyList() else targetIds.mapNotNull { id -> state.board.cards.singleOrNull { it.id == id } }
-            .filter { card -> state.board.containers.any { it.id == card.containerId && it.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK) } }
+    /** Keyword toggles edit Battlefield/Stack cards like notes; EOT keywords edit Battlefield cards only, like the EOT marks. */
+    fun keywordCards(state: PlayState, eot: Boolean = false): List<PlayCard> {
+        val zones = if (eot) setOf(PlayZone.BATTLEFIELD) else setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)
+        return if (!usable(state) || player) emptyList() else targetIds.mapNotNull { id -> state.board.cards.singleOrNull { it.id == id } }
+            .filter { card -> state.board.containers.any { it.id == card.containerId && it.zone in zones } }
+    }
 
     /** Each captured source emits one ordinary request; inapplicable numeric targets are skipped. */
     fun cardActions(state: PlayState, action: (PlayCard) -> PlayAction?): List<PlayAction> =

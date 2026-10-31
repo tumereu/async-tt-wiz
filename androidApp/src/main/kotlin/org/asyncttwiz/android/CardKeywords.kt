@@ -54,7 +54,7 @@ internal object CardKeywords {
 @Composable
 internal fun KeywordToggles(state: PlayState, scope: ManualScope, eot: Boolean, enabled: Boolean,
     dismiss: () -> Unit, submitAll: (List<PlayAction>) -> Unit) {
-    val cards = scope.keywordCards(state)
+    val cards = scope.keywordCards(state, eot)
     val on = CardKeywords.state(cards.map { CardKeywords.note(it, eot) })
     InlinePopupPanel(dismiss, if (eot) "EOT keywords" else "Keywords", width = (4 * 86 + 3 * 2).dp,
         key = "keywords/${scope.contextId}/$eot") {
@@ -65,7 +65,7 @@ internal fun KeywordToggles(state: PlayState, scope: ManualScope, eot: Boolean, 
                 for (keyword in row) {
                     val selected = on?.contains(keyword) == true
                     RingPress(MenuControl(keyword, enabled && on != null, selected = selected) {
-                        submitAll(CardKeywords.toggle(scope.keywordCards(state), keyword, eot))
+                        submitAll(CardKeywords.toggle(scope.keywordCards(state, eot), keyword, eot))
                     }, Modifier.size(86.dp, 44.dp), if (selected) tint else color,
                         fill = if (selected) tint.copy(alpha = .22f) else Color.White) {
                         // One long word (Indestructible) must shrink rather than break mid-word.

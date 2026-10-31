@@ -111,4 +111,62 @@ class LimitedEngineTest {
         assertTrue(view.board.all { it.pickedBy != null })
         assertEquals(state.pools.getValue(y).toSet(), view.board.filter { it.pickedBy == y }.map { it.copy.id }.toSet())
     }
+
+    /** Plays a Rochester draft to its end, each move the first free card of the mover's first pack; returns pickers per pack. */
+    private fun playRochester(start: LimitedDraftState, check: (LimitedDraftState) -> Unit = {}): Pair<LimitedDraftState, Map<String, List<String>>> {
+        var state = start
+        val pickers = mutableMapOf<String, MutableList<String>>()
+        var guard = 0
+        while (!state.finished) {
+            check(state)
+            val (player, queue) = state.queues.entries.first { it.value.isNotEmpty() }
+            val pack = state.packs.single { it.id == queue.first() }
+            val card = pack.cards.first { it !in pack.picked }
+            state = ok(move(state, player, LimitedAction.TAKE_CARD, card, pack.id, turn = pack.picked.size))
+            pickers.getOrPut(pack.id) { mutableListOf() } += player
+            assertTrue(++guard < 1000)
+        }
+        return state to pickers
+    }
+
+    // DRF-145: packs face up, each picked in snake order from its rotating opener; the next round opens when all are empty.
+    @Test fun rochesterPicksEachOpenPackInSnakeOrderAndOpensRoundsTogether() {
+        val three = players.take(3)
+        val settings = DraftSettings.rochester().copy(packsPerPlayer = 2, cardsPerPack = 6)
+        val start = LimitedEngine.startFromCube(three, cube(40), settings, seed)
+        val seating = start.seating
+        assertEquals(6, start.packs.size)
+        // One pack per player is open: each member opens one and picks first in it.
+        assertTrue(seating.all { start.queues.getValue(it).size == 1 })
+        assertTrue(seating.all { LimitedEngine.consecutivePicks(start, it) == 1 })
+        val first = start.packs[0]
+        assertEquals(seating[0], first.opener)
+        assertEquals(LimitedRejection.NOT_YOUR_TURN, move(start, seating[1], LimitedAction.TAKE_CARD, first.cards[0], first.id, turn = 0).reason)
+        assertEquals(LimitedRejection.STALE_TURN, move(start, seating[0], LimitedAction.TAKE_CARD, first.cards[0], first.id, turn = 1).reason)
+        assertEquals(LimitedRejection.UNKNOWN_CARD, move(start, seating[0], LimitedAction.TAKE_CARD, start.packs[1].cards[0], first.id, turn = 0).reason)
+        assertEquals(LimitedRejection.NOT_YOUR_TURN, move(start, seating[0], LimitedAction.TAKE_CARD, start.packs[3].cards[0], "pack-3", turn = 0).reason)
+        val (end, pickers) = playRochester(start) { state ->
+            // Only the open round is shown, the same to everyone; later packs stay hidden.
+            val view = LimitedEngine.view(state, seating[1])
+            assertTrue(view.packs.all { pack -> state.packs.single { it.id == pack.id }.round == state.round })
+            assertEquals(3, view.packs.size)
+            assertEquals(view.packs, LimitedEngine.view(state, seating[2]).packs)
+            val hidden = state.packs.filter { it.round > state.round }.flatMap { it.cards }.toSet()
+            assertTrue(view.packs.flatMap { it.slots }.none { it.copy.id in hidden })
+            if (state.round == 1) assertTrue(state.packs.filter { it.round == 0 }.all { it.empty })
+        }
+        for ((index, pack) in end.packs.withIndex()) {
+            val o = seating.indexOf(pack.opener)
+            assertEquals(seating[index % 3], pack.opener)
+            assertEquals(listOf(0, 1, 2, 2, 1, 0).map { seating[(o + it) % 3] }, pickers.getValue(pack.id))
+        }
+        assertTrue(end.pools.values.all { it.size == 12 })
+        assertEquals(LimitedRejection.DRAFT_FINISHED, move(end, seating[0], LimitedAction.TAKE_CARD, "x", "pack-0", turn = 0).reason)
+        // One pack at a time: its opener rotates around the table.
+        val single = LimitedEngine.startFromCube(three, cube(40), settings.copy(tablePacksOpen = 1), seed)
+        assertEquals(listOf(0, 1, 2, 3, 4, 5), single.packs.map { it.round })
+        assertEquals(1, single.queues.values.sumOf { it.size })
+        val (singleEnd, _) = playRochester(single)
+        assertEquals(seating + seating, singleEnd.packs.map { it.opener })
+    }
 }

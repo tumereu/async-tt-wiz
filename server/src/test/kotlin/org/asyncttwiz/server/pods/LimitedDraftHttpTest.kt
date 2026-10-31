@@ -244,4 +244,43 @@ class LimitedDraftHttpTest {
         val draft = json.decodeFromString<PodDetail>(f.start(booster))
         assertEquals("wrong_draft_mode", f.code(f.turn(f.a, booster, PodTurn(id(), draft.draftAttemptId!!, LimitedAction.TAKE_CARD, 0, "x"), 409)))
     }
+
+    // DRF-145, DRF-146, DRF-139: open packs are public, later rounds stay hidden, picks follow each pack's snake order.
+    @Test fun `Rochester HTTP open packs hidden rounds parallel picks and end`() = fixture { f ->
+        val pod = f.create(DraftSettings.rochester().copy(packsPerPlayer = 2, cardsPerPack = 6))
+        f.join(pod, f.b)
+        val started = json.decodeFromString<PodDetail>(f.start(pod))
+        val attempt = started.draftAttemptId!!
+        val seating = started.limited!!.seating.map(f::session)
+        for (who in seating) assertEquals(1, f.count(ActivityKind.POD_YOUR_PICK, pod, who))
+        val first = f.get(f.a, pod).limited!!
+        assertEquals(2, first.packs.size)
+        assertEquals(first.packs, f.get(f.b, pod).limited!!.packs)
+        // Only round one's cards are named to anyone.
+        val shown = first.packs.flatMap { pack -> pack.slots.map { it.copy.definition } }.toSet()
+        assertEquals(shown, f.get(f.a, pod).definitions.map { it.digest }.toSet())
+        val pack = first.packs.single { it.currentPlayer == seating[0].account.accountId }
+        val other = first.packs.single { it != pack }
+        assertEquals("not_your_turn", f.code(f.turn(seating[1], pod, PodTurn(id(), attempt, LimitedAction.TAKE_CARD, 0,
+            pack.slots[0].copy.id, pack.id), 409)))
+        assertEquals("unknown_card", f.code(f.turn(seating[0], pod, PodTurn(id(), attempt, LimitedAction.TAKE_CARD, 0,
+            other.slots[0].copy.id, pack.id), 409)))
+        var moves = 0
+        while (f.get(f.a, pod).phase == PodPhase.DRAFTING) {
+            for (who in seating) {
+                val view = f.get(who, pod).limited ?: continue
+                val mine = view.packs.firstOrNull { it.currentPlayer == who.account.accountId } ?: continue
+                f.turn(who, pod, PodTurn(id(), attempt, LimitedAction.TAKE_CARD, mine.picks,
+                    mine.slots.first { it.pickedBy == null }.copy.id, mine.id))
+                assertTrue(++moves <= 24)
+            }
+        }
+        assertEquals(24, moves)
+        for (who in seating) {
+            val detail = f.get(who, pod)
+            assertEquals(PodPhase.DRAFTED, detail.phase)
+            assertEquals(12, detail.limited!!.pool.size)
+            assertEquals(1, f.count(ActivityKind.POD_DRAFT_COMPLETE, pod, who))
+        }
+    }
 }

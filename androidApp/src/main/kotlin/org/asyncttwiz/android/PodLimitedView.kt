@@ -65,6 +65,7 @@ internal fun PodLimitedDraftView(detail: PodDetail, accountId: String, definitio
     val members = detail.members.map { it.account }
     when (view?.mode) {
         DraftMode.ROTISSERIE -> PodRotisserieView(view, members, definitions, busy, send, modifier, columns, inspection)
+        DraftMode.ROCHESTER -> PodRochesterView(view, members, definitions, busy, send, modifier, columns, inspection)
         else -> Box(modifier, contentAlignment = Alignment.Center) { PodPickWaiting(waitingText, onMainMenu) }
     }
 }
@@ -217,6 +218,67 @@ internal fun PodRotisserieView(view: LimitedView, members: List<AccountIdentity>
         if (mine) PodLimitedConfirm(selected?.let { id -> "Pick " + (view.board.firstOrNull { it.copy.id == id }
             ?.let { definitions[it.copy.definition]?.name } ?: "card") } ?: "Confirm", !busy && selected != null) {
             selected?.let { send(LimitedAction.TAKE_CARD, view.turn, it, null, null) }
+        }
+    }
+    PodLimitedPreviewHost(preview, definitions, inspection)
+}
+
+/** Rochester packs in view order: those where it is your pick first, then the rest by number. */
+internal fun podRochesterOrder(view: LimitedView): List<LimitedPackView> =
+    view.packs.sortedWith(compareBy<LimitedPackView> { it.currentPlayer != view.player }.thenBy { it.number })
+
+/** A Rochester pack's header: "Your pick · Pack 4", "Waiting for <name> · Pack 5" or "Finished · Pack 3". */
+internal fun podRochesterHeader(pack: LimitedPackView, view: LimitedView, members: List<AccountIdentity>): String =
+    "${podTurnText(pack.currentPlayer, view.player, members)} · Pack ${pack.number}"
+
+/**
+ * Rochester (DRF-146): every open pack face up in one scrolling view, packs apart under a divider and their header;
+ * taken cards stay in place, greyed, with the picker's avatar. Tap a card of a pack where it is your pick, then Confirm.
+ */
+@Composable
+internal fun PodRochesterView(view: LimitedView, members: List<AccountIdentity>, definitions: Map<String, CardDefinition>,
+    busy: Boolean, send: PodTurnSender, modifier: Modifier, columns: PodPickColumns, inspection: CardInspectionController) {
+    val packs = remember(view) { podRochesterOrder(view) }
+    var selected by remember(view.packs.map { it.picks }) { mutableStateOf<Pair<String, String>?>(null) }
+    val preview = remember { PodLimitedPreview() }
+    val colors = remember(view.seating, view.player) { podGridColors(view.seating, view.player) }
+    val count = columns.columns(Int.MAX_VALUE)
+    Column(modifier.padding(horizontal = 8.dp)) {
+        LazyVerticalGrid(GridCells.Fixed(count), Modifier.weight(1f).fillMaxWidth().testTag("pod-rochester-packs"),
+            contentPadding = PaddingValues(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            item(span = { GridItemSpan(maxLineSpan) }, key = "round") {
+                Text("Round ${view.round} of ${view.rounds}", Modifier.padding(vertical = 6.dp).testTag("pod-limited-header"),
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            packs.forEachIndexed { index, pack ->
+                item(span = { GridItemSpan(maxLineSpan) }, key = "header-${pack.id}") {
+                    Column {
+                        if (index > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                        Text(podRochesterHeader(pack, view, members), Modifier.testTag("pod-rochester-header-${pack.id}"),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = if (pack.currentPlayer == view.player) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+                items(pack.slots, key = { "${pack.id}:${it.copy.id}" }) { slot ->
+                    val copy = slot.copy
+                    val mine = pack.currentPlayer == view.player && slot.pickedBy == null
+                    PodLimitedCard(copy, definitions[copy.definition], slot.pickedBy, members, colors,
+                        selected == pack.id to copy.id, "pod-rochester-${copy.id}", preview) {
+                        if (mine && selected != pack.id to copy.id) selected = pack.id to copy.id
+                        else inspection.openPodCard(copy.definition, definitions[copy.definition])
+                    }
+                }
+            }
+        }
+        if (packs.any { it.currentPlayer == view.player }) {
+            val choice = selected
+            val name = choice?.let { (_, card) -> view.packs.flatMap { it.slots }.firstOrNull { it.copy.id == card }
+                ?.let { definitions[it.copy.definition]?.name } ?: "card" }
+            PodLimitedConfirm(name?.let { "Pick $it" } ?: "Confirm", !busy && choice != null) {
+                val pack = choice?.let { (id, _) -> view.packs.firstOrNull { it.id == id } } ?: return@PodLimitedConfirm
+                send(LimitedAction.TAKE_CARD, pack.picks, choice.second, pack.id, null)
+            }
         }
     }
     PodLimitedPreviewHost(preview, definitions, inspection)

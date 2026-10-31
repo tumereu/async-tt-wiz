@@ -42,4 +42,15 @@ class PodLimitedModelsTest {
         assertEquals("Your pick · 2 packs", podStatus(summary(DraftMode.ROCHESTER)))
         assertEquals("Your pick · 2 packs", podStatus(summary(DraftMode.BOOSTER)))
     }
+
+    // DRF-146: your packs first, then the rest by number, each with whose pick it is.
+    @Test fun rochesterPacksPutYourPicksFirst() {
+        val members = listOf(AccountIdentity("a", "Ann"), AccountIdentity("b", "Bob"))
+        fun pack(number: Int, current: String?) = LimitedPackView("p$number", number, "a", emptyList(), current, 0)
+        val view = LimitedView(DraftMode.ROCHESTER, "a", listOf("a", "b"), emptyList(), false,
+            packs = listOf(pack(1, "b"), pack(2, "a"), pack(3, null), pack(4, "a")))
+        assertEquals(listOf(2, 4, 1, 3), podRochesterOrder(view).map { it.number })
+        assertEquals(listOf("Waiting for Bob · Pack 1", "Your pick · Pack 2", "Finished · Pack 3"),
+            view.packs.take(3).map { podRochesterHeader(it, view, members) })
+    }
 }

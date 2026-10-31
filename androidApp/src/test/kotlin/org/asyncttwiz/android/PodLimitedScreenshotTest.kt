@@ -125,4 +125,26 @@ class PodLimitedScreenshotTest {
         shot("pod-rotisserie-selected", "Rotisserie draft after Alice taps Serra Angel: the card is framed and Confirm reads " +
             "\"Pick Serra Angel\".")
     }
+
+    // DRF-146
+    @Test fun rochesterOpenPacksWithHeadersAndPicks() {
+        fun pack(index: Int, opener: String, current: String?, picked: Map<Int, String>): LimitedPackView {
+            val cards = copies.drop(index * 6).take(6)
+            return LimitedPackView("pack-$index", index + 1, opener, cards.mapIndexed { i, copy -> LimitedSlot(copy, picked[i]) },
+                current, picked.size)
+        }
+        val packs = listOf(pack(0, "alice", "bob", mapOf(2 to "alice")), pack(1, "bob", "alice", mapOf(0 to "bob", 4 to "carol")),
+            pack(2, "carol", "alice", mapOf(5 to "carol", 1 to "alice", 3 to "bob")))
+        val view = LimitedView(DraftMode.ROCHESTER, "alice", listOf("alice", "bob", "carol"), emptyList(), false,
+            packs = packs, round = 1, rounds = 3)
+        show({ "pod-rochester-${it.id}" }, copies) {
+            PodRochesterView(view, members, definitions, false, { _, _, _, _, _ -> }, Modifier.fillMaxSize(), columns,
+                remember { CardInspectionController() })
+        }
+        compose.onNodeWithTag("pod-rochester-copy-7").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        compose.waitForIdle()
+        shot("pod-rochester", "Rochester draft for three, round 1: Alice's two packs to pick from come first, the pack " +
+            "waiting for Bob last; taken cards are greyed with their picker's avatar and Alice has framed one card.")
+    }
 }

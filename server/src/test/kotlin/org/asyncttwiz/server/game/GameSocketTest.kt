@@ -95,8 +95,8 @@ class GameSocketTest {
     private fun command(game: GameSummary, stream: GameStreamReady, action: GameAction) =
         GameCommand(id(), GameScope(game.id, game.preparationRound, game.invitationId), action, stream.streamId, stream.generation)
 
-    // SYS-033
-    @Test fun `gameplay rules negotiation rejects old and missing versions before opening streams`() {
+    // SYS-032, SYS-033
+    @Test fun `protocol and gameplay rules negotiation reject old and missing versions before opening streams`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val config = settings(db)
             SpringService(config).use { service ->
@@ -112,9 +112,24 @@ class GameSocketTest {
                         assertEquals("upgradeRequired", old.next<GameAdmissionError>().code)
                     }
                 }
+                // An app from before the current socket protocol only learns that it must update: no streams, no data.
+                for (minor in listOf(0, GAME_PROTOCOL_MINOR - 1)) {
+                    Socket(settings, a.token).use { old ->
+                        old.raw("""{"type":"hello","processId":"${id()}","installationId":"${id()}","protocolMajor":1,"minMinor":0,""" +
+                            """"maxMinor":$minor,"engineVersions":[1],"readFormats":[1],"gameplayRulesVersion":$CURRENT_GAMEPLAY_RULES_VERSION}""")
+                        old.next<GameUpgradeRequired>()
+                        old.send(OpenGameStream(game.id, id()))
+                        assertEquals("upgradeRequired", old.next<GameAdmissionError>().code)
+                        old.send(SubscribeGame(game.id))
+                        assertEquals("upgradeRequired", old.next<GameAdmissionError>().code)
+                        assertTrue(old.unmatched().none { it is GameWelcome || it is GameHead || it is GameStreamReady })
+                    }
+                }
                 Socket(settings, a.token).use { current ->
                     current.send(current.hello)
-                    assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, current.next<GameWelcome>().gameplayRulesVersion)
+                    val welcome = current.next<GameWelcome>()
+                    assertEquals(GAME_PROTOCOL_MINOR, welcome.minor)
+                    assertEquals(CURRENT_GAMEPLAY_RULES_VERSION, welcome.gameplayRulesVersion)
                     assertEquals(game.id, current.open(game).gameId)
                 }
                 Socket(settings, a.token).use { newer ->
@@ -129,33 +144,30 @@ class GameSocketTest {
         }
     }
 
-    @Test fun `presence flips reach the opponent's minor 1 socket only and heads carry presence`() {
+    @Test fun `presence flips reach the opponent's socket and heads carry presence`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings); val config = settings(db)
             SpringService(config).use { service ->
                 val settings = service.startBound(config); ready(settings)
                 val a = account(settings, "PresenceOwner"); val b = account(settings, "PresenceRecipient")
                 val (_, game) = create(settings, a, b)
-                val modern = GameHello(id(), id(), maxMinor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
-                Socket(settings, a.token, modern).use { owner -> Socket(settings, b.token).use { old ->
-                    owner.send(owner.hello); assertEquals(GAME_PROTOCOL_MINOR, owner.next<GameWelcome>().minor)
-                    old.send(old.hello); assertEquals(0, old.next<GameWelcome>().minor)
+                Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { opponent ->
+                    owner.negotiate(); opponent.negotiate()
                     owner.send(SubscribeGame(game.id))
                     assertEquals(OpponentPresence(PresenceState.OFFLINE), owner.next<GameHead>().opponentPresence)
-                    old.send(SubscribeGame(game.id)); assertNull(old.next<GameHead>().opponentPresence)
+                    opponent.send(SubscribeGame(game.id)); assertEquals(PresenceState.OFFLINE, opponent.next<GameHead>().opponentPresence?.state)
                     val presence = GamePresence(game.id, id())
-                    old.send(GamePing(id(), presence))
+                    opponent.send(GamePing(id(), presence))
                     assertEquals(GamePresenceUpdate(game.id, OpponentPresence(PresenceState.ONLINE, 0, 0)), owner.next<GamePresenceUpdate>())
                     owner.send(GamePing(id(), GamePresence(game.id, id())))
-                    old.send(GamePing(id(), presence.copy(left = true)))
+                    opponent.send(GamePing(id(), presence.copy(left = true)))
                     val left = owner.next<GamePresenceUpdate>().opponent
                     assertEquals(PresenceState.OFFLINE, left.state); assertNotNull(left.lastSeenSeconds)
                     // The HTTP heartbeat fallback flips too.
                     val http = request(settings, "PUT", "/activity/presence", b.token, ActivityWire.json.encodeToString(presence))
                     assertEquals(204, http.statusCode())
                     assertEquals(PresenceState.ONLINE, owner.next<GamePresenceUpdate>().opponent.state)
-                    val flush = id(); old.send(GamePing(flush)); old.message { it is GamePong && it.correlationId == flush }
-                    assertTrue(old.unmatched().none { it is GamePresenceUpdate || it is GameHead && it.opponentPresence != null })
+                    assertEquals(PresenceState.ONLINE, opponent.next<GamePresenceUpdate>().opponent.state)
                 } }
             }
         }

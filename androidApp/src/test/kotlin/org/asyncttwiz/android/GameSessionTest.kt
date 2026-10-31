@@ -101,10 +101,30 @@ class GameSessionTest {
             assertFalse(f.session.reconnecting(game.id))
         } finally { f.session.close() }
     }
-    // SYS-032
+    // SYS-033: the server answers an older app's Hello with GameUpgradeRequired, or welcomes it with a newer
+    // protocol; either way the app is blocked like a rules mismatch and shows the update screen (SYS-032).
+    @Test fun olderProtocolClientIsBlockedLikeOlderRules() {
+        for (response in listOf(GameUpgradeRequired(),
+            GameWelcome(minor = GAME_PROTOCOL_MINOR + 1, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))) {
+            val f = Fixture(); val game = game()
+            try {
+                f.session.watch(listOf(game)); f.wire.listener.opened(); f.drain()
+                assertEquals(GAME_PROTOCOL_MINOR, f.wire.frames.filterIsInstance<GameHello>().single().maxMinor)
+                f.message(response)
+                assertEquals("Update the app to continue this game", f.session.error)
+                f.now += 60_000; f.session.dismissError(); f.session.foreground()
+                assertEquals(1, f.wire.tokens.size)
+                assertFalse(f.session.submit(game, GameAction.AcceptInvitation))
+                assertTrue(f.wire.frames.none { it is OpenGameStream || it is GameCommand })
+                assertEquals("Update the app to continue this game", f.session.error)
+            } finally { f.session.close() }
+        }
+    }
+    // SYS-032, SYS-033
     @Test fun newerClientWaitsForServerUpdateBeforeOpeningStreamsAndRetriesOnlyHandshake() {
         for (response in listOf(GameWelcome(gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION - 1),
-            GameWelcome(), GameAdmissionError("invalidInput", false))) {
+            GameWelcome(), GameAdmissionError("invalidInput", false),
+            GameWelcome(minor = GAME_PROTOCOL_MINOR - 1, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION))) {
             val f = Fixture(); val game = game()
             try {
                 f.session.watch(listOf(game)); f.wire.listener.opened(); f.drain(); f.message(response)

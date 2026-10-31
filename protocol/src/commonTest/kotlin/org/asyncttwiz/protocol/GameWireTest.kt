@@ -14,13 +14,13 @@ class GameWireTest {
         assertEquals(1, (GameWire.decodeClient("""{"type":"hello","processId":"$id","installationId":"$id"}""") as GameHello).gameplayRulesVersion)
         assertEquals(1, (GameWire.json.decodeFromString<GameServerMessage>("""{"type":"welcome"}""") as GameWelcome).gameplayRulesVersion)
     }
-    @Test fun opponentPresenceIsMinorOneAndOmittedFromHeadsWithoutIt() {
+    @Test fun opponentPresenceIsOmittedFromHeadsWithoutIt() {
         val hello = GameHello(id, id, maxMinor = GAME_PROTOCOL_MINOR, gameplayRulesVersion = CURRENT_GAMEPLAY_RULES_VERSION)
         assertEquals(hello, GameWire.decodeClient(GameWire.json.encodeToString<GameClientMessage>(hello)))
         val summary = GameSummary(id, "Game", "2026-10-29T00:00:00Z", AccountIdentity(id, "A"), AccountIdentity(id, "B"), id, id,
             InvitationState.PENDING)
         val plain = GameHead(id, "0", summary)
-        assertFalse(GameWire.encode(plain).contains("opponentPresence"), "older clients never see the new field")
+        assertFalse(GameWire.encode(plain).contains("opponentPresence"), "heads without presence (HTTP) never carry the field")
         val head = plain.copy(opponentPresence = OpponentPresence(PresenceState.IDLE, idleSeconds = 130, lastSeenSeconds = 2))
         assertTrue(GameWire.encode(head).contains(""""opponentPresence":{"state":"IDLE","idleSeconds":130,"lastSeenSeconds":2}"""))
         assertEquals(head, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(head)))

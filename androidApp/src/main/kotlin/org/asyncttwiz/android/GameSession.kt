@@ -115,8 +115,6 @@ class GameSession(private val connection: GameConnection, private val credential
     @Volatile private var epoch = 0L
     private var connected = false
     private var welcome = false
-    /** The last welcome's protocol minor: [GameCommand.expectedSelection] is sent only to servers that understand it. */
-    private var serverMinor = 0
     private var compatibilityError: String? = null
     private var compatibilityRetryAt = Long.MAX_VALUE
     private var lastCredential: String? = null
@@ -327,7 +325,7 @@ class GameSession(private val connection: GameConnection, private val credential
         val stream = streams.getValue(game.id)
         // Ordinary play names the active line it was made on (including an own pending branch): one that races
         // with the opponent's deliberate branch is refused instead of landing in their new line.
-        val expectedSelection = replica.displayTree?.selectionKey?.takeIf { action.isPlay && continuation == null && serverMinor >= 2 }
+        val expectedSelection = replica.displayTree?.selectionKey?.takeIf { action.isPlay && continuation == null }
         val command = GameCommand(requestId, GameScope(game.id, playId = current.playId),
             action, stream.id, stream.generation ?: stream.lastGeneration!!, invocationId = invocationId, continuation = continuation,
             expectedSelection = expectedSelection)
@@ -464,13 +462,17 @@ class GameSession(private val connection: GameConnection, private val credential
     private fun receive(message: GameServerMessage) {
         when (message) {
             is GameWelcome -> {
-                require(message.protocolMajor == 1 && message.minor in 0..GAME_PROTOCOL_MINOR && message.engineVersion == 1 && message.readFormat == 1)
+                require(message.protocolMajor == 1 && message.engineVersion == 1 && message.readFormat == 1)
+                // SYS-033: app and server must speak the same protocol and rules; the older side waits for its update.
+                if (message.minor != GAME_PROTOCOL_MINOR) {
+                    incompatibleRules(clientOlder = message.minor > GAME_PROTOCOL_MINOR)
+                    return
+                }
                 if (message.gameplayRulesVersion != CURRENT_GAMEPLAY_RULES_VERSION) {
                     incompatibleRules(clientOlder = message.gameplayRulesVersion > CURRENT_GAMEPLAY_RULES_VERSION)
                     return
                 }
                 compatibilityError = null; compatibilityRetryAt = Long.MAX_VALUE
-                serverMinor = message.minor
                 reconnectTrace.stepAll("protocolWelcome")
                 welcome = true; error = null; resumePending = false; resumePing = null; openStreams()
             }
@@ -552,7 +554,7 @@ class GameSession(private val connection: GameConnection, private val credential
                 if (BuildConfig.DIAGNOSTICS) message.requestId?.let(DebugLatency::result)
                 if (message.code == "gameplayRulesUpgradeRequired" || message.code == "serverUpdatePending" ||
                     (!welcome && message.code == "invalidInput" && message.requestId == null)) {
-                    // Pre-handshake-field servers reject the new Hello as unknown input.
+                    // A server older than the app's Hello rejects it as unknown input: wait for the server update.
                     incompatibleRules(clientOlder = message.code == "gameplayRulesUpgradeRequired")
                 }
                 else if (message.code == "unauthorized") { val rejected = token; connectionUnavailable("admission:unauthorized"); rejected?.let(authenticationRequired) }

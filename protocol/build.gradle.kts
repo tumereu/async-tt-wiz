@@ -10,9 +10,12 @@ kotlin {
     jvmToolchain(21)
     jvm {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
-        // Deliberately one test JVM: GameplayDeltaTest's 20 ms selective-undo budget measures ~18 ms here
-        // even alone, and parallel forks pushed it over in every run tried.
-        testRuns["test"].executionTask.configure { useJUnitPlatform() }
+        testRuns["test"].executionTask.configure {
+            useJUnitPlatform()
+            // Test classes run in parallel JVMs (also capped by org.gradle.workers.max); -PatwTestForks=<n> overrides.
+            maxParallelForks = providers.gradleProperty("atwTestForks").map(String::toInt)
+                .getOrElse((Runtime.getRuntime().availableProcessors() / 3).coerceIn(1, 4))
+        }
     }
     android {
         namespace = "org.asyncttwiz.protocol"

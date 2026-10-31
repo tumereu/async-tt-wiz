@@ -66,26 +66,11 @@ internal fun preparationSwipeCommits(offset: Float, threshold: Float): Boolean =
 internal fun preparationSwipeProgress(offset: Float, threshold: Float): Float =
     if (threshold <= 0f) 0f else (kotlin.math.abs(offset) / threshold).coerceIn(0f, 1f)
 
-/** Type groups of the preparation view, in display order; a card joins the first one its front type line names. */
-internal enum class PreparationTypeGroup(val label: String, val type: String?) {
-    CREATURES("Creatures", "Creature"), PLANESWALKERS("Planeswalkers", "Planeswalker"), BATTLES("Battles", "Battle"),
-    INSTANTS("Instants", "Instant"), SORCERIES("Sorceries", "Sorcery"), ARTIFACTS("Artifacts", "Artifact"),
-    ENCHANTMENTS("Enchantments", "Enchantment"), LANDS("Lands", "Land"), OTHER("Other", null)
-}
-
-/** Card types only: subtypes after a dash and later faces never decide the group. */
-internal fun preparationTypeGroup(typeLine: String): PreparationTypeGroup {
-    val types = typeLine.substringBefore("//").substringBefore('—').substringBefore(" - ")
-        .split(' ', '\t').filter { it.isNotBlank() }.map { it.lowercase() }.toSet()
-    return PreparationTypeGroup.entries.firstOrNull { group -> group.type?.lowercase()?.let { it in types } == true }
-        ?: PreparationTypeGroup.OTHER
-}
-
 /** One tile: every copy of one card in one section. */
 internal data class PreparationTile(val digest: String, val definition: CardDefinition?, val quantity: Long) {
     val name get() = definition?.name ?: "Card"
 }
-internal data class PreparationGroup(val type: PreparationTypeGroup, val tiles: List<PreparationTile>) {
+internal data class PreparationGroup(val type: CardTypeGroup, val tiles: List<PreparationTile>) {
     val count get() = tiles.sumOf { it.quantity }
 }
 
@@ -103,8 +88,8 @@ private fun preparationGroups(cards: List<Pair<String, Long>>, definitions: Map<
     val tiles = cards.groupBy({ it.first }, { it.second })
         .map { (digest, quantities) -> PreparationTile(digest, definitions[digest], quantities.sum()) }
         .filter { it.quantity > 0 }
-    val byGroup = tiles.groupBy { preparationTypeGroup(it.definition?.faces?.firstOrNull()?.typeLine.orEmpty()) }
-    return PreparationTypeGroup.entries.mapNotNull { group ->
+    val byGroup = tiles.groupBy { cardTypeGroup(it.definition?.faces?.firstOrNull()?.typeLine.orEmpty()) }
+    return CardTypeGroup.entries.mapNotNull { group ->
         byGroup[group]?.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER, PreparationTile::name).thenBy { it.digest })
             ?.let { PreparationGroup(group, it) }
     }

@@ -123,8 +123,8 @@ class CardPanelLayoutTest {
         }
     }
 
-    // ZON-037, ZON-051
-    @Test fun graveyardTypesAndNamesAreAlphabeticCopiesGroupedAndHiddenCardsStayPrivate() {
+    // ZON-037, ZON-051, SYS-051
+    @Test fun panelTypesFollowTheSharedOrderNamesAlphabeticCopiesGroupedAndHiddenCardsStayPrivate() {
         val specs = listOf("Zulu" to "Creature", "Alpha" to "Land", "Beta" to "Creature", "Beta" to "Creature", "Rock" to "Artifact")
         val definitions = specs.mapIndexed { n, (name, type) -> SubmittedDefinition("d$n",
             CardDefinition(name, listOf(DefinitionFace(f.id(700 + n), name, typeLine = type)))) }
@@ -142,12 +142,12 @@ class CardPanelLayoutTest {
                     ContentsSelection.ALL, ids.size, false, ids)) else emptyList()))
             val panel = cardPanelGeometry(variant, f.actor, TableLayoutState(localPileId = container.takeIf { zone != PlayZone.LIBRARY }),
                 TableBounds(0f, 0f, 412f, 700f)).single()
-            assertEquals(listOf("Artifact (1)", "Creature (3)", "Land (1)"), panel.typeHeaders.map { it.title })
-            assertEquals(listOf("Rock", "Beta", "Zulu", "Alpha"), panel.rows.map { it.entry.name })
-            assertEquals(listOf(1, 2, 1, 1), panel.rows.map { it.copies })
+            assertEquals(listOf("Creature (3)", "Artifact (1)", "Land (1)"), panel.typeHeaders.map { it.title })
+            assertEquals(listOf("Beta", "Zulu", "Rock", "Alpha"), panel.rows.map { it.entry.name })
+            assertEquals(listOf(2, 1, 1, 1), panel.rows.map { it.copies })
             assertTrue(panel.typeHeaders.all { it.bounds.width == panel.bounds.width - 4 && it.bounds.height == 20f })
             assertEquals(panel.rows.first().bounds.x, panel.rows.last().bounds.x) // Singleton sections use the leftmost cell.
-            assertEquals(panel.rows.first().bounds.x, panel.rows[1].bounds.x)
+            assertEquals(panel.rows.first().bounds.x, panel.rows[2].bounds.x) // Artifact's single card.
             if (zone != PlayZone.LIBRARY) {
                 // Rules v27 arrival order (newest first) never leaks into the inspect panel's sorting.
                 for (order in listOf(ids.reversed(), ids.drop(2) + ids.take(2))) {

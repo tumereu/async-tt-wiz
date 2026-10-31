@@ -110,7 +110,6 @@ class TableStatesScreenshotTest {
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = { history.select(playback.position.cursorId) },
                                 undo = { true }, redo = { true },
                                 controlsConnected = true, reviewing = reviewing, continuationArmed = history.armed != null,
-                                continueHere = if (reviewing) ({ history.requestContinuation(playback.position.cursorId) }) else null,
                                  returnCurrent = if (review) history::current else null,
                                  cancelContinuation = history::cancelContinuation,
                                 reviewPanel = if (reviewing) ({ HistoryPlaybackPanel(playback, tree.currentNodeId, f.a, true, 60_000L,
@@ -140,12 +139,14 @@ class TableStatesScreenshotTest {
             "tokens-contents" -> compose.onNodeWithContentDescription("Stack, 2 entries").performClick()
             "tokens-menu" -> compose.runOnIdle { toolkit.openCard(TableScope(f.source(f.a, "1/3").id, listOf(f.source(f.a, "1/3").id))) }
             "tokens-inspector" -> compose.runOnIdle { toolkit.inspect(f.source(f.a, "1/3").id) }
-            "stack-menu-card", "stack-menu-effect" -> compose.runOnIdle {
-                val id = CombatStackRules.stack(current().board).cards[if (kind == "stack-menu-card") 1 else 0]
+            "stack-menu-card" -> compose.runOnIdle {
+                val id = CombatStackRules.stack(current().board).cards[1]
                 toolkit.openCard(TableScope(id, listOf(id)))
             }
             "continue" -> {
-                compose.onNodeWithContentDescription("Continue playing from here").performClick()
+                // HIS-036: holding Auto is the only way to branch.
+                compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
+                compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
                 compose.onNodeWithContentDescription("Interaction mode").assertExists()
                 compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
                 compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
@@ -180,7 +181,7 @@ class TableStatesScreenshotTest {
         if (kind.startsWith("history")) {
             compose.onNodeWithText("Timeline mode").assertIsDisplayed()
             compose.onNodeWithText(if (kind == "history-playing") "Auto: on" else "Auto: off").assertIsDisplayed()
-            compose.onNodeWithText("Tap: toggle · Hold: branch").assertDoesNotExist()
+            compose.onNodeWithText("Hold to branch").assertIsDisplayed() // HIS-013
         }
         if (kind == "tree-viewer") {
             compose.onNodeWithText("Make current").assertDoesNotExist()
@@ -362,11 +363,10 @@ class TableStatesScreenshotTest {
     }
     // STK-003
     @Test fun stackCardOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-card") }
-    @Test fun stackEffectOffersNoTapControlsInSelectMode() { assertNoStackTapControls("stack-menu-effect") }
     private fun assertNoStackTapControls(kind: String) {
         val sent = render(kind, false)
-        // A Stack card has the three battlefield pages; an effect marker has one page without a header.
-        if (kind == "stack-menu-card") compose.ringPage(3)
+        // A Stack card has the three battlefield pages.
+        compose.ringPage(3)
         compose.onNodeWithContentDescription("Tap selected scope").assertDoesNotExist()
         compose.onNodeWithContentDescription("Untap selected scope").assertDoesNotExist()
         assertTrue(sent.isEmpty())

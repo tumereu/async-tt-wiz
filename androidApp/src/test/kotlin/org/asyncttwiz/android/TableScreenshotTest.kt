@@ -58,7 +58,7 @@ class TableScreenshotTest {
                         connected = !paused, onIntent = toolkit::handle, toolkit = toolkit,
                         runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {}, chatUnread = 1,
                             undo = { true }, redo = { true }, reviewing = paused, controlsConnected = true,
-                            continueHere = if (paused) ({}) else null, returnCurrent = if (paused) ({}) else null,
+                            returnCurrent = if (paused) ({}) else null,
                             reviewPanel = if (paused) ({ HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 240L, {},
                                 overlay = true, landscape = landscape) }) else null))
                 }
@@ -68,7 +68,7 @@ class TableScreenshotTest {
         compose.onNodeWithText("View · 50").assertDoesNotExist()
         if (paused) {
             compose.onNodeWithContentDescription("Interaction mode").assertDoesNotExist()
-            compose.onNodeWithContentDescription("Continue playing from here").assertExists()
+            compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist() // HIS-036
         } else {
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
             for (label in listOf("Auto advance", "Previous", "Next", "Continue playing from here", "Return to current"))

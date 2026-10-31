@@ -438,8 +438,13 @@ class TableGestureCoordinator(
         scene.items.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE &&
             (it.stackBadge.contains(p) || it.visible.any { bounds -> bounds.contains(p) }) }?.let {
             if (scope?.cardIds?.any { id -> scene.items.any { card -> card.cardId == id && card.zone == PlayZone.STACK } } == true) return null
-            if (scope == null || scope.cardIds.any { id -> scene.sources[id]?.containerId.let { source ->
-                    scene.items.any { item -> item.id == source && item.zone == PlayZone.LIBRARY } } }) return null
+            if (scope == null) return null
+            // ZON-022: of library cards, only a library's own top card dragged alone goes onto the Stack (as the panels' Stack action).
+            val fromLibrary = scope.cardIds.filter { id -> scene.sources[id]?.containerId.let { source ->
+                scene.items.any { item -> item.id == source && item.zone == PlayZone.LIBRARY } } }
+            val libraryTop = scope.cardIds.singleOrNull()?.let { id -> scene.sources[id]?.takeIf { source -> source.libraryTop &&
+                scene.items.any { item -> item.id == source.containerId && item.zone == PlayZone.LIBRARY && !item.temp } } } != null
+            if (fromLibrary.isNotEmpty() && !libraryTop) return null
             return TableDestination.Container(it.id, PlayZone.STACK)
         }
         if (scene.worldInput(p)) scene.combatDestination(p, scope)?.let { return TableDestination.Combat(it) }

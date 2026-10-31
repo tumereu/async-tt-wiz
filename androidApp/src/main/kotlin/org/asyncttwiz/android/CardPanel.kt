@@ -83,7 +83,8 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
                 it.name to (it.cardId in display.revealedIds)
             }.values.toList() else entries.map { listOf(it) }
         val typed = localZone != null || display.search && display.author == viewer
-        val sections = if (typed) grouped.groupBy { it.first().category }.toSortedMap().values.toList() else listOf(grouped)
+        val sections = if (typed) grouped.groupBy { it.first().category }.entries
+            .sortedBy { contentsCategoryRank(it.key) }.map { it.value } else listOf(grouped)
         val columns = minOf(panelColumnCount(if (displays.size == 1) 3 else 2),
             ((availablePerPanel - 8f) / columnPitch).toInt().coerceAtLeast(1))
         val width = maxOf(64f, columns * columnPitch + 8f)

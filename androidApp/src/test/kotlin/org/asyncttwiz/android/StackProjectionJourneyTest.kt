@@ -307,11 +307,27 @@ class StackProjectionJourneyTest {
         }
     }
 
+    // ZON-022
+    @Test fun libraryTopDragOntoStackAddsAnEntryShownToBothLikeThePanelsStackAction() = Journey().use { j ->
+        val top = j.f.id(40)
+        val library = j.f.card(40).containerId
+        assertEquals(top, j.f.play.board.containers.single { it.id == library }.cards.first())
+        assertTrue(j.scene(j.f.other).items.none { it.cardId == top && !it.covered })
+        j.reversible { assertEquals(TableDestination.Container(j.f.container(PlayZone.STACK), PlayZone.STACK), j.drag(listOf(top))) }
+        val action = assertIs<PlayAction.Stack>((j.f.commands().first { it.action is GameAction.Play }.action as GameAction.Play).action)
+        assertEquals(top, assertIs<StackAction.AddEffect>(action.action).sourceId)
+        // The real card stays on top of its library and is shown to both players while on the Stack.
+        assertEquals(library, j.f.card(40).containerId)
+        val effect = j.f.play.board.stackEffects.single()
+        assertEquals(top, effect.sourceId)
+        assertTrue(effect.revealsLibrarySource)
+        assertTrue(CardVisibility.isVisibleFaceUp(j.f.play.board, j.f.card(40), j.f.other))
+    }
+
     // STK-002, ZON-022, ZON-074
-    @Test fun hiddenLibraryHasNoDragTargetAndOpponentHandRevealLifetime() = Journey().use { j ->
+    @Test fun libraryMenuHasNoStackTargetAndOpponentHandRevealLifetime() = Journey().use { j ->
         val library = j.scene().items.single { it.zone == PlayZone.LIBRARY && it.owner == j.f.actor && !it.temp }
         val before = j.f.commands().size
-        assertNull(j.drag(listOf(j.f.id(40))))
         val controller = j.ui.libraryController(library.id, j.f.container(PlayZone.HAND))!!
         assertEquals(LibrarySubmission(0, 1), controller.move(ContentsSelection.TOP, 1,
             MoveDestination(j.f.container(PlayZone.STACK), MoveInsertion.TOP)))

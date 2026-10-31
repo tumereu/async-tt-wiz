@@ -34,7 +34,7 @@ class TimelineNavigationRegressionTest {
     }
 
     // HIS-036, HIS-037
-    @Test fun leftForkButtonArmsSelectedPastWithoutMutatingAndKeepsStripMounted() {
+    @Test fun holdingAutoArmsSelectedPastWithoutMutatingAndKeepsStripMounted() {
         val f = BasicTableFixture()
         try {
             val root = review(f)
@@ -43,10 +43,10 @@ class TimelineNavigationRegressionTest {
             val event = hasContentDescription(description) and isSelected()
             val before = compose.onNode(event, useUnmergedTree = true).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             val sent = f.commands().size
-            val fork = compose.onNodeWithContentDescription("Continue playing from here")
-            val current = compose.onNodeWithContentDescription("Return to current")
-            assertTrue(fork.fetchSemanticsNode().boundsInRoot.left < current.fetchSemanticsNode().boundsInRoot.left)
-            fork.performClick()
+            // The top bar has no branch button; holding Auto is the only way to branch.
+            compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Return to current").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
             drain(f)
             compose.runOnIdle {
                 assertEquals(root, f.lobby.history.armed)

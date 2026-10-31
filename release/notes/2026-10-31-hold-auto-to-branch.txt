@@ -1,0 +1,1 @@
+mod: Holding the Auto button is now the only way to continue playing from an earlier point; a small "Hold to branch" line under it says so.

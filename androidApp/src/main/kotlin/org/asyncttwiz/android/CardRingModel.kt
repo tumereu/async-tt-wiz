@@ -7,7 +7,7 @@ internal data class CardRingPage(val name: String, val actions: List<String>)
 internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 
 /** One fixed layout per context. A layout applies fully: every cell is always shown (disabled when it does not apply). */
-internal enum class CardMenuLayout { CARD, COMBAT, STACK_EFFECT, HAND, PANEL }
+internal enum class CardMenuLayout { CARD, COMBAT, HAND, PANEL }
 
 internal object CardRingPages {
     const val columns = 5
@@ -33,8 +33,6 @@ internal object CardRingPages {
     /** Attacker/blocker copies in the combat area: combat-only, nothing that modifies the real card. */
     val combat = listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat",
         "Graveyard", "Exile", "Hand", "Deal to target", "Deal to target or creatures", "Link", "Links")))
-    /** Ability markers on the Stack. */
-    val stackEffect = listOf(CardRingPage("Effect", listOf("inspect", "note", "Ping / Unping", "Remove Stack effect", "Link", "Links")))
     val hand = listOf(CardRingPage("Hand", listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile") +
         libraryMoves + tempPiles + listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
     /** Search, look, reveal, graveyard, exile and Temp contents. */
@@ -51,14 +49,12 @@ internal object CardRingPages {
             }
         }) }
         CardMenuLayout.COMBAT -> combat
-        CardMenuLayout.STACK_EFFECT -> stackEffect
         CardMenuLayout.HAND -> hand
         CardMenuLayout.PANEL -> if (panelLayout) panel else pages(CardMenuLayout.CARD, token, attacker)
     }
 
-    /** Projections get their combat/effect layouts; a real card's zone picks the rest. */
+    /** Combat copies get the combat layout; a real card's zone picks the rest. Stack entries are managed in Manage Stack. */
     fun context(board: org.asyncttwiz.protocol.BoardState, viewId: String): CardMenuLayout? {
-        if (board.stackEffects.any { it.id == viewId }) return CardMenuLayout.STACK_EFFECT
         if (org.asyncttwiz.protocol.CombatStackRules.occurrences(board.combat).any { it.id == viewId }) return CardMenuLayout.COMBAT
         val card = board.cards.singleOrNull { it.id == viewId } ?: return null
         return when (board.containers.singleOrNull { it.id == card.containerId }?.zone) {

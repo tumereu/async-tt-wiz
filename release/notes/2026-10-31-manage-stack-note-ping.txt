@@ -1,0 +1,1 @@
+add: Manage Stack has Note and Ping buttons for each entry.

@@ -76,11 +76,14 @@ class PendingOutcomeTableTest {
             drain(f)
             compose.onNodeWithContentDescription(resolve).assertDoesNotExist()
             // A point before the suggestion is not locked: the player may continue from it and play on.
-            compose.onNodeWithContentDescription("Continue playing from here").assertIsEnabled()
+            // Holding Auto offers branching here (HIS-036).
+            compose.onNodeWithContentDescription("Auto advance").assertIsEnabled()
+                .assert(SemanticsMatcher("offers Continue playing from here") { node ->
+                    node.config.getOrElseNullable(SemanticsActions.CustomActions) { null }.orEmpty().any { it.label == "Continue playing from here" }
+                })
             if (continueBefore) {
                 val before = f.lobby.history.playback!!.position.cursorId
-                compose.onNodeWithContentDescription("Continue playing from here")
-                    .performSemanticsAction(SemanticsActions.OnClick) { assertTrue(it()) }
+                compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
                 drain(f)
                 compose.runOnIdle { assertEquals(before, f.lobby.history.armed); assertFalse(f.lobby.resultLocked()) }
                 compose.onNodeWithContentDescription("Table actions").assertIsEnabled()

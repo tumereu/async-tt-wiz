@@ -89,8 +89,8 @@ class CardRingInteractionTest {
         assertNull(toolkit.capture)
     }
 
-    // HIS-082, STK-009
-    @Test fun stackProjectionFromHandEnablesNoteAndPingAndTargetsTheProjection() {
+    // HIS-082, STK-009, STK-019
+    @Test fun manageStackEntryNoteAndPingTargetTheEntryNotItsCard() {
         val initial = f.combat()
         val source = f.source(f.a, "1/2").id
         val hand = initial.board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
@@ -98,20 +98,32 @@ class CardRingInteractionTest {
             if (it.id == source) it.copy(containerId = hand.id, placement = null, note = "source note") else it
         }, containers = initial.board.containers.map { container -> container.copy(cards = container.cards - source +
             if (container.id == hand.id) listOf(source) else emptyList()) }))
-        projectionNoteAndPing(play, f.id("effect"), battlefield = false)
+        val id = f.id("effect")
+        val toolkit = render(play = play)
+        compose.runOnIdle { toolkit.stackContents() }
+        compose.mainClock.advanceTimeBy(600) // Past the popup's opening-gesture guard.
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        // The top entry is the effect; the second is a real card on the Stack, whose own note lives on the card menu.
+        compose.onAllNodesWithContentDescription("Edit note")[1].assertIsNotEnabled()
+        compose.onAllNodesWithContentDescription("Edit note")[0].assertIsEnabled().performClick()
+        compose.onNode(hasSetTextAction()).performTextReplacement("projection note")
+        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
+        compose.runOnIdle { assertEquals(listOf<PlayAction>(PlayAction.SetProjectionNote(id, "projection note")), sent) }
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.mainClock.advanceTimeBy(600)
+        compose.onAllNodesWithContentDescription("Ping / Unping")[0].assertIsEnabled().performClick()
+        compose.runOnIdle { assertEquals(PingTarget(PingTargetKind.OCCURRENCE, id), assertIs<PlayAction.Ping>(sent.last()).target) }
+        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
     }
 
     // CMB-003, CMB-005, HIS-082, TBL-091
     @Test fun combatProjectionHasOnlyCombatControlsAndTargetsItsOwnNoteAndPing() {
-        projectionNoteAndPing(f.combat(), f.id("attacker1"), battlefield = true)
-    }
-
-    private fun projectionNoteAndPing(play: PlayState, id: String, battlefield: Boolean) {
-        val toolkit = render(play = play, contextId = id)
+        val id = f.id("attacker1")
+        val toolkit = render(play = f.combat(), contextId = id)
         compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
         compose.onNodeWithContentDescription("Edit card note").assertIsEnabled()
         compose.onNodeWithContentDescription("Ping / Unping").assertIsEnabled()
-        compose.onNodeWithContentDescription(if (battlefield) "Attack →" else "Remove Stack effect").assertIsEnabled()
+        compose.onNodeWithContentDescription("Attack →").assertIsEnabled()
         // No card-modifying controls on a projection: those live on the real card.
         for (name in listOf("Set corner", "Declare without tapping", "Set damage", "Clone", "Stack"))
             compose.onNodeWithContentDescription(name).assertDoesNotExist()

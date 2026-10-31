@@ -1,0 +1,1 @@
+add: You can drag the top card of a library onto the Stack; it is shown to both players while there.

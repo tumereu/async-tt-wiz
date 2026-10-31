@@ -57,19 +57,19 @@ class PreparationPresentationTest {
 
     // DRF-127
     @Test fun cardTypesUseTheFirstMatchingGroupFromTheFrontTypeLineOnly() {
-        assertEquals(PreparationTypeGroup.CREATURES, preparationTypeGroup("Artifact Creature — Golem"))
-        assertEquals(PreparationTypeGroup.CREATURES, preparationTypeGroup("Enchantment Creature - God"))
-        assertEquals(PreparationTypeGroup.PLANESWALKERS, preparationTypeGroup("Legendary Planeswalker — Jace"))
-        assertEquals(PreparationTypeGroup.BATTLES, preparationTypeGroup("Battle — Siege"))
-        assertEquals(PreparationTypeGroup.INSTANTS, preparationTypeGroup("Kindred Instant — Elf"))
-        assertEquals(PreparationTypeGroup.SORCERIES, preparationTypeGroup("Sorcery"))
-        assertEquals(PreparationTypeGroup.ARTIFACTS, preparationTypeGroup("Artifact Land"))
-        assertEquals(PreparationTypeGroup.ENCHANTMENTS, preparationTypeGroup("Enchantment — Aura"))
-        assertEquals(PreparationTypeGroup.LANDS, preparationTypeGroup("Basic Land — Forest"))
-        assertEquals(PreparationTypeGroup.INSTANTS, preparationTypeGroup("Instant // Sorcery"))
-        assertEquals(PreparationTypeGroup.OTHER, preparationTypeGroup("Conspiracy"))
-        assertEquals(PreparationTypeGroup.OTHER, preparationTypeGroup(""))
-        assertEquals(PreparationTypeGroup.OTHER, preparationTypeGroup("Tribal — Landfall Creature")) // Subtypes never decide.
+        assertEquals(CardTypeGroup.CREATURES, cardTypeGroup("Artifact Creature — Golem"))
+        assertEquals(CardTypeGroup.CREATURES, cardTypeGroup("Enchantment Creature - God"))
+        assertEquals(CardTypeGroup.PLANESWALKERS, cardTypeGroup("Legendary Planeswalker — Jace"))
+        assertEquals(CardTypeGroup.BATTLES, cardTypeGroup("Battle — Siege"))
+        assertEquals(CardTypeGroup.INSTANTS, cardTypeGroup("Kindred Instant — Elf"))
+        assertEquals(CardTypeGroup.SORCERIES, cardTypeGroup("Sorcery"))
+        assertEquals(CardTypeGroup.ARTIFACTS, cardTypeGroup("Artifact Land"))
+        assertEquals(CardTypeGroup.ENCHANTMENTS, cardTypeGroup("Enchantment — Aura"))
+        assertEquals(CardTypeGroup.LANDS, cardTypeGroup("Basic Land — Forest"))
+        assertEquals(CardTypeGroup.INSTANTS, cardTypeGroup("Instant // Sorcery"))
+        assertEquals(CardTypeGroup.OTHER, cardTypeGroup("Conspiracy"))
+        assertEquals(CardTypeGroup.OTHER, cardTypeGroup(""))
+        assertEquals(CardTypeGroup.OTHER, cardTypeGroup("Tribal — Landfall Creature")) // Subtypes never decide.
     }
 
     // DRF-127, LOB-047, SYS-051
@@ -89,14 +89,14 @@ class PreparationPresentationTest {
             PreparedEntry(swamp.digest, SavedDeckSection.MAINBOARD, "12", 5, BasicLand.SWAMP),
             PreparedEntry(bolt.digest, SavedDeckSection.SIDEBOARD, "17", 3)))
         val main = preparationGroups(deck, SavedDeckSection.MAINBOARD, definitions)
-        assertEquals(listOf(PreparationTypeGroup.CREATURES, PreparationTypeGroup.INSTANTS, PreparationTypeGroup.LANDS), main.map { it.type })
+        assertEquals(listOf(CardTypeGroup.CREATURES, CardTypeGroup.INSTANTS, CardTypeGroup.LANDS), main.map { it.type })
         assertEquals(listOf("ant Soldier" to 1L, "Zebra Scout" to 3L), main[0].tiles.map { it.name to it.quantity })
         assertEquals(4L, main[0].count)
         assertEquals(listOf("Forest" to 7L), main[2].tiles.map { it.name to it.quantity }) // Ordinary basics are tiles; supplied ones are not.
         val side = preparationGroups(deck, SavedDeckSection.SIDEBOARD, definitions)
-        assertEquals(listOf(PreparationGroup(PreparationTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 3)))), side)
+        assertEquals(listOf(PreparationGroup(CardTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 3)))), side)
         val unknown = deck.copy(entries = listOf(PreparedEntry("missing", SavedDeckSection.SIDEBOARD, "0", 2)))
-        assertEquals(listOf(PreparationTypeGroup.OTHER to "Card"), preparationGroups(unknown, SavedDeckSection.SIDEBOARD, definitions)
+        assertEquals(listOf(CardTypeGroup.OTHER to "Card"), preparationGroups(unknown, SavedDeckSection.SIDEBOARD, definitions)
             .map { it.type to it.tiles.single().name })
         assertTrue(preparationGroups(unknown, SavedDeckSection.MAINBOARD, definitions).isEmpty())
     }
@@ -113,9 +113,9 @@ class PreparationPresentationTest {
             SavedDeckEntry(SavedDeckSection.MAINBOARD, bear.digest, 1),
             SavedDeckEntry(SavedDeckSection.SIDEBOARD, bolt.digest, 2)))
         val main = preparationGroups(saved, SavedDeckSection.MAINBOARD, definitions)
-        assertEquals(listOf(PreparationTypeGroup.CREATURES to listOf("Bear" to 4L), PreparationTypeGroup.LANDS to listOf("Forest" to 17L)),
+        assertEquals(listOf(CardTypeGroup.CREATURES to listOf("Bear" to 4L), CardTypeGroup.LANDS to listOf("Forest" to 17L)),
             main.map { group -> group.type to group.tiles.map { it.name to it.quantity } })
-        assertEquals(listOf(PreparationGroup(PreparationTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 2)))),
+        assertEquals(listOf(PreparationGroup(CardTypeGroup.INSTANTS, listOf(PreparationTile(bolt.digest, bolt.definition, 2)))),
             preparationGroups(saved, SavedDeckSection.SIDEBOARD, definitions))
     }
 

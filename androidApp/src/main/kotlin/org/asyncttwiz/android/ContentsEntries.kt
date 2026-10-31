@@ -8,10 +8,14 @@ data class ContentsEntry(val cardId: String, val name: String, val category: Str
 /** Live personal browsing; unlike ContentsDisplay this is not a shared disclosure or fixed tray. */
 data class PileContents(val containerId: String, val title: String, val cardIds: List<String>, val ordered: Boolean = false)
 
-private fun contentsCategory(type: String) = listOf("Creature", "Land", "Artifact", "Enchantment", "Planeswalker", "Instant", "Sorcery", "Battle")
-    .firstOrNull { type.contains(it, ignoreCase = true) } ?: "Other"
+/** The shared type group (SYS-051) as a singular header word: "Creature", …, "Other". */
+private fun contentsCategory(type: String) = cardTypeGroup(type).singular
 
-private val contentsOrder = compareBy<ContentsEntry>({ it.category }, { it.name.lowercase() }, { it.cardId })
+/** Type headers follow the shared order (SYS-051); hidden "Cards" come last. */
+internal fun contentsCategoryRank(category: String): Int =
+    CardTypeGroup.entries.indexOfFirst { it.singular == category }.let { if (it < 0) CardTypeGroup.entries.size else it }
+
+private val contentsOrder = compareBy<ContentsEntry>({ contentsCategoryRank(it.category) }, { it.name.lowercase() }, { it.cardId })
 
 fun contentsEntries(state: PlayState, pile: PileContents, viewer: String, search: String = ""): List<ContentsEntry> {
     val entries = pile.cardIds.mapIndexed { index, id ->

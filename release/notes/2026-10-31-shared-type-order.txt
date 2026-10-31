@@ -1,0 +1,1 @@
+mod: Library search and the graveyard and exile views list card types in the same order as deck preparation: creatures first, lands last.

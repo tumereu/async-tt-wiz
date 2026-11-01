@@ -194,4 +194,30 @@ class ManaTest {
         val spent = state.objOrThrow(card("Haven Warden")).facts.manaSpent
         assertEquals(2, spent.sumOf { it.amount })
     }
+
+    // CR 605.1b, 605.4a: a triggered mana ability adds its mana at once, so it helps pay the cost in progress
+    @Test
+    fun triggeredManaAbilityHelpsPay() = scenario {
+        alice.battlefield("Island", "Island")
+        alice.hand("Swelling Tide", "Click Back")
+        bob.battlefield("Elvish Seer")
+        alice.casts("Swelling Tide", paying = listOf("Island#1"))
+        allPass()
+        // One Island makes {U}{U} now: enough for {1}{U}
+        alice.casts("Click Back", target = "Elvish Seer", paying = listOf("Island"))
+        expect { stack.names shouldBe listOf("Click Back") }
+        assertTrue(alice.pool.isEmpty())
+    }
+
+    // CR 605.3b, 608.2h: "any type the sacrificed land could produce" reads the land as it last existed: a dual land
+    // offers its two colours
+    @Test
+    fun sacrificedLandsColoursAreAsked() = scenario {
+        alice.battlefield("Wasted Bounty", "Ashen Wastes")
+        alice.activates("Wasted Bounty", choosing = listOf("Ashen Wastes"))
+        assertEquals(setOf(Color.Black, Color.Red), decision<Decision.ChooseColor>().among.toSet())
+        answer(Answer.ColorChoice(Color.Red))
+        assertEquals(listOf(Color.Red), alice.pool.map { it.color })
+        expect { alice.graveyard has "Ashen Wastes" }
+    }
 }

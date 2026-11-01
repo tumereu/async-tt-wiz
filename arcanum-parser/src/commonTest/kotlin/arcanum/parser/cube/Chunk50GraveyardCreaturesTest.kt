@@ -77,6 +77,7 @@ class Chunk50GraveyardCreaturesTest {
         Keyword.Haste,
         Keyword.Shadow,
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             trigger = Trigger.On(EventPattern.ZoneChange(
                 objects = ObjectFilter.And(listOf(another, creature, ObjectFilter.OwnedBy(PlayerFilter.You))),
                 from = Zone.Battlefield,
@@ -104,6 +105,7 @@ class Chunk50GraveyardCreaturesTest {
     ) parsesTo abilities(
         Keyword.Flying,
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             trigger = Trigger.On(listOf(EventPattern.Draw(PlayerFilter.You)), nthThisTurn = 3),
             instructions = Instructions(steps = listOf(returnToBattlefield(tapped = true))),
         ),
@@ -124,6 +126,7 @@ class Chunk50GraveyardCreaturesTest {
     ) parsesTo abilities(
         Keyword.Deathtouch,
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             abilityWord = "Curse of the Walking Pox",
             trigger = Trigger.On(EventPattern.Cast(
                 spell = ObjectFilter.Not(ObjectFilter.WasCast(Zone.Hand)),
@@ -142,6 +145,7 @@ class Chunk50GraveyardCreaturesTest {
         text = "At the beginning of your upkeep, you may return this card from your graveyard to your hand.",
     ) parsesTo abilities(
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
             instructions = Instructions(
                 steps = listOf(Step.May(
@@ -167,6 +171,7 @@ class Chunk50GraveyardCreaturesTest {
     ) parsesTo abilities(
         Keyword.Haste,
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             trigger = Trigger.On(listOf(EventPattern.Cast(creature, by = PlayerFilter.You)), nthThisTurn = 2),
             instructions = Instructions(steps = listOf(Step.May(listOf(returnToBattlefield()), player = Players.You))),
         ),

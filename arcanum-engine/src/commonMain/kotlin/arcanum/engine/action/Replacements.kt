@@ -100,7 +100,7 @@ internal object Replacements {
         var current = initial
         while (true) {
             val change = proposed(current) ?: return current
-            val matching = all.filter { it.key !in used && !skip(it) }.mapNotNull { r ->
+            val matching = all.filter { it.key !in used && it.key !in act.replacing && !skip(it) }.mapNotNull { r ->
                 matches(act, r, change, board(current)).firstOrNull()?.let { r to it }
             }
             if (matching.isEmpty()) return current

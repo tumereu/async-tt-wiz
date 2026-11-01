@@ -90,7 +90,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
      * Casts [name] (CR 601.2) and answers the cast's decisions from what is given: targets by name (players by their
      * name) in slot order, modes, X, optional costs ([kicked]: how many times, 0 declines), the option of an "A or B"
      * cost ([option]), the objects a cost uses ([choosing], by name, in cost order), a mana ability's colour ([color]),
-     * and the mana sources to tap ([paying], by name, "name:R" for a colour; else the engine's suggestion).
+     * and the mana sources to tap ([paying], by name, "name:R" for a colour, "name#1" for the second of that name; else the engine's suggestion).
      * Decisions nothing here answers stay open for the test.
      */
     fun casts(
@@ -230,7 +230,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
                 is Decision.ChooseObjects -> if (objects.isEmpty()) null
                     else Answer.Objects(List(minOf(objects.size, d.max ?: objects.size)) { scenario.card(objects.removeFirst()) })
                 is Decision.ChooseColor -> color?.let { Answer.ColorChoice(it) }
-                is Decision.ManaPayment -> if (paying != null) Answer.ManaPayment(paying.map { manaUse(it, d) })
+                is Decision.ManaPayment -> if (paying != null) Answer.ManaPayment(paying.fold(emptyList()) { uses, name -> uses + manaUse(name, d, uses) })
                     else d.suggestion.takeIf { it.isNotEmpty() }?.let { Answer.ManaPayment(it) }
                 else -> null
             } ?: return outcome
@@ -238,9 +238,16 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         }
     }
 
-    private fun manaUse(name: String, decision: Decision.ManaPayment): ManaUse {
+    /** The use of the source named [name] for [decision]: a name given again means the next card of that name, not one
+     * of the [taken] ones. */
+    private fun manaUse(name: String, decision: Decision.ManaPayment, taken: List<ManaUse> = emptyList()): ManaUse {
         val color = name.substringAfter(':', "").singleOrNull()?.let { arcanum.api.Color.of(it) }
-        val source: ObjectId = scenario.card(name.substringBefore(':'))
+        val base = name.substringBefore(':')
+        val used = taken.flatMap { u -> listOfNotNull((u as? ManaUse.Ability)?.source) + ((u as? ManaUse.Special)?.objects ?: emptyList()) }
+        // "Forest#1": the second Forest
+        val source: ObjectId = if ('#' in base) base.split('#').let { scenario.card(it[0], it[1].toInt()) }
+            else (0 until 50).asSequence().map { runCatching { scenario.card(base, it) }.getOrNull() }
+                .takeWhile { it != null }.filterNotNull().firstOrNull { it !in used } ?: scenario.card(base)
         return decision.options.filterIsInstance<ManaUse.Ability>().firstOrNull { it.source == source && (color == null || it.color == color) }
             ?: decision.options.filterIsInstance<ManaUse.Special>().firstOrNull { it.objects == listOf(source) }
             ?: fail("$name can't pay for ${decision.cost}")

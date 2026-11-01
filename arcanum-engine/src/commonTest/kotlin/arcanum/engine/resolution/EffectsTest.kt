@@ -196,6 +196,22 @@ class EffectsTest {
         }
     }
 
+    // CR 701.25a: the cards surveil keeps on top go back in the order their owner chooses
+    @Test
+    fun surveilKeepsCardsOnTopInTheChosenOrder() = scenario {
+        alice.hand("Deathless Savant")
+        alice.library("Forest", "Island", "Swamp")
+
+        alice.castsWithoutCosts("Deathless Savant")
+        resolve()
+        // Its enters trigger: surveil 2, keeping both
+        resolve()
+        answer(Answer.Objects(emptyList()))
+        alice.chooses("Island", "Forest")
+
+        expect { alice.library.names shouldBe listOf("Island", "Forest", "Swamp") }
+    }
+
     // CR 701.23a, 701.24: search, then shuffle (the host orders the library, D25)
     @Test
     fun searchForACardThenShuffle() = scenario {
@@ -227,6 +243,25 @@ class EffectsTest {
             alice.library.names.first() shouldBe "Swamp"
             alice.library.size shouldBe 3
             alice.life shouldBe 18
+        }
+    }
+
+    // CR 401.4: cards looked at on top of a library and put on its bottom together go below the cards left in it, in
+    // the order their owner chooses
+    @Test
+    fun lookedAtCardsGoToTheBottomInTheOwnersOrder() = scenario {
+        alice.hand("Delve Through Ages")
+        alice.library("Forest", "Island", "Swamp", "Mountain", "Plains", "Denial", "Storm Spark", "Cinder Bolt")
+
+        alice.castsWithoutCosts("Delve Through Ages")
+        resolve()
+        alice.chooses("Forest", "Island")
+        assertEquals(alice.id, decision<Decision.ChooseObjects>().player)
+        alice.chooses("Storm Spark", "Denial", "Plains", "Mountain", "Swamp")
+
+        expect {
+            alice.hand.names shouldBe listOf("Forest", "Island")
+            alice.library.names shouldBe listOf("Cinder Bolt", "Storm Spark", "Denial", "Plains", "Mountain", "Swamp")
         }
     }
 
@@ -395,6 +430,7 @@ class EffectsTest {
     // CR 118.12a, D52: "unless its controller pays": declining means it is countered
     @Test
     fun counterUnlessPaysAndTheyDecline() = scenario {
+        alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         bob.hand("Mana Levy")
 
@@ -410,7 +446,7 @@ class EffectsTest {
         }
     }
 
-    // CR 118.12a, 608.2g: paying keeps the spell; the mana is paid as when casting, with mana abilities
+    // CR 118.12a, 608.2g: paying (with a mana ability activated while paying) keeps the spell
     @Test
     fun counterUnlessPaysAndTheyPay() = scenario {
         alice.battlefield("Mountain")
@@ -421,9 +457,8 @@ class EffectsTest {
         bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
         resolve()
         answer(Answer.YesNo(true))
-        val payment = decision<Decision.ManaPayment>()
-        assertEquals(alice.id, payment.player)
-        answer(Answer.ManaPayment(payment.suggestion))
+        assertEquals("{1}", decision<Decision.ManaPayment>().cost.toString())
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
 
         expect {
             stack.names shouldBe listOf("Storm Spark")
@@ -431,6 +466,59 @@ class EffectsTest {
         }
         resolve()
         expect { bob.life shouldBe 17 }
+    }
+
+    // CR 118.3: a player without the mana can't pay: the spell is countered without asking
+    @Test
+    fun counterUnlessPaysWithoutMana() = scenario {
+        alice.hand("Storm Spark")
+        bob.hand("Mana Levy")
+
+        alice.castsWithoutCosts("Storm Spark", target = "bob")
+        bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
+        resolve()
+
+        expect {
+            alice.graveyard has "Storm Spark"
+            stack.isEmpty()
+        }
+    }
+
+    // CR 707.10c: a copy may change to the only other legal target
+    @Test
+    fun copyMayTakeTheOnlyOtherTarget() = scenario {
+        // Cast from the graveyard, it may copy itself; Lotus Frond is the copy's only legal target
+        alice.graveyard("Warden's Reclamation", "Elvish Seer", "Lotus Frond")
+        alice.castsWithoutCosts("Warden's Reclamation", target = "Elvish Seer")
+        resolve()
+        answer(Answer.YesNo(true))
+        answer(Answer.YesNo(true))
+        assertEquals(listOf(target("Lotus Frond")), decision<Decision.Targets>().options)
+        answer(Answer.Targets(listOf(target("Lotus Frond"))))
+        resolve()
+
+        expect {
+            alice.battlefield has "Elvish Seer"
+            alice.battlefield has "Lotus Frond"
+        }
+    }
+
+    // CR 401.4: cards looked at are put on the bottom of the library they came from, under the rest
+    @Test
+    fun lookedAtCardsGoToTheBottom() = scenario {
+        alice.hand("Fleeting Whim")
+        alice.library("Forest", "Island", "Swamp", "Mountain", "Plains")
+
+        alice.castsWithoutCosts("Fleeting Whim")
+        resolve()
+        alice.chooses("Island")
+        // CR 401.4: the owner orders the cards going to the bottom together
+        alice.chooses("Mountain", "Forest", "Swamp")
+
+        expect {
+            alice.hand.names shouldBe listOf("Island")
+            alice.library.names shouldBe listOf("Plains", "Mountain", "Forest", "Swamp")
+        }
     }
 
     // CR 707.10: a copy of a spell is put on the Stack, and its controller may choose new targets
@@ -594,4 +682,40 @@ class EffectsTest {
 
     @Suppress("unused")
     private val zone = Zone.Battlefield
+
+    // CR 401.4: cards from the top of a library put on its bottom (here in a random order) end up under the rest
+    @Test
+    fun topCardsGoToTheBottomOfTheSameLibrary() = scenario {
+        alice.hand("Clever Tinkersmith")
+        alice.library("Forest", "Island", "Swamp", "Plains", "Mountain")
+
+        alice.castsWithoutCosts("Clever Tinkersmith")
+        resolve()
+        resolve()
+
+        expect {
+            alice.library.names.first() shouldBe "Mountain"
+            alice.library.names.drop(1).toSet() shouldBe setOf("Forest", "Island", "Swamp", "Plains")
+        }
+    }
+
+    // CR 607.2a: a leaves-the-battlefield ability finds the card its linked hideaway ability exiled
+    @Test
+    fun linkedExiledCardAfterTheSourceLeft() = scenario {
+        alice.hand("Seer of Morrows", "Storm Spark")
+        alice.library("Forest", "Island", "Swamp", "Plains")
+
+        alice.castsWithoutCosts("Seer of Morrows")
+        resolve()
+        resolve()
+        answer(Answer.Objects(listOf(card("Island"))))
+        alice.castsWithoutCosts("Storm Spark", target = "Seer of Morrows")
+        resolve()
+        resolve()
+
+        expect {
+            alice.graveyard has "Seer of Morrows"
+            alice.hand.names shouldBe listOf("Island")
+        }
+    }
 }

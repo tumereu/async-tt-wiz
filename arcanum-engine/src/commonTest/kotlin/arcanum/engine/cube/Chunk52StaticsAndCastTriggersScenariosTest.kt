@@ -57,11 +57,12 @@ class Chunk52StaticsAndCastTriggersScenariosTest {
     @Test
     fun scrapquiltAutomatonWard() = scenario {
         alice.battlefield("Scrapquilt Automaton")
-        bob.battlefield("Mountain")
+        bob.battlefield("Mountain", "Mountain", "Mountain")
         bob.hand("Storm Spark")
         alice.passes()
         bob.casts("Storm Spark", target = "Scrapquilt Automaton")
         expect { stack.size shouldBe 2 }
+        // Bob could pay {2}, and declines
         allPass()
         bob.answers(Answer.YesNo(false))
         expect {

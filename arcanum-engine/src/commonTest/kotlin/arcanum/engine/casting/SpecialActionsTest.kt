@@ -124,14 +124,17 @@ class SpecialActionsTest {
         }
     }
 
-    // CR 702.62a: at its owner's upkeep, a suspended card loses a time counter in exile
+    // CR 702.62a, 122.1: suspend's upkeep trigger removes a time counter from the card in exile
     @Test
-    fun suspendedCardLosesATimeCounterAtUpkeep() = scenario {
+    fun suspendCountsDownInExile() = scenario {
         alice.hand("Lotus Bud")
         perform(specialAction("Lotus Bud"))
-        beginStep(TurnStep.Upkeep, active = alice)
+        beginStep(arcanum.api.TurnStep.Upkeep, active = alice)
         resolve()
-        expect { "Lotus Bud".counters(CounterKind.Time) shouldBe 2 }
+        expect {
+            alice.exile has "Lotus Bud"
+            "Lotus Bud".counters(CounterKind.Time) shouldBe 2
+        }
     }
 
     // CR 702.62a, 400.7d: a creature cast with the last time counter removed keeps haste as the permanent it becomes

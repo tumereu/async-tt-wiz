@@ -90,4 +90,17 @@ class ResolutionTest {
             stack.isEmpty()
         }
     }
+
+    // CR 306.5b: a planeswalker spell resolves onto the battlefield with its printed loyalty in loyalty counters, so it
+    // survives state-based actions (CR 704.5i)
+    @Test
+    fun planeswalkerEntersWithItsLoyalty() = scenario {
+        alice.hand("Orla, Gilded Artificer")
+        alice.castsWithoutCosts("Orla, Gilded Artificer")
+        resolve()
+        expect {
+            alice.battlefield has "Orla, Gilded Artificer"
+            "Orla, Gilded Artificer".counters(arcanum.api.CounterKind.Loyalty) shouldBe 5
+        }
+    }
 }

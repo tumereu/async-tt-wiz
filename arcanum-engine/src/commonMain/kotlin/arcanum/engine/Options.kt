@@ -28,9 +28,9 @@ import arcanum.engine.state.PlayerId
  * - While attackers or blockers are awaited: declaring none, and each single legal attack or block; the declaration
  *   inputs accept any legal combination.
  * - With priority: passing, each land they may play, each spell they may begin to cast (every castable face, from the
- *   hand or with a permission, and each alternative cost that applies) and each ability they may activate, mana
- *   abilities included. Costs and targets are checked as far as they can be without choices: a listed spell may still
- *   turn out uncastable for want of targets or mana.
+ *   hand or with a permission, a permission for the hand too, and each alternative cost that applies) and each ability
+ *   they may activate, mana abilities included. Costs and targets are checked as far as they can be without choices:
+ *   a listed spell may still turn out uncastable for want of targets or mana.
  */
 internal object Options {
     fun of(state: GameState, player: PlayerId): List<Input> {
@@ -109,7 +109,9 @@ internal object Options {
     private fun spells(snap: Snapshot, player: PlayerId): List<Input> = candidates(snap, player).flatMap { card ->
         val o = snap.state.obj(card) ?: return@flatMap emptyList()
         val fromHand = o.zone == Zone.Hand && o.owner == player
-        val permissions = if (fromHand) listOf(null) else Legality.permissions(snap, player, card, arcanum.api.PlayKind.Cast).map { it.first }
+        // From the hand: as usual, or under a permission that changes how (without paying its mana cost, CR 601.2f)
+        val granted = Legality.permissions(snap, player, card, arcanum.api.PlayKind.Cast).map { it.first }
+        val permissions = if (fromHand) listOf(null) + granted else granted
         val alternatives = listOf(null) + Legality.alternativeCosts(snap, card).map { it.first.origin }
         Legality.castableFaces(o).flatMap { face ->
             permissions.flatMap { permission ->

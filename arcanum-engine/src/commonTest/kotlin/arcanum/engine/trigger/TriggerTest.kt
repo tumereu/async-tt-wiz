@@ -299,6 +299,7 @@ class TriggerTest {
     @Test
     fun wardCountersUnlessPaid() = scenario {
         bob.battlefield("Scrapquilt Automaton")
+        alice.battlefield("Mountain", "Mountain")
         alice.hand("Storm Spark")
 
         alice.castsWithoutCosts("Storm Spark", target = "Scrapquilt Automaton")
@@ -405,6 +406,40 @@ class TriggerTest {
         expect { stack.names shouldBe listOf("ability of Gorehaunt") }
     }
 
+    // CR 700.2, 603.3c: "choose one that hasn't been chosen this turn": a mode chosen is unavailable for the rest of the
+    // turn, and available again the next turn
+    @Test
+    fun modeNotChosenThisTurn() = scenario {
+        alice.battlefield("Memorial to Perseverance")
+        alice.hand("Crow's Larceny", "Crow's Larceny", "Forest", "Island")
+
+        alice.castsWithoutCosts("Crow's Larceny", target = "alice")
+        resolve()
+        alice.chooses("Forest")
+        answer(arcanum.engine.decision.Answer.Modes(listOf(2)))
+        resolve()
+        expect { bob.life shouldBe 17 }
+
+        beginStep(TurnStep.Upkeep, active = bob)
+        alice.castsWithoutCosts("Crow's Larceny", target = "alice")
+        resolve()
+        assertEquals(listOf(true, true, true), decision<arcanum.engine.decision.Decision.Modes>().options.map { it.available })
+    }
+
     @Suppress("unused")
     private fun check(b: Boolean) = assertTrue(b)
+
+    // CR 603.6a, 603.4: "enters from your hand, if it's attacking" works on the battlefield, and a creature put onto the
+    // battlefield attacking (ninjutsu, CR 508.4) is attacking as it enters
+    @Test
+    fun entersFromTheHandAttacking() = scenario {
+        alice.battlefield("Island", "Island", "Island", "Island", "Elvish Seer", "Umbral Elves")
+        alice.hand("Myriad-Faced Shade")
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks("Elvish Seer", "Umbral Elves")
+        advanceTo(TurnStep.DeclareBlockers)
+        alice.activates("Myriad-Faced Shade", choosing = listOf("Elvish Seer"))
+        allPass()
+        expect { stack.names shouldBe listOf("ability of Myriad-Faced Shade") }
+    }
 }

@@ -232,6 +232,7 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         equip("{2}"),
         // CR 113.6m: its effect moves it out of the graveyard, so it works only there (no zones written)
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             trigger = Trigger.On(EventPattern.ZoneChange(
                 objects = ObjectFilter.And(listOf(
                     creature,

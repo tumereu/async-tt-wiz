@@ -139,6 +139,7 @@ class Chunk45GraveyardCastingAndCantBlockTest {
             affects = Affected.Objects(Objects.Self),
         ),
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             abilityWord = "Landfall",
             trigger = Trigger.On(EventPattern.ZoneChange(controlledByYou(land), to = Zone.Battlefield)),
             instructions = Instructions(
@@ -190,6 +191,7 @@ class Chunk45GraveyardCastingAndCantBlockTest {
         Keyword.Flying,
         Keyword.Haste,
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.BeginningOfCombat, PlayerFilter.You)),
             interveningIf = Condition.HappenedThisTurn(
                 event = EventPattern.ZoneChange(creature, from = Zone.Battlefield, to = Zone.Graveyard),

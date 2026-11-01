@@ -467,7 +467,7 @@ internal class LayerRun(private val state: GameState) {
                 Layers.isRule(mechanic) || affects == null || affects is Affected.NextSpells -> rules += applied
                 affects is Affected.Players -> (lockedPlayers ?: evaluator(board, e).players(affects.players))
                     .forEach { playerMechanics.getOrPut(it) { mutableListOf() } += applied }
-                affects is Affected.Objects -> evaluator(board, e).objects(affects.objects)
+                affects is Affected.Objects -> placedOn(board, e, mechanic, affects.objects)
                     .filter { it in board.work && state.obj(it)?.phasedOut != true }
                     .forEach { objectMechanics.getOrPut(it) { mutableListOf() } += applied }
             }
@@ -500,6 +500,14 @@ internal class LayerRun(private val state: GameState) {
         }
         val players = state.players.associate { it.id to PlayerView(it.id, playerMechanics[it.id].orEmpty()) }
         return View(objects, players, rules)
+    }
+
+    /** The objects a rule applies to; a permission "any player may …" ([arcanum.api.Players.Holder]) to the cards each
+     * player could use it for. */
+    private fun placedOn(board: WorkBoard, e: ContinuousEffect, mechanic: Mechanic, objects: arcanum.api.Objects): List<ObjectId> {
+        val eval = evaluator(board, e)
+        if (mechanic !is Mechanic.MayPlay) return eval.objects(objects)
+        return state.players.flatMap { p -> eval.with(eval.ctx.copy(holder = p.id)).objects(objects) }.distinct()
     }
 
     private fun AbilityOrigin.isOwn(): Boolean = when (root) {

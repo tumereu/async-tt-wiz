@@ -25,16 +25,22 @@ sealed interface CostPart {
     @Serializable @SerialName("tap") data object TapSelf : CostPart
     /** {Q}: untap this permanent (CR 107.6). */
     @Serializable @SerialName("untap") data object UntapSelf : CostPart
-    /** Tap [count] untapped objects matching [filter] you control, or any number with total power [totalPower] or more
-     * (crew taps other creatures: the filter excludes the source, CR 702.122a). */
-    @Serializable @SerialName("tap-objects") data class TapObjects(
-        val filter: ObjectFilter, val count: Value? = null, val totalPower: Value? = null, val bind: String? = null,
-    ) : CostPart
+    /** Tap untapped objects you control: [what] chooses them (crew: any number with total power N or more, through
+     * [CostObjects.Choose.total]; crew taps other creatures, so its filter excludes the source, CR 702.122a). */
+    @Serializable @SerialName("tap-objects") data class TapObjects(val what: CostObjects, val bind: String? = null) : CostPart
     @Serializable @SerialName("sacrifice") data class Sacrifice(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
     @Serializable @SerialName("discard") data class Discard(
         val what: CostObjects, val random: Boolean = false, val preBind: String? = null, val postBind: String? = null,
     ) : CostPart
-    @Serializable @SerialName("exile") data class Exile(val what: CostObjects, val from: Zone, val preBind: String? = null, val postBind: String? = null) : CostPart
+    /** Exile [what] from [from]; [remember] keeps the exiled cards as card memory of the object, so the permanent a spell
+     * becomes can still find them ("return the exiled card", CR 607.2q). */
+    @Serializable @SerialName("exile") data class Exile(
+        val what: CostObjects, val from: Zone, val preBind: String? = null, val postBind: String? = null, val remember: String? = null,
+    ) : CostPart
+    /** Pay one of [options] ("discard a card or pay {5}"). */
+    @Serializable @SerialName("one-of") data class OneOf(val options: List<Cost>) : CostPart
+    /** A keyword action as a cost: behold, collect evidence, forage, exert. */
+    @Serializable @SerialName("action") data class Action(val action: KeywordAction) : CostPart
     @Serializable @SerialName("return-to-hand") data class ReturnToHand(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
     @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
@@ -53,26 +59,35 @@ sealed interface CostPart {
 @Serializable
 sealed interface CostObjects {
     @Serializable @SerialName("self") data object Self : CostObjects
-    @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value = Value.Fixed(1)) : CostObjects
+    /** [count] objects matching [filter], or (with [total]) any number whose [Total.property] adds up to at least
+     * [Total.atLeast] ("tap any number of creatures with total power 3 or more"). */
+    @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value = Value.Fixed(1), val total: Total? = null) : CostObjects
 }
 
 /** Mana an ability or effect adds (CR 106). [restriction] limits what it may be spent on ("spend this mana only to
  * cast creature spells", CR 106.6). [spellGets] applies to a spell this mana is spent on ("that spell can't be
  * countered", "it enters with an additional +1/+1 counter", CR 106.6a). */
 @Serializable
-data class ManaProduction(val kind: ManaKind, val restriction: ObjectFilter? = null, val spellGets: List<Mechanic> = emptyList())
+data class ManaProduction(
+    val kind: ManaKind, val restriction: ObjectFilter? = null, val spellGets: List<Mechanic> = emptyList(),
+    /** The mana isn't lost as steps and phases end until this ends ("until end of turn, you don't lose this mana",
+     * firebending). */
+    val keptUntil: Duration? = null,
+)
+
+/** [property] of the chosen objects added up, at least [atLeast]. */
+@Serializable
+data class Total(val property: NumericProperty, val atLeast: Value)
 
 @Serializable
 sealed interface ManaKind {
-    /** Exactly these symbols ("{G}{G}", "{C}"). */
-    @Serializable @SerialName("fixed") data class Fixed(val mana: ManaCost) : ManaKind
-    /** [amount] mana of one colour among [colors] (all five when null): "Add one mana of any color". [combination]:
-     * any combination of those colours instead of one colour. */
+    /** These symbols ("{G}{G}", "{C}"), [times] times when given ("Add {G} for each Elf you control"). */
+    @Serializable @SerialName("fixed") data class Fixed(val mana: ManaCost, val times: Value? = null) : ManaKind
+    /** [amount] mana of one colour among [colors] (two or more; all five when null): "Add one mana of any color".
+     * [combination]: any combination of those colours instead of one colour. */
     @Serializable @SerialName("choose") data class Choose(val amount: Value, val colors: List<Color>? = null, val combination: Boolean = false) : ManaKind
     /** [amount] mana of any colour/type a land matching [filter] could produce (Reflecting Pool style). */
     @Serializable @SerialName("as-could") data class AsCouldProduce(val filter: ObjectFilter, val amount: Value = Value.Fixed(1)) : ManaKind
-    /** [amount] colourless mana. */
-    @Serializable @SerialName("colorless") data class Colorless(val amount: Value) : ManaKind
     /** [amount] mana of the colour chosen under [key] ("Add one mana of the chosen color"). */
     @Serializable @SerialName("chosen-color") data class ChosenColor(val key: String, val amount: Value = Value.Fixed(1)) : ManaKind
 }

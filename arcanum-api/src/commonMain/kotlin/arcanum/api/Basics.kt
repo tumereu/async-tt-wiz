@@ -124,6 +124,8 @@ sealed interface ObjectMark {
     @Serializable @SerialName("renowned") data object Renowned : ObjectMark
     @Serializable @SerialName("suspected") data object Suspected : ObjectMark
     @Serializable @SerialName("saddled") data object Saddled : ObjectMark
+    /** A solved Case (CR 719.3b). */
+    @Serializable @SerialName("solved") data object Solved : ObjectMark
     /** Any other mark by name. */
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }

@@ -26,7 +26,7 @@ class ExampleCardsTest {
             targets = listOf(TargetSlot("t", TargetKind.Either(
                 ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
                 PlayerFilter.Any))),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")), n(3))))))))
+            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "t"), n(3))))))))
 
     /** "Other artifact creatures you control get +1/+1." */
     private val banner = FaceDefinition("Brightforge Banner", mana("{2}"), types = listOf(CardType.Artifact), abilities = listOf(
@@ -122,7 +122,7 @@ class ExampleCardsTest {
             targets = listOf(TargetSlot("t", TargetKind.Either(
                 ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
                 PlayerFilter.Any))),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")),
+            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "t"),
                 Value.Of(NumericProperty.Power, Objects.Bound("sacrificed"), Combine.Single))))))))
 
     /** "Forked Ember deals 3 damage divided as you choose among one, two, or three targets." */
@@ -131,7 +131,7 @@ class ExampleCardsTest {
             targets = listOf(TargetSlot("t", TargetKind.Either(
                 ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
                 PlayerFilter.Any), min = n(1), max = n(3), divided = n(3))),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")), Value.DividedShare)))))))
+            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "t"), Value.DividedShare)))))))
 
     /** "Whenever this creature enters or attacks, draw cards equal to the greatest power among creatures you control." */
     private val watch = creature("Ridge Watcher", "{3}{G}", 3, 3, Ability.Triggered(
@@ -174,14 +174,15 @@ class ExampleCardsTest {
                 targets = listOf(TargetSlot("t", TargetKind.Either(
                     ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
                     PlayerFilter.Any))),
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")), n(2)))))))))))))
+                steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "t"), n(2)))))))))))))
 
     /** "When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's
      * control with a -1/-1 counter on it." The condition reads the creature as it was, the return moves the new card. */
     private val persistent = creature("Unyielding Shade", "{3}{B}", 3, 3, Ability.Triggered(
         Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)),
         Instructions(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After),
-            Destination(Zone.Battlefield, counters = listOf(CountersToPut(CounterKind.PowerToughness(-1, -1)))))))),
+            Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.EventObject(EventRole.After)),
+                counters = listOf(CountersToPut(CounterKind.PowerToughness(-1, -1)))))))),
         interveningIf = Condition.Not(Condition.ObjectMatches(Objects.EventObject(EventRole.Before),
             ObjectFilter.HasCounter(CounterKind.PowerToughness(-1, -1))))))
 
@@ -258,12 +259,26 @@ class ExampleCardsTest {
     fun asEntersEffectsAndStrayChaptersAreReported() {
         val entering = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)
         fun land(step: Step) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Murky Ford", types = listOf(CardType.Land),
-            abilities = listOf(Ability.Static(listOf(Mechanic.Replacement(entering, modify = listOf(Modification.AsEnters(listOf(step))))))))))
-        assertEquals(emptyList(), DefinitionChecks.problems(land(Step.Modify(Modification.EntersTapped))))
+            abilities = listOf(Ability.Static(listOf(Mechanic.Replacement(entering, modify = listOf(Modification.AsEnters(listOf(
+                Step.Pay(Cost(listOf(CostPart.PayLife(n(2)))), bind = "paid"), step))))))))))
+        assertEquals(emptyList(), DefinitionChecks.problems(land(Step.If(Condition.Not(Condition.Did("paid")),
+            listOf(Step.Modify(Modification.EntersTapped))))))
         assertEquals(1, DefinitionChecks.problems(land(Step.Do(Effect.Tap(Objects.Self)))).size)
         val chapter = CardDefinition(Layout.Normal, listOf(FaceDefinition("Not a Saga", types = listOf(CardType.Enchantment),
             abilities = listOf(Ability.Triggered(Trigger.Chapter(listOf(1)), Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You)))))))))
         assertEquals(1, DefinitionChecks.problems(chapter).size)
+    }
+
+    // CR 702.177a: exhaust adds "activate only once"; CR 702.142a: boast adds "only if it attacked this turn" and once each turn.
+    @Test
+    fun abilityLabelsAddTheirRules() {
+        fun labelled(label: AbilityLabel) = Ability.Activated(Cost.mana(mana("{2}")),
+            Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You)))), label = label)
+        val exhaust = KeywordExpansions.withLabelRules(labelled(AbilityLabel.Exhaust)) as Ability.Activated
+        assertEquals(true, exhaust.rules.once)
+        val boast = KeywordExpansions.withLabelRules(labelled(AbilityLabel.Boast)) as Ability.Activated
+        assertEquals(1, boast.rules.perTurn)
+        assertEquals(true, boast.rules.condition != null)
     }
 
     // D27: a number read from a group must say how it combines.

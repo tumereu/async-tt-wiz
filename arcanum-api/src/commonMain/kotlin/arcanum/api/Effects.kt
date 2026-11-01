@@ -50,11 +50,12 @@ sealed interface Effect {
     @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null) : Effect
     @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value) : Effect
     @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value) : Effect
-    /** Search [library]'s library for up to [max] cards matching [filter]; the found cards are named [bind] and moved
-     * by a following step. [reveal] shows them (CR 701.23). */
+    /** Search [library]'s [zones] (their library, "and/or graveyard") for up to [max] cards matching [filter], with
+     * [differentNames] if they must all have different names; the found cards are named [bind] and moved by a following
+     * step. [reveal] shows them (CR 701.23). */
     @Serializable @SerialName("search") data class Search(
         val library: Players, val filter: ObjectFilter, val max: Value = Value.Fixed(1), val reveal: Boolean = false,
-        val bind: String? = null,
+        val zones: List<Zone> = listOf(Zone.Library), val differentNames: Boolean = false, val bind: String? = null,
     ) : Effect
     @Serializable @SerialName("shuffle") data class Shuffle(val library: Players) : Effect
     @Serializable @SerialName("reveal") data class Reveal(val objects: Objects, val bind: String? = null) : Effect
@@ -65,7 +66,12 @@ sealed interface Effect {
     @Serializable @SerialName("lose-life") data class LoseLife(val players: Players, val amount: Value, val bind: String? = null) : Effect
     @Serializable @SerialName("set-life") data class SetLife(val players: Players, val amount: Value) : Effect
 
-    @Serializable @SerialName("put-counters") data class PutCounters(val objects: Objects, val kind: CounterKind, val amount: Value) : Effect
+    /** Put [amount] counters of [kind] on each of [objects], or, [distributed], [amount] in total distributed among them
+     * as the controller chooses, at least one each ("distribute three +1/+1 counters among any number of creatures you
+     * control", CR 608.2d). */
+    @Serializable @SerialName("put-counters") data class PutCounters(
+        val objects: Objects, val kind: CounterKind, val amount: Value, val distributed: Boolean = false,
+    ) : Effect
     @Serializable @SerialName("remove-counters") data class RemoveCounters(val objects: Objects, val kind: CounterKind?, val amount: Value) : Effect
     @Serializable @SerialName("player-counters") data class GivePlayerCounters(val players: Players, val kind: CounterKind, val amount: Value) : Effect
 
@@ -74,6 +80,10 @@ sealed interface Effect {
     /** Attach an Aura, Equipment or Fortification to an object or player (CR 701.3). */
     @Serializable @SerialName("attach") data class Attach(val objects: Objects, val to: Recipients) : Effect
     @Serializable @SerialName("transform") data class Transform(val objects: Objects) : Effect
+    /** Flip a flip card (CR 710). */
+    @Serializable @SerialName("flip") data class Flip(val objects: Objects) : Effect
+    /** [players] skip their next turn. */
+    @Serializable @SerialName("skip-next-turn") data class SkipNextTurn(val players: Players = Players.You) : Effect
     @Serializable @SerialName("turn-face-up") data class TurnFaceUp(val objects: Objects) : Effect
     @Serializable @SerialName("turn-face-down") data class TurnFaceDown(val objects: Objects) : Effect
     @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects) : Effect
@@ -82,9 +92,12 @@ sealed interface Effect {
     @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false) : Effect
     @Serializable @SerialName("designation") data class GiveDesignation(val players: Players, val designation: Designation) : Effect
 
+    /** Create [count] tokens, as one event; [attacking]: what they attack (CR 508.4); [attachedTo]: created attached
+     * ("a Role token attached to target creature", CR 303.4f). */
     @Serializable @SerialName("create-token") data class CreateToken(
         val token: TokenSpec, val count: Value = Value.Fixed(1), val controller: Players = Players.You,
-        val tapped: Boolean = false, val attacking: Boolean = false, val bind: String? = null,
+        val tapped: Boolean = false, val attacking: Recipients? = null, val attachedTo: Recipients? = null,
+        val bind: String? = null,
     ) : Effect
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
     @Serializable @SerialName("copy-spell") data class CopySpell(
@@ -101,7 +114,9 @@ sealed interface Effect {
      * ends after applying that many times ("the next time …"); the effect object counts down. Giant Growth: +3/+3 to
      * the target until end of turn. */
     @Serializable @SerialName("apply") data class ApplyMechanics(
-        val mechanics: List<Mechanic>, val affects: Affected, val duration: Duration, val uses: Int? = null,
+        /** Null for mechanics with their own scope (prevention, replacement, cost change, "damage can't be prevented":
+         * Fog, "spells cost {1} more this turn"); they change the rules of the game (CR 611.2c). */
+        val mechanics: List<Mechanic>, val affects: Affected?, val duration: Duration, val uses: Int? = null,
     ) : Effect
     /** "Prevent the next [amount] damage that would be dealt to [to] this turn" (CR 615.7): a shield effect object
      * whose amount goes down by the damage it prevents. [from] limits the sources ("by a source of your choice"). */
@@ -143,10 +158,11 @@ sealed interface Effect {
     @Serializable @SerialName("win") data class WinGame(val players: Players = Players.You) : Effect
     @Serializable @SerialName("lose") data class LoseGame(val players: Players) : Effect
     /** Cast [objects] without paying their mana cost, or by paying [cost] (CR 601.2, "you may cast it"). */
-    /** Cast [objects] now, without paying their mana cost or by paying [cost]; [bind] names the resulting spell
-     * ("If that spell would be put into your graveyard, exile it instead"). */
+    /** Cast [objects] now ([how] play: a land is played instead, CR 305.1), without paying their mana cost or by paying
+     * [cost]; [bind] names the resulting spell ("If that spell would be put into your graveyard, exile it instead"). */
     @Serializable @SerialName("cast") data class Cast(
-        val objects: Objects, val withoutPaying: Boolean = false, val cost: Cost? = null, val bind: String? = null,
+        val objects: Objects, val how: PlayKind = PlayKind.Cast, val withoutPaying: Boolean = false, val cost: Cost? = null,
+        val bind: String? = null,
     ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
      * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once
@@ -161,9 +177,10 @@ sealed interface Effect {
     @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction) : Effect
 }
 
-/** Who or what receives damage or an attachment: objects, players, or both. */
+/** Who or what receives damage or an attachment: objects, players, or both; [target] is everything chosen for that
+ * target slot, objects and players ("any target"). */
 @Serializable
-data class Recipients(val objects: Objects? = null, val players: Players? = null)
+data class Recipients(val objects: Objects? = null, val players: Players? = null, val target: String? = null)
 
 /** Where [Effect.Move] puts things (CR 400.7). [owner] true: the owner's zone of that kind (the normal case). */
 @Serializable
@@ -173,7 +190,8 @@ data class Destination(
     val libraryPosition: Int? = null,
     val tapped: Boolean = false,
     val faceDown: Boolean = false,
-    /** Onto the battlefield under this player's control; null = owner's. */
+    /** Onto the battlefield under this player's control; null = the player putting it there (CR 110.2a). "Under its
+     * owner's control" is [Players.OwnerOf]. */
     val controller: Players? = null,
     /** Onto the battlefield attached to … (an Aura returned to the battlefield). */
     val attachedTo: Recipients? = null,
@@ -196,13 +214,24 @@ data class CountersToPut(val kind: CounterKind, val amount: Value = Value.Fixed(
 @Serializable
 sealed interface TokenSpec {
     /** A token described by its characteristics ("a 1/1 white Soldier creature token with flying"). Its name, when the
-     * text gives none, is its subtypes plus "Token" ("Soldier Token", CR 111.4). */
-    @Serializable @SerialName("defined") data class Defined(val face: FaceDefinition) : TokenSpec
+     * text gives none, is its subtypes plus "Token" ("Soldier Token", CR 111.4); its colour is written as a colour
+     * indicator. [power]/[toughness] set computed values ("an X/X Ooze token"), fixed when created and part of its
+     * copiable values (CR 707.2). */
+    @Serializable @SerialName("defined") data class Defined(val face: FaceDefinition, val power: Value? = null, val toughness: Value? = null) : TokenSpec
     /** A predefined token (CR 111.10): Treasure, Clue, Food, Blood, Map, Powerstone, … by name; the shared table
      * holds their definitions. */
     @Serializable @SerialName("predefined") data class Predefined(val name: String) : TokenSpec
     /** A token that's a copy of [objects] (CR 707), with the exceptions [except] (CR 707.9b). */
     @Serializable @SerialName("copy") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : TokenSpec
+}
+
+/** What [KeywordAction.Double] doubles. */
+@Serializable
+sealed interface Doubled {
+    @Serializable @SerialName("counters") data class Counters(val objects: Objects, val kind: CounterKind?) : Doubled
+    @Serializable @SerialName("life") data class Life(val players: Players) : Doubled
+    @Serializable @SerialName("power") data class Power(val objects: Objects) : Doubled
+    @Serializable @SerialName("mana") data class Mana(val players: Players) : Doubled
 }
 
 /** Keyword actions (CR 701) that are shorthand for other effects; the shared table expands them. Actions with their
@@ -222,8 +251,28 @@ sealed interface KeywordAction {
     @Serializable @SerialName("adapt") data class Adapt(val count: Value) : KeywordAction
     @Serializable @SerialName("goad") data class Goad(val objects: Objects) : KeywordAction
     @Serializable @SerialName("learn") data object Learn : KeywordAction
+    /** Double counters, life, power, or mana (CR 701.10). */
+    @Serializable @SerialName("double") data class Double(val what: Doubled) : KeywordAction
+    @Serializable @SerialName("bolster") data class Bolster(val count: Value) : KeywordAction
+    @Serializable @SerialName("support") data class Support(val count: Value) : KeywordAction
+    @Serializable @SerialName("detain") data class Detain(val objects: Objects) : KeywordAction
+    @Serializable @SerialName("endure") data class Endure(val count: Value) : KeywordAction
+    /** "Exile three cards from your graveyard or sacrifice a Food" (CR 701.61a). */
+    @Serializable @SerialName("forage") data object Forage : KeywordAction
+    @Serializable @SerialName("cloak") data class Cloak(val count: Value = Value.Fixed(1)) : KeywordAction
+    @Serializable @SerialName("time-travel") data object TimeTravel : KeywordAction
+    @Serializable @SerialName("ring-tempts") data object TheRingTemptsYou : KeywordAction
+    /** Exert [objects]: they don't untap during their controller's next untap step (CR 701.43). */
+    @Serializable @SerialName("exert") data class Exert(val objects: Objects = Objects.Self) : KeywordAction
+    /** Behold a [filter]: reveal one from your hand or choose one you control (CR 701.4a). */
+    @Serializable @SerialName("behold") data class Behold(val filter: ObjectFilter) : KeywordAction
+    /** Exile cards from your graveyard with total mana value [amount] or more (CR 701.59a). */
+    @Serializable @SerialName("collect-evidence") data class CollectEvidence(val amount: Value) : KeywordAction
+    /** "Earthbend N": target land you control becomes … (CR 701.66a). Keyword actions that target name a [slot]
+     * declared in the enclosing [Instructions.targets], one per use. */
+    @Serializable @SerialName("earthbend") data class Earthbend(val amount: Value, val slot: String) : KeywordAction
     /** "The next time [objects] would be destroyed this turn, instead remove all damage from it, tap it, and remove it
-     * and its controller taps it; if it's attacking or blocking, remove it from combat" (CR 701.19a): a one-use shield
-     * effect object. */
+     * marked on it and its controller taps it; if it's an attacking or blocking creature, remove it from combat"
+     * (CR 701.19a): a one-use shield effect object. */
     @Serializable @SerialName("regenerate") data class Regenerate(val objects: Objects = Objects.Self) : KeywordAction
 }

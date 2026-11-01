@@ -21,9 +21,15 @@ sealed interface Objects {
     @Serializable @SerialName("event") data class EventObject(val role: EventRole = EventRole.Object) : Objects
     /** The object a source Aura or Equipment is attached to ("enchanted creature", "equipped creature"). */
     @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Self) : Objects
+    /** The source's new object after it changed zones, when it went to a public zone ("return this card from your
+     * graveyard" in a trigger on the enchanted creature dying, CR 400.7e–f, 603.6e). */
+    @Serializable @SerialName("self-after") data object SelfAfter : Objects
+    /** Inside an [ObjectFilter]: the object being tested ("creatures whose power is greater than their toughness"). */
+    @Serializable @SerialName("tested") data object Tested : Objects
     /** Objects attached to [of] ("Auras attached to it"). */
     @Serializable @SerialName("attachments") data class AttachmentsOf(val of: Objects, val filter: ObjectFilter = ObjectFilter.Any) : Objects
-    /** Every object matching [filter] ("each creature", "creatures you control"). Battlefield unless the filter says. */
+    /** Every object matching [filter] ("each creature", "creatures you control"). On the battlefield unless the filter
+     * names zones with [ObjectFilter.InZone] (anywhere in it: "cards you own in exile and in your graveyard"). */
     @Serializable @SerialName("each") data class Each(val filter: ObjectFilter) : Objects
     /** The top or bottom [count] cards of a library. */
     @Serializable @SerialName("library-cards") data class LibraryCards(val of: Players, val count: Value, val fromTop: Boolean = true) : Objects
@@ -98,6 +104,19 @@ sealed interface ObjectFilter {
     ) : ObjectFilter
     /** Has at least one ability of [kind] ("creatures with activated abilities"). */
     @Serializable @SerialName("has-ability-kind") data class HasAbilityKind(val kind: AbilityKind) : ObjectFilter
+    /** An ability (on the Stack, or being activated) of [kind] (any when null), whose source matches [source], labelled
+     * [label] ("activated or triggered ability you control from an artifact source", "an exhaust ability"). Its
+     * controller is the ability's controller. Spells and abilities in other filters are matched as Stack objects too. */
+    @Serializable @SerialName("ability") data class AbilityOf(
+        val kind: AbilityKind? = null, val source: ObjectFilter? = null, val label: AbilityLabel? = null,
+    ) : ObjectFilter
+    /** A spell (or the permanent it became, CR 400.7d) that was cast, from [from] when given ("spells you cast from
+     * exile"). */
+    @Serializable @SerialName("was-cast") data class WasCast(val from: Zone? = null) : ObjectFilter
+    /** Its [keyword] optional cost was paid at least [times] ("kicked spells"). */
+    @Serializable @SerialName("was-paid") data class WasPaid(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val times: Int = 1,
+    ) : ObjectFilter
     @Serializable @SerialName("status") data class HasStatus(val status: Status) : ObjectFilter
     /** Its controller hasn't controlled it continuously since their most recent turn began (CR 302.6). */
     @Serializable @SerialName("summoning-sick") data object SummoningSick : ObjectFilter
@@ -133,6 +152,7 @@ sealed interface AbilityKind {
     @Serializable @SerialName("triggered") data object Triggered : AbilityKind
     @Serializable @SerialName("static") data object Static : AbilityKind
     @Serializable @SerialName("mana") data object Mana : AbilityKind
+    @Serializable @SerialName("loyalty") data object Loyalty : AbilityKind
 }
 
 @Serializable
@@ -156,12 +176,14 @@ sealed interface Players {
     @Serializable @SerialName("bound") data class Bound(val name: String) : Players
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Players
     /** The player the triggering or replaced event was about ("that player"): the caster, the player dealt damage, the
-     * player who drew, discarded, gained or lost life. */
+     * player who drew, discarded, gained or lost life, the active player of a step that begins. */
     @Serializable @SerialName("event-player") data object EventPlayer : Players
     @Serializable @SerialName("controller-of") data class ControllerOf(val objects: Objects) : Players
     @Serializable @SerialName("owner-of") data class OwnerOf(val objects: Objects) : Players
     @Serializable @SerialName("active") data object Active : Players
     @Serializable @SerialName("defending") data object Defending : Players
+    /** The player [of] is attached to ("enchanted player", Curses, CR 303.4m). */
+    @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Objects.Self) : Players
     /** In a static ability's mechanics or condition: each affected player in turn ("Each player can't cast more than one
      * spell each turn"). */
     @Serializable @SerialName("affected") data object Affected : Players

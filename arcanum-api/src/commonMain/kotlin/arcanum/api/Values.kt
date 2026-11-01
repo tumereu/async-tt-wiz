@@ -29,10 +29,20 @@ sealed interface Value {
     /** Devotion to [colors] (CR 700.5). */
     @Serializable @SerialName("devotion") data class Devotion(val colors: List<Color>, val players: Players = Players.You) : Value
     /** How many times [event] happened this turn ("the number of creatures that died this turn"). */
-    @Serializable @SerialName("events-this-turn") data class EventsThisTurn(val event: EventPattern) : Value
-    /** Mana spent to cast the spell: all of it, only mana of [color] ("if at least three white mana was spent"), or
-     * the number of colours ([distinctColors], "for each colour of mana spent"). */
-    @Serializable @SerialName("mana-spent") data class ManaSpent(val color: Color? = null, val distinctColors: Boolean = false) : Value
+    @Serializable @SerialName("events-this-turn") data class EventsThisTurn(val event: EventPattern, val measure: Measure = Measure.Objects) : Value
+    /** Mana spent to cast [of] (this object by default; "that spell" in a cast trigger): all of it, only mana of [color]
+     * ("if at least three white mana was spent"), or the number of colours ([distinctColors]). A permanent keeps this
+     * from the spell it was (CR 400.7d). */
+    @Serializable @SerialName("mana-spent") data class ManaSpent(
+        val color: Color? = null, val distinctColors: Boolean = false, val of: Objects = Objects.Self,
+    ) : Value
+    /** How many times [keyword]'s optional cost was paid for [of] ("for each time it was kicked", CR 702.33d–f). */
+    @Serializable @SerialName("times-paid") data class TimesPaid(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val of: Objects = Objects.Self,
+    ) : Value
+    /** How many times this ability has been activated ([resolved] false) or has resolved this turn ("If this ability has
+     * been activated four or more times this turn"). */
+    @Serializable @SerialName("ability-uses") data class AbilityUsesThisTurn(val resolved: Boolean = false) : Value
     /** The damage over lethal in a damage effect bound as [name] ("excess damage", CR 120.4a); [Bound] reads the whole
      * amount dealt. */
     @Serializable @SerialName("excess") data class Excess(val name: String) : Value
@@ -46,6 +56,18 @@ sealed interface Value {
     @Serializable @SerialName("half") data class Half(val value: Value, val roundUp: Boolean) : Value
     @Serializable @SerialName("max") data class Max(val parts: List<Value>) : Value
     @Serializable @SerialName("min") data class Min(val parts: List<Value>) : Value
+}
+
+/**
+ * What a "this turn" count counts ([Value.EventsThisTurn], [Condition.HappenedThisTurn]): events (a board wipe is
+ * one), objects (it is five creatures that died), or the amounts the events carried (life gained, damage dealt).
+ * Each tagged event (D33) is one event: one draw, one zone change of several objects at once, one damage event.
+ */
+@Serializable
+sealed interface Measure {
+    @Serializable @SerialName("events") data object Events : Measure
+    @Serializable @SerialName("objects") data object Objects : Measure
+    @Serializable @SerialName("amount") data object Amount : Measure
 }
 
 /** A number an object has (part of its properties). */
@@ -90,17 +112,26 @@ sealed interface Condition {
     @Serializable @SerialName("could-not") data class CouldNot(val name: String) : Condition
     /** The coin flip named [name] was won. */
     @Serializable @SerialName("won-flip") data class WonFlip(val name: String) : Condition
-    /** An optional or additional cost was paid when casting ("if it was kicked"). */
+    /** An optional or additional cost was paid when casting [of] ("if it was kicked", "if that spell was kicked"). */
     @Serializable @SerialName("paid") data class Paid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val times: Int = 1,
         /** Which of the keyword's costs ("kicked with its {1}{G} kicker", CR 702.33f): index into [Keyword.Kicker.costs]. */
         val costIndex: Int? = null,
+        val of: Objects = Objects.Self,
     ) : Condition
-    /** The spell was cast from [zone], or cast at all (null) — "if you cast it from your hand". */
-    @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?) : Condition
-    /** [event] happened this turn ("if you attacked this turn", "if a creature died this turn"). */
-    @Serializable @SerialName("this-turn") data class HappenedThisTurn(val event: EventPattern, val atLeast: Int = 1) : Condition
+    /** [of] was cast from [zone], or cast at all (null): "if you cast it from your hand", "if you cast it from a
+     * graveyard" about another creature. */
+    @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects = Objects.Self) : Condition
+    /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
+     * 3 or more life this turn"). */
+    @Serializable @SerialName("this-turn") data class HappenedThisTurn(
+        val event: EventPattern, val atLeast: Int = 1, val measure: Measure = Measure.Objects,
+    ) : Condition
+    /** The objects named [name] by an effect are not empty ("if a creature died this way"). */
+    @Serializable @SerialName("non-empty") data class NonEmpty(val name: String) : Condition
+    /** Your speed is 4, the most it can be (max speed, CR 702.178). */
+    @Serializable @SerialName("max-speed") data object MaxSpeed : Condition
     /** The chosen mode / option [option] of the resolving spell or of the choice bound under [name]. */
     @Serializable @SerialName("chose") data class Chose(val name: String, val option: String) : Condition
     /** The source Class is at [level] or higher (CR 716). Levelers compare their [CounterKind.Level] counters. */
@@ -114,6 +145,7 @@ sealed interface Condition {
 sealed interface Duration {
     @Serializable @SerialName("end-of-turn") data object EndOfTurn : Duration
     @Serializable @SerialName("end-of-combat") data object EndOfCombat : Duration
+    /** "until your next turn": ends as your next turn begins. Not written as [UntilStep]. */
     @Serializable @SerialName("your-next-turn") data object UntilYourNextTurn : Duration
     /** Through the next [step] of [whose] turn, ending when that step ends ("doesn't untap during its controller's next
      * untap step"). */

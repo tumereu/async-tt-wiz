@@ -19,22 +19,23 @@ sealed interface EventPattern {
     @Serializable @SerialName("zone-change") data class ZoneChange(
         val objects: ObjectFilter = ObjectFilter.Any, val from: Zone? = null, val to: Zone? = null,
     ) : EventPattern
-    /** A spell matching [spell] is cast by a player matching [by]; [nth]: only their nth such spell this turn ("your
-     * second spell each turn"). Role object = the spell. */
+    /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
+     * from exile"). Role object = the spell. */
     @Serializable @SerialName("cast") data class Cast(
-        val spell: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any, val nth: Int? = null,
+        val spell: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any, val from: Zone? = null,
     ) : EventPattern
     /** An ability of an object matching [source] is activated; [manaAbilities] whether mana abilities count. */
     @Serializable @SerialName("activate") data class Activate(val source: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any, val manaAbilities: Boolean = false) : EventPattern
-    /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any.
-     * Roles source, object (the recipient); amount = the damage. */
+    /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any; [excess]:
+     * only damage over lethal (CR 120.4a). Roles source, object (the recipient); amount = the damage. */
     @Serializable @SerialName("damage") data class Damage(
         val source: ObjectFilter = ObjectFilter.Any, val to: RecipientFilter = RecipientFilter(), val combat: Boolean? = null,
+        val excess: Boolean = false,
     ) : EventPattern
     @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
-    /** A player draws; [nth] = only their nth card this turn ("your second card each turn"). */
-    @Serializable @SerialName("draw") data class Draw(val players: PlayerFilter = PlayerFilter.Any, val nth: Int? = null) : EventPattern
+    /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]). */
+    @Serializable @SerialName("draw") data class Draw(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("discard") data class Discard(val cards: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
     @Serializable @SerialName("counters") data class CountersPut(val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null) : EventPattern
@@ -87,6 +88,12 @@ sealed interface EventPattern {
     @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter = ObjectFilter.Any, val to: ObjectFilter = ObjectFilter.Any) : EventPattern
     @Serializable @SerialName("roll-die") data class RollDie(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    /** A Vehicle matching [objects] becomes crewed (CR 702.122). Roles object (the Vehicle), other combatant unused. */
+    @Serializable @SerialName("crewed") data class Crewed(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
+    /** A Mount matching [objects] becomes saddled (CR 702.171). */
+    @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
+    /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
+    @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter = PlayerFilter.You) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */
@@ -98,8 +105,14 @@ data class RecipientFilter(val objects: ObjectFilter? = null, val players: Playe
 sealed interface Trigger {
     /** "When/Whenever [events]": one ability with one or more trigger events ("enters or attacks"), so it stays one
      * ability for "counter target ability" or "loses this ability". [oneOrMore]: triggers once for a batch of
-     * simultaneous events ("one or more creatures", CR 603.2c). */
-    @Serializable @SerialName("on") data class On(val events: List<EventPattern>, val oneOrMore: Boolean = false) : Trigger {
+     * simultaneous events ("one or more creatures", CR 603.2c), and only when the batch has at least [atLeast]
+     * ("whenever you attack with three or more creatures"). [nthThisTurn]: only the nth such event for that player this
+     * turn ("your second spell each turn", "for the first time each turn"), counted within [during] when given ("the
+     * first card you draw during each of your draw steps"). */
+    @Serializable @SerialName("on") data class On(
+        val events: List<EventPattern>, val oneOrMore: Boolean = false, val atLeast: Int? = null,
+        val nthThisTurn: Int? = null, val during: TurnStep? = null,
+    ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
     }
     /** A state trigger (CR 603.8): triggers whenever [condition] becomes true, once until it resolves. */

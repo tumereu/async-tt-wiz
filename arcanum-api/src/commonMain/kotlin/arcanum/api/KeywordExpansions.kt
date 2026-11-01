@@ -46,8 +46,8 @@ object KeywordExpansions {
                 Affected.Objects(Objects.Self), Duration.EndOfTurn))))
         is Keyword.Toxic -> static(Mechanic.Toxic(keyword.amount))
         is Keyword.Protection -> static(Mechanic.Protection(keyword.from))
-        is Keyword.HexproofFrom -> static(Mechanic.CantBeTargeted(by = ObjectFilter.And(listOf(
-            ObjectFilter.ControlledBy(PlayerFilter.Opponent), keyword.from))))
+        is Keyword.HexproofFrom -> static(Mechanic.CantBeTargeted(
+            by = ObjectFilter.ControlledBy(PlayerFilter.Opponent), fromSource = keyword.from))
         // CR 702.14c: can't be blocked as long as the defending player controls such a land
         is Keyword.Landwalk -> listOf(Ability.Static(listOf(Mechanic.CantBeBlocked),
             condition = Condition.Exists(ObjectFilter.And(listOf(keyword.land, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Defending)))))))
@@ -76,7 +76,7 @@ object KeywordExpansions {
             Step.Do(Effect.Shuffle(Players.You)))))
         // CR 702.34a: may cast from the graveyard by paying the flashback cost; exiled when it leaves the Stack
         is Keyword.Flashback -> static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast,
-            cards = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)),
+            resultingSpell = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)),
             cost = keyword.cost, then = Destination(Zone.Exile)))
         // CR 702.33a: optional additional cost(s)
         is Keyword.Kicker -> keyword.costs.map { cost ->
@@ -103,6 +103,37 @@ object KeywordExpansions {
         }
         else -> null
     }
+
+    /**
+     * [ability] with the rules its [AbilityLabel] adds (CR 702.142a, 702.169b–d, 702.177a, 702.178a, 702.193a). Power-up's
+     * cost reduction ("reduced by this permanent's mana cost if it entered this turn") is applied by the engine when the
+     * cost is determined; "activate only once" is added here.
+     */
+    fun withLabelRules(ability: Ability): Ability = when (ability) {
+        is Ability.Activated -> when (ability.label) {
+            null -> ability
+            AbilityLabel.Exhaust, AbilityLabel.PowerUp -> ability.copy(rules = ability.rules.copy(once = true))
+            AbilityLabel.Boast -> ability.copy(rules = ability.rules.copy(perTurn = 1,
+                condition = and(ability.rules.condition, attackedThisTurn)))
+            AbilityLabel.Solved -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, solved)))
+            AbilityLabel.MaxSpeed -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, Condition.MaxSpeed)))
+        }
+        is Ability.Triggered -> when (ability.label) {
+            AbilityLabel.Solved -> ability.copy(triggersOnlyIf = and(ability.triggersOnlyIf, solved))
+            AbilityLabel.MaxSpeed -> ability.copy(triggersOnlyIf = and(ability.triggersOnlyIf, Condition.MaxSpeed))
+            else -> ability
+        }
+        is Ability.Static -> when (ability.label) {
+            AbilityLabel.Solved -> ability.copy(condition = and(ability.condition, solved))
+            AbilityLabel.MaxSpeed -> ability.copy(condition = and(ability.condition, Condition.MaxSpeed))
+            else -> ability
+        }
+        else -> ability
+    }
+
+    private val attackedThisTurn = Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.Attack(ObjectFilter.Is(Objects.Self))))
+    private val solved = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Solved)))
+    private fun and(existing: Condition?, added: Condition) = if (existing == null) added else Condition.And(listOf(existing, added))
 
     private fun static(mechanic: Mechanic) = listOf(Ability.Static(listOf(mechanic)))
     private fun steps(vararg effects: Effect) = Instructions(steps = effects.map { Step.Do(it) })

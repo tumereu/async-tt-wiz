@@ -129,11 +129,14 @@ sealed interface Mechanic {
     }
     /** Protection from objects matching [from] (CR 702.16: can't be damaged, enchanted/equipped, blocked or targeted
      * by them). For an ability, [from] is matched against its source (CR 702.16b); a card type means permanents of
-     * that type (702.16a). "Protection from red and from blue" is two keywords (702.16g). */
+     * that type, and sources not on the battlefield of that type (702.16a). "Protection from red and from blue" is two
+     * keywords (702.16g). */
     @Serializable @SerialName("protection") data class Protection(val from: ObjectFilter) : KeywordOnly
-    /** Can't be the target of spells matching [by], or of abilities whose source matches [by] (hexproof: controlled by
-     * opponents; shroud: any; hexproof from a quality, CR 702.11d). */
-    @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter) : Mechanic
+    /** Can't be the target of spells or abilities matching [by], matched against the spell or ability itself (its
+     * controller is the ability's controller), whose source matches [fromSource] when given (the spell itself, or the
+     * object an ability came from). Hexproof: by = controlled by an opponent (CR 702.11b); hexproof from a quality adds
+     * fromSource = that quality (702.11d); shroud: by = any (702.18a). */
+    @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter, val fromSource: ObjectFilter? = null) : Mechanic
     @Serializable @SerialName("phasing") data object Phasing : KeywordOnly
     /** What this Aura can target as a spell and be attached to (enchant, CR 702.5, 303.4). */
     @Serializable @SerialName("can-enchant") data class CanEnchant(val what: TargetKind) : KeywordOnly
@@ -158,6 +161,9 @@ sealed interface Mechanic {
     /** Can attack as though it didn't have defender. */
     @Serializable @SerialName("attacks-despite-defender") data object CanAttackDespiteDefender : Mechanic
     /** "Creatures can't attack [target] unless their controller pays [cost] for each" (CR 508.1g). */
+    /** "You may [cost] as this creature attacks. When you do, [then]" (exert, CR 701.43d, 508.1g): an optional cost paid
+     * while declaring it as an attacker, with a reflexive trigger. */
+    @Serializable @SerialName("as-attacks") data class AsAttacks(val cost: Cost, val then: Instructions? = null) : Mechanic
     @Serializable @SerialName("attack-cost") data class AttackCost(val cost: Cost, val target: Recipients? = null) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -181,16 +187,17 @@ sealed interface Mechanic {
     /**
      * The permission to play or cast cards from [from] ("you may cast ~ from your graveyard", "until end of turn, you may
      * play those cards", "you may look at and play the top card of your library"). [how]: play (lands too, using a land
-     * play, CR 305.1) or cast (spells only, CR 601). [cards] limits which ("creature spells", "if the resulting spell is
-     * an instant or sorcery", CR 702.34a); [topOnly]: only the top card of a library; [cost] replaces the mana cost
-     * (flashback, escape); [then] is where it goes when it leaves the Stack (flashback: exile); [manaAsAnyColor]:
-     * mana may be spent as though it were mana of any colour for them. The permission belongs to "you" (the ability's
-     * or effect's controller), also for cards in an opponent's library or exile. The affected cards are [Static.affects]
-     * or the effect's affected objects; for a static ability on the card itself, the card.
+     * play, CR 305.1) or cast (spells only, CR 601). Which cards: [Static.affects] or the effect's affected objects (for a
+     * static ability on the card itself, the card); [resultingSpell] only conditions the spell it becomes ("if the
+     * resulting spell is an instant or sorcery", CR 702.34a). [topOnly]: only the top card of a library; [cost] replaces
+     * the mana cost (flashback, escape); [then] is where it goes when it leaves the Stack (flashback: exile);
+     * [manaAsAnyColor]: mana may be spent as though it were mana of any colour for them. Timing is the card's own
+     * ("as though it had flash" is [InstantSpeed]). The permission belongs to "you" (the ability's or effect's
+     * controller), also for cards in an opponent's library or exile.
      */
     @Serializable @SerialName("may-play") data class MayPlay(
-        val from: Zone, val how: PlayKind = PlayKind.Cast, val cards: ObjectFilter? = null, val topOnly: Boolean = false,
-        val cost: Cost? = null, val then: Destination? = null, val timing: Timing? = null, val manaAsAnyColor: Boolean = false,
+        val from: Zone, val how: PlayKind = PlayKind.Cast, val resultingSpell: ObjectFilter? = null, val topOnly: Boolean = false,
+        val cost: Cost? = null, val then: Destination? = null, val manaAsAnyColor: Boolean = false,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */
@@ -313,6 +320,8 @@ sealed interface Modification {
     @Serializable @SerialName("as-enters") data class AsEnters(val steps: List<Step>) : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
+    /** "Enters under the control of [players]" (chosen among the first replacements, CR 616.1b). */
+    @Serializable @SerialName("enters-under-control") data class EntersUnderControlOf(val players: Players) : Modification
     /** "Enters with [abilities]" ("If kicked, it enters with … and with trample"): part of the entering object. */
     @Serializable @SerialName("enters-with-abilities") data class EntersWithAbilities(val abilities: List<Ability>) : Modification
     /** The event doesn't happen at all ("If you would draw a card, skip that draw instead"). Skipping a step is

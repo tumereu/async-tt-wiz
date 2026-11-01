@@ -72,8 +72,9 @@ sealed interface Ability {
         val text: String? = null,
     ) : Ability
 
-    /** "[Cost]: [Effect]" (CR 602). It is a mana ability (CR 605.1a) when it could add mana, has no target and isn't a
-     * loyalty ability; a [CostPart.Loyalty] cost makes it a loyalty ability, activated only as a sorcery and only once
+    /** "[Cost]: [Effect]" (CR 602). It is a mana ability (CR 605.1a) when it could add mana, has no target, isn't a
+     * loyalty ability, and its cost and effect don't move a card to or from a library; a [CostPart.Loyalty] cost makes it
+     * a loyalty ability, activated only as a sorcery and only once
      * each turn for that permanent's loyalty abilities (CR 606.3). */
     @Serializable @SerialName("activated")
     data class Activated(
@@ -85,6 +86,9 @@ sealed interface Ability {
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
          * costs or effects that move it out of a zone work in that zone; characteristic-defining everywhere; CR 113.6k, m). */
         val functionsIn: List<Zone>? = null,
+        /** A keyword that adds rules to this ability (exhaust, boast, max speed, solved, power-up), kept so other
+         * cards can refer to it ("an exhaust ability"); [KeywordExpansions.withLabelRules] adds those rules. */
+        val label: AbilityLabel? = null,
         val abilityWord: String? = null,
         val text: String? = null,
     ) : Ability
@@ -102,11 +106,17 @@ sealed interface Ability {
         /** "… Do this only once each turn": triggers only if its source's controller hasn't yet taken that action this
          * turn (CR 603.2h). */
         val actionOncePerTurn: Boolean = false,
+        /** A condition checked only when it would trigger, not again on resolution ("This ability triggers only if this
+         * Case is solved", CR 702.169c), unlike [interveningIf]. */
+        val triggersOnlyIf: Condition? = null,
         /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
          * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
          * costs or effects that move it out of a zone work in that zone; characteristic-defining everywhere; CR 113.6k, m). */
         val functionsIn: List<Zone>? = null,
+        /** A keyword that adds rules to this ability (exhaust, boast, max speed, solved, power-up), kept so other
+         * cards can refer to it ("an exhaust ability"); [KeywordExpansions.withLabelRules] adds those rules. */
+        val label: AbilityLabel? = null,
         val abilityWord: String? = null,
         val text: String? = null,
     ) : Ability
@@ -132,6 +142,9 @@ sealed interface Ability {
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
          * costs or effects that move it out of a zone work in that zone; characteristic-defining everywhere; CR 113.6k, m). */
         val functionsIn: List<Zone>? = null,
+        /** A keyword that adds rules to this ability (exhaust, boast, max speed, solved, power-up), kept so other
+         * cards can refer to it ("an exhaust ability"); [KeywordExpansions.withLabelRules] adds those rules. */
+        val label: AbilityLabel? = null,
         val abilityWord: String? = null,
         val text: String? = null,
     ) : Ability
@@ -169,6 +182,8 @@ data class ActivationRules(
     val timing: Timing = Timing.Any,
     /** "Activate only once each turn" = 1. */
     val perTurn: Int? = null,
+    /** "Activate only once": once for as long as the object exists (exhaust, CR 702.177a). */
+    val once: Boolean = false,
     /** "Activate only if …". */
     val condition: Condition? = null,
 )
@@ -180,9 +195,23 @@ sealed interface Timing {
     @Serializable @SerialName("any") data object Any : Timing
     /** Only as a sorcery (CR 307.1): own main phase, empty Stack. */
     @Serializable @SerialName("sorcery") data object Sorcery : Timing
-    @Serializable @SerialName("your-turn") data object YourTurn : Timing
-    @Serializable @SerialName("combat") data object DuringCombat : Timing
-    @Serializable @SerialName("upkeep") data object YourUpkeep : Timing
+}
+
+/** Keywords that add rules to the ability they label (CR 702.142, 702.169, 702.177, 702.178, 702.193). Other timing
+ * ("only during your turn", "only during combat") is an activation condition. */
+@Serializable
+sealed interface AbilityLabel {
+    /** "Activate only if this creature attacked this turn and only once each turn" (CR 702.142a). */
+    @Serializable @SerialName("boast") data object Boast : AbilityLabel
+    /** Works only while this Case is solved (CR 702.169b–d). */
+    @Serializable @SerialName("solved") data object Solved : AbilityLabel
+    /** "Activate only once" (CR 702.177a). */
+    @Serializable @SerialName("exhaust") data object Exhaust : AbilityLabel
+    /** "As long as your speed is 4, this object has [the ability]" (CR 702.178a). */
+    @Serializable @SerialName("max-speed") data object MaxSpeed : AbilityLabel
+    /** "If this permanent entered this turn, this ability's cost is reduced by its mana cost. Activate only once"
+     * (CR 702.193a). */
+    @Serializable @SerialName("power-up") data object PowerUp : AbilityLabel
 }
 
 /**
@@ -208,13 +237,19 @@ data class Modes(
     val options: List<Mode>,
     val min: Int = 1,
     val max: Int = 1,
+    /** "… If [condition], you may choose [maxIf] instead" (e.g. "you may choose both instead"). */
+    val maxIf: Condition? = null,
+    val maxIfCount: Int? = null,
+    /** "Choose one that hasn't been chosen" (for this object). */
+    val onlyUnchosen: Boolean = false,
     /** The same mode may be chosen more than once. */
     val repeatable: Boolean = false,
     /** Who chooses ("target opponent chooses one —"). */
     val chooser: Players = Players.You,
 )
 
-/** One mode. [extraCost] is paid for choosing it (spree, CR 702.172). */
+/** One mode. [extraCost] is paid for choosing it (spree, CR 702.172). A target slot of a mode not chosen is empty: the
+ * spell is treated as though it doesn't have that target (CR 700.2c). */
 @Serializable
 data class Mode(val instructions: Instructions, val extraCost: Cost? = null, val text: String? = null)
 
@@ -246,25 +281,30 @@ sealed interface TargetKind {
 @Serializable
 sealed interface Step {
     @Serializable @SerialName("do") data class Do(val effect: Effect) : Step
-    /** A cost paid on resolution (CR 118.12): "You may [do X]. If you do, …" or, [mandatory], "[Do X]. If you can't, …".
-     * Every such action (sacrifice, discard, exile, tap, return, reveal, pay life or mana) is written as a Pay, never as
-     * [May] plus an effect. It can't be paid in part (CR 601.2h); mana abilities are allowed (CR 608.2g). [bind] names
-     * the outcome: paid, declined or couldn't pay, read with [Condition.Did] and [Condition.CouldNot]. */
+    /** An action that is a cost paid on resolution (CR 118.12): "You may [do X]. If you do, …", or [mandatory], "[Do X].
+     * If you can't, …". X is [cost] when it is something costs can say (sacrifice, discard, exile, tap, return, reveal,
+     * pay life or mana), otherwise [steps] (draw, put onto the battlefield, cast, …); exactly one is given. It can be
+     * chosen only if it can be done in full (CR 601.2h, 118.3); mana abilities are allowed (CR 608.2g). [bind] names the
+     * outcome: paid, declined or couldn't pay, read with [Condition.Did] and [Condition.CouldNot]. Any "you may X. If
+     * you do" is a Pay; [May] is for "you may X" alone. */
     @Serializable @SerialName("pay") data class Pay(
-        val cost: Cost, val payer: Players = Players.You, val mandatory: Boolean = false, val bind: String? = null,
+        val cost: Cost? = null, val steps: List<Step> = emptyList(), val payer: Players = Players.You,
+        val mandatory: Boolean = false, val bind: String? = null,
     ) : Step
     /** Only inside [Modification.AsEnters]: change how the object enters (tapped, with counters, with abilities, as a
      * copy). Entering tapped is not becoming tapped (CR 110.5b, 603.2e). */
     @Serializable @SerialName("modify") data class Modify(val modification: Modification) : Step
     /** "[steps] unless [payer] pays [cost]" ("Counter target spell unless its controller pays {2}"). */
     @Serializable @SerialName("unless") data class Unless(val payer: Players, val cost: Cost, val steps: List<Step>) : Step
-    /** "You may …" / "Target player may …" (CR 608.2d): [player] decides whether [steps] happen. */
-    @Serializable @SerialName("may") data class May(val steps: List<Step>, val player: Players = Players.You, val bind: String? = null) : Step
+    /** "You may …" / "Target player may …" with nothing depending on it (CR 608.2d): [player] decides whether [steps]
+     * happen. With a following "if you do", it is a [Pay]. */
+    @Serializable @SerialName("may") data class May(val steps: List<Step>, val player: Players = Players.You) : Step
     /** "If …, … Otherwise, …". "If you do" is [Condition.Did]. */
     @Serializable @SerialName("if") data class If(val condition: Condition, val then: List<Step>, val otherwise: List<Step> = emptyList()) : Step
-    /** "For each …": [steps] run once per object or player in [each], bound to [bind]. [together]: every player's
-     * choices are made first (in turn order), then the effects happen as one event ("Each opponent sacrifices a
-     * creature", CR 608.2e), so "one or more" triggers trigger once. */
+    /** "For each …": [steps] run once per object or player in [each], bound to [bind]. [together] (CR 608.2e): step by
+     * step, all players make that step's choices in turn order, then the step happens for all of them at once ("Each
+     * opponent sacrifices a creature": one event, so "one or more" triggers trigger once). A name bound inside is one
+     * per player and, for the joint action, the group of all of them. */
     @Serializable @SerialName("for-each") data class ForEach(
         val each: Each, val bind: String, val steps: List<Step>, val together: Boolean = false,
     ) : Step
@@ -291,14 +331,15 @@ sealed interface Each {
 sealed interface Choice {
     @Serializable @SerialName("color") data class Color(val among: List<arcanum.api.Color>? = null) : Choice
     @Serializable @SerialName("creature-type") data object CreatureType : Choice
+    @Serializable @SerialName("basic-land-type") data object BasicLandType : Choice
     @Serializable @SerialName("card-type") data object CardType : Choice
     @Serializable @SerialName("card-name") data class CardName(val filter: ObjectFilter = ObjectFilter.Any) : Choice
     @Serializable @SerialName("number") data class Number(val min: Value, val max: Value? = null) : Choice
     @Serializable @SerialName("player") data class Player(val filter: PlayerFilter) : Choice
-    /** Choose [min]..[max] objects matching [filter] (not targeting), from [from] when given ("from among them"). With
-     * fewer available than [min], all available are chosen (CR 609.3). */
+    /** Choose [min]..[max] objects matching [filter] (not targeting; [max] null: any number), from [from] when given
+     * ("from among them"). With fewer available than [min], all available are chosen (CR 609.3). */
     @Serializable @SerialName("objects") data class Objects(
-        val filter: ObjectFilter, val min: Value, val max: Value, val from: arcanum.api.Objects? = null,
+        val filter: ObjectFilter, val min: Value, val max: Value?, val from: arcanum.api.Objects? = null,
     ) : Choice
     /** Choose one of named options ("odd or even", "left or right"). */
     @Serializable @SerialName("option") data class Option(val options: List<String>) : Choice

@@ -22,10 +22,14 @@ import kotlinx.serialization.json.jsonPrimitive
  *   the ability or on a token it creates are their own scope;
  * - [Value.DividedShare] without a divided target slot;
  * - an event role that the trigger's events don't have, each trigger (delayed ones too) checked against its own;
- * - "as enters" steps other than pay, choose, if and modify (CR 614.12);
+ * - "as enters" steps other than pay, choose, if and modify (CR 614.12), or with no pay or choose (then it is a plain
+ *   modification with the static ability's condition);
+ * - a pay with both or neither of a cost and steps; "any target" written as two references to one slot (use
+ *   `Recipients.target`); a repeat around a single effect that has its own count;
  * - a replacement that neither replaces nor modifies; target, mode and choice counts that can't be met;
  * - a chapter trigger on a face that isn't a Saga; a characteristic-defining ability with a condition or other scope;
- * - event-scoped mechanics (replacement, prevention, cost change, extra triggers) given an `affects`;
+ * - event-scoped mechanics (replacement, prevention, cost change, extra triggers) given an `affects`, in static
+ *   abilities and in effects;
  * - the "affected object/player" reference outside a static ability's or effect's mechanics.
  *
  * The checks walk the definition's JSON form, so they see every nested part without a visitor per type.
@@ -76,8 +80,33 @@ object DefinitionChecks {
                     found += "a single object's number read from several objects; say total, greatest or least"
                 if (type == "triggered") checkRoles(element["trigger"], listOfNotNull(element["instructions"], element["interveningIf"]), found)
                 if (type == "delayed-trigger") checkRoles(element["trigger"], listOfNotNull(element["instructions"]), found)
-                if (type == "as-enters") visitShallow(element["steps"]) { step ->
-                    if (step.typeName() !in asEntersSteps) found += "\"as enters\" may only pay, choose, check or modify how it enters, not \"${step.typeName()}\" (CR 614.12)"
+                if (type == "as-enters") {
+                    visitShallow(element["steps"]) { step ->
+                        if (step.typeName() !in asEntersSteps) found += "\"as enters\" may only pay, choose, check or modify how it enters, not \"${step.typeName()}\" (CR 614.12)"
+                    }
+                    var decides = false
+                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() == "pay" || it.typeName() == "choose") decides = true }
+                    if (!decides) found += "\"as enters\" without a payment or choice: write the modification directly, with the static ability's condition"
+                }
+                if (type == "pay" && ((element["cost"] != null) == ((element["steps"] as? JsonArray)?.isNotEmpty() == true)))
+                    found += "a pay needs exactly one of a cost or steps"
+                if (type == null && "objects" in element && "players" in element) {
+                    val objectSlot = (element["objects"] as? JsonObject)?.takeIf { it.typeName() == "target" }?.string("slot")
+                    val playerSlot = (element["players"] as? JsonObject)?.takeIf { it.typeName() == "target" }?.string("slot")
+                    if (objectSlot != null && objectSlot == playerSlot) found += "\"any target\" slot \"$objectSlot\" written twice; use Recipients(target = …)"
+                }
+                if (type == "repeat") {
+                    val steps = (element["steps"] as? JsonArray).orEmpty()
+                    val effect = (steps.singleOrNull() as? JsonObject)?.takeIf { it.typeName() == "do" }?.get("effect") as? JsonObject
+                    if (effect?.typeName() in setOf("create-token", "draw", "mill", "put-counters", "damage", "gain-life", "lose-life"))
+                        found += "repeat around \"${effect?.typeName()}\": use its own count (one event, not several)"
+                }
+                if (type == "apply" && element["affects"].let { it != null && it !is kotlinx.serialization.json.JsonNull } &&
+                    (element["mechanics"] as? JsonArray).orEmpty().any { (it as? JsonObject)?.typeName() in eventScoped })
+                    found += "an effect with event-scoped mechanics changes the rules of the game; leave its affects empty (CR 611.2c)"
+                if (type == "objects" && "filter" in element && "min" in element) {
+                    val min = element.fixed("min"); val max = element.fixed("max")
+                    if (min != null && max != null) checkCounts("choice", min, max, found)
                 }
                 if (type == "replacement" && element["instead"] == null && element["modify"] == null)
                     found += "a replacement that neither replaces nor modifies the event"
@@ -90,9 +119,10 @@ object DefinitionChecks {
                     if (!element.boolean("repeatable") && max > options) found += "modes: maximum $max is more than the $options options"
                 }
                 if ("what" in element && type == null) {
-                    val min = element.fixed("min") ?: 1
-                    val max = if ("max" in element && element["max"] is JsonPrimitive) null else element.fixed("max") ?: 1
-                    if (max != null) checkCounts("target slot", min, max, found)
+                    // Absent means the default 1; null means any number; a computed value isn't checked.
+                    val min = if ("min" in element) element.fixed("min") else 1
+                    val max = if ("max" in element) element.fixed("max") else 1
+                    if (min != null && max != null) checkCounts("target slot", min, max, found)
                 }
                 // Mechanic lists: "mechanics" (static abilities, ApplyMechanics) and "spellGets" (mana riders).
                 element.forEach { (key, value) -> walk(value, key == "mechanics" || key == "spellGets", found) }
@@ -132,7 +162,8 @@ object DefinitionChecks {
             (scope.usedAnnounced - scope.announced).forEach { found += "$name: \"$it\" is used but never announced" }
             if (scope.usesDividedShare && scope.dividedSlots.isEmpty()) found += "$name: a divided share is read without a divided target slot"
             if (scope.usesAffected && ability.typeName() != "static") found += "$name: \"the affected object/player\" outside a static ability or effect"
-            scope.nested.forEach { check(it, emptySet()) }
+            // Abilities granted by this one see its names, frozen when the effect is created (D37).
+            scope.nested.forEach { check(it, scope.named + extra) }
             if (ability.typeName() == "triggered" && (ability["trigger"] as? JsonObject)?.typeName() == "chapter" && "Saga" !in subtypes)
                 found += "$name: chapter abilities belong to Sagas"
         }

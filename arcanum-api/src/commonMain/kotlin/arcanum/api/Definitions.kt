@@ -364,7 +364,8 @@ sealed interface Choice {
     @Serializable @SerialName("color") data class Color(val among: List<ColorRef>? = null) : Choice
     @Serializable @SerialName("creature-type") data object CreatureType : Choice
     @Serializable @SerialName("basic-land-type") data object BasicLandType : Choice
-    @Serializable @SerialName("card-type") data object CardType : Choice
+    /** A card type, one of [among] when given ("Choose artifact, creature, or land"). */
+    @Serializable @SerialName("card-type") data class CardType(val among: List<arcanum.api.CardType>? = null) : Choice
     @Serializable @SerialName("card-name") data class CardName(val filter: ObjectFilter) : Choice
     @Serializable @SerialName("number") data class Number(val min: Value, val max: Value? = null) : Choice
     @Serializable @SerialName("player") data class Player(val filter: PlayerFilter) : Choice

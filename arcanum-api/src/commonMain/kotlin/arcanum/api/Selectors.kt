@@ -96,8 +96,11 @@ sealed interface ObjectFilter {
 
     /** What kind of object (CR 109.1): card, token, spell, permanent, ability on the Stack. */
     @Serializable @SerialName("category") data class Category(val category: ObjectCategory) : ObjectFilter
-    /** Has [cardType]; [ignoringTypeChanges]: as it would be without type-changing effects (sunburst, CR 702.44a). */
-    @Serializable @SerialName("type") data class Type(val cardType: CardType, val ignoringTypeChanges: Boolean = false) : ObjectFilter
+    /** Has [cardType] ("creature", or "the chosen type" through [CardTypeRef.Chosen]); [ignoringTypeChanges]: as it would
+     * be without type-changing effects (sunburst, CR 702.44a). */
+    @Serializable @SerialName("type") data class Type(val cardType: CardTypeRef, val ignoringTypeChanges: Boolean = false) : ObjectFilter {
+        constructor(cardType: CardType, ignoringTypeChanges: Boolean = false) : this(CardTypeRef.Literal(cardType), ignoringTypeChanges)
+    }
     @Serializable @SerialName("supertype") data class Super(val supertype: Supertype) : ObjectFilter
     /** Has [subtype] ("Elf", or "the chosen type" through [SubtypeRef.Chosen]). */
     @Serializable @SerialName("subtype") data class Sub(val subtype: SubtypeRef) : ObjectFilter {
@@ -173,6 +176,17 @@ sealed interface SubtypeRef {
     @Serializable @SerialName("chosen") data class Chosen(val name: String) : SubtypeRef
     /** Kept as card memory under [key] ("the chosen type" of a permanent, CR 607.2d). */
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : SubtypeRef
+}
+
+/** A card type written out, or the one chosen under [Chosen.name] (a choice of this resolution) or kept under
+ * [Remembered.key] (card memory of the source, CR 607.2d). */
+@Serializable
+sealed interface CardTypeRef {
+    @Serializable @SerialName("literal") data class Literal(val cardType: CardType) : CardTypeRef
+    /** Chosen by the [Step.Choose] named [name] in this resolution. */
+    @Serializable @SerialName("chosen") data class Chosen(val name: String) : CardTypeRef
+    /** Kept as card memory under [key] ("the chosen card type" of a permanent, CR 607.2d). */
+    @Serializable @SerialName("remembered") data class Remembered(val key: String) : CardTypeRef
 }
 
 /** A colour written out, the one chosen under [Chosen.key], or each colour of [Of.objects] ("a colour among the exiled

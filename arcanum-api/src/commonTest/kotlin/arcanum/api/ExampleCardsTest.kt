@@ -361,7 +361,7 @@ class ExampleCardsTest {
         assertEquals(
             """{"name":"Surge of Vigor","manaCost":"{G}","types":[{"type":"instant"}],"abilities":[{"type":"spell",""" +
                 """"instructions":{"targets":[{"name":"c","what":{"type":"objects","filter":{"type":"type","cardType":""" +
-                """{"type":"creature"}}},"min":{"type":"fixed","value":1},"max":{"type":"fixed","value":1}}],"steps":[{"type":"do","effect":{"type":"apply","mechanics":[{"type":"modify-pt",""" +
+                """{"type":"literal","cardType":{"type":"creature"}}}},"min":{"type":"fixed","value":1},"max":{"type":"fixed","value":1}}],"steps":[{"type":"do","effect":{"type":"apply","mechanics":[{"type":"modify-pt",""" +
                 """"power":{"type":"fixed","value":3},"toughness":{"type":"fixed","value":3}}],"affects":{"type":"objects",""" +
                 """"objects":{"type":"target","slot":"c"}},"duration":{"type":"end-of-turn"}}}]}}]}""",
             json.encodeToString(FaceDefinition.serializer(), surge))

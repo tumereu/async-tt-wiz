@@ -2,6 +2,7 @@ package arcanum.parser.cube
 
 import arcanum.api.Ability
 import arcanum.api.CardType
+import arcanum.api.CardTypeRef
 import arcanum.api.Choice
 import arcanum.api.Condition
 import arcanum.api.Destination
@@ -14,11 +15,13 @@ import arcanum.api.Keyword
 import arcanum.api.ManaCost
 import arcanum.api.ManaKind
 import arcanum.api.ManaProduction
+import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.Recipients
+import arcanum.api.Status
 import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
@@ -33,7 +36,8 @@ import kotlin.test.Test
 /**
  * Chunk 15: spells that return permanents from the graveyard (all of a kind, "those creatures" exiled by a delayed
  * trigger, cards "put there from the battlefield this turn"), turn-long triggers that draw or add mana, digging for
- * creatures, an extra turn, and an instant whose triggered ability returns it from the graveyard.
+ * creatures, an extra turn, an instant whose triggered ability returns it from the graveyard, and tapping or untapping
+ * all permanents of a chosen card type.
  */
 class Chunk15ReturnsTriggersAndTurnsTest {
     // ---- Shared shapes
@@ -322,5 +326,48 @@ class Chunk15ReturnsTriggersAndTurnsTest {
         text = "Take an extra turn after this one.",
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(Step.Do(Effect.ExtraTurn(Players.You))))),
+    )
+
+    // ---- Tapping or untapping a chosen card type
+
+    /** "permanents of the chosen type target player controls" with [status] (D55: a card type referenced like a
+     * subtype). */
+    private fun ofTheChosenType(status: ObjectFilter) = Objects.Each(ObjectFilter.And(listOf(
+        ObjectFilter.Category(ObjectCategory.Permanent),
+        ObjectFilter.Type(CardTypeRef.Chosen("type")),
+        status,
+        ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Target("player"))),
+    )))
+
+    /** The card type and whether to tap or untap are chosen as it resolves (CR 608.2d); the player is targeted on
+     * casting. */
+    @Test
+    fun tidecallReversal() = card(
+        name = "Tidecall Reversal",
+        cost = "{2}{U}{U}",
+        type = "Instant",
+        text = "Choose artifact, creature, or land. Tap all untapped permanents of the chosen type target player controls, or untap all tapped permanents of that type that player controls.",
+    ) parsesTo abilities(
+        Ability.Spell(Instructions(
+            targets = listOf(TargetSlot(
+                name = "player",
+                what = TargetKind.Players(PlayerFilter.Any),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
+            steps = listOf(
+                Step.Choose(
+                    choice = Choice.CardType(among = listOf(CardType.Artifact, CardType.Creature, CardType.Land)),
+                    bind = "type",
+                    chooser = Players.You,
+                ),
+                Step.Choose(Choice.Option(listOf("tap", "untap")), bind = "tapOrUntap", chooser = Players.You),
+                Step.If(
+                    condition = Condition.Chose("tapOrUntap", "tap"),
+                    then = listOf(Step.Do(Effect.Tap(ofTheChosenType(ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped)))))),
+                    otherwise = listOf(Step.Do(Effect.Untap(ofTheChosenType(ObjectFilter.HasStatus(Status.Tapped))))),
+                ),
+            ),
+        )),
     )
 }

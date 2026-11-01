@@ -1220,6 +1220,25 @@ internal class Sentences(
             if (context.targets.size != slots) return null
             return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Paid(arcanum.api.Keyword.Cleave.Kind, times = 1, of = Objects.Self)), then = full, otherwise = cleaved))
         }
+        // chunk 15: "Choose artifact, creature, or land." (a card type, chosen as it resolves)
+        CHOOSE_CARD_TYPE.matchEntire(sentence)?.let { m ->
+            val types = m.groupValues[1].split(Regex(""",? or |, """)).map { Filters.CARD_TYPES[it] }
+            if (types.all { it != null }) return listOf(Step.Choose(arcanum.api.Choice.CardType(types.filterNotNull()),
+                bind = CHOSEN_TYPE, chooser = Players.You))
+        }
+        // chunk 15: "Tap all untapped permanents of the chosen type target player controls, or untap all tapped permanents
+        // of that type that player controls." (tap or untap is chosen as it resolves)
+        TAP_OR_UNTAP_ALL_OF_CHOSEN_TYPE.matchEntire(sentence)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            val player = context.targetPlayer()
+            fun all(status: ObjectFilter) = Objects.Each(Filters.all(noun, ObjectFilter.Type(arcanum.api.CardTypeRef.Chosen(CHOSEN_TYPE)),
+                status, ObjectFilter.ControlledBy(PlayerFilter.Is(player))))
+            val tapped = ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf("tap", "untap")), bind = "tapOrUntap", chooser = Players.You),
+                Step.If(arcanum.api.Condition.Chose("tapOrUntap", "tap"),
+                    then = listOf(Step.Do(Effect.Tap(all(ObjectFilter.Not(tapped))))), otherwise = listOf(Step.Do(Effect.Untap(all(tapped))))))
+        }
         CHOOSE_CARD_NAME.matchEntire(sentence)?.let { m ->
             val filter = m.groupValues[1].ifEmpty { null }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
             context.cardName = "name"
@@ -2998,6 +3017,9 @@ internal class Sentences(
         val ADDITIONAL_EXILE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may exile any number of (.+) from your hand\. This spell costs ((?:\{[^}]+\})+) less to cast for each card exiled this way\.""")
         val BRACKETED = Regex("""(.*?)( ?)\[([^\]]+)\](.*)""")
         val CHOOSE_CARD_NAME = Regex("""Choose an? (?:(.+?) )?card name\.""")
+        val CHOOSE_CARD_TYPE = Regex("""Choose ((?:\w+, )*\w+,? or \w+)\.""")
+        val TAP_OR_UNTAP_ALL_OF_CHOSEN_TYPE =
+            Regex("""Tap all untapped (\w+) of the chosen type target player controls, or untap all tapped \1 of that type that player controls\.""")
         val TARGET_REVEALS_HAND = Regex("""Target (player|opponent) reveals their hand( and discards all cards with that name)?\.""")
         val YOU_CHOOSE_FROM_IT_AND_GRAVEYARD = Regex("""You choose (an? .+?) from it, then choose (an? .+?) from their graveyard\.""")
         val YOU_CHOOSE_FROM_IT = Regex("""(?:You c|C)hoose (an? .+?) from it( with .+)?\.""")

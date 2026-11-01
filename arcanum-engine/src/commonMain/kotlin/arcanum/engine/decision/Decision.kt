@@ -202,7 +202,7 @@ sealed interface RandomKind {
     @Serializable @SerialName("coin") data object CoinFlip : RandomKind
     /** [count] rolls of a [sides]-sided die (CR 706). */
     @Serializable @SerialName("die") data class Die(val sides: Int, val count: Int) : RandomKind
-    /** [count] of [among] at random. */
+    /** [count] of [among] at random, in random order; a shuffle asks for all of a library's cards this way (D25). */
     @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int) : RandomKind
 }
 

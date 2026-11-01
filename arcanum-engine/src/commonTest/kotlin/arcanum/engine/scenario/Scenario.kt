@@ -189,7 +189,8 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
         val matches = state.objects.values
             .filter { owner == null || it.owner == owner.id }
             .filter { o -> nameOf(o) == name || definitionOf(o)?.faces?.any { it.name == name } == true }
-            .sortedBy { it.card.value.substringAfter('.').toInt() }
+            // Setup cards in setup order, then tokens and other cards the engine made
+            .sortedWith(compareBy({ it.card.value.substringAfter('.').toIntOrNull() ?: Int.MAX_VALUE }, { it.timestamp }))
         return matches.getOrNull(index)?.id ?: fail("No card \"$name\" (#$index) in the game")
     }
 

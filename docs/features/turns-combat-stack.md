@@ -59,7 +59,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **TRN-037** A player sets their own status in their Life panel: presets OK?, Yes, No, Wait, Thinking…, Go ahead and GG, plus a pen and a Clear button, in a 3×3 grid. Clear and Hide are always shown, greyed when there is no status. (r26)
 - **TRN-038** The pen opens a Status dialog prefilled with the current text, selected, keyboard up; up to 512 characters, wrapped, with a "n/512" count; Enter or Save sets it. A preset, Clear or Save closes the panel. (r30)
-- **TRN-039** A status shows as a speech bubble by the life square (under the opponent's, above your own), wrapping over up to four lines. The Life panel shows the full status, scrolling after four lines. Statuses stay until cleared. (r30)
+- **TRN-039** A status shows as a speech bubble by the life square (under the opponent's, above your own), wrapping over up to four lines and never narrower than the life square, so its tail always meets a straight edge. The Life panel shows the full status, scrolling after four lines. Statuses stay until cleared. (r36)
 - **TRN-040** Setting and clearing a status are game events (in history, undoable) and never change whose move it is. (r25)
 - **TRN-041** Each viewer can Hide a player's status bubble (until that player sets a new status) or Mute it for this game (it becomes a small dot, the full text stays in the Life panel). Show and Unmute replace them. These choices are local to the device; they don't silence notifications. (r25)
 

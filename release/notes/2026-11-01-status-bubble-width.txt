@@ -1,0 +1,1 @@
+fix: A very short status now gets a speech bubble as wide as the life square, so its pointer always sits on a straight edge.

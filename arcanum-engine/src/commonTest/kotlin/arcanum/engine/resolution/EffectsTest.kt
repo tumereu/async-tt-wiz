@@ -468,6 +468,23 @@ class EffectsTest {
         }
     }
 
+    // CR 401.4: cards looked at are put on the bottom of the library they came from, under the rest
+    @Test
+    fun lookedAtCardsGoToTheBottom() = scenario {
+        alice.hand("Fleeting Whim")
+        alice.library("Forest", "Island", "Swamp", "Mountain", "Plains")
+
+        alice.castsWithoutCosts("Fleeting Whim")
+        resolve()
+        alice.chooses("Island")
+
+        expect {
+            alice.hand.names shouldBe listOf("Island")
+            alice.library.names.first() shouldBe "Plains"
+            alice.library.size shouldBe 4
+        }
+    }
+
     // CR 707.10: a copy of a spell is put on the Stack, and its controller may choose new targets
     @Test
     fun copyASpellWithNewTargets() = scenario {

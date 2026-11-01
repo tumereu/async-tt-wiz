@@ -164,7 +164,7 @@ internal object Payment {
         yields.filter { it.choice }.forEach { y -> if (use.color == null || use.color !in y.colors) refuse("Choose a colour it can make") }
         ability.cost.parts.forEach { part ->
             when (part) {
-                CostPart.TapSelf -> recorder.record(Changes.tap(recorder.state, use.source))
+                CostPart.TapSelf -> recorder.record(Changes.tap(recorder.state, use.source, meanings = listOf(Meaning.ManaAdded)))
                 CostPart.UntapSelf -> recorder.record(Changes.tap(recorder.state, use.source, tapped = false))
                 is CostPart.Sacrifice -> recorder.record(Changes.move(recorder.state, listOf(use.source), Zone.Graveyard, meanings = listOf(Meaning.Sacrificed)))
                 is CostPart.PayLife -> recorder.record(Changes.life(recorder.state, player,
@@ -175,6 +175,7 @@ internal object Payment {
         addMana(recorder, player, yields.flatMap { Mana.units(it, use.color, use.source) })
         recorder.record(Change.Happened(GameEvent.Activated(player, use.source, inst.origin.key, manaAbility = true)))
         countActivation(recorder, use.source, inst.origin, loyalty = false)
+        arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
     }
 
     private fun addMana(recorder: Recorder, player: PlayerId, units: List<ManaUnit>) {
@@ -210,7 +211,8 @@ internal object Payment {
             // CR 302.6, 602.5a: checked when activating; {T} taps the source
             CostPart.TapSelf -> {
                 if (s.obj(plan.sourceId)?.tapped != false) refuse("It's already tapped")
-                recorder.record(Changes.tap(s, plan.sourceId))
+                // Tapped for mana (CR 106.12): what "whenever … is tapped for mana" looks for
+                recorder.record(Changes.tap(s, plan.sourceId, meanings = if (plan.isManaAbility) listOf(Meaning.ManaAdded) else emptyList()))
             }
             CostPart.UntapSelf -> {
                 if (s.obj(plan.sourceId)?.tapped != true) refuse("It isn't tapped")
@@ -415,6 +417,7 @@ internal object Payment {
         }
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true)))
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)
+        arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
         Casting.keepPriority(recorder, plan.player)
         val rest = ability.instructions.steps.filterNot { it is Step.Do && it.effect is Effect.AddMana }
         return if (rest.isEmpty()) Progress.Done else manual(recorder, plan, ability.text ?: "Do the rest of the mana ability by hand")

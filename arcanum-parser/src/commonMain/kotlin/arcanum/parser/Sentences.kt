@@ -724,7 +724,9 @@ internal class Sentences(
         // chunk 25: "one or more [objects]" triggers once for the batch; "if this card is in your graveyard" states the
         // zone the ability works in (CR 113.6b)
         val oneOrMore = trigger.oneOrMore || m.groupValues[2].startsWith("one or more ")
+        // chunk 15: "return this card from your graveyard" works only there (CR 113.6m)
         val zone = (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.InZone)?.zone
+            ?: Zone.Graveyard.takeIf { rest.contains("this card from your graveyard") }
         return Ability.Triggered(trigger.copy(oneOrMore = oneOrMore), instructions, interveningIf = interveningIf,
             functionsIn = zone?.let { listOf(it) }, perTurn = perTurn, triggersOnlyIf = onlyIf)
     }

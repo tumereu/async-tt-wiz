@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
@@ -267,6 +268,27 @@ class CardListEditorUiTest {
             compose.runOnIdle { assertEquals(listOf(DeckSection.MAINBOARD to 1, DeckSection.MAYBEBOARD to 2),
                 cubes.entries!!.map { it.section to it.quantity }) }
         } finally { cubes.close() }
+    }
+
+    // LOB-107: colour and mana value chips are mana symbols; every chip is 32 dp tall and 4 dp from the next, rows too;
+    // a chosen chip shows as selected.
+    @Test fun searchChipsAreManaSymbols32DpTall4DpApart() {
+        val editor = editor()
+        connectSearch(editor)
+        editor.search.open(CardListEdits.total(editor.entries!!))
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
+        compose.mainClock.advanceTimeBy(500)
+        fun bounds(node: SemanticsNodeInteraction) = node.getUnclippedBoundsInRoot()
+        val colours = SearchColor.entries.map { compose.onNodeWithTag("search-colour-${it.label}") }
+        val values = SearchManaValue.entries.map { compose.onNodeWithTag("search-value-${it.label}") }
+        val types = SearchType.entries.map { compose.onNodeWithText(it.label) }
+        for (chip in colours + values + types) chip.assertHeightIsEqualTo(32.dp)
+        for (row in listOf(colours, values, types)) row.zipWithNext { a, b -> assertEquals(4.dp, bounds(b).left - bounds(a).right) }
+        assertEquals(4.dp, bounds(types.first()).top - bounds(colours.first()).bottom, "Rows 4 dp apart")
+        compose.onNodeWithContentDescription("Colour G").assertIsNotSelected().performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("Mana value 6+").performScrollTo().performClick().assertIsSelected()
+        assertEquals(setOf(SearchColor.G), editor.search.state.colors)
+        assertEquals(setOf(SearchManaValue.SIX), editor.search.state.values)
     }
 
     // LOB-063, LOB-107: adding past the limit is refused with a reason.

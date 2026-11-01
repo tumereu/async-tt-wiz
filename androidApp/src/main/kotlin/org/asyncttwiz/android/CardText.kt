@@ -44,8 +44,9 @@ internal fun CardText(text: String, modifier: Modifier = Modifier, style: TextSt
     Text(annotated, modifier, style = style, maxLines = maxLines, inlineContent = inline)
 }
 
+/** One symbol as drawn in card text, filling its parent (e.g. "G", "3", "W/U"); search chips use it at their own size. */
 @Composable
-private fun CardSymbol(token: String) {
+internal fun CardSymbol(token: String) {
     val parts = token.split('/')
     BoxWithConstraints(Modifier.fillMaxSize().clearAndSetSemantics {}, contentAlignment = Alignment.Center) {
         val textSize = with(LocalDensity.current) { maxHeight.toSp() }

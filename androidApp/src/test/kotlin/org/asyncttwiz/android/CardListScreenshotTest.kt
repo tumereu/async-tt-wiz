@@ -54,8 +54,10 @@ class CardListScreenshotTest {
         entries = CardListEdits.add(CardListKind.DECK, entries, listOf(printing("Rune Bolt")), DeckSection.SIDEBOARD).entries
         editor.applyCards(entries, metadata)
         val names = listOf("Meadow Sentinel", "Quiet Grove", "Rune Bear", "Rune Bolt", "Rune Charm", "Rune Golem", "Rune Wall")
-        editor.search.seed(CardListSearchState(open = true, text = "rune", types = setOf(SearchType.CREATURE),
-            query = cardSearchQuery("rune", emptySet(), setOf(SearchType.CREATURE), emptySet()),
+        val colors = setOf(SearchColor.G)
+        val values = setOf(SearchManaValue.TWO)
+        editor.search.seed(CardListSearchState(open = true, text = "rune", colors = colors, types = setOf(SearchType.CREATURE),
+            values = values, query = cardSearchQuery("rune", colors, setOf(SearchType.CREATURE), values),
             cards = names.map { CatalogCard("o-$it", it, listOf(printing(it))) }, metadata = metadata, baseline = baseline))
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) {
             DeckImportScreen(editor, landscape, if (landscape) null else ({}), null)
@@ -65,7 +67,7 @@ class CardListScreenshotTest {
         compose.onNodeWithTag("search-count-Rune Bear-maybe").assertTextEquals("1")
         compose.onNodeWithText("Done · +4 cards").assertIsDisplayed()
         captureShot(path("card-search", landscape), "${orientation(landscape)} Add cards search page of the Training deck editor: " +
-            "rune with the Creature chip, picture results with green Main, blue Side and amber Maybe count squares at their bottom left " +
+            "rune with the G mana symbol, generic 2 and Creature chips chosen, picture results with green Main, blue Side and amber Maybe count squares at their bottom left " +
             "(Rune Bear 2 Main and 1 Maybe), the Main | Side | Maybe destination on Main and Done · +4 cards.")
     }
 

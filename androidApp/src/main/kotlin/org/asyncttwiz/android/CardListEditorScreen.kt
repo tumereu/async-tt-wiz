@@ -338,29 +338,41 @@ internal fun cardSearchDoneLabel(added: Long): String = when {
     else -> "Done · ${if (added > 0) "+" else "−"}${kotlin.math.abs(added)} ${if (kotlin.math.abs(added) == 1L) "card" else "cards"}"
 }
 
+/** The quick filters: colours as card-text mana symbols, mana values as generic mana symbols, then card types; 32 dp tall
+ * chips 4 dp apart (no 48 dp touch padding between them). */
 @Composable
 private fun SearchChips(search: CardListSearch, oneRow: Boolean) {
     val state = search.state
     @Composable fun row(content: @Composable RowScope.() -> Unit) =
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically, content = content)
-    val types: @Composable RowScope.() -> Unit = {
-        SearchType.entries.forEach { type -> FilterChip(type in state.types, { search.toggle(type) }, { Text(type.label) }) }
-    }
-    Column(Modifier.padding(vertical = 4.dp)) {
-        row {
-            SearchColor.entries.forEach { color ->
-                FilterChip(color in state.colors, { search.toggle(color) }, { Text(color.label) },
-                    Modifier.semantics { contentDescription = "Colour ${color.label}" })
-            }
-            Spacer(Modifier.width(8.dp))
-            SearchManaValue.entries.forEach { value ->
-                FilterChip(value in state.values, { search.toggle(value) }, { Text(value.label) },
-                    Modifier.semantics { contentDescription = "Mana value ${value.label}" })
-            }
-            if (oneRow) { Spacer(Modifier.width(8.dp)); types() }
+            horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+    // The symbol is the chip: an outline around it, filled with a 2 dp border when chosen.
+    @Composable fun symbol(selected: Boolean, token: String, description: String, tag: String, onClick: () -> Unit) =
+        Surface(selected, onClick, Modifier.size(36.dp, 32.dp).testTag(tag).semantics { contentDescription = description },
+            shape = RoundedCornerShape(8.dp),
+            color = if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
+            border = if (selected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+            Box(Modifier.padding(4.dp), contentAlignment = Alignment.Center) { Box(Modifier.size(24.dp)) { CardSymbol(token) } }
         }
-        if (!oneRow) row(types)
+    val types: @Composable RowScope.() -> Unit = {
+        SearchType.entries.forEach { type ->
+            FilterChip(type in state.types, { search.toggle(type) }, { Text(type.label) }, Modifier.height(32.dp))
+        }
+    }
+    CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
+        Column(Modifier.padding(vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            row {
+                SearchColor.entries.forEach { color ->
+                    symbol(color in state.colors, color.label, "Colour ${color.label}", "search-colour-${color.label}") { search.toggle(color) }
+                }
+                Spacer(Modifier.width(8.dp))
+                SearchManaValue.entries.forEach { value ->
+                    symbol(value in state.values, value.label, "Mana value ${value.label}", "search-value-${value.label}") { search.toggle(value) }
+                }
+                if (oneRow) { Spacer(Modifier.width(8.dp)); types() }
+            }
+            if (!oneRow) row(types)
+        }
     }
 }
 

@@ -286,6 +286,16 @@ sealed interface Change {
         override val isEvent: Boolean get() = false
     }
 
+    /** The triggered abilities waiting to be put on the Stack change (CR 603.3, D42): one triggered, or they were put
+     * on the Stack. */
+    @Serializable @SerialName("triggers-waiting")
+    data class TriggersWaiting(
+        val before: List<arcanum.engine.decision.WaitingTrigger>, val after: List<arcanum.engine.decision.WaitingTrigger>,
+    ) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
     /** The open decision and its continuation are set or cleared (D58). */
     @Serializable @SerialName("pending")
     data class PendingSet(val before: Pending?, val after: Pending?) : Change {
@@ -339,6 +349,12 @@ sealed interface GameEvent {
     @Serializable @SerialName("die") data class DieRolled(val player: PlayerId, val sides: Int, val results: List<Int>) : GameEvent
     /** [player] searched [library]'s library (CR 701.23). */
     @Serializable @SerialName("searched") data class Searched(val player: PlayerId, val library: PlayerId) : GameEvent
+    /** [player] scried [count] (CR 701.22). */
+    @Serializable @SerialName("scried") data class Scried(val player: PlayerId, val count: Int) : GameEvent
+    /** [player] surveilled [count] (CR 701.25). */
+    @Serializable @SerialName("surveilled") data class Surveilled(val player: PlayerId, val count: Int) : GameEvent
+    /** [player] copied the spell [copy] (CR 707.10). */
+    @Serializable @SerialName("copied") data class Copied(val player: PlayerId, val copy: ObjectId) : GameEvent
 }
 
 /**

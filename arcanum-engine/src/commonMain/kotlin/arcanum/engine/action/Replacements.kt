@@ -1,0 +1,171 @@
+package arcanum.engine.action
+
+import arcanum.api.Ability
+import arcanum.api.Mechanic
+import arcanum.api.Modification
+import arcanum.engine.change.Change
+import arcanum.engine.change.Meaning
+import arcanum.engine.decision.Answer
+import arcanum.engine.decision.Decision
+import arcanum.engine.decision.ReplacementOption
+import arcanum.engine.decision.WaitingTrigger
+import arcanum.engine.query.Board
+import arcanum.engine.query.Context
+import arcanum.engine.query.Evaluator
+import arcanum.engine.state.Bindings
+import arcanum.engine.state.EffectId
+import arcanum.engine.state.GameObject
+import arcanum.engine.state.ObjectId
+import arcanum.engine.state.ObjectSnapshot
+import arcanum.engine.state.PlayerId
+import arcanum.engine.state.TriggerEvent
+import arcanum.engine.trigger.EventMatcher
+import arcanum.engine.trigger.Triggers
+import arcanum.engine.view.Characteristics
+
+/**
+ * One replacement effect that could apply (CR 614): its [mechanic], whose "you" is [controller], from [source] (a static
+ * ability) or [effect] (an effect object, a shield), with the [names] it uses. [own] marks a spell's or ability's own
+ * replacement (CR 614.15), applied first (CR 616.1a). [key] tells it apart, so each applies once per event (CR 614.5).
+ */
+internal data class Replacement(
+    val mechanic: Mechanic.Replacement,
+    val controller: PlayerId,
+    val source: ObjectId?,
+    val names: Bindings,
+    val effect: EffectId?,
+    val own: Boolean,
+    val key: String,
+)
+
+/**
+ * Finding and applying replacement effects to one event (CR 614, 616). The event is proposed as the change it would be;
+ * replacements whose pattern matches it ([EventMatcher], tested on the objects as they are before the event, CR
+ * 614.12) apply one at a time: the event's own replacements first, then those that decide who controls an entering
+ * permanent, then copy effects, then entering transformed (CR 616.1a–d); when two or more others remain and their order
+ * matters, the affected player chooses (CR 616.1e), and the rest are checked again after each (CR 616.1f, D36).
+ */
+internal object Replacements {
+    /** Every replacement effect in force now, the resolving [cause]'s own first. */
+    fun candidates(act: Act, cause: Cause?): List<Replacement> {
+        val own = cause?.item?.let { item ->
+            instructionsOf(item.ability)?.replacements.orEmpty().mapIndexed { i, r ->
+                Replacement(r, item.controller, item.source, item.names, null, own = true, key = "own:${item.id}:$i")
+            }
+        }.orEmpty()
+        val rules = act.view().rules.mapIndexedNotNull { i, applied ->
+            val r = applied.mechanic as? Mechanic.Replacement ?: return@mapIndexedNotNull null
+            val key = applied.effect?.let { "e:${it.value}:${applied.effect}" } ?: "s:${applied.source}:${applied.origin?.key}:$i"
+            Replacement(r, applied.controller, applied.source, applied.names, applied.effect, own = false, key = "$key/${r.hashCode()}")
+        }
+        return own + rules
+    }
+
+    fun instructionsOf(ability: Ability?): arcanum.api.Instructions? = when (ability) {
+        is Ability.Spell -> ability.instructions
+        is Ability.Activated -> ability.instructions
+        is Ability.Triggered -> ability.instructions
+        else -> null
+    }
+
+    /** The instances of the proposed [change] that [r] applies to (empty: it doesn't apply). */
+    fun matches(act: Act, r: Replacement, change: Change, board: Board = act.board()): List<TriggerEvent> {
+        val e = Evaluator(board, Context(you = r.controller, self = r.source, names = r.names))
+        return EventMatcher.instances(e, r.mechanic.event, change, proposed = true)
+    }
+
+    /**
+     * Applies replacements to one event of type [T] (D29, D36): [proposed] builds the change the event would be (null:
+     * nothing left to replace); [modify] applies one replacement's modifications, returning the changed event or null
+     * when it no longer happens ([Modification.Skip]). An "instead" replacement runs its instructions in place of the
+     * event ([instead]) and the event doesn't happen: the result is null. [affected] chooses among replacements whose
+     * order matters (CR 616.1e). Linked "when applied" triggers (CR 603.11) are returned in [linked].
+     */
+    fun <T> apply(
+        act: Act, cause: Cause?, initial: T, affected: PlayerId, about: ObjectId?,
+        proposed: (T) -> Change?,
+        modify: (T, Replacement, TriggerEvent) -> T?,
+        instead: (Replacement, TriggerEvent) -> Unit,
+        linked: MutableList<WaitingTrigger>,
+        board: () -> Board = { act.board() },
+        skip: (Replacement) -> Boolean = { false },
+    ): T? {
+        val all = candidates(act, cause)
+        if (all.isEmpty()) return initial
+        val used = mutableSetOf<String>()
+        var current = initial
+        while (true) {
+            val change = proposed(current) ?: return current
+            val matching = all.filter { it.key !in used && !skip(it) }.mapNotNull { r ->
+                matches(act, r, change, board()).firstOrNull()?.let { r to it }
+            }
+            if (matching.isEmpty()) return current
+            val (r, instance) = pick(act, matching, affected, about)
+            used += r.key
+            if (r.mechanic.optional && !act.yesNo(r.controller, r.source, "Apply ${describe(r)}?")) continue
+            useUp(act, r)
+            r.mechanic.whenApplied?.let { linked += linkedTrigger(r, it, instance) }
+            if (r.mechanic.instead != null) {
+                instead(r, instance)
+                return null
+            }
+            current = modify(current, r, instance) ?: return null
+        }
+    }
+
+    /** CR 616.1a–e: the next replacement to apply. */
+    private fun pick(act: Act, matching: List<Pair<Replacement, TriggerEvent>>, affected: PlayerId, about: ObjectId?): Pair<Replacement, TriggerEvent> {
+        matching.firstOrNull { it.first.own }?.let { return it }
+        matching.firstOrNull { (r, _) -> r.mechanic.modify.any { it is Modification.EntersUnderControlOf } }?.let { return it }
+        matching.firstOrNull { (r, _) -> r.mechanic.modify.any { it is Modification.EntersAsCopy } }?.let { return it }
+        matching.firstOrNull { (r, _) -> r.mechanic.modify.any { it is Modification.ChangeDestination && it.to.transformed } }?.let { return it }
+        // Only ask when the order can matter: modifications that just add to how something enters commute.
+        if (matching.size < 2 || matching.all { (r, _) -> commutes(r) }) return matching.first()
+        val options = matching.mapIndexed { i, (r, _) -> ReplacementOption(i, r.source, describe(r)) }
+        val chosen = (act.asker.ask { Decision.ChooseReplacement(it, affected, about, options) } as Answer.Replacement).index
+        return matching.getOrNull(chosen) ?: throw IllegalArgumentException("No replacement $chosen")
+    }
+
+    private fun commutes(r: Replacement): Boolean = r.mechanic.instead == null && r.mechanic.modify.all {
+        it is Modification.EntersTapped || it is Modification.EntersWithCounters || it is Modification.EntersWithAbilities ||
+            it is Modification.AsEnters
+    }
+
+    private fun describe(r: Replacement): String = r.mechanic.toString().take(120)
+
+    /** A shield with a count ("the next time …", regeneration) is used once more (D26). */
+    private fun useUp(act: Act, r: Replacement) {
+        val id = r.effect ?: return
+        val effect = act.state.effects[id] ?: return
+        val left = effect.usesLeft ?: return
+        if (left <= 1) act.record(Change.EffectRemoved(effect, listOf(Meaning.ShieldUsed)))
+        else act.record(Change.EffectUpdated(effect, effect.copy(usesLeft = left - 1)))
+    }
+
+    private fun linkedTrigger(r: Replacement, instructions: arcanum.api.Instructions, instance: TriggerEvent) = WaitingTrigger(
+        controller = r.controller,
+        ability = Ability.Triggered(arcanum.api.Trigger.On(emptyList()), instructions),
+        origin = null, source = r.source, event = instance, names = r.names,
+    )
+
+    /** Puts [linked] triggers among those waiting to go on the Stack (CR 603.2, 603.11). */
+    fun addLinked(act: Act, linked: List<WaitingTrigger>) {
+        if (linked.isNotEmpty()) Triggers.addWaiting(act.recorder, linked)
+    }
+}
+
+/**
+ * A board with objects that don't exist yet (tokens about to be created), so replacement patterns can be tested on
+ * them (CR 614.12): their characteristics are their printed ones.
+ */
+internal class ProposedBoard(private val base: Board, private val extra: Map<ObjectId, GameObject>) : Board {
+    override val state get() = base.state
+    override fun characteristics(id: ObjectId): Characteristics? =
+        extra[id]?.let { arcanum.engine.query.Lki.printed(it) } ?: base.characteristics(id)
+
+    override fun controller(id: ObjectId): PlayerId? = extra[id]?.let { it.controller ?: it.owner } ?: base.controller(id)
+
+    override fun snapshot(id: ObjectId): ObjectSnapshot? = extra[id]?.let {
+        ObjectSnapshot(it.id, it.owner, it.controller, it.zone, arcanum.engine.query.Lki.printed(it), it.counters, token = it.token)
+    } ?: base.snapshot(id)
+}

@@ -83,7 +83,7 @@ internal object ChangeSamples {
         )
         val pending = Pending(
             Decision.Manual(DecisionId("d1"), alice, druid, "Do it by hand"),
-            Continuation.Resolving(item = ability.id, position = listOf(0)),
+            Continuation.Resolving(item = ability.id, step = 0),
         )
         fun on(state: GameState, change: Change) = state to change
         fun after(vararg changes: Change): GameState = base.deepCopy().also { s2 -> changes.forEach { s2.apply(it) } }
@@ -135,6 +135,8 @@ internal object ChangeSamples {
             on(withUnknown, Change.Filled(unknown, base.objOrThrow(spark))),
             on(base, Change.Happened(GameEvent.CoinFlipped(alice, won = true))),
             on(base, Changes.pending(base, pending)),
+            on(base, Change.TriggersWaiting(emptyList(), listOf(arcanum.engine.decision.WaitingTrigger(alice,
+                arcanum.api.Ability.Unparsed("When this enters, draw a card."), origin = null, source = druid)))),
             on(after(Changes.tap(base, forest)), Change.Reverted(Changes.tap(base, forest))),
         )
         return base to samples

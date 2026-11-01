@@ -102,7 +102,17 @@ class CardRef(val id: ObjectId, val label: String)
 
 /** The cards of one zone, by name. */
 class ZoneQuery(private val scenario: Scenario, private val label: String, private val ids: List<ObjectId>) {
-    val names: List<String?> get() = ids.map { id -> scenario.state.obj(id)?.let { scenario.nameOf(it) } ?: "ability $id" }
+    val names: List<String?> get() = ids.map { id -> scenario.state.obj(id)?.let { scenario.nameOf(it) } ?: stackName(id) }
+
+    /** An ability on the Stack as "ability of [source]", a copy of a spell as "copy of [spell]". */
+    private fun stackName(id: ObjectId): String {
+        val item = scenario.state.stackItems[id] ?: return "ability $id"
+        val source = item.source?.let { s -> scenario.state.obj(s)?.let { scenario.nameOf(it) } ?: item.snapshots.firstOrNull { it.id == s }?.characteristics?.name }
+        return when (item.kind) {
+            is arcanum.engine.state.StackItemKind.SpellCopy -> "copy of ${item.snapshots.lastOrNull()?.characteristics?.name ?: source}"
+            else -> "ability of $source"
+        }
+    }
     val size: Int get() = ids.size
 
     infix fun has(name: String) = assertTrue(name in names, "$label should have $name: $names")

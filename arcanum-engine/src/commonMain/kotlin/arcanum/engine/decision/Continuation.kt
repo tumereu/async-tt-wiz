@@ -1,6 +1,7 @@
 package arcanum.engine.decision
 
 import arcanum.api.Ability
+import arcanum.engine.action.PlannedEvent
 import arcanum.engine.change.Change
 import arcanum.engine.input.CastWay
 import arcanum.engine.state.Bindings
@@ -41,15 +42,16 @@ sealed interface Continuation {
         override val then: Continuation? = null,
     ) : Continuation
 
-    /** Resolving Stack item [item] (CR 608.2): [position] is the path of step indices into its instructions (and into
-     * the nested steps of loops, ifs and mays); [names] what was bound so far; [loops] the open for-each and repeat
-     * loops. */
+    /** Resolving Stack item [item] (CR 608.2): [step] is the index of the next step of its instructions (the chosen
+     * modes' steps, then the common ones); [names] what was bound so far (targets still legal, announced values, binds
+     * of earlier steps). A step that needs decisions is redone from its start with [answers] so far (D29, D31); steps
+     * before it are committed. */
     @Serializable @SerialName("resolving")
     data class Resolving(
         val item: ObjectId,
-        val position: List<Int>,
+        val step: Int = 0,
         val names: Bindings = Bindings.EMPTY,
-        val loops: List<LoopFrame> = emptyList(),
+        val answers: List<Answer> = emptyList(),
         override val then: Continuation? = null,
     ) : Continuation
 
@@ -61,11 +63,14 @@ sealed interface Continuation {
         /** The trigger being put on the Stack right now, with its choices so far. */
         val current: Announcing? = null,
         override val then: Continuation? = null,
+        /** The answers so far to the order, mode and target decisions of putting [waiting] on the Stack; the placement is
+         * redone from its start with them (D29). */
+        val answers: List<Answer> = emptyList(),
     ) : Continuation
 
     /** State-based actions waiting on a choice (the legend rule, CR 704.5j); checked again afterwards (CR 704.3). */
     @Serializable @SerialName("state-based")
-    data class StateBased(override val then: Continuation? = null) : Continuation
+    data class StateBased(override val then: Continuation? = null, val answers: List<Answer> = emptyList()) : Continuation
 
     /** A turn-based action with a choice (CR 703): combat damage assignment (CR 510.1), the cleanup discard (CR 514.1). */
     @Serializable @SerialName("turn-based")
@@ -78,6 +83,8 @@ sealed interface Continuation {
         val event: List<Change>,
         val answers: List<Answer> = emptyList(),
         override val then: Continuation? = null,
+        /** The event to redo: what was about to happen before replacements (D29). */
+        val planned: PlannedEvent? = null,
     ) : Continuation
 }
 
@@ -118,10 +125,6 @@ data class Choices(
     val names: Bindings = Bindings.EMPTY,
     val snapshots: List<ObjectSnapshot> = emptyList(),
 )
-
-/** An open loop of a resolution: the values still to go and the name they bind (CR 608.2c). */
-@Serializable
-data class LoopFrame(val bind: String?, val remaining: List<NamedValue>, val position: List<Int>)
 
 /** A triggered ability that triggered and waits to be put on the Stack (CR 603.3), with its controller (CR 109.4b),
  * a copy of the ability (D23), its source's last known information and the event it triggered on. */

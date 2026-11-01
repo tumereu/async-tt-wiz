@@ -111,6 +111,78 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         return answerAnnouncing(outcome, targets, x, modes, paying)
     }
 
+    /**
+     * Puts [name] on the Stack as a spell this player cast (tagged cast, so cast triggers trigger), without paying its
+     * costs: for scenarios about resolution (CR 608) rather than casting (CR 601.2). [targets] by name fill the target
+     * slots in order (each up to its maximum); left-over targets go to an "enchant" slot (Auras); [divided] gives each
+     * target's share (CR 601.2d). Resolve with [Scenario.resolve].
+     */
+    fun castsWithoutCosts(
+        name: String, target: String? = null, targets: List<String> = listOfNotNull(target), x: Int? = null,
+        modes: List<Int> = emptyList(), divided: List<Int> = emptyList(), kicked: Int = 0,
+    ): Outcome {
+        val card = scenario.card(name)
+        return scenario.drive { r ->
+            val o = r.state.objOrThrow(card)
+            val face = o.definition!!.faces[o.face]
+            val index = face.abilities.indexOfFirst { it is Ability.Spell }
+            val ability = face.abilities.getOrNull(index) as? Ability.Spell
+            val chosen = slotTargets(ability?.instructions, modes, targets)
+            val act = arcanum.engine.action.Act(r, arcanum.engine.action.Asker.NONE)
+            val spell = arcanum.engine.action.Actions.move(act, null, listOf(arcanum.engine.action.PlannedMove(card, Zone.Stack, controller = id)))[card]!!
+            val now = r.state.objOrThrow(spell)
+            val paid = if (kicked > 0) listOf(arcanum.engine.state.PaidCost(arcanum.api.Keyword.Kicker.Kind, kicked)) else emptyList()
+            r.record(arcanum.engine.change.Change.Facts(spell, now.facts, now.facts.copy(castFrom = o.zone, x = x, modesChosen = modes, paid = paid)))
+            r.record(arcanum.engine.change.Change.StackItemAdded(arcanum.engine.state.StackItem(
+                id = spell, kind = arcanum.engine.state.StackItemKind.Spell, controller = id, source = spell, ability = ability,
+                origin = if (index >= 0) arcanum.engine.view.AbilityOrigin.Printed(o.face, index) else null,
+                targets = chosen, modes = modes, announced = x?.let { mapOf("X" to it) }.orEmpty(),
+                divided = divided(chosen, divided), timestamp = r.state.nextTimestamp(),
+            ), null, listOf(arcanum.engine.change.Meaning.Cast)))
+            arcanum.engine.Progress.Done
+        }
+    }
+
+    /** Puts the [ability]th activated ability of [name] on the Stack (CR 602.2) without paying its costs. */
+    fun activatesWithoutCosts(
+        name: String, ability: Int = 0, target: String? = null, targets: List<String> = listOfNotNull(target), x: Int? = null,
+    ): Outcome {
+        val source = scenario.card(name)
+        val abilities = scenario.view()[source]?.characteristics?.abilities.orEmpty().filter { it.ability is Ability.Activated }
+        val chosenAbility = abilities.getOrNull(ability) ?: fail("$name has no activated ability #$ability")
+        val activated = chosenAbility.ability as Ability.Activated
+        return scenario.drive { r ->
+            val ts = r.state.nextTimestamp()
+            val itemId = ObjectId.StackItem("ability:$ts")
+            r.record(arcanum.engine.change.Change.StackItemAdded(arcanum.engine.state.StackItem(
+                id = itemId, kind = arcanum.engine.state.StackItemKind.Activated, controller = id, source = source,
+                ability = activated, origin = chosenAbility.origin, targets = slotTargets(activated.instructions, emptyList(), targets),
+                announced = x?.let { mapOf("X" to it) }.orEmpty(), timestamp = ts,
+            ), r.state.stack.size, listOf(arcanum.engine.change.Meaning.Activated)))
+            r.record(arcanum.engine.change.Change.Happened(arcanum.engine.change.GameEvent.Activated(id, source, chosenAbility.origin.key, false)))
+            arcanum.engine.Progress.Done
+        }
+    }
+
+    private fun slotTargets(instructions: arcanum.api.Instructions?, modes: List<Int>, names: List<String>): Map<String, List<TargetRef>> {
+        val queue = ArrayDeque(names)
+        val slots = instructions?.targets.orEmpty() + modes.flatMap { instructions?.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
+        val result = LinkedHashMap<String, List<TargetRef>>()
+        slots.forEach { slot ->
+            val max = (slot.max as? arcanum.api.Value.Fixed)?.value ?: queue.size
+            val taken = List(minOf(max, queue.size)) { scenario.target(queue.removeFirst()) }
+            if (taken.isNotEmpty()) result[slot.name] = taken
+        }
+        if (queue.isNotEmpty()) result["enchant"] = queue.map { scenario.target(it) }
+        return result
+    }
+
+    private fun divided(targets: Map<String, List<TargetRef>>, shares: List<Int>): List<arcanum.engine.state.DividedShare> {
+        if (shares.isEmpty()) return emptyList()
+        val all = targets.flatMap { (slot, refs) -> refs.map { slot to it } }
+        return all.zip(shares).map { (t, n) -> arcanum.engine.state.DividedShare(t.first, t.second, n) }
+    }
+
     /** Passes priority (CR 117.3d). */
     fun passes(): Outcome = scenario.perform(Input.PassPriority(id))
 

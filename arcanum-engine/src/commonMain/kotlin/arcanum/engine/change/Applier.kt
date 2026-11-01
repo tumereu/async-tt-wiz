@@ -197,6 +197,10 @@ internal object Applier {
                     change.after
                 }
             }
+            is Change.TriggersWaiting -> {
+                check(state.triggered == change.before) { "Waiting triggers aren't as expected" }
+                state.triggered = change.after.toMutableList()
+            }
             is Change.PendingSet -> {
                 check(state.pending == change.before) { "Pending isn't as expected" }
                 state.pending = change.after

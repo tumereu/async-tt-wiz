@@ -51,6 +51,9 @@ internal interface Board {
     val state: GameState
     fun characteristics(id: ObjectId): Characteristics?
     fun controller(id: ObjectId): PlayerId?
+
+    /** Last known information of an object that has left its zone (CR 608.2h, 603.10): null for a current object. */
+    fun snapshot(id: ObjectId): arcanum.engine.state.ObjectSnapshot? = Lki.find(state, id)
 }
 
 /**
@@ -210,7 +213,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun controllerOf(id: ObjectId): PlayerId? = board.controller(id)
 
-    fun ownerOf(id: ObjectId): PlayerId? = state.obj(id)?.owner ?: state.stackItems[id]?.controller
+    fun ownerOf(id: ObjectId): PlayerId? = state.obj(id)?.owner ?: state.stackItems[id]?.controller ?: lki(id)?.owner
 
     fun characteristics(id: ObjectId): Characteristics? = board.characteristics(id)
 
@@ -224,9 +227,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Not -> !matches(filter.filter, id)
             is ObjectFilter.Is -> id in objects(filter.objects)
             is ObjectFilter.Category -> when (filter.category) {
-                ObjectCategory.Card -> o != null && !o.token
-                ObjectCategory.Token -> o?.token == true
-                ObjectCategory.Permanent -> o?.zone == Zone.Battlefield
+                ObjectCategory.Card -> (o != null && !o.token) || lki(id)?.token == false
+                ObjectCategory.Token -> o?.token ?: lki(id)?.token ?: false
+                ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield
                 ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy }
                 ObjectCategory.StackAbility -> state.stackItems[id]?.kind.let { it == StackItemKind.Activated || it == StackItemKind.Triggered }
             }
@@ -251,12 +254,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
-            is ObjectFilter.WasCast -> o?.facts?.castFrom?.let { filter.from == null || it == filter.from } ?: false
-            is ObjectFilter.WasPaid -> (o?.facts?.paid.orEmpty().filter { it.keyword == filter.keyword }.sumOf { it.times }) >= filter.times
+            is ObjectFilter.WasCast -> facts(id)?.castFrom?.let { filter.from == null || it == filter.from } ?: false
+            is ObjectFilter.WasPaid -> (facts(id)?.paid.orEmpty().filter { it.keyword == filter.keyword }.sumOf { it.times }) >= filter.times
             is ObjectFilter.HasStatus -> hasStatus(id, o, filter.status)
             ObjectFilter.SummoningSick -> o != null && summoningSick(o, controllerOf(id))
-            is ObjectFilter.HasCounter -> o != null &&
-                (if (filter.kind == null) o.counters.sumOf { it.count } else o.counters(filter.kind!!)) >= filter.atLeast
+            is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
+                (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
+            } ?: false
             is ObjectFilter.Power -> c?.power?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
             is ObjectFilter.Toughness -> c?.toughness?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
             is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, value(filter.value))
@@ -313,7 +317,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     }
 
     private fun hasStatus(id: ObjectId, o: GameObject?, status: Status): Boolean = when (status) {
-        Status.Tapped -> o?.tapped == true
+        Status.Tapped -> o?.tapped ?: lki(id)?.tapped ?: false
         Status.FaceDown -> o?.faceDown == true
         Status.Transformed -> o?.transformed == true
         Status.Flipped -> o?.flipped == true
@@ -335,7 +339,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return since.player != controller || since.turn >= started
     }
 
-    private fun zoneOf(id: ObjectId): Zone? = state.obj(id)?.zone ?: if (id in state.stackItems) Zone.Stack else null
+    private fun zoneOf(id: ObjectId): Zone? = state.obj(id)?.zone ?: if (id in state.stackItems) Zone.Stack else lki(id)?.zone
+
+    /** Last known information of [id] when it has left its zone (CR 608.2h). */
+    private fun lki(id: ObjectId) = if (state.obj(id) == null) board.snapshot(id) else null
+
+    private fun facts(id: ObjectId) = state.obj(id)?.facts ?: lki(id)?.facts
+
+    private fun counterList(id: ObjectId) = state.obj(id)?.counters ?: lki(id)?.counters
 
     private fun GameObject.printedTypes(): List<CardType> = definition?.faces?.getOrNull(face)?.types.orEmpty()
 
@@ -385,7 +396,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.Announced -> (ctx.names[value.name] as? NamedValue.Number)?.value ?: ctx.stackItem?.announced?.get(value.name) ?: 0
         is Value.Bound -> boundNumber(ctx.names[value.name])
         is Value.Remembered -> boundNumber(selfMemory(value.key))
-        is Value.CastX -> objects(value.of).firstNotNullOfOrNull { state.obj(it)?.facts?.x } ?: 0
+        is Value.CastX -> objects(value.of).firstNotNullOfOrNull { facts(it)?.x } ?: 0
         is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of))
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
@@ -406,7 +417,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.EventsThisTurn -> History.count(this, value.event, value.measure)
         is Value.StartingLife -> players(value.players).sumOf { state.player(it).startingLife }
         is Value.ManaSpent -> objects(value.of).sumOf { id ->
-            val spent = state.obj(id)?.facts?.manaSpent.orEmpty()
+            val spent = facts(id)?.manaSpent.orEmpty()
             when {
                 value.distinctColors -> spent.filter { it.color != null && it.amount > 0 }.map { it.color }.distinct().size
                 value.color != null -> spent.filter { it.color == value.color }.sumOf { it.amount }
@@ -414,7 +425,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             }
         }
         is Value.TimesPaid -> objects(value.of).sumOf { id ->
-            state.obj(id)?.facts?.paid.orEmpty().filter { it.keyword == value.keyword }.sumOf { it.times }
+            facts(id)?.paid.orEmpty().filter { it.keyword == value.keyword }.sumOf { it.times }
         }
         is Value.AbilityUsesThisTurn -> boundNumber(ctx.names[if (value.resolved) USES_RESOLVED else USES_ACTIVATED])
         is Value.Excess -> boundNumber(ctx.names[EXCESS_PREFIX + value.name])
@@ -443,8 +454,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             NumericProperty.Toughness -> c?.toughness ?: 0
             NumericProperty.ManaValue -> c?.let { manaValue(id, it) } ?: 0
             NumericProperty.Loyalty -> c?.loyalty ?: 0
-            is NumericProperty.Counters -> if (property.kind == null) o?.counters?.sumOf { it.count } ?: 0
-                else o?.counters(property.kind!!) ?: 0
+            is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
+                if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }
+            }
         }
     }
 
@@ -488,13 +500,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.CouldNot -> (ctx.names[condition.name] as? NamedValue.Payment)?.outcome == PayOutcome.CouldNotPay
         is Condition.WonFlip -> (ctx.names[condition.name] as? NamedValue.Flip)?.won == true
         is Condition.Paid -> objects(condition.of).any { id ->
-            val facts = state.obj(id)?.facts ?: return@any false
+            val facts = facts(id) ?: return@any false
             val paid = (facts.paid + listOfNotNull(facts.alternative))
                 .filter { it.keyword == condition.keyword && (condition.costIndex == null || it.costIndex == condition.costIndex) }
             paid.sumOf { it.times } >= condition.times
         }
         is Condition.CastFrom -> objects(condition.of).any { id ->
-            state.obj(id)?.facts?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
+            facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()
@@ -575,17 +587,42 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 }
 
 /**
- * "This turn" questions over the tagged events (D33). Event matching against [arcanum.api.EventPattern]s belongs to
- * the triggers part of the engine; until it exists these answer "nothing happened".
+ * "This turn" questions over the tagged events (D33): the events of this turn matched against an
+ * [arcanum.api.EventPattern] ([arcanum.engine.trigger.EventMatcher]), as the evaluator's "you" sees them.
  */
 internal object History {
     fun happened(
         evaluator: Evaluator, event: arcanum.api.EventPattern, objectId: ObjectId? = null, player: PlayerId? = null,
-    ): Boolean = false
+    ): Boolean = instances(evaluator, event).any { e ->
+        (objectId == null || e.objects.any { objectId in it.ids }) && (player == null || player in e.players)
+    }
 
-    fun count(evaluator: Evaluator, event: arcanum.api.EventPattern, measure: arcanum.api.Measure): Int = 0
+    fun count(evaluator: Evaluator, event: arcanum.api.EventPattern, measure: arcanum.api.Measure): Int {
+        val state = evaluator.board.state
+        return when (measure) {
+            arcanum.api.Measure.Events -> state.eventsOf(state.turn.number).count { change ->
+                arcanum.engine.trigger.EventMatcher.instances(evaluator, event, change).isNotEmpty()
+            }
+            arcanum.api.Measure.Objects -> instances(evaluator, event).flatMap { e ->
+                (e.objects.firstOrNull { it.role == arcanum.api.EventRole.Object || it.role == arcanum.api.EventRole.Before }
+                    ?: e.objects.firstOrNull())?.ids.orEmpty()
+            }.size
+            arcanum.api.Measure.Amount -> instances(evaluator, event).sumOf { it.amount ?: 0 }
+        }
+    }
 
-    fun spellsCastBefore(evaluator: Evaluator, of: List<ObjectId>): Int = 0
+    /** Spells cast this turn before the cast of [of] (storm, CR 702.40a). */
+    fun spellsCastBefore(evaluator: Evaluator, of: List<ObjectId>): Int {
+        val state = evaluator.board.state
+        val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
+        val index = casts.indexOfFirst { c -> arcanum.engine.trigger.EventMatcher.castObject(c) in of }
+        return if (index < 0) casts.size else index
+    }
+
+    private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern): List<TriggerEvent> {
+        val state = evaluator.board.state
+        return state.eventsOf(state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it) }
+    }
 }
 
 /** Counter kinds that modify power and toughness (CR 122.1a, 613.4c). */

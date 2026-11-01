@@ -44,6 +44,9 @@ data class GameState(
     /** The game-wide timestamp counter (CR 613.7, D34): the highest timestamp given so far. Never goes back, also not
      * on [revert]. */
     var timestampCounter: Long = 0,
+    /** Triggered abilities that triggered and wait to be put on the Stack the next time a player would get priority
+     * (CR 603.3, D42), in the order they triggered. */
+    var triggered: MutableList<arcanum.engine.decision.WaitingTrigger> = mutableListOf(),
 ) {
     // ---- Players
 
@@ -152,6 +155,7 @@ data class GameState(
         delayedTriggers = LinkedHashMap(delayedTriggers),
         ledger = LinkedHashMap(ledger),
         log = log.toMutableList(),
+        triggered = triggered.toMutableList(),
     )
 
     companion object {

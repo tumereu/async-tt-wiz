@@ -208,6 +208,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
 
     /** Performs [input] and applies its changes (D58); answers random results and host fills at once (D25, D60). */
     fun perform(input: Input): Outcome {
+        if (driving && input is Input.Answer) return driveAnswer(input)
         startMoves()
         val before = state.deepCopy()
         val outcome = Engine.perform(state, input)
@@ -261,6 +262,64 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
         }
         if (guard <= 0) fail("Never reached $step of turn $turn")
     }
+
+    // ---- Driving resolution without priority
+
+    /** Set once a scenario resolves through [drive]: answers then go on without giving priority. */
+    private var driving = false
+
+    /**
+     * Runs an engine flow on a copy of the game as [Engine.perform] does (D56), then state-based actions and triggered
+     * abilities until nothing happens (CR 704.3, 603.3), but gives no priority: for scenarios that put spells and
+     * abilities on the Stack directly and resolve them. Random results and host fills are answered at once.
+     */
+    internal fun drive(block: (arcanum.engine.change.Recorder) -> arcanum.engine.Progress): Outcome {
+        startMoves()
+        driving = true
+        val before = state.deepCopy()
+        val recorder = arcanum.engine.change.Recorder(state.deepCopy())
+        var progress = block(recorder)
+        if (progress is arcanum.engine.Progress.Done) progress = arcanum.engine.Perform.settle(recorder) ?: arcanum.engine.Progress.Done
+        val waiting = progress as? arcanum.engine.Progress.Waiting
+        if (waiting != null) recorder.record(Changes.pending(recorder.state, waiting.pending))
+        assertEquals(before, state, "The engine changed the state it was given (D56)")
+        recorder.changes.forEach { apply(it) }
+        val outcome = Outcome(recorder.changes.toList(), waiting?.pending)
+        val decision = state.pending?.decision
+        return when {
+            decision is Decision.Random -> driveAnswer(Input.Answer(decision.id, randomAnswer(decision.what)))
+            decision is Decision.HostFill -> driveAnswer(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
+                FilledObject(id, secrets[state.objOrThrow(id).card] ?: fail("The host knows nothing about $id"))
+            })))
+            else -> outcome
+        }
+    }
+
+    private fun driveAnswer(input: Input.Answer): Outcome = drive { r ->
+        val open = r.state.pending ?: fail("No decision is open")
+        assertEquals(open.decision.id, input.decision, "Answering another decision")
+        r.record(Changes.pending(r.state, null))
+        arcanum.engine.Perform.resume(r, open.continuation, input.answer)
+    }
+
+    /** Resolves the top of the Stack (CR 608), then state-based actions and triggers (CR 117.5), without priority. */
+    fun resolve(): Outcome {
+        if (state.stack.isEmpty()) fail("Nothing to resolve")
+        if (pending != null) fail("Waiting for $pending")
+        return drive { arcanum.engine.resolution.Resolution.resolveTop(it) }
+    }
+
+    /** Resolves the Stack until it is empty or a decision is open. */
+    fun resolveStack() {
+        var guard = 50
+        while (state.stack.isNotEmpty() && pending == null && guard-- > 0) resolve()
+    }
+
+    /** Checks state-based actions and puts waiting triggers on the Stack (CR 704.3, 603.3), without priority. */
+    fun settle(): Outcome = drive { arcanum.engine.Progress.Done }
+
+    /** The open decision as a [T], for expectations. */
+    inline fun <reified T : Decision> decision(): T = (pending as? T) ?: fail("Expected a ${T::class.simpleName}, not $pending")
 
     private fun randomAnswer(kind: RandomKind): Answer {
         scripted.removeFirstOrNull()?.let { return it }

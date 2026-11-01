@@ -1,0 +1,55 @@
+package arcanum.engine.query
+
+import arcanum.engine.change.Change
+import arcanum.engine.state.GameState
+import arcanum.engine.state.ObjectId
+import arcanum.engine.state.ObjectSnapshot
+import arcanum.engine.state.PlayerId
+import arcanum.engine.view.Characteristics
+import arcanum.engine.view.View
+
+/**
+ * The board as the final [View] sees it, for flows that read the game after continuous effects (resolution,
+ * triggers, state-based actions). An object that has left its zone reads as its last known information (CR 608.2h).
+ */
+internal class ViewBoard(override val state: GameState, val view: View) : Board {
+    override fun characteristics(id: ObjectId): Characteristics? =
+        view[id]?.characteristics ?: if (state.obj(id) == null) snapshot(id)?.characteristics else null
+
+    override fun controller(id: ObjectId): PlayerId? {
+        view[id]?.let { return it.controller ?: it.owner }
+        state.stackItems[id]?.let { return it.controller }
+        return snapshot(id)?.let { it.controller ?: it.owner }
+    }
+}
+
+/** Last known information (CR 608.2h, 603.10): what an object was as it left its zone, read from the tagged events
+ * (D33) and the snapshots Stack items, effect objects and delayed triggers keep (D21). */
+internal object Lki {
+    fun find(state: GameState, id: ObjectId): ObjectSnapshot? {
+        if (state.obj(id) != null) return null
+        for (i in state.log.indices.reversed()) {
+            when (val change = state.log[i].change) {
+                is Change.ZoneChange -> change.moves.firstOrNull { it.before.id == id }?.let { m ->
+                    return m.seen ?: ObjectSnapshot(m.before.id, m.before.owner, m.before.controller, m.before.zone, printed(m.before),
+                        m.before.counters, m.before.damage, m.before.tapped, m.before.token, m.before.attachedTo, m.before.facts)
+                }
+                is Change.Removed -> change.objects.firstOrNull { it.obj.id == id }?.let { p ->
+                    val o = p.obj
+                    return ObjectSnapshot(o.id, o.owner, o.controller, o.zone, printed(o), o.counters, o.damage, o.tapped, o.token,
+                        o.attachedTo, o.facts)
+                }
+                else -> Unit
+            }
+        }
+        state.stackItems.values.forEach { item -> item.snapshots.firstOrNull { it.id == id }?.let { return it } }
+        state.delayedTriggers.values.forEach { d -> d.snapshots.firstOrNull { it.id == id }?.let { return it } }
+        return null
+    }
+
+    /** The printed characteristics of [o] (no continuous effects): the fallback when a move kept no snapshot. */
+    fun printed(o: arcanum.engine.state.GameObject): Characteristics? {
+        val face = o.definition?.faces?.getOrNull(o.face) ?: return null
+        return arcanum.engine.view.Copiable.initial(o, listOf(arcanum.engine.view.IndexedFace(o.face, face)), null)
+    }
+}

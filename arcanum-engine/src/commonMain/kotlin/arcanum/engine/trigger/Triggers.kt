@@ -1,21 +1,267 @@
 package arcanum.engine.trigger
 
+import arcanum.api.Ability
+import arcanum.api.CounterKind
+import arcanum.api.EventRole
+import arcanum.api.Mechanic
+import arcanum.api.Trigger
+import arcanum.api.Zone
+import arcanum.engine.Engine
+import arcanum.engine.Pending
 import arcanum.engine.Progress
+import arcanum.engine.action.Act
+import arcanum.engine.action.Asker
+import arcanum.engine.action.NeedDecision
+import arcanum.engine.change.Change
+import arcanum.engine.change.Meaning
 import arcanum.engine.change.Recorder
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
-import arcanum.engine.notYet
+import arcanum.engine.decision.Decision
+import arcanum.engine.decision.TriggerOption
+import arcanum.engine.decision.WaitingTrigger
+import arcanum.engine.query.Context
+import arcanum.engine.query.Evaluator
+import arcanum.engine.query.ViewBoard
+import arcanum.engine.resolution.Casts
+import arcanum.engine.state.GameState
+import arcanum.engine.state.ObjectId
+import arcanum.engine.state.ObjectSnapshot
+import arcanum.engine.state.PlayerId
+import arcanum.engine.state.RoleObjects
+import arcanum.engine.state.StackItem
+import arcanum.engine.state.StackItemKind
+import arcanum.engine.state.StatusFlag
+import arcanum.engine.state.TargetRef
+import arcanum.engine.state.TriggerEvent
+import arcanum.engine.state.TurnCount
+import arcanum.engine.view.AbilityOrigin
+import arcanum.engine.view.Functioning
+import arcanum.engine.view.View
+import arcanum.engine.view.isInstantOrSorcery
 
 /**
  * Triggered abilities (CR 603): which abilities the recorded events trigger (looking back in time for leaves-the-
- * battlefield triggers, CR 603.10), delayed triggers (CR 603.7), and putting them on the Stack in APNAP order with
- * their choices (CR 603.3, [Continuation.PlacingTriggers]). Also answers "this turn" questions over the tagged events
- * ([arcanum.engine.query.History]).
+ * battlefield triggers, CR 603.10), delayed triggers (CR 603.7), state triggers (CR 603.8), and putting them on the
+ * Stack in APNAP order with their choices (CR 603.3, [Continuation.PlacingTriggers]). "This turn" questions over the
+ * tagged events are [arcanum.engine.query.History].
+ *
+ * Detection runs as each event is recorded ([Recorder.record]): the abilities that trigger wait in
+ * [GameState.triggered] (D42) until the next time a player would get priority.
  */
 internal object Triggers {
+    /** Events whose triggers are checked on the game as it was just before (CR 603.10a). */
+    fun looksBack(change: Change): Boolean = when (change) {
+        is Change.ZoneChange -> change.moves.any { it.from == Zone.Battlefield || it.from == Zone.Graveyard || it.from == Zone.Stack }
+        is Change.Removed, is Change.Attached -> true
+        is Change.Status -> change.flag == StatusFlag.PhasedOut
+        else -> false
+    }
+
+    /** Finds what [change] triggers (CR 603.2) and records it as waiting. [before] is the game just before it, for
+     * look-back events. */
+    fun detect(recorder: Recorder, change: Change, before: GameState?) {
+        if (change is Change.TriggersWaiting || change is Change.DelayedTriggerRemoved || change is Change.DelayedTriggerAdded) return
+        val state = recorder.state
+        val now = Engine.view(state)
+        val found = mutableListOf<WaitingTrigger>()
+        val seen = mutableSetOf<String>()
+        // CR 603.10a: look back for leaving the battlefield and the other look-back events
+        if (before != null) {
+            val then = Engine.view(before)
+            sources(before, then).forEach { s ->
+                seen += "${s.id}/${s.origin.key}"
+                found += check(state, ViewBoard(before, then), now, change, s, lookBack = true)
+            }
+        }
+        // Objects that didn't exist before the event (they entered with it) trigger as they are now
+        sources(state, now).filter { "${it.id}/${it.origin.key}" !in seen && (before == null || before.obj(it.id) == null) }
+            .forEach { s -> found += check(state, ViewBoard(state, now), now, change, s, lookBack = false) }
+        found += additional(state, now, change, found)
+        val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
+        state.delayedTriggers.values.toList().forEach { dt ->
+            val e = Evaluator(ViewBoard(state, now), Context(dt.controller, dt.source, dt.names))
+            val instances = instancesOf(e, state, dt.trigger, change)
+            if (instances.isNotEmpty()) {
+                val ability = Ability.Triggered(dt.trigger, dt.instructions)
+                (if (dt.repeats) instances else instances.take(1)).forEach { instance ->
+                    found += WaitingTrigger(dt.controller, ability, null, dt.source, dt.snapshots.firstOrNull { it.id == dt.source },
+                        instance, delayedTrigger = dt.id, names = dt.names)
+                }
+                if (!dt.repeats) delayedFired += dt
+            }
+        }
+        if (found.isNotEmpty()) addWaiting(recorder, found)
+        delayedFired.forEach { recorder.record(Change.DelayedTriggerRemoved(it, listOf(Meaning.Triggered))) }
+    }
+
+    /** Puts [triggers] among those waiting to go on the Stack (CR 603.2, 603.3). */
+    fun addWaiting(recorder: Recorder, triggers: List<WaitingTrigger>) {
+        if (triggers.isEmpty()) return
+        val before = recorder.state.triggered.toList()
+        recorder.record(Change.TriggersWaiting(before, before + triggers))
+    }
+
+    /** One triggered ability of an object where it functions (CR 113.6). */
+    private data class Source(val id: ObjectId, val controller: PlayerId, val ability: Ability.Triggered, val origin: AbilityOrigin)
+
+    private fun sources(state: GameState, view: View): List<Source> = view.objects.values.flatMap { o ->
+        val c = o.characteristics ?: return@flatMap emptyList()
+        val obj = o.obj ?: return@flatMap emptyList()
+        if (obj.phasedOut) return@flatMap emptyList()
+        c.abilities.mapNotNull { instance ->
+            val ability = instance.ability as? Ability.Triggered ?: return@mapNotNull null
+            // Emblems' abilities work in the command zone (CR 114.4)
+            if (o.zone != Zone.Command && o.zone !in Functioning.zones(ability, c.isInstantOrSorcery())) return@mapNotNull null
+            Source(o.id, o.controller ?: o.owner, ability, instance.origin)
+        }
+    }
+
+    private fun check(state: GameState, board: ViewBoard, now: View, change: Change, s: Source, lookBack: Boolean): List<WaitingTrigger> {
+        val e = Evaluator(board, Context(s.controller, s.id))
+        val instances = instancesOf(e, board.state, s.ability.trigger, change)
+        if (instances.isEmpty()) return emptyList()
+        val nowBoard = ViewBoard(state, now)
+        val sourceSeen = if (lookBack) snapshot(board, s.id) else null
+        return instances.filter { instance ->
+            // Conditions are checked right after the event (CR 603.4); the source may have left (last known information)
+            val check = Evaluator(nowBoard, Context(s.controller, s.id, event = instance))
+            (s.ability.triggersOnlyIf?.let { check.holds(it) } ?: true) && (s.ability.interveningIf?.let { check.holds(it) } ?: true)
+        }.let { limited(state, s, it) }.map { instance ->
+            WaitingTrigger(s.controller, s.ability, s.origin, s.id, sourceSeen ?: snapshot(nowBoard, s.id), instance)
+        }
+    }
+
+    private fun snapshot(board: ViewBoard, id: ObjectId): ObjectSnapshot? {
+        val o = board.state.obj(id) ?: return board.snapshot(id)
+        val v = board.view[id]
+        return ObjectSnapshot(id, o.owner, v?.controller ?: o.controller, o.zone, v?.characteristics, o.counters, o.damage,
+            o.tapped, o.token, o.attachedTo, o.facts)
+    }
+
+    /** "Triggers only once each turn" (CR 603.2h): counted on the source object per turn number (D41). */
+    private fun limited(state: GameState, s: Source, instances: List<TriggerEvent>): List<TriggerEvent> {
+        val limit = s.ability.perTurn ?: return instances
+        val o = state.obj(s.id) ?: return instances.take(limit)
+        val used = o.facts.triggers.firstOrNull { it.key == s.origin.key && it.turn == state.turn.number }?.count ?: 0
+        return instances.take((limit - used).coerceAtLeast(0))
+    }
+
+    /** The instances of [trigger] in [change] (CR 603.2): one per event, or one per batch ([Trigger.On.oneOrMore], CR
+     * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn]); chapter abilities as lore counters pass
+     * their numbers (CR 714.2b). */
+    fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change): List<TriggerEvent> = when (trigger) {
+        is Trigger.On -> {
+            val all = trigger.events.flatMap { EventMatcher.instances(e, it, change) }
+            val counted = trigger.nthThisTurn?.let { n ->
+                val earlier = state.eventsOf(state.turn.number).takeWhile { it !== change && it != change }
+                    .sumOf { c -> trigger.events.sumOf { EventMatcher.instances(e, it, c).size } }
+                all.filterIndexed { i, _ -> earlier + i + 1 == n }
+            } ?: all
+            when {
+                !trigger.oneOrMore -> counted
+                counted.isEmpty() -> emptyList()
+                trigger.batchPerPlayer -> counted.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
+                else -> listOf(batch(counted))
+            }.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
+        }
+        is Trigger.Chapter -> (change as? Change.Counters)?.let { c ->
+            val holder = (c.holder as? TargetRef.Object)?.id ?: return@let null
+            if (c.kind != CounterKind.Lore || holder != e.ctx.self) return@let null
+            val from = c.before?.count ?: 0
+            val to = c.after?.count ?: 0
+            trigger.chapters.filter { it in (from + 1)..to }.map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder))), amount = it) }
+        }.orEmpty()
+        // State triggers are checked when triggers are put on the Stack (CR 603.8)
+        is Trigger.State -> emptyList()
+    }
+
+    private fun batch(instances: List<TriggerEvent>): TriggerEvent {
+        val roles = instances.flatMap { it.objects }.groupBy { it.role }.map { (role, list) -> RoleObjects(role, list.flatMap { it.ids }.distinct()) }
+        return TriggerEvent(roles, instances.flatMap { it.players }.distinct(), instances.mapNotNull { it.amount }.takeIf { it.isNotEmpty() }?.sum())
+    }
+
+    /** "Triggers an additional time" (CR 603.2d). */
+    private fun additional(state: GameState, view: View, change: Change, found: List<WaitingTrigger>): List<WaitingTrigger> =
+        view.rules.flatMap { applied ->
+            val m = applied.mechanic as? Mechanic.TriggersAdditionalTime ?: return@flatMap emptyList()
+            val e = Evaluator(ViewBoard(state, view), Context(applied.controller, applied.source, applied.names))
+            if (EventMatcher.instances(e, m.event, change).isEmpty()) return@flatMap emptyList()
+            found.filter { t -> t.delayedTrigger == null && t.source != null && e.matches(m.sources, t.source!!) }
+        }
+
+    // ---- Putting triggered abilities on the Stack (CR 603.3)
+
     /** Puts the triggered abilities waiting since the last check on the Stack (CR 603.3b); [Progress.Done] when there
      * were none. */
-    fun place(recorder: Recorder): Progress = notYet("triggered abilities")
+    fun place(recorder: Recorder): Progress = place(recorder, emptyList())
 
-    fun resume(recorder: Recorder, continuation: Continuation.PlacingTriggers, answer: Answer): Progress = notYet("trigger decisions")
+    fun resume(recorder: Recorder, continuation: Continuation.PlacingTriggers, answer: Answer): Progress =
+        place(recorder, continuation.answers + answer)
+
+    private fun place(recorder: Recorder, answers: List<Answer>): Progress {
+        stateTriggers(recorder)
+        val waiting = recorder.state.triggered.toList()
+        if (waiting.isEmpty()) return Progress.Done
+        val mark = recorder.changes.size
+        val act = Act(recorder, Asker(answers, "triggers@${recorder.state.nextTimestamp()}"))
+        return try {
+            recorder.record(Change.TriggersWaiting(waiting, emptyList()))
+            // CR 603.3b: APNAP order: the active player's go on the Stack first, so they resolve last
+            act.state.apnap().forEach { player ->
+                val mine = waiting.filter { it.controller == player }
+                order(act, player, mine).forEach { push(act, it) }
+            }
+            Progress.Done
+        } catch (n: NeedDecision) {
+            recorder.rollback(mark)
+            Progress.Waiting(Pending(n.decision, Continuation.PlacingTriggers(waiting, answers = answers)))
+        }
+    }
+
+    /** CR 603.3b: a player with two or more triggers puts them on the Stack in the order they choose (P5: only when the
+     * order can matter). */
+    private fun order(act: Act, player: PlayerId, mine: List<WaitingTrigger>): List<WaitingTrigger> {
+        if (mine.size < 2 || mine.all { it.ability == mine.first().ability && it.source == mine.first().source && it.event == mine.first().event }) return mine
+        val options = mine.mapIndexed { i, t -> TriggerOption(i, t.source, (t.ability as? Ability.Triggered)?.text) }
+        val order = (act.asker.ask { Decision.OrderTriggers(it, player, null, options) } as Answer.Order).order
+        require(order.sorted() == mine.indices.toList()) { "Order every trigger once: $order" }
+        return order.map { mine[it] }
+    }
+
+    /** CR 603.3d: modes and targets are chosen as it is put on the Stack; without a legal target it is removed. */
+    private fun push(act: Act, t: WaitingTrigger) {
+        val ability = t.ability as? Ability.Triggered ?: return
+        val stackId = ObjectId.StackItem("trigger:${act.state.nextTimestamp()}")
+        val choices = Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true) ?: return
+        t.source?.let { recordTriggerCount(act, it, t.origin) }
+        val item = StackItem(
+            id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,
+            origin = t.origin, targets = choices.second, modes = choices.first, names = t.names,
+            snapshots = listOfNotNull(t.sourceSeen), event = t.event, delayedTrigger = t.delayedTrigger,
+            timestamp = act.state.nextTimestamp(),
+        )
+        act.record(Change.StackItemAdded(item, act.state.stack.size, listOf(Meaning.Triggered)))
+    }
+
+    private fun recordTriggerCount(act: Act, source: ObjectId, origin: AbilityOrigin?) {
+        val key = origin?.key ?: return
+        val o = act.state.obj(source) ?: return
+        val turn = act.state.turn.number
+        val count = (o.facts.triggers.firstOrNull { it.key == key && it.turn == turn }?.count ?: 0) + 1
+        val triggers = o.facts.triggers.filterNot { it.key == key && it.turn == turn } + TurnCount(key, turn, count)
+        act.record(Change.Facts(source, o.facts, o.facts.copy(triggers = triggers)))
+    }
+
+    /** CR 603.8: a state trigger triggers when its condition is true, and again only after it has left the Stack. */
+    private fun stateTriggers(recorder: Recorder) {
+        val state = recorder.state
+        val view = Engine.view(state)
+        val found = sources(state, view).filter { it.ability.trigger is Trigger.State }.filter { s ->
+            val pending = state.triggered.any { it.source == s.id && it.origin == s.origin } ||
+                state.stackItems.values.any { it.source == s.id && it.origin == s.origin }
+            !pending && Evaluator(ViewBoard(state, view), Context(s.controller, s.id)).holds((s.ability.trigger as Trigger.State).condition)
+        }.map { s -> WaitingTrigger(s.controller, s.ability, s.origin, s.id, null, TriggerEvent()) }
+        addWaiting(recorder, found)
+    }
 }

@@ -77,13 +77,19 @@ internal object Perform {
 
     /** CR 117.5: before a player gets priority, state-based actions and triggered abilities, until nothing happens. */
     fun afterAction(recorder: Recorder): Progress {
+        settle(recorder)?.let { return it }
+        return Priority.give(recorder)
+    }
+
+    /** State-based actions (CR 704.3) and putting triggered abilities on the Stack (CR 603.3), repeated until neither
+     * does anything; the decision one of them waits for, if any. */
+    fun settle(recorder: Recorder): Progress.Waiting? {
         while (true) {
             val before = recorder.changes.size
             (StateBasedActions.check(recorder) as? Progress.Waiting)?.let { return it }
             (Triggers.place(recorder) as? Progress.Waiting)?.let { return it }
-            if (recorder.changes.size == before) break
+            if (recorder.changes.size == before) return null
         }
-        return Priority.give(recorder)
     }
 }
 

@@ -142,12 +142,22 @@ object Meanings {
     }
 }
 
-/** Applies changes to a working state as they are made and keeps them, in order: one engine call's result (D58). */
+/** Applies changes to a working state as they are made and keeps them, in order: one engine call's result (D58).
+ * After each event change, the triggered abilities it triggers are found ([arcanum.engine.trigger.Triggers.detect],
+ * CR 603.2), looking back in time where CR 603.10 says, and recorded as waiting. */
 internal class Recorder(val state: GameState) {
     val changes = mutableListOf<Change>()
 
     fun record(change: Change) {
+        val before = if (change.isEvent && arcanum.engine.trigger.Triggers.looksBack(change)) state.deepCopy() else null
         state.apply(change)
         changes += change
+        if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before)
+    }
+
+    /** Takes back every change after the first [size] (a step that stopped for a decision is redone from its start
+     * once answered, D29). */
+    fun rollback(size: Int) {
+        while (changes.size > size) state.revert(changes.removeAt(changes.lastIndex))
     }
 }

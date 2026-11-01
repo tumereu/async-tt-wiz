@@ -121,7 +121,10 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         name: String, target: String? = null, targets: List<String> = listOfNotNull(target), x: Int? = null,
         modes: List<Int> = emptyList(), divided: List<Int> = emptyList(), kicked: Int = 0,
     ): Outcome {
-        val card = scenario.card(name)
+        // The first such card this player owns in their hand, else elsewhere off the battlefield and the Stack
+        val card = (0 until 20).asSequence().mapNotNull { runCatching { scenario.card(name, it) }.getOrNull() }
+            .map { state.objOrThrow(it) }.filter { it.owner == id && it.zone != Zone.Battlefield && it.zone != Zone.Stack }
+            .sortedBy { if (it.zone == Zone.Hand) 0 else 1 }.firstOrNull()?.id ?: scenario.card(name)
         return scenario.drive { r ->
             val o = r.state.objOrThrow(card)
             val face = o.definition!!.faces[o.face]

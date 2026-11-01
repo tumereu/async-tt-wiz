@@ -120,7 +120,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 ### More page
 
 - **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Face down/up, Switch face, Temp 1–4, Deal to target, Deal to target or creatures, and Set damage last. (r36)
-- **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones carry a small hourglass; all stay visible, greyed out on cards without P/T. (r27)
+- **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones show the same icon with a small hourglass in its top-right corner, not touching the symbols or the label; all stay visible, greyed out on cards without P/T. (r36)
 - **TBL-084** Owner shows the owner's colour and is enabled only for battlefield tokens; tapping it gives the token to the other player. (r28)
 - **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
 - **TBL-087** Link is enabled only with 2 or more cards selected and links every pair of them, with no target picker; Unlink lists the card's links with a Remove link button on each. (r12)

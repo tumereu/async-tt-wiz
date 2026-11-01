@@ -24,9 +24,9 @@ internal fun powerToughnessStep(name: String): PowerToughnessStep? {
 
 private val stepIcons = mutableMapOf<PowerToughnessStep, ImageVector>()
 
-/** "+/·", "·/−" ...; the until-end-of-turn version lifts the symbols and adds a small hourglass below. */
+/** "+/·", "·/−" ...; the until-end-of-turn version is the same glyph plus a small hourglass in the top-right corner (TBL-083). */
 internal fun powerToughnessStepIcon(step: PowerToughnessStep): ImageVector = stepIcons.getOrPut(step) {
-    val y = if (step.untilEndOfTurn) 9f else 12f
+    val y = 12f
     fun PathBuilder.symbol(x: Float, sign: Int) {
         if (sign == 0) return
         moveTo(x - 3.5f, y); lineTo(x + 3.5f, y)
@@ -44,12 +44,13 @@ internal fun powerToughnessStepIcon(step: PowerToughnessStep): ImageVector = ste
                 moveTo(x - 1.7f, y); arcTo(1.7f, 1.7f, 0f, true, true, x + 1.7f, y)
                 arcTo(1.7f, 1.7f, 0f, true, true, x - 1.7f, y); close()
             }
-        if (step.untilEndOfTurn) path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.4f,
+        // Inside x 17.9..23.7, y 0.3..5.5: clear of the slash's top (x ≤ 15) and the "+" arm's top (y ≥ 7.5).
+        if (step.untilEndOfTurn) path(fill = null, stroke = SolidColor(Color.Black), strokeLineWidth = 1.1f,
             strokeLineCap = StrokeCap.Round, strokeLineJoin = StrokeJoin.Round) {
-            moveTo(8.5f, 17f); lineTo(15.5f, 17f)
-            moveTo(8.5f, 23f); lineTo(15.5f, 23f)
-            moveTo(9.8f, 17f); lineTo(14.2f, 23f)
-            moveTo(14.2f, 17f); lineTo(9.8f, 23f)
+            moveTo(18.4f, .85f); lineTo(23.2f, .85f)
+            moveTo(18.4f, 4.95f); lineTo(23.2f, 4.95f)
+            moveTo(19.2f, .85f); lineTo(22.4f, 4.95f)
+            moveTo(22.4f, .85f); lineTo(19.2f, 4.95f)
         }
     }.build()
 }

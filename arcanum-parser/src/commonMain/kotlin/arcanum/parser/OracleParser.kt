@@ -122,6 +122,10 @@ object OracleParser {
         FLASHBACK_COST.matchEntire(part)?.let { m ->
             return Keyword.Flashback(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
         }
+        // chunk 13: "Escalate—Discard a card." (CR 702.120a): a cost that isn't only mana.
+        ESCALATE_COST.matchEntire(part)?.let { m ->
+            return Keyword.Escalate(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
+        }
         // "Splice onto Arcane {1}{R}" (CR 702.47a): a quality, then a cost.
         SPLICE.matchEntire(part)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
@@ -145,12 +149,14 @@ object OracleParser {
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
     private val LEVEL_BAND = Regex("""LEVEL \d+(?:-\d+|\+)""")
-    private val CHOOSE = Regex("""Choose (one|two|three|four)(?: —|\. You may choose the same mode more than once\.)""")
+    private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")
+    // chunk 13
+    private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

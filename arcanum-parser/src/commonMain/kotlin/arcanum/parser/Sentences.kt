@@ -92,7 +92,9 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val n = Numbers.count(choose.groupValues[1]) ?: return null
         val options = modeLines.map { arcanum.api.Mode(instructions(it) ?: return null) }
         if (options.isEmpty()) return null
-        return arcanum.api.Modes(options, min = n, max = n, repeatable = choose.value.contains("same mode"))
+        // "Choose one or more —" / "Choose one or both —": up to every mode, each at most once.
+        val max = if (choose.groupValues[2].isNotEmpty()) options.size else n
+        return arcanum.api.Modes(options, min = n, max = max, repeatable = choose.value.contains("same mode"))
     }
 
     /** The instructions of an instant or sorcery (CR 113.3a). */
@@ -115,6 +117,16 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         X_AT_LEAST_UNCOUNTERABLE.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.CantBeCountered, Mechanic.DamageCantBePrevented(EventPattern.Damage(source = ObjectFilter.Is(Objects.Self)))),
                 condition = arcanum.api.Condition.Compare(Value.CastX(), arcanum.api.Comparison.AtLeast, Value.Fixed(m.groupValues[1].toInt())))
+        }
+        // chunk 13
+        // "As an additional cost to cast this spell, you may exile any number of white cards from your hand. This spell
+        // costs {2} less to cast for each card exiled this way." (CR 601.2f): the reduction counts the cost's cards.
+        ADDITIONAL_EXILE_ANY_NUMBER_REDUCTION.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val per = Numbers.mana(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(
+                Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Exile(CostObjects.Choose(filter, count = null), from = Zone.Hand, postBind = "exiled")))),
+                Mechanic.CostChange(ObjectFilter.Is(Objects.Self), change = Value.Times(Value.Count(Objects.Bound("exiled")), -per))))
         }
         // "As an additional cost to cast this spell, [cost][ or cost]." (CR 601.2f)
         ADDITIONAL_COST.matchEntire(line)?.let { m ->
@@ -308,6 +320,20 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             return Objects.Target(noun)
         }
 
+        // chunk 13
+        /** The player whose hand was revealed ("that player"), the revealed hand ("from it"), the names of the cards
+         * chosen ("that card", "the chosen cards") and of the chosen card name ("that name"). */
+        var player: Players? = null
+        var revealed: Objects? = null
+        val chosen = mutableListOf<String>()
+        var cardName: String? = null
+
+        /** "target opponent" */
+        fun targetOpponent(): Players {
+            if (targets.none { it.name == "opponent" }) targets += TargetSlot("opponent", arcanum.api.TargetKind.Players(PlayerFilter.Opponent))
+            return Players.Target("opponent")
+        }
+
         /** "That player": the controller of the last object target. */
         fun lastTargetController(): Players? = targets.lastOrNull()?.let {
             if (it.what is arcanum.api.TargetKind.Players) Players.Target(it.name) else Players.ControllerOf(Objects.Target(it.name))
@@ -317,6 +343,106 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     private fun effect(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        // chunk 13
+        // Cleave (CR 702.148a): the text in square brackets is there unless the cleave cost was paid.
+        BRACKETED.matchEntire(sentence)?.let { m ->
+            val slots = context.targets.size
+            val full = effect(m.groupValues[1] + m.groupValues[2] + m.groupValues[3] + m.groupValues[4], context) ?: return null
+            val cleaved = effect(m.groupValues[1] + m.groupValues[4], context) ?: return null
+            if (context.targets.size != slots) return null
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Paid(arcanum.api.Keyword.Cleave.Kind)), then = full, otherwise = cleaved))
+        }
+        CHOOSE_CARD_NAME.matchEntire(sentence)?.let { m ->
+            val filter = m.groupValues[1].ifEmpty { null }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
+            context.cardName = "name"
+            return listOf(Step.Choose(arcanum.api.Choice.CardName(filter), bind = "name"))
+        }
+        // "Target player reveals their hand[ and discards all cards with that name]."
+        TARGET_REVEALS_HAND.matchEntire(sentence)?.let { m ->
+            val player = if (m.groupValues[1] == "player") context.targetPlayer() else context.targetOpponent()
+            val hand = Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(player))))
+            context.player = player
+            context.revealed = Objects.Bound("revealed")
+            val steps = mutableListOf<Step>(Step.Do(Effect.Reveal(hand, bind = "revealed")))
+            if (m.groupValues[2].isNotEmpty()) {
+                val name = context.cardName ?: return null
+                steps += Step.Do(Effect.Discard(player, objects = Objects.Where(Objects.Bound("revealed"), ObjectFilter.ChosenName(name))))
+            }
+            return steps
+        }
+        // "You choose an artifact or creature card from it, then choose an artifact or creature card from their graveyard."
+        YOU_CHOOSE_FROM_IT_AND_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val player = context.player ?: return null
+            val from = context.revealed ?: return null
+            val inHand = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val inGraveyard = Filters.all(Filters.noun(m.groupValues[2].removeArticle()) ?: return null,
+                ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(player)))
+            context.chosen += listOf("chosen", "chosenFromGraveyard")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(inHand, Value.Fixed(1), Value.Fixed(1), from = from), bind = "chosen"),
+                Step.Choose(arcanum.api.Choice.Objects(inGraveyard, Value.Fixed(1), Value.Fixed(1)), bind = "chosenFromGraveyard"))
+        }
+        // "You choose a nonland card from it[ with mana value 3 or less]." (someone else chooses: Choose + Discard(objects))
+        YOU_CHOOSE_FROM_IT.matchEntire(sentence)?.let { m ->
+            val from = context.revealed ?: return null
+            val filter = Filters.noun(m.groupValues[1].removeArticle() + m.groupValues[2]) ?: return null
+            if ("chosen" !in context.chosen) context.chosen += "chosen"
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1), from = from), bind = "chosen"))
+        }
+        if (sentence == "That player discards that card.") {
+            val player = context.player ?: return null
+            val card = context.chosen.lastOrNull() ?: return null
+            return listOf(Step.Do(Effect.Discard(player, objects = Objects.Bound(card))))
+        }
+        if (sentence == "Exile the chosen cards.") {
+            val cards = context.chosen.map { Objects.Bound(it) }.ifEmpty { return null }
+            return listOf(Step.Do(Effect.Move(cards.singleOrNull() ?: Objects.Union(cards), Destination(Zone.Exile))))
+        }
+        TARGET_LOSES_YOU_GAIN.matchEntire(sentence)?.let { m ->
+            val player = if (m.groupValues[1] == "player") context.targetPlayer() else context.targetOpponent()
+            return listOf(
+                Step.Do(Effect.LoseLife(player, Value.Fixed(m.groupValues[2].toInt()))),
+                Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[3].toInt()))))
+        }
+        PUT_INTO_LIBRARY_FROM_TOP.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val position = FROM_TOP[m.groupValues[2]] ?: return null
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Library, libraryPosition = position))))
+        }
+        ITS_CONTROLLER_GAINS_N.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.GainLife(Players.ControllerOf(target), Value.Fixed(m.groupValues[1].toInt()))))
+        }
+        // "Each opponent sacrifices a creature or planeswalker with the greatest mana value among creatures and
+        // planeswalkers they control." Each opponent chooses, then all sacrifice at once (CR 101.4, 608.2e).
+        EACH_OPPONENT_SACRIFICES_GREATEST.matchEntire(sentence)?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val among = Filters.noun(m.groupValues[2].replace(" and ", " or ")) ?: return null
+            val theirs = ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("opponent")))
+            val greatest = Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Each(Filters.all(among, theirs)), arcanum.api.Combine.Greatest)
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true, steps = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(kind, theirs, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, greatest)),
+                    Value.Fixed(1), Value.Fixed(1)), bind = "sacrificed", chooser = Players.Bound("opponent")),
+                Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))))
+        }
+        // CR 702.51c, 701.50
+        if (sentence == "Each creature that convoked this spell connives.")
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Connive(Objects.PaidWith(arcanum.api.ManaPaymentWay.TapCreatures)))))
+        DESTROY_UP_TO.matchEntire(sentence)?.let { m ->
+            val max = if (m.groupValues[1] == "X") Value.Announced() else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val noun = m.groupValues[2].replace(" and/or ", " or ")
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = max)
+            return listOf(Step.Do(Effect.Destroy(Objects.Target(name))))
+        }
+        // 'Create twice X 1/1 black and green Pest creature tokens with "When this token dies, you gain 1 life."'
+        CREATE_TOKENS_WITH_QUOTED.matchEntire(sentence)?.let { m ->
+            val count = if (m.groupValues[1] == "twice X") Value.Times(Value.Announced(), 2) else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val token = Tokens.defined("a " + m.groupValues[2] + " token") ?: return null
+            val granted = Sentences(setOf("this token", "this creature")).line(m.groupValues[3]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token.copy(face = token.face.copy(abilities = listOf(granted))), count = count)))
+        }
         PUT_FROM_HAND_ON_TOP.matchEntire(sentence)?.let { m ->
             val n = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             return listOf(
@@ -723,6 +849,20 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
         val YOU_LOSE_LIFE = Regex("""You lose (\d+) life\.""")
         val ANY_COMBINATION = Regex("""(\w+) mana in any combination of colors""")
+        // chunk 13
+        val ADDITIONAL_EXILE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may exile any number of (.+) from your hand\. This spell costs (\{\d+\}) less to cast for each card exiled this way\.""")
+        val BRACKETED = Regex("""(.*?)( ?)\[([^\]]+)\](.*)""")
+        val CHOOSE_CARD_NAME = Regex("""Choose an? (?:(.+?) )?card name\.""")
+        val TARGET_REVEALS_HAND = Regex("""Target (player|opponent) reveals their hand( and discards all cards with that name)?\.""")
+        val YOU_CHOOSE_FROM_IT_AND_GRAVEYARD = Regex("""You choose (an? .+?) from it, then choose (an? .+?) from their graveyard\.""")
+        val YOU_CHOOSE_FROM_IT = Regex("""You choose (an? .+?) from it( with .+)?\.""")
+        val TARGET_LOSES_YOU_GAIN = Regex("""Target (player|opponent) loses (\d+) life and you gain (\d+) life\.""")
+        val PUT_INTO_LIBRARY_FROM_TOP = Regex("""Put target (.+) into its owner's library (second|third|fourth) from the top\.""")
+        val FROM_TOP = mapOf("second" to 1, "third" to 2, "fourth" to 3)
+        val ITS_CONTROLLER_GAINS_N = Regex("""Its controller gains (\d+) life\.""")
+        val EACH_OPPONENT_SACRIFICES_GREATEST = Regex("""Each opponent sacrifices an? (.+?) with the greatest mana value among (.+) they control\.""")
+        val DESTROY_UP_TO = Regex("""Destroy up to (\w+) target (.+)\.""")
+        val CREATE_TOKENS_WITH_QUOTED = Regex("""Create (twice X|a|an|one|two|three|four|five) (\d+/\d+ .+? creature) tokens? with "(.+)"\.""")
     }
 }
 

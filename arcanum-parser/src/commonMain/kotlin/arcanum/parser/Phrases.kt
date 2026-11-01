@@ -147,6 +147,10 @@ internal object Events {
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
         }
+        // chunk 13: "this token dies" (CR 700.4)
+        DIES.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+        }
         return null
     }
 
@@ -167,6 +171,8 @@ internal object Events {
     private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
+    // chunk 13
+    private val DIES = Regex("""(.+) dies""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */

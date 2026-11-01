@@ -56,6 +56,11 @@ tasks.register("verifyModuleBoundaries") {
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":scale-fixtures"),
             ":server" to setOf(":core", ":protocol", ":scale-fixtures"),
             ":scale-fixtures" to setOf(":protocol"),
+            // Arcanum libraries are generic MTG code: they never depend on ATW modules.
+            ":arcanum-api" to emptySet(),
+            ":arcanum-parser" to setOf(":arcanum-api"),
+            ":arcanum-engine" to setOf(":arcanum-api"),
+            ":arcanum-tools" to setOf(":arcanum-parser"),
         )
         subprojects.forEach { project ->
             val actual = project.configurations.flatMap { configuration ->

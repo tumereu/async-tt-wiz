@@ -128,8 +128,11 @@ ATW table ──► ATW integration ──► engine game state (MTG terms) ─�
   builds the engine game state from `PlayState`, maps MTG-level changes to
   `PlayAction`s, stores effect objects as shared ATW state, and turns decision
   requests into UI.
-- A build check keeps the arcanum modules free of ATW dependencies. They start as
-  modules in this repository and can move to their own repository later.
+- **arcanum-tools** (JVM, never shipped) holds developer tools such as the pattern
+  frequency analysis; it depends only on arcanum-parser.
+- A build check (`verifyModuleBoundaries`) keeps the arcanum modules free of ATW
+  dependencies. They start as modules in this repository and can move to their own
+  repository later.
 
 ### 4.2 Snapshots first
 
@@ -146,7 +149,8 @@ added, reworded, and now and then removed or renumbered (2024 example: damage
 assignment order was removed from combat). Oracle wording changes too (errata,
 "enters the battlefield" → "enters").
 
-- The libraries name **one pinned CR version** (its effective date) in one place.
+- The libraries name **one pinned CR version** (its effective date) in one place:
+  `ComprehensiveRules.EFFECTIVE_DATE` in arcanum-api, currently **2026-09-25**.
   Code and tests cite rule numbers of that version (`// CR 613.4c`).
 - **Updating the pin** is a deliberate task: download the old and new CR text
   locally (not committed), let a small developer script list the rule numbers that

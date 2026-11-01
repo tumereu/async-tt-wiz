@@ -7,7 +7,8 @@ server. The app records and shows what happened; players interpret the rules.
 ## Goal right now
 
 Finish the Android client (see `docs/roadmap.md`) without breaking what already
-works. Do not build anything outside the task you were given.
+works; alongside it, the Arcanum Automatum rules libraries (see below). Do not
+build anything outside the task you were given.
 
 ## Where things are
 
@@ -18,6 +19,8 @@ works. Do not build anything outside the task you were given.
 | `androidApp/` | Compose app (`org.asyncttwiz.android`) |
 | `server/` | Spring Boot server, Flyway migrations, jOOQ |
 | `e2e/` | Device/journey tests (optional; slow) |
+| `arcanum-api/`, `arcanum-parser/`, `arcanum-engine/` | Arcanum Automatum: generic MTG rules libraries (card definitions, oracle-text parser, engine); spec `docs/specs/arcanum-automatum.md` |
+| `arcanum-tools/` | JVM developer tools for Arcanum (oracle-text pattern frequencies) |
 | `docs/features/` | **Feature catalog**: every current behaviour, one line each, with IDs (`TBL-012`) |
 | `docs/roadmap.md` | Long-term product direction |
 | `docs/backlog.md` | Approved changes not built yet; an item you build is deleted there in the same commit |
@@ -57,6 +60,23 @@ catalog wins. Where neither says, ask rather than pick.
   approves: never run `scripts/review.sh approve` or move the `catalog-approved`
   / `screenshots-approved` tags yourself.
 
+## Arcanum libraries
+
+- Generic MTG code with no ATW knowledge: they never depend on ATW modules
+  (`verifyModuleBoundaries`), and ATW uses them only through an integration the
+  owner approves per phase.
+- Each library keeps KDoc on its public API and a short `README.md` describing its
+  interface and status, kept current (an exception to the no-documentation rule).
+- One pinned Comprehensive Rules version, `ComprehensiveRules.EFFECTIVE_DATE` in
+  `arcanum-api`. Tests that encode a rule cite its number in that version in the
+  test name or a comment above it (`// CR 613.4c`). Such a test changes only when
+  the pin moves and that rule changed, or when the owner decides; the same
+  protection as catalog-linked tests.
+- Test cards are invented: our own names and costs with wording copied from real
+  oracle templates or merged from several cards. Never commit real card data,
+  MTGJSON files or the rules text; tools read them from local files.
+- The parser grows one wording group at a time, decided together with the owner.
+
 ## Rules
 
 - Shared game/lobby/history state is server-authoritative; the client sends
@@ -69,7 +89,8 @@ catalog wins. Where neither says, ask rather than pick.
 - Do not edit files outside your task's scope; do not refactor unrelated code.
 - Build/test with `./scripts/gradle.sh <tasks>` (wraps gradlew for WSL). Useful
   tasks: `:protocol:jvmTest`, `:core:jvmTest`, `:client-storage:test`,
-  `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`.
+  `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
+  `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`.
   Run only the tasks relevant to what you changed.
 - If a check fails, fix the cause. If the same failure persists after two real
   attempts, or the failure is environmental (network, Docker, emulator), stop

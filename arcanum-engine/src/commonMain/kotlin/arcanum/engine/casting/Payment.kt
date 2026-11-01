@@ -381,9 +381,13 @@ internal object Payment {
         val snap = recorder.snapshot()
         ability.instructions.steps.forEachIndexed { i, step ->
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
-            val color = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors?.firstOrNull()
+            val colors = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors.orEmpty()
             val yields = Mana.yields(snap, plan.player, plan.sourceId, ability.copy(instructions = ability.instructions.copy(steps = listOf(step))), plan.names)
-            addMana(recorder, plan.player, yields.flatMap { Mana.units(it, color, plan.sourceId) })
+            val combination = (add.mana.kind as? arcanum.api.ManaKind.Choose)?.combination == true
+            // In any combination of colours: one mana of each colour chosen
+            val units = if (combination && colors.size > 1) yields.flatMap { y -> colors.take(y.amount).flatMap { Mana.units(y.copy(amount = 1), it, plan.sourceId) } }
+                else yields.flatMap { Mana.units(it, colors.firstOrNull(), plan.sourceId) }
+            addMana(recorder, plan.player, units)
         }
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true)))
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)

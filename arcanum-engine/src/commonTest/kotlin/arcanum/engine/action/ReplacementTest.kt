@@ -551,4 +551,20 @@ class ReplacementTest {
             alice.exile lacks "Fleeting Recall"
         }
     }
+
+    // CR 614.5: an "instead" replacement doesn't apply again to the event its own instructions make
+    @Test
+    fun insteadDoesNotReplaceItsOwnEvent() = scenario {
+        alice.hand("Gemstone Charm", "Forest")
+        alice.castsWithoutCosts("Gemstone Charm")
+        resolve()
+        // "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the
+        // battlefield.": that move onto the battlefield isn't replaced a second time
+        answer(Answer.YesNo(true))
+        expect {
+            alice.battlefield has "Gemstone Charm"
+            alice.graveyard has "Forest"
+        }
+        assertEquals(null, pending)
+    }
 }

@@ -145,7 +145,8 @@ internal object Effects {
                 if (diff > 0) Actions.gainLife(act, cause, p, diff) else if (diff < 0) Actions.loseLife(act, cause, p, -diff)
             }
             is Effect.PutCounters -> putCounters(scope, effect)
-            is Effect.RemoveCounters -> onBattlefield(scope, effect.objects).forEach { id ->
+            // CR 122.1, 702.62a: counters come off objects in any zone (time counters on a suspended card in exile)
+            is Effect.RemoveCounters -> scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
                 val n = scope.value(effect.amount)
                 val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
                 var left = n

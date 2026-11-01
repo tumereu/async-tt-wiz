@@ -78,7 +78,8 @@ internal object Answers {
             is Question.ManaColor -> {
                 val color = (answer as? Answer.ColorChoice)?.color ?: refuse("Expected a colour")
                 if (color !in q.among) refuse("It can't make $color")
-                c.copy(names = c.names.with(q.key, NamedValue.Colors(listOf(color))))
+                val before = (c.names[q.key] as? NamedValue.Colors)?.colors.orEmpty()
+                c.copy(names = c.names.with(q.key, NamedValue.Colors(before + color)))
             }
             is Question.Pay -> refuse("Mana is paid when the cast finishes")
         }

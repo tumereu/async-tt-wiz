@@ -144,7 +144,13 @@ internal object Actions {
     /** Runs a replacement's "instead" instructions with the replaced event's objects (CR 614.1a). */
     fun runInstead(act: Act, r: Replacement, instance: TriggerEvent) {
         val cause = Cause(r.controller, r.source, key = "instead:${act.state.nextTimestamp()}")
-        Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
+        // CR 614.5: it doesn't apply again to the events its own instructions make
+        val added = act.replacing.add(r.key)
+        try {
+            Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
+        } finally {
+            if (added) act.replacing.remove(r.key)
+        }
     }
 
     /** Makes one zone-change event of [moves] (stamped in order, D34), with what everyone saw of each object. */

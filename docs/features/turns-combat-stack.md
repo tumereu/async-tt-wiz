@@ -52,7 +52,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **TRN-032** Value drags: the dominant axis counts; right is +, left is −; vertically, toward the other player is −, toward your own edge is +. The first 3 units cost 33.6dp each, then it speeds up (about 30 units at 288dp). A bubble anchored to the value (above it, below near the top edge) shows e.g. "+3 → 23". (r31)
 - **TRN-033** Each player has six coloured counters: red, blue, green, yellow, purple and grey. 0 and empty are the same everywhere. (r15)
 - **TRN-034** Portrait: each player's row shows packed piles plus an always-visible 3×2 counter grid (a faint outline when a counter is empty). Tapping the grid opens a Counters popup with all six counters and no life. (r15)
-- **TRN-035** Landscape: each player's six counters always show in the sidebar as in portrait (a faint outline when empty), in a row under the life square and piles (above them on the opponent's side), with that player's Temp piles at the left of the row before the counters; when they don't fit, the counters move to their own row (ZON-045). Tapping a counter opens the Counters popup. (r35) (?)
+- **TRN-035** Landscape: each player's six counters always show in the sidebar as in portrait (a faint outline when empty), in a row under the life square and piles (above them on the opponent's side), with that player's Temp piles at the left of the row before the counters; when they don't fit, the counters move to their own row (ZON-045). Tapping a counter opens the Counters popup. (r35)
 - **TRN-036** Set/edit values everywhere use "− [value] +" with one square value field. (r13)
 
 ### Status bubbles

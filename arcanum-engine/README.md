@@ -47,12 +47,30 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   timestamps and dependencies (CR 613.6–613.8); static abilities where they function,
   their conditions; effect objects; rules that are not characteristics per object, player
   and game.
-- Not yet (each throws "not implemented yet"): `options`, and every `perform` flow:
-  casting and activating, mana payment, resolution and replacements, triggers and the event
-  matching behind "this turn" (`History` answers "nothing happened"), state-based actions,
-  combat, priority and steps. Also missing: text-changing effects (layer 3, no mechanic
-  exists), copy effects from static abilities (effect objects only), the Inspect breakdown of
-  where a value comes from.
+- Done, the game flow: `options` (with every listed input accepted by `perform`); priority
+  (CR 117) and steps with their turn-based actions (untap with phasing and stun, the draw and
+  the first-turn skip flag `GameState.skipFirstDraw`, cleanup discard and damage removal,
+  durations ending, mana emptying), N players and extra turns; playing lands (extra land plays,
+  permissions, modal double-faced lands); casting (CR 601.2) and activating (CR 602, 606) as a
+  continuation: modes, optional costs, X, targets with hexproof/shroud/protection, division,
+  "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8), cancel;
+  alternative costs and permissions (evoke, flashback, escape, overload, retrace, morph, "rather
+  than pay"), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
+  mana abilities without the Stack; special actions (suspend, turning face up); combat:
+  declarations with their restrictions, first/double strike steps, trample, deathtouch,
+  lifelink, infect, wither, toxic, dividing damage. A spell becomes cast with the
+  `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
+  under `name@position` (`targetKey`).
+- Interim (`turn/Interim.kt`): while resolution and state-based actions throw "not implemented
+  yet", a spell's card just goes where it goes (CR 608.3) and the basic state-based actions
+  apply; combat damage and land plays don't go through replacement or prevention yet.
+- Not yet: resolution and replacements, triggers and the event matching behind "this turn"
+  (`History` answers "nothing happened"), state-based actions; in the flow: attack costs and
+  "as it attacks" costs, block requirements, maximum attackers, battles as attack targets,
+  splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
+  up, mana abilities' other effects (left as a `Manual` step). Also missing: text-changing
+  effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
+  only), the Inspect breakdown of where a value comes from.
 
 ## Tests
 
@@ -72,8 +90,9 @@ fun anthemPumpsOtherElves() = scenario {
 ```
 
 Setup (`alice.battlefield/hand/library/graveyard/exile`, `life`, `counters`, `turn(…)`,
-`attach`, `effect`, N players), moves (`alice.casts(…, target = …)`, `activates`, `plays`,
-`passPriority()`, `allPass()`, `advanceTo(step)`, `answers`, `attacks`, `blocks`, hand-made
+`attach`, `effect`, N players), moves (`alice.casts(…, target = …, x, modes, kicked, option,
+choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanceTo(step)`
+(declaring no attackers or blockers on the way), `answers`, `attacks`, `blocks`, hand-made
 `change`/`move`), expectations (`expect { … }`). Random results are scripted with
 `random(…)` or seeded; hidden cards are filled in by the harness. Every scenario checks D59:
 reverting all its changes restores the state after setup.

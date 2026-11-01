@@ -55,3 +55,13 @@ catalog entries the owner approves when its phase is built.
 - **Blocking** (D32): with Automatum on, other changes are blocked during a
   sequence and rule-breaking moves may be refused (exception to SYS-036); switching
   Automatum off is always allowed and is the escape from a stuck sequence.
+
+## Proposals that change existing catalog entries
+
+- **Spells really move to the Stack** (D35, owner proposal 2026-11-01): Stack entries
+  became projections in round 2 so that activating a battlefield or graveyard card's
+  ability doesn't move it; hand cards followed only for consistency. Proposal: a cast
+  spell card moves onto the Stack (in manual play too), where it has the Stack menu
+  instead of the card menu; abilities stay projections. Needed with Automatum on
+  (casting is a zone change, CR 601.2a). Affects STK-001, STK-004, STK-005 and the
+  hand-card reveal; needs owner-approved catalog text.

@@ -69,9 +69,12 @@ data class RecipientFilter(val objects: ObjectFilter? = null, val players: Playe
 /** What a triggered ability waits for (CR 603). */
 @Serializable
 sealed interface Trigger {
-    /** "When/Whenever [event]". [oneOrMore]: triggers once for a batch of simultaneous events ("one or more creatures",
-     * CR 603.2c). */
-    @Serializable @SerialName("on") data class On(val event: EventPattern, val oneOrMore: Boolean = false) : Trigger
+    /** "When/Whenever [events]": one ability with one or more trigger events ("enters or attacks"), so it stays one
+     * ability for "counter target ability" or "loses this ability". [oneOrMore]: triggers once for a batch of
+     * simultaneous events ("one or more creatures", CR 603.2c). */
+    @Serializable @SerialName("on") data class On(val events: List<EventPattern>, val oneOrMore: Boolean = false) : Trigger {
+        constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
+    }
     /** A state trigger (CR 603.8): triggers whenever [condition] becomes true, once until it resolves. */
     @Serializable @SerialName("state") data class State(val condition: Condition) : Trigger
     /** Saga chapter abilities (CR 714.2): lore counters reach one of [chapters]. */

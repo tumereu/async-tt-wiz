@@ -29,19 +29,24 @@ object DefinitionChecks {
     fun problems(card: CardDefinition): List<String> {
         val found = mutableListOf<String>()
         walk(json.encodeToJsonElement(CardDefinition.serializer(), card), inMechanics = false, found)
-        return found.map { "keyword-only mechanic \"$it\" used directly; grant the keyword ability instead (CR 613.1f)" }
+        return found
     }
 
-    // Mechanic lists are the values of "mechanics" (static abilities, ApplyMechanics) and "changes" (copy exceptions).
+    // Mechanic lists are the values of "mechanics" (static abilities, ApplyMechanics).
     private fun walk(element: JsonElement, inMechanics: Boolean, found: MutableList<String>) {
         when (element) {
             is JsonArray -> element.forEach { walk(it, inMechanics, found) }
             is JsonObject -> {
                 val type = (element["type"] as? JsonPrimitive)?.content
-                if (inMechanics && type in keywordOnlyNames) found += type!!
-                element.forEach { (key, value) -> walk(value, key == "mechanics" || key == "changes", found) }
+                if (inMechanics && type in keywordOnlyNames)
+                    found += "keyword-only mechanic \"$type\" used directly; grant the keyword ability instead (CR 613.1f)"
+                if (type == "of" && element.type("how") == "single" && element.type("objects") == "each")
+                    found += "a single object's number read from a group; say total, greatest or least"
+                element.forEach { (key, value) -> walk(value, key == "mechanics", found) }
             }
             is JsonPrimitive -> Unit
         }
     }
+
+    private fun JsonObject.type(key: String): String? = ((this[key] as? JsonObject)?.get("type") as? JsonPrimitive)?.content
 }

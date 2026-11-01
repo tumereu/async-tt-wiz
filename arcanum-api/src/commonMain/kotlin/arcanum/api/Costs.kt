@@ -11,7 +11,8 @@ data class Cost(val parts: List<CostPart>) {
     }
 }
 
-/** One part of a cost. */
+/** One part of a cost. Parts that use objects name them for the effect ("the sacrificed creature's power"): [bind]
+ * when they stay where they are (tap, reveal), `preBind`/`postBind` when they move (as in [Effect]). */
 @Serializable
 sealed interface CostPart {
     @Serializable @SerialName("mana") data class Mana(val cost: ManaCost) : CostPart
@@ -21,12 +22,16 @@ sealed interface CostPart {
     @Serializable @SerialName("untap") data object UntapSelf : CostPart
     /** Tap [count] untapped objects matching [filter] you control, or any number with total power [totalPower] or more
      * (crew). */
-    @Serializable @SerialName("tap-objects") data class TapObjects(val filter: ObjectFilter, val count: Value? = null, val totalPower: Value? = null) : CostPart
-    @Serializable @SerialName("sacrifice") data class Sacrifice(val what: CostObjects) : CostPart
-    @Serializable @SerialName("discard") data class Discard(val what: CostObjects, val random: Boolean = false) : CostPart
-    @Serializable @SerialName("exile") data class Exile(val what: CostObjects, val from: Zone) : CostPart
-    @Serializable @SerialName("return-to-hand") data class ReturnToHand(val what: CostObjects) : CostPart
-    @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects) : CostPart
+    @Serializable @SerialName("tap-objects") data class TapObjects(
+        val filter: ObjectFilter, val count: Value? = null, val totalPower: Value? = null, val bind: String? = null,
+    ) : CostPart
+    @Serializable @SerialName("sacrifice") data class Sacrifice(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
+    @Serializable @SerialName("discard") data class Discard(
+        val what: CostObjects, val random: Boolean = false, val preBind: String? = null, val postBind: String? = null,
+    ) : CostPart
+    @Serializable @SerialName("exile") data class Exile(val what: CostObjects, val from: Zone, val preBind: String? = null, val postBind: String? = null) : CostPart
+    @Serializable @SerialName("return-to-hand") data class ReturnToHand(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
+    @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
     @Serializable @SerialName("pay-energy") data class PayEnergy(val amount: Value) : CostPart
     @Serializable @SerialName("remove-counters") data class RemoveCounters(val kind: CounterKind?, val amount: Value, val from: CostObjects = CostObjects.Self) : CostPart

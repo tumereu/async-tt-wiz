@@ -12,7 +12,7 @@ import kotlinx.serialization.encoding.Encoder
  * A keyword ability (CR 702) as written on the card, with exactly its values: `Keyword.Flying`,
  * `Keyword.Crew(3)`, `Keyword.Equip(cost)`. It stays a keyword ability in the definition and in play, so "creatures
  * with flying" and "loses flying" work; what it does for the engine comes from the shared expansion table
- * ([KeywordExpansions]): flying → [Mechanic.CantBeBlocked] with a filter, deathtouch → [Mechanic.Deathtouch], equip →
+ * ([KeywordExpansions]): flying → [Mechanic.CanBeBlockedOnlyBy], deathtouch → [Mechanic.Deathtouch], equip →
  * an activated ability, and so on.
  */
 @Serializable

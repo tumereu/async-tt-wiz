@@ -112,6 +112,47 @@ class ExampleCardsTest {
             Ability.Static(listOf(Mechanic.ModifyPowerToughness(n(2), n(0))), Affected.Objects(Objects.AttachedTo())),
             Keyword.Equip(Cost.mana(mana("{1}")))))
 
+    /** "As an additional cost to cast this spell, sacrifice a creature. / Hurl the Fallen deals damage equal to the
+     * sacrificed creature's power to any target." The cost names the creature as it was (last known information). */
+    private val hurl = FaceDefinition("Hurl the Fallen", mana("{1}{R}"), types = listOf(CardType.Instant), abilities = listOf(
+        Ability.Static(listOf(Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(creatures),
+            preBind = "sacrificed")))))),
+        Ability.Spell(Instructions(
+            targets = listOf(TargetSlot("t", TargetKind.Either(
+                ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
+                PlayerFilter.Any))),
+            steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")),
+                Value.Of(NumericProperty.Power, Objects.Bound("sacrificed"), Combine.Single))))))))
+
+    /** "Forked Ember deals 3 damage divided as you choose among one, two, or three targets." */
+    private val forked = FaceDefinition("Forked Ember", mana("{1}{R}"), types = listOf(CardType.Sorcery), abilities = listOf(
+        Ability.Spell(Instructions(
+            targets = listOf(TargetSlot("t", TargetKind.Either(
+                ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
+                PlayerFilter.Any), min = n(1), max = n(3), divided = n(3))),
+            steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")), Value.DividedShare)))))))
+
+    /** "Whenever this creature enters or attacks, draw cards equal to the greatest power among creatures you control." */
+    private val watch = creature("Ridge Watcher", "{3}{G}", 3, 3, Ability.Triggered(
+        Trigger.On(listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+            EventPattern.Attack(ObjectFilter.Is(Objects.Self)))),
+        Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You,
+            Value.Of(NumericProperty.Power, Objects.Each(all(creatures, youControl)), Combine.Greatest)))))))
+
+    /** "{X}{U}: Tap X target creatures. Look at the top three cards of your library. Put one of them into your hand
+     * and the rest on the bottom of your library in any order." */
+    private val tide = creature("Tidecaller Adept", "{2}{U}", 1, 3, Ability.Activated(
+        Cost.mana(mana("{X}{U}")),
+        Instructions(
+            announced = listOf("X"),
+            targets = listOf(TargetSlot("c", TargetKind.Objects(creatures), min = Value.Announced(), max = Value.Announced())),
+            steps = listOf(
+                Step.Do(Effect.Tap(Objects.Target("c"))),
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, n(3)), bind = "seen")),
+                Step.Choose(Choice.Objects(ObjectFilter.Any, n(1), n(1), from = Objects.Bound("seen")), bind = "kept"),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Bound("seen"), Destination(Zone.Library, libraryPosition = -1)))))))
+
     /** Kicker {2}{R} / "~ deals 2 damage to target creature. If this spell was kicked, it deals 4 damage instead." */
     private val kicked = FaceDefinition("Flarecall Blast", mana("{R}"), types = listOf(CardType.Sorcery), abilities = listOf(
         Keyword.Kicker(listOf(Cost.mana(mana("{2}{R}")))),
@@ -132,7 +173,7 @@ class ExampleCardsTest {
 
     @Test
     fun exampleCardsSurviveJson() {
-        val cards = listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked)
+        val cards = listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide)
             .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure
         cards.forEach { card ->
             val text = json.encodeToString(CardDefinition.serializer(), card)
@@ -142,7 +183,7 @@ class ExampleCardsTest {
 
     @Test
     fun exampleCardsPassDefinitionChecks() {
-        (listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked)
+        (listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide)
             .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure)
             .forEach { assertEquals(emptyList(), DefinitionChecks.problems(it), it.faces.first().name) }
     }
@@ -155,6 +196,16 @@ class ExampleCardsTest {
         val enchanted = Affected.Objects(Objects.AttachedTo())
         assertEquals(emptyList(), DefinitionChecks.problems(card(Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Deathtouch))), enchanted))))
         assertEquals(1, DefinitionChecks.problems(card(Ability.Static(listOf(Mechanic.Deathtouch), enchanted))).size)
+    }
+
+    // D27: a number read from a group must say how it combines.
+    @Test
+    fun singleValueOverAGroupIsReported() {
+        fun card(value: Value) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Count Up", abilities = listOf(
+            Ability.Spell(Instructions(steps = listOf(Step.Do(Effect.GainLife(Players.You, value)))))))))
+        val mine = Objects.Each(all(creatures, youControl))
+        assertEquals(emptyList(), DefinitionChecks.problems(card(Value.Of(NumericProperty.Power, mine, Combine.Total))))
+        assertEquals(1, DefinitionChecks.problems(card(Value.Of(NumericProperty.Power, mine, Combine.Single))).size)
     }
 
     @Test
@@ -171,7 +222,7 @@ class ExampleCardsTest {
     // CR 702.9b, 702.17: flying expands to a blocking restriction naming flying and reach; reach adds nothing itself.
     @Test
     fun flyingExpandsToAGeneralBlockingRestriction() {
-        assertEquals(listOf(Ability.Static(listOf(Mechanic.CantBeBlocked(onlyBy = ObjectFilter.Or(listOf(
+        assertEquals(listOf(Ability.Static(listOf(Mechanic.CanBeBlockedOnlyBy(ObjectFilter.Or(listOf(
             ObjectFilter.HasKeyword(Keyword.Flying), ObjectFilter.HasKeyword(Keyword.Reach))))))),
             KeywordExpansions.expand(Keyword.Flying))
         assertEquals(emptyList(), KeywordExpansions.expand(Keyword.Reach))

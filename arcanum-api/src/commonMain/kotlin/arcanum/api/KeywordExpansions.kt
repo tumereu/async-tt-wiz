@@ -11,7 +11,7 @@ package arcanum.api
 object KeywordExpansions {
     fun expand(keyword: Keyword): List<Ability>? = when (keyword) {
         // CR 702.9b: "can't be blocked except by creatures with flying and/or reach"
-        Keyword.Flying -> static(Mechanic.CantBeBlocked(onlyBy = or(has(Keyword.Flying), has(Keyword.Reach))))
+        Keyword.Flying -> static(Mechanic.CanBeBlockedOnlyBy(or(has(Keyword.Flying), has(Keyword.Reach))))
         // CR 702.17: only referred to by flying
         Keyword.Reach -> emptyList()
         Keyword.Deathtouch -> static(Mechanic.Deathtouch)
@@ -25,7 +25,7 @@ object KeywordExpansions {
         Keyword.Infect -> static(Mechanic.Infect)
         Keyword.Wither -> static(Mechanic.Wither)
         // CR 702.111b: "can't be blocked except by two or more creatures"
-        Keyword.Menace -> static(Mechanic.CantBeBlocked(minBlockers = 2))
+        Keyword.Menace -> static(Mechanic.MinimumBlockers(2))
         // CR 702.3b: "can't attack"
         Keyword.Defender -> static(Mechanic.CantAttack())
         // CR 702.11b: can't be the target of spells or abilities your opponents control
@@ -33,9 +33,9 @@ object KeywordExpansions {
         // CR 702.18a: can't be the target of spells or abilities
         Keyword.Shroud -> static(Mechanic.CantBeTargeted(by = ObjectFilter.Any))
         // CR 702.36b: can't be blocked except by artifact creatures and/or black creatures
-        Keyword.Fear -> static(Mechanic.CantBeBlocked(onlyBy = or(ObjectFilter.Type(CardType.Artifact), ObjectFilter.OfColor(Color.Black))))
+        Keyword.Fear -> static(Mechanic.CanBeBlockedOnlyBy(or(ObjectFilter.Type(CardType.Artifact), ObjectFilter.OfColor(Color.Black))))
         // CR 702.13b: except by artifact creatures and/or creatures that share a colour with it
-        Keyword.Intimidate -> static(Mechanic.CantBeBlocked(onlyBy = or(ObjectFilter.Type(CardType.Artifact),
+        Keyword.Intimidate -> static(Mechanic.CanBeBlockedOnlyBy(or(ObjectFilter.Type(CardType.Artifact),
             ObjectFilter.Shares(SharedQuality.Color, Objects.Self))))
         // CR 702.8a: may cast it any time you could cast an instant
         Keyword.Flash -> static(Mechanic.InstantSpeed)
@@ -49,7 +49,7 @@ object KeywordExpansions {
         is Keyword.HexproofFrom -> static(Mechanic.CantBeTargeted(by = ObjectFilter.And(listOf(
             ObjectFilter.ControlledBy(PlayerFilter.Opponent), keyword.from))))
         // CR 702.14c: can't be blocked as long as the defending player controls such a land
-        is Keyword.Landwalk -> listOf(Ability.Static(listOf(Mechanic.CantBeBlocked()),
+        is Keyword.Landwalk -> listOf(Ability.Static(listOf(Mechanic.CantBeBlocked),
             condition = Condition.Exists(ObjectFilter.And(listOf(keyword.land, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Defending)))))))
         // CR 702.5a / 303.4: restricts what the Aura targets and enchants
         is Keyword.Enchant -> static(Mechanic.CanEnchant(keyword.what))
@@ -70,7 +70,7 @@ object KeywordExpansions {
         // CR 702.29e: "[Cost], Discard this card: Search your library for a [type] card, reveal it, put it into your
         // hand. Then shuffle."
         is Keyword.Typecycling -> listOf(cycling(keyword.cost, null, listOf(
-            Step.Do(Effect.Search(Players.You, keyword.cards, reveal = true), bind = "found"),
+            Step.Do(Effect.Search(Players.You, keyword.cards, reveal = true, bind = "found")),
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
             Step.Do(Effect.Shuffle(Players.You)))))
         // CR 702.34a: may cast from the graveyard by paying the flashback cost; exiled when it leaves the Stack

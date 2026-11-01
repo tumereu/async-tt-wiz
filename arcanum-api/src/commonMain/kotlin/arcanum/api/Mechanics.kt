@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 /** How several instances of the same mechanic on one object combine. */
 @Serializable
 sealed interface Stacking {
-    /** A yes/no rule: more instances change nothing (lifelink, CR 702.15f). */
+    /** A yes/no rule: more **identical** instances change nothing (lifelink, CR 702.15f). Different instances of the
+     * same mechanic all apply: protection from red and from blue (CR 702.16m). */
     @Serializable @SerialName("redundant") data object Redundant : Stacking
     /** Numbers add up (toxic's "total toxic value", CR 702.164b; extra land plays). */
     @Serializable @SerialName("additive") data object Additive : Stacking
@@ -48,7 +49,8 @@ sealed interface Mechanic {
     sealed interface KeywordOnly : Mechanic
 
     // ---- Layer 1–7: characteristics (CR 613) ----
-    @Serializable @SerialName("copy-of") data class CopyOf(val objects: Objects, val changes: List<Mechanic> = emptyList()) : Mechanic {
+    /** Becomes a copy of [objects] (CR 707), with [except] as part of the copy (CR 707.9b). */
+    @Serializable @SerialName("copy-of") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : Mechanic {
         override val layer: Layer get() = Layer.Copy
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -73,6 +75,8 @@ sealed interface Mechanic {
         override val layer: Layer get() = Layer.Color
         override val stacking: Stacking get() = Stacking.Independent
     }
+    /** Gains [abilities] (layer 6). Inside a granted ability, "this creature"/[Objects.Self] is the object that has
+     * it, not the source granting it, and that object's controller activates it (CR 113.10, 602.1). */
     @Serializable @SerialName("gain-abilities") data class GainAbilities(val abilities: List<arcanum.api.Ability>) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
@@ -133,18 +137,21 @@ sealed interface Mechanic {
     // ---- Combat restrictions and requirements (CR 508, 509) ----
     @Serializable @SerialName("cant-attack") data class CantAttack(val target: Recipients? = null) : Mechanic
     @Serializable @SerialName("cant-block") data class CantBlock(val attackers: ObjectFilter = ObjectFilter.Any) : Mechanic
-    /**
-     * Restricts blockers: can be blocked only by creatures matching [onlyBy] (flying: creatures with flying or reach),
-     * never by those matching [notBy] (fear, intimidate), only by [minBlockers] or more (menace = 2), or not at all
-     * (all null: "can't be blocked").
-     */
-    @Serializable @SerialName("cant-be-blocked") data class CantBeBlocked(
-        val onlyBy: ObjectFilter? = null, val notBy: ObjectFilter? = null, val minBlockers: Int? = null,
-    ) : Mechanic
+    /** "Can't be blocked" (landwalk with its condition). */
+    @Serializable @SerialName("cant-be-blocked") data object CantBeBlocked : Mechanic
+    /** Can be blocked only by creatures matching [blockers] (flying: creatures with flying or reach; fear;
+     * intimidate). */
+    @Serializable @SerialName("blocked-only-by") data class CanBeBlockedOnlyBy(val blockers: ObjectFilter) : Mechanic
+    /** Can't be blocked by creatures matching [blockers] ("can't be blocked by Walls"). */
+    @Serializable @SerialName("cant-be-blocked-by") data class CantBeBlockedBy(val blockers: ObjectFilter) : Mechanic
+    /** Can't be blocked except by [count] or more creatures (menace: 2, CR 702.111b). */
+    @Serializable @SerialName("minimum-blockers") data class MinimumBlockers(val count: Int) : Mechanic
     @Serializable @SerialName("can-block-only") data class CanBlockOnly(val attackers: ObjectFilter) : Mechanic
-    @Serializable @SerialName("can-block-additional") data class CanBlockAdditional(val count: Int?) : Mechanic {
+    /** Can block [count] additional creatures each combat. */
+    @Serializable @SerialName("can-block-additional") data class CanBlockAdditional(val count: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
+    @Serializable @SerialName("can-block-any-number") data object CanBlockAnyNumber : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
     @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter = ObjectFilter.Any) : Mechanic
     /** Assigns combat damage as though it weren't blocked, or by toughness, … : named variants of damage rules. */
@@ -173,6 +180,11 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("cant-be-countered") data object CantBeCountered : Mechanic
+    /** Activated abilities of the affected objects can't be activated; [manaAbilities] false keeps mana abilities
+     * ("unless they're mana abilities"). */
+    @Serializable @SerialName("cant-be-activated") data class CantBeActivated(val manaAbilities: Boolean = true) : Mechanic
+    /** The affected permanents can't be regenerated: regeneration shields don't apply to them (CR 701.19c). */
+    @Serializable @SerialName("cant-be-regenerated") data object CantBeRegenerated : Mechanic
     @Serializable @SerialName("cast-restriction") data class CastRestriction(val timing: Timing? = null, val condition: Condition? = null) : Mechanic
     @Serializable @SerialName("extra-land-plays") data class ExtraLandPlays(val count: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
@@ -194,22 +206,47 @@ sealed interface Mechanic {
     // ---- Replacement and prevention (CR 614, 615) ----
     /**
      * "If [event] would happen, [instead]" (CR 614). [modify] changes the event instead of replacing it entirely
-     * (enters tapped, enters with counters, double the amount). [optional] for "you may". [uses] limits a shield
-     * (regeneration, "the next time …") to that many uses.
+     * (enters tapped, enters with counters, double the amount). [optional] for "you may". [selfReplacement] marks a
+     * replacement in the text of the spell or ability whose event it changes (CR 614.15).
+     *
+     * Order when several apply to one event (CR 616.1): self-replacements first, then those that set who controls an
+     * entering permanent, then [Modification.EntersAsCopy], then entering transformed; the affected player orders the
+     * rest, one at a time. A shield that is used up ("the next time …", regeneration) is created by an effect with a
+     * count ([Effect.ApplyMechanics.uses]); the count lives in the effect object, not here.
      */
     @Serializable @SerialName("replacement") data class Replacement(
         val event: EventPattern,
         val instead: Instructions? = null,
         val modify: List<Modification> = emptyList(),
         val optional: Boolean = false,
-        val uses: Int? = null,
+        val selfReplacement: Boolean = false,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
-    /** Prevent [amount] (null: all) of the damage matching [event] (CR 615). */
-    @Serializable @SerialName("prevention") data class Prevention(val event: EventPattern, val amount: Value? = null, val uses: Int? = null) : Mechanic {
+    /** Prevent all of the damage matching [event], or [each] of each such damage event ("prevent 1 of that damage",
+     * CR 615). Shields with an amount that gets used up are [Effect.PreventDamage]. */
+    @Serializable @SerialName("prevention") data class Prevention(val event: EventPattern, val each: Value? = null) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
+}
+
+/**
+ * An exception to a copy effect ("except it's a 1/1 Bird", "except it isn't legendary"). It becomes part of the copy's
+ * copiable values (CR 707.9b), applied in layer 1, so copies of the copy carry it. Not a [Mechanic]: no later layer.
+ */
+@Serializable
+sealed interface CopyException {
+    @Serializable @SerialName("name") data class Name(val name: String) : CopyException
+    @Serializable @SerialName("types") data class Types(
+        val add: List<CardType> = emptyList(), val addSubtypes: List<Subtype> = emptyList(),
+        val addSupertypes: List<Supertype> = emptyList(), val removeSupertypes: List<Supertype> = emptyList(),
+        /** Replaces the creature types ("except it's a Bird"). */
+        val replaceSubtypes: Boolean = false,
+    ) : CopyException
+    @Serializable @SerialName("colors") data class Colors(val colors: List<Color>) : CopyException
+    @Serializable @SerialName("pt") data class PowerToughness(val power: Int, val toughness: Int) : CopyException
+    @Serializable @SerialName("abilities") data class AddAbilities(val abilities: List<Ability>) : CopyException
+    @Serializable @SerialName("mana-cost") data class ManaCostOf(val cost: ManaCost?) : CopyException
 }
 
 /** How a replacement effect changes an event (CR 614.1). */
@@ -218,7 +255,7 @@ sealed interface Modification {
     @Serializable @SerialName("destination") data class ChangeDestination(val to: Destination) : Modification
     @Serializable @SerialName("enters-tapped") data object EntersTapped : Modification
     @Serializable @SerialName("enters-with-counters") data class EntersWithCounters(val kind: CounterKind, val amount: Value) : Modification
-    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(val of: ObjectFilter, val changes: List<Mechanic> = emptyList(), val optional: Boolean = true) : Modification
+    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean = true) : Modification
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** The event doesn't happen at all ("skip your draw", "prevent"). */

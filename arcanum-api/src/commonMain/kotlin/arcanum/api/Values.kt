@@ -19,10 +19,9 @@ sealed interface Value {
     @Serializable @SerialName("count-players") data class CountPlayers(val players: Players) : Value
     /** How many distinct values of [quality] [objects] have ("the number of colours among permanents you control"). */
     @Serializable @SerialName("count-distinct") data class CountDistinct(val objects: Objects, val quality: SharedQuality) : Value
-    @Serializable @SerialName("power") data class PowerOf(val objects: Objects) : Value
-    @Serializable @SerialName("toughness") data class ToughnessOf(val objects: Objects) : Value
-    @Serializable @SerialName("mana-value") data class ManaValueOf(val objects: Objects) : Value
-    @Serializable @SerialName("counters") data class CountersOn(val objects: Objects, val kind: CounterKind) : Value
+    /** A number read from [objects]: [property] of one object ("its power"), or of a group combined as [how] says
+     * ("the greatest power among creatures you control", "their total power"). An empty group gives 0. */
+    @Serializable @SerialName("of") data class Of(val property: NumericProperty, val objects: Objects, val how: Combine) : Value
     @Serializable @SerialName("player-counters") data class PlayerCounters(val players: Players, val kind: CounterKind) : Value
     @Serializable @SerialName("life") data class LifeOf(val players: Players) : Value
     @Serializable @SerialName("hand-size") data class HandSize(val players: Players) : Value
@@ -30,8 +29,12 @@ sealed interface Value {
     @Serializable @SerialName("devotion") data class Devotion(val colors: List<Color>, val players: Players = Players.You) : Value
     /** How many times [event] happened this turn ("the number of creatures that died this turn"). */
     @Serializable @SerialName("events-this-turn") data class EventsThisTurn(val event: EventPattern) : Value
-    /** Mana spent to cast the spell; [distinctColors] counts its colours instead ("for each colour of mana spent"). */
-    @Serializable @SerialName("mana-spent") data class ManaSpent(val distinctColors: Boolean = false) : Value
+    /** Mana spent to cast the spell: all of it, only mana of [color] ("if at least three white mana was spent"), or
+     * the number of colours ([distinctColors], "for each colour of mana spent"). */
+    @Serializable @SerialName("mana-spent") data class ManaSpent(val color: Color? = null, val distinctColors: Boolean = false) : Value
+    /** In an effect on the targets of a slot with [TargetSlot.divided]: each target's share, chosen when the spell
+     * or ability was put on the Stack ("3 damage divided as you choose", CR 601.2d). */
+    @Serializable @SerialName("divided-share") data object DividedShare : Value
 
     @Serializable @SerialName("sum") data class Sum(val parts: List<Value>) : Value
     @Serializable @SerialName("difference") data class Difference(val from: Value, val minus: Value) : Value
@@ -39,6 +42,26 @@ sealed interface Value {
     @Serializable @SerialName("half") data class Half(val value: Value, val roundUp: Boolean) : Value
     @Serializable @SerialName("max") data class Max(val parts: List<Value>) : Value
     @Serializable @SerialName("min") data class Min(val parts: List<Value>) : Value
+}
+
+/** A number an object has (part of its properties). */
+@Serializable
+sealed interface NumericProperty {
+    @Serializable @SerialName("power") data object Power : NumericProperty
+    @Serializable @SerialName("toughness") data object Toughness : NumericProperty
+    @Serializable @SerialName("mana-value") data object ManaValue : NumericProperty
+    @Serializable @SerialName("loyalty") data object Loyalty : NumericProperty
+    @Serializable @SerialName("counters") data class Counters(val kind: CounterKind) : NumericProperty
+}
+
+/** How [Value.Of] turns the objects' numbers into one. */
+@Serializable
+sealed interface Combine {
+    /** Exactly one object ("its power"); a reference that finds several is a definition error. */
+    @Serializable @SerialName("single") data object Single : Combine
+    @Serializable @SerialName("total") data object Total : Combine
+    @Serializable @SerialName("greatest") data object Greatest : Combine
+    @Serializable @SerialName("least") data object Least : Combine
 }
 
 /** A yes/no test worked out when used. */
@@ -79,6 +102,8 @@ sealed interface Duration {
     @Serializable @SerialName("end-of-turn") data object EndOfTurn : Duration
     @Serializable @SerialName("end-of-combat") data object EndOfCombat : Duration
     @Serializable @SerialName("your-next-turn") data object UntilYourNextTurn : Duration
+    /** "until the end of your next turn" */
+    @Serializable @SerialName("end-of-your-next-turn") data object UntilEndOfYourNextTurn : Duration
     /** "until your next upkeep", "until the beginning of the next end step" */
     @Serializable @SerialName("until-step") data class UntilStep(val step: TurnStep, val whose: PlayerFilter = PlayerFilter.Any) : Duration
     /** "for as long as …" ("for as long as you control ~", "for as long as ~ remains tapped"). */

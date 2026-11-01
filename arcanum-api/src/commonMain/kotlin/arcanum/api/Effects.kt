@@ -4,7 +4,12 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
- * A one-shot effect (CR 610): something done once when a spell or ability resolves. Continuous rules are
+ * A one-shot effect (CR 610): something done once when a spell or ability resolves.
+ *
+ * Effects that produce objects name them for later steps ("the exiled card", "cards drawn this way"). An effect that
+ * doesn't change the objects' identity has one `bind` (create token, copy, search, reveal, look). An effect that moves
+ * objects between zones gives each object a new identity (CR 400.7): `preBind` names them as they were (their last
+ * known information, readable but not acted on, CR 608.2h) and `postBind` as they are after the move. Continuous rules are
  * [Mechanic]s; [ApplyMechanics] is the bridge that creates a continuous effect for a [Duration] (CR 611.2).
  * Keyword actions that are shorthand for other effects (investigate, amass, …) are [KeywordAction]s, expanded by the
  * shared table like keywords.
@@ -18,29 +23,37 @@ sealed interface Effect {
     /** [first] and [second] each deal damage equal to their power to the other (CR 701.14). */
     @Serializable @SerialName("fight") data class Fight(val first: Objects, val second: Objects) : Effect
 
-    @Serializable @SerialName("destroy") data class Destroy(val objects: Objects, val noRegeneration: Boolean = false) : Effect
-    @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: Objects) : Effect
+    @Serializable @SerialName("destroy") data class Destroy(
+        val objects: Objects, val noRegeneration: Boolean = false, val preBind: String? = null, val postBind: String? = null,
+    ) : Effect
+    @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: Objects, val preBind: String? = null, val postBind: String? = null) : Effect
     /** Move [objects] to another zone (exile, return to hand, put onto the battlefield, put into a library, …).
      * [untilLeaves]: "exile … until ~ leaves the battlefield": when that object leaves, the moved cards return at once
      * without using the Stack, and if it has already left, nothing is moved (CR 610.3). */
-    @Serializable @SerialName("move") data class Move(val objects: Objects, val to: Destination, val untilLeaves: Objects? = null) : Effect
-    @Serializable @SerialName("draw") data class Draw(val players: Players, val count: Value = Value.Fixed(1)) : Effect
+    @Serializable @SerialName("move") data class Move(
+        val objects: Objects, val to: Destination, val untilLeaves: Objects? = null,
+        val preBind: String? = null, val postBind: String? = null,
+    ) : Effect
+    @Serializable @SerialName("draw") data class Draw(
+        val players: Players, val count: Value = Value.Fixed(1), val preBind: String? = null, val postBind: String? = null,
+    ) : Effect
     @Serializable @SerialName("discard") data class Discard(
         val players: Players, val count: Value, val filter: ObjectFilter = ObjectFilter.Any,
-        val random: Boolean = false, val chooser: Players? = null,
+        val random: Boolean = false, val chooser: Players? = null, val preBind: String? = null, val postBind: String? = null,
     ) : Effect
-    @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value) : Effect
+    @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null) : Effect
     @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value) : Effect
     @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value) : Effect
-    /** Search [library]'s library for [min]..[max] cards matching [filter]; found cards are bound by [Step.Do.bind]
-     * and then moved by a following step. [reveal] shows them (CR 701.23). */
+    /** Search [library]'s library for up to [max] cards matching [filter]; the found cards are named [bind] and moved
+     * by a following step. [reveal] shows them (CR 701.23). */
     @Serializable @SerialName("search") data class Search(
         val library: Players, val filter: ObjectFilter, val max: Value = Value.Fixed(1), val reveal: Boolean = false,
+        val bind: String? = null,
     ) : Effect
     @Serializable @SerialName("shuffle") data class Shuffle(val library: Players) : Effect
-    @Serializable @SerialName("reveal") data class Reveal(val objects: Objects) : Effect
-    /** [players] look at [objects] (hidden from others). */
-    @Serializable @SerialName("look") data class LookAt(val objects: Objects, val players: Players = Players.You) : Effect
+    @Serializable @SerialName("reveal") data class Reveal(val objects: Objects, val bind: String? = null) : Effect
+    /** [players] look at [objects] (hidden from others); [bind] names them for "from among them". */
+    @Serializable @SerialName("look") data class LookAt(val objects: Objects, val players: Players = Players.You, val bind: String? = null) : Effect
 
     @Serializable @SerialName("gain-life") data class GainLife(val players: Players, val amount: Value) : Effect
     @Serializable @SerialName("lose-life") data class LoseLife(val players: Players, val amount: Value) : Effect
@@ -63,21 +76,33 @@ sealed interface Effect {
 
     @Serializable @SerialName("create-token") data class CreateToken(
         val token: TokenSpec, val count: Value = Value.Fixed(1), val controller: Players = Players.You,
-        val tapped: Boolean = false, val attacking: Boolean = false,
+        val tapped: Boolean = false, val attacking: Boolean = false, val bind: String? = null,
     ) : Effect
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
     @Serializable @SerialName("copy-spell") data class CopySpell(
-        val objects: Objects, val controller: Players = Players.You, val newTargets: Boolean = true,
+        val objects: Objects, val controller: Players = Players.You, val newTargets: Boolean = true, val bind: String? = null,
     ) : Effect
     /** Counter a spell or ability (CR 701.6); [unlessPaid] for "unless its controller pays". */
     @Serializable @SerialName("counter") data class Counter(val objects: Objects, val unlessPaid: Cost? = null) : Effect
     @Serializable @SerialName("add-mana") data class AddMana(val mana: ManaProduction, val players: Players = Players.You) : Effect
 
-    /** Create a continuous effect (CR 611.2): [mechanics] apply to [affects] for [duration]. In the host it becomes a
-     * visible effect object that players can see and remove. Giant Growth: +3/+3 to the target until end of turn. */
+    /** Create a continuous effect (CR 611.2): [mechanics] apply to [affects] for [duration]. It becomes an effect
+     * object; characteristic and control changes lock in the affected objects when created, rule changes keep
+     * applying to new objects, numbers are fixed at creation (CR 611.2c, 608.2h). [uses]: a replacement shield that
+     * ends after applying that many times ("the next time …"); the effect object counts down. Giant Growth: +3/+3 to
+     * the target until end of turn. */
     @Serializable @SerialName("apply") data class ApplyMechanics(
-        val mechanics: List<Mechanic>, val affects: Affected, val duration: Duration,
+        val mechanics: List<Mechanic>, val affects: Affected, val duration: Duration, val uses: Int? = null,
     ) : Effect
+    /** "Prevent the next [amount] damage that would be dealt to [to] this turn" (CR 615.7): a shield effect object
+     * whose amount goes down by the damage it prevents. [from] limits the sources ("by a source of your choice"). */
+    @Serializable @SerialName("prevent-damage") data class PreventDamage(
+        val to: Recipients, val amount: Value, val from: ObjectFilter = ObjectFilter.Any, val duration: Duration = Duration.EndOfTurn,
+    ) : Effect
+    /** Remove [objects] from combat (CR 506.4). */
+    @Serializable @SerialName("remove-from-combat") data class RemoveFromCombat(val objects: Objects) : Effect
+    /** Remove all damage marked on [objects]. */
+    @Serializable @SerialName("remove-damage") data class RemoveAllDamage(val objects: Objects) : Effect
     /** Gain control of [objects] for [duration] (layer 2; a shorthand for ApplyMechanics with [Mechanic.ControlledBy]). */
     @Serializable @SerialName("gain-control") data class GainControl(
         val objects: Objects, val duration: Duration = Duration.Indefinitely, val players: Players = Players.You,
@@ -130,8 +155,8 @@ sealed interface TokenSpec {
     /** A predefined token (CR 111.10): Treasure, Clue, Food, Blood, Map, Powerstone, … by name; the shared table
      * holds their definitions. */
     @Serializable @SerialName("predefined") data class Predefined(val name: String) : TokenSpec
-    /** A token that's a copy of [objects] (CR 707), with [changes] applied as part of the copy effect. */
-    @Serializable @SerialName("copy") data class CopyOf(val objects: Objects, val changes: List<Mechanic> = emptyList()) : TokenSpec
+    /** A token that's a copy of [objects] (CR 707), with the exceptions [except] (CR 707.9b). */
+    @Serializable @SerialName("copy") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : TokenSpec
 }
 
 /** Keyword actions (CR 701) that are shorthand for other effects; the shared table expands them. Actions with their
@@ -151,4 +176,7 @@ sealed interface KeywordAction {
     @Serializable @SerialName("adapt") data class Adapt(val count: Value) : KeywordAction
     @Serializable @SerialName("goad") data class Goad(val objects: Objects) : KeywordAction
     @Serializable @SerialName("learn") data object Learn : KeywordAction
+    /** "The next time [objects] would be destroyed this turn, instead remove all damage from it, tap it, and remove it
+     * from combat" (CR 701.19a): a one-use shield effect object. */
+    @Serializable @SerialName("regenerate") data class Regenerate(val objects: Objects = Objects.Self) : KeywordAction
 }

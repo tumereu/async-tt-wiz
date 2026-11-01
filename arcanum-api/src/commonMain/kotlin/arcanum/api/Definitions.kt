@@ -37,7 +37,9 @@ sealed interface Layout {
     @Serializable @SerialName("adventure") data object Adventure : Layout
 }
 
-/** One face's characteristics (CR 109.3) and its abilities in printed order. Also used for tokens. */
+/** One face's characteristics (CR 109.3) and its abilities in printed order. Also used for tokens. A land's mana
+ * abilities from its basic land types ("{T}: Add {G}" of a Forest) are not listed: the engine gives them from the
+ * land's current types (CR 305.6, 305.7), and the parser drops their reminder text. */
 @Serializable
 data class FaceDefinition(
     val name: String,
@@ -186,14 +188,15 @@ data class Modes(
 @Serializable
 data class Mode(val instructions: Instructions, val extraCost: Cost? = null, val text: String? = null)
 
-/** A named target (CR 115): what can be chosen and how many. [divided] splits an amount among the chosen targets
- * (CR 601.2d). [distinctFrom] names slots whose choices it must differ from ("another target creature"). */
+/** A named target (CR 115): what can be chosen and how many ([max] null: any number; "X target creatures": a value).
+ * [divided] splits an amount among the chosen targets (CR 601.2d), read with [Value.DividedShare]. [distinctFrom]
+ * names slots whose choices it must differ from ("another target creature"). */
 @Serializable
 data class TargetSlot(
     val name: String,
     val what: TargetKind,
-    val min: Int = 1,
-    val max: Int = 1,
+    val min: Value = Value.Fixed(1),
+    val max: Value? = Value.Fixed(1),
     val divided: Value? = null,
     val distinctFrom: List<String> = emptyList(),
 )
@@ -208,11 +211,11 @@ sealed interface TargetKind {
 
 /**
  * One step of resolution. Steps run in order; [Do] performs an [Effect]; the others add choice, condition and
- * repetition. [Do.bind] names what an effect did ("the exiled card", "cards discarded this way") for later steps.
+ * repetition. Effects name the objects they produce themselves (see [Effect]).
  */
 @Serializable
 sealed interface Step {
-    @Serializable @SerialName("do") data class Do(val effect: Effect, val bind: String? = null) : Step
+    @Serializable @SerialName("do") data class Do(val effect: Effect) : Step
     /** "You may …" / "Target player may …" (CR 608.2d): [player] decides whether [steps] happen. */
     @Serializable @SerialName("may") data class May(val steps: List<Step>, val player: Players = Players.You, val bind: String? = null) : Step
     /** "If …, … Otherwise, …". "If you do" is [Condition.Did]. */
@@ -247,8 +250,10 @@ sealed interface Choice {
     @Serializable @SerialName("card-name") data class CardName(val filter: ObjectFilter = ObjectFilter.Any) : Choice
     @Serializable @SerialName("number") data class Number(val min: Value, val max: Value? = null) : Choice
     @Serializable @SerialName("player") data class Player(val filter: PlayerFilter) : Choice
-    /** Choose [min]..[max] objects matching [filter] (not targeting). */
-    @Serializable @SerialName("objects") data class Objects(val filter: ObjectFilter, val min: Value, val max: Value) : Choice
+    /** Choose [min]..[max] objects matching [filter] (not targeting), from [from] when given ("from among them"). */
+    @Serializable @SerialName("objects") data class Objects(
+        val filter: ObjectFilter, val min: Value, val max: Value, val from: arcanum.api.Objects? = null,
+    ) : Choice
     /** Choose one of named options ("odd or even", "left or right"). */
     @Serializable @SerialName("option") data class Option(val options: List<String>) : Choice
 }

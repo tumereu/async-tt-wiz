@@ -495,7 +495,9 @@ internal object Actions {
             proposed = { s -> Change.Created(planned(s).mapIndexed { i, o -> Placed(o, act.state.battlefield.size + i) }) },
             modify = { s, r, _ ->
                 var result: List<Pair<FaceDefinition, Int>>? = s
-                val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
+                // "That many" (CR 614.1a): the tokens this event would create so far
+                val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names,
+                    event = arcanum.engine.state.TriggerEvent(amount = s.sumOf { it.second })))
                 r.mechanic.modify.forEach { mod ->
                     result = when (mod) {
                         Modification.Skip -> null

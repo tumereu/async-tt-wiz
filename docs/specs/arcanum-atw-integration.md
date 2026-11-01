@@ -19,7 +19,9 @@ catalog entries the owner approves when its phase is built.
   history (SYS-026).
 - **Timestamp per card** (D34): from a game-wide integer counter, set on entering a
   zone, attaching, turning face up/down and transforming; assigned by ATW itself, with
-  or without Automatum.
+  or without Automatum. Only ever goes up: undo leaves it alone (otherwise every
+  stamp would concern one field and block undo of earlier actions). Could be the
+  setting event's sequence number plus a position within the event.
 - **Tagged events** (D33): Automatum events carry their Magic meaning ("sacrificed",
   "died", …) and a snapshot of the objects involved, used for "this turn" questions
   and for history texts. Manual events carry none and don't count.

@@ -37,6 +37,25 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     /** The card's name or "this land" / "This land" (a sentence may start with it). */
     private fun isSelf(text: String) = text in self || text.replaceFirstChar { it.lowercase() } in self
 
+    /** Lines that are more than one ability. */
+    fun multi(line: String): List<Ability>? {
+        // chunk 25: "Any player may cast creature spells with mana value 3 or less without paying their mana costs and as
+        // though they had flash." A permission to cast from hand for free (each player for their own cards) and
+        // player-wide flash (CR 601.2a, 118.9, 702.8a).
+        MAY_CAST_WITHOUT_PAYING.matchEntire(line)?.let { m ->
+            val anyPlayer = m.groupValues[1] == "Any player"
+            val spells = Filters.noun(m.groupValues[2].replace(" spells", "")) ?: return null
+            val owner = if (anyPlayer) PlayerFilter.Is(Players.Holder) else PlayerFilter.You
+            val free = Ability.Static(
+                listOf(Mechanic.MayPlay(Zone.Hand, withoutPaying = true, holder = if (anyPlayer) PlayerFilter.Any else PlayerFilter.You)),
+                affects = arcanum.api.Affected.Objects(Objects.Each(Filters.all(spells, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(owner)))))
+            if (m.groupValues[3].isEmpty()) return listOf(free)
+            val players = if (anyPlayer) Players.Each(PlayerFilter.Any) else Players.You
+            return listOf(free, Ability.Static(listOf(Mechanic.CastAsThoughFlash(spells)), affects = arcanum.api.Affected.Players(players)))
+        }
+        return null
+    }
+
     fun line(line: String): Ability? {
         // "Channel — [ability]": an ability word, no rules meaning (CR 207.2c). Keywords with a dash ("Ward—{2}") have
         // no spaces around it.
@@ -159,14 +178,51 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
                 modify = listOf(Modification.AsEnters(listOf(Step.Unless(Players.You, Cost(listOf(CostPart.PayLife(Value.Fixed(m.groupValues[2].toInt())))),
                     listOf(Step.Modify(Modification.EntersTapped)))))))))
         }
+        // chunk 25
+        if (line == "Play with your hand revealed.")
+            return Ability.Static(listOf(Mechanic.MayLookAt(Objects.Affected, reveal = true)), affects = arcanum.api.Affected.Objects(Objects.Each(yourHand)))
+        // chunk 25: "If you would draw a card, [instead]." (CR 614.1a)
+        IF_YOU_WOULD_DRAW.matchEntire(line)?.let { m ->
+            val instead = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() } + ". " + m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Draw(PlayerFilter.You), instead = instead)))
+        }
+        // chunk 25: "Creatures don't untap during their controllers' untap steps."
+        DONT_UNTAP_PLURAL.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.DoesntUntap), affects = arcanum.api.Affected.Objects(Objects.Each(filter)))
+        }
+        // chunk 25: "You may play an additional land on each of your turns." (CR 305.2)
+        EXTRA_LAND_PLAYS.matchEntire(line)?.let { m ->
+            val count = if (m.groupValues[1] == "any number of lands") null else Numbers.count(m.groupValues[1].substringBefore(' ')) ?: return null
+            return Ability.Static(listOf(Mechanic.ExtraLandPlays(count)), affects = arcanum.api.Affected.Players(Players.You))
+        }
+        // chunk 25: "Enchanted permanent is a Vehicle artifact with crew 5 and it loses all other card types." (CR 205.1a)
+        ENCHANTED_IS.matchEntire(line)?.let { m ->
+            val add = mutableListOf<CardType>()
+            val subtypes = mutableListOf<arcanum.api.SubtypeRef>()
+            for (word in m.groupValues[1].split(' ')) {
+                val type = Filters.CARD_TYPES[word]
+                when {
+                    type != null -> add += type
+                    word in RulesWords.subtypes -> subtypes += arcanum.api.SubtypeRef.Literal(Subtype(word))
+                    else -> return null
+                }
+            }
+            val keywords = m.groupValues[2].takeIf { it.isNotEmpty() }?.split(" and ")?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
+            val mechanics = listOf<Mechanic>(Mechanic.SetTypes(add = add, addSubtypes = subtypes, replaceTypes = m.groupValues[3].isNotEmpty())) +
+                (if (keywords.isEmpty()) emptyList() else listOf(Mechanic.GainAbilities(keywords)))
+            return Ability.Static(mechanics, affects = arcanum.api.Affected.Objects(Objects.AttachedTo()))
+        }
         return null
     }
 
     /** "[cost]: [effect]" (CR 602.1), with "This ability costs {1} less to activate for each …" as a last sentence. */
     private fun activated(line: String): Ability? {
         val colon = line.indexOf(": ").takeIf { it > 0 } ?: return null
-        val cost = cost(line.substring(0, colon)) ?: return null
+        var cost = cost(line.substring(0, colon)) ?: return null
         var text = line.substring(colon + 2)
+        // chunk 25: "the sacrificed land" reads the sacrificed object as it last existed (CR 608.2h)
+        if (text.contains("the sacrificed ")) cost = Cost(cost.parts.map { if (it is CostPart.Sacrifice) it.copy(preBind = SACRIFICED) else it })
         var costChange: Value? = null
         var condition: arcanum.api.Condition? = null
         var timing: arcanum.api.Timing = arcanum.api.Timing.Any
@@ -198,8 +254,16 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val rest = m.groupValues[3]
         val conditional = INTERVENING_IF.matchEntire(rest)
         val interveningIf = conditional?.let { Conditions.condition(it.groupValues[1], self) ?: return null }
-        val instructions = instructions(conditional?.groupValues?.get(2) ?: rest) ?: return null
-        return Ability.Triggered(arcanum.api.Trigger.On(event), instructions, interveningIf = interveningIf)
+        // chunk 25: "it"/"them" in the effect: the event's object, or the objects the condition is about
+        val about = (interveningIf as? arcanum.api.Condition.ObjectMatches)
+        val instructions = instructions(conditional?.groupValues?.get(2) ?: rest, event = event,
+            them = about?.objects?.takeIf { it != Objects.Self }) ?: return null
+        // chunk 25: "one or more [objects]" triggers once for the batch; "if this card is in your graveyard" states the
+        // zone the ability works in (CR 113.6b)
+        val oneOrMore = m.groupValues[2].startsWith("one or more ")
+        val zone = (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.InZone)?.zone
+        return Ability.Triggered(arcanum.api.Trigger.On(listOf(event), oneOrMore = oneOrMore), instructions, interveningIf = interveningIf,
+            functionsIn = zone?.let { listOf(it) })
     }
 
     /** Cost parts separated by ", " (CR 602.1a). */
@@ -252,9 +316,13 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     }
 
     /** The effect sentences of a spell or ability, in order. */
-    fun instructions(text: String, seedTargets: List<TargetSlot> = emptyList()): Instructions? {
+    fun instructions(text: String, seedTargets: List<TargetSlot> = emptyList(), event: EventPattern? = null, them: Objects? = null): Instructions? {
         val context = Context()
         context.targets += seedTargets
+        // chunk 25
+        context.event = event
+        context.it = event?.let { if (it is EventPattern.ZoneChange) Objects.EventObject(arcanum.api.EventRole.After) else Objects.EventObject() }
+        context.them = them
         val steps = mutableListOf<Step>()
         for (sentence in sentences(text)) {
             val modified = modify(sentence, steps, context)
@@ -267,6 +335,12 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // chunk 25: "If …, …. Otherwise, …."
+        OTHERWISE.matchEntire(sentence)?.let { m ->
+            val iff = (steps.lastOrNull() as? Step.If)?.takeIf { it.otherwise.isEmpty() } ?: return null
+            val otherwise = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return steps.dropLast(1) + iff.copy(otherwise = otherwise)
+        }
         val last = steps.lastOrNull() as? Step.Do ?: return null
         val effect = last.effect
         if (effect is Effect.DealDamage) {
@@ -288,6 +362,11 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
 
     private class Context {
         var flip = false
+        // chunk 25: the triggering event; what "it" and "them" refer to; the amount "that much" refers to
+        var event: EventPattern? = null
+        var it: Objects? = null
+        var them: Objects? = null
+        var thatMuch: Value? = null
         val replacements = mutableListOf<Mechanic.Replacement>()
         val targets = mutableListOf<TargetSlot>()
         /** "any target" (CR 115.4): creature, planeswalker or battle, or player. */
@@ -355,11 +434,11 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         }
         SEARCH_PUT_SHUFFLE.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[1].removeArticle().removeSuffix(" card")) ?: return null
-            val to = if (m.groupValues[2] == "into your hand") Destination(Zone.Hand) else Destination(Zone.Battlefield)
+            val to = if (m.groupValues[3] == "into your hand") Destination(Zone.Hand) else Destination(Zone.Battlefield)
             val steps = mutableListOf<Step>(
-                Step.Do(Effect.Search(Players.You, filter, bind = "found")),
+                Step.Do(Effect.Search(Players.You, filter, reveal = m.groupValues[2].isNotEmpty(), bind = "found")),
                 Step.Do(Effect.Move(Objects.Bound("found"), to)))
-            if (m.groupValues[3].isNotEmpty()) steps += Step.Do(Effect.Discard(Players.You, random = true))
+            if (m.groupValues[4].isNotEmpty()) steps += Step.Do(Effect.Discard(Players.You, random = true))
             steps += Step.Do(Effect.Shuffle(Players.You))
             return steps
         }
@@ -606,6 +685,33 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             val filter = Filters.noun(noun) ?: return null
             return listOf(Step.Do(Effect.Destroy(context.target(Filters.slotName(noun), filter))))
         }
+        // chunk 25
+        UNTAP_TARGET.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            return listOf(Step.Do(Effect.Untap(context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null))))
+        }
+        UNTAP_ALL.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Untap(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null))))
+        }
+        if (sentence == "Reveal the top card of your library.") {
+            context.it = Objects.Bound("revealed")
+            return listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(1)), bind = "revealed")))
+        }
+        IF_ITS_A.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val then = effect(m.groupValues[2].replaceFirstChar { c -> c.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(it, filter), then = then))
+        }
+        PUT_IT_INTO.matchEntire(sentence)?.let { m ->
+            val zone = if (m.groupValues[2] == "hand") Zone.Hand else Zone.Graveyard
+            if (m.groupValues[1] == "it") return listOf(Step.Do(Effect.Move(context.it ?: return null, Destination(zone))))
+            context.thatMuch = Value.Count(Objects.Bound("moved"))
+            return listOf(Step.Do(Effect.Move(context.them ?: return null, Destination(zone), postBind = "moved")))
+        }
+        ADD_AS_SACRIFICED_COULD.matchEntire(sentence)?.let {
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.AsCouldProduce(ObjectFilter.Is(Objects.Bound(SACRIFICED)))))))
+        }
         // "[A], then [B].": tried last, after the wordings that contain ", then" themselves.
         THEN.matchEntire(sentence)?.let { m ->
             val first = effect(m.groupValues[1] + ".", context) ?: return null
@@ -710,7 +816,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val ADD_MANA = Regex("""Add (.+)\.""")
         val PLAYERS_GAIN_LIFE = Regex("""(.+) gains? (\d+) life\.""")
         val DESTROY_TARGET = Regex("""Destroy target (.+)\.""")
-        val SEARCH_PUT_SHUFFLE = Regex("""Search your library for (.+?), put (?:it|that card) (onto the battlefield|into your hand)(, discard a card at random)?, then shuffle\.""")
+        val SEARCH_PUT_SHUFFLE = Regex("""Search your library for (.+?)(, reveal (?:it|that card))?, put (?:it|that card) (onto the battlefield|into your hand)(, discard a card at random)?, then shuffle\.""")
         val SEARCH_TO_TOP = Regex("""Search your library for (.+?), (reveal it, )?then shuffle and put that card on top\.""")
         val PUT_FROM_HAND_ON_TOP = Regex("""Put (\w+) cards? from your hand on top of your library(?: in any order)?\.""")
         val PLAYERS_DRAW = Regex("""(Each player|You) draws? (\w+) cards?(?:, then discards? (\w+) cards?( at random)?)?(?: and loses? (\d+) life)?\.""")
@@ -723,6 +829,19 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
         val YOU_LOSE_LIFE = Regex("""You lose (\d+) life\.""")
         val ANY_COMBINATION = Regex("""(\w+) mana in any combination of colors""")
+        // chunk 25
+        val MAY_CAST_WITHOUT_PAYING = Regex("""(Any player|You) may cast (.+ spells.*?) without paying their mana costs( and as though they had flash)?\.""")
+        val IF_YOU_WOULD_DRAW = Regex("""If you would draw a card, (.+?) instead\.(?: (.+))?""")
+        val DONT_UNTAP_PLURAL = Regex("""(.+) don't untap during their controllers' untap steps\.""")
+        val EXTRA_LAND_PLAYS = Regex("""You may play (an additional land|any number of lands|\w+ additional lands) on each of your turns\.""")
+        val ENCHANTED_IS = Regex("""Enchanted \w+ is an? (.+?)(?: with (.+?))?( and it loses all other card types)?\.""")
+        const val SACRIFICED = "sacrificed"
+        val OTHERWISE = Regex("""Otherwise, (.+)""")
+        val UNTAP_TARGET = Regex("""Untap target (.+)\.""")
+        val UNTAP_ALL = Regex("""Untap all (.+)\.""")
+        val IF_ITS_A = Regex("""If it's an? (.+?), (.+)""")
+        val PUT_IT_INTO = Regex("""(?:Put|Return) (it|them) (?:into|to) (?:your|its owner's|their owner's|their owners') (hand|graveyard)s?\.""")
+        val ADD_AS_SACRIFICED_COULD = Regex("""Add one mana of any type the sacrificed \w+ could produce\.""")
     }
 }
 

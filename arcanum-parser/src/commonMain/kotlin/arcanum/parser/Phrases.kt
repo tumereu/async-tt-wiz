@@ -147,6 +147,14 @@ internal object Events {
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
         }
+        // chunk 25: "a creature is put into your graveyard from the battlefield": a card goes to its owner's graveyard
+        PUT_INTO_OWNERS_GRAVEYARD.matchEntire(text)?.let { m ->
+            val owner = if (m.groupValues[2] == "your") PlayerFilter.You else PlayerFilter.Opponent
+            return EventPattern.ZoneChange(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.OwnedBy(owner)),
+                from = Zone.Battlefield, to = Zone.Graveyard)
+        }
+        // chunk 25: "you play a land" (CR 305.1)
+        if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You)
         return null
     }
 
@@ -159,6 +167,8 @@ internal object Events {
             return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
                 Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other)))
         }
+        // chunk 25: "a creature", "a land you control", "one or more creature cards"
+        ARTICLE_NOUN.matchEntire(text)?.let { m -> return Filters.noun(m.groupValues[1]) }
         return null
     }
 
@@ -167,6 +177,9 @@ internal object Events {
     private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
+    // chunk 25
+    private val PUT_INTO_OWNERS_GRAVEYARD = Regex("""(.+) is put into (your|an opponent's) graveyard from the battlefield""")
+    private val ARTICLE_NOUN = Regex("""(?:an?|one or more) (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -198,6 +211,9 @@ internal object Conditions {
             val filter = Filters.noun(m.groupValues[2] + " you control") ?: return null
             return Condition.Compare(Value.CountDistinct(Objects.Each(filter), SharedQuality.Name), Comparison.AtLeast, Value.Fixed(n))
         }
+        // chunk 25: "it wasn't the first land you played this turn": this turn's land plays include it (CR 305.2a)
+        if (text == "it wasn't the first land you played this turn")
+            return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You), atLeast = 2)
         return null
     }
 

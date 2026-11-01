@@ -73,7 +73,7 @@ object OracleParser {
             }
             val previous = result.lastOrNull()
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
-            val parsed = if (instead == null) keywordLine(line) ?: sentences.line(line)?.let(::listOf) else null
+            val parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) else null
             when {
                 instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
@@ -127,6 +127,14 @@ object OracleParser {
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
         }
+        // chunk 25: "Enchant creature or Vehicle", "Enchant player" (CR 702.5a)
+        ENCHANT.matchEntire(part)?.let { m ->
+            return Keyword.Enchant(when (m.groupValues[1]) {
+                "player" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Any)
+                "opponent" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Opponent)
+                else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
+            })
+        }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
             lower.startsWith(k.lowercase) && (lower.length == k.lowercase.length || lower[k.lowercase.length] in " —")
@@ -151,6 +159,8 @@ object OracleParser {
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")
+    // chunk 25
+    private val ENCHANT = Regex("""Enchant (.+)""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

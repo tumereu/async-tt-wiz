@@ -8,7 +8,10 @@ enum class PlaybackAutoPause(val label: String, val defaultEnabled: Boolean = tr
     REVEAL("Reveal"),
     PINGS_COMMENTS("Pings / comments"),
     RANDOM("Die / coin results", false),
-    YOURS("Your life / cards hit"),
+    /** An opponent's change to your life or your player counters. */
+    LIFE_HIT("Your life hit", false),
+    /** An opponent's action on a card you own or control (also its combat copies and Stack entries) or one giving you a card. */
+    CARDS_HIT("Your cards hit"),
     ATTENTION("Move passes to you"),
     ATTACKERS("Attackers declared", false),
     LAND_FROM_HAND("Opponent plays a land", false),
@@ -102,10 +105,11 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
                     }
                     else -> emptyList()
                 }
-            if (targets.any { yours(it) } || t.fields.any {
-                    it.targetId == viewer && it.field in setOf(GameplayField.LIFE, GameplayField.COUNTER, GameplayField.PLAYER_COUNTER) ||
-                    it.field == GameplayField.OWNER && it.to == viewer
-                }) result += PlaybackAutoPause.YOURS
+            if (t.fields.any { it.targetId == viewer &&
+                    it.field in setOf(GameplayField.LIFE, GameplayField.COUNTER, GameplayField.PLAYER_COUNTER) })
+                result += PlaybackAutoPause.LIFE_HIT
+            if (targets.any { yours(it) } || t.fields.any { it.field == GameplayField.OWNER && it.to == viewer })
+                result += PlaybackAutoPause.CARDS_HIT
         }
         // Even own actions can change the context for a later opponent action in the same delta.
         for (token in t.tokens) {

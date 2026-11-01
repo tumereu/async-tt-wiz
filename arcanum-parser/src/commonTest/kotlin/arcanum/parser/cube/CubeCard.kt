@@ -21,7 +21,9 @@ import kotlin.test.assertEquals
  */
 fun card(name: String, cost: String?, type: String, text: String = "", pt: String? = null, loyalty: String? = null): OracleCard {
     val (power, toughness) = pt?.split('/')?.let { it[0] to it[1] } ?: (null to null)
-    return OracleCard(name, cost, type, text, power, toughness, loyalty)
+    // Multi-line text is written one rules line per source line, indented: strip the indentation.
+    val oracle = if (text.startsWith("\n")) text.trimIndent() else text
+    return OracleCard(name, cost, type, oracle, power, toughness, loyalty)
 }
 
 infix fun OracleCard.parsesTo(expected: List<Ability>) {

@@ -257,7 +257,7 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
 /**
  * Full-screen catalog search (Add cards): the search field and quick filter chips on top, results as pictures, then the
  * destination group (Main | Side | Maybe; cubes Main | Maybe) and "Done · +N cards" within thumb reach. Tap a result to
- * add one copy to the destination, tap its ×N chip to remove one, hold to preview. Done or Back keeps every change.
+ * add one copy to the destination, tap a section square to remove one from it, hold to preview. Done or Back keeps every change.
  */
 @Composable
 private fun CardSearchPage(editor: CardListEditor, search: CardListSearch, landscape: Boolean) {
@@ -383,14 +383,15 @@ private fun DestinationGroup(editor: CardListEditor, modifier: Modifier) {
     }
 }
 
-/** One result: its picture, an ×N chip with the copies in the chosen section (tap removes one; pulses when it grows) and
- * small counts for the other sections that have copies ("S2"). Tap adds one copy to the chosen section, hold previews. */
+/** One result: its picture and, at its bottom left, a small square per section that holds copies (Main, Side, Maybe in that
+ * order and colour) with that section's count; tapping a square removes one copy from it. Tap adds one copy to the chosen
+ * section, whose square pulses; hold previews. */
 @Composable
 private fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: CatalogMetadata?, entries: List<ResolvedDeckEntry>,
     onHold: (Boolean) -> Unit, onHoldScroll: (Float) -> Unit) {
     val destination = editor.destination
     val count = CardListEdits.count(entries, card.name, destination)
-    val others = editor.kind.sections.filter { it != destination }.mapNotNull { section ->
+    val squares = editor.kind.sections.mapNotNull { section ->
         CardListEdits.count(entries, card.name, section).takeIf { it > 0 }?.let { section to it }
     }
     val currentHold by rememberUpdatedState(onHold)
@@ -402,15 +403,15 @@ private fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: Ca
         if (result.refused != null) editor.cardsMessage(result.refused) else editor.applyCards(result.entries, editor.listCatalog ?: metadata)
     }
     val currentAdd by rememberUpdatedState(add)
-    val remove: () -> Unit = remove@{
+    val remove: (DeckSection) -> Unit = remove@{ section ->
         if (!editor.editable) return@remove
-        editor.applyCards(CardListEdits.removeOne(editor.entries ?: return@remove, card.name, editor.destination), editor.listCatalog ?: metadata)
+        editor.applyCards(CardListEdits.removeOne(editor.entries ?: return@remove, card.name, section), editor.listCatalog ?: metadata)
     }
     val pulse = remember { Animatable(1f) }
-    var shown by remember { mutableIntStateOf(count) }
-    LaunchedEffect(count) {
-        if (count > shown) { pulse.snapTo(1.35f); pulse.animateTo(1f, tween(220)) }
-        shown = count
+    var shown by remember { mutableStateOf(destination to count) }
+    LaunchedEffect(destination, count) {
+        if (shown.first == destination && count > shown.second) { pulse.snapTo(1.35f); pulse.animateTo(1f, tween(220)) }
+        shown = destination to count
     }
     val reference = remember(card.key, metadata) { ArtworkReference.from(card.printing, metadata?.checksum.orEmpty(), "normal") }
     val saved = destination.saved()
@@ -427,19 +428,18 @@ private fun SearchResult(editor: CardListEditor, card: CatalogCard, metadata: Ca
             CardArtwork(reference, card.name, width, (width * 1.4f).toInt().coerceAtLeast(1), Modifier.fillMaxSize(),
                 placeholder = { PodCardPlaceholder(card.name) })
         }
-        if (others.isNotEmpty()) Row(Modifier.align(Alignment.TopEnd).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            others.forEach { (section, copies) ->
-                Text("${section.saved().countLetter()}$copies", Modifier.background(section.saved().sectionColor(), RoundedCornerShape(3.dp))
-                    .padding(horizontal = 3.dp), color = Color.White, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 1)
+        if (squares.isNotEmpty()) Row(Modifier.align(Alignment.BottomStart).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            squares.forEach { (section, copies) ->
+                val label = section.saved().sectionLabel()
+                Box(Modifier.size(24.dp).scale(if (section == destination) pulse.value else 1f)
+                    .background(section.saved().sectionColor(), RoundedCornerShape(4.dp))
+                    .clickable(onClickLabel = "Remove one ${card.name} from $label") { remove(section) }
+                    .testTag("search-count-${card.name}-${section.saved().shortLabel().lowercase()}")
+                    .semantics { contentDescription = "Remove one ${card.name}, $copies in $label" },
+                    contentAlignment = Alignment.Center) {
+                    Text("$copies", color = Color.White, fontSize = if (copies < 100) 13.sp else 10.sp, lineHeight = 14.sp, maxLines = 1)
+                }
             }
-        }
-        if (count > 0) Box(Modifier.align(Alignment.BottomStart).padding(2.dp).scale(pulse.value)
-            .background(saved.sectionColor(), RoundedCornerShape(4.dp))
-            .clickable(onClickLabel = "Remove one ${card.name} from ${saved.sectionLabel()}", onClick = remove)
-            .testTag("search-count-${card.name}")
-            .semantics { contentDescription = "Remove one ${card.name}, $count in ${saved.sectionLabel()}" }
-            .heightIn(min = 28.dp).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-            Text("×$count", color = Color.White, fontSize = 13.sp, maxLines = 1)
         }
     }
 }

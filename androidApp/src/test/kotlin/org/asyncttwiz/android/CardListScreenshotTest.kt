@@ -50,6 +50,7 @@ class CardListScreenshotTest {
         val baseline = CardListEdits.total(editor.entries!!)
         var entries = editor.entries!!
         repeat(2) { entries = CardListEdits.add(CardListKind.DECK, entries, listOf(printing("Rune Bear")), DeckSection.MAINBOARD).entries }
+        entries = CardListEdits.add(CardListKind.DECK, entries, listOf(printing("Rune Bear")), DeckSection.MAYBEBOARD).entries
         entries = CardListEdits.add(CardListKind.DECK, entries, listOf(printing("Rune Bolt")), DeckSection.SIDEBOARD).entries
         editor.applyCards(entries, metadata)
         val names = listOf("Meadow Sentinel", "Quiet Grove", "Rune Bear", "Rune Bolt", "Rune Charm", "Rune Golem", "Rune Wall")
@@ -60,11 +61,12 @@ class CardListScreenshotTest {
             DeckImportScreen(editor, landscape, if (landscape) null else ({}), null)
         } } }
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("search-count-Rune Bear").assertTextEquals("×2")
-        compose.onNodeWithText("Done · +3 cards").assertIsDisplayed()
+        compose.onNodeWithTag("search-count-Rune Bear-main").assertTextEquals("2")
+        compose.onNodeWithTag("search-count-Rune Bear-maybe").assertTextEquals("1")
+        compose.onNodeWithText("Done · +4 cards").assertIsDisplayed()
         captureShot(path("card-search", landscape), "${orientation(landscape)} Add cards search page of the Training deck editor: " +
-            "rune with the Creature chip, picture results with ×N chips for Main and small counts for other sections, " +
-            "the Main | Side | Maybe destination on Main and Done · +3 cards.")
+            "rune with the Creature chip, picture results with green Main, blue Side and amber Maybe count squares at their bottom left " +
+            "(Rune Bear 2 Main and 1 Maybe), the Main | Side | Maybe destination on Main and Done · +4 cards.")
     }
 
     // LOB-105, LOB-107, DRF-003, SYS-054

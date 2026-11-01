@@ -96,6 +96,12 @@ that exist today.
 | D53 | **One shape for cost changes (owner, 2026-11-01):** `CostChange` is a sealed `More(mana, times)` / `Less(mana, times)` with the actual symbols ("{1}", "{W}{B}") and a count, used by both `ActivationRules.costChange` and `Mechanic.CostChange` (which keeps what it affects and its minimum); the engine applies CR 118.7 to the symbols. Replaces the bare generic `Value` and the separate `change`/`mana` fields. |
 | D54 | **Mana abilities are derived (owner, 2026-11-01):** no stored flag; `Ability.isManaAbility()` in arcanum-api decides by CR 605.1a/b from the ability's shape (no target, could add mana, not loyalty, no card moved to or from a library; triggered: triggers from a mana ability or mana being added). |
 | D55 | **Card type references (owner, 2026-11-01):** card types can be referenced like subtypes and colours: `CardTypeRef` `Literal` / `Chosen` / `Remembered`, taken by `ObjectFilter.Type` (which keeps a constructor for a written-out `CardType`); `Choice.CardType(among)` chooses one from a fixed list ("Choose artifact, creature, or land"). |
+| D56 | **Engine API (owner, 2026-11-01):** `Engine.view(state)`, `Engine.options(state, player)`, `Engine.perform(state, input): Outcome(changes, pending)`. `GameState` is mutable for speed but the engine never mutates it: `perform` works on its own copy and returns changes; holders apply them with the library's `GameState.apply(change)` (§7.0). |
+| D57 | **Priority is in the engine** (owner, 2026-11-01): it is MTG, not ATW. The state holds the priority holder and the passes in a row; `PassPriority` resolves the top of the Stack when all pass in succession (CR 117.4) or moves to the next step (CR 500.2). Changes show every priority pass and grant. How ATW drives it is decided with the integration. |
+| D58 | **Partial progress is a continuation** (owner, 2026-11-01; refines D31): an open cast, resolution or trigger placement is a serializable `Continuation` the host stores as-is and passes back; `Pending(decision, continuation)` names the deciding player. Changes made before a decision are returned and applied at once (one host batch per call, undoable per step). `Cancel` rewinds a whole cast (CR 601.2). |
+| D59 | **Every change is reversible** (owner, 2026-11-01): each `Change` carries its before-values, so `GameState.revert(change)` is as mechanical as `apply`. Exceptions by design: the timestamp counter never goes back (D34), seen information stays seen, an undone random result is asked again on redo. Every scenario test checks apply-then-revert gives back the starting state. |
+| D60 | **Hidden information** (owner, 2026-11-01): the state is one caller's view; unknown cards are marked unknown. An effect that needs a card's identity (search, look, reveal, "if it's a land", random discard, choosing from a revealed hand) stops with a `HostFill` request the host answers; a plain draw needs none. |
+| D61 | **Overnight engine build (owner, 2026-11-01):** N players in turn order from the start (APNAP, CR 101.4); game setup (decks, opening hands, mulligans) after the engine; manual parts stop with a `Manual(text)` decision answered "done"; scenario tests use the invented cube cards by name, read as setup → moves → expectations with CR comments, and script or seed random results; commits pushed to origin as backup. |
 
 ## 3. Principles
 
@@ -276,6 +282,38 @@ Out of scope for parsing: `isFunny` cards, digital-only mechanics, and text the
 engine cannot represent yet (left manual until the engine supports it).
 
 ## 7. Engine (arcanum-engine) and its use in ATW
+
+### 7.0 Engine API (D56–D61)
+
+```kotlin
+object Engine {
+    fun view(state: GameState): View                              // derived characteristics (layers, CR 613), per object
+    fun options(state: GameState, player: PlayerId): List<Input>  // what a player may do now
+    fun perform(state: GameState, input: Input): Outcome          // reads state, never writes it
+}
+data class Outcome(val changes: List<Change>, val pending: Pending?)
+data class Pending(val decision: Decision, val continuation: Continuation)
+fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // the only mutators
+```
+
+- **GameState** (serializable): players (life, poison and other player counters, mana pool), objects by id
+  (`ObjectId(card, zoneChanges)` and Stack item ids, D21/D35) with owner, controller, zone, position, definition
+  reference, status, counters, damage, attachments, timestamp (D34); turn, step, active player, turn order; priority
+  holder and passes in a row; the Stack as structured items (ability, controller, targets, modes, X, LKI); effect
+  objects (D19, D26); delayed triggers; ledgers (D22); this turn's tagged events (D33); the open continuation.
+  Unknown objects are marked (D60).
+- **Inputs:** `PlayLand`, `Cast(card, way)`, `Activate(object, ability)`, `PassPriority(player)`,
+  `DeclareAttackers`, `DeclareBlockers`, `Answer(decision, answer)`, `Cancel`. While a continuation is open only its
+  `Answer` (or `Cancel` for a cast) is accepted.
+- **Changes** are MTG-level, tagged with their meaning (cast, resolved, died, sacrificed, destroyed, discarded, drew,
+  …), and carry before- and after-values (D59): moves (with old and new id and position), damage, life, counters,
+  tap state, tokens, effect objects added/ended, Stack pushes/resolutions, mana added/spent, priority passes and
+  grants, step changes, ledger changes, continuation set/cleared, player lost.
+- **After every input** the engine applies state-based actions, puts triggered abilities on the Stack (asking only
+  when there is a choice: order, targets, modes) and gives priority, all inside the same call (P5).
+- **Decisions:** targets, modes, X, mana payment (with a suggested tapping), may, choose objects, choose option,
+  choose colour/type/name/number, divide, order triggers, order replacements, legend rule, random (answered by the
+  host, D25), host fill (D60), manual (`Manual(text)`, answered "done").
 
 ### 7.1 Derived view (layers)
 

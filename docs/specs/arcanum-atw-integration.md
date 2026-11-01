@@ -74,3 +74,16 @@ catalog entries the owner approves when its phase is built.
   instead of the card menu; abilities stay projections. Needed with Automatum on
   (casting is a zone change, CR 601.2a). Affects STK-001, STK-004, STK-005 and the
   hand-card reveal; needs owner-approved catalog text.
+
+## State ATW keeps for the engine API (D56–D60, draft 2026-11-01)
+
+From a worked example (cast, response window, a death with two triggers, a "you may" draw):
+- **MTG facts ATW models and shows:** zone-change count per card; timestamp per card and the game counter;
+  priority holder and passes in a row; structured Stack items (ability, controller, targets, modes, X); mana pool per
+  player; damage marked on permanents; MTG tags on history events.
+- **Engine data ATW only stores and passes back (opaque JSON):** last known information inside the Stack item or
+  event it belongs to; ledgers, one blob per object; the open continuation, one per game while a flow is open. Kept
+  per object or flow, not in one game-wide blob, so ATW's undo rule doesn't block undo of earlier batches.
+- **One engine call = one ATW batch:** the client whose player acted or answered sends the changes and the
+  continuation update together; undo reverts both (D59). While a continuation is open, other changes (including
+  undo of earlier batches) are refused (D32); undo of the open flow's latest step is allowed.

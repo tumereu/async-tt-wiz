@@ -75,7 +75,6 @@ class Review1CastingTest {
 
     /** Protection gained in response makes the target illegal: the spell doesn't resolve. */
     // CR 608.2b, 702.16b
-    @Ignore("review1 #2: a granted protection from the chosen color loses the effect's chosen color")
     @Test
     fun protectionInResponseFizzlesTheSpell() = scenario {
         alice.battlefield("Mountain")

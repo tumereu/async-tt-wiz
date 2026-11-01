@@ -177,7 +177,6 @@ class Review1TriggersTest {
     /** A triggered ability with no legal target is removed: "another target artifact card" can't be the dying
      * creature's own card, so nothing is returned. */
     // CR 603.3d
-    @Ignore("review1 #10: another-target lets a dies trigger target its own card in the graveyard")
     @Test
     fun triggerWithoutTargetsIsRemoved() = scenario {
         alice.battlefield("Myr Gleaner")

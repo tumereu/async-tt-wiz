@@ -179,7 +179,6 @@ class Review1ReplacementTest {
     /** Token creation doubled by a "tokens plus that many Squirrels" effect is still one creation event: Rod of the
      * Fabulist gets one story counter. */
     // CR 614.1a, 603.2c
-    @Ignore("review1 #5: those-tokens-plus-that-many creates no extra tokens (EventAmount is 0)")
     @Test
     fun extraTokensAreOneEvent() = scenario {
         alice.battlefield("Nutcracker, Squirrel Marshal", "Rod of the Fabulist", "Plains", "Plains", "Plains")

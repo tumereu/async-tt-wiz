@@ -302,7 +302,6 @@ class Review1CombatTest {
 
     /** In a multiplayer game, a player who loses leaves the game: their permanents leave too. */
     // CR 800.4a
-    @Ignore("review1 #7: a player who loses a multiplayer game keeps their permanents and spells (CR 800.4a not done)")
     @Test
     fun aLosingPlayersPermanentsLeave() = scenario(players = 3) {
         alice.battlefield("Mountain")
@@ -315,11 +314,11 @@ class Review1CombatTest {
         expect { carol.battlefield.isEmpty() }
     }
 
-    /** In a multiplayer game, a permanent a lost player controlled but didn't own is exiled. */
+    /** In a multiplayer game, the effects that gave a player who left control of something end: the creature goes
+     * back to its owner. */
     // CR 800.4a
-    @Ignore("review1 #7: a player who loses a multiplayer game keeps their permanents and spells (CR 800.4a not done)")
     @Test
-    fun aLosingPlayersStolenPermanentIsExiled() = scenario(players = 3) {
+    fun aLosingPlayersStolenPermanentGoesBack() = scenario(players = 3) {
         alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         bob.battlefield("Thicketwood Elves")
@@ -327,7 +326,10 @@ class Review1CombatTest {
         effect(carol, Mechanic.ControlledBy(Players.You), on = listOf("Thicketwood Elves"))
         alice.casts("Storm Spark", target = "carol")
         allPass()
-        expect { bob.exile has "Thicketwood Elves" }
+        expect {
+            bob.battlefield has "Thicketwood Elves"
+            "Thicketwood Elves".controller shouldBe bob.id
+        }
     }
 
     /** In a two-player game, the last player standing wins: the game is over, nobody gets priority. */

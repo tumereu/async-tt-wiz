@@ -21,7 +21,7 @@ internal class CombatDamageFixture(
     val play: PlayState
     init {
         val definition = CardDefinition("Combatant", listOf(DefinitionFace(id(25), "Combatant",
-            typeLine = "Creature", sourceData = """{"keywords":["$keyword"]}""")))
+            typeLine = "Creature", rulesText = keyword)))
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val targetDefinition = CardDefinition("Walker", listOf(DefinitionFace(id(26), "Walker", typeLine = "Planeswalker", loyalty = "4")))
         val walker = SubmittedDefinition(DeckJson.digest(targetDefinition), targetDefinition)
@@ -262,14 +262,34 @@ class CombatDamageTest {
     }
 
     // CMB-025
-    @Test fun keywordMatchingUsesWholeWordsAndOnlyCurrentFaceMetadataNotRulesText() {
+    @Test fun keywordMatchingUsesWholeWordsInNotesAndOnlyKeywordLinesOfRulesText() {
         val f = CombatDamageFixture(note = "notinfect notwithered trampler", blockers = listOf("1/1"))
         assertEquals("5", f.damage(f.assign()))
         assertNull(f.life(f.assign()))
-        val state = f.play.copy(definitions = f.play.definitions.map { submitted -> submitted.copy(definition = submitted.definition.copy(
-            faces = submitted.definition.faces.map { it.copy(sourceData = "not json", rulesText = "Trample, Infect") })) })
-        assertEquals("5", f.damage(f.assign(state = state)))
-        assertTrue(f.assign(state = state).notes.isEmpty())
+        fun printed(text: String) = f.play.copy(definitions = f.play.definitions.map { submitted -> submitted.copy(definition = submitted.definition.copy(
+            faces = submitted.definition.faces.map { it.copy(rulesText = text) })) })
+        // A keyword inside a sentence is not the card's own keyword.
+        val sentence = printed("Equipped creature has trample and infect.\nWhenever this creature attacks, it gains trample until end of turn.")
+        assertEquals("5", f.damage(f.assign(state = sentence)))
+        assertTrue(f.assign(state = sentence).notes.isEmpty())
+        val line = printed("When this creature enters, draw a card.\nWard {2}, trample (This creature can deal excess combat damage to the player or planeswalker it's attacking.)")
+        assertEquals("1", f.damage(f.assign(state = line)))
+        assertEquals("-4", f.life(f.assign(state = line)))
+        assertEquals(listOf("Combatant: assign manually"), f.assign(state = printed("Flying; infect")).notes)
+    }
+
+    // CMB-025
+    @Test fun printedKeywordsComeOnlyFromLinesMadeOfKeywordAbilities() {
+        assertEquals(setOf("flying", "first strike"), PrintedKeywords.of("Flying, first strike"))
+        assertEquals(setOf("lifelink"), PrintedKeywords.of("Lifelink (Damage dealt by this creature also causes you to gain that much life.)"))
+        assertEquals(setOf("double strike", "trample"), PrintedKeywords.of("DOUBLE STRIKE; Trample"))
+        assertEquals(setOf("protection from red", "deathtouch", "ward—pay 3 life."),
+            PrintedKeywords.of("Protection from red, deathtouch\nWard—Pay 3 life."))
+        assertEquals(setOf("haste", "swampwalk", "equip {1}"), PrintedKeywords.of("Haste, swampwalk\n{T}: Add {G}.\nEquip {1}"))
+        for (text in listOf("Equipped creature has first strike.", "Equipped creature has first strike",
+            "Flying creatures you control have lifelink, trample", "Landfall — Whenever a land you control enters, this gains trample.",
+            "Creatures you control have deathtouch", "", "(Trample)"))
+            assertEquals(emptySet(), PrintedKeywords.of(text), text)
     }
 
     // CMB-024

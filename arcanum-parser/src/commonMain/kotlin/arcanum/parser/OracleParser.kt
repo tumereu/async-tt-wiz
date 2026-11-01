@@ -46,6 +46,13 @@ object OracleParser {
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         val sentences = Sentences(self, isSpell)
+        // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
+        // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
+        sentences.exiledCard = when {
+            text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
+            text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_KEY)
+            else -> null
+        }
         val result = mutableListOf<Ability>()
         val raws = mutableListOf<String>()
         val lines = text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }
@@ -127,6 +134,14 @@ object OracleParser {
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
         }
+        // chunk 30: "Affinity for artifacts" (CR 702.41a): a quality, kept as printed too.
+        AFFINITY.matchEntire(part)?.let { m -> return Keyword.Affinity(Filters.noun(m.groupValues[1]) ?: return null, m.groupValues[1]) }
+        // chunk 30: "Evoke—Exile a white card from your hand.", "Escape—{R}{R}, Exile eight other cards from your graveyard."
+        // (CR 702.74a, 702.138a): a cost that isn't only mana.
+        DASH_COST.matchEntire(part)?.let { m ->
+            val cost = Sentences(setOf("this card")).cost(m.groupValues[2]) ?: return null
+            return if (m.groupValues[1] == "Evoke") Keyword.Evoke(cost) else Keyword.Escape(cost)
+        }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
             lower.startsWith(k.lowercase) && (lower.length == k.lowercase.length || lower[k.lowercase.length] in " —")
@@ -151,6 +166,9 @@ object OracleParser {
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")
+    // chunk 30
+    private val AFFINITY = Regex("""Affinity for (\w+)""")
+    private val DASH_COST = Regex("""(Evoke|Escape)—(.+?)\.?""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

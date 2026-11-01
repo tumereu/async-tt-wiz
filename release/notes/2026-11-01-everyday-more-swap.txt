@@ -1,0 +1,1 @@
+mod: Keywords and EOT keywords are now on the card menu's Everyday page; Face down/up and Switch face moved to the More page.

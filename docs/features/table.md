@@ -103,11 +103,12 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### Everyday page
 
-- **TBL-073** Everyday holds, in order: Inspect, Note, P/T, Stack, Declare, Face down/up, Switch face, Graveyard, Exile, Clone, Ping, Hand, Library top, Library bottom, Shuffle into library, EOT P/T, Battlefield. (r34)
+- **TBL-073** Everyday holds, in order: Inspect, Note, P/T, Stack, Declare, Keywords, EOT keywords, Graveyard, Exile, Clone, Ping, Hand, Library top, Library bottom, Shuffle into library, EOT P/T, Battlefield. (r36)
 - **TBL-074** "Stack" puts the card on the Stack; "Declare" declares it in combat without tapping it, and becomes "Attack →" once the card is a declared attacker. (r28)
 - **TBL-075** On tokens, Hand becomes "Remove token", and Library top, Library bottom and Shuffle into library remove the token. (r28)
-- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
 - **TBL-077** Clone makes a token copy of the card; a non-land copy appears in the main row. (r30)
+- **TBL-085** Keywords and EOT keywords open a toggle grid of Flying, First strike, Double strike, Deathtouch, Lifelink, Trample, Haste, Vigilance, Reach, Menace, Hexproof, Indestructible, Defender, Ward, Can't block, Goaded; each toggle saves at once and the grid stays open. (r19)
+- **TBL-086** Keyword toggles write the note as keywords joined by ", " (e.g. "Flying, Trample"); any other note text greys them out; with several cards a toggle is on only if all have it. They are greyed out on hidden cards. (r19)
 
 ### Counters page
 
@@ -118,11 +119,10 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### More page
 
-- **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Keywords, EOT keywords, Temp 1–4, Deal to target, Deal to target or creatures, and Set damage last. (r34)
+- **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Face down/up, Switch face, Temp 1–4, Deal to target, Deal to target or creatures, and Set damage last. (r36)
 - **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones carry a small hourglass; all stay visible, greyed out on cards without P/T. (r27)
 - **TBL-084** Owner shows the owner's colour and is enabled only for battlefield tokens; tapping it gives the token to the other player. (r28)
-- **TBL-085** Keywords and EOT keywords open a toggle grid of Flying, First strike, Double strike, Deathtouch, Lifelink, Trample, Haste, Vigilance, Reach, Menace, Hexproof, Indestructible, Defender, Ward, Can't block, Goaded; each toggle saves at once and the grid stays open. (r19)
-- **TBL-086** Keyword toggles write the note as keywords joined by ", " (e.g. "Flying, Trample"); any other note text greys them out; with several cards a toggle is on only if all have it. They are greyed out on hidden cards. (r19)
+- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
 - **TBL-087** Link is enabled only with 2 or more cards selected and links every pair of them, with no target picker; Unlink lists the card's links with a Remove link button on each. (r12)
 - **TBL-088** "Other side" (Inspect other side) deliberately shows a card's hidden side and is recorded in the history; it is the only way an opponent sees a face-down card's front. (r21)
 

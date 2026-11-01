@@ -42,12 +42,12 @@ class KeywordTogglesUiTest {
         compose.onNodeWithContentDescription(description).performTouchInput { advanceEventTime(350); click() }
     }
 
-    // TBL-085, TBL-086
-    @Test fun moreOpensATogglePopupThatSendsEachToggleAndStaysOpen() {
+    // TBL-073, TBL-085, TBL-086
+    @Test fun everydayOpensATogglePopupThatSendsEachToggleAndStaysOpen() {
         val first = f.source(f.a, "1/3").id
         val second = f.source(f.a, "1/2").id
         val (toolkit, play) = render(mapOf(first to "Trample"), listOf(first, second))
-        compose.ringPage(3)
+        compose.ringPage(1)
         compose.onNodeWithContentDescription("Edit keywords").assertIsEnabled()
         compose.onNodeWithContentDescription("Edit EOT keywords").assertIsEnabled()
         press("Edit keywords")
@@ -65,11 +65,11 @@ class KeywordTogglesUiTest {
         assertNotNull(toolkit.manual.keywords)
     }
 
-    // TBL-086
+    // TBL-073, TBL-086
     @Test fun customNoteTextDisablesOnlyThatButton() {
         val first = f.source(f.a, "1/3").id
         render(mapOf(first to "Flying, X=3"), listOf(first))
-        compose.ringPage(3)
+        compose.ringPage(1)
         compose.onNodeWithContentDescription("Edit keywords").assertIsNotEnabled()
         compose.onNodeWithContentDescription("Edit EOT keywords").assertIsEnabled()
     }

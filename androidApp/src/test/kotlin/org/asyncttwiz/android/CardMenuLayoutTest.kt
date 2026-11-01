@@ -20,7 +20,7 @@ class CardMenuLayoutTest {
     @Test fun battlefieldLayoutHasExactCellsOnThreePagesWithTwins() {
         assertEquals(listOf("Everyday", "Counters", "More"), CardRingPages.pages(CardMenuLayout.CARD).map { it.name })
         val (everyday, counters, more) = ids(CardMenuLayout.CARD)
-        assertEquals(listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
+        assertEquals(listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "keywords", "eotKeywords",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library",
             "eotCorner", "Battlefield"), everyday)
         // Row 4: Shuffle into library, the until-end-of-turn corner widget, Battlefield.
@@ -29,7 +29,7 @@ class CardMenuLayoutTest {
             "counter/PURPLE", "counter/GRAY", "resetCounters"), counters)
         assertEquals(listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
-            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "keywords", "eotKeywords",
+            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "flip", "switchFace",
             "Temp 1", "Temp 2", "Temp 3", "Temp 4", "Deal to target", "Deal to target or creatures", "damage"), more)
         assertEquals(21, CardRingPages.layout(more).last().cell)
         assertEquals(listOf("Counters"), CardRingPages.pages(CardMenuLayout.CARD).filter { "eotNote" in it.actions }.map { it.name })

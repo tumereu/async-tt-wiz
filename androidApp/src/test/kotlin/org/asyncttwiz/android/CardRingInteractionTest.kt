@@ -201,6 +201,8 @@ class CardRingInteractionTest {
         compose.ringPage(3)
         enabled("Set damage", zone == PlayZone.BATTLEFIELD)
         enabled("Increase damage", zone == PlayZone.BATTLEFIELD)
+        // TBL-073: EOT keywords is on Everyday.
+        compose.ringPage(1)
         enabled("Edit EOT keywords", zone == PlayZone.BATTLEFIELD)
     }
 
@@ -510,7 +512,8 @@ class CardRingInteractionTest {
         assertTrue(shown().changedPowerToughness)
         compose.runOnIdle { toolkit.openCard(TableScope(source.id, listOf(source.id))) }
         compose.waitForIdle()
-        compose.ringPage(1)
+        // TBL-082: Switch face is on More.
+        compose.ringPage(3)
         compose.ringClick("Switch face")
         assertEquals(listOf<PlayAction>(PlayAction.SetFace(source.id, night.faceId)), sent)
         assertEquals("4/5", shown().corner)

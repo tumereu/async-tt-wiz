@@ -19,7 +19,7 @@ internal object CardRingPages {
 
     /** Battlefield, token and face-down cards. */
     val card = listOf(
-        CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
+        CardRingPage("Everyday", listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "keywords", "eotKeywords",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand") + libraryMoves + listOf("eotCorner", "Battlefield")),
         CardRingPage("Counters", org.asyncttwiz.protocol.CounterColor.entries.chunked(2).flatMapIndexed { row, colors ->
             colors.map { "counter/${it.name}" } + listOf("note", "eotNote", "resetCounters")[row]
@@ -27,7 +27,7 @@ internal object CardRingPages {
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
             "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1",
-            "keywords", "eotKeywords") + tempPiles + listOf("Deal to target", "Deal to target or creatures",
+            "flip", "switchFace") + tempPiles + listOf("Deal to target", "Deal to target or creatures",
             // Round 34: rarely needed, so last on More rather than on Everyday.
             "damage")))
     /** Attacker/blocker copies in the combat area: combat controls, plus P/T, damage/EOT marks and moves of the real card (CMB-003). */

@@ -1,0 +1,1 @@
+mod: The auto-pause switch "Your life / cards hit" is now two: "Your life hit" (off) and "Your cards hit" (on). Your earlier choice stays with "Your cards hit".

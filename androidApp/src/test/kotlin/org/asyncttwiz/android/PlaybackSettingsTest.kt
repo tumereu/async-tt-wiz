@@ -182,6 +182,34 @@ class PlaybackSettingsTest {
         assertTrue(PlaybackAutoPause.STACK_REMOVED in HistoryPlaybackPreferences(context, "off").autoPause)
     }
 
+    // HIS-090: each device's earlier "Your life / cards hit" choice carries over to "Your cards hit"; "Your life hit" starts off.
+    @Test fun earlierLifeOrCardsHitChoiceCarriesOverToCardsHit() {
+        val stored = context.getSharedPreferences("history-playback", Context.MODE_PRIVATE)
+        stored.edit().putBoolean("auto-pause/hit-off/YOURS", false).putBoolean("auto-pause/hit-on/YOURS", true).commit()
+        val off = HistoryPlaybackPreferences(context, "hit-off")
+        assertFalse(PlaybackAutoPause.CARDS_HIT in off.autoPause)
+        assertFalse(stored.contains("auto-pause/hit-off/YOURS"))
+        for (account in listOf("hit-on", "hit-unset")) {
+            assertTrue(PlaybackAutoPause.CARDS_HIT in HistoryPlaybackPreferences(context, account).autoPause)
+        }
+        for (account in listOf("hit-off", "hit-on", "hit-unset"))
+            assertFalse(PlaybackAutoPause.LIFE_HIT in HistoryPlaybackPreferences(context, account).autoPause)
+        // Migrated once: a later choice sticks.
+        off.setAutoPause(PlaybackAutoPause.CARDS_HIT, true)
+        assertTrue(PlaybackAutoPause.CARDS_HIT in HistoryPlaybackPreferences(context, "hit-off").autoPause)
+    }
+
+    // HIS-025, LOB-082
+    @Test fun settingsListBothHitSwitchesWithTheirDefaults() {
+        HistoryPlaybackPreferences(context, "hits")
+        compose.setContent { MaterialTheme { SettingsContent(null, "hits") {} } }
+        compose.onNodeWithTag("auto-pause-LIFE_HIT").performScrollTo().assertIsOff()
+        compose.onNodeWithText("Your life hit").assertExists()
+        compose.onNodeWithTag("auto-pause-CARDS_HIT").performScrollTo().assertIsOn()
+        compose.onNodeWithText("Your cards hit").assertExists()
+        compose.onNodeWithText("Your life / cards hit").assertDoesNotExist()
+    }
+
     @Test fun catalogSectionReservesNoSpaceAndKeepsPreferencesStableInPortrait() = assertCatalogGeometry()
 
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")

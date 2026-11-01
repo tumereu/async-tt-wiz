@@ -68,6 +68,19 @@ class ActivityDeliveryTest {
         assertEquals("7", posted.last().hint.activityId); assertFalse(posted.last().silent)
     }
 
+    // LOB-111
+    @Test fun gameOverNoticeAlertsEvenWhenReplacingAShownMoveNotice() {
+        val store = Store(); val posted = mutableListOf<ActivityNotice>()
+        val delivery = ActivityDelivery(store, posted::add).also { it.bind(alice) }
+        val content = GameNoticeContent("Game", "Opponent", "2026-10-27T12:00:00Z", false)
+        fun next(id: Long, notice: GameNoticeContent = content) = delivery.apply(alice, page(cursor = id.toString()).copy(
+            readyNotices = listOf(hint(id, "group-$id").copy(notice = notice)))) { true }
+        next(1); next(2)
+        assertTrue(posted.last().silent)
+        next(3, content.copy(gameOver = SuggestedResult.WIN))
+        assertFalse(posted.last().silent); assertEquals("game:game", posted.last().key)
+    }
+
     @Test fun pollPushOverlapRestartAndGroupExtensionUseOneReplacement() {
         val store = Store(); val posted = mutableListOf<ActivityNotice>()
         fun delivery() = ActivityDelivery(store) { notice ->

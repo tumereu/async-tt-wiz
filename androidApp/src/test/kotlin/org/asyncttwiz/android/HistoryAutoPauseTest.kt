@@ -214,40 +214,64 @@ class HistoryAutoPauseTest {
             GameplayTransition(disclosures = listOf(GameplayDisclosure(other.id, other.faceId, "theirs", listOf(me))))))
     }
 
+    // HIS-090
     @Test fun panelResolutionsAndLibraryReordersOfYourCardsStop() {
         val display = ContentsDisplay("look", opponent, "mine", ContentsSelection.TOP, 1, false, listOf(own.id))
-        assertTrue(PlaybackAutoPause.YOURS in triggers(PlayAction.DismissContents("look"),
+        assertTrue(PlaybackAutoPause.CARDS_HIT in triggers(PlayAction.DismissContents("look"),
             GameplayTransition(contents = ContentsDisplayChange(display, null))))
-        assertTrue(PlaybackAutoPause.YOURS in triggers(PlayAction.ShuffleLibrary("mine", "seed"),
+        assertTrue(PlaybackAutoPause.CARDS_HIT in triggers(PlayAction.ShuffleLibrary("mine", "seed"),
             GameplayTransition(libraryOrder = LibraryOrderChange("mine", listOf(own.id), listOf(own.id)))))
         assertTrue(triggers(PlayAction.ShuffleLibrary("theirs", "seed"),
             GameplayTransition(libraryOrder = LibraryOrderChange("theirs", listOf(other.id), listOf(other.id)))).isEmpty())
     }
 
+    // HIS-025, HIS-090: your life and player counters are "Your life hit" (off by default), your cards "Your cards hit" (on).
+    @Test fun lifeAndPlayerCountersAreLifeHitAndCardsAreCardsHit() {
+        assertFalse(PlaybackAutoPause.LIFE_HIT in PlaybackAutoPause.defaults)
+        assertTrue(PlaybackAutoPause.CARDS_HIT in PlaybackAutoPause.defaults)
+        assertEquals("Your life hit", PlaybackAutoPause.LIFE_HIT.label)
+        assertEquals("Your cards hit", PlaybackAutoPause.CARDS_HIT.label)
+        // A card given to you is a cards hit, not a life hit.
+        assertEquals(setOf(PlaybackAutoPause.CARDS_HIT), HistoryAutoPause(me, board.copy(cards = emptyList())).triggers(node(
+            PlayAction.SetOwner("unknown", me), GameplayTransition(fields = listOf(
+                GameplayFieldChange("unknown", GameplayField.OWNER, opponent, me))))))
+        // A combat copy of your card is your card.
+        val combatBoard = board.copy(combat = CombatArea("combat", listOf(CombatPair("pair", attackers = listOf(
+            CombatOccurrence("copy", own.id))))))
+        assertEquals(setOf(PlaybackAutoPause.CARDS_HIT), HistoryAutoPause(me, combatBoard).triggers(node(
+            PlayAction.SetTapped("copy", true), GameplayTransition(fields = listOf(
+                GameplayFieldChange("copy", GameplayField.TAPPED, "false", "true"))))))
+        // Life change and a card change in one event: both.
+        assertEquals(setOf(PlaybackAutoPause.LIFE_HIT, PlaybackAutoPause.CARDS_HIT), triggers(PlayAction.AdjustLife(me, "-1"),
+            GameplayTransition(fields = listOf(GameplayFieldChange(me, GameplayField.LIFE, "20", "19"),
+                GameplayFieldChange(own.id, GameplayField.TAPPED, "false", "true")))))
+    }
+
+    // HIS-090
     @Test fun lifeCountersAndOwnedOrControlledCardEditsAndDestruction() {
         for (field in listOf(GameplayField.LIFE, GameplayField.COUNTER, GameplayField.PLAYER_COUNTER)) {
-            assertEquals(setOf(PlaybackAutoPause.YOURS), triggers(PlayAction.AdjustLife(me, "-1"),
+            assertEquals(setOf(PlaybackAutoPause.LIFE_HIT), triggers(PlayAction.AdjustLife(me, "-1"),
                 GameplayTransition(fields = listOf(GameplayFieldChange(me, field, "20", "19")))))
             assertTrue(triggers(PlayAction.AdjustLife(opponent, "-1"),
                 GameplayTransition(fields = listOf(GameplayFieldChange(opponent, field, "20", "19")))).isEmpty())
         }
         for (card in listOf(own, controlled)) {
-            assertEquals(setOf(PlaybackAutoPause.YOURS), triggers(PlayAction.CloneToken(card.id)))
-            assertEquals(setOf(PlaybackAutoPause.YOURS), triggers(PlayAction.Stack(StackAction.AddEffect(card.id, "digest"))))
+            assertEquals(setOf(PlaybackAutoPause.CARDS_HIT), triggers(PlayAction.CloneToken(card.id)))
+            assertEquals(setOf(PlaybackAutoPause.CARDS_HIT), triggers(PlayAction.Stack(StackAction.AddEffect(card.id, "digest"))))
             for (field in listOf(GameplayField.TAPPED, GameplayField.COUNTER, GameplayField.NOTE, GameplayField.OWNER, GameplayField.FACE)) {
-                assertTrue(PlaybackAutoPause.YOURS in triggers(PlayAction.SetNote(card.id, "note"),
+                assertTrue(PlaybackAutoPause.CARDS_HIT in triggers(PlayAction.SetNote(card.id, "note"),
                     GameplayTransition(fields = listOf(GameplayFieldChange(card.id, field, "old", "new")))))
             }
-            assertTrue(PlaybackAutoPause.YOURS in triggers(PlayAction.MoveCard(card.id, MoveSource("mine"),
+            assertTrue(PlaybackAutoPause.CARDS_HIT in triggers(PlayAction.MoveCard(card.id, MoveSource("mine"),
                 MoveDestination("theirs", MoveInsertion.TOP)), GameplayTransition(movement = GameplayMoveChange(
                 card.id, CardLocation("mine"), CardLocation("theirs")))))
-            assertTrue(PlaybackAutoPause.YOURS in triggers(PlayAction.RemoveToken(card.id), GameplayTransition(tokens = listOf(
+            assertTrue(PlaybackAutoPause.CARDS_HIT in triggers(PlayAction.RemoveToken(card.id), GameplayTransition(tokens = listOf(
                 TokenChange(TokenPresence(card, CardLocation("mine")), null)))))
         }
         assertTrue(triggers(PlayAction.SetTapped(other.id, true), GameplayTransition(fields = listOf(
             GameplayFieldChange(other.id, GameplayField.TAPPED, "false", "true")))).isEmpty())
         val effectBoard = board.copy(stackEffects = listOf(StackEffect("effect", other.id, controller = me)))
-        assertTrue(PlaybackAutoPause.YOURS in HistoryAutoPause(me, effectBoard).triggers(node(
+        assertTrue(PlaybackAutoPause.CARDS_HIT in HistoryAutoPause(me, effectBoard).triggers(node(
             PlayAction.Stack(StackAction.RemoveEffect("effect")), GameplayTransition(combatStack = CombatStackTransition(
                 effects = listOf(StackEffectChange("effect", effectBoard.stackEffects.single(), null)))))))
     }
@@ -269,12 +293,12 @@ class HistoryAutoPauseTest {
         val classifier = HistoryAutoPause(me, board)
         classifier.triggers(node(PlayAction.SetOwner(other.id, me), GameplayTransition(fields = listOf(
             GameplayFieldChange(other.id, GameplayField.OWNER, opponent, me))), author = me))
-        assertEquals(setOf(PlaybackAutoPause.YOURS), classifier.triggers(node(PlayAction.SetTapped(other.id, true),
+        assertEquals(setOf(PlaybackAutoPause.CARDS_HIT), classifier.triggers(node(PlayAction.SetTapped(other.id, true),
             GameplayTransition(fields = listOf(GameplayFieldChange(other.id, GameplayField.TAPPED, "false", "true"))))))
         val control = HistoryAutoPause(me, board)
         control.triggers(node(PlayAction.MoveCard(other.id, MoveSource("theirs"), MoveDestination("mine", MoveInsertion.TOP)),
             GameplayTransition(movement = GameplayMoveChange(other.id, CardLocation("theirs"), CardLocation("mine"))), author = me))
-        assertTrue(PlaybackAutoPause.YOURS in control.triggers(node(PlayAction.SetNote(other.id, "note"),
+        assertTrue(PlaybackAutoPause.CARDS_HIT in control.triggers(node(PlayAction.SetNote(other.id, "note"),
             GameplayTransition(fields = listOf(GameplayFieldChange(other.id, GameplayField.NOTE, "", "note"))))))
     }
 

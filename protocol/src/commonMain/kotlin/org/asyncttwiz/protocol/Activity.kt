@@ -11,11 +11,14 @@ import kotlinx.serialization.json.Json
 @Serializable data class ActivityHint(val activityId: String, val kind: ActivityKind, val gameId: String,
     val identity: String, val authorId: String? = null, val notice: GameNoticeContent? = null, val resourceName: String? = null)
 /** Authenticated projection only; never included in the FCM data hint. [reminder]: the one-off
- * "opponent is waiting" notice after their moves went unanswered (omitted when false). */
+ * "opponent is waiting" notice after their moves went unanswered (omitted when false). [gameOver]: the opponent
+ * accepted the recipient's result suggestion, which was this outcome from the recipient's (its author's) side
+ * (omitted otherwise). */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameNoticeContent(val gameName: String, val opponentName: String,
     val lastEventAt: String, val yourMove: Boolean, val newMessage: Boolean = false,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val reminder: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val reminder: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val gameOver: SuggestedResult? = null)
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
     val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean,
     val readyNotices: List<ActivityHint>? = null)

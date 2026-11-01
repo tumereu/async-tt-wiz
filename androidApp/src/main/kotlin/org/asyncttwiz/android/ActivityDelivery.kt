@@ -98,6 +98,7 @@ class ActivityDelivery(private val store: ActivityDeliveryStore, private val pos
                 // notice since the game was opened alerts. One alert in a batch survives its replacement.
                 val silent = hint.kind == ActivityKind.GAME && previous != null && !previous.alertNext &&
                     !(hint.notice?.yourMove == true && previous.yourMove != true) && hint.notice?.reminder != true &&
+                    hint.notice?.gameOver == null && // LOB-111: a game-over notice always alerts.
                     notices[key]?.silent != false
                 notices[key] = ActivityNotice(key, hint, silent)
             }

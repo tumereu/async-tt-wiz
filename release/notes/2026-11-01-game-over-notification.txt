@@ -1,0 +1,1 @@
+add: When your opponent accepts the game result you suggested, you get a "Game over" notification.

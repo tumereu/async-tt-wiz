@@ -278,7 +278,10 @@ class PodBuildViewTest {
         val submit = compose.onNodeWithText("Submit deck (2)").getUnclippedBoundsInRoot()
         assertEquals(48.dp, bar.right - bar.left)
         assertTrue(bar.right <= submit.left)
-        assertEquals(bar.left, compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot().left)
+        // The bar spans the full width, not inset by the columns' side margins: Undo at the left edge.
+        assertEquals(0.dp, bar.left)
+        assertEquals(compose.onRoot().getUnclippedBoundsInRoot().right, submit.right)
+        assertTrue(compose.onNodeWithTag("pod-build-basics").getUnclippedBoundsInRoot().left > bar.left)
         compose.runOnIdle { canUndo = true }
         compose.onNodeWithContentDescription("Undo last change").assertIsEnabled().performClick()
         compose.runOnIdle { assertEquals(1, undos) }

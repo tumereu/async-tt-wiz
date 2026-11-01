@@ -34,6 +34,13 @@ class HistoryPlaybackPreferences(context: Context, accountId: String) {
             }
             edit.apply()
         }
+        // "Your life / cards hit" split in two (HIS-090): an explicit old choice carries over to "Your cards hit" only.
+        if (preferences.contains(triggerPrefix + "YOURS")) {
+            val edit = preferences.edit().remove(triggerPrefix + "YOURS")
+            if (!preferences.contains(triggerPrefix + PlaybackAutoPause.CARDS_HIT.name))
+                edit.putBoolean(triggerPrefix + PlaybackAutoPause.CARDS_HIT.name, preferences.getBoolean(triggerPrefix + "YOURS", true))
+            edit.apply()
+        }
     }
 
     // Separate from the accepted replica and auth cleanup: debug Logout/account switching must

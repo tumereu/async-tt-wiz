@@ -20,7 +20,9 @@ class StatusBubbleTest {
         assertEquals(40f + 2 * StatusBubble.PADDING, below.width); assertEquals(StatusBubble.HEIGHT, below.height)
         val above = StatusBubble.bounds(life, below = false, textWidth = 40f)
         assertTrue(above.bottom < life.y)
-        assertEquals(28f, StatusBubble.bounds(life, true, 2f).width) // never narrower than its tail
+        // Never narrower than the life square, so the tail at the square's centre meets a straight edge.
+        assertEquals(life.width, StatusBubble.bounds(life, true, 2f).width)
+        assertEquals(life.width, StatusBubble.bounds(life, false, 2f, lines = 2).width)
     }
 
     // [StatusBubble.lines] ellipsizes its last line with this.

@@ -217,4 +217,24 @@ class PlayerStatusUiTest {
         compose.onNodeWithContentDescription("Set status GG").performScrollTo().performClick()
         assertEquals(listOf<PlayAction>(PlayAction.SetStatus("GG")), sent)
     }
+
+    // TRN-039: a one-character status still gets a bubble as wide as the life square, its tail on a straight edge.
+    private fun shortStatusShot(landscape: Boolean) {
+        val initial = TableFixture.play(library = 0)
+        val play = initial.copy(board = initial.board.copy(players = initial.board.players.map {
+            it.copy(status = if (it.accountId == "a") "!" else "?")
+        }))
+        val toolkit = TableToolkitController("a", { play }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme {
+            TableSurface(TableFixture.game, play, "a", landscape, Modifier.fillMaxSize(), connected = true,
+                onIntent = toolkit::handle, toolkit = toolkit)
+        } }
+        compose.waitForIdle()
+        val orientation = if (landscape) "landscape" else "portrait"
+        compose.onRoot().captureShot("$SCREENSHOTS/status-bubble-one-character-$orientation.png",
+            "${orientation.replaceFirstChar { it.uppercase() }} table where you have the status \"!\" and the opponent \"?\": " +
+                "each one-character bubble is as wide as its life square.")
+    }
+    @Test fun oneCharacterStatusBubblesPortrait() = shortStatusShot(false)
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun oneCharacterStatusBubblesLandscape() = shortStatusShot(true)
 }

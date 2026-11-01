@@ -15,8 +15,9 @@ internal object StatusBubble {
     const val LINE = 13f
     /** A long status never covers more of the table than this; the life popup shows all of it. */
     const val MAX_LINES = 4
+    /** Never narrower than the [life] square, so the tail (drawn at the square's centre) meets a straight edge. */
     fun bounds(life: TableBounds, below: Boolean, textWidth: Float, lines: Int = 1): TableBounds {
-        val width = maxOf(textWidth + 2 * PADDING, 28f)
+        val width = maxOf(textWidth + 2 * PADDING, life.width)
         val height = HEIGHT + (lines.coerceIn(1, MAX_LINES) - 1) * LINE
         val y = if (below) life.bottom + TAIL + 1f else life.y - TAIL - 1f - height
         return TableBounds(life.x, y, width, height)

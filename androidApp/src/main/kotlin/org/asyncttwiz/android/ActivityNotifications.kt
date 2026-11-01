@@ -11,13 +11,22 @@ import android.content.pm.PackageManager
 import android.os.Build
 import org.asyncttwiz.protocol.ActivityKind
 import org.asyncttwiz.protocol.GameNoticeContent
+import org.asyncttwiz.protocol.SuggestedResult
 
 internal data class GameNotificationText(val title: String, val text: String, val whenMillis: Long)
 internal fun gameNotificationText(content: GameNoticeContent) = GameNotificationText(
     "${content.gameName} · vs ${content.opponentName}",
-    (if (content.reminder) "${content.opponentName} is waiting for you" else if (content.yourMove) "Your move"
+    (content.gameOver?.let { "Game over · ${content.opponentName} accepted ${gameOverResult(it)}" }
+        ?: if (content.reminder) "${content.opponentName} is waiting for you" else if (content.yourMove) "Your move"
         else "${content.opponentName}'s move") + (if (content.newMessage) " · new message" else ""),
     java.time.OffsetDateTime.parse(content.lastEventAt).toInstant().toEpochMilli())
+
+/** LOB-111: the accepted suggestion, from its author's (the notified player's) side. */
+private fun gameOverResult(outcome: SuggestedResult) = when (outcome) {
+    SuggestedResult.WIN -> "your win"
+    SuggestedResult.LOSS -> "your loss"
+    SuggestedResult.DRAW -> "the draw"
+}
 
 object ActivityChannels {
     const val INVITATIONS = "invitations"

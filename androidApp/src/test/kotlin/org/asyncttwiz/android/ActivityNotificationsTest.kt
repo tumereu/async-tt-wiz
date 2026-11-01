@@ -17,6 +17,18 @@ class ActivityNotificationsTest {
         assertEquals("Alex is waiting for you", gameNotificationText(content.copy(reminder = true)).text)
         assertEquals("Friday · vs Alex", gameNotificationText(content.copy(reminder = true)).title)
     }
+    // LOB-111
+    @Test fun gameOverTextNamesTheAcceptedResultFromTheSuggestionAuthorsSide() {
+        val content = org.asyncttwiz.protocol.GameNoticeContent("Friday", "Alex", "2026-10-27T12:34:56+02:00", false)
+        for ((outcome, text) in listOf(org.asyncttwiz.protocol.SuggestedResult.WIN to "Game over · Alex accepted your win",
+                org.asyncttwiz.protocol.SuggestedResult.LOSS to "Game over · Alex accepted your loss",
+                org.asyncttwiz.protocol.SuggestedResult.DRAW to "Game over · Alex accepted the draw")) {
+            val shown = gameNotificationText(content.copy(gameOver = outcome))
+            assertEquals("Friday · vs Alex", shown.title)
+            assertEquals(text, shown.text)
+        }
+    }
+
     // LOB-078
     @Test fun podsOnlyUsersCanEnableAlertsWithExistingPromptGuards() {
         for (destination in listOf(ShellDestination.PODS, ShellDestination.GAMES)) {

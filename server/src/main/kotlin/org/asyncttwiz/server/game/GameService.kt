@@ -356,6 +356,13 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(play.id), inbox.accountId, yourMove = summary.attentionHolder == opponent.toString())
             }
+            // LOB-111: the suggestion's author (the accepter's opponent) hears that the game is over. The identity is
+            // this request, which the ended play records, so the feed can tell the outcome; no move, so no reminder.
+            if (command.action is GameAction.AcceptResult) {
+                val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
+                org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
+                    game.id!!, uuid(command.requestId), inbox.accountId)
+            }
             if (isGameplay && mutation == null && batchMutations.isEmpty()) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,

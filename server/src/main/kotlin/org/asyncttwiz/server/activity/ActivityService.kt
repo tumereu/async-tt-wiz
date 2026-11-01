@@ -16,6 +16,7 @@ import org.asyncttwiz.server.generated.tables.ActivityInstallation.ACTIVITY_INST
 import org.asyncttwiz.server.generated.tables.ActivityPush.ACTIVITY_PUSH as PUSH
 import org.asyncttwiz.server.generated.tables.ActivityPresence.ACTIVITY_PRESENCE as PRESENCE
 import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.Invitation.INVITATION
 import org.asyncttwiz.server.generated.tables.GameplayGroup.GAMEPLAY_GROUP
 import org.asyncttwiz.server.generated.tables.GameplayMutation.GAMEPLAY_MUTATION
@@ -221,7 +222,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 val opponent = sql.selectFrom(ACCOUNT).where(ACCOUNT.ID.eq(authorId)).fetchSingle()
                 ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
                     authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
-                        row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!))
+                        row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!, gameOver = gameOver(sql, row.gameId!!, row.identity!!)))
             }.take(50).toList()
         // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
         val reminders = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME).from(SUMMARY)
@@ -235,6 +236,13 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
         val notices = (ready + reminders).sortedByDescending { ActivityWire.ordinal(it.activityId) }.take(50)
         ActivityPage(entries, next, floor.toString(), reset, more, entries.filter { it.kind != ActivityKind.GAME } + notices)
     }
+
+    /** LOB-111: the outcome of the result suggestion whose acceptance is [identity] (the play it ended records that
+     * request), from the suggestion author's side; null for any other activity. */
+    private fun gameOver(sql: DSLContext, game: UUID, identity: UUID): SuggestedResult? =
+        sql.select(DSL.field("({0})::jsonb -> 'board' -> 'resultSuggestion' ->> 'outcome'", String::class.java, GAME_PLAY.PAYLOAD))
+            .from(GAME_PLAY).where(GAME_PLAY.GAME_ID.eq(game)).and(GAME_PLAY.ENDED_REQUEST_ID.eq(identity))
+            .fetchOne()?.value1()?.let { outcome -> SuggestedResult.entries.firstOrNull { it.name == outcome } }
 
     /** The app's own fallback when push and the feed poll missed a game or a pod: games in play where the opponent made
      * the latest event (the other player's row holds the account's own latest event), the move is the account's,

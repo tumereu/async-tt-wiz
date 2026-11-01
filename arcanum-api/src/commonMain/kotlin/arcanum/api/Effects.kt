@@ -41,15 +41,17 @@ sealed interface Effect {
     @Serializable @SerialName("draw") data class Draw(
         val players: Players, val count: Value = Value.Fixed(1), val preBind: String? = null, val postBind: String? = null,
     ) : Effect
-    /** [players] discard [count] cards matching [filter] of their choice (or [chooser]'s, or at [random]); or exactly
-     * [objects] ("That player discards that card"). */
+    /** [players] discard [count] cards matching [filter] of their own choice (or at [random]); or exactly [objects]. When
+     * someone else chooses ("You choose a nonland card from it. That player discards that card") it is a [Step.Choose]
+     * then `Discard(objects = …)`. */
     @Serializable @SerialName("discard") data class Discard(
         val players: Players, val count: Value = Value.Fixed(1), val filter: ObjectFilter = ObjectFilter.Any, val objects: Objects? = null,
-        val random: Boolean = false, val chooser: Players? = null, val preBind: String? = null, val postBind: String? = null,
+        val random: Boolean = false, val preBind: String? = null, val postBind: String? = null,
     ) : Effect
     @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null) : Effect
-    @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value) : Effect
-    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value) : Effect
+    /** [bind] names the cards put on the bottom (scry) or into the graveyard (surveil). */
+    @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value, val bind: String? = null) : Effect
+    @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null) : Effect
     /** Search [library]'s [zones] (their library, "and/or graveyard") for up to [max] cards matching [filter], with
      * [differentNames] if they must all have different names; the found cards are named [bind] and moved by a following
      * step. [reveal] shows them (CR 701.23). */
@@ -60,8 +62,8 @@ sealed interface Effect {
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */
     @Serializable @SerialName("shuffle") data class Shuffle(val library: Players, val except: Objects? = null) : Effect
-    /** [chooser] puts [objects] back in any order where they are ("put them back in any order", CR 401.4): not a zone
-     * change, they keep their identity. */
+    /** [chooser] puts [objects] back in any order where they are ("put them back in any order"): not a zone change,
+     * they keep their identity (unless they were revealed, CR 701.20d). */
     @Serializable @SerialName("reorder") data class Reorder(val objects: Objects, val chooser: Players = Players.You) : Effect
     @Serializable @SerialName("reveal") data class Reveal(val objects: Objects, val bind: String? = null) : Effect
     /** [players] look at [objects] (hidden from others); [bind] names them for "from among them". */
@@ -163,7 +165,9 @@ sealed interface Effect {
     @Serializable @SerialName("extra-combat") data class ExtraCombat(val untapAttackers: Boolean = false, val followedByMain: Boolean = false) : Effect
     @Serializable @SerialName("exchange-life") data class ExchangeLife(val first: Players, val second: Players) : Effect
     /** [mechanics] apply to the spell [objects] and to the permanent it becomes (CR 400.7d): "that creature enters with
-     * two additional +1/+1 counters", "it can't be countered". Mana riders use the same idea ([ManaProduction.spellGets]). */
+     * two additional +1/+1 counters", "it can't be countered". Inside [mechanics], [Objects.Affected] is the spell and the
+     * permanent it becomes; values are fixed when this effect happens (CR 608.2h). Mana riders use the same idea
+     * ([ManaProduction.spellGets]). */
     @Serializable @SerialName("spell-gets") data class SpellGets(val objects: Objects, val mechanics: List<Mechanic>) : Effect
     @Serializable @SerialName("win") data class WinGame(val players: Players = Players.You) : Effect
     @Serializable @SerialName("lose") data class LoseGame(val players: Players) : Effect
@@ -178,11 +182,16 @@ sealed interface Effect {
      * for a cost paid several times (603.12a). */
     @Serializable @SerialName("reflexive-trigger") data class ReflexiveTrigger(val instructions: Instructions) : Effect
     /** "Reveal cards from the top of [library]'s library until you reveal [count] cards matching [filter]" (cascade,
-     * discover too): [foundBind] names the matching cards, [restBind] the other revealed cards. */
+     * discover too): [foundBind] names the matching cards, [restBind] the other cards turned over. [into]: each card is
+     * put there as it is turned over ("exile cards from the top until you exile a nonland card"); null: revealed in
+     * place ([reveal] false: looked at only by the player). */
     @Serializable @SerialName("reveal-until") data class RevealUntil(
         val filter: ObjectFilter, val library: Players = Players.You, val count: Value = Value.Fixed(1),
-        val reveal: Boolean = true, val foundBind: String? = null, val restBind: String? = null,
+        val reveal: Boolean = true, val into: Zone? = null, val foundBind: String? = null, val restBind: String? = null,
     ) : Effect
+    /** Create an emblem (CR 114) with [abilities] in the command zone of [players]; "you" in them is its owner, and the
+     * names and choices they use are fixed when it is created. */
+    @Serializable @SerialName("emblem") data class CreateEmblem(val abilities: List<Ability>, val players: Players = Players.You) : Effect
     /** A keyword action; [bind] names what it acted on ("the beheld card", "the evidence collected"). */
     @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction, val bind: String? = null) : Effect
 }
@@ -292,8 +301,8 @@ sealed interface KeywordAction {
     /** "Earthbend N": target land you control becomes … (CR 701.66a). Keyword actions that target name a [slot]
      * declared in the enclosing [Instructions.targets], one per use. */
     @Serializable @SerialName("earthbend") data class Earthbend(val amount: Value, val slot: String) : KeywordAction
-    /** "The next time [objects] would be destroyed this turn, instead remove all damage from it, tap it, and remove it
-     * marked on it and its controller taps it; if it's an attacking or blocking creature, remove it from combat"
-     * (CR 701.19a): a one-use shield effect object. */
+    /** "The next time [objects] would be destroyed this turn, instead remove all damage marked on it and its controller
+     * taps it. If it's an attacking or blocking creature, remove it from combat" (CR 701.19a): a one-use shield effect
+     * object. */
     @Serializable @SerialName("regenerate") data class Regenerate(val objects: Objects = Objects.Self) : KeywordAction
 }

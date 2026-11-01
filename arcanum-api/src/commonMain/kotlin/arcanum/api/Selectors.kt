@@ -40,6 +40,11 @@ sealed interface Objects {
     /** In a static ability's or effect object's mechanics or condition: each affected object in turn ("for each other
      * creature that shares a creature type with it"). */
     @Serializable @SerialName("affected") data object Affected : Objects
+    /** The cards linked to this object by its [keyword] ("the exiled card" of hideaway, "the haunted creature", the
+     * cards used to craft it; CR 607.2a). The keyword table keeps them as card memory under the keyword's id. */
+    @Serializable @SerialName("linked-to") data class LinkedTo(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : Objects
     /** [base] without [minus] ("the rest", "the other cards"). */
     @Serializable @SerialName("except") data class Except(val base: Objects, val minus: Objects) : Objects
 }
@@ -149,7 +154,10 @@ sealed interface ObjectFilter {
 @Serializable
 sealed interface SubtypeRef {
     @Serializable @SerialName("literal") data class Literal(val subtype: Subtype) : SubtypeRef
-    @Serializable @SerialName("chosen") data class Chosen(val key: String) : SubtypeRef
+    /** Chosen by the [Step.Choose] named [name] in this resolution. */
+    @Serializable @SerialName("chosen") data class Chosen(val name: String) : SubtypeRef
+    /** Kept as card memory under [key] ("the chosen type" of a permanent, CR 607.2d). */
+    @Serializable @SerialName("remembered") data class Remembered(val key: String) : SubtypeRef
 }
 
 /** A colour written out, the one chosen under [Chosen.key], or each colour of [Of.objects] ("a colour among the exiled
@@ -157,7 +165,10 @@ sealed interface SubtypeRef {
 @Serializable
 sealed interface ColorRef {
     @Serializable @SerialName("literal") data class Literal(val color: Color) : ColorRef
-    @Serializable @SerialName("chosen") data class Chosen(val key: String) : ColorRef
+    @Serializable @SerialName("chosen") data class Chosen(val name: String) : ColorRef
+    @Serializable @SerialName("remembered") data class Remembered(val key: String) : ColorRef
+    /** Each colour of [objects]; for mana and colour-setting only (a filter for "shares a colour with" is
+     * [ObjectFilter.Shares]). */
     @Serializable @SerialName("of") data class Of(val objects: Objects) : ColorRef
 }
 
@@ -208,14 +219,14 @@ sealed interface Players {
     @Serializable @SerialName("controller-of") data class ControllerOf(val objects: Objects) : Players
     @Serializable @SerialName("owner-of") data class OwnerOf(val objects: Objects) : Players
     @Serializable @SerialName("active") data object Active : Players
-    /** The defending player of the source (or of the trigger's attacking creature) in two-player games; in general the
-     * player [DefendingPlayerOf] that creature (CR 506.2a, 506.2c). */
-    @Serializable @SerialName("defending") data object Defending : Players
-    /** The player [attackers] are attacking, or the controller of the planeswalker or protector of the battle they
-     * attack ("defending player" of that creature, CR 506.2c). */
+    /** "Defending player" of [attackers]: the player they attack, or the controller of the planeswalker or protector of
+     * the battle they attack (CR 506.2, 802.2a). In an attack trigger, "defending player" is
+     * `DefendingPlayerOf(EventObject())`; [EventPlayer] is only for "the player it's attacking". */
     @Serializable @SerialName("defending-player-of") data class DefendingPlayerOf(val attackers: Objects) : Players
-    /** Inside a [Condition.AnyPlayer] / [Condition.AllPlayers] test: the player being tested. */
+    /** Inside a [PlayerFilter.Where] condition: the player being tested. */
     @Serializable @SerialName("tested") data object Tested : Players
+    /** In a [TargetSlot.perPlayer] slot's filter: the player this target is for ("target creature that player controls"). */
+    @Serializable @SerialName("slot-player") data object SlotPlayer : Players
     /** The player [of] is attached to ("enchanted player", Curses, CR 303.4m). */
     @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Objects.Self) : Players
     /** In a static ability's mechanics or condition: each affected player in turn ("Each player can't cast more than one
@@ -231,6 +242,9 @@ sealed interface PlayerFilter {
     @Serializable @SerialName("any") data object Any : PlayerFilter
     @Serializable @SerialName("you") data object You : PlayerFilter
     @Serializable @SerialName("opponent") data object Opponent : PlayerFilter
+    /** The player passes [condition], read with [Players.Tested] ("each opponent who controls more lands than you", "the
+     * player with the most life"). */
+    @Serializable @SerialName("where") data class Where(val condition: Condition) : PlayerFilter
     @Serializable @SerialName("is") data class Is(val players: Players) : PlayerFilter
     @Serializable @SerialName("and") data class And(val all: List<PlayerFilter>) : PlayerFilter
     @Serializable @SerialName("or") data class Or(val any: List<PlayerFilter>) : PlayerFilter

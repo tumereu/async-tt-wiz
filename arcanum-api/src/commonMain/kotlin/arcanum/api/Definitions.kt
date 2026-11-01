@@ -264,6 +264,9 @@ data class TargetSlot(
     val max: Value? = Value.Fixed(1),
     val divided: Value? = null,
     val distinctFrom: List<String> = emptyList(),
+    /** One such choice for each player matching it ("for each opponent, up to one target creature that player
+     * controls"); [Players.SlotPlayer] in [what] is that player. Chosen on casting (CR 601.2c). */
+    val perPlayer: PlayerFilter? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */
@@ -281,6 +284,9 @@ sealed interface TargetKind {
 @Serializable
 sealed interface Step {
     @Serializable @SerialName("do") data class Do(val effect: Effect) : Step
+    /** Name [objects] as [bind], fixed now ("that creature" for a delayed trigger created by this ability: "destroy that
+     * creature at end of combat", CR 603.7c). No choice, no event. */
+    @Serializable @SerialName("bind") data class Bind(val objects: Objects, val bind: String) : Step
     /** An action that is a cost paid on resolution (CR 118.12): "You may [do X]. If you do, …", or [mandatory], "[Do X].
      * If you can't, …". X is [cost] when it is something costs can say (sacrifice, discard, exile, tap, return, reveal,
      * pay life or mana), otherwise [steps] (draw, put onto the battlefield, cast, …); exactly one is given. A cost can be
@@ -336,7 +342,7 @@ sealed interface Each {
 /** Kinds of choice made during resolution. */
 @Serializable
 sealed interface Choice {
-    @Serializable @SerialName("color") data class Color(val among: List<arcanum.api.Color>? = null) : Choice
+    @Serializable @SerialName("color") data class Color(val among: List<ColorRef>? = null) : Choice
     @Serializable @SerialName("creature-type") data object CreatureType : Choice
     @Serializable @SerialName("basic-land-type") data object BasicLandType : Choice
     @Serializable @SerialName("card-type") data object CardType : Choice

@@ -130,7 +130,7 @@ sealed interface ObjectMark {
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }
 
-/** Player designations (CR 724–725, 728, 702.131). */
+/** Player designations: the monarch (CR 725), the initiative (CR 726), the city's blessing (CR 702.131c). */
 @Serializable
 sealed interface Designation {
     @Serializable @SerialName("monarch") data object Monarch : Designation

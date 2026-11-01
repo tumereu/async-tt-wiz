@@ -159,9 +159,9 @@ class ExampleCardsTest {
     private val shockland = FaceDefinition("Ashen Crossing", types = listOf(CardType.Land),
         subtypes = listOf(Subtype("Mountain"), Subtype("Swamp")), abilities = listOf(
             Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                // "you may pay 2 life. If you don't, …" = "… unless you pay 2 life" (CR 118.12a)
                 modify = listOf(Modification.AsEnters(listOf(
-                    Step.Pay(Cost(listOf(CostPart.PayLife(n(2)))), bind = "paid"),
-                    Step.If(Condition.Not(Condition.Did("paid")), listOf(Step.Modify(Modification.EntersTapped)))))))))))
+                    Step.Unless(Players.You, Cost(listOf(CostPart.PayLife(n(2)))), listOf(Step.Modify(Modification.EntersTapped)))))))))))
 
     /** "Whenever this creature attacks, you may sacrifice another creature. When you do, this creature deals 2 damage
      * to any target." */
@@ -194,6 +194,56 @@ class ExampleCardsTest {
                     bind = "victim", chooser = Players.Bound("p")),
                 Step.Do(Effect.Sacrifice(Objects.Bound("victim"))))))))))
 
+    /** "Whenever this creature blocks or becomes blocked by a non-Wall creature, destroy that creature at end of combat."
+     * The delayed trigger keeps "that creature" through a Bind (CR 603.7c). */
+    private val basilisk = creature("Thornback Basilisk", "{3}{G}", 2, 4, Ability.Triggered(
+        Trigger.On(listOf(
+            EventPattern.Block(ObjectFilter.Is(Objects.Self), ObjectFilter.Not(ObjectFilter.Sub(Subtype("Wall"))), perAttacker = true),
+            EventPattern.BecomesBlocked(ObjectFilter.Is(Objects.Self), ObjectFilter.Not(ObjectFilter.Sub(Subtype("Wall"))), perBlocker = true))),
+        Instructions(steps = listOf(
+            Step.Bind(Objects.EventObject(EventRole.OtherCombatant), "that"),
+            Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.EndOfCombat)),
+                Instructions(steps = listOf(Step.Do(Effect.Destroy(Objects.Bound("that")))))))))))
+
+    /** "As an additional cost to cast this spell, collect evidence X, where X is the total mana value of the permanents
+     * this spell targets. / Destroy up to one target artifact and up to one target creature." The cost reads the spell's
+     * targets, which are chosen first (CR 601.2c, 601.2f). */
+    private val autopsy = FaceDefinition("Hasty Autopsy", mana("{2}{B}"), types = listOf(CardType.Sorcery), abilities = listOf(
+        Ability.Static(listOf(Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Action(KeywordAction.CollectEvidence(
+            Value.Of(NumericProperty.ManaValue, Objects.Union(listOf(Objects.Target("a"), Objects.Target("c"))), Combine.Total)))))))),
+        Ability.Spell(Instructions(
+            targets = listOf(TargetSlot("a", TargetKind.Objects(ObjectFilter.Type(CardType.Artifact)), min = n(0)),
+                TargetSlot("c", TargetKind.Objects(creatures), min = n(0))),
+            steps = listOf(Step.Do(Effect.Destroy(Objects.Union(listOf(Objects.Target("a"), Objects.Target("c"))))))))))
+
+    /** "Whenever you cast a creature spell with mana value 5 or greater, that creature enters with X additional +1/+1
+     * counters on it, where X is its mana value minus 4." */
+    private val runner = creature("Tidewild Herald", "{3}{G}{U}", 4, 4, Ability.Triggered(
+        Trigger.On(EventPattern.Cast(all(creatures, ObjectFilter.ManaValue(Comparison.AtLeast, n(5))), PlayerFilter.You)),
+        Instructions(steps = listOf(Step.Do(Effect.SpellGets(Objects.EventObject(), listOf(Mechanic.Replacement(
+            EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
+            modify = listOf(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1),
+                Value.Difference(Value.Of(NumericProperty.ManaValue, Objects.EventObject(), Combine.Single), n(4))))))))))))
+
+    /** "{1}, {T}, Sacrifice this land: Destroy target nonbasic land. Activate only if an opponent controls four or more
+     * lands." Checked per opponent (CR 102.3). */
+    private val edge = FaceDefinition("Fractured Ridge", types = listOf(CardType.Land), abilities = listOf(
+        Ability.Activated(Cost(listOf(CostPart.Mana(mana("{1}")), CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Self))),
+            Instructions(targets = listOf(TargetSlot("l", TargetKind.Objects(all(ObjectFilter.Type(CardType.Land),
+                    ObjectFilter.Not(ObjectFilter.Super(Supertype.Basic)))))),
+                steps = listOf(Step.Do(Effect.Destroy(Objects.Target("l"))))),
+            ActivationRules(condition = Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent,
+                PlayerFilter.Where(Condition.Exists(all(ObjectFilter.Type(CardType.Land),
+                    ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Tested))), atLeast = 4)))))))))
+
+    /** "The next instant or sorcery spell you cast this turn costs {2} less to cast. / Draw a card." (CR 611.2f) */
+    private val primer = FaceDefinition("Quick Primer", mana("{U}"), types = listOf(CardType.Instant), abilities = listOf(
+        Ability.Spell(Instructions(steps = listOf(
+            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Affected), n(-2))),
+                Affected.NextSpells(all(ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery))),
+                    ObjectFilter.ControlledBy(PlayerFilter.You))), Duration.EndOfTurn)),
+            Step.Do(Effect.Draw(Players.You)))))))
+
     /** Kicker {2}{R} / "~ deals 2 damage to target creature. If this spell was kicked, it deals 4 damage instead." */
     private val kicked = FaceDefinition("Flarecall Blast", mana("{R}"), types = listOf(CardType.Sorcery), abilities = listOf(
         Keyword.Kicker(listOf(Cost.mana(mana("{2}{R}")))),
@@ -214,7 +264,7 @@ class ExampleCardsTest {
 
     @Test
     fun exampleCardsSurviveJson() {
-        val cards = listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide, shockland, reaver, persistent, edict)
+        val cards = listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide, shockland, reaver, persistent, edict, basilisk, autopsy, runner, edge, primer)
             .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure
         cards.forEach { card ->
             val text = json.encodeToString(CardDefinition.serializer(), card)
@@ -224,7 +274,7 @@ class ExampleCardsTest {
 
     @Test
     fun exampleCardsPassDefinitionChecks() {
-        (listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide, shockland, reaver, persistent, edict)
+        (listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide, shockland, reaver, persistent, edict, basilisk, autopsy, runner, edge, primer)
             .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure)
             .forEach { assertEquals(emptyList(), DefinitionChecks.problems(it), it.faces.first().name) }
     }
@@ -260,9 +310,8 @@ class ExampleCardsTest {
         val entering = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)
         fun land(step: Step) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Murky Ford", types = listOf(CardType.Land),
             abilities = listOf(Ability.Static(listOf(Mechanic.Replacement(entering, modify = listOf(Modification.AsEnters(listOf(
-                Step.Pay(Cost(listOf(CostPart.PayLife(n(2)))), bind = "paid"), step))))))))))
-        assertEquals(emptyList(), DefinitionChecks.problems(land(Step.If(Condition.Not(Condition.Did("paid")),
-            listOf(Step.Modify(Modification.EntersTapped))))))
+                Step.Choose(Choice.Color(), bind = "colour"), step))))))))))
+        assertEquals(emptyList(), DefinitionChecks.problems(land(Step.Modify(Modification.EntersTapped))))
         assertEquals(1, DefinitionChecks.problems(land(Step.Do(Effect.Tap(Objects.Self)))).size)
         val chapter = CardDefinition(Layout.Normal, listOf(FaceDefinition("Not a Saga", types = listOf(CardType.Enchantment),
             abilities = listOf(Ability.Triggered(Trigger.Chapter(listOf(1)), Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You)))))))))

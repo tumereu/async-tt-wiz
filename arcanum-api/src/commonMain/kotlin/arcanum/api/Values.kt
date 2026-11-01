@@ -9,8 +9,8 @@ sealed interface Value {
     @Serializable @SerialName("fixed") data class Fixed(val value: Int) : Value
     /** A value announced when cast or activated ([Instructions.announced]), usually "X". */
     @Serializable @SerialName("announced") data class Announced(val name: String = "X") : Value
-    /** A number chosen or bound by an earlier step (the amount a damage or life effect actually dealt, gained or lost,
-     * the number chosen), or remembered on the source. */
+    /** A number named by an earlier step of this resolution (the amount a damage or life effect actually dealt, gained
+     * or lost, the number chosen). Card memory is [Remembered]. */
     @Serializable @SerialName("bound") data class Bound(val name: String) : Value
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Value
     /** The amount the triggering or replaced event was about ("that much damage", "that much life"); in a batch
@@ -107,11 +107,10 @@ sealed interface Condition {
     @Serializable @SerialName("exists") data class Exists(val filter: ObjectFilter, val atLeast: Int = 1) : Condition
     /** Every one of [players] matches [filter]. */
     @Serializable @SerialName("player-is") data class PlayerMatches(val players: Players, val filter: PlayerFilter) : Condition
-    /** Some player matching [players] passes [test], with [Players.Tested] as that player ("if an opponent controls
-     * more lands than you", "an opponent has 10 or more cards in their graveyard"). */
-    @Serializable @SerialName("any-player") data class AnyPlayer(val players: PlayerFilter, val test: Condition) : Condition
-    /** Every player matching [players] passes [test]. */
-    @Serializable @SerialName("all-players") data class AllPlayers(val players: PlayerFilter, val test: Condition) : Condition
+    /** At least [atLeast] players match [filter] ("if an opponent controls four or more lands": players who are an
+     * opponent and [PlayerFilter.Where] that player controls four or more lands; every player = none fails). */
+    @Serializable @SerialName("player-exists") data class PlayerExists(val filter: PlayerFilter, val atLeast: Int = 1) : Condition
+    /** Every one of [objects] matches [filter]; false when there are none ("if an artifact was destroyed this way"). */
     @Serializable @SerialName("object-is") data class ObjectMatches(val objects: Objects, val filter: ObjectFilter) : Condition
     @Serializable @SerialName("your-turn") data object YourTurn : Condition
     @Serializable @SerialName("step") data class StepIs(val step: TurnStep) : Condition
@@ -124,7 +123,8 @@ sealed interface Condition {
     /** The coin flip named [name] was won. */
     @Serializable @SerialName("won-flip") data class WonFlip(val name: String) : Condition
     /** An optional, additional or alternative cost of [keyword] was paid when casting [of] ("if it was kicked", "if
-     * its evoke cost was paid", "if it escaped", "if that spell was kicked"; CR 607.2i). */
+     * its evoke cost was paid", "if it escaped", "if that spell was kicked"; CR 607.2i). [keyword] null: the spell's own
+     * additional cost written without a keyword ("if this spell's additional cost was paid"). */
     @Serializable @SerialName("paid") data class Paid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val times: Int = 1,
@@ -144,8 +144,10 @@ sealed interface Condition {
     @Serializable @SerialName("non-empty") data class NonEmpty(val name: String) : Condition
     /** Your speed is 4, the most it can be (max speed, CR 702.178). */
     @Serializable @SerialName("max-speed") data object MaxSpeed : Condition
-    /** The chosen mode / option [option] of the resolving spell or of the choice bound under [name]. */
+    /** The option [option] was chosen in the [Step.Choose] named [name]. */
     @Serializable @SerialName("chose") data class Chose(val name: String, val option: String) : Condition
+    /** The mode at [index] (from 0) of the resolving spell or ability was chosen. */
+    @Serializable @SerialName("mode-chosen") data class ModeChosen(val index: Int) : Condition
     /** The source Class is at [level] or higher (CR 716). Levelers compare their [CounterKind.Level] counters. */
     @Serializable @SerialName("class-level") data class ClassLevelAtLeast(val level: Int) : Condition
     @Serializable @SerialName("day") data object IsDay : Condition

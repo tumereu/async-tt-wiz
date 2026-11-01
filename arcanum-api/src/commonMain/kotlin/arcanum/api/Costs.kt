@@ -58,7 +58,10 @@ sealed interface CostPart {
  * [filter] (from the zone the part implies). */
 @Serializable
 sealed interface CostObjects {
+    /** The source as it is now (its current object). */
     @Serializable @SerialName("self") data object Self : CostObjects
+    /** These objects ("you may exile it", the new card in a dies trigger; a bound object). */
+    @Serializable @SerialName("these") data class These(val objects: Objects) : CostObjects
     /** [count] objects matching [filter], or (with [total]) any number whose [Total.property] adds up to at least
      * [Total.atLeast] ("tap any number of creatures with total power 3 or more"). */
     @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value = Value.Fixed(1), val total: Total? = null) : CostObjects
@@ -73,6 +76,8 @@ data class ManaProduction(
     /** The mana isn't lost as steps and phases end until this ends ("until end of turn, you don't lose this mana",
      * firebending). */
     val keptUntil: Duration? = null,
+    /** "When that mana is spent to cast a spell, …" (Pyromancer's Goggles). */
+    val whenSpent: Instructions? = null,
 )
 
 /** [property] of the chosen objects added up, at least [atLeast]. */
@@ -81,6 +86,9 @@ data class Total(val property: NumericProperty, val atLeast: Value)
 
 @Serializable
 sealed interface ManaKind {
+    /** One mana of any type the triggering mana ability produced, [amount] of it ("adds one additional mana of any type
+     * that land produced"). */
+    @Serializable @SerialName("same-as-produced") data class SameAsProduced(val amount: Value = Value.Fixed(1)) : ManaKind
     /** These symbols ("{G}{G}", "{C}"), [times] times when given ("Add {G} for each Elf you control"). */
     @Serializable @SerialName("fixed") data class Fixed(val mana: ManaCost, val times: Value? = null) : ManaKind
     /** [amount] mana of one colour among [colors] (two or more, "the chosen color" through [ColorRef.Chosen], "a color

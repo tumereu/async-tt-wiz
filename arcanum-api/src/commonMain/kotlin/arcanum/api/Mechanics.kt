@@ -165,7 +165,8 @@ sealed interface Mechanic {
     @Serializable @SerialName("as-attacks") data class AsAttacks(val cost: Cost, val then: Instructions? = null) : Mechanic
     /** No more than [count] creatures can attack [target] (or at all) each combat. */
     @Serializable @SerialName("maximum-attackers") data class MaximumAttackers(val count: Int, val target: Recipients? = null) : Mechanic
-    /** "Creatures can't attack [target] unless their controller pays [cost] for each" (CR 508.1g). */
+    /** "Creatures can't attack [target] unless their controller pays [cost] for each" (CR 508.1h). The static ability's
+     * `affects` is the creatures restricted (as for [MaximumAttackers] and [CantAttack]); [target] what they attack. */
     @Serializable @SerialName("attack-cost") data class AttackCost(val cost: Cost, val target: Recipients? = null) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -178,14 +179,17 @@ sealed interface Mechanic {
     @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter = ObjectFilter.Any) : Mechanic
     /** Assigns combat damage equal to its toughness rather than its power (CR 510.1). */
     @Serializable @SerialName("damage-by-toughness") data object AssignsDamageByToughness : Mechanic
-    /** May assign its combat damage as though it weren't blocked (CR 510.1c). */
+    /** May assign its combat damage as though it weren't blocked (card text; no general rule). */
     @Serializable @SerialName("damage-as-unblocked") data object AssignsDamageAsThoughUnblocked : Mechanic
     /** Assigns no combat damage. */
     @Serializable @SerialName("no-combat-damage") data object AssignsNoCombatDamage : Mechanic
 
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
-    /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8). */
+    /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */
     @Serializable @SerialName("instant-speed") data object InstantSpeed : Mechanic
+    /** The affected players may cast spells matching [spells] as though they had flash, from wherever they could cast
+     * them (Aluren-style); a permission of players, not of objects. */
+    @Serializable @SerialName("cast-as-though-flash") data class CastAsThoughFlash(val spells: ObjectFilter) : Mechanic
     /**
      * The permission to play or cast cards from [from] ("you may cast ~ from your graveyard", "until end of turn, you may
      * play those cards", "you may look at and play the top card of your library"). [how]: play (lands too, using a land
@@ -200,10 +204,12 @@ sealed interface Mechanic {
     @Serializable @SerialName("may-play") data class MayPlay(
         val from: Zone, val how: PlayKind = PlayKind.Cast, val resultingSpell: ObjectFilter? = null, val topOnly: Boolean = false,
         val cost: Cost? = null, val withoutPaying: Boolean = false,
+        /** At most this many cards this way each turn ("Once during each of your turns, you may cast …", Lurrus). */
+        val perTurn: Int? = null,
         /** Paid in addition to its other costs ("by discarding a land card in addition to paying its other costs":
          * retrace, jump-start). */
         val additionalCost: Cost? = null,
-        /** Cast transformed (disturb) or prepared. */
+        /** Cast transformed (disturb, CR 702.146a). */
         val transformed: Boolean = false,
         /** Where it goes instead of anywhere other than the battlefield when it leaves the Stack (flashback: exile). */
         val then: Destination? = null, val manaAsAnyColor: Boolean = false,

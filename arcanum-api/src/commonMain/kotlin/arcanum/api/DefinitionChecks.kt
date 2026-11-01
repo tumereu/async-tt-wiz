@@ -60,7 +60,7 @@ object DefinitionChecks {
     )
     private val eventScoped = setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards")
-    private val asEntersSteps = setOf("pay", "choose", "if", "modify")
+    private val asEntersSteps = setOf("pay", "unless", "choose", "if", "modify")
     private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind")
 
     /** Problems in [card], one readable line each; empty when it is fine. */
@@ -74,14 +74,24 @@ object DefinitionChecks {
 
     private fun walk(element: JsonElement, inMechanics: Boolean, found: MutableList<String>) {
         when (element) {
-            is JsonArray -> element.forEach { walk(it, inMechanics, found) }
+            is JsonArray -> {
+                element.zipWithNext().forEach { (a, b) ->
+                    val pay = a as? JsonObject; val iff = b as? JsonObject
+                    val bind = pay?.takeIf { it.typeName() == "pay" }?.string("bind")
+                    val cond = iff?.takeIf { it.typeName() == "if" }?.get("condition") as? JsonObject
+                    if (bind != null && cond?.typeName() == "not" && (cond["condition"] as? JsonObject)?.let { it.typeName() == "did" && it.string("name") == bind } == true &&
+                        (iff["otherwise"] as? JsonArray).isNullOrEmpty())
+                        found += "\"may pay … If they don't\" is Unless (CR 118.12a)"
+                }
+                element.forEach { walk(it, inMechanics, found) }
+            }
             is JsonObject -> {
                 val type = element.typeName()
                 if (inMechanics && type in keywordOnlyNames)
                     found += "keyword-only mechanic \"$type\" used directly; grant the keyword ability instead (CR 613.1f)"
                 if (type == "of" && element.typeOf("how") == "single" && element.typeOf("objects") in manyObjects)
                     found += "a single object's number read from several objects; say total, greatest or least"
-                if (type == "triggered") checkRoles(element["trigger"], listOfNotNull(element["instructions"], element["interveningIf"]), found)
+                if (type == "triggered") checkRoles(element["trigger"], listOfNotNull(element["instructions"], element["interveningIf"], element["triggersOnlyIf"]), found)
                 if (type == "delayed-trigger") checkRoles(element["trigger"], listOfNotNull(element["instructions"]), found)
                 if (type == "as-enters") {
                     // Deep: steps nested in an If are steps of the entering too.
@@ -92,7 +102,7 @@ object DefinitionChecks {
                         if (step.typeName() !in asEntersSteps && step.typeName() != "do") found += "\"as enters\" may only pay, choose, check or modify how it enters, not \"${step.typeName()}\" (CR 614.12)"
                     }
                     var decides = false
-                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() == "pay" || it.typeName() == "choose") decides = true }
+                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() in setOf("pay", "unless", "choose")) decides = true }
                     if (!decides) found += "\"as enters\" without a payment or choice: write the modification directly, with the static ability's condition"
                 }
                 if (type == "pay" && ((element["cost"] != null) == ((element["steps"] as? JsonArray)?.isNotEmpty() == true)))
@@ -100,10 +110,12 @@ object DefinitionChecks {
                 if (type == "repeat") {
                     val steps = (element["steps"] as? JsonArray).orEmpty()
                     val effect = (steps.singleOrNull() as? JsonObject)?.takeIf { it.typeName() == "do" }?.get("effect") as? JsonObject
-                    if (effect?.typeName() in setOf("create-token", "draw", "mill", "put-counters", "damage", "gain-life", "lose-life"))
+                    if (effect?.typeName() in setOf("create-token", "draw", "mill", "put-counters", "damage", "gain-life", "lose-life",
+                            "discard", "scry", "surveil"))
                         found += "repeat around \"${effect?.typeName()}\": use its own count (one event, not several)"
                 }
                 if (type == "apply" && element["affects"].let { it != null && it !is kotlinx.serialization.json.JsonNull } &&
+                    element.typeOf("affects") != "next-spells" &&
                     (element["mechanics"] as? JsonArray).orEmpty().any { (it as? JsonObject)?.typeName() in eventScoped })
                     found += "an effect with event-scoped mechanics changes the rules of the game; leave its affects empty (CR 611.2c)"
                 if (type == "compare" && element.typeOf("right") == "fixed") {
@@ -121,6 +133,18 @@ object DefinitionChecks {
                     found += "\"each player/opponent [does]\" happens together (CR 101.4, 608.2e): set together"
                 if (type in setOf("static", "triggered") && element.typeOf("label") in setOf("exhaust", "boast", "power-up"))
                     found += "the ${element.typeOf("label")} label belongs on an activated ability"
+                if (type == "apply" && element["uses"] != null && (element["mechanics"] as? JsonArray).orEmpty()
+                        .none { (it as? JsonObject)?.typeName() in setOf("replacement", "prevention") })
+                    found += "uses counts down a replacement or prevention shield; \"the next spell\" is Affected.NextSpells"
+                if (type == "exists" && (element.int("atLeast") ?: 1) > 1 && element["filter"].toString().contains("\"opponent\""))
+                    found += "\"an opponent controls N or more\" is per opponent: PlayerExists(Where(…)) (CR 102.3)"
+                if (type == "color" && element.typeOf("color") == "of")
+                    found += "\"shares a colour with\" is ObjectFilter.Shares; ColorRef.Of is for mana and colour-setting"
+                if (type == "for-each" && element.typeOf("each") == "players") {
+                    val body = (element["steps"] as? JsonArray).orEmpty()
+                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do")
+                        found += "a single effect for each player: give the effect the players (one event); loops are for several steps"
+                }
                 if (type == "objects" && "filter" in element && "min" in element) {
                     val min = element.fixed("min"); val max = element.fixed("max")
                     if (min != null && max != null) checkCounts("choice", min, max, found)
@@ -170,9 +194,10 @@ object DefinitionChecks {
             (static["mechanics"] as? JsonArray).orEmpty().filter { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost") }
                 .forEach { collectNames(it, costNames) }
         }
-        fun check(ability: JsonObject, extra: Set<String>) {
+        fun check(ability: JsonObject, extra: Set<String>, extraSlots: Set<String> = emptySet()) {
             val scope = Scope()
             scope.named += extra
+            scope.slots += extraSlots
             scope.visit(ability, root = true)
             (scope.usedNames - scope.named).forEach { found += "$name: \"$it\" is used but never named in its ability" }
             (scope.usedSlots - scope.slots).forEach { found += "$name: target slot \"$it\" is used but not declared in its ability" }
@@ -189,7 +214,19 @@ object DefinitionChecks {
             if (ability.typeName() == "triggered" && (ability["trigger"] as? JsonObject)?.typeName() == "chapter" && "Saga" !in subtypes)
                 found += "$name: chapter abilities belong to Sagas"
         }
-        abilities.forEach { check(it, if (it.typeName() == "spell") costNames else emptySet()) }
+        // Targets are chosen before costs are determined (CR 601.2c, 601.2f): the card's costs see the spell's slots.
+        val spellSlots = mutableSetOf<String>()
+        abilities.filter { it.typeName() == "spell" }.forEach { spell -> visitAll(spell) { o ->
+            if (o.typeName() == null && "what" in o) o.string("name")?.let { spellSlots += it } } }
+        fun isCostStatic(a: JsonObject) = a.typeName() == "static" && (a["mechanics"] as? JsonArray).orEmpty()
+            .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost") }
+        abilities.forEach { ability ->
+            when {
+                ability.typeName() == "spell" -> check(ability, costNames)
+                isCostStatic(ability) -> check(ability, emptySet(), spellSlots)
+                else -> check(ability, emptySet())
+            }
+        }
     }
 
     /** Names, slots and references in one ability; granted abilities and token faces are collected as their own scopes. */
@@ -226,7 +263,7 @@ object DefinitionChecks {
                     }
                     (element["announced"] as? JsonArray)?.forEach { announced += it.jsonPrimitive.content }
                     when (element.typeName()) {
-                        "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose" -> element.string("name")?.let { usedNames += it }
+                        "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose", "chosen" -> element.string("name")?.let { usedNames += it }
                         "target" -> element.string("slot")?.let { usedSlots += it }
                         "announced" -> usedAnnounced += element.string("name") ?: "X"
                         "divided-share" -> usesDividedShare = true

@@ -105,12 +105,16 @@ data class RecipientFilter(val objects: ObjectFilter? = null, val players: Playe
 sealed interface Trigger {
     /** "When/Whenever [events]": one ability with one or more trigger events ("enters or attacks"), so it stays one
      * ability for "counter target ability" or "loses this ability". [oneOrMore]: triggers once for a batch of
-     * simultaneous events ("one or more creatures", CR 603.2c), and only when the batch has at least [atLeast]
+     * simultaneous events ("one or more creatures"; CR 603.2c is one trigger per event, the batching comes from the
+     * wording), and only when the batch has at least [atLeast]
      * ("whenever you attack with three or more creatures"). [nthThisTurn]: only the nth such event for that player this
      * turn ("your second spell each turn", "for the first time each turn"), counted within [during] when given ("the
      * first card you draw during each of your draw steps"). */
     @Serializable @SerialName("on") data class On(
         val events: List<EventPattern>, val oneOrMore: Boolean = false, val atLeast: Int? = null,
+        /** With [oneOrMore]: one batch per player the events are about ("deal combat damage to a player": one trigger per
+         * player dealt damage, each with its own "that player" and amount). */
+        val batchPerPlayer: Boolean = false,
         val nthThisTurn: Int? = null, val during: TurnStep? = null,
     ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)

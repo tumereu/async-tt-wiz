@@ -664,7 +664,6 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "echo"; override val text: String get() = "Echo"; override val rule: String get() = "702.30" }
     }
-    /** Multikicker (CR 702.33c) */
     /** Multikicker is a kicker (CR 702.33c): "kicked" and "with kicker" find it, so its kind is kicker's. */
     @Serializable @SerialName("multikicker") data class Multikicker(override val cost: Cost) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kicker.Kind
@@ -685,7 +684,6 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "morph"; override val text: String get() = "Morph"; override val rule: String get() = "702.37" }
     }
-    /** Megamorph (CR 702.37b) */
     /** Megamorph is a morph (CR 702.37b): its kind is morph's. */
     @Serializable @SerialName("megamorph") data class Megamorph(override val cost: Cost) : Keyword, HasCost {
         override val kind: KeywordKind get() = Morph.Kind
@@ -935,7 +933,6 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "protection"; override val text: String get() = "Protection"; override val rule: String get() = "702.16" }
     }
-    /** Hexproof from [quality]. (CR 702.11d) */
     /** Hexproof from a quality is a hexproof ability (CR 702.11d–e): "loses hexproof" and "with hexproof" find it, so its
      * kind is hexproof's. */
     @Serializable @SerialName("hexproof-from") data class HexproofFrom(val from: ObjectFilter) : Keyword {
@@ -968,6 +965,13 @@ sealed interface Keyword : Ability {
     @Serializable @SerialName("partner-with") data class PartnerWith(val partner: String) : Keyword {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "partner-with"; override val text: String get() = "Partner with"; override val rule: String get() = "702.124j" }
+    }
+    /** Companion — a deck-construction condition (CR 702.139): [eachCard] when it is "each card in your starting deck
+     * matches", otherwise [requirement] as printed. Outside the game, its owner may pay {3} to put it into their hand
+     * as a special action once per game, during their main phase with the Stack empty (CR 702.139a, 116.2g). */
+    @Serializable @SerialName("companion") data class CompanionAbility(val requirement: String, val eachCard: ObjectFilter? = null) : Keyword {
+        override val kind: KeywordKind get() = Kind
+        companion object Kind : KeywordKind { override val id: String get() = "companion"; override val text: String get() = "Companion"; override val rule: String get() = "702.139" }
     }
     /** Prototype {1}{R} — 2/1: alternative characteristics when cast prototyped. (CR 702.160) */
     @Serializable @SerialName("prototype") data class Prototype(override val cost: Cost, val power: Int, val toughness: Int) : Keyword, HasCost {
@@ -1164,6 +1168,7 @@ interface KeywordKind {
                 Keyword.Affinity.Kind,
                 Keyword.Splice.Kind,
                 Keyword.PartnerWith.Kind,
+                Keyword.CompanionAbility.Kind,
                 Keyword.Prototype.Kind,
             )
         }

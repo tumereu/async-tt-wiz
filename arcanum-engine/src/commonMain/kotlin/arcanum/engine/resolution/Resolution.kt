@@ -99,6 +99,8 @@ internal object Resolution {
         item.announced.forEach { (name, value) -> names = names.with(name, NamedValue.Number(value)) }
         var anyTargets = false
         var anyLegal = false
+        // A slot's filter may name another slot's target ("artifact card in that player's graveyard")
+        val chosenNames = item.targets.entries.fold(item.names) { n, (k, v) -> n.with(k, NamedValue.Targets(v)) }
         item.targets.forEach { (slotName, chosen) ->
             if (chosen.isEmpty()) return@forEach
             anyTargets = true
@@ -109,7 +111,7 @@ internal object Resolution {
                 if (slot == null) when (ref) {
                     is TargetRef.Object -> act.state.obj(ref.id) != null || ref.id in act.state.stackItems
                     is TargetRef.Player -> !act.state.player(ref.id).lost
-                } else Targeting.legal(act, slot, ref, item.controller, source, item.names, item)
+                } else Targeting.legal(act, slot, ref, item.controller, source, chosenNames, item)
             }
             if (legal.isNotEmpty()) anyLegal = true
             names = names.with(slotName, NamedValue.Targets(legal))

@@ -146,6 +146,19 @@ internal object Steps {
                     Progress.Done -> Next.Priority
                 }
             }
+            // CR 714.3b: as the precombat main phase begins, the active player puts a lore counter on each of their Sagas
+            TurnStep.PrecombatMain -> {
+                val snap = Snapshot(s)
+                val sagas = s.battlefield.filter { id ->
+                    snap.board.controller(id) == s.turn.active && snap.view[id]?.characteristics?.subtypes?.any { it.name == "Saga" } == true
+                }
+                if (sagas.isEmpty()) Next.Priority
+                else when (val p = arcanum.engine.action.Events.run(recorder,
+                    arcanum.engine.action.PlannedEvent.Counters(sagas, arcanum.api.CounterKind.Lore, 1, s.turn.active))) {
+                    is Progress.Waiting -> Next.Wait(p)
+                    Progress.Done -> Next.Priority
+                }
+            }
             TurnStep.DeclareAttackers -> { Combat.beginDeclareAttackers(recorder); Next.Priority }
             TurnStep.DeclareBlockers -> { Combat.beginDeclareBlockers(recorder); Next.Priority }
             TurnStep.CombatDamage -> when (val p = Combat.damageStep(recorder)) {

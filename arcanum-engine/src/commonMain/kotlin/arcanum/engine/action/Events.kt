@@ -34,6 +34,13 @@ sealed interface PlannedEvent {
     @Serializable @SerialName("draw")
     data class Draw(val player: PlayerId, val count: Int, override val controller: PlayerId = player, override val source: ObjectId? = null) : PlannedEvent
 
+    /** [amount] counters of [kind] are put on each of [on] (CR 122.6): a Saga's lore counter after the draw step. */
+    @Serializable @SerialName("counters")
+    data class Counters(
+        val on: List<ObjectId>, val kind: arcanum.api.CounterKind, val amount: Int,
+        override val controller: PlayerId, override val source: ObjectId? = null,
+    ) : PlannedEvent
+
     /** [ids] move to [to] as one event; onto the battlefield under [under]'s control. */
     @Serializable @SerialName("move")
     data class Move(
@@ -71,6 +78,9 @@ internal object Events {
         when (event) {
             is PlannedEvent.Damage -> Actions.damage(act, cause, event.dealt, event.cantBePrevented)
             is PlannedEvent.Draw -> Actions.draw(act, cause, event.player, event.count)
+            is PlannedEvent.Counters -> event.on.forEach {
+                Actions.putCounters(act, cause, arcanum.engine.state.TargetRef.Object(it), event.kind, event.amount)
+            }
             is PlannedEvent.Move -> Actions.move(act, cause, event.ids.map {
                 PlannedMove(it, event.to, controller = event.under, tapped = event.tapped, meanings = event.meanings)
             })

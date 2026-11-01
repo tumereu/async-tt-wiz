@@ -472,6 +472,8 @@ class CastingTest {
     fun playingTheBackFaceLand() = scenario {
         alice.hand("Summit Ascetic // Hermit Peak")
         alice.plays("Summit Ascetic // Hermit Peak", face = 1)
+        // CR 614.12: the land face's "as this land enters, you may pay 3 life" is asked
+        answer(Answer.YesNo(false))
         expect {
             card("Hermit Peak").types shouldBe listOf(CardType.Land)
             alice.battlefield has "Summit Ascetic // Hermit Peak"

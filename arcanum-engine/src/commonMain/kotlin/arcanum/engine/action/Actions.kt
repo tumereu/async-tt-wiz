@@ -93,9 +93,27 @@ internal object Actions {
                 skip = { r -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) },
             )
         }
-        val result = commitMoves(act, final)
+        val result = commitMoves(act, final.map { withPrintedCounters(act, it) })
+        // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
+        final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
+            .filter { act.state.obj(it)?.zone == Zone.Battlefield && act.view()[it]?.characteristics?.subtypes?.any { s -> s.name == "Saga" } == true }
+            .forEach { putCounters(act, cause, TargetRef.Object(it), CounterKind.Lore, 1) }
         Replacements.addLinked(act, linked)
         return result
+    }
+
+    /** CR 306.5b, 310.4b: a planeswalker enters with loyalty counters equal to its printed loyalty, a battle with defense
+     * counters equal to its printed defense (of the face it enters with). */
+    private fun withPrintedCounters(act: Act, m: PlannedMove): PlannedMove {
+        if (m.to != Zone.Battlefield || m.faceDown) return m
+        val o = act.obj(m.id) ?: return m
+        val face = if (m.transformed && o.definition?.layout == Layout.Transform) 1 else o.face
+        val printed = o.definition?.faces?.getOrNull(face) ?: return m
+        val extra = listOfNotNull(
+            printed.loyalty?.takeIf { CardType.Planeswalker in printed.types }?.let { CounterKind.Loyalty to arcanum.engine.view.Copiable.number(it) },
+            printed.defense?.takeIf { CardType.Battle in printed.types }?.let { CounterKind.Defense to arcanum.engine.view.Copiable.number(it) },
+        ).filter { it.second > 0 }
+        return if (extra.isEmpty()) m else m.copy(counters = extra + m.counters)
     }
 
     /** Names a regeneration shield keeps its creature under (D26). */

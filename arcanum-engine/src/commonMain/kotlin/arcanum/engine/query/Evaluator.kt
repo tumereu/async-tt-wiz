@@ -520,7 +520,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.TargetsLegal ->
             (ctx.names[TARGETS_LEGAL_PREFIX + condition.slots.joinToString(",")] as? NamedValue.Number)?.value != 0
         is Condition.Searched -> ctx.names[SEARCHED_PREFIX + condition.name + ":" + condition.zone] != null
-        is Condition.ClassLevelAtLeast -> boundNumber(selfMemory(CLASS_LEVEL)).coerceAtLeast(1) >= condition.level
+        // A Class's level is card memory (CR 716); a leveler's is its level counters (CR 711.2)
+        is Condition.ClassLevelAtLeast -> {
+            val o = ctx.self?.let { state.obj(it) }
+            val isClass = o?.definition?.faces?.getOrNull(o.face)?.subtypes?.contains(Subtype("Class")) == true
+            val level = if (isClass || o == null) boundNumber(selfMemory(CLASS_LEVEL)).coerceAtLeast(1) else o.counters(CounterKind.Level)
+            level >= condition.level
+        }
         Condition.IsDay -> state.ledger[DAY_NIGHT] == DAY
         Condition.IsNight -> state.ledger[DAY_NIGHT] == NIGHT
     }

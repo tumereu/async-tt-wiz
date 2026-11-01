@@ -38,12 +38,12 @@ internal object Casting {
         // CR 305.1: a special action; the land simply enters the battlefield (CR 712.11: with the face played up)
         val turn = s.turn
         recorder.record(Changes.step(s, turn.copy(landsPlayed = turn.landsPlayed + (input.player to (turn.landsPlayed[input.player] ?: 0) + 1))))
+        // The face played is up as it enters, so that face's "as this land enters" applies (CR 712.11, 614.12)
+        s.obj(input.card)?.let { if (input.face != it.face) recorder.record(Change.Face(input.card, it.face, input.face)) }
         // Through the event pipeline: "enters tapped", "as this land enters" choices (CR 614.12); a choice waits
         val entering = arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.Move(listOf(input.card), Zone.Battlefield,
             listOf(Meaning.PlayedLand), under = input.player, controller = input.player, source = input.card))
         if (entering is Progress.Waiting) return entering
-        val entered = (input.card as ObjectId.Card).next()
-        s.obj(entered)?.let { if (input.face != it.face) recorder.record(Change.Face(entered, it.face, input.face)) }
         keepPriority(recorder, input.player)
         return Progress.Done
     }

@@ -188,6 +188,11 @@ internal object Legality {
         if (loyalty && (!sorceryTiming(snap, player) || activationsThisTurn(snap, source, LOYALTY_KEY) > 0)) {
             return "a loyalty ability: once each turn, as a sorcery (CR 606.3)"
         }
+        // CR 606.6: a negative loyalty cost needs that many loyalty counters
+        ability.cost.parts.filterIsInstance<CostPart.Loyalty>().forEach { part ->
+            val n = (part.amount as? arcanum.api.Value.Fixed)?.value ?: 0
+            if (n < 0 && (snap.state.obj(source)?.counters(arcanum.api.CounterKind.Loyalty) ?: 0) < -n) return "not enough loyalty (CR 606.6)"
+        }
         when (ability.rules.timing) {
             Timing.Sorcery -> if (!sorceryTiming(snap, player)) return "only as a sorcery (CR 602.5d)"
             Timing.AsThisCard -> if (cantCast(snap, player, source, CastWay()) != null) return "only when this card could be cast"

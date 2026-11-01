@@ -18,17 +18,25 @@ import arcanum.api.ManaCost
  */
 object OracleParser {
     /** Parses a whole face: its printed characteristics and its rules text. */
-    fun parse(card: OracleCard): FaceDefinition = characteristics(card).copy(abilities = abilities(card.text))
+    fun parse(card: OracleCard): FaceDefinition {
+        val face = characteristics(card)
+        return face.copy(abilities = abilities(card.text, selfNames(card.name, face)))
+    }
 
-    fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text))
+    fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
+
+    /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]". */
+    private fun selfNames(name: String, face: FaceDefinition): Set<String> =
+        setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
+            listOf("this card", "this permanent", "this spell")
 
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
-    private fun abilities(text: String): List<Ability> =
-        text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }.flatMap(::line)
-
-    private fun line(raw: String): List<Ability> {
-        val line = REMINDER.replace(raw, "").trim()
-        return keywordLine(line) ?: listOf(Ability.Unparsed(raw.trim()))
+    private fun abilities(text: String, self: Set<String>): List<Ability> {
+        val sentences = Sentences(self)
+        return text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }.flatMap { raw ->
+            val line = REMINDER.replace(raw, "").trim()
+            keywordLine(line) ?: sentences.line(line)?.let(::listOf) ?: listOf(Ability.Unparsed(raw.trim()))
+        }
     }
 
     /**

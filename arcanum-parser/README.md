@@ -5,10 +5,13 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 
 ## Contents
 
-- `OracleParser.parse(name, text)`: one face's oracle text → `FaceDefinition`. Reads
-  only the text, so it works for custom cards too. Understood so far: keyword lines
-  for the keywords in `KeywordSyntax.all` (no value, a number, a mana cost, or a
-  number and a mana cost). Everything else stays `UnparsedAbility`.
+- `OracleParser.parse(card: OracleCard)`: one printed face (name, mana cost, type line,
+  P/T, loyalty, oracle text) → `FaceDefinition`. Reads only the printed values, so it
+  works for custom cards too. Understood so far: keyword lines for the keywords in
+  `KeywordSyntax.all`; activated abilities with tap, mana, life and sacrifice costs;
+  adding mana, gaining life, destroying a target, search-put-shuffle; the shock-land
+  "as this enters" (`Sentences.kt`). Everything else stays `Ability.Unparsed`.
+- `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.
 - `OracleNormalizer`: turns oracle text into normalised patterns (self-references
@@ -17,6 +20,16 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   measuring tool for choosing what to parse next, not the parser.
 
 ## Workflow
+
+**Current target (D46): every card of the Powered Synergy Cube.** The tests are in
+`src/commonTest/kotlin/arcanum/parser/cube/`, one file per chunk of similar wordings
+(`Chunk01KeywordCreaturesTest`, `Chunk02ManaLandsTest`, …), one test per card. Each
+card is invented (new name, sometimes another mana cost or subtypes) with the cube
+card's exact oracle text, and states the definition it must parse to; the helper in
+`CubeCard.kt` also checks the printed values read back, nothing stays unparsed and the
+definition passes `DefinitionChecks`. The owner reviews these files chunk by chunk.
+
+Earlier approach, still useful for cards outside the cube:
 
 One wording group at a time, most frequent first: look at the real wordings in the
 local frequency list, decide how they parse and what definition they produce, write

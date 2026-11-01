@@ -32,7 +32,13 @@ object TypeLine {
         val supertypes = mutableListOf<Supertype>()
         val types = mutableListOf<CardType>()
         for (word in left.split(' ').filter { it.isNotEmpty() }) {
-            SUPERTYPES[word]?.let { supertypes += it; null } ?: CARD_TYPES[word]?.let { types += it } ?: return null
+            val supertype = SUPERTYPES[word]
+            val type = CARD_TYPES[word]
+            when {
+                supertype != null -> supertypes += supertype
+                type != null -> types += type
+                else -> return null
+            }
         }
         val subtypes = right?.split(' ')?.filter { it.isNotEmpty() }?.map(::Subtype).orEmpty()
         return Parsed(supertypes, types, subtypes)

@@ -3,7 +3,8 @@
 # and screenshot change and no catalog entry is still marked (?) (scripts/prep-release.sh checks).
 #   scripts/review.sh catalog        diff of catalog changes since the last approval (difftastic),
 #                                    then every entry still marked (?), changed or not
-#   scripts/review.sh screenshots    viewer: changed screenshots one at a time, approved | now, with captions
+#   scripts/review.sh screenshots    viewer: changed screenshots one at a time, approved | now, with captions,
+#                                    boxes around the changed pixels (needs numpy and ImageMagick)
 #   scripts/review.sh approve [catalog|screenshots]
 #                                    owner only: mark the committed catalog and/or screenshots (HEAD) approved
 #   scripts/review.sh check          exit 1 if anything is unapproved (used by prep-release.sh)
@@ -37,7 +38,7 @@ catalog)
     ;;
 screenshots)
     # One screenshot at a time: approved | now, with the caption the test writes next to each image
-    # (foo.png → foo.txt). A changed caption alone also counts as a change.
+    # (foo.png → foo.txt). A changed caption alone also counts as a change; re-recording with the same pixels doesn't.
     out=build/screenshot-review
     rm -rf "$out"; mkdir -p "$out"
     cp scripts/screenshot-review.html "$out/index.html"

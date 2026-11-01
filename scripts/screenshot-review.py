@@ -1,10 +1,53 @@
 """Writes data.js for scripts/screenshot-review.html from `git diff --name-status` lines on stdin
-(run by scripts/review.sh screenshots from the repository root)."""
-import json, os, subprocess, sys
+(run by scripts/review.sh screenshots from the repository root). Needs numpy and ImageMagick.
+
+Each changed screenshot gets boxes around the areas whose pixels changed. A re-recorded screenshot whose
+pixels are unchanged is left out. A change already shown in an earlier screenshot (same pixels before and
+after) is marked as seen, so screenshots holding only seen changes can be skipped."""
+import hashlib, json, os, struct, subprocess, sys
+from collections import deque
+import numpy as np
+
 tag, shots, out = sys.argv[1:]
-def show(rev_path):
-    r = subprocess.run(["git", "show", rev_path], capture_output=True)
+CELL = 8  # changed pixels closer than about one cell join one box
+
+def git(*args):
+    r = subprocess.run(["git", *args], capture_output=True)
     return r.stdout if r.returncode == 0 else None
+
+def pixels(png):
+    w, h = struct.unpack(">II", png[16:24])
+    raw = subprocess.run(["magick", "png:-", "-depth", "8", "rgba:-"], input=png, capture_output=True, check=True).stdout
+    return np.frombuffer(raw, np.uint8).reshape(h, w, 4)
+
+def boxes(mask):
+    """Bounding boxes [x, y, w, h] of the changed areas: cells holding a change, joined with their neighbours."""
+    h, w = mask.shape
+    gh, gw = -(-h // CELL), -(-w // CELL)
+    grid = np.zeros((gh * CELL, gw * CELL), bool)
+    grid[:h, :w] = mask
+    grid = grid.reshape(gh, CELL, gw, CELL).any(axis=(1, 3))
+    seen, result = np.zeros_like(grid), []
+    for cy, cx in zip(*np.nonzero(grid)):
+        if seen[cy, cx]:
+            continue
+        seen[cy, cx] = True
+        queue, cells = deque([(cy, cx)]), []
+        while queue:
+            y, x = queue.popleft()
+            cells.append((y, x))
+            for ny in range(max(0, y - 1), min(gh, y + 2)):
+                for nx in range(max(0, x - 1), min(gw, x + 2)):
+                    if grid[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        queue.append((ny, nx))
+        ys, xs = [c[0] for c in cells], [c[1] for c in cells]
+        y0, x0 = min(ys) * CELL, min(xs) * CELL
+        sub = mask[y0:(max(ys) + 1) * CELL, x0:(max(xs) + 1) * CELL]
+        py, px = np.nonzero(sub)
+        result.append([int(x0 + px.min()), int(y0 + py.min()), int(px.max() - px.min() + 1), int(py.max() - py.min() + 1)])
+    return result
+
 items = {}
 for line in sys.stdin:
     status, *paths = line.rstrip("\n").split("\t")
@@ -17,22 +60,48 @@ for line in sys.stdin:
     items.setdefault(stem, {"old": old_stem})
     if new.endswith(".png"):
         items[stem]["old"] = old_stem
-result = []
+
+result, shown, unchanged = [], set(), 0
 for stem, item in sorted(items.items()):
     name = stem[len(shots) + 1:] + ".png"
-    before_png = show(f"{tag}:{item['old']}.png")
+    before_png = git("show", f"{tag}:{item['old']}.png")
+    after_png = open(f"{stem}.png", "rb").read() if os.path.exists(f"{stem}.png") else None
+    caption = open(f"{stem}.txt", encoding="utf-8").read().strip() if os.path.exists(f"{stem}.txt") else None
+    old_caption = git("show", f"{tag}:{item['old']}.txt")
+    old_caption = old_caption.decode("utf-8").strip() if old_caption else None
+    status = "A" if before_png is None else "D" if after_png is None else "M"
+    new_caption = old_caption is not None and caption != old_caption  # a first caption is no change
+    regions, size = [], None
+    if status == "M":
+        a, b = pixels(before_png), pixels(after_png)
+        size = [b.shape[1], b.shape[0]]
+        if a.shape != b.shape:
+            regions = [{"box": [0, 0, *size], "seen": False}]
+        else:
+            mask = (a != b).any(axis=2)
+            if not mask.any() and not new_caption:
+                unchanged += 1
+                continue  # re-recorded with the same pixels
+            for x, y, w, h in boxes(mask):
+                key = hashlib.sha1(a[y:y + h, x:x + w].tobytes() + b[y:y + h, x:x + w].tobytes() + bytes(f"{w}x{h}", "ascii")).digest()
+                regions.append({"box": [x, y, w, h], "seen": key in shown})
+                shown.add(key)
+    else:
+        size = list(struct.unpack(">II", (after_png or before_png)[16:24]))
     before = None
     if before_png is not None:
         before = f"before/{name}"
         os.makedirs(os.path.dirname(f"{out}/{before}"), exist_ok=True)
         open(f"{out}/{before}", "wb").write(before_png)
-    after = f"../../{stem}.png" if os.path.exists(f"{stem}.png") else None
-    caption = open(f"{stem}.txt", encoding="utf-8").read().strip() if os.path.exists(f"{stem}.txt") else None
-    old_caption = show(f"{tag}:{item['old']}.txt")
-    status = "A" if before is None else "D" if after is None else "M"
-    result.append({"name": name, "status": status, "before": before, "after": after, "caption": caption,
-                   "oldCaption": old_caption.decode("utf-8").strip() if old_caption else None})
+    commits = git("log", "--format=%h %s", f"{tag}..HEAD", "--", f"{stem}.png").decode("utf-8").splitlines()
+    result.append({"name": name, "status": status, "before": before,
+                   "after": f"../../{stem}.png" if after_png is not None else None, "size": size,
+                   "caption": caption, "oldCaption": old_caption, "regions": regions,
+                   "repeat": status == "M" and not new_caption and bool(regions) and all(r["seen"] for r in regions),
+                   "commits": commits})
 open(f"{out}/data.js", "w", encoding="utf-8").write(
-    f"window.SHOTS_KEY = {json.dumps(subprocess.run(['git', 'rev-parse', tag], capture_output=True, text=True).stdout.strip())};\n"
+    f"window.SHOTS_KEY = {json.dumps(git('rev-parse', tag).decode().strip())};\n"
     f"window.SHOTS = {json.dumps(result, ensure_ascii=False, indent=1)};\n")
-print(f"{len(result)} changed screenshot(s).")
+repeats = sum(s["repeat"] for s in result)
+print(f"{len(result)} changed screenshot(s), {repeats} of them only repeat changes shown in another"
+      + (f"; {unchanged} re-recorded with the same pixels left out" if unchanged else "") + ".")

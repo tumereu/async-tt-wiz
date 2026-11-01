@@ -66,7 +66,10 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   with new ids, last known information and "as enters" steps, damage with protection,
   prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
   deathtouch, lifelink, toxic and excess; life, counters, tapping, tokens (D35 ids), draws,
-  mills, discards, host-ordered shuffles (D25) and host fills (D60). Replacement effects
+  mills, discards (cards put into one library position together in their owner's order, CR
+  401.4), host-ordered shuffles (D25) and host fills (D60); mana costs paid while resolving
+  ("unless … pays", ward) with a payment decision, not asked when they can't be paid (CR
+  118.3). Replacement effects
   (CR 614, 616): own replacements first, control, copy, transformed, then the affected player's
   order when it matters; each once per event; "instead", modifications, optional ones, linked
   "when applied" triggers, one-use shields and regeneration (D26). Resolution (CR 608): target
@@ -119,6 +122,9 @@ choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanc
 `activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
 run resolution, state-based actions and triggers without priority. Every scenario checks D59:
 reverting all its changes restores the state after setup.
+
+`cube/Chunk*ScenariosTest.kt` play each invented cube card the way a player would (cast with its
+costs, abilities activated, triggers triggered) and check the outcome a Magic player expects.
 
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into
 `cards/CubeCardTexts.kt`; after the parser tests change, regenerate with

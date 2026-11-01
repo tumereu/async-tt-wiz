@@ -30,9 +30,9 @@ catalog entries the owner approves when its phase is built.
   setting event's sequence number plus a position within the event.
 - **Tagged events** (D33): Automatum events carry their Magic meaning ("sacrificed",
   "died", …) and a snapshot of the objects involved, used for "this turn" questions
-  and for history texts. (?) Pending owner review (D42): manual moves are tagged
-  with their zone-change meaning (died, entered, left), which the move defines; only
-  "how" tags (sacrificed, destroyed, …) need Automatum.
+  and for history texts. Manual moves are tagged too, wherever the move alone
+  defines the meaning unambiguously (died, entered, left the battlefield); "how" tags
+  (sacrificed, destroyed, …) need Automatum.
 - **Ledgers** (D22, per object only): engine bookkeeping on card instances, visible in
   the Automatum debug menu (P2: no hidden engine memory),
   (mana spent, X, kicked, activations this turn, …); key names and values

@@ -21,6 +21,27 @@ class CombatStackPresentationTest {
         }
         assertTrue(scene.items.any { it.projection && it.note.isNotEmpty() })
     }
+    // CMB-005, STK-009
+    @Test fun projectionsWithoutTheirOwnNoteShowTheRealCardsNoteButHiddenValuesStayHidden() {
+        val f = TableStatesFixture
+        val original = f.combat()
+        val state = original.copy(board = original.board.copy(cards = original.board.cards.map { it.copy(note = "source") },
+            combat = original.board.combat!!.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
+                attackers = pair.attackers.map { if (it.id == f.id("attacker1")) it.copy(note = "own") else it }) }) }))
+        val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
+        fun note(id: String) = scene.items.single { it.cardId == f.id(id) }.note
+        assertEquals("own", note("attacker1"))
+        assertEquals("source", note("attacker2"))
+        assertEquals("source", note("blocker"))
+        assertEquals("source", note("effect"))
+        assertEquals("", CombatStackRules.projectionNote(state.board, f.id("attacker2"))) // The copy keeps no note of its own.
+        // A face-down Stack entry (STK-005) hides its card, so the real card's note stays hidden too.
+        val faceDown = state.copy(board = state.board.copy(stackEffects = state.board.stackEffects.map { it.copy(faceDown = true) }))
+        val hidden = TablePresentation.scene(f.game, faceDown, f.b, 412f, 892f, false).items.single { it.cardId == f.id("effect") }
+        assertTrue(hidden.covered)
+        assertEquals("", hidden.note)
+    }
+
     // STK-003
     @Test fun stackAndCombatDrawingsIgnoreTappedSourcesWithoutChangingRealCards() {
         val f = TableStatesFixture

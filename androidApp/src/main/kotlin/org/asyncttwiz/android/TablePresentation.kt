@@ -428,8 +428,9 @@ object TablePresentation {
                 damage = if (!values) "" else card.damage, eotCorner = if (!values) "" else card.eotCorner,
                 eotNote = if (!values) "" else card.eotNote,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
+                // A copy or Stack entry without a note of its own shows the real card's note (CMB-005, STK-009).
                 token = card.token, note = if (!values) "" else if (projection)
-                    CombatStackRules.projectionNote(play.board, viewId).orEmpty() else card.note,
+                    CombatStackRules.projectionNote(play.board, viewId).orEmpty().ifBlank { card.note } else card.note,
                 counters = if (!values) emptyMap() else card.counters.filterValues(::nonzero),
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,

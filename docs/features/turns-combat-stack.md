@@ -88,7 +88,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **CMB-002** Attackers and blockers are combat copies of real cards: the real card stays where it is, and anything done to a copy's card applies to the real card. A card has at most one copy per combat area. (r1)
 - **CMB-003** Combat copies are always upright and can't be tapped. Tapping one opens its own one-page Combat menu, not the normal card menu: Inspect, Note, Ping / Unping, Attack →, Remove from combat, Graveyard, Exile, Hand, P/T, Damage, EOT P/T, EOT note, EOT keywords, Deal to target, Deal to target or creatures, Link, Links. P/T, Damage and the EOT marks set the real card's values; Graveyard, Exile and Hand move the real card (CMB-004). It has no tap, counter, flip or other battlefield controls (use the real card for those). Double-tap does nothing; hold inspects. (r35)
 - **CMB-004** Remove from combat removes only the copy (the real card is not untapped). Graveyard, Exile and Hand move the real card to its owner's zone (Hand is greyed for a token's copy). (r28)
-- **CMB-005** Combat copies can have their own notes and pings, separate from the real card. (r13)
+- **CMB-005** Combat copies can have their own notes and pings, separate from the real card. A copy without a note of its own shows the real card's note chip. (r36)
 - **CMB-006** When the real card leaves the battlefield, all its combat copies disappear; surviving blockers of a removed attacker stay in place. Closing the area removes all copies but leaves real cards and their state unchanged. (r1)
 - **CMB-007** Rows for the attacking player: target label row on top, then blockers, then attackers. The defender sees it mirrored: attackers on top, their blockers below, target names at the bottom. (r28)
 - **CMB-008** Pairs are packed groups with single faint dividers (no per-column borders), centred as a group and re-centred when added; cards sit centred in their slot (one attacker over two blockers is centred), with about two card-border widths of margin. (r7)
@@ -132,7 +132,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **STK-007** Portrait: the Stack is a fixed-size HUD pinned at the right edge, vertically mid-screen. Landscape: it sits centred in the side area. (r17)
 - **STK-008** The Stack area has a ~3dp very dark purple border and a soft shadow (floating look), a fixed 12dp inset, and its count on the top-left corner of the border. Only the top entry is shown, at single-card size. (r14)
-- **STK-009** Stack entries can have their own notes and pings, separate from the real card, set from Manage Stack (STK-019). (r35)
+- **STK-009** Stack entries can have their own notes and pings, separate from the real card, set from Manage Stack (STK-019). An entry without a note of its own shows the real card's note chip. (r36)
 
 ### Stack bubbles
 

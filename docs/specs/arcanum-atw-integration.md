@@ -27,3 +27,11 @@ catalog entries the owner approves when its phase is built.
 - **Effect objects** (D19): engine-defined data stored as-is; Inspect shows them on
   the cards they affect, "(until end of turn)" as today (TBL-110). Today's per-card
   EOT marks (TurnMarks) stay for manual play.
+
+## Decisions the engine asks for
+
+- **Random results** (D25): the client sending the batch answers them with ATW's own
+  randomness (seeded actions, coin flips) and records them in the batch.
+- **Shuffles** (D25): the engine asks ATW to shuffle; ATW uses its existing shuffle
+  and unknown library order.
+- **Secret choices**: manual until ATW can store an answer one player can't read.

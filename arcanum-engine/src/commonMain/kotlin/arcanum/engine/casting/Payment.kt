@@ -66,7 +66,7 @@ internal object Payment {
         total.parts.forEach { payPart(recorder, plan, it, bound, snapshots) }
         val names = Bindings(bound)
         return when {
-            plan.isManaAbility -> finishManaAbility(recorder, plan, from)
+            plan.isManaAbility -> finishManaAbility(recorder, plan, names)
             plan.isSpecialAction -> finishSpecialAction(recorder, plan, from)
             plan.isSpell -> finishSpell(recorder, plan, names, snapshots, spent, paidWith)
             else -> finishAbility(recorder, plan, names, snapshots)
@@ -371,8 +371,12 @@ internal object Payment {
         recorder.record(Change.Facts(source, o.facts, o.facts.copy(activations = counts)))
     }
 
-    /** CR 605.3b: a mana ability resolves at once; what else it does beyond adding mana is left to the players. */
-    private fun finishManaAbility(recorder: Recorder, plan: Plan, from: Int): Progress {
+    /**
+     * CR 605.3b: a mana ability resolves at once. What else it does ("Each opponent gains 1 life", "draw a card") happens
+     * right after its mana is added, as resolution steps would (CR 608.2c); a part that would need a decision is left to
+     * the players.
+     */
+    private fun finishManaAbility(recorder: Recorder, plan: Plan, bound: Bindings): Progress {
         val ability = plan.ability as Ability.Activated
         val snap = recorder.snapshot()
         ability.instructions.steps.forEachIndexed { i, step ->
@@ -385,7 +389,17 @@ internal object Payment {
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)
         Casting.keepPriority(recorder, plan.player)
         val rest = ability.instructions.steps.filterNot { it is Step.Do && it.effect is Effect.AddMana }
-        return if (rest.isEmpty()) Progress.Done else manual(recorder, plan, ability.text ?: "Do the rest of the mana ability by hand")
+        if (rest.isEmpty()) return Progress.Done
+        val mark = recorder.changes.size
+        return try {
+            val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker.NONE)
+            val cause = arcanum.engine.action.Cause(plan.player, plan.sourceId, key = "mana:${plan.sourceId}:${recorder.state.nextTimestamp()}")
+            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, cause, plan.names.with(bound), null), rest)
+            Progress.Done
+        } catch (n: arcanum.engine.action.NeedDecision) {
+            recorder.rollback(mark)
+            manual(recorder, plan, ability.text ?: "Do the rest of the mana ability by hand")
+        }
     }
 
     /** CR 116.2: a special action happens at once; turning face up and moving itself are done here, the rest by hand. */

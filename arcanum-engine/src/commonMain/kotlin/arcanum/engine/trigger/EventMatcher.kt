@@ -167,8 +167,10 @@ internal object EventMatcher {
     }
 
     /** Leaving the battlefield and the other public-zone moves of CR 603.10a look back; entering looks at the new object. */
+    /** The object a move pattern tests: as it was for leaving the battlefield and moves "from" a zone, but the permanent
+     * as it entered for entering the battlefield, also "from your hand" (CR 603.6a, 603.10a). */
     private fun tested(m: Move, from: Zone?, proposed: Boolean): ObjectId =
-        if (proposed || from != null || m.from == Zone.Battlefield) m.before.id else m.after.id
+        if (proposed || m.from == Zone.Battlefield || (from != null && m.to != Zone.Battlefield)) m.before.id else m.after.id
 
     private fun moveEvent(e: Evaluator, m: Move, proposed: Boolean, from: Zone?, objectRole: EventRole? = null): TriggerEvent {
         val tested = tested(m, from, proposed)

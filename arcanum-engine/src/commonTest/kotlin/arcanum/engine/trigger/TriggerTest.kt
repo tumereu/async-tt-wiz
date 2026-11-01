@@ -389,4 +389,18 @@ class TriggerTest {
 
     @Suppress("unused")
     private fun check(b: Boolean) = assertTrue(b)
+
+    // CR 603.6a, 603.4: "enters from your hand, if it's attacking" works on the battlefield, and a creature put onto the
+    // battlefield attacking (ninjutsu, CR 508.4) is attacking as it enters
+    @Test
+    fun entersFromTheHandAttacking() = scenario {
+        alice.battlefield("Island", "Island", "Island", "Island", "Elvish Seer", "Umbral Elves")
+        alice.hand("Myriad-Faced Shade")
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks("Elvish Seer", "Umbral Elves")
+        advanceTo(TurnStep.DeclareBlockers)
+        alice.activates("Myriad-Faced Shade", choosing = listOf("Elvish Seer"))
+        allPass()
+        expect { stack.names shouldBe listOf("ability of Myriad-Faced Shade") }
+    }
 }

@@ -190,13 +190,14 @@ internal object Actions {
             scratch.apply(Change.ZoneChange(listOf(moved)))
             all += moved
         }
-        act.record(Change.ZoneChange(all))
-        // Put onto the battlefield attacking (CR 508.4): not declared as an attacker.
+        // Put onto the battlefield attacking (CR 508.4): not declared as an attacker. Recorded just before the zone change,
+        // so it is attacking as it enters ("if it's attacking", CR 603.4).
         moves.filter { it.attacking != null && it.to == Zone.Battlefield }.forEach { m ->
             val combat = act.state.combat ?: return@forEach
             val after = all.first { it.before.id == m.id }.after.id
             act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + arcanum.engine.state.Attacker(after, m.attacking!!))))
         }
+        act.record(Change.ZoneChange(all))
         return all.associate { it.before.id to it.after.id }
     }
 

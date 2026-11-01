@@ -7,6 +7,7 @@ import arcanum.api.FaceDefinition
 import arcanum.api.Keyword
 import arcanum.api.Layout
 import arcanum.api.Mechanic
+import arcanum.api.ObjectFilter
 import arcanum.api.PlayKind
 import arcanum.api.Timing
 import arcanum.api.TurnStep
@@ -83,6 +84,8 @@ internal object Legality {
         return snap.view[card]?.mechanics.orEmpty().mapNotNull { applied ->
             val m = applied.mechanic as? Mechanic.MayPlay ?: return@mapNotNull null
             if (m.from != o.zone) return@mapNotNull null
+            // A card in a hand is cast by its owner (CR 601.2, "from their hand")
+            if (o.zone == Zone.Hand && o.owner != player) return@mapNotNull null
             if (kind == PlayKind.Play && m.how != PlayKind.Play) return@mapNotNull null
             val eval = snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player)
             if (!eval.matches(m.holder, player)) return@mapNotNull null
@@ -120,6 +123,10 @@ internal object Legality {
         val fromHand = o.zone == Zone.Hand && o.owner == player
         val permission = if (fromHand && way.permission == null) null else permission(snap, player, card, way, PlayKind.Cast)
         if (!fromHand && permission == null) return "no permission to cast it from ${o.zone}"
+        // A permission for some spells only ("it may not be cast as an Adventure this way", CR 715.4): the face cast
+        (permission?.second?.mechanic as? Mechanic.MayPlay)?.resultingSpell?.let { filter ->
+            if (faceMatches(filter, face) == false) return "that permission doesn't let it be cast as ${face.name}"
+        }
         if (way.alternative != null && alternative(snap, card, way) == null) return "no such alternative cost, or its condition isn't met"
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         val instant = !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
@@ -128,6 +135,14 @@ internal object Legality {
         restriction(snap, player, card)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"
         return null
+    }
+
+    /** Whether the printed [face] matches a type filter, or null when the filter asks more than types and subtypes. */
+    private fun faceMatches(filter: ObjectFilter, face: arcanum.api.FaceDefinition): Boolean? = when (filter) {
+        is ObjectFilter.Not -> faceMatches(filter.filter, face)?.not()
+        is ObjectFilter.Sub -> (filter.subtype as? arcanum.api.SubtypeRef.Literal)?.let { it.subtype in face.subtypes }
+        is ObjectFilter.Type -> (filter.cardType as? arcanum.api.CardTypeRef.Literal)?.let { it.cardType in face.types }
+        else -> null
     }
 
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
@@ -159,7 +174,7 @@ internal object Legality {
             }
         }
 
-    /** The card is tested as the spell it would become (CR 601.2e): "spell" holds for it wherever it is cast from. */
+    /** CR 601.3: the card is tested as the spell it would become: "noncreature spells" match a noncreature card. */
     private fun asSpell(filter: arcanum.api.ObjectFilter): arcanum.api.ObjectFilter = when (filter) {
         is arcanum.api.ObjectFilter.Category ->
             if (filter.category == arcanum.api.ObjectCategory.Spell) arcanum.api.ObjectFilter.Any else filter

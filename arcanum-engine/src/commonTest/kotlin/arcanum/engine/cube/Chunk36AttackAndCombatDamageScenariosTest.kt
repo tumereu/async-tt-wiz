@@ -66,31 +66,15 @@ class Chunk36AttackAndCombatDamageScenariosTest {
         }
         allPass()
         yes()
-        // Casting it for a cost from an effect is done by hand for now (D61)
-        assertEquals("Cast Kael's Marauder for {1}{R}", decision<Decision.Manual>().text)
-        answer(Answer.Done)
-        expect {
-            card("Kael's Marauder", 1).zone shouldBe arcanum.api.Zone.Exile
-            alice.hand.size shouldBe 3
-        }
-    }
-
-    /** Cast for its madness cost by the engine. */
-    @Ignore("engine: casting for a cost from an effect (madness) is a manual step")
-    @Test
-    fun kaelsMarauderMadnessCast() = scenario {
-        alice.battlefield("Kael's Marauder", "Mountain", "Mountain")
-        alice.hand("Kael's Marauder")
-        alice.library("Island", "Island", "Island")
-
-        toAttackers()
-        alice.attacks("Kael's Marauder")
-        allPass()
-        allPass()
-        yes()
+        // Cast for {1}{R} rather than its mana cost
+        assertEquals("{1}{R}", decision<Decision.ManaPayment>().cost.toString())
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
         expect { stack.names shouldBe listOf("Kael's Marauder") }
         allPass()
-        expect { alice.battlefield.names.count { it == "Kael's Marauder" } shouldBe 2 }
+        expect {
+            alice.battlefield.names.count { it == "Kael's Marauder" } shouldBe 2
+            alice.hand.size shouldBe 3
+        }
     }
 
     /** Discarded to pay a cost, it is exiled for madness too. */
@@ -146,8 +130,8 @@ class Chunk36AttackAndCombatDamageScenariosTest {
         alice.attacks("Paranoid Ranter")
         allPass()
         yes()
-        // Mana on resolution is paid by hand (D61); the only card in hand is discarded
-        answer(Answer.Done)
+        // CR 608.2g: {1} paid while it resolves; the only card in hand is discarded
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
         expect {
             alice.hand.names shouldBe listOf("Island")
             alice.graveyard has "Storm Spark"

@@ -146,4 +146,16 @@ class OptionsTest {
         allAccepted(alice)
         assertTrue(options(alice).size > 15)
     }
+
+    // CR 601.2f, 601.3: a permission for cards in the hand ("without paying their mana costs") is offered beside the
+    // usual cast, so it can be cast with no mana at all
+    @Test
+    fun handPermissionIsOffered() = scenario {
+        alice.battlefield("Verdant Hollowmere")
+        alice.hand("Elvish Seerling")
+        val casts = options(alice).filterIsInstance<Input.Cast>().filter { it.card == card("Elvish Seerling") }
+        assertEquals(1, casts.size)
+        assertTrue(casts.single().way.permission != null)
+        allAccepted(alice)
+    }
 }

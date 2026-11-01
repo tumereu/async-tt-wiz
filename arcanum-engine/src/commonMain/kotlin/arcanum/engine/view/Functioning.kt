@@ -74,8 +74,9 @@ object Functioning {
                 event is EventPattern.Cast && event.spell.isSelf() -> setOf(Zone.Stack)
                 event is EventPattern.Discard && event.cards.isSelf() -> setOf(Zone.Hand)
                 event is EventPattern.Cycle && event.cards.isSelf() -> setOf(Zone.Hand)
+                // "enters from your hand" is an enters ability: it works on the battlefield (CR 603.6a)
                 event is EventPattern.ZoneChange && event.objects.isSelf() && event.from != null &&
-                    event.from != Zone.Battlefield -> setOf(event.from!!)
+                    event.from != Zone.Battlefield && event.to != Zone.Battlefield -> setOf(event.from!!)
                 event is EventPattern.ZoneChange && event.objects.isSelf() && event.from == null &&
                     event.to != null && event.to != Zone.Battlefield -> EVERYWHERE
                 else -> usual

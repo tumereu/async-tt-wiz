@@ -242,9 +242,12 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
     private fun changes(): Pair<List<ManaCost>, List<Pair<ManaCost, Int>>> {
         val increases = mutableListOf<ManaCost>()
         val reductions = mutableListOf<Pair<ManaCost, Int>>()
+        val chosen = chosenCostObjects()
         snap.view.rules.forEach { applied: AppliedMechanic ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
-            val e = snap.evaluator(applied.controller, self = applied.source, names = applied.names)
+            // The spell's own reduction may count what its additional cost will use ("for each card exiled this way")
+            val names = if (applied.source == itemId) applied.names.with(chosen) else applied.names
+            val e = snap.evaluator(applied.controller, self = applied.source, names = names)
             if (!e.matches(m.what, itemId)) return@forEach
             val mana = Costs.expand(m.change, e)
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
@@ -254,6 +257,28 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
         return increases to reductions
+    }
+
+    /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the
+     * total cost is worked out after the costs' choices are announced, before they are paid). */
+    private fun chosenCostObjects(): Bindings {
+        var b = Bindings.EMPTY
+        contributions.forEach { c ->
+            repeat(c.times) { t ->
+                c.cost.parts.forEachIndexed { j, part ->
+                    val ids = choices.names[OBJECTS + "${c.key}.$t.$j"] ?: return@forEachIndexed
+                    val bindNames = when (part) {
+                        is CostPart.Exile -> listOf(part.preBind, part.postBind)
+                        is CostPart.Sacrifice -> listOf(part.preBind, part.postBind)
+                        is CostPart.Discard -> listOf(part.preBind, part.postBind)
+                        is CostPart.ReturnToHand -> listOf(part.preBind, part.postBind)
+                        else -> emptyList()
+                    }
+                    bindNames.filterNotNull().forEach { b = b.with(it, ids) }
+                }
+            }
+        }
+        return b
     }
 
     val total: TotalCost by lazy {
@@ -313,6 +338,13 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
         return null
     }
 
+    /** CR 601.2d: a divided amount with a single target in its slot goes all to that target, without asking. */
+    fun wholeShares(): List<arcanum.engine.state.DividedShare> = Targets.slots(instructions, choices.modes).mapNotNull { slot ->
+        val divided = slot.slot.divided ?: return@mapNotNull null
+        val chosen = choices.targets[slot.key].orEmpty().singleOrNull() ?: return@mapNotNull null
+        if (choices.divided.any { it.slot == slot.key }) null else arcanum.engine.state.DividedShare(slot.key, chosen, eval.value(divided))
+    }
+
     private fun labels(part: CostPart.OneOf): List<String> {
         val texts = part.options.map { o -> o.parts.joinToString(", ") { Costs.describe(it) } }
         return texts.mapIndexed { i, t -> if (texts.count { it == t } > 1) "$t (${i + 1})" else t }
@@ -334,12 +366,30 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
             if (add.mana.kind !is ManaKind.Choose && add.mana.kind !is ManaKind.AsCouldProduce) return@forEachIndexed
             val key = "$COLOR$i"
-            if (choices.names[key] != null) return@forEachIndexed
-            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), names)
+            val chosen = (choices.names[key] as? NamedValue.Colors)?.colors.orEmpty()
+            // "In any combination of colors": a colour for each mana, else one for all of it
+            val combination = (add.mana.kind as? ManaKind.Choose)?.combination == true
+            if (choices.names[key] != null && !combination) return@forEachIndexed
+            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), manaNames())
+            if (combination && chosen.size >= yields.sumOf { it.amount }) return@forEachIndexed
             val among = yields.flatMap { it.colors }.filterNotNull().distinct()
             if (among.size > 1) return Question.ManaColor(key, among)
         }
         return null
+    }
+
+    /** [names] and the objects chosen for costs under the names they get as they were (`preBind`), before paying: what
+     * a mana ability's mana sees ("any type the sacrificed land could produce", CR 605.3b, 608.2h). */
+    fun manaNames(): Bindings = total.parts.fold(names) { b, kp ->
+        val pre = when (val part = kp.part) {
+            is CostPart.Sacrifice -> part.preBind
+            is CostPart.Discard -> part.preBind
+            is CostPart.Exile -> part.preBind
+            is CostPart.ReturnToHand -> part.preBind
+            else -> null
+        }
+        val chosen = choices.names[OBJECTS + kp.key] as? NamedValue.Objects
+        if (pre != null && chosen != null) b.with(pre, chosen) else b
     }
 
     /** The decision that asks [q]. */
@@ -393,8 +443,19 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             val source = p.source ?: return null
             val current = snap.state.obj(source)?.id ?: (source as? ObjectId.Card)?.card?.let { snap.state.current(it)?.id } ?: return null
             val inst = snap.view[current]?.characteristics?.abilities?.firstOrNull { it.origin == p.ability }
-            val m = (inst?.ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.MayPlay>()?.firstOrNull() ?: return null
-            return m to inst.origin
+            val ability = inst?.ability ?: p.ability?.let { grantedByEffect(snap, it) }
+            val m = (ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.MayPlay>()?.firstOrNull() ?: return null
+            return m to (inst?.origin ?: p.ability)
+        }
+
+        /** A keyword an effect granted the card ("gains flashback until end of turn"): the card on the Stack is a new
+         * object the effect doesn't apply to (CR 400.7), so the permission is read from the effect itself. */
+        private fun grantedByEffect(snap: Snapshot, origin: AbilityOrigin): Ability? {
+            val expansion = origin as? AbilityOrigin.Expansion ?: return null
+            val from = expansion.keyword as? AbilityOrigin.FromEffect ?: return null
+            val gain = snap.state.effects[from.effect]?.mechanics?.getOrNull(from.mechanic) as? Mechanic.GainAbilities ?: return null
+            val keyword = gain.abilities.getOrNull(from.index) as? Keyword ?: return null
+            return arcanum.api.KeywordExpansions.expand(keyword)?.getOrNull(expansion.index)
         }
     }
 }

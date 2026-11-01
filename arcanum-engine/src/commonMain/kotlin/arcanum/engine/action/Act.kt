@@ -65,6 +65,9 @@ internal data class Cause(
 internal class Act(val recorder: Recorder, val asker: Asker) {
     val state: GameState get() = recorder.state
 
+    /** Keys of the replacements whose "instead" instructions are running: they don't apply to their own events (CR 614.5). */
+    val replacing: MutableSet<String> = mutableSetOf()
+
     private var viewSize = -1
     private var viewLast: Change? = null
     private var cached: View? = null
@@ -158,6 +161,18 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** A random result, answered by the host at once (D25). */
     fun random(player: PlayerId, source: ObjectId?, what: RandomKind): Answer = asker.ask { Decision.Random(it, player, source, what) }
+
+    /** [player] pays mana [cost] while something resolves (CR 118.12, 608.2g): how is asked ([Decision.ManaPayment], with
+     * the engine's suggestion, §7.8), then it is paid. */
+    fun payMana(player: PlayerId, source: ObjectId?, cost: arcanum.api.ManaCost) {
+        if (arcanum.engine.mana.Mana.needs(cost).isEmpty()) return
+        val snap = arcanum.engine.casting.Snapshot(state)
+        val uses = (asker.ask {
+            Decision.ManaPayment(it, player, source, cost, arcanum.engine.mana.Mana.options(snap, player, cost, null),
+                arcanum.engine.mana.Mana.suggest(snap, player, cost, null))
+        } as Answer.ManaPayment).uses
+        arcanum.engine.casting.Payment.payOnResolution(recorder, player, cost, uses)
+    }
 
     /** Something to do by hand (D61): shown to [player], answered "done". */
     fun manual(player: PlayerId, source: ObjectId?, text: String) {

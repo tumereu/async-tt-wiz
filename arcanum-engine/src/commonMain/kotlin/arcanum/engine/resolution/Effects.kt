@@ -145,7 +145,8 @@ internal object Effects {
                 if (diff > 0) Actions.gainLife(act, cause, p, diff) else if (diff < 0) Actions.loseLife(act, cause, p, -diff)
             }
             is Effect.PutCounters -> putCounters(scope, effect)
-            is Effect.RemoveCounters -> onBattlefield(scope, effect.objects).forEach { id ->
+            // CR 122.1, 702.62a: counters come off objects in any zone (time counters on a suspended card in exile)
+            is Effect.RemoveCounters -> scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
                 val n = scope.value(effect.amount)
                 val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
                 var left = n
@@ -250,8 +251,14 @@ internal object Effects {
             is Effect.SpellGets -> scope.objects(effect.objects).forEach { id ->
                 // CR 400.7d: the effect follows the spell onto the battlefield
                 val next = (id as? ObjectId.Card)?.next()
+                // Names of the spell also name the permanent it becomes, for the duration ("until you lose control of
+                // the spell or the permanent it becomes"); the view reads them as whichever of the two exists
+                val follow = if (next == null) emptyMap() else scope.names.values
+                    .filterValues { it is NamedValue.Objects && id in it.ids }
+                    .mapValues { (_, v) -> NamedValue.Objects((v as NamedValue.Objects).ids + next) } +
+                    (FOLLOWS_SPELL to NamedValue.Objects(listOf(id, next)))
                 applyMechanics(scope, effect.mechanics, null, effect.duration ?: Duration.Indefinitely, null,
-                    locked = listOfNotNull(id, next))
+                    locked = listOfNotNull(id, next), extra = follow)
             }
             is Effect.WinGame -> scope.players(effect.players).forEach { winner ->
                 act.state.players.filter { it.id != winner && !it.lost }.forEach { lose(scope, it.id) }
@@ -341,6 +348,13 @@ internal object Effects {
         var ordered = ids
         if (dest.randomOrder && ids.size > 1) {
             ordered = (act.random(scope.actor, scope.self, RandomKind.Objects(ids, ids.size)) as Answer.RandomObjects).chosen
+        } else if (dest.zone == Zone.Library && dest.libraryPosition != null && ids.size > 1) {
+            // CR 401.4: cards put into one position of a library at once are arranged by their owner (first: topmost);
+            // each move goes to the bottom below the last, or to the top above it
+            ordered = ids.groupBy { act.state.obj(it)!!.owner }.flatMap { (owner, cards) ->
+                val chosen = act.order(owner, scope.self, cards, "Order, first on top")
+                if (dest.libraryPosition!! < 0) chosen else chosen.reversed()
+            }
         }
         val position = dest.libraryPosition?.let { Actions.libraryPosition(it) }
         val moves = ordered.map { id ->
@@ -418,8 +432,9 @@ internal object Effects {
         val top = act.state.player(player).library.take(n)
         if (top.isEmpty()) return
         act.fill(player, scope.self, top, "scry")
-        val bottom = act.chooseObjects(player, scope.self, top, 0, top.size, "Put on the bottom")
-        val kept = top.filter { it !in bottom }
+        val chosen = act.chooseObjects(player, scope.self, top, 0, top.size, "Put on the bottom")
+        val kept = act.order(player, scope.self, top.filter { it !in chosen }, "Order on top, first on top")
+        val bottom = act.order(player, scope.self, chosen, "Order on the bottom, first on top")
         val rest = act.state.player(player).library.drop(top.size)
         val after = kept + rest + bottom
         if (after != act.state.player(player).library) act.record(Change.Reorder(Zone.Library, player, act.state.player(player).library, after))
@@ -435,6 +450,12 @@ internal object Effects {
         act.fill(player, scope.self, top, "surveil")
         val toGraveyard = act.chooseObjects(player, scope.self, top, 0, top.size, "Put into your graveyard")
         val moved = Actions.moveTo(act, scope.cause, toGraveyard, Zone.Graveyard)
+        val kept = top.filter { it !in toGraveyard }
+        val ordered = act.order(player, scope.self, kept, "Order on top, first on top")
+        val library = act.state.player(player).library
+        if (ordered != kept && library.take(kept.size) == kept) {
+            act.record(Change.Reorder(Zone.Library, player, library, ordered + library.drop(kept.size)))
+        }
         act.record(Change.Happened(GameEvent.Surveilled(player, top.size)))
         scope.bind(bind, NamedValue.Objects(moved.values.toList()))
     }
@@ -563,7 +584,8 @@ internal object Effects {
                 targets = targets.mapValues { (slot, chosen) ->
                     val s = slots.firstOrNull { it.name == slot } ?: return@mapValues chosen
                     val options = Targeting.options(act, s, controller, original.source, original.names, self = copyId)
-                    if (options.size <= 1 || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
+                    // Asked only when another target could be chosen (a single other legal target counts)
+                    if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
                     else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
                 }
             }
@@ -670,6 +692,9 @@ internal object Effects {
     }
 
     private const val LOCKED = "\$affected"
+
+    /** Marks an effect on a spell and the permanent it becomes ([Effect.SpellGets], CR 400.7d): its names hold both. */
+    const val FOLLOWS_SPELL = "\$follows-spell"
 
 
     /** Fixes a mechanic's numbers when they don't depend on each affected object (CR 608.2h, 611.2c). */

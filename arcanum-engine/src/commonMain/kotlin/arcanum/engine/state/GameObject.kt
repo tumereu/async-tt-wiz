@@ -107,6 +107,8 @@ data class ObjectFacts(
     val resolutions: List<TurnCount> = emptyList(),
     /** Triggers of its abilities by turn ("triggers only once each turn", CR 603.2h). */
     val triggers: List<TurnCount> = emptyList(),
+    /** Modes chosen by turn ("choose one that hasn't been chosen this turn"); key is the mode's index. */
+    val modeTurns: List<TurnCount> = emptyList(),
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

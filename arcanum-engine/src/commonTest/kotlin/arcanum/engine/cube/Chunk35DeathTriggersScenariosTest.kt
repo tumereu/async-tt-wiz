@@ -399,16 +399,20 @@ class Chunk35DeathTriggersScenariosTest {
         answer(Answer.Order(listOf(0, 1)))
         expect { stack.size shouldBe 2 }
         allPass()
-        // The top one returns the Corpse for {X}, X its mana value; mana on resolution is paid by hand (D61)
+        // The top one returns the Corpse for {X}, X its mana value (CR 608.2g: paid while it resolves)
         yes()
-        assertEquals("Pay {X} (X = 2)", decision<Decision.Manual>().text)
-        answer(Answer.Done)
+        assertEquals("{2}", decision<Decision.ManaPayment>().cost.toString())
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
         expect { alice.battlefield has corpse }
         allPass()
         yes()
-        assertEquals("Pay {B}", decision<Decision.Manual>().text)
-        answer(Answer.Done)
-        expect { alice.hand has "Unyielding Dead" }
+        assertEquals("{B}", decision<Decision.ManaPayment>().cost.toString())
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
+        expect {
+            alice.hand has "Unyielding Dead"
+            // {B}{B}, the Dart's {1}{B}, {X} = 2 and {B}: all seven Swamps
+            (0..6).count { card("Swamp", it).tapped } shouldBe 7
+        }
     }
 
     /** Not paying, it stays in the graveyard. */
@@ -423,8 +427,11 @@ class Chunk35DeathTriggersScenariosTest {
         // Without another Zombie card the second ability has no target and is removed (CR 603.3d)
         expect { stack.size shouldBe 1 }
         allPass()
-        answer(Answer.YesNo(false))
-        expect { alice.graveyard has "Unyielding Dead" }
+        // Both Swamps paid for the Dart: {B} can't be paid, so it isn't offered (CR 118.3)
+        expect {
+            pending shouldBe null
+            alice.graveyard has "Unyielding Dead"
+        }
     }
 
     /** Modular 2; {T}, sacrifice an artifact: search for a Construct card. */

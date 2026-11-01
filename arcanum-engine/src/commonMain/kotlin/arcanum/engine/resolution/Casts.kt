@@ -22,13 +22,15 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
 import arcanum.engine.state.TargetRef
+import arcanum.engine.state.TurnCount
 import arcanum.engine.view.AbilityOrigin
 
 /**
  * Casting from an effect ([Effect.Cast]: cascade, rebound, suspend, "you may cast it without paying its mana cost",
  * CR 608.2g): a spell cast without paying its mana cost is put on the Stack here with its modes and targets (CR 601.2,
- * 118.9; X is 0, CR 107.3b). Casting for a cost needs mana payment, so it is done by hand until the casting flow
- * ([arcanum.engine.casting.Casting]) offers an entry point for effects.
+ * 118.9; X is 0, CR 107.3b). Casting for a mana cost (madness) announces the spell, then pays the mana; casting for
+ * other costs, or for its mana cost, is done by hand until the casting flow ([arcanum.engine.casting.Casting]) offers an
+ * entry point for effects.
  */
 internal object Casts {
     fun castByEffect(scope: Scope, effect: Effect.Cast) {
@@ -44,6 +46,15 @@ internal object Casts {
                 // CR 305.1: a land is played, not cast
                 if (effect.how == PlayKind.Play) Actions.move(act, scope.cause, listOf(PlannedMove(id, Zone.Battlefield, controller = caster,
                     meanings = listOf(Meaning.PlayedLand))))
+                continue
+            }
+            // A mana cost instead of its mana cost (madness, CR 702.35a): announced, then paid as when casting (CR 601.2g–h)
+            val cost = effect.cost
+            if (cost != null && cost.parts.all { it is arcanum.api.CostPart.Mana }) {
+                putOnStack(act, scope.cause.key, caster, id)?.let { spell ->
+                    Costs.pay(scope, caster, cost)
+                    cast += spell
+                }
                 continue
             }
             if (!effect.withoutPaying || effect.cost != null) {
@@ -92,9 +103,25 @@ internal object Casts {
         event: arcanum.engine.state.TriggerEvent? = null,
     ): Pair<List<Int>, Map<String, List<TargetRef>>>? {
         val modes = instructions.modes?.let { m ->
-            val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text) }
-            if (m.min == m.max && m.max == m.options.size && !m.repeatable) options.map { it.index }
-            else (act.asker.ask { Decision.Modes(it, controller, source, options, m.min, m.max, m.repeatable) } as Answer.Modes).chosen
+            // "Choose one that hasn't been chosen (this turn)": modes this object chose before aren't available
+            val o = source?.let { act.state.obj(it) }
+            val turn = act.state.turn.number
+            val used = buildSet {
+                if (m.onlyUnchosen) addAll(o?.facts?.modesChosen.orEmpty())
+                if (m.onlyUnchosenThisTurn) o?.facts?.modeTurns.orEmpty().filter { it.turn == turn }.forEach { add(it.key.toInt()) }
+            }
+            if (m.options.size - used.size < m.min) return null
+            val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text, available = i !in used) }
+            val chosen = if (used.isEmpty() && m.min == m.max && m.max == m.options.size && !m.repeatable) options.map { it.index }
+                else (act.asker.ask { Decision.Modes(it, controller, source, options, m.min, m.max, m.repeatable) } as Answer.Modes).chosen
+            require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
+            if (o != null && (m.onlyUnchosen || m.onlyUnchosenThisTurn) && chosen.isNotEmpty()) {
+                act.record(Change.Facts(o.id, o.facts, o.facts.copy(
+                    modesChosen = (o.facts.modesChosen + chosen).distinct(),
+                    modeTurns = o.facts.modeTurns.filter { it.turn == turn } + chosen.distinct().map { TurnCount(it.toString(), turn, 1) },
+                )))
+            }
+            chosen
         }.orEmpty()
         val slots = instructions.targets + modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
         val targets = LinkedHashMap<String, List<TargetRef>>()

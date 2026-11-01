@@ -304,6 +304,47 @@ class TurnStructureTest {
         assertTrue(arcanum.engine.Engine.options(state, alice.id).any { it is Input.DeclareAttackers })
         assertFailsWith<IllegalArgumentException> { perform(Input.PassPriority(alice.id)) }
     }
+
+    // CR 714.3b: as the precombat main phase begins, the active player puts a lore counter on each Saga they control
+    @Test
+    fun loreCounterAfterTheDrawStep() = scenario {
+        alice.battlefield("Haruka's Age of Honor", counters = listOf(CounterKind.Lore to 1))
+        bob.battlefield("Haruka's Age of Honor", counters = listOf(CounterKind.Lore to 1))
+        turn(number = 1, step = TurnStep.Draw)
+        allPass()
+        assertEquals(TurnStep.PrecombatMain, state.turn.step)
+        expect {
+            card("Haruka's Age of Honor", 0).counters(CounterKind.Lore) shouldBe 2
+            card("Haruka's Age of Honor", 1).counters(CounterKind.Lore) shouldBe 1
+        }
+    }
+
+    // CR 714.3a: a Saga enters with a lore counter, and its chapter I triggers (CR 714.2b)
+    @Test
+    fun sagaEntersWithALoreCounter() = scenario {
+        alice.battlefield("Plains", "Plains", "Elvish Seer")
+        alice.hand("Haruka's Age of Honor")
+        alice.casts("Haruka's Age of Honor")
+        allPass()
+        expect {
+            "Haruka's Age of Honor".counters(CounterKind.Lore) shouldBe 1
+            stack.names shouldBe listOf("ability of Haruka's Age of Honor")
+        }
+    }
+
+    // CR 306.5b: a planeswalker enters with loyalty counters equal to its printed loyalty
+    @Test
+    fun planeswalkerEntersWithLoyalty() = scenario {
+        alice.battlefield("Mountain", "Mountain", "Mountain")
+        alice.hand("Ignia, Acolyte of Embers")
+        alice.casts("Ignia, Acolyte of Embers")
+        allPass()
+        expect {
+            alice.battlefield has "Ignia, Acolyte of Embers"
+            "Ignia, Acolyte of Embers".counters(CounterKind.Loyalty) shouldBe 4
+            "Ignia, Acolyte of Embers".loyalty shouldBe 4
+        }
+    }
 }
 
 private typealias Cards = arcanum.engine.cards.Cards

@@ -99,6 +99,32 @@ internal object Triggers {
         delayedFired.forEach { recorder.record(Change.DelayedTriggerRemoved(it, listOf(Meaning.Triggered))) }
     }
 
+    /**
+     * CR 605.1b, 605.4a: a triggered mana ability (it triggers from tapping for mana, adds a fixed amount of mana and
+     * has no targets) doesn't wait for the Stack: it resolves right after the mana ability that triggered it.
+     */
+    fun resolveManaTriggers(recorder: Recorder) {
+        val waiting = recorder.state.triggered.toList()
+        val mana = waiting.filter { isManaTrigger(it) }
+        if (mana.isEmpty()) return
+        recorder.record(Change.TriggersWaiting(waiting, waiting.filterNot { it in mana }))
+        mana.forEach { t ->
+            val act = Act(recorder, Asker.NONE)
+            val scope = arcanum.engine.resolution.Scope(act, arcanum.engine.action.Cause(t.controller, t.source, null,
+                "mana-trigger@${recorder.state.nextTimestamp()}"), t.names, t.event)
+            (t.ability as Ability.Triggered).instructions.steps.forEach { arcanum.engine.resolution.Steps.run(scope, it) }
+        }
+    }
+
+    private fun isManaTrigger(t: WaitingTrigger): Boolean {
+        val ability = t.ability as? Ability.Triggered ?: return false
+        val on = ability.trigger as? Trigger.On ?: return false
+        val i = ability.instructions
+        return i.targets.isEmpty() && i.modes == null && i.steps.isNotEmpty() &&
+            on.events.all { it is arcanum.api.EventPattern.Tap && it.forMana == true } &&
+            i.steps.all { step -> ((step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana)?.mana?.kind is arcanum.api.ManaKind.Fixed }
+    }
+
     /** Puts [triggers] among those waiting to go on the Stack (CR 603.2, 603.3). */
     fun addWaiting(recorder: Recorder, triggers: List<WaitingTrigger>) {
         if (triggers.isEmpty()) return

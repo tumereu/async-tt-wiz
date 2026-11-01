@@ -94,6 +94,10 @@ internal object Actions {
             )
         }
         val result = commitMoves(act, final)
+        // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
+        final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
+            .filter { act.state.obj(it)?.zone == Zone.Battlefield && act.view()[it]?.characteristics?.subtypes?.any { s -> s.name == "Saga" } == true }
+            .forEach { putCounters(act, cause, TargetRef.Object(it), CounterKind.Lore, 1) }
         Replacements.addLinked(act, linked)
         return result
     }
@@ -144,7 +148,13 @@ internal object Actions {
     /** Runs a replacement's "instead" instructions with the replaced event's objects (CR 614.1a). */
     fun runInstead(act: Act, r: Replacement, instance: TriggerEvent) {
         val cause = Cause(r.controller, r.source, key = "instead:${act.state.nextTimestamp()}")
-        Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
+        // CR 614.5: it doesn't apply again to the events its own instructions make
+        val added = act.replacing.add(r.key)
+        try {
+            Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
+        } finally {
+            if (added) act.replacing.remove(r.key)
+        }
     }
 
     /** Makes one zone-change event of [moves] (stamped in order, D34), with what everyone saw of each object. */
@@ -170,7 +180,8 @@ internal object Actions {
             val zc = Changes.move(
                 scratch, listOf(m.id), m.to, position = m.position ?: if (m.to == Zone.Library) Changes.Position.Top else Changes.Position.Bottom,
                 controller = m.controller, tapped = m.tapped && toBattlefield, faceDown = m.faceDown, meanings = m.meanings,
-                counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } else emptyList(),
+                counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } + printedCounters(act, before, m)
+                    else emptyList(),
             )
             val moved = zc.moves.single().let { mv ->
                 var after = mv.after
@@ -183,17 +194,32 @@ internal object Actions {
             scratch.apply(Change.ZoneChange(listOf(moved)))
             all += moved
         }
-        act.record(Change.ZoneChange(all))
-        // Put onto the battlefield attacking (CR 508.4): not declared as an attacker.
+        // Put onto the battlefield attacking (CR 508.4): not declared as an attacker. Recorded just before the zone change,
+        // so it is attacking as it enters ("if it's attacking", CR 603.4).
         moves.filter { it.attacking != null && it.to == Zone.Battlefield }.forEach { m ->
             val combat = act.state.combat ?: return@forEach
             val after = all.first { it.before.id == m.id }.after.id
             act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + arcanum.engine.state.Attacker(after, m.attacking!!))))
         }
+        act.record(Change.ZoneChange(all))
         return all.associate { it.before.id to it.after.id }
     }
 
     private const val COPIED = "\$copied"
+
+    /** CR 306.5b, 310.4b: a planeswalker enters with loyalty counters equal to its printed loyalty, a battle with defense
+     * counters equal to its printed defense (the face that enters, or what it enters as a copy of; X counts as 0). */
+    private fun printedCounters(act: Act, o: GameObject, m: PlannedMove): List<Pair<CounterKind, Int>> {
+        if (m.to != Zone.Battlefield || m.faceDown) return emptyList()
+        val face = m.copyOf?.let { (of, _) -> arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face }
+            ?: o.definition?.faces?.getOrNull(if (m.transformed && o.definition.layout == Layout.Transform) 1 else o.face)
+            ?: return emptyList()
+        fun amount(n: arcanum.api.PrintedNumber?) = (n as? arcanum.api.PrintedNumber.Fixed)?.value ?: 0
+        return listOfNotNull(
+            (CounterKind.Loyalty to amount(face.loyalty)).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
+            (CounterKind.Defense to amount(face.defense)).takeIf { CardType.Battle in face.types && it.second > 0 },
+        )
+    }
 
     private fun lockedEffect(
         id: String, mechanics: List<Mechanic>, on: ObjectId, controller: PlayerId?, ts: Long, act: Act,
@@ -282,7 +308,8 @@ internal object Actions {
                         val lethal = (c.toughness ?: 0) - o.damage
                         excess += (d.amount - (if (Keyword.Deathtouch in keywords) minOf(1, lethal) else lethal).coerceAtLeast(0)).coerceAtLeast(0)
                         if (Keyword.Wither in keywords || Keyword.Infect in keywords) {
-                            act.record(Changes.counters(act.state, r, CounterKind.PowerToughness(-1, -1), d.amount))
+                            // CR 122.6, 614.1: the counters are put on it, so effects that change counters being put apply
+                            putCounters(act, cause, r, CounterKind.PowerToughness(-1, -1), d.amount)
                             if (Keyword.Deathtouch in keywords) {
                                 val now = act.obj(r.id)!!
                                 act.record(Change.DamageMarked(r.id, now.damage, now.damage, now.deathtouchDamage, true))

@@ -244,6 +244,7 @@ class Chunk15ReturnsTriggersAndTurnsTest {
             ))),
         )),
         Ability.Triggered(
+            functionsIn = listOf(Zone.Graveyard),
             trigger = Trigger.On(EventPattern.GainLife(PlayerFilter.Opponent)),
             instructions = Instructions(steps = listOf(
                 Step.Pay(cost = manaCost("{R}"), bind = "paid", payer = Players.You),

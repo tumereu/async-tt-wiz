@@ -228,6 +228,35 @@ class CostsTest {
         }
     }
 
+    // CR 702.34a, 400.7: flashback granted until end of turn still exiles the spell, though it's a new object on the Stack
+    @Test
+    fun grantedFlashbackExilesTheSpell() = scenario {
+        alice.battlefield("Mountain")
+        alice.graveyard("Storm Spark")
+        effect(alice, Mechanic.GainAbilities(listOf(Keyword.Flashback(arcanum.api.Cost(listOf(arcanum.api.CostPart.ItsManaCost))))),
+            on = listOf("Storm Spark"))
+        alice.casts("Storm Spark", target = "bob")
+        expect { "Mountain".tapped shouldBe true }
+        allPass()
+        expect {
+            bob.life shouldBe 17
+            alice.exile has "Storm Spark"
+        }
+    }
+
+    // CR 601.2b, 601.2f: a cost that counts the spell's X uses the X announced while casting it
+    @Test
+    fun costCountingX() = scenario {
+        alice.battlefield("Mountain", "Mountain")
+        alice.hand("Forest", "Island", "Swamp")
+        alice.graveyard("Wildfire Spread")
+        alice.casts("Wildfire Spread", x = 2, target = "bob", choosing = listOf("Forest", "Island"))
+        expect {
+            alice.graveyard.names shouldBe listOf("Forest", "Island")
+            alice.hand.names shouldBe listOf("Swamp")
+        }
+    }
+
     // CR 601.3: without a permission, nothing is cast from the graveyard
     @Test
     fun noCastingFromTheGraveyardWithoutPermission() = scenario {
@@ -388,6 +417,20 @@ class CostsTest {
         expect { alice.hand has "Forest" }
     }
 
+    // CR 601.2b, 601.2f: a reduction "for each card exiled this way" counts the cards chosen for the additional cost
+    @Test
+    fun reductionCountsTheCardsChosenForTheAdditionalCost() = scenario {
+        alice.battlefield("Plains")
+        alice.hand("Procession of Pale Light", "Wall of Portents", "Loyal Hearthhound")
+        bob.battlefield("Elvish Hierophant")
+        perform(Input.Cast(alice.id, card("Procession of Pale Light")))
+        answer(Answer.Number(3))
+        answer(Answer.Targets(listOf(target("Elvish Hierophant"))))
+        answer(Answer.Objects(listOf(card("Wall of Portents"), card("Loyal Hearthhound"))))
+        // {3}{W} less {2} twice: the generic part can't go below nothing (CR 118.7a)
+        assertEquals("{W}", assertIs<Decision.ManaPayment>(pending).cost.toString())
+    }
+
     // CR 702.37c, 708.4: morph: cast face down as a 2/2 creature for {3}
     @Test
     fun morphFaceDown() = scenario {
@@ -464,5 +507,24 @@ class CostsTest {
         val d = assertIs<Decision.ManaPayment>(pending)
         assertTrue(d.suggestion.isEmpty())
         assertFailsWith<IllegalArgumentException> { alice.answers(Answer.ManaPayment(d.options)) }
+    }
+
+    // CR 702.34a: flashback an effect granted to the card in the graveyard: still cast from there and exiled afterwards,
+    // though the card on the Stack is a new object (CR 400.7)
+    @Test
+    fun grantedFlashbackExiles() = scenario {
+        alice.battlefield("Mountain")
+        alice.graveyard("Storm Spark")
+        alice.hand("Echoflash Adept")
+        alice.castsWithoutCosts("Echoflash Adept")
+        resolve()
+        resolve()
+        alice.casts("Storm Spark", target = "bob")
+        assertEquals(Zone.Graveyard, facts("Storm Spark").castFrom)
+        allPass()
+        expect {
+            bob.life shouldBe 17
+            alice.exile has "Storm Spark"
+        }
     }
 }

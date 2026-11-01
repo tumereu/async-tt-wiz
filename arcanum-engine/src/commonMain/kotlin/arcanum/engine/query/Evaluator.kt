@@ -163,9 +163,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         else -> emptyList()
     }
 
-    /** The memory of "this" (D22); after it has left its zone, its last known memory, so a linked ability of a source that
-     * left still finds what it remembered (CR 607.2a). */
-    private fun selfMemory(key: String): NamedValue? = ctx.self?.let { (state.obj(it)?.memory ?: board.snapshot(it)?.memory)?.get(key) }
+    /** What the source remembers (D41); after it left its zone, what it remembered then (its last known information,
+     * kept by the Stack item or the log): a leaves-the-battlefield ability still finds the cards its linked ability
+     * exiled (CR 607.2a). */
+    private fun selfMemory(key: String): NamedValue? = ctx.self?.let { self ->
+        val o = state.obj(self)
+        if (o != null) o.memory[key]
+        else (board.snapshot(self)?.memory?.takeIf { it.values.isNotEmpty() } ?: Lki.memory(state, self))?.get(key)
+    }
 
     // ---- Players
 
@@ -398,7 +403,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.Announced -> (ctx.names[value.name] as? NamedValue.Number)?.value ?: ctx.stackItem?.announced?.get(value.name) ?: 0
         is Value.Bound -> boundNumber(ctx.names[value.name])
         is Value.Remembered -> boundNumber(selfMemory(value.key))
-        is Value.CastX -> objects(value.of).firstNotNullOfOrNull { facts(it)?.x } ?: 0
+        // While it is being cast, the spell's X is the one announced so far (CR 601.2b, 601.2f)
+        is Value.CastX -> objects(value.of).firstNotNullOfOrNull { id ->
+            facts(id)?.x ?: ctx.stackItem?.takeIf { it.id == id }?.announced?.get("X")
+        } ?: 0
         is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of))
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
@@ -522,7 +530,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.TargetsLegal ->
             (ctx.names[TARGETS_LEGAL_PREFIX + condition.slots.joinToString(",")] as? NamedValue.Number)?.value != 0
         is Condition.Searched -> ctx.names[SEARCHED_PREFIX + condition.name + ":" + condition.zone] != null
-        is Condition.ClassLevelAtLeast -> boundNumber(selfMemory(CLASS_LEVEL)).coerceAtLeast(1) >= condition.level
+        // A Class's level is card memory (CR 716); a leveler's is its level counters (CR 711.2)
+        is Condition.ClassLevelAtLeast -> {
+            val o = ctx.self?.let { state.obj(it) }
+            val isClass = o?.definition?.faces?.getOrNull(o.face)?.subtypes?.contains(Subtype("Class")) == true
+            val level = if (isClass || o == null) boundNumber(selfMemory(CLASS_LEVEL)).coerceAtLeast(1) else o.counters(CounterKind.Level)
+            level >= condition.level
+        }
         Condition.IsDay -> state.ledger[DAY_NIGHT] == DAY
         Condition.IsNight -> state.ledger[DAY_NIGHT] == NIGHT
     }

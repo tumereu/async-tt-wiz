@@ -27,8 +27,8 @@ class Chunk40PumpsEvasionAndTypeChangesScenariosTest {
 
     private fun Scenario.yes() = answer(Answer.YesNo(true))
 
-    /** Bob makes Alice discard [card] with Crow's Larceny; madness exiles it and its trigger offers the madness cast,
-     * which is done by hand for now (D61). */
+    /** Bob makes Alice discard [card] with Crow's Larceny; madness exiles it and its trigger casts it for [cost] (CR
+     * 702.35a): free here. */
     private fun Scenario.discardForMadness(card: String, cost: String) {
         bob.castsWithoutCosts("Crow's Larceny", target = "alice")
         resolve()
@@ -39,8 +39,9 @@ class Chunk40PumpsEvasionAndTypeChangesScenariosTest {
         }
         resolve()
         yes()
-        assertEquals("Cast $card for $cost", decision<Decision.Manual>().text)
-        answer(Answer.Done)
+        expect { stack.names shouldBe listOf(card) }
+        resolve()
+        expect { alice.battlefield has card }
     }
 
     /** {1}{G}: +2/+2 until end of turn, once each turn; madness {0}. */

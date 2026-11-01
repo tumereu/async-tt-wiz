@@ -472,6 +472,8 @@ class CastingTest {
     fun playingTheBackFaceLand() = scenario {
         alice.hand("Summit Ascetic // Hermit Peak")
         alice.plays("Summit Ascetic // Hermit Peak", face = 1)
+        // CR 614.12: the land face's "as this land enters, you may pay 3 life" is asked
+        answer(Answer.YesNo(false))
         expect {
             card("Hermit Peak").types shouldBe listOf(CardType.Land)
             alice.battlefield has "Summit Ascetic // Hermit Peak"
@@ -515,5 +517,30 @@ class CastingTest {
         alice.casts("Brash Pilferer", way = arcanum.engine.input.CastWay(face = 1), target = "Lotus Frond")
         expect { card("Brash Pilferer").types shouldBe listOf(CardType.Instant) }
         assertEquals(1, state.objOrThrow(card("Brash Pilferer")).face)
+    }
+
+    // CR 601.2d: a divided amount with a single target all goes to it
+    @Test
+    fun dividedAmountToASingleTarget() = scenario {
+        alice.battlefield("Mountain", "Mountain", "Mountain")
+        alice.hand("Wildfire Spread")
+        alice.casts("Wildfire Spread", x = 1, target = "bob")
+        allPass()
+        expect { bob.life shouldBe 19 }
+    }
+
+    // CR 601.3: "can't cast noncreature spells" is checked on the card as the spell it would be: a noncreature card
+    // can't be cast, a creature card can
+    @Test
+    fun cantCastNoncreatureSpells() = scenario {
+        alice.battlefield("Ranger-Marshal of Dawn")
+        bob.battlefield("Mountain", "Forest")
+        bob.hand("Storm Spark", "Elvish Seer")
+        turn(number = 2, active = bob)
+        alice.activatesWithoutCosts("Ranger-Marshal of Dawn")
+        resolve()
+        assertFailsWith<IllegalArgumentException> { bob.casts("Storm Spark", target = "alice") }
+        bob.casts("Elvish Seer", paying = listOf("Forest"))
+        expect { stack.names shouldBe listOf("Elvish Seer") }
     }
 }

@@ -449,7 +449,7 @@ class Chunk32EntersTutorsTokensAndBounceTest {
         Keyword.Flying,
         returnYourOwn(creature),
         whenThisEnters(
-            Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Exile))),
+            Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Exile), postBind = "exiled")),
             targets = listOf(objectSlot("card", allOf(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard)))),
         ),
     )

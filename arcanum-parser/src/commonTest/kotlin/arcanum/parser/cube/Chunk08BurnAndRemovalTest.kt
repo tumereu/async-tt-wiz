@@ -435,8 +435,12 @@ class Chunk08BurnAndRemovalTest {
                             library = Players.ControllerOf(Objects.Target("creature")),
                             filter = ObjectFilter.And(listOf(ObjectFilter.Super(Supertype.Basic), ObjectFilter.Type(CardType.Land))),
                             bind = "found",
+                            searcher = Players.ControllerOf(Objects.Target("creature")),
                         )),
-                        Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield, tapped = true))),
+                        Step.Do(Effect.Move(
+                            Objects.Bound("found"),
+                            to = Destination(Zone.Battlefield, tapped = true, controller = Players.ControllerOf(Objects.Target("creature"))),
+                        )),
                         Step.Do(Effect.Shuffle(Players.ControllerOf(Objects.Target("creature")))),
                     ),
                 ),

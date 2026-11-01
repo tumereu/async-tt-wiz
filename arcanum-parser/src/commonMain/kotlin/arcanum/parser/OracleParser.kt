@@ -38,19 +38,25 @@ object OracleParser {
 
     fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
 
-    /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]". */
+    /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
+     * ("this Equipment", "this Vehicle"). */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =
         setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
-            listOf("this card", "this permanent", "this spell")
+            listOf("this card", "this permanent", "this spell") +
+            // chunk 26: a legendary card's first name ("Kaito" of "Kaito Shizuki", CR 201.5c)
+            listOfNotNull(name.substringBefore(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != "The" }) +
+            // chunk 20
+            face.subtypes.map { "this " + it.name }
 
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
-        val sentences = Sentences(self, isSpell)
+        // chunks 21, 26: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
+        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") })
         // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
-            text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_KEY)
+            text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
             else -> null
         }
         val result = mutableListOf<Ability>()
@@ -78,9 +84,18 @@ object OracleParser {
                 raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
                 continue
             }
+            // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
+            if (!isSpell && line.endsWith(" —") && i < lines.size && lines[i].startsWith("• ")) {
+                val modeLines = mutableListOf<String>()
+                while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
+                val printed = (listOf(raw.trim()) + modeLines.map { "• $it" }).joinToString("\n")
+                result += sentences.modalTrigger(line, modeLines) ?: Ability.Unparsed(printed)
+                raws += printed
+                continue
+            }
             val previous = result.lastOrNull()
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
-            val parsed = if (instead == null) keywordLine(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            val parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
             when {
                 instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
@@ -136,10 +151,22 @@ object OracleParser {
         FLASHBACK_COST.matchEntire(part)?.let { m ->
             return Keyword.Flashback(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
         }
+        // chunk 13: "Escalate—Discard a card." (CR 702.120a): a cost that isn't only mana.
+        ESCALATE_COST.matchEntire(part)?.let { m ->
+            return Keyword.Escalate(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
+        }
         // "Splice onto Arcane {1}{R}" (CR 702.47a): a quality, then a cost.
         SPLICE.matchEntire(part)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
+        }
+        // chunk 25: "Enchant creature or Vehicle", "Enchant player" (CR 702.5a)
+        ENCHANT.matchEntire(part)?.let { m ->
+            return Keyword.Enchant(when (m.groupValues[1]) {
+                "player" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Any)
+                "opponent" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Opponent)
+                else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
+            })
         }
         // chunk 30: "Affinity for artifacts" (CR 702.41a): a quality, kept as printed too.
         AFFINITY.matchEntire(part)?.let { m -> return Keyword.Affinity(Filters.noun(m.groupValues[1]) ?: return null, m.groupValues[1]) }
@@ -167,12 +194,16 @@ object OracleParser {
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
     private val LEVEL_BAND = Regex("""LEVEL \d+(?:-\d+|\+)""")
-    private val CHOOSE = Regex("""Choose (one|two|three|four)(?: —|\. You may choose the same mode more than once\.)""")
+    private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")
+    // chunk 25
+    private val ENCHANT = Regex("""Enchant (.+)""")
+    // chunk 13
+    private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
     // chunk 30
     private val AFFINITY = Regex("""Affinity for (\w+)""")
     private val DASH_COST = Regex("""(Evoke|Escape)—(.+?)\.?""")

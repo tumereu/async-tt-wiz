@@ -191,7 +191,8 @@ class Chunk30EntersDrawAndLifeTest {
         whenThisEnters(Step.Do(Effect.Scry(Players.You, count = Value.Fixed(2)))),
     )
 
-    // CR 603.4: the intervening "if" is checked when it triggers and as it resolves.
+    // CR 603.4: the intervening "if" is checked when it triggers and as it resolves; CR 113.6b: it says the ability works
+    // in the graveyard.
     @Test
     fun deathlessSavant() = card(
         name = "Deathless Savant",
@@ -207,6 +208,7 @@ class Chunk30EntersDrawAndLifeTest {
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
             interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard)),
+            functionsIn = listOf(Zone.Graveyard),
             instructions = Instructions(
                 steps = listOf(
                     Step.Pay(cost = Cost(listOf(CostPart.PayLife(Value.Fixed(1)))), bind = "paid"),
@@ -366,7 +368,7 @@ class Chunk30EntersDrawAndLifeTest {
         ),
         Ability.Activated(
             cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Food")))))),
-            instructions = Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Battlefield))))),
+            instructions = Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Battlefield), postBind = "returned")))),
         ),
     )
 }

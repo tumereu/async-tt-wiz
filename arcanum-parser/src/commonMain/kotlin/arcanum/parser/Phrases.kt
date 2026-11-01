@@ -44,6 +44,13 @@ internal object Filters {
         IN_YOUR_GRAVEYARD.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
         }
+        // chunk 51: "artifact card with mana value equal to 1 plus the sacrificed artifact's mana value" (its last known
+        // information, CR 608.2h)
+        MANA_VALUE_PLUS_SACRIFICED.matchEntire(phrase)?.let { m ->
+            val sacrificed = Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound(SACRIFICED), Combine.Single)
+            return all(noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.ManaValue(Comparison.Equal, Value.Sum(listOf(Value.Fixed(m.groupValues[2].toInt()), sacrificed))))
+        }
         // chunk 14: "instant or sorcery spell": the head noun covers both alternatives.
         OR_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)) }
         // chunk 14: "permanent card" (CR 110.4a): an artifact, battle, creature, enchantment, land, or planeswalker card.
@@ -231,6 +238,8 @@ internal object Filters {
     private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
     // chunk 47
     private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
+    // chunk 51
+    private val MANA_VALUE_PLUS_SACRIFICED = Regex("""(.+) with mana value equal to (\d+) plus the sacrificed \w+'s mana value""")
 }
 
 /** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
@@ -352,6 +361,14 @@ internal object Events {
                 ObjectFilter.Category(arcanum.api.ObjectCategory.Card).takeIf { m.groupValues[1].contains("card") })
             return EventPattern.ZoneChange(Filters.all(*cards.toTypedArray(), ObjectFilter.OwnedBy(PlayerFilter.You)), to = Zone.Graveyard)
         }
+        // chunk 50: "you cast a spell from anywhere other than your hand" (CR 601.2a: cast from where it was)
+        YOU_CAST_NOT_FROM_HAND.matchEntire(text)?.let { m ->
+            val notFromHand = ObjectFilter.Not(ObjectFilter.WasCast(Zone.Hand))
+            val spell = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.all(Filters.noun(it) ?: return null, notFromHand) } ?: notFromHand
+            return EventPattern.Cast(spell = spell, by = PlayerFilter.You)
+        }
+        // chunk 36: "the beginning of each end step": every player's
+        BEGINNING_OF_EACH.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null) }
         // chunk 52: "a creature is exiled from the battlefield"
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile)
@@ -429,6 +446,8 @@ internal object Events {
     // chunk 47
     private val PLAYER_SACRIFICES = Regex("""a player sacrifices an? (.+)""")
     // chunk 50
+    private val YOU_CAST_NOT_FROM_HAND = Regex("""you cast an? (?:(.+) )?spell from anywhere other than your hand""")
+    private val BEGINNING_OF_EACH = Regex("""the beginning of each (upkeep|end step)""")
     private val PUT_INTO_YOUR_GRAVEYARD_FROM_ANYWHERE = Regex("""(.+) (?:is|are) put into your graveyard from anywhere""")
     // chunk 52
     private val EXILED_FROM_THE_BATTLEFIELD = Regex("""(.+) is exiled from the battlefield""")
@@ -550,6 +569,11 @@ internal object Conditions {
         THERE_ARE_N_OR_MORE.matchEntire(text)?.let { m ->
             return Condition.Exists(Filters.noun(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null)
         }
+        // chunk 36: "a card left your graveyard this turn"
+        LEFT_YOUR_GRAVEYARD_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard))
+        }
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
         NTH_RESOLUTION.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.AbilityUsesThisTurn(resolved = true), Comparison.Equal, Value.Fixed(Numbers.ordinal(m.groupValues[1]) ?: return null))
@@ -589,6 +613,8 @@ internal object Conditions {
     // chunk 47
     private val CONTROL_NONE = Regex("""you control no (.+)""")
     // chunk 52
+    // chunk 36
+    private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
     // chunk 56
     private val CONTROL_N_OR_MORE_PHRASE = Regex("""you control (\w+) or more (.+)""")

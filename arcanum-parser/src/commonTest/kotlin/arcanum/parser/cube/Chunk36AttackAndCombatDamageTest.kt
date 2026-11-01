@@ -32,6 +32,7 @@ import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.PrintedNumber
 import arcanum.api.RecipientFilter
+import arcanum.api.Recipients
 import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
@@ -488,6 +489,37 @@ class Chunk36AttackAndCombatDamageTest {
                     Value.Of(NumericProperty.ManaValue, Objects.Bound("revealed"), Combine.Single),
                 )),
             ),
+        ),
+    )
+
+    /** "Rage" is a flavor word (CR 207.2d). The end step trigger is every player's; "if a card left your graveyard this
+     * turn" is checked as it triggers and as it resolves (CR 603.4). */
+    @Test
+    fun brakkaWildWhelp() = card(
+        name = "Brakka, Wild Whelp",
+        cost = "{1}{R}",
+        type = "Legendary Creature — Human Berserker",
+        text = """
+            Rage — Whenever Brakka attacks, put a +1/+1 counter on it.
+            At the beginning of each end step, if a card left your graveyard this turn, Brakka deals damage equal to its power to each opponent.
+        """,
+        pt = "2/2",
+    ) parsesTo abilities(
+        Ability.Triggered(
+            abilityWord = "Rage",
+            trigger = thisAttacks,
+            instructions = steps(putCounterOnSelf),
+        ),
+        Ability.Triggered(
+            trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End)),
+            interveningIf = Condition.HappenedThisTurn(EventPattern.ZoneChange(
+                objects = ObjectFilter.And(listOf(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.OwnedBy(PlayerFilter.You))),
+                from = Zone.Graveyard,
+            )),
+            instructions = steps(Step.Do(Effect.DealDamage(
+                to = Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                amount = Value.Of(NumericProperty.Power, Objects.Self, Combine.Single),
+            ))),
         ),
     )
 }

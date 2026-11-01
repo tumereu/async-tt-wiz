@@ -63,7 +63,8 @@ data class FaceDefinition(
 sealed interface Ability {
     /**
      * Instructions of an instant or sorcery (CR 113.3a).
-     * [abilityWord] is an italic ability word ("Spell mastery"), which has no rules meaning (CR 207.2c).
+     * [abilityWord] is an italic ability word ("Spell mastery") or flavor word ("Magical Tinkering"), which has no rules
+     * meaning (CR 207.2c, 207.2d); the same field on the other ability kinds.
      */
     @Serializable @SerialName("spell")
     data class Spell(

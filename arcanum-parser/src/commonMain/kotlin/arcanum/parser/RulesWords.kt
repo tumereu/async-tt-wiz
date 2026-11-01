@@ -539,4 +539,15 @@ internal object RulesWords {
         "void",
         "will of the council",
     )
+
+    /** Flavor words (CR 207.2d), lower case: like ability words, labels without rules meaning, but the CR doesn't list
+     * them, so this is our own list, added one at a time as cards need them. Any other word stays unparsed. */
+    val flavorWords: Set<String> = setOf(
+        "curse of the walking pox",
+        "magical tinkering",
+        "rage",
+    )
+
+    /** An ability word or flavor word ([abilityWords], [flavorWords]), compared without case. */
+    fun isAbilityOrFlavorWord(word: String): Boolean = word.lowercase().let { it in abilityWords || it in flavorWords }
 }

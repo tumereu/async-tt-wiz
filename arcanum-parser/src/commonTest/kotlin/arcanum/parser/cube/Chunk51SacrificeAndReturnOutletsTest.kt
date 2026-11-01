@@ -5,6 +5,8 @@ import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
+import arcanum.api.Combine
+import arcanum.api.Comparison
 import arcanum.api.Condition
 import arcanum.api.Cost
 import arcanum.api.CostObjects
@@ -15,7 +17,9 @@ import arcanum.api.Effect
 import arcanum.api.EventPattern
 import arcanum.api.Instructions
 import arcanum.api.Keyword
+import arcanum.api.ManaCost
 import arcanum.api.Mechanic
+import arcanum.api.NumericProperty
 import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
@@ -26,6 +30,7 @@ import arcanum.api.Subtype
 import arcanum.api.Supertype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -34,7 +39,8 @@ import kotlin.test.Test
 
 /**
  * Chunk 51: creatures with activated abilities paid by sacrificing, discarding or returning permanents. "Activate only
- * once each turn", "Any player may activate this ability" (CR 602.2), "another creature or artifact", "three Foods",
+ * once each turn", "Any player may activate this ability" (CR 602.2), the sacrificed artifact's mana value (CR 608.2h),
+ * a flavor word (CR 207.2d), "another creature or artifact", "three Foods",
  * protection from a colour (CR 702.16a) and a threshold bonus that holds "as long as" its condition does.
  */
 class Chunk51SacrificeAndReturnOutletsTest {
@@ -105,6 +111,42 @@ class Chunk51SacrificeAndReturnOutletsTest {
         text = "Return an Elf you control to its owner's hand: Untap target creature. Activate only once each turn.",
     ) parsesTo abilities(
         returnToUntap("Elf"),
+    )
+
+    /** "Magical Tinkering" is a flavor word (CR 207.2d). The sacrificed artifact's mana value is read as it last existed
+     * (CR 608.2h). */
+    @Test
+    fun tibbetGearwhistle() = card(
+        name = "Tibbet Gearwhistle",
+        cost = "{1}{W}",
+        type = "Legendary Creature — Gnome Artificer",
+        pt = "2/2",
+        text = "Magical Tinkering — {W}, {T}, Sacrifice an artifact: Search your library for an artifact card with mana value equal to 1 plus the sacrificed artifact's mana value, put it onto the battlefield, then shuffle. Activate only as a sorcery.",
+    ) parsesTo abilities(
+        Ability.Activated(
+            abilityWord = "Magical Tinkering",
+            cost = Cost(listOf(
+                CostPart.Mana(ManaCost.parse("{W}")!!),
+                CostPart.TapSelf,
+                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact)), preBind = "sacrificed"),
+            )),
+            instructions = Instructions(steps = listOf(
+                Step.Do(Effect.Search(
+                    library = Players.You,
+                    filter = ObjectFilter.And(listOf(
+                        ObjectFilter.Type(CardType.Artifact),
+                        ObjectFilter.ManaValue(Comparison.Equal, Value.Sum(listOf(
+                            Value.Fixed(1),
+                            Value.Of(NumericProperty.ManaValue, Objects.Bound("sacrificed"), Combine.Single),
+                        ))),
+                    )),
+                    bind = "found",
+                )),
+                Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
+                Step.Do(Effect.Shuffle(Players.You)),
+            )),
+            rules = ActivationRules(timing = Timing.Sorcery),
+        ),
     )
 
     // ---- Discard a card

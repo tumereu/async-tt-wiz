@@ -37,7 +37,8 @@ import kotlin.test.Test
  * Chunk 50: creatures that come back from the graveyard or care about it. Triggers that return the card itself ("return
  * this card from your graveyard to the battlefield"), which work only in the graveyard because they move it out of there
  * (CR 113.6m); casting it from the graveyard for an alternative cost (CR 118.9); "another creature"; cards put into
- * your graveyard from anywhere; "your third card in a turn" and "the second creature spell you cast this turn";
+ * your graveyard from anywhere; "your third card in a turn", "the second creature spell you cast this turn" and a spell
+ * cast from anywhere other than your hand (CR 601.2a), after a flavor word (CR 207.2d);
  * historic spells (CR 700.6); "sacrifice it unless you sacrifice a land" (CR 118.12a).
  */
 class Chunk50GraveyardCreaturesTest {
@@ -102,6 +103,30 @@ class Chunk50GraveyardCreaturesTest {
         Keyword.Flying,
         Ability.Triggered(
             trigger = Trigger.On(listOf(EventPattern.Draw(PlayerFilter.You)), nthThisTurn = 3),
+            instructions = Instructions(steps = listOf(returnToBattlefield(tapped = true))),
+        ),
+    )
+
+    /** "Curse of the Walking Pox" is a flavor word (CR 207.2d): no rules meaning, kept like an ability word. A spell is
+     * cast from the zone it was in (CR 601.2a). */
+    @Test
+    fun plagueShamblers() = card(
+        name = "Plague Shamblers",
+        cost = "{2}{B}",
+        type = "Creature — Zombie",
+        pt = "3/1",
+        text = """
+            Deathtouch
+            Curse of the Walking Pox — Whenever you cast a spell from anywhere other than your hand, return this card from your graveyard to the battlefield tapped.
+        """,
+    ) parsesTo abilities(
+        Keyword.Deathtouch,
+        Ability.Triggered(
+            abilityWord = "Curse of the Walking Pox",
+            trigger = Trigger.On(EventPattern.Cast(
+                spell = ObjectFilter.Not(ObjectFilter.WasCast(Zone.Hand)),
+                by = PlayerFilter.You,
+            )),
             instructions = Instructions(steps = listOf(returnToBattlefield(tapped = true))),
         ),
     )

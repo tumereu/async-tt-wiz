@@ -101,7 +101,8 @@ internal class Sentences(
                     else -> null
                 }
             }
-            if (word.lowercase() !in RulesWords.abilityWords) return null
+            // chunk 50: flavor words too (CR 207.2d)
+            if (!RulesWords.isAbilityOrFlavorWord(word)) return null
             return when (val ability = line(m.groupValues[2])) {
                 is Ability.Activated -> ability.copy(abilityWord = word)
                 is Ability.Triggered -> ability.copy(abilityWord = word)
@@ -119,7 +120,7 @@ internal class Sentences(
      */
     fun insteadOf(line: String, spell: Ability.Spell): Ability.Spell? {
         val m = INSTEAD_IF.matchEntire(line) ?: return null
-        if (m.groupValues[1].isNotEmpty() && m.groupValues[1].lowercase() !in RulesWords.abilityWords) return null
+        if (m.groupValues[1].isNotEmpty() && !RulesWords.isAbilityOrFlavorWord(m.groupValues[1])) return null
         val condition = Conditions.condition(m.groupValues[3], self) ?: return null
         val steps = spell.instructions.steps
         if (steps.isEmpty()) return null
@@ -930,6 +931,8 @@ internal class Sentences(
         context.it = event?.let { if (it is EventPattern.ZoneChange) Objects.EventObject(arcanum.api.EventRole.After) else Objects.EventObject() }
         // chunk 30: a step has no object, so "it" is this object ("return it to your hand")
         if (event is EventPattern.StepBegins) context.it = Objects.Self
+        // chunk 36: "Whenever this creature attacks, put a +1/+1 counter on it": it is this creature
+        if (event is EventPattern.Attack && event.attacker == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
         // chunk 20
         context.that = that
@@ -2063,6 +2066,8 @@ internal class Sentences(
             val on = m.groupValues[3]
             val objects = when {
                 isSelf(on) -> Objects.Self
+                // chunk 36: "on it"
+                on == "it" -> context.it
                 on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), Filters.noun(it) ?: return null) }
                 // chunk 35: other wordings ("on Korvold and draw a card") are left to the rules below
                 else -> null

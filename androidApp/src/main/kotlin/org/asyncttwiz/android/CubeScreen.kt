@@ -185,12 +185,12 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
                 .semantics { contentDescription = "Cube name" }, placeholder = "Cube name",
                 keyboardOptions = imeOptions(ImeAction.Next))
         },
-        listField = { ImportListField(state.text, controller::text, "Card list", "cube-list") },
+        listField = { ImportListField(state.text, controller::text, "Card list", "cube-list", problemLines(state.text, state.result)) },
         feedback = {
             ImportError(state.error)
-            ImportResultSummary(state.result, deck = false, lineNumbers = true)
+            ImportResultSummary(state.result, lineNumbers = true)
         }, deleteLabel = if (state.target != null) "Delete cube" else null, delete = controller::requestDelete,
-        deleteEnabled = controller.canDelete)
+        deleteEnabled = controller.canDelete, textProblems = state.result?.takeIf { it.text == state.text }?.issues?.isNotEmpty() == true)
     CubeDialogs(controller)
     if (state.linkDialog) ImportLinkDialog(state.cobraInput, controller::cobraInput, "Cube Cobra link or ID", "cube-url",
         "Paste Cube Cobra link", controller::pasteCobra, controller::importCobra,

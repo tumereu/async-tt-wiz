@@ -56,7 +56,8 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
     search: CardListSearch, tab: CardListTab, onTab: (CardListTab) -> Unit, openLink: () -> Unit, linkEnabled: Boolean,
     canSave: Boolean, saving: Boolean, save: () -> Unit, saveTag: String, lookupPending: Boolean, error: String?,
     dismissError: () -> Unit, nameRow: @Composable () -> Unit, listField: @Composable ColumnScope.() -> Unit,
-    feedback: @Composable ColumnScope.() -> Unit, deleteLabel: String? = null, delete: () -> Unit = {}, deleteEnabled: Boolean = true) {
+    feedback: @Composable ColumnScope.() -> Unit, deleteLabel: String? = null, delete: () -> Unit = {}, deleteEnabled: Boolean = true,
+    textProblems: Boolean = false) {
     if (search.state.open) { CardSearchPage(editor, search, landscape); DeckCardInspection(editor.inspection); return }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
@@ -65,7 +66,14 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
         TabRow(selectedTabIndex = tab.ordinal, modifier) {
             CardListTab.entries.forEach { entry ->
                 Tab(selected = tab == entry, onClick = { keyboard?.hide(); focus.clearFocus(); onTab(entry) },
-                    modifier = Modifier.testTag("card-list-tab-${entry.name.lowercase()}"), text = { Text(entry.label) })
+                    modifier = Modifier.testTag("card-list-tab-${entry.name.lowercase()}"), text = {
+                        // LOB-059: the Text tab shows a red error icon while the list has problems.
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(entry.label)
+                            if (entry == CardListTab.TEXT && textProblems) Icon(screenIcon("error"), "The list has problems",
+                                Modifier.size(18.dp).testTag("text-tab-problems"), tint = MaterialTheme.colorScheme.error)
+                        }
+                    })
             }
         }
     }
@@ -100,10 +108,8 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
                 CardListTab.CARDS -> CardListCardsTab(editor, search, lookupPending, columns, summary = !landscape, feedback)
-                CardListTab.TEXT -> if (landscape) Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(1f).fillMaxHeight(), content = listField)
-                    Column(Modifier.weight(1f).fillMaxHeight().verticalScrollable(), verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
-                } else Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // LOB-059: the box is full width; problems show in a fixed area under it.
+                CardListTab.TEXT -> Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f).fillMaxWidth(), content = listField)
                     Column(Modifier.height(96.dp).fillMaxWidth().verticalScrollable(), verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
                 }

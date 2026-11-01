@@ -4,6 +4,7 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.CatalogPrinting
 import org.asyncttwiz.storage.DeckImportResult
 import org.asyncttwiz.storage.DeckSection
+import org.asyncttwiz.storage.ImportIssue
 import org.asyncttwiz.storage.ResolvedDeckEntry
 import org.junit.Test
 import kotlin.test.*
@@ -59,6 +60,20 @@ class CardListEditsTest {
         assertEquals(DeckSection.MAINBOARD, CardListKind.DECK.next(DeckSection.MAYBEBOARD))
         assertEquals(DeckSection.MAYBEBOARD, CardListKind.CUBE.next(DeckSection.MAINBOARD))
         assertEquals(DeckSection.MAINBOARD, CardListKind.CUBE.next(DeckSection.MAYBEBOARD))
+    }
+
+    // LOB-059: lines with problems are underlined in red; general problems (line 0) and a changed text underline nothing.
+    @Test fun problemLinesUnderlineOnlyTheLinesALookupFlagged() {
+        val text = "Deck\n4 Rune Bear\r\nBad line\n\n2 Unknown"
+        val result = DeckImportResult(text, emptyList(), listOf(ImportIssue(3, "Bad"), ImportIssue(5, "Unknown"), ImportIssue(0, "Too many")), null)
+        assertEquals(setOf(3, 5), problemLines(text, result))
+        assertEquals(emptySet(), problemLines("$text\n1 Rune Bolt", result))
+        assertEquals(emptySet(), problemLines(text, null))
+        val red = androidx.compose.ui.graphics.Color.Red
+        val shown = ProblemLines(setOf(3, 4, 5), red).filter(androidx.compose.ui.text.AnnotatedString(text)).text
+        assertEquals(text, shown.text, "The text itself is unchanged")
+        assertEquals(listOf("Bad line", "2 Unknown"), shown.spanStyles.map { text.substring(it.start, it.end) }, "An empty line has nothing to underline")
+        assertTrue(shown.spanStyles.all { it.item.color == red && it.item.textDecoration == androidx.compose.ui.text.style.TextDecoration.Underline })
     }
 
     // LOB-059: the Text tab shows a Cards tab edit in the same shape an existing list opens with.

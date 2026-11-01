@@ -71,7 +71,7 @@ class ImportScreenTest {
         } finally { controller.close() }
     }
 
-    // LOB-061
+    // LOB-061, LOB-059
     @Test fun deckPasteIconImportsAtOnceTypedLinksWaitForImportAndTheResultIsAnEditablePasteList() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val controller = DeckImportController({ resolved(it) }, worker) { it() }
@@ -98,7 +98,9 @@ class ImportScreenTest {
             compose.runOnIdle { worker.drain() }
             assertEquals(listOf("456"), fetched)
             compose.onNodeWithTag("deck-url").assertDoesNotExist()
-            compose.onNodeWithText("2 main · 1 side").assertIsDisplayed()
+            compose.runOnIdle { assertEquals(listOf(2L, 1L), listOf(DeckSection.MAINBOARD, DeckSection.SIDEBOARD).map(controller.state.result!!::count)) }
+            // LOB-059: the Text tab shows no counts.
+            compose.onNodeWithText("2 main · 1 side").assertDoesNotExist()
             compose.onNodeWithTag("deck-name").assertTextEquals("Site deck 456")
             compose.onNodeWithTag("deck-list").assertTextContains("2 Rune Bear", substring = true)
             compose.onNodeWithContentDescription("Choose deck cover").assertIsDisplayed()
@@ -170,8 +172,8 @@ class ImportScreenTest {
             compose.onNodeWithTag("deck-list").assertTextContains("2 Rune Bear", substring = true)
             assertTrue(worker.queue.isEmpty())
             compose.mainClock.advanceTimeBy(500)
-            compose.runOnIdle { worker.drain() }
-            compose.onNodeWithText("2 main · 1 side").assertIsDisplayed()
+            compose.runOnIdle { worker.drain(); assertTrue(controller.state.result!!.resolved) }
+            compose.onNodeWithText("2 main · 1 side").assertDoesNotExist() // LOB-059: no counts on the Text tab.
             compose.onNodeWithTag("save-deck").assertIsNotEnabled() // No name yet.
             compose.onNodeWithTag("deck-name").performTextInput("Bears")
             compose.onNodeWithTag("save-deck").assertIsEnabled()
@@ -179,6 +181,7 @@ class ImportScreenTest {
             compose.mainClock.advanceTimeBy(500)
             compose.runOnIdle { worker.drain() }
             compose.onNodeWithText("Line 1: Unknown could not be resolved.").assertIsDisplayed()
+            compose.onNodeWithTag("card-list-tab-text").assert(hasContentDescription("The list has problems"))
             compose.onNodeWithTag("save-deck").assertIsNotEnabled()
         } finally { controller.close() }
     }
@@ -228,7 +231,7 @@ class ImportScreenTest {
         } finally { controller.close(); worker.drain() }
     }
 
-    // DRF-008, DRF-009
+    // DRF-008, DRF-009, LOB-059
     @Test fun cubePasteIconImportsAtOnceWhileTypedLinksWaitForImportAndSaveNeedsAName() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val result = DeckImportResult("1 Rune Bear", listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing), listOf(1))),
@@ -254,7 +257,8 @@ class ImportScreenTest {
             compose.runOnIdle { worker.drain() }
             assertEquals(listOf("typed"), fetched)
             compose.onNodeWithTag("cube-url").assertDoesNotExist()
-            compose.onNodeWithText("1 card").assertIsDisplayed()
+            compose.runOnIdle { assertTrue(controller.state.result!!.resolved) }
+            compose.onNodeWithText("1 card").assertDoesNotExist() // LOB-059: no counts on the Text tab.
             compose.onNodeWithTag("cube-name").assertTextEquals("typed")
             compose.onNodeWithTag("cube-list").assertTextContains("1 Rune Bear", substring = true)
             compose.onNodeWithTag("save-cube").assertIsEnabled()

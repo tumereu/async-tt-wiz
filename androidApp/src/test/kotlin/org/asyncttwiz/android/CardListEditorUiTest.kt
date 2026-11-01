@@ -271,6 +271,32 @@ class CardListEditorUiTest {
         compose.onNodeWithTag("add-cards-main").assertDoesNotExist()
     }
 
+    // LOB-059: the Text tab's box is full width with no counts; problems show in a fixed area under it and as a red error
+    // icon on the Text tab while they remain.
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun textTabIsFullWidthWithProblemsUnderItAndAnErrorIcon() {
+        val editor = editor()
+        val text = editor.state.text
+        val clean = editor.state.result!!
+        editor.seed(editor.state.copy(result = DeckImportResult(text, emptyList(),
+            listOf(ImportIssue(2, "Meadow Sentinel is ambiguous. Include an exact (SET) collector-number.")), null)))
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, true, null, null) } } }
+        compose.onNodeWithTag("card-list-tab-text").assert(hasContentDescription("The list has problems"))
+        compose.onNodeWithTag("text-tab-problems", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("card-list-tab-text").performClick()
+        val box = compose.onNodeWithTag("deck-list").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals(892f - 32f, box.width, 1f, "The box is full width in landscape too")
+        val message = compose.onNodeWithText("Line 2: Meadow Sentinel is ambiguous. Include an exact (SET) collector-number.")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(message.top >= box.bottom, "Messages show under the box")
+        compose.onNodeWithText("60 main · 15 side").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(setOf(2), problemLines(editor.state.text, editor.state.result)) }
+        // Once the list resolves, the icon goes and the Text tab still shows no counts.
+        compose.runOnIdle { editor.seed(editor.state.copy(result = clean)) }
+        compose.onNodeWithTag("text-tab-problems", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("60 main · 15 side").assertDoesNotExist()
+        compose.onNodeWithText("Line 2", substring = true).assertDoesNotExist()
+    }
+
     // LOB-105: a new list shows every section, empty ones too, each header's + opening search with that section chosen.
     @Test fun everySectionHeaderHasAPlusThatOpensSearchWithThatSection() {
         val editor = DeckImportController({ error("No lookup expected") }, Immediate, { it() }).also { it.open() }

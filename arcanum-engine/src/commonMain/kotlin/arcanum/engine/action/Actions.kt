@@ -510,7 +510,7 @@ internal object Actions {
             },
             instead = { r, instance -> runInstead(act, r, instance) },
             linked = linked,
-            board = { ProposedBoard(act.board(), emptyMap()) },
+            board = { s -> ProposedBoard(act.board(), planned(s).associateBy { it.id }) },
         ) ?: return emptyList()
         var tokens = planned(specs)
         // Replacements on entering (CR 614.12): "enters tapped", "with counters", tested on the tokens as they would be

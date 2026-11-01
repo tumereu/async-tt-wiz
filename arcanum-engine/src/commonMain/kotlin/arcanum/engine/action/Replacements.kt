@@ -91,7 +91,7 @@ internal object Replacements {
         modify: (T, Replacement, TriggerEvent) -> T?,
         instead: (Replacement, TriggerEvent) -> Unit,
         linked: MutableList<WaitingTrigger>,
-        board: () -> Board = { act.board() },
+        board: (T) -> Board = { act.board() },
         skip: (Replacement) -> Boolean = { false },
     ): T? {
         val all = candidates(act, cause)
@@ -101,7 +101,7 @@ internal object Replacements {
         while (true) {
             val change = proposed(current) ?: return current
             val matching = all.filter { it.key !in used && !skip(it) }.mapNotNull { r ->
-                matches(act, r, change, board()).firstOrNull()?.let { r to it }
+                matches(act, r, change, board(current)).firstOrNull()?.let { r to it }
             }
             if (matching.isEmpty()) return current
             val (r, instance) = pick(act, matching, affected, about)

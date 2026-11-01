@@ -158,7 +158,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-103** A W/U/B/R/G basics row under Main (and one under Side) opens one dialog with five −/+ steppers and Done; basics are unlimited and not drafted. (r23)
 - **DRF-104** New drafts with an unlimited sideboard start with 17 of each basic in Side; Side basics count toward a finite sideboard limit. (r23)
 - **DRF-105** The deck name row has a pen button; the name (default "<pod name> deck") is private to you and can be changed even after submitting. (r17)
-- **DRF-106** A fixed bottom bar holds an Undo button (always there, dimmed when empty) and "Submit deck (N)"; Undo takes back card moves and basic changes one at a time, during and after the draft. (r23)
+- **DRF-106** A fixed bottom bar across the full screen width (not inset by the columns' side margins) holds an Undo button at its left edge (always there, dimmed when empty) and "Submit deck (N)"; Undo takes back card moves and basic changes one at a time, during and after the draft. (r36)
 
 ### Build review (one by one)
 

@@ -242,7 +242,8 @@ fun PodBuildView(
                 }
             }
         }
-        Surface(Modifier.fillMaxWidth().padding(horizontal = PodBuildSidePadding).height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        // DRF-106: the bar spans the full width (not inset like the columns), Undo at its left edge.
+        Surface(Modifier.fillMaxWidth().height(48.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             if (submitted) Box(contentAlignment = Alignment.Center) { Text("✓ Submitted", style = MaterialTheme.typography.labelLarge) }
             else Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
                 IconButton({

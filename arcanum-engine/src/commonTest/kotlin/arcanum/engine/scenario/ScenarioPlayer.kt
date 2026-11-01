@@ -120,6 +120,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     fun castsWithoutCosts(
         name: String, target: String? = null, targets: List<String> = listOfNotNull(target), x: Int? = null,
         modes: List<Int> = emptyList(), divided: List<Int> = emptyList(), kicked: Int = 0,
+        paid: List<arcanum.engine.state.PaidCost> = emptyList(),
     ): Outcome {
         // The first such card this player owns in their hand, else elsewhere off the battlefield and the Stack
         val card = (0 until 20).asSequence().mapNotNull { runCatching { scenario.card(name, it) }.getOrNull() }
@@ -134,8 +135,8 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
             val act = arcanum.engine.action.Act(r, arcanum.engine.action.Asker.NONE)
             val spell = arcanum.engine.action.Actions.move(act, null, listOf(arcanum.engine.action.PlannedMove(card, Zone.Stack, controller = id)))[card]!!
             val now = r.state.objOrThrow(spell)
-            val paid = if (kicked > 0) listOf(arcanum.engine.state.PaidCost(arcanum.api.Keyword.Kicker.Kind, kicked)) else emptyList()
-            r.record(arcanum.engine.change.Change.Facts(spell, now.facts, now.facts.copy(castFrom = o.zone, x = x, modesChosen = modes, paid = paid)))
+            val paidCosts = paid + if (kicked > 0) listOf(arcanum.engine.state.PaidCost(arcanum.api.Keyword.Kicker.Kind, kicked)) else emptyList()
+            r.record(arcanum.engine.change.Change.Facts(spell, now.facts, now.facts.copy(castFrom = o.zone, x = x, modesChosen = modes, paid = paidCosts)))
             r.record(arcanum.engine.change.Change.StackItemAdded(arcanum.engine.state.StackItem(
                 id = spell, kind = arcanum.engine.state.StackItemKind.Spell, controller = id, source = spell, ability = ability,
                 origin = if (index >= 0) arcanum.engine.view.AbilityOrigin.Printed(o.face, index) else null,

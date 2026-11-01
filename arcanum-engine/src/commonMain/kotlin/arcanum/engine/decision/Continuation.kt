@@ -76,6 +76,16 @@ sealed interface Continuation {
     @Serializable @SerialName("turn-based")
     data class TurnBased(val action: TurnAction, override val then: Continuation? = null) : Continuation
 
+    /** Starting the game (CR 103) at [stage] with [options]: the stage is redone from its start with [answers] so far
+     * (D29); earlier stages are committed ([arcanum.engine.setup.Setup]). */
+    @Serializable @SerialName("setup")
+    data class Setup(
+        val stage: arcanum.engine.setup.SetupStage,
+        val options: arcanum.engine.setup.StartOptions,
+        val answers: List<Answer> = emptyList(),
+        override val then: Continuation? = null,
+    ) : Continuation
+
     /** An event paused for a replacement choice or an "as enters" step (CR 614.12, 616.1, D29/D36): [event] is redone
      * from its start with [answers] so far. */
     @Serializable @SerialName("event")

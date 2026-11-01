@@ -49,6 +49,15 @@ sealed interface Input {
     /** Cancels the open cast or activation, rewinding everything it did (CR 601.2, D58). */
     @Serializable @SerialName("cancel")
     data object Cancel : Input
+
+    /** Starts a game made by [arcanum.engine.Engine.newGame] (CR 103): starting player, companions, shuffles, opening
+     * hands and mulligans, then the first turn ([arcanum.engine.setup.Setup]). */
+    @Serializable @SerialName("start-game")
+    data class StartGame(val options: arcanum.engine.setup.StartOptions = arcanum.engine.setup.StartOptions()) : Input
+
+    /** [player] concedes (CR 104.3a): accepted at any time, also while a decision is open; they leave the game and lose. */
+    @Serializable @SerialName("concede")
+    data class Concede(val player: PlayerId) : Input
 }
 
 /**

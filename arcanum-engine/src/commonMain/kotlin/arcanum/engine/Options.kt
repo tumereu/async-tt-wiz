@@ -18,6 +18,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.mana.Mana
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
+import arcanum.engine.setup.started
 
 /**
  * [Engine.options]: what a player may do now (CR 116, 117.1).
@@ -34,8 +35,12 @@ import arcanum.engine.state.PlayerId
  */
 internal object Options {
     fun of(state: GameState, player: PlayerId): List<Input> {
+        // CR 104.1, 800.4a: nothing to do once the game is over or the player has left it
+        if (arcanum.engine.setup.GameEnd.over(state) || state.player(player).lost) return emptyList()
         val snap = Snapshot(state)
         state.pending?.let { return answers(snap, it) }
+        // CR 103: a game made by Engine.newGame starts with Input.StartGame
+        if (!state.started) return listOf(Input.StartGame())
         if (Combat.waitingForDeclaration(state)) return declarations(snap, player)
         if (state.priority.holder != player) return emptyList()
         return buildList {
@@ -132,7 +137,9 @@ internal object Options {
 
     private fun abilities(snap: Snapshot, player: PlayerId): List<Input> {
         val s = snap.state
-        val sources = s.battlefield + s.player(player).hand + s.player(player).graveyard + s.exile + s.command
+        // Outside the game: the revealed companion's special action (CR 702.139a)
+        val sources = s.battlefield + s.player(player).hand + s.player(player).graveyard + s.exile + s.command +
+            s.player(player).outside
         return sources.flatMap { id ->
             (snap.view[id]?.characteristics?.abilities.orEmpty() + Legality.faceDownActions(snap, id))
                 .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }

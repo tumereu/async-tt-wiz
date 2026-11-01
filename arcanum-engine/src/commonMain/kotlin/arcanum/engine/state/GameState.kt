@@ -61,11 +61,12 @@ data class GameState(
         players[index] = change(players[index])
     }
 
-    /** Players still in the game, in turn order starting with [first] (APNAP from the active player, CR 101.4). */
+    /** Players still in the game, in turn order starting with [first] (APNAP from the active player, CR 101.4); when
+     * [first] has left the game, from the next player after them (CR 800.4j). */
     fun playersFrom(first: PlayerId): List<PlayerId> {
-        val ids = players.filterNot { it.lost }.map { it.id }
+        val ids = players.map { it.id }
         val start = ids.indexOf(first).coerceAtLeast(0)
-        return ids.drop(start) + ids.take(start)
+        return (ids.drop(start) + ids.take(start)).filter { id -> players.first { it.id == id }.lost.not() }
     }
 
     /** Active player first, then the others in turn order (CR 101.4). */

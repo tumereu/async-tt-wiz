@@ -54,27 +54,29 @@ import kotlin.test.fail
  * Every scenario checks D59 at the end: all changes applied since the setup are reverted, last first, and the state
  * must equal the state after setup (the timestamp counter aside, D34).
  */
-fun scenario(players: Int = 2, seed: Long = 1, block: Scenario.() -> Unit) {
-    val scenario = Scenario(players, seed)
+fun scenario(players: Int = 2, seed: Long = 1, start: ((List<PlayerId>) -> GameState)? = null, block: Scenario.() -> Unit) {
+    val scenario = Scenario(players, seed, start)
     scenario.block()
     scenario.checkEveryChangeReverts()
 }
 
-class Scenario internal constructor(playerCount: Int, seed: Long) {
+class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<PlayerId>) -> GameState)? = null) {
     val players: List<ScenarioPlayer> = NAMES.take(playerCount).map { ScenarioPlayer(this, PlayerId(it)) }
     val alice: ScenarioPlayer get() = players[0]
     val bob: ScenarioPlayer get() = players[1]
     val carol: ScenarioPlayer get() = players[2]
     val dave: ScenarioPlayer get() = players[3]
 
-    /** The game: changed directly during setup, only by changes afterwards. */
-    val state: GameState = GameState.start(players.map { it.id }).also { it.turn = it.turn.copy(turnStarted = players.associate { p -> p.id to 0 } + (players.first().id to 1)) }
+    /** The game: changed directly during setup, only by changes afterwards; [start] makes it from the player ids instead
+     * (a game before it begins, [Engine.newGame]). */
+    val state: GameState = start?.invoke(players.map { it.id })
+        ?: GameState.start(players.map { it.id }).also { it.turn = it.turn.copy(turnStarted = players.associate { p -> p.id to 0 } + (players.first().id to 1)) }
 
     /** All changes applied since setup ended, in order. */
     val applied = mutableListOf<Change>()
     private var setupState: GameState? = null
     private val random = Random(seed)
-    private val scripted = ArrayDeque<Answer>()
+    private val scripted = ArrayDeque<(RandomKind) -> Answer>()
     private val secrets = mutableMapOf<CardId, CardDefinition>()
     private var nextCard = 0
 
@@ -93,6 +95,11 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
 
     /** Scripts the next random results, used before seeded ones (D25): coin flips, die rolls, random picks. */
     fun random(vararg answers: Answer) {
+        scripted.addAll(answers.map { a -> { _: RandomKind -> a } })
+    }
+
+    /** Scripts the next random results as answers to what is asked: a shuffle in a chosen order. */
+    fun random(vararg answers: (RandomKind) -> Answer) {
         scripted.addAll(answers)
     }
 
@@ -345,7 +352,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
     }
 
     private fun randomAnswer(kind: RandomKind): Answer {
-        scripted.removeFirstOrNull()?.let { return it }
+        scripted.removeFirstOrNull()?.let { return it(kind) }
         return when (kind) {
             RandomKind.CoinFlip -> Answer.CoinFlip(random.nextBoolean())
             is RandomKind.Die -> Answer.DieRolls(List(kind.count) { random.nextInt(1, kind.sides + 1) })

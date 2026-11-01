@@ -228,6 +228,38 @@ class GameResultLifecycleTest {
         }
     }
 
+    // LOB-111, LOB-075, LOB-076
+    @Test fun `accepting a result notifies the suggestion author with the outcome from their side and no reminder follows`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+                assertEquals("accepted", f.owner.execute(f.suggestion(result = SuggestedResult.LOSS)).outcome)
+                // The accepter's move arms the author's waiting reminder; the game ending must cancel it.
+                assertEquals("accepted", f.other.execute(GameAction.Play(PlayAction.SetLife(f.b.account.accountId, "19"))).outcome)
+                val suggestion = f.games.head(f.a, f.game.id).play!!.board.resultSuggestion!!
+                val accept = f.other.command(GameAction.AcceptResult(suggestion.id))
+                assertEquals("accepted", f.other.execute(accept).outcome)
+                val notice = activity.page(f.a, null).readyNotices!!.single { it.kind == ActivityKind.GAME && it.gameId == f.game.id }
+                assertEquals(accept.requestId, notice.identity)
+                assertEquals(f.b.account.accountId, notice.authorId)
+                assertEquals(GameNoticeContent(notice.notice!!.gameName, "ResultB", notice.notice!!.lastEventAt, false,
+                    gameOver = SuggestedResult.LOSS), notice.notice)
+                assertEquals("Result Spark", notice.notice!!.gameName)
+                assertTrue(activity.page(f.b, null).readyNotices!!.none { it.notice?.gameOver != null }, "Only the author hears it")
+                // Tapping it opens the game.
+                assertEquals(ActivityDestination.CURRENT, activity.target(f.a, ActivityKind.GAME, f.game.id, notice.identity).destination)
+                f.runtime.transaction { connection ->
+                    org.asyncttwiz.server.activity.ActivityService.remindDue(org.jooq.impl.DSL.using(connection, org.jooq.SQLDialect.POSTGRES),
+                        java.time.OffsetDateTime.now(java.time.ZoneOffset.UTC).plusHours(1))
+                }
+                assertEquals(0L, count(db, "SELECT count(*) FROM activity_summary WHERE reminder_activity_id IS NOT NULL"))
+                assertTrue(activity.page(f.a, null).readyNotices!!.none { it.notice?.reminder == true })
+                assertTrue(activity.waiting(f.a).games.isEmpty())
+            }
+        }
+    }
+
     @Test fun `opponent decline clears the shared suggestion durably and stale accept cannot end the game`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -6,6 +6,8 @@ import arcanum.api.Cost
 import arcanum.api.DefinitionChecks
 import arcanum.api.Layout
 import arcanum.api.ManaCost
+import arcanum.api.ManaKind
+import arcanum.api.Value
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import arcanum.parser.PrintedNumbers
@@ -40,4 +42,8 @@ val none: List<Ability> = emptyList()
 
 fun abilities(vararg abilities: Ability): List<Ability> = abilities.toList()
 
-fun mana(text: String): Cost = Cost.mana(ManaCost.parse(text)!!)
+/** A cost of only mana, as written ("{2}{U}"). */
+fun manaCost(text: String): Cost = Cost.mana(ManaCost.parse(text)!!)
+
+/** "[amount] mana of any one color": the player chooses one colour for all of it (CR 106.1b). */
+fun anyOneColor(amount: Int): ManaKind = ManaKind.Choose(amount = Value.Fixed(amount))

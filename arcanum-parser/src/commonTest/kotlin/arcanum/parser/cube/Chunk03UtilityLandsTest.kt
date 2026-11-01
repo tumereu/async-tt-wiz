@@ -95,7 +95,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -110,7 +110,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -125,7 +125,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -140,7 +140,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -155,7 +155,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -170,7 +170,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -185,7 +185,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -200,7 +200,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -215,7 +215,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     @Test
@@ -230,7 +230,7 @@ class Chunk03UtilityLandsTest {
         """,
     ) parsesTo abilities(
         entersTapped,
-        Keyword.Cycling(mana("{3}")),
+        Keyword.Cycling(manaCost("{3}")),
     )
 
     // ---- Lands that make a lot of mana
@@ -317,7 +317,8 @@ class Chunk03UtilityLandsTest {
                     ObjectFilter.Is(Objects.Self),
                     ObjectFilter.And(listOf(
                         ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
-                        yourOwn(CardType.Land),
+                        ObjectFilter.Type(CardType.Land),
+                        ObjectFilter.ControlledBy(PlayerFilter.You),
                     )),
                 )),
                 to = Zone.Battlefield,

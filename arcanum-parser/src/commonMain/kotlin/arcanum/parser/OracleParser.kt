@@ -13,8 +13,9 @@ import arcanum.api.ManaCost
  * Parses one card face's oracle text into a [FaceDefinition]. Reads only the text (no card-data keyword lists), so it
  * works on any card, including custom ones. What it can't read is kept as [Ability.Unparsed], never guessed.
  *
- * Understood so far: keyword lines ("Flying, first strike", "Equip {2}", "Crew 3", "Suspend 4—{1}{R}") for the
- * keywords in [KeywordSyntax.all]. Reminder text in parentheses is ignored.
+ * Understood: keyword lines for the keywords in [KeywordSyntax.all], and the sentence wordings in [Sentences] (the
+ * cube chunk tests list them). Reminder text in parentheses is ignored. An instant or sorcery with any unread line keeps
+ * all its spell text unparsed (CR 608.2b).
  */
 object OracleParser {
     /** Parses a whole face: its printed characteristics and its rules text. */
@@ -46,18 +47,54 @@ object OracleParser {
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         val sentences = Sentences(self, isSpell)
         val result = mutableListOf<Ability>()
-        for (raw in text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }) {
+        val raws = mutableListOf<String>()
+        val lines = text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }
+        var i = 0
+        while (i < lines.size) {
+            val raw = lines[i++]
             val line = REMINDER.replace(raw, "").trim()
+            // Leveler bands (CR 711.2a): what follows a "LEVEL N-M" line applies only within that band, so the bands
+            // stay printed text until the parser reads them as conditional abilities.
+            if (LEVEL_BAND.matches(line)) {
+                val band = (listOf(raw) + lines.drop(i)).joinToString("\n") { it.trim() }
+                result += Ability.Unparsed(band); raws += band
+                break
+            }
+            // "Choose one —" and its "• " modes (CR 700.2)
+            val choose = CHOOSE.matchEntire(line)
+            if (choose != null && isSpell) {
+                val modeLines = mutableListOf<String>()
+                while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
+                val modes = sentences.modes(choose, modeLines)
+                result += if (modes != null) Ability.Spell(arcanum.api.Instructions(modes = modes))
+                    else Ability.Unparsed((listOf(raw) + modeLines.map { "• $it" }).joinToString("\n"))
+                raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                continue
+            }
             val previous = result.lastOrNull()
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
             val parsed = if (instead == null) keywordLine(line) ?: sentences.line(line)?.let(::listOf) else null
             when {
-                instead != null -> result[result.size - 1] = instead
+                instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
                 previous is Ability.Spell && parsed?.singleOrNull() is Ability.Spell && (parsed.single() as Ability.Spell).abilityWord == null ->
+                {
                     result[result.size - 1] = previous.copy(instructions = previous.instructions.join((parsed.single() as Ability.Spell).instructions))
-                else -> result += parsed ?: listOf(Ability.Unparsed(raw.trim()))
+                    raws[raws.size - 1] += "\n" + raw.trim()
+                }
+                else -> {
+                    val added = parsed ?: listOf(Ability.Unparsed(raw.trim()))
+                    result += added
+                    added.forEach { _ -> raws += raw.trim() }
+                }
             }
+        }
+        // A spell resolves as one object (CR 608.2b): if any of its lines can't be read, none of its spell text or
+        // casting costs is automated; they stay as printed for the players.
+        if (isSpell && result.any { it is Ability.Unparsed }) {
+            return result.mapIndexed { index, ability ->
+                if (ability is Ability.Spell || ability.isCastingCost()) Ability.Unparsed(raws[index]) else ability
+            }.distinct()
         }
         return result
     }
@@ -69,7 +106,12 @@ object OracleParser {
      */
     private fun keywordLine(line: String): List<Ability>? {
         if (line.isEmpty() || (line.endsWith(".") && !line.contains('—'))) return null
-        val parts = line.split(if (line.contains("; ")) "; " else ", ")
+        // A keyword with an em-dash cost ("Flashback—{1}{U}, Pay 3 life.") is alone on its line; its commas are the cost's.
+        val parts = when {
+            line.contains("; ") -> line.split("; ")
+            line.contains('—') -> listOf(line)
+            else -> line.split(", ")
+        }
         val first = keyword(parts.first()) ?: return null
         return listOf(first) + parts.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
     }
@@ -102,6 +144,8 @@ object OracleParser {
 
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
+    private val LEVEL_BAND = Regex("""LEVEL \d+(?:-\d+|\+)""")
+    private val CHOOSE = Regex("""Choose (one|two|three|four)(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")
@@ -132,3 +176,6 @@ private fun arcanum.api.Instructions.join(next: arcanum.api.Instructions) = copy
     targets = targets + next.targets, steps = steps + next.steps, replacements = replacements + next.replacements,
     announced = (announced + next.announced).distinct(),
 )
+
+private fun Ability.isCastingCost() = this is Ability.Static &&
+    mechanics.any { it is arcanum.api.Mechanic.AdditionalCost || it is arcanum.api.Mechanic.AlternativeCost }

@@ -55,7 +55,7 @@ internal object Filters {
         }
         NAMED.matchEntire(phrase)?.let { m ->
             val zone = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { if (it == " in each graveyard") ObjectFilter.InZone(Zone.Graveyard) else return null }
-            return listOfNotNull(ObjectFilter.Named(m.groupValues[1]), zone).let { it.singleOrNull() ?: ObjectFilter.And(it) }
+            return listOfNotNull(ObjectFilter.Named(m.groupValues[1]), zone).let { it.singleOrNull() ?: all(*it.toTypedArray()) }
         }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
         if (phrase.contains(" or ")) {
@@ -64,12 +64,12 @@ internal object Filters {
         }
         if (phrase.contains(", ")) {
             val modifiers = phrase.split(", ")
-            return ObjectFilter.And(modifiers.flatMap { part -> (noun(part) ?: return null).let { if (it is ObjectFilter.And) it.all else listOf(it) } })
+            return all(*modifiers.map { noun(it) ?: return null }.toTypedArray())
         }
         val trimmed = phrase.removeSuffix(" cards").let { if (it.contains(' ')) it.removeSuffix(" card") else it }
         val words = trimmed.split(' ').map { singular(it) }
         val parts = words.map { word(it) ?: return null }
-        return parts.singleOrNull() ?: ObjectFilter.And(parts)
+        return parts.singleOrNull() ?: all(*parts.toTypedArray())
     }
 
     /** "creature you control" → every such object; "card named [this card] in each graveyard". */
@@ -81,12 +81,16 @@ internal object Filters {
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 
-    private fun and(a: ObjectFilter, b: ObjectFilter) =
-        if (a is ObjectFilter.And) ObjectFilter.And(a.all + b) else ObjectFilter.And(listOf(a, b))
+    private fun and(a: ObjectFilter, b: ObjectFilter) = all(a, b)
+
+    /** All of [filters], nested "and"s flattened into one (one canonical form). */
+    fun all(vararg filters: ObjectFilter): ObjectFilter =
+        ObjectFilter.And(filters.flatMap { if (it is ObjectFilter.And) it.all else listOf(it) })
 
     private fun singular(word: String): String = when {
         word.endsWith("s") && word.dropLast(1).lowercase() in SINGULAR_NOUNS -> word.dropLast(1)
-        word.first().isUpperCase() -> IRREGULAR_PLURALS[word] ?: word
+        word.first().isUpperCase() && word !in RulesWords.subtypes ->
+            IRREGULAR_PLURALS[word] ?: word.removeSuffix("s").takeIf { word.endsWith("s") && it in RulesWords.subtypes } ?: word
         else -> word
     }
 
@@ -101,7 +105,8 @@ internal object Filters {
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         CARD_TYPES[word]?.let { return ObjectFilter.Type(it) }
         SUPERTYPES[word]?.let { return ObjectFilter.Super(it) }
-        if (word.first().isUpperCase()) return ObjectFilter.Sub(Subtype(word))
+        // Only subtypes the rules list (CR 205.3); "X", plurals left over and other words stay unparsed.
+        if (word in RulesWords.subtypes) return ObjectFilter.Sub(Subtype(word))
         return null
     }
 
@@ -151,7 +156,7 @@ internal object Events {
             if (m.groupValues[1] !in self) return null
             val other = Filters.noun(m.groupValues[2]) ?: return null
             return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
-                ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other))))
+                Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other)))
         }
         return null
     }
@@ -205,7 +210,20 @@ internal object Conditions {
 
 /** Token descriptions ("a 2/2 black Zombie creature token", CR 111.4). */
 internal object Tokens {
-    fun defined(text: String): TokenSpec? {
+    /** "a Treasure token", "two 1/1 white Spirit creature tokens with flying": how many and what (CR 111.10, 111.4). */
+    fun spec(text: String): Pair<Int, TokenSpec>? {
+        PREDEFINED.matchEntire(text)?.let { m ->
+            if (m.groupValues[2] !in arcanum.api.PredefinedTokens.names) return null
+            return (Numbers.count(m.groupValues[1]) ?: return null) to TokenSpec.Predefined(m.groupValues[2])
+        }
+        val m = COUNTED.matchEntire(text) ?: return null
+        val count = Numbers.count(m.groupValues[1]) ?: return null
+        val token = defined("a " + m.groupValues[2] + " token") ?: return null
+        val keywords = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
+        return count to token.copy(face = token.face.copy(abilities = keywords))
+    }
+
+    fun defined(text: String): TokenSpec.Defined? {
         val m = TOKEN.matchEntire(text) ?: return null
         val colors = m.groupValues[2].split(" and ").map { COLORS[it] ?: return null }
         val types = mutableListOf<CardType>()
@@ -222,6 +240,8 @@ internal object Tokens {
         ))
     }
 
+    private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
+    private val COUNTED = Regex("""(a|an|one|two|three|four|five) (\d+/\d+ .+? creature) tokens?(?: with (.+))?""")
     private val TOKEN = Regex("""an? (\d+/\d+) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
 }

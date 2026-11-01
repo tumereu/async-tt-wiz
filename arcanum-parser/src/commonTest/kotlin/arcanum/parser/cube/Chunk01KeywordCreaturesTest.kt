@@ -12,7 +12,7 @@ class Chunk01KeywordCreaturesTest {
     fun tinkeredMite() = card(
         name = "Tinkered Mite",
         cost = "{0}",
-        type = "Artifact Creature — Golem",
+        type = "Artifact Creature — Construct",
         pt = "1/1",
     ) parsesTo none
 

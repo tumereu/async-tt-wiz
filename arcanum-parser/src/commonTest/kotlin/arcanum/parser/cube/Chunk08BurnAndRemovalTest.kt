@@ -93,7 +93,7 @@ class Chunk08BurnAndRemovalTest {
         """,
     ) parsesTo abilities(
         burn(2),
-        Keyword.Flashback(mana("{4}{R}")),
+        Keyword.Flashback(manaCost("{4}{R}")),
     )
 
     @Test
@@ -120,7 +120,7 @@ class Chunk08BurnAndRemovalTest {
             Flash Surge deals 2 damage to any target. If this spell was kicked, it deals 4 damage instead.
         """,
     ) parsesTo abilities(
-        Keyword.Kicker(listOf(mana("{4}"))),
+        Keyword.Kicker(listOf(manaCost("{4}"))),
         Ability.Spell(Instructions(
             targets = listOf(anyTarget),
             steps = listOf(
@@ -270,7 +270,7 @@ class Chunk08BurnAndRemovalTest {
             targets = listOf(slot("artifact", ObjectFilter.Type(CardType.Artifact))),
             steps = listOf(Step.Do(Effect.Destroy(Objects.Target("artifact")))),
         )),
-        Keyword.Flashback(mana("{G}")),
+        Keyword.Flashback(manaCost("{G}")),
     )
 
     /** "Destroy target creature or planeswalker." */
@@ -389,7 +389,7 @@ class Chunk08BurnAndRemovalTest {
             steps = listOf(Step.Do(Effect.Destroy(Objects.Target("creature"), noRegeneration = true))),
         )),
         Keyword.Overload(
-            cost = mana("{2}{W}{W}"),
+            cost = manaCost("{2}{W}{W}"),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.Destroy(Objects.Each(ObjectFilter.Type(CardType.Creature)), noRegeneration = true))),
             ),

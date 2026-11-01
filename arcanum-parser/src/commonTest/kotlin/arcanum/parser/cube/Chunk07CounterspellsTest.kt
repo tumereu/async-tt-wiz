@@ -63,7 +63,7 @@ class Chunk07CounterspellsTest {
         steps = listOf(
             Step.Unless(
                 payer = Players.ControllerOf(targetSpell),
-                cost = mana(cost),
+                cost = manaCost(cost),
                 steps = listOf(Step.Do(Effect.Counter(targetSpell))),
             ),
         ),

@@ -46,8 +46,7 @@ class Chunk05TrickyManaTest {
 
     private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind)))
     private fun fixed(mana: String) = ManaKind.Fixed(ManaCost.parse(mana)!!)
-    private fun anyColor(amount: Int) = ManaKind.Choose(amount = Value.Fixed(amount))
-    private fun manaCost(mana: String) = CostPart.Mana(ManaCost.parse(mana)!!)
+    private fun manaPart(mana: String) = CostPart.Mana(ManaCost.parse(mana)!!)
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private val drawACard = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(1)))
 
@@ -116,7 +115,7 @@ class Chunk05TrickyManaTest {
         Ability.Spell(Instructions(
             steps = listOf(add(fixed("{R}{R}{R}"))),
         )),
-        Keyword.Splice(onto = ObjectFilter.Sub(Subtype("Arcane")), cost = mana("{1}{R}")),
+        Keyword.Splice(onto = ObjectFilter.Sub(Subtype("Arcane")), cost = manaCost("{1}{R}")),
     )
 
     @Test
@@ -150,10 +149,10 @@ class Chunk05TrickyManaTest {
         text = "{1}, {T}, Sacrifice this artifact: Add one mana of any color. Draw a card. (Activate only as an instant.)",
     ) parsesTo abilities(
         Ability.Activated(
-            cost = Cost(listOf(manaCost("{1}"), CostPart.TapSelf, sacrificeSelf)),
+            cost = Cost(listOf(manaPart("{1}"), CostPart.TapSelf, sacrificeSelf)),
             instructions = Instructions(
                 steps = listOf(
-                    add(anyColor(1)),
+                    add(anyOneColor(1)),
                     drawACard,
                 ),
             ),
@@ -178,10 +177,8 @@ class Chunk05TrickyManaTest {
                     Step.Choose(
                         choice = Choice.Objects(
                             filter = ObjectFilter.And(listOf(
-                                ObjectFilter.And(listOf(
-                                    ObjectFilter.Not(ObjectFilter.Type(CardType.Artifact)),
-                                    ObjectFilter.Not(ObjectFilter.Type(CardType.Land)),
-                                )),
+                                ObjectFilter.Not(ObjectFilter.Type(CardType.Artifact)),
+                                ObjectFilter.Not(ObjectFilter.Type(CardType.Land)),
                                 ObjectFilter.InZone(Zone.Hand),
                                 ObjectFilter.OwnedBy(PlayerFilter.You),
                             )),
@@ -221,7 +218,7 @@ class Chunk05TrickyManaTest {
             )),
             rules = ActivationRules(timing = Timing.Instant),
             instructions = Instructions(
-                steps = listOf(add(anyColor(3))),
+                steps = listOf(add(anyOneColor(3))),
             ),
         ),
     )
@@ -236,8 +233,8 @@ class Chunk05TrickyManaTest {
             {T}, Sacrifice this artifact: Add three mana of any one color.
         """,
     ) parsesTo abilities(
-        Keyword.Suspend(3, mana("{0}")),
-        manaAbility(CostPart.TapSelf, sacrificeSelf, kind = anyColor(3)),
+        Keyword.Suspend(3, manaCost("{0}")),
+        manaAbility(CostPart.TapSelf, sacrificeSelf, kind = anyOneColor(3)),
     )
 
     @Test
@@ -284,7 +281,7 @@ class Chunk05TrickyManaTest {
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Pay(cost = mana("{4}"), bind = "paid"),
+                    Step.Pay(cost = manaCost("{4}"), bind = "paid"),
                     Step.If(
                         condition = Condition.Did("paid"),
                         then = listOf(Step.Do(Effect.Untap(Objects.Self))),
@@ -332,7 +329,7 @@ class Chunk05TrickyManaTest {
                 ),
             ),
         )),
-        manaAbility(CostPart.TapSelf, kind = anyColor(1)),
+        manaAbility(CostPart.TapSelf, kind = anyOneColor(1)),
     )
 
     @Test
@@ -348,12 +345,12 @@ class Chunk05TrickyManaTest {
         Ability.Static(
             mechanics = listOf(
                 Mechanic.GainAbilities(listOf(
-                    manaAbility(CostPart.TapSelf, kind = anyColor(1)),
+                    manaAbility(CostPart.TapSelf, kind = anyOneColor(1)),
                 )),
             ),
             affects = Affected.Objects(Objects.AttachedTo()),
         ),
-        Keyword.Equip(mana("{1}")),
+        Keyword.Equip(manaCost("{1}")),
     )
 
     @Test
@@ -374,7 +371,7 @@ class Chunk05TrickyManaTest {
             ),
         )),
         Ability.Activated(
-            cost = Cost(listOf(manaCost("{X}"), CostPart.TapSelf, sacrificeSelf)),
+            cost = Cost(listOf(manaPart("{X}"), CostPart.TapSelf, sacrificeSelf)),
             instructions = Instructions(
                 announced = listOf("X"),
                 steps = listOf(

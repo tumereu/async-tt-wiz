@@ -17,7 +17,6 @@ import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
-import arcanum.api.Status
 import arcanum.api.Step
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -34,7 +33,6 @@ class Chunk04SimpleManaTest {
     /** "Add [mana]." as one step. */
     private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind)))
     private fun fixed(mana: String) = ManaKind.Fixed(ManaCost.parse(mana)!!)
-    private fun anyColor(amount: Int) = ManaKind.Choose(amount = Value.Fixed(amount))
 
     /** "[cost]: Add [mana]." */
     private fun manaAbility(vararg cost: CostPart, kind: ManaKind) = Ability.Activated(
@@ -145,7 +143,7 @@ class Chunk04SimpleManaTest {
         type = "Artifact",
         text = "{T}, Sacrifice this artifact: Add one mana of any color.",
     ) parsesTo abilities(
-        manaAbility(CostPart.TapSelf, sacrificeSelf, kind = anyColor(1)),
+        manaAbility(CostPart.TapSelf, sacrificeSelf, kind = anyOneColor(1)),
     )
 
     @Test
@@ -155,7 +153,7 @@ class Chunk04SimpleManaTest {
         type = "Artifact",
         text = "{T}, Sacrifice this artifact: Add three mana of any one color.",
     ) parsesTo abilities(
-        manaAbility(CostPart.TapSelf, sacrificeSelf, kind = anyColor(3)),
+        manaAbility(CostPart.TapSelf, sacrificeSelf, kind = anyOneColor(3)),
     )
 
     @Test
@@ -172,7 +170,7 @@ class Chunk04SimpleManaTest {
                 condition = Condition.Exists(yourOwn(CardType.Artifact), atLeast = 3),
             ),
             instructions = Instructions(
-                steps = listOf(add(anyColor(1))),
+                steps = listOf(add(anyOneColor(1))),
             ),
         ),
     )
@@ -206,7 +204,7 @@ class Chunk04SimpleManaTest {
         type = "Artifact",
         text = "Sacrifice a creature: Add one mana of any color.",
     ) parsesTo abilities(
-        manaAbility(sacrificeA(CardType.Creature), kind = anyColor(1)),
+        manaAbility(sacrificeA(CardType.Creature), kind = anyOneColor(1)),
     )
 
     @Test
@@ -218,11 +216,9 @@ class Chunk04SimpleManaTest {
     ) parsesTo abilities(
         manaAbility(
             CostPart.TapSelf,
-            CostPart.TapObjects(CostObjects.Choose(ObjectFilter.And(listOf(
-                ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped)),
-                yourOwn(CardType.Creature),
-            )))),
-            kind = anyColor(1),
+            // Tapping as a cost taps an untapped permanent you control (CR 602.2b): the filter names only the kind.
+            CostPart.TapObjects(CostObjects.Choose(ObjectFilter.Type(CardType.Creature))),
+            kind = anyOneColor(1),
         ),
     )
 
@@ -238,7 +234,7 @@ class Chunk04SimpleManaTest {
             When this artifact is put into a graveyard from the battlefield, draw a card.
         """,
     ) parsesTo abilities(
-        manaAbility(CostPart.Mana(ManaCost.parse("{1}")!!), CostPart.TapSelf, sacrificeSelf, kind = anyColor(1)),
+        manaAbility(CostPart.Mana(ManaCost.parse("{1}")!!), CostPart.TapSelf, sacrificeSelf, kind = anyOneColor(1)),
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.ZoneChange(
                 objects = ObjectFilter.Is(Objects.Self),
@@ -271,6 +267,6 @@ class Chunk04SimpleManaTest {
                 steps = listOf(drawACard),
             ),
         ),
-        manaAbility(CostPart.Mana(ManaCost.parse("{1}")!!), CostPart.TapSelf, kind = anyColor(1)),
+        manaAbility(CostPart.Mana(ManaCost.parse("{1}")!!), CostPart.TapSelf, kind = anyOneColor(1)),
     )
 }

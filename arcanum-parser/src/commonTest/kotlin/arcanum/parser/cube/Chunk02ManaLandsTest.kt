@@ -56,7 +56,7 @@ class Chunk02ManaLandsTest {
         ),
     )
 
-    private fun subtypes(a: String, b: String) = ObjectFilter.Or(listOf(
+    private fun eitherSubtype(a: String, b: String) = ObjectFilter.Or(listOf(
         ObjectFilter.Sub(Subtype(a)),
         ObjectFilter.Sub(Subtype(b)),
     ))
@@ -98,7 +98,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Mountain or Plains card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Mountain", "Plains"),
+        finds = eitherSubtype("Mountain", "Plains"),
     )
 
     @Test
@@ -108,7 +108,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Swamp or Mountain card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Swamp", "Mountain"),
+        finds = eitherSubtype("Swamp", "Mountain"),
     )
 
     @Test
@@ -118,7 +118,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Island card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Plains", "Island"),
+        finds = eitherSubtype("Plains", "Island"),
     )
 
     @Test
@@ -128,7 +128,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Plains or Swamp card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Plains", "Swamp"),
+        finds = eitherSubtype("Plains", "Swamp"),
     )
 
     @Test
@@ -138,7 +138,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Island card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Forest", "Island"),
+        finds = eitherSubtype("Forest", "Island"),
     )
 
     @Test
@@ -148,7 +148,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Swamp card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Island", "Swamp"),
+        finds = eitherSubtype("Island", "Swamp"),
     )
 
     @Test
@@ -158,7 +158,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for an Island or Mountain card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Island", "Mountain"),
+        finds = eitherSubtype("Island", "Mountain"),
     )
 
     @Test
@@ -168,7 +168,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Swamp or Forest card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Swamp", "Forest"),
+        finds = eitherSubtype("Swamp", "Forest"),
     )
 
     @Test
@@ -178,7 +178,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Forest or Plains card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Forest", "Plains"),
+        finds = eitherSubtype("Forest", "Plains"),
     )
 
     @Test
@@ -188,7 +188,7 @@ class Chunk02ManaLandsTest {
         type = "Land",
         text = "{T}, Pay 1 life, Sacrifice this land: Search your library for a Mountain or Forest card, put it onto the battlefield, then shuffle.",
     ) parsesTo fetchLand(
-        finds = subtypes("Mountain", "Forest"),
+        finds = eitherSubtype("Mountain", "Forest"),
     )
 
     @Test

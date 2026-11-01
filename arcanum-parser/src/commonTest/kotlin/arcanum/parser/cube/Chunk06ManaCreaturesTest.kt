@@ -23,7 +23,6 @@ import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.Recipients
-import arcanum.api.Status
 import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.Timing
@@ -41,7 +40,6 @@ class Chunk06ManaCreaturesTest {
 
     private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind)))
     private fun fixed(mana: String) = ManaKind.Fixed(ManaCost.parse(mana)!!)
-    private fun anyColor(amount: Int) = ManaKind.Choose(amount = Value.Fixed(amount))
     private fun oneOf(vararg colors: Color) = ManaKind.Choose(amount = Value.Fixed(1), colors = colors.map { ColorRef.Literal(it) })
 
     /** "{T}: Add [mana]." */
@@ -59,11 +57,10 @@ class Chunk06ManaCreaturesTest {
 
     private fun yourOwn(vararg filters: ObjectFilter) = ObjectFilter.And(filters.toList() + ObjectFilter.ControlledBy(PlayerFilter.You))
     private val elf = ObjectFilter.Sub(Subtype("Elf"))
-    private val untapped = ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped))
 
-    /** "Tap [count] untapped Elves you control" */
+    /** "Tap [count] untapped Elves you control": tapping as a cost taps untapped permanents you control (CR 602.2b). */
     private fun tapElves(count: Int) = CostPart.TapObjects(CostObjects.Choose(
-        filter = ObjectFilter.And(listOf(untapped, yourOwn(elf))),
+        filter = elf,
         count = Value.Fixed(count),
     ))
 
@@ -197,7 +194,7 @@ class Chunk06ManaCreaturesTest {
         pt = "0/1",
     ) parsesTo abilities(
         Keyword.Flying,
-        tapFor(anyColor(1)),
+        tapFor(anyOneColor(1)),
     )
 
     @Test
@@ -212,7 +209,7 @@ class Chunk06ManaCreaturesTest {
         pt = "0/2",
     ) parsesTo abilities(
         Keyword.Flying,
-        tapFor(anyColor(1)),
+        tapFor(anyOneColor(1)),
     )
 
     @Test
@@ -264,7 +261,7 @@ class Chunk06ManaCreaturesTest {
             )),
             rules = ActivationRules(timing = Timing.Instant),
             instructions = Instructions(
-                steps = listOf(add(anyColor(3))),
+                steps = listOf(add(anyOneColor(3))),
             ),
         ),
     )
@@ -319,7 +316,9 @@ class Chunk06ManaCreaturesTest {
             mechanics = listOf(Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1))),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
                 ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
-                yourOwn(elf, ObjectFilter.Type(CardType.Creature)),
+                elf,
+                ObjectFilter.Type(CardType.Creature),
+                ObjectFilter.ControlledBy(PlayerFilter.You),
             )))),
         ),
         tapForEach("{G}", what = yourOwn(elf)),
@@ -341,10 +340,10 @@ class Chunk06ManaCreaturesTest {
         Ability.Activated(
             cost = Cost(listOf(tapElves(2))),
             instructions = Instructions(
-                steps = listOf(add(anyColor(1))),
+                steps = listOf(add(anyOneColor(1))),
             ),
         ),
-        Keyword.Morph(mana("{G}")),
+        Keyword.Morph(manaCost("{G}")),
     )
 
     @Test

@@ -7,10 +7,14 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 
 - `OracleParser.parse(card: OracleCard)`: one printed face (name, mana cost, type line,
   P/T, loyalty, oracle text) → `FaceDefinition`. Reads only the printed values, so it
-  works for custom cards too. Understood so far: keyword lines for the keywords in
-  `KeywordSyntax.all`; activated abilities with tap, mana, life and sacrifice costs;
-  adding mana, gaining life, destroying a target, search-put-shuffle; the shock-land
-  "as this enters" (`Sentences.kt`). Everything else stays `Ability.Unparsed`.
+  works for custom cards too. It understands keyword lines (`KeywordSyntax.all`) and the
+  wordings the cube chunks test, read by the rules in `Sentences.kt` and the phrases in
+  `Phrases.kt`. Everything else stays `Ability.Unparsed`. An instant or sorcery with any
+  unread line keeps all its spell text and casting costs unparsed, because a spell
+  resolves as one object (CR 608.2b).
+- Subtypes and ability words are accepted only from the lists in the pinned
+  Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c). Exhaust, Boast, Max speed,
+  Power-up and Solved become ability labels.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

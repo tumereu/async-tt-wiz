@@ -181,7 +181,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         }
         // chunk 32: "Golems you control have first strike."
         HAVE_KEYWORDS.matchEntire(line)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
             return Ability.Static(listOf(Mechanic.GainAbilities(keywords(m.groupValues[2]) ?: return null)),
                 affects = arcanum.api.Affected.Objects(Objects.Each(filter)))
         }
@@ -878,7 +878,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             return listOf(Step.Do(Effect.Untap(context.target(Filters.slotName(noun), chosen))))
         }
         GAIN_AND_GET.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
             val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
             return listOf(Step.Do(Effect.ApplyMechanics(
                 listOf(Mechanic.GainAbilities(keywords), Mechanic.ModifyPowerToughness(ptChange(m.groupValues[3]) ?: return null, ptChange(m.groupValues[4]) ?: return null)),

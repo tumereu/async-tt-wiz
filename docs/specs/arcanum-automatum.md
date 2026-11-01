@@ -59,6 +59,12 @@ that exist today.
 | D16 | Library rules: KDoc and a short README per library; tests cite Comprehensive Rules numbers and are protected like catalog-linked tests; a build check keeps the libraries free of ATW modules. |
 | D17 | Types in the libraries are **sealed hierarchies rather than enums with values**, unless that causes serialization or multiplatform problems. |
 | D18 | **Card model:** a card is a layout and faces; a face is its characteristics plus abilities; abilities are the CR kinds (spell, activated, triggered, static) plus keywords. **Effects** (one-shot) and **mechanics** (continuous rules the engine applies) are separate; each mechanic defines how duplicates combine. **Keywords** stay keyword abilities with their identity (for "with flying", "loses flying"); one shared table in arcanum-api maps every keyword to abilities built from mechanics when definitions are loaded (deathtouch 1:1, flying → general "can't be blocked except by"). Ability words are labels on ordinary abilities. |
+| D19 | **Resolved references (API review, scenario 1):** card definitions never name specific objects; what they select is worked out at the CR-defined moment (targets when put on the Stack, other sets on resolution). What the engine stores names objects and players by id: a **Stack item** (ability of which card, controller, targets, X, modes) and an **effect object** (mechanics, locked-in affected objects, duration, source, controller, timestamp). Effect objects are arcanum types; the host stores and shows them without knowing their contents. Which parts lock in follows the CR (characteristic and control changes lock their set, rule changes keep applying to new objects, numbers lock at resolution, CR 611.2c, 608.2h). "You" is the controller of the Stack item or effect object, captured when it is created; for static abilities, the source's controller (CR 109.5). |
+| D20 | **One switch: Automatum on or off for the whole game** (replaces the separate game, player and card switches of D2, D7 and P4). No fine-grained control such as editing parts of an effect object. Turning it on may come with further restrictions (e.g. no manually created Stack entries) for anything that can't be brought in line with automation; these become clear when that part is built. |
+| D21 | **Object identity (API review, scenario 3):** an object id is `ObjectId(card, zoneChanges)`, worked out by the engine: every zone change makes a new id (CR 400.7), so the engine knows the ids a resolution creates before the host applies it. A stale id (its object left the zone) reads as last known information and can't be acted on (CR 608.2h, 400.7). Effects that produce objects name them: one `bind` when the effect doesn't change ids (create token, copy, search), one bind per id stage when it does (`preBind`/`postBind` for a single move; more if an effect changes an id more than once). Zone-change triggers offer the "before" and "after" ids. Stored Stack items and effect objects carry snapshots of the stale ids they refer to. "Enters with counters" is part of the move, not a later step (CR 122.6). |
+| D22 | **Game history as ledgers (API review, scenario 4):** the engine stays stateless; what it needs from earlier in the game ("a creature died this turn", "your second spell", activation limits, mana spent, "if it was kicked") is kept by the host as **ledgers** at three scopes: game, player, and object instance (keyed by object id, so a zone change starts fresh). The engine defines the ledger keys and how each event changes them; changes are increments, decrements and set additions/removals where possible, so undo works. "This turn" ledgers reset at the turn's start, and the previous turn's are kept for "last turn" texts. A resolving permanent spell keeps the cast part of its ledger (CR 400.7d). If undo removes something a later automated result depended on, players fix it by hand. |
+| D23 | **Easiest first on definition updates (for now):** a definition update may break or wipe running games until the owner says otherwise. Stack items carry a copy of the ability they run (granted abilities have no place on the card anyway); other references to an ability use its position. Schema versioning of stored definitions is parked. |
+| D24 | **Object model ("properties"):** everything an object has: its **characteristics** (CR 109.3: name, mana cost, colours, types, P/T, loyalty, defense, and its **abilities**: spell, activated, triggered, static, with keywords as labels on these), **applied mechanics** from effects of other sources that are not abilities ("can't be blocked" from an Aura, CR 113.12), **status** (tapped, flipped, face down, phased out), and counters, damage, controller, attachments and designations. Mechanics that are only the meaning of a keyword (deathtouch, lifelink, first strike, …) are **keyword-only**: they come only from the keyword table, so "has deathtouch" is always a granted ability that "loses all abilities" removes (CR 613.1f). |
 
 ## 3. Principles
 
@@ -75,7 +81,7 @@ that exist today.
   definitions. It is recomputed, never stored, so it stays correct after any manual
   edit, undo, branch or timeline step, and never replays history (SYS-026).
 - **P4 Everything can fall back to manual.** Each ability is automated or manual;
-  manual abilities behave exactly as today. A player can switch any card to manual.
+  manual abilities behave exactly as today. With Automatum off, everything is manual (D20).
 - **P5 Automatic unless there is a decision (D7).** Things that need no choice
   (state-based actions, a trigger without targets, options or ordering, cleanup of
   ended effects) just happen. A choice appears only when a player has one to make.
@@ -307,8 +313,9 @@ that happen together (a board wipe) are checked together. ATW events already sto
 how to apply and revert them (SYS-027), so the before-state of one event is cheap.
 
 Following P5, a trigger with no targets, options or ordering choice goes onto the
-Stack by itself. Only triggers that need a decision (targets, "you may" on putting
-it on the Stack, ordering several simultaneous triggers) ask their controller. The
+Stack by itself. Only triggers that need a decision (targets, modes, ordering several
+simultaneous triggers) ask their controller. A "you may" in a trigger is decided on
+resolution; the trigger goes on the Stack either way (CR 603.5). The
 Stack itself still has no reordering (STK-021); order is chosen when triggers are put
 on.
 
@@ -403,16 +410,15 @@ catalog entries.
 
 | Object | Purpose |
 |---|---|
-| Automation setting per game | Game-wide on/off for derived state (D2); an event, so both players see the same board. |
+| Automatum setting per game | The one on/off switch (D20); an event, so both players see the same board. |
 | Structured Stack entry | Which ability of which card, chosen modes, X, targets by named slot, controller. Today's text marks (STK-016) stay for manual entries. |
-| Effect objects | Continuous effects with source, affected objects, layer, timestamp and duration; shown on the cards they affect; settable and removable by hand. |
+| Effect objects | Continuous effects with source, affected objects, layer, timestamp and duration; shown on the cards they affect (D19). Whether they can be removed by hand while Automatum is on is open (D20). |
 | Card memory | Chosen colour/type/name, "exiled with ~", attached-to, kicked, etc. |
 | Pending decisions | Triggers waiting for a choice, and choices made during resolution, each with the player it belongs to. Answered asynchronously, by that player or on their behalf (§7.9). |
 | Autoplay decisions | Answers a player stored ahead of time (§7.10), later phase. |
 | Mana pool | Mana added but not yet spent (§7.8). |
 | Typed counters | +1/+1, −1/−1, loyalty, named counters (§7.1). |
 | Automation flag on events | Marks an action batch as produced by automation, for history texts ("Lightning Bolt dealt 3 damage to Grizzly Bears"). |
-| Per-card manual switch | A shared flag that turns automation off for one card (its statics stop applying, its triggers aren't put on the Stack). |
 
 ## 9. Turns and priority
 
@@ -428,13 +434,11 @@ catalog entries.
 
 ## 10. Toggles
 
-- **Game: automation of derived state** (shared, D2). Turns computed values, effect
-  objects and structured Stack entries on or off for the whole game. Possibly removed
-  later.
-- **Player: "Automatum off"** (D7). One switch that stops the assists for this
-  player: automatic triggers, state-based actions, cast dialog and automatic
-  resolution for things this player controls. Gestures then behave as today.
-- **Card: "Manual"** (shared, §8).
+- **Automatum on/off** (shared, one per game, D20). Off: everything behaves as today.
+  On: computed values, effect objects, structured Stack entries, automatic triggers,
+  state-based actions, the cast dialog and automatic resolution. What happens to
+  stored effect objects and Stack entries when it is switched, and which manual
+  actions are restricted while it is on, is decided when this part is built.
 
 ## 11. Fit with existing rules
 

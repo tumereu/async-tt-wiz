@@ -32,7 +32,11 @@ sealed interface EventPattern {
     @Serializable @SerialName("discard") data class Discard(val cards: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
     @Serializable @SerialName("counters") data class CountersPut(val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null) : EventPattern
-    @Serializable @SerialName("counters-removed") data class CountersRemoved(val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null) : EventPattern
+    /** Counters of [kind] are removed from an object matching [objects]; [last]: only when that removal leaves none
+     * ("when the last time counter is removed", CR 702.63a), part of the trigger event, not an intervening if. */
+    @Serializable @SerialName("counters-removed") data class CountersRemoved(
+        val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null, val last: Boolean = false,
+    ) : EventPattern
     @Serializable @SerialName("player-counters") data class PlayerCountersPut(val players: PlayerFilter = PlayerFilter.Any, val kind: CounterKind? = null) : EventPattern
     @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter = ObjectFilter.Any, val forMana: Boolean? = null) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern

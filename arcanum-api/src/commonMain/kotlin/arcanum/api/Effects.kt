@@ -20,8 +20,10 @@ sealed interface Effect {
 
     @Serializable @SerialName("destroy") data class Destroy(val objects: Objects, val noRegeneration: Boolean = false) : Effect
     @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: Objects) : Effect
-    /** Move [objects] to another zone (exile, return to hand, put onto the battlefield, put into a library, …). */
-    @Serializable @SerialName("move") data class Move(val objects: Objects, val to: Destination) : Effect
+    /** Move [objects] to another zone (exile, return to hand, put onto the battlefield, put into a library, …).
+     * [untilLeaves]: "exile … until ~ leaves the battlefield": when that object leaves, the moved cards return at once
+     * without using the Stack, and if it has already left, nothing is moved (CR 610.3). */
+    @Serializable @SerialName("move") data class Move(val objects: Objects, val to: Destination, val untilLeaves: Objects? = null) : Effect
     @Serializable @SerialName("draw") data class Draw(val players: Players, val count: Value = Value.Fixed(1)) : Effect
     @Serializable @SerialName("discard") data class Discard(
         val players: Players, val count: Value, val filter: ObjectFilter = ObjectFilter.Any,

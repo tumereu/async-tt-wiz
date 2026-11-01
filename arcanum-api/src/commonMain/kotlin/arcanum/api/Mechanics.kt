@@ -33,11 +33,19 @@ sealed interface Layer {
  * A continuous rule (CR 611): the engine's vocabulary for what static abilities and continuous effects do. Each
  * mechanic says which [layer] it applies in (if any) and how instances combine ([stacking]). Keywords map to
  * mechanics through the shared table: deathtouch to [Deathtouch] one to one, flying to the general [CantBeBlocked].
+ *
+ * Mechanics that are only the meaning of a keyword are [KeywordOnly]: they appear only in [KeywordExpansions], never
+ * in a definition. "Has deathtouch" is a granted ability ([GainAbilities] with the keyword), so "loses all abilities"
+ * removes it (CR 613.1f); other mechanics in a static ability or an effect are rules applied to an object that are
+ * not abilities ("can't be blocked", CR 113.12). [DefinitionChecks] reports keyword-only mechanics in definitions.
  */
 @Serializable
 sealed interface Mechanic {
     val layer: Layer? get() = null
     val stacking: Stacking get() = Stacking.Redundant
+
+    /** A mechanic that is only the meaning of a keyword; used only by [KeywordExpansions]. */
+    sealed interface KeywordOnly : Mechanic
 
     // ---- Layer 1–7: characteristics (CR 613) ----
     @Serializable @SerialName("copy-of") data class CopyOf(val objects: Objects, val changes: List<Mechanic> = emptyList()) : Mechanic {
@@ -96,29 +104,29 @@ sealed interface Mechanic {
     }
 
     // ---- Rules the engine asks about (combat, damage, state-based actions) ----
-    @Serializable @SerialName("deathtouch") data object Deathtouch : Mechanic
-    @Serializable @SerialName("lifelink") data object Lifelink : Mechanic
-    @Serializable @SerialName("first-strike") data object FirstStrike : Mechanic
-    @Serializable @SerialName("double-strike") data object DoubleStrike : Mechanic
+    @Serializable @SerialName("deathtouch") data object Deathtouch : KeywordOnly
+    @Serializable @SerialName("lifelink") data object Lifelink : KeywordOnly
+    @Serializable @SerialName("first-strike") data object FirstStrike : KeywordOnly
+    @Serializable @SerialName("double-strike") data object DoubleStrike : KeywordOnly
     /** Excess combat damage may go to the player or planeswalker it attacks (CR 702.19); [overPlaneswalkers] for
      * "trample over planeswalkers" (CR 702.19e). */
-    @Serializable @SerialName("trample") data class Trample(val overPlaneswalkers: Boolean = false) : Mechanic
+    @Serializable @SerialName("trample") data class Trample(val overPlaneswalkers: Boolean = false) : KeywordOnly
     @Serializable @SerialName("ignores-summoning-sickness") data object IgnoresSummoningSickness : Mechanic
     @Serializable @SerialName("attacks-without-tapping") data object AttacksWithoutTapping : Mechanic
-    @Serializable @SerialName("indestructible") data object Indestructible : Mechanic
-    @Serializable @SerialName("infect") data object Infect : Mechanic
-    @Serializable @SerialName("wither") data object Wither : Mechanic
-    @Serializable @SerialName("toxic") data class Toxic(val amount: Int) : Mechanic {
+    @Serializable @SerialName("indestructible") data object Indestructible : KeywordOnly
+    @Serializable @SerialName("infect") data object Infect : KeywordOnly
+    @Serializable @SerialName("wither") data object Wither : KeywordOnly
+    @Serializable @SerialName("toxic") data class Toxic(val amount: Int) : KeywordOnly {
         override val stacking: Stacking get() = Stacking.Additive
     }
     /** Protection from objects matching [from] (CR 702.16: can't be damaged, enchanted/equipped, blocked or targeted
      * by them). */
-    @Serializable @SerialName("protection") data class Protection(val from: ObjectFilter) : Mechanic
+    @Serializable @SerialName("protection") data class Protection(val from: ObjectFilter) : KeywordOnly
     /** Can't be the target of spells or abilities matching [by] (hexproof: controlled by opponents; shroud: any). */
     @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter) : Mechanic
-    @Serializable @SerialName("phasing") data object Phasing : Mechanic
+    @Serializable @SerialName("phasing") data object Phasing : KeywordOnly
     /** What this Aura can target as a spell and be attached to (enchant, CR 702.5, 303.4). */
-    @Serializable @SerialName("can-enchant") data class CanEnchant(val what: TargetKind) : Mechanic
+    @Serializable @SerialName("can-enchant") data class CanEnchant(val what: TargetKind) : KeywordOnly
     /** What this Equipment or Fortification can be attached to besides the default (CR 301.5). */
     @Serializable @SerialName("can-attach-to") data class CanAttachTo(val what: ObjectFilter) : Mechanic
 

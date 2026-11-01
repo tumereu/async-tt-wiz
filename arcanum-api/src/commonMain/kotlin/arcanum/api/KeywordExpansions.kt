@@ -38,7 +38,7 @@ object KeywordExpansions {
         Keyword.Intimidate -> static(Mechanic.CantBeBlocked(onlyBy = or(ObjectFilter.Type(CardType.Artifact),
             ObjectFilter.Shares(SharedQuality.Color, Objects.Self))))
         // CR 702.8a: may cast it any time you could cast an instant
-        Keyword.Flash -> listOf(Ability.Static(listOf(Mechanic.InstantSpeed), functionsIn = listOf(Zone.Hand, Zone.Stack)))
+        Keyword.Flash -> static(Mechanic.InstantSpeed)
         // CR 702.108a: "Whenever you cast a noncreature spell, this creature gets +1/+1 until end of turn."
         Keyword.Prowess -> listOf(Ability.Triggered(
             Trigger.On(EventPattern.Cast(ObjectFilter.Not(ObjectFilter.Type(CardType.Creature)), PlayerFilter.You)),
@@ -74,15 +74,13 @@ object KeywordExpansions {
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
             Step.Do(Effect.Shuffle(Players.You)))))
         // CR 702.34a: may cast from the graveyard by paying the flashback cost; exiled when it leaves the Stack
-        is Keyword.Flashback -> listOf(Ability.Static(
-            listOf(Mechanic.MayCastFrom(Zone.Graveyard, keyword.cost, then = Destination(Zone.Exile))),
-            functionsIn = listOf(Zone.Graveyard)))
+        is Keyword.Flashback -> static(Mechanic.MayCastFrom(Zone.Graveyard, keyword.cost, then = Destination(Zone.Exile)))
         // CR 702.33a: optional additional cost(s)
         is Keyword.Kicker -> keyword.costs.map { cost ->
-            Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Kicker.Kind, cost, optional = true)), functionsIn = listOf(Zone.Stack))
+            Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Kicker.Kind, cost, optional = true)))
         }
-        is Keyword.Multikicker -> listOf(Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Multikicker.Kind,
-            keyword.cost, optional = true, repeatable = true)), functionsIn = listOf(Zone.Stack)))
+        is Keyword.Multikicker -> static(Mechanic.AdditionalCost(Keyword.Multikicker.Kind,
+            keyword.cost, optional = true, repeatable = true))
         // CR 702.63a: enters with N time counters; upkeep: remove one; when the last is removed, sacrifice it
         is Keyword.Vanishing -> {
             val time = CounterKind.Named("time")
@@ -93,9 +91,10 @@ object KeywordExpansions {
                 Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
                     steps(Effect.RemoveCounters(Objects.Self, time, Value.Fixed(1))),
                     interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(time))),
-                Ability.Triggered(Trigger.On(EventPattern.CountersRemoved(ObjectFilter.Is(Objects.Self), time)),
-                    steps(Effect.Sacrifice(Objects.Self)),
-                    interveningIf = Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(time)))),
+                // "When the last time counter is removed": no intervening if, so it is sacrificed even if a counter
+                // was put on in response
+                Ability.Triggered(Trigger.On(EventPattern.CountersRemoved(ObjectFilter.Is(Objects.Self), time, last = true)),
+                    steps(Effect.Sacrifice(Objects.Self))),
             )
         }
         else -> null
@@ -106,6 +105,5 @@ object KeywordExpansions {
     private fun has(kind: KeywordKind) = ObjectFilter.HasKeyword(kind)
     private fun or(vararg filters: ObjectFilter) = ObjectFilter.Or(filters.toList())
     private fun cycling(cost: Cost, draw: Effect?, steps: List<Step> = listOfNotNull(draw?.let { Step.Do(it) })) =
-        Ability.Activated(Cost(cost.parts + CostPart.Discard(CostObjects.Self)), Instructions(steps = steps),
-            functionsIn = listOf(Zone.Hand))
+        Ability.Activated(Cost(cost.parts + CostPart.Discard(CostObjects.Self)), Instructions(steps = steps))
 }

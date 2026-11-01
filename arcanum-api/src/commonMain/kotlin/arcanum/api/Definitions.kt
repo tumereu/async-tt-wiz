@@ -74,19 +74,27 @@ sealed interface Ability {
         val cost: Cost,
         val instructions: Instructions,
         val rules: ActivationRules = ActivationRules(),
-        /** Zones it can be activated from when not the battlefield (cycling: hand). Null: the default (CR 113.6). */
+        /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
+         * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
+         * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
+         * cycling-like costs where they can be paid; characteristic-defining everywhere). */
         val functionsIn: List<Zone>? = null,
         val abilityWord: String? = null,
         val text: String? = null,
     ) : Ability
 
     /** "When/Whenever/At [trigger], [effect]" (CR 603). [interveningIf] is checked on trigger and on resolution
-     * (CR 603.4). [optional] is a "you may" on putting it on the Stack ("you may have …" is a [Step.May]). */
+     * (CR 603.4). A "you may" is a [Step.May] decided on resolution; the trigger goes on the Stack either way
+     * (CR 603.5). */
     @Serializable @SerialName("triggered")
     data class Triggered(
         val trigger: Trigger,
         val instructions: Instructions,
         val interveningIf: Condition? = null,
+        /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
+         * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
+         * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
+         * cycling-like costs where they can be paid; characteristic-defining everywhere). */
         val functionsIn: List<Zone>? = null,
         val abilityWord: String? = null,
         val text: String? = null,
@@ -102,6 +110,10 @@ sealed interface Ability {
         val affects: Affected = Affected.Objects(Objects.Self),
         val condition: Condition? = null,
         val characteristicDefining: Boolean = false,
+        /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
+         * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
+         * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
+         * cycling-like costs where they can be paid; characteristic-defining everywhere). */
         val functionsIn: List<Zone>? = null,
         val abilityWord: String? = null,
         val text: String? = null,

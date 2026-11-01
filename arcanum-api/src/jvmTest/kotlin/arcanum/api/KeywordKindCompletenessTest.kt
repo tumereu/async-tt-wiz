@@ -22,4 +22,10 @@ class KeywordKindCompletenessTest {
     fun everyKeywordCitesARuleOfChapter702() {
         KeywordKind.all.forEach { assertTrue(Regex("""702\.\d+[a-z]?""").matches(it.rule), "${it.id}: ${it.rule}") }
     }
+
+    @Test
+    fun definitionChecksListEveryKeywordOnlyMechanic() {
+        assertEquals(Mechanic.KeywordOnly::class.sealedSubclasses.map { it.simpleName.orEmpty() }.sorted(),
+            DefinitionChecks.keywordOnly.map { it::class.simpleName.orEmpty() }.sorted())
+    }
 }

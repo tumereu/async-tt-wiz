@@ -115,7 +115,9 @@ sealed interface SharedQuality {
     @Serializable @SerialName("name") data object Name : SharedQuality
 }
 
-/** Which players something refers to, worked out when it is used. "You" is the controller of the ability's source. */
+/** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability
+ * on the Stack, or of the effect it created, captured when it was put on the Stack or created; for a static ability,
+ * the current controller of its source (CR 109.5). */
 @Serializable
 sealed interface Players {
     @Serializable @SerialName("you") data object You : Players

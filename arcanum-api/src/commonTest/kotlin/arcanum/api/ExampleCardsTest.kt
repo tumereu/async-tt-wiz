@@ -63,12 +63,8 @@ class ExampleCardsTest {
         Ability.Triggered(entersSelf, Instructions(
             targets = listOf(TargetSlot("p", TargetKind.Objects(all(ObjectFilter.Category(ObjectCategory.Permanent),
                 ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), ObjectFilter.ControlledBy(PlayerFilter.Opponent))))),
-            steps = listOf(
-                Step.Do(Effect.Move(Objects.Target("p"), Destination(Zone.Exile)), bind = "exiled"),
-                Step.Do(Effect.Remember("exiled", Objects.Bound("exiled")))))),
-        Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield)),
-            Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Remembered("exiled"), Destination(Zone.Battlefield,
-                controller = Players.OwnerOf(Objects.Remembered("exiled"))))))))))
+            // CR 610.3: one effect that returns the card the moment this enchantment leaves, without a trigger
+            steps = listOf(Step.Do(Effect.Move(Objects.Target("p"), Destination(Zone.Exile), untilLeaves = Objects.Self)))))))
 
     /** "Choose one — • Counter target noncreature spell unless its controller pays {2}. • ~ deals 2 damage to target
      * creature. • Draw two cards, then discard two cards." */
@@ -145,6 +141,23 @@ class ExampleCardsTest {
     }
 
     @Test
+    fun exampleCardsPassDefinitionChecks() {
+        (listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked)
+            .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure)
+            .forEach { assertEquals(emptyList(), DefinitionChecks.problems(it), it.faces.first().name) }
+    }
+
+    // CR 613.1f: "enchanted creature has deathtouch" grants the keyword (layer 6, lost with "loses all abilities");
+    // the keyword-only mechanic used directly would skip that.
+    @Test
+    fun keywordOnlyMechanicsAreReportedOutsideTheKeywordTable() {
+        fun card(static: Ability.Static) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Venom Charm", abilities = listOf(static))))
+        val enchanted = Affected.Objects(Objects.AttachedTo())
+        assertEquals(emptyList(), DefinitionChecks.problems(card(Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Deathtouch))), enchanted))))
+        assertEquals(1, DefinitionChecks.problems(card(Ability.Static(listOf(Mechanic.Deathtouch), enchanted))).size)
+    }
+
+    @Test
     fun readableJsonForASimpleSpell() {
         assertEquals(
             """{"name":"Surge of Vigor","manaCost":"{G}","types":[{"type":"instant"}],"abilities":[{"type":"spell",""" +
@@ -170,11 +183,12 @@ class ExampleCardsTest {
         assertEquals(listOf(Ability.Static(listOf(Mechanic.Deathtouch))), KeywordExpansions.expand(Keyword.Deathtouch))
     }
 
-    // CR 702.63a: vanishing is three abilities.
+    // CR 702.63a: vanishing is three abilities; "when the last time counter is removed" has no intervening if.
     @Test
     fun vanishingExpandsToThreeAbilitiesThatSurviveJson() {
         val abilities = KeywordExpansions.expand(Keyword.Vanishing(3))!!
         assertEquals(3, abilities.size)
+        assertEquals(null, (abilities[2] as Ability.Triggered).interveningIf)
         val face = FaceDefinition("Fading Wisp", abilities = abilities)
         assertEquals(face, json.decodeFromString(FaceDefinition.serializer(), json.encodeToString(FaceDefinition.serializer(), face)))
     }

@@ -10,7 +10,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-004** A pasted cube list is checked by itself shortly after you stop typing; there is no separate "Import list" button. (r20)
 - **DRF-005** Cube lists accept every Cube Cobra export (plaintext, MTGO, Forge, XMage, CSV) and bare card names (one copy per line); maybeboard rows and a pasted list's sideboard lines go to Maybe. (r35)
 - **DRF-006** A name shared by different cards does not block a cube: one is picked and listed with the other substitutions before saving; unknown cards block saving and name the bad lines. (r19)
-- **DRF-007** A cube holds at most 3000 copies, counting Main and Maybe; the total copy count shows before saving. (r35)
+- **DRF-007** A cube holds at most 3000 copies, counting Main and Maybe; the Cards tab line ("N main · M maybe", LOB-107) shows the copies before saving. (r35)
 - **DRF-008** The top bar's "Import from link" dialog takes a Cube Cobra link or cube ID found anywhere in pasted text (https/www optional, query ignored); its paste icon pastes and imports at once. (r20)
 - **DRF-009** A Cube Cobra import replaces the list: the mainboard goes to Main and the maybeboard to Maybe, and the cube's basics are ignored; an unnamed cube gets the Cube Cobra ID as its name; failures say why. (r35)
 - **DRF-010** A saved cube opens in the saved list view (LOB-056: the picture view with a columns control), showing Main and Maybe; its columns start at 5 in portrait and 8 in landscape, remembered apart from decks. Above the cards: Edit at the top, then the name with "N total copies" and "Draft this cube", which opens New pod with that cube chosen; Delete cube is in the cube editor (LOB-057). (r35)

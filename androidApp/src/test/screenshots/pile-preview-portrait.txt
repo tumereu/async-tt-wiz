@@ -1,0 +1,1 @@
+Portrait table: holding the top card of Alice's three-card battlefield pile and moving the finger up a little scrolls the one preview from the top card's text down to the face-down card under it, shown to Alice dimmed with a Face down label.

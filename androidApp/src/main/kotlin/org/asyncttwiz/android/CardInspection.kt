@@ -38,7 +38,6 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
     textOptions: List<StackTextOption> = emptyList(), faceDown: Boolean = false) {
     val state = controller.state ?: return
     val card = state.card
-    val face = card.definition.faces[state.face]
     val localScroll = key(card, state.face) { rememberScrollState() }
     val contentScroll = if (peek) peekScroll ?: localScroll else localScroll
     val content: @Composable () -> Unit = {
@@ -55,75 +54,12 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                     ManualActionSquare(if (previous) "Previous face" else "Next face", "", enabled, onClick = click)
                 }, controller::face)
                 key(card, state.face) {
-                    val orientation = card.orientation(state.face)
                     val sideways = state.degrees % 180 != 0
                     val artwork: @Composable (Dp) -> Unit = { heightLimit ->
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                // A card printed sideways shows turned and as large as fits: the full width, within the
-                                // height and never taller than a capped upright card.
-                                val (width, height) = inspectedArtworkSize(sideways, maxWidth,
-                                    if (sideways || peek) heightLimit else Dp.Infinity)
-                                val density = LocalDensity.current
-                                val scale = if (!peek && state.enlarged) 2 else 1
-                                ArtworkViewport(Modifier.fillMaxWidth().height(height)
-                                    .semantics { contentDescription = "Card artwork viewport" }) {
-                                    CardArtwork(card.artwork[state.face], "Artwork for ${face.name}",
-                                        with(density) { (width * scale).roundToPx() }.coerceIn(1, 4096),
-                                        with(density) { (height * scale).roundToPx() }.coerceIn(1, 4096),
-                                        Modifier.requiredSize(width * scale, height * scale)
-                                            // Inspection always shows the whole printed card, including token corners.
-                                            .then(if (owner != null) Modifier.cardFrame(false, owner, projection) else Modifier),
-                                        placeholder = { InspectorArtworkPlaceholder(card.artwork[state.face], "Artwork for ${face.name}") },
-                                        degrees = state.degrees)
-                                    // The owner's own face-down card: the front stays readable but is plainly marked.
-                                    if (faceDown) Box(Modifier.requiredSize(width * scale, height * scale)
-                                        .background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {
-                                        Text("Face down", color = Color.White, style = MaterialTheme.typography.headlineSmall)
-                                    }
-                                }
-                            }
-                            if (!peek) Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", Modifier.weight(1f), onClick = controller::zoom)
-                                // Aftermath and flip halves: a personal turn to read the other half.
-                                if (orientation.alternate != null)
-                                    ManualActionSquare(if (state.turned) "Rotate back" else "Rotate card", "", onClick = controller::turn)
-                            }
-                        }
+                        InspectionArtwork(state, heightLimit, peek, owner, projection, faceDown, controller)
                     }
                     val text: @Composable () -> Unit = {
-                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (peek) 4.dp else 12.dp)) {
-                            annotation?.let { Text(it) }
-                            // Current-face marks are highlighted inline below; list other faces too.
-                            for ((index, option) in markedOptions.filter { it.second.faceId != face.faceId }) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                StackMarkChip(index)
-                                CardText(option.text)
-                            }
-                            val marked = markedOptions.filter { it.second.faceId == face.faceId }
-                            @Composable fun markedText(value: String, paragraph: Int?, title: Boolean = false) {
-                                val selected = marked.firstOrNull { it.second.paragraph == paragraph }
-                                val lineIndex = textOptions.indexOfFirst { it.faceId == face.faceId && it.paragraph == paragraph }
-                                val flash = if (stackEntryId != null && lineIndex >= 0) Modifier.tableChangeFlash(LocalTableChanges.current,
-                                    TableChangeKey(stackEntryId, TableChangeKind.TEXT_MARK, line = lineIndex)) else Modifier
-                                Row((if (selected != null) Modifier.fillMaxWidth().background(stackMarkColor(selected.first).copy(alpha = .16f),
-                                    RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier).then(flash),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    if (selected != null) StackMarkChip(selected.first)
-                                    CardText(value, style = if (title) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge)
-                                }
-                            }
-                            markedText(face.name, null, title = true)
-                            if (face.manaCost.isNotEmpty()) CardText(face.manaCost)
-                            if (face.typeLine.isNotEmpty()) Text(face.typeLine)
-                            face.rulesText.lines().map(String::trim).filter(String::isNotEmpty).forEachIndexed { index, paragraph ->
-                                markedText(paragraph, index)
-                            }
-                             if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) Text("${face.power}/${face.toughness}")
-                            if (face.loyalty.isNotEmpty()) Text("Loyalty: ${face.loyalty}")
-                            if (face.defense.isNotEmpty()) Text("Defense: ${face.defense}")
-                            if (face.corner.isNotEmpty() && face.power.isEmpty() && face.toughness.isEmpty() &&
-                                face.loyalty.isEmpty() && face.defense.isEmpty()) Text(face.corner)
-                        }
+                        InspectionText(state, annotation, markedOptions, textOptions, stackEntryId, peek)
                     }
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                         val availableHeight = maxHeight
@@ -154,6 +90,87 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
     }
 }
 
+/** One card's artwork in an inspection or hold preview; sideways cards and previews stay within [heightLimit]. */
+@Composable
+private fun InspectionArtwork(state: CardInspectionState, heightLimit: Dp, peek: Boolean, owner: Color?, projection: Boolean,
+    faceDown: Boolean, controller: CardInspectionController?) {
+    val card = state.card
+    val face = card.definition.faces[state.face]
+    val orientation = card.orientation(state.face)
+    val sideways = state.degrees % 180 != 0
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            // A card printed sideways shows turned and as large as fits: the full width, within the
+            // height and never taller than a capped upright card.
+            val (width, height) = inspectedArtworkSize(sideways, maxWidth,
+                if (sideways || peek) heightLimit else Dp.Infinity)
+            val density = LocalDensity.current
+            val scale = if (!peek && state.enlarged) 2 else 1
+            ArtworkViewport(Modifier.fillMaxWidth().height(height)
+                .semantics { contentDescription = "Card artwork viewport" }) {
+                CardArtwork(card.artwork[state.face], "Artwork for ${face.name}",
+                    with(density) { (width * scale).roundToPx() }.coerceIn(1, 4096),
+                    with(density) { (height * scale).roundToPx() }.coerceIn(1, 4096),
+                    Modifier.requiredSize(width * scale, height * scale)
+                        // Inspection always shows the whole printed card, including token corners.
+                        .then(if (owner != null) Modifier.cardFrame(false, owner, projection) else Modifier),
+                    placeholder = { InspectorArtworkPlaceholder(card.artwork[state.face], "Artwork for ${face.name}") },
+                    degrees = state.degrees)
+                // The owner's own face-down card: the front stays readable but is plainly marked.
+                if (faceDown) Box(Modifier.requiredSize(width * scale, height * scale)
+                    .background(Color.Black.copy(alpha = .55f)), contentAlignment = Alignment.Center) {
+                    Text("Face down", color = Color.White, style = MaterialTheme.typography.headlineSmall)
+                }
+            }
+        }
+        if (!peek) Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MenuButton(if (state.enlarged) "Fit artwork" else "Enlarge artwork", Modifier.weight(1f), onClick = { controller?.zoom() })
+            // Aftermath and flip halves: a personal turn to read the other half.
+            if (orientation.alternate != null)
+                ManualActionSquare(if (state.turned) "Rotate back" else "Rotate card", "", onClick = { controller?.turn() })
+        }
+    }
+}
+
+/** One card's text in an inspection or hold preview: annotation, Stack marks, name, cost, type, rules and printed values. */
+@Composable
+private fun InspectionText(state: CardInspectionState, annotation: String?, markedOptions: List<Pair<Int, StackTextOption>>,
+    textOptions: List<StackTextOption>, stackEntryId: String?, peek: Boolean) {
+    val face = state.card.definition.faces[state.face]
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (peek) 4.dp else 12.dp)) {
+        annotation?.let { Text(it) }
+        // Current-face marks are highlighted inline below; list other faces too.
+        for ((index, option) in markedOptions.filter { it.second.faceId != face.faceId }) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            StackMarkChip(index)
+            CardText(option.text)
+        }
+        val marked = markedOptions.filter { it.second.faceId == face.faceId }
+        @Composable fun markedText(value: String, paragraph: Int?, title: Boolean = false) {
+            val selected = marked.firstOrNull { it.second.paragraph == paragraph }
+            val lineIndex = textOptions.indexOfFirst { it.faceId == face.faceId && it.paragraph == paragraph }
+            val flash = if (stackEntryId != null && lineIndex >= 0) Modifier.tableChangeFlash(LocalTableChanges.current,
+                TableChangeKey(stackEntryId, TableChangeKind.TEXT_MARK, line = lineIndex)) else Modifier
+            Row((if (selected != null) Modifier.fillMaxWidth().background(stackMarkColor(selected.first).copy(alpha = .16f),
+                RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier).then(flash),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (selected != null) StackMarkChip(selected.first)
+                CardText(value, style = if (title) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge)
+            }
+        }
+        markedText(face.name, null, title = true)
+        if (face.manaCost.isNotEmpty()) CardText(face.manaCost)
+        if (face.typeLine.isNotEmpty()) Text(face.typeLine)
+        face.rulesText.lines().map(String::trim).filter(String::isNotEmpty).forEachIndexed { index, paragraph ->
+            markedText(paragraph, index)
+        }
+         if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) Text("${face.power}/${face.toughness}")
+        if (face.loyalty.isNotEmpty()) Text("Loyalty: ${face.loyalty}")
+        if (face.defense.isNotEmpty()) Text("Defense: ${face.defense}")
+        if (face.corner.isNotEmpty() && face.power.isEmpty() && face.toughness.isEmpty() &&
+            face.loyalty.isEmpty() && face.defense.isEmpty()) Text(face.corner)
+    }
+}
+
 /**
  * Face switcher between an inspection's title and its artwork: two square chevron buttons drawn by [button]
  * (true = previous) around a centred "n / m", spaced off the title above and the artwork below.
@@ -177,6 +194,15 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
     if (inspection.gameId != state.gameId || inspection.playId != state.id) return
     BackHandler(enabled = peek, onBack = close)
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
+    // TBL-111: holding a battlefield card that lies on others previews it and every card under it.
+    val below = if (peek && inspection.snapshot == null) battlefieldPileBelow(state.board, inspection.cardId) else emptyList()
+    if (below.isNotEmpty()) {
+        val cards = remember(state, viewer, inspection, names) {
+            listOf(pilePeekCard(state, viewer, card, names, inspection)) + below.map { pilePeekCard(state, viewer, it, names, null) }
+        }
+        PilePeek(cards, peekScroll ?: rememberScrollState())
+        return
+    }
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
     // A face-down entry (STK-005) shows its holder the front marked "Face down", like an own face-down card.
     val faceDown = ManualDisclosure.faceDownOutsideHiddenZones(state.board, card) ||
@@ -216,15 +242,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
             marks.firstOrNull()?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown, flipped) }
-        if (controller.state != null) CardInspection(controller,
-            listOfNotNull(
-                "Provisional inspection · awaiting shared result".takeIf { inspection.provisional },
-                "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
-                inspectedCorner(card).takeIf(String::isNotBlank),
-                card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
-                card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
-                card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
-                card.note.takeIf(String::isNotBlank)).joinToString("\n"),
+        if (controller.state != null) CardInspection(controller, inspectionAnnotation(card, names, inspection.provisional),
             markedOptions = marks,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
              projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll,
@@ -232,5 +250,98 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
              faceDown = faceDown)
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
+    }
+}
+
+/** The text above a game card's inspection: owner, tapped state and the card's current table values. */
+private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, provisional: Boolean): String = listOfNotNull(
+    "Provisional inspection · awaiting shared result".takeIf { provisional },
+    "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
+    inspectedCorner(card).takeIf(String::isNotBlank),
+    card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
+    card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
+    card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
+    card.note.takeIf(String::isNotBlank)).joinToString("\n")
+
+/** TBL-111: the cards under [cardId] in its battlefield pile (TBL-053), top first; empty when nothing lies under it. */
+internal fun battlefieldPileBelow(board: BoardState, cardId: String): List<PlayCard> {
+    val card = board.cards.singleOrNull { it.id == cardId } ?: return emptyList()
+    val placement = card.placement ?: return emptyList()
+    val field = board.containers.singleOrNull { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } ?: return emptyList()
+    val byId = board.cards.associateBy { it.id }
+    // The container order is the pile order, top first (TablePresentation.logicalPlacements).
+    val pile = field.cards.mapNotNull { byId[it] }.filter { it.placement == placement }
+    return pile.drop(pile.indexOfFirst { it.id == cardId } + 1)
+}
+
+/** One card of a pile's hold preview: what an ordinary hold preview of it shows, or only that it is covered. */
+internal sealed interface PilePeekCard {
+    val cardId: String
+    data class Shown(override val cardId: String, val state: CardInspectionState, val annotation: String, val owner: Color,
+        val faceDown: Boolean) : PilePeekCard
+    data class Covered(override val cardId: String, val text: String) : PilePeekCard
+}
+
+/** [card] as its own hold preview shows it to [viewer] (a face-down front stays hidden from the opponent, TBL-109). */
+private fun pilePeekCard(state: PlayState, viewer: String, card: PlayCard, names: Map<String, String>,
+    inspection: ManualInspection?): PilePeekCard {
+    val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
+        ?: return PilePeekCard.Covered(card.id, "Card data unavailable")
+    val allowed = if (ManualDisclosure.faceDownFrontHidden(state, card, viewer)) emptyList() else
+        ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId }
+            .filter { inspection == null || it in inspection.faceIds }
+    val faces = definition.faces.filter { it.faceId in allowed }
+    if (faces.isEmpty()) return PilePeekCard.Covered(card.id, "Covered card")
+    val filtered = definition.copy(name = if (faces.size == definition.faces.size) definition.name else faces.first().name, faces = faces)
+    val full = InspectedCard.retained(card.definition, definition)
+    val shown = InspectedCard(filtered, faces.map { face -> full.artwork[definition.faces.indexOf(face)] })
+    val opened = CardInspectionController().apply {
+        open(shown, faces.indexOfFirst { it.faceId == card.faceId }, flippedOnTable(definition, card.faceId))
+    }.state!!
+    return PilePeekCard.Shown(card.id, opened, inspectionAnnotation(card, names, inspection?.provisional == true),
+        if (card.owner == viewer) OwnTableColor else OpponentTableColor, ManualDisclosure.faceDownOutsideHiddenZones(state.board, card))
+}
+
+/** TBL-111: a pile's hold preview: the held card, then each card under it, one below the other in one scrolling column. */
+@Composable
+private fun PilePeek(cards: List<PilePeekCard>, scroll: ScrollState) {
+    Popup(properties = PopupProperties(focusable = false)) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .28f)), contentAlignment = Alignment.Center) {
+            Surface(Modifier.widthIn(max = 720.dp).fillMaxWidth(.94f).fillMaxHeight(.94f)
+                .semantics { paneTitle = "Card inspection" }, shape = MaterialTheme.shapes.large,
+                color = Color.White, contentColor = MenuInk) {
+                BoxWithConstraints(Modifier.padding(12.dp).fillMaxSize()) {
+                    val wide = maxWidth > maxHeight && maxWidth >= 480.dp
+                    val height = maxHeight
+                    Column(Modifier.fillMaxSize().verticalScroll(scroll).semantics { contentDescription = "Card inspection content" },
+                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        cards.forEachIndexed { index, card -> key(card.cardId) {
+                            if (index > 0) HorizontalDivider(color = MenuBorder)
+                            when (card) {
+                                is PilePeekCard.Covered -> Text(card.text, Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                    textAlign = TextAlign.Center)
+                                is PilePeekCard.Shown -> {
+                                    val artwork: @Composable (Dp) -> Unit = { limit ->
+                                        InspectionArtwork(card.state, limit, true, card.owner, false, card.faceDown, null)
+                                    }
+                                    val text: @Composable () -> Unit = {
+                                        InspectionText(card.state, card.annotation, emptyList(), emptyList(), null, true)
+                                    }
+                                    // Like the single preview: side by side on a wide screen, the picture above the text otherwise.
+                                    if (wide) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                                        Box(Modifier.weight(if (card.state.degrees % 180 != 0) 1.5f else 1f)) { artwork(height) }
+                                        Box(Modifier.weight(1f)) { text() }
+                                    } else Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        artwork(height * .45f)
+                                        text()
+                                    }
+                                }
+                            }
+                        } }
+                        Spacer(Modifier.height(4.dp))
+                    }
+                }
+            }
+        }
     }
 }

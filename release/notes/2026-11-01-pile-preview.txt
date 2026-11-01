@@ -1,0 +1,1 @@
+add: Holding the top card of a battlefield pile now also shows the cards under it in the same preview; scroll down to see them.

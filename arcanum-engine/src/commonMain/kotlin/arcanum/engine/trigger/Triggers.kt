@@ -238,7 +238,7 @@ internal object Triggers {
     private fun push(act: Act, t: WaitingTrigger) {
         val ability = t.ability as? Ability.Triggered ?: return
         val stackId = ObjectId.StackItem("trigger:${act.state.nextTimestamp()}")
-        val choices = Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true) ?: return
+        val choices = Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event) ?: return
         t.source?.let { recordTriggerCount(act, it, t.origin) }
         val item = StackItem(
             id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,

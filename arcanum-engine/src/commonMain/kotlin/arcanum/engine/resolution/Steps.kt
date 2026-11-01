@@ -131,7 +131,7 @@ internal object Steps {
             Scope(scope.act, scope.cause, outer.with(step.bind, v), scope.event, actorOf(scope, v), scope.batch, scope.entering)
         }
         if (step.together) {
-            step.steps.forEach { s -> together(scope) { scopes.forEach { it.batch = scope.batch; run(it, s); it.batch = null } } }
+            step.steps.forEach { s -> stepTogether(scope, scopes, s) }
         } else {
             scopes.forEach { run(it, step.steps) }
         }
@@ -142,6 +142,21 @@ internal object Steps {
             group(scopes.mapNotNull { sc -> sc.names[name]?.takeIf { it != outer[name] } })?.let { merged = merged.with(name, it) }
         }
         scope.names = merged
+    }
+
+    /** One step of a "together" loop for every player's [scopes]. "Each player may search …, put them onto the
+     * battlefield, then shuffle": each decides in turn order (CR 101.4), then those who do take the inner steps one by
+     * one together, so the cards are put onto the battlefield before anyone shuffles. */
+    private fun stepTogether(scope: Scope, scopes: List<Scope>, s: Step) {
+        if (s is Step.May) {
+            val doing = scopes.filter { sc ->
+                val player = sc.players(s.player).firstOrNull() ?: return@filter false
+                sc.act.yesNo(player, sc.self, "You may: ${describe(s.steps)}")
+            }
+            s.steps.forEach { inner -> stepTogether(scope, doing, inner) }
+            return
+        }
+        together(scope) { scopes.forEach { it.batch = scope.batch; run(it, s); it.batch = null } }
     }
 
     private fun actorOf(scope: Scope, value: NamedValue): PlayerId =

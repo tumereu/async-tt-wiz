@@ -68,7 +68,8 @@ internal object Costs {
         val act = scope.act
         val cause = scope.cause
         when (part) {
-            is CostPart.Mana -> payMana(scope, payer, part.cost.toString() + (part.times?.let { " × ${scope.value(it)}" } ?: ""))
+            is CostPart.Mana -> payMana(scope, payer, part.cost.toString() + (part.times?.let { " × ${scope.value(it)}" } ?: "") +
+                (part.x?.let { " (X = ${scope.value(it)})" } ?: ""))
             CostPart.ItsManaCost -> payMana(scope, payer, "its mana cost")
             is CostPart.Manual -> act.manual(payer, scope.self, part.text)
             CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid)) }

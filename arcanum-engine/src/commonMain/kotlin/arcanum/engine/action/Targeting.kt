@@ -22,8 +22,9 @@ internal object Targeting {
     fun options(
         act: Act, slot: TargetSlot, controller: PlayerId, source: ObjectId?, names: Bindings,
         chosen: Map<String, List<TargetRef>> = emptyMap(), self: ObjectId? = null, item: arcanum.engine.state.StackItem? = null,
+        event: arcanum.engine.state.TriggerEvent? = item?.event,
     ): List<TargetRef> {
-        val e = act.evaluator(Context(you = controller, self = source, names = names, stackItem = item))
+        val e = act.evaluator(Context(you = controller, self = source, names = names, stackItem = item, event = event))
         val taken = slot.distinctFrom.flatMap { chosen[it].orEmpty() }.toSet()
         val objects = objectFilter(slot.what)?.let { f -> e.each(f) }.orEmpty()
             // CR 115.5: a spell or ability on the Stack can't target itself
@@ -39,7 +40,7 @@ internal object Targeting {
         act: Act, slot: TargetSlot, ref: TargetRef, controller: PlayerId, source: ObjectId?, names: Bindings,
         item: arcanum.engine.state.StackItem? = null,
     ): Boolean {
-        val e = act.evaluator(Context(you = controller, self = source, names = names, stackItem = item))
+        val e = act.evaluator(Context(you = controller, self = source, names = names, stackItem = item, event = item?.event))
         val matches = when (ref) {
             is TargetRef.Object -> {
                 val exists = act.state.obj(ref.id)?.let { o -> !o.phasedOut } ?: (ref.id in act.state.stackItems)

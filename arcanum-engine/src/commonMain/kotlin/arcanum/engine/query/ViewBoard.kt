@@ -47,6 +47,21 @@ internal object Lki {
         return null
     }
 
+    /**
+     * The new object [id] became by its last zone change (CR 400.7), when it went to a public zone and is still there
+     * ("this card" in the graveyard for an ability that triggered as it died, CR 603.6e); null otherwise.
+     */
+    fun newObject(state: GameState, id: ObjectId): ObjectId? {
+        if (state.obj(id) != null) return null
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? Change.ZoneChange ?: continue
+            val m = change.moves.firstOrNull { it.before.id == id } ?: continue
+            val public = m.to != arcanum.api.Zone.Hand && m.to != arcanum.api.Zone.Library
+            return m.after.id.takeIf { public && state.obj(it)?.zone == m.to }
+        }
+        return null
+    }
+
     /** The printed characteristics of [o] (no continuous effects): the fallback when a move kept no snapshot. */
     fun printed(o: arcanum.engine.state.GameObject): Characteristics? {
         val face = o.definition?.faces?.getOrNull(o.face) ?: return null

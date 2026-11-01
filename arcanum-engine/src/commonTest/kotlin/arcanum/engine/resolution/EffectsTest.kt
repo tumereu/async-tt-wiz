@@ -589,4 +589,40 @@ class EffectsTest {
 
     @Suppress("unused")
     private val zone = Zone.Battlefield
+
+    // CR 401.4: cards from the top of a library put on its bottom (here in a random order) end up under the rest
+    @Test
+    fun topCardsGoToTheBottomOfTheSameLibrary() = scenario {
+        alice.hand("Clever Tinkersmith")
+        alice.library("Forest", "Island", "Swamp", "Plains", "Mountain")
+
+        alice.castsWithoutCosts("Clever Tinkersmith")
+        resolve()
+        resolve()
+
+        expect {
+            alice.library.names.first() shouldBe "Mountain"
+            alice.library.names.drop(1).toSet() shouldBe setOf("Forest", "Island", "Swamp", "Plains")
+        }
+    }
+
+    // CR 607.2a: a leaves-the-battlefield ability finds the card its linked hideaway ability exiled
+    @Test
+    fun linkedExiledCardAfterTheSourceLeft() = scenario {
+        alice.hand("Seer of Morrows", "Storm Spark")
+        alice.library("Forest", "Island", "Swamp", "Plains")
+
+        alice.castsWithoutCosts("Seer of Morrows")
+        resolve()
+        resolve()
+        answer(Answer.Objects(listOf(card("Island"))))
+        alice.castsWithoutCosts("Storm Spark", target = "Seer of Morrows")
+        resolve()
+        resolve()
+
+        expect {
+            alice.graveyard has "Seer of Morrows"
+            alice.hand.names shouldBe listOf("Island")
+        }
+    }
 }

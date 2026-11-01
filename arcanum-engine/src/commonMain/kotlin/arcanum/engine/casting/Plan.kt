@@ -405,8 +405,19 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             val source = p.source ?: return null
             val current = snap.state.obj(source)?.id ?: (source as? ObjectId.Card)?.card?.let { snap.state.current(it)?.id } ?: return null
             val inst = snap.view[current]?.characteristics?.abilities?.firstOrNull { it.origin == p.ability }
-            val m = (inst?.ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.MayPlay>()?.firstOrNull() ?: return null
-            return m to inst.origin
+            val ability = inst?.ability ?: p.ability?.let { grantedByEffect(snap, it) }
+            val m = (ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.MayPlay>()?.firstOrNull() ?: return null
+            return m to (inst?.origin ?: p.ability)
+        }
+
+        /** A keyword an effect granted the card ("gains flashback until end of turn"): the card on the Stack is a new
+         * object the effect doesn't apply to (CR 400.7), so the permission is read from the effect itself. */
+        private fun grantedByEffect(snap: Snapshot, origin: AbilityOrigin): Ability? {
+            val expansion = origin as? AbilityOrigin.Expansion ?: return null
+            val from = expansion.keyword as? AbilityOrigin.FromEffect ?: return null
+            val gain = snap.state.effects[from.effect]?.mechanics?.getOrNull(from.mechanic) as? Mechanic.GainAbilities ?: return null
+            val keyword = gain.abilities.getOrNull(from.index) as? Keyword ?: return null
+            return arcanum.api.KeywordExpansions.expand(keyword)?.getOrNull(expansion.index)
         }
     }
 }

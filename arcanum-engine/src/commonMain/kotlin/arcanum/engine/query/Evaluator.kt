@@ -163,7 +163,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         else -> emptyList()
     }
 
-    private fun selfMemory(key: String): NamedValue? = ctx.self?.let { state.obj(it)?.memory?.get(key) }
+    /** What the source remembers (D41); after it left its zone, what it remembered then: a leaves-the-battlefield
+     * ability still finds the cards its linked ability exiled (CR 607.2a). */
+    private fun selfMemory(key: String): NamedValue? = ctx.self?.let { self ->
+        val o = state.obj(self)
+        if (o != null) o.memory[key] else Lki.memory(state, self)?.get(key)
+    }
 
     // ---- Players
 

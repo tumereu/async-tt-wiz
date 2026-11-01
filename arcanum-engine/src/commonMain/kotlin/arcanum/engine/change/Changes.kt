@@ -70,7 +70,8 @@ object Changes {
                     else ObjectFacts(),
             )
             val fromIndex = scratch.zone(before.zone, before.owner).indexOf(id)
-            val target = scratch.zone(to, after.owner)
+            // The index is where it goes once it has left its old place (a library card put on the bottom)
+            val target = scratch.zone(to, after.owner).filter { it != id }
             val toIndex = when (position) {
                 Position.Top -> if (to == Zone.Library) 0 else target.size
                 Position.Bottom -> target.size

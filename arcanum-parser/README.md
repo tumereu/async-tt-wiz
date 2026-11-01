@@ -11,7 +11,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   wordings the cube chunks test, read by the rules in `Sentences.kt` and the phrases in
   `Phrases.kt`. Everything else stays `Ability.Unparsed`. An instant or sorcery with any
   unread line keeps all its spell text and casting costs unparsed, because a spell
-  resolves as one object (CR 608.2b).
+  resolves as one object (CR 608.2b). A leveler's "LEVEL" band becomes one conditional static
+  ability (CR 711.2), or stays unparsed as a whole.
 - Subtypes and ability words are accepted only from the lists in the pinned
   Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c). Exhaust, Boast, Max speed,
   Power-up and Solved become ability labels.

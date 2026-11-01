@@ -35,6 +35,8 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // chunk 55: "another creature you control": any such object except this one
+        ANOTHER.matchEntire(phrase)?.let { m -> return all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun(m.groupValues[1]) ?: return null) }
         // chunk 14: "instant or sorcery spell": the head noun covers both alternatives.
         OR_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)) }
         // chunk 14: "permanent card" (CR 110.4a): an artifact, battle, creature, enchantment, land, or planeswalker card.
@@ -101,6 +103,8 @@ internal object Filters {
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         val core = phrase.substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        // chunk 55: "instant or sorcery card" is a card, not a permanent
+        if (core.endsWith(" card")) return "card"
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 
@@ -166,6 +170,8 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // chunk 55
+    private val ANOTHER = Regex("""another (.+)""")
 }
 
 /** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
@@ -252,6 +258,8 @@ internal object Events {
             return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
                 Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other)))
         }
+        // chunk 55: "another creature you control"
+        if (text.startsWith("another ")) return Filters.noun(text)
         // chunk 25: "a creature", "a land you control", "one or more creature cards"
         ARTICLE_NOUN.matchEntire(text)?.let { m -> return Filters.noun(m.groupValues[1]) }
         return null

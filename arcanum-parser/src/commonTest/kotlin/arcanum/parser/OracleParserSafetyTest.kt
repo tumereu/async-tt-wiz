@@ -44,10 +44,11 @@ class OracleParserSafetyTest {
         assertTrue(parse("Artifact", "Sacrifice X Squirrels: Add {G}.").single() is Ability.Unparsed)
     }
 
-    // CR 711.2a: abilities in a level band apply only within it.
+    // CR 711.2a: a level band is one static ability, so a band with an unread line stays printed text as a whole and
+    // its readable lines never become abilities outside the band.
     @Test
-    fun levelBandsStayUnparsed() {
-        val abilities = parse("Creature — Elf", "LEVEL 1-4\n1/2\n{T}: Add {G}{G}.")
-        assertEquals(listOf(Ability.Unparsed("LEVEL 1-4\n1/2\n{T}: Add {G}{G}.")), abilities)
+    fun levelBandWithAnUnreadLineStaysUnparsed() {
+        val abilities = parse("Creature — Elf", "LEVEL 1-4\n1/2\n{T}: Add {G}{G}.\nExchange control of target creature and target artifact.")
+        assertEquals(listOf(Ability.Unparsed("LEVEL 1-4\n1/2\n{T}: Add {G}{G}.\nExchange control of target creature and target artifact.")), abilities)
     }
 }

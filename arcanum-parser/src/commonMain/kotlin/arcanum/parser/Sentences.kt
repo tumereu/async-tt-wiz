@@ -198,7 +198,8 @@ internal class Sentences(
         }
         // chunk 26: 'Creature tokens you control have "[ability]"' (CR 113.10)
         HAVE_QUOTED.matchEntire(line)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            // chunk 55: a subtype keeps its capital ("Elves you control")
+            val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
             val granted = Sentences(setOf("this creature", "this permanent")).line(m.groupValues[2]) ?: return null
             return Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = arcanum.api.Affected.Objects(Objects.Each(filter)))
         }
@@ -278,6 +279,12 @@ internal class Sentences(
             val kind = Counters.kind(m.groupValues[3]) ?: return null
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(n))))))
+        }
+        // chunk 55: "This token gets +1/+1 for each artifact you control." (layer 7c, CR 613.4c; not characteristic-defining)
+        SELF_GETS_FOR_EACH.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val per = Value.Count(Filters.objects(m.groupValues[4]) ?: return null)
+            fun amount(n: Int): Value = when (n) { 0 -> Value.Fixed(0); 1 -> per; else -> Value.Times(per, n) }
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(amount(m.groupValues[2].toInt()), amount(m.groupValues[3].toInt()))))
         }
         return null
     }
@@ -1233,6 +1240,12 @@ internal class Sentences(
             val exile = Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(1)), Destination(Zone.Exile), postBind = "exiled"))
             return if (linkedExile) listOf(exile, Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else listOf(exile)
         }
+        // chunk 55: "Shuffle your library, then exile the top card." ("the top card" of that library)
+        if (sentence == "Shuffle your library, then exile the top card.") {
+            context.it = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Shuffle(Players.You)),
+                Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(1)), Destination(Zone.Exile), postBind = "exiled")))
+        }
         if (sentence == "You may play that card for as long as it remains exiled.") {
             // CR 400.7: once it leaves exile it is a new object, so the permission has no other end
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Play)),
@@ -1730,6 +1743,8 @@ internal class Sentences(
         val GAIN_LIFE_FOR_EACH_SPELL_CAST = Regex("""(.+) gains? (\d+) life for each spell you've cast this turn\.""")
         val OPPONENT_GAINS_CONTROL = Regex("""An opponent gains control of (.+)\.""")
         val YOU_MAY = Regex("""You may (.+)\.""")
+        // chunk 55
+        val SELF_GETS_FOR_EACH = Regex("""(.+) gets ([+-]\d+)/([+-]\d+) for each (.+)\.""")
     }
 }
 

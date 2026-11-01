@@ -17,8 +17,14 @@ import arcanum.api.ManaCost
  * keywords in [KeywordSyntax.all]. Reminder text in parentheses is ignored.
  */
 object OracleParser {
-    fun parse(name: String, text: String): FaceDefinition =
-        FaceDefinition(name = name, abilities = text.split('\n').filter { it.isNotBlank() }.flatMap(::line))
+    /** Parses a whole face: its printed characteristics and its rules text. */
+    fun parse(card: OracleCard): FaceDefinition = characteristics(card).copy(abilities = abilities(card.text))
+
+    fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text))
+
+    /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
+    private fun abilities(text: String): List<Ability> =
+        text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }.flatMap(::line)
 
     private fun line(raw: String): List<Ability> {
         val line = REMINDER.replace(raw, "").trim()

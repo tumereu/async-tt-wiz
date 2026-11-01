@@ -49,8 +49,12 @@ internal object Replacements {
     /** Every replacement effect in force now, the resolving [cause]'s own first. */
     fun candidates(act: Act, cause: Cause?): List<Replacement> {
         val own = cause?.item?.let { item ->
+            // Its own names: targets, announced values and what its costs bound
+            var names = item.names
+            item.targets.forEach { (slot, refs) -> names = names.with(slot, arcanum.engine.state.NamedValue.Targets(refs)) }
+            item.announced.forEach { (n, v) -> names = names.with(n, arcanum.engine.state.NamedValue.Number(v)) }
             instructionsOf(item.ability)?.replacements.orEmpty().mapIndexed { i, r ->
-                Replacement(r, item.controller, item.source, item.names, null, own = true, key = "own:${item.id}:$i")
+                Replacement(r, item.controller, item.source, names, null, own = true, key = "own:${item.id}:$i")
             }
         }.orEmpty()
         val rules = act.view().rules.mapIndexedNotNull { i, applied ->

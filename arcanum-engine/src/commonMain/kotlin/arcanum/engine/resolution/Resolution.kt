@@ -107,7 +107,7 @@ internal object Resolution {
                 if (slot == null) when (ref) {
                     is TargetRef.Object -> act.state.obj(ref.id) != null || ref.id in act.state.stackItems
                     is TargetRef.Player -> !act.state.player(ref.id).lost
-                } else Targeting.legal(act, slot, ref, item.controller, source, item.names)
+                } else Targeting.legal(act, slot, ref, item.controller, source, item.names, item)
             }
             if (legal.isNotEmpty()) anyLegal = true
             names = names.with(slotName, NamedValue.Targets(legal))

@@ -29,13 +29,26 @@ object Cards {
     private val texts: Map<String, CubeCardText> by lazy { CubeCardTexts.all.associateBy { it.name } }
     private val invented = mutableMapOf<String, CubeCardText>()
     private val parsed = mutableMapOf<String, CardDefinition>()
+    private val written = mutableMapOf<String, CardDefinition>()
+
+    /**
+     * Adds a card written by hand in the model (spec §4.4), for an effect no cube card has and the parser can't read
+     * yet; the test names the oracle text it stands for. Returns [name].
+     */
+    fun define(name: String, definition: CardDefinition): String {
+        val existing = written[name]
+        require(existing == null || existing == definition) { "Card \"$name\" defined twice differently" }
+        require(name !in texts && name !in InventedCards.all) { "\"$name\" is a card already" }
+        written[name] = definition
+        return name
+    }
 
     /** Every cube card name. */
     val cubeNames: List<String> get() = CubeCardTexts.all.map { it.name }
 
     /** The definition of the card named [name] (a multi-faced card by either its full "A // B" name or its first
      * face's name). */
-    fun definition(name: String): CardDefinition = InventedCards.all[name] ?: parsed.getOrPut(name) {
+    fun definition(name: String): CardDefinition = InventedCards.all[name] ?: written[name] ?: parsed.getOrPut(name) {
         val text = invented[name] ?: texts[name] ?: BASICS[name]
             ?: CubeCardTexts.all.firstOrNull { it.faces.first().name == name }
             ?: error("No test card named \"$name\"")

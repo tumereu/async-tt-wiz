@@ -117,6 +117,14 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         return chosen
     }
 
+    /** Puts all of [options] in an order (first: top of a library). */
+    fun order(player: PlayerId, source: ObjectId?, options: List<ObjectId>, text: String): List<ObjectId> {
+        if (options.size < 2) return options
+        val chosen = (asker.ask { Decision.ChooseObjects(it, player, source, options, options.size, options.size, text) } as Answer.Objects).chosen
+        require(chosen.toSet() == options.toSet() && chosen.size == options.size) { "Order every one once: $chosen" }
+        return chosen
+    }
+
     fun chooseColor(player: PlayerId, source: ObjectId?, among: List<Color>): Color =
         if (among.size == 1) among.single() else (asker.ask { Decision.ChooseColor(it, player, source, among) } as Answer.ColorChoice).color
 

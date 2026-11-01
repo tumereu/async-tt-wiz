@@ -471,7 +471,7 @@ internal object Effects {
         if (ids.size < 2) return
         val owner = act.state.objOrThrow(ids.first()).owner
         val chooser = scope.players(effect.chooser).firstOrNull() ?: scope.actor
-        val order = act.chooseObjects(chooser, scope.self, ids, ids.size, ids.size, "Order, first on top")
+        val order = act.order(chooser, scope.self, ids, "Order, first on top")
         val library = act.state.player(owner).library
         val positions = library.indices.filter { library[it] in ids }
         val after = library.toMutableList()

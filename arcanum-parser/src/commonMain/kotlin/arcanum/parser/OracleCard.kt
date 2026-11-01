@@ -9,7 +9,8 @@ import arcanum.api.Supertype
 
 /**
  * One card face as printed: what the parser reads. [text] is the oracle text, with reminder text; [power],
- * [toughness], [loyalty] and [defense] as printed ("2", "*", "1+*", "X").
+ * [toughness], [loyalty] and [defense] as printed ("2", "*", "1+*", "X"); [colorIndicator] as the colours' letters
+ * ("U", "WB"), on faces that have one (the back face of a double-faced card, CR 204).
  */
 data class OracleCard(
     val name: String,
@@ -20,6 +21,8 @@ data class OracleCard(
     val toughness: String? = null,
     val loyalty: String? = null,
     val defense: String? = null,
+    // chunk 56
+    val colorIndicator: String? = null,
 )
 
 /** Reads and writes type lines ("Legendary Artifact Creature — Human Wizard", CR 205). */
@@ -82,6 +85,7 @@ internal fun characteristics(card: OracleCard): FaceDefinition {
     return FaceDefinition(
         name = card.name,
         manaCost = card.manaCost?.let { requireNotNull(ManaCost.parse(it)) { "unreadable mana cost: $it" } },
+        colorIndicator = card.colorIndicator?.map { letter -> requireNotNull(arcanum.api.Color.of(letter)) { "unreadable colour indicator: ${card.colorIndicator}" } },
         supertypes = types.supertypes, types = types.types, subtypes = types.subtypes,
         power = PrintedNumbers.parse(card.power), toughness = PrintedNumbers.parse(card.toughness),
         loyalty = PrintedNumbers.parse(card.loyalty), defense = PrintedNumbers.parse(card.defense),

@@ -13,6 +13,9 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   unread line keeps all its spell text and casting costs unparsed, because a spell
   resolves as one object (CR 608.2b). A leveler's "LEVEL" band becomes one conditional static
   ability (CR 711.2), or stays unparsed as a whole.
+- `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
+  double-faced; CR 709, 712, 715) → `CardDefinition`, each face parsed on its own. A face's
+  colour indicator is read from `OracleCard.colorIndicator` ("U").
 - Subtypes and ability words are accepted only from the lists in the pinned
   Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c). Exhaust, Boast, Max speed,
   Power-up and Solved become ability labels.

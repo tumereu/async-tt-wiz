@@ -38,6 +38,13 @@ object OracleParser {
 
     fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
 
+    /**
+     * chunk 56: a whole card: each printed face (a split card's halves, a double-faced card's faces, an adventurer card's
+     * creature and Adventure, CR 709, 712, 715) parsed on its own with [parse], in printed order, under [layout].
+     */
+    fun parseCard(layout: arcanum.api.Layout, faces: List<OracleCard>): arcanum.api.CardDefinition =
+        arcanum.api.CardDefinition(layout, faces.map(::parse))
+
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =

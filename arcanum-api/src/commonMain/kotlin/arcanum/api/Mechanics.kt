@@ -96,9 +96,10 @@ sealed interface Mechanic {
     ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
     }
-    /** Characteristic-defining P/T ("~'s power is equal to …", CR 604.3) or "has base P/T N/N" (layer 7b). */
-    @Serializable @SerialName("set-pt") data class SetPowerToughness(val power: Value?, val toughness: Value?, val defining: Boolean = false) : Mechanic {
-        override val layer: Layer get() = if (defining) Layer.PowerToughnessDefining else Layer.PowerToughnessSet
+    /** "Has base power and toughness N/N" (layer 7b); in a characteristic-defining static ability ("~'s power is equal
+     * to …", CR 604.3) it applies in layer 7a instead. */
+    @Serializable @SerialName("set-pt") data class SetPowerToughness(val power: Value?, val toughness: Value?) : Mechanic {
+        override val layer: Layer get() = Layer.PowerToughnessSet
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("modify-pt") data class ModifyPowerToughness(val power: Value, val toughness: Value) : Mechanic {
@@ -152,6 +153,14 @@ sealed interface Mechanic {
     /** Can't be blocked except by [count] or more creatures (menace: 2, CR 702.111b). */
     @Serializable @SerialName("minimum-blockers") data class MinimumBlockers(val count: Int) : Mechanic
     @Serializable @SerialName("can-block-only") data class CanBlockOnly(val attackers: ObjectFilter) : Mechanic
+    /** Can't be blocked by more than [count] creatures. */
+    @Serializable @SerialName("maximum-blockers") data class MaximumBlockers(val count: Int) : Mechanic
+    /** Can attack as though it didn't have defender. */
+    @Serializable @SerialName("attacks-despite-defender") data object CanAttackDespiteDefender : Mechanic
+    /** "Creatures can't attack [target] unless their controller pays [cost] for each" (CR 508.1g). */
+    @Serializable @SerialName("attack-cost") data class AttackCost(val cost: Cost, val target: Recipients? = null) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** Can block [count] additional creatures each combat. */
     @Serializable @SerialName("can-block-additional") data class CanBlockAdditional(val count: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
@@ -169,12 +178,19 @@ sealed interface Mechanic {
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8). */
     @Serializable @SerialName("instant-speed") data object InstantSpeed : Mechanic
-    /** May be cast or played from [zone] ("you may cast ~ from your graveyard"); [cost] replaces the mana cost when
-     * given (flashback, escape, …); [then] is where it goes when it leaves the Stack (flashback: exile); [spells]: only
-     * if the resulting spell matches ("if the resulting spell is an instant or sorcery", CR 702.34a). */
-    @Serializable @SerialName("may-cast-from") data class MayCastFrom(
-        val zone: Zone, val cost: Cost? = null, val then: Destination? = null, val timing: Timing? = null,
-        val spells: ObjectFilter? = null,
+    /**
+     * The permission to play or cast cards from [from] ("you may cast ~ from your graveyard", "until end of turn, you may
+     * play those cards", "you may look at and play the top card of your library"). [how]: play (lands too, using a land
+     * play, CR 305.1) or cast (spells only, CR 601). [cards] limits which ("creature spells", "if the resulting spell is
+     * an instant or sorcery", CR 702.34a); [topOnly]: only the top card of a library; [cost] replaces the mana cost
+     * (flashback, escape); [then] is where it goes when it leaves the Stack (flashback: exile); [manaAsAnyColor]:
+     * mana may be spent as though it were mana of any colour for them. The permission belongs to "you" (the ability's
+     * or effect's controller), also for cards in an opponent's library or exile. The affected cards are [Static.affects]
+     * or the effect's affected objects; for a static ability on the card itself, the card.
+     */
+    @Serializable @SerialName("may-play") data class MayPlay(
+        val from: Zone, val how: PlayKind = PlayKind.Cast, val cards: ObjectFilter? = null, val topOnly: Boolean = false,
+        val cost: Cost? = null, val then: Destination? = null, val timing: Timing? = null, val manaAsAnyColor: Boolean = false,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */
@@ -187,8 +203,12 @@ sealed interface Mechanic {
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val optional: Boolean = false, val repeatable: Boolean = false,
     ) : Mechanic
-    /** Spells or abilities matching [what] cost [change] more (positive) or less (negative), generic mana. */
-    @Serializable @SerialName("cost-change") data class CostChange(val what: ObjectFilter, val change: Value, val minimum: Int = 0) : Mechanic {
+    /** Spells or abilities matching [what] cost [change] generic mana more (positive) or less (negative), or [mana]
+     * less ("costs {W}{B} less", coloured reductions); abilities by keyword with [ObjectFilter.HasKeyword] ("equip
+     * abilities cost {1} less"). */
+    @Serializable @SerialName("cost-change") data class CostChange(
+        val what: ObjectFilter, val change: Value = Value.Fixed(0), val mana: ManaCost? = null, val minimum: Int = 0,
+    ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("cant-be-countered") data object CantBeCountered : Mechanic
@@ -201,9 +221,13 @@ sealed interface Mechanic {
     @Serializable @SerialName("extra-land-plays") data class ExtraLandPlays(val count: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
+    /** The affected players may spend mana as though it were mana of any colour (for everything they pay). */
     @Serializable @SerialName("spend-mana-as-any-color") data object SpendManaAsAnyColor : Mechanic
-    @Serializable @SerialName("may-look-at") data class MayLookAt(val objects: Objects) : Mechanic
-    @Serializable @SerialName("may-play-top-of-library") data class MayPlayTopOfLibrary(val reveal: Boolean = false) : Mechanic
+    /** May look at [objects] ("you may look at the top card of your library any time"); [reveal]: it's revealed to all
+     * instead ("play with the top card of your library revealed"). */
+    @Serializable @SerialName("may-look-at") data class MayLookAt(val objects: Objects, val reveal: Boolean = false) : Mechanic
+    /** Damage matching [event] can't be prevented (CR 615.12); replacement effects still apply. */
+    @Serializable @SerialName("damage-cant-be-prevented") data class DamageCantBePrevented(val event: EventPattern) : Mechanic
 
     // ---- Player and game rules ----
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
@@ -224,9 +248,8 @@ sealed interface Mechanic {
     // ---- Replacement and prevention (CR 614, 615) ----
     /**
      * "If [event] would happen, [instead]" (CR 614). [modify] changes the event instead of replacing it entirely
-     * (enters tapped, enters with counters, double the amount). [optional] for "you may". [selfReplacement] marks an
-     * effect in a spell's or ability's own text that changes how it resolves (CR 614.15); it is a separate ability only
-     * when written as one, such as under an ability word.
+     * (enters tapped, enters with counters, double the amount). [optional] for "you may". A spell's or ability's
+     * replacement of its own effects goes in [Instructions.replacements] (CR 614.15), not here.
      *
      * When several apply to one event (CR 616.1), the affected player (or controller of the affected object) chooses
      * one, it is applied, and the rest are checked again (616.1f): self-replacements are chosen among first, then
@@ -239,7 +262,6 @@ sealed interface Mechanic {
         val instead: Instructions? = null,
         val modify: List<Modification> = emptyList(),
         val optional: Boolean = false,
-        val selfReplacement: Boolean = false,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -269,6 +291,13 @@ sealed interface CopyException {
     @Serializable @SerialName("mana-cost") data class ManaCostOf(val cost: ManaCost?) : CopyException
 }
 
+/** Whether a permission lets a card be played (lands included) or only cast. */
+@Serializable
+sealed interface PlayKind {
+    @Serializable @SerialName("play") data object Play : PlayKind
+    @Serializable @SerialName("cast") data object Cast : PlayKind
+}
+
 /** How a replacement effect changes an event (CR 614.1). */
 @Serializable
 sealed interface Modification {
@@ -284,6 +313,9 @@ sealed interface Modification {
     @Serializable @SerialName("as-enters") data class AsEnters(val steps: List<Step>) : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
-    /** The event doesn't happen at all ("skip your draw", "prevent"). */
+    /** "Enters with [abilities]" ("If kicked, it enters with … and with trample"): part of the entering object. */
+    @Serializable @SerialName("enters-with-abilities") data class EntersWithAbilities(val abilities: List<Ability>) : Modification
+    /** The event doesn't happen at all ("If you would draw a card, skip that draw instead"). Skipping a step is
+     * [Mechanic.SkipStep]; preventing damage is [Mechanic.Prevention] or [Effect.PreventDamage] (CR 615, not 614). */
     @Serializable @SerialName("skip") data object Skip : Modification
 }

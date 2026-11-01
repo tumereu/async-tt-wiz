@@ -75,8 +75,9 @@ object KeywordExpansions {
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
             Step.Do(Effect.Shuffle(Players.You)))))
         // CR 702.34a: may cast from the graveyard by paying the flashback cost; exiled when it leaves the Stack
-        is Keyword.Flashback -> static(Mechanic.MayCastFrom(Zone.Graveyard, keyword.cost, then = Destination(Zone.Exile),
-            spells = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery))))
+        is Keyword.Flashback -> static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast,
+            cards = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)),
+            cost = keyword.cost, then = Destination(Zone.Exile)))
         // CR 702.33a: optional additional cost(s)
         is Keyword.Kicker -> keyword.costs.map { cost ->
             Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Kicker.Kind, cost, optional = true)))
@@ -86,8 +87,9 @@ object KeywordExpansions {
         // CR 702.63a: enters with N time counters; upkeep: remove one; when the last is removed, sacrifice it
         is Keyword.Vanishing -> {
             val time = CounterKind.Time
-            listOf(
-                Ability.Static(listOf(Mechanic.Replacement(
+            // Vanishing without a number (parsed as 0) has no "enters with" ability (CR 702.63b).
+            listOfNotNull(
+                if (keyword.amount == 0) null else Ability.Static(listOf(Mechanic.Replacement(
                     EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                     modify = listOf(Modification.EntersWithCounters(time, Value.Fixed(keyword.amount)))))),
                 Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),

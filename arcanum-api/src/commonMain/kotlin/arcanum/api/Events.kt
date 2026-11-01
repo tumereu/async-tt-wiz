@@ -12,9 +12,10 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed interface EventPattern {
     /** An object matching [objects] moves from [from] to [to] (null = any zone). "Enters" = to battlefield; "dies" =
-     * creature from battlefield to graveyard (CR 700.4). Roles [EventRole.Before] (last known information; trigger
-     * conditions look back in time for leaving the battlefield, a graveyard or a hand and for sacrifice, CR 603.10a) and
-     * [EventRole.After] (the new object). */
+     * put into a graveyard from the battlefield (CR 700.4). Roles [EventRole.Before] (last known information) and
+     * [EventRole.After] (the new object). Trigger conditions look back in time for leaving the battlefield, sacrifice,
+     * leaving a graveyard, and an object all players can see put into a hand or library (CR 603.10a). Playing a land
+     * is also [PlayLand]. */
     @Serializable @SerialName("zone-change") data class ZoneChange(
         val objects: ObjectFilter = ObjectFilter.Any, val from: Zone? = null, val to: Zone? = null,
     ) : EventPattern
@@ -48,8 +49,16 @@ sealed interface EventPattern {
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. */
     @Serializable @SerialName("attack") data class Attack(val attacker: ObjectFilter = ObjectFilter.Any, val alone: Boolean = false, val target: RecipientFilter? = null) : EventPattern
     /** A creature blocks [attacker]. Roles object (the blocker), attacker. */
-    @Serializable @SerialName("block") data class Block(val blocker: ObjectFilter = ObjectFilter.Any, val attacker: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("becomes-blocked") data class BecomesBlocked(val attacker: ObjectFilter = ObjectFilter.Any) : EventPattern
+    /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
+     * once per attacker blocked (CR 509.3a, c). Roles object (the blocker), other combatant (the attacker). */
+    @Serializable @SerialName("block") data class Block(
+        val blocker: ObjectFilter = ObjectFilter.Any, val attacker: ObjectFilter = ObjectFilter.Any, val perAttacker: Boolean = false,
+    ) : EventPattern
+    /** "Whenever [attacker] becomes blocked": once per combat; [perBlocker] for "becomes blocked by a creature", once per
+     * blocker matching [blocker] (CR 509.3d). Roles object (the attacker), other combatant (the blocker). */
+    @Serializable @SerialName("becomes-blocked") data class BecomesBlocked(
+        val attacker: ObjectFilter = ObjectFilter.Any, val blocker: ObjectFilter = ObjectFilter.Any, val perBlocker: Boolean = false,
+    ) : EventPattern
     @Serializable @SerialName("unblocked") data class AttacksUnblocked(val attacker: ObjectFilter = ObjectFilter.Any) : EventPattern
     /** An object or player becomes the target of a spell or ability matching [by] (heroic, ward). Roles object,
      * source (the spell or ability). */
@@ -65,6 +74,19 @@ sealed interface EventPattern {
     @Serializable @SerialName("step-begins") data class StepBegins(val step: TurnStep, val whose: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("step-ends") data class StepEnds(val step: TurnStep, val whose: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("day-night") data class DayNightChanges(val toNight: Boolean? = null) : EventPattern
+    /** A spell matching [spell] is copied by a player matching [by] ("whenever you copy a spell"). */
+    @Serializable @SerialName("copy") data class Copy(val spell: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("scry") data class Scry(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("surveil") data class Surveil(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    /** A player commits a crime: targets an opponent or their objects (CR 700.13). */
+    @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    /** A player plays a land (a special action, CR 116.2a, 305.1). */
+    @Serializable @SerialName("play-land") data class PlayLand(val lands: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    /** An Aura, Equipment or Fortification matching [objects] becomes attached to something matching [to]. Role object
+     * (the attachment). */
+    @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter = ObjectFilter.Any, val to: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("roll-die") data class RollDie(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */

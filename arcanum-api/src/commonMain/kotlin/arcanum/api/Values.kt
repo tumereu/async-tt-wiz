@@ -55,7 +55,8 @@ sealed interface NumericProperty {
     @Serializable @SerialName("toughness") data object Toughness : NumericProperty
     @Serializable @SerialName("mana-value") data object ManaValue : NumericProperty
     @Serializable @SerialName("loyalty") data object Loyalty : NumericProperty
-    @Serializable @SerialName("counters") data class Counters(val kind: CounterKind) : NumericProperty
+    /** Counters of [kind], or of every kind ("the number of counters on it") when null. */
+    @Serializable @SerialName("counters") data class Counters(val kind: CounterKind?) : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */
@@ -81,10 +82,15 @@ sealed interface Condition {
     @Serializable @SerialName("object-is") data class ObjectMatches(val objects: Objects, val filter: ObjectFilter) : Condition
     @Serializable @SerialName("your-turn") data object YourTurn : Condition
     @Serializable @SerialName("step") data class StepIs(val step: TurnStep) : Condition
-    /** "If you do": what [name] names was done: a [Step.Pay] paid, or a [Step.May]'s steps or a binding effect actually
-     * happened, at least in part ("You may discard a card. If you do" with an empty hand: not done). */
+    /** "If you do": the [Step.Pay] named [name] was paid: the player chose to pay it, or began a mandatory payment,
+     * whatever events then happened (CR 118.12). Also "if they accepted" for a [Step.May] named [name]. "… this way"
+     * checks the effect's own binding instead ("if a creature died this way": at least one object bound). */
     @Serializable @SerialName("did") data class Did(val name: String) : Condition
-    /** An optional or additional cost was paid when casting ("if it was kicked", "if the gift was promised"). */
+    /** "If you can't": the mandatory [Step.Pay] named [name] couldn't be paid (CR 118.12). */
+    @Serializable @SerialName("could-not") data class CouldNot(val name: String) : Condition
+    /** The coin flip named [name] was won. */
+    @Serializable @SerialName("won-flip") data class WonFlip(val name: String) : Condition
+    /** An optional or additional cost was paid when casting ("if it was kicked"). */
     @Serializable @SerialName("paid") data class Paid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val times: Int = 1,
@@ -109,6 +115,9 @@ sealed interface Duration {
     @Serializable @SerialName("end-of-turn") data object EndOfTurn : Duration
     @Serializable @SerialName("end-of-combat") data object EndOfCombat : Duration
     @Serializable @SerialName("your-next-turn") data object UntilYourNextTurn : Duration
+    /** Through the next [step] of [whose] turn, ending when that step ends ("doesn't untap during its controller's next
+     * untap step"). */
+    @Serializable @SerialName("through-next-step") data class ThroughNextStep(val step: TurnStep, val whose: Players) : Duration
     /** "until the end of your next turn" */
     @Serializable @SerialName("end-of-your-next-turn") data object UntilEndOfYourNextTurn : Duration
     /** "until your next upkeep", "until the beginning of the next end step" */

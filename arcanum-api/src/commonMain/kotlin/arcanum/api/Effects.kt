@@ -19,6 +19,8 @@ sealed interface Effect {
     /** [source] deals [amount] damage to [to] (CR 120). [to] may hold objects and players. */
     @Serializable @SerialName("damage") data class DealDamage(
         val to: Recipients, val amount: Value, val source: Objects = Objects.Self,
+        /** "This damage can't be prevented" (CR 615.12). */
+        val cantBePrevented: Boolean = false,
         /** Names the damage actually dealt, after prevention and replacement ("the damage dealt this way"). */
         val bind: String? = null,
     ) : Effect
@@ -39,8 +41,10 @@ sealed interface Effect {
     @Serializable @SerialName("draw") data class Draw(
         val players: Players, val count: Value = Value.Fixed(1), val preBind: String? = null, val postBind: String? = null,
     ) : Effect
+    /** [players] discard [count] cards matching [filter] of their choice (or [chooser]'s, or at [random]); or exactly
+     * [objects] ("That player discards that card"). */
     @Serializable @SerialName("discard") data class Discard(
-        val players: Players, val count: Value, val filter: ObjectFilter = ObjectFilter.Any,
+        val players: Players, val count: Value = Value.Fixed(1), val filter: ObjectFilter = ObjectFilter.Any, val objects: Objects? = null,
         val random: Boolean = false, val chooser: Players? = null, val preBind: String? = null, val postBind: String? = null,
     ) : Effect
     @Serializable @SerialName("mill") data class Mill(val players: Players, val count: Value, val preBind: String? = null, val postBind: String? = null) : Effect
@@ -73,7 +77,8 @@ sealed interface Effect {
     @Serializable @SerialName("turn-face-up") data class TurnFaceUp(val objects: Objects) : Effect
     @Serializable @SerialName("turn-face-down") data class TurnFaceDown(val objects: Objects) : Effect
     @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects) : Effect
-    /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"). */
+    /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"). Saddled ends at end of turn or when
+     * it leaves the battlefield (CR 702.171b). */
     @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false) : Effect
     @Serializable @SerialName("designation") data class GiveDesignation(val players: Players, val designation: Designation) : Effect
 
@@ -107,10 +112,27 @@ sealed interface Effect {
     @Serializable @SerialName("remove-from-combat") data class RemoveFromCombat(val objects: Objects) : Effect
     /** Remove all damage marked on [objects]. */
     @Serializable @SerialName("remove-damage") data class RemoveAllDamage(val objects: Objects) : Effect
-    /** "At the beginning of the next end step, …" (CR 603.7): a one-time trigger created now, an effect object. The
-     * objects, players, choices and numbers it refers to are fixed when it is created (CR 603.7c). */
+    /** "At the beginning of the next end step, …" (CR 603.7): a trigger created now, an effect object. It triggers once,
+     * or for its [duration] ("this turn, whenever …", CR 603.7b). The objects it refers to are fixed when it is created
+     * (CR 603.7c), as are announced values and earlier binds; values it computes are read when it resolves (608.2h). */
     @Serializable @SerialName("delayed-trigger") data class CreateDelayedTrigger(
-        val trigger: Trigger, val instructions: Instructions, val once: Boolean = true,
+        val trigger: Trigger, val instructions: Instructions, val duration: Duration? = null,
+    ) : Effect
+    /** Roll a [sides]-sided die [count] times; [bind] names the result (read with [Value.Bound]). Answered by the host
+     * (D25). */
+    @Serializable @SerialName("roll-die") data class RollDie(val sides: Int, val count: Int = 1, val players: Players = Players.You, val bind: String? = null) : Effect
+    /** Flip a coin; [bind] names whether it was won ([Condition.WonFlip]). Answered by the host (D25). */
+    @Serializable @SerialName("flip-coin") data class FlipCoin(val players: Players = Players.You, val bind: String? = null) : Effect
+    /** Exchange control of [first] and [second] (CR 701.12); nothing happens unless both can be exchanged (701.12a). */
+    @Serializable @SerialName("exchange-control") data class ExchangeControl(val first: Objects, val second: Objects) : Effect
+    /** Move [amount] counters of [kind] (any kind when null) from [from] onto [to]. */
+    @Serializable @SerialName("move-counters") data class MoveCounters(val from: Objects, val to: Objects, val kind: CounterKind?, val amount: Value) : Effect
+    /** "Change the target of target spell or ability" / "you may choose new targets for it" (CR 115.7). */
+    @Serializable @SerialName("change-targets") data class ChangeTargets(val objects: Objects, val chooser: Players = Players.You, val optional: Boolean = true) : Effect
+    /** "[separator] separates [objects] into two piles; [chooser] chooses one" (Fact or Fiction style); [chosenBind] and
+     * [otherBind] name the piles. */
+    @Serializable @SerialName("two-piles") data class SeparatePiles(
+        val objects: Objects, val separator: Players, val chooser: Players, val chosenBind: String? = null, val otherBind: String? = null,
     ) : Effect
     /** Keep [objects] on the source as card memory under [key] (CR 607 linked abilities: "exiled with ~"). */
     @Serializable @SerialName("remember") data class Remember(val key: String, val objects: Objects) : Effect
@@ -121,9 +143,14 @@ sealed interface Effect {
     @Serializable @SerialName("win") data class WinGame(val players: Players = Players.You) : Effect
     @Serializable @SerialName("lose") data class LoseGame(val players: Players) : Effect
     /** Cast [objects] without paying their mana cost, or by paying [cost] (CR 601.2, "you may cast it"). */
-    @Serializable @SerialName("cast") data class Cast(val objects: Objects, val withoutPaying: Boolean = false, val cost: Cost? = null) : Effect
+    /** Cast [objects] now, without paying their mana cost or by paying [cost]; [bind] names the resulting spell
+     * ("If that spell would be put into your graveyard, exile it instead"). */
+    @Serializable @SerialName("cast") data class Cast(
+        val objects: Objects, val withoutPaying: Boolean = false, val cost: Cost? = null, val bind: String? = null,
+    ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
-     * then. Placed inside a [Step.If] on what was done; triggers once even if that was done several times (603.12a). */
+     * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once
+     * for a cost paid several times (603.12a). */
     @Serializable @SerialName("reflexive-trigger") data class ReflexiveTrigger(val instructions: Instructions) : Effect
     /** "Reveal cards from the top of [library]'s library until you reveal [count] cards matching [filter]" (cascade,
      * discover too): [foundBind] names the matching cards, [restBind] the other revealed cards. */
@@ -156,6 +183,9 @@ data class Destination(
     val randomOrder: Boolean = false,
     /** Enters the battlefield with these counters ("return it with a -1/-1 counter on it", CR 122.6). */
     val counters: List<CountersToPut> = emptyList(),
+    /** Onto the battlefield attacking ([attacking] = what it attacks; null = not attacking). Not declared as an
+     * attacker, so "whenever attacks" doesn't trigger (CR 508.4). */
+    val attacking: Recipients? = null,
 )
 
 /** [amount] counters of [kind]. */
@@ -193,6 +223,7 @@ sealed interface KeywordAction {
     @Serializable @SerialName("goad") data class Goad(val objects: Objects) : KeywordAction
     @Serializable @SerialName("learn") data object Learn : KeywordAction
     /** "The next time [objects] would be destroyed this turn, instead remove all damage from it, tap it, and remove it
-     * from combat; its controller taps it" (CR 701.19a): a one-use shield effect object. */
+     * and its controller taps it; if it's attacking or blocking, remove it from combat" (CR 701.19a): a one-use shield
+     * effect object. */
     @Serializable @SerialName("regenerate") data class Regenerate(val objects: Objects = Objects.Self) : KeywordAction
 }

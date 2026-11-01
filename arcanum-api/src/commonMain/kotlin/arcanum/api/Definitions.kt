@@ -34,6 +34,9 @@ sealed interface Layout {
     @Serializable @SerialName("meld") data class Meld(val partner: String) : Layout
     /** Adventurer card: the second face is the Adventure spell (CR 715). */
     @Serializable @SerialName("adventure") data object Adventure : Layout
+    /** Omen card: the inset face is an Omen spell; cast that way it is shuffled into its owner's library as it resolves
+     * (CR 720). */
+    @Serializable @SerialName("omen") data object Omen : Layout
 }
 
 /** One face's characteristics (CR 109.3) and its abilities in printed order. Also used for tokens. A land's mana
@@ -94,6 +97,11 @@ sealed interface Ability {
         val trigger: Trigger,
         val instructions: Instructions,
         val interveningIf: Condition? = null,
+        /** "This ability triggers only once each turn" = 1. */
+        val perTurn: Int? = null,
+        /** "… Do this only once each turn": triggers only if its source's controller hasn't yet taken that action this
+         * turn (CR 603.2h). */
+        val actionOncePerTurn: Boolean = false,
         /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
          * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
@@ -105,7 +113,13 @@ sealed interface Ability {
 
     /**
      * A continuous rule (CR 604): [mechanics] apply to [affects] while [condition] holds. [characteristicDefining]
-     * marks a characteristic-defining ability (CR 604.3), which works in all zones and applies first in its layer.
+     * marks a characteristic-defining ability (CR 604.3): it works in all zones, affects only its own object, has no
+     * condition, and its P/T applies in layer 7a.
+     *
+     * Mechanics scoped by an event or filter of their own ([Mechanic.Replacement], [Mechanic.Prevention],
+     * [Mechanic.CostChange], [Mechanic.TriggersAdditionalTime], [Mechanic.DamageCantBePrevented]) don't use [affects];
+     * it stays the default. Inside [mechanics] and [condition], [Objects.Affected] / [Players.Affected] mean each
+     * affected object or player in turn ("each creature gets +1/+1 for each other creature that shares a type with it").
      */
     @Serializable @SerialName("static")
     data class Static(
@@ -144,8 +158,6 @@ sealed interface Ability {
 sealed interface Affected {
     @Serializable @SerialName("objects") data class Objects(val objects: arcanum.api.Objects) : Affected
     @Serializable @SerialName("players") data class Players(val players: arcanum.api.Players) : Affected
-    /** The game as a whole ("Spells can't be countered", "Players can't gain life" written as game rules). */
-    @Serializable @SerialName("game") data object Game : Affected
     /** The next [count] spells matching [spells] cast after the effect is created ("the next instant or sorcery spell
      * you cast this turn costs {2} less", CR 611.2f); used up as they are cast. */
     @Serializable @SerialName("next-spells") data class NextSpells(val spells: ObjectFilter, val count: Int = 1) : Affected
@@ -185,6 +197,9 @@ data class Instructions(
     val steps: List<Step> = emptyList(),
     /** Values announced when cast or activated (X), by name. */
     val announced: List<String> = emptyList(),
+    /** Replacements of this spell's or ability's own effects, applied only while it resolves and chosen before other
+     * replacements ("Counter target spell. If that spell is countered this way, exile it instead", CR 614.15, 616.1a). */
+    val replacements: List<Mechanic.Replacement> = emptyList(),
 )
 
 /** "Choose one —" (CR 700.2). */
@@ -231,9 +246,16 @@ sealed interface TargetKind {
 @Serializable
 sealed interface Step {
     @Serializable @SerialName("do") data class Do(val effect: Effect) : Step
-    /** "You may pay [cost]. If you do, …": [payer] may pay (mana abilities allowed, CR 608.2g); [bind] names whether it
-     * was paid, read with [Condition.Did]. */
-    @Serializable @SerialName("pay") data class Pay(val cost: Cost, val payer: Players = Players.You, val bind: String? = null) : Step
+    /** A cost paid on resolution (CR 118.12): "You may [do X]. If you do, …" or, [mandatory], "[Do X]. If you can't, …".
+     * Every such action (sacrifice, discard, exile, tap, return, reveal, pay life or mana) is written as a Pay, never as
+     * [May] plus an effect. It can't be paid in part (CR 601.2h); mana abilities are allowed (CR 608.2g). [bind] names
+     * the outcome: paid, declined or couldn't pay, read with [Condition.Did] and [Condition.CouldNot]. */
+    @Serializable @SerialName("pay") data class Pay(
+        val cost: Cost, val payer: Players = Players.You, val mandatory: Boolean = false, val bind: String? = null,
+    ) : Step
+    /** Only inside [Modification.AsEnters]: change how the object enters (tapped, with counters, with abilities, as a
+     * copy). Entering tapped is not becoming tapped (CR 110.5b, 603.2e). */
+    @Serializable @SerialName("modify") data class Modify(val modification: Modification) : Step
     /** "[steps] unless [payer] pays [cost]" ("Counter target spell unless its controller pays {2}"). */
     @Serializable @SerialName("unless") data class Unless(val payer: Players, val cost: Cost, val steps: List<Step>) : Step
     /** "You may …" / "Target player may …" (CR 608.2d): [player] decides whether [steps] happen. */
@@ -249,10 +271,9 @@ sealed interface Step {
     @Serializable @SerialName("repeat") data class Repeat(val times: Value, val steps: List<Step>) : Step
     /** A choice made during resolution (colour, creature type, number, card name, player, objects, option),
      * named [bind]. With [remember], it is kept on the source as card memory (CR 607 linked abilities, "As ~ enters,
-     * choose a colour"). [hidden] is chosen secretly. */
+     * choose a colour"). Secret choices stay manual (D25). */
     @Serializable @SerialName("choose") data class Choose(
-        val choice: Choice, val bind: String, val chooser: Players = Players.You,
-        val remember: Boolean = false, val hidden: Boolean = false,
+        val choice: Choice, val bind: String, val chooser: Players = Players.You, val remember: Boolean = false,
     ) : Step
     /** Part of the text the definition can't express: shown to players as a reminder to do by hand. */
     @Serializable @SerialName("manual") data class Manual(val text: String) : Step
@@ -274,7 +295,8 @@ sealed interface Choice {
     @Serializable @SerialName("card-name") data class CardName(val filter: ObjectFilter = ObjectFilter.Any) : Choice
     @Serializable @SerialName("number") data class Number(val min: Value, val max: Value? = null) : Choice
     @Serializable @SerialName("player") data class Player(val filter: PlayerFilter) : Choice
-    /** Choose [min]..[max] objects matching [filter] (not targeting), from [from] when given ("from among them"). */
+    /** Choose [min]..[max] objects matching [filter] (not targeting), from [from] when given ("from among them"). With
+     * fewer available than [min], all available are chosen (CR 609.3). */
     @Serializable @SerialName("objects") data class Objects(
         val filter: ObjectFilter, val min: Value, val max: Value, val from: arcanum.api.Objects? = null,
     ) : Choice

@@ -161,16 +161,15 @@ class ExampleCardsTest {
             Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.AsEnters(listOf(
                     Step.Pay(Cost(listOf(CostPart.PayLife(n(2)))), bind = "paid"),
-                    Step.If(Condition.Not(Condition.Did("paid")), listOf(Step.Do(Effect.Tap(Objects.Self))))))))))))
+                    Step.If(Condition.Not(Condition.Did("paid")), listOf(Step.Modify(Modification.EntersTapped)))))))))))
 
     /** "Whenever this creature attacks, you may sacrifice another creature. When you do, this creature deals 2 damage
      * to any target." */
     private val reaver = creature("Pyre Reaver", "{2}{R}", 3, 2, Ability.Triggered(
         Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))),
         Instructions(steps = listOf(
-            Step.May(listOf(
-                Step.Choose(Choice.Objects(all(creatures, youControl, ObjectFilter.Not(ObjectFilter.Is(Objects.Self))), n(1), n(1)), bind = "victim"),
-                Step.Do(Effect.Sacrifice(Objects.Bound("victim")))), bind = "sacrificed"),
+            Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(all(creatures, ObjectFilter.Not(ObjectFilter.Is(Objects.Self))))))),
+                bind = "sacrificed"),
             Step.If(Condition.Did("sacrificed"), listOf(Step.Do(Effect.ReflexiveTrigger(Instructions(
                 targets = listOf(TargetSlot("t", TargetKind.Either(
                     ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
@@ -251,7 +250,20 @@ class ExampleCardsTest {
         fun onDeath(role: EventRole) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Last Rites", abilities = listOf(
             Ability.Triggered(dies, Instructions(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(role), Destination(Zone.Hand))))))))))
         assertEquals(emptyList(), DefinitionChecks.problems(onDeath(EventRole.After)))
-        assertEquals(1, DefinitionChecks.problems(onDeath(EventRole.Attacker)).size)
+        assertEquals(1, DefinitionChecks.problems(onDeath(EventRole.OtherCombatant)).size)
+    }
+
+    // CR 614.12, 110.5b: "as enters" steps only pay, choose, check or modify how it enters; CR 714: chapters are Sagas'.
+    @Test
+    fun asEntersEffectsAndStrayChaptersAreReported() {
+        val entering = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)
+        fun land(step: Step) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Murky Ford", types = listOf(CardType.Land),
+            abilities = listOf(Ability.Static(listOf(Mechanic.Replacement(entering, modify = listOf(Modification.AsEnters(listOf(step))))))))))
+        assertEquals(emptyList(), DefinitionChecks.problems(land(Step.Modify(Modification.EntersTapped))))
+        assertEquals(1, DefinitionChecks.problems(land(Step.Do(Effect.Tap(Objects.Self)))).size)
+        val chapter = CardDefinition(Layout.Normal, listOf(FaceDefinition("Not a Saga", types = listOf(CardType.Enchantment),
+            abilities = listOf(Ability.Triggered(Trigger.Chapter(listOf(1)), Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You)))))))))
+        assertEquals(1, DefinitionChecks.problems(chapter).size)
     }
 
     // D27: a number read from a group must say how it combines.

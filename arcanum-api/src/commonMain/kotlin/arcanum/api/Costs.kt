@@ -3,7 +3,8 @@ package arcanum.api
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
-/** A cost (CR 118): its parts are paid together, in any order the player chooses (CR 601.2h). */
+/** A cost (CR 118): its parts are paid together, in any order the player chooses, except that random parts and moving
+ * cards from a library to a public zone are paid last (CR 601.2h). It can't be paid in part. */
 @Serializable
 data class Cost(val parts: List<CostPart>) {
     companion object {
@@ -72,4 +73,6 @@ sealed interface ManaKind {
     @Serializable @SerialName("as-could") data class AsCouldProduce(val filter: ObjectFilter, val amount: Value = Value.Fixed(1)) : ManaKind
     /** [amount] colourless mana. */
     @Serializable @SerialName("colorless") data class Colorless(val amount: Value) : ManaKind
+    /** [amount] mana of the colour chosen under [key] ("Add one mana of the chosen color"). */
+    @Serializable @SerialName("chosen-color") data class ChosenColor(val key: String, val amount: Value = Value.Fixed(1)) : ManaKind
 }

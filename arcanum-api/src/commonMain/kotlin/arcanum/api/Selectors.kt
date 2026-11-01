@@ -28,6 +28,9 @@ sealed interface Objects {
     /** The top or bottom [count] cards of a library. */
     @Serializable @SerialName("library-cards") data class LibraryCards(val of: Players, val count: Value, val fromTop: Boolean = true) : Objects
     @Serializable @SerialName("union") data class Union(val parts: List<Objects>) : Objects
+    /** In a static ability's or effect object's mechanics or condition: each affected object in turn ("for each other
+     * creature that shares a creature type with it"). */
+    @Serializable @SerialName("affected") data object Affected : Objects
     /** [base] without [minus] ("the rest", "the other cards"). */
     @Serializable @SerialName("except") data class Except(val base: Objects, val minus: Objects) : Objects
 }
@@ -45,10 +48,12 @@ sealed interface EventRole {
     @Serializable @SerialName("before") data object Before : EventRole
     /** In a zone change: the new object after the move (CR 400.7). */
     @Serializable @SerialName("after") data object After : EventRole
-    /** The source of damage, or the spell or ability that targeted (CR 113.7 for an ability's source). */
+    /** The source of damage, or the spell or ability that targeted (for an ability, protection and hexproof-from look
+     * at the object that generated it, CR 113.7). */
     @Serializable @SerialName("source") data object Source : EventRole
-    /** In a block: the attacking creature blocked. */
-    @Serializable @SerialName("attacker") data object Attacker : EventRole
+    /** In a block or becoming blocked: the creature on the other side ("destroy that creature" for "blocks or becomes
+     * blocked by"). */
+    @Serializable @SerialName("other-combatant") data object OtherCombatant : EventRole
 }
 
 /**
@@ -96,7 +101,8 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("status") data class HasStatus(val status: Status) : ObjectFilter
     /** Its controller hasn't controlled it continuously since their most recent turn began (CR 302.6). */
     @Serializable @SerialName("summoning-sick") data object SummoningSick : ObjectFilter
-    @Serializable @SerialName("counter") data class HasCounter(val kind: CounterKind, val atLeast: Int = 1) : ObjectFilter
+    /** Has [atLeast] counters of [kind], or of any kind when null ("with a counter on it"). */
+    @Serializable @SerialName("counter") data class HasCounter(val kind: CounterKind?, val atLeast: Int = 1) : ObjectFilter
 
     @Serializable @SerialName("power") data class Power(val comparison: Comparison, val value: Value) : ObjectFilter
     @Serializable @SerialName("toughness") data class Toughness(val comparison: Comparison, val value: Value) : ObjectFilter
@@ -135,11 +141,14 @@ sealed interface SharedQuality {
     @Serializable @SerialName("card-type") data object CardType : SharedQuality
     @Serializable @SerialName("creature-type") data object CreatureType : SharedQuality
     @Serializable @SerialName("name") data object Name : SharedQuality
+    /** Basic land types (domain: "the number of basic land types among lands you control"). */
+    @Serializable @SerialName("basic-land-type") data object BasicLandType : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability
  * on the Stack, or of the effect it created, captured when it was put on the Stack or created; for a static ability,
- * the current controller of its source (CR 109.5). */
+ * the current controller of the object it's on, or its owner if it has none, so a granted ability's "you" is the
+ * creature's controller, not the Aura's (CR 109.5). */
 @Serializable
 sealed interface Players {
     @Serializable @SerialName("you") data object You : Players
@@ -153,6 +162,9 @@ sealed interface Players {
     @Serializable @SerialName("owner-of") data class OwnerOf(val objects: Objects) : Players
     @Serializable @SerialName("active") data object Active : Players
     @Serializable @SerialName("defending") data object Defending : Players
+    /** In a static ability's mechanics or condition: each affected player in turn ("Each player can't cast more than one
+     * spell each turn"). */
+    @Serializable @SerialName("affected") data object Affected : Players
     /** Every player matching [filter] ("each opponent"). */
     @Serializable @SerialName("each") data class Each(val filter: PlayerFilter) : Players
 }

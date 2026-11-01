@@ -2,7 +2,7 @@
 
 Draft notes on how ATW will host the Arcanum libraries, collected while reviewing the
 card definition API. Nothing here is approved for building; library-side decisions
-are in `arcanum-automatum.md` (D1–D21). Each item becomes a rules-version change with
+are in `arcanum-automatum.md` (§2). Each item becomes a rules-version change with
 catalog entries the owner approves when its phase is built.
 
 ## Switch
@@ -30,8 +30,11 @@ catalog entries the owner approves when its phase is built.
   setting event's sequence number plus a position within the event.
 - **Tagged events** (D33): Automatum events carry their Magic meaning ("sacrificed",
   "died", …) and a snapshot of the objects involved, used for "this turn" questions
-  and for history texts. Manual events carry none and don't count.
-- **Ledgers** (D22, per object only): hidden engine bookkeeping on card instances
+  and for history texts. (?) Pending owner review (D42): manual moves are tagged
+  with their zone-change meaning (died, entered, left), which the move defines; only
+  "how" tags (sacrificed, destroyed, …) need Automatum.
+- **Ledgers** (D22, per object only): engine bookkeeping on card instances, visible in
+  the Automatum debug menu (P2: no hidden engine memory),
   (mana spent, X, kicked, activations this turn, …); key names and values
   come from the engine. Events change them by increments and set changes so undo
   works. An Automatum debug menu shows them. Undo that removes the cause of a later

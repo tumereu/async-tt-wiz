@@ -154,6 +154,11 @@ object OracleParser {
                 else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
             })
         }
+        // chunk 40: "Forestwalk", "Islandwalk" (CR 702.14a): a land type, then "walk"
+        LANDWALK.matchEntire(part)?.let { m ->
+            if (m.groupValues[1] !in RulesWords.subtypes) return null
+            return Keyword.Landwalk(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), part)
+        }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
             lower.startsWith(k.lowercase) && (lower.length == k.lowercase.length || lower[k.lowercase.length] in " —")
@@ -182,6 +187,8 @@ object OracleParser {
     private val ENCHANT = Regex("""Enchant (.+)""")
     // chunk 13
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
+    // chunk 40
+    private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

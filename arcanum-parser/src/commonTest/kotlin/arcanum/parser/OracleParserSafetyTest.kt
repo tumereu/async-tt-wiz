@@ -38,10 +38,12 @@ class OracleParserSafetyTest {
         assertTrue(ability is Ability.Activated && ability.label == AbilityLabel.Exhaust && ability.abilityWord == null, ability.toString())
     }
 
-    // CR 205.3m: "X" and unknown plurals are not subtypes.
+    // CR 205.3m: "X" and unknown plurals are not subtypes. ("Sacrifice X Squirrels" is a count announced as it is
+    // activated, CR 107.3a, so the noun itself is X here.)
     @Test
     fun unknownCapitalisedWordsAreNotSubtypes() {
-        assertTrue(parse("Artifact", "Sacrifice X Squirrels: Add {G}.").single() is Ability.Unparsed)
+        assertTrue(parse("Artifact", "Sacrifice an X: Add {G}.").single() is Ability.Unparsed)
+        assertTrue(parse("Artifact", "Sacrifice two Xs: Add {G}.").single() is Ability.Unparsed)
     }
 
     // CR 711.2a: abilities in a level band apply only within it.

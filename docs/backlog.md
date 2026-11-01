@@ -10,7 +10,7 @@ Changes the owner wants but that are not built yet. The feature catalog
 
 ## Ready to build
 
-- Screenshot tests (internal, no catalog change): every test card shows one shared placeholder art picture, and table fixtures use real game ids so Temp 1 (ZON-040) shows. Build after the items above (it re-records nearly every screenshot).
+(nothing right now)
 
 ## Specified, not started
 

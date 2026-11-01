@@ -95,7 +95,8 @@ internal class CrashExceptionHandler(private val store: CrashReportStore,
     }
 }
 
-class TabletopApplication : Application() {
+/** Open only for Robolectric's TestTabletopApplication (test sources). */
+open class TabletopApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         AppLog.install(File(filesDir, "app-log.txt"))

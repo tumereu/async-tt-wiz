@@ -60,7 +60,7 @@ class TableLayoutScreenshotTest {
         }
         compose.onRoot().captureShot(output.path, "${if (landscape) "Landscape" else "Portrait"} table layout " +
             (if (populated) "mid-game, with a card on the Stack and one in the opponent's exile" else "with no cards anywhere") +
-            ", your life -105, opponent's 120, $counters.")
+            ", each player's empty Temp 1 showing, your life -105, opponent's 120, $counters.")
         val image = ImageIO.read(output)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)

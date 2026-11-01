@@ -82,8 +82,9 @@ object ArtworkDecoder {
     }
 }
 
-/** One public artwork service per process; no account token or Activity is retained. */
-class CardArtworkService(context: Context, directory: File = File(context.cacheDir, "public-artwork"),
+/** One public artwork service per process; no account token or Activity is retained.
+ * Open only so Robolectric tests can serve placeholder art through [loader] (test PlaceholderArtwork). */
+open class CardArtworkService(context: Context, directory: File = File(context.cacheDir, "public-artwork"),
     policy: ArtworkUrlPolicy = ArtworkUrlPolicy(BuildConfig.ART_TEST_ORIGIN.takeIf { BuildConfig.DEBUG && it.isNotEmpty() }),
     apiBase: String = BuildConfig.ART_BASE) : AutoCloseable, ComponentCallbacks2 {
     val memoryBudget = minOf(64L * 1024 * 1024, Runtime.getRuntime().maxMemory() / 8)
@@ -142,7 +143,7 @@ class CardArtworkService(context: Context, directory: File = File(context.cacheD
         }
     }
     private val decodes = Semaphore(2)
-    val loader = ImageLoader.Builder(application)
+    open val loader: ImageLoader = ImageLoader.Builder(application)
         .memoryCache { MemoryCache.Builder().maxSizeBytes(memoryBudget).weakReferencesEnabled(false).build() }
         .diskCache(null) // Our encoded cache owns retry windows, conditional validators and versions.
         .components {

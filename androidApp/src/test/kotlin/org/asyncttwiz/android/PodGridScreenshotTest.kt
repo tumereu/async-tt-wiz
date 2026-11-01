@@ -3,6 +3,7 @@ package org.asyncttwiz.android
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.Role
@@ -94,8 +95,7 @@ class PodGridScreenshotTest {
             paint.color = 0xff222222.toInt()
             canvas.drawRect(inset * 2, h * .065f, w * .55f, h * .085f, paint)
             repeat(2) { canvas.drawCircle(w - inset * 2.6f - it * w * .07f, h * .075f, w * .028f, paint) }
-            paint.color = 0xffe8dcc0.toInt()
-            canvas.drawRect(inset * 1.4f, h * .115f, w - inset * 1.4f, h * .55f, paint)
+            PlaceholderArtwork.drawArt(canvas, RectF(inset * 1.4f, h * .115f, w - inset * 1.4f, h * .55f))
         }
     }
 

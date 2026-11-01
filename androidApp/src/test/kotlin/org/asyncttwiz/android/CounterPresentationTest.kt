@@ -21,13 +21,17 @@ class CounterPresentationTest {
                 assertEquals(dock.bottom, grid.bottom)
                 assertEquals(dock.right, grid.x)
                 assertEquals(width, grid.right)
-                assertTrue(counters.all { it.value.isEmpty() && it.visible == listOf(it.bounds) })
+                // Fully visible (the clip may round a thirds-wide cell by a float ulp).
+                assertTrue(counters.all { c -> c.value.isEmpty() && c.visible.size == 1 && c.visible.single().let { v ->
+                    listOf(v.x - c.bounds.x, v.y - c.bounds.y, v.width - c.bounds.width, v.height - c.bounds.height)
+                        .all { kotlin.math.abs(it) < .001f } } })
                 for (x in grid.x.toInt() + 1 until grid.right.toInt())
                     for (y in grid.y.toInt() + 1 until grid.bottom.toInt())
                         assertEquals(owner, scene.hit(TablePoint(x.toFloat(), y.toFloat()))?.takeIf {
                             it.kind == TableItemKind.COUNTER
                         }?.owner)
-                val piles = scene.items.filter { it.viewport == "dock/$owner" && it.kind == TableItemKind.PILE }
+                // Library, Graveyard, Exile (Temp 1 follows them in real games).
+                val piles = scene.items.filter { it.viewport == "dock/$owner" && it.kind == TableItemKind.PILE && !it.temp }
                 assertEquals(3, piles.size)
                 assertEquals(12f, piles[1].bounds.x - piles[0].bounds.right)
                 assertTrue(piles.all { it.bounds.right < grid.x })

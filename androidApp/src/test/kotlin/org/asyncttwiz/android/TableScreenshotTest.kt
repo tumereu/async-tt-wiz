@@ -459,11 +459,14 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
 internal object LiveTableFixture {
     val game = TableFixture.game.copy(gameName = "Crackling Mist 4")
     private val definitions = listOf(
-        DefinitionFace("land", "Forest", typeLine = "Basic Land — Forest"),
-        DefinitionFace("sentinel", "Meadow Sentinel", typeLine = "Creature — Soldier", power = "1", toughness = "3", corner = "1/3"),
-        DefinitionFace("river", "River Adept", typeLine = "Creature — Wizard", power = "1", toughness = "2", corner = "1/2"),
-        DefinitionFace("guide", "Lantern Guide", typeLine = "Creature — Scout", power = "2", toughness = "3", corner = "2/3"),
-        DefinitionFace("aegis", "Aegis Ward", typeLine = "Enchantment")
+        DefinitionFace("land", "Forest", typeLine = "Basic Land — Forest", scryfallId = placeholderPrinting("Forest")),
+        DefinitionFace("sentinel", "Meadow Sentinel", typeLine = "Creature — Soldier", power = "1", toughness = "3", corner = "1/3",
+            scryfallId = placeholderPrinting("Meadow Sentinel")),
+        DefinitionFace("river", "River Adept", typeLine = "Creature — Wizard", power = "1", toughness = "2", corner = "1/2",
+            scryfallId = placeholderPrinting("River Adept")),
+        DefinitionFace("guide", "Lantern Guide", typeLine = "Creature — Scout", power = "2", toughness = "3", corner = "2/3",
+            scryfallId = placeholderPrinting("Lantern Guide")),
+        DefinitionFace("aegis", "Aegis Ward", typeLine = "Enchantment", scryfallId = placeholderPrinting("Aegis Ward"))
     ).map { face -> CardDefinition(face.name, listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) } }
 
     fun play(hand: Int = 5): PlayState {
@@ -508,7 +511,8 @@ internal object LiveTableFixture {
         val normalized = play.copy(board = play.board.copy(cards = cards,
             containers = play.board.containers.map { it.copy(cards = it.cards.map(ids::getValue)) }))
         if (!showcase) return normalized
-        val definition = CardDefinition("Soldier", listOf(DefinitionFace("soldier", "Soldier", typeLine = "Token Creature — Soldier", corner = "1/1")))
+        val definition = CardDefinition("Soldier", listOf(DefinitionFace("soldier", "Soldier", typeLine = "Token Creature — Soldier", corner = "1/1",
+            scryfallId = placeholderPrinting("Soldier"))))
         val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
         val token = PlayCard(java.util.UUID.nameUUIDFromBytes("soldier".toByteArray()).toString(), submitted.digest,
             "a", "a/BATTLEFIELD", "soldier", covered = false, corner = "1/1", token = true,

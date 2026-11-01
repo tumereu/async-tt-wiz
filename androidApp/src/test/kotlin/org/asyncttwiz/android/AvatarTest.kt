@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import kotlin.test.*
 
@@ -137,6 +138,7 @@ class AvatarTest {
 
     // LOB-010
     @Test fun unavailableArtworkStillShowsInitial() {
+        PlaceholderArtwork.install(RuntimeEnvironment.getApplication(), available = false)
         compose.setContent { MaterialTheme { Avatar(AccountIdentity("stable", "Bob", AvatarIdentity("unavailable"))) } }
         compose.onNodeWithText("B").assertIsDisplayed()
     }

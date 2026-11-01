@@ -41,11 +41,14 @@ object OracleParser {
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]". */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =
         setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
-            listOf("this card", "this permanent", "this spell")
+            listOf("this card", "this permanent", "this spell") +
+            // chunk 26: a legendary card's first name ("Kaito" of "Kaito Shizuki", CR 201.5c)
+            listOfNotNull(name.substringBefore(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != "The" })
 
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
-        val sentences = Sentences(self, isSpell)
+        // chunk 26: an ability refers to cards "exiled with" this object (CR 607.2a)
+        val sentences = Sentences(self, isSpell, linkedExile = text.contains("exiled with "))
         val result = mutableListOf<Ability>()
         val raws = mutableListOf<String>()
         val lines = text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }
@@ -73,7 +76,7 @@ object OracleParser {
             }
             val previous = result.lastOrNull()
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
-            val parsed = if (instead == null) keywordLine(line) ?: sentences.line(line)?.let(::listOf) else null
+            val parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) else null
             when {
                 instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
@@ -127,6 +130,14 @@ object OracleParser {
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
         }
+        // chunk 25: "Enchant creature or Vehicle", "Enchant player" (CR 702.5a)
+        ENCHANT.matchEntire(part)?.let { m ->
+            return Keyword.Enchant(when (m.groupValues[1]) {
+                "player" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Any)
+                "opponent" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Opponent)
+                else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
+            })
+        }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
             lower.startsWith(k.lowercase) && (lower.length == k.lowercase.length || lower[k.lowercase.length] in " —")
@@ -151,6 +162,8 @@ object OracleParser {
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")
+    // chunk 25
+    private val ENCHANT = Regex("""Enchant (.+)""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

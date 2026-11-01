@@ -183,6 +183,12 @@ internal object Events {
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.Attack(subject), EventPattern.Block(subject))
         }
+        // chunk 35: "this creature dies or another artifact you control is put into a graveyard from the battlefield"
+        DIES_OR_PUT_INTO_GRAVEYARD.matchEntire(text)?.let { m ->
+            return listOf(m.groupValues[1], m.groupValues[2]).map {
+                EventPattern.ZoneChange(subject(it, self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+            }
+        }
         return event(text, self)?.let(::listOf)
     }
 
@@ -237,6 +243,13 @@ internal object Events {
             return EventPattern.Cast(kind)
         }
         PLAYER_TAPS_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, forMana = true) }
+        // chunk 35: "you sacrifice a permanent": only a permanent's controller can sacrifice it (CR 701.21a), and what is
+        // sacrificed is always a permanent, so the filter names only its kind and its controller.
+        YOU_SACRIFICE.matchEntire(text)?.let { m ->
+            val kind = if (m.groupValues[1] == "permanent") null else Filters.noun(m.groupValues[1]) ?: return null
+            val yours = ObjectFilter.ControlledBy(PlayerFilter.You)
+            return EventPattern.Sacrifice(if (kind == null) yours else Filters.all(kind, yours))
+        }
         if (text == "an opponent gains life") return EventPattern.GainLife(PlayerFilter.Opponent)
         return null
     }
@@ -254,6 +267,8 @@ internal object Events {
         }
         // chunk 25: "a creature", "a land you control", "one or more creature cards"
         ARTICLE_NOUN.matchEntire(text)?.let { m -> return Filters.noun(m.groupValues[1]) }
+        // chunk 35: "another artifact you control"
+        ANOTHER.matchEntire(text)?.let { m -> return Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[1]) ?: return null) }
         return null
     }
 
@@ -280,6 +295,10 @@ internal object Events {
     private val ENTERS_OR_LEAVES = Regex("""(.+) enters or (leaves the battlefield|is put into a graveyard from the battlefield)""")
     private val ATTACKS_OR_BLOCKS = Regex("""(.+) attacks or blocks""")
     private val YOU_DISCARD = Regex("""you discard an? (.+)""")
+    // chunk 35
+    private val DIES_OR_PUT_INTO_GRAVEYARD = Regex("""(.+) dies or (.+) is put into a graveyard from the battlefield""")
+    private val YOU_SACRIFICE = Regex("""you sacrifice an? (.+)""")
+    private val ANOTHER = Regex("""another (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */

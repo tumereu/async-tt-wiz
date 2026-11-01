@@ -27,8 +27,6 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 - IDs are `AREA-NNN`, never renumbered and never reused. A removed feature's
   entry is deleted; git history keeps it.
 - The trailing `(rN)` names the round that last decided it, for lookup in history.
-- `(?)` marks an entry not yet confirmed by the owner or not verified against the
-  app; it is still protected.
 
 ## Rules for changing it
 

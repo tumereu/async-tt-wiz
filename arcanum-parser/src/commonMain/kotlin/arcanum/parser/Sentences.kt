@@ -52,11 +52,47 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         return static(line) ?: triggered(line) ?: activated(line) ?: spell(line)
     }
 
+    /**
+     * "Threshold — Add {B}{B}{B}{B}{B} instead if there are seven or more cards in your graveyard.": the spell's last
+     * step happens only if the condition is false; the new one if it is true (a conditional "instead", written as If).
+     */
+    fun insteadOf(line: String, spell: Ability.Spell): Ability.Spell? {
+        val m = INSTEAD_IF.matchEntire(line) ?: return null
+        val condition = Conditions.condition(m.groupValues[3]) ?: return null
+        val replacement = instructions(m.groupValues[2] + ".") ?: return null
+        val steps = spell.instructions.steps
+        if (steps.isEmpty() || replacement.targets.isNotEmpty()) return null
+        return spell.copy(
+            abilityWord = m.groupValues[1].ifEmpty { null },
+            instructions = spell.instructions.copy(steps = steps.dropLast(1) + Step.If(condition, then = replacement.steps, otherwise = listOf(steps.last()))),
+        )
+    }
+
     /** The instructions of an instant or sorcery (CR 113.3a). */
     private fun spell(line: String): Ability? = if (isSpell) instructions(line)?.let { Ability.Spell(it) } else null
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        DOESNT_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.DoesntUntap))
+        }
+        // 'Equipped creature has "[ability]"' (CR 301.5)
+        EQUIPPED_HAS_QUOTED.matchEntire(line)?.let { m ->
+            val granted = Sentences(setOf("this creature"), false).line(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = arcanum.api.Affected.Objects(Objects.AttachedTo()))
+        }
+        // "If this artifact would enter, you may discard a land card instead. If you do, put this artifact onto the
+        // battlefield. If you don't, put it into its owner's graveyard." (CR 614.1c)
+        WOULD_ENTER_DISCARD_INSTEAD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(
+                EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                instead = Instructions(steps = listOf(
+                    Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(filter)))), bind = "discarded"),
+                    Step.If(arcanum.api.Condition.Did("discarded"),
+                        then = listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield)))),
+                        otherwise = listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Graveyard))))))))))
+        }
         ENTERS_TAPPED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.EntersTapped))))
@@ -76,18 +112,26 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         var text = line.substring(colon + 2)
         var costChange: Value? = null
         var condition: arcanum.api.Condition? = null
+        var timing: arcanum.api.Timing = arcanum.api.Timing.Any
+        ACTIVATE_ONLY_AS_INSTANT.find(text)?.let { m ->
+            timing = arcanum.api.Timing.Instant
+            text = text.removeRange(m.range).trim()
+        }
         ACTIVATE_ONLY_IF.find(text)?.let { m ->
             condition = Conditions.condition(m.groupValues[1]) ?: return null
             text = text.removeRange(m.range).trim()
         }
         COSTS_LESS_FOR_EACH.find(text)?.let { m ->
             val per = Numbers.mana(m.groupValues[1]) ?: return null
-            val count = Filters.objects(m.groupValues[2]) ?: return null
+            val count = Filters.objects(m.groupValues[2], self) ?: return null
             costChange = Value.Times(Value.Count(count), -per)
             text = text.removeRange(m.range).trim()
         }
-        val instructions = instructions(text) ?: return null
-        return Ability.Activated(cost, instructions, arcanum.api.ActivationRules(costChange = costChange, condition = condition))
+        val instructions = instructions(text)?.let { i ->
+            if (cost.parts.any { (it as? CostPart.Mana)?.cost?.symbols?.any { s -> s is arcanum.api.ManaSymbol.Variable } == true })
+                i.copy(announced = listOf("X")) else i
+        } ?: return null
+        return Ability.Activated(cost, instructions, arcanum.api.ActivationRules(timing = timing, costChange = costChange, condition = condition))
     }
 
     /** "Whenever [event], [if condition,] [effect]." (CR 603.1) */
@@ -96,7 +140,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val event = Events.event(m.groupValues[2], self) ?: return null
         val rest = m.groupValues[3]
         val conditional = INTERVENING_IF.matchEntire(rest)
-        val interveningIf = conditional?.let { Conditions.condition(it.groupValues[1]) ?: return null }
+        val interveningIf = conditional?.let { Conditions.condition(it.groupValues[1], self) ?: return null }
         val instructions = instructions(conditional?.groupValues?.get(2) ?: rest) ?: return null
         return Ability.Triggered(arcanum.api.Trigger.On(event), instructions, interveningIf = interveningIf)
     }
@@ -114,6 +158,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         PAY_LIFE.matchEntire(text)?.let { return listOf(CostPart.PayLife(Value.Fixed(it.groupValues[1].toInt()))) }
         DISCARD_COST.matchEntire(text)?.let { m ->
             if (isSelf(m.groupValues[1])) return listOf(CostPart.Discard(CostObjects.Self))
+            if (m.groupValues[1] == "your hand") return listOf(CostPart.Discard(CostObjects.These(Objects.Each(yourHand))))
             return null
         }
         TAP_UNTAPPED.matchEntire(text)?.let { m ->
@@ -136,6 +181,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     }
 
     private class Context {
+        var flip = false
         val targets = mutableListOf<TargetSlot>()
         fun target(noun: String, filter: ObjectFilter): Objects {
             targets += TargetSlot(noun, TargetKind.Objects(filter))
@@ -147,6 +193,41 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     }
 
     private fun effect(sentence: String, context: Context): List<Step>? {
+        ADD_X_ANY_COMBINATION.matchEntire(sentence)?.let {
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Announced(), combination = true)))))
+        }
+        ADD_ANY_OF_REMEMBERED_COLORS.matchEntire(sentence)?.let {
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1),
+                colors = listOf(ColorRef.Of(Objects.Remembered(IMPRINTED))))))))
+        }
+        FLIP_A_COIN.matchEntire(sentence)?.let {
+            context.flip = true
+            return listOf(Step.Do(Effect.FlipCoin(bind = "flip")))
+        }
+        IF_YOU_LOSE_THE_FLIP.matchEntire(sentence)?.let { m ->
+            if (!context.flip) return null
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.WonFlip("flip")), then = then))
+        }
+        SELF_DEALS_DAMAGE_TO_YOU.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "It" }?.let { m ->
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.You), Value.Fixed(m.groupValues[2].toInt()))))
+        }
+        YOU_MAY_PAY_IF_YOU_DO.matchEntire(sentence)?.let { m ->
+            val cost = ManaCost.parse(m.groupValues[1]) ?: return null
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.Pay(Cost.mana(cost), bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = then))
+        }
+        UNTAP.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.Untap(Objects.Self)))
+        }
+        YOU_MAY_EXILE_FROM_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.And(listOf(filter, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))),
+                    min = Value.Fixed(0), max = Value.Fixed(1)), bind = "chosen"),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Remember(IMPRINTED, Objects.Bound("exiled"))))
+        }
         ADD_MANA_RESTRICTED.matchEntire(sentence)?.let { m ->
             val kind = mana(m.groupValues[1]) ?: return null
             val spells = Filters.noun(m.groupValues[2]) ?: return null
@@ -155,10 +236,10 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         }
         ADD_MANA_FOR_EACH.matchEntire(sentence)?.let { m ->
             val symbols = ManaCost.parse(m.groupValues[1]) ?: return null
-            val count = Filters.objects(m.groupValues[2]) ?: return null
+            val count = Filters.objects(m.groupValues[2], self) ?: return null
             return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(symbols, times = Value.Count(count))))))
         }
-        ADD_MANA.matchEntire(sentence)?.let { m -> return listOf(Step.Do(Effect.AddMana(ManaProduction(mana(m.groupValues[1]) ?: return null)))) }
+        ADD_MANA.matchEntire(sentence)?.let { m -> mana(m.groupValues[1])?.let { return listOf(Step.Do(Effect.AddMana(ManaProduction(it)))) } }
         DRAW.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
         }
@@ -215,7 +296,8 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val raw = SENTENCE_END.split(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }
             .map { if (it.endsWith(".")) it else "$it." }.map { it.replaceFirstChar { c -> c.uppercase() } }
         return raw.fold(mutableListOf()) { acc, sentence ->
-            if (sentence.startsWith("Spend this mana only") && acc.isNotEmpty()) acc[acc.size - 1] = acc.last() + " " + sentence
+            if ((sentence.startsWith("Spend this mana only") || sentence.startsWith("If you do,")) && acc.isNotEmpty())
+                acc[acc.size - 1] = acc.last() + " " + sentence
             else acc += sentence
             acc
         }
@@ -224,6 +306,21 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     private companion object {
         val SENTENCE_END = Regex("""(?<=\.)\s+""")
         val ABILITY_WORD = Regex("""([A-Z][A-Za-z' ]+) — (.+)""")
+        const val IMPRINTED = "imprinted"
+        val yourHand = ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))
+        val INSTEAD_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?(.+) instead if (.+)\.""")
+        val DOESNT_UNTAP = Regex("""(.+) doesn't untap during your untap step\.""")
+        val EQUIPPED_HAS_QUOTED = Regex("""Equipped creature has "(.+)"""")
+        val WOULD_ENTER_DISCARD_INSTEAD = Regex("""If (.+) would enter, you may discard an? (.+) instead\. If you do, put .+ onto the battlefield\. If you don't, put it into its owner's graveyard\.""")
+        val ACTIVATE_ONLY_AS_INSTANT = Regex("""Activate only as an instant\.""")
+        val ADD_X_ANY_COMBINATION = Regex("""Add X mana in any combination of colors\.""")
+        val ADD_ANY_OF_REMEMBERED_COLORS = Regex("""Add one mana of any of the exiled card's colors\.""")
+        val FLIP_A_COIN = Regex("""Flip a coin\.""")
+        val IF_YOU_LOSE_THE_FLIP = Regex("""If you lose the flip, (.+)""")
+        val SELF_DEALS_DAMAGE_TO_YOU = Regex("""(.+) deals (\d+) damage to you\.""")
+        val YOU_MAY_PAY_IF_YOU_DO = Regex("""You may pay (\{.+?\})\. If you do, (.+)""")
+        val UNTAP = Regex("""Untap (.+)\.""")
+        val YOU_MAY_EXILE_FROM_HAND = Regex("""You may exile an? (.+) from your hand\.""")
         val ACTIVATE_ONLY_IF = Regex("""Activate only if (.+?)\.""")
         val TAP_UNTAPPED = Regex("""Tap an untapped (.+)""")
         val ANY_COLOR = Regex("""(\w+) mana of any (?:one )?color""")

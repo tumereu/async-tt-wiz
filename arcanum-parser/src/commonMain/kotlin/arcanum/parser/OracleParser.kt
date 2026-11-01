@@ -34,10 +34,17 @@ object OracleParser {
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         val sentences = Sentences(self, isSpell)
-        return text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }.flatMap { raw ->
+        val result = mutableListOf<Ability>()
+        for (raw in text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }) {
             val line = REMINDER.replace(raw, "").trim()
-            keywordLine(line) ?: sentences.line(line)?.let(::listOf) ?: listOf(Ability.Unparsed(raw.trim()))
+            val previous = result.lastOrNull()
+            val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
+            when {
+                instead != null -> result[result.size - 1] = instead
+                else -> result += keywordLine(line) ?: sentences.line(line)?.let(::listOf) ?: listOf(Ability.Unparsed(raw.trim()))
+            }
         }
+        return result
     }
 
     /**
@@ -54,6 +61,11 @@ object OracleParser {
 
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
     fun keyword(part: String): Keyword? {
+        // "Splice onto Arcane {1}{R}" (CR 702.47a): a quality, then a cost.
+        SPLICE.matchEntire(part)?.let { m ->
+            val cost = ManaCost.parse(m.groupValues[2]) ?: return null
+            return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
+        }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
             lower.startsWith(k.lowercase) && (lower.length == k.lowercase.length || lower[k.lowercase.length] in " —")
@@ -71,6 +83,7 @@ object OracleParser {
 
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
+    private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")
     private val AMOUNT_AND_COST = Regex(""" (\d+)—(.+)""")

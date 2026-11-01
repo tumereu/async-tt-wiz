@@ -42,15 +42,26 @@ internal object Filters {
         WITH_BASIC_LAND_TYPE.matchEntire(phrase)?.let { m ->
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(BASIC_LAND_TYPES.map { ObjectFilter.Sub(Subtype(it)) }))
         }
-        val list = phrase.split(Regex(""",? or |, """)).filter { it.isNotEmpty() }
-        if (list.size > 1) return ObjectFilter.Or(list.map { noun(it.removeArticle()) ?: return null })
+        NAMED.matchEntire(phrase)?.let { m ->
+            val zone = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { if (it == " in each graveyard") ObjectFilter.InZone(Zone.Graveyard) else return null }
+            return listOfNotNull(ObjectFilter.Named(m.groupValues[1]), zone).let { it.singleOrNull() ?: ObjectFilter.And(it) }
+        }
+        // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
+        if (phrase.contains(" or ")) {
+            val list = phrase.split(Regex(""",? or |, """)).filter { it.isNotEmpty() }
+            return ObjectFilter.Or(list.map { noun(it.removeArticle()) ?: return null })
+        }
+        if (phrase.contains(", ")) {
+            val modifiers = phrase.split(", ")
+            return ObjectFilter.And(modifiers.flatMap { part -> (noun(part) ?: return null).let { if (it is ObjectFilter.And) it.all else listOf(it) } })
+        }
         val words = phrase.removeSuffix(" card").removeSuffix(" cards").split(' ').map { singular(it) }
         val parts = words.map { word(it) ?: return null }
         return parts.singleOrNull() ?: ObjectFilter.And(parts)
     }
 
-    /** "creature you control" → every such object. */
-    fun objects(phrase: String): Objects? = noun(phrase)?.let { Objects.Each(it) }
+    /** "creature you control" → every such object; "card named [this card] in each graveyard". */
+    fun objects(phrase: String, self: Set<String> = emptySet()): Objects? = noun(phrase)?.let { Objects.Each(it) }
 
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
     fun slotName(phrase: String): String {
@@ -77,6 +88,7 @@ internal object Filters {
         else -> null
     }
 
+    private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
     private val CONTROLLED = Regex("""(.+) (you control|an opponent controls)""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
@@ -88,9 +100,13 @@ internal object Filters {
     private val SUPERTYPES = mapOf("basic" to Supertype.Basic, "legendary" to Supertype.Legendary, "snow" to Supertype.Snow)
 }
 
-/** Trigger events ("this land or another land you control enters"). */
+/** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
 internal object Events {
     fun event(text: String, self: Set<String>): EventPattern? {
+        BEGINNING_OF_YOUR.matchEntire(text)?.let { m ->
+            val step = STEPS[m.groupValues[1]] ?: return null
+            return EventPattern.StepBegins(step, PlayerFilter.You)
+        }
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
@@ -111,13 +127,22 @@ internal object Events {
     }
 
     private val ENTERS = Regex("""(.+) enters""")
+    private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step)""")
+    private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
-    fun condition(text: String): Condition? {
+    fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        SELF_IS_TAPPED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
+        }
+        CARDS_IN_YOUR_GRAVEYARD.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Exists(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))), atLeast = n)
+        }
         CONTROL_N_OR_MORE.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2] + " you control") ?: return null
@@ -131,6 +156,8 @@ internal object Conditions {
         return null
     }
 
+    private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
+    private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")
     private val CONTROL_N_OR_MORE = Regex("""you control (\w+) or more (\w+)""")
     private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different names""")
 }

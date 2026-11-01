@@ -57,6 +57,11 @@ internal object Filters {
             val zone = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { if (it == " in each graveyard") ObjectFilter.InZone(Zone.Graveyard) else return null }
             return listOfNotNull(ObjectFilter.Named(m.groupValues[1]), zone).let { it.singleOrNull() ?: all(*it.toTypedArray()) }
         }
+        // chunk 26: "blue or black creature": colours as alternatives, the noun for all of them
+        COLOR_ALTERNATIVES.matchEntire(phrase)?.let { m ->
+            val colors = m.groupValues[1].split(Regex(""",? or |, """)).map { ObjectFilter.OfColor(COLORS[it] ?: return null) }
+            return all(ObjectFilter.Or(colors), noun(m.groupValues[2]) ?: return null)
+        }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
         if (phrase.contains(" or ")) {
             val list = phrase.split(Regex(""",? or |, """)).filter { it.isNotEmpty() }
@@ -118,6 +123,8 @@ internal object Filters {
     }
 
     private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
+    // chunk 26
+    private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
     private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
     private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or less""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
@@ -153,6 +160,23 @@ internal object Events {
             return EventPattern.ZoneChange(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.OwnedBy(owner)),
                 from = Zone.Battlefield, to = Zone.Graveyard)
         }
+        // chunk 26: "a creature you control dies" (CR 700.4)
+        DIES.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+        }
+        // chunk 26: "you cast a noncreature spell"
+        YOU_CAST.matchEntire(text)?.let { m ->
+            return EventPattern.Cast(subject(m.groupValues[1], self) ?: return null, by = PlayerFilter.You)
+        }
+        // chunk 26: "one or more creature cards leave your graveyard" (looks back in time, CR 603.10a)
+        LEAVE_YOUR_GRAVEYARD.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You)),
+                from = Zone.Graveyard)
+        }
+        // chunk 26: "a creature you control deals combat damage to a player"
+        DEALS_COMBAT_DAMAGE_TO_A_PLAYER.matchEntire(text)?.let { m ->
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = PlayerFilter.Any), combat = true)
+        }
         // chunk 25: "you play a land" (CR 305.1)
         if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You)
         return null
@@ -180,6 +204,11 @@ internal object Events {
     // chunk 25
     private val PUT_INTO_OWNERS_GRAVEYARD = Regex("""(.+) is put into (your|an opponent's) graveyard from the battlefield""")
     private val ARTICLE_NOUN = Regex("""(?:an?|one or more) (.+)""")
+    // chunk 26
+    private val DIES = Regex("""(.+) dies""")
+    private val YOU_CAST = Regex("""you cast (.+)""")
+    private val LEAVE_YOUR_GRAVEYARD = Regex("""(.+) leaves? your graveyard""")
+    private val DEALS_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""(.+) deals combat damage to a player""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -211,6 +240,18 @@ internal object Conditions {
             val filter = Filters.noun(m.groupValues[2] + " you control") ?: return null
             return Condition.Compare(Value.CountDistinct(Objects.Each(filter), SharedQuality.Name), Comparison.AtLeast, Value.Fixed(n))
         }
+        // chunk 26: "this card is in your graveyard"
+        IS_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard))
+        }
+        // chunk 26: "Kaito entered this turn"
+        ENTERED_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield)))
+        }
+        // chunk 26: "there are cards exiled with this enchantment": its card memory (CR 607.2a); false when there are none
+        EXILED_WITH_SELF.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))
+        }
         // chunk 25: "it wasn't the first land you played this turn": this turn's land plays include it (CR 305.2a)
         if (text == "it wasn't the first land you played this turn")
             return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You), atLeast = 2)
@@ -223,6 +264,10 @@ internal object Conditions {
     private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")
     private val CONTROL_N_OR_MORE = Regex("""you control (\w+) or more (\w+)""")
     private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different names""")
+    // chunk 26
+    private val IS_IN_YOUR_GRAVEYARD = Regex("""(.+) is in your graveyard""")
+    private val ENTERED_THIS_TURN = Regex("""(.+) entered this turn""")
+    private val EXILED_WITH_SELF = Regex("""there are cards exiled with (.+)""")
 }
 
 /** Token descriptions ("a 2/2 black Zombie creature token", CR 111.4). */
@@ -236,13 +281,18 @@ internal object Tokens {
         val m = COUNTED.matchEntire(text) ?: return null
         val count = Numbers.count(m.groupValues[1]) ?: return null
         val token = defined("a " + m.groupValues[2] + " token") ?: return null
-        val keywords = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
+        // chunk 26: 'with "This token can't be blocked."' (CR 111.4)
+        val quoted = QUOTED.matchEntire(m.groupValues[3])?.let { q ->
+            listOf(Sentences(setOf("this token", "this creature")).line(q.groupValues[1]) ?: return null)
+        }
+        val keywords = quoted ?: m.groupValues[3].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
         return count to token.copy(face = token.face.copy(abilities = keywords))
     }
 
     fun defined(text: String): TokenSpec.Defined? {
         val m = TOKEN.matchEntire(text) ?: return null
-        val colors = m.groupValues[2].split(" and ").map { COLORS[it] ?: return null }
+        // chunk 26: "colorless" has no colour indicator colours (CR 105.2c)
+        val colors = if (m.groupValues[2] == "colorless") emptyList() else m.groupValues[2].split(" and ").map { COLORS[it] ?: return null }
         val types = mutableListOf<CardType>()
         val subtypes = mutableListOf<Subtype>()
         for (word in m.groupValues[3].split(' ')) {
@@ -259,6 +309,8 @@ internal object Tokens {
 
     private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
     private val COUNTED = Regex("""(a|an|one|two|three|four|five) (\d+/\d+ .+? creature) tokens?(?: with (.+))?""")
+    // chunk 26
+    private val QUOTED = Regex(""""(.+)"""")
     private val TOKEN = Regex("""an? (\d+/\d+) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
 }
@@ -279,3 +331,6 @@ internal object Counters {
 
     private val PT = Regex("""([+-]\d+)/([+-]\d+)""")
 }
+
+/** chunk 26: card memory key for cards "exiled with" this object (CR 607.2a). */
+internal const val EXILED_WITH = "exiled"

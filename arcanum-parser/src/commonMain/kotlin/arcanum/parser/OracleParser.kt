@@ -41,11 +41,14 @@ object OracleParser {
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]". */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =
         setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
-            listOf("this card", "this permanent", "this spell")
+            listOf("this card", "this permanent", "this spell") +
+            // chunk 26: a legendary card's first name ("Kaito" of "Kaito Shizuki", CR 201.5c)
+            listOfNotNull(name.substringBefore(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != "The" })
 
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
-        val sentences = Sentences(self, isSpell)
+        // chunk 26: an ability refers to cards "exiled with" this object (CR 607.2a)
+        val sentences = Sentences(self, isSpell, linkedExile = text.contains("exiled with "))
         val result = mutableListOf<Ability>()
         val raws = mutableListOf<String>()
         val lines = text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }

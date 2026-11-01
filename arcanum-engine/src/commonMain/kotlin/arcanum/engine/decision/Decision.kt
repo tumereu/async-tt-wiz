@@ -215,7 +215,8 @@ sealed interface RandomKind {
 sealed interface ManaUse {
     /** The mana at [index] of the payer's pool. */
     @Serializable @SerialName("pool") data class Pool(val index: Int) : ManaUse
-    /** Activate mana ability [ability] of [source], choosing [color] when it makes a choice. */
+    /** Activate mana ability [ability] of [source], choosing [color] when it makes a choice; for an ability that makes one
+     * colour, [color] names it (telling a dual land's two abilities apart). */
     @Serializable @SerialName("ability") data class Ability(
         val source: ObjectId, val ability: arcanum.engine.view.AbilityOrigin, val color: Color? = null,
     ) : ManaUse

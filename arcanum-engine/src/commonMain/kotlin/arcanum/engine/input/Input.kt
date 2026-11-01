@@ -16,9 +16,10 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed interface Input {
-    /** [player] plays the land [card] (a special action, CR 116.2a, 305.1). */
+    /** [player] plays the land [card] (a special action, CR 116.2a, 305.1), with its [face] up: a modal double-faced
+     * card's back face (CR 712.11); default the front. */
     @Serializable @SerialName("play-land")
-    data class PlayLand(val player: PlayerId, val card: ObjectId) : Input
+    data class PlayLand(val player: PlayerId, val card: ObjectId, val face: Int = 0) : Input
 
     /** [player] begins to cast [card] (CR 601.2) the [way] chosen. */
     @Serializable @SerialName("cast")

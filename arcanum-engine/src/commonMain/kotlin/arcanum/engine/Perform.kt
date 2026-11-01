@@ -12,6 +12,8 @@ import arcanum.engine.sba.StateBasedActions
 import arcanum.engine.state.GameState
 import arcanum.engine.trigger.Triggers
 import arcanum.engine.turn.Priority
+import arcanum.engine.turn.Steps
+import arcanum.engine.decision.TurnAction
 
 /** How far a flow got: finished, or waiting for a decision (D58). */
 internal sealed interface Progress {
@@ -70,27 +72,33 @@ internal object Perform {
             is Continuation.Event -> Resolution.resumeEvent(recorder, continuation, answer)
             is Continuation.PlacingTriggers -> Triggers.resume(recorder, continuation, answer)
             is Continuation.StateBased -> StateBasedActions.resume(recorder, continuation, answer)
-            is Continuation.TurnBased -> Combat.resume(recorder, continuation, answer)
+            is Continuation.TurnBased -> when (continuation.action) {
+                is TurnAction.CombatDamage -> Combat.resume(recorder, continuation, answer)
+                TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, answer)
+            }
         }
         return progress
     }
 
     /** CR 117.5: before a player gets priority, state-based actions and triggered abilities, until nothing happens. */
     fun afterAction(recorder: Recorder): Progress {
-        settle(recorder)?.let { return it }
+        (checks(recorder) as? Progress.Waiting)?.let { return it }
         return Priority.give(recorder)
     }
 
     /** State-based actions (CR 704.3) and putting triggered abilities on the Stack (CR 603.3), repeated until neither
-     * does anything; the decision one of them waits for, if any. */
-    fun settle(recorder: Recorder): Progress.Waiting? {
+     * does anything; also the cleanup step's check (CR 514.3a). */
+    fun checks(recorder: Recorder): Progress {
         while (true) {
             val before = recorder.changes.size
             (StateBasedActions.check(recorder) as? Progress.Waiting)?.let { return it }
             (Triggers.place(recorder) as? Progress.Waiting)?.let { return it }
-            if (recorder.changes.size == before) return null
+            if (recorder.changes.size == before) return Progress.Done
         }
     }
+
+    /** [checks], giving the decision one of them waits for, if any. */
+    fun settle(recorder: Recorder): Progress.Waiting? = checks(recorder) as? Progress.Waiting
 }
 
 /** Thrown by the parts of the engine that later parts fill in. */

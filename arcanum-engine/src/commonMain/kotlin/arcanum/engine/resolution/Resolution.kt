@@ -156,8 +156,9 @@ internal object Resolution {
         act.record(Change.StackItemRemoved(item, null, listOf(meaning)))
         if (permanent && !fizzled) {
             val attachTo = if (c.subtypes.any { it.name == "Aura" }) item.targets.values.flatten().firstOrNull() else null
+            // CR 708.4: a face-down spell enters face down
             Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Battlefield, controller = item.controller,
-                meanings = listOf(Meaning.Resolved), attachTo = attachTo)))
+                meanings = listOf(Meaning.Resolved), attachTo = attachTo, faceDown = card.faceDown)))
             return
         }
         Actions.move(act, null, listOf(PlannedMove(item.id, leavesTo(act, item), meanings = listOf(meaning))))

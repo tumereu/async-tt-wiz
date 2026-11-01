@@ -47,6 +47,9 @@ data class GameState(
     /** Triggered abilities that triggered and wait to be put on the Stack the next time a player would get priority
      * (CR 603.3, D42), in the order they triggered. */
     var triggered: MutableList<arcanum.engine.decision.WaitingTrigger> = mutableListOf(),
+    /** The starting player skips the draw step of turn 1 (CR 103.8a, two players); the host sets false where nobody
+     * skips it (CR 103.8c). A setting of the game, not changed by play. */
+    var skipFirstDraw: Boolean = true,
 ) {
     // ---- Players
 

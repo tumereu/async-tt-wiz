@@ -83,32 +83,36 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
 
     // ---- Moves
 
-    /** Plays the land [name] (CR 305.1). */
-    fun plays(name: String): Outcome = scenario.perform(Input.PlayLand(id, scenario.card(name)))
+    /** Plays the land [name] (CR 305.1), with [face] up (a modal double-faced card's back, CR 712.11). */
+    fun plays(name: String, face: Int = 0): Outcome = scenario.perform(Input.PlayLand(id, scenario.card(name), face))
 
     /**
      * Casts [name] (CR 601.2) and answers the cast's decisions from what is given: targets by name (players by their
-     * name) in slot order, modes, X, and the mana sources to tap ([paying], by name; else the engine's suggestion).
+     * name) in slot order, modes, X, optional costs ([kicked]: how many times, 0 declines), the option of an "A or B"
+     * cost ([option]), the objects a cost uses ([choosing], by name, in cost order), a mana ability's colour ([color]),
+     * and the mana sources to tap ([paying], by name, "name:R" for a colour; else the engine's suggestion).
      * Decisions nothing here answers stay open for the test.
      */
     fun casts(
         name: String, target: String? = null, targets: List<String> = listOfNotNull(target), x: Int? = null,
         modes: List<Int>? = null, paying: List<String>? = null, way: CastWay = CastWay(),
+        kicked: Int? = null, option: String? = null, choosing: List<String> = emptyList(),
     ): Outcome {
         val outcome = scenario.perform(Input.Cast(id, scenario.card(name), way))
-        return answerAnnouncing(outcome, targets, x, modes, paying)
+        return answerAnnouncing(outcome, targets, x, modes, paying, kicked, option, choosing, null)
     }
 
     /** Activates the [ability]th activated ability (from 0, in the order the object has them) of [name] (CR 602). */
     fun activates(
         name: String, ability: Int = 0, target: String? = null, targets: List<String> = listOfNotNull(target), x: Int? = null,
-        modes: List<Int>? = null, paying: List<String>? = null,
+        modes: List<Int>? = null, paying: List<String>? = null, option: String? = null, choosing: List<String> = emptyList(),
+        color: arcanum.api.Color? = null,
     ): Outcome {
         val source = scenario.card(name)
         val abilities = scenario.view()[source]?.characteristics?.abilities.orEmpty().filter { it.ability is Ability.Activated }
         val chosen = abilities.getOrNull(ability) ?: fail("$name has no activated ability #$ability")
         val outcome = scenario.perform(Input.Activate(id, source, chosen.origin))
-        return answerAnnouncing(outcome, targets, x, modes, paying)
+        return answerAnnouncing(outcome, targets, x, modes, paying, null, option, choosing, color)
     }
 
     /**
@@ -207,15 +211,25 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     /** Chooses objects by name for the open decision. */
     fun chooses(vararg names: String): Outcome = scenario.answer(Answer.Objects(names.map { scenario.card(it) }))
 
-    private fun answerAnnouncing(first: Outcome, targets: List<String>, x: Int?, modes: List<Int>?, paying: List<String>?): Outcome {
+    private fun answerAnnouncing(
+        first: Outcome, targets: List<String>, x: Int?, modes: List<Int>?, paying: List<String>?,
+        kicked: Int?, option: String?, choosing: List<String>, color: arcanum.api.Color?,
+    ): Outcome {
         var outcome = first
         val queue = ArrayDeque(targets)
+        val objects = ArrayDeque(choosing)
         while (true) {
             val answer = when (val d = scenario.pending) {
                 is Decision.Targets -> if (queue.isEmpty()) null
                     else Answer.Targets(List(minOf(queue.size, d.max ?: queue.size)) { scenario.target(queue.removeFirst()) })
                 is Decision.Modes -> modes?.let { Answer.Modes(it) }
                 is Decision.Announce -> x?.let { Answer.Number(it) }
+                is Decision.May -> if (d.cost != null) kicked?.let { Answer.YesNo(it > 0) } else null
+                is Decision.ChooseNumber -> kicked?.let { Answer.Number(it) }
+                is Decision.ChooseOption -> option?.let { o -> d.options.firstOrNull { it.startsWith(o) }?.let { Answer.Option(it) } }
+                is Decision.ChooseObjects -> if (objects.isEmpty()) null
+                    else Answer.Objects(List(minOf(objects.size, d.max ?: objects.size)) { scenario.card(objects.removeFirst()) })
+                is Decision.ChooseColor -> color?.let { Answer.ColorChoice(it) }
                 is Decision.ManaPayment -> if (paying != null) Answer.ManaPayment(paying.map { manaUse(it, d) })
                     else d.suggestion.takeIf { it.isNotEmpty() }?.let { Answer.ManaPayment(it) }
                 else -> null
@@ -225,10 +239,15 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     }
 
     private fun manaUse(name: String, decision: Decision.ManaPayment): ManaUse {
-        val source: ObjectId = scenario.card(name)
-        return decision.options.filterIsInstance<ManaUse.Ability>().firstOrNull { it.source == source }
+        val color = name.substringAfter(':', "").singleOrNull()?.let { arcanum.api.Color.of(it) }
+        val source: ObjectId = scenario.card(name.substringBefore(':'))
+        return decision.options.filterIsInstance<ManaUse.Ability>().firstOrNull { it.source == source && (color == null || it.color == color) }
+            ?: decision.options.filterIsInstance<ManaUse.Special>().firstOrNull { it.objects == listOf(source) }
             ?: fail("$name can't pay for ${decision.cost}")
     }
+
+    /** The mana in this player's pool (CR 106.4). */
+    val pool: List<arcanum.engine.state.ManaUnit> get() = state.player(id).manaPool
 
     // ---- Zones, for expectations
 

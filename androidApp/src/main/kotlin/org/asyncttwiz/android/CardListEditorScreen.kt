@@ -56,7 +56,7 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
     search: CardListSearch, tab: CardListTab, onTab: (CardListTab) -> Unit, openLink: () -> Unit, linkEnabled: Boolean,
     canSave: Boolean, saving: Boolean, save: () -> Unit, saveTag: String, lookupPending: Boolean, error: String?,
     dismissError: () -> Unit, nameRow: @Composable () -> Unit, listField: @Composable ColumnScope.() -> Unit,
-    feedback: @Composable ColumnScope.() -> Unit) {
+    feedback: @Composable ColumnScope.() -> Unit, deleteLabel: String? = null, delete: () -> Unit = {}, deleteEnabled: Boolean = true) {
     if (search.state.open) { CardSearchPage(editor, search, landscape); DeckCardInspection(editor.inspection); return }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
@@ -71,13 +71,17 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
     }
     Column(Modifier.fillMaxSize()) {
         // Landscape keeps the pictures tall enough: the name joins the title row, the Cards summary the tab row.
+        // LOB-057: a saved list's editor also has a red Delete at the top right; in portrait the link then shows as its icon.
         val link: @Composable () -> Unit = {
             val open = { keyboard?.hide(); focus.clearFocus(); openLink() }
-            if (landscape || androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 400)
+            if (landscape || (deleteLabel == null && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 400))
                 ScreenOutlinedButton(open, Modifier.testTag("open-import-link"), enabled = linkEnabled) {
                     EntryIcon(null, "link"); Spacer(Modifier.width(8.dp)); Text(IMPORT_FROM_LINK)
                 }
             else ScreenIconButton(IMPORT_FROM_LINK, "link", open, Modifier.testTag("open-import-link"), enabled = linkEnabled)
+            if (deleteLabel != null) TextButton({ keyboard?.hide(); focus.clearFocus(); delete() },
+                Modifier.heightIn(min = 48.dp).testTag("delete-list"), enabled = deleteEnabled,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(deleteLabel, maxLines = 1) }
         }
         if (landscape) Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

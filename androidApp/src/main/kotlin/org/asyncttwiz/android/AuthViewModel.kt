@@ -124,6 +124,10 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             }
         })
     }
+    init {
+        // LOB-057: a deck deleted from its editor leaves for the deck list.
+        deckImport.connectDelete(saveApi, controller::sessionToken, deleted = { decks.refresh() })
+    }
     private fun clearDeckWork() { activity.clear(); deckImport.exit(); decks.clear(); cubes.clear(); pods.clear(); lobby.clear() }
 
     val reset = ResetController(AccountApi(BuildConfig.ACCOUNT_ORIGIN), BuildConfig.RESET_ORIGIN,

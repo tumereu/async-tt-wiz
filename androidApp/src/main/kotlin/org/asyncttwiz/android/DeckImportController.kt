@@ -18,7 +18,9 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
     val lookupFailed: Boolean = false, val linkDialog: Boolean = false, val url: String = "",
     val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val linkError: String? = null,
-    val destination: DeckSection = DeckSection.MAINBOARD)
+    val destination: DeckSection = DeckSection.MAINBOARD,
+    /** LOB-057: the editor's "Delete deck" confirmation, its request in flight and its failure. */
+    val deleteDialog: Boolean = false, val deleting: Boolean = false, val deleteError: String? = null)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
@@ -214,6 +216,47 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             } } } }
         }, saved = saved)
     }
+    private var deleteAction: (() -> ((String, DeleteDeck) -> Unit)?)? = null
+    private var deleted: (String) -> Unit = {}
+    /** A delete that failed keeps its request id, so retrying it cannot delete twice. */
+    private var pendingDelete: Pair<String, DeleteDeck>? = null
+    fun connectDelete(action: () -> ((String, DeleteDeck) -> Unit)?, deleted: (String) -> Unit) {
+        deleteAction = action; this.deleted = deleted
+    }
+    fun connectDelete(api: Decks, credential: () -> String?, deleted: (String) -> Unit) {
+        connectDelete(action = {
+            credential()?.let { token -> { id: String, request: DeleteDeck -> kotlinx.coroutines.runBlocking {
+                serviceRetry(current = { credential() == token }) { api.delete(token, id, request) }
+            }; Unit } }
+        }, deleted = deleted)
+    }
+    /** The name the deck was saved with, for the delete confirmation. */
+    val savedName: String get() = initial.name
+    /** LOB-057: the editor of a saved deck offers "Delete deck", confirmed first. */
+    val canDelete: Boolean get() = state.active && state.editing && state.target != null && !state.saving
+    fun requestDelete() { if (!closed && canDelete) state = state.copy(deleteDialog = true, deleteError = null) }
+    fun dismissDeleteError() { state = state.copy(deleteError = null) }
+    fun dismissDelete() { if (!state.deleting) state = state.copy(deleteDialog = false, deleteError = null) }
+    fun confirmDelete() {
+        if (closed || !state.deleteDialog || state.deleting) return
+        val id = state.target ?: return
+        val action = deleteAction?.invoke() ?: run { state = state.copy(deleteError = "Sign in to delete this deck."); return }
+        val request = pendingDelete?.takeIf { it.first == id } ?: (id to DeleteDeck(java.util.UUID.randomUUID().toString()))
+        pendingDelete = request
+        state = state.copy(deleting = true, deleteError = null)
+        worker.execute {
+            val outcome = runCatching { action(id, request.second) }
+            post { if (!closed) {
+                if (outcome.isSuccess) {
+                    pendingDelete = null
+                    if (state.active && state.target == id) exit()
+                    deleted(id)
+                } else if (state.active && state.target == id) {
+                    state = state.copy(deleting = false, deleteError = deckError(outcome.exceptionOrNull() as? Exception ?: Exception()))
+                }
+            } }
+        }
+    }
     fun open() { if (!closed) { epoch++; search.reset(); undo.clear(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
     fun openEditor(detail: DeckDetail) {
         open()
@@ -313,7 +356,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             }
         }
     }
-    fun back() { if (inspection.state != null) inspection.close() else if (search.state.open) search.close()
+    fun back() { if (inspection.state != null) inspection.close() else if (state.deleteDialog) dismissDelete()
+        else if (search.state.open) search.close()
         else if (state.linkDialog) closeLink()
         else if (state.choosingCover) closeCover()
         else if (state.discard) keepEditing() else if (state.preview) editList() else cancel() }

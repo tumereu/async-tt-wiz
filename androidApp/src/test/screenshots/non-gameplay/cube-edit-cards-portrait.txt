@@ -1,1 +1,1 @@
-Portrait Edit cube screen for the Runes cube on its Cards tab: Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, a + at the right of each section header, and Save.
+Portrait Edit cube screen for the Runes cube on its Cards tab: Delete cube at the top right, Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, a + at the right of each section header, and Save.

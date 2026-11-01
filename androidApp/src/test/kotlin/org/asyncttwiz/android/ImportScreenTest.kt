@@ -299,8 +299,8 @@ class ImportScreenTest {
         } finally { compose.mainClock.autoAdvance = true; controller.close(); worker.drain() }
     }
 
-    // DRF-010
-    @Test fun savedCubeShowsPicturesUnderEditWithRenameConfirmedDeleteAndDraftThisCube() {
+    // DRF-010, LOB-057: Edit is the only button above a saved cube; Delete cube is in its editor, confirmed first.
+    @Test fun savedCubeShowsPicturesUnderEditAndDraftThisCubeAndItsEditorDeletesItConfirmed() {
         val worker = Worker()
         val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")))
         val digest = DeckJson.digest(card)
@@ -332,32 +332,32 @@ class ImportScreenTest {
             val list = compose.onNodeWithContentDescription(tile).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             compose.onNodeWithTag("cube-view").performScrollToIndex(0)
             val edit = compose.onNodeWithText("Edit").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            val rename = compose.onNodeWithText("Rename").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue(edit.bottom <= rename.top && edit.bottom <= list.top, "Edit sits in the top bar above the pictures")
+            assertTrue(edit.bottom <= list.top, "Edit sits in the top bar above the pictures")
+            compose.onNodeWithText("Rename").assertDoesNotExist()
+            compose.onNodeWithText("Delete cube").assertDoesNotExist()
 
             compose.onNodeWithText("Draft this cube").assertIsDisplayed().performClick()
             assertEquals(listOf(saved.cube.id), drafted)
 
-            compose.onNodeWithText("Rename").performClick()
-            compose.onNodeWithText("Rename cube").assertIsDisplayed()
-            compose.onNode(hasText("Cube name") and hasSetTextAction()).performTextReplacement("Runes II")
-            compose.onNodeWithText("Save name").performClick()
+            compose.onNodeWithText("Edit").performClick()
             compose.runOnIdle { worker.drain() }
-            assertEquals("Runes II", renames.single().name); assertNull(renames.single().entries)
-            compose.onNodeWithText("Rename cube").assertDoesNotExist()
-            compose.onNodeWithText("Runes II").assertIsDisplayed()
-
-            compose.onNodeWithText("Delete cube").performClick()
+            compose.onNodeWithText("Edit cube").assertIsDisplayed()
+            compose.onNodeWithTag("cube-name").performTextReplacement("Runes II")
+            compose.onNodeWithTag("delete-list").assertTextEquals("Delete cube").performClick()
             compose.onNodeWithText("Delete cube?").assertIsDisplayed()
+            compose.onNodeWithText("Delete Runes? Deletion cannot be undone.").assertIsDisplayed()
             compose.onNodeWithText("Keep cube").performClick()
             compose.runOnIdle { worker.drain() }
             assertTrue(deletes.isEmpty(), "Delete needs confirmation")
             compose.onNodeWithText("Delete cube?").assertDoesNotExist()
-            compose.onNodeWithText("Delete cube").performClick()
+            compose.onNodeWithTag("cube-name").assertTextEquals("Runes II")
+            compose.onNodeWithTag("delete-list").performClick()
             compose.onNode(hasText("Delete cube") and hasAnyAncestor(isDialog())).performClick()
             compose.runOnIdle { worker.drain() }
             assertEquals(1, deletes.size)
-            compose.runOnIdle { assertNull(controller.state.selected) }
+            assertTrue(renames.isEmpty())
+            compose.runOnIdle { assertNull(controller.state.selected); assertFalse(controller.state.editing) }
+            compose.onNodeWithText("Discard unsaved changes?").assertDoesNotExist()
         } finally { controller.close(); worker.drain() }
     }
 }

@@ -1,1 +1,1 @@
-Portrait saved Training deck with the delete-deck confirmation open.
+Portrait Training deck editor after tapping Delete deck: the Delete deck? confirmation with the deck name, Deletion cannot be undone., Keep deck and Delete deck.

@@ -262,12 +262,17 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             state = state.copy(dialog = value, name = state.detail!!.saved.cube.name, error = null)
         }
     }
+    /** LOB-057: the editor of a saved cube offers "Delete cube", confirmed first; the name field keeps what was typed. */
+    val canDelete: Boolean get() = state.editing && state.target != null && !state.busy
+    fun requestDelete() {
+        if (canDelete) { pendingUpdate = null; pendingDelete = null; state = state.copy(dialog = CubeDialog.DELETE, error = null) }
+    }
     fun dismiss() { if (!state.busy) { pendingUpdate = null; pendingDelete = null; state = state.copy(dialog = null, error = null) } }
     fun confirm() {
         if (state.busy) return
-        val id = state.selected ?: return
-        val token = credential() ?: return
         val deleting = state.dialog == CubeDialog.DELETE
+        val id = (if (deleting && state.editing) state.target else state.selected) ?: return
+        val token = credential() ?: return
         if (!deleting && (state.dialog != CubeDialog.RENAME || !CubeValidation.name(state.name))) {
             state = state.copy(error = "Enter a cube name."); return
         }
@@ -277,7 +282,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             serviceRetry(current = current) { if (delete != null) api.delete(token, id, delete) else api.update(token, id, update!!) }
             return@work {
                 pendingUpdate = null; pendingDelete = null; state = state.copy(dialog = null)
-                if (deleting) back() else open(id)
+                if (deleting) { if (state.editing) discardEdit(); back() } else open(id)
             }
         }
     }

@@ -1,0 +1,1 @@
+mod: Saved decks and cubes show only Edit at the top; delete a deck or cube from its editor and rename it there. Draft decks have Delete draft deck beside Save as deck.

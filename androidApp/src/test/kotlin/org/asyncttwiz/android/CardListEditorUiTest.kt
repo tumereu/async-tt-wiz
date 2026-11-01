@@ -343,17 +343,76 @@ class CardListEditorUiTest {
         } finally { cubes.close() }
     }
 
-    // LOB-056, LOB-057, SYS-054: a saved deck shows Maybe in its section colour when it has Maybe cards; Rename opens the dialog.
-    @Test fun savedDeckShowsMaybeAndRename() {
+    // LOB-056, LOB-057, SYS-054: a saved deck shows Maybe in its section colour when it has Maybe cards; Edit is its only button.
+    @Test fun savedDeckShowsMaybeAndOnlyEdit() {
         val library = fixture.library
         library.seed(library.state.copy(detail = detail.copy(saved = detail.saved.copy(entries = detail.saved.entries +
             SavedDeckEntry(SavedDeckSection.MAYBEBOARD, digest("Ember Adept"), 2)))))
         compose.setContent { ScreenTheme { SavedDeckScreen(library, null, importDeck = {}) } }
         compose.onNodeWithTag("deck-view").performScrollToNode(hasText("Maybeboard · 2"))
         compose.onNodeWithContentDescription("Ember Adept, 2 copies, Maybeboard").assertExists()
-        compose.onNodeWithText("Rename").performClick()
-        compose.onNodeWithText("Rename deck").assertIsDisplayed()
-        assertEquals(DeckDialog.RENAME, library.state.dialog)
+        compose.onNodeWithText("Edit").assertIsDisplayed()
+        compose.onNodeWithText("Rename").assertDoesNotExist()
+        compose.onNodeWithText("Delete saved deck").assertDoesNotExist()
+        compose.onNodeWithText("Delete draft deck").assertDoesNotExist()
+    }
+
+    // LOB-057: a draft deck shows Delete draft deck beside Save as deck at the top right; deleting is confirmed.
+    @Test fun draftDeckShowsDeleteBesideSaveAsDeckAtTheTopRight() {
+        val fixture = ScreenFixtures().apply { configure("draft-deck-detail") }
+        compose.setContent { ScreenTheme { SavedDeckScreen(fixture.library, null, importDeck = {}) } }
+        val title = compose.onNodeWithText("Draft deck").fetchSemanticsNode().boundsInRoot
+        val delete = compose.onNodeWithText("Delete draft deck").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val save = compose.onNodeWithText("Save as deck").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(delete.right <= save.left && delete.center.y in title.top..title.bottom && save.center.y in title.top..title.bottom,
+            "Delete draft deck sits beside Save as deck in the top bar")
+        val sections = compose.onNodeWithText("Mainboard · 60").fetchSemanticsNode().boundsInRoot
+        assertTrue(save.bottom <= sections.top)
+        compose.onNodeWithText("Edit").assertDoesNotExist()
+        compose.onNodeWithText("Rename").assertDoesNotExist()
+        compose.onNodeWithText("Delete draft deck").performClick()
+        compose.onNodeWithText("Deletion cannot be undone.").assertIsDisplayed()
+        assertEquals(DeckDialog.DELETE, fixture.library.state.dialog)
+    }
+
+    // LOB-057: the editor of a saved deck has a red Delete deck at the top right, confirmed with "Deletion cannot be undone.";
+    // a new import has none.
+    @Test fun savedDeckEditorDeletesTheDeckAfterConfirmation() {
+        val editor = editor()
+        val deleted = mutableListOf<String>(); val requests = mutableListOf<Pair<String, DeleteDeck>>()
+        var fail = true
+        editor.connectDelete({ { id, request -> requests += id to request; if (fail) throw DeckFailure("network") } }, { deleted += it })
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) {
+            if (editor.state.active) DeckImportScreen(editor, false, null, null)
+        } } }
+        compose.onNodeWithTag("deck-name").performTextReplacement("Renamed")
+        compose.onNodeWithTag("delete-list").assertTextEquals("Delete deck").performClick()
+        compose.onNodeWithText("Delete deck?").assertIsDisplayed()
+        compose.onNodeWithText(detail.saved.deck.name).assertIsDisplayed()
+        compose.onNodeWithText("Deletion cannot be undone.").assertIsDisplayed()
+        compose.onNodeWithText("Keep deck").performClick()
+        compose.onNodeWithText("Delete deck?").assertDoesNotExist()
+        assertTrue(requests.isEmpty(), "Delete needs confirmation")
+        compose.onNodeWithTag("deck-name").assertTextEquals("Renamed")
+
+        compose.onNodeWithTag("delete-list").performClick()
+        compose.onNode(hasText("Delete deck") and hasAnyAncestor(isDialog())).performClick()
+        compose.onNodeWithText("Could not reach the deck service. Your input is kept. Check your connection and retry.").assertIsDisplayed()
+        assertTrue(editor.state.active && deleted.isEmpty())
+        fail = false
+        compose.runOnIdle { editor.dismissDeleteError() }
+        compose.onNode(hasText("Delete deck") and hasAnyAncestor(isDialog())).performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(detail.saved.deck.id, detail.saved.deck.id), requests.map { it.first })
+            assertEquals(requests[0].second, requests[1].second, "A retried delete keeps its request id")
+            assertEquals(listOf(detail.saved.deck.id), deleted)
+            assertFalse(editor.state.active)
+        }
+
+        // A new import is not a saved deck: no Delete.
+        compose.runOnIdle { editor.open() }
+        compose.onNodeWithTag("open-import-link").assertIsDisplayed()
+        compose.onNodeWithTag("delete-list").assertDoesNotExist()
     }
 }
 

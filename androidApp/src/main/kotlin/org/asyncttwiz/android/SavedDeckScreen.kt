@@ -40,9 +40,13 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
     Column(Modifier.fillMaxSize()) {
         val draft = state.detail?.saved?.deck?.draft
         ScreenHeader(if (draft != null) "Draft deck" else "Saved deck", openNavigation) {
-            // A draft deck is read-only: saving it as a deck gives an editable copy that is kept.
-            if (draft != null) ScreenOutlinedButton(onClick = controller::saveAsDeck, enabled = !state.mutating) {
-                EntryIcon(null, "ready"); Spacer(Modifier.width(6.dp)); Text("Save as deck")
+            // LOB-057: a draft deck is read-only: Delete draft deck beside Save as deck, which gives an editable copy that is kept.
+            if (draft != null) {
+                TextButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.heightIn(min = 48.dp), enabled = !state.mutating,
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete draft deck", maxLines = 1) }
+                ScreenOutlinedButton(onClick = controller::saveAsDeck, enabled = !state.mutating) {
+                    EntryIcon(null, "ready"); Spacer(Modifier.width(6.dp)); Text("Save as deck", maxLines = 1)
+                }
             } else ScreenOutlinedButton(onClick = { state.detail?.let { importDeck?.invoke(it) } },
                 enabled = state.detail != null && !state.mutating && importDeck != null) {
                 EntryIcon(null, "edit"); Spacer(Modifier.width(6.dp)); Text("Edit")
@@ -56,15 +60,6 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
             detail.saved.deck.draft?.let { origin ->
                 Text(draftDeckNote(origin), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            // LOB-056, LOB-057: the saved list view shared with cubes: Rename and Delete under the name, then the sections.
-            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (detail.saved.deck.draft == null) ScreenOutlinedButton(onClick = { controller.edit(DeckDialog.RENAME) }, enabled = !state.mutating) {
-                    EntryIcon(null, "rename"); Spacer(Modifier.width(6.dp)); Text("Rename")
-                }
-                TextButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.heightIn(min = 48.dp),
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-                    Text(if (detail.saved.deck.draft != null) "Delete draft deck" else "Delete saved deck") }
             }
             // The game preparation view, read-only: every section in one scroll, tap inspects, hold previews.
             LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("deck-view"), contentPadding = PaddingValues(bottom = 16.dp)) {

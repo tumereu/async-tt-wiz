@@ -130,9 +130,9 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                 when (screen) {
                                     "waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby" ->
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
-                                    "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-art", "choose-cover", "delete-deck" ->
+                                    "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-art", "choose-cover" ->
                                         SavedDeckScreen(fixtures.library, if (landscape) null else ({}), importDeck = {})
-                                     "deck-edit", "deck-edit-text", "deck-edit-cover", "import-edit", "import-errors", "import-save", "import-link" ->
+                                     "deck-edit", "deck-edit-text", "deck-edit-cover", "delete-deck", "import-edit", "import-errors", "import-save", "import-link" ->
                                         DeckImportScreen(fixtures.importer, landscape, if (landscape) null else ({}), null)
                                     else -> ShellContent(when (screen) {
                                         "play", "games-loading", "game-context", "delete-game" -> ShellDestination.GAMES
@@ -244,7 +244,10 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  // LOB-059: an existing deck opens on Cards; the Text tab holds the list.
                  compose.onNodeWithTag(if (screen == "deck-edit") "card-list-cards" else "deck-list").assertIsDisplayed()
                  compose.onNodeWithContentDescription("Choose deck cover").assertIsDisplayed()
+                 // LOB-057: the saved deck's editor has Delete deck at the top right.
+                 compose.onNodeWithTag("delete-list").assertIsDisplayed().assert(hasText("Delete deck"))
              }
+             "delete-deck" -> compose.onNodeWithText("Deletion cannot be undone.").assertIsDisplayed()
              "deck-edit-cover" -> {
                  compose.onNodeWithText("Choose cover").assertIsDisplayed()
                  compose.onNodeWithText("Meadow Sentinel").assertIsDisplayed()
@@ -297,15 +300,15 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "prepare-deck-faded" -> "deck preparation in the game lobby in its 3-column picture view, no recent move"
             "ready-waiting" -> "game lobby with your deck chosen and you ready, waiting for riley"
             "decks" -> "Manage decks screen listing three saved decks"
-            "deck-detail" -> "saved Training deck in its picture view: Rename and Delete saved deck under the name, then the 60-card mainboard and sideboard in the default 3 columns"
+            "deck-detail" -> "saved Training deck in its picture view: Edit at the top right as its only button, then the name and the 60-card mainboard and sideboard in the default 3 columns"
             "deck-detail-columns" -> "saved Training deck in its picture view with the column setting changed to 5"
-            "draft-deck-detail" -> "deck saved from the Cube night draft pod, in its picture view with Save as deck and Delete draft deck"
-            "deck-edit" -> "Training deck opened for editing on its Cards tab: Mainboard and Sideboard as pictures, a + at the right of each section header, Save and a deck cover choice"
-            "deck-edit-text" -> "Training deck opened for editing and switched to its Text tab: the list as text with Save and a deck cover choice"
+            "draft-deck-detail" -> "deck saved from the Cube night draft pod, in its picture view with Delete draft deck beside Save as deck at the top right"
+            "deck-edit" -> "Training deck opened for editing on its Cards tab: the link icon and a red Delete deck at the top right, Mainboard and Sideboard as pictures, a + at the right of each section header, Save and a deck cover choice"
+            "deck-edit-text" -> "Training deck opened for editing and switched to its Text tab: the list as text with Save, a deck cover choice and Delete deck at the top right"
             "deck-edit-cover" -> "Training deck opened for editing with the Choose cover picker open"
             "deck-art" -> "saved Training deck with a Meadow Sentinel card opened in the Inspect view"
             "choose-cover" -> "saved Training deck with the Choose deck cover dialog open"
-            "delete-deck" -> "saved Training deck with the delete-deck confirmation open"
+            "delete-deck" -> "Training deck editor after tapping Delete deck: the Delete deck? confirmation with the deck name, Deletion cannot be undone., Keep deck and Delete deck"
             "import-edit" -> "deck import screen replacing the saved Training deck's list with a pasted, resolved list"
             "import-errors" -> "deck import screen for a pasted list with one error: Unknown Card could not be resolved"
             "import-save" -> "deck import preview of a resolved pasted list, ready to save as Training deck"
@@ -390,7 +393,7 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
             draft = DraftDeckOrigin("pod-1", "Cube night")) else decks.first()
         library.seed(DeckLibraryState(decks = decks, selected = decks.first().id, loaded = true,
             detail = DeckDetail(SavedDeck(shown, entries), definitions.associate { it.digest to it.definition }),
-             dialog = when (screen) { "choose-cover" -> DeckDialog.COVER; "delete-deck" -> DeckDialog.DELETE; else -> null },
+             dialog = when (screen) { "choose-cover" -> DeckDialog.COVER; else -> null },
             draftCover = definitions.first().digest))
         if (screen == "deck-art") library.inspect(definitions.first().digest)
         val text = "Deck\n4 Meadow Sentinel\n4 Ember Adept\n4 Aegis Ward\n48 Training Land\nSideboard\n15 Quiet Grove"
@@ -405,11 +408,12 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
              preview = screen.startsWith("import-save"), target = if (screen == "import-edit") decks.first().id else null,
              linkDialog = screen == "import-link", url = if (screen == "import-link") "https://archidekt.com/decks/123" else "",
              clipboardRead = true))
-         if (screen.startsWith("deck-edit")) {
+         if (screen.startsWith("deck-edit") || screen == "delete-deck") {
              importer.openEditor(library.state.detail!!)
              val resolved = DeckEditorSource(library.state.detail!!).resolve(importer.state.text) { error("No new cards") }
              importer.seed(importer.state.copy(result = resolved, busy = false))
              if (screen == "deck-edit-cover") importer.chooseCover()
+             if (screen == "delete-deck") importer.requestDelete()
          }
         if (screen == "gameplay-chat") {
             val active = LiveTableFixture.game

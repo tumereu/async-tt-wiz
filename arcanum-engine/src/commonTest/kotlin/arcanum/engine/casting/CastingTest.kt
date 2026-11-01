@@ -467,6 +467,45 @@ class CastingTest {
         assertFailsWith<IllegalArgumentException> { alice.casts("Forest") }
     }
 
+    // CR 712.11, 305.1: a modal double-faced card's land face is played as a land
+    @Test
+    fun playingTheBackFaceLand() = scenario {
+        alice.hand("Summit Ascetic // Hermit Peak")
+        alice.plays("Summit Ascetic // Hermit Peak", face = 1)
+        expect {
+            card("Hermit Peak").types shouldBe listOf(CardType.Land)
+            alice.battlefield has "Summit Ascetic // Hermit Peak"
+        }
+    }
+
+    // CR 305.9, 712.11: its front face isn't a land
+    @Test
+    fun frontFaceIsntALand() = scenario {
+        alice.hand("Summit Ascetic // Hermit Peak")
+        assertFailsWith<IllegalArgumentException> { alice.plays("Summit Ascetic // Hermit Peak") }
+    }
+
+    // CR 712.11: the front face is cast as a spell
+    @Test
+    fun castingTheFrontFace() = scenario {
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        alice.hand("Summit Ascetic // Hermit Peak")
+        alice.casts("Summit Ascetic // Hermit Peak")
+        expect { stack.size shouldBe 1 }
+    }
+
+    // CR 709.3: a split card is cast as one of its halves, with that half's cost
+    @Test
+    fun castingASplitHalf() = scenario {
+        alice.battlefield("Island", "Island", "Mountain", "Mountain", "Mountain")
+        alice.hand("Expanse // Eruption")
+        alice.casts("Expanse // Eruption", way = arcanum.engine.input.CastWay(face = 1), x = 1, targets = listOf("bob", "alice"))
+        val item = state.stackItems[card("Expanse // Eruption")]!!
+        assertEquals(1, item.announced["X"])
+        assertEquals(1, state.objOrThrow(card("Expanse // Eruption")).face)
+        expect { (0..2).all { card("Mountain", it).tapped } shouldBe true }
+    }
+
     // CR 715.3: an adventurer card's Adventure is cast as that face
     @Test
     fun castingTheAdventure() = scenario {

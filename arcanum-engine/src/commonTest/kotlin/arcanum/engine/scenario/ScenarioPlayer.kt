@@ -83,8 +83,8 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
 
     // ---- Moves
 
-    /** Plays the land [name] (CR 305.1). */
-    fun plays(name: String): Outcome = scenario.perform(Input.PlayLand(id, scenario.card(name)))
+    /** Plays the land [name] (CR 305.1), with [face] up (a modal double-faced card's back, CR 712.11). */
+    fun plays(name: String, face: Int = 0): Outcome = scenario.perform(Input.PlayLand(id, scenario.card(name), face))
 
     /**
      * Casts [name] (CR 601.2) and answers the cast's decisions from what is given: targets by name (players by their

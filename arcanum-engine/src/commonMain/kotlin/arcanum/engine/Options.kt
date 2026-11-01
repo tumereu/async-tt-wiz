@@ -91,10 +91,10 @@ internal object Options {
     }
 
     /** Lands in hand, and with a permission elsewhere (CR 305.1, D41). */
-    private fun lands(snap: Snapshot, player: PlayerId): List<Input> = candidates(snap, player)
-        .filter { snap.view[it]?.characteristics?.isType(CardType.Land) == true }
-        .filter { Legality.cantPlayLand(snap, player, it) == null }
-        .map { Input.PlayLand(player, it) }
+    private fun lands(snap: Snapshot, player: PlayerId): List<Input> = candidates(snap, player).flatMap { card ->
+        val faces = snap.state.obj(card)?.definition?.faces?.indices?.toList().orEmpty()
+        faces.filter { face -> Legality.cantPlayLand(snap, player, card, face) == null }.map { Input.PlayLand(player, card, it) }
+    }
 
     /** Cards in the player's hand and cards elsewhere they have a permission for. */
     private fun candidates(snap: Snapshot, player: PlayerId) = snap.state.player(player).hand +
@@ -132,7 +132,7 @@ internal object Options {
         val s = snap.state
         val sources = s.battlefield + s.player(player).hand + s.player(player).graveyard + s.exile + s.command
         return sources.flatMap { id ->
-            snap.view[id]?.characteristics?.abilities.orEmpty()
+            (snap.view[id]?.characteristics?.abilities.orEmpty() + Legality.faceDownActions(snap, id))
                 .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }
                 .filter { Legality.cantActivate(snap, player, id, it) == null }
                 .map { Input.Activate(player, id, it.origin) }

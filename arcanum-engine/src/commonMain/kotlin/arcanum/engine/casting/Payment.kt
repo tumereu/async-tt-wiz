@@ -78,6 +78,7 @@ internal object Payment {
     private fun payMana(recorder: Recorder, plan: Plan, cost: ManaCost, uses: List<ManaUse>): Pair<List<ManaUnit>, Map<ManaPaymentWay, List<ObjectId>>> {
         val player = plan.player
         val poolBefore = recorder.state.player(player).manaPool
+        if (plan.cantSpendMana && uses.any { it is ManaUse.Pool || it is ManaUse.Ability }) refuse("Mana can't be spent to cast this spell")
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         // CR 601.2g: mana abilities are activated before costs are paid

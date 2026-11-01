@@ -24,6 +24,7 @@ import arcanum.engine.decision.Announced
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.DecisionId
+import arcanum.engine.decision.ManaUse
 import arcanum.engine.decision.ModeOption
 import arcanum.engine.input.CastWay
 import arcanum.engine.mana.Mana
@@ -265,6 +266,10 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
     val manaWays: List<ManaPaymentWay> = if (!isSpell) emptyList() else
         snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }
 
+    /** "You can't spend mana to cast this spell": only its other ways pay (convoke, delve). */
+    val cantSpendMana: Boolean = isSpell &&
+        snap0Abilities().any { (it.ability as? Ability.Static)?.mechanics.orEmpty().any { m -> m == Mechanic.CantSpendMana } }
+
     /** The least X may be ("X can't be 0", CR 107.3). */
     private fun xMinimum(): Int = snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
         .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
@@ -352,7 +357,10 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
-        is Question.Pay -> Decision.ManaPayment(id, player, sourceId, q.cost,
+        is Question.Pay -> if (cantSpendMana) {
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays)
+                .filter { it is ManaUse.Special || it is ManaUse.Life }, emptyList())
+        } else Decision.ManaPayment(id, player, sourceId, q.cost,
             Mana.options(snap, player, q.cost, itemId, manaWays), Mana.suggest(snap, player, q.cost, itemId))
     }
 

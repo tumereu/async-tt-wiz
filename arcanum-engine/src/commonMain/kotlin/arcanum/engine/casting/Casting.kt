@@ -33,10 +33,12 @@ import arcanum.engine.state.PriorityState
 internal object Casting {
     fun playLand(recorder: Recorder, input: Input.PlayLand): Progress {
         val snap = recorder.snapshot()
-        Legality.cantPlayLand(snap, input.player, input.card)?.let { throw IllegalArgumentException("Can't play that land: $it") }
+        Legality.cantPlayLand(snap, input.player, input.card, input.face)?.let { throw IllegalArgumentException("Can't play that land: $it") }
         val s = recorder.state
-        // CR 305.1: a special action; the land simply enters the battlefield
+        // CR 305.1: a special action; the land simply enters the battlefield (CR 712.11: with the face played up)
         recorder.record(Changes.move(s, listOf(input.card), Zone.Battlefield, controller = input.player, meanings = listOf(Meaning.PlayedLand)))
+        val entered = (input.card as ObjectId.Card).next()
+        if (input.face != s.objOrThrow(entered).face) recorder.record(Change.Face(entered, s.objOrThrow(entered).face, input.face))
         val turn = s.turn
         recorder.record(Changes.step(s, turn.copy(landsPlayed = turn.landsPlayed + (input.player to (turn.landsPlayed[input.player] ?: 0) + 1))))
         keepPriority(recorder, input.player)

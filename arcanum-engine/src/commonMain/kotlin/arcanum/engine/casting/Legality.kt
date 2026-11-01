@@ -41,10 +41,12 @@ internal object Legality {
     // ---- Lands (CR 305)
 
     /** Why [player] can't play the land [card] now, or null when they can (CR 305.1–305.3). */
-    fun cantPlayLand(snap: Snapshot, player: PlayerId, card: ObjectId): String? {
+    fun cantPlayLand(snap: Snapshot, player: PlayerId, card: ObjectId, face: Int = 0): String? {
         val o = snap.state.obj(card) ?: return "no such card"
-        val c = snap.view[card]?.characteristics ?: return "unknown card"
-        if (!c.isType(CardType.Land)) return "not a land"
+        if (o.unknown) return "unknown card"
+        if (face != 0 && (o.definition?.layout != Layout.ModalDoubleFaced || face !in o.definition!!.faces.indices)) return "no face $face to play"
+        val types = if (face == 0) snap.view[card]?.characteristics?.types.orEmpty() else o.definition!!.faces[face].types
+        if (CardType.Land !in types) return "not a land"
         if (o.zone != Zone.Hand || o.owner != player) {
             if (permissions(snap, player, card, PlayKind.Play).isEmpty()) return "no permission to play it from ${o.zone}"
         }
@@ -244,4 +246,26 @@ internal object Legality {
     /** The origin of an ability instance by key, for lookups that survive the object changing zones. */
     fun instance(snap: Snapshot, id: ObjectId, origin: AbilityOrigin): AbilityInstance? =
         snap.view[id]?.characteristics?.abilities?.firstOrNull { it.origin == origin }
+            ?: faceDownActions(snap, id).firstOrNull { it.origin == origin }
+
+    /**
+     * The special actions a face-down permanent's own card offers (CR 702.37e, 116.2b: turning it face up for its
+     * morph cost): its characteristics show no abilities (CR 708.2a), so they are read from its front face, keyword
+     * expansions included.
+     */
+    fun faceDownActions(snap: Snapshot, id: ObjectId): List<AbilityInstance> {
+        val o = snap.state.obj(id) ?: return emptyList()
+        if (!o.faceDown) return emptyList()
+        val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
+        return face.abilities.flatMapIndexed { i, ability ->
+            val printed = AbilityOrigin.Printed(0, i)
+            when (ability) {
+                is Ability.SpecialAction -> listOf(AbilityInstance(ability, printed))
+                is Keyword -> arcanum.api.KeywordExpansions.expand(ability).orEmpty().mapIndexedNotNull { j, a ->
+                    (a as? Ability.SpecialAction)?.let { AbilityInstance(it, AbilityOrigin.Expansion(printed, j)) }
+                }
+                else -> emptyList()
+            }
+        }
+    }
 }

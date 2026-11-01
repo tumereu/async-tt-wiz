@@ -9,6 +9,7 @@ import arcanum.api.Combine
 import arcanum.api.Comparison
 import arcanum.api.Condition
 import arcanum.api.Cost
+import arcanum.api.CostChange
 import arcanum.api.CostObjects
 import arcanum.api.CostPart
 import arcanum.api.Destination
@@ -20,6 +21,7 @@ import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.KeywordAction
+import arcanum.api.ManaCost
 import arcanum.api.ManaPaymentWay
 import arcanum.api.Mechanic
 import arcanum.api.Mode
@@ -406,7 +408,7 @@ class Chunk13HandDisruptionAndRemovalTest {
             ))),
             Mechanic.CostChange(
                 what = ObjectFilter.Is(Objects.Self),
-                change = Value.Times(Value.Count(Objects.Bound("exiled")), -2),
+                change = CostChange.Less(ManaCost.parse("{2}")!!, times = Value.Count(Objects.Bound("exiled"))),
             ),
         )),
         Ability.Spell(Instructions(

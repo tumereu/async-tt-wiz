@@ -249,11 +249,11 @@ sealed interface Mechanic {
     }
     /** [label] abilities of the affected objects may be activated [count] times each turn ("can boast twice each turn"). */
     @Serializable @SerialName("label-uses") data class LabelUsesPerTurn(val label: AbilityLabel, val count: Int) : Mechanic
-    /** Spells or abilities matching [what] cost [change] generic mana more (positive) or less (negative), or [mana]
-     * less ("costs {W}{B} less", coloured reductions); abilities by keyword with [ObjectFilter.HasKeyword] ("equip
-     * abilities cost {1} less"). */
+    /** Spells or abilities matching [what] cost more or less by [change] (CR 601.2f, 118.7); abilities by keyword with
+     * [ObjectFilter.HasKeyword] ("equip abilities cost {1} less"). [minimum]: the generic mana a reduction can't go
+     * below (0: no minimum). */
     @Serializable @SerialName("cost-change") data class CostChange(
-        val what: ObjectFilter, val change: Value = Value.Fixed(0), val mana: ManaCost? = null, val minimum: Int = 0,
+        val what: ObjectFilter, val change: arcanum.api.CostChange, val minimum: Int = 0,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }

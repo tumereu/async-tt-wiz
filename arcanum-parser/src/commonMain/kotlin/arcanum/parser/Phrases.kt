@@ -19,10 +19,9 @@ import arcanum.api.TokenSpec
 import arcanum.api.Value
 import arcanum.api.Zone
 
-/** Number words ("a", "two", "seven") and generic mana amounts ("{1}"). */
+/** Number words ("a", "two", "seven") and ordinals. */
 internal object Numbers {
     fun count(word: String): Int? = WORDS[word.lowercase()] ?: word.toIntOrNull()
-    fun mana(symbol: String): Int? = Regex("""\{(\d+)\}""").matchEntire(symbol)?.groupValues?.get(1)?.toInt()
     /** chunks 47, 50, 52: "first", "second", "third" ("your second card", "the third time"). */
     fun ordinal(word: String): Int? = ORDINALS[word.lowercase()]
 

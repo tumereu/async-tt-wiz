@@ -189,8 +189,8 @@ object KeywordExpansions {
                 steps(Effect.Move(Objects.Bound("back"), Destination(Zone.Exile))))))),
             ActivationRules(timing = Timing.Sorcery)))
         // CR 702.41a: "This spell costs {1} less to cast for each [text] you control."
-        is Keyword.Affinity -> static(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), Value.Times(
-            Value.Count(Objects.Each(ObjectFilter.And(listOf(keyword.forWhat, ObjectFilter.ControlledBy(PlayerFilter.You))))), -1)))
+        is Keyword.Affinity -> static(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), CostChange.Less(ManaCost(listOf(ManaSymbol.Generic(1))),
+            Value.Count(Objects.Each(ObjectFilter.And(listOf(keyword.forWhat, ObjectFilter.ControlledBy(PlayerFilter.You))))))))
         // CR 702.74a: alternative cost, and "When this permanent enters, if its evoke cost was paid, its controller
         // sacrifices it."
         is Keyword.Evoke -> listOf(

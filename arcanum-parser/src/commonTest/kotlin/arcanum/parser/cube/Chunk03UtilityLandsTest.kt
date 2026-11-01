@@ -7,6 +7,7 @@ import arcanum.api.Color
 import arcanum.api.Comparison
 import arcanum.api.Condition
 import arcanum.api.Cost
+import arcanum.api.CostChange
 import arcanum.api.CostObjects
 import arcanum.api.CostPart
 import arcanum.api.Destination
@@ -368,13 +369,13 @@ class Chunk03UtilityLandsTest {
                 CostPart.Discard(CostObjects.Self),
             )),
             rules = ActivationRules(
-                costChange = Value.Times(
-                    Value.Count(Objects.Each(ObjectFilter.And(listOf(
+                costChange = CostChange.Less(
+                    mana = ManaCost.parse("{1}")!!,
+                    times = Value.Count(Objects.Each(ObjectFilter.And(listOf(
                         ObjectFilter.Super(Supertype.Legendary),
                         ObjectFilter.Type(CardType.Creature),
                         ObjectFilter.ControlledBy(PlayerFilter.You),
                     )))),
-                    factor = -1,
                 ),
             ),
             instructions = Instructions(

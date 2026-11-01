@@ -7,6 +7,7 @@ import arcanum.api.Choice
 import arcanum.api.Color
 import arcanum.api.Comparison
 import arcanum.api.Condition
+import arcanum.api.CostChange
 import arcanum.api.CounterKind
 import arcanum.api.Destination
 import arcanum.api.Effect
@@ -15,6 +16,7 @@ import arcanum.api.EventRole
 import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
+import arcanum.api.ManaCost
 import arcanum.api.ManaKind
 import arcanum.api.ManaProduction
 import arcanum.api.Mechanic
@@ -138,7 +140,7 @@ class Chunk52StaticsAndCastTriggersTest {
         Keyword.FirstStrike,
         Ability.Static(listOf(Mechanic.CostChange(
             what = ObjectFilter.And(listOf(ObjectFilter.Not(creature), ObjectFilter.Category(ObjectCategory.Spell))),
-            change = Value.Fixed(1),
+            change = CostChange.More(ManaCost.parse("{1}")!!, times = Value.Fixed(1)),
         ))),
     )
 

@@ -12,6 +12,23 @@ data class Cost(val parts: List<CostPart>) {
     }
 }
 
+/**
+ * A change to what a spell or ability costs (CR 601.2f): [mana] more or less, [times] times ("costs {1} less to cast
+ * for each artifact you control": `Less({1}, number of artifacts)`; "costs {W}{B} less": `Less({W}{B}, 1)`). The
+ * engine applies the symbols by CR 118.7: generic reductions reduce only generic mana (118.7a), coloured or colourless
+ * ones the cost doesn't need reduce generic mana (118.7b–d), hybrid halves are chosen as it applies (118.7e).
+ */
+@Serializable
+sealed interface CostChange {
+    val mana: ManaCost
+    val times: Value
+
+    /** An increase ("costs {1} more"). */
+    @Serializable @SerialName("more") data class More(override val mana: ManaCost, override val times: Value) : CostChange
+    /** A reduction ("costs {2} less", "{W}{B} less"); the cost's mana component can't go below {0} (CR 118.7). */
+    @Serializable @SerialName("less") data class Less(override val mana: ManaCost, override val times: Value) : CostChange
+}
+
 /** One part of a cost. Parts that use objects name them for the effect ("the sacrificed creature's power"): [bind]
  * when they stay where they are (tap, reveal), `preBind`/`postBind` when they move (as in [Effect]). */
 @Serializable

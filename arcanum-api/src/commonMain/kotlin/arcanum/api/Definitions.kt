@@ -191,8 +191,8 @@ data class ActivationRules(
     val perTurn: Int? = null,
     /** "Activate only once": once for as long as the object exists (exhaust, CR 702.177a). */
     val once: Boolean = false,
-    /** "This ability costs [costChange] more (negative: less) to activate" (generic mana). */
-    val costChange: Value? = null,
+    /** "This ability costs {1} less to activate for each …" (CR 601.2f, 118.7). */
+    val costChange: CostChange? = null,
     /** "Activate only if …". */
     val condition: Condition? = null,
 )

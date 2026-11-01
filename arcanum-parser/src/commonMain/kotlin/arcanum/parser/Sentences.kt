@@ -174,10 +174,10 @@ internal class Sentences(
         // costs {2} less to cast for each card exiled this way." (CR 601.2f): the reduction counts the cost's cards.
         ADDITIONAL_EXILE_ANY_NUMBER_REDUCTION.matchEntire(line)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
-            val per = Numbers.mana(m.groupValues[2]) ?: return null
+            val per = ManaCost.parse(m.groupValues[2]) ?: return null
             return Ability.Static(listOf(
                 Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Exile(CostObjects.Choose(filter, count = null), from = Zone.Hand, postBind = "exiled")))),
-                Mechanic.CostChange(ObjectFilter.Is(Objects.Self), change = Value.Times(Value.Count(Objects.Bound("exiled")), -per))))
+                Mechanic.CostChange(ObjectFilter.Is(Objects.Self), change = arcanum.api.CostChange.Less(per, Value.Count(Objects.Bound("exiled"))))))
         }
         // "As an additional cost to cast this spell, [cost][ or cost]." (CR 601.2f)
         ADDITIONAL_COST.matchEntire(line)?.let { m ->
@@ -460,8 +460,9 @@ internal class Sentences(
         // chunk 46: "Nonartifact spells cost {1} more to cast."
         SPELLS_COST.matchEntire(line)?.let { m ->
             val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() } + " spell") ?: return null
-            val n = Numbers.mana(m.groupValues[2]) ?: return null
-            return Ability.Static(listOf(Mechanic.CostChange(spells, change = Value.Fixed(if (m.groupValues[3] == "more") n else -n))))
+            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
+            val change = if (m.groupValues[3] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
+            return Ability.Static(listOf(Mechanic.CostChange(spells, change = change)))
         }
         // chunk 46: "Prevent all combat damage that would be dealt to attacking artifact creatures you control." (CR 615)
         PREVENT_ALL_COMBAT_DAMAGE_TO.matchEntire(line)?.let { m ->
@@ -629,7 +630,7 @@ internal class Sentences(
         var text = line.substring(colon + 2)
         // chunk 25: "the sacrificed land" reads the sacrificed object as it last existed (CR 608.2h)
         if (text.contains("the sacrificed ")) cost = Cost(cost.parts.map { if (it is CostPart.Sacrifice) it.copy(preBind = SACRIFICED) else it })
-        var costChange: Value? = null
+        var costChange: arcanum.api.CostChange? = null
         var condition: arcanum.api.Condition? = null
         var timing: arcanum.api.Timing = arcanum.api.Timing.Any
         // chunk 40: "Activate only once each turn."
@@ -662,9 +663,9 @@ internal class Sentences(
             text = text.removeRange(m.range).trim()
         }
         COSTS_LESS_FOR_EACH.find(text)?.let { m ->
-            val per = Numbers.mana(m.groupValues[1]) ?: return null
+            val per = ManaCost.parse(m.groupValues[1]) ?: return null
             val count = Filters.objects(m.groupValues[2], self) ?: return null
-            costChange = Value.Times(Value.Count(count), -per)
+            costChange = arcanum.api.CostChange.Less(per, Value.Count(count))
             text = text.removeRange(m.range).trim()
         }
         // chunk 40: an X in the activation cost ("{X}", "Sacrifice X Squirrels") is announced as it is activated (CR 107.3a, k)
@@ -2925,7 +2926,7 @@ internal class Sentences(
         val ENTERS_TAPPED = Regex("""(.+) enters tapped\.""")
         val WHENEVER = Regex("""(Whenever|When|At) (.+?), (.+)""")
         val INTERVENING_IF = Regex("""if (.+?), (.+)""")
-        val COSTS_LESS_FOR_EACH = Regex("""This ability costs (\{\d+\}) less to activate for each (.+?)\.""")
+        val COSTS_LESS_FOR_EACH = Regex("""This ability costs ((?:\{[^}]+\})+) less to activate for each (.+?)\.""")
         val DISCARD_COST = Regex("""Discard (.+)""")
         val THEN = Regex("""(.+?), then (.+)""")
         val ADD_MANA_RESTRICTED = Regex("""Add (.+)\. Spend this mana only to cast (.+) spells\.""")
@@ -3006,7 +3007,7 @@ internal class Sentences(
         val EMBLEM = Regex("""You get an emblem with "(.+)"\.""")
         val BECOMES_COPY = Regex("""Target (.+) becomes a copy of another target (.+) until end of turn(?:, except it's an? (\w+) in addition to its other types)?\.""")
         // chunk 13
-        val ADDITIONAL_EXILE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may exile any number of (.+) from your hand\. This spell costs (\{\d+\}) less to cast for each card exiled this way\.""")
+        val ADDITIONAL_EXILE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may exile any number of (.+) from your hand\. This spell costs ((?:\{[^}]+\})+) less to cast for each card exiled this way\.""")
         val BRACKETED = Regex("""(.*?)( ?)\[([^\]]+)\](.*)""")
         val CHOOSE_CARD_NAME = Regex("""Choose an? (?:(.+?) )?card name\.""")
         val TARGET_REVEALS_HAND = Regex("""Target (player|opponent) reveals their hand( and discards all cards with that name)?\.""")
@@ -3202,7 +3203,7 @@ internal class Sentences(
         val AS_ENTERS_CHOOSE_TYPE = Regex("""As (.+) enters, choose a creature type\.""")
         val IS_THE_CHOSEN_TYPE = Regex("""(.+) is the chosen type in addition to its other types\.""")
         val PT_EACH_EQUAL_TO_NUMBER = Regex("""(.+)'s power and toughness are each equal to the number of (.+)\.""")
-        val SPELLS_COST = Regex("""(.+) spells cost (\{\d+\}) (more|less) to cast\.""")
+        val SPELLS_COST = Regex("""(.+) spells cost ((?:\{[^}]+\})+) (more|less) to cast\.""")
         val PREVENT_ALL_COMBAT_DAMAGE_TO = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
         val BOLSTER = Regex("""Bolster (\d+)\.""")
         val UNTIL_YOUR_NEXT_TURN_CANT_CAST = Regex("""Until your next turn, target player(?: who was dealt combat damage by (.+?) this turn)? can't cast (.+?) spells\.""")

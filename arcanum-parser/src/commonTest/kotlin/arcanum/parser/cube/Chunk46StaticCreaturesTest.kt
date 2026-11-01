@@ -8,6 +8,7 @@ import arcanum.api.Combine
 import arcanum.api.Comparison
 import arcanum.api.Condition
 import arcanum.api.Cost
+import arcanum.api.CostChange
 import arcanum.api.CostObjects
 import arcanum.api.CostPart
 import arcanum.api.CounterKind
@@ -17,6 +18,7 @@ import arcanum.api.EventPattern
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.KeywordAction
+import arcanum.api.ManaCost
 import arcanum.api.Mechanic
 import arcanum.api.Modification
 import arcanum.api.NumericProperty
@@ -246,7 +248,7 @@ class Chunk46StaticCreaturesTest {
     ) parsesTo abilities(
         Ability.Static(listOf(Mechanic.CostChange(
             what = all(ObjectFilter.Not(artifact), ObjectFilter.Category(ObjectCategory.Spell)),
-            change = Value.Fixed(1),
+            change = CostChange.More(ManaCost.parse("{1}")!!, times = Value.Fixed(1)),
         ))),
     )
 

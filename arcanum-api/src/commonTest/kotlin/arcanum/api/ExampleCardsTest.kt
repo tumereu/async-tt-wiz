@@ -241,7 +241,7 @@ class ExampleCardsTest {
     /** "The next instant or sorcery spell you cast this turn costs {2} less to cast. / Draw a card." (CR 611.2f) */
     private val primer = FaceDefinition("Quick Primer", mana("{U}"), types = listOf(CardType.Instant), abilities = listOf(
         Ability.Spell(Instructions(steps = listOf(
-            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Affected), n(-2))),
+            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Affected), CostChange.Less(mana("{2}"), n(1)))),
                 Affected.NextSpells(all(ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery))),
                     ObjectFilter.ControlledBy(PlayerFilter.You))), Duration.EndOfTurn)),
             Step.Do(Effect.Draw(Players.You)))))))

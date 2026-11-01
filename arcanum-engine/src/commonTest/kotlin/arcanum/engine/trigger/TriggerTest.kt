@@ -387,6 +387,26 @@ class TriggerTest {
     @Suppress("unused")
     private val unused = listOf(Zone.Battlefield, Meaning.Died)
 
+    // CR 700.2, 603.3c: "choose one that hasn't been chosen this turn": a mode chosen is unavailable for the rest of the
+    // turn, and available again the next turn
+    @Test
+    fun modeNotChosenThisTurn() = scenario {
+        alice.battlefield("Memorial to Perseverance")
+        alice.hand("Crow's Larceny", "Crow's Larceny", "Forest", "Island")
+
+        alice.castsWithoutCosts("Crow's Larceny", target = "alice")
+        resolve()
+        alice.chooses("Forest")
+        answer(arcanum.engine.decision.Answer.Modes(listOf(2)))
+        resolve()
+        expect { bob.life shouldBe 17 }
+
+        beginStep(TurnStep.Upkeep, active = bob)
+        alice.castsWithoutCosts("Crow's Larceny", target = "alice")
+        resolve()
+        assertEquals(listOf(true, true, true), decision<arcanum.engine.decision.Decision.Modes>().options.map { it.available })
+    }
+
     @Suppress("unused")
     private fun check(b: Boolean) = assertTrue(b)
 }

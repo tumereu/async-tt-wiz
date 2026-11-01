@@ -22,6 +22,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItem
 import arcanum.engine.state.StackItemKind
 import arcanum.engine.state.TargetRef
+import arcanum.engine.state.TurnCount
 import arcanum.engine.view.AbilityOrigin
 
 /**
@@ -91,9 +92,25 @@ internal object Casts {
         act: Act, controller: PlayerId, source: ObjectId?, instructions: Instructions, names: Bindings, self: ObjectId?, required: Boolean,
     ): Pair<List<Int>, Map<String, List<TargetRef>>>? {
         val modes = instructions.modes?.let { m ->
-            val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text) }
-            if (m.min == m.max && m.max == m.options.size && !m.repeatable) options.map { it.index }
-            else (act.asker.ask { Decision.Modes(it, controller, source, options, m.min, m.max, m.repeatable) } as Answer.Modes).chosen
+            // "Choose one that hasn't been chosen (this turn)": modes this object chose before aren't available
+            val o = source?.let { act.state.obj(it) }
+            val turn = act.state.turn.number
+            val used = buildSet {
+                if (m.onlyUnchosen) addAll(o?.facts?.modesChosen.orEmpty())
+                if (m.onlyUnchosenThisTurn) o?.facts?.modeTurns.orEmpty().filter { it.turn == turn }.forEach { add(it.key.toInt()) }
+            }
+            if (m.options.size - used.size < m.min) return null
+            val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text, available = i !in used) }
+            val chosen = if (used.isEmpty() && m.min == m.max && m.max == m.options.size && !m.repeatable) options.map { it.index }
+                else (act.asker.ask { Decision.Modes(it, controller, source, options, m.min, m.max, m.repeatable) } as Answer.Modes).chosen
+            require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
+            if (o != null && (m.onlyUnchosen || m.onlyUnchosenThisTurn) && chosen.isNotEmpty()) {
+                act.record(Change.Facts(o.id, o.facts, o.facts.copy(
+                    modesChosen = (o.facts.modesChosen + chosen).distinct(),
+                    modeTurns = o.facts.modeTurns.filter { it.turn == turn } + chosen.distinct().map { TurnCount(it.toString(), turn, 1) },
+                )))
+            }
+            chosen
         }.orEmpty()
         val slots = instructions.targets + modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
         val targets = LinkedHashMap<String, List<TargetRef>>()

@@ -56,7 +56,8 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8), cancel;
   alternative costs and permissions (evoke, flashback, escape, overload, retrace, morph, "rather
   than pay"), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
-  mana abilities without the Stack; special actions (suspend, turning face up); combat:
+  mana abilities without the Stack, triggered mana abilities at once (CR 605.4a); special
+  actions (suspend, turning face up); combat:
   declarations with their restrictions, first/double strike steps, trample, deathtouch,
   lifelink, infect, wither, toxic, dividing damage. A spell becomes cast with the
   `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
@@ -73,12 +74,14 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   re-check and fizzling, partial legality, every `Step` and every `Effect` (keyword actions
   without a table entry are done directly or by hand), effect objects with locked sets (CR
   611.2c), delayed and reflexive triggers, copies of spells, casting without paying from an
-  effect, the card going to the graveyard/exile/battlefield. A step that needs a decision is
+  effect, the card going to the graveyard/exile/battlefield; mana paid on resolution as a
+  `ManaPayment` decision (by hand when no payment is found). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
   Triggers: detection as each event is recorded, looking back for CR 603.10a events, batches,
   "nth this turn", per-turn limits, intervening and trigger-only conditions, state triggers,
   chapters, "triggers an additional time"; waiting triggers in `GameState.triggered`, put on
-  the Stack in APNAP order with their order, modes and targets. State-based actions (CR 704.5a–q,
+  the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
+  State-based actions (CR 704.5a–q,
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
   Events outside resolution (land plays, the draw step's draw, combat damage) go through
   `Events.run` and wait with `Continuation.Event`.

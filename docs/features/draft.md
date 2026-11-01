@@ -118,7 +118,7 @@ Cubes, pods of 2–8 players drafting asynchronously, the pick and grid screens,
 - **DRF-082** Each grid has a header: "Your pick · Grid 4/18", "Your pick next · Grid 6/18", "Waiting for <name> · Grid 5/18" or "Finished · Grid 3/18". (r30)
 - **DRF-083** Only the grid you pick from has arrows beside each row and above each column; tapping one tints that line, slightly dims the other cards, and Confirm takes it. (r31)
 - **DRF-084** Tapping a grid card inspects it; holding shows the same 150 ms release-to-close preview as the pick screen. (r30)
-- **DRF-085** Each pick shows as a coloured band along its row or column (yours in your table colour, others in opponent colour, then blue and amber) plus the picker's small avatar at the top left of the card art. (r34)
+- **DRF-085** Each pick shows as a coloured band along its row or column (yours in your table colour, others in opponent colour, then blue and amber) plus the picker's small avatar in the card's top left corner, over the name. (r34)
 - **DRF-086** Discarded cards of a finished grid are dimmed and refill cards are marked "New"; a refilled grid shows its "Before refill" and "After refill" boards framed together. (r34)
 - **DRF-087** Grid boards and everyone's picks of grids you have seen are public to the pod. (r16)
 

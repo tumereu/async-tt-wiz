@@ -151,7 +151,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### Inspecting cards
 
-- **TBL-104** The hold preview is compact with no title; moving the finger up and down scrolls its text, mana and tap symbols are drawn as symbols, and it closes on release. (r3)
+- **TBL-104** The hold preview is compact with no title; mana and tap symbols are drawn as symbols, and it closes on release. Moving the finger up or down scrolls it by at least as much as the finger moves, sped up so that a drag over 90% of the screen height scrolls the whole preview from top to bottom; movement past either end is not stored, so turning back scrolls at once. (r36)
 - **TBL-105** The hold preview works on every face-up card, live and in timeline mode, and holding pauses timeline playback. (r8)
 - **TBL-106** Hold preview and Inspect open on the face the card shows on the table; a flipped flip card is turned upside down so its flipped half reads upright. (r31)
 - **TBL-107** Inspect from the menu shows the full card image, with tidy "‹ n/m ›" buttons to switch faces on multi-faced cards. (r31)

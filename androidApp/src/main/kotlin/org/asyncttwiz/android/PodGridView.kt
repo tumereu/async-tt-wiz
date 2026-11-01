@@ -109,6 +109,7 @@ fun PodGridView(
     val rules = if (head != null) PodGridRules(head, view.mine) else null
     var inspected by remember { mutableStateOf<DraftCopy?>(null) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     val colors = view?.let { podGridColors(it.publicView.seating, it.mine.player) }.orEmpty()
     Column(modifier.fillMaxSize().padding(horizontal = 8.dp)) {
         val boards = view?.let(::podGridOrder).orEmpty()
@@ -142,7 +143,7 @@ fun PodGridView(
                                 if (open) { previewScroll.dispatchRawDelta(-previewScroll.value.toFloat()); inspected = copy }
                                 else if (inspected == copy) inspected = null
                             },
-                            inspectScroll = { previewScroll.dispatchRawDelta(it) },
+                            inspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
                             // Rows and columns are chosen with the arrows, so a tap on a card is free to inspect it.
                             open = { copy -> inspected = null; inspection.openPodCard(copy.definition, definitions[copy.definition]) })
                     }

@@ -87,6 +87,13 @@ class CardInspectionUiTest {
         val content = compose.onNodeWithContentDescription("Card inspection content")
         fun scroll() = content.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
         assertEquals(0f, scroll().value())
+        // At least 1:1, sped up so that 90% of the screen height covers the whole preview (mdpi: 1 px = 1 dp).
+        val screen = if (landscape) 412f else 892f
+        val gain = HoldPreviewScroll.gain(scroll().maxValue(), screen)
+        assertTrue(gain > 1f, "The 30-line preview is longer than 90% of the screen")
+        table.performTouchInput { moveBy(Offset(0f, -50f)) }
+        compose.waitForIdle()
+        assertEquals(50f * gain, scroll().value(), 1.5f)
         table.performTouchInput { moveBy(Offset(0f, -10_000f)) }
         compose.waitForIdle()
         assertTrue(scroll().value() > 0f)

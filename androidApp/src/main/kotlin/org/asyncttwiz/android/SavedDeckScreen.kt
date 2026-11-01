@@ -32,6 +32,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
     val columns = rememberDeckViewColumns(DeckViewScreen.SAVED)
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     if (state.dialog == DeckDialog.COVER && state.detail != null) {
         CoverScreen(controller, openNavigation); return
     }
@@ -73,7 +74,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
                                 previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                 held = key to tile
                             } else if (held?.first == key) held = null
-                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
+                        }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
                     }
                 }
             }

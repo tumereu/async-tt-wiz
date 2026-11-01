@@ -106,6 +106,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
     val menus = remember { PodCardMenuOwner() }
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     val columns = rememberDeckViewColumns(columnsScreen)
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
@@ -134,7 +135,7 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
                                 previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                 held = key to tile
                             } else if (held?.first == key) held = null
-                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
+                        }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
                 }
             }
         }

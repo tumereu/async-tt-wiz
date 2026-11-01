@@ -164,6 +164,7 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
     val menus = remember { PodCardMenuOwner() }
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     Box(Modifier.fillMaxSize()) {
         if (entries == null) Column(Modifier.fillMaxSize().padding(16.dp).verticalScrollable(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (lookupPending) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -193,7 +194,7 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                                     previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                     held = key to tile
                                 } else if (held?.first == key) held = null
-                            }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
+                            }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
                         }
                     }
                 }
@@ -284,6 +285,7 @@ private fun CardSearchPage(editor: CardListEditor, search: CardListSearch, lands
     LaunchedEffect(search.query) { delay(350); search.search() }
     var held by remember { mutableStateOf<Pair<String, InspectedCard?>?>(null) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     val grid = rememberLazyGridState()
     val columns = rememberDeckViewColumns(DeckViewScreen.SEARCH)
     // Pages end early when the work budget runs out; keep reading while the end of the results is in view.
@@ -321,7 +323,7 @@ private fun CardSearchPage(editor: CardListEditor, search: CardListSearch, lands
                                 previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                 held = card.key to InspectedCard.preview(CardListEdits.entry(card, DeckSection.MAINBOARD), state.metadata)
                             } else if (held?.first == card.key) held = null
-                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
+                        }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
                     }
                 }
             }

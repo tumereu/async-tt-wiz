@@ -92,6 +92,7 @@ internal fun PodPickView(
     var menuFor by remember(pack?.id) { mutableStateOf<String?>(null) }
     var tileSize by remember { mutableStateOf(IntSize.Zero) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     PodArtPrefetch(remember(pack, nextPack) { listOfNotNull(pack, nextPack).flatMap { it.cards } }, definitions, tileSize)
     DeckCardInspection(inspection)
     if (pack == null) {
@@ -135,7 +136,7 @@ internal fun PodPickView(
                         burnEnabled = rules.manualBurns > 0,
                         onMark = { mark(copy.id, it) }, onUnmark = { unmark(copy.id) },
                         onInspect = { inspect(copy, it) },
-                        onInspectScroll = { previewScroll.dispatchRawDelta(it) },
+                        onInspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
                         onInspectCard = {
                             menuFor = null; inspected = null
                             inspection.openPodCard(copy.definition, definitions[copy.definition])
@@ -151,7 +152,7 @@ internal fun PodPickView(
             }
         }
         PodPickTrays(marks.keeps, burnIds, rules, baseRules, copies, definitions, unmark, inspect,
-            onInspectScroll = { previewScroll.dispatchRawDelta(it) },
+            onInspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) },
             librarianSlots = settings.librarians > 0,
             spent = marks.librarians, librarians = librarians,
             spend = { setMarks(marks.spendLibrarian(librarians.map { it.id }, pack, settings)) },

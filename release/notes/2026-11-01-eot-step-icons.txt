@@ -1,0 +1,1 @@
+mod: The until-end-of-turn P/T step buttons now show the normal icon with a small hourglass in its top-right corner.

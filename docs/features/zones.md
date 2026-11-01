@@ -10,7 +10,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-004** Double-tapping a hand card plays it like a drag: a land (by its front face) goes to the first free slot of the land row, anything else onto the Stack; a non-land permanent then resolves onto the battlefield by itself (STK-004). (r15)
 - **ZON-005** A played hand card whose every face is a permanent goes onto the Stack and then resolves by itself onto the main battlefield row as a separate timeline step; one Undo takes back both. (r15)
 - **ZON-006** Hand cards can't be tapped; a double-tap never turns them. (r12)
-- **ZON-007** Tapping a hand card opens a one-page hand menu: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1–4, Discard random, Reveal random, Exile random, Random to library bottom. (r28)
+- **ZON-007** Tapping a hand card opens a one-page hand menu: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1, Discard random, Reveal random, Exile random, Random to library bottom. (r36)
 - **ZON-008** "Face down" puts a face-down entry for the hand card on the Stack (the opponent sees a back), and it resolves at once onto its owner's battlefield as a face-down 2/2 (STK-005). (r35)
 - **ZON-009** Hand "Reveal" opens a Reveal panel of the chosen hand cards for both players; its "Done" button puts them back in the hand in their old places. (r16)
 - **ZON-010** The random hand actions pick one card at random from the selected hand cards, or from the whole hand when none is selected, with a fresh random seed of their own. (r16)
@@ -60,7 +60,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 - **ZON-039** Each player has up to four Temp piles after exile; they are face down and hidden from both players like a library. (r28)
 - **ZON-040** Temp 1 always shows (empty: its number as a placeholder, no "0"); Temps 2–4 appear when a card moves in, and Close removes one only while it is empty. Either player can do this to either player's piles. (r31)
 - **ZON-041** Temp pile menu: Shuffle, Look, Shuffle into library, Close / All top, All bottom (both in pile order), All → Graveyard, All → Exile / All → n and Top → n for each other pile. (r31)
-- **ZON-042** Card, hand and panel menus have Temp 1–4, moving the cards into their owner's pile of that number and creating it if needed; tokens never go into Temp piles. (r28)
+- **ZON-042** Battlefield, hand and panel menus have only Temp 1, moving the cards into their owner's Temp 1 and creating it if needed; cards in a panel showing a Temp pile (its Look) have Temp 1–4. Temps 2–4 are otherwise filled from a Temp pile's own menu (ZON-041) or by dragging onto them. Tokens never go into Temp piles. (r36)
 - **ZON-043** Look on a Temp pile shows all its cards; closing it never shuffles or asks where cards go, and cards put on the pile meanwhile stay on top. (r31)
 - **ZON-044** Cards moved into a Temp pile from a library Search or Look stay hidden. (r31)
 - **ZON-045** With more than one Temp pile and no room, the counters take their own row under the piles (above them on the opponent's side) instead of crowding the piles. (r28)
@@ -82,7 +82,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 
 ### Panel card menu and gestures
 
-- **ZON-058** Tapping a panel card opens one menu right of the panels, top row lined up with the cards: Inspect, Other side, Ping, Hand, Reveal hand, Battlefield, Tapped, Stack, Graveyard, Exile, Library top, Reveal top, Library bottom, Shuffle into library, Temp 1–4. (r29)
+- **ZON-058** Tapping a panel card opens one menu right of the panels, top row lined up with the cards: Inspect, Other side, Ping, Hand, Reveal hand, Battlefield, Tapped, Stack, Graveyard, Exile, Library top, Reveal top, Library bottom, Shuffle into library, Temp 1 (Temp 1–4 in a Temp pile's panel). (r36)
 - **ZON-059** Buttons that don't apply are greyed: Reveal ones on cards already visible or in Reveal and graveyard/exile panels, the panel's own zone, Shuffle into library in library panels (Library top/bottom stay on). (r29)
 - **ZON-060** If the tapped card is selected, the menu acts on every selected card of that panel only, as one Undo step. (r29)
 - **ZON-061** Drag a panel card out to move it. Drag on empty panel space for a selection box (it takes all copies of a grouped card); scroll a panel with two fingers or double-tap-drag. (r29)

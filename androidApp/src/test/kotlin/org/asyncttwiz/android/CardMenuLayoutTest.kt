@@ -16,11 +16,11 @@ class CardMenuLayoutTest {
     private fun ids(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false) =
         CardRingPages.pages(layout, token, attacker).map { it.actions }
 
-    // SYS-040, TBL-070, TBL-071, TBL-073, TBL-074, TBL-075, TBL-078, TBL-082
+    // SYS-040, TBL-070, TBL-071, TBL-073, TBL-074, TBL-075, TBL-078, TBL-082, ZON-042
     @Test fun battlefieldLayoutHasExactCellsOnThreePagesWithTwins() {
         assertEquals(listOf("Everyday", "Counters", "More"), CardRingPages.pages(CardMenuLayout.CARD).map { it.name })
         val (everyday, counters, more) = ids(CardMenuLayout.CARD)
-        assertEquals(listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "flip", "switchFace",
+        assertEquals(listOf("inspect", "note", "corner", "Stack", "Declare without tapping", "keywords", "eotKeywords",
             "Graveyard", "Exile", "Clone", "Ping / Unping", "Hand", "Library top", "Library bottom", "Shuffle into library",
             "eotCorner", "Battlefield"), everyday)
         // Row 4: Shuffle into library, the until-end-of-turn corner widget, Battlefield.
@@ -29,16 +29,16 @@ class CardMenuLayoutTest {
             "counter/PURPLE", "counter/GRAY", "resetCounters"), counters)
         assertEquals(listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
-            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "keywords", "eotKeywords",
-            "Temp 1", "Temp 2", "Temp 3", "Temp 4", "Deal to target", "Deal to target or creatures", "damage"), more)
-        assertEquals(21, CardRingPages.layout(more).last().cell)
+            "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "flip", "switchFace",
+            "Temp 1", "Deal to target", "Deal to target or creatures", "damage"), more)
+        assertEquals(18, CardRingPages.layout(more).last().cell)
         assertEquals(listOf("Counters"), CardRingPages.pages(CardMenuLayout.CARD).filter { "eotNote" in it.actions }.map { it.name })
         val twins = ids(CardMenuLayout.CARD, token = true, attacker = true)[0]
         assertEquals(everyday.map { when (it) { "Declare without tapping" -> "Attack →"; "Hand" -> "Remove token"; else -> it } }, twins)
         assertEquals(ids(CardMenuLayout.CARD).drop(1), ids(CardMenuLayout.CARD, token = true, attacker = true).drop(1))
     }
 
-    // CMB-003, TBL-064, TBL-071, TBL-089, TBL-091, ZON-007
+    // CMB-003, TBL-064, TBL-071, TBL-089, TBL-091, ZON-007, ZON-042
     @Test fun singlePageLayoutsHaveExactCells() {
         val combat = listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat", "Graveyard", "Exile", "Hand",
             "corner", "damage", "eotCorner", "eotNote", "eotKeywords", "Deal to target", "Deal to target or creatures", "Link", "Links")
@@ -46,10 +46,12 @@ class CardMenuLayoutTest {
         // Four full rows of 5: P/T closes row 2, Damage and EOT P/T open row 3.
         assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 15, 16, 17, 18, 19), CardRingPages.layout(combat).map { it.cell })
         assertEquals(listOf(listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top",
-            "Library bottom", "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4",
+            "Library bottom", "Shuffle into library", "Temp 1",
             "Discard random", "Reveal random", "Exile random", "Random to library bottom")), ids(CardMenuLayout.HAND))
         assertEquals(listOf(listOf("inspect", "otherSide", "Ping / Unping", "Hand", "Battlefield", "Move to Stack", "Graveyard", "Exile",
-            "Library top", "Library bottom", "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4")), ids(CardMenuLayout.PANEL))
+            "Library top", "Library bottom", "Shuffle into library", "Temp 1")), ids(CardMenuLayout.PANEL))
+        // A Temp pile's own panel (its Look) keeps Temp 1–4.
+        assertEquals(listOf(ids(CardMenuLayout.PANEL).single() + listOf("Temp 2", "Temp 3", "Temp 4")), ids(CardMenuLayout.TEMP_PANEL))
         // Twins belong to the battlefield layout only.
         for (layout in CardMenuLayout.entries - CardMenuLayout.CARD)
             assertEquals(ids(layout), ids(layout, token = true, attacker = true))
@@ -59,7 +61,8 @@ class CardMenuLayoutTest {
     @Test fun everyLayoutFitsItsPagesWithoutHolesOrDuplicates() {
         for (layout in CardMenuLayout.entries) for (token in listOf(false, true)) for (attacker in listOf(false, true)) {
             val pages = CardRingPages.pages(layout, token, attacker)
-            assertTrue(pages.size == if (layout == CardMenuLayout.CARD || layout == CardMenuLayout.PANEL && !CardRingPages.panelLayout) 3 else 1)
+            assertTrue(pages.size == if (layout == CardMenuLayout.CARD ||
+                layout in listOf(CardMenuLayout.PANEL, CardMenuLayout.TEMP_PANEL) && !CardRingPages.panelLayout) 3 else 1)
             for (page in pages) {
                 assertTrue(CardRingPages.fits(page.actions), "$layout ${page.name} overflows")
                 assertEquals(page.actions.distinct(), page.actions)
@@ -72,7 +75,7 @@ class CardMenuLayoutTest {
         }
     }
 
-    // TBL-071
+    // TBL-071, ZON-042
     @Test fun contextPicksTheLayoutFromTheTappedView() {
         val play = f.combat()
         val board = play.board
@@ -89,6 +92,11 @@ class CardMenuLayoutTest {
         assertEquals(CardMenuLayout.HAND, CardRingPages.context(board, hand.cards.first()))
         val library = board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
         assertEquals(CardMenuLayout.PANEL, CardRingPages.context(board, library.cards.first()))
+        val temp = PlayContainer(TempPiles.containerId(play.id, f.a, 2), PlayZone.LIBRARY, f.a, listOf(library.cards.first()),
+            temp = true, tempNumber = 2)
+        val withTemp = board.copy(containers = board.containers.map { if (it.id == library.id) it.copy(cards = it.cards.drop(1)) else it } + temp,
+            cards = board.cards.map { if (it.id == library.cards.first()) it.copy(containerId = temp.id) else it })
+        assertEquals(CardMenuLayout.TEMP_PANEL, CardRingPages.context(withTemp, library.cards.first()))
         assertNull(CardRingPages.context(board, f.id("missing")))
         assertTrue(CardRingPages.declaredAttacker(board, listOf(sentinel.id)))
         assertFalse(CardRingPages.declaredAttacker(board, listOf(f.source(f.b, "2/3").id)))

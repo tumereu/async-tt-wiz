@@ -103,11 +103,12 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### Everyday page
 
-- **TBL-073** Everyday holds, in order: Inspect, Note, P/T, Stack, Declare, Face down/up, Switch face, Graveyard, Exile, Clone, Ping, Hand, Library top, Library bottom, Shuffle into library, EOT P/T, Battlefield. (r34)
+- **TBL-073** Everyday holds, in order: Inspect, Note, P/T, Stack, Declare, Keywords, EOT keywords, Graveyard, Exile, Clone, Ping, Hand, Library top, Library bottom, Shuffle into library, EOT P/T, Battlefield. (r36)
 - **TBL-074** "Stack" puts the card on the Stack; "Declare" declares it in combat without tapping it, and becomes "Attack →" once the card is a declared attacker. (r28)
 - **TBL-075** On tokens, Hand becomes "Remove token", and Library top, Library bottom and Shuffle into library remove the token. (r28)
-- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
 - **TBL-077** Clone makes a token copy of the card; a non-land copy appears in the main row. (r30)
+- **TBL-085** Keywords and EOT keywords open a toggle grid of Flying, First strike, Double strike, Deathtouch, Lifelink, Trample, Haste, Vigilance, Reach, Menace, Hexproof, Indestructible, Defender, Ward, Can't block, Goaded; each toggle saves at once and the grid stays open. (r19)
+- **TBL-086** Keyword toggles write the note as keywords joined by ", " (e.g. "Flying, Trample"); any other note text greys them out; with several cards a toggle is on only if all have it. They are greyed out on hidden cards. (r19)
 
 ### Counters page
 
@@ -118,19 +119,18 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### More page
 
-- **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Keywords, EOT keywords, Temp 1–4, Deal to target, Deal to target or creatures, and Set damage last. (r34)
-- **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones carry a small hourglass; all stay visible, greyed out on cards without P/T. (r27)
+- **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Face down/up, Switch face, Temp 1, Deal to target, Deal to target or creatures, and Set damage last. (r36)
+- **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones show the same icon with a small hourglass in its top-right corner, not touching the symbols or the label; all stay visible, greyed out on cards without P/T. (r36)
 - **TBL-084** Owner shows the owner's colour and is enabled only for battlefield tokens; tapping it gives the token to the other player. (r28)
-- **TBL-085** Keywords and EOT keywords open a toggle grid of Flying, First strike, Double strike, Deathtouch, Lifelink, Trample, Haste, Vigilance, Reach, Menace, Hexproof, Indestructible, Defender, Ward, Can't block, Goaded; each toggle saves at once and the grid stays open. (r19)
-- **TBL-086** Keyword toggles write the note as keywords joined by ", " (e.g. "Flying, Trample"); any other note text greys them out; with several cards a toggle is on only if all have it. They are greyed out on hidden cards. (r19)
+- **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
 - **TBL-087** Link is enabled only with 2 or more cards selected and links every pair of them, with no target picker; Unlink lists the card's links with a Remove link button on each. (r12)
 - **TBL-088** "Other side" (Inspect other side) deliberately shows a card's hidden side and is recorded in the history; it is the only way an opponent sees a face-down card's front. (r21)
 
 ### Hand, combat and Stack menus
 
-- **TBL-089** The hand card menu is one page: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1–4, Discard random, Reveal random, Exile random, Random to library bottom. (r28)
+- **TBL-089** The hand card menu is one page: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1, Discard random, Reveal random, Exile random, Random to library bottom. (r36)
 - **TBL-090** Hand "Play" does the same as double-tapping the card; "Face down" casts it face down (STK-005). (r35)
-- **TBL-091** The combat copy menu has Inspect, Note, Ping, Attack →, Remove from combat, Graveyard, Exile, Hand, Deal to target, Deal to target or creatures, Link and Links, and nothing that changes the real card (tap the real card for that). (r28)
+- **TBL-091** The combat copy menu is described in CMB-003. (r36)
 
 ### Card state rules
 
@@ -151,10 +151,11 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### Inspecting cards
 
-- **TBL-104** The hold preview is compact with no title; moving the finger up and down scrolls its text, mana and tap symbols are drawn as symbols, and it closes on release. (r3)
+- **TBL-104** The hold preview is compact with no title; mana and tap symbols are drawn as symbols, and it closes on release. Moving the finger up or down scrolls it by at least as much as the finger moves, sped up so that a drag over 90% of the screen height scrolls the whole preview from top to bottom; movement past either end is not stored, so turning back scrolls at once. (r36)
 - **TBL-105** The hold preview works on every face-up card, live and in timeline mode, and holding pauses timeline playback. (r8)
 - **TBL-106** Hold preview and Inspect open on the face the card shows on the table; a flipped flip card is turned upside down so its flipped half reads upright. (r31)
 - **TBL-107** Inspect from the menu shows the full card image, with tidy "‹ n/m ›" buttons to switch faces on multi-faced cards. (r31)
 - **TBL-108** Split cards, Rooms, Planes and Battles turn sideways when inspected; aftermath and flip cards get a Rotate button in Inspect only; sideways cards are no taller than upright ones (at most 448 dp). (r30)
 - **TBL-109** Inspecting your own face-down card shows its front dimmed with a "Face down" label; ordinary holds and inspects never show a hidden side to the opponent. (r21)
 - **TBL-110** Inspect shows the card's current P/T as "X/Y", and until-end-of-turn changes and notes marked "(until end of turn)". (r16)
+- **TBL-111** Holding a card that lies on top of other cards in a battlefield pile (TBL-053) previews it and then each card under it, in pile order, one below the other in the same scrolling preview; each shows only what the table shows of it (a face-down card stays hidden from the opponent). (r36) (?)

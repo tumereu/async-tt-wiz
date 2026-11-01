@@ -39,6 +39,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     var selection by selectionState
     var gestureError by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     val peekScroll = rememberScrollState()
+    val peekScreenHeight by rememberUpdatedState(holdPreviewScreenHeight())
     var screenOrigin by remember { mutableStateOf(Offset.Zero) }
     val currentPlay by rememberUpdatedState(play)
     val callback by rememberUpdatedState(onIntent)
@@ -99,7 +100,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
             }
-        }, density = density, onPeekScroll = { peekScroll.dispatchRawDelta(it * density) }, diagnostic = { event ->
+        }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) }, diagnostic = { event ->
             if (event.startsWith("dropped:")) gestureError = "Rotation not queued (${event.substringAfter(':')}). Reconnect and try again."
             DebugLatency.tap(game.id, event, toolkit?.popupItem != null)
         })

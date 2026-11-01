@@ -87,6 +87,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
     val columns = rememberDeckViewColumns(DeckViewScreen.CUBE)
     var held by remember { mutableStateOf<Pair<String, PreparationTile>?>(null) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             ScreenHeader("Saved cube", navigation) {
@@ -121,7 +122,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                                 previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                 held = key to tile
                             } else if (held?.first == key) held = null
-                        }, onHoldScroll = { previewScroll.dispatchRawDelta(it) })
+                        }, onHoldScroll = { previewScroll.holdPreviewScroll(it, previewScreen) })
                     }
                 }
             }

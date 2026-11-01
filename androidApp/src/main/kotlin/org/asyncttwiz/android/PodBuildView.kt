@@ -122,6 +122,7 @@ fun PodBuildView(
     val menus = remember { PodCardMenuOwner() }
     var inspected by remember { mutableStateOf<Pair<String, InspectedCard>?>(null) }
     val previewScroll = rememberScrollState()
+    val previewScreen = holdPreviewScreenHeight()
     var feedback by remember { mutableStateOf<PodBuildFeedback?>(null) }
     var feedbackId by remember { mutableIntStateOf(0) }
     LaunchedEffect(feedback) { feedback?.let { delay(it.millis); feedback = null } }
@@ -225,7 +226,7 @@ fun PodBuildView(
                                                         previewScroll.dispatchRawDelta(-previewScroll.value.toFloat())
                                                         inspected = tileKey to card
                                                     } else if (!open && inspected?.first == tileKey) inspected = null
-                                                }, onInspectScroll = { previewScroll.dispatchRawDelta(it) }, menus = menus,
+                                                }, onInspectScroll = { previewScroll.holdPreviewScroll(it, previewScreen) }, menus = menus,
                                                     onInspectCard = { inspected = null; inspection.openPodCard(tile.digest, tile.definition) },
                                                     fadeIn = tile.copyIds.any { it in arriving },
                                                     onLeave = { bounds ->

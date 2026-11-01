@@ -1,0 +1,1 @@
+mod: Holding a card to preview it now scrolls faster on long cards: a drag over most of the screen scrolls the whole preview.

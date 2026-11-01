@@ -199,7 +199,7 @@ internal fun ManualActionsHost(state: PlayState, viewer: String, actions: Manual
     editProjectionNote: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
     val scope = actions.scope
     if (scope != null && scope.usable(state)) {
-        if (scope.player) PlayerActions(state, scope, actions, canEdit, names, viewer, landscape, submit)
+        if (scope.player) PlayerActions(state, scope, actions, canEdit, names, viewer, submit = submit)
         else if (actions.editor == null && actions.keywords == null && state.board.cards.any { it.id == scope.contextId })
             CardActions(state, viewer, scope, actions, canEdit, names, submitAll, tools, previewViewId, inspect, editProjectionNote, submit)
         actions.keywords?.let { eot ->

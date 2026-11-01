@@ -26,16 +26,16 @@ import org.asyncttwiz.protocol.*
 
 @Composable
 internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: ManualActions, enabled: Boolean,
-    names: Map<String, String>, viewer: String = scope.contextId, landscape: Boolean = false, submit: (PlayAction) -> Boolean) {
+    names: Map<String, String>, viewer: String = scope.contextId, submit: (PlayAction) -> Boolean) {
     val player = state.board.players.single { it.accountId == scope.contextId }
     CompositionLocalProvider(LocalValueDragSide provides if (player.accountId == viewer) ValueDragSide.BOTTOM else ValueDragSide.TOP) {
     InlinePopupPanel(actions::close, title = if (scope.playerCounters) "Counters" else "Life") {
         if (!scope.playerCounters) {
             val own = player.accountId == viewer
             // The life row sits on the panel edge nearest the life square: own panels open above it, the opponent's below.
-            if (!own) PlayerLifeRow(state, player, actions, enabled, landscape, submit)
+            if (!own) PlayerLifeRow(state, player, actions, enabled, submit)
             PlayerStatusSection(state, player, own = own, enabled = enabled, close = actions::close, submit = submit)
-            if (own) PlayerLifeRow(state, player, actions, enabled, landscape, submit)
+            if (own) PlayerLifeRow(state, player, actions, enabled, submit)
         } else {
             for (pair in CounterColor.entries.chunked(2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (counter in pair) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -57,14 +57,12 @@ internal fun PlayerActions(state: PlayState, scope: ManualScope, actions: Manual
     }
 }
 
-/** Life value with its steppers, plus (landscape, no counters on the table) a way into the counters panel. */
+/** Life value with its steppers. */
 @Composable
-private fun PlayerLifeRow(state: PlayState, player: PlayPlayer, actions: ManualActions, enabled: Boolean, landscape: Boolean,
+private fun PlayerLifeRow(state: PlayState, player: PlayPlayer, actions: ManualActions, enabled: Boolean,
     submit: (PlayAction) -> Boolean) {
     val color = LocalInlinePopupColor.current
     val shape = RoundedCornerShape(3.dp)
-    // Landscape omits empty/zero counters from the table; retain access for that player.
-    val counters = landscape && player.counters.values.none(TablePresentation::nonzero)
     Row(Modifier.inlinePopupFocus(), horizontalArrangement = Arrangement.spacedBy(2.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(Modifier.size(48.dp), color = Color.White,
             shape = shape, border = BorderStroke(1.dp, color.copy(alpha = .5f)), shadowElevation = 3.dp) {
@@ -78,7 +76,6 @@ private fun PlayerLifeRow(state: PlayState, player: PlayPlayer, actions: ManualA
             actions.edit(ManualValue(ManualValueKind.LIFE), state, player.accountId)
         }, adjust(-1), adjust(1), dragValue = player.life,
             drag = { submit(PlayAction.AdjustLife(player.accountId, it.toString())) })
-        if (counters) InlinePopupCell(MenuControl("Counters") { actions.player(state, player.accountId, counters = true) })
     }
 }
 

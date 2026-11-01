@@ -106,7 +106,7 @@ class HiddenValuesAndTempPileTest {
             assertEquals("1", item.value)
             assertEquals(1, item.tempNumber)
             assertEquals(placeholder.bounds, item.bounds)
-            // Landscape keeps it beside Exile in the (scrollable) sidebar counter row, like the counters.
+            // Landscape keeps it at the left of the (scrollable) sidebar counter row, before the counters (TRN-035).
             if (!landscape || size == 1f) assertTrue(item.visible.isNotEmpty(), "$landscape/$size: Temp pile must be visible")
             if (landscape) assertTrue(item.bounds.right <= TablePresentation.sidebarWidth(width, CardAppearance(cardSize = size)))
             // Library, Graveyard and Exile keep their exact place and stay visible.
@@ -117,7 +117,8 @@ class HiddenValuesAndTempPileTest {
                 if (old.visible.isNotEmpty()) assertTrue(new.visible.isNotEmpty(), "$landscape/$size $id visible")
             }
             val exile = shown.items.single { it.id == "a/EXILE" }
-            if (landscape) assertTrue(item.bounds.center.x >= exile.bounds.x && item.bounds.center.x <= exile.bounds.right)
+            if (landscape) assertTrue(item.bounds.right <= shown.items.filter { it.kind == TableItemKind.COUNTER && it.owner == "a" }
+                .minOf { it.bounds.x } && item.bounds.right < exile.bounds.x, "$size: Temp sits left of the counters")
             else assertTrue(item.bounds.x >= exile.bounds.right, "$size: Temp sits after Exile")
             // Filling pile 1 moves nothing else at all.
             for (other in before.items.filter { it.id != temp && it.cardId == null }) {

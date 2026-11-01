@@ -69,8 +69,9 @@ class TableLayoutScreenshotTest {
         val region = scene.stackRegion!!
         assertEquals(0xff2a1740.toInt(), image.getRGB((region.x + 2).toInt(), region.center.y.toInt()))
         assertEquals(0xffeee3f5.toInt(), image.getRGB(region.center.x.toInt(), (region.y + 8).toInt()))
-        assertEquals(if (landscape) counterOwners.size * 4 else 12, scene.items.count { it.kind == TableItemKind.COUNTER })
-        if (!landscape) for (counter in scene.items.filter { it.kind == TableItemKind.COUNTER && it.value.isEmpty() }) {
+        // TRN-034, TRN-035: every counter slot shows in both orientations, a faint outline when empty.
+        assertEquals(12, scene.items.count { it.kind == TableItemKind.COUNTER })
+        for (counter in scene.items.filter { it.kind == TableItemKind.COUNTER && it.value.isEmpty() && it.visible.isNotEmpty() }) {
             val b = counter.bounds
             assertEquals(0xffffffff.toInt(), image.getRGB(b.center.x.toInt(), b.center.y.toInt()))
             assertTrue((b.x.toInt() until b.right.toInt()).any { x ->

@@ -233,8 +233,9 @@ class TablePresentationTest {
         assertEquals(12, before.items.count { it.kind == TableItemKind.COUNTER })
         assertEquals(after.world!!.viewport, before.world!!.viewport)
         assertEquals(after.fields.first().rowHeight, before.fields.first().rowHeight)
+        // TRN-035: landscape shows all six slots too, empty ones as outlines.
         val landscape = TableFixture.scene(TableFixture.play(), true)
-        assertEquals(0, landscape.items.count { it.kind == TableItemKind.COUNTER })
+        assertEquals(12, landscape.items.count { it.kind == TableItemKind.COUNTER })
     }
 
     // TBL-002
@@ -417,7 +418,10 @@ class TablePresentationTest {
         val shown = portrait.items.filter { it.kind == TableItemKind.COUNTER && it.owner == "b" }
         assertEquals(6, shown.size); assertEquals("", shown.first { it.counter == CounterColor.RED }.value)
         assertTrue(shown.first { it.counter == CounterColor.RED }.label.contains("no value"))
-        assertEquals(1, TableFixture.scene(p, true).items.count { it.kind == TableItemKind.COUNTER })
+        // TRN-035: landscape keeps every slot, the zero and blank ones empty.
+        val landscape = TableFixture.scene(p, true).items.filter { it.kind == TableItemKind.COUNTER }
+        assertEquals(12, landscape.size)
+        assertEquals(listOf("-1"), landscape.map { it.value }.filter { it.isNotEmpty() })
         assertEquals("0", p.board.players.first().counters[CounterColor.RED])
     }
 
@@ -432,8 +436,10 @@ class TablePresentationTest {
             assertEquals("", counters.single { it.owner == "a" && it.counter == CounterColor.RED }.value)
             assertEquals(value.takeIf(TablePresentation::nonzero).orEmpty(),
                 counters.single { it.owner == "a" && it.counter == CounterColor.GREEN }.value)
-            assertEquals(if (TablePresentation.nonzero(value)) 1 else 0,
-                TableFixture.scene(play, true).items.count { it.kind == TableItemKind.COUNTER })
+            // TRN-035: landscape shows all twelve slots; only a nonzero value is drawn.
+            val landscape = TableFixture.scene(play, true).items.filter { it.kind == TableItemKind.COUNTER }
+            assertEquals(12, landscape.size, value)
+            assertEquals(if (TablePresentation.nonzero(value)) 1 else 0, landscape.count { it.value.isNotEmpty() }, value)
         }
     }
 

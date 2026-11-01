@@ -196,6 +196,22 @@ class EffectsTest {
         }
     }
 
+    // CR 701.25a: the cards surveil keeps on top go back in the order their owner chooses
+    @Test
+    fun surveilKeepsCardsOnTopInTheChosenOrder() = scenario {
+        alice.hand("Deathless Savant")
+        alice.library("Forest", "Island", "Swamp")
+
+        alice.castsWithoutCosts("Deathless Savant")
+        resolve()
+        // Its enters trigger: surveil 2, keeping both
+        resolve()
+        answer(Answer.Objects(emptyList()))
+        alice.chooses("Island", "Forest")
+
+        expect { alice.library.names shouldBe listOf("Island", "Forest", "Swamp") }
+    }
+
     // CR 701.23a, 701.24: search, then shuffle (the host orders the library, D25)
     @Test
     fun searchForACardThenShuffle() = scenario {

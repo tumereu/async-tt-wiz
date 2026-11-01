@@ -59,6 +59,13 @@ object OracleParser {
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         // chunks 21, 26: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
         val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") })
+        // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
+        // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
+        sentences.exiledCard = when {
+            text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
+            text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
+            else -> null
+        }
         val result = mutableListOf<Ability>()
         val raws = mutableListOf<String>()
         val lines = text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }
@@ -98,7 +105,7 @@ object OracleParser {
             }
             val previous = result.lastOrNull()
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
-            val parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) else null
+            val parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
             when {
                 instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
@@ -163,6 +170,13 @@ object OracleParser {
         return listOf(first) + parts.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
     }
 
+    /** chunk 33: "Kicker {X}. X can't be 0.": a keyword line, then a sentence about it on the same line. */
+    private fun keywordThenSentence(line: String, sentences: Sentences): List<Ability>? {
+        val dot = line.indexOf(". ").takeIf { it > 0 } ?: return null
+        val keywords = keywordLine(line.substring(0, dot))?.takeIf { parts -> parts.none { it is Ability.Unparsed } } ?: return null
+        return keywords + (sentences.line(line.substring(dot + 2)) ?: return null)
+    }
+
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
     fun keyword(part: String): Keyword? {
         // "Flashback—Sacrifice a Mountain." (CR 702.34a): a cost that isn't only mana.
@@ -178,6 +192,14 @@ object OracleParser {
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
         }
+        // chunk 45: "Bestow—{R}, Collect evidence 6." (CR 702.103a): a cost that isn't only mana.
+        BESTOW_COST.matchEntire(part)?.let { m ->
+            return Keyword.Bestow(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
+        }
+        // chunk 45: "Companion — Each permanent card in your starting deck has mana value 2 or less." (CR 702.139a)
+        COMPANION.matchEntire(part)?.let { m ->
+            return Keyword.CompanionAbility(m.groupValues[1], eachCard = companionCards(m.groupValues[1]))
+        }
         // chunk 25: "Enchant creature or Vehicle", "Enchant player" (CR 702.5a)
         ENCHANT.matchEntire(part)?.let { m ->
             return Keyword.Enchant(when (m.groupValues[1]) {
@@ -185,6 +207,19 @@ object OracleParser {
                 "opponent" -> arcanum.api.TargetKind.Players(arcanum.api.PlayerFilter.Opponent)
                 else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
             })
+        }
+        // chunk 30: "Affinity for artifacts" (CR 702.41a): a quality, kept as printed too.
+        AFFINITY.matchEntire(part)?.let { m -> return Keyword.Affinity(Filters.noun(m.groupValues[1]) ?: return null, m.groupValues[1]) }
+        // chunk 30: "Evoke—Exile a white card from your hand.", "Escape—{R}{R}, Exile eight other cards from your graveyard."
+        // (CR 702.74a, 702.138a): a cost that isn't only mana.
+        DASH_COST.matchEntire(part)?.let { m ->
+            val cost = Sentences(setOf("this card")).cost(m.groupValues[2]) ?: return null
+            return if (m.groupValues[1] == "Evoke") Keyword.Evoke(cost) else Keyword.Escape(cost)
+        }
+        // chunk 40: "Forestwalk", "Islandwalk" (CR 702.14a): a land type, then "walk"
+        LANDWALK.matchEntire(part)?.let { m ->
+            if (m.groupValues[1] !in RulesWords.subtypes) return null
+            return Keyword.Landwalk(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), part)
         }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
@@ -201,6 +236,15 @@ object OracleParser {
         }
     }
 
+    /** chunk 45: "Each permanent card in your starting deck has mana value 2 or less": every card of the deck is either not
+     * such a card or has that mana value. */
+    private fun companionCards(condition: String): arcanum.api.ObjectFilter? {
+        val m = EACH_CARD_IN_STARTING_DECK.matchEntire(condition) ?: return null
+        val cards = Filters.noun(m.groupValues[1]) ?: return null
+        return arcanum.api.ObjectFilter.Or(listOf(arcanum.api.ObjectFilter.Not(cards),
+            arcanum.api.ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, arcanum.api.Value.Fixed(m.groupValues[2].toInt()))))
+    }
+
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
     private val LEVEL_BAND = Regex("""LEVEL (\d+)(?:-(\d+)|\+)""")
@@ -214,6 +258,15 @@ object OracleParser {
     private val ENCHANT = Regex("""Enchant (.+)""")
     // chunk 13
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
+    // chunk 30
+    private val AFFINITY = Regex("""Affinity for (\w+)""")
+    private val DASH_COST = Regex("""(Evoke|Escape)—(.+?)\.?""")
+    // chunk 40
+    private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
+    // chunk 45
+    private val BESTOW_COST = Regex("""Bestow—(.+?)\.?""")
+    private val COMPANION = Regex("""Companion — (.+)""")
+    private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
 }

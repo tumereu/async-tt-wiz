@@ -47,7 +47,10 @@ class Chunk51SacrificeAndReturnOutletsTest {
     // ---- Shared shapes
 
     private val creature = ObjectFilter.Type(CardType.Creature)
-    private val discardACard = CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card)))
+    private val discardACard = CostPart.Discard(CostObjects.Choose(
+        ObjectFilter.Category(ObjectCategory.Card),
+        count = Value.Fixed(1),
+    ))
     private fun sacrificeA(filter: ObjectFilter, count: Int = 1) = CostPart.Sacrifice(CostObjects.Choose(filter, count = Value.Fixed(count)))
 
     /** "Return a [land type or creature type] you control to its owner's hand: Untap target creature. Activate only once
@@ -55,12 +58,18 @@ class Chunk51SacrificeAndReturnOutletsTest {
     private fun returnToUntap(subtype: String) = Ability.Activated(
         cost = Cost(listOf(CostPart.ReturnToHand(CostObjects.Choose(
             ObjectFilter.And(listOf(ObjectFilter.Sub(Subtype(subtype)), ObjectFilter.ControlledBy(PlayerFilter.You))),
+            count = Value.Fixed(1),
         )))),
         instructions = Instructions(
-            targets = listOf(TargetSlot("creature", TargetKind.Objects(creature))),
+            targets = listOf(TargetSlot(
+                "creature",
+                TargetKind.Objects(creature),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
             steps = listOf(Step.Do(Effect.Untap(Objects.Target("creature")))),
         ),
-        rules = ActivationRules(perTurn = 1),
+        rules = ActivationRules(perTurn = 1, timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "[This creature] gains [keyword] until end of turn." */
@@ -128,7 +137,10 @@ class Chunk51SacrificeAndReturnOutletsTest {
             cost = Cost(listOf(
                 CostPart.Mana(ManaCost.parse("{W}")!!),
                 CostPart.TapSelf,
-                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact)), preBind = "sacrificed"),
+                CostPart.Sacrifice(
+                    CostObjects.Choose(ObjectFilter.Type(CardType.Artifact), count = Value.Fixed(1)),
+                    preBind = "sacrificed",
+                ),
             )),
             instructions = Instructions(steps = listOf(
                 Step.Do(Effect.Search(
@@ -141,11 +153,14 @@ class Chunk51SacrificeAndReturnOutletsTest {
                         ))),
                     )),
                     bind = "found",
+                    max = Value.Fixed(1),
+                    zones = listOf(Zone.Library),
+                    searcher = Players.You,
                 )),
                 Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
                 Step.Do(Effect.Shuffle(Players.You)),
             )),
-            rules = ActivationRules(timing = Timing.Sorcery),
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -171,7 +186,7 @@ class Chunk51SacrificeAndReturnOutletsTest {
                 affects = Affected.Objects(Objects.Self),
                 duration = Duration.EndOfTurn,
             )))),
-            rules = ActivationRules(activatedBy = PlayerFilter.Any),
+            rules = ActivationRules(activatedBy = PlayerFilter.Any, timing = Timing.Any),
         ),
     )
 
@@ -189,14 +204,19 @@ class Chunk51SacrificeAndReturnOutletsTest {
         Ability.Activated(
             cost = Cost(listOf(discardACard)),
             instructions = Instructions(steps = listOf(selfGainsUntilEndOfTurn(Keyword.Flying))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Ability.Static(
             abilityWord = "Threshold",
-            mechanics = listOf(Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1)), Mechanic.CantBlock()),
+            mechanics = listOf(
+                Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1)),
+                Mechanic.CantBlock(attackers = ObjectFilter.Any),
+            ),
             condition = Condition.Exists(
                 filter = ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))),
                 atLeast = 7,
             ),
+            affects = Affected.Objects(Objects.Self),
         ),
     )
 
@@ -213,6 +233,7 @@ class Chunk51SacrificeAndReturnOutletsTest {
         Ability.Activated(
             cost = Cost(listOf(sacrificeA(creature))),
             instructions = Instructions(steps = listOf(Step.Do(Effect.Scry(Players.You, Value.Fixed(1))))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -230,6 +251,7 @@ class Chunk51SacrificeAndReturnOutletsTest {
                 ObjectFilter.Or(listOf(creature, ObjectFilter.Type(CardType.Artifact))),
             ))))),
             instructions = Instructions(steps = listOf(Step.Do(Effect.Surveil(Players.You, Value.Fixed(1))))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -247,6 +269,8 @@ class Chunk51SacrificeAndReturnOutletsTest {
                 targets = listOf(TargetSlot(
                     name = "creature",
                     what = TargetKind.Objects(ObjectFilter.And(listOf(creature, ObjectFilter.ControlledBy(PlayerFilter.You)))),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(Mechanic.GainAbilities(listOf(Keyword.Shroud))),
@@ -254,6 +278,7 @@ class Chunk51SacrificeAndReturnOutletsTest {
                     duration = Duration.EndOfTurn,
                 ))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -279,7 +304,13 @@ class Chunk51SacrificeAndReturnOutletsTest {
                 )),
                 to = Zone.Battlefield,
             )),
-            instructions = Instructions(steps = listOf(Step.Do(Effect.CreateToken(TokenSpec.Predefined("Food"))))),
+            instructions = Instructions(
+                steps = listOf(Step.Do(Effect.CreateToken(
+                    TokenSpec.Predefined("Food"),
+                    count = Value.Fixed(1),
+                    controller = Players.You,
+                ))),
+            ),
         ),
         Ability.Activated(
             cost = Cost(listOf(sacrificeA(ObjectFilter.Sub(Subtype("Food")), count = 3))),
@@ -295,9 +326,12 @@ class Chunk51SacrificeAndReturnOutletsTest {
                         ObjectFilter.InZone(Zone.Graveyard),
                         ObjectFilter.OwnedBy(PlayerFilter.You),
                     ))),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Hand)))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

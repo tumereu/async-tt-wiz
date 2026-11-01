@@ -19,9 +19,9 @@ sealed interface Objects {
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Objects
     /** An object of the triggering or replaced event ("it", "that creature"); [role] picks which one. In a trigger that
      * fires once for a batch ([Trigger.On.oneOrMore]) it is every object of the batch in that role ("those creatures"). */
-    @Serializable @SerialName("event") data class EventObject(val role: EventRole = EventRole.Object) : Objects
+    @Serializable @SerialName("event") data class EventObject(val role: EventRole) : Objects
     /** The object a source Aura or Equipment is attached to ("enchanted creature", "equipped creature"). */
-    @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Self) : Objects
+    @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects) : Objects
     /** The source's new object after it changed zones, when it went to a public zone ("return this card from your
      * graveyard" in a trigger on the enchanted creature dying, CR 400.7e–f, 603.6e). */
     @Serializable @SerialName("self-after") data object SelfAfter : Objects
@@ -30,12 +30,12 @@ sealed interface Objects {
     /** The planeswalkers or battles [attackers] are attacking ("the planeswalker it's attacking"). */
     @Serializable @SerialName("attacked-by") data class AttackedBy(val attackers: Objects) : Objects
     /** Objects attached to [of] ("Auras attached to it"). */
-    @Serializable @SerialName("attachments") data class AttachmentsOf(val of: Objects, val filter: ObjectFilter = ObjectFilter.Any) : Objects
+    @Serializable @SerialName("attachments") data class AttachmentsOf(val of: Objects, val filter: ObjectFilter) : Objects
     /** Every object matching [filter] ("each creature", "creatures you control"). On the battlefield unless the filter
      * names zones with [ObjectFilter.InZone] (anywhere in it: "cards you own in exile and in your graveyard"). */
     @Serializable @SerialName("each") data class Each(val filter: ObjectFilter) : Objects
     /** The top or bottom [count] cards of a library. */
-    @Serializable @SerialName("library-cards") data class LibraryCards(val of: Players, val count: Value, val fromTop: Boolean = true) : Objects
+    @Serializable @SerialName("library-cards") data class LibraryCards(val of: Players, val count: Value, val fromTop: Boolean) : Objects
     @Serializable @SerialName("union") data class Union(val parts: List<Objects>) : Objects
     /** In a static ability's or effect object's mechanics or condition: each affected object in turn ("for each other
      * creature that shares a creature type with it"). */
@@ -46,9 +46,9 @@ sealed interface Objects {
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
     ) : Objects
     /** The objects used to pay [of]'s costs in [way] ("each creature that convoked it", CR 702.51c). */
-    @Serializable @SerialName("paid-with") data class PaidWith(val way: ManaPaymentWay, val of: Objects = Self) : Objects
+    @Serializable @SerialName("paid-with") data class PaidWith(val way: ManaPaymentWay, val of: Objects) : Objects
     /** [count] of [of] chosen at random ("a card at random in target player's hand"); answered by the host (D25). */
-    @Serializable @SerialName("random") data class Random(val of: Objects, val count: Value = Value.Fixed(1)) : Objects
+    @Serializable @SerialName("random") data class Random(val of: Objects, val count: Value) : Objects
     /** Those of [objects] that match [filter], wherever they are ("each nonland card discarded this way"); unlike
      * [Each], which looks at the battlefield unless the filter names zones. */
     @Serializable @SerialName("where") data class Where(val objects: Objects, val filter: ObjectFilter) : Objects
@@ -143,13 +143,13 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("was-cast") data class WasCast(val from: Zone? = null) : ObjectFilter
     /** Its [keyword] optional cost was paid at least [times] ("kicked spells"). */
     @Serializable @SerialName("was-paid") data class WasPaid(
-        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val times: Int = 1,
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val times: Int,
     ) : ObjectFilter
     @Serializable @SerialName("status") data class HasStatus(val status: Status) : ObjectFilter
     /** Its controller hasn't controlled it continuously since their most recent turn began (CR 302.6). */
     @Serializable @SerialName("summoning-sick") data object SummoningSick : ObjectFilter
     /** Has [atLeast] counters of [kind], or of any kind when null ("with a counter on it"). */
-    @Serializable @SerialName("counter") data class HasCounter(val kind: CounterKind?, val atLeast: Int = 1) : ObjectFilter
+    @Serializable @SerialName("counter") data class HasCounter(val kind: CounterKind?, val atLeast: Int) : ObjectFilter
 
     @Serializable @SerialName("power") data class Power(val comparison: Comparison, val value: Value) : ObjectFilter
     @Serializable @SerialName("toughness") data class Toughness(val comparison: Comparison, val value: Value) : ObjectFilter
@@ -248,7 +248,7 @@ sealed interface Players {
     /** In a [TargetSlot.perPlayer] slot's filter: the player this target is for ("target creature that player controls"). */
     @Serializable @SerialName("slot-player") data object SlotPlayer : Players
     /** The player [of] is attached to ("enchanted player", Curses, CR 303.4m). */
-    @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Objects.Self) : Players
+    @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects) : Players
     /** In a static ability's mechanics or condition: each affected player in turn ("Each player can't cast more than one
      * spell each turn"). */
     @Serializable @SerialName("affected") data object Affected : Players

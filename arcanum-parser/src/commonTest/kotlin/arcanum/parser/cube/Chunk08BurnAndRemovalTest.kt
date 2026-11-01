@@ -17,6 +17,7 @@ import arcanum.api.Effect
 import arcanum.api.EventPattern
 import arcanum.api.Instructions
 import arcanum.api.Keyword
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.NumericProperty
 import arcanum.api.ObjectCategory
@@ -24,6 +25,7 @@ import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
+import arcanum.api.RecipientFilter
 import arcanum.api.Recipients
 import arcanum.api.SharedQuality
 import arcanum.api.Step
@@ -55,9 +57,15 @@ class Chunk08BurnAndRemovalTest {
             )),
             players = PlayerFilter.Any,
         ),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
     )
 
-    private fun damageToAnyTarget(amount: Value) = Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = amount))
+    private fun damageToAnyTarget(amount: Value) = Step.Do(Effect.DealDamage(
+        Recipients(target = "any"),
+        amount = amount,
+        source = Objects.Self,
+    ))
 
     /** "[This] deals [amount] damage to any target." */
     private fun burn(amount: Int) = Ability.Spell(Instructions(
@@ -65,7 +73,12 @@ class Chunk08BurnAndRemovalTest {
         steps = listOf(damageToAnyTarget(Value.Fixed(amount))),
     ))
 
-    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(name = name, what = TargetKind.Objects(filter))
+    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(
+        name = name,
+        what = TargetKind.Objects(filter),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
     private val creatureOrPlaneswalker = ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.Type(CardType.Planeswalker)))
     private val nonlandPermanent = listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), ObjectFilter.Category(ObjectCategory.Permanent))
     private val drawACard = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(1)))
@@ -107,7 +120,10 @@ class Chunk08BurnAndRemovalTest {
         """,
     ) parsesTo abilities(
         burn(1),
-        Keyword.Flashback(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Mountain"))))))),
+        Keyword.Flashback(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(
+            ObjectFilter.Sub(Subtype("Mountain")),
+            count = Value.Fixed(1),
+        ))))),
     )
 
     @Test
@@ -125,7 +141,7 @@ class Chunk08BurnAndRemovalTest {
             targets = listOf(anyTarget),
             steps = listOf(
                 Step.If(
-                    condition = Condition.Paid(Keyword.Kicker.Kind),
+                    condition = Condition.Paid(Keyword.Kicker.Kind, times = 1, of = Objects.Self),
                     then = listOf(damageToAnyTarget(Value.Fixed(4))),
                     otherwise = listOf(damageToAnyTarget(Value.Fixed(2))),
                 ),
@@ -185,8 +201,16 @@ class Chunk08BurnAndRemovalTest {
                             comparison = Comparison.AtLeast,
                             right = Value.Fixed(4),
                         ),
-                        then = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("permanent")), amount = Value.Fixed(6)))),
-                        otherwise = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("permanent")), amount = Value.Fixed(2)))),
+                        then = listOf(Step.Do(Effect.DealDamage(
+                            Recipients(objects = Objects.Target("permanent")),
+                            amount = Value.Fixed(6),
+                            source = Objects.Self,
+                        ))),
+                        otherwise = listOf(Step.Do(Effect.DealDamage(
+                            Recipients(objects = Objects.Target("permanent")),
+                            amount = Value.Fixed(2),
+                            source = Objects.Self,
+                        ))),
                     ),
                 ),
             ),
@@ -226,14 +250,18 @@ class Chunk08BurnAndRemovalTest {
         Ability.Spell(Instructions(
             announced = listOf("X"),
             targets = listOf(anyTarget),
-            steps = listOf(damageToAnyTarget(Value.Announced())),
+            steps = listOf(damageToAnyTarget(Value.Announced(name = "X"))),
         )),
         Ability.Static(
             mechanics = listOf(
                 Mechanic.CantBeCountered,
-                Mechanic.DamageCantBePrevented(EventPattern.Damage(source = ObjectFilter.Is(Objects.Self))),
+                Mechanic.DamageCantBePrevented(EventPattern.Damage(
+                    source = ObjectFilter.Is(Objects.Self),
+                    to = RecipientFilter(),
+                )),
             ),
-            condition = Condition.Compare(Value.CastX(), Comparison.AtLeast, Value.Fixed(5)),
+            condition = Condition.Compare(Value.CastX(of = Objects.Self), Comparison.AtLeast, Value.Fixed(5)),
+            affects = Affected.Objects(Objects.Self),
         ),
     )
 
@@ -249,7 +277,7 @@ class Chunk08BurnAndRemovalTest {
             Destroy target nonland permanent with mana value 3 or less.
         """,
     ) parsesTo abilities(
-        Ability.Static(listOf(Mechanic.CantBeCountered)),
+        Ability.Static(listOf(Mechanic.CantBeCountered), affects = Affected.Objects(Objects.Self)),
         Ability.Spell(Instructions(
             targets = listOf(slot("permanent", ObjectFilter.And(nonlandPermanent + ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(3))))),
             steps = listOf(Step.Do(Effect.Destroy(Objects.Target("permanent")))),
@@ -292,11 +320,14 @@ class Chunk08BurnAndRemovalTest {
         Ability.Static(listOf(
             Mechanic.AdditionalCost(cost = Cost(listOf(
                 CostPart.OneOf(listOf(
-                    Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))))),
+                    Cost(listOf(CostPart.Discard(CostObjects.Choose(
+                        ObjectFilter.Category(ObjectCategory.Card),
+                        count = Value.Fixed(1),
+                    )))),
                     Cost(listOf(CostPart.PayLife(Value.Fixed(3)))),
                 )),
             ))),
-        )),
+        ), affects = Affected.Objects(Objects.Self)),
         destroyCreatureOrPlaneswalker,
     )
 
@@ -313,11 +344,17 @@ class Chunk08BurnAndRemovalTest {
         Ability.Static(listOf(
             Mechanic.AdditionalCost(cost = Cost(listOf(
                 CostPart.OneOf(listOf(
-                    Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Creature))))),
-                    Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))))),
+                    Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(
+                        ObjectFilter.Type(CardType.Creature),
+                        count = Value.Fixed(1),
+                    )))),
+                    Cost(listOf(CostPart.Discard(CostObjects.Choose(
+                        ObjectFilter.Category(ObjectCategory.Card),
+                        count = Value.Fixed(1),
+                    )))),
                 )),
             ))),
-        )),
+        ), affects = Affected.Objects(Objects.Self)),
         destroyCreatureOrPlaneswalker,
     )
 
@@ -333,7 +370,14 @@ class Chunk08BurnAndRemovalTest {
     ) parsesTo abilities(
         Ability.Static(
             mechanics = listOf(Mechanic.AlternativeCost(cost = Cost(listOf(CostPart.PayLife(Value.Fixed(4)))))),
-            condition = Condition.Exists(ObjectFilter.And(listOf(ObjectFilter.Sub(Subtype("Swamp")), ObjectFilter.ControlledBy(PlayerFilter.You)))),
+            condition = Condition.Exists(
+                ObjectFilter.And(listOf(
+                    ObjectFilter.Sub(Subtype("Swamp")),
+                    ObjectFilter.ControlledBy(PlayerFilter.You),
+                )),
+                atLeast = 1,
+            ),
+            affects = Affected.Objects(Objects.Self),
         ),
         Ability.Spell(Instructions(
             targets = listOf(slot("creature", ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.OfColor(Color.Black)), ObjectFilter.Type(CardType.Creature))))),
@@ -360,7 +404,7 @@ class Chunk08BurnAndRemovalTest {
                         condition = Condition.HappenedThisTurn(EventPattern.ZoneChange(
                             objects = ObjectFilter.And(listOf(ObjectFilter.Category(ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You))),
                             from = Zone.Battlefield,
-                        )),
+                        ), atLeast = 1, measure = Measure.Events),
                         then = listOf(destroyIfManaValueAtMost(4)),
                         otherwise = listOf(destroyIfManaValueAtMost(2)),
                     ),
@@ -436,6 +480,8 @@ class Chunk08BurnAndRemovalTest {
                             filter = ObjectFilter.And(listOf(ObjectFilter.Super(Supertype.Basic), ObjectFilter.Type(CardType.Land))),
                             bind = "found",
                             searcher = Players.ControllerOf(Objects.Target("creature")),
+                            max = Value.Fixed(1),
+                            zones = listOf(Zone.Library),
                         )),
                         Step.Do(Effect.Move(
                             Objects.Bound("found"),
@@ -464,7 +510,10 @@ class Chunk08BurnAndRemovalTest {
                     Step.If(
                         condition = Condition.ObjectMatches(
                             Objects.Target("permanent"),
-                            ObjectFilter.ManaValue(Comparison.AtMost, Value.ManaSpent(distinctColors = true)),
+                            ObjectFilter.ManaValue(
+                                Comparison.AtMost,
+                                Value.ManaSpent(distinctColors = true, of = Objects.Self),
+                            ),
                         ),
                         then = listOf(Step.Do(Effect.Move(Objects.Target("permanent"), to = Destination(Zone.Exile)))),
                     ),
@@ -487,7 +536,12 @@ class Chunk08BurnAndRemovalTest {
     ) parsesTo abilities(
         Ability.Spell(Instructions(
             announced = listOf("X"),
-            targets = listOf(slot("permanent", ObjectFilter.And(nonlandPermanent + ObjectFilter.ManaValue(Comparison.Equal, Value.Announced())))),
+            targets = listOf(slot(
+                "permanent",
+                ObjectFilter.And(
+                    nonlandPermanent + ObjectFilter.ManaValue(Comparison.Equal, Value.Announced(name = "X")),
+                ),
+            )),
             steps = listOf(
                 Step.Do(Effect.Move(Objects.Target("permanent"), to = Destination(Zone.Hand))),
                 drawACard,
@@ -509,6 +563,7 @@ class Chunk08BurnAndRemovalTest {
                 Step.Choose(
                     choice = Choice.Objects(ObjectFilter.Type(CardType.Land), min = Value.Fixed(0), max = Value.Fixed(2)),
                     bind = "untapped",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Untap(Objects.Bound("untapped"))),
             ),

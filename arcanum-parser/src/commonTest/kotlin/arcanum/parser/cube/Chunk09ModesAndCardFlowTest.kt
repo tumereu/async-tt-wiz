@@ -43,8 +43,18 @@ import kotlin.test.Test
 class Chunk09ModesAndCardFlowTest {
     // ---- Shared shapes
 
-    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(name = name, what = TargetKind.Objects(filter))
-    private val targetPlayer = TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any))
+    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(
+        name = name,
+        what = TargetKind.Objects(filter),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
+    private val targetPlayer = TargetSlot(
+        name = "player",
+        what = TargetKind.Players(PlayerFilter.Any),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
     private val anyTarget = TargetSlot(
         name = "any",
         what = TargetKind.Either(
@@ -55,6 +65,8 @@ class Chunk09ModesAndCardFlowTest {
             )),
             players = PlayerFilter.Any,
         ),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
     )
 
     private fun modal(vararg modes: Instructions, choose: Int = 1, repeatable: Boolean = false) = Ability.Spell(Instructions(
@@ -63,6 +75,7 @@ class Chunk09ModesAndCardFlowTest {
             min = choose,
             max = choose,
             repeatable = repeatable,
+            chooser = Players.You,
         ),
     ))
 
@@ -74,16 +87,28 @@ class Chunk09ModesAndCardFlowTest {
 
     private fun damageToTargetCreature(amount: Int) = Instructions(
         targets = listOf(slot("creature", ObjectFilter.Type(CardType.Creature))),
-        steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("creature")), amount = Value.Fixed(amount)))),
+        steps = listOf(Step.Do(Effect.DealDamage(
+            Recipients(objects = Objects.Target("creature")),
+            amount = Value.Fixed(amount),
+            source = Objects.Self,
+        ))),
     )
 
     private fun damageToAnyTarget(amount: Int) = Instructions(
         targets = listOf(anyTarget),
-        steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(amount)))),
+        steps = listOf(Step.Do(Effect.DealDamage(
+            Recipients(target = "any"),
+            amount = Value.Fixed(amount),
+            source = Objects.Self,
+        ))),
     )
 
     private fun draw(players: Players, n: Int) = Step.Do(Effect.Draw(players, count = Value.Fixed(n)))
-    private fun discard(players: Players, n: Int) = Step.Do(Effect.Discard(players, count = Value.Fixed(n)))
+    private fun discard(players: Players, n: Int) = Step.Do(Effect.Discard(
+        players,
+        count = Value.Fixed(n),
+        filter = ObjectFilter.Any,
+    ))
 
     /** "Each player shuffles their hand and graveyard into their library, then draws seven cards." */
     private val wheel = listOf(
@@ -202,7 +227,11 @@ class Chunk09ModesAndCardFlowTest {
             ),
             Instructions(
                 targets = listOf(targetPlayer),
-                steps = listOf(Step.Do(Effect.CreateToken(TokenSpec.Predefined("Treasure"), controller = Players.Target("player")))),
+                steps = listOf(Step.Do(Effect.CreateToken(
+                    TokenSpec.Predefined("Treasure"),
+                    controller = Players.Target("player"),
+                    count = Value.Fixed(1),
+                ))),
             ),
             destroyArtifact,
             choose = 2,
@@ -223,10 +252,18 @@ class Chunk09ModesAndCardFlowTest {
     ) parsesTo abilities(
         modal(
             Instructions(steps = listOf(
-                Step.Do(Effect.DealDamage(Recipients(objects = Objects.Each(ObjectFilter.Type(CardType.Creature))), amount = Value.Fixed(1))),
+                Step.Do(Effect.DealDamage(
+                    Recipients(objects = Objects.Each(ObjectFilter.Type(CardType.Creature))),
+                    amount = Value.Fixed(1),
+                    source = Objects.Self,
+                )),
             )),
             Instructions(steps = listOf(
-                Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)), amount = Value.Fixed(2))),
+                Step.Do(Effect.DealDamage(
+                    Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                    amount = Value.Fixed(2),
+                    source = Objects.Self,
+                )),
             )),
             destroyArtifact,
             choose = 3,
@@ -296,10 +333,15 @@ class Chunk09ModesAndCardFlowTest {
     ) parsesTo abilities(
         Keyword.Delve,
         Ability.Spell(Instructions(steps = listOf(
-            Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(7)), bind = "seen")),
+            Step.Do(Effect.LookAt(
+                Objects.LibraryCards(Players.You, Value.Fixed(7), fromTop = true),
+                bind = "seen",
+                players = Players.You,
+            )),
             Step.Choose(
                 choice = Choice.Objects(ObjectFilter.Any, min = Value.Fixed(2), max = Value.Fixed(2), from = Objects.Bound("seen")),
                 bind = "kept",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("kept"), to = Destination(Zone.Hand))),
             Step.Do(Effect.Move(
@@ -317,10 +359,15 @@ class Chunk09ModesAndCardFlowTest {
         text = "Look at the top three cards of your library. Put one of them into your hand, put one of them on the bottom of your library, and exile one of them. You may play the exiled card this turn.",
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(
-            Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(3)), bind = "seen")),
+            Step.Do(Effect.LookAt(
+                Objects.LibraryCards(Players.You, Value.Fixed(3), fromTop = true),
+                bind = "seen",
+                players = Players.You,
+            )),
             Step.Choose(
                 choice = Choice.Objects(ObjectFilter.Any, min = Value.Fixed(1), max = Value.Fixed(1), from = Objects.Bound("seen")),
                 bind = "toHand",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("toHand"), to = Destination(Zone.Hand))),
             Step.Choose(
@@ -331,6 +378,7 @@ class Chunk09ModesAndCardFlowTest {
                     from = Objects.Except(Objects.Bound("seen"), Objects.Bound("toHand")),
                 ),
                 bind = "toBottom",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("toBottom"), to = Destination(Zone.Library, libraryPosition = -1))),
             Step.Do(Effect.Move(
@@ -339,7 +387,7 @@ class Chunk09ModesAndCardFlowTest {
                 postBind = "exiled",
             )),
             Step.Do(Effect.ApplyMechanics(
-                mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play)),
+                mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
                 affects = Affected.Objects(Objects.Bound("exiled")),
                 duration = Duration.EndOfTurn,
             )),
@@ -373,6 +421,7 @@ class Chunk09ModesAndCardFlowTest {
             Step.Choose(
                 choice = Choice.Objects(ObjectFilter.Type(CardType.Land), min = Value.Fixed(0), max = Value.Fixed(6)),
                 bind = "untapped",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Untap(Objects.Bound("untapped"))),
         ))),
@@ -428,6 +477,7 @@ class Chunk09ModesAndCardFlowTest {
                     abilities = listOf(Keyword.Flying),
                 )),
                 count = Value.Fixed(2),
+                controller = Players.You,
             )),
         ))),
         Keyword.Flashback(manaCost("{1}{B}")),

@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
@@ -19,6 +20,7 @@ import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.KeywordAction
 import arcanum.api.ManaCost
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.Modification
 import arcanum.api.NumericProperty
@@ -35,6 +37,7 @@ import arcanum.api.Subtype
 import arcanum.api.SubtypeRef
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
 import arcanum.api.Value
@@ -68,7 +71,7 @@ class Chunk46StaticCreaturesTest {
     private fun entersWithCounters(entering: ObjectFilter, amount: Value) = Ability.Static(listOf(Mechanic.Replacement(
         event = EventPattern.ZoneChange(entering, to = Zone.Battlefield),
         modify = listOf(Modification.EntersWithCounters(plusOne, amount)),
-    )))
+    )), affects = Affected.Objects(Objects.Self))
 
     // ---- Lords and counts
 
@@ -88,7 +91,7 @@ class Chunk46StaticCreaturesTest {
             trigger = Trigger.On(EventPattern.Cast(ObjectFilter.Sub(Subtype("Elf")), by = PlayerFilter.You)),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Pay(manaCost("{G}"), bind = "paid"),
+                    Step.Pay(manaCost("{G}"), bind = "paid", payer = Players.You),
                     Step.If(
                         condition = Condition.Did("paid"),
                         then = listOf(Step.Do(Effect.Draw(Players.You, count = Value.Fixed(1)))),
@@ -116,6 +119,7 @@ class Chunk46StaticCreaturesTest {
                 toughness = Value.Count(Objects.Each(all(artifact, youControl))),
             )),
             characteristicDefining = true,
+            affects = Affected.Objects(Objects.Self),
         ),
         othersGetPlusOne(artifact, creature, youControl),
     )
@@ -152,6 +156,7 @@ class Chunk46StaticCreaturesTest {
                 comparison = Comparison.AtLeast,
                 right = Value.Fixed(4),
             ),
+            affects = Affected.Objects(Objects.Self),
         ),
     )
 
@@ -187,9 +192,17 @@ class Chunk46StaticCreaturesTest {
     ) parsesTo abilities(
         Ability.Static(listOf(Mechanic.Replacement(
             event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-            modify = listOf(Modification.AsEnters(listOf(Step.Choose(Choice.CreatureType, bind = "type", remember = true)))),
-        ))),
-        Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(SubtypeRef.Remembered("type"))))),
+            modify = listOf(Modification.AsEnters(listOf(Step.Choose(
+                Choice.CreatureType,
+                bind = "type",
+                remember = true,
+                chooser = Players.You,
+            )))),
+        )), affects = Affected.Objects(Objects.Self)),
+        Ability.Static(
+            listOf(Mechanic.SetTypes(addSubtypes = listOf(SubtypeRef.Remembered("type")))),
+            affects = Affected.Objects(Objects.Self),
+        ),
         entersWithCounters(
             entering = all(another, creature, youControl, ObjectFilter.Sub(SubtypeRef.Remembered("type"))),
             amount = Value.Fixed(1),
@@ -229,7 +242,12 @@ class Chunk46StaticCreaturesTest {
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.BeginningOfCombat, PlayerFilter.You)),
             instructions = Instructions(
-                targets = listOf(TargetSlot("creature", TargetKind.Objects(all(creature, youControl)))),
+                targets = listOf(TargetSlot(
+                    "creature",
+                    TargetKind.Objects(all(creature, youControl)),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
+                )),
                 steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), plusOne, amount = Value.Fixed(1)))),
             ),
         ),
@@ -249,7 +267,7 @@ class Chunk46StaticCreaturesTest {
         Ability.Static(listOf(Mechanic.CostChange(
             what = all(ObjectFilter.Not(artifact), ObjectFilter.Category(ObjectCategory.Spell)),
             change = CostChange.More(ManaCost.parse("{1}")!!, times = Value.Fixed(1)),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
     )
 
     /** Each player in turn: the limit applies to a player once that player has cast a nonartifact spell this turn. */
@@ -264,7 +282,11 @@ class Chunk46StaticCreaturesTest {
         Ability.Static(
             mechanics = listOf(Mechanic.CantCast(ObjectFilter.Not(artifact))),
             affects = Affected.Players(Players.Each(PlayerFilter.Any)),
-            condition = Condition.HappenedThisTurn(EventPattern.Cast(ObjectFilter.Not(artifact), by = PlayerFilter.Is(Players.Affected))),
+            condition = Condition.HappenedThisTurn(
+                EventPattern.Cast(ObjectFilter.Not(artifact), by = PlayerFilter.Is(Players.Affected)),
+                atLeast = 1,
+                measure = Measure.Events,
+            ),
         ),
     )
 
@@ -283,7 +305,8 @@ class Chunk46StaticCreaturesTest {
         Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(
             to = RecipientFilter(objects = all(ObjectFilter.HasStatus(Status.Attacking), artifact, creature, youControl)),
             combat = true,
-        )))),
+            source = ObjectFilter.Any,
+        ))), affects = Affected.Objects(Objects.Self)),
         Ability.Triggered(
             trigger = Trigger.On(
                 events = listOf(EventPattern.ZoneChange(all(artifact, creature, youControl), to = Zone.Battlefield)),
@@ -317,13 +340,14 @@ class Chunk46StaticCreaturesTest {
                     source = ObjectFilter.Is(Objects.Self),
                     to = RecipientFilter(players = PlayerFilter.Any),
                     combat = true,
-                ))))),
+                ))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(Mechanic.CantCast(ObjectFilter.Not(creature))),
                     affects = Affected.Players(Players.Target("player")),
                     duration = Duration.UntilYourNextTurn,
                 ))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

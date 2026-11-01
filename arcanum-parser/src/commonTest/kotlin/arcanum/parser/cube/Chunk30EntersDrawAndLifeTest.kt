@@ -1,6 +1,8 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Condition
 import arcanum.api.Cost
@@ -26,6 +28,7 @@ import arcanum.api.Players
 import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.Supertype
+import arcanum.api.Timing
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
 import arcanum.api.Value
@@ -125,6 +128,7 @@ class Chunk30EntersDrawAndLifeTest {
                 ),
                 atLeast = 3,
             ),
+            affects = Affected.Objects(Objects.Self),
         ),
     )
 
@@ -211,7 +215,7 @@ class Chunk30EntersDrawAndLifeTest {
             functionsIn = listOf(Zone.Graveyard),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Pay(cost = Cost(listOf(CostPart.PayLife(Value.Fixed(1)))), bind = "paid"),
+                    Step.Pay(cost = Cost(listOf(CostPart.PayLife(Value.Fixed(1)))), bind = "paid", payer = Players.You),
                     Step.If(
                         condition = Condition.Did("paid"),
                         then = listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Hand)))),
@@ -229,7 +233,7 @@ class Chunk30EntersDrawAndLifeTest {
         pt = "1/2",
         text = """When this creature enters, investigate. (Create a Clue token. It's an artifact with "{2}, Sacrifice this token: Draw a card.")""",
     ) parsesTo abilities(
-        whenThisEnters(Step.Do(Effect.Action(KeywordAction.Investigate()))),
+        whenThisEnters(Step.Do(Effect.Action(KeywordAction.Investigate(count = Value.Fixed(1))))),
     )
 
     // ---- Discard
@@ -247,7 +251,11 @@ class Chunk30EntersDrawAndLifeTest {
         """,
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Pay(cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(aCard)))), bind = "paid"),
+            Step.Pay(
+                cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(aCard, count = Value.Fixed(1))))),
+                bind = "paid",
+                payer = Players.You,
+            ),
             Step.If(condition = Condition.Did("paid"), then = listOf(drawCards(1))),
         ),
         Keyword.Unearth(manaCost("{1}{R}")),
@@ -267,7 +275,12 @@ class Chunk30EntersDrawAndLifeTest {
         """,
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Do(Effect.Discard(Players.You, objects = Objects.Each(allOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))))),
+            Step.Do(Effect.Discard(
+                Players.You,
+                objects = Objects.Each(allOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))),
+                count = Value.Fixed(1),
+                filter = ObjectFilter.Any,
+            )),
             drawCards(3),
         ),
         Keyword.Escape(Cost(listOf(
@@ -282,7 +295,8 @@ class Chunk30EntersDrawAndLifeTest {
                 event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
             )),
-            condition = Condition.Paid(Keyword.Escape.Kind),
+            condition = Condition.Paid(Keyword.Escape.Kind, times = 1, of = Objects.Self),
+            affects = Affected.Objects(Objects.Self),
         ),
     )
 
@@ -308,7 +322,7 @@ class Chunk30EntersDrawAndLifeTest {
                 together = true,
                 steps = listOf(
                     Step.Pay(
-                        cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(aCard)))),
+                        cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(aCard, count = Value.Fixed(1))))),
                         payer = Players.Bound("opponent"),
                         mandatory = true,
                         bind = "discarded",
@@ -330,7 +344,11 @@ class Chunk30EntersDrawAndLifeTest {
             Unearth {1}{B} ({1}{B}: Return this card from your graveyard to the battlefield. It gains haste. Exile it at the beginning of the next end step or if it would leave the battlefield. Unearth only as a sorcery.)
         """,
     ) parsesTo abilities(
-        whenThisEnters(Step.Do(Effect.Discard(Players.Each(PlayerFilter.Any), count = Value.Fixed(1)))),
+        whenThisEnters(Step.Do(Effect.Discard(
+            Players.Each(PlayerFilter.Any),
+            count = Value.Fixed(1),
+            filter = ObjectFilter.Any,
+        ))),
         Keyword.Unearth(manaCost("{1}{B}")),
     )
 
@@ -367,8 +385,12 @@ class Chunk30EntersDrawAndLifeTest {
             Step.Do(Effect.GainLife(Players.You, Value.Fixed(1))),
         ),
         Ability.Activated(
-            cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Food")))))),
+            cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(
+                ObjectFilter.Sub(Subtype("Food")),
+                count = Value.Fixed(1),
+            )))),
             instructions = Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Battlefield), postBind = "returned")))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

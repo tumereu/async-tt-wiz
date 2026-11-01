@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
@@ -21,6 +22,7 @@ import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.ManaCost
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.Modification
 import arcanum.api.NumericProperty
@@ -37,6 +39,7 @@ import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
@@ -90,11 +93,16 @@ class Chunk36AttackAndCombatDamageTest {
         """,
         pt = "3/3",
     ) parsesTo abilities(
-        Ability.Static(listOf(Mechanic.MustAttack())),
+        Ability.Static(listOf(Mechanic.MustAttack()), affects = Affected.Objects(Objects.Self)),
         Ability.Triggered(
             trigger = thisAttacks,
             instructions = steps(
-                Step.Do(Effect.Discard(Players.You, objects = Objects.Each(yourHand))),
+                Step.Do(Effect.Discard(
+                    Players.You,
+                    objects = Objects.Each(yourHand),
+                    count = Value.Fixed(1),
+                    filter = ObjectFilter.Any,
+                )),
                 draw(3),
             ),
         ),
@@ -119,7 +127,7 @@ class Chunk36AttackAndCombatDamageTest {
             trigger = thisAttacks,
             instructions = steps(
                 Step.Do(Effect.Move(
-                    Objects.LibraryCards(Players.You, Value.Fixed(1)),
+                    Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
                     to = Destination(Zone.Exile, faceDown = true),
                     postBind = "exiled",
                 )),
@@ -133,6 +141,7 @@ class Chunk36AttackAndCombatDamageTest {
                 CostPart.Sacrifice(CostObjects.Self),
             )),
             instructions = steps(Step.Do(Effect.Move(Objects.Remembered("exiled"), to = Destination(Zone.Hand)))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -155,9 +164,13 @@ class Chunk36AttackAndCombatDamageTest {
                 Step.Pay(
                     Cost(listOf(
                         CostPart.Mana(ManaCost.parse("{1}")!!),
-                        CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))),
+                        CostPart.Discard(CostObjects.Choose(
+                            ObjectFilter.Category(ObjectCategory.Card),
+                            count = Value.Fixed(1),
+                        )),
                     )),
                     bind = "paid",
+                    payer = Players.You,
                 ),
                 Step.If(condition = Condition.Did("paid"), then = listOf(draw())),
             ),
@@ -167,16 +180,20 @@ class Chunk36AttackAndCombatDamageTest {
             instructions = steps(
                 Step.Pay(
                     Cost(listOf(CostPart.Exile(
-                        CostObjects.Choose(ObjectFilter.Is(Objects.EventObject(EventRole.After))),
+                        CostObjects.Choose(
+                            ObjectFilter.Is(Objects.EventObject(EventRole.After)),
+                            count = Value.Fixed(1),
+                        ),
                         from = Zone.Graveyard,
                         postBind = "exiled",
                     ))),
                     bind = "paid",
+                    payer = Players.You,
                 ),
                 Step.If(
                     condition = Condition.Did("paid"),
                     then = listOf(Step.Do(Effect.ApplyMechanics(
-                        mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast)),
+                        mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, holder = PlayerFilter.You)),
                         affects = Affected.Objects(Objects.Bound("exiled")),
                         duration = Duration.EndOfTurn,
                     ))),
@@ -207,9 +224,18 @@ class Chunk36AttackAndCombatDamageTest {
                     ObjectFilter.ManaValue(Comparison.AtMost, Value.Of(NumericProperty.Power, Objects.Self, Combine.Single)),
                     ObjectFilter.InZone(Zone.Graveyard),
                     ObjectFilter.OwnedBy(PlayerFilter.You),
-                ))))),
+                ))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(
-                    Step.May(listOf(Step.Do(Effect.Cast(Objects.Target("card"), withoutPaying = true, bind = "spell")))),
+                    Step.May(
+                        listOf(Step.Do(Effect.Cast(
+                            Objects.Target("card"),
+                            withoutPaying = true,
+                            bind = "spell",
+                            how = PlayKind.Cast,
+                            caster = Players.You,
+                        ))),
+                        player = Players.You,
+                    ),
                     Step.Do(Effect.ApplyMechanics(
                         mechanics = listOf(Mechanic.Replacement(
                             event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound("spell")), from = Zone.Stack, to = Zone.Graveyard),
@@ -245,6 +271,7 @@ class Chunk36AttackAndCombatDamageTest {
                 Step.Choose(
                     choice = Choice.Objects(ObjectFilter.Type(CardType.Land), min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound("milled")),
                     bind = "chosen",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Hand))),
             ),
@@ -287,11 +314,12 @@ class Chunk36AttackAndCombatDamageTest {
                         ObjectFilter.Category(ObjectCategory.Permanent),
                     ))),
                     min = Value.Fixed(0),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(
                     Step.Do(Effect.Move(Objects.Target("permanent"), to = Destination(Zone.Exile), postBind = "exiled")),
                     Step.Do(Effect.CreateDelayedTrigger(
-                        trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End)),
+                        trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.Any)),
                         instructions = steps(
                             Step.Do(Effect.Move(
                                 Objects.Bound("exiled"),
@@ -337,6 +365,7 @@ class Chunk36AttackAndCombatDamageTest {
                         max = Value.Fixed(1),
                     ),
                     bind = "sacrificed",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))),
             ),
@@ -370,7 +399,7 @@ class Chunk36AttackAndCombatDamageTest {
                 power = PrintedNumber.Fixed(1),
                 toughness = PrintedNumber.Fixed(1),
                 abilities = listOf(Keyword.Training),
-            ))))),
+            )), count = Value.Fixed(1), controller = Players.You))),
         ),
     )
 
@@ -392,7 +421,7 @@ class Chunk36AttackAndCombatDamageTest {
         Ability.Static(listOf(Mechanic.CanBeBlockedOnlyBy(ObjectFilter.And(listOf(
             creature,
             ObjectFilter.Or(listOf(ObjectFilter.HasKeyword(Keyword.Flying), ObjectFilter.HasKeyword(Keyword.Reach))),
-        ))))),
+        )))), affects = Affected.Objects(Objects.Self)),
     )
 
     // ---- Combat damage to a player
@@ -411,7 +440,7 @@ class Chunk36AttackAndCombatDamageTest {
         Keyword.Ninjutsu(manaCost("{1}{U}")),
         Ability.Triggered(
             trigger = dealsCombatDamageToAPlayer(self),
-            instructions = steps(Step.May(listOf(draw()))),
+            instructions = steps(Step.May(listOf(draw()), player = Players.You)),
         ),
     )
 
@@ -450,15 +479,22 @@ class Chunk36AttackAndCombatDamageTest {
         Ability.Triggered(
             trigger = dealsCombatDamageToAPlayer(self),
             instructions = steps(
-                Step.Pay(steps = listOf(draw()), bind = "paid"),
+                Step.Pay(steps = listOf(draw()), bind = "paid", payer = Players.You),
                 Step.If(
                     condition = Condition.Did("paid"),
                     then = listOf(Step.If(
                         condition = Condition.Not(Condition.ObjectMatches(
                             Objects.Self,
-                            ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield)),
+                            ObjectFilter.ThisTurn(EventPattern.ZoneChange(
+                                to = Zone.Battlefield,
+                                objects = ObjectFilter.Any,
+                            )),
                         )),
-                        then = listOf(Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1)))),
+                        then = listOf(Step.Do(Effect.Discard(
+                            Players.You,
+                            count = Value.Fixed(1),
+                            filter = ObjectFilter.Any,
+                        ))),
                     )),
                 ),
             ),
@@ -482,7 +518,10 @@ class Chunk36AttackAndCombatDamageTest {
         Ability.Triggered(
             trigger = dealsCombatDamageToAPlayer(ninjaYouControl),
             instructions = steps(
-                Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(1)), bind = "revealed")),
+                Step.Do(Effect.Reveal(
+                    Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
+                    bind = "revealed",
+                )),
                 Step.Do(Effect.Move(Objects.Bound("revealed"), to = Destination(Zone.Hand))),
                 Step.Do(Effect.LoseLife(
                     Players.Each(PlayerFilter.Opponent),
@@ -511,14 +550,15 @@ class Chunk36AttackAndCombatDamageTest {
             instructions = steps(putCounterOnSelf),
         ),
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End)),
+            trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.Any)),
             interveningIf = Condition.HappenedThisTurn(EventPattern.ZoneChange(
                 objects = ObjectFilter.And(listOf(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.OwnedBy(PlayerFilter.You))),
                 from = Zone.Graveyard,
-            )),
+            ), atLeast = 1, measure = Measure.Events),
             instructions = steps(Step.Do(Effect.DealDamage(
                 to = Recipients(players = Players.Each(PlayerFilter.Opponent)),
                 amount = Value.Of(NumericProperty.Power, Objects.Self, Combine.Single),
+                source = Objects.Self,
             ))),
         ),
     )

@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 sealed interface Value {
     @Serializable @SerialName("fixed") data class Fixed(val value: Int) : Value
     /** A value announced when cast or activated ([Instructions.announced]), usually "X". */
-    @Serializable @SerialName("announced") data class Announced(val name: String = "X") : Value
+    @Serializable @SerialName("announced") data class Announced(val name: String) : Value
     /** A number named by an earlier step of this resolution (the amount a damage or life effect actually dealt, gained
      * or lost, the number chosen). Card memory is [Remembered]. */
     @Serializable @SerialName("bound") data class Bound(val name: String) : Value
@@ -16,9 +16,9 @@ sealed interface Value {
     /** The value of X chosen when [of] was cast, for any of its costs (mana, kicker, flashback, …): read by the
      * permanent's enters triggers and replacements and by the spell's own static abilities (CR 107.3a, 107.3m). Inside
      * the spell's instructions, X is [Announced]. */
-    @Serializable @SerialName("cast-x") data class CastX(val of: Objects = Objects.Self) : Value
+    @Serializable @SerialName("cast-x") data class CastX(val of: Objects) : Value
     /** Spells cast this turn before [of] (storm, CR 702.40a); spells cast in response to the storm trigger don't count. */
-    @Serializable @SerialName("spells-cast-before") data class SpellsCastBefore(val of: Objects = Objects.Self) : Value
+    @Serializable @SerialName("spells-cast-before") data class SpellsCastBefore(val of: Objects) : Value
     /** How many modes were chosen for the spell or ability (escalate counts those beyond the first, CR 702.120a). */
     @Serializable @SerialName("modes-chosen") data object ModesChosen : Value
     /** The amount the triggering or replaced event was about ("that much damage", "that much life"); in a batch
@@ -36,20 +36,20 @@ sealed interface Value {
     @Serializable @SerialName("life") data class LifeOf(val players: Players) : Value
     @Serializable @SerialName("hand-size") data class HandSize(val players: Players) : Value
     /** Devotion to [colors] (CR 700.5). */
-    @Serializable @SerialName("devotion") data class Devotion(val colors: List<Color>, val players: Players = Players.You) : Value
+    @Serializable @SerialName("devotion") data class Devotion(val colors: List<Color>, val players: Players) : Value
     /** How many times [event] happened this turn ("the number of creatures that died this turn"). */
-    @Serializable @SerialName("events-this-turn") data class EventsThisTurn(val event: EventPattern, val measure: Measure = Measure.Events) : Value
+    @Serializable @SerialName("events-this-turn") data class EventsThisTurn(val event: EventPattern, val measure: Measure) : Value
     /** [players]'s starting life total (CR 103.4). */
-    @Serializable @SerialName("starting-life") data class StartingLife(val players: Players = Players.You) : Value
-    /** Mana spent to cast [of] (this object by default; "that spell" in a cast trigger): all of it, only mana of [color]
+    @Serializable @SerialName("starting-life") data class StartingLife(val players: Players) : Value
+    /** Mana spent to cast [of] (this object, or "that spell" in a cast trigger): all of it, only mana of [color]
      * ("if at least three white mana was spent"), or the number of colours ([distinctColors]). A permanent keeps this
      * from the spell it was (CR 400.7d). */
     @Serializable @SerialName("mana-spent") data class ManaSpent(
-        val color: Color? = null, val distinctColors: Boolean = false, val of: Objects = Objects.Self,
+        val color: Color? = null, val distinctColors: Boolean = false, val of: Objects,
     ) : Value
     /** How many times [keyword]'s optional cost was paid for [of] ("for each time it was kicked", CR 702.33d–f). */
     @Serializable @SerialName("times-paid") data class TimesPaid(
-        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val of: Objects = Objects.Self,
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val of: Objects,
     ) : Value
     /** How many times this ability has been activated ([resolved] false) or has resolved this turn ("If this ability has
      * been activated four or more times this turn"). */
@@ -114,12 +114,12 @@ sealed interface Condition {
     /** At least [atLeast] objects match ("if you control an artifact"). */
     /** At least [atLeast] objects match ("if you control three or more artifacts"); not written as a count compared
      * with a fixed number. */
-    @Serializable @SerialName("exists") data class Exists(val filter: ObjectFilter, val atLeast: Int = 1) : Condition
+    @Serializable @SerialName("exists") data class Exists(val filter: ObjectFilter, val atLeast: Int) : Condition
     /** Every one of [players] matches [filter]. */
     @Serializable @SerialName("player-is") data class PlayerMatches(val players: Players, val filter: PlayerFilter) : Condition
     /** At least [atLeast] players match [filter] ("if an opponent controls four or more lands": players who are an
      * opponent and [PlayerFilter.Where] that player controls four or more lands; every player = none fails). */
-    @Serializable @SerialName("player-exists") data class PlayerExists(val filter: PlayerFilter, val atLeast: Int = 1) : Condition
+    @Serializable @SerialName("player-exists") data class PlayerExists(val filter: PlayerFilter, val atLeast: Int) : Condition
     /** Every one of [objects] matches [filter]; false when there are none ("if an artifact was destroyed this way"). */
     @Serializable @SerialName("object-is") data class ObjectMatches(val objects: Objects, val filter: ObjectFilter) : Condition
     @Serializable @SerialName("your-turn") data object YourTurn : Condition
@@ -137,18 +137,18 @@ sealed interface Condition {
      * additional cost written without a keyword ("if this spell's additional cost was paid"). */
     @Serializable @SerialName("paid") data class Paid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
-        val times: Int = 1,
+        val times: Int,
         /** Which of the keyword's costs ("kicked with its {1}{G} kicker", CR 702.33f): index into [Keyword.Kicker.costs]. */
         val costIndex: Int? = null,
-        val of: Objects = Objects.Self,
+        val of: Objects,
     ) : Condition
     /** [of] was cast from [zone], or cast at all (null): "if you cast it from your hand", "if you cast it from a
      * graveyard" about another creature. */
-    @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects = Objects.Self) : Condition
+    @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?, val of: Objects) : Condition
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(
-        val event: EventPattern, val atLeast: Int = 1, val measure: Measure = Measure.Events,
+        val event: EventPattern, val atLeast: Int, val measure: Measure,
     ) : Condition
     /** The objects named [name] by an effect are not empty ("if a creature died this way"). */
     @Serializable @SerialName("non-empty") data class NonEmpty(val name: String) : Condition
@@ -183,11 +183,11 @@ sealed interface Duration {
     /** "until the end of your next turn" */
     @Serializable @SerialName("end-of-your-next-turn") data object UntilEndOfYourNextTurn : Duration
     /** "until your next upkeep", "until the beginning of the next end step" */
-    @Serializable @SerialName("until-step") data class UntilStep(val step: TurnStep, val whose: PlayerFilter = PlayerFilter.Any) : Duration
+    @Serializable @SerialName("until-step") data class UntilStep(val step: TurnStep, val whose: PlayerFilter) : Duration
     /** "for as long as …" ("for as long as you control ~", "for as long as ~ remains tapped"). */
     @Serializable @SerialName("as-long-as") data class AsLongAs(val condition: Condition) : Duration
     /** "until ~ leaves the battlefield" (CR 610.3). */
-    @Serializable @SerialName("until-leaves") data class UntilLeaves(val objects: Objects = Objects.Self) : Duration
+    @Serializable @SerialName("until-leaves") data class UntilLeaves(val objects: Objects) : Duration
     /** No end ("gains control of target creature"). */
     @Serializable @SerialName("indefinitely") data object Indefinitely : Duration
 }

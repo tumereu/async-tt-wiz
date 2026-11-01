@@ -1,6 +1,8 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
 import arcanum.api.Combine
@@ -34,6 +36,7 @@ import arcanum.api.Subtype
 import arcanum.api.Supertype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -86,8 +89,8 @@ class Chunk35DeathTriggersTest {
     /** "This creature enters with X +1/+1 counters on it.": X is the X its spell was cast with (CR 107.3m). */
     private val entersWithXCounters = Ability.Static(listOf(Mechanic.Replacement(
         event = EventPattern.ZoneChange(self, to = Zone.Battlefield),
-        modify = listOf(Modification.EntersWithCounters(plusOne, Value.CastX())),
-    )))
+        modify = listOf(Modification.EntersWithCounters(plusOne, Value.CastX(of = Objects.Self))),
+    )), affects = Affected.Objects(Objects.Self))
 
     /** A card in your graveyard. "Another": not the card this creature became as it died (a new object, CR 400.7). */
     private fun cardInYourGraveyard(vararg kind: ObjectFilter, another: Boolean = false) = ObjectFilter.And(
@@ -99,7 +102,12 @@ class Chunk35DeathTriggersTest {
     private val returnAnotherArtifactCard = Ability.Triggered(
         trigger = thisDies,
         instructions = Instructions(
-            targets = listOf(TargetSlot("card", TargetKind.Objects(cardInYourGraveyard(artifact, another = true)))),
+            targets = listOf(TargetSlot(
+                "card",
+                TargetKind.Objects(cardInYourGraveyard(artifact, another = true)),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
             steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Hand)))),
         ),
     )
@@ -115,6 +123,8 @@ class Chunk35DeathTriggersTest {
             )),
             players = PlayerFilter.Any,
         ),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
     )
 
     /** A token described by its characteristics (CR 111.4). */
@@ -142,7 +152,12 @@ class Chunk35DeathTriggersTest {
         Ability.Triggered(
             trigger = dies(selfOrAnother(creature)),
             instructions = Instructions(
-                targets = listOf(TargetSlot("player", TargetKind.Players(PlayerFilter.Any))),
+                targets = listOf(TargetSlot(
+                    "player",
+                    TargetKind.Players(PlayerFilter.Any),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
+                )),
                 steps = listOf(
                     Step.Do(Effect.LoseLife(Players.Target("player"), Value.Fixed(1))),
                     Step.Do(Effect.GainLife(Players.You, Value.Fixed(1))),
@@ -210,7 +225,11 @@ class Chunk35DeathTriggersTest {
         Ability.Triggered(
             trigger = dies(ObjectFilter.And(listOf(nontoken, creature, yours))),
             instructions = steps(
-                Step.Do(Effect.DealDamage(Recipients(players = Players.You), amount = Value.Fixed(1))),
+                Step.Do(Effect.DealDamage(
+                    Recipients(players = Players.You),
+                    amount = Value.Fixed(1),
+                    source = Objects.Self,
+                )),
                 draw(),
             ),
         ),
@@ -228,7 +247,11 @@ class Chunk35DeathTriggersTest {
     ) parsesTo abilities(
         Ability.Triggered(
             trigger = dies(selfOrAnother(nontoken, zombieType, yours)),
-            instructions = steps(Step.Do(Effect.CreateToken(token("Zombie", listOf(Color.Black), 2, 2, CardType.Creature)))),
+            instructions = steps(Step.Do(Effect.CreateToken(
+                token("Zombie", listOf(Color.Black), 2, 2, CardType.Creature),
+                count = Value.Fixed(1),
+                controller = Players.You,
+            ))),
         ),
     )
 
@@ -246,8 +269,12 @@ class Chunk35DeathTriggersTest {
         pt = "*/3",
     ) parsesTo abilities(
         Ability.Static(
-            mechanics = listOf(Mechanic.SetPowerToughness(power = Value.Devotion(listOf(Color.Red)), toughness = null)),
+            mechanics = listOf(Mechanic.SetPowerToughness(
+                power = Value.Devotion(listOf(Color.Red), players = Players.You),
+                toughness = null,
+            )),
             characteristicDefining = true,
+            affects = Affected.Objects(Objects.Self),
         ),
         Ability.Triggered(
             trigger = dies(selfOrAnother(nontoken, creature, yours)),
@@ -256,14 +283,21 @@ class Chunk35DeathTriggersTest {
                     Objects.EventObject(EventRole.Before),
                     ObjectFilter.Power(Comparison.AtLeast, Value.Fixed(4)),
                 ),
-                then = listOf(Step.Do(Effect.CreateToken(satyr, count = Value.Fixed(2)))),
-                otherwise = listOf(Step.Do(Effect.CreateToken(satyr))),
+                then = listOf(Step.Do(Effect.CreateToken(satyr, count = Value.Fixed(2), controller = Players.You))),
+                otherwise = listOf(Step.Do(Effect.CreateToken(
+                    satyr,
+                    count = Value.Fixed(1),
+                    controller = Players.You,
+                ))),
             )),
         ),
     )
 
     private val satyr = token("Satyr", listOf(Color.Red), 1, 1, CardType.Creature,
-        abilities = listOf(Ability.Static(listOf(Mechanic.CantBlock()))))
+        abilities = listOf(Ability.Static(
+            listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any)),
+            affects = Affected.Objects(Objects.Self),
+        )))
 
     /** The tokens are counted from the counters it had as it last existed (CR 113.7a). */
     @Test
@@ -284,11 +318,13 @@ class Chunk35DeathTriggersTest {
             instructions = steps(Step.Do(Effect.CreateToken(
                 token("Thopter", emptyList(), 1, 1, CardType.Artifact, CardType.Creature, abilities = listOf(Keyword.Flying)),
                 count = ofSelf(NumericProperty.Counters(plusOne)),
+                controller = Players.You,
             ))),
         ),
         Ability.Activated(
             cost = Cost(listOf(CostPart.Mana(ManaCost.parse("{1}")!!), CostPart.TapSelf)),
             instructions = steps(putCounterOnSelf),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -306,6 +342,7 @@ class Chunk35DeathTriggersTest {
                 token("Squirrel", listOf(Color.Green), 1, 1, CardType.Creature),
                 count = ofSelf(NumericProperty.Power),
                 tapped = true,
+                controller = Players.You,
             ))),
         ),
     )
@@ -324,8 +361,9 @@ class Chunk35DeathTriggersTest {
         pt = "0/0",
     ) parsesTo abilities(
         Ability.Activated(
-            cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(artifact)))),
+            cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(artifact, count = Value.Fixed(1))))),
             instructions = steps(putCounterOnSelf),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Keyword.Modular(1),
     )
@@ -346,6 +384,7 @@ class Chunk35DeathTriggersTest {
         Ability.Activated(
             cost = manaCost("{4}"),
             instructions = steps(putCounterOnSelf),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Ability.Triggered(
             trigger = thisDies,
@@ -374,7 +413,11 @@ class Chunk35DeathTriggersTest {
             trigger = thisDies,
             instructions = Instructions(
                 targets = listOf(anyTarget),
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = ofSelf(NumericProperty.Power)))),
+                steps = listOf(Step.Do(Effect.DealDamage(
+                    Recipients(target = "any"),
+                    amount = ofSelf(NumericProperty.Power),
+                    source = Objects.Self,
+                ))),
             ),
         ),
     )
@@ -391,7 +434,11 @@ class Chunk35DeathTriggersTest {
             trigger = thisDies,
             instructions = Instructions(
                 targets = listOf(anyTarget),
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(2)))),
+                steps = listOf(Step.Do(Effect.DealDamage(
+                    Recipients(target = "any"),
+                    amount = Value.Fixed(2),
+                    source = Objects.Self,
+                ))),
             ),
         ),
     )
@@ -456,7 +503,7 @@ class Chunk35DeathTriggersTest {
                     ObjectFilter.InZone(Zone.Graveyard),
                     ObjectFilter.OwnedBy(PlayerFilter.You),
                     ObjectFilter.ManaValue(Comparison.Less, Value.Of(NumericProperty.ManaValue, Objects.EventObject(EventRole.Before), Combine.Single)),
-                ))))),
+                ))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Hand)))),
             ),
         ),
@@ -480,7 +527,7 @@ class Chunk35DeathTriggersTest {
         Ability.Triggered(
             trigger = thisDies,
             instructions = steps(
-                Step.Pay(manaCost("{B}"), bind = "paid"),
+                Step.Pay(manaCost("{B}"), bind = "paid", payer = Players.You),
                 Step.If(
                     condition = Condition.Did("paid"),
                     then = listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), to = Destination(Zone.Hand)))),
@@ -490,7 +537,12 @@ class Chunk35DeathTriggersTest {
         Ability.Triggered(
             trigger = thisDies,
             instructions = Instructions(
-                targets = listOf(TargetSlot("card", TargetKind.Objects(cardInYourGraveyard(zombieType, creature, another = true)))),
+                targets = listOf(TargetSlot(
+                    "card",
+                    TargetKind.Objects(cardInYourGraveyard(zombieType, creature, another = true)),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
+                )),
                 steps = listOf(
                     Step.Pay(
                         Cost(listOf(CostPart.Mana(
@@ -498,6 +550,7 @@ class Chunk35DeathTriggersTest {
                             x = Value.Of(NumericProperty.ManaValue, Objects.Target("card"), Combine.Single),
                         ))),
                         bind = "paid",
+                        payer = Players.You,
                     ),
                     Step.If(
                         condition = Condition.Did("paid"),
@@ -523,12 +576,24 @@ class Chunk35DeathTriggersTest {
     ) parsesTo abilities(
         Keyword.Modular(2),
         Ability.Activated(
-            cost = Cost(listOf(CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Choose(artifact)))),
+            cost = Cost(listOf(
+                CostPart.TapSelf,
+                CostPart.Sacrifice(CostObjects.Choose(artifact, count = Value.Fixed(1))),
+            )),
             instructions = steps(
-                Step.Do(Effect.Search(Players.You, ObjectFilter.Sub(Subtype("Construct")), reveal = true, bind = "found")),
+                Step.Do(Effect.Search(
+                    Players.You,
+                    ObjectFilter.Sub(Subtype("Construct")),
+                    reveal = true,
+                    bind = "found",
+                    max = Value.Fixed(1),
+                    zones = listOf(Zone.Library),
+                    searcher = Players.You,
+                )),
                 Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Hand))),
                 Step.Do(Effect.Shuffle(Players.You)),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -556,6 +621,7 @@ class Chunk35DeathTriggersTest {
                             max = Value.Fixed(2),
                             bind = "found",
                             searcher = Players.Bound("player"),
+                            zones = listOf(Zone.Library),
                         )),
                         Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
                         Step.Do(Effect.Shuffle(Players.Bound("player"))),

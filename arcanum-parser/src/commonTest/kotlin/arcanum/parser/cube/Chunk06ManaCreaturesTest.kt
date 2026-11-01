@@ -38,7 +38,7 @@ import kotlin.test.Test
 class Chunk06ManaCreaturesTest {
     // ---- Shared shapes
 
-    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind)))
+    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind), players = Players.You))
     private fun fixed(mana: String) = ManaKind.Fixed(ManaCost.parse(mana)!!)
     private fun oneOf(vararg colors: Color) = ManaKind.Choose(amount = Value.Fixed(1), colors = colors.map { ColorRef.Literal(it) })
 
@@ -48,6 +48,7 @@ class Chunk06ManaCreaturesTest {
         instructions = Instructions(
             steps = listOf(add(kind)),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "{T}: Add {[mana]} for each [what]." */
@@ -134,9 +135,14 @@ class Chunk06ManaCreaturesTest {
             instructions = Instructions(
                 steps = listOf(
                     add(fixed("{B}")),
-                    Step.Do(Effect.DealDamage(Recipients(players = Players.You), amount = Value.Fixed(1))),
+                    Step.Do(Effect.DealDamage(
+                        Recipients(players = Players.You),
+                        amount = Value.Fixed(1),
+                        source = Objects.Self,
+                    )),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -173,10 +179,15 @@ class Chunk06ManaCreaturesTest {
     ) parsesTo abilities(
         tapFor(fixed("{G}")),
         Ability.Activated(
-            cost = Cost(listOf(CostPart.PutCounters(CounterKind.PowerToughness(-1, -1), amount = Value.Fixed(1)))),
+            cost = Cost(listOf(CostPart.PutCounters(
+                CounterKind.PowerToughness(-1, -1),
+                amount = Value.Fixed(1),
+                on = CostObjects.Self,
+            ))),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.Untap(Objects.Self))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -259,7 +270,7 @@ class Chunk06ManaCreaturesTest {
                 ))))),
                 CostPart.Sacrifice(CostObjects.Self),
             )),
-            rules = ActivationRules(timing = Timing.Instant),
+            rules = ActivationRules(timing = Timing.Instant, activatedBy = PlayerFilter.You),
             instructions = Instructions(
                 steps = listOf(add(anyOneColor(3))),
             ),
@@ -342,6 +353,7 @@ class Chunk06ManaCreaturesTest {
             instructions = Instructions(
                 steps = listOf(add(anyOneColor(1))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Keyword.Morph(manaCost("{G}")),
     )
@@ -359,6 +371,7 @@ class Chunk06ManaCreaturesTest {
             instructions = Instructions(
                 steps = listOf(add(fixed("{G}{G}{G}"))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

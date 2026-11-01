@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
@@ -24,11 +25,13 @@ import arcanum.api.Modification
 import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
+import arcanum.api.PlayKind
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.Step
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.Trigger
 import arcanum.api.Value
 import arcanum.api.Zone
@@ -50,6 +53,7 @@ class Chunk31EntersLibraryAndGraveyardTest {
     private fun upToOneFromAmong(filter: ObjectFilter, seen: String, bind: String) = Step.Choose(
         choice = Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)),
         bind = bind,
+        chooser = Players.You,
     )
 
     private val theRest = Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen"))
@@ -76,6 +80,7 @@ class Chunk31EntersLibraryAndGraveyardTest {
                     to = Destination(Zone.Battlefield, tapped = true),
                 ))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -118,6 +123,7 @@ class Chunk31EntersLibraryAndGraveyardTest {
                     Step.Pay(
                         cost = Cost(listOf(CostPart.Exile(CostObjects.These(Objects.EventObject(EventRole.After)), from = Zone.Graveyard))),
                         bind = "paid",
+                        payer = Players.You,
                     ),
                     Step.If(
                         condition = Condition.Did("paid"),
@@ -151,11 +157,16 @@ class Chunk31EntersLibraryAndGraveyardTest {
             instructions = Instructions(
                 targets = listOf(objectSlot("card", ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Artifact)) + inYourGraveyard))),
                 steps = listOf(Step.Do(Effect.ApplyMechanics(
-                    mechanics = listOf(Mechanic.MayPlay(from = Zone.Graveyard)),
+                    mechanics = listOf(Mechanic.MayPlay(
+                        from = Zone.Graveyard,
+                        how = PlayKind.Cast,
+                        holder = PlayerFilter.You,
+                    )),
                     affects = Affected.Objects(Objects.Target("card")),
                     duration = Duration.EndOfTurn,
                 ))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -170,7 +181,10 @@ class Chunk31EntersLibraryAndGraveyardTest {
         text = "When this creature enters, reveal the top card of your library. If it's a land card, put it onto the battlefield. Otherwise, put that card into your hand.",
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(1)), bind = "revealed")),
+            Step.Do(Effect.Reveal(
+                Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
+                bind = "revealed",
+            )),
             Step.If(
                 condition = Condition.ObjectMatches(Objects.Bound("revealed"), ObjectFilter.Type(CardType.Land)),
                 then = listOf(Step.Do(Effect.Move(Objects.Bound("revealed"), to = Destination(Zone.Battlefield)))),
@@ -192,7 +206,11 @@ class Chunk31EntersLibraryAndGraveyardTest {
         """,
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(4)), bind = "seen")),
+            Step.Do(Effect.LookAt(
+                Objects.LibraryCards(Players.You, Value.Fixed(4), fromTop = true),
+                bind = "seen",
+                players = Players.You,
+            )),
             upToOneFromAmong(ObjectFilter.Type(CardType.Artifact), seen = "seen", bind = "chosen"),
             Step.Do(Effect.Reveal(Objects.Bound("chosen"))),
             Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Hand))),
@@ -222,7 +240,7 @@ class Chunk31EntersLibraryAndGraveyardTest {
         text = "When this creature enters, reveal the top four cards of your library. You may put a land card from among them into your hand. Put the rest into your graveyard.",
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(4)), bind = "seen")),
+            Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(4), fromTop = true), bind = "seen")),
             upToOneFromAmong(ObjectFilter.Type(CardType.Land), seen = "seen", bind = "chosen"),
             Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Hand))),
             Step.Do(Effect.Move(theRest, to = Destination(Zone.Graveyard))),
@@ -239,13 +257,21 @@ class Chunk31EntersLibraryAndGraveyardTest {
         text = "When this creature enters, look at the top X cards of your library, where X is your devotion to blue. Put up to one of them on top of your library and the rest on the bottom of your library in a random order. If X is greater than or equal to the number of cards in your library, you win the game. (Each {U} in the mana costs of permanents you control counts toward your devotion to blue.)",
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Devotion(listOf(Color.Blue))), bind = "seen")),
+            Step.Do(Effect.LookAt(
+                Objects.LibraryCards(
+                    Players.You,
+                    Value.Devotion(listOf(Color.Blue), players = Players.You),
+                    fromTop = true,
+                ),
+                bind = "seen",
+                players = Players.You,
+            )),
             upToOneFromAmong(ObjectFilter.Any, seen = "seen", bind = "kept"),
             Step.Do(Effect.Move(Objects.Bound("kept"), to = Destination(Zone.Library, libraryPosition = 0))),
             Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")), to = bottomInRandomOrder)),
             Step.If(
                 condition = Condition.Compare(
-                    left = Value.Devotion(listOf(Color.Blue)),
+                    left = Value.Devotion(listOf(Color.Blue), players = Players.You),
                     comparison = Comparison.AtLeast,
                     right = Value.Count(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You))))),
                 ),
@@ -271,7 +297,7 @@ class Chunk31EntersLibraryAndGraveyardTest {
         Ability.Static(listOf(Mechanic.Replacement(
             event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
             modify = listOf(Modification.EntersTapped),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield)),
             instructions = Instructions(
@@ -291,7 +317,10 @@ class Chunk31EntersLibraryAndGraveyardTest {
         text = "When this creature enters, you may return target card from your graveyard to your hand.",
     ) parsesTo abilities(
         whenThisEnters(
-            Step.May(listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Hand))))),
+            Step.May(
+                listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Hand)))),
+                player = Players.You,
+            ),
             targets = listOf(objectSlot("card", ObjectFilter.And(listOf(ObjectFilter.Category(ObjectCategory.Card)) + inYourGraveyard))),
         ),
     )
@@ -341,6 +370,7 @@ class Chunk31EntersLibraryAndGraveyardTest {
                     max = Value.Fixed(1),
                 ),
                 bind = "chosen",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Battlefield, tapped = true))),
         ),
@@ -370,9 +400,17 @@ class Chunk31EntersLibraryAndGraveyardTest {
                 ))),
                 to = bottomInRandomOrder,
             )),
-            targets = listOf(TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(0))),
+            targets = listOf(TargetSlot(
+                name = "player",
+                what = TargetKind.Players(PlayerFilter.Any),
+                min = Value.Fixed(0),
+                max = Value.Fixed(1),
+            )),
         ),
-        Keyword.Evoke(Cost(listOf(CostPart.Exile(CostObjects.Choose(ObjectFilter.OfColor(Color.Green)), from = Zone.Hand)))),
+        Keyword.Evoke(Cost(listOf(CostPart.Exile(
+            CostObjects.Choose(ObjectFilter.OfColor(Color.Green), count = Value.Fixed(1)),
+            from = Zone.Hand,
+        )))),
     )
 
     @Test
@@ -388,16 +426,23 @@ class Chunk31EntersLibraryAndGraveyardTest {
     ) parsesTo abilities(
         whenThisEnters(
             Step.May(listOf(
-                Step.Do(Effect.Search(Players.You, ObjectFilter.Type(CardType.Artifact), bind = "found")),
+                Step.Do(Effect.Search(
+                    Players.You,
+                    ObjectFilter.Type(CardType.Artifact),
+                    bind = "found",
+                    max = Value.Fixed(1),
+                    zones = listOf(Zone.Library),
+                    searcher = Players.You,
+                )),
                 Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Graveyard))),
                 Step.Do(Effect.Shuffle(Players.You)),
-            )),
+            ), player = Players.You),
         ),
         Ability.Activated(
             cost = Cost(listOf(
                 CostPart.Mana(ManaCost.parse("{R}")!!),
                 CostPart.TapSelf,
-                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact))),
+                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact), count = Value.Fixed(1))),
             )),
             instructions = Instructions(
                 targets = listOf(objectSlot("card", ObjectFilter.And(listOf(
@@ -406,6 +451,7 @@ class Chunk31EntersLibraryAndGraveyardTest {
                 ) + inYourGraveyard))),
                 steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Battlefield)))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

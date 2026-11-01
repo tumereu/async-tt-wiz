@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.AttackTarget
 import arcanum.api.CardType
@@ -19,6 +20,7 @@ import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.ManaCost
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
@@ -32,6 +34,7 @@ import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -49,19 +52,31 @@ class Chunk32EntersTutorsTokensAndBounceTest {
 
     /** "Search your library for [filter], reveal it, put it into your hand, then shuffle." */
     private fun searchToHand(filter: ObjectFilter) = listOf(
-        Step.Do(Effect.Search(Players.You, filter, reveal = true, bind = "found")),
+        Step.Do(Effect.Search(
+            Players.You,
+            filter,
+            reveal = true,
+            bind = "found",
+            max = Value.Fixed(1),
+            zones = listOf(Zone.Library),
+            searcher = Players.You,
+        )),
         Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Hand))),
         Step.Do(Effect.Shuffle(Players.You)),
     )
 
     /** "You may search your library for [filter], reveal it, put it into your hand, then shuffle." */
-    private fun maySearchToHand(filter: ObjectFilter) = whenThisEnters(Step.May(searchToHand(filter)))
+    private fun maySearchToHand(filter: ObjectFilter) = whenThisEnters(Step.May(
+        searchToHand(filter),
+        player = Players.You,
+    ))
 
     /** "Return a [filter] you control to its owner's hand.": chosen on resolution, no target. */
     private fun returnYourOwn(filter: ObjectFilter) = whenThisEnters(
         Step.Choose(
             choice = Choice.Objects(allOf(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), min = Value.Fixed(1), max = Value.Fixed(1)),
             bind = "chosen",
+            chooser = Players.You,
         ),
         Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Hand))),
     )
@@ -79,6 +94,8 @@ class Chunk32EntersTutorsTokensAndBounceTest {
             )),
             players = PlayerFilter.Any,
         ),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
     )
 
     // ---- Tutors
@@ -124,6 +141,7 @@ class Chunk32EntersTutorsTokensAndBounceTest {
                 affects = Affected.Players(Players.Each(PlayerFilter.Opponent)),
                 duration = Duration.EndOfTurn,
             )))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -163,9 +181,11 @@ class Chunk32EntersTutorsTokensAndBounceTest {
                         max = Value.Fixed(1),
                     ),
                     bind = "chosen",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Battlefield))),
             )),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -182,7 +202,14 @@ class Chunk32EntersTutorsTokensAndBounceTest {
         """,
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Pay(cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))))), bind = "paid"),
+            Step.Pay(
+                cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(
+                    ObjectFilter.Category(ObjectCategory.Card),
+                    count = Value.Fixed(1),
+                )))),
+                bind = "paid",
+                payer = Players.You,
+            ),
             Step.If(condition = Condition.Did("paid"), then = searchToHand(creature)),
         ),
         Ability.Activated(
@@ -191,6 +218,7 @@ class Chunk32EntersTutorsTokensAndBounceTest {
                 targets = listOf(objectSlot("permanent", allOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Category(ObjectCategory.Permanent)))),
                 steps = listOf(Step.Do(Effect.Untap(Objects.Target("permanent")))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -208,13 +236,21 @@ class Chunk32EntersTutorsTokensAndBounceTest {
         """,
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(3))),
+            Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(3), source = Objects.Self)),
             targets = listOf(anyTarget),
-            interveningIf = Condition.Compare(Value.ManaSpent(color = Color.Red), Comparison.AtLeast, Value.Fixed(2)),
+            interveningIf = Condition.Compare(
+                Value.ManaSpent(color = Color.Red, of = Objects.Self),
+                Comparison.AtLeast,
+                Value.Fixed(2),
+            ),
         ),
         whenThisEnters(
             *(searchToHand(ObjectFilter.Type(CardType.Land)) + Step.Do(Effect.GainLife(Players.You, Value.Fixed(2)))).toTypedArray(),
-            interveningIf = Condition.Compare(Value.ManaSpent(color = Color.Green), Comparison.AtLeast, Value.Fixed(2)),
+            interveningIf = Condition.Compare(
+                Value.ManaSpent(color = Color.Green, of = Objects.Self),
+                Comparison.AtLeast,
+                Value.Fixed(2),
+            ),
         ),
         Keyword.Evoke(manaCost("{R/G}{R/G}")),
     )
@@ -234,7 +270,12 @@ class Chunk32EntersTutorsTokensAndBounceTest {
     ) parsesTo abilities(
         Ability.Static(
             mechanics = listOf(Mechanic.AlternativeCost(cost = manaCost("{B/R}"))),
-            condition = Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You)),
+            condition = Condition.HappenedThisTurn(
+                EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any),
+                atLeast = 1,
+                measure = Measure.Events,
+            ),
+            affects = Affected.Objects(Objects.Self),
         ),
         maySearchToHand(ObjectFilter.Named("The Netherworld Recipe Book")),
         Ability.Activated(
@@ -247,6 +288,7 @@ class Chunk32EntersTutorsTokensAndBounceTest {
                     source = Objects.Target("creature"),
                 ))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -270,7 +312,7 @@ class Chunk32EntersTutorsTokensAndBounceTest {
             subtypes = listOf(Subtype("Phyrexian"), Subtype("Golem")),
             power = PrintedNumber.Fixed(3),
             toughness = PrintedNumber.Fixed(3),
-        ))))),
+        )), count = Value.Fixed(1), controller = Players.You))),
         Ability.Static(
             mechanics = listOf(Mechanic.GainAbilities(listOf(Keyword.FirstStrike))),
             affects = Affected.Objects(Objects.Each(allOf(ObjectFilter.Sub(Subtype("Golem")), ObjectFilter.ControlledBy(PlayerFilter.You)))),
@@ -358,6 +400,8 @@ class Chunk32EntersTutorsTokensAndBounceTest {
                     token = TokenSpec.CopyOf(Objects.Target("creature")),
                     tapped = true,
                     attacking = AttackTarget.Chosen,
+                    count = Value.Fixed(1),
+                    controller = Players.You,
                 ))),
             ),
         ),
@@ -377,7 +421,7 @@ class Chunk32EntersTutorsTokensAndBounceTest {
     ) parsesTo abilities(
         Keyword.Flash,
         whenThisEnters(
-            Step.Do(Effect.CopySpell(Objects.Target("spell"), newTargets = true)),
+            Step.Do(Effect.CopySpell(Objects.Target("spell"), newTargets = true, controller = Players.You)),
             targets = listOf(objectSlot("spell", allOf(
                 ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery))),
                 ObjectFilter.Category(ObjectCategory.Spell),

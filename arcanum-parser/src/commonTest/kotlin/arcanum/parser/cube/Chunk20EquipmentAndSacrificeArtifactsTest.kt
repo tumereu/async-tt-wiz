@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
@@ -31,6 +32,7 @@ import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
@@ -47,7 +49,10 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
     // ---- Shared shapes
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
-    private fun sacrificeA(filter: ObjectFilter, preBind: String? = null) = CostPart.Sacrifice(CostObjects.Choose(filter), preBind = preBind)
+    private fun sacrificeA(filter: ObjectFilter, preBind: String? = null) = CostPart.Sacrifice(
+        CostObjects.Choose(filter, count = Value.Fixed(1)),
+        preBind = preBind,
+    )
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)
     private fun draw(n: Int) = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(n)))
     private val youControl = ObjectFilter.ControlledBy(PlayerFilter.You)
@@ -56,12 +61,13 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
     private fun activated(vararg cost: CostPart, targets: List<TargetSlot> = emptyList(), steps: List<Step>) = Ability.Activated(
         cost = Cost(cost.toList()),
         instructions = Instructions(targets = targets, steps = steps),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "Equipped creature gets +N/+M." (CR 301.5) */
     private fun equippedGets(power: Value, toughness: Value) = Ability.Static(
         mechanics = listOf(Mechanic.ModifyPowerToughness(power, toughness)),
-        affects = Affected.Objects(Objects.AttachedTo()),
+        affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)),
     )
 
     private fun equippedGets(power: Int, toughness: Int) = equippedGets(Value.Fixed(power), Value.Fixed(toughness))
@@ -77,12 +83,19 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
             )),
             players = PlayerFilter.Any,
         ),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
     )
-    private val targetPlayer = TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any))
+    private val targetPlayer = TargetSlot(
+        name = "player",
+        what = TargetKind.Players(PlayerFilter.Any),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
 
     /** "[draw a card] at the beginning of the next turn's upkeep": a delayed trigger (CR 603.7). */
     private fun atNextUpkeep(vararg steps: Step) = Step.Do(Effect.CreateDelayedTrigger(
-        trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep)),
+        trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, whose = PlayerFilter.Any)),
         instructions = Instructions(steps = steps.toList()),
     ))
 
@@ -97,7 +110,11 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
             abilities = keywords.toList(),
         ))
 
-    private fun createFood(n: Int) = Step.Do(Effect.CreateToken(TokenSpec.Predefined("Food"), count = Value.Fixed(n)))
+    private fun createFood(n: Int) = Step.Do(Effect.CreateToken(
+        TokenSpec.Predefined("Food"),
+        count = Value.Fixed(n),
+        controller = Players.You,
+    ))
 
     // ---- Equipment
 
@@ -119,7 +136,12 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         // CR 701.3a: an attach ability of its own; unlike equip (CR 702.6a) it has no sorcery timing
         activated(
             mana("{B}{B}"),
-            targets = listOf(TargetSlot(name = "creature", what = TargetKind.Objects(ObjectFilter.And(listOf(creature, youControl))))),
+            targets = listOf(TargetSlot(
+                name = "creature",
+                what = TargetKind.Objects(ObjectFilter.And(listOf(creature, youControl))),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
             steps = listOf(Step.Do(Effect.Attach(Objects.Self, to = Recipients(objects = Objects.Target("creature"))))),
         ),
         equip("{1}"),
@@ -184,7 +206,7 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         // CR 603.10a: a dies trigger looks back in time, when the creature was still equipped
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.ZoneChange(
-                objects = ObjectFilter.Is(Objects.AttachedTo()),
+                objects = ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self)),
                 from = Zone.Battlefield,
                 to = Zone.Graveyard,
             )),
@@ -224,7 +246,7 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
                     Step.May(listOf(
                         Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Battlefield), postBind = "returned")),
                         Step.Do(Effect.Attach(Objects.Bound("returned"), to = Recipients(objects = Objects.EventObject(EventRole.After)))),
-                    )),
+                    ), player = Players.You),
                 ),
             ),
         ),
@@ -249,14 +271,18 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         Ability.Triggered(
             trigger = Trigger.On(listOf(
                 EventPattern.Attack(ObjectFilter.Is(Objects.Self)),
-                EventPattern.Block(ObjectFilter.Is(Objects.Self)),
+                EventPattern.Block(ObjectFilter.Is(Objects.Self), attacker = ObjectFilter.Any),
             )),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Pay(steps = listOf(draw(1)), bind = "paid"),
+                    Step.Pay(steps = listOf(draw(1)), bind = "paid", payer = Players.You),
                     Step.If(
                         condition = Condition.Did("paid"),
-                        then = listOf(Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1)))),
+                        then = listOf(Step.Do(Effect.Discard(
+                            Players.You,
+                            count = Value.Fixed(1),
+                            filter = ObjectFilter.Any,
+                        ))),
                     ),
                 ),
             ),
@@ -278,7 +304,12 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
     ) parsesTo abilities(
         activated(
             mana("{U}"), sacrificeSelf,
-            targets = listOf(TargetSlot(name = "creature", what = TargetKind.Objects(creature))),
+            targets = listOf(TargetSlot(
+                name = "creature",
+                what = TargetKind.Objects(creature),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
             steps = listOf(Step.Do(Effect.Move(Objects.Target("creature"), to = Destination(Zone.Hand)))),
         ),
         activated(mana("{1}"), sacrificeSelf, steps = listOf(draw(1))),
@@ -298,7 +329,11 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         activated(
             mana("{R}"), sacrificeSelf,
             targets = listOf(anyTarget),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(2)))),
+            steps = listOf(Step.Do(Effect.DealDamage(
+                Recipients(target = "any"),
+                amount = Value.Fixed(2),
+                source = Objects.Self,
+            ))),
         ),
         activated(mana("{1}"), sacrificeSelf, steps = listOf(draw(1))),
     )
@@ -340,7 +375,10 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
             CostPart.TapSelf, sacrificeSelf,
             targets = listOf(targetPlayer),
             steps = listOf(
-                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.Target("player"), count = Value.Fixed(1)))),
+                Step.Do(Effect.LookAt(
+                    Objects.LibraryCards(Players.Target("player"), count = Value.Fixed(1), fromTop = true),
+                    players = Players.You,
+                )),
                 atNextUpkeep(draw(1)),
             ),
         ),
@@ -360,7 +398,7 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
                 Step.Do(Effect.LookAt(Objects.Random(Objects.Each(ObjectFilter.And(listOf(
                     ObjectFilter.InZone(Zone.Hand),
                     ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Target("player"))),
-                )))))),
+                ))), count = Value.Fixed(1)), players = Players.You)),
                 atNextUpkeep(draw(1)),
             ),
         ),
@@ -379,8 +417,12 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         activated(
             mana("{1}"),
             steps = listOf(
-                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, count = Value.Fixed(3)), bind = "seen")),
-                Step.Do(Effect.Reorder(Objects.Bound("seen"))),
+                Step.Do(Effect.LookAt(
+                    Objects.LibraryCards(Players.You, count = Value.Fixed(3), fromTop = true),
+                    bind = "seen",
+                    players = Players.You,
+                )),
+                Step.Do(Effect.Reorder(Objects.Bound("seen"), chooser = Players.You)),
             ),
         ),
         activated(
@@ -425,12 +467,16 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         activated(
             CostPart.TapSelf, sacrificeA(creature),
             targets = listOf(anyTarget),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(1)))),
+            steps = listOf(Step.Do(Effect.DealDamage(
+                Recipients(target = "any"),
+                amount = Value.Fixed(1),
+                source = Objects.Self,
+            ))),
         ),
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.ZoneChange(creature, to = Zone.Battlefield)),
             instructions = Instructions(
-                steps = listOf(Step.May(listOf(Step.Do(Effect.Untap(Objects.Self))))),
+                steps = listOf(Step.May(listOf(Step.Do(Effect.Untap(Objects.Self))), player = Players.You)),
             ),
         ),
     )
@@ -487,7 +533,11 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
                 ObjectFilter.Type(CardType.Artifact),
             ))),
             steps = listOf(
-                Step.Do(Effect.CreateToken(token("Thopter", 1, 1, listOf(Color.Blue), artifact = true, Keyword.Flying))),
+                Step.Do(Effect.CreateToken(
+                    token("Thopter", 1, 1, listOf(Color.Blue), artifact = true, Keyword.Flying),
+                    count = Value.Fixed(1),
+                    controller = Players.You,
+                )),
                 Step.Do(Effect.GainLife(Players.You, amount = Value.Fixed(1))),
             ),
         ),
@@ -504,7 +554,10 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
         """,
     ) parsesTo abilities(
         activated(
-            CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))),
+            CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(
+                ObjectFilter.Category(ObjectCategory.Card),
+                count = Value.Fixed(1),
+            )),
             steps = listOf(createFood(1)),
         ),
         activated(
@@ -516,6 +569,8 @@ class Chunk20EquipmentAndSacrificeArtifactsTest {
                     ObjectFilter.InZone(Zone.Graveyard),
                     ObjectFilter.OwnedBy(PlayerFilter.You),
                 ))),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
             )),
             steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Hand)))),
         ),

@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
@@ -16,6 +17,7 @@ import arcanum.api.Duration
 import arcanum.api.Each
 import arcanum.api.Effect
 import arcanum.api.EventPattern
+import arcanum.api.EventRole
 import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
@@ -24,6 +26,7 @@ import arcanum.api.NumericProperty
 import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
+import arcanum.api.PlayKind
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.PrintedNumber
@@ -32,6 +35,7 @@ import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -47,7 +51,12 @@ import kotlin.test.Test
 class Chunk33EntersRemovalTest {
     // ---- Shared shapes
 
-    private val targetOpponent = TargetSlot(name = "opponent", what = TargetKind.Players(PlayerFilter.Opponent))
+    private val targetOpponent = TargetSlot(
+        name = "opponent",
+        what = TargetKind.Players(PlayerFilter.Opponent),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
 
     /** The cards in target opponent's hand. */
     private val opponentsHand = listOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Target("opponent"))))
@@ -74,6 +83,7 @@ class Chunk33EntersRemovalTest {
             Step.Choose(
                 choice = Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land))) + opponentsHand), min = Value.Fixed(1), max = Value.Fixed(1)),
                 bind = "chosen",
+                chooser = Players.You,
             ),
             *exileAndRemember(Objects.Bound("chosen")),
             targets = listOf(targetOpponent),
@@ -135,10 +145,11 @@ class Chunk33EntersRemovalTest {
         Keyword.Flying,
         Keyword.Lifelink,
         whenThisEnters(
-            Step.Do(Effect.LookAt(Objects.Each(ObjectFilter.And(opponentsHand)))),
+            Step.Do(Effect.LookAt(Objects.Each(ObjectFilter.And(opponentsHand)), players = Players.You)),
             Step.Choose(
                 choice = Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land))) + opponentsHand), min = Value.Fixed(0), max = Value.Fixed(1)),
                 bind = "chosen",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Exile), untilLeaves = Objects.Self)),
             targets = listOf(targetOpponent),
@@ -195,6 +206,7 @@ class Chunk33EntersRemovalTest {
                 targets = listOf(targetOpponent),
                 steps = listOf(drawCards(1, Players.Each(PlayerFilter.Or(listOf(PlayerFilter.You, PlayerFilter.Is(Players.Target("opponent"))))))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -207,7 +219,7 @@ class Chunk33EntersRemovalTest {
         text = "When this creature enters, you may destroy target artifact or enchantment.",
     ) parsesTo abilities(
         whenThisEnters(
-            Step.May(listOf(Step.Do(Effect.Destroy(Objects.Target("permanent"))))),
+            Step.May(listOf(Step.Do(Effect.Destroy(Objects.Target("permanent")))), player = Players.You),
             targets = listOf(objectSlot("permanent", artifactOrEnchantment)),
         ),
     )
@@ -226,7 +238,14 @@ class Chunk33EntersRemovalTest {
     ) parsesTo abilities(
         Keyword.Changeling,
         whenThisEnters(
-            Step.Pay(cost = Cost(listOf(CostPart.Exile(CostObjects.Choose(creature), from = Zone.Graveyard))), bind = "paid"),
+            Step.Pay(
+                cost = Cost(listOf(CostPart.Exile(
+                    CostObjects.Choose(creature, count = Value.Fixed(1)),
+                    from = Zone.Graveyard,
+                ))),
+                bind = "paid",
+                payer = Players.You,
+            ),
             Step.If(
                 condition = Condition.Did("paid"),
                 then = listOf(Step.Do(Effect.Move(Objects.Target("permanent"), to = Destination(Zone.Exile)))),
@@ -272,6 +291,7 @@ class Chunk33EntersRemovalTest {
                     toughness = Value.Of(NumericProperty.ManaValue, exiledCard, Combine.Total),
                 ),
                 controller = Players.OwnerOf(exiledCard),
+                count = Value.Fixed(1),
             )),
         ),
     )
@@ -300,7 +320,10 @@ class Chunk33EntersRemovalTest {
             )),
             targets = listOf(objectSlot("creature", allOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature), min = 0)),
         ),
-        Keyword.Evoke(Cost(listOf(CostPart.Exile(CostObjects.Choose(ObjectFilter.OfColor(Color.White)), from = Zone.Hand)))),
+        Keyword.Evoke(Cost(listOf(CostPart.Exile(
+            CostObjects.Choose(ObjectFilter.OfColor(Color.White), count = Value.Fixed(1)),
+            from = Zone.Hand,
+        )))),
     )
 
     // CR 613.1b: gaining control is a control-changing effect with no end. CR 107.3m: X in the enters trigger is the X
@@ -318,7 +341,7 @@ class Chunk33EntersRemovalTest {
         """,
     ) parsesTo abilities(
         Keyword.Kicker(listOf(manaCost("{X}"))),
-        Ability.Static(listOf(Mechanic.XAtLeast(1))),
+        Ability.Static(listOf(Mechanic.XAtLeast(1)), affects = Affected.Objects(Objects.Self)),
         Keyword.Flying,
         whenThisEnters(
             Step.Do(Effect.ApplyMechanics(
@@ -330,8 +353,14 @@ class Chunk33EntersRemovalTest {
                 condition = Condition.ObjectMatches(Objects.Target("artifact"), ObjectFilter.Sub(Subtype("Equipment"))),
                 then = listOf(Step.Do(Effect.Attach(Objects.Target("artifact"), to = Recipients(objects = Objects.Self)))),
             ),
-            targets = listOf(objectSlot("artifact", allOf(ObjectFilter.Type(CardType.Artifact), ObjectFilter.ManaValue(Comparison.AtMost, Value.CastX())))),
-            interveningIf = Condition.Paid(Keyword.Kicker.Kind),
+            targets = listOf(objectSlot(
+                "artifact",
+                allOf(
+                    ObjectFilter.Type(CardType.Artifact),
+                    ObjectFilter.ManaValue(Comparison.AtMost, Value.CastX(of = Objects.Self)),
+                ),
+            )),
+            interveningIf = Condition.Paid(Keyword.Kicker.Kind, times = 1, of = Objects.Self),
         ),
     )
 
@@ -369,13 +398,19 @@ class Chunk33EntersRemovalTest {
         """,
     ) parsesTo abilities(
         whenThisEnters(
-            Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Of(NumericProperty.Power, Objects.Self, Combine.Single))),
+            Step.Do(Effect.DealDamage(
+                Recipients(target = "any"),
+                amount = Value.Of(NumericProperty.Power, Objects.Self, Combine.Single),
+                source = Objects.Self,
+            )),
             targets = listOf(TargetSlot(
                 name = "any",
                 what = TargetKind.Either(
                     objects = ObjectFilter.Or(listOf(creature, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
                     players = PlayerFilter.Any,
                 ),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
             )),
         ),
         Keyword.Persist,
@@ -405,7 +440,12 @@ class Chunk33EntersRemovalTest {
         whenThisLeaves(
             Step.May(
                 player = Players.OwnerOf(exiledCard),
-                steps = listOf(Step.Do(Effect.Cast(exiledCard, withoutPaying = true, caster = Players.OwnerOf(exiledCard)))),
+                steps = listOf(Step.Do(Effect.Cast(
+                    exiledCard,
+                    withoutPaying = true,
+                    caster = Players.OwnerOf(exiledCard),
+                    how = PlayKind.Cast,
+                ))),
             ),
         ),
     )
@@ -452,7 +492,7 @@ class Chunk33EntersRemovalTest {
         Keyword.Kicker(listOf(manaCost("{4}{U}"))),
         whenThisEnters(
             Step.If(
-                condition = Condition.Paid(Keyword.Kicker.Kind),
+                condition = Condition.Paid(Keyword.Kicker.Kind, times = 1, of = Objects.Self),
                 then = listOf(copyNextCheapSpell(Step.Repeat(Value.Fixed(2), listOf(copyIt)))),
                 otherwise = listOf(copyNextCheapSpell(copyIt)),
             ),
@@ -460,7 +500,11 @@ class Chunk33EntersRemovalTest {
     )
 
     /** "the spell that triggered it", copied with new targets allowed */
-    private val copyIt = Step.Do(Effect.CopySpell(Objects.EventObject(), newTargets = true))
+    private val copyIt = Step.Do(Effect.CopySpell(
+        Objects.EventObject(role = EventRole.Object),
+        newTargets = true,
+        controller = Players.You,
+    ))
 
     /** "the next instant or sorcery spell with mana value 2 or less you cast this turn" */
     private fun copyNextCheapSpell(step: Step) = Step.Do(Effect.CreateDelayedTrigger(

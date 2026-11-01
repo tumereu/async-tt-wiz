@@ -1,6 +1,8 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
 import arcanum.api.ColorRef
@@ -26,6 +28,7 @@ import arcanum.api.Subtype
 import arcanum.api.Supertype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.Value
 import arcanum.api.Zone
 import kotlin.test.Test
@@ -49,11 +52,19 @@ class Chunk02ManaLandsTest {
             )),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.Search(Players.You, filter = finds, bind = "found")),
+                    Step.Do(Effect.Search(
+                        Players.You,
+                        filter = finds,
+                        bind = "found",
+                        max = Value.Fixed(1),
+                        zones = listOf(Zone.Library),
+                        searcher = Players.You,
+                    )),
                     Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
                     Step.Do(Effect.Shuffle(Players.You)),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -81,7 +92,7 @@ class Chunk02ManaLandsTest {
                     )),
                 ),
             ),
-        )),
+        ), affects = Affected.Objects(Objects.Self)),
     )
 
     /** "{T}: Add {C}." */
@@ -89,9 +100,10 @@ class Chunk02ManaLandsTest {
         cost = Cost(listOf(CostPart.TapSelf)),
         instructions = Instructions(
             steps = listOf(
-                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!)))),
+                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!)), players = Players.You)),
             ),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     // ---- Fetch lands
@@ -425,10 +437,11 @@ class Chunk02ManaLandsTest {
                             amount = Value.Fixed(1),
                             colors = listOf(ColorRef.Literal(Color.Red), ColorRef.Literal(Color.Green)),
                         ),
-                    ))),
+                    ), players = Players.You)),
                     Step.Do(Effect.GainLife(Players.Each(PlayerFilter.Opponent), amount = Value.Fixed(1))),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -446,13 +459,17 @@ class Chunk02ManaLandsTest {
         Ability.Activated(
             cost = Cost(listOf(
                 CostPart.TapSelf,
-                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Creature))),
+                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Creature), count = Value.Fixed(1))),
             )),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{B}{B}")!!)))),
+                    Step.Do(Effect.AddMana(
+                        ManaProduction(ManaKind.Fixed(ManaCost.parse("{B}{B}")!!)),
+                        players = Players.You,
+                    )),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -474,12 +491,18 @@ class Chunk02ManaLandsTest {
             )),
             instructions = Instructions(
                 targets = listOf(
-                    TargetSlot(name = "land", what = TargetKind.Objects(ObjectFilter.Type(CardType.Land))),
+                    TargetSlot(
+                        name = "land",
+                        what = TargetKind.Objects(ObjectFilter.Type(CardType.Land)),
+                        min = Value.Fixed(1),
+                        max = Value.Fixed(1),
+                    ),
                 ),
                 steps = listOf(
                     Step.Do(Effect.Destroy(Objects.Target("land"))),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -507,12 +530,15 @@ class Chunk02ManaLandsTest {
                             ObjectFilter.Not(ObjectFilter.Super(Supertype.Basic)),
                             ObjectFilter.Type(CardType.Land),
                         ))),
+                        min = Value.Fixed(1),
+                        max = Value.Fixed(1),
                     ),
                 ),
                 steps = listOf(
                     Step.Do(Effect.Destroy(Objects.Target("land"))),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

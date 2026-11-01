@@ -22,6 +22,7 @@ import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.ManaCost
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.Mode
 import arcanum.api.Modes
@@ -65,7 +66,11 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
     private val permanent = ObjectFilter.Category(ObjectCategory.Permanent)
     private val charge = CounterKind.Named("charge")
 
-    private fun activated(vararg cost: CostPart, steps: List<Step>, rules: ActivationRules = ActivationRules()) = Ability.Activated(
+    private fun activated(
+        vararg cost: CostPart,
+        steps: List<Step>,
+        rules: ActivationRules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+    ) = Ability.Activated(
         cost = Cost(cost.toList()),
         instructions = Instructions(steps = steps),
         rules = rules,
@@ -82,7 +87,11 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
     private fun putOnSelf(kind: CounterKind, n: Int = 1) = Step.Do(Effect.PutCounters(Objects.Self, kind, amount = Value.Fixed(n)))
 
     /** "Remove [n] [kind] counters from this artifact" as a cost. */
-    private fun removeFromSelf(kind: CounterKind, n: Int = 1) = CostPart.RemoveCounters(kind, amount = Value.Fixed(n))
+    private fun removeFromSelf(kind: CounterKind, n: Int = 1) = CostPart.RemoveCounters(
+        kind,
+        amount = Value.Fixed(n),
+        from = CostObjects.Self,
+    )
 
     /** "with mana value equal to the number of charge counters on this artifact" (CR 608.2h: once it has left the
      * battlefield, its last known information) */
@@ -118,7 +127,11 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
         abilities = keywords.toList(),
     ))
 
-    private fun create(token: TokenSpec) = Step.Do(Effect.CreateToken(token))
+    private fun create(token: TokenSpec) = Step.Do(Effect.CreateToken(
+        token,
+        count = Value.Fixed(1),
+        controller = Players.You,
+    ))
 
     // ---- Counters on the artifact
 
@@ -134,7 +147,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
     ) parsesTo abilities(
         triggered(
             EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You),
-            steps = listOf(Step.May(listOf(putOnSelf(charge)))),
+            steps = listOf(Step.May(listOf(putOnSelf(charge)), player = Players.You)),
         ),
         // "You may put a card …" is a choice of zero or one cards
         activated(
@@ -152,6 +165,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                         max = Value.Fixed(1),
                     ),
                     bind = "chosen",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Battlefield))),
             ),
@@ -196,7 +210,10 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
             {1}, Remove two charge counters from this artifact: Create a 2/2 colorless Spawn artifact creature token.
         """,
     ) parsesTo abilities(
-        activated(CostPart.Sacrifice(CostObjects.Choose(creature)), steps = listOf(putOnSelf(charge))),
+        activated(
+            CostPart.Sacrifice(CostObjects.Choose(creature, count = Value.Fixed(1))),
+            steps = listOf(putOnSelf(charge)),
+        ),
         activated(mana("{1}"), removeFromSelf(charge, 2), steps = listOf(create(artifactToken("Spawn", 2, 2)))),
     )
 
@@ -237,22 +254,33 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
         Ability.Static(listOf(Mechanic.Replacement(
             event = selfEnters,
             modify = listOf(Modification.EntersWithCounters(CounterKind.Named("wish"), amount = Value.Fixed(3))),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
         activated(
             mana("{1}"), CostPart.TapSelf, removeFromSelf(CounterKind.Named("wish")),
             steps = listOf(
-                Step.Do(Effect.Search(Players.You, filter = ObjectFilter.Category(ObjectCategory.Card), bind = "found")),
+                Step.Do(Effect.Search(
+                    Players.You,
+                    filter = ObjectFilter.Category(ObjectCategory.Card),
+                    bind = "found",
+                    max = Value.Fixed(1),
+                    zones = listOf(Zone.Library),
+                    searcher = Players.You,
+                )),
                 Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Hand))),
                 Step.Do(Effect.Shuffle(Players.You)),
                 // The opponent is chosen as it resolves; gaining control lasts indefinitely
-                Step.Choose(Choice.Player(PlayerFilter.Opponent), bind = "opponent"),
+                Step.Choose(Choice.Player(PlayerFilter.Opponent), bind = "opponent", chooser = Players.You),
                 Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(Mechanic.ControlledBy(Players.Bound("opponent"))),
                     affects = Affected.Objects(Objects.Self),
                     duration = Duration.Indefinitely,
                 )),
             ),
-            rules = ActivationRules(condition = Condition.YourTurn),
+            rules = ActivationRules(
+                condition = Condition.YourTurn,
+                timing = Timing.Any,
+                activatedBy = PlayerFilter.You,
+            ),
         ),
     )
 
@@ -273,11 +301,17 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
         activated(mana("{3}"), steps = listOf(Step.Do(Effect.Untap(Objects.Self)))),
         activated(mana("{2}"), CostPart.TapSelf, steps = listOf(create(artifactToken("Servo", 1, 1)))),
         activated(
-            mana("{1}"), CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Servo")))),
+            mana("{1}"), CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Choose(
+                ObjectFilter.Sub(Subtype("Servo")),
+                count = Value.Fixed(1),
+            )),
             steps = listOf(create(artifactToken("Thopter", 1, 1, Keyword.Flying))),
         ),
         activated(
-            CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Thopter")))),
+            CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Choose(
+                ObjectFilter.Sub(Subtype("Thopter")),
+                count = Value.Fixed(1),
+            )),
             steps = listOf(create(artifactToken("Construct", 4, 4))),
         ),
     )
@@ -297,9 +331,13 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
             selfEnters,
             EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield),
             steps = listOf(
-                Step.Do(Effect.Move(Objects.LibraryCards(Players.You, count = Value.Fixed(1)), to = Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Move(
+                    Objects.LibraryCards(Players.You, count = Value.Fixed(1), fromTop = true),
+                    to = Destination(Zone.Exile),
+                    postBind = "exiled",
+                )),
                 Step.Do(Effect.ApplyMechanics(
-                    mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play)),
+                    mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
                     affects = Affected.Objects(Objects.Bound("exiled")),
                     duration = Duration.EndOfTurn,
                 )),
@@ -308,7 +346,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
         activated(
             mana("{2}{R}"), sacrificeSelf,
             steps = listOf(create(creatureToken("Samurai", 2, 2, Color.White, Keyword.Vigilance))),
-            rules = ActivationRules(timing = Timing.Sorcery),
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -330,6 +368,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                 steps = listOf(Step.Do(Effect.CreateToken(
                     artifactToken("Myr", 1, 1),
                     controller = Players.ControllerOf(Objects.EventObject(EventRole.After)),
+                    count = Value.Fixed(1),
                 ))),
             ),
         ),
@@ -356,9 +395,16 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
             triggersOnlyIf = Condition.YourTurn,
         ),
         activated(
-            CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact))),
+            CostPart.TapSelf, CostPart.Sacrifice(CostObjects.Choose(
+                ObjectFilter.Type(CardType.Artifact),
+                count = Value.Fixed(1),
+            )),
             steps = listOf(
-                Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)), amount = Value.Fixed(1))),
+                Step.Do(Effect.DealDamage(
+                    Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                    amount = Value.Fixed(1),
+                    source = Objects.Self,
+                )),
                 Step.Do(Effect.GainLife(Players.You, amount = Value.Fixed(1))),
             ),
         ),
@@ -378,8 +424,14 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
     ) parsesTo abilities(
         // The spell that triggered it counts: it was cast this turn
         triggered(
-            EventPattern.Cast(by = PlayerFilter.You),
-            steps = listOf(Step.Do(Effect.GainLife(Players.You, amount = Value.EventsThisTurn(EventPattern.Cast(by = PlayerFilter.You))))),
+            EventPattern.Cast(by = PlayerFilter.You, spell = ObjectFilter.Any),
+            steps = listOf(Step.Do(Effect.GainLife(
+                Players.You,
+                amount = Value.EventsThisTurn(
+                    EventPattern.Cast(by = PlayerFilter.You, spell = ObjectFilter.Any),
+                    measure = Measure.Events,
+                ),
+            ))),
         ),
         Ability.Activated(
             cost = Cost(listOf(CostPart.PayLife(Value.Fixed(50)))),
@@ -390,9 +442,16 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                         objects = ObjectFilter.Or(listOf(creature, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
                         players = PlayerFilter.Any,
                     ),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(50)))),
+                steps = listOf(Step.Do(Effect.DealDamage(
+                    Recipients(target = "any"),
+                    amount = Value.Fixed(50),
+                    source = Objects.Self,
+                ))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -424,7 +483,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
     ) parsesTo abilities(
         // CR 700.2b: the mode is chosen as the ability is put on the Stack
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.Discard(players = PlayerFilter.You)),
+            trigger = Trigger.On(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any)),
             instructions = Instructions(
                 modes = Modes(
                     options = listOf(
@@ -433,6 +492,9 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                         Mode(Instructions(steps = listOf(Step.Do(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), amount = Value.Fixed(3)))))),
                     ),
                     onlyUnchosenThisTurn = true,
+                    min = 1,
+                    max = 1,
+                    chooser = Players.You,
                 ),
             ),
         ),
@@ -459,6 +521,8 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                         ObjectFilter.ControlledBy(PlayerFilter.Opponent),
                         ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(2)),
                     ))),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(Step.Do(Effect.Move(Objects.Target("permanent"), to = Destination(Zone.Exile), untilLeaves = Objects.Self))),
             ),
@@ -474,7 +538,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
     ) parsesTo abilities(
         // CR 305.1: playing a land this way still uses a land play
         Ability.Static(
-            mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Play)),
+            mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Play, holder = PlayerFilter.You)),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
                 ObjectFilter.Type(CardType.Land),
                 ObjectFilter.InZone(Zone.Graveyard),
@@ -507,7 +571,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
                 creature,
                 youControl,
-                ObjectFilter.HasCounter(CounterKind.PowerToughness(1, 1)),
+                ObjectFilter.HasCounter(CounterKind.PowerToughness(1, 1), atLeast = 1),
             )))),
         ),
         // CR 603.12: "When … this way" is a reflexive trigger, its target chosen when it triggers
@@ -517,6 +581,8 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                 targets = listOf(TargetSlot(
                     name = "card",
                     what = TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard)))),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(
                     Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Exile), postBind = "exiled")),
@@ -524,12 +590,18 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                     Step.If(
                         condition = Condition.ObjectMatches(Objects.Bound("exiled"), creature),
                         then = listOf(Step.Do(Effect.ReflexiveTrigger(Instructions(
-                            targets = listOf(TargetSlot(name = "creature", what = TargetKind.Objects(ObjectFilter.And(listOf(creature, youControl))))),
+                            targets = listOf(TargetSlot(
+                                name = "creature",
+                                what = TargetKind.Objects(ObjectFilter.And(listOf(creature, youControl))),
+                                min = Value.Fixed(1),
+                                max = Value.Fixed(1),
+                            )),
                             steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), amount = Value.Fixed(1)))),
                         )))),
                     ),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -546,7 +618,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
     ) parsesTo abilities(
         // Only from the graveyard: if the discarded card went elsewhere, it isn't exiled
         triggered(
-            EventPattern.Discard(players = PlayerFilter.You),
+            EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any),
             steps = listOf(Step.May(listOf(
                 Step.Do(Effect.Move(
                     Objects.Where(Objects.EventObject(EventRole.After), ObjectFilter.InZone(Zone.Graveyard)),
@@ -554,11 +626,14 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                     postBind = "exiled",
                 )),
                 Step.Do(Effect.Remember("exiled", Objects.Bound("exiled"))),
-            ))),
+            ), player = Players.You)),
         ),
         activated(
             mana("{2}"), CostPart.TapSelf,
-            steps = listOf(draw(1), Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1)))),
+            steps = listOf(
+                draw(1),
+                Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1), filter = ObjectFilter.Any)),
+            ),
         ),
         // Two separate checks: with no card exiled, neither token is made
         activated(
@@ -572,6 +647,7 @@ class Chunk21CountersTriggersAndLinkedArtifactsTest {
                         from = Objects.Remembered("exiled"),
                     ),
                     bind = "chosen",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Graveyard), postBind = "moved")),
                 Step.If(

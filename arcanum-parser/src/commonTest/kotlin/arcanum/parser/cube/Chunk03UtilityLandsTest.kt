@@ -2,6 +2,7 @@ package arcanum.parser.cube
 
 import arcanum.api.Ability
 import arcanum.api.ActivationRules
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
 import arcanum.api.Comparison
@@ -33,6 +34,7 @@ import arcanum.api.Subtype
 import arcanum.api.Supertype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -53,16 +55,17 @@ class Chunk03UtilityLandsTest {
             event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
             modify = listOf(Modification.EntersTapped),
         ),
-    ))
+    ), affects = Affected.Objects(Objects.Self))
 
     /** "{T}: Add {C}." */
     private val tapForColorless = Ability.Activated(
         cost = Cost(listOf(CostPart.TapSelf)),
         instructions = Instructions(
             steps = listOf(
-                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!)))),
+                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!)), players = Players.You)),
             ),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "{T}: Add {[mana]} for each [what]." */
@@ -72,9 +75,10 @@ class Chunk03UtilityLandsTest {
             steps = listOf(
                 Step.Do(Effect.AddMana(ManaProduction(
                     ManaKind.Fixed(ManaCost.parse(mana)!!, times = Value.Count(Objects.Each(what))),
-                ))),
+                ), players = Players.You)),
             ),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     private fun yourOwn(type: CardType) = ObjectFilter.And(listOf(
@@ -273,9 +277,10 @@ class Chunk03UtilityLandsTest {
                             ObjectFilter.Category(ObjectCategory.Spell),
                             ObjectFilter.Type(CardType.Artifact),
                         )),
-                    ))),
+                    ), players = Players.You)),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -293,9 +298,10 @@ class Chunk03UtilityLandsTest {
             instructions = Instructions(
                 steps = listOf(
                     Step.Do(Effect.Draw(Players.You, count = Value.Fixed(2))),
-                    Step.Do(Effect.Discard(Players.You, count = Value.Fixed(3))),
+                    Step.Do(Effect.Discard(Players.You, count = Value.Fixed(3), filter = ObjectFilter.Any)),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -338,7 +344,7 @@ class Chunk03UtilityLandsTest {
                         subtypes = listOf(Subtype("Zombie")),
                         power = PrintedNumber.Fixed(2),
                         toughness = PrintedNumber.Fixed(2),
-                    )))),
+                    )), count = Value.Fixed(1), controller = Players.You)),
                 ),
             ),
         ),
@@ -358,9 +364,13 @@ class Chunk03UtilityLandsTest {
             cost = Cost(listOf(CostPart.TapSelf)),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{G}")!!)))),
+                    Step.Do(Effect.AddMana(
+                        ManaProduction(ManaKind.Fixed(ManaCost.parse("{G}")!!)),
+                        players = Players.You,
+                    )),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Ability.Activated(
             abilityWord = "Channel",
@@ -377,6 +387,8 @@ class Chunk03UtilityLandsTest {
                         ObjectFilter.ControlledBy(PlayerFilter.You),
                     )))),
                 ),
+                timing = Timing.Any,
+                activatedBy = PlayerFilter.You,
             ),
             instructions = Instructions(
                 targets = listOf(
@@ -393,6 +405,8 @@ class Chunk03UtilityLandsTest {
                             )),
                             ObjectFilter.ControlledBy(PlayerFilter.Opponent),
                         ))),
+                        min = Value.Fixed(1),
+                        max = Value.Fixed(1),
                     ),
                 ),
                 steps = listOf(
@@ -408,6 +422,8 @@ class Chunk03UtilityLandsTest {
                                 )),
                                 bind = "found",
                                 searcher = Players.ControllerOf(Objects.Target("permanent")),
+                                max = Value.Fixed(1),
+                                zones = listOf(Zone.Library),
                             )),
                             Step.Do(Effect.Move(
                                 Objects.Bound("found"),

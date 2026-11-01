@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
@@ -21,6 +22,7 @@ import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.ManaCost
 import arcanum.api.ManaProduction
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.Modification
 import arcanum.api.ObjectCategory
@@ -36,6 +38,7 @@ import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
@@ -69,6 +72,7 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
     private fun loyalty(amount: Int, instructions: Instructions) = Ability.Activated(
         cost = Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))),
         instructions = instructions,
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "you may [do X]. If you do, [then]" (CR 118.12). */
@@ -106,7 +110,14 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             trigger = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)),
             instructions = Instructions(
                 steps = youMay(
-                    Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))))), bind = "paid"),
+                    Step.Pay(
+                        Cost(listOf(CostPart.Discard(CostObjects.Choose(
+                            ObjectFilter.Category(ObjectCategory.Card),
+                            count = Value.Fixed(1),
+                        )))),
+                        bind = "paid",
+                        payer = Players.You,
+                    ),
                     draw(Players.You, 2),
                 ),
             ),
@@ -120,6 +131,7 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
                     duration = Duration.EndOfTurn,
                 ))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -144,7 +156,7 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard)),
             functionsIn = listOf(Zone.Graveyard),
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.CreateToken(zombie))),
+                steps = listOf(Step.Do(Effect.CreateToken(zombie, count = Value.Fixed(1), controller = Players.You))),
             ),
         ),
         Ability.Triggered(
@@ -190,7 +202,10 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
         Ability.Static(
             mechanics = listOf(Mechanic.GainAbilities(listOf(Ability.Activated(
                 cost = Cost(listOf(CostPart.TapSelf)),
-                instructions = Instructions(steps = listOf(Step.Do(Effect.AddMana(ManaProduction(anyOneColor(1)))))),
+                instructions = Instructions(
+                    steps = listOf(Step.Do(Effect.AddMana(ManaProduction(anyOneColor(1)), players = Players.You))),
+                ),
+                rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
             )))),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
                 creature,
@@ -205,7 +220,11 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             ),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.CreateToken(token("Plant", listOf(Color.Green), 0, 1, CardType.Creature))),
+                    Step.Do(Effect.CreateToken(
+                        token("Plant", listOf(Color.Green), 0, 1, CardType.Creature),
+                        count = Value.Fixed(1),
+                        controller = Players.You,
+                    )),
                     Step.Do(Effect.PutCounters(
                         Objects.Each(controlledBy(ObjectFilter.Sub(Subtype("Plant")), PlayerFilter.You)),
                         CounterKind.PowerToughness(1, 1),
@@ -232,7 +251,10 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             trigger = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.ApplyMechanics(
-                    mechanics = listOf(Mechanic.ModifyPowerToughness(Value.Times(Value.CastX(), -1), Value.Times(Value.CastX(), -1))),
+                    mechanics = listOf(Mechanic.ModifyPowerToughness(
+                        Value.Times(Value.CastX(of = Objects.Self), -1),
+                        Value.Times(Value.CastX(of = Objects.Self), -1),
+                    )),
                     affects = Affected.Objects(Objects.Each(creature)),
                     duration = Duration.EndOfTurn,
                 ))),
@@ -270,16 +292,17 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             interveningIf = Condition.HappenedThisTurn(EventPattern.ZoneChange(
                 controlledBy(ObjectFilter.Category(ObjectCategory.Permanent), PlayerFilter.You),
                 from = Zone.Battlefield,
-            )),
+            ), atLeast = 1, measure = Measure.Events),
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.CreateToken(servo))),
+                steps = listOf(Step.Do(Effect.CreateToken(servo, count = Value.Fixed(1), controller = Players.You))),
             ),
         ),
         Ability.Activated(
-            cost = Cost(listOf(mana("{1}"), CostPart.Sacrifice(CostObjects.Choose(creature)))),
+            cost = Cost(listOf(mana("{1}"), CostPart.Sacrifice(CostObjects.Choose(creature, count = Value.Fixed(1))))),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.Scry(Players.You, Value.Fixed(1)))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -303,10 +326,14 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             trigger = Trigger.On(EventPattern.ZoneChange(controlledBy(ObjectFilter.Type(CardType.Land), PlayerFilter.You), to = Zone.Battlefield)),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(1)), to = Destination(Zone.Exile), postBind = "exiled")),
+                    Step.Do(Effect.Move(
+                        Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
+                        to = Destination(Zone.Exile),
+                        postBind = "exiled",
+                    )),
                     Step.Do(Effect.Remember("exiled", Objects.Bound("exiled"))),
                     Step.Do(Effect.ApplyMechanics(
-                        mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play)),
+                        mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
                         affects = Affected.Objects(Objects.Bound("exiled")),
                         duration = Duration.Indefinitely,
                     )),
@@ -322,6 +349,7 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
                     Step.Do(Effect.DealDamage(
                         Recipients(players = Players.Each(PlayerFilter.Opponent)),
                         amount = Value.Count(Objects.Bound("moved")),
+                        source = Objects.Self,
                     )),
                 ),
             ),
@@ -356,8 +384,8 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             trigger = youCastANoncreatureSpell,
             instructions = Instructions(
                 steps = youMay(
-                    Step.Pay(steps = listOf(draw(Players.You)), bind = "paid"),
-                    Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1))),
+                    Step.Pay(steps = listOf(draw(Players.You)), bind = "paid", payer = Players.You),
+                    Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1), filter = ObjectFilter.Any)),
                 ),
             ),
         ),
@@ -391,14 +419,19 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
         )),
         loyalty(0, Instructions(
             steps = listOf(
-                Step.Do(Effect.CreateToken(token("Elemental", listOf(Color.Red), 1, 1, CardType.Creature), count = Value.Fixed(2), bind = "tokens")),
+                Step.Do(Effect.CreateToken(
+                    token("Elemental", listOf(Color.Red), 1, 1, CardType.Creature),
+                    count = Value.Fixed(2),
+                    bind = "tokens",
+                    controller = Players.You,
+                )),
                 Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))),
                     affects = Affected.Objects(Objects.Bound("tokens")),
                     duration = Duration.Indefinitely,
                 )),
                 Step.Do(Effect.CreateDelayedTrigger(
-                    trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End)),
+                    trigger = Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.Any)),
                     instructions = Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))),
                 )),
             ),
@@ -413,9 +446,19 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
                     ObjectFilter.InZone(Zone.Graveyard),
                     ObjectFilter.OwnedBy(PlayerFilter.You),
                 ))),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
             )),
             steps = listOf(
-                Step.May(listOf(Step.Do(Effect.Cast(Objects.Target("card"), bind = "spell")))),
+                Step.May(
+                    listOf(Step.Do(Effect.Cast(
+                        Objects.Target("card"),
+                        bind = "spell",
+                        how = PlayKind.Cast,
+                        caster = Players.You,
+                    ))),
+                    player = Players.You,
+                ),
                 Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(Mechanic.Replacement(
                         event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound("spell")), from = Zone.Stack, to = Zone.Graveyard),
@@ -445,7 +488,10 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
     ) parsesTo abilities(
         Ability.Triggered(
             trigger = atYourEndStep,
-            interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield))),
+            interveningIf = Condition.ObjectMatches(
+                Objects.Self,
+                ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield, objects = ObjectFilter.Any)),
+            ),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.PhaseOut(Objects.Self))),
             ),
@@ -454,8 +500,16 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
             steps = listOf(
                 draw(Players.You),
                 Step.If(
-                    condition = Condition.Not(Condition.HappenedThisTurn(EventPattern.Attack(attacker = ObjectFilter.ControlledBy(PlayerFilter.You)))),
-                    then = listOf(Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1)))),
+                    condition = Condition.Not(Condition.HappenedThisTurn(
+                        EventPattern.Attack(attacker = ObjectFilter.ControlledBy(PlayerFilter.You)),
+                        atLeast = 1,
+                        measure = Measure.Events,
+                    )),
+                    then = listOf(Step.Do(Effect.Discard(
+                        Players.You,
+                        count = Value.Fixed(1),
+                        filter = ObjectFilter.Any,
+                    ))),
                 ),
             ),
         )),
@@ -467,8 +521,11 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
                 subtypes = listOf(Subtype("Ninja")),
                 power = PrintedNumber.Fixed(1),
                 toughness = PrintedNumber.Fixed(1),
-                abilities = listOf(Ability.Static(listOf(Mechanic.CantBeBlocked))),
-            ))))),
+                abilities = listOf(Ability.Static(
+                    listOf(Mechanic.CantBeBlocked),
+                    affects = Affected.Objects(Objects.Self),
+                )),
+            )), count = Value.Fixed(1), controller = Players.You))),
         )),
         loyalty(-7, Instructions(
             steps = listOf(Step.Do(Effect.CreateEmblem(listOf(Ability.Triggered(
@@ -486,12 +543,15 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
                                 creature,
                             )),
                             bind = "found",
+                            max = Value.Fixed(1),
+                            zones = listOf(Zone.Library),
+                            searcher = Players.You,
                         )),
                         Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
                         Step.Do(Effect.Shuffle(Players.You)),
                     ),
                 ),
-            ))))),
+            )), players = Players.You))),
         )),
     )
 
@@ -510,12 +570,17 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
         Ability.Triggered(
             trigger = youCastANoncreatureSpell,
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.CreateToken(servo))),
+                steps = listOf(Step.Do(Effect.CreateToken(servo, count = Value.Fixed(1), controller = Players.You))),
             ),
         ),
         loyalty(-2, Instructions(
             targets = listOf(
-                TargetSlot("artifact", TargetKind.Objects(controlledBy(ObjectFilter.Type(CardType.Artifact), PlayerFilter.You))),
+                TargetSlot(
+                    "artifact",
+                    TargetKind.Objects(controlledBy(ObjectFilter.Type(CardType.Artifact), PlayerFilter.You)),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
+                ),
                 TargetSlot(
                     name = "permanent",
                     what = TargetKind.Objects(controlledBy(
@@ -523,6 +588,8 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersTest {
                         PlayerFilter.You,
                     )),
                     distinctFrom = listOf("artifact"),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 ),
             ),
             steps = listOf(Step.Do(Effect.ApplyMechanics(

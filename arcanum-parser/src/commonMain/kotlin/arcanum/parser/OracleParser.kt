@@ -1,6 +1,7 @@
 package arcanum.parser
 
 import arcanum.api.Ability
+import arcanum.api.Affected
 import arcanum.api.FaceDefinition
 import arcanum.api.HasAmount
 import arcanum.api.HasCost
@@ -8,6 +9,7 @@ import arcanum.api.Keyword
 import arcanum.api.Cost
 import arcanum.api.CostPart
 import arcanum.api.ManaCost
+import arcanum.api.Objects
 
 /**
  * Parses one card face's oracle text into a [FaceDefinition]. Reads only the text (no card-data keyword lists), so it
@@ -150,7 +152,7 @@ object OracleParser {
         val mechanics = listOf<arcanum.api.Mechanic>(arcanum.api.Mechanic.SetPowerToughness(
             arcanum.api.Value.Fixed(pt.groupValues[1].toInt()), arcanum.api.Value.Fixed(pt.groupValues[2].toInt()))) +
             (if (granted.isEmpty()) emptyList() else listOf(arcanum.api.Mechanic.GainAbilities(granted)))
-        return Ability.Static(mechanics, condition = condition)
+        return Ability.Static(mechanics, condition = condition, affects = Affected.Objects(Objects.Self))
     }
 
     /**

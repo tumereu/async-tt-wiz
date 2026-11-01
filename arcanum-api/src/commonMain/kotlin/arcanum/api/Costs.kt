@@ -62,8 +62,8 @@ sealed interface CostPart {
     @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
     @Serializable @SerialName("pay-energy") data class PayEnergy(val amount: Value) : CostPart
-    @Serializable @SerialName("remove-counters") data class RemoveCounters(val kind: CounterKind?, val amount: Value, val from: CostObjects = CostObjects.Self) : CostPart
-    @Serializable @SerialName("put-counters") data class PutCounters(val kind: CounterKind, val amount: Value, val on: CostObjects = CostObjects.Self) : CostPart
+    @Serializable @SerialName("remove-counters") data class RemoveCounters(val kind: CounterKind?, val amount: Value, val from: CostObjects) : CostPart
+    @Serializable @SerialName("put-counters") data class PutCounters(val kind: CounterKind, val amount: Value, val on: CostObjects) : CostPart
     /** A loyalty ability's cost: put or remove loyalty counters (CR 606); [amount] may be negative or announced (−X). */
     @Serializable @SerialName("loyalty") data class Loyalty(val amount: Value) : CostPart
     @Serializable @SerialName("mill") data class Mill(val count: Value) : CostPart
@@ -82,7 +82,7 @@ sealed interface CostObjects {
     /** [count] objects matching [filter] ([count] null: any number), or (with [total]) any number whose
      * [Total.property] adds up to at least [Total.atLeast] ("tap any number of creatures with total power 3 or more").
      * "Your hand" is [These], not a count of its size. */
-    @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value? = Value.Fixed(1), val total: Total? = null) : CostObjects
+    @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value?, val total: Total? = null) : CostObjects
 }
 
 /** Mana an ability or effect adds (CR 106). [restriction] limits what it may be spent on ("spend this mana only to
@@ -106,7 +106,7 @@ data class Total(val property: NumericProperty, val atLeast: Value)
 sealed interface ManaKind {
     /** One mana of any type the triggering mana ability produced, [amount] of it ("adds one additional mana of any type
      * that land produced"). */
-    @Serializable @SerialName("same-as-produced") data class SameAsProduced(val amount: Value = Value.Fixed(1)) : ManaKind
+    @Serializable @SerialName("same-as-produced") data class SameAsProduced(val amount: Value) : ManaKind
     /** These symbols ("{G}{G}", "{C}"), [times] times when given ("Add {G} for each Elf you control"). */
     @Serializable @SerialName("fixed") data class Fixed(val mana: ManaCost, val times: Value? = null) : ManaKind
     /** [amount] mana of one colour among [colors] (two or more, "the chosen color" through [ColorRef.Chosen], "a color
@@ -114,5 +114,5 @@ sealed interface ManaKind {
      * instead of one colour. */
     @Serializable @SerialName("choose") data class Choose(val amount: Value, val colors: List<ColorRef>? = null, val combination: Boolean = false) : ManaKind
     /** [amount] mana of any colour/type a land matching [filter] could produce (Reflecting Pool style). */
-    @Serializable @SerialName("as-could") data class AsCouldProduce(val filter: ObjectFilter, val amount: Value = Value.Fixed(1)) : ManaKind
+    @Serializable @SerialName("as-could") data class AsCouldProduce(val filter: ObjectFilter, val amount: Value) : ManaKind
 }

@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Comparison
@@ -18,10 +19,12 @@ import arcanum.api.Keyword
 import arcanum.api.ManaCost
 import arcanum.api.ManaKind
 import arcanum.api.ManaProduction
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
+import arcanum.api.PlayKind
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.PrintedNumber
@@ -32,6 +35,7 @@ import arcanum.api.SubtypeRef
 import arcanum.api.Supertype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Color
@@ -59,6 +63,8 @@ class Chunk25EnchantmentEnginesTest {
             )),
             players = PlayerFilter.Any,
         ),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
     )
 
     /** "[cost]: This enchantment deals [amount] damage to any target." */
@@ -66,12 +72,20 @@ class Chunk25EnchantmentEnginesTest {
         cost = Cost(cost.toList()),
         instructions = Instructions(
             targets = listOf(anyTarget),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(amount)))),
+            steps = listOf(Step.Do(Effect.DealDamage(
+                Recipients(target = "any"),
+                amount = Value.Fixed(amount),
+                source = Objects.Self,
+            ))),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)
-    private fun sacrificeA(filter: ObjectFilter) = CostPart.Sacrifice(CostObjects.Choose(filter))
+    private fun sacrificeA(filter: ObjectFilter) = CostPart.Sacrifice(CostObjects.Choose(
+        filter,
+        count = Value.Fixed(1),
+    ))
     private fun discardA(filter: ObjectFilter, count: Int = 1) = CostPart.Discard(CostObjects.Choose(filter, count = Value.Fixed(count)))
     private val creature = ObjectFilter.Type(CardType.Creature)
     private val dies = EventPattern.ZoneChange(creature, from = Zone.Battlefield, to = Zone.Graveyard)
@@ -136,8 +150,9 @@ class Chunk25EnchantmentEnginesTest {
                     subtypes = listOf(Subtype("Zombie")),
                     power = PrintedNumber.Fixed(2),
                     toughness = PrintedNumber.Fixed(2),
-                ))))),
+                )), count = Value.Fixed(1), controller = Players.You))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -152,11 +167,20 @@ class Chunk25EnchantmentEnginesTest {
             cost = Cost(listOf(mana("{G}"), discardA(creature))),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.Search(Players.You, creature, reveal = true, bind = "found")),
+                    Step.Do(Effect.Search(
+                        Players.You,
+                        creature,
+                        reveal = true,
+                        bind = "found",
+                        max = Value.Fixed(1),
+                        zones = listOf(Zone.Library),
+                        searcher = Players.You,
+                    )),
                     Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Hand))),
                     Step.Do(Effect.Shuffle(Players.You)),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -169,12 +193,16 @@ class Chunk25EnchantmentEnginesTest {
         text = "Sacrifice a land: Add one mana of any type the sacrificed land could produce.",
     ) parsesTo abilities(
         Ability.Activated(
-            cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Land)), preBind = "sacrificed"))),
+            cost = Cost(listOf(CostPart.Sacrifice(
+                CostObjects.Choose(ObjectFilter.Type(CardType.Land), count = Value.Fixed(1)),
+                preBind = "sacrificed",
+            ))),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.AddMana(ManaProduction(
-                    ManaKind.AsCouldProduce(ObjectFilter.Is(Objects.Bound("sacrificed"))),
-                )))),
+                    ManaKind.AsCouldProduce(ObjectFilter.Is(Objects.Bound("sacrificed")), amount = Value.Fixed(1)),
+                ), players = Players.You))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -186,14 +214,17 @@ class Chunk25EnchantmentEnginesTest {
         text = "Tap an untapped creature you control: Untap target basic land.",
     ) parsesTo abilities(
         Ability.Activated(
-            cost = Cost(listOf(CostPart.TapObjects(CostObjects.Choose(creature)))),
+            cost = Cost(listOf(CostPart.TapObjects(CostObjects.Choose(creature, count = Value.Fixed(1))))),
             instructions = Instructions(
                 targets = listOf(TargetSlot(
                     name = "land",
                     what = TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Super(Supertype.Basic), ObjectFilter.Type(CardType.Land)))),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(Step.Do(Effect.Untap(Objects.Target("land")))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -222,10 +253,18 @@ class Chunk25EnchantmentEnginesTest {
     ) parsesTo abilities(
         extraLandPlays(null),
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.PlayLand(players = PlayerFilter.You)),
-            interveningIf = Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You), atLeast = 2),
+            trigger = Trigger.On(EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any)),
+            interveningIf = Condition.HappenedThisTurn(
+                EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any),
+                atLeast = 2,
+                measure = Measure.Events,
+            ),
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.You), amount = Value.Fixed(1)))),
+                steps = listOf(Step.Do(Effect.DealDamage(
+                    Recipients(players = Players.You),
+                    amount = Value.Fixed(1),
+                    source = Objects.Self,
+                ))),
             ),
         ),
     )
@@ -244,7 +283,12 @@ class Chunk25EnchantmentEnginesTest {
         text = "Any player may cast creature spells with mana value 3 or less without paying their mana costs and as though they had flash.",
     ) parsesTo abilities(
         Ability.Static(
-            mechanics = listOf(Mechanic.MayPlay(Zone.Hand, withoutPaying = true, holder = PlayerFilter.Any)),
+            mechanics = listOf(Mechanic.MayPlay(
+                Zone.Hand,
+                withoutPaying = true,
+                holder = PlayerFilter.Any,
+                how = PlayKind.Cast,
+            )),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
                 creature,
                 ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(3)),
@@ -306,7 +350,10 @@ class Chunk25EnchantmentEnginesTest {
             event = EventPattern.Draw(PlayerFilter.You),
             instead = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(1)), bind = "revealed")),
+                    Step.Do(Effect.Reveal(
+                        Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
+                        bind = "revealed",
+                    )),
                     Step.If(
                         condition = Condition.ObjectMatches(Objects.Bound("revealed"), creature),
                         then = listOf(Step.Do(Effect.Move(Objects.Bound("revealed"), to = Destination(Zone.Graveyard)))),
@@ -314,7 +361,7 @@ class Chunk25EnchantmentEnginesTest {
                     ),
                 ),
             ),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
         Ability.Triggered(
             trigger = Trigger.On(dies.copy(objects = ObjectFilter.And(listOf(creature, ObjectFilter.OwnedBy(PlayerFilter.You))))),
             instructions = Instructions(
@@ -351,7 +398,7 @@ class Chunk25EnchantmentEnginesTest {
                 ),
                 Mechanic.GainAbilities(listOf(Keyword.Crew(5))),
             ),
-            affects = Affected.Objects(Objects.AttachedTo()),
+            affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)),
         ),
     )
 }

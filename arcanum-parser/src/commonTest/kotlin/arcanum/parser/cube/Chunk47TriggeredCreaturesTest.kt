@@ -55,13 +55,16 @@ class Chunk47TriggeredCreaturesTest {
     private val creature = ObjectFilter.Type(CardType.Creature)
     private val artifact = ObjectFilter.Type(CardType.Artifact)
     private val atYourUpkeep = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You))
-    private val youDiscardACard = Trigger.On(EventPattern.Discard(players = PlayerFilter.You))
-    private val youDiscardOneOrMoreCards = Trigger.On(EventPattern.Discard(players = PlayerFilter.You), oneOrMore = true)
+    private val youDiscardACard = Trigger.On(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any))
+    private val youDiscardOneOrMoreCards = Trigger.On(
+        EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any),
+        oneOrMore = true,
+    )
     private val drawACard = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(1)))
 
     /** "you may [pay]. If you do, [then]" (CR 118.12). */
     private fun youMay(cost: Cost, vararg then: Step) = listOf(
-        Step.Pay(cost, bind = "paid"),
+        Step.Pay(cost, bind = "paid", payer = Players.You),
         Step.If(condition = Condition.Did("paid"), then = then.toList()),
     )
 
@@ -79,7 +82,7 @@ class Chunk47TriggeredCreaturesTest {
 
     /** "You may play that card [duration]": a permission for the exiled card. */
     private fun mayPlayExiled(duration: Duration) = Step.Do(Effect.ApplyMechanics(
-        mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play)),
+        mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
         affects = Affected.Objects(Objects.Bound("exiled")),
         duration = duration,
     ))
@@ -105,7 +108,18 @@ class Chunk47TriggeredCreaturesTest {
             instructions = Instructions(
                 steps = listOf(
                     Step.Do(Effect.LoseLife(Players.You, Value.Fixed(1))),
-                    Step.Do(Effect.CreateToken(token("Faerie", listOf(Color.Blue, Color.Black), 1, 1, listOf(CardType.Creature), listOf(Keyword.Flying)))),
+                    Step.Do(Effect.CreateToken(
+                        token(
+                            "Faerie",
+                            listOf(Color.Blue, Color.Black),
+                            1,
+                            1,
+                            listOf(CardType.Creature),
+                            listOf(Keyword.Flying),
+                        ),
+                        count = Value.Fixed(1),
+                        controller = Players.You,
+                    )),
                 ),
             ),
         ),
@@ -124,7 +138,10 @@ class Chunk47TriggeredCreaturesTest {
             trigger = atYourUpkeep,
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(1)), bind = "revealed")),
+                    Step.Do(Effect.Reveal(
+                        Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
+                        bind = "revealed",
+                    )),
                     Step.Do(Effect.Move(Objects.Bound("revealed"), to = Destination(Zone.Hand))),
                     Step.Do(Effect.LoseLife(Players.You, Value.Of(NumericProperty.ManaValue, Objects.Bound("revealed"), Combine.Single))),
                 ),
@@ -147,9 +164,13 @@ class Chunk47TriggeredCreaturesTest {
                 creature,
                 ObjectFilter.HasKeyword(Keyword.Decayed),
                 ObjectFilter.ControlledBy(PlayerFilter.You),
-            )))),
+            )), atLeast = 1)),
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.CreateToken(token("Zombie", listOf(Color.Black), 2, 2, listOf(CardType.Creature), listOf(Keyword.Decayed))))),
+                steps = listOf(Step.Do(Effect.CreateToken(
+                    token("Zombie", listOf(Color.Black), 2, 2, listOf(CardType.Creature), listOf(Keyword.Decayed)),
+                    count = Value.Fixed(1),
+                    controller = Players.You,
+                ))),
             ),
         ),
     )
@@ -176,8 +197,8 @@ class Chunk47TriggeredCreaturesTest {
                     abilities = listOf(Ability.Static(listOf(Mechanic.ModifyPowerToughness(
                         Value.Count(Objects.Each(ObjectFilter.And(listOf(artifact, ObjectFilter.ControlledBy(PlayerFilter.You))))),
                         Value.Count(Objects.Each(ObjectFilter.And(listOf(artifact, ObjectFilter.ControlledBy(PlayerFilter.You))))),
-                    )))),
-                )))),
+                    )), affects = Affected.Objects(Objects.Self))),
+                ), count = Value.Fixed(1), controller = Players.You))),
             ),
         ),
     )
@@ -227,9 +248,15 @@ class Chunk47TriggeredCreaturesTest {
     ) parsesTo abilities(
         Keyword.Flying,
         Ability.Triggered(
-            trigger = Trigger.On(events = listOf(EventPattern.Cast()), nthThisTurn = 2),
+            trigger = Trigger.On(
+                events = listOf(EventPattern.Cast(spell = ObjectFilter.Any, by = PlayerFilter.Any)),
+                nthThisTurn = 2,
+            ),
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.Action(KeywordAction.Connive()))),
+                steps = listOf(Step.Do(Effect.Action(KeywordAction.Connive(
+                    objects = Objects.Self,
+                    count = Value.Fixed(1),
+                )))),
             ),
         ),
     )
@@ -253,14 +280,21 @@ class Chunk47TriggeredCreaturesTest {
             )),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.FlipCoin(bind = "flip")),
+                    Step.Do(Effect.FlipCoin(bind = "flip", players = Players.You)),
                     Step.If(
                         condition = Condition.Not(Condition.WonFlip("flip")),
-                        then = listOf(Step.Do(Effect.Move(Objects.EventObject(), to = Destination(Zone.Hand)))),
+                        then = listOf(Step.Do(Effect.Move(
+                            Objects.EventObject(role = EventRole.Object),
+                            to = Destination(Zone.Hand),
+                        ))),
                     ),
                     Step.If(
                         condition = Condition.WonFlip("flip"),
-                        then = listOf(Step.Do(Effect.CopySpell(Objects.EventObject()))),
+                        then = listOf(Step.Do(Effect.CopySpell(
+                            Objects.EventObject(role = EventRole.Object),
+                            controller = Players.You,
+                            newTargets = true,
+                        ))),
                     ),
                 ),
             ),
@@ -290,12 +324,15 @@ class Chunk47TriggeredCreaturesTest {
             trigger = Trigger.On(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true),
             instructions = Instructions(
                 steps = youMay(
-                    Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))))),
+                    Cost(listOf(CostPart.Discard(CostObjects.Choose(
+                        ObjectFilter.Category(ObjectCategory.Card),
+                        count = Value.Fixed(1),
+                    )))),
                     Step.Do(Effect.ReflexiveTrigger(Instructions(
                         targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOf(
                             ObjectFilter.HasStatus(Status.Attacking),
                             creature,
-                        ))))),
+                        ))), min = Value.Fixed(1), max = Value.Fixed(1))),
                         steps = listOf(
                             Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), amount = Value.Fixed(1))),
                             Step.Do(Effect.ApplyMechanics(
@@ -312,7 +349,11 @@ class Chunk47TriggeredCreaturesTest {
             trigger = youDiscardOneOrMoreCards,
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(1)), to = Destination(Zone.Exile), postBind = "exiled")),
+                    Step.Do(Effect.Move(
+                        Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
+                        to = Destination(Zone.Exile),
+                        postBind = "exiled",
+                    )),
                     mayPlayExiled(Duration.UntilStep(TurnStep.End, PlayerFilter.You)),
                 ),
             ),
@@ -338,8 +379,12 @@ class Chunk47TriggeredCreaturesTest {
                         ObjectFilter.Type(CardType.Battle),
                     )),
                     players = PlayerFilter.Any,
+                ), min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.DealDamage(
+                    Recipients(target = "any"),
+                    amount = Value.Fixed(1),
+                    source = Objects.Self,
                 ))),
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(1)))),
             ),
         ),
     )

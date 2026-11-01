@@ -28,6 +28,7 @@ import arcanum.api.Players
 import arcanum.api.SharedQuality
 import arcanum.api.Step
 import arcanum.api.Subtype
+import arcanum.api.Timing
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
 import arcanum.api.Value
@@ -54,7 +55,10 @@ class Chunk45GraveyardCastingAndCantBlockTest {
         ObjectFilter.And(listOf(filter, ObjectFilter.InZone(zone), ObjectFilter.OwnedBy(PlayerFilter.You)))
 
     /** "This creature can't block." */
-    private val cantBlock = Ability.Static(listOf(Mechanic.CantBlock()))
+    private val cantBlock = Ability.Static(
+        listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any)),
+        affects = Affected.Objects(Objects.Self),
+    )
 
     /** "Return this card from your graveyard to the battlefield." (CR 113.6m: works only in the graveyard) */
     private val returnThisCard = Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Battlefield), postBind = "returned"))
@@ -84,10 +88,11 @@ class Chunk45GraveyardCastingAndCantBlockTest {
     ) parsesTo abilities(
         cantBlock,
         Ability.Activated(
-            cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(creature)))),
+            cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(creature, count = Value.Fixed(1))))),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), amount = Value.Fixed(1)))),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -104,7 +109,10 @@ class Chunk45GraveyardCastingAndCantBlockTest {
         """,
     ) parsesTo abilities(
         Keyword.Changeling,
-        Ability.Static(listOf(Mechanic.CantBlock(), Mechanic.CantBeBlocked)),
+        Ability.Static(
+            listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any), Mechanic.CantBeBlocked),
+            affects = Affected.Objects(Objects.Self),
+        ),
     )
 
     // ---- Back from the graveyard
@@ -127,13 +135,14 @@ class Chunk45GraveyardCastingAndCantBlockTest {
             condition = Condition.PlayerExists(PlayerFilter.And(listOf(
                 PlayerFilter.Opponent,
                 PlayerFilter.Life(Comparison.AtMost, Value.Fixed(10)),
-            ))),
+            )), atLeast = 1),
+            affects = Affected.Objects(Objects.Self),
         ),
         Ability.Triggered(
             abilityWord = "Landfall",
             trigger = Trigger.On(EventPattern.ZoneChange(controlledByYou(land), to = Zone.Battlefield)),
             instructions = Instructions(
-                steps = listOf(Step.May(listOf(returnThisCard))),
+                steps = listOf(Step.May(listOf(returnThisCard), player = Players.You)),
             ),
         ),
     )
@@ -155,7 +164,13 @@ class Chunk45GraveyardCastingAndCantBlockTest {
             cost = manaCost("{1}{B}"),
             instructions = Instructions(steps = listOf(returnThisCard)),
             rules = ActivationRules(
-                condition = Condition.HappenedThisTurn(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You))),
+                condition = Condition.HappenedThisTurn(
+                    EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)),
+                    atLeast = 1,
+                    measure = Measure.Events,
+                ),
+                timing = Timing.Any,
+                activatedBy = PlayerFilter.You,
             ),
         ),
     )
@@ -203,7 +218,7 @@ class Chunk45GraveyardCastingAndCantBlockTest {
             affects = Affected.Objects(Objects.Each(controlledByYou(creature))),
             condition = Condition.And(listOf(
                 Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Graveyard)),
-                Condition.Exists(controlledByYou(ObjectFilter.Sub(Subtype("Mountain")))),
+                Condition.Exists(controlledByYou(ObjectFilter.Sub(Subtype("Mountain"))), atLeast = 1),
             )),
             functionsIn = listOf(Zone.Graveyard),
         ),
@@ -224,8 +239,9 @@ class Chunk45GraveyardCastingAndCantBlockTest {
     ) parsesTo abilities(
         cantBlock,
         Ability.Static(
-            mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard)),
-            condition = Condition.Exists(controlledByYou(ObjectFilter.Sub(Subtype("Zombie")))),
+            mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, how = PlayKind.Cast, holder = PlayerFilter.You)),
+            condition = Condition.Exists(controlledByYou(ObjectFilter.Sub(Subtype("Zombie"))), atLeast = 1),
+            affects = Affected.Objects(Objects.Self),
         ),
     )
 
@@ -242,10 +258,13 @@ class Chunk45GraveyardCastingAndCantBlockTest {
             Trample
         """,
     ) parsesTo abilities(
-        Ability.Static(listOf(Mechanic.CantSpendMana)),
+        Ability.Static(listOf(Mechanic.CantSpendMana), affects = Affected.Objects(Objects.Self)),
         Keyword.Convoke,
         Keyword.Delve,
-        Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard))),
+        Ability.Static(
+            listOf(Mechanic.MayPlay(Zone.Graveyard, how = PlayKind.Cast, holder = PlayerFilter.You)),
+            affects = Affected.Objects(Objects.Self),
+        ),
         Keyword.Trample,
     )
 
@@ -275,9 +294,17 @@ class Chunk45GraveyardCastingAndCantBlockTest {
                 Mechanic.ModifyPowerToughness(Value.Fixed(2), Value.Fixed(2)),
                 Mechanic.GainAbilities(listOf(Keyword.Flying, Keyword.Haste)),
             ),
-            affects = Affected.Objects(Objects.AttachedTo()),
+            affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)),
         ),
-        Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, viaAlternative = Keyword.Bestow.Kind))),
+        Ability.Static(
+            listOf(Mechanic.MayPlay(
+                Zone.Graveyard,
+                viaAlternative = Keyword.Bestow.Kind,
+                how = PlayKind.Cast,
+                holder = PlayerFilter.You,
+            )),
+            affects = Affected.Objects(Objects.Self),
+        ),
     )
 
     /** Companion (CR 702.139a): every card of the starting deck is a nonpermanent card or has mana value 2 or less.
@@ -303,7 +330,12 @@ class Chunk45GraveyardCastingAndCantBlockTest {
         ),
         Keyword.Lifelink,
         Ability.Static(
-            mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, perTurn = 1)),
+            mechanics = listOf(Mechanic.MayPlay(
+                Zone.Graveyard,
+                perTurn = 1,
+                how = PlayKind.Cast,
+                holder = PlayerFilter.You,
+            )),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
                 permanentCard,
                 ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(2)),
@@ -334,7 +366,7 @@ class Chunk45GraveyardCastingAndCantBlockTest {
                 ObjectFilter.Type(CardType.Artifact),
                 creature,
                 land,
-            )))))),
+            )), count = Value.Fixed(1))))),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.RemoveCounters(Objects.Self, CounterKind.Time, amount = Value.Fixed(1)))),
             ),
@@ -342,8 +374,10 @@ class Chunk45GraveyardCastingAndCantBlockTest {
                 condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.And(listOf(
                     ObjectFilter.InZone(Zone.Exile),
                     ObjectFilter.HasKeyword(Keyword.Suspend.Kind),
-                    ObjectFilter.HasCounter(CounterKind.Time),
+                    ObjectFilter.HasCounter(CounterKind.Time, atLeast = 1),
                 ))),
+                timing = Timing.Any,
+                activatedBy = PlayerFilter.You,
             ),
             functionsIn = listOf(Zone.Exile),
         ),
@@ -363,16 +397,26 @@ class Chunk45GraveyardCastingAndCantBlockTest {
         """,
     ) parsesTo abilities(
         Ability.Static(
-            mechanics = listOf(Mechanic.MayLookAt(Objects.LibraryCards(Players.You, Value.Fixed(1)))),
+            mechanics = listOf(Mechanic.MayLookAt(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true))),
             affects = Affected.Players(Players.You),
         ),
         Ability.Static(
-            mechanics = listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Play, topOnly = true)),
+            mechanics = listOf(Mechanic.MayPlay(
+                Zone.Library,
+                PlayKind.Play,
+                topOnly = true,
+                holder = PlayerFilter.You,
+            )),
             affects = Affected.Objects(Objects.Each(yourCards(land, Zone.Library))),
         ),
         Ability.Static(
             abilityWord = "Coven",
-            mechanics = listOf(Mechanic.MayPlay(Zone.Library, topOnly = true)),
+            mechanics = listOf(Mechanic.MayPlay(
+                Zone.Library,
+                topOnly = true,
+                how = PlayKind.Cast,
+                holder = PlayerFilter.You,
+            )),
             affects = Affected.Objects(Objects.Each(yourCards(creature, Zone.Library))),
             condition = Condition.Compare(
                 left = Value.CountDistinct(Objects.Each(controlledByYou(creature)), SharedQuality.Number(NumericProperty.Power)),

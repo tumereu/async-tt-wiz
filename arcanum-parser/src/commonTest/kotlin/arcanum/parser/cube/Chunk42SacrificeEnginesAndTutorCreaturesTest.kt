@@ -2,6 +2,7 @@ package arcanum.parser.cube
 
 import arcanum.api.Ability
 import arcanum.api.ActivationRules
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
 import arcanum.api.Color
@@ -59,7 +60,12 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
     private fun draw(n: Int) = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(n)))
     private fun gainLife(n: Int) = Step.Do(Effect.GainLife(Players.You, Value.Fixed(n)))
 
-    private fun activated(vararg cost: CostPart, steps: List<Step>, targets: List<TargetSlot> = emptyList(), rules: ActivationRules = ActivationRules()) =
+    private fun activated(
+        vararg cost: CostPart,
+        steps: List<Step>,
+        targets: List<TargetSlot> = emptyList(),
+        rules: ActivationRules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+    ) =
         Ability.Activated(
             cost = Cost(cost.toList()),
             instructions = Instructions(targets = targets, steps = steps),
@@ -73,12 +79,20 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
 
     /** "This creature gets +1/+1 for each [kind] card in your graveyard." (layer 7c, CR 613.4c) */
     private fun getsForEachInGraveyard(kind: ObjectFilter) = Value.Count(Objects.Each(inYourGraveyard(kind))).let { count ->
-        Ability.Static(listOf(Mechanic.ModifyPowerToughness(count, count)))
+        Ability.Static(listOf(Mechanic.ModifyPowerToughness(count, count)), affects = Affected.Objects(Objects.Self))
     }
 
     /** "Search your library for a [filter] card, put it [to], then shuffle." */
     private fun search(filter: ObjectFilter, to: Destination, reveal: Boolean = false) = listOf(
-        Step.Do(Effect.Search(Players.You, filter, reveal = reveal, bind = "found")),
+        Step.Do(Effect.Search(
+            Players.You,
+            filter,
+            reveal = reveal,
+            bind = "found",
+            max = Value.Fixed(1),
+            zones = listOf(Zone.Library),
+            searcher = Players.You,
+        )),
         Step.Do(Effect.Move(Objects.Bound("found"), to = to)),
         Step.Do(Effect.Shuffle(Players.You)),
     )
@@ -106,7 +120,7 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
         text = "{G}, {T}, Discard a creature card: Search your library for a creature card, reveal it, put it into your hand, then shuffle.",
     ) parsesTo abilities(
         activated(
-            mana("{G}"), CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(creature)),
+            mana("{G}"), CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(creature, count = Value.Fixed(1))),
             steps = search(creature, to = Destination(Zone.Hand), reveal = true),
         ),
     )
@@ -125,6 +139,7 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
         Ability.Static(
             mechanics = listOf(Mechanic.ModifyPowerToughness(Value.Fixed(2), Value.Fixed(2))),
             condition = Condition.Exists(inYourGraveyard(land), atLeast = 3),
+            affects = Affected.Objects(Objects.Self),
         ),
         activated(
             mana("{2}"), CostPart.TapSelf, sacrifice(land),
@@ -187,12 +202,15 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
             cost = Cost(listOf(mana("{X}{B/G}"), CostPart.TapSelf, sacrifice(ObjectFilter.And(listOf(notSelf, creature))))),
             instructions = Instructions(
                 steps = search(
-                    ObjectFilter.And(listOf(creature, ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced()))),
+                    ObjectFilter.And(listOf(
+                        creature,
+                        ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced(name = "X")),
+                    )),
                     to = Destination(Zone.Battlefield),
                 ),
                 announced = listOf("X"),
             ),
-            rules = ActivationRules(timing = Timing.Sorcery),
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -211,8 +229,15 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
         """,
     ) parsesTo abilities(
         activated(
-            mana("{1}{B}"), CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))),
-            steps = listOf(Step.Do(Effect.CreateToken(creatureToken("Zombie", 2, 2, Color.Black)))),
+            mana("{1}{B}"), CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(
+                ObjectFilter.Category(ObjectCategory.Card),
+                count = Value.Fixed(1),
+            )),
+            steps = listOf(Step.Do(Effect.CreateToken(
+                creatureToken("Zombie", 2, 2, Color.Black),
+                count = Value.Fixed(1),
+                controller = Players.You,
+            ))),
         ),
         activated(
             CostPart.TapObjects(CostObjects.Choose(ObjectFilter.Sub(Subtype("Zombie")), count = Value.Fixed(3))),
@@ -236,11 +261,16 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
         Ability.Static(listOf(Mechanic.Replacement(
             event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
             modify = listOf(Modification.EntersTapped, Modification.EntersWithCounters(CounterKind.Stun, Value.Fixed(6))),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
         Ability.Triggered(
             trigger = youSacrifice(land),
             instructions = Instructions(steps = listOf(
-                Step.Do(Effect.CreateToken(creatureToken("Beast", 4, 4, Color.Green), tapped = true)),
+                Step.Do(Effect.CreateToken(
+                    creatureToken("Beast", 4, 4, Color.Green),
+                    tapped = true,
+                    count = Value.Fixed(1),
+                    controller = Players.You,
+                )),
                 Step.Do(Effect.Untap(Objects.Self)),
             )),
         ),
@@ -300,7 +330,10 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
                         Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))),
                     ),
                 ),
-                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{B}{B}")!!)))),
+                Step.Do(Effect.AddMana(
+                    ManaProduction(ManaKind.Fixed(ManaCost.parse("{B}{B}")!!)),
+                    players = Players.You,
+                )),
                 draw(1),
             ),
         ),
@@ -323,14 +356,27 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
                 ObjectFilter.And(listOf(notSelf, ObjectFilter.Not(ObjectFilter.Category(ObjectCategory.Token)), creature, youControl)),
                 to = Zone.Battlefield,
             )),
-            instructions = Instructions(steps = listOf(Step.Do(Effect.Action(KeywordAction.Investigate())))),
+            instructions = Instructions(
+                steps = listOf(Step.Do(Effect.Action(KeywordAction.Investigate(count = Value.Fixed(1))))),
+            ),
         ),
         Ability.Activated(
-            cost = Cost(listOf(CostPart.TapSelf, sacrifice(ObjectFilter.Sub(Subtype("Clue")), count = Value.Announced()))),
+            cost = Cost(listOf(
+                CostPart.TapSelf,
+                sacrifice(ObjectFilter.Sub(Subtype("Clue")), count = Value.Announced(name = "X")),
+            )),
             instructions = Instructions(
-                targets = listOf(TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent))),
+                targets = listOf(TargetSlot(
+                    "opponent",
+                    TargetKind.Players(PlayerFilter.Opponent),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
+                )),
                 steps = listOf(
-                    Step.Do(Effect.Reveal(Objects.LibraryCards(Players.Target("opponent"), Value.Announced()), bind = "revealed")),
+                    Step.Do(Effect.Reveal(
+                        Objects.LibraryCards(Players.Target("opponent"), Value.Announced(name = "X"), fromTop = true),
+                        bind = "revealed",
+                    )),
                     // "You may put a card from among them" is a choice of zero or one
                     Step.Choose(
                         choice = Choice.Objects(
@@ -345,13 +391,14 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
                                     land,
                                     ObjectFilter.Type(CardType.Planeswalker),
                                 )),
-                                ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced()),
+                                ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced(name = "X")),
                             )),
                             min = Value.Fixed(0),
                             max = Value.Fixed(1),
                             from = Objects.Bound("revealed"),
                         ),
                         bind = "chosen",
+                        chooser = Players.You,
                     ),
                     Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Battlefield, controller = Players.You))),
                     Step.Do(Effect.Move(
@@ -361,6 +408,7 @@ class Chunk42SacrificeEnginesAndTutorCreaturesTest {
                 ),
                 announced = listOf("X"),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

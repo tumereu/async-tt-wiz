@@ -44,7 +44,7 @@ import kotlin.test.Test
 class Chunk05TrickyManaTest {
     // ---- Shared shapes
 
-    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind)))
+    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind), players = Players.You))
     private fun fixed(mana: String) = ManaKind.Fixed(ManaCost.parse(mana)!!)
     private fun manaPart(mana: String) = CostPart.Mana(ManaCost.parse(mana)!!)
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
@@ -56,6 +56,7 @@ class Chunk05TrickyManaTest {
         instructions = Instructions(
             steps = listOf(add(kind)),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "When this artifact is put into a graveyard from the battlefield, draw a card." */
@@ -134,7 +135,7 @@ class Chunk05TrickyManaTest {
                         ObjectFilter.Named("Rite of Embers"),
                         ObjectFilter.InZone(Zone.Graveyard),
                     )))),
-                )))),
+                )), players = Players.You)),
             ),
         )),
     )
@@ -156,6 +157,7 @@ class Chunk05TrickyManaTest {
                     drawACard,
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -186,6 +188,7 @@ class Chunk05TrickyManaTest {
                             max = Value.Fixed(1),
                         ),
                         bind = "chosen",
+                        chooser = Players.You,
                     ),
                     Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Exile), postBind = "exiled")),
                     Step.Do(Effect.Remember("imprinted", Objects.Bound("exiled"))),
@@ -216,7 +219,7 @@ class Chunk05TrickyManaTest {
                 ))))),
                 sacrificeSelf,
             )),
-            rules = ActivationRules(timing = Timing.Instant),
+            rules = ActivationRules(timing = Timing.Instant, activatedBy = PlayerFilter.You),
             instructions = Instructions(
                 steps = listOf(add(anyOneColor(3))),
             ),
@@ -251,11 +254,15 @@ class Chunk05TrickyManaTest {
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.FlipCoin(bind = "flip")),
+                    Step.Do(Effect.FlipCoin(bind = "flip", players = Players.You)),
                     Step.If(
                         condition = Condition.Not(Condition.WonFlip("flip")),
                         then = listOf(
-                            Step.Do(Effect.DealDamage(Recipients(players = Players.You), amount = Value.Fixed(3))),
+                            Step.Do(Effect.DealDamage(
+                                Recipients(players = Players.You),
+                                amount = Value.Fixed(3),
+                                source = Objects.Self,
+                            )),
                         ),
                     ),
                 ),
@@ -276,12 +283,12 @@ class Chunk05TrickyManaTest {
             {T}: Add {C}{C}{C}.
         """,
     ) parsesTo abilities(
-        Ability.Static(listOf(Mechanic.DoesntUntap)),
+        Ability.Static(listOf(Mechanic.DoesntUntap), affects = Affected.Objects(Objects.Self)),
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Pay(cost = manaCost("{4}"), bind = "paid"),
+                    Step.Pay(cost = manaCost("{4}"), bind = "paid", payer = Players.You),
                     Step.If(
                         condition = Condition.Did("paid"),
                         then = listOf(Step.Do(Effect.Untap(Objects.Self))),
@@ -294,7 +301,11 @@ class Chunk05TrickyManaTest {
             interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Tapped)),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Do(Effect.DealDamage(Recipients(players = Players.You), amount = Value.Fixed(1))),
+                    Step.Do(Effect.DealDamage(
+                        Recipients(players = Players.You),
+                        amount = Value.Fixed(1),
+                        source = Objects.Self,
+                    )),
                 ),
             ),
         ),
@@ -317,8 +328,12 @@ class Chunk05TrickyManaTest {
                 instead = Instructions(
                     steps = listOf(
                         Step.Pay(
-                            cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Type(CardType.Land))))),
+                            cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(
+                                ObjectFilter.Type(CardType.Land),
+                                count = Value.Fixed(1),
+                            )))),
                             bind = "discarded",
+                            payer = Players.You,
                         ),
                         Step.If(
                             condition = Condition.Did("discarded"),
@@ -328,7 +343,7 @@ class Chunk05TrickyManaTest {
                     ),
                 ),
             ),
-        )),
+        ), affects = Affected.Objects(Objects.Self)),
         manaAbility(CostPart.TapSelf, kind = anyOneColor(1)),
     )
 
@@ -348,7 +363,7 @@ class Chunk05TrickyManaTest {
                     manaAbility(CostPart.TapSelf, kind = anyOneColor(1)),
                 )),
             ),
-            affects = Affected.Objects(Objects.AttachedTo()),
+            affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)),
         ),
         Keyword.Equip(manaCost("{1}")),
     )
@@ -369,15 +384,16 @@ class Chunk05TrickyManaTest {
                 event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.EntersTapped),
             ),
-        )),
+        ), affects = Affected.Objects(Objects.Self)),
         Ability.Activated(
             cost = Cost(listOf(manaPart("{X}"), CostPart.TapSelf, sacrificeSelf)),
             instructions = Instructions(
                 announced = listOf("X"),
                 steps = listOf(
-                    add(ManaKind.Choose(amount = Value.Announced(), combination = true)),
+                    add(ManaKind.Choose(amount = Value.Announced(name = "X"), combination = true)),
                 ),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         drawWhenItDies,
     )

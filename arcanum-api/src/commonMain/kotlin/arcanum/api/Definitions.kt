@@ -13,6 +13,8 @@ import kotlinx.serialization.Serializable
  * - Static abilities carry [Mechanic]s: continuous rules the engine applies.
  * - Shared building blocks: [Cost], [Trigger]/[EventPattern], [ObjectFilter]/[Objects], [PlayerFilter]/[Players],
  *   [Value], [Condition], [Duration].
+ * - Defaults (D51): a field defaults only to an empty or absent value (`null`, `false`, an empty list, `0` meaning
+ *   none); every other field, such as who acts, how many and which objects, is written out.
  */
 @Serializable
 data class CardDefinition(val layout: Layout, val faces: List<FaceDefinition>)
@@ -82,7 +84,7 @@ sealed interface Ability {
     data class Activated(
         val cost: Cost,
         val instructions: Instructions,
-        val rules: ActivationRules = ActivationRules(),
+        val rules: ActivationRules,
         /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
          * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
@@ -130,13 +132,13 @@ sealed interface Ability {
      *
      * Mechanics scoped by an event or filter of their own ([Mechanic.Replacement], [Mechanic.Prevention],
      * [Mechanic.CostChange], [Mechanic.TriggersAdditionalTime], [Mechanic.DamageCantBePrevented]) don't use [affects];
-     * it stays the default. Inside [mechanics] and [condition], [Objects.Affected] / [Players.Affected] mean each
+     * it is `Affected.Objects(Objects.Self)`. Inside [mechanics] and [condition], [Objects.Affected] / [Players.Affected] mean each
      * affected object or player in turn ("each creature gets +1/+1 for each other creature that shares a type with it").
      */
     @Serializable @SerialName("static")
     data class Static(
         val mechanics: List<Mechanic>,
-        val affects: Affected = Affected.Objects(Objects.Self),
+        val affects: Affected,
         val condition: Condition? = null,
         val characteristicDefining: Boolean = false,
         /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
@@ -157,7 +159,7 @@ sealed interface Ability {
     data class SpecialAction(
         val cost: Cost,
         val instructions: Instructions,
-        val timing: Timing = Timing.Any,
+        val timing: Timing,
         val functionsIn: List<Zone>? = null,
         /** Only once each game (companion, CR 116.2g). */
         val oncePerGame: Boolean = false,
@@ -179,15 +181,15 @@ sealed interface Affected {
     @Serializable @SerialName("players") data class Players(val players: arcanum.api.Players) : Affected
     /** The next [count] spells matching [spells] cast after the effect is created ("the next instant or sorcery spell
      * you cast this turn costs {2} less", CR 611.2f); used up as they are cast. */
-    @Serializable @SerialName("next-spells") data class NextSpells(val spells: ObjectFilter, val count: Int = 1) : Affected
+    @Serializable @SerialName("next-spells") data class NextSpells(val spells: ObjectFilter, val count: Int) : Affected
 }
 
 /** Activation rules of an activated ability (CR 602.5). */
 @Serializable
 data class ActivationRules(
-    val timing: Timing = Timing.Any,
-    /** Who may activate it: its controller by default; "any player may activate this ability" (CR 602.2). */
-    val activatedBy: PlayerFilter = PlayerFilter.You,
+    val timing: Timing,
+    /** Who may activate it: [PlayerFilter.You] for its controller; "any player may activate this ability" (CR 602.2). */
+    val activatedBy: PlayerFilter,
     /** "Activate only once each turn" = 1. */
     val perTurn: Int? = null,
     /** "Activate only once": once for as long as the object exists (exhaust, CR 702.177a). */
@@ -250,8 +252,8 @@ data class Instructions(
 @Serializable
 data class Modes(
     val options: List<Mode>,
-    val min: Int = 1,
-    val max: Int = 1,
+    val min: Int,
+    val max: Int,
     /** "… If [condition], you may choose [maxIf] instead" (e.g. "you may choose both instead"). */
     val maxIf: Condition? = null,
     val maxIfCount: Int? = null,
@@ -262,7 +264,7 @@ data class Modes(
     /** The same mode may be chosen more than once. */
     val repeatable: Boolean = false,
     /** Who chooses ("target opponent chooses one —"). */
-    val chooser: Players = Players.You,
+    val chooser: Players,
 )
 
 /** One mode. [extraCost] is paid for choosing it (spree, CR 702.172). A target slot of a mode not chosen is empty: the
@@ -277,8 +279,8 @@ data class Mode(val instructions: Instructions, val extraCost: Cost? = null, val
 data class TargetSlot(
     val name: String,
     val what: TargetKind,
-    val min: Value = Value.Fixed(1),
-    val max: Value? = Value.Fixed(1),
+    val min: Value,
+    val max: Value?,
     val divided: Value? = null,
     val distinctFrom: List<String> = emptyList(),
     /** One such choice for each player matching it ("for each opponent, up to one target creature that player
@@ -316,7 +318,7 @@ sealed interface Step {
      * alone. "[Do Y] unless [player] pays [cost]" (CR 118.12a) and "you may pay [cost]. If you don't, [do Y]" are both
      * a Pay by that player followed by `If(Not(Did(bind)), then = [Y])`: one shape for both. */
     @Serializable @SerialName("pay") data class Pay(
-        val cost: Cost? = null, val steps: List<Step> = emptyList(), val payer: Players = Players.You,
+        val cost: Cost? = null, val steps: List<Step> = emptyList(), val payer: Players,
         val mandatory: Boolean = false, val bind: String? = null,
     ) : Step
     /** Only inside [Modification.AsEnters]: change how the object enters (tapped, with counters, with abilities, as a
@@ -325,7 +327,7 @@ sealed interface Step {
     /** "You may …" / "Target player may …" with nothing depending on it (CR 608.2d): [player] decides whether [steps]
      * happen. With a following "if you do", it is a [Pay]; "you may put a card from among them …" is a [Choose] of zero
      * or one. */
-    @Serializable @SerialName("may") data class May(val steps: List<Step>, val player: Players = Players.You) : Step
+    @Serializable @SerialName("may") data class May(val steps: List<Step>, val player: Players) : Step
     /** "If …, … Otherwise, …". "If you do" is [Condition.Did]. A conditional "If [condition], [do Y] instead" in a spell
      * is [otherwise]/[then]; an "instead" that replaces an event is [Instructions.replacements]. */
     @Serializable @SerialName("if") data class If(val condition: Condition, val then: List<Step>, val otherwise: List<Step> = emptyList()) : Step
@@ -343,7 +345,7 @@ sealed interface Step {
      * named [bind]. With [remember], it is kept on the source as card memory (CR 607 linked abilities, "As ~ enters,
      * choose a colour"). Secret choices stay manual (D25). */
     @Serializable @SerialName("choose") data class Choose(
-        val choice: Choice, val bind: String, val chooser: Players = Players.You, val remember: Boolean = false,
+        val choice: Choice, val bind: String, val chooser: Players, val remember: Boolean = false,
     ) : Step
     /** Part of the text the definition can't express: shown to players as a reminder to do by hand. */
     @Serializable @SerialName("manual") data class Manual(val text: String) : Step
@@ -363,7 +365,7 @@ sealed interface Choice {
     @Serializable @SerialName("creature-type") data object CreatureType : Choice
     @Serializable @SerialName("basic-land-type") data object BasicLandType : Choice
     @Serializable @SerialName("card-type") data object CardType : Choice
-    @Serializable @SerialName("card-name") data class CardName(val filter: ObjectFilter = ObjectFilter.Any) : Choice
+    @Serializable @SerialName("card-name") data class CardName(val filter: ObjectFilter) : Choice
     @Serializable @SerialName("number") data class Number(val min: Value, val max: Value? = null) : Choice
     @Serializable @SerialName("player") data class Player(val filter: PlayerFilter) : Choice
     /** Choose [min]..[max] objects matching [filter] (not targeting; [max] null: any number), from [from] when given

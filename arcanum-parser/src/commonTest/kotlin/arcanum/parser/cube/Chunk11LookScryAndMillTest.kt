@@ -37,7 +37,12 @@ import kotlin.test.Test
 class Chunk11LookScryAndMillTest {
     // ---- Shared shapes
 
-    private val targetPlayer = TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any))
+    private val targetPlayer = TargetSlot(
+        name = "player",
+        what = TargetKind.Players(PlayerFilter.Any),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
     private val drawACard = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(1)))
 
     private fun spell(vararg steps: Step) = Ability.Spell(Instructions(steps = steps.toList()))
@@ -116,9 +121,13 @@ class Chunk11LookScryAndMillTest {
         """,
     ) parsesTo abilities(
         spell(
-            Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, count = Value.Fixed(3)), bind = "seen")),
-            Step.Do(Effect.Reorder(Objects.Bound("seen"))),
-            Step.May(listOf(Step.Do(Effect.Shuffle(Players.You)))),
+            Step.Do(Effect.LookAt(
+                Objects.LibraryCards(Players.You, count = Value.Fixed(3), fromTop = true),
+                bind = "seen",
+                players = Players.You,
+            )),
+            Step.Do(Effect.Reorder(Objects.Bound("seen"), chooser = Players.You)),
+            Step.May(listOf(Step.Do(Effect.Shuffle(Players.You))), player = Players.You),
             drawACard,
         ),
     )
@@ -140,6 +149,7 @@ class Chunk11LookScryAndMillTest {
                     max = Value.Fixed(2),
                 ),
                 bind = "put",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("put"), to = Destination(Zone.Library, libraryPosition = 0))),
         ),
@@ -164,7 +174,7 @@ class Chunk11LookScryAndMillTest {
                 Step.Do(Effect.LookAt(Objects.Each(ObjectFilter.And(listOf(
                     ObjectFilter.InZone(Zone.Hand),
                     ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Target("player"))),
-                ))))),
+                ))), players = Players.You)),
                 drawACard,
             ),
         )),
@@ -203,7 +213,10 @@ class Chunk11LookScryAndMillTest {
         """,
     ) parsesTo abilities(
         spell(
-            Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(amount = Value.Fixed(2), combination = true)))),
+            Step.Do(Effect.AddMana(
+                ManaProduction(ManaKind.Choose(amount = Value.Fixed(2), combination = true)),
+                players = Players.You,
+            )),
             drawACard,
         ),
     )
@@ -226,8 +239,8 @@ class Chunk11LookScryAndMillTest {
                 subtypes = listOf(Subtype("Crab")),
                 power = PrintedNumber.Fixed(0),
                 toughness = PrintedNumber.Fixed(3),
-            )))),
-            Step.Do(Effect.Action(KeywordAction.Investigate())),
+            )), count = Value.Fixed(1), controller = Players.You)),
+            Step.Do(Effect.Action(KeywordAction.Investigate(count = Value.Fixed(1)))),
         ),
     )
 
@@ -244,7 +257,12 @@ class Chunk11LookScryAndMillTest {
         """,
     ) parsesTo abilities(
         Ability.Spell(Instructions(
-            targets = listOf(TargetSlot(name = "creature", what = TargetKind.Objects(ObjectFilter.Type(CardType.Creature)))),
+            targets = listOf(TargetSlot(
+                name = "creature",
+                what = TargetKind.Objects(ObjectFilter.Type(CardType.Creature)),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
             steps = listOf(
                 Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(Mechanic.ModifyPowerToughness(Value.Fixed(-1), Value.Fixed(-1))),

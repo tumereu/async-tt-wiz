@@ -147,7 +147,7 @@ sealed interface Mechanic {
     /** Can't attack ([target]); [fromDefender]: this restriction is defender's, the one "as though it didn't have
      * defender" lifts (CR 702.3b). */
     @Serializable @SerialName("cant-attack") data class CantAttack(val target: Recipients? = null, val fromDefender: Boolean = false) : Mechanic
-    @Serializable @SerialName("cant-block") data class CantBlock(val attackers: ObjectFilter = ObjectFilter.Any) : Mechanic
+    @Serializable @SerialName("cant-block") data class CantBlock(val attackers: ObjectFilter) : Mechanic
     /** "Can't be blocked" (landwalk with its condition). */
     @Serializable @SerialName("cant-be-blocked") data object CantBeBlocked : Mechanic
     /** Can be blocked only by creatures matching [blockers] (flying: creatures with flying or reach; fear;
@@ -178,7 +178,7 @@ sealed interface Mechanic {
     }
     @Serializable @SerialName("can-block-any-number") data object CanBlockAnyNumber : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
-    @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter = ObjectFilter.Any) : Mechanic
+    @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter) : Mechanic
     /** Assigns combat damage equal to its toughness rather than its power (CR 510.1). */
     @Serializable @SerialName("damage-by-toughness") data object AssignsDamageByToughness : Mechanic
     /** May assign its combat damage as though it weren't blocked (card text; no general rule). */
@@ -204,7 +204,7 @@ sealed interface Mechanic {
      * controller), also for cards in an opponent's library or exile.
      */
     @Serializable @SerialName("may-play") data class MayPlay(
-        val from: Zone, val how: PlayKind = PlayKind.Cast, val resultingSpell: ObjectFilter? = null, val topOnly: Boolean = false,
+        val from: Zone, val how: PlayKind, val resultingSpell: ObjectFilter? = null, val topOnly: Boolean = false,
         val cost: Cost? = null, val withoutPaying: Boolean = false,
         /** At most this many cards this way each turn ("Once during each of your turns, you may cast …", Lurrus). */
         val perTurn: Int? = null,
@@ -216,8 +216,8 @@ sealed interface Mechanic {
         /** Where it goes when it leaves the Stack: instead of anywhere other than the battlefield (flashback: exile), or
          * only instead of [thenInsteadOf] ("if that spell would be put into your graveyard, exile it instead"). */
         val then: Destination? = null, val thenInsteadOf: Zone? = null, val manaAsAnyColor: Boolean = false,
-        /** Who may play them: "you" by default; "any player may cast" (Aluren). */
-        val holder: PlayerFilter = PlayerFilter.You,
+        /** Who may play them: [PlayerFilter.You], or "any player may cast" (Aluren). */
+        val holder: PlayerFilter,
         /** Only by its [viaAlternative] alternative cost ("cast it from your graveyard using its bestow ability"). */
         @Serializable(with = KeywordKindSerializer::class) val viaAlternative: KeywordKind? = null,
     ) : Mechanic
@@ -260,7 +260,7 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-be-countered") data object CantBeCountered : Mechanic
     /** Activated abilities of the affected objects can't be activated; [manaAbilities] false keeps mana abilities
      * ("unless they're mana abilities"). */
-    @Serializable @SerialName("cant-be-activated") data class CantBeActivated(val manaAbilities: Boolean = true) : Mechanic
+    @Serializable @SerialName("cant-be-activated") data class CantBeActivated(val manaAbilities: Boolean) : Mechanic
     /** The affected permanents can't be regenerated: regeneration shields don't apply to them (CR 701.19c). */
     @Serializable @SerialName("cant-be-regenerated") data object CantBeRegenerated : Mechanic
     /** When the card itself may be cast ("Cast this spell only during combat", "only if …"); prohibitions on other spells
@@ -268,7 +268,7 @@ sealed interface Mechanic {
     @Serializable @SerialName("cast-restriction") data class CastRestriction(val timing: Timing? = null, val condition: Condition? = null) : Mechanic
     /** The affected players can't cast spells matching [spells] ("Your opponents can't cast noncreature spells", "can't
      * cast more than one spell each turn" with a condition on [Players.Affected]); [Objects.Tested] is the spell. */
-    @Serializable @SerialName("cant-cast") data class CantCast(val spells: ObjectFilter = ObjectFilter.Any) : Mechanic
+    @Serializable @SerialName("cant-cast") data class CantCast(val spells: ObjectFilter) : Mechanic
     /** The affected permanents can't be sacrificed. */
     @Serializable @SerialName("cant-be-sacrificed") data object CantBeSacrificed : Mechanic
     /** The affected players can't draw more than [count] cards each turn. */
@@ -298,7 +298,7 @@ sealed interface Mechanic {
     @Serializable @SerialName("skip-step") data class SkipStep(val step: TurnStep) : Mechanic
     /** "If [event] causes a triggered ability of [sources] to trigger, it triggers an additional time" (CR 603.2d). */
     @Serializable @SerialName("triggers-additional-time") data class TriggersAdditionalTime(
-        val event: EventPattern, val sources: ObjectFilter = ObjectFilter.Any,
+        val event: EventPattern, val sources: ObjectFilter,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -379,7 +379,7 @@ sealed interface Modification {
     @Serializable @SerialName("destination") data class ChangeDestination(val to: Destination) : Modification
     @Serializable @SerialName("enters-tapped") data object EntersTapped : Modification
     @Serializable @SerialName("enters-with-counters") data class EntersWithCounters(val kind: CounterKind, val amount: Value) : Modification
-    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean = true) : Modification
+    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean) : Modification
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If
@@ -389,7 +389,7 @@ sealed interface Modification {
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
     /** Also create [count] of [token] ("those tokens plus that many 1/1 Squirrel tokens"). */
-    @Serializable @SerialName("also-create") data class AlsoCreate(val token: TokenSpec, val count: Value = Value.EventAmount) : Modification
+    @Serializable @SerialName("also-create") data class AlsoCreate(val token: TokenSpec, val count: Value) : Modification
     /** "Enters under the control of [players]" (chosen among the first replacements, CR 616.1b). */
     @Serializable @SerialName("enters-under-control") data class EntersUnderControlOf(val players: Players) : Modification
     /** "Enters with [abilities]" ("If kicked, it enters with … and with trample"): part of the entering object. */

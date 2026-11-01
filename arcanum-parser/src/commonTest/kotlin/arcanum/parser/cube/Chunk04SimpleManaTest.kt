@@ -18,6 +18,7 @@ import arcanum.api.Objects
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.Step
+import arcanum.api.Timing
 import arcanum.api.Trigger
 import arcanum.api.Value
 import arcanum.api.Zone
@@ -31,7 +32,7 @@ class Chunk04SimpleManaTest {
     // ---- Shared shapes
 
     /** "Add [mana]." as one step. */
-    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind)))
+    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind), players = Players.You))
     private fun fixed(mana: String) = ManaKind.Fixed(ManaCost.parse(mana)!!)
 
     /** "[cost]: Add [mana]." */
@@ -40,6 +41,7 @@ class Chunk04SimpleManaTest {
         instructions = Instructions(
             steps = listOf(add(kind)),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     private fun spell(kind: ManaKind) = abilities(
@@ -49,7 +51,10 @@ class Chunk04SimpleManaTest {
     )
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
-    private fun sacrificeA(type: CardType) = CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(type)))
+    private fun sacrificeA(type: CardType) = CostPart.Sacrifice(CostObjects.Choose(
+        ObjectFilter.Type(type),
+        count = Value.Fixed(1),
+    ))
     private fun yourOwn(type: CardType) = ObjectFilter.And(listOf(
         ObjectFilter.Type(type),
         ObjectFilter.ControlledBy(PlayerFilter.You),
@@ -168,6 +173,8 @@ class Chunk04SimpleManaTest {
             cost = Cost(listOf(CostPart.TapSelf)),
             rules = ActivationRules(
                 condition = Condition.Exists(yourOwn(CardType.Artifact), atLeast = 3),
+                timing = Timing.Any,
+                activatedBy = PlayerFilter.You,
             ),
             instructions = Instructions(
                 steps = listOf(add(anyOneColor(1))),
@@ -217,7 +224,7 @@ class Chunk04SimpleManaTest {
         manaAbility(
             CostPart.TapSelf,
             // Tapping as a cost taps an untapped permanent you control (CR 602.2b): the filter names only the kind.
-            CostPart.TapObjects(CostObjects.Choose(ObjectFilter.Type(CardType.Creature))),
+            CostPart.TapObjects(CostObjects.Choose(ObjectFilter.Type(CardType.Creature), count = Value.Fixed(1))),
             kind = anyOneColor(1),
         ),
     )

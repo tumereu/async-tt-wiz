@@ -8,6 +8,7 @@ import arcanum.api.Destination
 import arcanum.api.Duration
 import arcanum.api.Effect
 import arcanum.api.EventPattern
+import arcanum.api.EventRole
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.ManaCost
@@ -40,7 +41,11 @@ class Chunk15ReturnsTriggersAndTurnsTest {
     private val yourGraveyard = listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
 
     /** "that were put there from the battlefield this turn" */
-    private val putThereFromBattlefieldThisTurn = ObjectFilter.ThisTurn(EventPattern.ZoneChange(from = Zone.Battlefield, to = Zone.Graveyard))
+    private val putThereFromBattlefieldThisTurn = ObjectFilter.ThisTurn(EventPattern.ZoneChange(
+        from = Zone.Battlefield,
+        to = Zone.Graveyard,
+        objects = ObjectFilter.Any,
+    ))
 
     /** "Permanent card" (CR 110.4a). */
     private val permanentCard = ObjectFilter.Or(listOf(
@@ -71,7 +76,7 @@ class Chunk15ReturnsTriggersAndTurnsTest {
                 Step.Do(Effect.Move(
                     Objects.Each(ObjectFilter.And(listOf(
                         ObjectFilter.Type(CardType.Creature),
-                        ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced()),
+                        ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced(name = "X")),
                     ) + yourGraveyard)),
                     to = Destination(Zone.Battlefield),
                     postBind = "returned",
@@ -194,7 +199,7 @@ class Chunk15ReturnsTriggersAndTurnsTest {
                 instructions = Instructions(steps = listOf(
                     Step.Do(Effect.AddMana(
                         mana = ManaProduction(ManaKind.Fixed(ManaCost.parse("{U}")!!)),
-                        players = Players.ControllerOf(Objects.EventObject()),
+                        players = Players.ControllerOf(Objects.EventObject(role = EventRole.Object)),
                     )),
                 )),
                 duration = Duration.EndOfTurn,
@@ -225,13 +230,19 @@ class Chunk15ReturnsTriggersAndTurnsTest {
                     )),
                     players = PlayerFilter.Any,
                 ),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
             )),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(2)))),
+            steps = listOf(Step.Do(Effect.DealDamage(
+                Recipients(target = "any"),
+                amount = Value.Fixed(2),
+                source = Objects.Self,
+            ))),
         )),
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.GainLife(PlayerFilter.Opponent)),
             instructions = Instructions(steps = listOf(
-                Step.Pay(cost = manaCost("{R}"), bind = "paid"),
+                Step.Pay(cost = manaCost("{R}"), bind = "paid", payer = Players.You),
                 Step.If(
                     condition = Condition.Did("paid"),
                     then = listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Hand)))),
@@ -250,7 +261,11 @@ class Chunk15ReturnsTriggersAndTurnsTest {
         text = "Look at the top six cards of your library. Put up to two creature cards with mana value 3 or less from among them onto the battlefield. Put the rest on the bottom of your library in any order.",
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(
-            Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, count = Value.Fixed(6)), bind = "seen")),
+            Step.Do(Effect.LookAt(
+                Objects.LibraryCards(Players.You, count = Value.Fixed(6), fromTop = true),
+                bind = "seen",
+                players = Players.You,
+            )),
             Step.Choose(
                 choice = Choice.Objects(
                     filter = ObjectFilter.And(listOf(
@@ -262,6 +277,7 @@ class Chunk15ReturnsTriggersAndTurnsTest {
                     from = Objects.Bound("seen"),
                 ),
                 bind = "chosen",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Battlefield))),
             Step.Do(Effect.Move(
@@ -279,10 +295,15 @@ class Chunk15ReturnsTriggersAndTurnsTest {
         text = "Look at the top four cards of your library. Put one of them into your hand and the rest on the bottom of your library in any order.",
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(
-            Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, count = Value.Fixed(4)), bind = "seen")),
+            Step.Do(Effect.LookAt(
+                Objects.LibraryCards(Players.You, count = Value.Fixed(4), fromTop = true),
+                bind = "seen",
+                players = Players.You,
+            )),
             Step.Choose(
                 choice = Choice.Objects(ObjectFilter.Any, min = Value.Fixed(1), max = Value.Fixed(1), from = Objects.Bound("seen")),
                 bind = "kept",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Move(Objects.Bound("kept"), to = Destination(Zone.Hand))),
             Step.Do(Effect.Move(

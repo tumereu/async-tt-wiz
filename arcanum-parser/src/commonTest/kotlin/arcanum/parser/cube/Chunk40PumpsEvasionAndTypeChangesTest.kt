@@ -26,12 +26,14 @@ import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
+import arcanum.api.Players
 import arcanum.api.PrintedNumber
 import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.SubtypeRef
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -52,7 +54,12 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
     private val youControl = ObjectFilter.ControlledBy(PlayerFilter.You)
     private val notSelf = ObjectFilter.Not(ObjectFilter.Is(Objects.Self))
 
-    private fun activated(vararg cost: CostPart, steps: List<Step>, targets: List<TargetSlot> = emptyList(), rules: ActivationRules = ActivationRules()) =
+    private fun activated(
+        vararg cost: CostPart,
+        steps: List<Step>,
+        targets: List<TargetSlot> = emptyList(),
+        rules: ActivationRules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+    ) =
         Ability.Activated(
             cost = Cost(cost.toList()),
             instructions = Instructions(targets = targets, steps = steps),
@@ -68,7 +75,12 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
 
     private fun pump(power: Int, toughness: Int) = Mechanic.ModifyPowerToughness(Value.Fixed(power), Value.Fixed(toughness))
 
-    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(name = name, what = TargetKind.Objects(filter))
+    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(
+        name = name,
+        what = TargetKind.Objects(filter),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
 
     private fun creatureToken(subtypes: List<String>, power: Int, toughness: Int, color: Color) = TokenSpec.Defined(FaceDefinition(
         name = subtypes.joinToString(" ") + " Token",
@@ -96,7 +108,7 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
         activated(
             mana("{1}{G}"),
             steps = listOf(untilEndOfTurn(Objects.Self, pump(2, 2))),
-            rules = ActivationRules(perTurn = 1),
+            rules = ActivationRules(perTurn = 1, timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Keyword.Madness(manaCost("{0}")),
     )
@@ -115,7 +127,7 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
         activated(
             mana("{R}"),
             steps = listOf(untilEndOfTurn(Objects.Self, pump(2, 0))),
-            rules = ActivationRules(perTurn = 1),
+            rules = ActivationRules(perTurn = 1, timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Keyword.Madness(manaCost("{0}")),
     )
@@ -138,7 +150,11 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
                 oneOrMore = true,
             ),
             instructions = Instructions(steps = listOf(
-                Step.Do(Effect.CreateToken(creatureToken(listOf("Elf", "Warrior"), 1, 1, Color.Green))),
+                Step.Do(Effect.CreateToken(
+                    creatureToken(listOf("Elf", "Warrior"), 1, 1, Color.Green),
+                    count = Value.Fixed(1),
+                    controller = Players.You,
+                )),
             )),
             perTurn = 1,
         ),
@@ -170,20 +186,27 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
         Ability.Static(listOf(Mechanic.Replacement(
             event = EventPattern.CreateToken(youControl),
             modify = listOf(Modification.AlsoCreate(creatureToken(listOf("Squirrel"), 1, 1, Color.Green), count = Value.EventAmount)),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
         Ability.Activated(
             cost = Cost(listOf(
                 mana("{B}"),
-                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Squirrel")), count = Value.Announced())),
+                CostPart.Sacrifice(CostObjects.Choose(
+                    ObjectFilter.Sub(Subtype("Squirrel")),
+                    count = Value.Announced(name = "X"),
+                )),
             )),
             instructions = Instructions(
                 targets = listOf(slot("creature", creature)),
                 steps = listOf(untilEndOfTurn(
                     Objects.Target("creature"),
-                    Mechanic.ModifyPowerToughness(Value.Announced(), Value.Times(Value.Announced(), -1)),
+                    Mechanic.ModifyPowerToughness(
+                        Value.Announced(name = "X"),
+                        Value.Times(Value.Announced(name = "X"), -1),
+                    ),
                 )),
                 announced = listOf("X"),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -202,7 +225,7 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
             {4}{G}{G}: Until end of turn, each Elf creature you control has base power and toughness 5/5 and becomes a Dinosaur in addition to its other creature types.
         """,
     ) parsesTo abilities(
-        Ability.Static(listOf(Mechanic.CantBeCountered)),
+        Ability.Static(listOf(Mechanic.CantBeCountered), affects = Affected.Objects(Objects.Self)),
         Ability.Static(
             mechanics = listOf(Mechanic.CantBeCountered),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
@@ -238,11 +261,12 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
             instructions = Instructions(
                 steps = listOf(untilEndOfTurn(
                     Objects.Each(ObjectFilter.And(listOf(creature, youControl))),
-                    Mechanic.SetPowerToughness(Value.Announced(), Value.Announced()),
+                    Mechanic.SetPowerToughness(Value.Announced(name = "X"), Value.Announced(name = "X")),
                     Mechanic.AllCreatureTypes,
                 )),
                 announced = listOf("X"),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -285,7 +309,7 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
             CostPart.TapSelf,
             targets = listOf(slot("creature", ObjectFilter.And(listOf(notSelf, creature, youControl)))),
             steps = listOf(
-                Step.Choose(Choice.Option(listOf("colorless", "a color")), bind = "quality"),
+                Step.Choose(Choice.Option(listOf("colorless", "a color")), bind = "quality", chooser = Players.You),
                 Step.If(
                     condition = Condition.Chose("quality", "colorless"),
                     then = listOf(untilEndOfTurn(
@@ -293,7 +317,7 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
                         Mechanic.GainAbilities(listOf(Keyword.Protection(ObjectFilter.Colorless))),
                     )),
                     otherwise = listOf(
-                        Step.Choose(Choice.Color(), bind = "color"),
+                        Step.Choose(Choice.Color(), bind = "color", chooser = Players.You),
                         untilEndOfTurn(
                             Objects.Target("creature"),
                             Mechanic.GainAbilities(listOf(Keyword.Protection(ObjectFilter.OfColor(ColorRef.Chosen("color"))))),
@@ -326,7 +350,7 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
                 causedBy = ObjectFilter.AbilityOf(kind = AbilityKind.Triggered, keyword = Keyword.Modular.Kind),
             ),
             modify = listOf(Modification.AddAmount(Value.Fixed(1))),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
         activated(
             mana("{R}"),
             targets = listOf(slot("artifact", ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Artifact), youControl)))),
@@ -371,13 +395,13 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
             CostPart.TapSelf,
             targets = listOf(slot("permanent", ObjectFilter.And(listOf(notSelf, ObjectFilter.Category(ObjectCategory.Permanent))))),
             steps = listOf(Step.May(listOf(
-                Step.Choose(Choice.Option(listOf("tap", "untap")), bind = "tapOrUntap"),
+                Step.Choose(Choice.Option(listOf("tap", "untap")), bind = "tapOrUntap", chooser = Players.You),
                 Step.If(
                     condition = Condition.Chose("tapOrUntap", "tap"),
                     then = listOf(Step.Do(Effect.Tap(Objects.Target("permanent")))),
                     otherwise = listOf(Step.Do(Effect.Untap(Objects.Target("permanent")))),
                 ),
-            ))),
+            ), player = Players.You)),
         ),
         Keyword.Unearth(manaCost("{U}")),
     )
@@ -397,7 +421,12 @@ class Chunk40PumpsEvasionAndTypeChangesTest {
                 ObjectFilter.Category(ObjectCategory.Spell),
                 ObjectFilter.Category(ObjectCategory.StackAbility),
             )))),
-            steps = listOf(Step.Do(Effect.ChangeTargets(Objects.Target("spell"), optional = false, to = Objects.Self))),
+            steps = listOf(Step.Do(Effect.ChangeTargets(
+                Objects.Target("spell"),
+                optional = false,
+                to = Objects.Self,
+                chooser = Players.You,
+            ))),
         ),
     )
 }

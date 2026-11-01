@@ -51,7 +51,7 @@ class KeywordExpansionsTest {
     // CR 701.16a, 701.39a, 701.50a
     @Test
     fun keywordActionsExpandCleanly() {
-        listOf(KeywordAction.Investigate(), KeywordAction.Connive(), KeywordAction.Bolster(Value.Fixed(2))).forEach { action ->
+        listOf(KeywordAction.Investigate(count = Value.Fixed(1)), KeywordAction.Connive(objects = Objects.Self, count = Value.Fixed(1)), KeywordAction.Bolster(Value.Fixed(2))).forEach { action ->
             val steps = assertNotNull(KeywordExpansions.expand(action), action.toString())
             assertEquals(emptyList(), DefinitionChecks.problems(card(listOf(Ability.Spell(Instructions(steps = steps))))), action.toString())
         }
@@ -62,7 +62,7 @@ class KeywordExpansionsTest {
     fun madnessTriggersOnlyThroughItsReplacement() {
         val abilities = KeywordExpansions.expand(Keyword.Madness(cost))!!
         val replacement = ((abilities.single() as Ability.Static).mechanics.single() as Mechanic.Replacement)
-        assertEquals(EventPattern.Discard(ObjectFilter.Is(Objects.Self)), replacement.event)
+        assertEquals(EventPattern.Discard(ObjectFilter.Is(Objects.Self), players = PlayerFilter.Any), replacement.event)
         assertNotNull(replacement.whenApplied)
     }
 
@@ -85,7 +85,7 @@ class KeywordExpansionsTest {
     // CR 701.50a: connive counts the discarded nonland cards wherever they went (not on the battlefield).
     @Test
     fun conniveCountsDiscardedCardsWhereverTheyAre() {
-        val text = Json.encodeToString(Step.serializer(), KeywordExpansions.expand(KeywordAction.Connive())!!.single())
+        val text = Json.encodeToString(Step.serializer(), KeywordExpansions.expand(KeywordAction.Connive(objects = Objects.Self, count = Value.Fixed(1)))!!.single())
         assertEquals(true, "\"type\":\"where\"" in text)
     }
 }

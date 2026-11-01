@@ -2,6 +2,7 @@ package arcanum.parser.cube
 
 import arcanum.api.Ability
 import arcanum.api.AbilityLabel
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Color
@@ -36,6 +37,7 @@ import arcanum.api.Subtype
 import arcanum.api.SubtypeRef
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
@@ -59,8 +61,16 @@ class Chunk56MultiFacedCardsTest {
     private fun yourOwn(vararg filters: ObjectFilter) = ObjectFilter.And(filters.toList() + ObjectFilter.ControlledBy(PlayerFilter.You))
     private val inYourGraveyard = listOf(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
     private fun slot(name: String, filter: ObjectFilter, upToOne: Boolean = false) =
-        TargetSlot(name = name, what = TargetKind.Objects(filter), min = Value.Fixed(if (upToOne) 0 else 1))
-    private fun add(mana: String) = Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse(mana)!!))))
+        TargetSlot(
+            name = name,
+            what = TargetKind.Objects(filter),
+            min = Value.Fixed(if (upToOne) 0 else 1),
+            max = Value.Fixed(1),
+        )
+    private fun add(mana: String) = Step.Do(Effect.AddMana(
+        ManaProduction(ManaKind.Fixed(ManaCost.parse(mana)!!)),
+        players = Players.You,
+    ))
     private val entersSelf = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield))
     private val youCastInstantOrSorcery = Trigger.On(EventPattern.Cast(instantOrSorcery, by = PlayerFilter.You))
 
@@ -68,6 +78,7 @@ class Chunk56MultiFacedCardsTest {
     private fun loyalty(amount: Int, instructions: Instructions) = Ability.Activated(
         cost = Cost(listOf(CostPart.Loyalty(Value.Fixed(amount)))),
         instructions = instructions,
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "Exile [this], then return it to the battlefield transformed under [controller]'s control": a new object with its
@@ -100,11 +111,11 @@ class Chunk56MultiFacedCardsTest {
             pt = "3/3",
         ) to abilities(
             Ability.Triggered(
-                trigger = Trigger.On(EventPattern.Cast(by = PlayerFilter.You)),
+                trigger = Trigger.On(EventPattern.Cast(by = PlayerFilter.You, spell = ObjectFilter.Any)),
                 instructions = Instructions(steps = listOf(Step.Do(Effect.AddMana(ManaProduction(
                     ManaKind.Fixed(ManaCost.parse("{R}")!!),
                     keptUntil = Duration.EndOfTurn,
-                ))))),
+                ), players = Players.You)))),
             ),
             Ability.Static(
                 mechanics = listOf(Mechanic.LabelUsesPerTurn(AbilityLabel.Boast, 2)),
@@ -119,15 +130,27 @@ class Chunk56MultiFacedCardsTest {
             text = "Discard a card: Exile the top two cards of your library. You may play those cards this turn.",
         ) to abilities(
             Ability.Activated(
-                cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))))),
+                cost = Cost(listOf(CostPart.Discard(CostObjects.Choose(
+                    ObjectFilter.Category(ObjectCategory.Card),
+                    count = Value.Fixed(1),
+                )))),
                 instructions = Instructions(steps = listOf(
-                    Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(2)), to = Destination(Zone.Exile), postBind = "exiled")),
+                    Step.Do(Effect.Move(
+                        Objects.LibraryCards(Players.You, Value.Fixed(2), fromTop = true),
+                        to = Destination(Zone.Exile),
+                        postBind = "exiled",
+                    )),
                     Step.Do(Effect.ApplyMechanics(
-                        mechanics = listOf(Mechanic.MayPlay(Zone.Exile, how = PlayKind.Play)),
+                        mechanics = listOf(Mechanic.MayPlay(
+                            Zone.Exile,
+                            how = PlayKind.Play,
+                            holder = PlayerFilter.You,
+                        )),
                         affects = Affected.Objects(Objects.Bound("exiled")),
                         duration = Duration.EndOfTurn,
                     )),
                 )),
+                rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
             ),
         ),
     )
@@ -177,10 +200,11 @@ class Chunk56MultiFacedCardsTest {
                         then = listOf(Step.Modify(Modification.EntersTapped)),
                     ),
                 ))),
-            ))),
+            )), affects = Affected.Objects(Objects.Self)),
             Ability.Activated(
                 cost = Cost(listOf(CostPart.TapSelf)),
                 instructions = Instructions(steps = listOf(add("{R}"))),
+                rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
             ),
         ),
     )
@@ -204,7 +228,13 @@ class Chunk56MultiFacedCardsTest {
         ) to abilities(
             Keyword.Flash,
             Keyword.Flying,
-            Ability.Static(listOf(Mechanic.CanBlockOnly(ObjectFilter.And(listOf(creature, ObjectFilter.HasKeyword(Keyword.Flying)))))),
+            Ability.Static(
+                listOf(Mechanic.CanBlockOnly(ObjectFilter.And(listOf(
+                    creature,
+                    ObjectFilter.HasKeyword(Keyword.Flying),
+                )))),
+                affects = Affected.Objects(Objects.Self),
+            ),
         ),
         card(
             name = "Petty Pinch",
@@ -239,7 +269,11 @@ class Chunk56MultiFacedCardsTest {
                     ObjectFilter.Category(ObjectCategory.Spell),
                     ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(4)),
                 )))),
-                steps = listOf(Step.Do(Effect.CopySpell(Objects.Target("spell")))),
+                steps = listOf(Step.Do(Effect.CopySpell(
+                    Objects.Target("spell"),
+                    controller = Players.You,
+                    newTargets = true,
+                ))),
             )),
         ),
         card(
@@ -260,12 +294,23 @@ class Chunk56MultiFacedCardsTest {
                             )),
                             players = PlayerFilter.Any,
                         ),
+                        min = Value.Fixed(1),
+                        max = Value.Fixed(1),
                     ),
-                    TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any)),
+                    TargetSlot(
+                        name = "player",
+                        what = TargetKind.Players(PlayerFilter.Any),
+                        min = Value.Fixed(1),
+                        max = Value.Fixed(1),
+                    ),
                 ),
                 steps = listOf(
-                    Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Announced())),
-                    Step.Do(Effect.Draw(Players.Target("player"), count = Value.Announced())),
+                    Step.Do(Effect.DealDamage(
+                        Recipients(target = "any"),
+                        amount = Value.Announced(name = "X"),
+                        source = Objects.Self,
+                    )),
+                    Step.Do(Effect.Draw(Players.Target("player"), count = Value.Announced(name = "X"))),
                 ),
                 announced = listOf("X"),
             )),
@@ -290,12 +335,13 @@ class Chunk56MultiFacedCardsTest {
                 cost = Cost(listOf(CostPart.TapSelf)),
                 instructions = Instructions(steps = listOf(
                     Step.Do(Effect.Draw(Players.You, count = Value.Fixed(1))),
-                    Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1))),
+                    Step.Do(Effect.Discard(Players.You, count = Value.Fixed(1), filter = ObjectFilter.Any)),
                     Step.If(
                         condition = Condition.Exists(ObjectFilter.And(inYourGraveyard), atLeast = 5),
                         then = exileAndReturnTransformed(Players.OwnerOf(Objects.Bound("exiled"))),
                     ),
                 )),
+                rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
             ),
         ),
         card(
@@ -325,6 +371,8 @@ class Chunk56MultiFacedCardsTest {
                         from = Zone.Graveyard,
                         then = Destination(Zone.Exile),
                         thenInsteadOf = Zone.Graveyard,
+                        how = PlayKind.Cast,
+                        holder = PlayerFilter.You,
                     )),
                     affects = Affected.Objects(Objects.Target("card")),
                     duration = Duration.EndOfTurn,
@@ -332,12 +380,17 @@ class Chunk56MultiFacedCardsTest {
             )),
             loyalty(-9, Instructions(
                 steps = listOf(Step.Do(Effect.CreateEmblem(listOf(Ability.Triggered(
-                    trigger = Trigger.On(EventPattern.Cast(by = PlayerFilter.You)),
+                    trigger = Trigger.On(EventPattern.Cast(by = PlayerFilter.You, spell = ObjectFilter.Any)),
                     instructions = Instructions(
-                        targets = listOf(TargetSlot(name = "opponent", what = TargetKind.Players(PlayerFilter.Opponent))),
+                        targets = listOf(TargetSlot(
+                            name = "opponent",
+                            what = TargetKind.Players(PlayerFilter.Opponent),
+                            min = Value.Fixed(1),
+                            max = Value.Fixed(1),
+                        )),
                         steps = listOf(Step.Do(Effect.Mill(Players.Target("opponent"), count = Value.Fixed(5)))),
                     ),
-                ))))),
+                )), players = Players.You))),
             )),
         ),
     )
@@ -382,7 +435,10 @@ class Chunk56MultiFacedCardsTest {
             pt = "0/0",
             colorIndicator = "W",
         ) to abilities(
-            Ability.Static(listOf(Mechanic.ModifyPowerToughness(artifactsAndEnchantments, artifactsAndEnchantments))),
+            Ability.Static(
+                listOf(Mechanic.ModifyPowerToughness(artifactsAndEnchantments, artifactsAndEnchantments)),
+                affects = Affected.Objects(Objects.Self),
+            ),
         ),
     )
 
@@ -406,13 +462,16 @@ class Chunk56MultiFacedCardsTest {
             Ability.Static(listOf(Mechanic.Replacement(
                 event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.EntersWithCounters(CounterKind.Named("ice"), Value.Fixed(4))),
-            ))),
+            )), affects = Affected.Objects(Objects.Self)),
             Ability.Triggered(
                 trigger = youCastInstantOrSorcery,
                 instructions = Instructions(steps = listOf(
                     Step.Do(Effect.RemoveCounters(Objects.Self, CounterKind.Named("ice"), amount = Value.Fixed(1))),
                     Step.If(
-                        condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.Not(ObjectFilter.HasCounter(CounterKind.Named("ice")))),
+                        condition = Condition.ObjectMatches(
+                            Objects.Self,
+                            ObjectFilter.Not(ObjectFilter.HasCounter(CounterKind.Named("ice"), atLeast = 1)),
+                        ),
                         then = listOf(Step.Do(Effect.Transform(Objects.Self))),
                     ),
                 )),
@@ -471,7 +530,13 @@ class Chunk56MultiFacedCardsTest {
                     from = Zone.Battlefield,
                     to = Zone.Graveyard,
                 )),
-                instructions = Instructions(steps = listOf(Step.Do(Effect.CreateToken(TokenSpec.Predefined("Blood"))))),
+                instructions = Instructions(
+                    steps = listOf(Step.Do(Effect.CreateToken(
+                        TokenSpec.Predefined("Blood"),
+                        count = Value.Fixed(1),
+                        controller = Players.You,
+                    ))),
+                ),
             ),
             Ability.Triggered(
                 trigger = Trigger.On(EventPattern.CreateToken(ObjectFilter.And(listOf(

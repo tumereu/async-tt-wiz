@@ -54,9 +54,24 @@ import kotlin.test.Test
 class Chunk13HandDisruptionAndRemovalTest {
     // ---- Shared shapes
 
-    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(name = name, what = TargetKind.Objects(filter))
-    private val targetPlayer = TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any))
-    private val targetOpponent = TargetSlot(name = "opponent", what = TargetKind.Players(PlayerFilter.Opponent))
+    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(
+        name = name,
+        what = TargetKind.Objects(filter),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
+    private val targetPlayer = TargetSlot(
+        name = "player",
+        what = TargetKind.Players(PlayerFilter.Any),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
+    private val targetOpponent = TargetSlot(
+        name = "opponent",
+        what = TargetKind.Players(PlayerFilter.Opponent),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
     private val nonland = ObjectFilter.Not(ObjectFilter.Type(CardType.Land))
     private val creatureOrPlaneswalker = ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.Type(CardType.Planeswalker)))
     private val artifactOrCreature = ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Artifact), ObjectFilter.Type(CardType.Creature)))
@@ -76,10 +91,16 @@ class Chunk13HandDisruptionAndRemovalTest {
     private fun chooseFromHand(filter: ObjectFilter) = Step.Choose(
         choice = Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1), from = Objects.Bound("revealed")),
         bind = "chosen",
+        chooser = Players.You,
     )
 
     /** "That player discards that card." */
-    private fun discardChosen(player: Players) = Step.Do(Effect.Discard(player, objects = Objects.Bound("chosen")))
+    private fun discardChosen(player: Players) = Step.Do(Effect.Discard(
+        player,
+        objects = Objects.Bound("chosen"),
+        count = Value.Fixed(1),
+        filter = ObjectFilter.Any,
+    ))
 
     /** "Target [player] reveals their hand. You choose a [filter] card from it. That player discards that card." */
     private fun handDisruption(target: TargetSlot, filter: ObjectFilter, vararg more: Step) = Instructions(
@@ -106,15 +127,20 @@ class Chunk13HandDisruptionAndRemovalTest {
         Ability.Spell(Instructions(
             targets = listOf(targetPlayer),
             steps = listOf(
-                Step.Choose(choice = Choice.CardName(filter = nonland), bind = "name"),
+                Step.Choose(choice = Choice.CardName(filter = nonland), bind = "name", chooser = Players.You),
                 reveal(Players.Target("player")),
                 Step.Do(Effect.Discard(
                     players = Players.Target("player"),
                     objects = Objects.Where(Objects.Bound("revealed"), ObjectFilter.ChosenName("name")),
+                    count = Value.Fixed(1),
+                    filter = ObjectFilter.Any,
                 )),
             ),
         )),
-        Keyword.Flashback(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Creature)))))),
+        Keyword.Flashback(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(
+            ObjectFilter.Type(CardType.Creature),
+            count = Value.Fixed(1),
+        ))))),
     )
 
     @Test
@@ -174,7 +200,7 @@ class Chunk13HandDisruptionAndRemovalTest {
             steps = listOf(
                 reveal(Players.Target("player")),
                 Step.If(
-                    condition = Condition.Not(Condition.Paid(Keyword.Cleave.Kind)),
+                    condition = Condition.Not(Condition.Paid(Keyword.Cleave.Kind, times = 1, of = Objects.Self)),
                     then = listOf(chooseFromHand(ObjectFilter.And(listOf(nonland, ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(2)))))),
                     otherwise = listOf(chooseFromHand(nonland)),
                 ),
@@ -206,6 +232,7 @@ class Chunk13HandDisruptionAndRemovalTest {
                         max = Value.Fixed(1),
                     ),
                     bind = "chosenFromGraveyard",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Move(
                     Objects.Union(listOf(Objects.Bound("chosen"), Objects.Bound("chosenFromGraveyard"))),
@@ -229,7 +256,10 @@ class Chunk13HandDisruptionAndRemovalTest {
             • Target opponent loses 2 life and you gain 2 life.
         """,
     ) parsesTo abilities(
-        Keyword.Escalate(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card)))))),
+        Keyword.Escalate(Cost(listOf(CostPart.Discard(CostObjects.Choose(
+            ObjectFilter.Category(ObjectCategory.Card),
+            count = Value.Fixed(1),
+        ))))),
         Ability.Spell(Instructions(
             modes = Modes(
                 options = listOf(
@@ -255,6 +285,7 @@ class Chunk13HandDisruptionAndRemovalTest {
                 ),
                 min = 1,
                 max = 3,
+                chooser = Players.You,
             ),
         )),
     )
@@ -271,7 +302,11 @@ class Chunk13HandDisruptionAndRemovalTest {
     ) parsesTo abilities(
         Ability.Spell(Instructions(
             targets = listOf(targetPlayer),
-            steps = listOf(Step.Do(Effect.Discard(Players.Target("player"), count = Value.Fixed(1)))),
+            steps = listOf(Step.Do(Effect.Discard(
+                Players.Target("player"),
+                count = Value.Fixed(1),
+                filter = ObjectFilter.Any,
+            ))),
         )),
         Keyword.Retrace,
     )
@@ -332,8 +367,8 @@ class Chunk13HandDisruptionAndRemovalTest {
                 ObjectFilter.Not(ObjectFilter.Category(ObjectCategory.Token)),
                 ObjectFilter.OfColor(Color.Black),
                 ObjectFilter.Type(CardType.Creature),
-            ))))))),
-        )),
+            )), count = Value.Fixed(1)))))),
+        ), affects = Affected.Objects(Objects.Self)),
         Ability.Spell(Instructions(steps = listOf(
             Step.ForEach(
                 each = Each.Players(Players.Each(PlayerFilter.Opponent)),
@@ -382,7 +417,10 @@ class Chunk13HandDisruptionAndRemovalTest {
             targets = listOf(slot("permanent", creatureOrPlaneswalker)),
             steps = listOf(
                 Step.Do(Effect.Destroy(Objects.Target("permanent"))),
-                Step.Do(Effect.Action(KeywordAction.Connive(objects = Objects.PaidWith(ManaPaymentWay.TapCreatures)))),
+                Step.Do(Effect.Action(KeywordAction.Connive(
+                    objects = Objects.PaidWith(ManaPaymentWay.TapCreatures, of = Objects.Self),
+                    count = Value.Fixed(1),
+                ))),
             ),
         )),
     )
@@ -410,7 +448,7 @@ class Chunk13HandDisruptionAndRemovalTest {
                 what = ObjectFilter.Is(Objects.Self),
                 change = CostChange.Less(ManaCost.parse("{2}")!!, times = Value.Count(Objects.Bound("exiled"))),
             ),
-        )),
+        ), affects = Affected.Objects(Objects.Self)),
         Ability.Spell(Instructions(
             announced = listOf("X"),
             targets = listOf(slot("permanent", ObjectFilter.And(listOf(
@@ -419,7 +457,7 @@ class Chunk13HandDisruptionAndRemovalTest {
                     ObjectFilter.Type(CardType.Creature),
                     ObjectFilter.Type(CardType.Enchantment),
                 )),
-                ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced()),
+                ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced(name = "X")),
             )))),
             steps = listOf(Step.Do(Effect.Move(Objects.Target("permanent"), to = Destination(Zone.Exile)))),
         )),
@@ -439,7 +477,7 @@ class Chunk13HandDisruptionAndRemovalTest {
                 name = "permanent",
                 what = TargetKind.Objects(ObjectFilter.Or(listOf(ObjectFilter.Type(CardType.Artifact), ObjectFilter.Type(CardType.Enchantment)))),
                 min = Value.Fixed(0),
-                max = Value.Announced(),
+                max = Value.Announced(name = "X"),
             )),
             steps = listOf(
                 Step.Do(Effect.Destroy(Objects.Target("permanent"))),
@@ -456,7 +494,8 @@ class Chunk13HandDisruptionAndRemovalTest {
                             instructions = Instructions(steps = listOf(Step.Do(Effect.GainLife(Players.You, amount = Value.Fixed(1))))),
                         )),
                     )),
-                    count = Value.Times(Value.Announced(), 2),
+                    count = Value.Times(Value.Announced(name = "X"), 2),
+                    controller = Players.You,
                 )),
             ),
         )),

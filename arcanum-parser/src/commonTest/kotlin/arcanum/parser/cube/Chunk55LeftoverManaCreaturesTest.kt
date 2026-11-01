@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Condition
@@ -30,6 +31,7 @@ import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -46,8 +48,12 @@ class Chunk55LeftoverManaCreaturesTest {
 
     private val creature = ObjectFilter.Type(CardType.Creature)
     private fun yourOwn(vararg filters: ObjectFilter) = ObjectFilter.And(filters.toList() + ObjectFilter.ControlledBy(PlayerFilter.You))
-    private fun create(token: String) = Step.Do(Effect.CreateToken(TokenSpec.Predefined(token)))
-    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind)))
+    private fun create(token: String) = Step.Do(Effect.CreateToken(
+        TokenSpec.Predefined(token),
+        count = Value.Fixed(1),
+        controller = Players.You,
+    ))
+    private fun add(kind: ManaKind) = Step.Do(Effect.AddMana(ManaProduction(kind), players = Players.You))
 
     /** "{T}: Add {G}{G}." */
     private val tapForTwoGreen = Ability.Activated(
@@ -55,6 +61,7 @@ class Chunk55LeftoverManaCreaturesTest {
         instructions = Instructions(
             steps = listOf(add(ManaKind.Fixed(ManaCost.parse("{G}{G}")!!))),
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     /** "[cost]: Exile target [kind] card from a graveyard. [then]" */
@@ -64,9 +71,12 @@ class Chunk55LeftoverManaCreaturesTest {
             targets = listOf(TargetSlot(
                 name = "card",
                 what = TargetKind.Objects(ObjectFilter.And(listOf(kind, ObjectFilter.InZone(Zone.Graveyard)))),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
             )),
             steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Exile), postBind = "exiled"))) + then,
         ),
+        rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
     )
 
     // ---- Graveyards and Food
@@ -123,13 +133,15 @@ class Chunk55LeftoverManaCreaturesTest {
         Ability.Activated(
             cost = Cost(listOf(CostPart.Mana(ManaCost.parse("{1}{G}")!!), CostPart.TapSelf)),
             instructions = Instructions(steps = listOf(create("Food"))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Ability.Activated(
             cost = Cost(listOf(
                 CostPart.TapSelf,
-                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Food")))),
+                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Sub(Subtype("Food")), count = Value.Fixed(1))),
             )),
             instructions = Instructions(steps = listOf(add(anyOneColor(1)))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -164,6 +176,7 @@ class Chunk55LeftoverManaCreaturesTest {
                 Condition.ClassLevelAtLeast(1),
                 Condition.Not(Condition.ClassLevelAtLeast(5)),
             )),
+            affects = Affected.Objects(Objects.Self),
         ),
         Ability.Static(
             mechanics = listOf(
@@ -174,6 +187,7 @@ class Chunk55LeftoverManaCreaturesTest {
                 ))),
             ),
             condition = Condition.ClassLevelAtLeast(5),
+            affects = Affected.Objects(Objects.Self),
         ),
     )
 
@@ -217,6 +231,8 @@ class Chunk55LeftoverManaCreaturesTest {
                     targets = listOf(TargetSlot(
                         name = "creature",
                         what = TargetKind.Objects(ObjectFilter.And(listOf(creature, ObjectFilter.ControlledBy(PlayerFilter.Opponent)))),
+                        min = Value.Fixed(1),
+                        max = Value.Fixed(1),
                     )),
                     steps = listOf(Step.Do(Effect.ApplyMechanics(
                         mechanics = listOf(Mechanic.ModifyPowerToughness(Value.Fixed(-1), Value.Fixed(-1))),
@@ -225,7 +241,7 @@ class Chunk55LeftoverManaCreaturesTest {
                     ))),
                 )),
                 Mode(Instructions(steps = listOf(create("Treasure")))),
-            ))),
+            ), min = 1, max = 1, chooser = Players.You)),
         ),
     )
 
@@ -240,9 +256,13 @@ class Chunk55LeftoverManaCreaturesTest {
         Ability.Activated(
             cost = Cost(listOf(
                 CostPart.PayLife(Value.Fixed(1)),
-                CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature)))),
+                CostPart.Sacrifice(CostObjects.Choose(
+                    ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature)),
+                    count = Value.Fixed(1),
+                )),
             )),
             instructions = Instructions(steps = listOf(create("Treasure"))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 
@@ -275,24 +295,38 @@ class Chunk55LeftoverManaCreaturesTest {
                 abilities = listOf(Ability.Static(listOf(Mechanic.ModifyPowerToughness(
                     Value.Count(Objects.Each(yourOwn(ObjectFilter.Type(CardType.Artifact)))),
                     Value.Count(Objects.Each(yourOwn(ObjectFilter.Type(CardType.Artifact)))),
-                )))),
-            )))))),
+                )), affects = Affected.Objects(Objects.Self))),
+            )), count = Value.Fixed(1), controller = Players.You)))),
         ),
         Ability.Activated(
-            cost = Cost(listOf(CostPart.TapObjects(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact))))),
+            cost = Cost(listOf(CostPart.TapObjects(CostObjects.Choose(
+                ObjectFilter.Type(CardType.Artifact),
+                count = Value.Fixed(1),
+            )))),
             instructions = Instructions(steps = listOf(add(ManaKind.Fixed(ManaCost.parse("{U}")!!)))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         Ability.Activated(
             cost = manaCost("{5}"),
             instructions = Instructions(steps = listOf(
                 Step.Do(Effect.Shuffle(Players.You)),
-                Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(1)), to = Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Move(
+                    Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true),
+                    to = Destination(Zone.Exile),
+                    postBind = "exiled",
+                )),
                 Step.Do(Effect.ApplyMechanics(
-                    mechanics = listOf(Mechanic.MayPlay(Zone.Exile, how = PlayKind.Play, withoutPaying = true)),
+                    mechanics = listOf(Mechanic.MayPlay(
+                        Zone.Exile,
+                        how = PlayKind.Play,
+                        withoutPaying = true,
+                        holder = PlayerFilter.You,
+                    )),
                     affects = Affected.Objects(Objects.Bound("exiled")),
                     duration = Duration.EndOfTurn,
                 )),
             )),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
     )
 }

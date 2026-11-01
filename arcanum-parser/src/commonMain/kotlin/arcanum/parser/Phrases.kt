@@ -7,6 +7,7 @@ import arcanum.api.Comparison
 import arcanum.api.Condition
 import arcanum.api.EventPattern
 import arcanum.api.FaceDefinition
+import arcanum.api.Measure
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayerFilter
@@ -60,7 +61,7 @@ internal object Filters {
         // chunk 21: "creatures you control with +1/+1 counters on them"
         WITH_COUNTERS.matchEntire(phrase)?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
-            return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(kind))
+            return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(kind, atLeast = 1))
         }
         // chunk 47: "creatures with decayed": a keyword ability (CR 702)
         WITH_KEYWORD.matchEntire(phrase)?.let { m ->
@@ -77,7 +78,7 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
-            val value = if (m.groupValues[2] == "X") Value.Announced() else Value.Fixed(m.groupValues[2].toInt())
+            val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             val comparison = if (m.groupValues[3].isEmpty()) arcanum.api.Comparison.Equal else arcanum.api.Comparison.AtMost
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(comparison, value))
         }
@@ -260,7 +261,7 @@ internal object Events {
         ONE_OR_MORE_ENTER.matchEntire(text)?.let { m -> return listOf(EventPattern.ZoneChange(Filters.noun(m.groupValues[1]) ?: return null, to = Zone.Battlefield)) }
         ATTACKS_OR_BLOCKS.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
-            return listOf(EventPattern.Attack(subject), EventPattern.Block(subject))
+            return listOf(EventPattern.Attack(subject), EventPattern.Block(subject, attacker = ObjectFilter.Any))
         }
         // chunk 36: "Korvold enters or attacks"
         ENTERS_OR_ATTACKS.matchEntire(text)?.let { m ->
@@ -324,11 +325,11 @@ internal object Events {
             return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = PlayerFilter.Any), combat = true)
         }
         // chunk 25: "you play a land" (CR 305.1)
-        if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You)
+        if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any)
         // chunk 14: "a player casts an instant or sorcery spell", "a player taps an Island for mana", "an opponent gains life"
         PLAYER_CASTS.matchEntire(text)?.let { m ->
             val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
-            return EventPattern.Cast(kind)
+            return EventPattern.Cast(kind, by = PlayerFilter.Any)
         }
         PLAYER_TAPS_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, forMana = true) }
         // chunk 36: "this creature attacks"
@@ -367,7 +368,7 @@ internal object Events {
             return EventPattern.Cast(spell = spell, by = PlayerFilter.You)
         }
         // chunk 36: "the beginning of each end step": every player's
-        BEGINNING_OF_EACH.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null) }
+        BEGINNING_OF_EACH.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
         // chunk 52: "a creature is exiled from the battlefield"
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile)
@@ -384,7 +385,7 @@ internal object Events {
     private fun subject(text: String, self: Set<String>): ObjectFilter? {
         if (text in self || text.replaceFirstChar { it.lowercase() } in self) return ObjectFilter.Is(Objects.Self)
         // chunk 20
-        if (text == "equipped creature" || text == "enchanted creature") return ObjectFilter.Is(Objects.AttachedTo())
+        if (text == "equipped creature" || text == "enchanted creature") return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
         SELF_OR_ANOTHER.matchEntire(text)?.let { m ->
             if (m.groupValues[1] !in self) return null
             val other = Filters.noun(m.groupValues[2]) ?: return null
@@ -457,7 +458,7 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
-        CONTROL_A.matchEntire(text)?.let { m -> return Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null) }
+        CONTROL_A.matchEntire(text)?.let { m -> return Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null, atLeast = 1) }
         // chunk 30: "you control at least three other snow permanents"
         CONTROL_AT_LEAST.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
@@ -472,13 +473,13 @@ internal object Conditions {
         MANA_WAS_SPENT.matchEntire(text)?.let { m ->
             val symbols = arcanum.api.ManaCost.parse(m.groupValues[1])?.symbols ?: return null
             val colors = symbols.map { (it as? arcanum.api.ManaSymbol.Colored)?.color ?: return null }.distinct()
-            return Condition.Compare(Value.ManaSpent(color = colors.singleOrNull() ?: return null), Comparison.AtLeast, Value.Fixed(symbols.size))
+            return Condition.Compare(Value.ManaSpent(color = colors.singleOrNull() ?: return null, of = Objects.Self), Comparison.AtLeast, Value.Fixed(symbols.size))
         }
         // chunk 32: "you've discarded a card this turn"
-        if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You))
+        if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any), atLeast = 1, measure = Measure.Events)
         // chunk 33: "it was kicked", "this creature was kicked" (CR 702.33d)
         WAS_KICKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
-            return Condition.Paid(arcanum.api.Keyword.Kicker.Kind)
+            return Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
         }
         // chunk 32: "it's attacking" (about this permanent)
         if (text == "it's attacking") return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
@@ -489,7 +490,7 @@ internal object Conditions {
         }
         if (text == "a permanent left the battlefield under your control this turn")
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(
-                ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You))), from = Zone.Battlefield))
+                ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You))), from = Zone.Battlefield), atLeast = 1, measure = Measure.Events)
         // chunk 21
         SELF_IS_UNTAPPED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)))
@@ -530,18 +531,18 @@ internal object Conditions {
         }
         // chunk 26: "Kaito entered this turn"
         ENTERED_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
-            return Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield)))
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.ZoneChange(to = Zone.Battlefield, objects = ObjectFilter.Any)))
         }
         // chunk 26: "there are cards exiled with this enchantment": its card memory (CR 607.2a); false when there are none
         EXILED_WITH_SELF.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))
         }
         // chunk 45: "you attacked this turn" (raid)
-        if (text == "you attacked this turn") return Condition.HappenedThisTurn(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)))
+        if (text == "you attacked this turn") return Condition.HappenedThisTurn(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = 1, measure = Measure.Events)
         // chunk 45: "this card is suspended": in exile, with suspend and a time counter (CR 702.62b)
         IS_SUSPENDED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, Filters.all(ObjectFilter.InZone(Zone.Exile),
-                ObjectFilter.HasKeyword(arcanum.api.Keyword.Suspend.Kind), ObjectFilter.HasCounter(arcanum.api.CounterKind.Time)))
+                ObjectFilter.HasKeyword(arcanum.api.Keyword.Suspend.Kind), ObjectFilter.HasCounter(arcanum.api.CounterKind.Time, atLeast = 1)))
         }
         // chunk 45: "two or more creatures died this turn": counts the creatures (CR 700.4)
         DIED_THIS_TURN.matchEntire(text)?.let { m ->
@@ -551,15 +552,15 @@ internal object Conditions {
         }
         // chunk 45: "an opponent has 10 or less life"
         OPPONENT_LIFE_AT_MOST.matchEntire(text)?.let { m ->
-            return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Life(Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt())))))
+            return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Life(Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt())))), atLeast = 1)
         }
         // chunk 47: "you control no creatures with decayed"
         CONTROL_NONE.matchEntire(text)?.let { m ->
-            return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null))
+            return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null, atLeast = 1))
         }
         // chunk 25: "it wasn't the first land you played this turn": this turn's land plays include it (CR 305.2a)
         if (text == "it wasn't the first land you played this turn")
-            return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You), atLeast = 2)
+            return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You, lands = ObjectFilter.Any), atLeast = 2, measure = Measure.Events)
         // chunk 41: "this creature is attacking"
         SELF_IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
@@ -571,7 +572,7 @@ internal object Conditions {
         // chunk 36: "a card left your graveyard this turn"
         LEFT_YOUR_GRAVEYARD_THIS_TURN.matchEntire(text)?.let { m ->
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
-                ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard))
+                ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
         NTH_RESOLUTION.matchEntire(text)?.let { m ->
@@ -659,7 +660,7 @@ internal object Tokens {
             types = types, subtypes = subtypes,
             power = if (x) PrintedNumber.X else PrintedNumber.Fixed(m.groupValues[1].substringBefore('/').toInt()),
             toughness = if (x) PrintedNumber.X else PrintedNumber.Fixed(m.groupValues[1].substringAfter('/').toInt()),
-        ), power = if (x) Value.Announced() else null, toughness = if (x) Value.Announced() else null)
+        ), power = if (x) Value.Announced(name = "X") else null, toughness = if (x) Value.Announced(name = "X") else null)
     }
 
     private val PREDEFINED = Regex("""(a|an|two|three) ([A-Z][a-z]+) tokens?""")
@@ -702,7 +703,7 @@ internal object Values {
             val zone = when (m.groupValues[1]) { "library" -> Zone.Library; "hand" -> Zone.Hand; else -> Zone.Graveyard }
             return Value.Count(Objects.Each(Filters.all(ObjectFilter.InZone(zone), ObjectFilter.OwnedBy(PlayerFilter.You))))
         }
-        DEVOTION.matchEntire(text)?.let { m -> return Value.Devotion(listOf(COLORS[m.groupValues[1]] ?: return null)) }
+        DEVOTION.matchEntire(text)?.let { m -> return Value.Devotion(listOf(COLORS[m.groupValues[1]] ?: return null), players = Players.You) }
         // One exiled card, but card memory may hold several: read as their total (DefinitionChecks).
         if (text == "the mana value of the exiled card")
             return Value.Of(arcanum.api.NumericProperty.ManaValue, exiled ?: return null, Combine.Total)

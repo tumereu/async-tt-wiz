@@ -7,10 +7,10 @@ import kotlin.test.assertTrue
 /** [isManaAbility] decides mana abilities from the ability's shape (D54). */
 class ManaAbilitiesTest {
     private fun mana(text: String) = ManaCost.parse(text)!!
-    private fun addMana(text: String) = Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(mana(text)))))
-    private val addAnyColor = Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1)))))
+    private fun addMana(text: String) = Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(mana(text))), players = Players.You))
+    private val addAnyColor = Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))), players = Players.You))
     private fun tapFor(vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
-        Ability.Activated(Cost(listOf(CostPart.TapSelf)), Instructions(targets = targets, steps = steps.toList()))
+        Ability.Activated(Cost(listOf(CostPart.TapSelf)), Instructions(targets = targets, steps = steps.toList()), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))
 
     // CR 605.1a: "{T}: Add {G}."
     @Test
@@ -41,9 +41,10 @@ class ManaAbilitiesTest {
             Cost(listOf(CostPart.TapSelf, CostPart.Exile(CostObjects.These(Objects.Target("land")), from = Zone.Graveyard))),
             Instructions(
                 targets = listOf(TargetSlot("land", TargetKind.Objects(ObjectFilter.And(listOf(
-                    ObjectFilter.Type(CardType.Land), ObjectFilter.InZone(Zone.Graveyard)))))),
+                    ObjectFilter.Type(CardType.Land), ObjectFilter.InZone(Zone.Graveyard)))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(addAnyColor),
             ),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         )
         assertFalse(ability.isManaAbility())
     }
@@ -51,7 +52,7 @@ class ManaAbilitiesTest {
     // CR 605.1a, 606: "+1: Add {R}{R}." is a loyalty ability.
     @Test
     fun aLoyaltyAbilityIsNotAManaAbility() {
-        val ability = Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(1)))), Instructions(steps = listOf(addMana("{R}{R}"))))
+        val ability = Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(1)))), Instructions(steps = listOf(addMana("{R}{R}"))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))
         assertFalse(ability.isManaAbility())
     }
 
@@ -64,7 +65,7 @@ class ManaAbilitiesTest {
     // CR 605.1a: a cost that moves a card from a library ("{T}, Mill a card: Add {C}.").
     @Test
     fun aCostFromALibraryMakesItNotAManaAbility() {
-        val ability = Ability.Activated(Cost(listOf(CostPart.TapSelf, CostPart.Mill(Value.Fixed(1)))), Instructions(steps = listOf(addMana("{C}"))))
+        val ability = Ability.Activated(Cost(listOf(CostPart.TapSelf, CostPart.Mill(Value.Fixed(1)))), Instructions(steps = listOf(addMana("{C}"))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))
         assertFalse(ability.isManaAbility())
     }
 
@@ -89,7 +90,7 @@ class ManaAbilitiesTest {
     @Test
     fun otherTriggersAreNotManaAbilities() {
         val onCast = Ability.Triggered(
-            Trigger.On(EventPattern.Cast(by = PlayerFilter.You)),
+            Trigger.On(EventPattern.Cast(by = PlayerFilter.You, spell = ObjectFilter.Any)),
             Instructions(steps = listOf(addMana("{R}"))),
         )
         val noMana = Ability.Triggered(

@@ -2,6 +2,7 @@ package arcanum.parser.cube
 
 import arcanum.api.Ability
 import arcanum.api.ActivationRules
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
 import arcanum.api.Combine
@@ -32,6 +33,7 @@ import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.TokenSpec
 import arcanum.api.Trigger
 import arcanum.api.Value
@@ -54,14 +56,24 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
     private val plusOne = CounterKind.PowerToughness(1, 1)
     private fun draw(n: Int) = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(n)))
 
-    private fun activated(vararg cost: CostPart, steps: List<Step>, targets: List<TargetSlot> = emptyList(), rules: ActivationRules = ActivationRules()) =
+    private fun activated(
+        vararg cost: CostPart,
+        steps: List<Step>,
+        targets: List<TargetSlot> = emptyList(),
+        rules: ActivationRules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
+    ) =
         Ability.Activated(
             cost = Cost(cost.toList()),
             instructions = Instructions(targets = targets, steps = steps),
             rules = rules,
         )
 
-    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(name = name, what = TargetKind.Objects(filter))
+    private fun slot(name: String, filter: ObjectFilter) = TargetSlot(
+        name = name,
+        what = TargetKind.Objects(filter),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
 
     /** The "any target" slot (CR 115.4). */
     private val anyTarget = TargetSlot(
@@ -74,16 +86,22 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
             )),
             players = PlayerFilter.Any,
         ),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
     )
 
     /** "[Cost]: This creature deals [n] damage to any target." */
     private fun pinger(vararg cost: CostPart, damage: Int) = activated(
         *cost,
         targets = listOf(anyTarget),
-        steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(damage)))),
+        steps = listOf(Step.Do(Effect.DealDamage(
+            Recipients(target = "any"),
+            amount = Value.Fixed(damage),
+            source = Objects.Self,
+        ))),
     )
 
-    private val removePlusOne = CostPart.RemoveCounters(plusOne, amount = Value.Fixed(1))
+    private val removePlusOne = CostPart.RemoveCounters(plusOne, amount = Value.Fixed(1), from = CostObjects.Self)
 
     private val selfEnters = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)
 
@@ -91,7 +109,7 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
     private fun entersWithPlusOne(amount: Value) = Ability.Static(listOf(Mechanic.Replacement(
         event = selfEnters,
         modify = listOf(Modification.EntersWithCounters(plusOne, amount)),
-    )))
+    )), affects = Affected.Objects(Objects.Self))
 
     // ---- +1/+1 counters
 
@@ -126,7 +144,7 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
             Remove a +1/+1 counter from this creature: It deals 1 damage to any target.
         """,
     ) parsesTo abilities(
-        entersWithPlusOne(Value.CastX()),
+        entersWithPlusOne(Value.CastX(of = Objects.Self)),
         activated(mana("{4}"), steps = listOf(Step.Do(Effect.PutCounters(Objects.Self, plusOne, amount = Value.Fixed(1))))),
         pinger(removePlusOne, damage = 1),
     )
@@ -182,7 +200,7 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
             mechanics = listOf(Value.Of(NumericProperty.Counters(plusOne), Objects.Self, Combine.Single).let { counters ->
                 Mechanic.ModifyPowerToughness(counters, counters)
             }),
-            affects = arcanum.api.Affected.Objects(Objects.AttachedTo()),
+            affects = arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self)),
         ),
         Keyword.Reconfigure(manaCost("{2}")),
     )
@@ -217,7 +235,11 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
             {G}: Return a tapped land you control to its owner's hand.
         """,
     ) parsesTo abilities(
-        pinger(mana("{1}{R}"), CostPart.Discard(CostObjects.Choose(ObjectFilter.Type(CardType.Land))), damage = 2),
+        pinger(
+            mana("{1}{R}"),
+            CostPart.Discard(CostObjects.Choose(ObjectFilter.Type(CardType.Land), count = Value.Fixed(1))),
+            damage = 2,
+        ),
         activated(
             mana("{G}"),
             steps = listOf(
@@ -228,6 +250,7 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
                         max = Value.Fixed(1),
                     ),
                     bind = "chosen",
+                    chooser = Players.You,
                 ),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), to = Destination(Zone.Hand))),
             ),
@@ -250,14 +273,22 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.Discard(ObjectFilter.Any, players = PlayerFilter.You)),
             instructions = Instructions(steps = listOf(
-                Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)), amount = Value.Fixed(1))),
+                Step.Do(Effect.DealDamage(
+                    Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                    amount = Value.Fixed(1),
+                    source = Objects.Self,
+                )),
             )),
         ),
         activated(
             mana("{1}{R}"),
-            CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card))),
+            CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card), count = Value.Fixed(1))),
             steps = listOf(draw(1)),
-            rules = ActivationRules(condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Attacking))),
+            rules = ActivationRules(
+                condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Attacking)),
+                timing = Timing.Any,
+                activatedBy = PlayerFilter.You,
+            ),
         ),
     )
 
@@ -309,11 +340,17 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
             {1}{B}, Exile another creature card from your graveyard: Return this card from your graveyard to the battlefield.
         """,
     ) parsesTo abilities(
-        Ability.Static(listOf(Mechanic.CantBlock())),
+        Ability.Static(
+            listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any)),
+            affects = Affected.Objects(Objects.Self),
+        ),
         activated(
             mana("{1}{B}"),
             CostPart.Exile(
-                CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature))),
+                CostObjects.Choose(
+                    ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature)),
+                    count = Value.Fixed(1),
+                ),
                 from = Zone.Graveyard,
             ),
             steps = listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Battlefield), postBind = "returned"))),
@@ -342,7 +379,7 @@ class Chunk41CountersDamageAndArtifactEnginesTest {
                     power = PrintedNumber.Fixed(1),
                     toughness = PrintedNumber.Fixed(1),
                     abilities = listOf(Keyword.Flying),
-                )))),
+                )), count = Value.Fixed(1), controller = Players.You)),
             )),
         ),
         activated(

@@ -42,6 +42,8 @@ sequences, effect objects, ledgers, tagged events, timestamps) belong to the eng
 API and are not built yet. `DefinitionChecks.problems` reports definitions the
 types allow but the model forbids.
 Types are sealed hierarchies rather than enums with values (owner preference).
+A field has a default only when the default is empty or absent (`null`, `false`, an empty list, `0` meaning none):
+who, how many and which objects are always written out (D51).
 
 ## Rules
 

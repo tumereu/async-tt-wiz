@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
 import arcanum.api.Condition
@@ -11,6 +12,7 @@ import arcanum.api.Destination
 import arcanum.api.Effect
 import arcanum.api.EventPattern
 import arcanum.api.Instructions
+import arcanum.api.Measure
 import arcanum.api.Mechanic
 import arcanum.api.ObjectCategory
 import arcanum.api.ObjectFilter
@@ -34,23 +36,38 @@ import kotlin.test.Test
 class Chunk10DrawDiscardAndTutorsTest {
     // ---- Shared shapes
 
-    private val targetPlayer = TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any))
+    private val targetPlayer = TargetSlot(
+        name = "player",
+        what = TargetKind.Players(PlayerFilter.Any),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
     private val eachPlayer = Players.Each(PlayerFilter.Any)
     private val anyCard = ObjectFilter.Category(ObjectCategory.Card)
 
     private fun draw(players: Players, n: Int) = Step.Do(Effect.Draw(players, count = Value.Fixed(n)))
     private fun discard(players: Players, n: Int, random: Boolean = false) =
-        Step.Do(Effect.Discard(players, count = Value.Fixed(n), random = random))
+        Step.Do(Effect.Discard(players, count = Value.Fixed(n), random = random, filter = ObjectFilter.Any))
 
     private fun spell(vararg steps: Step) = spell(steps.toList())
     private fun spell(steps: List<Step>) = Ability.Spell(Instructions(steps = steps))
 
     /** "As an additional cost to cast this spell, [part]." (CR 601.2f) */
-    private fun additionalCost(part: CostPart) = Ability.Static(listOf(Mechanic.AdditionalCost(cost = Cost(listOf(part)))))
+    private fun additionalCost(part: CostPart) = Ability.Static(
+        listOf(Mechanic.AdditionalCost(cost = Cost(listOf(part)))),
+        affects = Affected.Objects(Objects.Self),
+    )
 
     /** "Search your library for [filter], put that card [to], then shuffle." */
     private fun tutor(filter: ObjectFilter, to: Destination) = listOf(
-        Step.Do(Effect.Search(library = Players.You, filter = filter, bind = "found")),
+        Step.Do(Effect.Search(
+            library = Players.You,
+            filter = filter,
+            bind = "found",
+            max = Value.Fixed(1),
+            zones = listOf(Zone.Library),
+            searcher = Players.You,
+        )),
         Step.Do(Effect.Move(Objects.Bound("found"), to = to)),
         Step.Do(Effect.Shuffle(Players.You)),
     )
@@ -58,7 +75,15 @@ class Chunk10DrawDiscardAndTutorsTest {
     /** "Search your library for [filter], [reveal it, ]then shuffle and put that card on top." The found card stays out of
      * the shuffle (CR 701.24b). */
     private fun tutorToTop(filter: ObjectFilter, reveal: Boolean) = listOf(
-        Step.Do(Effect.Search(library = Players.You, filter = filter, reveal = reveal, bind = "found")),
+        Step.Do(Effect.Search(
+            library = Players.You,
+            filter = filter,
+            reveal = reveal,
+            bind = "found",
+            max = Value.Fixed(1),
+            zones = listOf(Zone.Library),
+            searcher = Players.You,
+        )),
         Step.Do(Effect.Shuffle(Players.You, except = Objects.Bound("found"))),
         Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Library, libraryPosition = 0))),
     )
@@ -104,6 +129,7 @@ class Chunk10DrawDiscardAndTutorsTest {
             Step.Choose(
                 choice = Choice.Objects(ObjectFilter.Type(CardType.Land), min = Value.Fixed(0), max = Value.Fixed(3)),
                 bind = "untapped",
+                chooser = Players.You,
             ),
             Step.Do(Effect.Untap(Objects.Bound("untapped"))),
         ),
@@ -120,7 +146,11 @@ class Chunk10DrawDiscardAndTutorsTest {
         spell(
             draw(Players.You, 2),
             Step.If(
-                condition = Condition.Not(Condition.HappenedThisTurn(EventPattern.Attack(attacker = ObjectFilter.ControlledBy(PlayerFilter.You)))),
+                condition = Condition.Not(Condition.HappenedThisTurn(
+                    EventPattern.Attack(attacker = ObjectFilter.ControlledBy(PlayerFilter.You)),
+                    atLeast = 1,
+                    measure = Measure.Events,
+                )),
                 then = listOf(discard(Players.You, 1)),
             ),
         ),
@@ -149,7 +179,12 @@ class Chunk10DrawDiscardAndTutorsTest {
         text = "Each player discards their hand, then draws seven cards.",
     ) parsesTo abilities(
         spell(
-            Step.Do(Effect.Discard(eachPlayer, objects = Objects.Each(ObjectFilter.InZone(Zone.Hand)))),
+            Step.Do(Effect.Discard(
+                eachPlayer,
+                objects = Objects.Each(ObjectFilter.InZone(Zone.Hand)),
+                count = Value.Fixed(1),
+                filter = ObjectFilter.Any,
+            )),
             draw(eachPlayer, 7),
         ),
     )
@@ -197,7 +232,7 @@ class Chunk10DrawDiscardAndTutorsTest {
             Draw two cards.
         """,
     ) parsesTo abilities(
-        additionalCost(CostPart.Discard(CostObjects.Choose(ObjectFilter.Type(CardType.Land)))),
+        additionalCost(CostPart.Discard(CostObjects.Choose(ObjectFilter.Type(CardType.Land), count = Value.Fixed(1)))),
         spell(draw(Players.You, 2)),
     )
 
@@ -212,8 +247,11 @@ class Chunk10DrawDiscardAndTutorsTest {
         """,
     ) parsesTo abilities(
         additionalCost(CostPart.OneOf(listOf(
-            Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact))))),
-            Cost(listOf(CostPart.Discard(CostObjects.Choose(anyCard)))),
+            Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(
+                ObjectFilter.Type(CardType.Artifact),
+                count = Value.Fixed(1),
+            )))),
+            Cost(listOf(CostPart.Discard(CostObjects.Choose(anyCard, count = Value.Fixed(1))))),
         ))),
         spell(draw(Players.You, 2)),
     )
@@ -238,7 +276,7 @@ class Chunk10DrawDiscardAndTutorsTest {
                     count = Value.Fixed(2),
                 )),
             ))),
-        )),
+        ), affects = Affected.Objects(Objects.Self)),
         spell(draw(Players.You, 2)),
     )
 
@@ -264,7 +302,10 @@ class Chunk10DrawDiscardAndTutorsTest {
             Search your library for a card, put that card into your hand, then shuffle.
         """,
     ) parsesTo abilities(
-        additionalCost(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Creature)))),
+        additionalCost(CostPart.Sacrifice(CostObjects.Choose(
+            ObjectFilter.Type(CardType.Creature),
+            count = Value.Fixed(1),
+        ))),
         spell(tutor(anyCard, to = Destination(Zone.Hand))),
     )
 
@@ -276,7 +317,14 @@ class Chunk10DrawDiscardAndTutorsTest {
         text = "Search your library for a card, put that card into your hand, discard a card at random, then shuffle.",
     ) parsesTo abilities(
         spell(
-            Step.Do(Effect.Search(library = Players.You, filter = anyCard, bind = "found")),
+            Step.Do(Effect.Search(
+                library = Players.You,
+                filter = anyCard,
+                bind = "found",
+                max = Value.Fixed(1),
+                zones = listOf(Zone.Library),
+                searcher = Players.You,
+            )),
             Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Hand))),
             discard(Players.You, 1, random = true),
             Step.Do(Effect.Shuffle(Players.You)),
@@ -332,7 +380,10 @@ class Chunk10DrawDiscardAndTutorsTest {
             Search your library for a land card, put that card onto the battlefield, then shuffle.
         """,
     ) parsesTo abilities(
-        additionalCost(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Land)))),
+        additionalCost(CostPart.Sacrifice(CostObjects.Choose(
+            ObjectFilter.Type(CardType.Land),
+            count = Value.Fixed(1),
+        ))),
         spell(tutor(ObjectFilter.Type(CardType.Land), to = Destination(Zone.Battlefield))),
     )
 
@@ -346,7 +397,10 @@ class Chunk10DrawDiscardAndTutorsTest {
             Search your library for an artifact card, put that card onto the battlefield, then shuffle.
         """,
     ) parsesTo abilities(
-        additionalCost(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Artifact)))),
+        additionalCost(CostPart.Sacrifice(CostObjects.Choose(
+            ObjectFilter.Type(CardType.Artifact),
+            count = Value.Fixed(1),
+        ))),
         spell(tutor(ObjectFilter.Type(CardType.Artifact), to = Destination(Zone.Battlefield))),
     )
 }

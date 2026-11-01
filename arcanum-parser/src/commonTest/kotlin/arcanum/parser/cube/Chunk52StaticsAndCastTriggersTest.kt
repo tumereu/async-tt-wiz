@@ -61,7 +61,7 @@ class Chunk52StaticsAndCastTriggersTest {
     private fun asEnters(choose: Step.Choose) = Ability.Static(listOf(Mechanic.Replacement(
         event = entering,
         modify = listOf(Modification.AsEnters(listOf(choose))),
-    )))
+    )), affects = Affected.Objects(Objects.Self))
 
     // ---- Spell-cast triggers
 
@@ -76,10 +76,12 @@ class Chunk52StaticsAndCastTriggersTest {
             Whenever you cast a green spell, you may untap this creature.
         """,
     ) parsesTo abilities(
-        Ability.Static(listOf(Mechanic.DoesntUntap)),
+        Ability.Static(listOf(Mechanic.DoesntUntap), affects = Affected.Objects(Objects.Self)),
         Ability.Triggered(
             trigger = youCast(ObjectFilter.OfColor(Color.Green)),
-            instructions = Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.Untap(Objects.Self)))))),
+            instructions = Instructions(
+                steps = listOf(Step.May(listOf(Step.Do(Effect.Untap(Objects.Self))), player = Players.You)),
+            ),
         ),
     )
 
@@ -119,7 +121,7 @@ class Chunk52StaticsAndCastTriggersTest {
                 subtypes = listOf(Subtype("Elemental")),
                 power = PrintedNumber.Fixed(1),
                 toughness = PrintedNumber.Fixed(1),
-            )))))),
+            )), count = Value.Fixed(1), controller = Players.You)))),
         ),
     )
 
@@ -141,7 +143,7 @@ class Chunk52StaticsAndCastTriggersTest {
         Ability.Static(listOf(Mechanic.CostChange(
             what = ObjectFilter.And(listOf(ObjectFilter.Not(creature), ObjectFilter.Category(ObjectCategory.Spell))),
             change = CostChange.More(ManaCost.parse("{1}")!!, times = Value.Fixed(1)),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
     )
 
     /** CR 614.1a: the event is changed, one counter fewer. */
@@ -156,7 +158,7 @@ class Chunk52StaticsAndCastTriggersTest {
         Ability.Static(listOf(Mechanic.Replacement(
             event = EventPattern.CountersPut(ObjectFilter.And(listOf(creature, youControl)), CounterKind.PowerToughness(-1, -1)),
             modify = listOf(Modification.AddAmount(Value.Fixed(-1))),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
     )
 
     /** CR 107.3m: X is the X paid when it was cast (0 if it wasn't). */
@@ -176,8 +178,8 @@ class Chunk52StaticsAndCastTriggersTest {
         Keyword.Protection(ObjectFilter.Multicolored),
         Ability.Static(listOf(Mechanic.Replacement(
             event = entering,
-            modify = listOf(Modification.EntersWithCounters(plusOneCounter, Value.CastX())),
-        ))),
+            modify = listOf(Modification.EntersWithCounters(plusOneCounter, Value.CastX(of = Objects.Self))),
+        )), affects = Affected.Objects(Objects.Self)),
     )
 
     /** CR 613.4c: a P/T change in layer 7c, counted as it applies. "Instant and sorcery card" is each card that is
@@ -200,10 +202,14 @@ class Chunk52StaticsAndCastTriggersTest {
                 ObjectFilter.OwnedBy(PlayerFilter.You),
             )))),
             toughness = Value.Fixed(0),
-        ))),
+        )), affects = Affected.Objects(Objects.Self)),
         // One trigger for the batch of cards discarded at once, only for the first such batch each turn
         Ability.Triggered(
-            trigger = Trigger.On(listOf(EventPattern.Discard(players = PlayerFilter.You)), oneOrMore = true, nthThisTurn = 1),
+            trigger = Trigger.On(
+                listOf(EventPattern.Discard(players = PlayerFilter.You, cards = ObjectFilter.Any)),
+                oneOrMore = true,
+                nthThisTurn = 1,
+            ),
             instructions = Instructions(
                 steps = listOf(Step.Do(Effect.Draw(Players.You, Value.Count(Objects.EventObject(EventRole.After))))),
             ),
@@ -225,9 +231,14 @@ class Chunk52StaticsAndCastTriggersTest {
             Activated abilities of sources with the chosen name can't be activated.
         """,
     ) parsesTo abilities(
-        asEnters(Step.Choose(Choice.CardName(ObjectFilter.Not(ObjectFilter.Type(CardType.Land))), bind = "name", remember = true)),
+        asEnters(Step.Choose(
+            Choice.CardName(ObjectFilter.Not(ObjectFilter.Type(CardType.Land))),
+            bind = "name",
+            remember = true,
+            chooser = Players.You,
+        )),
         Ability.Static(
-            mechanics = listOf(Mechanic.CantBeActivated()),
+            mechanics = listOf(Mechanic.CantBeActivated(manaAbilities = true)),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(
                 ObjectFilter.RememberedName("name"),
                 ObjectFilter.Or(listOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
@@ -257,12 +268,16 @@ class Chunk52StaticsAndCastTriggersTest {
             ),
             bind = "chosen",
             remember = true,
+            chooser = Players.You,
         )),
         Ability.Static(
-            mechanics = listOf(Mechanic.CantBeActivated()),
+            mechanics = listOf(Mechanic.CantBeActivated(manaAbilities = true)),
             affects = Affected.Objects(Objects.Remembered("chosen")),
         ),
-        Ability.Static(listOf(Mechanic.GainAbilitiesOf(Objects.Remembered("chosen"), exceptLoyalty = true))),
+        Ability.Static(
+            listOf(Mechanic.GainAbilitiesOf(Objects.Remembered("chosen"), exceptLoyalty = true)),
+            affects = Affected.Objects(Objects.Self),
+        ),
         Ability.Static(
             mechanics = listOf(Mechanic.SpendManaAsAnyColor(onlyFor = ObjectFilter.AbilityOf(source = ObjectFilter.Is(Objects.Self)))),
             affects = Affected.Players(Players.You),
@@ -293,11 +308,13 @@ class Chunk52StaticsAndCastTriggersTest {
                 targets = listOf(TargetSlot(
                     name = "creature",
                     what = TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature, youControl))),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(Step.May(listOf(
                     Step.Do(Effect.Move(Objects.Target("creature"), to = Destination(Zone.Exile), postBind = "exiled")),
                     Step.Do(Effect.Move(Objects.Bound("exiled"), to = Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled"))))),
-                ))),
+                ), player = Players.You)),
             ),
         ),
     )
@@ -326,12 +343,27 @@ class Chunk52StaticsAndCastTriggersTest {
                 )))
                 val chosen = Objects.Bound("chosen")
                 Instructions(
-                    targets = listOf(TargetSlot("player", TargetKind.Players(PlayerFilter.Any))),
+                    targets = listOf(TargetSlot(
+                        "player",
+                        TargetKind.Players(PlayerFilter.Any),
+                        min = Value.Fixed(1),
+                        max = Value.Fixed(1),
+                    )),
                     steps = listOf(
-                        Step.Do(Effect.LookAt(hand)),
+                        Step.Do(Effect.LookAt(hand, players = Players.You)),
                         Step.Pay(
-                            steps = listOf(Step.Choose(Choice.Objects(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), Value.Fixed(1), Value.Fixed(1), from = hand), bind = "chosen")),
+                            steps = listOf(Step.Choose(
+                                Choice.Objects(
+                                    ObjectFilter.Not(ObjectFilter.Type(CardType.Land)),
+                                    Value.Fixed(1),
+                                    Value.Fixed(1),
+                                    from = hand,
+                                ),
+                                bind = "chosen",
+                                chooser = Players.You,
+                            )),
                             bind = "paid",
+                            payer = Players.You,
                         ),
                         Step.If(Condition.Did("paid"), then = listOf(
                             Step.Do(Effect.Reveal(chosen)),
@@ -358,7 +390,7 @@ class Chunk52StaticsAndCastTriggersTest {
             abilityWord = "Landfall",
             trigger = Trigger.On(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Land), youControl)), to = Zone.Battlefield)),
             instructions = Instructions(steps = listOf(
-                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))))),
+                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))), players = Players.You)),
                 Step.If(
                     condition = Condition.Compare(Value.AbilityUsesThisTurn(resolved = true), Comparison.Equal, Value.Fixed(2)),
                     then = listOf(
@@ -366,6 +398,9 @@ class Chunk52StaticsAndCastTriggersTest {
                             filter = ObjectFilter.Or(listOf(ObjectFilter.Sub(Subtype("Elf")), ObjectFilter.Sub(Subtype("Elemental")))),
                             foundBind = "found",
                             restBind = "rest",
+                            library = Players.You,
+                            count = Value.Fixed(1),
+                            reveal = true,
                         )),
                         Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Hand))),
                         Step.Do(Effect.Move(Objects.Bound("rest"), to = Destination(Zone.Library, libraryPosition = -1, randomOrder = true))),

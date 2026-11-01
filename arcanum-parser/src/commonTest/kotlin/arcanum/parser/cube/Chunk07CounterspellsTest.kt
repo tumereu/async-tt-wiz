@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Combine
 import arcanum.api.Comparison
@@ -52,14 +53,24 @@ class Chunk07CounterspellsTest {
         replacements: List<Mechanic.Replacement> = emptyList(),
         more: List<Step> = emptyList(),
     ) = Ability.Spell(Instructions(
-        targets = listOf(TargetSlot(name = "spell", what = TargetKind.Objects(what))),
+        targets = listOf(TargetSlot(
+            name = "spell",
+            what = TargetKind.Objects(what),
+            min = Value.Fixed(1),
+            max = Value.Fixed(1),
+        )),
         steps = listOf(Step.Do(Effect.Counter(targetSpell))) + more,
         replacements = replacements,
     ))
 
     /** "Counter target [what] unless its controller pays [cost]." */
     private fun counterUnless(what: ObjectFilter, cost: String) = Ability.Spell(Instructions(
-        targets = listOf(TargetSlot(name = "spell", what = TargetKind.Objects(what))),
+        targets = listOf(TargetSlot(
+            name = "spell",
+            what = TargetKind.Objects(what),
+            min = Value.Fixed(1),
+            max = Value.Fixed(1),
+        )),
         steps = listOf(
             Step.Pay(
                 cost = manaCost(cost),
@@ -83,10 +94,14 @@ class Chunk07CounterspellsTest {
     private fun alternativeCost(vararg parts: CostPart, condition: Condition? = null) = Ability.Static(
         mechanics = listOf(Mechanic.AlternativeCost(cost = Cost(parts.toList()))),
         condition = condition,
+        affects = Affected.Objects(Objects.Self),
     )
 
     private val noncreatureSpell = ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Creature)), spell))
-    private val blueCardFromHand = CostPart.Exile(CostObjects.Choose(ObjectFilter.OfColor(Color.Blue)), from = Zone.Hand)
+    private val blueCardFromHand = CostPart.Exile(
+        CostObjects.Choose(ObjectFilter.OfColor(Color.Blue), count = Value.Fixed(1)),
+        from = Zone.Hand,
+    )
 
     // ---- Plain counterspells
 
@@ -174,7 +189,7 @@ class Chunk07CounterspellsTest {
         alternativeCost(CostPart.ReturnToHand(CostObjects.Choose(ObjectFilter.And(listOf(
             ObjectFilter.Sub(Subtype("Island")),
             ObjectFilter.ControlledBy(PlayerFilter.You),
-        ))))),
+        )), count = Value.Fixed(1)))),
         counterUnless(spell, cost = "{1}"),
     )
 
@@ -192,7 +207,7 @@ class Chunk07CounterspellsTest {
             ObjectFilter.Not(ObjectFilter.Category(ObjectCategory.Token)),
             ObjectFilter.OfColor(Color.Blue),
             ObjectFilter.Type(CardType.Creature),
-        ))))),
+        )), count = Value.Fixed(1)))),
         counter(spell),
     )
 
@@ -274,7 +289,7 @@ class Chunk07CounterspellsTest {
                             Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(
                                 mana = ManaCost.parse("{C}")!!,
                                 times = Value.Of(NumericProperty.ManaValue, targetSpell, Combine.Single),
-                            )))),
+                            )), players = Players.You)),
                         ),
                     ),
                 )),

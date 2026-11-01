@@ -97,7 +97,7 @@ fun drawCards(n: Int, players: Players = Players.You): Step = Step.Do(Effect.Dra
 
 /** A target slot of objects. */
 fun objectSlot(name: String, filter: ObjectFilter, min: Int = 1) =
-    TargetSlot(name = name, what = TargetKind.Objects(filter), min = Value.Fixed(min))
+    TargetSlot(name = name, what = TargetKind.Objects(filter), min = Value.Fixed(min), max = Value.Fixed(1))
 
 /** Each of [filters], as one "and". */
 fun allOf(vararg filters: ObjectFilter): ObjectFilter = ObjectFilter.And(filters.toList())

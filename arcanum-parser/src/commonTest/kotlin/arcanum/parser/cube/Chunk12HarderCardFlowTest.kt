@@ -39,7 +39,7 @@ import kotlin.test.Test
 class Chunk12HarderCardFlowTest {
     // ---- Shared shapes
 
-    private val x = Value.Announced()
+    private val x = Value.Announced(name = "X")
     private val drawACard = Step.Do(Effect.Draw(Players.You, count = Value.Fixed(1)))
 
     /** "[filter] with mana value X or less" */
@@ -63,6 +63,8 @@ class Chunk12HarderCardFlowTest {
                     filter = manaValueAtMostX(ObjectFilter.Type(CardType.Creature)),
                     zones = listOf(Zone.Library, Zone.Graveyard),
                     bind = "found",
+                    max = Value.Fixed(1),
+                    searcher = Players.You,
                 )),
                 Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
                 Step.If(
@@ -104,6 +106,9 @@ class Chunk12HarderCardFlowTest {
                     library = Players.You,
                     filter = manaValueAtMostX(ObjectFilter.OfColor(Color.Green), ObjectFilter.Type(CardType.Creature)),
                     bind = "found",
+                    max = Value.Fixed(1),
+                    zones = listOf(Zone.Library),
+                    searcher = Players.You,
                 )),
                 Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
                 Step.Do(Effect.Shuffle(Players.You)),
@@ -126,7 +131,7 @@ class Chunk12HarderCardFlowTest {
         Ability.Spell(Instructions(
             steps = listOf(
                 Step.Do(Effect.Draw(Players.You, count = x)),
-                Step.Do(Effect.Discard(Players.You, count = x, postBind = "discarded")),
+                Step.Do(Effect.Discard(Players.You, count = x, postBind = "discarded", filter = ObjectFilter.Any)),
                 Step.Do(Effect.CreateToken(
                     token = TokenSpec.Defined(FaceDefinition(
                         name = "Spirit Token",
@@ -138,6 +143,7 @@ class Chunk12HarderCardFlowTest {
                         abilities = listOf(Keyword.Flying),
                     )),
                     count = Value.CountDistinct(Objects.Bound("discarded"), SharedQuality.CardType),
+                    controller = Players.You,
                 )),
             ),
             announced = listOf("X"),

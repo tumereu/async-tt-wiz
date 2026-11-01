@@ -14,6 +14,7 @@ import arcanum.api.Destination
 import arcanum.api.Duration
 import arcanum.api.Effect
 import arcanum.api.EventPattern
+import arcanum.api.EventRole
 import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
@@ -68,8 +69,17 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
     private val spell = ObjectFilter.Category(ObjectCategory.Spell)
 
     /** "Copy target [filter]." */
-    private fun copyTargetSpell(filter: ObjectFilter) = TargetSlot(name = "spell", what = TargetKind.Objects(filter))
-    private val copyTarget = Step.Do(Effect.CopySpell(Objects.Target("spell")))
+    private fun copyTargetSpell(filter: ObjectFilter) = TargetSlot(
+        name = "spell",
+        what = TargetKind.Objects(filter),
+        min = Value.Fixed(1),
+        max = Value.Fixed(1),
+    )
+    private val copyTarget = Step.Do(Effect.CopySpell(
+        Objects.Target("spell"),
+        controller = Players.You,
+        newTargets = true,
+    ))
 
     /** "That player or that permanent's controller": the player chosen for the any-target slot, or the controller of the
      * permanent chosen for it. */
@@ -110,7 +120,7 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
         Ability.Spell(Instructions(
             targets = listOf(anyTarget()),
             steps = listOf(
-                Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(3))),
+                Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(3), source = Objects.Self)),
                 Step.Pay(
                     cost = manaCost("{R}{R}"),
                     payer = thatPlayerOrController,
@@ -120,7 +130,11 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
                     condition = Condition.Did("paid"),
                     then = listOf(Step.May(
                         player = thatPlayerOrController,
-                        steps = listOf(Step.Do(Effect.CopySpell(Objects.Self, controller = thatPlayerOrController))),
+                        steps = listOf(Step.Do(Effect.CopySpell(
+                            Objects.Self,
+                            controller = thatPlayerOrController,
+                            newTargets = true,
+                        ))),
                     )),
                 ),
             ),
@@ -141,7 +155,7 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
             targets = listOf(copyTargetSpell(ObjectFilter.And(listOf(instantOrSorcery, spell, ObjectFilter.ControlledBy(PlayerFilter.You))))),
             steps = listOf(
                 Step.If(
-                    condition = Condition.CastFrom(Zone.Graveyard),
+                    condition = Condition.CastFrom(Zone.Graveyard, of = Objects.Self),
                     then = listOf(Step.Repeat(Value.Fixed(2), listOf(copyTarget))),
                     otherwise = listOf(copyTarget),
                 ),
@@ -165,8 +179,8 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
                 ObjectFilter.Not(ObjectFilter.Category(ObjectCategory.Token)),
                 ObjectFilter.OfColor(Color.Red),
                 ObjectFilter.Type(CardType.Creature),
-            ))))))),
-        )),
+            )), count = Value.Fixed(1)))))),
+        ), affects = Affected.Objects(Objects.Self)),
         Ability.Spell(Instructions(
             targets = listOf(copyTargetSpell(ObjectFilter.And(listOf(instantOrSorcery, spell)))),
             steps = listOf(copyTarget),
@@ -183,9 +197,13 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(
             Step.Do(Effect.CreateDelayedTrigger(
-                trigger = Trigger.On(EventPattern.Cast(spell = instantOrSorcery)),
+                trigger = Trigger.On(EventPattern.Cast(spell = instantOrSorcery, by = PlayerFilter.Any)),
                 instructions = Instructions(steps = listOf(
-                    Step.Do(Effect.CopySpell(Objects.EventObject(), controller = Players.EventPlayer)),
+                    Step.Do(Effect.CopySpell(
+                        Objects.EventObject(role = EventRole.Object),
+                        controller = Players.EventPlayer,
+                        newTargets = true,
+                    )),
                 )),
                 duration = Duration.EndOfTurn,
                 repeats = true,
@@ -218,12 +236,17 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
                     )),
                     ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(3)),
                 ) + yourGraveyard)),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
             )),
             steps = listOf(
                 Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Battlefield))),
                 Step.If(
-                    condition = Condition.CastFrom(Zone.Graveyard),
-                    then = listOf(Step.May(listOf(Step.Do(Effect.CopySpell(Objects.Self))))),
+                    condition = Condition.CastFrom(Zone.Graveyard, of = Objects.Self),
+                    then = listOf(Step.May(
+                        listOf(Step.Do(Effect.CopySpell(Objects.Self, controller = Players.You, newTargets = true))),
+                        player = Players.You,
+                    )),
                 ),
             ),
         )),
@@ -243,7 +266,12 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
         """,
     ) parsesTo abilities(
         Ability.Spell(Instructions(
-            targets = listOf(TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any))),
+            targets = listOf(TargetSlot(
+                name = "player",
+                what = TargetKind.Players(PlayerFilter.Any),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
             steps = listOf(Step.Do(Effect.Mill(Players.Target("player"), count = Value.Fixed(3)))),
         )),
         Keyword.Storm,
@@ -260,7 +288,11 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
         """,
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(
-            Step.Do(Effect.CreateToken(creatureToken("Squirrel", Color.Green), count = Value.Fixed(1))),
+            Step.Do(Effect.CreateToken(
+                creatureToken("Squirrel", Color.Green),
+                count = Value.Fixed(1),
+                controller = Players.You,
+            )),
         ))),
         Keyword.Storm,
     )
@@ -276,7 +308,11 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
         """,
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(
-            Step.Do(Effect.CreateToken(creatureToken("Goblin", Color.Red), count = Value.Fixed(2))),
+            Step.Do(Effect.CreateToken(
+                creatureToken("Goblin", Color.Red),
+                count = Value.Fixed(2),
+                controller = Players.You,
+            )),
         ))),
         Keyword.Storm,
     )
@@ -292,7 +328,12 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
         """,
     ) parsesTo abilities(
         Ability.Spell(Instructions(
-            targets = listOf(TargetSlot(name = "player", what = TargetKind.Players(PlayerFilter.Any))),
+            targets = listOf(TargetSlot(
+                name = "player",
+                what = TargetKind.Players(PlayerFilter.Any),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
+            )),
             steps = listOf(
                 Step.Do(Effect.LoseLife(Players.Target("player"), amount = Value.Fixed(2))),
                 Step.Do(Effect.GainLife(Players.You, amount = Value.Fixed(2))),
@@ -315,12 +356,17 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
         Ability.Spell(Instructions(steps = listOf(
             Step.Do(Effect.Shuffle(Players.You)),
             Step.Do(Effect.Move(
-                Objects.LibraryCards(Players.You, count = Value.Fixed(1)),
+                Objects.LibraryCards(Players.You, count = Value.Fixed(1), fromTop = true),
                 to = Destination(Zone.Exile),
                 postBind = "exiled",
             )),
             Step.Do(Effect.ApplyMechanics(
-                mechanics = listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, withoutPaying = true)),
+                mechanics = listOf(Mechanic.MayPlay(
+                    Zone.Exile,
+                    PlayKind.Play,
+                    withoutPaying = true,
+                    holder = PlayerFilter.You,
+                )),
                 affects = Affected.Objects(Objects.Bound("exiled")),
                 duration = Duration.EndOfTurn,
             )),
@@ -365,7 +411,7 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
     ) parsesTo abilities(
         Ability.Spell(Instructions(steps = listOf(
             Step.Do(Effect.ApplyMechanics(
-                mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Play)),
+                mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Play, holder = PlayerFilter.You)),
                 affects = Affected.Objects(Objects.Each(ObjectFilter.And(yourGraveyard))),
                 duration = Duration.EndOfTurn,
             )),
@@ -403,16 +449,30 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
                         from = Objects.Union(listOf(Objects.Target("instant"), Objects.Target("sorcery"))),
                     ),
                     bind = "toCast",
+                    chooser = Players.You,
                 ),
-                Step.Do(Effect.Cast(Objects.Bound("toCast"), withoutPaying = true, bind = "cast")),
+                Step.Do(Effect.Cast(
+                    Objects.Bound("toCast"),
+                    withoutPaying = true,
+                    bind = "cast",
+                    how = PlayKind.Cast,
+                    caster = Players.You,
+                )),
                 Step.Do(Effect.ApplyMechanics(
                     mechanics = listOf(exileInsteadOfGraveyard(ObjectFilter.Is(Objects.Bound("cast")))),
                     affects = null,
                     duration = Duration.Indefinitely,
                 )),
                 Step.If(
-                    condition = Condition.Compare(Value.Announced(), Comparison.AtLeast, Value.Fixed(10)),
-                    then = listOf(Step.Repeat(Value.Fixed(2), listOf(Step.Do(Effect.CopySpell(Objects.Bound("cast")))))),
+                    condition = Condition.Compare(Value.Announced(name = "X"), Comparison.AtLeast, Value.Fixed(10)),
+                    then = listOf(Step.Repeat(
+                        Value.Fixed(2),
+                        listOf(Step.Do(Effect.CopySpell(
+                            Objects.Bound("cast"),
+                            controller = Players.You,
+                            newTargets = true,
+                        ))),
+                    )),
                 ),
             ),
         )),
@@ -421,8 +481,9 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
     private fun upToOneFromGraveyard(name: String, type: CardType) = TargetSlot(
         name = name,
         what = TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(type)) + yourGraveyard +
-            ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced()))),
+            ObjectFilter.ManaValue(Comparison.AtMost, Value.Announced(name = "X")))),
         min = Value.Fixed(0),
+        max = Value.Fixed(1),
     )
 
     /** CR 601.2d: the damage is divided as the spell is cast, at least 1 to each target; "any number" may be none.
@@ -439,12 +500,19 @@ class Chunk14CopiesStormAndGraveyardCastingTest {
     ) parsesTo abilities(
         Ability.Spell(Instructions(
             announced = listOf("X"),
-            targets = listOf(anyTarget(min = Value.Fixed(0), max = null, divided = Value.Announced())),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.DividedShare))),
+            targets = listOf(anyTarget(min = Value.Fixed(0), max = null, divided = Value.Announced(name = "X"))),
+            steps = listOf(Step.Do(Effect.DealDamage(
+                Recipients(target = "any"),
+                amount = Value.DividedShare,
+                source = Objects.Self,
+            ))),
         )),
         Keyword.Flashback(Cost(listOf(
             CostPart.Mana(ManaCost.parse("{R}{R}")!!),
-            CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(ObjectCategory.Card), count = Value.CastX())),
+            CostPart.Discard(CostObjects.Choose(
+                ObjectFilter.Category(ObjectCategory.Card),
+                count = Value.CastX(of = Objects.Self),
+            )),
         ))),
     )
 }

@@ -62,7 +62,8 @@ object DefinitionChecks {
         "discard" to setOf("before", "after"),
         "unattach" to setOf("object", "from"),
     )
-    private val eventScoped = setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
+    private val selfAffected = json.encodeToJsonElement(Affected.serializer(), Affected.Objects(Objects.Self))
+    private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
     private val asEntersSteps = setOf("pay", "choose", "if", "modify")
     private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind")
@@ -194,7 +195,7 @@ object DefinitionChecks {
                     if (!element.boolean("repeatable") && max > options) found += "modes: maximum $max is more than the $options options"
                 }
                 if ("what" in element && type == null) {
-                    // Absent means the default 1; null means any number; a computed value isn't checked.
+                    // Null max means any number; a computed value isn't checked.
                     val min = if ("min" in element) element.fixed("min") else 1
                     val max = if ("max" in element) element.fixed("max") else 1
                     if (min != null && max != null) checkCounts("target slot", min, max, found)
@@ -208,9 +209,10 @@ object DefinitionChecks {
 
     private fun checkStatic(ability: JsonObject, found: MutableList<String>) {
         val mechanics = (ability["mechanics"] as? JsonArray).orEmpty().mapNotNull { (it as? JsonObject)?.typeName() }
-        if (ability["affects"] != null && mechanics.any { it in eventScoped })
-            found += "event-scoped mechanics carry their own scope; leave the static ability's affects at its default"
-        if (ability.boolean("characteristicDefining") && (ability["condition"] != null || ability["affects"] != null))
+        val ownObject = ability["affects"] == selfAffected
+        if (!ownObject && mechanics.any { it in eventScoped })
+            found += "event-scoped mechanics carry their own scope; the static ability's affects stays Objects(Self)"
+        if (ability.boolean("characteristicDefining") && (ability["condition"] != null || !ownObject))
             found += "a characteristic-defining ability affects only its own object and has no condition (CR 604.3a)"
     }
 

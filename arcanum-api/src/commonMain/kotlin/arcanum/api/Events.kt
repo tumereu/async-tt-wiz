@@ -17,94 +17,94 @@ sealed interface EventPattern {
      * leaving a graveyard, and an object all players can see put into a hand or library (CR 603.10a). Playing a land
      * is also [PlayLand]. */
     @Serializable @SerialName("zone-change") data class ZoneChange(
-        val objects: ObjectFilter = ObjectFilter.Any, val from: Zone? = null, val to: Zone? = null,
+        val objects: ObjectFilter, val from: Zone? = null, val to: Zone? = null,
         /** Only the move of a spell as it finishes resolving ("as it resolves", CR 608.2n), not a countered spell. */
         val resolving: Boolean = false,
     ) : EventPattern
     /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
      * from exile"). Role object = the spell. */
     @Serializable @SerialName("cast") data class Cast(
-        val spell: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any, val from: Zone? = null,
+        val spell: ObjectFilter, val by: PlayerFilter, val from: Zone? = null,
     ) : EventPattern
     /** An ability of an object matching [source] is activated; [manaAbilities] whether mana abilities count. */
-    @Serializable @SerialName("activate") data class Activate(val source: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any, val manaAbilities: Boolean = false) : EventPattern
+    @Serializable @SerialName("activate") data class Activate(val source: ObjectFilter, val by: PlayerFilter, val manaAbilities: Boolean = false) : EventPattern
     /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any; [excess]:
      * only damage over lethal (CR 120.4a). Roles source, object (the recipient); amount = the damage. */
     @Serializable @SerialName("damage") data class Damage(
-        val source: ObjectFilter = ObjectFilter.Any, val to: RecipientFilter = RecipientFilter(), val combat: Boolean? = null,
+        val source: ObjectFilter, val to: RecipientFilter, val combat: Boolean? = null,
         val excess: Boolean = false,
     ) : EventPattern
-    @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter) : EventPattern
     /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]). */
-    @Serializable @SerialName("draw") data class Draw(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("draw") data class Draw(val players: PlayerFilter) : EventPattern
     /** A player discards a card. Roles before (the card in hand, last known information) and after (the card in the
      * graveyard, or wherever a replacement put it). */
-    @Serializable @SerialName("discard") data class Discard(val cards: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("discard") data class Discard(val cards: ObjectFilter, val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: ObjectFilter) : EventPattern
     /** Counters of [kind] are put on an object matching [objects], by an effect of a spell or ability matching [causedBy]
      * when given ("by a modular triggered ability"). */
     @Serializable @SerialName("counters") data class CountersPut(
-        val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
+        val objects: ObjectFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
     ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes unattached from something matching [from]
      * (CR 701.3d). Roles object (the attachment), from (what it was attached to, last known information). */
-    @Serializable @SerialName("unattach") data class Unattach(val objects: ObjectFilter = ObjectFilter.Any, val from: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("unattach") data class Unattach(val objects: ObjectFilter, val from: ObjectFilter) : EventPattern
     /** Counters of [kind] are removed from an object matching [objects]; [last]: only when that removal leaves none
      * ("when the last time counter is removed", CR 702.63a), part of the trigger event, not an intervening if. */
     @Serializable @SerialName("counters-removed") data class CountersRemoved(
-        val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null, val last: Boolean = false,
+        val objects: ObjectFilter, val kind: CounterKind? = null, val last: Boolean = false,
     ) : EventPattern
-    @Serializable @SerialName("player-counters") data class PlayerCountersPut(val players: PlayerFilter = PlayerFilter.Any, val kind: CounterKind? = null) : EventPattern
-    @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter = ObjectFilter.Any, val forMana: Boolean? = null) : EventPattern
-    @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("player-counters") data class PlayerCountersPut(val players: PlayerFilter, val kind: CounterKind? = null) : EventPattern
+    @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter, val forMana: Boolean? = null) : EventPattern
+    @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),
      * defender (a planeswalker or battle attacked); [Players.EventPlayer] is the player attacked. */
-    @Serializable @SerialName("attack") data class Attack(val attacker: ObjectFilter = ObjectFilter.Any, val alone: Boolean = false, val target: RecipientFilter? = null) : EventPattern
+    @Serializable @SerialName("attack") data class Attack(val attacker: ObjectFilter, val alone: Boolean = false, val target: RecipientFilter? = null) : EventPattern
     /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
      * once per attacker blocked (CR 509.3a, b). Roles object (the blocker), other combatant (the attacker). */
     @Serializable @SerialName("block") data class Block(
-        val blocker: ObjectFilter = ObjectFilter.Any, val attacker: ObjectFilter = ObjectFilter.Any, val perAttacker: Boolean = false,
+        val blocker: ObjectFilter, val attacker: ObjectFilter, val perAttacker: Boolean = false,
     ) : EventPattern
     /** "Whenever [attacker] becomes blocked": once per combat; [perBlocker] for "becomes blocked by a creature", once per
      * blocker matching [blocker] (CR 509.3d). Roles object (the attacker), other combatant (the blocker). */
     @Serializable @SerialName("becomes-blocked") data class BecomesBlocked(
-        val attacker: ObjectFilter = ObjectFilter.Any, val blocker: ObjectFilter = ObjectFilter.Any, val perBlocker: Boolean = false,
+        val attacker: ObjectFilter, val blocker: ObjectFilter, val perBlocker: Boolean = false,
     ) : EventPattern
-    @Serializable @SerialName("unblocked") data class AttacksUnblocked(val attacker: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("unblocked") data class AttacksUnblocked(val attacker: ObjectFilter) : EventPattern
     /** An object or player becomes the target of a spell or ability matching [by] (heroic, ward). Roles object,
      * source (the spell or ability). */
-    @Serializable @SerialName("becomes-target") data class BecomesTarget(val objects: ObjectFilter = ObjectFilter.Any, val by: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("cycle") data class Cycle(val cards: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("create-token") data class CreateToken(val tokens: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("transform") data class Transform(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("turned-face-up") data class TurnedFaceUp(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("search") data class Search(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("countered") data class Countered(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("destroyed") data class Destroyed(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("becomes-target") data class BecomesTarget(val objects: ObjectFilter, val by: ObjectFilter) : EventPattern
+    @Serializable @SerialName("cycle") data class Cycle(val cards: ObjectFilter, val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("create-token") data class CreateToken(val tokens: ObjectFilter) : EventPattern
+    @Serializable @SerialName("transform") data class Transform(val objects: ObjectFilter) : EventPattern
+    @Serializable @SerialName("turned-face-up") data class TurnedFaceUp(val objects: ObjectFilter) : EventPattern
+    @Serializable @SerialName("search") data class Search(val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("countered") data class Countered(val objects: ObjectFilter) : EventPattern
+    @Serializable @SerialName("destroyed") data class Destroyed(val objects: ObjectFilter) : EventPattern
     /** A step begins ("at the beginning of your upkeep"); [whose] is relative to the ability's controller. */
-    @Serializable @SerialName("step-begins") data class StepBegins(val step: TurnStep, val whose: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("step-ends") data class StepEnds(val step: TurnStep, val whose: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("step-begins") data class StepBegins(val step: TurnStep, val whose: PlayerFilter) : EventPattern
+    @Serializable @SerialName("step-ends") data class StepEnds(val step: TurnStep, val whose: PlayerFilter) : EventPattern
     @Serializable @SerialName("day-night") data class DayNightChanges(val toNight: Boolean? = null) : EventPattern
     /** A spell matching [spell] is copied by a player matching [by] ("whenever you copy a spell"). */
-    @Serializable @SerialName("copy") data class Copy(val spell: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("scry") data class Scry(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("surveil") data class Surveil(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("copy") data class Copy(val spell: ObjectFilter, val by: PlayerFilter) : EventPattern
+    @Serializable @SerialName("scry") data class Scry(val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("surveil") data class Surveil(val players: PlayerFilter) : EventPattern
     /** A player commits a crime: targets an opponent or their objects (CR 700.13). */
-    @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter) : EventPattern
     /** A player plays a land (a special action, CR 116.2a, 305.1). */
-    @Serializable @SerialName("play-land") data class PlayLand(val lands: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("play-land") data class PlayLand(val lands: ObjectFilter, val players: PlayerFilter) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes attached to something matching [to]. Role object
      * (the attachment). */
-    @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter = ObjectFilter.Any, val to: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("roll-die") data class RollDie(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
-    @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter, val to: ObjectFilter) : EventPattern
+    @Serializable @SerialName("roll-die") data class RollDie(val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("flip-coin") data class FlipCoin(val players: PlayerFilter) : EventPattern
     /** A Vehicle matching [objects] becomes crewed (CR 702.122). Roles object (the Vehicle), other combatant unused. */
-    @Serializable @SerialName("crewed") data class Crewed(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("crewed") data class Crewed(val objects: ObjectFilter) : EventPattern
     /** A Mount matching [objects] becomes saddled (CR 702.171). */
-    @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
+    @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter) : EventPattern
     /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
-    @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter = PlayerFilter.You) : EventPattern
+    @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */

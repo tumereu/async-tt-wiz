@@ -9,7 +9,9 @@ import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.ObjectFilter
+import arcanum.api.Objects
 import arcanum.api.PlayerFilter
+import arcanum.api.Players
 import arcanum.api.PrintedNumber
 import arcanum.api.Recipients
 import arcanum.api.Step
@@ -55,11 +57,13 @@ class Chunk57UnCardsTest {
                     )),
                     players = PlayerFilter.Any,
                 ),
+                min = Value.Fixed(1),
+                max = Value.Fixed(1),
             )),
             steps = listOf(
-                Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(2))),
+                Step.Do(Effect.DealDamage(Recipients(target = "any"), amount = Value.Fixed(2), source = Objects.Self)),
                 Step.If(
-                    condition = Condition.Paid(Keyword.Kicker.Kind),
+                    condition = Condition.Paid(Keyword.Kicker.Kind, times = 1, of = Objects.Self),
                     then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(FaceDefinition(
                         name = "Goblin Token",
                         colorIndicator = listOf(Color.Red),
@@ -67,7 +71,7 @@ class Chunk57UnCardsTest {
                         subtypes = listOf(Subtype("Goblin")),
                         power = PrintedNumber.Fixed(1),
                         toughness = PrintedNumber.Fixed(1),
-                    ))))),
+                    )), count = Value.Fixed(1), controller = Players.You))),
                 ),
             ),
         )),

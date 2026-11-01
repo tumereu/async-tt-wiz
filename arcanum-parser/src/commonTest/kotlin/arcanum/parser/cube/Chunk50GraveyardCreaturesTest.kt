@@ -1,6 +1,7 @@
 package arcanum.parser.cube
 
 import arcanum.api.Ability
+import arcanum.api.ActivationRules
 import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Comparison
@@ -27,6 +28,7 @@ import arcanum.api.Subtype
 import arcanum.api.Supertype
 import arcanum.api.TargetKind
 import arcanum.api.TargetSlot
+import arcanum.api.Timing
 import arcanum.api.Trigger
 import arcanum.api.TurnStep
 import arcanum.api.Value
@@ -82,7 +84,7 @@ class Chunk50GraveyardCreaturesTest {
             )),
             instructions = Instructions(
                 steps = listOf(
-                    Step.Pay(manaCost("{B}"), bind = "paid"),
+                    Step.Pay(manaCost("{B}"), bind = "paid", payer = Players.You),
                     Step.If(Condition.Did("paid"), then = listOf(returnToBattlefield())),
                 ),
             ),
@@ -142,7 +144,10 @@ class Chunk50GraveyardCreaturesTest {
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
             instructions = Instructions(
-                steps = listOf(Step.May(listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Hand)))))),
+                steps = listOf(Step.May(
+                    listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Hand)))),
+                    player = Players.You,
+                )),
             ),
         ),
     )
@@ -163,7 +168,7 @@ class Chunk50GraveyardCreaturesTest {
         Keyword.Haste,
         Ability.Triggered(
             trigger = Trigger.On(listOf(EventPattern.Cast(creature, by = PlayerFilter.You)), nthThisTurn = 2),
-            instructions = Instructions(steps = listOf(Step.May(listOf(returnToBattlefield())))),
+            instructions = Instructions(steps = listOf(Step.May(listOf(returnToBattlefield()), player = Players.You))),
         ),
     )
 
@@ -188,7 +193,9 @@ class Chunk50GraveyardCreaturesTest {
                 CostPart.Mana(arcanum.api.ManaCost.parse("{B}{B}")!!),
                 CostPart.Sacrifice(CostObjects.Choose(creature, count = Value.Fixed(2))),
             )),
-        ))),
+            how = PlayKind.Cast,
+            holder = PlayerFilter.You,
+        )), affects = Affected.Objects(Objects.Self)),
     )
 
     /** CR 305.1: a land played this way uses a land play. */
@@ -201,7 +208,7 @@ class Chunk50GraveyardCreaturesTest {
         text = "You may play lands from your graveyard.",
     ) parsesTo abilities(
         Ability.Static(
-            mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Play)),
+            mechanics = listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Play, holder = PlayerFilter.You)),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Land)) + inYourGraveyard))),
         ),
     )
@@ -235,6 +242,8 @@ class Chunk50GraveyardCreaturesTest {
                         creature,
                         ObjectFilter.ManaValue(Comparison.AtMost, Value.Fixed(3)),
                     ) + inYourGraveyard)),
+                    min = Value.Fixed(1),
+                    max = Value.Fixed(1),
                 )),
                 steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), to = Destination(Zone.Battlefield)))),
             ),
@@ -264,8 +273,13 @@ class Chunk50GraveyardCreaturesTest {
             ),
         ),
         Ability.Activated(
-            cost = Cost(listOf(CostPart.RemoveCounters(CounterKind.PowerToughness(1, 1), Value.Fixed(3)))),
+            cost = Cost(listOf(CostPart.RemoveCounters(
+                CounterKind.PowerToughness(1, 1),
+                Value.Fixed(3),
+                from = CostObjects.Self,
+            ))),
             instructions = Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Self, to = Destination(Zone.Hand))))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You),
         ),
         // CR 603.10a: a leaves-the-battlefield trigger looks back in time
         Ability.Triggered(
@@ -302,7 +316,10 @@ class Chunk50GraveyardCreaturesTest {
             instructions = Instructions(
                 steps = listOf(
                     Step.Pay(
-                        cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Land))))),
+                        cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(
+                            ObjectFilter.Type(CardType.Land),
+                            count = Value.Fixed(1),
+                        )))),
                         payer = Players.You,
                         bind = "paid",
                     ),
@@ -342,7 +359,11 @@ class Chunk50GraveyardCreaturesTest {
                 to = Zone.Battlefield,
             )),
             instructions = Instructions(
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)), amount = Value.Fixed(1)))),
+                steps = listOf(Step.Do(Effect.DealDamage(
+                    Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                    amount = Value.Fixed(1),
+                    source = Objects.Self,
+                ))),
             ),
         ),
         Keyword.Unearth(manaCost("{R}")),

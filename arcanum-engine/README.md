@@ -73,7 +73,11 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   re-check and fizzling, partial legality, every `Step` and every `Effect` (keyword actions
   without a table entry are done directly or by hand), effect objects with locked sets (CR
   611.2c), delayed and reflexive triggers, copies of spells, casting without paying from an
-  effect, the card going to the graveyard/exile/battlefield. A step that needs a decision is
+  effect or for a mana cost (madness), mana paid on resolution ("unless pays", ward) with a
+  `ManaPayment` decision, the card going to the graveyard/exile/battlefield (an Adventure to
+  exile, castable from there as the creature, CR 715.4). Permanents enter with their printed
+  loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
+  draw step (CR 714.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
   Triggers: detection as each event is recorded, looking back for CR 603.10a events, batches,
   "nth this turn", per-turn limits, intervening and trigger-only conditions, state triggers,
@@ -82,7 +86,9 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
   Events outside resolution (land plays, the draw step's draw, combat damage) go through
   `Events.run` and wait with `Continuation.Event`.
-- Not yet: casting for a cost from an effect (madness: done by hand), additional combat
+- Not yet: casting from an effect for a cost other than mana, replacement effects on the zone
+  changes of costs (a creature sacrificed or a card discarded as a cost), counter replacements on
+  the counters a permanent enters with (CR 122.6), additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   cycling/crewing/saddling/expending/day-night events, `CountersPut.causedBy`, `nthThisTurn`'s
   `during`, "do this only once each turn", repeated target slot names of repeated modes

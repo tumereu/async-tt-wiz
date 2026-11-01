@@ -10,6 +10,7 @@ import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.PlayKind
 import arcanum.api.PlayerFilter
+import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -120,6 +121,32 @@ class SpecialActionsTest {
             stack.names shouldBe listOf("Grommak, Risen Charnelhost")
             "Forest".tapped shouldBe false
             alice.exile.size shouldBe 5
+        }
+    }
+
+    // CR 702.62a: at its owner's upkeep, a suspended card loses a time counter in exile
+    @Test
+    fun suspendedCardLosesATimeCounterAtUpkeep() = scenario {
+        alice.hand("Lotus Bud")
+        perform(specialAction("Lotus Bud"))
+        beginStep(TurnStep.Upkeep, active = alice)
+        resolve()
+        expect { "Lotus Bud".counters(CounterKind.Time) shouldBe 2 }
+    }
+
+    // CR 702.62a, 400.7d: a creature cast with the last time counter removed keeps haste as the permanent it becomes
+    @Test
+    fun suspendedCreatureHasHaste() = scenario {
+        alice.battlefield("Swamp")
+        put(alice, listOf("Colossal Rumblebeast"), Zone.Exile, counters = listOf(CounterKind.Time to 1))
+        beginStep(TurnStep.Upkeep, active = alice)
+        resolve()
+        resolve()
+        answer(Answer.YesNo(true))
+        resolve()
+        expect {
+            alice.battlefield has "Colossal Rumblebeast"
+            "Colossal Rumblebeast" hasKeyword arcanum.api.Keyword.Haste
         }
     }
 }

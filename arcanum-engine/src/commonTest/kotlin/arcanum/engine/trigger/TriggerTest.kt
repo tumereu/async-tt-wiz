@@ -387,6 +387,24 @@ class TriggerTest {
     @Suppress("unused")
     private val unused = listOf(Zone.Battlefield, Meaning.Died)
 
+    // CR 113.6m: "return this card from your graveyard" works only in the graveyard: on the battlefield it doesn't trigger
+    @Test
+    fun returnFromGraveyardTriggerOnlyInTheGraveyard() = scenario {
+        alice.battlefield("Gorehaunt")
+        alice.hand("Swamp")
+        alice.plays("Swamp")
+        expect { stack.isEmpty() }
+    }
+
+    // CR 113.6m: in the graveyard it triggers
+    @Test
+    fun returnFromGraveyardTriggerInTheGraveyard() = scenario {
+        alice.graveyard("Gorehaunt")
+        alice.hand("Swamp")
+        alice.plays("Swamp")
+        expect { stack.names shouldBe listOf("ability of Gorehaunt") }
+    }
+
     @Suppress("unused")
     private fun check(b: Boolean) = assertTrue(b)
 }

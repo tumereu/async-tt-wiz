@@ -72,10 +72,19 @@ internal object Layers {
     /** Whether an effect object still applies: its "for as long as" condition holds and what it lasts until is still
      * there (CR 611.2b, 610.3). Ending it is a change made by the flow that notices; the view doesn't wait for that. */
     fun active(state: GameState, board: Board, effect: EffectObject): Boolean = when (val d = effect.duration) {
-        is Duration.AsLongAs -> Evaluator(board, Context(effect.controller, effect.source, effect.names)).holds(d.condition)
+        is Duration.AsLongAs -> Evaluator(board, Context(effect.controller, effect.source, followed(state, effect))).holds(d.condition)
         is Duration.UntilLeaves -> Evaluator(board, Context(effect.controller, effect.source, effect.names)).objects(d.objects)
             .any { state.obj(it)?.zone == Zone.Battlefield }
         else -> true
+    }
+
+    /** An effect on a spell and the permanent it becomes (CR 400.7d): its names mean whichever of the two exists now. */
+    private fun followed(state: GameState, effect: EffectObject): arcanum.engine.state.Bindings {
+        if (effect.names[arcanum.engine.resolution.Effects.FOLLOWS_SPELL] == null) return effect.names
+        return arcanum.engine.state.Bindings(effect.names.values.mapValues { (_, v) ->
+            if (v is arcanum.engine.state.NamedValue.Objects) arcanum.engine.state.NamedValue.Objects(v.ids.filter { state.obj(it) != null || it in state.stackItems })
+            else v
+        })
     }
 
     /** The intrinsic mana ability of a basic land type (CR 305.6): "{T}: Add [mana symbol]." */

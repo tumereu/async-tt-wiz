@@ -410,9 +410,10 @@ class EffectsTest {
         }
     }
 
-    // CR 118.12a: paying (by hand until mana payment exists) keeps the spell
+    // CR 118.12a, 608.2g: paying keeps the spell; the mana is paid as when casting, with mana abilities
     @Test
     fun counterUnlessPaysAndTheyPay() = scenario {
+        alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         bob.hand("Mana Levy")
 
@@ -420,10 +421,14 @@ class EffectsTest {
         bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
         resolve()
         answer(Answer.YesNo(true))
-        decision<Decision.Manual>()
-        answer(Answer.Done)
+        val payment = decision<Decision.ManaPayment>()
+        assertEquals(alice.id, payment.player)
+        answer(Answer.ManaPayment(payment.suggestion))
 
-        expect { stack.names shouldBe listOf("Storm Spark") }
+        expect {
+            stack.names shouldBe listOf("Storm Spark")
+            "Mountain".tapped shouldBe true
+        }
         resolve()
         expect { bob.life shouldBe 17 }
     }

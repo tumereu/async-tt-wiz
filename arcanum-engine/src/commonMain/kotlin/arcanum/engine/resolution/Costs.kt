@@ -19,8 +19,8 @@ import arcanum.engine.state.TargetRef
 
 /**
  * Costs paid while a spell or ability resolves (CR 118.12, D40): "you may pay …", "unless … pays", ward. A cost can be
- * chosen only if it can be paid in full (CR 601.2h, 118.3). Mana is paid by hand ([arcanum.engine.decision.Decision.Manual])
- * until mana payment ([arcanum.engine.mana.Mana]) can be asked here.
+ * chosen only if it can be paid in full (CR 601.2h, 118.3). Mana is paid with a
+ * [arcanum.engine.decision.Decision.ManaPayment] as when casting; "its mana cost" still by hand.
  */
 internal object Costs {
     fun describe(cost: Cost): String = cost.parts.joinToString(", ") { part ->
@@ -68,7 +68,7 @@ internal object Costs {
         val act = scope.act
         val cause = scope.cause
         when (part) {
-            is CostPart.Mana -> payMana(scope, payer, part.cost.toString() + (part.times?.let { " × ${scope.value(it)}" } ?: ""))
+            is CostPart.Mana -> payMana(scope, payer, part)
             CostPart.ItsManaCost -> payMana(scope, payer, "its mana cost")
             is CostPart.Manual -> act.manual(payer, scope.self, part.text)
             CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid)) }
@@ -134,9 +134,26 @@ internal object Costs {
         }
     }
 
-    /** Mana paid on resolution (CR 608.2g): by hand for now. */
+    /** "Its mana cost" paid on resolution: by hand for now. */
     private fun payMana(scope: Scope, payer: PlayerId, text: String) {
         scope.act.manual(payer, scope.self, "Pay $text")
+    }
+
+    /** Mana paid on resolution (CR 118.12, 608.2g): the payer chooses how, as when casting; mana abilities may be
+     * activated (CR 605.3a). X is the value the text sets (CR 107.3), [CostPart.Mana.times] repeats the cost. */
+    private fun payMana(scope: Scope, payer: PlayerId, part: CostPart.Mana) {
+        val x = part.x?.let { scope.value(it) } ?: 0
+        val once = arcanum.engine.mana.Mana.withX(part.cost, mapOf('X' to x))
+        val times = part.times?.let { scope.value(it) } ?: 1
+        val cost = arcanum.api.ManaCost(List(times.coerceAtLeast(0)) { once.symbols }.flatten())
+        if (cost.symbols.all { it is arcanum.api.ManaSymbol.Generic && it.amount == 0 }) return
+        val act = scope.act
+        val snap = arcanum.engine.casting.Snapshot(act.state)
+        val options = arcanum.engine.mana.Mana.options(snap, payer, cost, null)
+        val suggestion = arcanum.engine.mana.Mana.suggest(snap, payer, cost, null)
+        val uses = (act.asker.ask { arcanum.engine.decision.Decision.ManaPayment(it, payer, scope.self, cost, options, suggestion) }
+            as Answer.ManaPayment).uses
+        arcanum.engine.casting.Payment.payOnResolution(act.recorder, payer, cost, uses)
     }
 
     private fun count(scope: Scope, what: CostObjects): Int = when (what) {

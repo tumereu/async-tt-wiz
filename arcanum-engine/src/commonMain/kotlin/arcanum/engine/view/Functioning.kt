@@ -68,6 +68,11 @@ object Functioning {
 
     private fun triggeredZones(ability: Ability.Triggered, usual: Set<Zone>): Set<Zone> {
         val trigger = ability.trigger as? Trigger.On ?: return usual
+        // CR 113.6m: "return this card from your graveyard to the battlefield / to your hand" moves it out of the
+        // graveyard, so the ability works only there (unless the trigger is about this object changing zones, which
+        // looks back in time, CR 603.10a)
+        val selfZoneChange = trigger.events.any { it is EventPattern.ZoneChange && it.objects.isSelf() }
+        if (!selfZoneChange && firstSelfMove(ability.instructions.steps) in setOf(Zone.Battlefield, Zone.Hand)) return setOf(Zone.Graveyard)
         // CR 113.6k: a trigger condition that can't trigger from the battlefield works where it can trigger from
         val zones = trigger.events.map { event ->
             when {
@@ -82,6 +87,24 @@ object Functioning {
             }
         }
         return zones.flatten().toSet()
+    }
+
+    /** The zone the first step that moves this object ([Objects.Self]) moves it to, looking inside nested steps. */
+    private fun firstSelfMove(steps: List<Step>): Zone? {
+        steps.forEach { step ->
+            val found = when (step) {
+                is Step.Do -> (step.effect as? Effect.Move)?.takeIf { it.objects == Objects.Self }?.to?.zone
+                is Step.May -> firstSelfMove(step.steps)
+                is Step.If -> firstSelfMove(step.then) ?: firstSelfMove(step.otherwise)
+                is Step.Pay -> firstSelfMove(step.steps)
+                is Step.Simultaneously -> firstSelfMove(step.steps)
+                is Step.Repeat -> firstSelfMove(step.steps)
+                is Step.ForEach -> firstSelfMove(step.steps)
+                else -> null
+            }
+            if (found != null) return found
+        }
+        return null
     }
 
     private fun Ability.Static.selfOnly(): Boolean =

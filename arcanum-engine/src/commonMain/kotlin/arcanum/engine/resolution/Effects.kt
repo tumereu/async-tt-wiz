@@ -145,7 +145,8 @@ internal object Effects {
                 if (diff > 0) Actions.gainLife(act, cause, p, diff) else if (diff < 0) Actions.loseLife(act, cause, p, -diff)
             }
             is Effect.PutCounters -> putCounters(scope, effect)
-            is Effect.RemoveCounters -> onBattlefield(scope, effect.objects).forEach { id ->
+            // Counters stay on cards in other zones too: a suspended card's time counters in exile (CR 702.62a)
+            is Effect.RemoveCounters -> scope.objects(effect.objects).filter { act.state.obj(it) != null }.distinct().forEach { id ->
                 val n = scope.value(effect.amount)
                 val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
                 var left = n
@@ -250,8 +251,14 @@ internal object Effects {
             is Effect.SpellGets -> scope.objects(effect.objects).forEach { id ->
                 // CR 400.7d: the effect follows the spell onto the battlefield
                 val next = (id as? ObjectId.Card)?.next()
+                // Names of the spell also name the permanent it becomes, for the duration ("until you lose control of
+                // the spell or the permanent it becomes"); the view reads them as whichever of the two exists
+                val follow = if (next == null) emptyMap() else scope.names.values
+                    .filterValues { it is NamedValue.Objects && id in it.ids }
+                    .mapValues { (_, v) -> NamedValue.Objects((v as NamedValue.Objects).ids + next) } +
+                    (FOLLOWS_SPELL to NamedValue.Objects(listOf(id, next)))
                 applyMechanics(scope, effect.mechanics, null, effect.duration ?: Duration.Indefinitely, null,
-                    locked = listOfNotNull(id, next))
+                    locked = listOfNotNull(id, next), extra = follow)
             }
             is Effect.WinGame -> scope.players(effect.players).forEach { winner ->
                 act.state.players.filter { it.id != winner && !it.lost }.forEach { lose(scope, it.id) }
@@ -670,6 +677,9 @@ internal object Effects {
     }
 
     private const val LOCKED = "\$affected"
+
+    /** Marks an effect on a spell and the permanent it becomes ([Effect.SpellGets], CR 400.7d): its names hold both. */
+    const val FOLLOWS_SPELL = "\$follows-spell"
 
 
     /** Fixes a mechanic's numbers when they don't depend on each affected object (CR 608.2h, 611.2c). */

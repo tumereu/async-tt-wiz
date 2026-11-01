@@ -123,6 +123,32 @@ internal object Payment {
         return spent to byWay
     }
 
+    /**
+     * Pays [cost] while a spell or ability resolves (CR 118.12, 608.2g): [player] activates mana abilities and spends
+     * pool mana as [uses] say, all of it or nothing (CR 601.2h). Mana made and not needed stays in the pool.
+     */
+    fun payOnResolution(recorder: Recorder, player: PlayerId, cost: ManaCost, uses: List<ManaUse>) {
+        val poolBefore = recorder.state.player(player).manaPool
+        val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
+        if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
+        if (uses.any { it is ManaUse.Special }) refuse("Only mana pays this cost")
+        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(recorder, player, it) }
+        val poolNow = recorder.state.player(player).manaPool
+        val added = (poolBefore.size until poolNow.size).toList()
+        val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
+        val used = Mana.assign(Mana.needs(cost, lifeFor), Mana.poolPayers(recorder.snapshot(), player, null, chosenPool + added))
+            ?: refuse("That doesn't pay $cost")
+        if (lifeFor.isNotEmpty()) {
+            val life = 2 * lifeFor.size
+            if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
+            recorder.record(Changes.life(recorder.state, player, -life, listOf(Meaning.LifePaid)))
+        }
+        val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
+        if (usedIndices.isNotEmpty()) {
+            recorder.record(Changes.manaPool(recorder.state, player, poolNow.filterIndexed { i, _ -> i !in usedIndices }, listOf(Meaning.ManaSpent)))
+        }
+    }
+
     /** Activates a simple mana ability while paying (CR 605.3a): pays its cost and adds its mana. */
     private fun activateForMana(recorder: Recorder, player: PlayerId, use: ManaUse.Ability) {
         val snap = recorder.snapshot()

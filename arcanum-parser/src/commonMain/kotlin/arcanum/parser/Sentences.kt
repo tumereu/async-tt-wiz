@@ -562,6 +562,61 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             return listOf(Step.If(arcanum.api.Condition.Compare(Value.Announced(), arcanum.api.Comparison.AtLeast, Value.Fixed(m.groupValues[1].toInt())),
                 then = listOf(Step.Repeat(Value.Fixed(2), listOf(Step.Do(Effect.CopySpell(Objects.Bound("cast"))))))))
         }
+        // chunk 15
+        RETURN_SELF_FROM_GRAVEYARD_TO_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand))))
+        }
+        // "Return each creature card with mana value X or less from your graveyard to the battlefield."
+        RETURN_EACH_FROM_GRAVEYARD_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Do(Effect.Move(Objects.Each(filter), Destination(Zone.Battlefield), postBind = "returned")))
+        }
+        // "Exile those creatures at the beginning of your next upkeep." (CR 603.7: triggers once)
+        if (sentence == "Exile those creatures at the beginning of your next upkeep.") {
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.You)),
+                Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound("returned"), Destination(Zone.Exile))))))))
+        }
+        // "Choose up to two target permanent cards in your graveyard that were put there from the battlefield this turn."
+        CHOOSE_UP_TO_TARGET_PUT_THERE_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You), PUT_THERE_FROM_BATTLEFIELD_THIS_TURN)
+            context.targets += TargetSlot("cards", TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(n))
+            return emptyList()
+        }
+        RETURN_THEM_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val slot = context.targets.lastOrNull()?.name ?: return null
+            return listOf(Step.Do(Effect.Move(Objects.Target(slot), Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty()))))
+        }
+        // "[Each player returns|Return] to the battlefield all … cards in [their|your] graveyard that were put there from
+        // the battlefield this turn." Each card returns under its owner's control.
+        RETURN_ALL_PUT_THERE_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val each = m.groupValues[1] == "Each player returns"
+            if (each != (m.groupValues[3] == "their")) return null
+            val kind = Filters.noun(m.groupValues[2].replace(", and ", ", or ")) ?: return null
+            val cards = Objects.Each(Filters.all(*listOfNotNull(kind, ObjectFilter.InZone(Zone.Graveyard),
+                if (each) null else ObjectFilter.OwnedBy(PlayerFilter.You), PUT_THERE_FROM_BATTLEFIELD_THIS_TURN).toTypedArray()))
+            return listOf(Step.Do(Effect.Move(cards, Destination(Zone.Battlefield, controller = if (each) Players.OwnerOf(cards) else null))))
+        }
+        // "Look at the top six cards of your library. Put up to two creature cards with mana value 3 or less from among
+        // them onto the battlefield. Put the rest on the bottom of your library in any order."
+        LOOK_PUT_UP_TO_ONTO_BATTLEFIELD_REST_BOTTOM.matchEntire(sentence)?.let { m ->
+            val seen = Numbers.count(m.groupValues[1]) ?: return null
+            val most = Numbers.count(m.groupValues[2]) ?: return null
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen)), bind = "seen")),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(most), from = Objects.Bound("seen")), bind = "chosen"),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1))))
+        }
+        // In a mana trigger on tapping a permanent: its controller tapped it (CR 605.1b).
+        THAT_PLAYER_ADDS_ADDITIONAL.matchEntire(sentence)?.let { m ->
+            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(mana)), players = Players.ControllerOf(Objects.EventObject()))))
+        }
+        if (sentence == "Take an extra turn after this one.") return listOf(Step.Do(Effect.ExtraTurn(Players.You)))
         PUT_FROM_HAND_ON_TOP.matchEntire(sentence)?.let { m ->
             val n = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             return listOf(
@@ -997,6 +1052,15 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val UP_TO_ONE_TARGET_CARD = Regex("""up to one target (\w+) card""")
         val IF_X_AT_LEAST_COPY_TWICE = Regex("""If X is (\d+) or more, copy each of those spells twice\.""")
         val DISCARD_X_CARDS = "Discard X cards"
+        // chunk 15
+        val RETURN_SELF_FROM_GRAVEYARD_TO_HAND = Regex("""Return (.+) from your graveyard to your hand\.""")
+        val RETURN_EACH_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return each (.+?) from your graveyard to the battlefield\.""")
+        val CHOOSE_UP_TO_TARGET_PUT_THERE_THIS_TURN = Regex("""Choose up to (\w+) target (.+?) in your graveyard that were put there from the battlefield this turn\.""")
+        val RETURN_THEM_TO_BATTLEFIELD = Regex("""Return them to the battlefield( tapped)?\.""")
+        val RETURN_ALL_PUT_THERE_THIS_TURN = Regex("""(Each player returns|Return) to the battlefield all (.+?) in (their|your) graveyard that were put there from the battlefield this turn\.""")
+        val PUT_THERE_FROM_BATTLEFIELD_THIS_TURN = ObjectFilter.ThisTurn(EventPattern.ZoneChange(from = Zone.Battlefield, to = Zone.Graveyard))
+        val LOOK_PUT_UP_TO_ONTO_BATTLEFIELD_REST_BOTTOM = Regex("""Look at the top (\w+) cards of your library\. Put up to (\w+) (.+?) from among them onto the battlefield\. Put the rest on the bottom of your library in any order\.""")
+        val THAT_PLAYER_ADDS_ADDITIONAL = Regex("""That player adds an additional (\{.\})\.""")
     }
 }
 

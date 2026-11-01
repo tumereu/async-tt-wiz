@@ -282,7 +282,8 @@ internal object Actions {
                         val lethal = (c.toughness ?: 0) - o.damage
                         excess += (d.amount - (if (Keyword.Deathtouch in keywords) minOf(1, lethal) else lethal).coerceAtLeast(0)).coerceAtLeast(0)
                         if (Keyword.Wither in keywords || Keyword.Infect in keywords) {
-                            act.record(Changes.counters(act.state, r, CounterKind.PowerToughness(-1, -1), d.amount))
+                            // CR 122.6, 614.1: the counters are put on it, so effects that change counters being put apply
+                            putCounters(act, cause, r, CounterKind.PowerToughness(-1, -1), d.amount)
                             if (Keyword.Deathtouch in keywords) {
                                 val now = act.obj(r.id)!!
                                 act.record(Change.DamageMarked(r.id, now.damage, now.damage, now.deathtouchDamage, true))

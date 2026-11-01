@@ -379,11 +379,12 @@ target choice for an ability).
 - **Only with visible information:** a stored answer is applied only when the
   applying client can see everything the answer needs. Otherwise the decision stays
   pending for its player.
-- **Changes in flight:** if a player changes their stored answers while the other
-  player's batch that used the old ones is on its way, the server takes things in
-  arrival order: the batch is accepted with the old answer, and the change counts
-  from the next decision on. (Alternative: the batch names the stored answers it
-  used and is refused if they changed; open question.)
+- **Changes in flight (decided):** if a player changes their stored answers while the
+  other player's batch that used the old ones is on its way, the server takes things
+  in arrival order: the batch is accepted with the old answer, and the change counts
+  from the next decision on. Nothing is refused.
+- **Visibility to the opponent:** which stored answers (and which details of them) the
+  opponent can see is worked out in playtesting (§15).
 
 ## 8. New shared state in ATW
 
@@ -489,8 +490,7 @@ Exact new entry texts are written per phase and approved by the owner before bui
    fields so nothing jumps, or fall back to the stored manual values.
 6. Where the parser runs: a developer tool producing a data set, or a server job on
    catalog import.
-7. Autoplay decisions: whether a stored answer changed while a batch that used the old
-   one is in flight is simply accepted in arrival order or refused (§7.10); whether
-   the opponent can see your stored answers.
+7. Autoplay decisions: exact rules and scenarios for what the opponent can see of
+   your stored answers (§7.10).
 8. Whether the timeline shows derived values with the definitions of the time (needs
    definition versions per game) or with current definitions.

@@ -191,7 +191,9 @@ internal sealed class KeywordSyntax(val text: String) {
             amountAndCost("Suspend") { a, c -> Keyword.Suspend(a, arcanum.api.Cost.mana(c)) },
             amountAndCost("Reinforce") { a, c -> Keyword.Reinforce(a, arcanum.api.Cost.mana(c)) },
             amountAndCost("Awaken") { a, c -> Keyword.Awaken(a, arcanum.api.Cost.mana(c)) },
-            amountAndCost("Impending") { a, c -> Keyword.Impending(a, arcanum.api.Cost.mana(c)) }
+            amountAndCost("Impending") { a, c -> Keyword.Impending(a, arcanum.api.Cost.mana(c)) },
+            // chunk 36
+            cost("Commander ninjutsu") { Keyword.CommanderNinjutsu(arcanum.api.Cost.mana(it)) }
         )
     }
 }

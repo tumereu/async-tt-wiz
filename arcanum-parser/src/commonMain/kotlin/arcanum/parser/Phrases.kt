@@ -79,6 +79,18 @@ internal object Filters {
                 ObjectFilter.Power(arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[1].toInt())),
                 ObjectFilter.Toughness(arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[2].toInt())))
         }
+        // chunk 36: "nonland permanent cards" (CR 110.4a): the kinds of card that can be permanents
+        PERMANENT_CARDS.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(PERMANENT_TYPES.map { ObjectFilter.Type(it) }))
+        }
+        // chunk 36: "creatures with flying or reach": keyword abilities as alternatives
+        WITH_KEYWORDS.matchEntire(phrase)?.let { m ->
+            val keywords = m.groupValues[2].split(Regex(""",? or |, """)).map { OracleParser.keyword(it) }
+            if (keywords.all { it != null }) {
+                val has = keywords.map { ObjectFilter.HasKeyword(it!!.kind) }
+                return all(noun(m.groupValues[1]) ?: return null, has.singleOrNull() ?: ObjectFilter.Or(has))
+            }
+        }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
         if (phrase.contains(" or ")) {
             val list = phrase.split(Regex(""",? or |, """)).filter { it.isNotEmpty() }
@@ -166,6 +178,9 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // chunk 36
+    private val PERMANENT_CARDS = Regex("""(.+) permanent cards?""")
+    private val WITH_KEYWORDS = Regex("""(.+?) with ([a-z ]+(?:,? or [a-z ]+)+|[a-z]+)""")
 }
 
 /** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
@@ -182,6 +197,11 @@ internal object Events {
         ATTACKS_OR_BLOCKS.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.Attack(subject), EventPattern.Block(subject))
+        }
+        // chunk 36: "Korvold enters or attacks"
+        ENTERS_OR_ATTACKS.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Attack(subject))
         }
         // chunk 35: "this creature dies or another artifact you control is put into a graveyard from the battlefield"
         DIES_OR_PUT_INTO_GRAVEYARD.matchEntire(text)?.let { m ->
@@ -243,6 +263,8 @@ internal object Events {
             return EventPattern.Cast(kind)
         }
         PLAYER_TAPS_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, forMana = true) }
+        // chunk 36: "this creature attacks"
+        ATTACKS.matchEntire(text)?.let { m -> return EventPattern.Attack(subject(m.groupValues[1], self) ?: return null) }
         // chunk 35: "you sacrifice a permanent": only a permanent's controller can sacrifice it (CR 701.21a), and what is
         // sacrificed is always a permanent, so the filter names only its kind and its controller.
         YOU_SACRIFICE.matchEntire(text)?.let { m ->
@@ -299,6 +321,9 @@ internal object Events {
     private val DIES_OR_PUT_INTO_GRAVEYARD = Regex("""(.+) dies or (.+) is put into a graveyard from the battlefield""")
     private val YOU_SACRIFICE = Regex("""you sacrifice an? (.+)""")
     private val ANOTHER = Regex("""another (.+)""")
+    // chunk 36
+    private val ENTERS_OR_ATTACKS = Regex("""(.+) enters or attacks""")
+    private val ATTACKS = Regex("""(.+) attacks""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */

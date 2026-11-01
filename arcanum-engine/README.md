@@ -93,7 +93,7 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs, battles as attack targets,
   splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
-  up, mana paid while resolving ("you may pay {4}": a `Manual` step). Also missing: text-changing
+  up. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only), the Inspect breakdown of where a value comes from.
 
@@ -121,8 +121,7 @@ choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanc
 `change`/`move`), expectations (`expect { … }`). Random results are scripted with
 `random(…)` or seeded; hidden cards are filled in by the harness. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
 `activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
-run resolution, state-based actions and triggers without priority. `cube/` holds a smoke
-scenario for every cube card, a file per parser chunk (`ChunkNN…ScenariosTest`). Every scenario checks D59:
+run resolution, state-based actions and triggers without priority. Every scenario checks D59:
 reverting all its changes restores the state after setup.
 
 `cube/Chunk*ScenariosTest.kt` play each invented cube card the way a player would (cast with its

@@ -251,10 +251,12 @@ class Chunk05TrickyManaScenariosTest {
         }
         allPass()
         alice.answers(Answer.YesNo(true))
-        // Mana paid while resolving is paid by hand for now (D61)
-        assertEquals("Pay {4}", decision<Decision.Manual>().text)
-        alice.answers(Answer.Done)
-        expect { "Mana Strongbox".tapped shouldBe false }
+        // CR 608.2g: the {4} is paid with the Forests
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
+        expect {
+            "Mana Strongbox".tapped shouldBe false
+            card("Forest", 3).tapped shouldBe true
+        }
 
         advanceTo(TurnStep.Draw)
         expect {
@@ -265,29 +267,10 @@ class Chunk05TrickyManaScenariosTest {
         assertEquals(List<Color?>(3) { null }, alice.pool.map { it.color })
     }
 
-    /** The {4} paid on resolution taps lands through the engine's mana payment (CR 608.2g). */
-    @Ignore("engine: mana payment while resolving (paid by hand now)")
-    @Test
-    fun manaStrongboxPaysWithLands() = scenario {
-        alice.battlefield("Mana Strongbox", tapped = true)
-        alice.battlefield("Forest", "Forest", "Forest", "Forest", tapped = true)
-        alice.library("Forest")
-        turn(1, active = bob, step = TurnStep.End)
-
-        advanceTo(TurnStep.Upkeep, 2)
-        allPass()
-        alice.answers(Answer.YesNo(true))
-        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
-
-        expect {
-            "Mana Strongbox".tapped shouldBe false
-            card("Forest", 3).tapped shouldBe true
-        }
-    }
-
     @Test
     fun manaStrongboxLeftTapped() = scenario {
         alice.battlefield("Mana Strongbox", tapped = true)
+        alice.battlefield("Forest", "Forest", "Forest", "Forest")
         alice.library("Forest")
         turn(1, active = bob, step = TurnStep.End)
 

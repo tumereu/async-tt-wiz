@@ -35,6 +35,10 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // chunk 14: "instant or sorcery spell": the head noun covers both alternatives.
+        OR_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)) }
+        // chunk 14: "permanent card" (CR 110.4a): an artifact, battle, creature, enchantment, land, or planeswalker card.
+        if (phrase == "permanent card" || phrase == "permanent cards") return ObjectFilter.Or(PERMANENT_TYPES.map { ObjectFilter.Type(it) })
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
             val value = if (m.groupValues[2] == "X") Value.Announced() else Value.Fixed(m.groupValues[2].toInt())
@@ -141,6 +145,9 @@ internal object Filters {
         "instant" to CardType.Instant, "land" to CardType.Land, "planeswalker" to CardType.Planeswalker, "sorcery" to CardType.Sorcery,
         "battle" to CardType.Battle)
     private val SUPERTYPES = mapOf("basic" to Supertype.Basic, "legendary" to Supertype.Legendary, "snow" to Supertype.Snow)
+    // chunk 14
+    private val OR_SPELL = Regex("""(\w+ or \w+) spells?""")
+    private val PERMANENT_TYPES = listOf(CardType.Artifact, CardType.Battle, CardType.Creature, CardType.Enchantment, CardType.Land, CardType.Planeswalker)
 }
 
 /** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
@@ -181,6 +188,13 @@ internal object Events {
         }
         // chunk 25: "you play a land" (CR 305.1)
         if (text == "you play a land") return EventPattern.PlayLand(players = PlayerFilter.You)
+        // chunk 14: "a player casts an instant or sorcery spell", "a player taps an Island for mana", "an opponent gains life"
+        PLAYER_CASTS.matchEntire(text)?.let { m ->
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
+            return EventPattern.Cast(kind)
+        }
+        PLAYER_TAPS_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, forMana = true) }
+        if (text == "an opponent gains life") return EventPattern.GainLife(PlayerFilter.Opponent)
         return null
     }
 
@@ -212,6 +226,9 @@ internal object Events {
     private val DIES = Regex("""(.+) dies""")
     private val LEAVE_YOUR_GRAVEYARD = Regex("""(.+) leaves? your graveyard""")
     private val DEALS_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""(.+) deals combat damage to a player""")
+    // chunk 14
+    private val PLAYER_CASTS = Regex("""a player casts an? (?:(.+) )?spell""")
+    private val PLAYER_TAPS_FOR_MANA = Regex("""a player taps (.+) for mana""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */

@@ -160,7 +160,8 @@ internal object Filters {
     }
 
     private fun word(word: String): ObjectFilter? {
-        if (word.startsWith("non")) return word(word.removePrefix("non"))?.let { ObjectFilter.Not(it) }
+        // chunk 56: "non-Horror"
+        if (word.startsWith("non")) return word(word.removePrefix("non").removePrefix("-"))?.let { ObjectFilter.Not(it) }
         when (word) {
             "spell" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)
             "token" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Token)
@@ -355,6 +356,11 @@ internal object Events {
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile)
         }
+        // chunk 56: "this creature transforms into [its back face's name]": it transforms and then has that name (CR 701.27e)
+        TRANSFORMS_INTO.matchEntire(text)?.let { m ->
+            if (m.groupValues[2] !in self) return null
+            return EventPattern.Transform(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Named(m.groupValues[2])))
+        }
         return null
     }
 
@@ -426,6 +432,8 @@ internal object Events {
     private val PUT_INTO_YOUR_GRAVEYARD_FROM_ANYWHERE = Regex("""(.+) (?:is|are) put into your graveyard from anywhere""")
     // chunk 52
     private val EXILED_FROM_THE_BATTLEFIELD = Regex("""(.+) is exiled from the battlefield""")
+    // chunk 56
+    private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -492,6 +500,11 @@ internal object Conditions {
             // chunk 45: "with different powers" (coven)
             val quality = if (m.groupValues[3] == "powers") SharedQuality.Number(arcanum.api.NumericProperty.Power) else SharedQuality.Name
             return Condition.Compare(Value.CountDistinct(Objects.Each(filter), quality), Comparison.AtLeast, Value.Fixed(n))
+        }
+        // chunk 56: "you control five or more Blood tokens"
+        CONTROL_N_OR_MORE_PHRASE.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.Exists(Filters.noun(m.groupValues[2] + " you control") ?: return null, atLeast = n)
         }
         // chunk 26: "this card is in your graveyard"
         IS_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
@@ -577,6 +590,8 @@ internal object Conditions {
     private val CONTROL_NONE = Regex("""you control no (.+)""")
     // chunk 52
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // chunk 56
+    private val CONTROL_N_OR_MORE_PHRASE = Regex("""you control (\w+) or more (.+)""")
 }
 
 /** The name a sacrifice cost gives the sacrificed object when the effect reads it ("the sacrificed creature's power"). */

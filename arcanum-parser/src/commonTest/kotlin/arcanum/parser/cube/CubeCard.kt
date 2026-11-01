@@ -7,6 +7,7 @@ import arcanum.api.Cost
 import arcanum.api.DefinitionChecks
 import arcanum.api.Effect
 import arcanum.api.EventPattern
+import arcanum.api.FaceDefinition
 import arcanum.api.Instructions
 import arcanum.api.Layout
 import arcanum.api.ManaCost
@@ -34,20 +35,38 @@ import kotlin.test.assertEquals
  * the text must parse to; the helper also checks that the printed characteristics read back unchanged, that nothing is
  * left unparsed and that the definition passes [DefinitionChecks].
  */
-fun card(name: String, cost: String?, type: String, text: String = "", pt: String? = null, loyalty: String? = null): OracleCard {
+fun card(
+    name: String, cost: String?, type: String, text: String = "", pt: String? = null, loyalty: String? = null,
+    colorIndicator: String? = null,
+): OracleCard {
     val (power, toughness) = pt?.split('/')?.let { it[0] to it[1] } ?: (null to null)
     // Multi-line text is written one rules line per source line, indented: strip the indentation.
     val oracle = if (text.startsWith("\n")) text.trimIndent() else text
-    return OracleCard(name, cost, type, oracle, power, toughness, loyalty)
+    return OracleCard(name, cost, type, oracle, power, toughness, loyalty, colorIndicator = colorIndicator)
 }
 
 infix fun OracleCard.parsesTo(expected: List<Ability>) {
     val face = OracleParser.parse(this)
-    assertEquals(typeLine, TypeLine.render(face), "type line")
-    assertEquals(manaCost, face.manaCost?.toString(), "mana cost")
-    assertEquals(listOf(power, toughness, loyalty), listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
-    assertEquals(expected, face.abilities, name)
+    checkFace(this, face, expected)
     assertEquals(emptyList(), DefinitionChecks.problems(CardDefinition(Layout.Normal, listOf(face))), name)
+}
+
+/** A card with two faces or halves (CR 709 split, 712 double-faced, 715 adventurer): each face, written as
+ * `card(…) to abilities(…)`, is checked like [parsesTo], and the whole card's definition passes [DefinitionChecks]. */
+fun cardFaces(layout: Layout, vararg faces: Pair<OracleCard, List<Ability>>) {
+    val definition = OracleParser.parseCard(layout, faces.map { it.first })
+    assertEquals(layout, definition.layout)
+    faces.zip(definition.faces).forEach { (printed, face) -> checkFace(printed.first, face, printed.second) }
+    assertEquals(emptyList(), DefinitionChecks.problems(definition), faces.first().first.name)
+}
+
+/** The printed characteristics read back unchanged and the abilities are [expected]. */
+private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<Ability>) {
+    assertEquals(printed.typeLine, TypeLine.render(face), "type line")
+    assertEquals(printed.manaCost, face.manaCost?.toString(), "mana cost")
+    assertEquals(printed.colorIndicator, face.colorIndicator?.joinToString("") { it.symbol.toString() }, "colour indicator")
+    assertEquals(listOf(printed.power, printed.toughness, printed.loyalty), listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
+    assertEquals(expected, face.abilities, printed.name)
 }
 
 /** A card with no rules text. */

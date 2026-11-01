@@ -38,6 +38,13 @@ object OracleParser {
 
     fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
 
+    /**
+     * chunk 56: a whole card: each printed face (a split card's halves, a double-faced card's faces, an adventurer card's
+     * creature and Adventure, CR 709, 712, 715) parsed on its own with [parse], in printed order, under [layout].
+     */
+    fun parseCard(layout: arcanum.api.Layout, faces: List<OracleCard>): arcanum.api.CardDefinition =
+        arcanum.api.CardDefinition(layout, faces.map(::parse))
+
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =
@@ -66,12 +73,15 @@ object OracleParser {
         while (i < lines.size) {
             val raw = lines[i++]
             val line = REMINDER.replace(raw, "").trim()
-            // Leveler bands (CR 711.2a): what follows a "LEVEL N-M" line applies only within that band, so the bands
-            // stay printed text until the parser reads them as conditional abilities.
+            // chunk 55: a leveler band (CR 711.2a, b): "LEVEL N1-N2" or "LEVEL N3+", its P/T box and the abilities printed
+            // with it, up to the next band. A band with an unread line stays printed text as a whole.
             if (LEVEL_BAND.matches(line)) {
-                val band = (listOf(raw) + lines.drop(i)).joinToString("\n") { it.trim() }
-                result += Ability.Unparsed(band); raws += band
-                break
+                val band = mutableListOf(raw.trim())
+                while (i < lines.size && !LEVEL_BAND.matches(REMINDER.replace(lines[i], "").trim())) band += lines[i++].trim()
+                val printed = band.joinToString("\n")
+                result += levelBand(line, band.drop(1), sentences) ?: Ability.Unparsed(printed)
+                raws += printed
+                continue
             }
             // "Choose one —" and its "• " modes (CR 700.2)
             val choose = CHOOSE.matchEntire(line)
@@ -119,6 +129,28 @@ object OracleParser {
             }.distinct()
         }
         return result
+    }
+
+    /**
+     * chunk 55: one leveler band as the static ability its level symbol stands for (CR 711.2a, b): "As long as this
+     * creature has at least N1 level counters on it, but no more than N2, it has base power and toughness [P/T] and has
+     * [abilities]." Null when its P/T box or one of its abilities can't be read.
+     */
+    private fun levelBand(header: String, lines: List<String>, sentences: Sentences): Ability? {
+        val m = LEVEL_BAND.matchEntire(header) ?: return null
+        val pt = LEVEL_PT.matchEntire(lines.firstOrNull() ?: return null) ?: return null
+        val granted = lines.drop(1).map { REMINDER.replace(it, "").trim() }.flatMap { line ->
+            keywordLine(line) ?: sentences.multi(line) ?: listOf(sentences.line(line) ?: return null)
+        }
+        if (granted.any { it is Ability.Unparsed }) return null
+        val atLeast = arcanum.api.Condition.ClassLevelAtLeast(m.groupValues[1].toInt())
+        val condition = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { most ->
+            arcanum.api.Condition.And(listOf(atLeast, arcanum.api.Condition.Not(arcanum.api.Condition.ClassLevelAtLeast(most.toInt() + 1))))
+        } ?: atLeast
+        val mechanics = listOf<arcanum.api.Mechanic>(arcanum.api.Mechanic.SetPowerToughness(
+            arcanum.api.Value.Fixed(pt.groupValues[1].toInt()), arcanum.api.Value.Fixed(pt.groupValues[2].toInt()))) +
+            (if (granted.isEmpty()) emptyList() else listOf(arcanum.api.Mechanic.GainAbilities(granted)))
+        return Ability.Static(mechanics, condition = condition)
     }
 
     /**
@@ -224,7 +256,7 @@ object OracleParser {
 
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
-    private val LEVEL_BAND = Regex("""LEVEL \d+(?:-\d+|\+)""")
+    private val LEVEL_BAND = Regex("""LEVEL (\d+)(?:-(\d+)|\+)""")
     private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
@@ -246,6 +278,8 @@ object OracleParser {
     private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
     // chunk 50
     private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
+    // chunk 55
+    private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

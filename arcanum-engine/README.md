@@ -11,6 +11,8 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
 Engine.options(state, player): List<Input>       // what a player may do now
 Engine.perform(state, input): Outcome            // Outcome(changes, pending); never writes `state`
+Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
+Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
 
@@ -26,7 +28,8 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   `Change.Reverted` takes a change back inside a batch (cancelling a cast). `Changes` builds
   changes from the state they apply to (a zone change makes new ids and timestamps).
 - `input/` — `Input`: `PlayLand`, `Cast(card, way)`, `Activate`, `PassPriority`,
-  `DeclareAttackers`, `DeclareBlockers`, `Answer`, `Cancel`. Each names the acting player.
+  `DeclareAttackers`, `DeclareBlockers`, `Answer`, `Cancel`, `StartGame(options)`, `Concede`. Each names the acting
+  player.
 - `decision/` — `Decision` (data only, with id and deciding player) and its `Answer`;
   `Continuation`, the open flow the host stores opaquely (D58).
 - `view/` — `View`/`ObjectView`/`Characteristics`, `AbilityOrigin` (an ability's path, D42/D44);
@@ -34,9 +37,29 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   subtype lists (CR 205.3).
 - `query/` — `Evaluator`: what objects, players, filters, values and conditions of a definition
   mean in a game; `History` answers "this turn" questions from the log.
+- `setup/` — starting and ending a game: `Seat` (player, deck, sideboard), `StartOptions`, the setup stages
+  (`Continuation.Setup`), `GameResult` and `GameState.result`, conceding and players leaving (CR 800.4).
 - `casting/`, `resolution/`, `trigger/`, `sba/`, `combat/`, `turn/`, `mana/` — one object each
   that `Perform` (the `perform` flow: input, then state-based actions and triggers until
   nothing happens, then priority, CR 117.5) calls.
+
+## Starting and ending a game
+
+`Engine.newGame(seats)` makes the state before the game: each seat's deck is its library in the order given, its
+sideboard is outside the game (CR 103.2a), life is the starting life (CR 103.4), and the starting player skips their
+first draw in a two-player game (CR 103.8). `Input.StartGame(StartOptions(…))` then runs CR 103 as stages, each
+committed once done (D58) and redone with its answers when it waits (D29): the starting player (given, chosen by a given
+chooser, or chosen by a player a host-answered die roll picks, CR 103.1); companion reveals in turn order when the deck
+meets the condition (CR 103.2b); the host's shuffles (D25); opening hands; mulligans (CR 103.5: declarations in turn
+order, mulligans at once, then each puts as many cards on the bottom as mulligans taken, the first free in multiplayer,
+103.5c); turn 1 from its upkeep with priority. Opening-hand actions (CR 103.6) have no cube card yet: the stage list
+marks where they go.
+
+`Input.Concede(player)` is accepted at any time (CR 104.3a). `GameState.result` is `Won` when one player is left
+(CR 104.2a) and `Draw` when the last players lose at once (CR 104.4a); then `options` are empty and `perform` refuses
+input. In a game that goes on, a player who lost or conceded leaves it (CR 800.4a): their objects leave the game, what
+they control is exiled, their abilities on the Stack and waiting triggers go, priority they held passes on, and their
+turn goes on without them (CR 800.4j).
 
 ## Status
 
@@ -92,6 +115,8 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
   Events outside resolution (land plays, the draw step's draw, combat damage) go through
   `Events.run` and wait with `Continuation.Event`.
+- Done, the game around it (`setup/`): starting a game (CR 103) with companions and London mulligans, conceding,
+  the end of the game (CR 104) and players leaving a multiplayer game (CR 800.4a, j, k).
 - Not yet: casting from an effect for a cost other than mana, replacement effects on the zone
   changes of costs (a creature sacrificed or a card discarded as a cost), counter replacements on
   the counters a permanent enters with (CR 122.6), additional combat
@@ -104,7 +129,10 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   up; a card exiled "until" an event comes back by a delayed trigger on the Stack, not at once
   (CR 610.3; kept as TriggerTest has it until the owner decides). Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
-  only), the Inspect breakdown of where a value comes from.
+  only), the Inspect breakdown of where a value comes from. Around the game: opening-hand actions (CR 103.6) and
+  actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
+  starts; a player who leaves while a flow of theirs other than a cast waits for a decision (the decision stays open,
+  CR 800.4h is not applied); restarting a game (CR 104.1).
 
 ## Tests
 

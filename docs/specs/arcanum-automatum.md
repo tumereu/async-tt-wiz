@@ -303,8 +303,9 @@ fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // t
   objects (D19, D26); delayed triggers; ledgers (D22); this turn's tagged events (D33); the open continuation.
   Unknown objects are marked (D60).
 - **Inputs:** `PlayLand`, `Cast(card, way)`, `Activate(object, ability)`, `PassPriority(player)`,
-  `DeclareAttackers`, `DeclareBlockers`, `Answer(decision, answer)`, `Cancel`. While a continuation is open only its
-  `Answer` (or `Cancel` for a cast) is accepted.
+  `DeclareAttackers`, `DeclareBlockers`, `Answer(decision, answer)`, `Cancel`, `StartGame(options)`,
+  `Concede(player)`. While a continuation is open only its `Answer` (or `Cancel` for a cast) is accepted, and
+  `Concede`.
 - **Changes** are MTG-level, tagged with their meaning (cast, resolved, died, sacrificed, destroyed, discarded, drew,
   …), and carry before- and after-values (D59): moves (with old and new id and position), damage, life, counters,
   tap state, tokens, effect objects added/ended, Stack pushes/resolutions, mana added/spent, priority passes and
@@ -314,6 +315,14 @@ fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // t
 - **Decisions:** targets, modes, X, mana payment (with a suggested tapping), may, choose objects, choose option,
   choose colour/type/name/number, divide, order triggers, order replacements, legend rule, random (answered by the
   host, D25), host fill (D60), manual (`Manual(text)`, answered "done").
+- **Starting a game** (D61): `Engine.newGame(seats, startingLife)` builds the state before the game (decks as
+  libraries, sideboards outside the game, CR 103.2a, 103.4); `StartGame(options)` runs CR 103 as committed stages:
+  the starting player (given, or chosen by a given chooser or by a player a host die roll picks, CR 103.1), companion
+  reveals (CR 103.2b), host shuffles (D25), opening hands and London mulligans (CR 103.5, the first free in
+  multiplayer), then turn 1 from its upkeep, the starting player skipping the draw in two-player games (CR 103.8).
+  `Concede(player)` works at any time (CR 104.3a); the game ends when one player is left, or in a draw (CR 104.2a,
+  104.4a), after which `options` are empty; a player leaving a game that goes on takes their objects with them
+  (CR 800.4a).
 
 ### 7.1 Derived view (layers)
 

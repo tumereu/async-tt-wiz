@@ -140,7 +140,7 @@ internal object Triggers {
         val o = board.state.obj(id) ?: return board.snapshot(id)
         val v = board.view[id]
         return ObjectSnapshot(id, o.owner, v?.controller ?: o.controller, o.zone, v?.characteristics, o.counters, o.damage,
-            o.tapped, o.token, o.attachedTo, o.facts)
+            o.tapped, o.token, o.attachedTo, o.facts, o.memory)
     }
 
     /** "Triggers only once each turn" (CR 603.2h): counted on the source object per turn number (D41). */

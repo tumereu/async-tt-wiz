@@ -163,7 +163,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         else -> emptyList()
     }
 
-    private fun selfMemory(key: String): NamedValue? = ctx.self?.let { state.obj(it)?.memory?.get(key) }
+    /** The memory of "this" (D22); after it has left its zone, its last known memory, so a linked ability of a source that
+     * left still finds what it remembered (CR 607.2a). */
+    private fun selfMemory(key: String): NamedValue? = ctx.self?.let { (state.obj(it)?.memory ?: board.snapshot(it)?.memory)?.get(key) }
 
     // ---- Players
 

@@ -21,7 +21,10 @@ import arcanum.engine.view.View
  * battlefield and the Stack the owner answers for a card (CR 108.4a); an ability on the Stack answers with its
  * controller. */
 internal class ViewBoard(override val state: GameState, val view: View) : Board {
-    override fun characteristics(id: ObjectId) = view[id]?.characteristics
+    /** An object that has left its zone reads as its last known information (CR 608.2h): "the same name as that
+     * creature" after it was returned to its owner's hand. */
+    override fun characteristics(id: ObjectId) =
+        view[id]?.characteristics ?: if (state.obj(id) == null) snapshot(id)?.characteristics else null
 
     override fun controller(id: ObjectId): PlayerId? {
         val o = state.obj(id)
@@ -47,7 +50,7 @@ internal class Snapshot(val state: GameState) {
         return ObjectSnapshot(
             id = id, owner = o.owner, controller = board.controller(id), zone = o.zone,
             characteristics = view[id]?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
-            token = o.token, attachedTo = o.attachedTo, facts = o.facts,
+            token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
         )
     }
 }

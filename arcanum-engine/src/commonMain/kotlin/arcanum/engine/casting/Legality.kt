@@ -154,10 +154,19 @@ internal object Legality {
     private fun cantCastBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CantCast ?: return@any false
-            snap.evaluator(applied.controller, self = applied.source).let { e ->
-                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(m.spells, card)
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->
+                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(asSpell(m.spells), card)
             }
         }
+
+    /** The card is tested as the spell it would become (CR 601.2e): "spell" holds for it wherever it is cast from. */
+    private fun asSpell(filter: arcanum.api.ObjectFilter): arcanum.api.ObjectFilter = when (filter) {
+        is arcanum.api.ObjectFilter.Category ->
+            if (filter.category == arcanum.api.ObjectCategory.Spell) arcanum.api.ObjectFilter.Any else filter
+        is arcanum.api.ObjectFilter.And -> arcanum.api.ObjectFilter.And(filter.all.map { asSpell(it) })
+        is arcanum.api.ObjectFilter.Or -> arcanum.api.ObjectFilter.Or(filter.any.map { asSpell(it) })
+        else -> filter
+    }
 
     /** The alternative cost [way] names: its static ability and mechanic, when it exists and its condition holds (CR 118.9). */
     fun alternative(snap: Snapshot, card: ObjectId, way: CastWay): Pair<AbilityInstance, Mechanic.AlternativeCost>? {

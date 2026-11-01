@@ -122,4 +122,17 @@ class SpecialActionsTest {
             alice.exile.size shouldBe 5
         }
     }
+
+    // CR 702.62a, 122.1: suspend's upkeep trigger removes a time counter from the card in exile
+    @Test
+    fun suspendCountsDownInExile() = scenario {
+        alice.hand("Lotus Bud")
+        perform(specialAction("Lotus Bud"))
+        beginStep(arcanum.api.TurnStep.Upkeep, active = alice)
+        resolve()
+        expect {
+            alice.exile has "Lotus Bud"
+            "Lotus Bud".counters(CounterKind.Time) shouldBe 2
+        }
+    }
 }

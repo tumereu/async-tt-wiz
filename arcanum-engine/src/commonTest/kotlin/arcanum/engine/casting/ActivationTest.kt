@@ -332,14 +332,57 @@ class ActivationTest {
         expect { "Frosthorn Elves".tapped shouldBe true }
     }
 
-    // D61: what a mana ability does beyond adding mana is left to the players, with a manual step
+    // CR 605.3b: what a mana ability does beyond adding mana happens at once, without the Stack
     @Test
     fun manaAbilityWithMoreToDo() = scenario {
         alice.battlefield("Umbral Elves")
         alice.activates("Umbral Elves")
         assertEquals(listOf(Color.Black), alice.pool.map { it.color })
+        assertEquals(null, pending)
+        expect {
+            alice.life shouldBe 19
+            stack.isEmpty()
+        }
+    }
+
+    // D61: a part of a mana ability that needs a decision is left to the players, with a manual step
+    @Test
+    fun manaAbilityWithAChoiceLeftToPlayers() = scenario {
+        // "{T}: Add {G}. You may gain 1 life."
+        val seer = Cards.definition("Elvish Seer")
+        val face = seer.faces.single()
+        val mana = face.abilities.single() as arcanum.api.Ability.Activated
+        val may = arcanum.api.Step.May(listOf(arcanum.api.Step.Do(arcanum.api.Effect.GainLife(arcanum.api.Players.You, arcanum.api.Value.Fixed(1)))), arcanum.api.Players.You)
+        Cards.define("Hopeful Druid", seer.copy(faces = listOf(face.copy(name = "Hopeful Druid",
+            abilities = listOf(mana.copy(instructions = mana.instructions.copy(steps = mana.instructions.steps + may)))))))
+        alice.battlefield("Hopeful Druid")
+        alice.activates("Hopeful Druid")
+        assertEquals(listOf(Color.Green), alice.pool.map { it.color })
         assertIs<Decision.Manual>(pending)
         answer(Answer.Done)
         assertEquals(null, pending)
+        expect { alice.life shouldBe 20 }
+    }
+
+    // CR 605.3a: "Add X mana in any combination of colors": a colour is chosen for each mana
+    @Test
+    fun manaInAnyCombinationOfColours() = scenario {
+        alice.battlefield("Sorcerer's Flares", "Plains", "Plains", "Plains")
+        alice.activates("Sorcerer's Flares", x = 3)
+        answer(Answer.ColorChoice(Color.Red))
+        answer(Answer.ColorChoice(Color.Green))
+        answer(Answer.ColorChoice(Color.Green))
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
+        assertEquals(listOf<Color?>(Color.Red, Color.Green, Color.Green), alice.pool.map { it.color })
+    }
+
+    // CR 605.3a: "three mana of any one color" stays one colour for all of it
+    @Test
+    fun manaOfAnyOneColourIsAskedOnce() = scenario {
+        alice.battlefield("Midnight Lotus")
+        alice.activates("Midnight Lotus")
+        answer(Answer.ColorChoice(Color.White))
+        assertEquals(null, pending)
+        assertEquals(List(3) { Color.White }, alice.pool.map { it.color })
     }
 }

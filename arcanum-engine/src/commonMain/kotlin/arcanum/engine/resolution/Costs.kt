@@ -4,8 +4,12 @@ import arcanum.api.Cost
 import arcanum.api.CostObjects
 import arcanum.api.CostPart
 import arcanum.api.CounterKind
+import arcanum.api.ManaCost
+import arcanum.api.ManaSymbol
 import arcanum.api.Zone
 import arcanum.engine.action.Actions
+import arcanum.engine.casting.snapshot
+import arcanum.engine.mana.Mana
 import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
 import arcanum.engine.change.GameEvent
@@ -19,8 +23,9 @@ import arcanum.engine.state.TargetRef
 
 /**
  * Costs paid while a spell or ability resolves (CR 118.12, D40): "you may pay …", "unless … pays", ward. A cost can be
- * chosen only if it can be paid in full (CR 601.2h, 118.3). Mana is paid by hand ([arcanum.engine.decision.Decision.Manual])
- * until mana payment ([arcanum.engine.mana.Mana]) can be asked here.
+ * chosen only if it can be paid in full (CR 601.2h, 118.3). Mana is paid with a
+ * [arcanum.engine.decision.Decision.ManaPayment] (pool mana, simple mana abilities, life for Phyrexian symbols); a cost
+ * whose amount isn't known here ("its mana cost", an unannounced X) is paid by hand.
  */
 internal object Costs {
     fun describe(cost: Cost): String = cost.parts.joinToString(", ") { part ->
@@ -36,8 +41,11 @@ internal object Costs {
     private fun canPay(scope: Scope, payer: PlayerId, part: CostPart): Boolean {
         val state = scope.act.state
         return when (part) {
-            // Mana abilities may be activated while paying (CR 608.2g); whether there is enough is the payer's to judge.
-            is CostPart.Mana, CostPart.ItsManaCost, is CostPart.Manual -> true
+            // CR 118.3, 608.2g: mana abilities may be activated while paying; a cost is payable when a payment is found
+            is CostPart.Mana -> manaCost(scope, part)?.let { cost ->
+                Mana.needs(cost).isEmpty() || Mana.suggest(scope.act.recorder.snapshot(), payer, cost, null).isNotEmpty()
+            } ?: true
+            CostPart.ItsManaCost, is CostPart.Manual -> true
             CostPart.TapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && !it.tapped } ?: false
             CostPart.UntapSelf -> scope.self?.let { state.obj(it) }?.let { it.zone == Zone.Battlefield && it.tapped } ?: false
             is CostPart.TapObjects -> candidates(scope, payer, part.what, Zone.Battlefield) { !(state.obj(it)?.tapped ?: true) }.size >= count(scope, part.what)
@@ -68,7 +76,8 @@ internal object Costs {
         val act = scope.act
         val cause = scope.cause
         when (part) {
-            is CostPart.Mana -> payMana(scope, payer, part.cost.toString() + (part.times?.let { " × ${scope.value(it)}" } ?: ""))
+            is CostPart.Mana -> manaCost(scope, part)?.let { act.payMana(payer, scope.self, it) }
+                ?: payMana(scope, payer, part.cost.toString() + (part.times?.let { " × ${scope.value(it)}" } ?: ""))
             CostPart.ItsManaCost -> payMana(scope, payer, "its mana cost")
             is CostPart.Manual -> act.manual(payer, scope.self, part.text)
             CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid)) }
@@ -134,7 +143,16 @@ internal object Costs {
         }
     }
 
-    /** Mana paid on resolution (CR 608.2g): by hand for now. */
+    /** The mana [part] costs here: [CostPart.Mana.times] repeats it, [CostPart.Mana.x] is its X (CR 107.3); null when
+     * an X is left unknown. */
+    private fun manaCost(scope: Scope, part: CostPart.Mana): ManaCost? {
+        val withX = part.x?.let { Mana.withX(part.cost, mapOf('X' to scope.value(it))) } ?: part.cost
+        if (withX.symbols.any { it is ManaSymbol.Variable }) return null
+        val times = part.times?.let { scope.value(it).coerceAtLeast(0) } ?: 1
+        return ManaCost(List(times) { withX.symbols }.flatten())
+    }
+
+    /** Mana paid on resolution whose amount isn't known here: by hand. */
     private fun payMana(scope: Scope, payer: PlayerId, text: String) {
         scope.act.manual(payer, scope.self, "Pay $text")
     }

@@ -145,7 +145,8 @@ internal object Effects {
                 if (diff > 0) Actions.gainLife(act, cause, p, diff) else if (diff < 0) Actions.loseLife(act, cause, p, -diff)
             }
             is Effect.PutCounters -> putCounters(scope, effect)
-            is Effect.RemoveCounters -> onBattlefield(scope, effect.objects).forEach { id ->
+            // CR 122.1, 702.62a: counters come off objects in any zone (time counters on a suspended card in exile)
+            is Effect.RemoveCounters -> scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
                 val n = scope.value(effect.amount)
                 val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
                 var left = n
@@ -341,6 +342,13 @@ internal object Effects {
         var ordered = ids
         if (dest.randomOrder && ids.size > 1) {
             ordered = (act.random(scope.actor, scope.self, RandomKind.Objects(ids, ids.size)) as Answer.RandomObjects).chosen
+        } else if (dest.zone == Zone.Library && dest.libraryPosition != null && ids.size > 1) {
+            // CR 401.4: cards put into one position of a library at once are arranged by their owner (first: topmost);
+            // each move goes to the bottom below the last, or to the top above it
+            ordered = ids.groupBy { act.state.obj(it)!!.owner }.flatMap { (owner, cards) ->
+                val chosen = act.order(owner, scope.self, cards, "Order, first on top")
+                if (dest.libraryPosition!! < 0) chosen else chosen.reversed()
+            }
         }
         val position = dest.libraryPosition?.let { Actions.libraryPosition(it) }
         val moves = ordered.map { id ->
@@ -418,8 +426,9 @@ internal object Effects {
         val top = act.state.player(player).library.take(n)
         if (top.isEmpty()) return
         act.fill(player, scope.self, top, "scry")
-        val bottom = act.chooseObjects(player, scope.self, top, 0, top.size, "Put on the bottom")
-        val kept = top.filter { it !in bottom }
+        val chosen = act.chooseObjects(player, scope.self, top, 0, top.size, "Put on the bottom")
+        val kept = act.order(player, scope.self, top.filter { it !in chosen }, "Order on top, first on top")
+        val bottom = act.order(player, scope.self, chosen, "Order on the bottom, first on top")
         val rest = act.state.player(player).library.drop(top.size)
         val after = kept + rest + bottom
         if (after != act.state.player(player).library) act.record(Change.Reorder(Zone.Library, player, act.state.player(player).library, after))
@@ -435,6 +444,12 @@ internal object Effects {
         act.fill(player, scope.self, top, "surveil")
         val toGraveyard = act.chooseObjects(player, scope.self, top, 0, top.size, "Put into your graveyard")
         val moved = Actions.moveTo(act, scope.cause, toGraveyard, Zone.Graveyard)
+        val kept = top.filter { it !in toGraveyard }
+        val ordered = act.order(player, scope.self, kept, "Order on top, first on top")
+        val library = act.state.player(player).library
+        if (ordered != kept && library.take(kept.size) == kept) {
+            act.record(Change.Reorder(Zone.Library, player, library, ordered + library.drop(kept.size)))
+        }
         act.record(Change.Happened(GameEvent.Surveilled(player, top.size)))
         scope.bind(bind, NamedValue.Objects(moved.values.toList()))
     }

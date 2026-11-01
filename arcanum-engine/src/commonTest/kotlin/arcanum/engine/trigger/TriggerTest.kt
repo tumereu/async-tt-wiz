@@ -299,6 +299,7 @@ class TriggerTest {
     @Test
     fun wardCountersUnlessPaid() = scenario {
         bob.battlefield("Scrapquilt Automaton")
+        alice.battlefield("Mountain", "Mountain")
         alice.hand("Storm Spark")
 
         alice.castsWithoutCosts("Storm Spark", target = "Scrapquilt Automaton")

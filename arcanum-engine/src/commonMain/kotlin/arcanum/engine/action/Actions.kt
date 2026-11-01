@@ -144,12 +144,12 @@ internal object Actions {
     /** Runs a replacement's "instead" instructions with the replaced event's objects (CR 614.1a). */
     fun runInstead(act: Act, r: Replacement, instance: TriggerEvent) {
         val cause = Cause(r.controller, r.source, key = "instead:${act.state.nextTimestamp()}")
-        // CR 614.5: it doesn't replace the events its own instructions make ("Otherwise, draw a card")
-        act.replacing += r.key
+        // CR 614.5: it doesn't apply again to the events its own instructions make
+        val added = act.replacing.add(r.key)
         try {
             Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
         } finally {
-            act.replacing -= r.key
+            if (added) act.replacing.remove(r.key)
         }
     }
 

@@ -1,0 +1,438 @@
+# Arcanum Automatum — design draft
+
+**Status: draft for owner review (2026-11-01).** Not approved, not on the roadmap or
+backlog, and nothing is built from it. Breaking parts (new shared state, catalog
+changes) need the owner's go-ahead per phase.
+
+## 1. What it is
+
+An optional rules-automation layer for Magic: The Gathering on top of the existing
+manual table, built as three generic libraries and an ATW integration:
+
+1. **arcanum-api**: the card definition models, a typed format describing what a
+   card's abilities do (costs, targets, effects, conditions, durations). Shared by
+   the parser and the engine, so definitions can be written to files and loaded
+   without the parser, or written by hand.
+2. **arcanum-parser**: our own parser from MTGJSON oracle text to card definitions.
+3. **arcanum-engine**: computes derived board state (P/T, keywords, …), applies
+   rules automatically where nothing needs deciding, asks for decisions where
+   something does, and returns the results as MTG-level changes. It owns the API
+   its callers use.
+4. **ATW integration**: maps the ATW table to the engine's API and the engine's
+   results back to ordinary ATW actions, and provides the UI.
+
+The game stays a board-game simulator underneath. When automation is wrong, a card
+is unsupported or a situation is unusual, players fix it with the manual actions
+that exist today.
+
+### Non-goals
+
+- A rules referee. The engine never refuses or blocks a player action (SYS-036,
+  SYS-037); it only computes, applies and asks.
+- Any ATW knowledge in the arcanum libraries (§4.1).
+- Using Forge, XMage or other engines as a runtime, or Forge card scripts as data
+  (GPL-3; see §12). Forge may be used as a cross-check only.
+- An LLM step in the parser.
+- Un-cards (MTGJSON `isFunny`) and digital-only mechanics (Alchemy: seek,
+  perpetually, …). They stay manual permanently.
+
+## 2. Owner decisions so far (2026-11-01)
+
+| # | Decision |
+|---|---|
+| D1 | The engine is an **assistant**, not a referee. |
+| D2 | Derived shared state (e.g. computed P/T) is **per game and shared**: both players see the same board. If automation works well enough, the game-wide off switch may later be removed. |
+| D3 | Casting opens a **cast dialog**: choose targets and the mana sources to tap, with a suggested tapping. The dialog can be set to **accept automatically**. |
+| D4 | Async play uses **our normal Stack/attention rules**. Live play is open (§9). |
+| D5 | **Our own parser** from oracle text; no Forge data, no LLM fallback. |
+| D6 | Coverage is prioritised by **how often** a pattern comes up; rare and silly cards stay manual. |
+| D7 | Assists **happen automatically** unless a player has something to decide at that moment. No "accept" steps for things without a decision. One **"Automatum off"** switch turns the assists off; no per-assist settings. |
+| D8 | **Three generic libraries** (arcanum-api, arcanum-parser, arcanum-engine) with no ATW knowledge; the engine talks in MTG terms; ATW integrates them. The owner reviews their code and documentation at least at the interface level. |
+| D9 | Phase 0 (§13) is as described; the order of later phases may change as work goes on. |
+| D10 | The open questions (§15) are expected to be settled by playtesting. |
+
+## 3. Principles
+
+- **P1 Results are ordinary actions.** In ATW, a resolution becomes a batch of normal
+  recorded actions (moves, damage, life, counters, tokens, …), sent as one
+  all-or-nothing batch (SYS-010) and taken back by one Undo. History, undo, branches
+  and playback keep working as today; replaying a game never needs the engine.
+- **P2 No hidden engine memory.** Everything the engine must remember between calls
+  is returned to the caller as a visible MTG object that the caller stores and passes
+  back: a continuous effect with its duration, a chosen colour, "exiled with", a
+  delayed trigger, Stack targets. In ATW these are shared board objects players can
+  inspect, edit and remove, so a manual fix is always possible.
+- **P3 Derived state is a pure function** of the given game state and card
+  definitions. It is recomputed, never stored, so it stays correct after any manual
+  edit, undo, branch or timeline step, and never replays history (SYS-026).
+- **P4 Everything can fall back to manual.** Each ability is automated or manual;
+  manual abilities behave exactly as today. A player can switch any card to manual.
+- **P5 Automatic unless there is a decision (D7).** Things that need no choice
+  (state-based actions, a trigger without targets, options or ordering, cleanup of
+  ended effects) just happen. A choice appears only when a player has one to make.
+- **P6 Shared code.** All three libraries are Kotlin Multiplatform common code, so the
+  Android app predicts locally within SYS-025 and the future web client reuses them.
+- **P7 The server stays authoritative over actions, not over automation.** Since any
+  player may do anything manually, the server does not need to re-check that an
+  automated batch followed the rules. It validates the actions as it does today, plus
+  the new shared objects (§8).
+
+## 4. Architecture
+
+```
+MTGJSON oracle text ──► arcanum-parser ──► card definitions (arcanum-api models)
+                                               │ files / server data, hand-written overrides
+                                               ▼
+ATW table ──► ATW integration ──► engine game state (MTG terms) ──► arcanum-engine
+    ▲               │                                                  │
+    │               └── UI: cast dialog, choices, Inspect details      │
+    └── ordinary ATW actions ◄── MTG-level changes + decision requests ◄┘
+```
+
+### 4.1 Library boundaries
+
+- **arcanum-api** holds only the card definition models (§5) and their
+  serialisation, with a schema version. No game state.
+- **arcanum-parser** depends on arcanum-api. Input: oracle text and card fields
+  (types, P/T, keywords). Output: definitions plus a per-ability parse status.
+- **arcanum-engine** depends on arcanum-api and defines its own caller API:
+  - **Game state in MTG terms**: players, zones, objects with their printed
+    characteristics, counters, damage, tapped/face-down state, attachments, the
+    Stack with its choices, turn and step, and the stored effect objects (P2).
+    Objects the caller can't see are **unknown objects** (an opponent's hand card,
+    an unknown library card), explicitly marked as such.
+  - **Calls**: derive the view; list what a player can do; start an action (cast,
+    activate, resolve, attack damage); react to events that just happened.
+  - **Results**: either a **decision request** (choose targets for slot `t` among
+    …, choose mode, choose mana sources, order triggers, choose a card to discard),
+    or a list of **MTG-level changes** (move object, deal damage, gain life, add
+    counter, create token, tap, add effect object, …).
+  - **Decisions are data, not callbacks.** The caller answers a request by calling
+    again with the answers so far. The engine keeps no session between calls, so a
+    decision can wait for days, cross devices or be answered by the other player.
+    This is the main difference from Forge's and XMage's blocking decision model,
+    and what makes the engine usable for async play and in other apps.
+- **ATW integration** (in ATW's shared code) is the only part that knows ATW: it
+  builds the engine game state from `PlayState`, maps MTG-level changes to
+  `PlayAction`s, stores effect objects as shared ATW state, and turns decision
+  requests into UI.
+- A build check keeps the arcanum modules free of ATW dependencies. They start as
+  modules in this repository and can move to their own repository later.
+
+### 4.2 Snapshots first
+
+The integration builds a fresh engine game state for each call. A board of tens of
+permanents is small; if measurements show it is too slow for SYS-025, the
+integration can keep and update the snapshot incrementally without changing the
+engine API.
+
+### 4.3 Where definitions come from
+
+Definitions are dynamic data like other card data (D-243): produced by the parser
+(as a developer tool or a server job, open question), merged with hand-written
+overrides, versioned, delivered by the server and cached by the app. Updating a
+definition improves future automation without an app release; accepted events never
+change.
+
+## 5. Card definition format (arcanum-api)
+
+A typed tree mirroring the Comprehensive Rules, serialised as JSON, with a compact
+text form for hand-written definitions and tests. The text form below is
+illustrative; exact syntax is decided in phase 0.
+
+### Building blocks
+
+| Block | Covers | CR |
+|---|---|---|
+| Ability kinds | Spell, Activated, Triggered, Static, Keyword, Replacement, Mana | 113, 601–605 |
+| Cost | mana, {T}, sacrifice, discard, pay life, remove counters | 118, 602 |
+| Target slots | named slots with a filter and count ("target creature you don't control") | 115 |
+| Effects | damage, destroy, exile, draw, discard, mill, move, counters, tokens, life, tap/untap, P/T change, gain keyword, copy, counter spell, search, … | 701 |
+| Filters | object selectors ("other artifact creatures you control", "nonland permanent an opponent controls") | 109, 205 |
+| Values | numbers, X, counts ("the number of Elves you control"), references to named targets | 107 |
+| Durations | until end of turn, until your next turn, for as long as ~ remains, permanent | 611 |
+| Conditions | intervening if, "if you control …", kicker paid, threshold-style counts | 603.4 |
+| Modes | choose one / two / one or more, with per-mode targets | 700.2 |
+
+### Examples
+
+```
+# Lightning Bolt — "Lightning Bolt deals 3 damage to any target."
+spell:
+  target t: any
+  effect: damage(source=~, to=t, amount=3)
+
+# Glorious Anthem — "Creatures you control get +1/+1."
+static:
+  affects: creatures(controller=you)
+  layer 7c: pt(+1, +1)
+
+# "Other artifact creatures you control get +1/+1."
+static:
+  affects: creatures(controller=you, types=[artifact], other=true)
+  layer 7c: pt(+1, +1)
+
+# Giant Growth — "Target creature gets +3/+3 until end of turn."
+spell:
+  target t: creature
+  effect: pt(t, +3, +3, until=endOfTurn)     # resolves into a visible effect object
+
+# Elvish Visionary — "When ~ enters, draw a card." (normalised self-reference)
+triggered:
+  when: enters(~)
+  effect: draw(you, 1)
+
+# Llanowar Elves — "{T}: Add {G}."
+mana:
+  cost: tap(~)
+  produce: G
+```
+
+### Per-card status
+
+Each definition records, per ability: `auto`, `partial` (some effects automated,
+the rest shown as a reminder to do by hand) or `manual`, plus the definition version
+and the parser version that produced it. Hand-written overrides take precedence over
+parser output and survive re-parsing.
+
+## 6. Parser (arcanum-parser)
+
+Our own, from MTGJSON oracle text. The plan:
+
+1. **Measure first.** Normalise every card's oracle text (self-references → `~`: the
+   card name, and the newer "this creature" / "this spell" wording; numbers,
+   mana symbols and type words → placeholders), split into abilities (one per line;
+   keyword lines split at commas) and count each resulting pattern across all cards.
+   Optionally weight by how often cards appear in our decks and cubes. The sorted list
+   is the build order (D6).
+2. **Keywords** via a table of keyword abilities (CR 702) with parameters (Ward {2},
+   Toxic 2, Equip {3}, …), cross-checked with MTGJSON's `keywords` field.
+3. **Grammar** for the rest: a hand-written recursive-descent parser over tokens,
+   built from the frequent patterns down. Modern oracle wording is highly regular;
+   older cards are re-templated in Oracle, so one grammar covers most of them.
+4. **Unparsed spans are kept**, never guessed. An ability that doesn't parse fully
+   becomes `manual` (or `partial` when the unparsed part is a separable sentence),
+   with the original text attached for the UI.
+5. **Round-trip check.** A renderer turns definitions back into English; the test
+   suite compares it with the oracle text for the parsed corpus to catch wrong
+   parses. A golden corpus of hand-checked cards protects behaviour.
+6. **Coverage numbers** per pattern for the developer (a tool output, not a product
+   document).
+
+Out of scope for parsing: `isFunny` cards, digital-only mechanics, and text the
+engine cannot represent yet (left manual until the engine supports it).
+
+## 7. Engine (arcanum-engine) and its use in ATW
+
+### 7.1 Derived view (layers)
+
+For each object the engine computes characteristics with the layer system (CR 613):
+copy (1), control (2), text (3), type (4), colour (5), abilities (6), P/T (7a–7d),
+with timestamps and dependencies within layers. Inputs are only the given game state,
+the definitions and the stored effect objects (P2, P3).
+
+In ATW the view feeds the existing card rendering: computed P/T in the corner
+(TBL-021), granted keywords, changed types and colours. **Inspect** shows where each
+value comes from ("2/2 printed, +1/+1 Glorious Anthem, +3/+3 Giant Growth until end
+of turn").
+
+**Manual values and the view.** Today P/T is a free manual corner (TBL-021–023),
+keywords are note text (TBL-086) and counters are six colours (TBL-078). Proposal:
+- A manual P/T edit while automation is on becomes a **player-set P/T effect** in
+  layer 7b ("set to"), visible and removable like any effect object.
+- **Effect objects have durations**: until end of turn, until your next turn, for as
+  long as a source remains, permanent, and others the definitions need. Players can
+  set any of them by hand; until end of turn stays the only quick one (the EOT
+  controls, TBL-079/082), the others are in a less direct place.
+- **Typed counters** are added (+1/+1, −1/−1, loyalty, and named counters). Colour
+  counters stay as manual markers the engine ignores.
+- Keywords written in notes are read as manually granted keywords.
+
+### 7.2 Casting and activating
+
+Double-tapping a hand card (today "play to Stack", ZON-004/STK-004) **casts** it
+when its spell ability is automated, and activated abilities get the same flow from
+the card menu. The **cast dialog** (D3) asks, in rules order (CR 601.2):
+mode(s), X, targets per named slot, non-mana costs, and the **mana sources to tap**,
+pre-filled with a suggested tapping (§7.8). Confirming taps the sources, pays the
+other costs and puts a structured entry on the Stack, as one Undo.
+
+A **"Accept automatically"** option skips the dialog whenever its suggestions
+leave nothing to decide. Whether a single legal target counts as "nothing to decide"
+is a playtest question (§15).
+
+### 7.3 Resolution
+
+Resolving a Stack entry evaluates its definition against the current state with the
+entry's recorded choices: illegal targets are dropped (CR 608.2b) and the spell
+fizzles when all are gone. Choices made during resolution ("you may", "choose a
+card") are asked from the right player; everything else applies automatically (P5).
+Effects that need hidden information (search, reveal, random discard) produce the
+existing library/hand actions where the server fills in the hidden part.
+
+Effects with a duration create **effect objects** (§8) that end on their own:
+until-end-of-turn effects in the cleanup step, "for as long as" effects when their
+source leaves.
+
+**When resolution starts** follows D4: in async play the normal Stack/attention
+flow. Today a permanent spell resolves by itself right after a double-tap (STK-004)
+and the opponent's way to respond is to go back; the same could apply to every entry
+with nothing left to decide. This is a playtest question (§15).
+
+### 7.4 Triggers
+
+The engine checks triggers **per event**, not by comparing whole boards: for each
+change that just happened (a card moved, damage dealt, a step began), it looks at the
+abilities that could trigger on it. It needs the object **as it was just before** the
+event as well as after, because "leaves the battlefield" and "dies" triggers look back
+in time (CR 603.10): "Whenever another creature you control dies" must see the
+creature's controller and types from when it was still on the battlefield. Events
+that happen together (a board wipe) are checked together. ATW events already store
+how to apply and revert them (SYS-027), so the before-state of one event is cheap.
+
+Following P5, a trigger with no targets, options or ordering choice goes onto the
+Stack by itself. Only triggers that need a decision (targets, "you may" on putting
+it on the Stack, ordering several simultaneous triggers) ask their controller. The
+Stack itself still has no reordering (STK-021); order is chosen when triggers are put
+on.
+
+Delayed triggers ("at the beginning of the next end step, return it") are visible
+effect objects (P2).
+
+### 7.5 State-based actions
+
+State-based actions (CR 704) apply automatically in the same batch as the action
+that caused them (P5): lethal damage, 0 toughness, 0 life, +1/+1 and −1/−1 counter
+annihilation, auras with no legal object. Those with a choice (legend rule) ask
+the player. All are taken back with the batch's Undo.
+
+### 7.6 Combat
+
+Combat lanes already exist (CMB-*). The engine adds combat damage: first strike /
+double strike damage steps, trample excess, deathtouch counting as lethal, lifelink;
+menace/flying/reach shown as warnings (never blocks). Damage assignment order for
+several blockers is a choice for the attacker; when there is only one way to assign,
+it applies automatically.
+
+### 7.7 Hidden information
+
+The engine sees only what its caller sees (unknown objects, §4.1). It never reveals
+anything by itself: an effect that needs hidden information is either done through a
+server-filled action or asked from the player who can see it. Choices the opponent
+must make (e.g. "discard a card") are shared pending choices that only that player
+answers (§8).
+
+### 7.8 Mana payment
+
+The engine suggests which sources pay a cost: matching each mana symbol to an
+untapped source that can produce it, preferring sources that keep the most other
+options open. It must handle hybrid and Phyrexian mana, X, generic costs, sources
+with several colours, and sources with conditions or extra costs (treasures,
+"spend only on creature spells", summoning-sick creatures). The player can change the
+suggestion in the cast dialog. Mana that is added but not spent at once (rituals) is
+kept in a visible **mana pool** until it empties at the end of the step (P2).
+
+## 8. New shared state in ATW
+
+Each of these is a rules-version bump (SYS-031) and needs owner approval of its
+catalog entries.
+
+| Object | Purpose |
+|---|---|
+| Automation setting per game | Game-wide on/off for derived state (D2); an event, so both players see the same board. |
+| Structured Stack entry | Which ability of which card, chosen modes, X, targets by named slot, controller. Today's text marks (STK-016) stay for manual entries. |
+| Effect objects | Continuous effects with source, affected objects, layer, timestamp and duration; shown on the cards they affect; settable and removable by hand. |
+| Card memory | Chosen colour/type/name, "exiled with ~", attached-to, kicked, etc. |
+| Pending decisions | Triggers waiting for their controller's choice, and choices another player must make during resolution. Answered asynchronously. |
+| Mana pool | Mana added but not yet spent (§7.8). |
+| Typed counters | +1/+1, −1/−1, loyalty, named counters (§7.1). |
+| Automation flag on events | Marks an action batch as produced by automation, for history texts ("Lightning Bolt dealt 3 damage to Grizzly Bears"). |
+| Per-card manual switch | A shared flag that turns automation off for one card (its statics stop applying, its triggers aren't put on the Stack). |
+
+## 9. Turns and priority
+
+- **Async play (D4):** today's Stack and attention flow. No new priority system.
+- **Live play: open.** Options discussed:
+  1. No response window: the caster resolves when they like; the opponent responds
+     by rewinding (live branch rewind exists).
+  2. A short window while the opponent is present: a countdown with a "Wait!" button
+     that holds the Stack; no reaction lets it resolve.
+  3. A player who doesn't react in time continues in timeline mode at that point and
+     can still respond by branching (builds on the existing auto-rewind settings).
+  Leaning: 2 + 3, window length a setting. Needs playtesting.
+
+## 10. Toggles
+
+- **Game: automation of derived state** (shared, D2). Turns computed values, effect
+  objects and structured Stack entries on or off for the whole game. Possibly removed
+  later.
+- **Player: "Automatum off"** (D7). One switch that stops the assists for this
+  player: automatic triggers, state-based actions, cast dialog and automatic
+  resolution for things this player controls. Gestures then behave as today.
+- **Card: "Manual"** (shared, §8).
+
+## 11. Fit with existing rules
+
+- **History, undo, branches:** unchanged, because results are ordinary actions (P1).
+  Undo of an automated batch is one Undo (SYS-004, SYS-010).
+- **No full replay (SYS-026):** the derived view is computed from the current state
+  only; triggers look at one event's before and after.
+- **Speed (SYS-025):** the derived view for a typical board and a resolution are small
+  computations; the engine must meet the 20 ms budget and is covered by the existing
+  slow-action reports.
+- **Rule versions (SYS-031):** recorded events never depend on definitions.
+- **Player access (SYS-036/037):** every assisted action is available to both
+  players on any card, like manual actions ("phone test").
+
+## 12. Licences (summary)
+
+- MTGJSON is MIT; card text belongs to Wizards (Fan Content Policy): no change from today.
+- Forge is GPL-3. Its scripts are not used as data; translated definitions would be a
+  derivative that must be distributed under GPL-3. Forge may be used only as a
+  cross-check (comparing behaviour), which carries no obligations.
+- XMage is MIT: may be read as a reference; copied code keeps its notice.
+- The arcanum libraries' own licence is decided if they are ever published.
+
+## 13. Phases
+
+Phase 0 is fixed; the order and content of later phases may change as work goes on
+(D9).
+
+| Phase | Content | New shared state |
+|---|---|---|
+| 0 | arcanum-api format, arcanum-parser skeleton, pattern frequency measurement, golden corpus, arcanum-engine API skeleton with MTG-term tests. No app changes. | none |
+| 1 | Derived view: static P/T and keyword effects, layers, typed counters, Inspect details; game automation toggle; combat damage. | toggle, typed counters, effect objects |
+| 2 | Cast dialog with targets and suggested mana tapping, accept automatically; Activate; resolution of simple spells and abilities (damage, destroy, exile, draw, counters, tokens, pump with durations, bounce); "Automatum off". | structured Stack entries, mana pool, automation flag |
+| 3 | Triggers (enters, dies, attacks, upkeep, end step), trigger ordering, delayed triggers, state-based actions. | pending decisions, card memory |
+| 4 | Opponent choices, modal spells with per-mode targets, replacement effects, copy effects, counterspells. | |
+
+Parser coverage grows alongside every phase, in frequency order.
+
+## 14. Catalog and spec entries this would change
+
+- **SYS-001** "no rules referee … the app never works out costs, targets or
+  resolution" — would allow an optional assistant that does.
+- **SYS-002** "Nothing is guessed from card names or rules text" — definitions come
+  from rules text (parsed, not guessed).
+- **P-056** (`docs/design/03-contracts/product.md`) "No authoring UI/executable rules".
+- **TBL-021–024, TBL-078–079, TBL-082, TBL-085–086** — P/T, counters, durations and
+  keywords when automation is on (§7.1).
+- **ZON-004 / STK-004** — double tap becomes Cast (§7.2).
+
+Exact new entry texts are written per phase and approved by the owner before building.
+
+## 15. Open questions (to settle in playtesting, D10)
+
+1. Live-play response windows (§9).
+2. Whether every entry with nothing left to decide resolves by itself like STK-004,
+   with going back as the way to respond (§7.3).
+3. Whether a single legal target counts as "nothing to decide" for automatic
+   acceptance (§7.2).
+4. Manual P/T edits as a layer-7b "set" effect, typed counters next to colour
+   counters, keywords from notes (§7.1).
+5. Turning game automation off mid-game: write computed values into the manual
+   fields so nothing jumps, or fall back to the stored manual values.
+6. Where the parser runs: a developer tool producing a data set, or a server job on
+   catalog import.
+7. Whether the timeline shows derived values with the definitions of the time (needs
+   definition versions per game) or with current definitions.

@@ -388,6 +388,20 @@ class CostsTest {
         expect { alice.hand has "Forest" }
     }
 
+    // CR 601.2b, 601.2f: a reduction "for each card exiled this way" counts the cards chosen for the additional cost
+    @Test
+    fun reductionCountsTheCardsChosenForTheAdditionalCost() = scenario {
+        alice.battlefield("Plains")
+        alice.hand("Procession of Pale Light", "Wall of Portents", "Loyal Hearthhound")
+        bob.battlefield("Elvish Hierophant")
+        perform(Input.Cast(alice.id, card("Procession of Pale Light")))
+        answer(Answer.Number(3))
+        answer(Answer.Targets(listOf(target("Elvish Hierophant"))))
+        answer(Answer.Objects(listOf(card("Wall of Portents"), card("Loyal Hearthhound"))))
+        // {3}{W} less {2} twice: the generic part can't go below nothing (CR 118.7a)
+        assertEquals("{W}", assertIs<Decision.ManaPayment>(pending).cost.toString())
+    }
+
     // CR 702.37c, 708.4: morph: cast face down as a 2/2 creature for {3}
     @Test
     fun morphFaceDown() = scenario {

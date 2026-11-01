@@ -240,9 +240,12 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
     private fun changes(): Pair<List<ManaCost>, List<Pair<ManaCost, Int>>> {
         val increases = mutableListOf<ManaCost>()
         val reductions = mutableListOf<Pair<ManaCost, Int>>()
+        val chosen = chosenCostObjects()
         snap.view.rules.forEach { applied: AppliedMechanic ->
             val m = applied.mechanic as? Mechanic.CostChange ?: return@forEach
-            val e = snap.evaluator(applied.controller, self = applied.source, names = applied.names)
+            // The spell's own reduction may count what its additional cost will use ("for each card exiled this way")
+            val names = if (applied.source == itemId) applied.names.with(chosen) else applied.names
+            val e = snap.evaluator(applied.controller, self = applied.source, names = names)
             if (!e.matches(m.what, itemId)) return@forEach
             val mana = Costs.expand(m.change, e)
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
@@ -252,6 +255,28 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
         }
         return increases to reductions
+    }
+
+    /** The objects chosen so far for cost parts that bind them, under their bound names (CR 601.2b, 601.2f: the
+     * total cost is worked out after the costs' choices are announced, before they are paid). */
+    private fun chosenCostObjects(): Bindings {
+        var b = Bindings.EMPTY
+        contributions.forEach { c ->
+            repeat(c.times) { t ->
+                c.cost.parts.forEachIndexed { j, part ->
+                    val ids = choices.names[OBJECTS + "${c.key}.$t.$j"] ?: return@forEachIndexed
+                    val bindNames = when (part) {
+                        is CostPart.Exile -> listOf(part.preBind, part.postBind)
+                        is CostPart.Sacrifice -> listOf(part.preBind, part.postBind)
+                        is CostPart.Discard -> listOf(part.preBind, part.postBind)
+                        is CostPart.ReturnToHand -> listOf(part.preBind, part.postBind)
+                        else -> emptyList()
+                    }
+                    bindNames.filterNotNull().forEach { b = b.with(it, ids) }
+                }
+            }
+        }
+        return b
     }
 
     val total: TotalCost by lazy {

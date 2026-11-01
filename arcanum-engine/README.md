@@ -101,7 +101,8 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs, battles as attack targets,
   splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
-  up. Also missing: text-changing
+  up; a card exiled "until" an event comes back by a delayed trigger on the Stack, not at once
+  (CR 610.3; kept as TriggerTest has it until the owner decides). Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only), the Inspect breakdown of where a value comes from.
 

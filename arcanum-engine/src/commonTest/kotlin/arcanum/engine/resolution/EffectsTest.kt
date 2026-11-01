@@ -230,6 +230,25 @@ class EffectsTest {
         }
     }
 
+    // CR 401.4: cards looked at on top of a library and put on its bottom together go below the cards left in it, in
+    // the order their owner chooses
+    @Test
+    fun lookedAtCardsGoToTheBottomInTheOwnersOrder() = scenario {
+        alice.hand("Delve Through Ages")
+        alice.library("Forest", "Island", "Swamp", "Mountain", "Plains", "Denial", "Storm Spark", "Cinder Bolt")
+
+        alice.castsWithoutCosts("Delve Through Ages")
+        resolve()
+        alice.chooses("Forest", "Island")
+        assertEquals(alice.id, decision<Decision.ChooseObjects>().player)
+        alice.chooses("Storm Spark", "Denial", "Plains", "Mountain", "Swamp")
+
+        expect {
+            alice.hand.names shouldBe listOf("Forest", "Island")
+            alice.library.names shouldBe listOf("Cinder Bolt", "Storm Spark", "Denial", "Plains", "Mountain", "Swamp")
+        }
+    }
+
     // CR 106.4: mana is added to the pool
     @Test
     fun addThreeBlackMana() = scenario {

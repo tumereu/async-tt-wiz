@@ -269,6 +269,27 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
         val last = steps.lastOrNull() as? Step.Do ?: return null
         val effect = last.effect
+        // chunk 12
+        // "If you search your library this way, shuffle.": only when an earlier search could search the library.
+        if (sentence == "If you search your library this way, shuffle.") {
+            val search = steps.mapNotNull { (it as? Step.Do)?.effect as? Effect.Search }.lastOrNull() ?: return null
+            if (Zone.Library !in search.zones || search.zones.size < 2) return null
+            return steps + Step.If(arcanum.api.Condition.Searched(search.bind ?: return null, Zone.Library),
+                then = listOf(Step.Do(Effect.Shuffle(search.library))))
+        }
+        // "Create [a token] for each card type among cards discarded this way.": names the discarded cards.
+        if (effect is Effect.Discard && effect.postBind == null) CREATE_FOR_EACH_CARD_TYPE_DISCARDED.matchEntire(sentence)?.let { m ->
+            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
+            if (count != 1) return null
+            return steps.dropLast(1) + Step.Do(effect.copy(postBind = DISCARDED)) + Step.Do(Effect.CreateToken(token,
+                count = Value.CountDistinct(Objects.Bound(DISCARDED), arcanum.api.SharedQuality.CardType)))
+        }
+        // "Draw a card for each card returned to your hand this way.": names the returned objects.
+        if (effect is Effect.Move && effect.to.zone == Zone.Hand && effect.postBind == null) DRAW_FOR_EACH_RETURNED_TO_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return steps.dropLast(1) + Step.Do(effect.copy(postBind = RETURNED)) +
+                Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Where(Objects.Bound(RETURNED), filter))))
+        }
         if (effect is Effect.DealDamage) {
             KICKED_DEALS_INSTEAD.matchEntire(sentence)?.let { m ->
                 return steps.dropLast(1) + Step.If(arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind),
@@ -317,6 +338,48 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     private fun effect(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        // chunk 12
+        // "Whenever you cast a creature spell this turn, draw a card.": a delayed trigger for the rest of the turn (CR 603.7b).
+        WHENEVER_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val event = Events.event(m.groupValues[1], self) ?: return null
+            val then = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(event), then,
+                duration = arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
+        SEARCH_LIBRARY_AND_OR_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            return listOf(
+                Step.Do(Effect.Search(Players.You, filter, zones = listOf(Zone.Library, Zone.Graveyard), bind = "found")),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))))
+        }
+        IF_X_AT_LEAST.matchEntire(sentence)?.let { m ->
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Compare(Value.Announced(), arcanum.api.Comparison.AtLeast, Value.Fixed(m.groupValues[1].toInt())), then = then))
+        }
+        // "Creatures you control get +X/+X and gain haste until end of turn." (locked in when it resolves, CR 611.2c)
+        GROUP_GETS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() })
+            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) }
+            if (filter != null && keywords?.contains(null) != true) {
+                val mechanics = listOf<Mechanic>(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]), ptChange(m.groupValues[3]))) +
+                    listOfNotNull(keywords?.let { Mechanic.GainAbilities(it.filterNotNull()) })
+                return listOf(Step.Do(Effect.ApplyMechanics(mechanics, arcanum.api.Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.EndOfTurn)))
+            }
+        }
+        SHUFFLE_INTO_OWNERS_LIBRARY.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(
+                Step.Do(Effect.Move(Objects.Self, Destination(Zone.Library))),
+                Step.Do(Effect.Shuffle(Players.OwnerOf(Objects.Self))))
+        }
+        DRAW_OR_DISCARD_X.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(if (m.groupValues[1] == "Draw") Effect.Draw(Players.You, Value.Announced()) else Effect.Discard(Players.You, Value.Announced())))
+        }
+        RETURN_ANY_NUMBER_OF_TARGETS_TO_HAND.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val filter = Filters.noun(noun) ?: return null
+            context.targets += TargetSlot(Filters.slotName(noun), TargetKind.Objects(filter), min = Value.Fixed(0), max = null)
+            return listOf(Step.Do(Effect.Move(Objects.Target(Filters.slotName(noun)), Destination(Zone.Hand))))
+        }
         PUT_FROM_HAND_ON_TOP.matchEntire(sentence)?.let { m ->
             val n = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             return listOf(
@@ -625,6 +688,14 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         return ManaKind.Choose(Value.Fixed(1), colors.map { ColorRef.Literal(it) })
     }
 
+    // chunk 12
+    /** "+3" → 3, "-1" → -1, "+X" → X, "-X" → −X. */
+    private fun ptChange(text: String): Value = when (text) {
+        "+X" -> Value.Announced()
+        "-X" -> Value.Times(Value.Announced(), -1)
+        else -> Value.Fixed(text.toInt())
+    }
+
     /** Sentences in order; a "Spend this mana only …" sentence stays with the mana it restricts. */
     private fun sentences(text: String): List<String> {
         val raw = SENTENCE_END.split(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }
@@ -723,6 +794,18 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
         val YOU_LOSE_LIFE = Regex("""You lose (\d+) life\.""")
         val ANY_COMBINATION = Regex("""(\w+) mana in any combination of colors""")
+        // chunk 12
+        const val DISCARDED = "discarded"
+        const val RETURNED = "returned"
+        val WHENEVER_THIS_TURN = Regex("""Whenever (.+) this turn, (.+)""")
+        val SEARCH_LIBRARY_AND_OR_GRAVEYARD = Regex("""Search your library and/or graveyard for (.+?) and put it onto the battlefield\.""")
+        val IF_X_AT_LEAST = Regex("""If X is (\d+) or more, (.+)""")
+        val GROUP_GETS_UNTIL_EOT = Regex("""(.+?) get ([+-](?:\d+|X))/([+-](?:\d+|X))(?: and gain (.+?))? until end of turn\.""")
+        val SHUFFLE_INTO_OWNERS_LIBRARY = Regex("""Shuffle (.+) into its owner's library\.""")
+        val DRAW_OR_DISCARD_X = Regex("""(Draw|Discard) X cards\.""")
+        val RETURN_ANY_NUMBER_OF_TARGETS_TO_HAND = Regex("""Return any number of target (.+) to their owners' hands\.""")
+        val CREATE_FOR_EACH_CARD_TYPE_DISCARDED = Regex("""Create (.+ token(?: with .+?)?) for each card type among cards discarded this way\.""")
+        val DRAW_FOR_EACH_RETURNED_TO_HAND = Regex("""Draw a card for each (.+) returned to your hand this way\.""")
     }
 }
 

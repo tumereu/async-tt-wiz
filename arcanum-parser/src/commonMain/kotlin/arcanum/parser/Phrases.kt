@@ -147,6 +147,12 @@ internal object Events {
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
         }
+        // chunk 12
+        // "you cast a creature spell": the event's object is always a spell, so the filter names only its kind.
+        YOU_CAST.matchEntire(text)?.let { m ->
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it) ?: return null } ?: ObjectFilter.Any
+            return EventPattern.Cast(spell = kind, by = PlayerFilter.You)
+        }
         return null
     }
 
@@ -167,6 +173,8 @@ internal object Events {
     private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
+    // chunk 12
+    private val YOU_CAST = Regex("""you cast an? (?:(.+) )?spell""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */

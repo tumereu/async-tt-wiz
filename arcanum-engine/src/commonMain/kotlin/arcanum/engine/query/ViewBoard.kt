@@ -47,6 +47,15 @@ internal object Lki {
         return null
     }
 
+    /** What [id] remembered (D41) as it last existed, once it has left its zone. */
+    fun memory(state: GameState, id: ObjectId): arcanum.engine.state.Bindings? {
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? Change.ZoneChange ?: continue
+            change.moves.firstOrNull { it.before.id == id }?.let { return it.before.memory }
+        }
+        return null
+    }
+
     /** The printed characteristics of [o] (no continuous effects): the fallback when a move kept no snapshot. */
     fun printed(o: arcanum.engine.state.GameObject): Characteristics? {
         val face = o.definition?.faces?.getOrNull(o.face) ?: return null

@@ -508,4 +508,23 @@ class CostsTest {
         assertTrue(d.suggestion.isEmpty())
         assertFailsWith<IllegalArgumentException> { alice.answers(Answer.ManaPayment(d.options)) }
     }
+
+    // CR 702.34a: flashback an effect granted to the card in the graveyard: still cast from there and exiled afterwards,
+    // though the card on the Stack is a new object (CR 400.7)
+    @Test
+    fun grantedFlashbackExiles() = scenario {
+        alice.battlefield("Mountain")
+        alice.graveyard("Storm Spark")
+        alice.hand("Echoflash Adept")
+        alice.castsWithoutCosts("Echoflash Adept")
+        resolve()
+        resolve()
+        alice.casts("Storm Spark", target = "bob")
+        assertEquals(Zone.Graveyard, facts("Storm Spark").castFrom)
+        allPass()
+        expect {
+            bob.life shouldBe 17
+            alice.exile has "Storm Spark"
+        }
+    }
 }

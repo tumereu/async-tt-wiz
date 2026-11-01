@@ -56,8 +56,9 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8), cancel;
   alternative costs and permissions (evoke, flashback, escape, overload, retrace, morph, "rather
   than pay"), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
-  mana abilities without the Stack, triggered mana abilities at once (CR 605.4a); special
-  actions (suspend, turning face up); combat:
+  mana abilities without the Stack (their other effects at once, a part needing a decision
+  by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
+  once (CR 605.4a); special actions (suspend, turning face up); combat:
   declarations with their restrictions, first/double strike steps, trample, deathtouch,
   lifelink, infect, wither, toxic, dividing damage. A spell becomes cast with the
   `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
@@ -67,7 +68,10 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   with new ids, last known information and "as enters" steps, damage with protection,
   prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
   deathtouch, lifelink, toxic and excess; life, counters, tapping, tokens (D35 ids), draws,
-  mills, discards, host-ordered shuffles (D25) and host fills (D60). Replacement effects
+  mills, discards (cards put into one library position together in their owner's order, CR
+  401.4), host-ordered shuffles (D25) and host fills (D60); mana costs paid while resolving
+  ("unless … pays", ward) with a payment decision, not asked when they can't be paid (CR
+  118.3). Replacement effects
   (CR 614, 616): own replacements first, control, copy, transformed, then the affected player's
   order when it matters; each once per event; "instead", modifications, optional ones, linked
   "when applied" triggers, one-use shields and regeneration (D26). Resolution (CR 608): target
@@ -92,7 +96,7 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs, battles as attack targets,
   splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
-  up, mana abilities' other effects (left as a `Manual` step). Also missing: text-changing
+  up. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only), the Inspect breakdown of where a value comes from.
 
@@ -122,6 +126,9 @@ choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanc
 `activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
 run resolution, state-based actions and triggers without priority. Every scenario checks D59:
 reverting all its changes restores the state after setup.
+
+`cube/Chunk*ScenariosTest.kt` play each invented cube card the way a player would (cast with its
+costs, abilities activated, triggers triggered) and check the outcome a Magic player expects.
 
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into
 `cards/CubeCardTexts.kt`; after the parser tests change, regenerate with

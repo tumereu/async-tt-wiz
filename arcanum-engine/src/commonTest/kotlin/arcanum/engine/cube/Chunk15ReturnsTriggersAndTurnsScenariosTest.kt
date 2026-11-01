@@ -203,13 +203,13 @@ class Chunk15ReturnsTriggersAndTurnsScenariosTest {
         assertEquals(setOf("Elvish Seer", "Elvish Hierophant", "Thicketwood Elves", "Shapeless Exile"),
             choice.options.map { id -> state.objOrThrow(id).definition!!.faces[0].name }.toSet())
         alice.chooses("Elvish Hierophant", "Shapeless Exile")
+        // The rest go to the bottom in the order alice chooses (CR 401.4)
+        alice.chooses("Island", "Deadly Plotting", "Thicketwood Elves", "Elvish Seer")
 
         expect {
             alice.battlefield has "Elvish Hierophant"
             alice.battlefield has "Shapeless Exile"
-            // The other four went under the Swamp
-            alice.library.names.first() shouldBe "Swamp"
-            alice.library.size shouldBe 5
+            alice.library.names shouldBe listOf("Swamp", "Island", "Deadly Plotting", "Thicketwood Elves", "Elvish Seer")
         }
     }
 
@@ -218,16 +218,16 @@ class Chunk15ReturnsTriggersAndTurnsScenariosTest {
     fun fleetingWhimPicksOne() = scenario {
         alice.battlefield("Island", "Island")
         alice.hand("Fleeting Whim")
-        alice.library("Forest", "Storm Spark", "Island", "Swamp", "Mountain")
+        alice.library("Forest", "Storm Spark", "Plains", "Swamp", "Mountain")
 
         alice.casts("Fleeting Whim")
         allPass()
         alice.chooses("Storm Spark")
+        alice.chooses("Swamp", "Forest", "Plains")
 
         expect {
             alice.hand.names shouldBe listOf("Storm Spark")
-            alice.library.names.first() shouldBe "Mountain"
-            alice.library.size shouldBe 4
+            alice.library.names shouldBe listOf("Mountain", "Swamp", "Forest", "Plains")
         }
     }
 

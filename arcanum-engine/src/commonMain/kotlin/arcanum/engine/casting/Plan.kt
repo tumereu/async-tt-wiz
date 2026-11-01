@@ -364,12 +364,30 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
             if (add.mana.kind !is ManaKind.Choose && add.mana.kind !is ManaKind.AsCouldProduce) return@forEachIndexed
             val key = "$COLOR$i"
-            if (choices.names[key] != null) return@forEachIndexed
-            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), names)
+            val chosen = (choices.names[key] as? NamedValue.Colors)?.colors.orEmpty()
+            // "In any combination of colors": a colour for each mana, else one for all of it
+            val combination = (add.mana.kind as? ManaKind.Choose)?.combination == true
+            if (choices.names[key] != null && !combination) return@forEachIndexed
+            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), manaNames())
+            if (combination && chosen.size >= yields.sumOf { it.amount }) return@forEachIndexed
             val among = yields.flatMap { it.colors }.filterNotNull().distinct()
             if (among.size > 1) return Question.ManaColor(key, among)
         }
         return null
+    }
+
+    /** [names] and the objects chosen for costs under the names they get as they were (`preBind`), before paying: what
+     * a mana ability's mana sees ("any type the sacrificed land could produce", CR 605.3b, 608.2h). */
+    fun manaNames(): Bindings = total.parts.fold(names) { b, kp ->
+        val pre = when (val part = kp.part) {
+            is CostPart.Sacrifice -> part.preBind
+            is CostPart.Discard -> part.preBind
+            is CostPart.Exile -> part.preBind
+            is CostPart.ReturnToHand -> part.preBind
+            else -> null
+        }
+        val chosen = choices.names[OBJECTS + kp.key] as? NamedValue.Objects
+        if (pre != null && chosen != null) b.with(pre, chosen) else b
     }
 
     /** The decision that asks [q]. */
@@ -423,20 +441,19 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             val source = p.source ?: return null
             val current = snap.state.obj(source)?.id ?: (source as? ObjectId.Card)?.card?.let { snap.state.current(it)?.id } ?: return null
             val inst = snap.view[current]?.characteristics?.abilities?.firstOrNull { it.origin == p.ability }
-            // A permission granted by an effect to the card where it was (flashback until end of turn) stays the
-            // permission it was cast with once the card is a new object on the Stack (CR 400.7, 601.2a)
-            val ability = inst?.ability ?: p.ability?.let { grantedAbility(snap, it) }
+            val ability = inst?.ability ?: p.ability?.let { grantedByEffect(snap, it) }
             val m = (ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.MayPlay>()?.firstOrNull() ?: return null
             return m to (inst?.origin ?: p.ability)
         }
 
-        /** The ability an effect object grants at [origin] (or an ability of a granted keyword's expansion). */
-        private fun grantedAbility(snap: Snapshot, origin: AbilityOrigin): Ability? = when (origin) {
-            is AbilityOrigin.FromEffect -> (snap.state.effects[origin.effect]?.mechanics?.getOrNull(origin.mechanic) as? Mechanic.GainAbilities)
-                ?.abilities?.getOrNull(origin.index)
-            is AbilityOrigin.Expansion -> (grantedAbility(snap, origin.keyword) as? Keyword)
-                ?.let { arcanum.api.KeywordExpansions.expand(it) }?.getOrNull(origin.index)
-            else -> null
+        /** A keyword an effect granted the card ("gains flashback until end of turn"): the card on the Stack is a new
+         * object the effect doesn't apply to (CR 400.7), so the permission is read from the effect itself. */
+        private fun grantedByEffect(snap: Snapshot, origin: AbilityOrigin): Ability? {
+            val expansion = origin as? AbilityOrigin.Expansion ?: return null
+            val from = expansion.keyword as? AbilityOrigin.FromEffect ?: return null
+            val gain = snap.state.effects[from.effect]?.mechanics?.getOrNull(from.mechanic) as? Mechanic.GainAbilities ?: return null
+            val keyword = gain.abilities.getOrNull(from.index) as? Keyword ?: return null
+            return arcanum.api.KeywordExpansions.expand(keyword)?.getOrNull(expansion.index)
         }
     }
 }

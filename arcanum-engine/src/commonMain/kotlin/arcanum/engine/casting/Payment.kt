@@ -66,7 +66,7 @@ internal object Payment {
         total.parts.forEach { payPart(recorder, plan, it, bound, snapshots) }
         val names = Bindings(bound)
         return when {
-            plan.isManaAbility -> finishManaAbility(recorder, plan, from)
+            plan.isManaAbility -> finishManaAbility(recorder, plan, names)
             plan.isSpecialAction -> finishSpecialAction(recorder, plan, from)
             plan.isSpell -> finishSpell(recorder, plan, names, snapshots, spent, paidWith)
             else -> finishAbility(recorder, plan, names, snapshots)
@@ -124,12 +124,12 @@ internal object Payment {
     }
 
     /**
-     * Pays [cost] with [uses] while something resolves (CR 608.2g, 118.12): mana abilities are activated first, then the
-     * pool's mana and life for Phyrexian symbols pay it all, or nothing is paid. Mana a source made beyond the cost stays
-     * in the pool (CR 106.4).
+     * Pays mana [cost] for [player] while a spell or ability resolves (CR 118.12, 608.2g): the mana abilities and pool
+     * mana [uses] names, life for Phyrexian symbols (CR 107.4f); refused unless it pays the whole cost (CR 118.3). The
+     * mana pays for no spell, so restricted mana can't be spent.
      */
     fun payOnResolution(recorder: Recorder, player: PlayerId, cost: ManaCost, uses: List<ManaUse>) {
-        if (uses.any { it is ManaUse.Special }) refuse("Only mana and life pay this")
+        if (uses.any { it is ManaUse.Special }) refuse("Only mana and life pay a cost while resolving")
         val poolBefore = recorder.state.player(player).manaPool
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
@@ -407,22 +407,43 @@ internal object Payment {
         recorder.record(Change.Facts(source, o.facts, o.facts.copy(activations = counts)))
     }
 
-    /** CR 605.3b: a mana ability resolves at once; what else it does beyond adding mana is left to the players. */
-    private fun finishManaAbility(recorder: Recorder, plan: Plan, from: Int): Progress {
+    /**
+     * CR 605.3b: a mana ability resolves at once. What else it does ("Each opponent gains 1 life", "draw a card") happens
+     * right after its mana is added, as resolution steps would (CR 608.2c); a part that would need a decision is left to
+     * the players.
+     */
+    private fun finishManaAbility(recorder: Recorder, plan: Plan, bound: Bindings): Progress {
         val ability = plan.ability as Ability.Activated
         val snap = recorder.snapshot()
         ability.instructions.steps.forEachIndexed { i, step ->
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
-            val color = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors?.firstOrNull()
-            val yields = Mana.yields(snap, plan.player, plan.sourceId, ability.copy(instructions = ability.instructions.copy(steps = listOf(step))), plan.names)
-            addMana(recorder, plan.player, yields.flatMap { Mana.units(it, color, plan.sourceId) })
+            val colors = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors.orEmpty()
+            val one = ability.copy(instructions = ability.instructions.copy(steps = listOf(step)))
+            // CR 608.2h: what a sacrificed or discarded object could produce is read as it last existed, before paying
+            val yields = if (add.mana.kind is arcanum.api.ManaKind.AsCouldProduce) Mana.yields(plan.snap, plan.player, plan.sourceId, one, plan.manaNames())
+                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names)
+            val combination = (add.mana.kind as? arcanum.api.ManaKind.Choose)?.combination == true
+            // In any combination of colours: one mana of each colour chosen
+            val units = if (combination && colors.size > 1) yields.flatMap { y -> colors.take(y.amount).flatMap { Mana.units(y.copy(amount = 1), it, plan.sourceId) } }
+                else yields.flatMap { Mana.units(it, colors.firstOrNull(), plan.sourceId) }
+            addMana(recorder, plan.player, units)
         }
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true)))
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)
         arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
         Casting.keepPriority(recorder, plan.player)
         val rest = ability.instructions.steps.filterNot { it is Step.Do && it.effect is Effect.AddMana }
-        return if (rest.isEmpty()) Progress.Done else manual(recorder, plan, ability.text ?: "Do the rest of the mana ability by hand")
+        if (rest.isEmpty()) return Progress.Done
+        val mark = recorder.changes.size
+        return try {
+            val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker.NONE)
+            val cause = arcanum.engine.action.Cause(plan.player, plan.sourceId, key = "mana:${plan.sourceId}:${recorder.state.nextTimestamp()}")
+            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, cause, plan.names.with(bound), null), rest)
+            Progress.Done
+        } catch (n: arcanum.engine.action.NeedDecision) {
+            recorder.rollback(mark)
+            manual(recorder, plan, ability.text ?: "Do the rest of the mana ability by hand")
+        }
     }
 
     /** CR 116.2: a special action happens at once; turning face up and moving itself are done here, the rest by hand. */

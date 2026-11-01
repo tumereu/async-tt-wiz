@@ -83,6 +83,8 @@ internal object Legality {
         return snap.view[card]?.mechanics.orEmpty().mapNotNull { applied ->
             val m = applied.mechanic as? Mechanic.MayPlay ?: return@mapNotNull null
             if (m.from != o.zone) return@mapNotNull null
+            // A card in a hand is cast by its owner (CR 601.2, "from their hand")
+            if (o.zone == Zone.Hand && o.owner != player) return@mapNotNull null
             if (kind == PlayKind.Play && m.how != PlayKind.Play) return@mapNotNull null
             val eval = snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player)
             if (!eval.matches(m.holder, player)) return@mapNotNull null
@@ -155,9 +157,18 @@ internal object Legality {
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CantCast ?: return@any false
             snap.evaluator(applied.controller, self = applied.source).let { e ->
-                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(m.spells, card)
+                e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(asSpell(m.spells), card)
             }
         }
+
+    /** CR 601.3: the card is tested as the spell it would become: "noncreature spells" match a noncreature card. */
+    private fun asSpell(filter: arcanum.api.ObjectFilter): arcanum.api.ObjectFilter = when (filter) {
+        is arcanum.api.ObjectFilter.Category ->
+            if (filter.category == arcanum.api.ObjectCategory.Spell) arcanum.api.ObjectFilter.Any else filter
+        is arcanum.api.ObjectFilter.And -> arcanum.api.ObjectFilter.And(filter.all.map { asSpell(it) })
+        is arcanum.api.ObjectFilter.Or -> arcanum.api.ObjectFilter.Or(filter.any.map { asSpell(it) })
+        else -> filter
+    }
 
     /** The alternative cost [way] names: its static ability and mechanic, when it exists and its condition holds (CR 118.9). */
     fun alternative(snap: Snapshot, card: ObjectId, way: CastWay): Pair<AbilityInstance, Mechanic.AlternativeCost>? {

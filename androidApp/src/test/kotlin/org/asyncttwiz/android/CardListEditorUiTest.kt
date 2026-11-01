@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.*
@@ -127,7 +128,7 @@ class CardListEditorUiTest {
     }
 
     // LOB-106, LOB-107
-    @Test fun searchAddsToTheChosenSectionChipsRemoveAndDoneKeepsTheChanges() {
+    @Test fun searchAddsToTheChosenSectionSquaresRemoveAndDoneKeepsTheChanges() {
         val editor = editor()
         connectSearch(editor, "Meadow Sentinel", "Rune Bear")
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
@@ -145,29 +146,30 @@ class CardListEditorUiTest {
         assertEquals(listOf("e c:g"), searched, "Typing and chips search once, after a short pause")
         compose.onNodeWithText("Done").assertIsDisplayed()
 
-        // Meadow Sentinel is already in Main ×4: its chip counts on from there.
-        compose.onNodeWithTag("search-count-Meadow Sentinel").assertTextEquals("×4")
+        // Meadow Sentinel is already in Main ×4: its Main square counts on from there; a card with no copies has no square.
+        compose.onNodeWithTag("search-count-Meadow Sentinel-main").assertTextEquals("4")
+        compose.onNodeWithTag("search-count-Rune Bear-main").assertDoesNotExist()
         compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("search-count-Rune Bear").assertTextEquals("×1")
+        compose.onNodeWithTag("search-count-Rune Bear-main").assertTextEquals("1")
         compose.onNodeWithText("Done · +1 card").assertIsDisplayed()
         compose.onNodeWithTag("search-result-Meadow Sentinel").performTouchInput { click() }
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("search-count-Meadow Sentinel").assertTextEquals("×5")
+        compose.onNodeWithTag("search-count-Meadow Sentinel-main").assertTextEquals("5")
         assertEquals("p-Rune Bear", editor.entries!!.last().printing.id)
         assertEquals(digest("Meadow Sentinel"), editor.entries!!.first { it.printing.name == "Meadow Sentinel" }.printing.id,
             "Another printing of a listed card adds to it")
 
-        // Switching the destination: chips follow the chosen section, other sections show as small counts.
+        // Switching the destination: taps add to Side, whose square appears beside Main's.
         compose.onNodeWithTag("destination-side").performClick()
-        compose.onNodeWithTag("search-count-Rune Bear").assertDoesNotExist()
-        compose.onNodeWithText("M1").assertIsDisplayed()
+        compose.onNodeWithTag("search-count-Rune Bear-main").assertTextEquals("1")
+        compose.onNodeWithTag("search-count-Rune Bear-side").assertDoesNotExist()
         compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
         compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("search-count-Rune Bear").assertTextEquals("×2").performClick()
+        compose.onNodeWithTag("search-count-Rune Bear-side").assertTextEquals("2").performClick()
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("search-count-Rune Bear").assertTextEquals("×1")
+        compose.onNodeWithTag("search-count-Rune Bear-side").assertTextEquals("1")
         compose.onNodeWithText("Done · +3 cards").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithTag("card-list-cards").assertIsDisplayed()
@@ -185,6 +187,108 @@ class CardListEditorUiTest {
         compose.runOnIdle { editor.exit(); editor.openEditor(detail) }
         assertEquals(DeckSection.MAINBOARD, editor.destination)
         assertFalse(editor.search.state.open)
+    }
+
+    // LOB-106: Main, Side and Maybe squares in that order, each only while its section holds copies; a tap on a square removes
+    // one copy from that section, whichever section is chosen.
+    @Test fun searchSquaresShowEachSectionInOrderAndRemoveFromTheirOwnSection() {
+        val editor = editor()
+        connectSearch(editor, "Rune Bear")
+        editor.search.open(CardListEdits.total(editor.entries!!))
+        editor.search.text("rune")
+        val bear = listOf(CatalogPrinting("p-Rune Bear", "Rune Bear", "NEW", "9", "English", "", null, false, emptyList(),
+            "{\"type\":\"Creature — Bear\"}"))
+        var entries = editor.entries!!
+        for ((section, copies) in listOf(DeckSection.MAYBEBOARD to 3, DeckSection.MAINBOARD to 1, DeckSection.SIDEBOARD to 2))
+            repeat(copies) { entries = CardListEdits.add(CardListKind.DECK, entries, bear, section).entries }
+        editor.applyCards(entries, metadata)
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
+        compose.mainClock.advanceTimeBy(500)
+        fun square(section: String) = compose.onNodeWithTag("search-count-Rune Bear-$section")
+        fun left(section: String) = square(section).fetchSemanticsNode().boundsInRoot.left
+        square("main").assertTextEquals("1"); square("side").assertTextEquals("2"); square("maybe").assertTextEquals("3")
+        assertTrue(left("main") < left("side") && left("side") < left("maybe"), "Main, Side, Maybe from the left")
+        val result = compose.onNodeWithTag("search-result-Rune Bear").fetchSemanticsNode().boundsInRoot
+        assertTrue(square("main").fetchSemanticsNode().boundsInRoot.let { it.left - result.left < 8 && result.bottom - it.bottom < 8 },
+            "Squares sit at the result's bottom left")
+
+        // Main is chosen; tapping the Maybe square still removes from Maybe.
+        square("maybe").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        square("maybe").assertTextEquals("2")
+        assertEquals(1, count(editor, "Rune Bear", DeckSection.MAINBOARD))
+        square("main").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        square("main").assertDoesNotExist()
+        assertTrue(left("side") < left("maybe"), "Side moves to the front when Main is empty")
+        square("side").performClick(); square("side").performClick()
+        compose.mainClock.advanceTimeBy(500)
+        square("side").assertDoesNotExist()
+        square("maybe").assertTextEquals("2")
+        assertEquals(0, count(editor, "Rune Bear", DeckSection.MAINBOARD))
+        assertEquals(0, count(editor, "Rune Bear", DeckSection.SIDEBOARD))
+        assertEquals(2, count(editor, "Rune Bear", DeckSection.MAYBEBOARD))
+    }
+
+    // LOB-106, DRF-003: a cube's results show only Main and Maybe squares; the chosen section's square counts up.
+    @Test fun cubeSearchSquaresShowMainAndMaybe() {
+        val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")))
+        val digest = DeckJson.digest(bear)
+        val saved = SavedCube(CubeSummary("cube", "Runes", "1", "now", "now", 2, maybeCopies = 1),
+            listOf(SavedCubeEntry(digest, 2), SavedCubeEntry(digest, 1, SavedDeckSection.MAYBEBOARD)))
+        val api = Proxy.newProxyInstance(Cubes::class.java.classLoader, arrayOf(Cubes::class.java)) { _, method, args ->
+            when (method.name) {
+                "readCube" -> saved
+                "cubeDefinitions" -> SubmittedDefinitions((args[2] as ReadCubeDefinitions).digests.map { SubmittedDefinition(it, bear) })
+                "close" -> Unit
+                else -> error("unused ${method.name}")
+            }
+        } as Cubes
+        val cubes = CubeController(api, { "token" }, { error("No lookup expected") }, { error("unused") }, Immediate, { it() })
+        cubes.open("cube"); cubes.edit()
+        try {
+            cubes.search.source = { _, _ -> CatalogCardSearch.Page("g", metadata,
+                listOf(CatalogCard("o-Rune Bear", "Rune Bear", listOf(printing("Rune Bear")))), null, 1) }
+            cubes.search.open(CardListEdits.total(cubes.entries!!))
+            cubes.search.text("rune")
+            compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { CubeScreen(cubes, null) } } }
+            compose.mainClock.advanceTimeBy(500)
+            fun square(section: String) = compose.onNodeWithTag("search-count-Rune Bear-$section")
+            square("main").assertTextEquals("2")
+            square("side").assertDoesNotExist()
+            square("maybe").assertTextEquals("1")
+            assertTrue(square("main").fetchSemanticsNode().boundsInRoot.left < square("maybe").fetchSemanticsNode().boundsInRoot.left)
+            compose.onNodeWithTag("destination-maybe").performClick()
+            compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
+            compose.mainClock.advanceTimeBy(500)
+            square("maybe").assertTextEquals("2")
+            square("main").performClick()
+            compose.mainClock.advanceTimeBy(500)
+            square("main").assertTextEquals("1")
+            compose.runOnIdle { assertEquals(listOf(DeckSection.MAINBOARD to 1, DeckSection.MAYBEBOARD to 2),
+                cubes.entries!!.map { it.section to it.quantity }) }
+        } finally { cubes.close() }
+    }
+
+    // LOB-107: colour and mana value chips are mana symbols; every chip is 32 dp tall and 4 dp from the next, rows too;
+    // a chosen chip shows as selected.
+    @Test fun searchChipsAreManaSymbols32DpTall4DpApart() {
+        val editor = editor()
+        connectSearch(editor)
+        editor.search.open(CardListEdits.total(editor.entries!!))
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
+        compose.mainClock.advanceTimeBy(500)
+        fun bounds(node: SemanticsNodeInteraction) = node.getUnclippedBoundsInRoot()
+        val colours = SearchColor.entries.map { compose.onNodeWithTag("search-colour-${it.label}") }
+        val values = SearchManaValue.entries.map { compose.onNodeWithTag("search-value-${it.label}") }
+        val types = SearchType.entries.map { compose.onNodeWithText(it.label) }
+        for (chip in colours + values + types) chip.assertHeightIsEqualTo(32.dp)
+        for (row in listOf(colours, values, types)) row.zipWithNext { a, b -> assertEquals(4.dp, bounds(b).left - bounds(a).right) }
+        assertEquals(4.dp, bounds(types.first()).top - bounds(colours.first()).bottom, "Rows 4 dp apart")
+        compose.onNodeWithContentDescription("Colour G").assertIsNotSelected().performClick().assertIsSelected()
+        compose.onNodeWithContentDescription("Mana value 6+").performScrollTo().performClick().assertIsSelected()
+        assertEquals(setOf(SearchColor.G), editor.search.state.colors)
+        assertEquals(setOf(SearchManaValue.SIX), editor.search.state.values)
     }
 
     // LOB-063, LOB-107: adding past the limit is refused with a reason.

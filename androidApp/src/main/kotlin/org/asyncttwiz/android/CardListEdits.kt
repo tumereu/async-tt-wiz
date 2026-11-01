@@ -37,10 +37,6 @@ internal fun SavedDeckSection.sectionLabel() = when (this) {
 internal fun SavedDeckSection.shortLabel() = when (this) {
     SavedDeckSection.MAINBOARD -> "Main"; SavedDeckSection.SIDEBOARD -> "Side"; SavedDeckSection.MAYBEBOARD -> "Maybe"
 }
-/** The letter of the small other-section counts on search results ("S2"). */
-internal fun SavedDeckSection.countLetter() = when (this) {
-    SavedDeckSection.MAINBOARD -> "M"; SavedDeckSection.SIDEBOARD -> "S"; SavedDeckSection.MAYBEBOARD -> "Mb"
-}
 
 /** Why an edit was refused, in player words; null when it was applied. */
 internal class CardListEditResult(val entries: List<ResolvedDeckEntry>, val refused: String? = null)

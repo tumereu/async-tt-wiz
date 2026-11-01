@@ -1,1 +1,1 @@
-Landscape Add cards search page of the Training deck editor: rune with the Creature chip, picture results with ×N chips for Main and small counts for other sections, the Main | Side | Maybe destination on Main and Done · +3 cards.
+Landscape Add cards search page of the Training deck editor: rune with the G mana symbol, generic 2 and Creature chips chosen, picture results with green Main, blue Side and amber Maybe count squares at their bottom left (Rune Bear 2 Main and 1 Maybe), the Main | Side | Maybe destination on Main and Done · +4 cards.

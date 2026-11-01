@@ -17,8 +17,9 @@ sealed class Color(val symbol: Char) {
     data object Green : Color('G')
 
     companion object {
-        /** All five, in the order W U B R G. */
-        val all: List<Color> = listOf(White, Blue, Black, Red, Green)
+        /** All five, in the order W U B R G. Built on first use: a colour object touched before this class is
+         * initialised would otherwise be missing from it (a class-initialisation cycle). */
+        val all: List<Color> by lazy { listOf(White, Blue, Black, Red, Green) }
         fun of(symbol: Char): Color? = all.firstOrNull { it.symbol == symbol }
     }
 }

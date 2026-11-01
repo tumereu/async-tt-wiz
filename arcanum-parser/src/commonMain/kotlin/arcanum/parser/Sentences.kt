@@ -1582,7 +1582,7 @@ internal class Sentences(
             val name = Filters.slotName(noun)
             val upTo = m.groupValues[1] == "Up to one target"
             context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(if (upTo) 0 else 1))
-            val color = BECOME_COLORS[m.groupValues[5]]?.let { Color.of(it) } ?: return null
+            val color = BECOME_COLORS[m.groupValues[5]] ?: return null
             val subtype = m.groupValues[6].takeIf { it in RulesWords.subtypes } ?: return null
             val keywords = m.groupValues[7].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
             val mechanics = listOf<Mechanic>(
@@ -1893,8 +1893,7 @@ internal class Sentences(
         val TRANSFORM = Regex("""Transform (.+)\.""")
         val RETURN_ALL_TO_HANDS = Regex("""Return all (.+) to their owners' hands\.""")
         val BECOMES_CREATURE = Regex("""(Up to one target|Target) (.+?) becomes an? (\d+)/(\d+) (\w+) (\w+) creature(?: with (.+?))? in addition to its other types\.""")
-        // Letters, not Color objects: Color's subclasses must not be touched before Color itself is initialised.
-        val BECOME_COLORS = mapOf("white" to 'W', "blue" to 'U', "black" to 'B', "red" to 'R', "green" to 'G')
+        val BECOME_COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
         val IF_CONDITION = Regex("""If (.+?), (.+)\.""")
         val IT_HAS_NO_COUNTERS = Regex("""it has no (\S+) counters on it""")
     }

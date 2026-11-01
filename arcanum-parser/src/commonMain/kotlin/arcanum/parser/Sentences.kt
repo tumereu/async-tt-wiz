@@ -338,8 +338,8 @@ internal class Sentences(
                 EventPattern.CountersPut(on, kind, causedBy = ObjectFilter.AbilityOf(arcanum.api.AbilityKind.Triggered, keyword = keyword)),
                 modify = listOf(Modification.AddAmount(Value.Fixed(plus))))), affects = Affected.Objects(Objects.Self))
         }
-        // chunk 41: "This creature can't block."
-        SELF_CANT_BLOCK.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+        // chunks 35, 41: "This creature can't block.", "This token can't block."
+        CANT_BLOCK.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any)), affects = Affected.Objects(Objects.Self))
         }
         // chunk 42: "This creature gets +2/+2 as long as there are three or more land cards in your graveyard."
@@ -384,10 +384,6 @@ internal class Sentences(
         POWER_IS_EQUAL_TO.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val value = selfValue(m.groupValues[2]) ?: return null
             return Ability.Static(listOf(Mechanic.SetPowerToughness(value, null)), characteristicDefining = true, affects = Affected.Objects(Objects.Self))
-        }
-        // chunk 35: "This token can't block."
-        CANT_BLOCK.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
-            return Ability.Static(listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any)), affects = Affected.Objects(Objects.Self))
         }
         // chunk 36: "This creature attacks each combat if able." (a requirement, CR 508.1d)
         ATTACKS_EACH_COMBAT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
@@ -1982,6 +1978,7 @@ internal class Sentences(
             context.it = Objects.Bound("revealed")
             return listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true), bind = "revealed")))
         }
+        // chunk 21: "If it's a land card, create a Treasure token."
         IF_ITS_A.matchEntire(sentence)?.let { m ->
             val it = context.it ?: return null
             val filter = Filters.noun(m.groupValues[1]) ?: return null
@@ -2095,13 +2092,6 @@ internal class Sentences(
                 Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1), from = Objects.Remembered(EXILED_WITH)), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Graveyard), postBind = "moved")))
         }
-        // chunk 21: "If it's a land card, create a Treasure token."
-        IF_ITS.matchEntire(sentence)?.let { m ->
-            val moved = context.it ?: return null
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
-            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
-            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(moved, filter), then = then))
-        }
         // chunk 21: "Exile that card from your graveyard." (a discarded card; nothing happens if it has left)
         if (sentence == "Exile that card from your graveyard.") {
             val that = context.that ?: return null
@@ -2212,8 +2202,8 @@ internal class Sentences(
                 Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))
             return listOf(Step.Do(Effect.ApplyMechanics(mechanics, arcanum.api.Affected.Objects(Objects.Target(name)), arcanum.api.Duration.Indefinitely)))
         }
-        // chunk 31: "You may exile it. When you do, [reflexive trigger]." (CR 603.12)
-        YOU_MAY_COST_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
+        // chunks 31, 47: "You may exile it. When you do, [reflexive trigger]." (CR 603.12)
+        YOU_MAY_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
             costPart(m.groupValues[1].replaceFirstChar { it.uppercase() })?.let { parts ->
                 val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
                 return listOf(Step.Pay(Cost(parts), bind = "paid", payer = Players.You),
@@ -2429,13 +2419,6 @@ internal class Sentences(
             context.targets += TargetSlot("player", TargetKind.Players(filter), min = Value.Fixed(1), max = Value.Fixed(1))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantCast(spells)),
                 arcanum.api.Affected.Players(Players.Target("player")), arcanum.api.Duration.UntilYourNextTurn)))
-        }
-        // chunk 47: "You may discard a card. When you do, [reflexive ability]" (CR 603.12)
-        YOU_MAY_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
-            val cost = costPart(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
-            val reflexive = instructions(m.groupValues[2]) ?: return null
-            return listOf(Step.Pay(Cost(cost), bind = "paid", payer = Players.You),
-                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
         }
         // chunks 52, 56: "If [condition], [effect]." (checked as it resolves)
         IF_CONDITION.matchEntire(sentence)?.let { m ->
@@ -3079,7 +3062,6 @@ internal class Sentences(
         val PUT_COUNTERS = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+)\.""")
         val WHEN_EXILED_THIS_WAY = Regex("""When an? (.+) is exiled this way, (.+)""")
         val PUT_EXILED_WITH_INTO_GRAVEYARD = Regex("""Put an? (.+?) exiled with (.+) into its owner's graveyard\.""")
-        val IF_ITS = Regex("""If it's an? (.+?), (.+)""")
         val THAT_CONTROLLER_CREATES = Regex("""That \w+'s controller creates (.+ tokens?)\.""")
         val GAIN_LIFE_FOR_EACH_SPELL_CAST = Regex("""(.+) gains? (\d+) life for each spell you've cast this turn\.""")
         val OPPONENT_GAINS_CONTROL = Regex("""An opponent gains control of (.+)\.""")
@@ -3093,7 +3075,7 @@ internal class Sentences(
         val LOSE_LIFE_AND_YOU_GAIN = Regex("""(Each opponent|Each player) loses (\d+) life(?: and you gain (\d+) life)?\.""")
         val PLAYERS_DISCARD = Regex("""(Each opponent|Each player) discards (\w+) cards?\.""")
         // chunk 31
-        val YOU_MAY_COST_WHEN_YOU_DO = Regex("""You may (.+?)\. When you do, (.+)""")
+        val YOU_MAY_WHEN_YOU_DO = Regex("""You may (.+?)\. When you do, (.+)""")
         val PUT_IT = Regex("""Put (?:it|that card) (onto the battlefield|into your hand)\.""")
         val LOOK_OR_REVEAL_TOP = Regex("""(Look at|Reveal) the top (\w+) cards of your library\.""")
         val MAY_FROM_AMONG_INTO_HAND = Regex("""You may (reveal|put) an? (.+?) from among them (?:and put it )?into your hand\.""")
@@ -3143,7 +3125,6 @@ internal class Sentences(
         val GAINS_PROTECTION_OF_CHOICE = Regex("""(Another target|Target) (.+) gains protection from (colorless or from )?the color of your choice until end of turn\.""")
         val CHANGE_A_TARGET_TO = Regex("""Change a target of target (.+) to (.+)\.""")
         // chunk 41
-        val SELF_CANT_BLOCK = Regex("""(.+) can't block\.""")
         val COUNTER_ON = Regex("""(\S+) counter on (.+)""")
         val CHOOSE_TARGET_AND_CARD_IN_THAT_GRAVEYARD = Regex("""Choose target (.+?) a player controls and target (.+?) in that player's graveyard\.""")
         val BOTH_LEGAL_SACRIFICE_AND_RETURN = Regex("""If both targets are still legal as this ability resolves, that player simultaneously sacrifices the \w+ and returns the [\w ]+ to the battlefield\.""")
@@ -3222,7 +3203,6 @@ internal class Sentences(
         val RETURN_THAT_TO_OWNERS_HAND = Regex("""Return that (?:spell|card|creature|permanent) to its owner's hand\.""")
         val COPY_THAT_SPELL = Regex("""Copy that spell(?:, and you may choose new targets for the copy)?\.""")
         val UNLESS_THAT_PLAYER_PAYS = Regex("""(.+?) unless that player pays (\{[^}]+\}(?:\{[^}]+\})*)(?:, where X is (.+?))?\.""")
-        val YOU_MAY_WHEN_YOU_DO = Regex("""You may (.+?)\. When you do, (.+)""")
         // chunk 50
         val NTH_SPELL_IF = Regex("""if it's the (\w+) (.+?) spell you cast this turn, (.+)""")
         val NTH_CARD_DRAWN = Regex("""you draw your (\w+) card (?:in a|each) turn""")

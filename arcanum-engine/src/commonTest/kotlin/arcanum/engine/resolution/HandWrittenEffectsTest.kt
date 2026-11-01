@@ -236,14 +236,15 @@ class HandWrittenEffectsTest {
     fun removeAllDamage() = scenario {
         /** "Remove all damage marked on target creature." */
         val card = spell("Test Mend", Effect.RemoveAllDamage(targeted("creature")).step(), targets = listOf(slot("creature")))
-        alice.hand("Storm Spark", card)
+        alice.hand("Magma Needle", card)
         bob.battlefield("Elvish Hierophant")
-        bob.battlefield("Elvish Seer")
 
-        alice.castsWithoutCosts(card, target = "Elvish Hierophant")
-        alice.castsWithoutCosts("Storm Spark", target = "Elvish Hierophant")
+        alice.castsWithoutCosts("Magma Needle", target = "Elvish Hierophant")
         resolve()
-        expect { bob.graveyard has "Elvish Hierophant" }
+        expect { "Elvish Hierophant".view.obj!!.damage shouldBe 1 }
+        alice.castsWithoutCosts(card, target = "Elvish Hierophant")
+        resolve()
+        expect { "Elvish Hierophant".view.obj!!.damage shouldBe 0 }
     }
 
     // CR 706, D25: the host rolls the die; the result is bound

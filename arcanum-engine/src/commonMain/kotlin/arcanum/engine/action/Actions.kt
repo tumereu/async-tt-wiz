@@ -461,7 +461,13 @@ internal object Actions {
     // ---- Tapping (CR 701.26)
 
     fun tap(act: Act, ids: List<ObjectId>, tapped: Boolean, meanings: List<Meaning> = emptyList()): List<ObjectId> =
-        ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && act.obj(it)?.tapped != tapped }.onEach {
+        ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && act.obj(it)?.tapped != tapped }.filter {
+            // CR 122.1d: a permanent with a stun counter that would become untapped loses a stun counter instead
+            if (tapped || act.obj(it)!!.counters(CounterKind.Stun) == 0) true else {
+                act.record(Changes.counters(act.state, TargetRef.Object(it), CounterKind.Stun, -1))
+                false
+            }
+        }.onEach {
             act.record(Changes.tap(act.state, it, tapped, meanings))
         }
 

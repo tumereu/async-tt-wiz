@@ -342,4 +342,14 @@ class ActivationTest {
         answer(Answer.Done)
         assertEquals(null, pending)
     }
+
+    // CR 608.2h: a creature sacrificed as a cost is known as it last was on the battlefield (anthem included)
+    @Test
+    fun sacrificedCreatureKeepsItsLastKnownPower() = scenario {
+        alice.battlefield("Shrine of Oblivion", "Elvish Hierophant", "Elvish Seer")
+        bob.library("Forest", "Island", "Swamp")
+        alice.activates("Shrine of Oblivion", target = "bob", choosing = listOf("Elvish Seer"))
+        allPass()
+        expect { bob.graveyard.size shouldBe 2 }
+    }
 }

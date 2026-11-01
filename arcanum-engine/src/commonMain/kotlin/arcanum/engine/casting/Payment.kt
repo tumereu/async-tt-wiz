@@ -203,7 +203,9 @@ internal object Payment {
         }
         fun move(ids: List<ObjectId>, to: Zone, meanings: List<Meaning>, preBind: String?, postBind: String?) {
             ids.forEach { snap.snapshot(it)?.let { lki -> snapshots += lki } }
-            recorder.record(Changes.move(recorder.state, ids, to, meanings = meanings))
+            // With what was seen of each as it left (CR 608.2h): its last known power, not its printed one
+            val zc = Changes.move(recorder.state, ids, to, meanings = meanings)
+            recorder.record(zc.copy(moves = zc.moves.map { m -> m.copy(seen = snap.snapshot(m.before.id)) }))
             preBind?.let { bound[it] = NamedValue.Objects(ids) }
             postBind?.let { bound[it] = NamedValue.Objects(ids.map { id -> (id as ObjectId.Card).next() }) }
         }

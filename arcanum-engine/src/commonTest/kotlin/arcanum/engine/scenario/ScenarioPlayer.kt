@@ -230,7 +230,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
                 is Decision.ChooseObjects -> if (objects.isEmpty()) null
                     else Answer.Objects(List(minOf(objects.size, d.max ?: objects.size)) { scenario.card(objects.removeFirst()) })
                 is Decision.ChooseColor -> color?.let { Answer.ColorChoice(it) }
-                is Decision.ManaPayment -> if (paying != null) Answer.ManaPayment(paying.map { manaUse(it, d) })
+                is Decision.ManaPayment -> if (paying != null) Answer.ManaPayment(paying.fold(emptyList()) { uses, name -> uses + manaUse(name, d, uses) })
                     else d.suggestion.takeIf { it.isNotEmpty() }?.let { Answer.ManaPayment(it) }
                 else -> null
             } ?: return outcome
@@ -238,9 +238,13 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         }
     }
 
-    private fun manaUse(name: String, decision: Decision.ManaPayment): ManaUse {
+    /** The use of the source named [name] for [decision]: a name given again means the next card of that name, not one
+     * of the [taken] ones. */
+    private fun manaUse(name: String, decision: Decision.ManaPayment, taken: List<ManaUse> = emptyList()): ManaUse {
         val color = name.substringAfter(':', "").singleOrNull()?.let { arcanum.api.Color.of(it) }
-        val source: ObjectId = scenario.card(name.substringBefore(':'))
+        val used = taken.flatMap { u -> listOfNotNull((u as? ManaUse.Ability)?.source) + ((u as? ManaUse.Special)?.objects ?: emptyList()) }
+        val source: ObjectId = (0 until 50).asSequence().map { runCatching { scenario.card(name.substringBefore(':'), it) }.getOrNull() }
+            .takeWhile { it != null }.filterNotNull().firstOrNull { it !in used } ?: scenario.card(name.substringBefore(':'))
         return decision.options.filterIsInstance<ManaUse.Ability>().firstOrNull { it.source == source && (color == null || it.color == color) }
             ?: decision.options.filterIsInstance<ManaUse.Special>().firstOrNull { it.objects == listOf(source) }
             ?: fail("$name can't pay for ${decision.cost}")

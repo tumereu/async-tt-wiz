@@ -196,6 +196,22 @@ class EffectsTest {
         }
     }
 
+    // CR 701.25a: the cards surveil keeps on top go back in the order their owner chooses
+    @Test
+    fun surveilKeepsCardsOnTopInTheChosenOrder() = scenario {
+        alice.hand("Deathless Savant")
+        alice.library("Forest", "Island", "Swamp")
+
+        alice.castsWithoutCosts("Deathless Savant")
+        resolve()
+        // Its enters trigger: surveil 2, keeping both
+        resolve()
+        answer(Answer.Objects(emptyList()))
+        alice.chooses("Island", "Forest")
+
+        expect { alice.library.names shouldBe listOf("Island", "Forest", "Swamp") }
+    }
+
     // CR 701.23a, 701.24: search, then shuffle (the host orders the library, D25)
     @Test
     fun searchForACardThenShuffle() = scenario {
@@ -227,6 +243,25 @@ class EffectsTest {
             alice.library.names.first() shouldBe "Swamp"
             alice.library.size shouldBe 3
             alice.life shouldBe 18
+        }
+    }
+
+    // CR 401.4: cards looked at on top of a library and put on its bottom together go below the cards left in it, in
+    // the order their owner chooses
+    @Test
+    fun lookedAtCardsGoToTheBottomInTheOwnersOrder() = scenario {
+        alice.hand("Delve Through Ages")
+        alice.library("Forest", "Island", "Swamp", "Mountain", "Plains", "Denial", "Storm Spark", "Cinder Bolt")
+
+        alice.castsWithoutCosts("Delve Through Ages")
+        resolve()
+        alice.chooses("Forest", "Island")
+        assertEquals(alice.id, decision<Decision.ChooseObjects>().player)
+        alice.chooses("Storm Spark", "Denial", "Plains", "Mountain", "Swamp")
+
+        expect {
+            alice.hand.names shouldBe listOf("Forest", "Island")
+            alice.library.names shouldBe listOf("Cinder Bolt", "Storm Spark", "Denial", "Plains", "Mountain", "Swamp")
         }
     }
 
@@ -395,6 +430,7 @@ class EffectsTest {
     // CR 118.12a, D52: "unless its controller pays": declining means it is countered
     @Test
     fun counterUnlessPaysAndTheyDecline() = scenario {
+        alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         bob.hand("Mana Levy")
 
@@ -410,9 +446,10 @@ class EffectsTest {
         }
     }
 
-    // CR 118.12a: paying (by hand until mana payment exists) keeps the spell
+    // CR 118.12a, 608.2g: paying (with a mana ability activated while paying) keeps the spell
     @Test
     fun counterUnlessPaysAndTheyPay() = scenario {
+        alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         bob.hand("Mana Levy")
 
@@ -420,12 +457,31 @@ class EffectsTest {
         bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
         resolve()
         answer(Answer.YesNo(true))
-        decision<Decision.Manual>()
-        answer(Answer.Done)
+        assertEquals("{1}", decision<Decision.ManaPayment>().cost.toString())
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
 
-        expect { stack.names shouldBe listOf("Storm Spark") }
+        expect {
+            stack.names shouldBe listOf("Storm Spark")
+            "Mountain".tapped shouldBe true
+        }
         resolve()
         expect { bob.life shouldBe 17 }
+    }
+
+    // CR 118.3: a player without the mana can't pay: the spell is countered without asking
+    @Test
+    fun counterUnlessPaysWithoutMana() = scenario {
+        alice.hand("Storm Spark")
+        bob.hand("Mana Levy")
+
+        alice.castsWithoutCosts("Storm Spark", target = "bob")
+        bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
+        resolve()
+
+        expect {
+            alice.graveyard has "Storm Spark"
+            stack.isEmpty()
+        }
     }
 
     // CR 707.10: a copy of a spell is put on the Stack, and its controller may choose new targets

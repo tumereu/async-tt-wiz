@@ -70,7 +70,8 @@ object Changes {
                     else ObjectFacts(),
             )
             val fromIndex = scratch.zone(before.zone, before.owner).indexOf(id)
-            val target = scratch.zone(to, after.owner)
+            // Positions count without the object itself: it leaves its zone first (to the bottom of its own library)
+            val target = scratch.zone(to, after.owner).filter { it != id }
             val toIndex = when (position) {
                 Position.Top -> if (to == Zone.Library) 0 else target.size
                 Position.Bottom -> target.size

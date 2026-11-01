@@ -36,6 +36,13 @@ internal object Filters {
      */
     fun noun(phrase: String): ObjectFilter? {
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
+        // chunk 21: "creatures you control with +1/+1 counters on them"
+        WITH_COUNTERS.matchEntire(phrase)?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(kind))
+        }
+        // chunk 20: "artifact and/or enchantment" is either of them
+        if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
             val value = if (m.groupValues[2] == "X") Value.Announced() else Value.Fixed(m.groupValues[2].toInt())
             val comparison = if (m.groupValues[3].isEmpty()) arcanum.api.Comparison.Equal else arcanum.api.Comparison.AtMost
@@ -57,6 +64,12 @@ internal object Filters {
             val zone = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { if (it == " in each graveyard") ObjectFilter.InZone(Zone.Graveyard) else return null }
             return listOfNotNull(ObjectFilter.Named(m.groupValues[1]), zone).let { it.singleOrNull() ?: all(*it.toTypedArray()) }
         }
+        // chunk 20: "1/1 creature": power and toughness as printed in the phrase
+        WITH_POWER_TOUGHNESS.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[3]) ?: return null,
+                ObjectFilter.Power(arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[1].toInt())),
+                ObjectFilter.Toughness(arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[2].toInt())))
+        }
         // "artifact, enchantment, or nonbasic land": alternatives. "nonartifact, nonland card": all of them.
         if (phrase.contains(" or ")) {
             val list = phrase.split(Regex(""",? or |, """)).filter { it.isNotEmpty() }
@@ -77,7 +90,8 @@ internal object Filters {
 
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
     fun slotName(phrase: String): String {
-        val core = (CONTROLLED.matchEntire(phrase)?.groupValues?.get(1) ?: phrase).substringBefore(" with ")
+        // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
+        val core = phrase.substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 
@@ -134,11 +148,48 @@ internal object Filters {
         "instant" to CardType.Instant, "land" to CardType.Land, "planeswalker" to CardType.Planeswalker, "sorcery" to CardType.Sorcery,
         "battle" to CardType.Battle)
     private val SUPERTYPES = mapOf("basic" to Supertype.Basic, "legendary" to Supertype.Legendary, "snow" to Supertype.Snow)
+    // chunk 20
+    private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
+    // chunk 21
+    private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
 }
 
 /** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
 internal object Events {
+    /** One or more events of one trigger ("this artifact enters or leaves the battlefield", "attacks or blocks"). */
+    // chunk 21
+    fun events(text: String, self: Set<String>): List<EventPattern>? {
+        ENTERS_OR_LEAVES.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            val second = if (m.groupValues[2] == "leaves the battlefield") EventPattern.ZoneChange(subject, from = Zone.Battlefield)
+                else EventPattern.ZoneChange(subject, from = Zone.Battlefield, to = Zone.Graveyard)
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), second)
+        }
+        ATTACKS_OR_BLOCKS.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.Attack(subject), EventPattern.Block(subject))
+        }
+        return event(text, self)?.let(::listOf)
+    }
+
     fun event(text: String, self: Set<String>): EventPattern? {
+        // chunk 20
+        DIES.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+        }
+        BECOMES_UNATTACHED.matchEntire(text)?.let { m ->
+            val from = Filters.noun(m.groupValues[2]) ?: return null
+            return EventPattern.Unattach(subject(m.groupValues[1], self) ?: return null, from = from)
+        }
+        // chunk 21
+        YOU_CAST.matchEntire(text)?.let { m ->
+            val spell = if (m.groupValues[1] == "spell") ObjectFilter.Any else Filters.noun(m.groupValues[1]) ?: return null
+            return EventPattern.Cast(spell, by = PlayerFilter.You)
+        }
+        YOU_DISCARD.matchEntire(text)?.let { m ->
+            val cards = if (m.groupValues[1] == "card") ObjectFilter.Any else Filters.noun(m.groupValues[1]) ?: return null
+            return EventPattern.Discard(cards, players = PlayerFilter.You)
+        }
         BEGINNING_OF_YOUR.matchEntire(text)?.let { m ->
             val step = STEPS[m.groupValues[1]] ?: return null
             return EventPattern.StepBegins(step, PlayerFilter.You)
@@ -150,9 +201,12 @@ internal object Events {
         return null
     }
 
-    /** "this land", "this land or another land you control". */
+    /** "this land", "this land or another land you control", "equipped creature", "a nontoken creature". */
     private fun subject(text: String, self: Set<String>): ObjectFilter? {
         if (text in self || text.replaceFirstChar { it.lowercase() } in self) return ObjectFilter.Is(Objects.Self)
+        // chunk 20
+        if (text == "equipped creature" || text == "enchanted creature") return ObjectFilter.Is(Objects.AttachedTo())
+        A_NOUN.matchEntire(text)?.let { m -> return Filters.noun(m.groupValues[1]) }
         SELF_OR_ANOTHER.matchEntire(text)?.let { m ->
             if (m.groupValues[1] !in self) return null
             val other = Filters.noun(m.groupValues[2]) ?: return null
@@ -167,6 +221,15 @@ internal object Events {
     private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
+    // chunk 20
+    private val DIES = Regex("""(.+) dies""")
+    private val BECOMES_UNATTACHED = Regex("""(.+) becomes unattached from an? (.+)""")
+    private val A_NOUN = Regex("""an? (.+)""")
+    // chunk 21
+    private val ENTERS_OR_LEAVES = Regex("""(.+) enters or (leaves the battlefield|is put into a graveyard from the battlefield)""")
+    private val ATTACKS_OR_BLOCKS = Regex("""(.+) attacks or blocks""")
+    private val YOU_CAST = Regex("""you cast an? (.+)""")
+    private val YOU_DISCARD = Regex("""you discard an? (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -181,6 +244,16 @@ internal object Conditions {
         if (text == "a permanent left the battlefield under your control this turn")
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(
                 ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), ObjectFilter.ControlledBy(PlayerFilter.You))), from = Zone.Battlefield))
+        // chunk 21
+        SELF_IS_UNTAPPED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)))
+        }
+        // chunk 20: "the sacrificed creature's toughness was 4 or greater" (its last known information, CR 608.2h)
+        SACRIFICED_AT_LEAST.matchEntire(text)?.let { m ->
+            val n = Value.Fixed(m.groupValues[3].toInt())
+            val filter = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
+            return Condition.ObjectMatches(Objects.Bound(SACRIFICED), filter)
+        }
         SELF_IS_TAPPED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
         }
@@ -207,7 +280,15 @@ internal object Conditions {
     private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")
     private val CONTROL_N_OR_MORE = Regex("""you control (\w+) or more (\w+)""")
     private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different names""")
+    // chunk 20
+    private val SACRIFICED_AT_LEAST = Regex("""the sacrificed (\w+)'s (power|toughness) was (\d+) or greater""")
+    // chunk 21
+    private val SELF_IS_UNTAPPED = Regex("""(.+) is untapped""")
 }
+
+/** The name a sacrifice cost gives the sacrificed object when the effect reads it ("the sacrificed creature's power"). */
+// chunk 20
+internal const val SACRIFICED = "sacrificed"
 
 /** Token descriptions ("a 2/2 black Zombie creature token", CR 111.4). */
 internal object Tokens {
@@ -226,7 +307,8 @@ internal object Tokens {
 
     fun defined(text: String): TokenSpec.Defined? {
         val m = TOKEN.matchEntire(text) ?: return null
-        val colors = m.groupValues[2].split(" and ").map { COLORS[it] ?: return null }
+        // chunk 21: "colorless" has no colour indicator colours
+        val colors = if (m.groupValues[2] == "colorless") emptyList() else m.groupValues[2].split(" and ").map { COLORS[it] ?: return null }
         val types = mutableListOf<CardType>()
         val subtypes = mutableListOf<Subtype>()
         for (word in m.groupValues[3].split(' ')) {

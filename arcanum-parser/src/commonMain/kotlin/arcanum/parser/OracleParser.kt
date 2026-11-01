@@ -38,14 +38,18 @@ object OracleParser {
 
     fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
 
-    /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]". */
+    /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
+     * ("this Equipment", "this Vehicle"). */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =
         setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
-            listOf("this card", "this permanent", "this spell")
+            listOf("this card", "this permanent", "this spell") +
+            // chunk 20
+            face.subtypes.map { "this " + it.name }
 
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
-        val sentences = Sentences(self, isSpell)
+        // chunk 21: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
+        val sentences = Sentences(self, isSpell, linksExiled = self.any { text.contains("exiled with $it") })
         val result = mutableListOf<Ability>()
         val raws = mutableListOf<String>()
         val lines = text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }
@@ -69,6 +73,15 @@ object OracleParser {
                 result += if (modes != null) Ability.Spell(arcanum.api.Instructions(modes = modes))
                     else Ability.Unparsed((listOf(raw) + modeLines.map { "• $it" }).joinToString("\n"))
                 raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                continue
+            }
+            // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
+            if (!isSpell && line.endsWith(" —") && i < lines.size && lines[i].startsWith("• ")) {
+                val modeLines = mutableListOf<String>()
+                while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
+                val printed = (listOf(raw.trim()) + modeLines.map { "• $it" }).joinToString("\n")
+                result += sentences.modalTrigger(line, modeLines) ?: Ability.Unparsed(printed)
+                raws += printed
                 continue
             }
             val previous = result.lastOrNull()

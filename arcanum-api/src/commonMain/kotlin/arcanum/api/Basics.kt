@@ -51,6 +51,9 @@ sealed interface Zone {
     @Serializable @SerialName("exile") data object Exile : Zone
     @Serializable @SerialName("stack") data object Stack : Zone
     @Serializable @SerialName("command") data object Command : Zone
+    /** Outside the game (sideboard, companion). Not a zone in the rules (CR 400.11); listed so abilities and moves can
+     * name it. */
+    @Serializable @SerialName("outside") data object Outside : Zone
 }
 
 /** Steps of a turn (CR 500–514). Main phases are listed as steps for simplicity. */

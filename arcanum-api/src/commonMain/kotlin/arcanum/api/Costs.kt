@@ -62,9 +62,10 @@ sealed interface CostObjects {
     @Serializable @SerialName("self") data object Self : CostObjects
     /** These objects ("you may exile it", the new card in a dies trigger; a bound object). */
     @Serializable @SerialName("these") data class These(val objects: Objects) : CostObjects
-    /** [count] objects matching [filter], or (with [total]) any number whose [Total.property] adds up to at least
-     * [Total.atLeast] ("tap any number of creatures with total power 3 or more"). */
-    @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value = Value.Fixed(1), val total: Total? = null) : CostObjects
+    /** [count] objects matching [filter] ([count] null: any number), or (with [total]) any number whose
+     * [Total.property] adds up to at least [Total.atLeast] ("tap any number of creatures with total power 3 or more").
+     * "Your hand" is [These], not a count of its size. */
+    @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value? = Value.Fixed(1), val total: Total? = null) : CostObjects
 }
 
 /** Mana an ability or effect adds (CR 106). [restriction] limits what it may be spent on ("spend this mana only to

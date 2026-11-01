@@ -13,6 +13,14 @@ sealed interface Value {
      * or lost, the number chosen). Card memory is [Remembered]. */
     @Serializable @SerialName("bound") data class Bound(val name: String) : Value
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Value
+    /** The value of X chosen when [of] was cast, for any of its costs (mana, kicker, flashback, …): read by the
+     * permanent's enters triggers and replacements and by the spell's own static abilities (CR 107.3a, 107.3m). Inside
+     * the spell's instructions, X is [Announced]. */
+    @Serializable @SerialName("cast-x") data class CastX(val of: Objects = Objects.Self) : Value
+    /** Spells cast this turn before [of] (storm, CR 702.40a); spells cast in response to the storm trigger don't count. */
+    @Serializable @SerialName("spells-cast-before") data class SpellsCastBefore(val of: Objects = Objects.Self) : Value
+    /** How many modes were chosen for the spell or ability (escalate counts those beyond the first, CR 702.120a). */
+    @Serializable @SerialName("modes-chosen") data object ModesChosen : Value
     /** The amount the triggering or replaced event was about ("that much damage", "that much life"); in a batch
      * trigger, the batch's total. */
     @Serializable @SerialName("event-amount") data object EventAmount : Value
@@ -45,6 +53,8 @@ sealed interface Value {
     ) : Value
     /** How many times this ability has been activated ([resolved] false) or has resolved this turn ("If this ability has
      * been activated four or more times this turn"). */
+    /** Counted including the current activation or resolution ("if this is the second time this ability has resolved
+     * this turn": `AbilityUsesThisTurn(resolved = true)` equals 2). */
     @Serializable @SerialName("ability-uses") data class AbilityUsesThisTurn(val resolved: Boolean = false) : Value
     /** The damage over lethal in a damage effect bound as [name] ("excess damage", CR 120.4a); [Bound] reads the whole
      * amount dealt. */
@@ -148,6 +158,10 @@ sealed interface Condition {
     @Serializable @SerialName("chose") data class Chose(val name: String, val option: String) : Condition
     /** The mode at [index] (from 0) of the resolving spell or ability was chosen. */
     @Serializable @SerialName("mode-chosen") data class ModeChosen(val index: Int) : Condition
+    /** The targets in [slots] are all still legal ("If both targets are still legal", CR 608.2b). */
+    @Serializable @SerialName("targets-legal") data class TargetsLegal(val slots: List<String>) : Condition
+    /** The [Effect.Search] named [name] searched [zone] ("If you search your library this way, shuffle"). */
+    @Serializable @SerialName("searched") data class Searched(val name: String, val zone: Zone) : Condition
     /** The source Class is at [level] or higher (CR 716). Levelers compare their [CounterKind.Level] counters. */
     @Serializable @SerialName("class-level") data class ClassLevelAtLeast(val level: Int) : Condition
     @Serializable @SerialName("day") data object IsDay : Condition

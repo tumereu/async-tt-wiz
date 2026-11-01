@@ -144,7 +144,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("can-attach-to") data class CanAttachTo(val what: ObjectFilter) : Mechanic
 
     // ---- Combat restrictions and requirements (CR 508, 509) ----
-    @Serializable @SerialName("cant-attack") data class CantAttack(val target: Recipients? = null) : Mechanic
+    /** Can't attack ([target]); [fromDefender]: this restriction is defender's, the one "as though it didn't have
+     * defender" lifts (CR 702.3b). */
+    @Serializable @SerialName("cant-attack") data class CantAttack(val target: Recipients? = null, val fromDefender: Boolean = false) : Mechanic
     @Serializable @SerialName("cant-block") data class CantBlock(val attackers: ObjectFilter = ObjectFilter.Any) : Mechanic
     /** "Can't be blocked" (landwalk with its condition). */
     @Serializable @SerialName("cant-be-blocked") data object CantBeBlocked : Mechanic
@@ -211,8 +213,13 @@ sealed interface Mechanic {
         val additionalCost: Cost? = null,
         /** Cast transformed (disturb, CR 702.146a). */
         val transformed: Boolean = false,
-        /** Where it goes instead of anywhere other than the battlefield when it leaves the Stack (flashback: exile). */
-        val then: Destination? = null, val manaAsAnyColor: Boolean = false,
+        /** Where it goes when it leaves the Stack: instead of anywhere other than the battlefield (flashback: exile), or
+         * only instead of [thenInsteadOf] ("if that spell would be put into your graveyard, exile it instead"). */
+        val then: Destination? = null, val thenInsteadOf: Zone? = null, val manaAsAnyColor: Boolean = false,
+        /** Who may play them: "you" by default; "any player may cast" (Aluren). */
+        val holder: PlayerFilter = PlayerFilter.You,
+        /** Only by its [viaAlternative] alternative cost ("cast it from your graveyard using its bestow ability"). */
+        @Serializable(with = KeywordKindSerializer::class) val viaAlternative: KeywordKind? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */
@@ -220,11 +227,28 @@ sealed interface Mechanic {
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val faceDown: Boolean = false,
     ) : Mechanic
-    /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker. */
+    /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
+     * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */
     @Serializable @SerialName("additional-cost") data class AdditionalCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
-        val cost: Cost, val optional: Boolean = false, val repeatable: Boolean = false,
+        val cost: Cost, val optional: Boolean = false, val repeatable: Boolean = false, val times: Value? = null,
     ) : Mechanic
+    /** Some of the spell's mana may be paid another [way] (delve, convoke, improvise; CR 702.66a, 702.51a). */
+    @Serializable @SerialName("pay-mana-by") data class PayManaBy(val way: ManaPaymentWay) : Mechanic
+    /** "You can't spend mana to cast this spell." */
+    @Serializable @SerialName("cant-spend-mana") data object CantSpendMana : Mechanic
+    /** "X can't be [lessThan − 1]" ("X can't be 0"). */
+    @Serializable @SerialName("x-at-least") data class XAtLeast(val min: Int) : Mechanic
+    /** Splice onto [onto] (CR 702.47a): as you cast such a spell you may reveal this card and pay [cost]; the spell gains
+     * this card's instructions. Functions in the hand. */
+    @Serializable @SerialName("splice-onto") data class SpliceOnto(val onto: ObjectFilter, val cost: Cost) : Mechanic
+    /** Has the activated abilities of [objects] (layer 6), loyalty abilities too unless [exceptLoyalty]. */
+    @Serializable @SerialName("gain-abilities-of") data class GainAbilitiesOf(val objects: Objects, val exceptLoyalty: Boolean = false) : Mechanic {
+        override val layer: Layer get() = Layer.Ability
+        override val stacking: Stacking get() = Stacking.Independent
+    }
+    /** [label] abilities of the affected objects may be activated [count] times each turn ("can boast twice each turn"). */
+    @Serializable @SerialName("label-uses") data class LabelUsesPerTurn(val label: AbilityLabel, val count: Int) : Mechanic
     /** Spells or abilities matching [what] cost [change] generic mana more (positive) or less (negative), or [mana]
      * less ("costs {W}{B} less", coloured reductions); abilities by keyword with [ObjectFilter.HasKeyword] ("equip
      * abilities cost {1} less"). */
@@ -249,11 +273,15 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-be-sacrificed") data object CantBeSacrificed : Mechanic
     /** The affected players can't draw more than [count] cards each turn. */
     @Serializable @SerialName("max-draws") data class MaxDrawsPerTurn(val count: Int) : Mechanic
-    @Serializable @SerialName("extra-land-plays") data class ExtraLandPlays(val count: Int) : Mechanic {
+    /** [count] additional land plays each turn; null: any number (CR 305.2). */
+    @Serializable @SerialName("extra-land-plays") data class ExtraLandPlays(val count: Int?) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
     /** The affected players may spend mana as though it were mana of any colour (for everything they pay). */
-    @Serializable @SerialName("spend-mana-as-any-color") data object SpendManaAsAnyColor : Mechanic
+    @Serializable @SerialName("spend-mana-as-any-color") data class SpendManaAsAnyColor(
+        /** Only when paying for spells or abilities matching this ("to activate abilities of creatures you control"). */
+        val onlyFor: ObjectFilter? = null,
+    ) : Mechanic
     /** May look at [objects] ("you may look at the top card of your library any time"); [reveal]: it's revealed to all
      * instead ("play with the top card of your library revealed"). */
     @Serializable @SerialName("may-look-at") data class MayLookAt(val objects: Objects, val reveal: Boolean = false) : Mechanic
@@ -323,6 +351,18 @@ sealed interface CopyException {
     @Serializable @SerialName("mana-cost") data class ManaCostOf(val cost: ManaCost?) : CopyException
 }
 
+/** Other ways to pay a spell's mana. */
+@Serializable
+sealed interface ManaPaymentWay {
+    /** Exile a card from your graveyard for each generic mana (delve, CR 702.66a). */
+    @Serializable @SerialName("exile-from-graveyard") data object ExileFromGraveyard : ManaPaymentWay
+    /** Tap an untapped creature you control for each generic mana, or for a coloured mana of its colour (convoke,
+     * CR 702.51a). */
+    @Serializable @SerialName("tap-creatures") data object TapCreatures : ManaPaymentWay
+    /** Tap an untapped artifact you control for each generic mana (improvise, CR 702.126a). */
+    @Serializable @SerialName("tap-artifacts") data object TapArtifacts : ManaPaymentWay
+}
+
 /** Whether a permission lets a card be played (lands included) or only cast. */
 @Serializable
 sealed interface PlayKind {
@@ -345,6 +385,8 @@ sealed interface Modification {
     @Serializable @SerialName("as-enters") data class AsEnters(val steps: List<Step>) : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
+    /** Also create [count] of [token] ("those tokens plus that many 1/1 Squirrel tokens"). */
+    @Serializable @SerialName("also-create") data class AlsoCreate(val token: TokenSpec, val count: Value = Value.EventAmount) : Modification
     /** "Enters under the control of [players]" (chosen among the first replacements, CR 616.1b). */
     @Serializable @SerialName("enters-under-control") data class EntersUnderControlOf(val players: Players) : Modification
     /** "Enters with [abilities]" ("If kicked, it enters with … and with trample"): part of the entering object. */

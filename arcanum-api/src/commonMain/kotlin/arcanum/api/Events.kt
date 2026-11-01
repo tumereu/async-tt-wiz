@@ -36,9 +36,18 @@ sealed interface EventPattern {
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]). */
     @Serializable @SerialName("draw") data class Draw(val players: PlayerFilter = PlayerFilter.Any) : EventPattern
+    /** A player discards a card. Roles before (the card in hand, last known information) and after (the card in the
+     * graveyard, or wherever a replacement put it). */
     @Serializable @SerialName("discard") data class Discard(val cards: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
-    @Serializable @SerialName("counters") data class CountersPut(val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null) : EventPattern
+    /** Counters of [kind] are put on an object matching [objects], by an effect of a spell or ability matching [causedBy]
+     * when given ("by a modular triggered ability"). */
+    @Serializable @SerialName("counters") data class CountersPut(
+        val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
+    ) : EventPattern
+    /** An Aura, Equipment or Fortification matching [objects] becomes unattached from something matching [from]
+     * (CR 701.3d). */
+    @Serializable @SerialName("unattach") data class Unattach(val objects: ObjectFilter = ObjectFilter.Any, val from: ObjectFilter = ObjectFilter.Any) : EventPattern
     /** Counters of [kind] are removed from an object matching [objects]; [last]: only when that removal leaves none
      * ("when the last time counter is removed", CR 702.63a), part of the trigger event, not an intervening if. */
     @Serializable @SerialName("counters-removed") data class CountersRemoved(

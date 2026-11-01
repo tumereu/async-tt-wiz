@@ -18,8 +18,9 @@ import kotlinx.serialization.json.jsonPrimitive
  * - a single object's number read from something that can be several objects ([Combine.Single] over a group, union,
  *   "except", library cards);
  * - a target slot, bound name or announced value used in an ability but defined nowhere in it; names live in the
- *   Stack item, so a spell also sees the names of its card's additional and alternative costs; abilities granted by
- *   the ability or on a token it creates are their own scope;
+ *   Stack item, so the card's abilities also see the names of its additional and alternative costs, and those costs
+ *   see the spell's target slots; abilities granted by the ability or on a token it creates are their own scope
+ *   (seeing the names frozen when granted); X of the card's own spell elsewhere is [Value.CastX];
  * - [Value.DividedShare] without a divided target slot;
  * - an event role that the trigger's events don't have, each trigger (delayed ones too) checked against its own;
  * - "as enters" steps other than pay, choose, if and modify (CR 614.12), or with no pay or choose (then it is a plain
@@ -57,17 +58,21 @@ object DefinitionChecks {
         "block" to setOf("object", "other-combatant"),
         "becomes-blocked" to setOf("object", "other-combatant"),
         "becomes-target" to setOf("object", "source"),
+        "attack" to setOf("object", "defender"),
+        "discard" to setOf("before", "after"),
     )
     private val eventScoped = setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards")
     private val asEntersSteps = setOf("pay", "unless", "choose", "if", "modify")
     private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind")
 
-    /** Problems in [card], one readable line each; empty when it is fine. */
-    fun problems(card: CardDefinition): List<String> {
+    /** Problems in [card], one readable line each; empty when it is fine. [keywordTable]: [card] holds abilities from
+     * [KeywordExpansions], where keyword costs and keyword-only mechanics belong. */
+    fun problems(card: CardDefinition, keywordTable: Boolean = false): List<String> {
         val found = mutableListOf<String>()
         val tree = json.encodeToJsonElement(CardDefinition.serializer(), card)
         walk(tree, inMechanics = false, found)
+        if (keywordTable) found.removeAll { it.startsWith("keyword-only mechanic") || it.startsWith("a keyword's cost") }
         tree.jsonObject.getValue("faces").jsonArray.forEach { checkFace(it.jsonObject, found) }
         return found
     }
@@ -77,7 +82,8 @@ object DefinitionChecks {
             is JsonArray -> {
                 element.zipWithNext().forEach { (a, b) ->
                     val pay = a as? JsonObject; val iff = b as? JsonObject
-                    val bind = pay?.takeIf { it.typeName() == "pay" }?.string("bind")
+                    // Only a Pay of a cost: Unless can't hold steps (fabricate, madness).
+                    val bind = pay?.takeIf { it.typeName() == "pay" && it["cost"] != null }?.string("bind")
                     val cond = iff?.takeIf { it.typeName() == "if" }?.get("condition") as? JsonObject
                     if (bind != null && cond?.typeName() == "not" && (cond["condition"] as? JsonObject)?.let { it.typeName() == "did" && it.string("name") == bind } == true &&
                         (iff["otherwise"] as? JsonArray).isNullOrEmpty())
@@ -136,8 +142,14 @@ object DefinitionChecks {
                 if (type == "apply" && element["uses"] != null && (element["mechanics"] as? JsonArray).orEmpty()
                         .none { (it as? JsonObject)?.typeName() in setOf("replacement", "prevention") })
                     found += "uses counts down a replacement or prevention shield; \"the next spell\" is Affected.NextSpells"
-                if (type == "exists" && (element.int("atLeast") ?: 1) > 1 && element["filter"].toString().contains("\"opponent\""))
+                if (type == "exists" && (element.int("atLeast") ?: 1) > 1 && controlledByOpponents(element["filter"]))
                     found += "\"an opponent controls N or more\" is per opponent: PlayerExists(Where(…)) (CR 102.3)"
+                if (type == "discard" && element.typeOf("count") == "hand-size")
+                    found += "\"discard your hand\" is Discard(objects = the cards in that hand)"
+                if (type == "choose" && "filter" in element && element.typeOf("count") == "hand-size")
+                    found += "\"discard your hand\" as a cost is CostObjects.These(the cards in your hand)"
+                if (type == "difference" && (element["from"] as? JsonObject)?.let { it.typeName() == "fixed" && it.int("value") == 0 } == true)
+                    found += "−X is Times(X, -1)"
                 if (type == "color" && element.typeOf("color") == "of")
                     found += "\"shares a colour with\" is ObjectFilter.Shares; ColorRef.Of is for mana and colour-setting"
                 if (type == "for-each" && element.typeOf("each") == "players") {
@@ -223,8 +235,9 @@ object DefinitionChecks {
         abilities.forEach { ability ->
             when {
                 ability.typeName() == "spell" -> check(ability, costNames)
-                isCostStatic(ability) -> check(ability, emptySet(), spellSlots)
-                else -> check(ability, emptySet())
+                isCostStatic(ability) -> check(ability, costNames, spellSlots)
+                // The Stack item holds the cost names: a cost reduction can read them ("for each card exiled this way").
+                else -> check(ability, costNames)
             }
         }
     }
@@ -304,6 +317,15 @@ object DefinitionChecks {
         }
         parts.forEach(::visit)
         (used - allowed).forEach { found += "event role \"$it\" is not part of the trigger's events $events" }
+    }
+
+    /** The filter limits to objects controlled by "an opponent" (the whole group of opponents). */
+    private fun controlledByOpponents(filter: JsonElement?): Boolean {
+        var hit = false
+        if (filter != null) visitAll(filter) { o ->
+            if (o.typeName() == "controlled-by" && (o["players"] as? JsonObject)?.typeName() == "opponent") hit = true
+        }
+        return hit
     }
 
     private fun visitShallow(element: JsonElement?, action: (JsonObject) -> Unit) {

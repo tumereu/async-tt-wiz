@@ -745,7 +745,9 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "miracle"; override val text: String get() = "Miracle"; override val rule: String get() = "702.94" }
     }
     /** Overload (CR 702.96) */
-    @Serializable @SerialName("overload") data class Overload(override val cost: Cost) : Keyword, HasCost {
+    /** [instructions]: the spell's instructions with "target" replaced by "each" (CR 702.96b), used when the overload
+     * cost is paid; written by the parser. */
+    @Serializable @SerialName("overload") data class Overload(override val cost: Cost, val instructions: Instructions? = null) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "overload"; override val text: String get() = "Overload"; override val rule: String get() = "702.96" }
     }
@@ -966,6 +968,11 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "partner-with"; override val text: String get() = "Partner with"; override val rule: String get() = "702.124j" }
     }
+    /** Commander ninjutsu [cost] (CR 702.49d): ninjutsu that also works from the command zone. */
+    @Serializable @SerialName("commander-ninjutsu") data class CommanderNinjutsu(override val cost: Cost) : Keyword, HasCost {
+        override val kind: KeywordKind get() = Kind
+        companion object Kind : KeywordKind { override val id: String get() = "commander-ninjutsu"; override val text: String get() = "Commander ninjutsu"; override val rule: String get() = "702.49d" }
+    }
     /** Companion — a deck-construction condition (CR 702.139): [eachCard] when it is "each card in your starting deck
      * matches", otherwise [requirement] as printed. Outside the game, its owner may pay {3} to put it into their hand
      * as a special action once per game, during their main phase with the Stack empty (CR 702.139a, 116.2g). */
@@ -1169,6 +1176,7 @@ interface KeywordKind {
                 Keyword.Splice.Kind,
                 Keyword.PartnerWith.Kind,
                 Keyword.CompanionAbility.Kind,
+                Keyword.CommanderNinjutsu.Kind,
                 Keyword.Prototype.Kind,
             )
         }

@@ -134,12 +134,16 @@ sealed interface Effect {
     @Serializable @SerialName("remove-from-combat") data class RemoveFromCombat(val objects: Objects) : Effect
     /** Remove all damage marked on [objects]. */
     @Serializable @SerialName("remove-damage") data class RemoveAllDamage(val objects: Objects) : Effect
-    /** "At the beginning of the next end step, …" (CR 603.7): a trigger created now, an effect object. It triggers once,
-     * or for its [duration] ("this turn, whenever …", CR 603.7b). The objects it refers to are fixed when it is created
-     * (CR 603.7c), as are announced values and earlier binds; values it computes are read when it resolves (608.2h). */
+    /** "At the beginning of the next end step, …" (CR 603.7): a trigger created now, an effect object. It triggers once
+     * (the next time its event happens), ending unused when its [duration] ends ("the next instant you cast this turn");
+     * with [repeats], every time during [duration] ("this turn, whenever …", CR 603.7b). The objects it refers to are
+     * fixed when it is created (CR 603.7c), as are announced values and earlier binds; values it computes are read when
+     * it resolves (608.2h). */
     @Serializable @SerialName("delayed-trigger") data class CreateDelayedTrigger(
-        val trigger: Trigger, val instructions: Instructions, val duration: Duration? = null,
+        val trigger: Trigger, val instructions: Instructions, val duration: Duration? = null, val repeats: Boolean = false,
     ) : Effect
+    /** Unattach [objects] from what they are attached to (CR 701.3d). */
+    @Serializable @SerialName("unattach") data class Unattach(val objects: Objects) : Effect
     /** Roll a [sides]-sided die [count] times; [bind] names the result (read with [Value.Bound]). Answered by the host
      * (D25). */
     @Serializable @SerialName("roll-die") data class RollDie(val sides: Int, val count: Int = 1, val players: Players = Players.You, val bind: String? = null) : Effect
@@ -150,15 +154,22 @@ sealed interface Effect {
     /** Move [amount] counters of [kind] (any kind when null) from [from] onto [to]. */
     @Serializable @SerialName("move-counters") data class MoveCounters(val from: Objects, val to: Objects, val kind: CounterKind?, val amount: Value) : Effect
     /** "Change the target of target spell or ability" / "you may choose new targets for it" (CR 115.7). */
-    @Serializable @SerialName("change-targets") data class ChangeTargets(val objects: Objects, val chooser: Players = Players.You, val optional: Boolean = true) : Effect
+    @Serializable @SerialName("change-targets") data class ChangeTargets(
+        val objects: Objects, val chooser: Players = Players.You, val optional: Boolean = true,
+        /** The new target when the text fixes it ("change a target of target spell or ability to this creature", CR 115.7b). */
+        val to: Objects? = null,
+    ) : Effect
     /** "[separator] separates [objects] into two piles; [chooser] chooses one" (Fact or Fiction style); [chosenBind] and
      * [otherBind] name the piles. */
     @Serializable @SerialName("two-piles") data class SeparatePiles(
         val objects: Objects, val separator: Players, val chooser: Players, val chosenBind: String? = null, val otherBind: String? = null,
     ) : Effect
     /** Keep [objects] on the source as card memory under [key] (CR 607 linked abilities: "exiled with ~"). */
-    @Serializable @SerialName("remember") data class Remember(val key: String, val objects: Objects) : Effect
-    @Serializable @SerialName("forget") data class Forget(val key: String) : Effect
+    /** Keep [objects] as card memory of the source under [key], added to what is already kept there ("exiled with ~"
+     * covers every card it ever exiled, CR 607.2a); [replace] starts over. */
+    @Serializable @SerialName("remember") data class Remember(val key: String, val objects: Objects, val replace: Boolean = false) : Effect
+    /** Forget [objects] under [key], or everything kept there when null. */
+    @Serializable @SerialName("forget") data class Forget(val key: String, val objects: Objects? = null) : Effect
 
     @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players = Players.You) : Effect
     /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
@@ -171,11 +182,11 @@ sealed interface Effect {
     @Serializable @SerialName("spell-gets") data class SpellGets(val objects: Objects, val mechanics: List<Mechanic>) : Effect
     @Serializable @SerialName("win") data class WinGame(val players: Players = Players.You) : Effect
     @Serializable @SerialName("lose") data class LoseGame(val players: Players) : Effect
-    /** Cast [objects] now ([how] play: a land is played instead, CR 305.1), without paying their mana cost or by paying
+    /** [caster] casts [objects] now ([how] play: a land is played instead, CR 305.1), without paying their mana cost or by paying
      * [cost]; [bind] names the resulting spell ("If that spell would be put into your graveyard, exile it instead"). */
     @Serializable @SerialName("cast") data class Cast(
         val objects: Objects, val how: PlayKind = PlayKind.Cast, val withoutPaying: Boolean = false, val cost: Cost? = null,
-        val bind: String? = null,
+        val bind: String? = null, val caster: Players = Players.You,
     ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
      * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once

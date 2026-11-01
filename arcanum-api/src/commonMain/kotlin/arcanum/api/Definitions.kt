@@ -157,6 +157,8 @@ sealed interface Ability {
         val instructions: Instructions,
         val timing: Timing = Timing.Any,
         val functionsIn: List<Zone>? = null,
+        /** Only once each game (companion, CR 116.2g). */
+        val oncePerGame: Boolean = false,
         val text: String? = null,
     ) : Ability
 
@@ -180,6 +182,8 @@ sealed interface Affected {
 @Serializable
 data class ActivationRules(
     val timing: Timing = Timing.Any,
+    /** Who may activate it: its controller by default; "any player may activate this ability" (CR 602.2). */
+    val activatedBy: PlayerFilter = PlayerFilter.You,
     /** "Activate only once each turn" = 1. */
     val perTurn: Int? = null,
     /** "Activate only once": once for as long as the object exists (exhaust, CR 702.177a). */
@@ -195,6 +199,11 @@ sealed interface Timing {
     @Serializable @SerialName("any") data object Any : Timing
     /** Only as a sorcery (CR 307.1): own main phase, empty Stack. */
     @Serializable @SerialName("sorcery") data object Sorcery : Timing
+    /** "Activate only as an instant": only when its controller has priority, which for a mana ability removes the
+     * usual "while paying" timing (CR 602.5e, 605.3a). */
+    @Serializable @SerialName("instant") data object Instant : Timing
+    /** When this card could be cast (suspend: "if you could begin to cast this card", CR 702.62a). */
+    @Serializable @SerialName("as-this-card") data object AsThisCard : Timing
 }
 
 /** Keywords that add rules to the ability they label (CR 702.142, 702.169, 702.177, 702.178, 702.193). Other timing
@@ -242,6 +251,8 @@ data class Modes(
     val maxIfCount: Int? = null,
     /** "Choose one that hasn't been chosen" (for this object). */
     val onlyUnchosen: Boolean = false,
+    /** "Choose one that hasn't been chosen this turn". */
+    val onlyUnchosenThisTurn: Boolean = false,
     /** The same mode may be chosen more than once. */
     val repeatable: Boolean = false,
     /** Who chooses ("target opponent chooses one —"). */
@@ -279,11 +290,14 @@ sealed interface TargetKind {
 
 /**
  * One step of resolution. Steps run in order; [Do] performs an [Effect]; the others add choice, condition and
- * repetition. Effects name the objects they produce themselves (see [Effect]).
+ * repetition. Effects name the objects they produce themselves (see [Effect]). Effects inside [May] or [ForEach] are
+ * done by that player (they put things onto the battlefield under their control, they cast).
  */
 @Serializable
 sealed interface Step {
     @Serializable @SerialName("do") data class Do(val effect: Effect) : Step
+    /** [steps] happen as one event ("simultaneously sacrifices … and returns …", CR 608.2c). */
+    @Serializable @SerialName("simultaneously") data class Simultaneously(val steps: List<Step>) : Step
     /** Name [objects] as [bind], fixed now ("that creature" for a delayed trigger created by this ability: "destroy that
      * creature at end of combat", CR 603.7c). No choice, no event. */
     @Serializable @SerialName("bind") data class Bind(val objects: Objects, val bind: String) : Step

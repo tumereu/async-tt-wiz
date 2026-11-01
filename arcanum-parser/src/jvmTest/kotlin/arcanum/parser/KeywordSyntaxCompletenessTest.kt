@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
 class KeywordSyntaxCompletenessTest {
     /** Keyword types written with values the parser can't read yet (a quality, an object, a non-mana cost); each is
      * removed from here when its wording group is built. */
-    private val notReadYet = setOf("CompanionAbility", "Enchant", "Protection", "HexproofFrom", "Landwalk", "Affinity", "Typecycling",
+    private val notReadYet = setOf("CompanionAbility", "CommanderNinjutsu", "Enchant", "Protection", "HexproofFrom", "Landwalk", "Affinity", "Typecycling",
         "Splice", "PartnerWith", "Prototype")
 
     @Test

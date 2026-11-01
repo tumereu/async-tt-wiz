@@ -45,6 +45,10 @@ sealed interface Objects {
     @Serializable @SerialName("linked-to") data class LinkedTo(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
     ) : Objects
+    /** The objects used to pay [of]'s costs in [way] ("each creature that convoked it", CR 702.51c). */
+    @Serializable @SerialName("paid-with") data class PaidWith(val way: ManaPaymentWay, val of: Objects = Self) : Objects
+    /** [count] of [of] chosen at random ("a card at random in target player's hand"); answered by the host (D25). */
+    @Serializable @SerialName("random") data class Random(val of: Objects, val count: Value = Value.Fixed(1)) : Objects
     /** [base] without [minus] ("the rest", "the other cards"). */
     @Serializable @SerialName("except") data class Except(val base: Objects, val minus: Objects) : Objects
 }
@@ -109,7 +113,12 @@ sealed interface ObjectFilter {
 
     @Serializable @SerialName("name") data class Named(val name: String) : ObjectFilter
     @Serializable @SerialName("same-name") data class SameNameAs(val objects: Objects) : ObjectFilter
-    @Serializable @SerialName("chosen-name") data class ChosenName(val key: String) : ObjectFilter
+    /** Has the card name chosen by the [Step.Choose] named [name] in this resolution. */
+    @Serializable @SerialName("chosen-name") data class ChosenName(val name: String) : ObjectFilter
+    /** Has the card name kept as card memory under [key] ("the chosen name" of a permanent). */
+    @Serializable @SerialName("remembered-name") data class RememberedName(val key: String) : ObjectFilter
+    /** This activated ability itself ("This ability costs {1} less to activate"). */
+    @Serializable @SerialName("this-ability") data object ThisAbility : ObjectFilter
 
     /** Has the keyword ability [keyword] ("creatures with flying"), including typecycling for cycling (CR 702.29f). */
     @Serializable @SerialName("has-keyword") data class HasKeyword(
@@ -122,6 +131,8 @@ sealed interface ObjectFilter {
      * controller is the ability's controller. Spells and abilities in other filters are matched as Stack objects too. */
     @Serializable @SerialName("ability") data class AbilityOf(
         val kind: AbilityKind? = null, val source: ObjectFilter? = null, val label: AbilityLabel? = null,
+        /** An ability from this keyword's expansion ("a modular triggered ability"). */
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
     ) : ObjectFilter
     /** A spell (or the permanent it became, CR 400.7d) that was cast, from [from] when given ("spells you cast from
      * exile"). */
@@ -200,6 +211,8 @@ sealed interface SharedQuality {
     @Serializable @SerialName("name") data object Name : SharedQuality
     /** Basic land types (domain: "the number of basic land types among lands you control"). */
     @Serializable @SerialName("basic-land-type") data object BasicLandType : SharedQuality
+    /** The value of [property] ("creatures with different powers"). */
+    @Serializable @SerialName("number") data class Number(val property: NumericProperty) : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability

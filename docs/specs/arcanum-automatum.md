@@ -51,6 +51,7 @@ that exist today.
 | D9 | Phase 0 (§13) is as described; the order of later phases may change as work goes on. |
 | D10 | The open questions (§15) are expected to be settled by playtesting. |
 | D11 | Any decision (a trigger's targets, trigger order, an opponent's choice during resolution) can be made **by either player on the other's behalf**. Such a decision pauses the other player's automatic playback by default, and the UI makes clear you are acting for someone else. The phone test (SYS-036) still applies. |
+| D12 | **Autoplay decisions** (§7.10) go on the roadmap: stored answers, applied deterministically by exactly one client even while their player is offline. |
 
 ## 3. Principles
 
@@ -352,6 +353,38 @@ open and answer it too, like any manual action:
   discard from their hand) needs the same extra step to reach that information as
   today (SYS-036): it is never shown to you by default.
 
+### 7.10 Autoplay decisions (later, D12)
+
+A player can store answers to decisions ahead of time, so they are made even while
+that player is offline. First kind: "always put these triggers on the Stack in this
+order". Later possibly more complex ones ("always yes" for a "you may", a fixed
+target choice for an ability).
+
+- **Stored in the game state** as shared objects (P2), each with its owner, what
+  decision it matches (decision kind, source ability) and the answer. Created from
+  the decision dialog ("Always do this") and listed where they can be removed.
+- **In the engine API (generic):** the caller passes the stored answers in with the
+  game state. When a decision request matches one, the engine applies it and carries
+  on as if the player had answered, so every caller gets the same result from the
+  same input.
+- **Exactly one client applies it, always the same one:** the client that sends the
+  action that caused the decision. The automatic answer and its results go into that
+  action's own all-or-nothing batch (SYS-010). There is no separate "pending, then
+  picked up by whichever client is online" step, so two clients can never race to
+  resolve the same decision. Every decision in ATW is caused by some action (a move,
+  a step change, a resolution), so this client is always defined.
+- **Deterministic:** the engine has no randomness of its own (random parts use the
+  existing seeded actions) and its result depends only on the game state, the stored
+  answers and the definitions.
+- **Only with visible information:** a stored answer is applied only when the
+  applying client can see everything the answer needs. Otherwise the decision stays
+  pending for its player.
+- **Changes in flight:** if a player changes their stored answers while the other
+  player's batch that used the old ones is on its way, the server takes things in
+  arrival order: the batch is accepted with the old answer, and the change counts
+  from the next decision on. (Alternative: the batch names the stored answers it
+  used and is refused if they changed; open question.)
+
 ## 8. New shared state in ATW
 
 Each of these is a rules-version bump (SYS-031) and needs owner approval of its
@@ -364,6 +397,7 @@ catalog entries.
 | Effect objects | Continuous effects with source, affected objects, layer, timestamp and duration; shown on the cards they affect; settable and removable by hand. |
 | Card memory | Chosen colour/type/name, "exiled with ~", attached-to, kicked, etc. |
 | Pending decisions | Triggers waiting for a choice, and choices made during resolution, each with the player it belongs to. Answered asynchronously, by that player or on their behalf (§7.9). |
+| Autoplay decisions | Answers a player stored ahead of time (§7.10), later phase. |
 | Mana pool | Mana added but not yet spent (§7.8). |
 | Typed counters | +1/+1, −1/−1, loyalty, named counters (§7.1). |
 | Automation flag on events | Marks an action batch as produced by automation, for history texts ("Lightning Bolt dealt 3 damage to Grizzly Bears"). |
@@ -425,6 +459,7 @@ Phase 0 is fixed; the order and content of later phases may change as work goes 
 | 2 | Cast dialog with targets and suggested mana tapping, accept automatically; Activate; resolution of simple spells and abilities (damage, destroy, exile, draw, counters, tokens, pump with durations, bounce); "Automatum off". | structured Stack entries, mana pool, automation flag |
 | 3 | Triggers (enters, dies, attacks, upkeep, end step), trigger ordering, delayed triggers, state-based actions. | pending decisions, card memory |
 | 4 | Opponent choices, modal spells with per-mode targets, replacement effects, copy effects, counterspells. | |
+| Later | Autoplay decisions (§7.10); auto-tap preferences beyond the suggested tapping; removing the game-wide off switch. | autoplay decisions |
 
 Parser coverage grows alongside every phase, in frequency order.
 
@@ -454,5 +489,8 @@ Exact new entry texts are written per phase and approved by the owner before bui
    fields so nothing jumps, or fall back to the stored manual values.
 6. Where the parser runs: a developer tool producing a data set, or a server job on
    catalog import.
-7. Whether the timeline shows derived values with the definitions of the time (needs
+7. Autoplay decisions: whether a stored answer changed while a batch that used the old
+   one is in flight is simply accepted in arrival order or refused (§7.10); whether
+   the opponent can see your stored answers.
+8. Whether the timeline shows derived values with the definitions of the time (needs
    definition versions per game) or with current definitions.

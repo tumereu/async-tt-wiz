@@ -30,6 +30,7 @@ The definition model (overview in `Definitions.kt`):
 - Building blocks: `Cost`/`CostPart`, `Trigger`/`EventPattern`, `Objects`/
   `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
   `ManaProduction`, `TokenSpec`, `KeywordAction`.
+- `Ability.isManaAbility()`: whether an ability is a mana ability (CR 605.1a/b), derived from its shape.
 - `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).

@@ -74,7 +74,8 @@ sealed interface Ability {
     ) : Ability
 
     /** "[Cost]: [Effect]" (CR 602). It is a mana ability (CR 605.1a) when it could add mana, has no target, isn't a
-     * loyalty ability, and its cost and effect don't move a card to or from a library; a [CostPart.Loyalty] cost makes it
+     * loyalty ability, and its cost and effect don't move a card to or from a library ([isManaAbility]); a
+     * [CostPart.Loyalty] cost makes it
      * a loyalty ability, activated only as a sorcery and only once
      * each turn for that permanent's loyalty abilities (CR 606.3). */
     @Serializable @SerialName("activated")

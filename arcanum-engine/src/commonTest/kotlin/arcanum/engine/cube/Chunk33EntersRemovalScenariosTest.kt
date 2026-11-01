@@ -283,8 +283,8 @@ class Chunk33EntersRemovalScenariosTest {
         alice.casts("Seclusion", way = CastWay(alternative = evoke), choosing = listOf("Cloudhaven Phantasm"))
         allPass()
         // Two enters triggers: the sacrifice and the exile; Alice orders them
-        if (pending is Decision.OrderTriggers) answer(Answer.Order(listOf(0, 1)))
-        if (pending is Decision.Targets) targets(ogre)
+        answer(Answer.Order(listOf(0, 1)))
+        targets(ogre)
         resolveStackByPassing()
         expect {
             alice.exile has "Cloudhaven Phantasm"
@@ -340,7 +340,7 @@ class Chunk33EntersRemovalScenariosTest {
 
         alice.casts("Mirrorward Mage")
         allPass()
-        if (pending is Decision.Targets) targets(bear)
+        targets(bear)
         allPass()
         expect { bob.hand has bear }
 

@@ -27,8 +27,9 @@ class CombatDragGeometryTest {
         }
     }
 
-    // CMB-009
-    @Test fun droppingEitherSlotExactlyOntoTheOtherSwapsOrderAndPreviewMatchesRecenteredResult() {
+    // CMB-009, CMB-027: dropping exactly onto the other pair's card now joins that pair on the far side
+    // (CMB-027 overrides the old pair reordering here); the attackers' order still swaps.
+    @Test fun droppingEitherSlotExactlyOntoTheOtherJoinsItsPairOnTheFarSideAndPreviewMatchesRecenteredResult() {
         val original = f.combat()
         val play = original.copy(board = original.board.copy(combat = original.board.combat!!.copy(
             pairs = original.board.combat!!.pairs.map { it.copy(blockers = emptyList()) })))
@@ -43,15 +44,17 @@ class CombatDragGeometryTest {
             gestures.down(origin.bounds.center, 0)
             gestures.move(target.bounds.center, 80)
             val destination = assertIs<TableDestination.Combat>(gestures.preview.destination).destination
-            assertNull(destination.pairId)
+            assertEquals(play.board.combat!!.pairs[to].id, destination.pairId)
+            assertEquals(CombatInsertion.GAP, destination.insertion)
             val prediction = predict(play, listOf(ids[from]), destination)
             assertEquals(ids.reversed(), prediction.board.combat!!.pairs.flatMap { it.attackers }.map { it.id })
+            assertEquals(ids.reversed(), prediction.board.combat!!.pairs.single { it.id == destination.pairId }.attackers.map { it.id })
             val landing = tableDragLanding(scene, gestures.preview)
             val expected = scene(prediction, zoom).items.single { it.cardId == ids[from] }.bounds
             assertEquals(expected.x, landing.outlines.single().x, .001f)
             assertEquals(expected.y, landing.outlines.single().y, .001f)
             val (start, end) = assertNotNull(landing.combatInsertion)
-            assertEquals(expected.x - CombatStackPresentation.slotMargin(scene.cardWidth), start.x, .001f)
+            assertEquals(expected.x - CombatStackPresentation.cardGap(scene.cardWidth) / 2, start.x, .001f)
             assertEquals(start.x, end.x)
             assertEquals(scene.cardHeight * .6f, end.y - start.y, .001f)
             assertEquals(expected.center.y, (start.y + end.y) / 2, .001f)
@@ -90,6 +93,70 @@ class CombatDragGeometryTest {
             gestures.cancel()
             assertNull(tableDragLanding(scene, gestures.preview).combatInsertion)
         }
+    }
+
+    // CMB-027, CMB-009
+    @Test fun battlefieldCardCoveringHalfACombatCardGoesBesideItInsteadOfOntoTheDivider() {
+        val play = f.combat()
+        val lantern = f.source(f.a, "2/3").id
+        val scope = TableScope(lantern, listOf(lantern))
+        val pairs = play.board.combat!!.pairs
+        val area = play.board.combat!!.id
+        for (zoom in listOf(.65f, 1f, 2f)) {
+            val scene = scene(play, zoom)
+            val w = scene.cardWidth
+            val margin = CombatStackPresentation.slotMargin(w)
+            val first = scene.items.single { it.cardId == f.id("attacker1") }
+            val second = scene.items.single { it.cardId == f.id("attacker2") }
+            val divider = scene.combatDividers.single().first.x
+            val y = second.bounds.center.y
+            fun at(x: Float) = assertNotNull(scene.combatDestination(TablePoint(x, y), scope), "zoom $zoom, x $x")
+            // Less than half of either neighbour covered: the divider still makes a new pair there (CMB-009).
+            for (x in listOf(divider, divider - margin * .5f, divider + margin * .5f)) assertNull(at(x).pairId, "zoom $zoom, x $x")
+            // Half a card or more: beside that card, on the side of the dragged card's centre, winning over the divider.
+            assertEquals(CombatDestination(area, CombatRole.ATTACKER, pairs[1].id, insertion = CombatInsertion.GAP,
+                cardGap = IdentityGap(null, f.id("attacker2"))), at(divider + margin + .01f), "zoom $zoom")
+            assertEquals(IdentityGap(f.id("attacker1"), null), at(divider - margin - .01f).cardGap, "zoom $zoom")
+            assertEquals(pairs[0].id, at(divider - margin - .01f).pairId, "zoom $zoom")
+            assertEquals(IdentityGap(f.id("attacker2"), null), at(second.bounds.center.x + w * .45f).cardGap, "zoom $zoom")
+            assertEquals(IdentityGap(null, f.id("attacker1")), at(first.bounds.center.x - w * .45f).cardGap, "zoom $zoom")
+            val joined = predict(play, scope.cardIds, at(divider + margin + .01f)).board.combat!!.pairs.single { it.id == pairs[1].id }
+            assertEquals(listOf(lantern, second.sourceId), joined.attackers.map { it.sourceId }, "zoom $zoom")
+            // The blocker row works the same way.
+            val blocker = scene.items.single { it.cardId == f.id("blocker") }
+            assertEquals(CombatDestination(area, CombatRole.BLOCKER, pairs[0].id, insertion = CombatInsertion.GAP,
+                cardGap = IdentityGap(f.id("blocker"), null)),
+                scene.combatDestination(TablePoint(blocker.bounds.center.x + w * .3f, blocker.bounds.center.y), scope), "zoom $zoom")
+        }
+    }
+
+    // CMB-027
+    @Test fun combatCopyCoveringHalfACardOfAnotherPairJoinsThatPairAndWithinItsOwnPairChangesPlaces() {
+        val play = f.combat()
+        val pairs = play.board.combat!!.pairs
+        val scene = scene(play)
+        val second = scene.items.single { it.cardId == f.id("attacker2") }
+        val scope = TableScope(f.id("attacker1"), listOf(f.id("attacker1")))
+        val point = TablePoint(second.bounds.center.x - scene.cardWidth * .3f, second.bounds.center.y)
+        val destination = assertNotNull(scene.combatDestination(point, scope))
+        assertEquals(CombatDestination(play.board.combat!!.id, CombatRole.ATTACKER, pairs[1].id, insertion = CombatInsertion.GAP,
+            cardGap = IdentityGap(null, f.id("attacker2"))), destination)
+        val result = predict(play, scope.cardIds, destination).board.combat!!
+        assertEquals(listOf(f.id("attacker1"), f.id("attacker2")), result.pairs.single { it.id == pairs[1].id }.attackers.map { it.id })
+        assertEquals(pairs[0].blockers, result.pairs.single { it.id == pairs[0].id }.blockers)
+        // Over the other card of its own pair it changes places within the pair.
+        val together = play.copy(board = play.board.copy(combat = play.board.combat!!.copy(pairs = listOf(
+            pairs[0].copy(attackers = pairs[0].attackers + pairs[1].attackers)))))
+        val own = scene(together)
+        val left = own.items.single { it.cardId == f.id("attacker1") }
+        val right = own.items.single { it.cardId == f.id("attacker2") }
+        val swap = assertNotNull(own.combatDestination(TablePoint(right.bounds.center.x + own.cardWidth * .2f, right.bounds.center.y), scope))
+        assertEquals(IdentityGap(f.id("attacker2"), null), swap.cardGap)
+        assertEquals(listOf(f.id("attacker2"), f.id("attacker1")),
+            predict(together, scope.cardIds, swap).board.combat!!.pairs.single().attackers.map { it.id })
+        val back = TableScope(f.id("attacker2"), listOf(f.id("attacker2")))
+        assertEquals(IdentityGap(null, f.id("attacker1")), own.combatDestination(
+            TablePoint(left.bounds.center.x - own.cardWidth * .2f, left.bounds.center.y), back)?.cardGap)
     }
 
     // CMB-008

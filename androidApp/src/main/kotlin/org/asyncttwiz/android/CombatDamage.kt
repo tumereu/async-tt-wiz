@@ -1,6 +1,5 @@
 package org.asyncttwiz.android
 
-import kotlinx.serialization.json.*
 import org.asyncttwiz.protocol.*
 import java.math.BigInteger
 
@@ -17,11 +16,8 @@ internal object CombatDamage {
 
     fun hasKeyword(play: PlayState, card: PlayCard, keyword: String): Boolean {
         // A face-down permanent has no printed abilities, and reading them would leak its identity.
-        val printed = if (card.isFaceDown) emptyList() else runCatching {
-            (face(play, card)?.sourceData?.let { DeckJson.format.parseToJsonElement(it).jsonObject["keywords"] } as? JsonArray)
-                ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }.orEmpty()
-        }.getOrDefault(emptyList())
-        return printed.any { it.equals(keyword, ignoreCase = true) } ||
+        val printed = if (card.isFaceDown) emptySet() else PrintedKeywords.of(face(play, card)?.rulesText.orEmpty())
+        return keyword.lowercase() in printed ||
             Regex("(?<![\\p{L}\\p{N}_])${Regex.escape(keyword)}(?![\\p{L}\\p{N}_])", RegexOption.IGNORE_CASE)
                 .containsMatchIn("${card.note}\n${card.eotNote}")
     }

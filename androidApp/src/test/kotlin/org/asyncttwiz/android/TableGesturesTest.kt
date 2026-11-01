@@ -655,10 +655,16 @@ class TableGesturesTest {
             val left = regions.single { it.extendLeft }
             val right = regions.single { it.extendRight }
             val divider = regions.single { it.destination.pairId == null && !it.extendLeft && !it.extendRight }
+            val lowerDivider = scene.combatDrops.single { it.destination.role == org.asyncttwiz.protocol.CombatRole.BLOCKER &&
+                it.destination.pairId == null && !it.extendLeft && !it.extendRight }
+            // CMB-027: covering half of a neighbouring card goes beside it, so between two attackers the divider
+            // only takes drops within a slot margin; the blocker row has a card on one side only and stays lenient.
+            val near = CombatStackPresentation.slotMargin(scene.cardWidth) * .5f
             for ((region, point) in listOf(left to TablePoint(-10000f, left.bounds.center.y),
                 right to TablePoint(10000f, right.bounds.center.y),
-                divider to TablePoint(divider.bounds.center.x - 11f, divider.bounds.center.y),
-                divider to TablePoint(divider.bounds.center.x + 11f, divider.bounds.center.y))) {
+                divider to TablePoint(divider.bounds.center.x - near, divider.bounds.center.y),
+                divider to TablePoint(divider.bounds.center.x + near, divider.bounds.center.y),
+                lowerDivider to TablePoint(lowerDivider.bounds.center.x + minOf(11f, scene.cardWidth / 2), lowerDivider.bounds.center.y))) {
                 events.clear()
                 gesture.down(occurrence.visible.first().center, 0); gesture.move(point, 80)
                 assertEquals(TableDestination.Combat(region.destination), gesture.preview.destination)

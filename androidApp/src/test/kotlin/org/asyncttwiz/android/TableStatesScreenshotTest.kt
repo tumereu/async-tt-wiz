@@ -36,6 +36,12 @@ class TableStatesScreenshotTest {
             combat = play.board.combat!!.let { area -> area.copy(pairs = area.pairs.mapIndexed { index, pair ->
                 if (index == 0) pair.copy(attackTarget = target.id) else pair }) }))
     }
+    private val combatNotesState = f.combat().let { play ->
+        val notes = mapOf(f.source(f.a, "1/3").id to "Vigilance", f.source(f.a, "1/2").id to "Lifelink")
+        play.copy(board = play.board.copy(cards = play.board.cards.map { it.copy(note = notes[it.id] ?: it.note) },
+            combat = play.board.combat!!.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
+                attackers = pair.attackers.map { if (it.id == f.id("attacker2")) it.copy(note = "Copy note") else it }) }) }))
+    }
     private val graveyardState = f.initial.let { play ->
         val graveyard = f.id("a/GRAVEYARD")
         val river = play.board.cards.single { it.containerId == f.id("a/HAND") && it.corner == "1/2" }
@@ -85,6 +91,7 @@ class TableStatesScreenshotTest {
         }
         val current = { if (kind in listOf("stack-bubbles", "stack-preview")) stackSample
             else if (kind == "combat-targets") combatTargetsState
+            else if (kind == "combat-notes") combatNotesState
             else if (kind.startsWith("tokens")) tokenState
             else if (review) requireNotNull(tree.stateAt(playback.position.cursorId))
             else if (kind == "graveyard-contents") graveyardState else f.combat() }
@@ -190,6 +197,7 @@ class TableStatesScreenshotTest {
         val combat = "in combat at declare attackers"
         val shown = when (kind) {
             "combat" -> "$combat, both your attackers selected, one blocked; the Stack holds an effect and a card"
+            "combat-notes" -> "$combat, Meadow Sentinel noted Vigilance and River Adept noted Lifelink: Sentinel's copy, without a note of its own, shows Vigilance, River Adept's copy its own Copy note and the River Adept Stack entry shows Lifelink"
             "combat-targets" -> "$combat, the first attack aimed at the opponent's Jace Beleren planeswalker, in its own lane"
             "stack-bubbles" -> "$combat, action bubbles open on the top Stack effect, its second rules paragraph marked"
             "stack-preview" -> "$combat, holding the Stack effect's Mark text bubble and dragging down: paragraph preview shows"
@@ -243,6 +251,8 @@ class TableStatesScreenshotTest {
     // CMB-008, CMB-013, CMB-014, STK-008, STK-013, STK-017, STK-018, STK-021
     @Test fun combatPortrait() { render("combat", false) }
     @Test fun combatCardTargetPortrait() { render("combat-targets", false) }
+    // CMB-005
+    @Test fun combatCopyWithoutItsOwnNoteShowsTheRealCardsNotePortrait() { render("combat-notes", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatCardTargetLandscape() { render("combat-targets", true) }
     @Test fun stackBubblesPortrait() { render("stack-bubbles", false) }
     @Test fun stackDoubleTapWithBubblesOpenShowsManageStackWithoutTappingSource() {

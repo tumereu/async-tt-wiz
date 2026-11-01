@@ -25,9 +25,11 @@ object CombatStackController {
     fun attackerPairs(board: BoardState, viewIds: List<String>): List<CombatPair> =
         board.combat?.pairs.orEmpty().filter { pair -> pair.attackers.any { it.id in viewIds } }
 
-    /** Cross-lane attacker-row drops retarget whole pairs; blocker-row drops still change roles. */
+    /** Cross-lane attacker-row drops retarget whole pairs; blocker-row drops still change roles. A drop beside a
+     * card of another pair (CMB-027) joins that pair instead, so it attacks that pair's target. */
     fun retargetDrop(board: BoardState, viewIds: List<String>, destination: CombatDestination): List<CombatPair> {
         if (destination.role != CombatRole.ATTACKER) return emptyList()
+        if (destination.pairId != null && destination.insertion == CombatInsertion.GAP) return emptyList()
         val pairs = attackerPairs(board, viewIds)
         if (pairs.flatMap { it.attackers }.none { it.id in viewIds } || viewIds.any { id ->
                 pairs.none { pair -> pair.attackers.any { it.id == id } } }) return emptyList()

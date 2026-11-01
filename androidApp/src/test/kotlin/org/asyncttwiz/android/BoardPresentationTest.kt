@@ -63,7 +63,7 @@ class BoardPresentationTest {
         val output = File("$SCREENSHOTS/board-notes-stack-${zoom.toInt()}x.png")
         output.parentFile.mkdirs()
         compose.onRoot().captureShot(output.path, "Portrait table at ${if (zoom > 1f) "2x zoom, panned" else "normal zoom"}: " +
-            "three-effect Stack; note chips and blue counters on a battlefield card, a looked-at library card and the graveyard's top card.")
+            "three-effect Stack whose top effect shows its card's note chip; note chips and blue counters on a battlefield card, a looked-at library card and the graveyard's top card.")
         val image = ImageIO.read(output)
         for (item in listOf(panel, scene.items.single { it.cardId == source })) {
             val b = item.bounds

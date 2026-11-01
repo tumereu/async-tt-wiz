@@ -1,0 +1,1 @@
+mod: In combat, a card dropped over at least half of another card now goes right beside it, in that card's pair.

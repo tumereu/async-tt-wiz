@@ -65,6 +65,10 @@ internal data class Cause(
 internal class Act(val recorder: Recorder, val asker: Asker) {
     val state: GameState get() = recorder.state
 
+    /** The [Replacement.key]s of replacements whose "instead" instructions are running now: they don't apply again to
+     * the events of those instructions (CR 614.5). */
+    val replacing: MutableSet<String> = mutableSetOf()
+
     private var viewSize = -1
     private var viewLast: Change? = null
     private var cached: View? = null

@@ -194,4 +194,16 @@ class ManaTest {
         val spent = state.objOrThrow(card("Haven Warden")).facts.manaSpent
         assertEquals(2, spent.sumOf { it.amount })
     }
+
+    // CR 605.3b, 608.2h: "any type the sacrificed land could produce" reads the land as it last existed: a dual land
+    // offers its two colours
+    @Test
+    fun sacrificedLandsColoursAreAsked() = scenario {
+        alice.battlefield("Wasted Bounty", "Ashen Wastes")
+        alice.activates("Wasted Bounty", choosing = listOf("Ashen Wastes"))
+        assertEquals(setOf(Color.Black, Color.Red), decision<Decision.ChooseColor>().among.toSet())
+        answer(Answer.ColorChoice(Color.Red))
+        assertEquals(listOf(Color.Red), alice.pool.map { it.color })
+        expect { alice.graveyard has "Ashen Wastes" }
+    }
 }

@@ -378,7 +378,10 @@ internal object Payment {
         ability.instructions.steps.forEachIndexed { i, step ->
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
             val color = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors?.firstOrNull()
-            val yields = Mana.yields(snap, plan.player, plan.sourceId, ability.copy(instructions = ability.instructions.copy(steps = listOf(step))), plan.names)
+            val one = ability.copy(instructions = ability.instructions.copy(steps = listOf(step)))
+            // CR 608.2h: what a sacrificed or discarded object could produce is read as it last existed, before paying
+            val yields = if (add.mana.kind is arcanum.api.ManaKind.AsCouldProduce) Mana.yields(plan.snap, plan.player, plan.sourceId, one, plan.manaNames())
+                else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names)
             addMana(recorder, plan.player, yields.flatMap { Mana.units(it, color, plan.sourceId) })
         }
         recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, plan.origin!!.key, manaAbility = true)))

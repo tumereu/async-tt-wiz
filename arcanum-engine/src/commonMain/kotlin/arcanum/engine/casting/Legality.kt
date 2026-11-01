@@ -83,6 +83,8 @@ internal object Legality {
         return snap.view[card]?.mechanics.orEmpty().mapNotNull { applied ->
             val m = applied.mechanic as? Mechanic.MayPlay ?: return@mapNotNull null
             if (m.from != o.zone) return@mapNotNull null
+            // A card in a hand is cast by its owner (CR 601.2, "from their hand")
+            if (o.zone == Zone.Hand && o.owner != player) return@mapNotNull null
             if (kind == PlayKind.Play && m.how != PlayKind.Play) return@mapNotNull null
             val eval = snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player)
             if (!eval.matches(m.holder, player)) return@mapNotNull null

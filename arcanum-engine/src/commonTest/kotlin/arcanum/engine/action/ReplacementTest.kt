@@ -551,4 +551,22 @@ class ReplacementTest {
             alice.exile lacks "Fleeting Recall"
         }
     }
+
+    // CR 614.5: a replacement doesn't apply to the events its own "instead" instructions make: "Otherwise, draw a card"
+    // draws the card
+    @Test
+    fun insteadDoesNotReplaceItsOwnDraw() = scenario {
+        alice.battlefield("Endless Return")
+        alice.hand("Glance Ahead")
+        alice.library("Island", "Swamp")
+
+        alice.castsWithoutCosts("Glance Ahead")
+        resolve()
+        alice.chooses()
+
+        expect {
+            alice.hand.names shouldBe listOf("Island")
+            alice.library.names shouldBe listOf("Swamp")
+        }
+    }
 }

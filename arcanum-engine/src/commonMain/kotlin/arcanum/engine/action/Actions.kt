@@ -144,7 +144,13 @@ internal object Actions {
     /** Runs a replacement's "instead" instructions with the replaced event's objects (CR 614.1a). */
     fun runInstead(act: Act, r: Replacement, instance: TriggerEvent) {
         val cause = Cause(r.controller, r.source, key = "instead:${act.state.nextTimestamp()}")
-        Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
+        // CR 614.5: it doesn't replace the events its own instructions make ("Otherwise, draw a card")
+        act.replacing += r.key
+        try {
+            Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
+        } finally {
+            act.replacing -= r.key
+        }
     }
 
     /** Makes one zone-change event of [moves] (stamped in order, D34), with what everyone saw of each object. */
@@ -170,7 +176,8 @@ internal object Actions {
             val zc = Changes.move(
                 scratch, listOf(m.id), m.to, position = m.position ?: if (m.to == Zone.Library) Changes.Position.Top else Changes.Position.Bottom,
                 controller = m.controller, tapped = m.tapped && toBattlefield, faceDown = m.faceDown, meanings = m.meanings,
-                counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } else emptyList(),
+                counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } + printedCounters(act, before, m)
+                    else emptyList(),
             )
             val moved = zc.moves.single().let { mv ->
                 var after = mv.after
@@ -194,6 +201,20 @@ internal object Actions {
     }
 
     private const val COPIED = "\$copied"
+
+    /** CR 306.5b, 310.4b: a planeswalker enters with loyalty counters equal to its printed loyalty, a battle with defense
+     * counters equal to its printed defense (the face that enters, or what it enters as a copy of; X counts as 0). */
+    private fun printedCounters(act: Act, o: GameObject, m: PlannedMove): List<Pair<CounterKind, Int>> {
+        if (m.to != Zone.Battlefield || m.faceDown) return emptyList()
+        val face = m.copyOf?.let { (of, _) -> arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face }
+            ?: o.definition?.faces?.getOrNull(if (m.transformed && o.definition.layout == Layout.Transform) 1 else o.face)
+            ?: return emptyList()
+        fun amount(n: arcanum.api.PrintedNumber?) = (n as? arcanum.api.PrintedNumber.Fixed)?.value ?: 0
+        return listOfNotNull(
+            (CounterKind.Loyalty to amount(face.loyalty)).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
+            (CounterKind.Defense to amount(face.defense)).takeIf { CardType.Battle in face.types && it.second > 0 },
+        )
+    }
 
     private fun lockedEffect(
         id: String, mechanics: List<Mechanic>, on: ObjectId, controller: PlayerId?, ts: Long, act: Act,

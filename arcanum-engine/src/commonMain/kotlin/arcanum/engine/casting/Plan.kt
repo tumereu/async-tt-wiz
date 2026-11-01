@@ -333,11 +333,25 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             if (add.mana.kind !is ManaKind.Choose && add.mana.kind !is ManaKind.AsCouldProduce) return@forEachIndexed
             val key = "$COLOR$i"
             if (choices.names[key] != null) return@forEachIndexed
-            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), names)
+            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), manaNames())
             val among = yields.flatMap { it.colors }.filterNotNull().distinct()
             if (among.size > 1) return Question.ManaColor(key, among)
         }
         return null
+    }
+
+    /** [names] and the objects chosen for costs under the names they get as they were (`preBind`), before paying: what
+     * a mana ability's mana sees ("any type the sacrificed land could produce", CR 605.3b, 608.2h). */
+    fun manaNames(): Bindings = total.parts.fold(names) { b, kp ->
+        val pre = when (val part = kp.part) {
+            is CostPart.Sacrifice -> part.preBind
+            is CostPart.Discard -> part.preBind
+            is CostPart.Exile -> part.preBind
+            is CostPart.ReturnToHand -> part.preBind
+            else -> null
+        }
+        val chosen = choices.names[OBJECTS + kp.key] as? NamedValue.Objects
+        if (pre != null && chosen != null) b.with(pre, chosen) else b
     }
 
     /** The decision that asks [q]. */

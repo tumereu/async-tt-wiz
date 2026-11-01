@@ -64,8 +64,8 @@ private fun changeCard(id: String, item: (String) -> TableItem?) =
 internal fun tableChangeTarget(key: TableChangeKey, item: (String) -> TableItem?): TableItem? {
     val shown = when (key.kind) {
         TableChangeKind.LIFE -> item("life/${key.target}")
-        // Portrait retains empty slots; hidden landscape counters fall back to the life HUD.
-        TableChangeKind.PLAYER_COUNTER -> item("counter/${key.target}/${key.color}") ?: item("life/${key.target}")
+        // Every counter keeps its slot (an outline when empty) in both orientations.
+        TableChangeKind.PLAYER_COUNTER -> item("counter/${key.target}/${key.color}")
         else -> changeCard(key.target, item)
     } ?: return null
     return shown.takeIf { it.visible.isNotEmpty() && (!it.covered || key.kind == TableChangeKind.OWNER) }

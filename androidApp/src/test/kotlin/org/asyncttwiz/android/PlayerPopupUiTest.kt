@@ -37,8 +37,8 @@ class PlayerPopupUiTest {
         return Triple(play, toolkit, sent)
     }
 
-    private fun life(owner: String, landscape: Boolean = false) {
-        val (play, toolkit, sent) = render(landscape)
+    private fun life(owner: String, landscape: Boolean = false, empty: Boolean = false) {
+        val (play, toolkit, sent) = render(landscape, empty)
         val scene = TablePresentation.scene(TableFixture.game, play, "a", if (landscape) 892f else 412f,
             if (landscape) 412f else 892f, landscape)
         compose.onNodeWithContentDescription(scene.items.single { it.id == "life/$owner" }.label).performClick()
@@ -64,20 +64,18 @@ class PlayerPopupUiTest {
     @Test fun opponentPortraitLife() = life("b")
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownLandscapeLife() = life("a", true)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentLandscapeLife() = life("b", true)
+    // TRN-030, TRN-035: no Counters button in the Life panel, even with every counter empty.
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownEmptyLandscapeLife() = life("a", true, empty = true)
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentEmptyLandscapeLife() = life("b", true, empty = true)
 
-    private fun counters(owner: String, fallback: Boolean = false) {
-        val (play, toolkit, sent) = render(true, empty = fallback)
+    private fun counters(owner: String, empty: Boolean = false) {
+        val (play, toolkit, sent) = render(true, empty = empty)
         val scene = TablePresentation.scene(TableFixture.game, play, "a", 892f, 412f, true)
-        if (fallback) {
-            assertTrue(scene.items.none { it.owner == owner && it.kind == TableItemKind.COUNTER })
-            compose.onNodeWithContentDescription(scene.items.single { it.id == "life/$owner" }.label).performClick()
-            compose.mainClock.advanceTimeBy(350)
-            compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Set blue counter").assertDoesNotExist()
-            compose.onNodeWithContentDescription("Counters").performClick()
-        } else {
-            compose.onNodeWithContentDescription(scene.items.single { it.id == "counter/$owner/BLUE" }.label).performClick()
-        }
+        // All six slots show, empty ones too; tapping any of them opens the Counters popup.
+        val slots = scene.items.filter { it.owner == owner && it.kind == TableItemKind.COUNTER }
+        assertEquals(CounterColor.entries.toList(), slots.map { it.counter })
+        if (empty) assertTrue(slots.all { it.value.isEmpty() })
+        compose.onNodeWithContentDescription(scene.items.single { it.id == "counter/$owner/BLUE" }.label).performClick()
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Counters").assertIsDisplayed()
         compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
@@ -102,8 +100,8 @@ class PlayerPopupUiTest {
     // TRN-031, TRN-033, TRN-035
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownLandscapeCounters() = counters("a")
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentLandscapeCounters() = counters("b")
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownEmptyLandscapeCounters() = counters("a", fallback = true)
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentEmptyLandscapeCounters() = counters("b", fallback = true)
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownEmptyLandscapeCounters() = counters("a", empty = true)
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentEmptyLandscapeCounters() = counters("b", empty = true)
 
     @Test fun lifeValueStillDrags() {
         val (play, _, sent) = render(false)

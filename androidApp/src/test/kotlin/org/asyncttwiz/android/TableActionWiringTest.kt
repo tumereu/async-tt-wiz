@@ -103,7 +103,8 @@ class TableActionWiringTest {
         assertEquals(PlayAction.AdjustCounter(CounterTarget.PLAYER, f.actor, CounterColor.BLUE, "-1"),
             (f.commands().last().action as GameAction.Play).action)
         assertEquals("", scene().items.single { it.id == counter.id }.value)
-        assertTrue(TablePresentation.scene(f.game, f.play, f.actor, 900f, 500f, true).items.none { it.id == counter.id })
+        // TRN-035: landscape keeps the zeroed counter as an empty slot as well.
+        assertEquals("", TablePresentation.scene(f.game, f.play, f.actor, 900f, 500f, true).items.single { it.id == counter.id }.value)
     }
 
     @Test fun capturedLibraryMenuAndMoveDestinationDoNotRetargetAfterSyncOrReflow() {

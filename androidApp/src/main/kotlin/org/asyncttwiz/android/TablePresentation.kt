@@ -257,9 +257,14 @@ object TablePresentation {
     private const val MIN_SHRUNK_COUNTER_GRID = 60f
     internal fun portraitDockWidth(pileWidth: Float, piles: Int) = PILE_START + (piles - 1) * (pileWidth + 12f) + pileWidth + 8f
     internal fun portraitCountersFit(width: Float, dockWidth: Float) = width - dockWidth >= MIN_COUNTER_GRID
-    /** Landscape Temp piles sit in the counter row, right-aligned under Exile; counters keep what is left of them. */
-    private fun landscapeCounterWidth(pileWidth: Float, sidebar: Float, temps: Int) =
-        if (temps == 0) sidebar else PILE_START + (3 - temps) * landscapePileSpacing(pileWidth) - 4f
+    /** TRN-035: landscape Temp piles sit at the left of the counter row, one 48dp square slot each; the six
+     * counters share the rest of the row. */
+    private const val LANDSCAPE_TEMP_SLOT = 48f
+    /** Narrower landscape counter slots would overlap their value circles (28dp across in the 48dp row). */
+    private const val MIN_LANDSCAPE_COUNTER = 28f
+    private fun landscapeTempsWidth(temps: Int) = temps * LANDSCAPE_TEMP_SLOT
+    private fun landscapeCountersFit(sidebar: Float, temps: Int) =
+        (sidebar - landscapeTempsWidth(temps)) / 6 >= MIN_LANDSCAPE_COUNTER
     private fun landscapeDockWidth(pileWidth: Float) = PILE_START + 2 * landscapePileSpacing(pileWidth) +
         pileWidth + (48f - pileWidth).coerceAtLeast(0f) / 2 + 6f
     fun sidebarWidth(width: Float, appearance: CardAppearance = CardAppearance()) =
@@ -329,14 +334,13 @@ object TablePresentation {
             TempPiles.container(play.board, p.accountId, n) ?: if (!DeckValidation.uuid(play.id)) null
                 else PlayContainer(TempPiles.containerId(play.id, p.accountId, n), PlayZone.LIBRARY, p.accountId, temp = true, tempNumber = n)
         } }
-        // With more than one Temp pile, counters that no longer fit beside the piles get their own row
-        // (outside the pile row) instead of panning. One pile keeps the old shrink-then-scroll behaviour.
+        // Counters that no longer fit beside the Temp piles get their own row (outside the pile row) instead
+        // of panning. Portrait: only with more than one pile; one pile keeps the shrink-then-scroll behaviour.
+        // Landscape (ZON-045): whenever the six counters don't fit after the piles.
         val countersOwnRow = players.map { p ->
             val temps = tempShown.getValue(p.accountId).size
-            temps > 1 && if (landscape) {
-                val last = CounterColor.entries.indexOfLast { nonzero(p.counters[it].orEmpty()) }
-                last >= 0 && (last + 1) * maxOf(sidebar, 288f) / 6 > landscapeCounterWidth(pileWidth, sidebar, temps)
-            } else !portraitCountersFit(width, portraitDockWidth(pileWidth, 3 + temps))
+            if (landscape) !landscapeCountersFit(sidebar, temps)
+            else temps > 1 && !portraitCountersFit(width, portraitDockWidth(pileWidth, 3 + temps))
         }
         val counterHeights = players.indices.map { if (landscape) counterHeight else if (countersOwnRow[it]) dockRow / 2 else 0f }
         val landscapeExtra = players.indices.map { if (landscape && countersOwnRow[it]) counterHeight else 0f }
@@ -483,7 +487,7 @@ object TablePresentation {
             val rowY = dockRowY[index]
             val spacing = dockSpacing
             // Temp piles follow Exile in number order. Portrait puts them in the pile row and lets the
-            // counter grid shrink (or take its own row); landscape puts them in the counter row under Exile.
+            // counter grid shrink (or take its own row); landscape puts them at the left of the counter row.
             val temps = tempShown.getValue(player.accountId)
             val ownRow = countersOwnRow[index]
             val portraitDock = portraitDockWidth(pileWidth, 3 + temps.size)
@@ -502,16 +506,16 @@ object TablePresentation {
             val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
             val landscapeTempHeight = minOf(pileHeight, counterHeight - 4f)
             val landscapeTempWidth = pileWidth * landscapeTempHeight / pileHeight
-            val landscapeCounters = landscapeCounterWidth(pileWidth, sidebar, temps.size)
+            val landscapeTemps = landscapeTempsWidth(temps.size)
             val tempPort = if (landscape && temps.isNotEmpty()) port("temp/${player.accountId}",
-                TableBounds(landscapeCounters, counterRowY, (sidebar - landscapeCounters).coerceAtLeast(0f), counterHeight), 0f) else dp
+                TableBounds(0f, counterRowY, landscapeTemps, counterHeight), 0f) else dp
             for ((n, c) in (listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).map { container(player.accountId, it) } +
                     temps).withIndex()) {
                 val zone = c.zone
                 val top = byId[c.cards.firstOrNull()]
                 val hidden = zone == PlayZone.LIBRARY && !c.keepTopRevealed || top == null || !CardVisibility.isVisibleFaceUp(play.board, top, viewer)
-                val b = if (c.temp && landscape) TableBounds(PILE_START + (2 - (temps.size - 1 - (n - 3))) * spacing +
-                        (pileWidth - landscapeTempWidth) / 2, counterRowY + (counterHeight - landscapeTempHeight) / 2, landscapeTempWidth, landscapeTempHeight)
+                val b = if (c.temp && landscape) TableBounds((n - 3) * LANDSCAPE_TEMP_SLOT + (LANDSCAPE_TEMP_SLOT - landscapeTempWidth) / 2,
+                        counterRowY + (counterHeight - landscapeTempHeight) / 2, landscapeTempWidth, landscapeTempHeight)
                     else TableBounds(PILE_START + n * spacing - dp.scroll, rowY + pileInsetY, pileWidth, pileHeight)
                 val title = if (c.temp) "temp ${c.tempNumber}" else zone.name.lowercase()
                 items += TableItem(c.id, b, "${name(player.accountId)} $title, ${c.cards.size} cards${if (c.keepTopRevealed) ", keep top card revealed" else ""}", c.cards.size.toString(),
@@ -535,17 +539,17 @@ object TablePresentation {
                 val ownRowY = if (landscape) (if (ownSide) counterRowY + counterHeight else counterRowY - counterHeight)
                     else if (ownSide) rowY + dockRow else rowY - counterHeights[index]
                 val portraitGrid = if (shrink) minOf(gridWidth, portraitCounters) else gridWidth
-                // A landscape row of its own fits all six slots in the sidebar width, without panning.
+                // Landscape: all six slots fit without panning, after the Temp piles or in a row of their own.
                 val cp = if (landscape) (if (ownRow) port("counters/${player.accountId}", TableBounds(0f, ownRowY, sidebar, counterHeight), sidebar)
-                    else port("counters/${player.accountId}", TableBounds(0f, counterRowY, landscapeCounters, counterHeight), max(dock.width, 288f)))
+                    else port("counters/${player.accountId}", TableBounds(landscapeTemps, counterRowY, sidebar - landscapeTemps, counterHeight),
+                        sidebar - landscapeTemps))
                     else if (ownRow) port("counters/${player.accountId}", TableBounds((width - 2 * gridWidth).coerceAtLeast(0f), ownRowY,
                         minOf(width, 2 * gridWidth), counterHeights[index]), minOf(width, 2 * gridWidth))
                     else port("counters/${player.accountId}",
                     TableBounds(dock.right, rowY, (width - dock.right).coerceAtLeast(0f), dockRow), portraitGrid)
                 for ((n, color) in CounterColor.entries.withIndex()) {
                     val v = player.counters[color].orEmpty().takeIf(::nonzero).orEmpty()
-                    if (landscape && v.isEmpty()) continue
-                    val b = if (landscape) TableBounds(n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
+                    val b = if (landscape) TableBounds(cp.bounds.x + n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
                         else if (ownRow) TableBounds(cp.bounds.x + n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, cp.bounds.height)
                         else TableBounds(cp.bounds.x + n % 3 * portraitGrid / 3 - cp.scroll, rowY + n / 3 * dockRow / 2, portraitGrid / 3, dockRow / 2)
                     items += TableItem("counter/${player.accountId}/$color", b, "${name(player.accountId)}, ${color.name.lowercase()}, ${v.ifEmpty { "no value" }}",

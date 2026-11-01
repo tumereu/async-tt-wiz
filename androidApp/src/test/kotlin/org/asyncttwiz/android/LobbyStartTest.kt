@@ -219,9 +219,10 @@ class LobbyStartTest {
                 // ... including both players' always-shown (still empty) Temp 1 piles.
                 assertEquals(13, scene.items.count { it.kind != TableItemKind.COUNTER })
                 val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
-                assertEquals(if (landscape) 0 else 12, counters.size)
+                // TRN-034, TRN-035: all six (still empty) counters per player in both orientations.
+                assertEquals(12, counters.size)
                 for (player in listOf(owner, other)) {
-                    assertEquals(if (landscape) emptySet() else CounterColor.entries.toSet(),
+                    assertEquals(CounterColor.entries.toSet(),
                         counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
                 }
                 for (item in scene.items) {

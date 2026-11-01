@@ -315,6 +315,19 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
         while (state.stack.isNotEmpty() && pending == null && guard-- > 0) resolve()
     }
 
+    /** Begins [step] of the current turn as a tagged event (CR 500, D33), so "at the beginning of" triggers trigger;
+     * with [active], a new turn of that player begins first (its untap step aside). A stand-in for the turn structure
+     * when a scenario is about triggers. */
+    fun beginStep(step: TurnStep, active: ScenarioPlayer? = null): Outcome = drive { r ->
+        if (active != null) {
+            val number = r.state.turn.number + 1
+            r.record(Changes.step(r.state, r.state.turn.copy(number = number, active = active.id, step = TurnStep.Untap,
+                turnStarted = r.state.turn.turnStarted + (active.id to number)), listOf(arcanum.engine.change.Meaning.TurnBegan)))
+        }
+        r.record(Changes.step(r.state, r.state.turn.copy(step = step), listOf(arcanum.engine.change.Meaning.StepBegan)))
+        arcanum.engine.Progress.Done
+    }
+
     /** Checks state-based actions and puts waiting triggers on the Stack (CR 704.3, 603.3), without priority. */
     fun settle(): Outcome = drive { arcanum.engine.Progress.Done }
 

@@ -45,6 +45,10 @@ internal object Filters {
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(kind))
         }
+        // chunk 47: "creatures with decayed": a keyword ability (CR 702)
+        WITH_KEYWORD.matchEntire(phrase)?.let { m ->
+            OracleParser.keyword(m.groupValues[2])?.let { keyword -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasKeyword(keyword.kind)) }
+        }
         // chunk 20: "artifact and/or enchantment" is either of them
         if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
@@ -124,6 +128,8 @@ internal object Filters {
             "token" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Token)
             "permanent" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
             "card" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
+            // chunk 46
+            "attacking" -> return ObjectFilter.HasStatus(arcanum.api.Status.Attacking)
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         CARD_TYPES[word]?.let { return ObjectFilter.Type(it) }
@@ -166,6 +172,8 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // chunk 47
+    private val WITH_KEYWORD = Regex("""(.+) with (\w+)""")
 }
 
 /** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
@@ -204,6 +212,10 @@ internal object Events {
             val step = STEPS[m.groupValues[1]] ?: return null
             return EventPattern.StepBegins(step, PlayerFilter.You)
         }
+        // chunks 45, 46: "at the beginning of combat on your turn"
+        if (text == "the beginning of combat on your turn") return EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.You)
+        // chunk 47: "a player sacrifices a permanent"
+        PLAYER_SACRIFICES.matchEntire(text)?.let { m -> return EventPattern.Sacrifice(Filters.noun(m.groupValues[1]) ?: return null) }
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
         PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
@@ -252,12 +264,14 @@ internal object Events {
             return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
                 Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other)))
         }
+        // chunk 46: "another nontoken creature you control"
+        ANOTHER.matchEntire(text)?.let { m -> return Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(m.groupValues[1]) ?: return null) }
         // chunk 25: "a creature", "a land you control", "one or more creature cards"
         ARTICLE_NOUN.matchEntire(text)?.let { m -> return Filters.noun(m.groupValues[1]) }
         return null
     }
 
-    private val ENTERS = Regex("""(.+) enters""")
+    private val ENTERS = Regex("""(.+) enters?""")
     private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step)""")
     private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
@@ -280,6 +294,10 @@ internal object Events {
     private val ENTERS_OR_LEAVES = Regex("""(.+) enters or (leaves the battlefield|is put into a graveyard from the battlefield)""")
     private val ATTACKS_OR_BLOCKS = Regex("""(.+) attacks or blocks""")
     private val YOU_DISCARD = Regex("""you discard an? (.+)""")
+    // chunk 46
+    private val ANOTHER = Regex("""another (.+)""")
+    // chunk 47
+    private val PLAYER_SACRIFICES = Regex("""a player sacrifices an? (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -319,7 +337,9 @@ internal object Conditions {
         CONTROL_N_WITH_DIFFERENT_NAMES.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2] + " you control") ?: return null
-            return Condition.Compare(Value.CountDistinct(Objects.Each(filter), SharedQuality.Name), Comparison.AtLeast, Value.Fixed(n))
+            // chunk 45: "with different powers" (coven)
+            val quality = if (m.groupValues[3] == "powers") SharedQuality.Number(arcanum.api.NumericProperty.Power) else SharedQuality.Name
+            return Condition.Compare(Value.CountDistinct(Objects.Each(filter), quality), Comparison.AtLeast, Value.Fixed(n))
         }
         // chunk 26: "this card is in your graveyard"
         IS_IN_YOUR_GRAVEYARD.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
@@ -333,6 +353,27 @@ internal object Conditions {
         EXILED_WITH_SELF.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
             return Condition.ObjectMatches(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))
         }
+        // chunk 45: "you attacked this turn" (raid)
+        if (text == "you attacked this turn") return Condition.HappenedThisTurn(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)))
+        // chunk 45: "this card is suspended": in exile, with suspend and a time counter (CR 702.62b)
+        IS_SUSPENDED.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, Filters.all(ObjectFilter.InZone(Zone.Exile),
+                ObjectFilter.HasKeyword(arcanum.api.Keyword.Suspend.Kind), ObjectFilter.HasCounter(arcanum.api.CounterKind.Time)))
+        }
+        // chunk 45: "two or more creatures died this turn": counts the creatures (CR 700.4)
+        DIED_THIS_TURN.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.noun(m.groupValues[2]) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard),
+                atLeast = n, measure = arcanum.api.Measure.Objects)
+        }
+        // chunk 45: "an opponent has 10 or less life"
+        OPPONENT_LIFE_AT_MOST.matchEntire(text)?.let { m ->
+            return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Life(Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt())))))
+        }
+        // chunk 47: "you control no creatures with decayed"
+        CONTROL_NONE.matchEntire(text)?.let { m ->
+            return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null))
+        }
         // chunk 25: "it wasn't the first land you played this turn": this turn's land plays include it (CR 305.2a)
         if (text == "it wasn't the first land you played this turn")
             return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You), atLeast = 2)
@@ -344,7 +385,7 @@ internal object Conditions {
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
     private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")
     private val CONTROL_N_OR_MORE = Regex("""you control (\w+) or more (\w+)""")
-    private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different names""")
+    private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different (names|powers)""")
     // chunk 26
     private val IS_IN_YOUR_GRAVEYARD = Regex("""(.+) is in your graveyard""")
     private val ENTERED_THIS_TURN = Regex("""(.+) entered this turn""")
@@ -353,6 +394,12 @@ internal object Conditions {
     private val SACRIFICED_AT_LEAST = Regex("""the sacrificed (\w+)'s (power|toughness) was (\d+) or greater""")
     // chunk 21
     private val SELF_IS_UNTAPPED = Regex("""(.+) is untapped""")
+    // chunk 45
+    private val IS_SUSPENDED = Regex("""(.+) is suspended""")
+    private val DIED_THIS_TURN = Regex("""(\w+) or more (.+) died this turn""")
+    private val OPPONENT_LIFE_AT_MOST = Regex("""an opponent has (\d+) or less life""")
+    // chunk 47
+    private val CONTROL_NONE = Regex("""you control no (.+)""")
 }
 
 /** The name a sacrifice cost gives the sacrificed object when the effect reads it ("the sacrificed creature's power"). */

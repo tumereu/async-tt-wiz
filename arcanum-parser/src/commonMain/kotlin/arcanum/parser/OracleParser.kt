@@ -146,6 +146,14 @@ object OracleParser {
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
             return Keyword.Splice(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), Cost.mana(cost))
         }
+        // chunk 45: "Bestow—{R}, Collect evidence 6." (CR 702.103a): a cost that isn't only mana.
+        BESTOW_COST.matchEntire(part)?.let { m ->
+            return Keyword.Bestow(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
+        }
+        // chunk 45: "Companion — Each permanent card in your starting deck has mana value 2 or less." (CR 702.139a)
+        COMPANION.matchEntire(part)?.let { m ->
+            return Keyword.CompanionAbility(m.groupValues[1], eachCard = companionCards(m.groupValues[1]))
+        }
         // chunk 25: "Enchant creature or Vehicle", "Enchant player" (CR 702.5a)
         ENCHANT.matchEntire(part)?.let { m ->
             return Keyword.Enchant(when (m.groupValues[1]) {
@@ -169,6 +177,15 @@ object OracleParser {
         }
     }
 
+    /** chunk 45: "Each permanent card in your starting deck has mana value 2 or less": every card of the deck is either not
+     * such a card or has that mana value. */
+    private fun companionCards(condition: String): arcanum.api.ObjectFilter? {
+        val m = EACH_CARD_IN_STARTING_DECK.matchEntire(condition) ?: return null
+        val cards = Filters.noun(m.groupValues[1]) ?: return null
+        return arcanum.api.ObjectFilter.Or(listOf(arcanum.api.ObjectFilter.Not(cards),
+            arcanum.api.ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, arcanum.api.Value.Fixed(m.groupValues[2].toInt()))))
+    }
+
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
     private val LEVEL_BAND = Regex("""LEVEL \d+(?:-\d+|\+)""")
@@ -182,6 +199,10 @@ object OracleParser {
     private val ENCHANT = Regex("""Enchant (.+)""")
     // chunk 13
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
+    // chunk 45
+    private val BESTOW_COST = Regex("""Bestow—(.+?)\.?""")
+    private val COMPANION = Regex("""Companion — (.+)""")
+    private val EACH_CARD_IN_STARTING_DECK = Regex("""Each (.+?) in your starting deck has mana value (\d+) or less\.""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

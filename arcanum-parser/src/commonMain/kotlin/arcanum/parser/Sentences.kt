@@ -73,6 +73,12 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        OTHERS_GET.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(
+                listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
+                affects = arcanum.api.Affected.Objects(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter)))))
+        }
         DOESNT_UNTAP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.DoesntUntap))
         }
@@ -162,9 +168,14 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             return null
         }
         TAP_UNTAPPED.matchEntire(text)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val count = Numbers.count(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
             return listOf(CostPart.TapObjects(CostObjects.Choose(ObjectFilter.And(listOf(
-                ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)), filter)))))
+                ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)), filter)), count = Value.Fixed(count))))
+        }
+        PUT_COUNTER_ON_SELF.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return listOf(CostPart.PutCounters(kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)))
         }
         SACRIFICE.matchEntire(text)?.let { m ->
             val what = m.groupValues[1]
@@ -286,7 +297,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     private fun mana(text: String): ManaKind? {
         ANY_COLOR.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)) }
         ManaCost.parse(text)?.let { return ManaKind.Fixed(it) }
-        val colors = text.split(" or ").map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
+        val colors = text.split(Regex(""",? or |, """)).map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
             ?.let { (it as? arcanum.api.ManaSymbol.Colored)?.color } ?: return null }
         return ManaKind.Choose(Value.Fixed(1), colors.map { ColorRef.Literal(it) })
     }
@@ -322,7 +333,9 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val UNTAP = Regex("""Untap (.+)\.""")
         val YOU_MAY_EXILE_FROM_HAND = Regex("""You may exile an? (.+) from your hand\.""")
         val ACTIVATE_ONLY_IF = Regex("""Activate only if (.+?)\.""")
-        val TAP_UNTAPPED = Regex("""Tap an untapped (.+)""")
+        val TAP_UNTAPPED = Regex("""Tap (an|two|three|four|five) untapped (.+)""")
+        val PUT_COUNTER_ON_SELF = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+)""")
+        val OTHERS_GET = Regex("""Other (.+) get ([+-]\d+)/([+-]\d+)\.""")
         val ANY_COLOR = Regex("""(\w+) mana of any (?:one )?color""")
         val ENTERS_TAPPED = Regex("""(.+) enters tapped\.""")
         val WHENEVER = Regex("""(Whenever|When|At) (.+?), (.+)""")

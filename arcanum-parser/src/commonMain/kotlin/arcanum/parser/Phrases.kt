@@ -35,6 +35,7 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
         CONTROLLED.matchEntire(phrase)?.let { m ->
             val who = when (m.groupValues[2]) { "you control" -> PlayerFilter.You; "an opponent controls" -> PlayerFilter.Opponent; else -> return null }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -72,7 +73,11 @@ internal object Filters {
     private fun and(a: ObjectFilter, b: ObjectFilter) =
         if (a is ObjectFilter.And) ObjectFilter.And(a.all + b) else ObjectFilter.And(listOf(a, b))
 
-    private fun singular(word: String) = if (word.endsWith("s") && word.dropLast(1).lowercase() in SINGULAR_NOUNS) word.dropLast(1) else word
+    private fun singular(word: String): String = when {
+        word.endsWith("s") && word.dropLast(1).lowercase() in SINGULAR_NOUNS -> word.dropLast(1)
+        word.first().isUpperCase() -> IRREGULAR_PLURALS[word] ?: word
+        else -> word
+    }
 
     private fun word(word: String): ObjectFilter? {
         if (word.startsWith("non")) return word(word.removePrefix("non"))?.let { ObjectFilter.Not(it) }
@@ -89,9 +94,13 @@ internal object Filters {
     }
 
     private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
+    private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
     private val CONTROLLED = Regex("""(.+) (you control|an opponent controls)""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
+    /** Plural creature types as printed ("Elves you control"); regular plurals are only read where the text needs them. */
+    private val IRREGULAR_PLURALS = mapOf("Elves" to "Elf", "Dwarves" to "Dwarf", "Wolves" to "Wolf", "Goblins" to "Goblin",
+        "Zombies" to "Zombie", "Humans" to "Human", "Spirits" to "Spirit", "Merfolk" to "Merfolk", "Soldiers" to "Soldier")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
         "permanent", "spell", "token")
     val CARD_TYPES = mapOf("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment,
@@ -183,4 +192,21 @@ internal object Tokens {
 
     private val TOKEN = Regex("""an? (\d+/\d+) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
+}
+
+/** Counter kinds as printed ("-1/-1", "+1/+1", "time", "charge"; CR 122). */
+internal object Counters {
+    fun kind(text: String): arcanum.api.CounterKind? {
+        PT.matchEntire(text)?.let { m -> return arcanum.api.CounterKind.PowerToughness(m.groupValues[1].toInt(), m.groupValues[2].toInt()) }
+        return when (text) {
+            "time" -> arcanum.api.CounterKind.Time
+            "loyalty" -> arcanum.api.CounterKind.Loyalty
+            "level" -> arcanum.api.CounterKind.Level
+            "stun" -> arcanum.api.CounterKind.Stun
+            "shield" -> arcanum.api.CounterKind.Shield
+            else -> if (text.all { it.isLetter() }) arcanum.api.CounterKind.Named(text) else null
+        }
+    }
+
+    private val PT = Regex("""([+-]\d+)/([+-]\d+)""")
 }

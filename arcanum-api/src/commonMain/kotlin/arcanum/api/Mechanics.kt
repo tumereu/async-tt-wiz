@@ -58,7 +58,10 @@ sealed interface Mechanic {
         override val layer: Layer get() = Layer.Control
         override val stacking: Stacking get() = Stacking.Independent
     }
-    /** Add or replace types. [replaceSubtypes]: "becomes a 2/2 Zombie" loses other creature types (CR 205.1b). */
+    /** Add or replace types. [replaceSubtypes]: the new subtypes replace the old ones **of the same kind** only
+     * ("becomes a Zombie" replaces creature types, not land types, CR 205.1a). Setting a land's subtype to a basic land
+     * type also removes all abilities from its rules text and old land types (CR 305.7, Blood Moon); the engine does
+     * that for any such effect. */
     @Serializable @SerialName("types") data class SetTypes(
         val add: List<CardType> = emptyList(), val addSubtypes: List<Subtype> = emptyList(),
         val addSupertypes: List<Supertype> = emptyList(), val remove: List<CardType> = emptyList(),
@@ -113,7 +116,7 @@ sealed interface Mechanic {
     @Serializable @SerialName("first-strike") data object FirstStrike : KeywordOnly
     @Serializable @SerialName("double-strike") data object DoubleStrike : KeywordOnly
     /** Excess combat damage may go to the player or planeswalker it attacks (CR 702.19); [overPlaneswalkers] for
-     * "trample over planeswalkers" (CR 702.19e). */
+     * "trample over planeswalkers" (CR 702.19c). */
     @Serializable @SerialName("trample") data class Trample(val overPlaneswalkers: Boolean = false) : KeywordOnly
     @Serializable @SerialName("ignores-summoning-sickness") data object IgnoresSummoningSickness : Mechanic
     @Serializable @SerialName("attacks-without-tapping") data object AttacksWithoutTapping : Mechanic
@@ -124,9 +127,11 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
     /** Protection from objects matching [from] (CR 702.16: can't be damaged, enchanted/equipped, blocked or targeted
-     * by them). */
+     * by them). For an ability, [from] is matched against its source (CR 702.16b); a card type means permanents of
+     * that type (702.16a). "Protection from red and from blue" is two keywords (702.16g). */
     @Serializable @SerialName("protection") data class Protection(val from: ObjectFilter) : KeywordOnly
-    /** Can't be the target of spells or abilities matching [by] (hexproof: controlled by opponents; shroud: any). */
+    /** Can't be the target of spells matching [by], or of abilities whose source matches [by] (hexproof: controlled by
+     * opponents; shroud: any; hexproof from a quality, CR 702.11d). */
     @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter) : Mechanic
     @Serializable @SerialName("phasing") data object Phasing : KeywordOnly
     /** What this Aura can target as a spell and be attached to (enchant, CR 702.5, 303.4). */
@@ -154,18 +159,25 @@ sealed interface Mechanic {
     @Serializable @SerialName("can-block-any-number") data object CanBlockAnyNumber : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
     @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter = ObjectFilter.Any) : Mechanic
-    /** Assigns combat damage as though it weren't blocked, or by toughness, … : named variants of damage rules. */
-    @Serializable @SerialName("combat-damage-rule") data class CombatDamageRule(val rule: String) : Mechanic
+    /** Assigns combat damage equal to its toughness rather than its power (CR 510.1). */
+    @Serializable @SerialName("damage-by-toughness") data object AssignsDamageByToughness : Mechanic
+    /** May assign its combat damage as though it weren't blocked (CR 510.1c). */
+    @Serializable @SerialName("damage-as-unblocked") data object AssignsDamageAsThoughUnblocked : Mechanic
+    /** Assigns no combat damage. */
+    @Serializable @SerialName("no-combat-damage") data object AssignsNoCombatDamage : Mechanic
 
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8). */
     @Serializable @SerialName("instant-speed") data object InstantSpeed : Mechanic
     /** May be cast or played from [zone] ("you may cast ~ from your graveyard"); [cost] replaces the mana cost when
-     * given (flashback, escape, …); [then] is where it goes when it leaves the Stack (flashback: exile). */
+     * given (flashback, escape, …); [then] is where it goes when it leaves the Stack (flashback: exile); [spells]: only
+     * if the resulting spell matches ("if the resulting spell is an instant or sorcery", CR 702.34a). */
     @Serializable @SerialName("may-cast-from") data class MayCastFrom(
         val zone: Zone, val cost: Cost? = null, val then: Destination? = null, val timing: Timing? = null,
+        val spells: ObjectFilter? = null,
     ) : Mechanic
-    /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown] for morph/disguise. */
+    /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
+     * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */
     @Serializable @SerialName("alternative-cost") data class AlternativeCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val faceDown: Boolean = false,
@@ -201,17 +213,25 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
     @Serializable @SerialName("skip-step") data class SkipStep(val step: TurnStep) : Mechanic
+    /** "If [event] causes a triggered ability of [sources] to trigger, it triggers an additional time" (CR 603.2d). */
+    @Serializable @SerialName("triggers-additional-time") data class TriggersAdditionalTime(
+        val event: EventPattern, val sources: ObjectFilter = ObjectFilter.Any,
+    ) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
 
     // ---- Replacement and prevention (CR 614, 615) ----
     /**
      * "If [event] would happen, [instead]" (CR 614). [modify] changes the event instead of replacing it entirely
-     * (enters tapped, enters with counters, double the amount). [optional] for "you may". [selfReplacement] marks a
-     * replacement in the text of the spell or ability whose event it changes (CR 614.15).
+     * (enters tapped, enters with counters, double the amount). [optional] for "you may". [selfReplacement] marks an
+     * effect in a spell's or ability's own text that changes how it resolves (CR 614.15); it is a separate ability only
+     * when written as one, such as under an ability word.
      *
-     * Order when several apply to one event (CR 616.1): self-replacements first, then those that set who controls an
-     * entering permanent, then [Modification.EntersAsCopy], then entering transformed; the affected player orders the
-     * rest, one at a time. A shield that is used up ("the next time …", regeneration) is created by an effect with a
+     * When several apply to one event (CR 616.1), the affected player (or controller of the affected object) chooses
+     * one, it is applied, and the rest are checked again (616.1f): self-replacements are chosen among first, then
+     * those that set who controls an entering permanent, then [Modification.EntersAsCopy], then entering transformed,
+     * then any other. A shield that is used up ("the next time …", regeneration) is created by an effect with a
      * count ([Effect.ApplyMechanics.uses]); the count lives in the effect object, not here.
      */
     @Serializable @SerialName("replacement") data class Replacement(
@@ -258,6 +278,12 @@ sealed interface Modification {
     @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean = true) : Modification
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
+    /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If
+     * you don't, it enters tapped"), choose ("choose a creature type"). Effects on [Objects.Self] apply to it as it
+     * enters. */
+    @Serializable @SerialName("as-enters") data class AsEnters(val steps: List<Step>) : Modification
+    /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
+    @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
     /** The event doesn't happen at all ("skip your draw", "prevent"). */
     @Serializable @SerialName("skip") data object Skip : Modification
 }

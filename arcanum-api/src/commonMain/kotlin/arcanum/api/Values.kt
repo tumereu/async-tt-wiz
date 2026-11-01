@@ -9,7 +9,8 @@ sealed interface Value {
     @Serializable @SerialName("fixed") data class Fixed(val value: Int) : Value
     /** A value announced when cast or activated ([Instructions.announced]), usually "X". */
     @Serializable @SerialName("announced") data class Announced(val name: String = "X") : Value
-    /** A number chosen or bound by an earlier step, or remembered on the source. */
+    /** A number chosen or bound by an earlier step (the amount a damage or life effect actually dealt, gained or lost,
+     * the number chosen), or remembered on the source. */
     @Serializable @SerialName("bound") data class Bound(val name: String) : Value
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Value
     /** The amount the triggering or replaced event was about ("that much damage", "that much life"). */
@@ -32,6 +33,9 @@ sealed interface Value {
     /** Mana spent to cast the spell: all of it, only mana of [color] ("if at least three white mana was spent"), or
      * the number of colours ([distinctColors], "for each colour of mana spent"). */
     @Serializable @SerialName("mana-spent") data class ManaSpent(val color: Color? = null, val distinctColors: Boolean = false) : Value
+    /** The damage over lethal in a damage effect bound as [name] ("excess damage", CR 120.4a); [Bound] reads the whole
+     * amount dealt. */
+    @Serializable @SerialName("excess") data class Excess(val name: String) : Value
     /** In an effect on the targets of a slot with [TargetSlot.divided]: each target's share, chosen when the spell
      * or ability was put on the Stack ("3 damage divided as you choose", CR 601.2d). */
     @Serializable @SerialName("divided-share") data object DividedShare : Value
@@ -77,12 +81,15 @@ sealed interface Condition {
     @Serializable @SerialName("object-is") data class ObjectMatches(val objects: Objects, val filter: ObjectFilter) : Condition
     @Serializable @SerialName("your-turn") data object YourTurn : Condition
     @Serializable @SerialName("step") data class StepIs(val step: TurnStep) : Condition
-    /** "If you do": the step bound under [name] happened (a [Step.May] accepted, an effect done). */
+    /** "If you do": what [name] names was done: a [Step.Pay] paid, or a [Step.May]'s steps or a binding effect actually
+     * happened, at least in part ("You may discard a card. If you do" with an empty hand: not done). */
     @Serializable @SerialName("did") data class Did(val name: String) : Condition
     /** An optional or additional cost was paid when casting ("if it was kicked", "if the gift was promised"). */
     @Serializable @SerialName("paid") data class Paid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val times: Int = 1,
+        /** Which of the keyword's costs ("kicked with its {1}{G} kicker", CR 702.33f): index into [Keyword.Kicker.costs]. */
+        val costIndex: Int? = null,
     ) : Condition
     /** The spell was cast from [zone], or cast at all (null) — "if you cast it from your hand". */
     @Serializable @SerialName("cast-from") data class CastFrom(val zone: Zone?) : Condition
@@ -90,8 +97,8 @@ sealed interface Condition {
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(val event: EventPattern, val atLeast: Int = 1) : Condition
     /** The chosen mode / option [option] of the resolving spell or of the choice bound under [name]. */
     @Serializable @SerialName("chose") data class Chose(val name: String, val option: String) : Condition
-    /** A Class's level or a leveler's level counters (CR 716, 702.87). */
-    @Serializable @SerialName("level") data class LevelAtLeast(val level: Int, val below: Int? = null) : Condition
+    /** The source Class is at [level] or higher (CR 716). Levelers compare their [CounterKind.Level] counters. */
+    @Serializable @SerialName("class-level") data class ClassLevelAtLeast(val level: Int) : Condition
     @Serializable @SerialName("day") data object IsDay : Condition
     @Serializable @SerialName("night") data object IsNight : Condition
 }

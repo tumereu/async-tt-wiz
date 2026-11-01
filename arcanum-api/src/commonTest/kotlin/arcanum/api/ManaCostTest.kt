@@ -8,13 +8,13 @@ class ManaCostTest {
     // CR 107.4: every kind of mana symbol reads and writes back unchanged.
     @Test
     fun everySymbolKindRoundTrips() {
-        val text = "{X}{2}{W}{U}{B}{R}{G}{C}{S}{W/U}{2/B}{R/P}{G/W/P}{0}"
+        val text = "{X}{2}{W}{U}{B}{R}{G}{C}{S}{W/U}{2/B}{C/U}{R/P}{G/W/P}{0}"
         val cost = ManaCost.parse(text)!!
         assertEquals(
             listOf(ManaSymbol.Variable('X'), ManaSymbol.Generic(2), ManaSymbol.Colored(Color.White),
                 ManaSymbol.Colored(Color.Blue), ManaSymbol.Colored(Color.Black), ManaSymbol.Colored(Color.Red),
                 ManaSymbol.Colored(Color.Green), ManaSymbol.Colorless, ManaSymbol.Snow,
-                ManaSymbol.Hybrid(Color.White, Color.Blue), ManaSymbol.GenericHybrid(2, Color.Black),
+                ManaSymbol.Hybrid(Color.White, Color.Blue), ManaSymbol.GenericHybrid(2, Color.Black), ManaSymbol.ColorlessHybrid(Color.Blue),
                 ManaSymbol.Phyrexian(Color.Red), ManaSymbol.PhyrexianHybrid(Color.Green, Color.White),
                 ManaSymbol.Generic(0)),
             cost.symbols)

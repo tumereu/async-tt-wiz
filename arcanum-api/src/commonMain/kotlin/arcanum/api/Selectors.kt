@@ -17,9 +17,8 @@ sealed interface Objects {
     @Serializable @SerialName("bound") data class Bound(val name: String) : Objects
     /** Card memory kept on the source under [key] ("the exiled card" of an O-Ring, CR 607). */
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Objects
-    /** The object the triggering event was about ("it", "that creature"); [role] picks one when an event has several
-     * (e.g. "source" and "recipient" of damage). */
-    @Serializable @SerialName("event") data class EventObject(val role: String = "object") : Objects
+    /** An object of the triggering or replaced event ("it", "that creature"); [role] picks which one. */
+    @Serializable @SerialName("event") data class EventObject(val role: EventRole = EventRole.Object) : Objects
     /** The object a source Aura or Equipment is attached to ("enchanted creature", "equipped creature"). */
     @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Self) : Objects
     /** Objects attached to [of] ("Auras attached to it"). */
@@ -29,6 +28,27 @@ sealed interface Objects {
     /** The top or bottom [count] cards of a library. */
     @Serializable @SerialName("library-cards") data class LibraryCards(val of: Players, val count: Value, val fromTop: Boolean = true) : Objects
     @Serializable @SerialName("union") data class Union(val parts: List<Objects>) : Objects
+    /** [base] without [minus] ("the rest", "the other cards"). */
+    @Serializable @SerialName("except") data class Except(val base: Objects, val minus: Objects) : Objects
+}
+
+/**
+ * Which object of an event a reference means. Each [EventPattern] names the roles it has; [DefinitionChecks] reports
+ * roles an ability's trigger events don't have.
+ */
+@Serializable
+sealed interface EventRole {
+    /** The object the event is about: the spell cast, the creature attacking or blocking, the permanent tapped, the
+     * object or player's object dealt damage, the object that became a target. */
+    @Serializable @SerialName("object") data object Object : EventRole
+    /** In a zone change: the object as it was before the move, its last known information (CR 603.10a, 608.2h). */
+    @Serializable @SerialName("before") data object Before : EventRole
+    /** In a zone change: the new object after the move (CR 400.7). */
+    @Serializable @SerialName("after") data object After : EventRole
+    /** The source of damage, or the spell or ability that targeted (CR 113.7 for an ability's source). */
+    @Serializable @SerialName("source") data object Source : EventRole
+    /** In a block: the attacking creature blocked. */
+    @Serializable @SerialName("attacker") data object Attacker : EventRole
 }
 
 /**
@@ -74,6 +94,8 @@ sealed interface ObjectFilter {
     /** Has at least one ability of [kind] ("creatures with activated abilities"). */
     @Serializable @SerialName("has-ability-kind") data class HasAbilityKind(val kind: AbilityKind) : ObjectFilter
     @Serializable @SerialName("status") data class HasStatus(val status: Status) : ObjectFilter
+    /** Its controller hasn't controlled it continuously since their most recent turn began (CR 302.6). */
+    @Serializable @SerialName("summoning-sick") data object SummoningSick : ObjectFilter
     @Serializable @SerialName("counter") data class HasCounter(val kind: CounterKind, val atLeast: Int = 1) : ObjectFilter
 
     @Serializable @SerialName("power") data class Power(val comparison: Comparison, val value: Value) : ObjectFilter
@@ -124,8 +146,9 @@ sealed interface Players {
     @Serializable @SerialName("target") data class Target(val slot: String) : Players
     @Serializable @SerialName("bound") data class Bound(val name: String) : Players
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Players
-    /** The player the triggering event was about ("that player"); [role] as in [Objects.EventObject]. */
-    @Serializable @SerialName("event") data class EventPlayer(val role: String = "player") : Players
+    /** The player the triggering or replaced event was about ("that player"): the caster, the player dealt damage, the
+     * player who drew, discarded, gained or lost life. */
+    @Serializable @SerialName("event-player") data object EventPlayer : Players
     @Serializable @SerialName("controller-of") data class ControllerOf(val objects: Objects) : Players
     @Serializable @SerialName("owner-of") data class OwnerOf(val objects: Objects) : Players
     @Serializable @SerialName("active") data object Active : Players

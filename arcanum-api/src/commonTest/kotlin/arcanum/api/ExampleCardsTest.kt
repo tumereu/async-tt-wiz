@@ -73,7 +73,8 @@ class ExampleCardsTest {
             Mode(Instructions(
                 targets = listOf(TargetSlot("s", TargetKind.Objects(all(ObjectFilter.Category(ObjectCategory.Spell),
                     ObjectFilter.Not(creatures))))),
-                steps = listOf(Step.Do(Effect.Counter(Objects.Target("s"), unlessPaid = Cost.mana(mana("{2}"))))))),
+                steps = listOf(Step.Unless(Players.ControllerOf(Objects.Target("s")), Cost.mana(mana("{2}")),
+                    listOf(Step.Do(Effect.Counter(Objects.Target("s")))))))),
             Mode(Instructions(
                 targets = listOf(TargetSlot("c", TargetKind.Objects(creatures))),
                 steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("c")), n(2)))))),
@@ -91,7 +92,7 @@ class ExampleCardsTest {
     private val saga = FaceDefinition("Tale of the Watch", mana("{2}{W}"), types = listOf(CardType.Enchantment),
         subtypes = listOf(Subtype("Saga")), abilities = listOf(
             Ability.Triggered(Trigger.Chapter(listOf(1, 2)), Instructions(steps = listOf(Step.Do(Effect.CreateToken(
-                TokenSpec.Defined(FaceDefinition("Soldier", colorIndicator = listOf(Color.White), types = listOf(CardType.Creature),
+                TokenSpec.Defined(FaceDefinition("Soldier Token", colorIndicator = listOf(Color.White), types = listOf(CardType.Creature),
                     subtypes = listOf(Subtype("Soldier")), power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1)))))))),
             Ability.Triggered(Trigger.Chapter(listOf(3)), Instructions(steps = listOf(Step.Do(Effect.ApplyMechanics(
                 listOf(Mechanic.ModifyPowerToughness(n(1), n(1))), Affected.Objects(Objects.Each(all(creatures, youControl))),
@@ -151,7 +152,47 @@ class ExampleCardsTest {
                 Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, n(3)), bind = "seen")),
                 Step.Choose(Choice.Objects(ObjectFilter.Any, n(1), n(1), from = Objects.Bound("seen")), bind = "kept"),
                 Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
-                Step.Do(Effect.Move(Objects.Bound("seen"), Destination(Zone.Library, libraryPosition = -1)))))))
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")),
+                    Destination(Zone.Library, libraryPosition = -1)))))))
+
+    /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (plus its basic land types) */
+    private val shockland = FaceDefinition("Ashen Crossing", types = listOf(CardType.Land),
+        subtypes = listOf(Subtype("Mountain"), Subtype("Swamp")), abilities = listOf(
+            Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.AsEnters(listOf(
+                    Step.Pay(Cost(listOf(CostPart.PayLife(n(2)))), bind = "paid"),
+                    Step.If(Condition.Not(Condition.Did("paid")), listOf(Step.Do(Effect.Tap(Objects.Self))))))))))))
+
+    /** "Whenever this creature attacks, you may sacrifice another creature. When you do, this creature deals 2 damage
+     * to any target." */
+    private val reaver = creature("Pyre Reaver", "{2}{R}", 3, 2, Ability.Triggered(
+        Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))),
+        Instructions(steps = listOf(
+            Step.May(listOf(
+                Step.Choose(Choice.Objects(all(creatures, youControl, ObjectFilter.Not(ObjectFilter.Is(Objects.Self))), n(1), n(1)), bind = "victim"),
+                Step.Do(Effect.Sacrifice(Objects.Bound("victim")))), bind = "sacrificed"),
+            Step.If(Condition.Did("sacrificed"), listOf(Step.Do(Effect.ReflexiveTrigger(Instructions(
+                targets = listOf(TargetSlot("t", TargetKind.Either(
+                    ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
+                    PlayerFilter.Any))),
+                steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")), n(2)))))))))))))
+
+    /** "When this creature dies, if it had no -1/-1 counters on it, return it to the battlefield under its owner's
+     * control with a -1/-1 counter on it." The condition reads the creature as it was, the return moves the new card. */
+    private val persistent = creature("Unyielding Shade", "{3}{B}", 3, 3, Ability.Triggered(
+        Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)),
+        Instructions(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After),
+            Destination(Zone.Battlefield, counters = listOf(CountersToPut(CounterKind.PowerToughness(-1, -1)))))))),
+        interveningIf = Condition.Not(Condition.ObjectMatches(Objects.EventObject(EventRole.Before),
+            ObjectFilter.HasCounter(CounterKind.PowerToughness(-1, -1))))))
+
+    /** "Each opponent sacrifices a creature." Every opponent chooses first, then all sacrifice at once (CR 608.2e). */
+    private val edict = FaceDefinition("Grim Tithe", mana("{1}{B}"), types = listOf(CardType.Sorcery), abilities = listOf(
+        Ability.Spell(Instructions(steps = listOf(Step.ForEach(Each.Players(Players.Each(PlayerFilter.Opponent)), "p", together = true,
+            steps = listOf(
+                Step.Choose(Choice.Objects(all(creatures, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("p")))), n(1), n(1)),
+                    bind = "victim", chooser = Players.Bound("p")),
+                Step.Do(Effect.Sacrifice(Objects.Bound("victim"))))))))))
 
     /** Kicker {2}{R} / "~ deals 2 damage to target creature. If this spell was kicked, it deals 4 damage instead." */
     private val kicked = FaceDefinition("Flarecall Blast", mana("{R}"), types = listOf(CardType.Sorcery), abilities = listOf(
@@ -173,7 +214,7 @@ class ExampleCardsTest {
 
     @Test
     fun exampleCardsSurviveJson() {
-        val cards = listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide)
+        val cards = listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide, shockland, reaver, persistent, edict)
             .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure
         cards.forEach { card ->
             val text = json.encodeToString(CardDefinition.serializer(), card)
@@ -183,7 +224,7 @@ class ExampleCardsTest {
 
     @Test
     fun exampleCardsPassDefinitionChecks() {
-        (listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide)
+        (listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked, hurl, forked, watch, tide, shockland, reaver, persistent, edict)
             .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure)
             .forEach { assertEquals(emptyList(), DefinitionChecks.problems(it), it.faces.first().name) }
     }
@@ -196,6 +237,21 @@ class ExampleCardsTest {
         val enchanted = Affected.Objects(Objects.AttachedTo())
         assertEquals(emptyList(), DefinitionChecks.problems(card(Ability.Static(listOf(Mechanic.GainAbilities(listOf(Keyword.Deathtouch))), enchanted))))
         assertEquals(1, DefinitionChecks.problems(card(Ability.Static(listOf(Mechanic.Deathtouch), enchanted))).size)
+    }
+
+    // D37: names, target slots and event roles must exist where they are used.
+    @Test
+    fun undefinedReferencesAndWrongRolesAreReported() {
+        fun spell(vararg steps: Step) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Loose Ends", abilities = listOf(
+            Ability.Spell(Instructions(steps = steps.toList()))))))
+        assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.Tap(Objects.Bound("nowhere"))))).size)
+        assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.Tap(Objects.Target("t"))))).size)
+        assertEquals(1, DefinitionChecks.problems(spell(Step.Do(Effect.GainLife(Players.You, Value.Announced())))).size)
+        val dies = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard))
+        fun onDeath(role: EventRole) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Last Rites", abilities = listOf(
+            Ability.Triggered(dies, Instructions(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(role), Destination(Zone.Hand))))))))))
+        assertEquals(emptyList(), DefinitionChecks.problems(onDeath(EventRole.After)))
+        assertEquals(1, DefinitionChecks.problems(onDeath(EventRole.Attacker)).size)
     }
 
     // D27: a number read from a group must say how it combines.

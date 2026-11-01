@@ -64,7 +64,8 @@ object KeywordExpansions {
         // that spell or ability unless that player pays [cost]."
         is Keyword.Ward -> listOf(Ability.Triggered(
             Trigger.On(EventPattern.BecomesTarget(ObjectFilter.Is(Objects.Self), ObjectFilter.ControlledBy(PlayerFilter.Opponent))),
-            steps(Effect.Counter(Objects.EventObject("source"), unlessPaid = keyword.cost))))
+            Instructions(steps = listOf(Step.Unless(Players.ControllerOf(Objects.EventObject(EventRole.Source)), keyword.cost,
+                listOf(Step.Do(Effect.Counter(Objects.EventObject(EventRole.Source)))))))))
         // CR 702.29a: "[Cost], Discard this card: Draw a card." (works from the hand)
         is Keyword.Cycling -> listOf(cycling(keyword.cost, Effect.Draw(Players.You)))
         // CR 702.29e: "[Cost], Discard this card: Search your library for a [type] card, reveal it, put it into your
@@ -74,7 +75,8 @@ object KeywordExpansions {
             Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
             Step.Do(Effect.Shuffle(Players.You)))))
         // CR 702.34a: may cast from the graveyard by paying the flashback cost; exiled when it leaves the Stack
-        is Keyword.Flashback -> static(Mechanic.MayCastFrom(Zone.Graveyard, keyword.cost, then = Destination(Zone.Exile)))
+        is Keyword.Flashback -> static(Mechanic.MayCastFrom(Zone.Graveyard, keyword.cost, then = Destination(Zone.Exile),
+            spells = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery))))
         // CR 702.33a: optional additional cost(s)
         is Keyword.Kicker -> keyword.costs.map { cost ->
             Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Kicker.Kind, cost, optional = true)))
@@ -83,7 +85,7 @@ object KeywordExpansions {
             keyword.cost, optional = true, repeatable = true))
         // CR 702.63a: enters with N time counters; upkeep: remove one; when the last is removed, sacrifice it
         is Keyword.Vanishing -> {
-            val time = CounterKind.Named("time")
+            val time = CounterKind.Time
             listOf(
                 Ability.Static(listOf(Mechanic.Replacement(
                     EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),

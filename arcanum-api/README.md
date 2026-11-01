@@ -32,8 +32,11 @@ The definition model (overview in `Definitions.kt`):
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).
 
 `ExampleCardsTest` shows a dozen invented cards written in the model and their
-JSON. Decisions from the API review (D19–D24: Stack items and effect objects with
-ids, object identity, ledgers, the object model) are not built here yet.
+JSON. Decisions from the API reviews (D19–D39) are built here where they concern card
+definitions; the runtime types they describe (object ids, Stack items and
+sequences, effect objects, ledgers, tagged events, timestamps) belong to the engine
+API and are not built yet. `DefinitionChecks.problems` reports definitions the
+types allow but the model forbids.
 Types are sealed hierarchies rather than enums with values (owner preference).
 
 ## Rules

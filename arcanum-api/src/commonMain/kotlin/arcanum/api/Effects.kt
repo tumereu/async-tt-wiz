@@ -19,6 +19,8 @@ sealed interface Effect {
     /** [source] deals [amount] damage to [to] (CR 120). [to] may hold objects and players. */
     @Serializable @SerialName("damage") data class DealDamage(
         val to: Recipients, val amount: Value, val source: Objects = Objects.Self,
+        /** Names the damage actually dealt, after prevention and replacement ("the damage dealt this way"). */
+        val bind: String? = null,
     ) : Effect
     /** [first] and [second] each deal damage equal to their power to the other (CR 701.14). */
     @Serializable @SerialName("fight") data class Fight(val first: Objects, val second: Objects) : Effect
@@ -55,8 +57,8 @@ sealed interface Effect {
     /** [players] look at [objects] (hidden from others); [bind] names them for "from among them". */
     @Serializable @SerialName("look") data class LookAt(val objects: Objects, val players: Players = Players.You, val bind: String? = null) : Effect
 
-    @Serializable @SerialName("gain-life") data class GainLife(val players: Players, val amount: Value) : Effect
-    @Serializable @SerialName("lose-life") data class LoseLife(val players: Players, val amount: Value) : Effect
+    @Serializable @SerialName("gain-life") data class GainLife(val players: Players, val amount: Value, val bind: String? = null) : Effect
+    @Serializable @SerialName("lose-life") data class LoseLife(val players: Players, val amount: Value, val bind: String? = null) : Effect
     @Serializable @SerialName("set-life") data class SetLife(val players: Players, val amount: Value) : Effect
 
     @Serializable @SerialName("put-counters") data class PutCounters(val objects: Objects, val kind: CounterKind, val amount: Value) : Effect
@@ -71,7 +73,8 @@ sealed interface Effect {
     @Serializable @SerialName("turn-face-up") data class TurnFaceUp(val objects: Objects) : Effect
     @Serializable @SerialName("turn-face-down") data class TurnFaceDown(val objects: Objects) : Effect
     @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects) : Effect
-    @Serializable @SerialName("set-status") data class SetStatus(val objects: Objects, val status: Status) : Effect
+    /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"). */
+    @Serializable @SerialName("mark") data class Mark(val objects: Objects, val mark: ObjectMark, val remove: Boolean = false) : Effect
     @Serializable @SerialName("designation") data class GiveDesignation(val players: Players, val designation: Designation) : Effect
 
     @Serializable @SerialName("create-token") data class CreateToken(
@@ -82,13 +85,14 @@ sealed interface Effect {
     @Serializable @SerialName("copy-spell") data class CopySpell(
         val objects: Objects, val controller: Players = Players.You, val newTargets: Boolean = true, val bind: String? = null,
     ) : Effect
-    /** Counter a spell or ability (CR 701.6); [unlessPaid] for "unless its controller pays". */
-    @Serializable @SerialName("counter") data class Counter(val objects: Objects, val unlessPaid: Cost? = null) : Effect
+    /** Counter a spell or ability (CR 701.6); "unless its controller pays" is a [Step.Unless] around it. */
+    @Serializable @SerialName("counter") data class Counter(val objects: Objects) : Effect
     @Serializable @SerialName("add-mana") data class AddMana(val mana: ManaProduction, val players: Players = Players.You) : Effect
 
     /** Create a continuous effect (CR 611.2): [mechanics] apply to [affects] for [duration]. It becomes an effect
-     * object; characteristic and control changes lock in the affected objects when created, rule changes keep
-     * applying to new objects, numbers are fixed at creation (CR 611.2c, 608.2h). [uses]: a replacement shield that
+     * object. Each mechanic that changes characteristics or control locks in its affected objects when created; rule
+     * changes keep applying to new objects; numbers, choices ("the colour of your choice") and named objects are fixed
+     * at creation (CR 611.2c, 608.2h). Gaining control is [Mechanic.ControlledBy] here. [uses]: a replacement shield that
      * ends after applying that many times ("the next time …"); the effect object counts down. Giant Growth: +3/+3 to
      * the target until end of turn. */
     @Serializable @SerialName("apply") data class ApplyMechanics(
@@ -103,12 +107,8 @@ sealed interface Effect {
     @Serializable @SerialName("remove-from-combat") data class RemoveFromCombat(val objects: Objects) : Effect
     /** Remove all damage marked on [objects]. */
     @Serializable @SerialName("remove-damage") data class RemoveAllDamage(val objects: Objects) : Effect
-    /** Gain control of [objects] for [duration] (layer 2; a shorthand for ApplyMechanics with [Mechanic.ControlledBy]). */
-    @Serializable @SerialName("gain-control") data class GainControl(
-        val objects: Objects, val duration: Duration = Duration.Indefinitely, val players: Players = Players.You,
-    ) : Effect
-    /** "At the beginning of the next end step, …" (CR 603.7): a one-time trigger created now. In the host it is a
-     * visible object. */
+    /** "At the beginning of the next end step, …" (CR 603.7): a one-time trigger created now, an effect object. The
+     * objects, players, choices and numbers it refers to are fixed when it is created (CR 603.7c). */
     @Serializable @SerialName("delayed-trigger") data class CreateDelayedTrigger(
         val trigger: Trigger, val instructions: Instructions, val once: Boolean = true,
     ) : Effect
@@ -121,7 +121,16 @@ sealed interface Effect {
     @Serializable @SerialName("win") data class WinGame(val players: Players = Players.You) : Effect
     @Serializable @SerialName("lose") data class LoseGame(val players: Players) : Effect
     /** Cast [objects] without paying their mana cost, or by paying [cost] (CR 601.2, "you may cast it"). */
-    @Serializable @SerialName("cast") data class Cast(val objects: Objects, val withoutPaying: Boolean = true, val cost: Cost? = null) : Effect
+    @Serializable @SerialName("cast") data class Cast(val objects: Objects, val withoutPaying: Boolean = false, val cost: Cost? = null) : Effect
+    /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
+     * then. Placed inside a [Step.If] on what was done; triggers once even if that was done several times (603.12a). */
+    @Serializable @SerialName("reflexive-trigger") data class ReflexiveTrigger(val instructions: Instructions) : Effect
+    /** "Reveal cards from the top of [library]'s library until you reveal [count] cards matching [filter]" (cascade,
+     * discover too): [foundBind] names the matching cards, [restBind] the other revealed cards. */
+    @Serializable @SerialName("reveal-until") data class RevealUntil(
+        val filter: ObjectFilter, val library: Players = Players.You, val count: Value = Value.Fixed(1),
+        val reveal: Boolean = true, val foundBind: String? = null, val restBind: String? = null,
+    ) : Effect
     @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction) : Effect
 }
 
@@ -133,7 +142,7 @@ data class Recipients(val objects: Objects? = null, val players: Players? = null
 @Serializable
 data class Destination(
     val zone: Zone,
-    /** Library position: 0 = top, -1 = bottom, n = nth from top. */
+    /** Library position counted from 0 at the top ("third from the top" = 2); -1 = bottom. */
     val libraryPosition: Int? = null,
     val tapped: Boolean = false,
     val faceDown: Boolean = false,
@@ -145,12 +154,19 @@ data class Destination(
     val transformed: Boolean = false,
     /** Put into the library in a random order (several cards). */
     val randomOrder: Boolean = false,
+    /** Enters the battlefield with these counters ("return it with a -1/-1 counter on it", CR 122.6). */
+    val counters: List<CountersToPut> = emptyList(),
 )
+
+/** [amount] counters of [kind]. */
+@Serializable
+data class CountersToPut(val kind: CounterKind, val amount: Value = Value.Fixed(1))
 
 /** What token to create (CR 111). */
 @Serializable
 sealed interface TokenSpec {
-    /** A token described by its characteristics ("a 1/1 white Soldier creature token with flying"). */
+    /** A token described by its characteristics ("a 1/1 white Soldier creature token with flying"). Its name, when the
+     * text gives none, is its subtypes plus "Token" ("Soldier Token", CR 111.4). */
     @Serializable @SerialName("defined") data class Defined(val face: FaceDefinition) : TokenSpec
     /** A predefined token (CR 111.10): Treasure, Clue, Food, Blood, Map, Powerstone, … by name; the shared table
      * holds their definitions. */
@@ -177,6 +193,6 @@ sealed interface KeywordAction {
     @Serializable @SerialName("goad") data class Goad(val objects: Objects) : KeywordAction
     @Serializable @SerialName("learn") data object Learn : KeywordAction
     /** "The next time [objects] would be destroyed this turn, instead remove all damage from it, tap it, and remove it
-     * from combat" (CR 701.19a): a one-use shield effect object. */
+     * from combat; its controller taps it" (CR 701.19a): a one-use shield effect object. */
     @Serializable @SerialName("regenerate") data class Regenerate(val objects: Objects = Objects.Self) : KeywordAction
 }

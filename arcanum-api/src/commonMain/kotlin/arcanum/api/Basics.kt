@@ -37,6 +37,8 @@ data class Subtype(val name: String)
 sealed interface PrintedNumber {
     @Serializable @SerialName("fixed") data class Fixed(val value: Int) : PrintedNumber
     @Serializable @SerialName("star") data class Star(val plus: Int = 0) : PrintedNumber
+    /** "X" (a planeswalker's starting loyalty set by X, CR 107.3). */
+    @Serializable @SerialName("x") data object X : PrintedNumber
 }
 
 /** Zones (CR 400). */
@@ -71,14 +73,29 @@ sealed interface TurnStep {
 /** Counter kinds (CR 122). The ones the rules give meaning to are their own types; any other is [Named]. */
 @Serializable
 sealed interface CounterKind {
-    @Serializable @SerialName("+1/+1") data object PlusOne : CounterKind
-    @Serializable @SerialName("-1/-1") data object MinusOne : CounterKind
+    /** A +X/+Y counter: +1/+1, -1/-1, +1/+0, -0/-1, … (CR 122.1a, 613.4c). */
+    @Serializable @SerialName("pt") data class PowerToughness(val power: Int, val toughness: Int) : CounterKind
+    /** A keyword counter: the object has that keyword while it has the counter (CR 122.1b, 613.1f). */
+    @Serializable @SerialName("keyword") data class Keyword(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : CounterKind
+    /** Prevents the next damage or destruction (CR 122.1c). */
+    @Serializable @SerialName("shield") data object Shield : CounterKind
+    /** Stops the next untap (CR 122.1d). */
+    @Serializable @SerialName("stun") data object Stun : CounterKind
+    /** Exiled instead of going to the graveyard (CR 122.1h). */
+    @Serializable @SerialName("finality") data object Finality : CounterKind
+    @Serializable @SerialName("rad") data object Rad : CounterKind
+    @Serializable @SerialName("hone") data object Hone : CounterKind
+    @Serializable @SerialName("time") data object Time : CounterKind
+    /** Level counters of a leveler (CR 702.87). */
+    @Serializable @SerialName("level") data object Level : CounterKind
     @Serializable @SerialName("loyalty") data object Loyalty : CounterKind
     @Serializable @SerialName("lore") data object Lore : CounterKind
     @Serializable @SerialName("defense") data object Defense : CounterKind
     @Serializable @SerialName("poison") data object Poison : CounterKind
     @Serializable @SerialName("energy") data object Energy : CounterKind
-    /** Any other counter: "charge", "time", "oil", … */
+    /** Any other counter, without rules meaning of its own: "charge", "oil", … */
     @Serializable @SerialName("named") data class Named(val name: String) : CounterKind
 }
 
@@ -94,15 +111,21 @@ sealed interface Status {
     @Serializable @SerialName("blocking") data object Blocking : Status
     @Serializable @SerialName("blocked") data object Blocked : Status
     @Serializable @SerialName("unblocked") data object Unblocked : Status
-    /** Came under its controller's control since their most recent turn began (summoning sickness, CR 302.6). */
-    @Serializable @SerialName("summoning-sick") data object SummoningSick : Status
-    @Serializable @SerialName("monstrous") data object Monstrous : Status
-    @Serializable @SerialName("renowned") data object Renowned : Status
-    @Serializable @SerialName("suspected") data object Suspected : Status
-    @Serializable @SerialName("saddled") data object Saddled : Status
     @Serializable @SerialName("goaded") data object Goaded : Status
-    /** Was cast this turn / is a token / … : designations without rules meaning of their own go here by name. */
-    @Serializable @SerialName("named") data class Named(val name: String) : Status
+    /** Has [mark] ("monstrous", "suspected"). */
+    @Serializable @SerialName("marked") data class Marked(val mark: ObjectMark) : Status
+}
+
+/** A mark an effect puts on a permanent and nothing else sets ([Effect.Mark]); tapping, turning face down and the
+ * like have their own effects. */
+@Serializable
+sealed interface ObjectMark {
+    @Serializable @SerialName("monstrous") data object Monstrous : ObjectMark
+    @Serializable @SerialName("renowned") data object Renowned : ObjectMark
+    @Serializable @SerialName("suspected") data object Suspected : ObjectMark
+    @Serializable @SerialName("saddled") data object Saddled : ObjectMark
+    /** Any other mark by name. */
+    @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }
 
 /** Player designations (CR 724–725, 728, 702.131). */

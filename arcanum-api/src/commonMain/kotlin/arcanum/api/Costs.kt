@@ -15,13 +15,17 @@ data class Cost(val parts: List<CostPart>) {
  * when they stay where they are (tap, reveal), `preBind`/`postBind` when they move (as in [Effect]). */
 @Serializable
 sealed interface CostPart {
-    @Serializable @SerialName("mana") data class Mana(val cost: ManaCost) : CostPart
+    /** [cost], paid [times] times when given ("{1} for each creature"); [x] sets the value of {X} in it when the text
+     * defines it ("pays {X}, where X is …"). */
+    @Serializable @SerialName("mana") data class Mana(val cost: ManaCost, val times: Value? = null, val x: Value? = null) : CostPart
+    /** "Pay its mana cost" / a cost "equal to its mana cost" (the object's own mana cost). */
+    @Serializable @SerialName("its-mana-cost") data object ItsManaCost : CostPart
     /** {T}: tap this permanent (CR 107.5). */
     @Serializable @SerialName("tap") data object TapSelf : CostPart
     /** {Q}: untap this permanent (CR 107.6). */
     @Serializable @SerialName("untap") data object UntapSelf : CostPart
     /** Tap [count] untapped objects matching [filter] you control, or any number with total power [totalPower] or more
-     * (crew). */
+     * (crew taps other creatures: the filter excludes the source, CR 702.122a). */
     @Serializable @SerialName("tap-objects") data class TapObjects(
         val filter: ObjectFilter, val count: Value? = null, val totalPower: Value? = null, val bind: String? = null,
     ) : CostPart
@@ -52,9 +56,10 @@ sealed interface CostObjects {
 }
 
 /** Mana an ability or effect adds (CR 106). [restriction] limits what it may be spent on ("spend this mana only to
- * cast creature spells", CR 106.6). */
+ * cast creature spells", CR 106.6). [spellGets] applies to a spell this mana is spent on ("that spell can't be
+ * countered", "it enters with an additional +1/+1 counter", CR 106.6a). */
 @Serializable
-data class ManaProduction(val kind: ManaKind, val restriction: ObjectFilter? = null)
+data class ManaProduction(val kind: ManaKind, val restriction: ObjectFilter? = null, val spellGets: List<Mechanic> = emptyList())
 
 @Serializable
 sealed interface ManaKind {

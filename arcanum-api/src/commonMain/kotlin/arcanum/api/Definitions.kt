@@ -21,10 +21,9 @@ data class CardDefinition(val layout: Layout, val faces: List<FaceDefinition>)
 @Serializable
 sealed interface Layout {
     @Serializable @SerialName("normal") data object Normal : Layout
-    /** Two halves on one face, cast separately or fused (CR 709). */
+    /** Two halves on one face, cast separately or fused (CR 709). An aftermath card is a split card whose second half
+     * has the aftermath keyword (CR 702.127). */
     @Serializable @SerialName("split") data object Split : Layout
-    /** Split card whose second half is cast only from the graveyard (aftermath, CR 702.127). */
-    @Serializable @SerialName("aftermath") data object Aftermath : Layout
     /** Flip card (CR 710). */
     @Serializable @SerialName("flip") data object Flip : Layout
     /** Double-faced card that transforms (CR 712). */
@@ -70,7 +69,9 @@ sealed interface Ability {
         val text: String? = null,
     ) : Ability
 
-    /** "[Cost]: [Effect]" (CR 602). Mana abilities (CR 605) are activated abilities whose instructions add mana. */
+    /** "[Cost]: [Effect]" (CR 602). It is a mana ability (CR 605.1a) when it could add mana, has no target and isn't a
+     * loyalty ability; a [CostPart.Loyalty] cost makes it a loyalty ability, activated only as a sorcery and only once
+     * each turn for that permanent's loyalty abilities (CR 606.3). */
     @Serializable @SerialName("activated")
     data class Activated(
         val cost: Cost,
@@ -79,7 +80,7 @@ sealed interface Ability {
         /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
          * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
-         * cycling-like costs where they can be paid; characteristic-defining everywhere). */
+         * costs or effects that move it out of a zone work in that zone; characteristic-defining everywhere; CR 113.6k, m). */
         val functionsIn: List<Zone>? = null,
         val abilityWord: String? = null,
         val text: String? = null,
@@ -96,7 +97,7 @@ sealed interface Ability {
         /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
          * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
-         * cycling-like costs where they can be paid; characteristic-defining everywhere). */
+         * costs or effects that move it out of a zone work in that zone; characteristic-defining everywhere; CR 113.6k, m). */
         val functionsIn: List<Zone>? = null,
         val abilityWord: String? = null,
         val text: String? = null,
@@ -115,9 +116,20 @@ sealed interface Ability {
         /** Zones it works in, only when the text states them (CR 113.6b, c). Null: the CR 113.6 default,
          * which the engine works out from what the ability does (battlefield; cost and casting rules of the card itself
          * on the Stack and where it can be cast from; "enters tapped/with counters" as it enters, CR 113.6d–j, 614.12;
-         * cycling-like costs where they can be paid; characteristic-defining everywhere). */
+         * costs or effects that move it out of a zone work in that zone; characteristic-defining everywhere; CR 113.6k, m). */
         val functionsIn: List<Zone>? = null,
         val abilityWord: String? = null,
+        val text: String? = null,
+    ) : Ability
+
+    /** A special action (CR 116.2): turning a face-down permanent face up (morph, disguise), foretelling, plotting,
+     * suspending, unlocking a door. Doesn't use the Stack; [timing] says when it may be taken. */
+    @Serializable @SerialName("special-action")
+    data class SpecialAction(
+        val cost: Cost,
+        val instructions: Instructions,
+        val timing: Timing = Timing.Any,
+        val functionsIn: List<Zone>? = null,
         val text: String? = null,
     ) : Ability
 
@@ -134,6 +146,9 @@ sealed interface Affected {
     @Serializable @SerialName("players") data class Players(val players: arcanum.api.Players) : Affected
     /** The game as a whole ("Spells can't be countered", "Players can't gain life" written as game rules). */
     @Serializable @SerialName("game") data object Game : Affected
+    /** The next [count] spells matching [spells] cast after the effect is created ("the next instant or sorcery spell
+     * you cast this turn costs {2} less", CR 611.2f); used up as they are cast. */
+    @Serializable @SerialName("next-spells") data class NextSpells(val spells: ObjectFilter, val count: Int = 1) : Affected
 }
 
 /** Activation rules of an activated ability (CR 602.5). */
@@ -216,12 +231,21 @@ sealed interface TargetKind {
 @Serializable
 sealed interface Step {
     @Serializable @SerialName("do") data class Do(val effect: Effect) : Step
+    /** "You may pay [cost]. If you do, …": [payer] may pay (mana abilities allowed, CR 608.2g); [bind] names whether it
+     * was paid, read with [Condition.Did]. */
+    @Serializable @SerialName("pay") data class Pay(val cost: Cost, val payer: Players = Players.You, val bind: String? = null) : Step
+    /** "[steps] unless [payer] pays [cost]" ("Counter target spell unless its controller pays {2}"). */
+    @Serializable @SerialName("unless") data class Unless(val payer: Players, val cost: Cost, val steps: List<Step>) : Step
     /** "You may …" / "Target player may …" (CR 608.2d): [player] decides whether [steps] happen. */
     @Serializable @SerialName("may") data class May(val steps: List<Step>, val player: Players = Players.You, val bind: String? = null) : Step
     /** "If …, … Otherwise, …". "If you do" is [Condition.Did]. */
     @Serializable @SerialName("if") data class If(val condition: Condition, val then: List<Step>, val otherwise: List<Step> = emptyList()) : Step
-    /** "For each …": [steps] run once per object or player in [each], bound to [bind]. */
-    @Serializable @SerialName("for-each") data class ForEach(val each: Each, val bind: String, val steps: List<Step>) : Step
+    /** "For each …": [steps] run once per object or player in [each], bound to [bind]. [together]: every player's
+     * choices are made first (in turn order), then the effects happen as one event ("Each opponent sacrifices a
+     * creature", CR 608.2e), so "one or more" triggers trigger once. */
+    @Serializable @SerialName("for-each") data class ForEach(
+        val each: Each, val bind: String, val steps: List<Step>, val together: Boolean = false,
+    ) : Step
     @Serializable @SerialName("repeat") data class Repeat(val times: Value, val steps: List<Step>) : Step
     /** A choice made during resolution (colour, creature type, number, card name, player, objects, option),
      * named [bind]. With [remember], it is kept on the source as card memory (CR 607 linked abilities, "As ~ enters,

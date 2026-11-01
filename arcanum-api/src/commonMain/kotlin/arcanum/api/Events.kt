@@ -5,23 +5,28 @@ import kotlinx.serialization.Serializable
 
 /**
  * A kind of game event, used three ways: what a [Trigger] waits for (CR 603), what a [Mechanic.Replacement] replaces
- * (CR 614), and what happened this turn ([Condition.HappenedThisTurn]). Roles that later references can use through
- * [Objects.EventObject] / [Players.EventPlayer] / [Value.EventAmount] are named in each KDoc.
+ * (CR 614), and what happened this turn ([Condition.HappenedThisTurn]). The [EventRole]s each pattern has are named in
+ * its KDoc ([EventRole.Object] unless said otherwise); [Players.EventPlayer] and [Value.EventAmount] read its player
+ * and amount.
  */
 @Serializable
 sealed interface EventPattern {
     /** An object matching [objects] moves from [from] to [to] (null = any zone). "Enters" = to battlefield; "dies" =
-     * creature from battlefield to graveyard (CR 700.4). Role "object"; it is seen as it was before the move when it
-     * leaves the battlefield (CR 603.10a). */
+     * creature from battlefield to graveyard (CR 700.4). Roles [EventRole.Before] (last known information; trigger
+     * conditions look back in time for leaving the battlefield, a graveyard or a hand and for sacrifice, CR 603.10a) and
+     * [EventRole.After] (the new object). */
     @Serializable @SerialName("zone-change") data class ZoneChange(
         val objects: ObjectFilter = ObjectFilter.Any, val from: Zone? = null, val to: Zone? = null,
     ) : EventPattern
-    /** A spell matching [spell] is cast by a player matching [by]. Roles "object" (the spell), "player". */
-    @Serializable @SerialName("cast") data class Cast(val spell: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any) : EventPattern
+    /** A spell matching [spell] is cast by a player matching [by]; [nth]: only their nth such spell this turn ("your
+     * second spell each turn"). Role object = the spell. */
+    @Serializable @SerialName("cast") data class Cast(
+        val spell: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any, val nth: Int? = null,
+    ) : EventPattern
     /** An ability of an object matching [source] is activated; [manaAbilities] whether mana abilities count. */
     @Serializable @SerialName("activate") data class Activate(val source: ObjectFilter = ObjectFilter.Any, val by: PlayerFilter = PlayerFilter.Any, val manaAbilities: Boolean = false) : EventPattern
     /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any.
-     * Roles "source", "object"/"player" (the recipient); amount = the damage. */
+     * Roles source, object (the recipient); amount = the damage. */
     @Serializable @SerialName("damage") data class Damage(
         val source: ObjectFilter = ObjectFilter.Any, val to: RecipientFilter = RecipientFilter(), val combat: Boolean? = null,
     ) : EventPattern
@@ -40,14 +45,14 @@ sealed interface EventPattern {
     @Serializable @SerialName("player-counters") data class PlayerCountersPut(val players: PlayerFilter = PlayerFilter.Any, val kind: CounterKind? = null) : EventPattern
     @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter = ObjectFilter.Any, val forMana: Boolean? = null) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
-    /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Role "object". */
+    /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. */
     @Serializable @SerialName("attack") data class Attack(val attacker: ObjectFilter = ObjectFilter.Any, val alone: Boolean = false, val target: RecipientFilter? = null) : EventPattern
-    /** A creature blocks [attacker]. Roles "object" (blocker), "attacker". */
+    /** A creature blocks [attacker]. Roles object (the blocker), attacker. */
     @Serializable @SerialName("block") data class Block(val blocker: ObjectFilter = ObjectFilter.Any, val attacker: ObjectFilter = ObjectFilter.Any) : EventPattern
     @Serializable @SerialName("becomes-blocked") data class BecomesBlocked(val attacker: ObjectFilter = ObjectFilter.Any) : EventPattern
     @Serializable @SerialName("unblocked") data class AttacksUnblocked(val attacker: ObjectFilter = ObjectFilter.Any) : EventPattern
-    /** An object or player becomes the target of a spell or ability matching [by] (heroic, ward). Roles "object",
-     * "source" (the spell or ability). */
+    /** An object or player becomes the target of a spell or ability matching [by] (heroic, ward). Roles object,
+     * source (the spell or ability). */
     @Serializable @SerialName("becomes-target") data class BecomesTarget(val objects: ObjectFilter = ObjectFilter.Any, val by: ObjectFilter = ObjectFilter.Any) : EventPattern
     @Serializable @SerialName("cycle") data class Cycle(val cards: ObjectFilter = ObjectFilter.Any, val players: PlayerFilter = PlayerFilter.Any) : EventPattern
     @Serializable @SerialName("create-token") data class CreateToken(val tokens: ObjectFilter = ObjectFilter.Any) : EventPattern
@@ -77,6 +82,7 @@ sealed interface Trigger {
     }
     /** A state trigger (CR 603.8): triggers whenever [condition] becomes true, once until it resolves. */
     @Serializable @SerialName("state") data class State(val condition: Condition) : Trigger
-    /** Saga chapter abilities (CR 714.2): lore counters reach one of [chapters]. */
+    /** Saga chapter abilities (CR 714.2): lore counters reach one of [chapters]. "I, II —" is written once but is one
+     * chapter ability per listed chapter (CR 714.2c). */
     @Serializable @SerialName("chapter") data class Chapter(val chapters: List<Int>) : Trigger
 }

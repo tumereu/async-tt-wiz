@@ -39,6 +39,8 @@ sealed interface ManaSymbol {
     data class Hybrid(val first: Color, val second: Color) : ManaSymbol
     /** {2/W} and the other monocoloured hybrid symbols (CR 107.4e) */
     data class GenericHybrid(val amount: Int, val color: Color) : ManaSymbol
+    /** {C/W} and the other colourless hybrid symbols: pay {C} or the colour (CR 107.4) */
+    data class ColorlessHybrid(val color: Color) : ManaSymbol
     /** {W/P} and the other Phyrexian symbols (CR 107.4f) */
     data class Phyrexian(val color: Color) : ManaSymbol
     /** {W/U/P} and the other hybrid Phyrexian symbols (CR 107.4f) */
@@ -78,6 +80,7 @@ data class ManaCost(val symbols: List<ManaSymbol>) {
                     when {
                         first != null && parts[1] == "P" -> ManaSymbol.Phyrexian(first)
                         first != null && second != null && first != second -> ManaSymbol.Hybrid(first, second)
+                        parts[0] == "C" && second != null -> ManaSymbol.ColorlessHybrid(second)
                         second != null -> parts[0].toIntOrNull()?.let { ManaSymbol.GenericHybrid(it, second) }
                         else -> null
                     }
@@ -101,6 +104,7 @@ data class ManaCost(val symbols: List<ManaSymbol>) {
             is ManaSymbol.Variable -> symbol.name.toString()
             is ManaSymbol.Hybrid -> "${symbol.first.symbol}/${symbol.second.symbol}"
             is ManaSymbol.GenericHybrid -> "${symbol.amount}/${symbol.color.symbol}"
+            is ManaSymbol.ColorlessHybrid -> "C/${symbol.color.symbol}"
             is ManaSymbol.Phyrexian -> "${symbol.color.symbol}/P"
             is ManaSymbol.PhyrexianHybrid -> "${symbol.first.symbol}/${symbol.second.symbol}/P"
         }

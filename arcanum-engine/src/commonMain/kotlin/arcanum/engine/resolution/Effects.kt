@@ -563,7 +563,8 @@ internal object Effects {
                 targets = targets.mapValues { (slot, chosen) ->
                     val s = slots.firstOrNull { it.name == slot } ?: return@mapValues chosen
                     val options = Targeting.options(act, s, controller, original.source, original.names, self = copyId)
-                    if (options.size <= 1 || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
+                    // Asked only when another target could be chosen (a single other legal target counts)
+                    if (options.all { it in chosen } || !act.yesNo(controller, copyId, "Choose new targets for the copy?")) chosen
                     else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
                 }
             }

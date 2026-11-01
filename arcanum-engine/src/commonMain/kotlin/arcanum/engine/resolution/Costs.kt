@@ -4,12 +4,18 @@ import arcanum.api.Cost
 import arcanum.api.CostObjects
 import arcanum.api.CostPart
 import arcanum.api.CounterKind
+import arcanum.api.ManaCost
+import arcanum.api.ManaSymbol
 import arcanum.api.Zone
 import arcanum.engine.action.Actions
 import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
 import arcanum.engine.change.GameEvent
 import arcanum.engine.change.Meaning
+import arcanum.engine.casting.Payment
+import arcanum.engine.casting.snapshot
+import arcanum.engine.decision.Decision
+import arcanum.engine.mana.Mana
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.RandomKind
 import arcanum.engine.state.NamedValue
@@ -19,8 +25,8 @@ import arcanum.engine.state.TargetRef
 
 /**
  * Costs paid while a spell or ability resolves (CR 118.12, D40): "you may pay …", "unless … pays", ward. A cost can be
- * chosen only if it can be paid in full (CR 601.2h, 118.3). Mana is paid by hand ([arcanum.engine.decision.Decision.Manual])
- * until mana payment ([arcanum.engine.mana.Mana]) can be asked here.
+ * chosen only if it can be paid in full (CR 601.2h, 118.3). Mana is paid with a mana payment decision, or by hand
+ * ([arcanum.engine.decision.Decision.Manual]) when the engine can't work out a payment.
  */
 internal object Costs {
     fun describe(cost: Cost): String = cost.parts.joinToString(", ") { part ->
@@ -68,8 +74,16 @@ internal object Costs {
         val act = scope.act
         val cause = scope.cause
         when (part) {
-            is CostPart.Mana -> payMana(scope, payer, part.cost.toString() + (part.times?.let { " × ${scope.value(it)}" } ?: ""))
-            CostPart.ItsManaCost -> payMana(scope, payer, "its mana cost")
+            is CostPart.Mana -> {
+                val times = part.times?.let { scope.value(it) } ?: 1
+                val x = part.x?.let { mapOf('X' to scope.value(it)) }
+                val cost = if (x == null && part.cost.symbols.any { it is ManaSymbol.Variable }) null
+                    else ManaCost(List(times.coerceAtLeast(0)) { Mana.withX(part.cost, x.orEmpty()).symbols }.flatten())
+                payMana(scope, payer, cost, part.cost.toString() + (part.times?.let { " × ${scope.value(it)}" } ?: ""))
+            }
+            // CR 107.3: an X in the mana cost is 0 here
+            CostPart.ItsManaCost -> payMana(scope, payer,
+                scope.self?.let { scope.act.view()[it]?.characteristics?.manaCost }?.let { Mana.withX(it, emptyMap()) }, "its mana cost")
             is CostPart.Manual -> act.manual(payer, scope.self, part.text)
             CostPart.TapSelf -> scope.self?.let { Actions.tap(act, listOf(it), true, listOf(Meaning.Paid)) }
             CostPart.UntapSelf -> scope.self?.let { Actions.tap(act, listOf(it), false, listOf(Meaning.Paid)) }
@@ -134,9 +148,19 @@ internal object Costs {
         }
     }
 
-    /** Mana paid on resolution (CR 608.2g): by hand for now. */
-    private fun payMana(scope: Scope, payer: PlayerId, text: String) {
-        scope.act.manual(payer, scope.self, "Pay $text")
+    /**
+     * Mana paid on resolution (CR 608.2g, 118.12): the payer may activate mana abilities and spend pool mana, asked as a
+     * [Decision.ManaPayment] like a cast's. When [cost] isn't known (an unannounced {X}) or the engine finds no way to pay
+     * it, the payer pays by hand ([Decision.Manual]).
+     */
+    private fun payMana(scope: Scope, payer: PlayerId, cost: ManaCost?, text: String) {
+        val act = scope.act
+        if (cost != null && cost.symbols.isEmpty()) return
+        val snap = act.recorder.snapshot()
+        val suggestion = cost?.let { Mana.suggest(snap, payer, it, null) }.orEmpty()
+        if (cost == null || suggestion.isEmpty()) return act.manual(payer, scope.self, "Pay $text")
+        val answer = act.asker.ask { Decision.ManaPayment(it, payer, scope.self, cost, Mana.options(snap, payer, cost, null), suggestion) }
+        Payment.payOnResolution(act.recorder, payer, cost, (answer as Answer.ManaPayment).uses)
     }
 
     private fun count(scope: Scope, what: CostObjects): Int = when (what) {

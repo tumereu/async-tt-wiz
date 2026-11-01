@@ -428,6 +428,46 @@ class EffectsTest {
         expect { bob.life shouldBe 17 }
     }
 
+    // CR 118.12a, 608.2g: mana paid on resolution: the payer taps lands for it
+    @Test
+    fun counterUnlessPaysWithALand() = scenario {
+        alice.battlefield("Mountain")
+        alice.hand("Storm Spark")
+        bob.hand("Mana Levy")
+
+        alice.castsWithoutCosts("Storm Spark", target = "bob")
+        bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
+        resolve()
+        answer(Answer.YesNo(true))
+        val payment = decision<Decision.ManaPayment>()
+        assertEquals("{1}", payment.cost.toString())
+        answer(Answer.ManaPayment(payment.suggestion))
+
+        expect {
+            "Mountain".tapped shouldBe true
+            stack.names shouldBe listOf("Storm Spark")
+        }
+    }
+
+    // CR 707.10c: a copy may change to the only other legal target
+    @Test
+    fun copyMayTakeTheOnlyOtherTarget() = scenario {
+        // Cast from the graveyard, it may copy itself; Lotus Frond is the copy's only legal target
+        alice.graveyard("Warden's Reclamation", "Elvish Seer", "Lotus Frond")
+        alice.castsWithoutCosts("Warden's Reclamation", target = "Elvish Seer")
+        resolve()
+        answer(Answer.YesNo(true))
+        answer(Answer.YesNo(true))
+        assertEquals(listOf(target("Lotus Frond")), decision<Decision.Targets>().options)
+        answer(Answer.Targets(listOf(target("Lotus Frond"))))
+        resolve()
+
+        expect {
+            alice.battlefield has "Elvish Seer"
+            alice.battlefield has "Lotus Frond"
+        }
+    }
+
     // CR 707.10: a copy of a spell is put on the Stack, and its controller may choose new targets
     @Test
     fun copyASpellWithNewTargets() = scenario {

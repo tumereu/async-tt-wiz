@@ -228,6 +228,35 @@ class CostsTest {
         }
     }
 
+    // CR 702.34a, 400.7: flashback granted until end of turn still exiles the spell, though it's a new object on the Stack
+    @Test
+    fun grantedFlashbackExilesTheSpell() = scenario {
+        alice.battlefield("Mountain")
+        alice.graveyard("Storm Spark")
+        effect(alice, Mechanic.GainAbilities(listOf(Keyword.Flashback(arcanum.api.Cost(listOf(arcanum.api.CostPart.ItsManaCost))))),
+            on = listOf("Storm Spark"))
+        alice.casts("Storm Spark", target = "bob")
+        expect { "Mountain".tapped shouldBe true }
+        allPass()
+        expect {
+            bob.life shouldBe 17
+            alice.exile has "Storm Spark"
+        }
+    }
+
+    // CR 601.2b, 601.2f: a cost that counts the spell's X uses the X announced while casting it
+    @Test
+    fun costCountingX() = scenario {
+        alice.battlefield("Mountain", "Mountain")
+        alice.hand("Forest", "Island", "Swamp")
+        alice.graveyard("Wildfire Spread")
+        alice.casts("Wildfire Spread", x = 2, target = "bob", choosing = listOf("Forest", "Island"))
+        expect {
+            alice.graveyard.names shouldBe listOf("Forest", "Island")
+            alice.hand.names shouldBe listOf("Swamp")
+        }
+    }
+
     // CR 601.3: without a permission, nothing is cast from the graveyard
     @Test
     fun noCastingFromTheGraveyardWithoutPermission() = scenario {

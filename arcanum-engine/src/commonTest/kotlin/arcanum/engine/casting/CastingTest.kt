@@ -516,4 +516,14 @@ class CastingTest {
         expect { card("Brash Pilferer").types shouldBe listOf(CardType.Instant) }
         assertEquals(1, state.objOrThrow(card("Brash Pilferer")).face)
     }
+
+    // CR 601.2d: a divided amount with a single target all goes to it
+    @Test
+    fun dividedAmountToASingleTarget() = scenario {
+        alice.battlefield("Mountain", "Mountain", "Mountain")
+        alice.hand("Wildfire Spread")
+        alice.casts("Wildfire Spread", x = 1, target = "bob")
+        allPass()
+        expect { bob.life shouldBe 19 }
+    }
 }

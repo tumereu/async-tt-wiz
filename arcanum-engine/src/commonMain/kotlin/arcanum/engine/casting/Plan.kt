@@ -336,6 +336,13 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
         return null
     }
 
+    /** CR 601.2d: a divided amount with a single target in its slot goes all to that target, without asking. */
+    fun wholeShares(): List<arcanum.engine.state.DividedShare> = Targets.slots(instructions, choices.modes).mapNotNull { slot ->
+        val divided = slot.slot.divided ?: return@mapNotNull null
+        val chosen = choices.targets[slot.key].orEmpty().singleOrNull() ?: return@mapNotNull null
+        if (choices.divided.any { it.slot == slot.key }) null else arcanum.engine.state.DividedShare(slot.key, chosen, eval.value(divided))
+    }
+
     private fun labels(part: CostPart.OneOf): List<String> {
         val texts = part.options.map { o -> o.parts.joinToString(", ") { Costs.describe(it) } }
         return texts.mapIndexed { i, t -> if (texts.count { it == t } > 1) "$t (${i + 1})" else t }
@@ -416,8 +423,20 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             val source = p.source ?: return null
             val current = snap.state.obj(source)?.id ?: (source as? ObjectId.Card)?.card?.let { snap.state.current(it)?.id } ?: return null
             val inst = snap.view[current]?.characteristics?.abilities?.firstOrNull { it.origin == p.ability }
-            val m = (inst?.ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.MayPlay>()?.firstOrNull() ?: return null
-            return m to inst.origin
+            // A permission granted by an effect to the card where it was (flashback until end of turn) stays the
+            // permission it was cast with once the card is a new object on the Stack (CR 400.7, 601.2a)
+            val ability = inst?.ability ?: p.ability?.let { grantedAbility(snap, it) }
+            val m = (ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.MayPlay>()?.firstOrNull() ?: return null
+            return m to (inst?.origin ?: p.ability)
+        }
+
+        /** The ability an effect object grants at [origin] (or an ability of a granted keyword's expansion). */
+        private fun grantedAbility(snap: Snapshot, origin: AbilityOrigin): Ability? = when (origin) {
+            is AbilityOrigin.FromEffect -> (snap.state.effects[origin.effect]?.mechanics?.getOrNull(origin.mechanic) as? Mechanic.GainAbilities)
+                ?.abilities?.getOrNull(origin.index)
+            is AbilityOrigin.Expansion -> (grantedAbility(snap, origin.keyword) as? Keyword)
+                ?.let { arcanum.api.KeywordExpansions.expand(it) }?.getOrNull(origin.index)
+            else -> null
         }
     }
 }

@@ -35,6 +35,15 @@ catalog entries the owner approves when its phase is built.
 - **Shuffles** (D25): the engine asks ATW to shuffle; ATW uses its existing shuffle
   and unknown library order.
 - **Secret choices**: manual until ATW can store an answer one player can't read.
-- **Waiting actions** (D29): while an action waits for a decision, none of it is
-  applied; the Stack item (or the step, for combat damage) shows "waiting for a
-  choice from P2".
+- **Sequences** (D31): the current resolution or cast sequence is game state, one
+  committed step per event batch, undoable per step. A choice opens a blocking
+  dialog that can't be dismissed until completed; no other changes meanwhile. The
+  opponent sees it greyed out ("P1 is choosing") with "Choose for them"; viewing
+  hidden cards that way needs extra confirmation. Look/Reveal steps use today's
+  server fill of hidden library cards.
+- **Who sends** (D31, D12): the client whose player's choice or action started the
+  step sends everything up to the next decision in one batch; after a server fill
+  of hidden cards, the same client continues.
+- **Blocking** (D32): with Automatum on, other changes are blocked during a
+  sequence and rule-breaking moves may be refused (exception to SYS-036); switching
+  Automatum off is always allowed and is the escape from a stuck sequence.

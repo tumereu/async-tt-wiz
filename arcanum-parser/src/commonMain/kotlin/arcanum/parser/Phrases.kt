@@ -345,6 +345,8 @@ internal object Conditions {
             val filter = Filters.noun(m.groupValues[2] + " you control") ?: return null
             return Condition.Compare(Value.CountDistinct(Objects.Each(filter), SharedQuality.Name), Comparison.AtLeast, Value.Fixed(n))
         }
+        // chunk 57: "this spell was kicked" (CR 702.33d)
+        if (text == "this spell was kicked") return Condition.Paid(arcanum.api.Keyword.Kicker.Kind)
         // chunk 56: "you control five or more Blood tokens"
         CONTROL_N_OR_MORE_PHRASE.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null

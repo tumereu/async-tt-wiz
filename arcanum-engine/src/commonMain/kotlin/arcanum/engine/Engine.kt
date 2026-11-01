@@ -21,17 +21,14 @@ object Engine {
     fun view(state: GameState): View = Layers.view(state)
 
     /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
-    fun options(state: GameState, player: PlayerId): List<Input> = notYet("options for $player")
+    fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)
 
     /**
      * Performs [input] on a copy of [state] and returns what changed, up to the next decision (D58): after every input
      * the engine applies state-based actions, puts triggered abilities on the Stack and gives priority (P5). While
      * [GameState.pending] is set, only its [Input.Answer] (or [Input.Cancel] for a cast) is accepted.
      */
-    fun perform(state: GameState, input: Input): Outcome = notYet(input::class.simpleName ?: "input")
-
-    private fun notYet(what: String): Nothing =
-        throw NotImplementedError("Arcanum engine: $what is not implemented yet (engine part 1 is the foundation only)")
+    fun perform(state: GameState, input: Input): Outcome = Perform.run(state, input)
 }
 
 /**

@@ -453,11 +453,12 @@ internal class LayerRun(private val state: GameState) {
         fun place(e: ContinuousEffect, mechanic: Mechanic, lockedPlayers: List<PlayerId>?) {
             val applied = AppliedMechanic(mechanic, e.you, e.timestamp, source = e.self, origin = e.instance?.origin,
                 effect = e.effect, names = e.names)
+            val affects = e.affects
             when {
-                Layers.isRule(mechanic) || e.affects == null || e.affects is Affected.NextSpells -> rules += applied
-                e.affects is Affected.Players -> (lockedPlayers ?: evaluator(board, e).players((e.affects as Affected.Players).players))
+                Layers.isRule(mechanic) || affects == null || affects is Affected.NextSpells -> rules += applied
+                affects is Affected.Players -> (lockedPlayers ?: evaluator(board, e).players(affects.players))
                     .forEach { playerMechanics.getOrPut(it) { mutableListOf() } += applied }
-                e.affects is Affected.Objects -> evaluator(board, e).objects((e.affects as Affected.Objects).objects)
+                affects is Affected.Objects -> evaluator(board, e).objects(affects.objects)
                     .filter { it in board.work && state.obj(it)?.phasedOut != true }
                     .forEach { objectMechanics.getOrPut(it) { mutableListOf() } += applied }
             }
@@ -466,8 +467,8 @@ internal class LayerRun(private val state: GameState) {
         staticEffects(board).filter { conditionHolds(board, it) }.forEach { e ->
             e.mechanics.filter { Layers.layerOf(it, e.cda) == null }.forEach { place(e, it, null) }
         }
-        state.effects.values.filter { Layers.active(state, board, it) }.forEach { effect ->
-            val e = effectObjects(board).first { it.effect == effect.id }
+        effectObjects(board).forEach { e ->
+            val effect = state.effects.getValue(e.effect!!)
             effect.mechanics.filter { it.layer == null }.forEach { place(e, it, effect.lockedPlayers) }
         }
 

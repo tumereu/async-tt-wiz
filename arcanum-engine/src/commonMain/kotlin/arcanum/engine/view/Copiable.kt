@@ -122,9 +122,9 @@ internal class Copiable(private val state: GameState) {
                 power = merged.firstNotNullOfOrNull { it.power }?.let(::number),
                 toughness = merged.firstNotNullOfOrNull { it.toughness }?.let(::number),
                 // CR 306.5c, 310.4c: on the battlefield, loyalty and defense are the counters
-                loyalty = if (onBattlefield && merged.any { it.loyalty != null }) o!!.counters(CounterKind.Loyalty)
+                loyalty = if (onBattlefield && merged.any { it.loyalty != null }) o.counters(CounterKind.Loyalty)
                     else merged.firstNotNullOfOrNull { it.loyalty }?.let(::number),
-                defense = if (onBattlefield && merged.any { it.defense != null }) o!!.counters(CounterKind.Defense)
+                defense = if (onBattlefield && merged.any { it.defense != null }) o.counters(CounterKind.Defense)
                     else merged.firstNotNullOfOrNull { it.defense }?.let(::number),
                 abilities = expand(faces.flatMap { f ->
                     f.face.abilities.mapIndexed { i, a -> AbilityInstance(a, AbilityOrigin.Printed(f.index, i), timestamp) }

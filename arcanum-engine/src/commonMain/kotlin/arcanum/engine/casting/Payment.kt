@@ -123,6 +123,36 @@ internal object Payment {
         return spent to byWay
     }
 
+    /**
+     * Pays mana [cost] for [player] while a spell or ability resolves (CR 118.12, 608.2g): the mana abilities and pool
+     * mana [uses] names, life for Phyrexian symbols (CR 107.4f); refused unless it pays the whole cost (CR 118.3). The
+     * mana pays for no spell, so restricted mana can't be spent.
+     */
+    fun payOnResolution(recorder: Recorder, player: PlayerId, cost: ManaCost, uses: List<ManaUse>) {
+        if (uses.any { it is ManaUse.Special }) refuse("Only mana and life pay a cost while resolving")
+        val poolBefore = recorder.state.player(player).manaPool
+        val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
+        if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
+        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(recorder, player, it) }
+        val poolNow = recorder.state.player(player).manaPool
+        val added = (poolBefore.size until poolNow.size).toList()
+        val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
+        if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
+            refuse("Life pays only Phyrexian mana (CR 107.4f)")
+        }
+        val payers = Mana.poolPayers(recorder.snapshot(), player, null, chosenPool + added)
+        val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
+        if (lifeFor.isNotEmpty()) {
+            val life = 2 * lifeFor.size
+            if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
+            recorder.record(Changes.life(recorder.state, player, -life, listOf(Meaning.LifePaid)))
+        }
+        val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
+        if (usedIndices.isNotEmpty()) {
+            recorder.record(Changes.manaPool(recorder.state, player, poolNow.filterIndexed { i, _ -> i !in usedIndices }, listOf(Meaning.ManaSpent)))
+        }
+    }
+
     /** Activates a simple mana ability while paying (CR 605.3a): pays its cost and adds its mana. */
     private fun activateForMana(recorder: Recorder, player: PlayerId, use: ManaUse.Ability) {
         val snap = recorder.snapshot()

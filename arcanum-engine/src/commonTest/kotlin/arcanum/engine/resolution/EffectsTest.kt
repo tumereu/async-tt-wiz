@@ -395,6 +395,7 @@ class EffectsTest {
     // CR 118.12a, D52: "unless its controller pays": declining means it is countered
     @Test
     fun counterUnlessPaysAndTheyDecline() = scenario {
+        alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         bob.hand("Mana Levy")
 
@@ -410,9 +411,10 @@ class EffectsTest {
         }
     }
 
-    // CR 118.12a: paying (by hand until mana payment exists) keeps the spell
+    // CR 118.12a, 608.2g: paying (with a mana ability activated while paying) keeps the spell
     @Test
     fun counterUnlessPaysAndTheyPay() = scenario {
+        alice.battlefield("Mountain")
         alice.hand("Storm Spark")
         bob.hand("Mana Levy")
 
@@ -420,12 +422,31 @@ class EffectsTest {
         bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
         resolve()
         answer(Answer.YesNo(true))
-        decision<Decision.Manual>()
-        answer(Answer.Done)
+        assertEquals("{1}", decision<Decision.ManaPayment>().cost.toString())
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
 
-        expect { stack.names shouldBe listOf("Storm Spark") }
+        expect {
+            stack.names shouldBe listOf("Storm Spark")
+            "Mountain".tapped shouldBe true
+        }
         resolve()
         expect { bob.life shouldBe 17 }
+    }
+
+    // CR 118.3: a player without the mana can't pay: the spell is countered without asking
+    @Test
+    fun counterUnlessPaysWithoutMana() = scenario {
+        alice.hand("Storm Spark")
+        bob.hand("Mana Levy")
+
+        alice.castsWithoutCosts("Storm Spark", target = "bob")
+        bob.castsWithoutCosts("Mana Levy", target = "Storm Spark")
+        resolve()
+
+        expect {
+            alice.graveyard has "Storm Spark"
+            stack.isEmpty()
+        }
     }
 
     // CR 707.10: a copy of a spell is put on the Stack, and its controller may choose new targets

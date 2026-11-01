@@ -25,13 +25,15 @@ class CardFaceInspectionTest {
     @get:Rule val compose = createComposeRule()
     private val f = TableStatesFixture
     private val front = DefinitionFace(f.id("front"), "Daylight healer", typeLine = "Creature — Human Cleric",
-        rulesText = "Front rules text.", power = "1", toughness = "1")
+        rulesText = "Front rules text.", power = "1", toughness = "1",
+        scryfallId = placeholderPrinting("Daylight healer", "Nightfall horror"))
 
     /** Card a's transformed (showing its back face) in [container]. */
     private fun transformed(container: String = "a/BATTLEFIELD"): Pair<PlayState, PlayCard> {
         val original = f.source(f.a, "1/3")
         val back = DefinitionFace(original.faceId, "Nightfall horror", typeLine = "Creature — Horror",
-            rulesText = "Back rules text.", power = "4", toughness = "4")
+            rulesText = "Back rules text.", power = "4", toughness = "4",
+            scryfallId = placeholderPrinting("Daylight healer", "Nightfall horror"))
         val card = original.copy(containerId = f.id(container), placement = original.placement.takeIf { container.endsWith("BATTLEFIELD") },
             covered = !container.endsWith("BATTLEFIELD"))
         val play = f.initial.copy(definitions = f.initial.definitions.map {

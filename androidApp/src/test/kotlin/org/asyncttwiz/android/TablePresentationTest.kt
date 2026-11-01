@@ -5,9 +5,13 @@ import org.junit.Test
 import kotlin.test.*
 
 internal object TableFixture {
-    val game = GameSummary("game", "Canvas Spark", "2026-10-23T00:00:00Z", AccountIdentity("a", "Alice"),
-        AccountIdentity("b", "Bob"), "round", "1", InvitationState.ACCEPTED, lifecycle = GameLifecycle.ACTIVE, playId = "play")
-    val definition = CardDefinition("Secret name", listOf(DefinitionFace("face", "Secret face", rulesText = "Secret rules")))
+    // Real games have UUID ids; the table shows Temp piles (ZON-040) only then.
+    val gameId = java.util.UUID.nameUUIDFromBytes("game".toByteArray()).toString()
+    val playId = java.util.UUID.nameUUIDFromBytes("play".toByteArray()).toString()
+    val game = GameSummary(gameId, "Canvas Spark", "2026-10-23T00:00:00Z", AccountIdentity("a", "Alice"),
+        AccountIdentity("b", "Bob"), "round", "1", InvitationState.ACCEPTED, lifecycle = GameLifecycle.ACTIVE, playId = playId)
+    val definition = CardDefinition("Secret name", listOf(DefinitionFace("face", "Secret face", rulesText = "Secret rules",
+        scryfallId = placeholderPrinting("Secret name"))))
     val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
     fun container(owner: String, zone: PlayZone) = "$owner/$zone"
     fun play(hand: Int = 0, board: Int = 0, library: Int = 4): PlayState {
@@ -21,7 +25,7 @@ internal object TableFixture {
             containers += PlayContainer(id, zone, owner, members)
         }
         containers += PlayContainer("stack", PlayZone.STACK)
-        return PlayState("game", "play", "round", "request", PlayRoot("root", "branch"), "root",
+        return PlayState(gameId, playId, "round", "request", PlayRoot("root", "branch"), "root",
             BoardState(listOf(PlayPlayer("a"), PlayPlayer("b")), cards, containers, TurnState("a")), listOf(submitted),
             emptyList(), InitialStarter(StarterChoice("a"), "a"))
     }
@@ -125,7 +129,7 @@ class TablePresentationTest {
     @Test fun specialPileCountBubblesAreSmallerAndCenteredExactlyOnTheirCornerInBothLayouts() {
         for (landscape in listOf(false, true)) {
             val scene = TableFixture.scene(landscape = landscape)
-            val piles = scene.items.filter { it.zone in setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
+            val piles = scene.items.filter { it.zone in setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) && !it.temp }
             assertEquals(6, piles.size)
             for (pile in piles) {
                 val bubble = pile.pileCountBubble
@@ -161,7 +165,7 @@ class TablePresentationTest {
                 if (it.zone == PlayZone.LIBRARY) it.copy(keepTopRevealed = enabled) else it }))
             val scene = TablePresentation.scene(TableFixture.game, state, viewer,
                 if (landscape) 900f else 412f, if (landscape) 412f else 820f, landscape)
-            for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY }) {
+            for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY && !it.temp }) {
                 assertEquals(!enabled, pile.covered)
                 assertEquals(enabled, pile.keepTopRevealed)
                 assertEquals(if (enabled) "Secret face" else "", pile.faceTitle)
@@ -177,7 +181,7 @@ class TablePresentationTest {
         }
         val empty = initial.copy(board = initial.board.copy(cards = emptyList(), containers = initial.board.containers.map {
             it.copy(cards = emptyList(), keepTopRevealed = it.zone == PlayZone.LIBRARY) }))
-        assertTrue(TableFixture.scene(empty).items.filter { it.zone == PlayZone.LIBRARY }.all { it.keepTopRevealed && it.covered })
+        assertTrue(TableFixture.scene(empty).items.filter { it.zone == PlayZone.LIBRARY && !it.temp }.all { it.keepTopRevealed && it.covered })
     }
 
     @Test fun landscapeKeepsBothOuterLandsRowsSeparateFromCombatAndReview() {
@@ -283,7 +287,7 @@ class TablePresentationTest {
             cards = p.board.cards.map { it.copy(knownToAll = true, covered = false) })) }
         for (viewer in listOf("a", "b")) {
             val scene = TablePresentation.scene(TableFixture.game, play, viewer, 400f, 800f, false)
-            for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY }) {
+            for (pile in scene.items.filter { it.zone == PlayZone.LIBRARY && !it.temp }) {
                 assertTrue(pile.covered)
                 assertFalse(pile.panelRevealed)
                 assertNull(pile.artwork)

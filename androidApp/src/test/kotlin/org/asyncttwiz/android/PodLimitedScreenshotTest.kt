@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.RectF
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -72,8 +73,7 @@ class PodLimitedScreenshotTest {
             canvas.drawRect(inset, inset, w - inset, h - inset, paint)
             paint.color = 0xffd8d0b8.toInt()
             canvas.drawRect(inset * 1.4f, h * .045f, w - inset * 1.4f, h * .105f, paint)
-            paint.color = 0xffe8dcc0.toInt()
-            canvas.drawRect(inset * 1.4f, h * .115f, w - inset * 1.4f, h * .55f, paint)
+            PlaceholderArtwork.drawArt(canvas, RectF(inset * 1.4f, h * .115f, w - inset * 1.4f, h * .55f))
         }
     }
 

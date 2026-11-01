@@ -130,8 +130,10 @@ class TempPilesLayoutTest {
 
     // TRN-035, ZON-040: no Temp piles (a play without a Temp 1 placeholder): the six counters fill the row.
     @Test fun landscapeCountersFillTheRowWithoutTempPiles() {
-        val scene = TablePresentation.scene(LiveTableFixture.game, LiveTableFixture.play(), "a", 892f, 412f, true)
-        assertFalse(DeckValidation.uuid(LiveTableFixture.play().id))
+        // The shared fixtures use real (UUID) play ids; a non-UUID id has no Temp 1 placeholder.
+        val play = LiveTableFixture.play().copy(id = "play")
+        val scene = TablePresentation.scene(LiveTableFixture.game.copy(playId = play.id), play, "a", 892f, 412f, true)
+        assertFalse(DeckValidation.uuid(play.id))
         for (owner in listOf("a", "b")) {
             assertLandscapeRow(scene, owner, emptyList(), ownRow = false)
             assertEquals(0f, scene.counterItems(owner).first().bounds.x, .01f)

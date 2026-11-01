@@ -355,7 +355,8 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
     val library = DeckLibraryController(unused<Decks>(), { "fixture" }, worker, { it() })
     val importer = DeckImportController({ error("Screenshot attempted lookup") }, worker, { it() })
     val definitions = listOf("Meadow Sentinel", "Aegis Ward", "Training Land", "Ember Adept", "Quiet Grove").mapIndexed { n, name ->
-        CardDefinition(name, listOf(DefinitionFace("face-$n", name, typeLine = "Creature", corner = "1/3"))).let { SubmittedDefinition(DeckJson.digest(it), it) }
+        CardDefinition(name, listOf(DefinitionFace("face-$n", name, typeLine = "Creature", corner = "1/3",
+            scryfallId = placeholderPrinting(name)))).let { SubmittedDefinition(DeckJson.digest(it), it) }
     }
     val decks = listOf("Training deck", "Woodland practice", "Starter list").mapIndexed { n, name ->
         DeckSummary("deck-$n", name, "1", "2026-10-20T12:00:00Z", 60, 15)
@@ -399,7 +400,7 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
         val text = "Deck\n4 Meadow Sentinel\n4 Ember Adept\n4 Aegis Ward\n48 Training Land\nSideboard\n15 Quiet Grove"
         val result = DeckImportResult(text, entries.map { entry ->
             val definition = definitions.first { it.digest == entry.definition }.definition
-            val printing = CatalogPrinting(entry.definition, definition.name, "TST", "1", "English", "", null, false, emptyList(), "{}")
+            val printing = CatalogPrinting(entry.definition, definition.name, "TST", "1", "English", "", placeholderPrinting(definition.name), false, emptyList(), "{}")
             ResolvedDeckEntry(if (entry.section == SavedDeckSection.MAINBOARD) DeckSection.MAINBOARD else DeckSection.SIDEBOARD,
                 entry.quantity, listOf(printing), listOf(1))
         }, if (screen == "import-errors") listOf(ImportIssue(3, "Unknown Card could not be resolved.")) else emptyList(),

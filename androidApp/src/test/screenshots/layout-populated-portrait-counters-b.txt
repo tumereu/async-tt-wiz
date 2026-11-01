@@ -1,1 +1,1 @@
-Portrait table layout mid-game, with a card on the Stack and one in the opponent's exile, your life -105, opponent's 120, only the opponent's counters set.
+Portrait table layout mid-game, with a card on the Stack and one in the opponent's exile, each player's empty Temp 1 showing, your life -105, opponent's 120, only the opponent's counters set.

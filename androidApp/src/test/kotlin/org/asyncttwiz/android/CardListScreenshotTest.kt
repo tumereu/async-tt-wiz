@@ -35,8 +35,9 @@ class CardListScreenshotTest {
     private val types = mapOf("Meadow Sentinel" to "Creature — Elf", "Rune Bear" to "Creature — Bear", "Ember Adept" to "Creature — Human",
         "Quiet Grove" to "Land", "Rune Bolt" to "Instant", "Rune Wall" to "Creature — Wall", "Aegis Ward" to "Enchantment",
         "Training Land" to "Land", "Rune Charm" to "Instant", "Rune Golem" to "Artifact Creature — Golem")
-    private fun definition(name: String) = CardDefinition(name, listOf(DefinitionFace("face-$name", name, typeLine = types.getValue(name))))
-    private fun printing(name: String) = CatalogPrinting("p-$name", name, "NEW", "9", "English", "", null, false, emptyList(),
+    private fun definition(name: String) = CardDefinition(name, listOf(DefinitionFace("face-$name", name, typeLine = types.getValue(name),
+        scryfallId = placeholderPrinting(name))))
+    private fun printing(name: String) = CatalogPrinting("p-$name", name, "NEW", "9", "English", "", placeholderPrinting(name), false, emptyList(),
         "{\"type\":\"${types.getValue(name)}\"}")
 
     // LOB-106, LOB-107, SYS-054

@@ -13,7 +13,7 @@ internal class BasicTableFixture {
     val actor = data.actor
     val other = data.other
     val game = data.game
-    val definition = data.definition.copy(faces = data.definition.faces.map { it.copy(corner = "2/3") })
+    val definition = data.definition.copy(faces = data.definition.faces.map { it.copy(corner = "2/3", scryfallId = placeholderPrinting("Retained")) })
     fun container(zone: PlayZone, owner: String = actor): String = id(200 + zone.ordinal + if (owner == other) 10 else 0)
     val root = data.initial.copy(definitions = listOf(SubmittedDefinition(DeckJson.digest(definition), definition)),
         board = data.initial.board.copy(cards = (40..43).map { n -> data.initial.board.cards.single().copy(

@@ -113,6 +113,7 @@ internal object Filters {
     fun players(phrase: String): Players? = when (phrase) {
         "Each opponent", "each opponent" -> Players.Each(PlayerFilter.Opponent)
         "You", "you" -> Players.You
+        "Each player", "each player" -> Players.Each(PlayerFilter.Any)
         else -> null
     }
 

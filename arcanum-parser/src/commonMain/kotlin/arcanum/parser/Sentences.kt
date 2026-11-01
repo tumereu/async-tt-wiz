@@ -216,7 +216,8 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         DISCARD_COST.matchEntire(text)?.let { m ->
             if (isSelf(m.groupValues[1])) return listOf(CostPart.Discard(CostObjects.Self))
             if (m.groupValues[1] == "your hand") return listOf(CostPart.Discard(CostObjects.These(Objects.Each(yourHand))))
-            return listOf(CostPart.Discard(CostObjects.Choose(Filters.noun(m.groupValues[1].removeArticle()) ?: return null)))
+            val (count, noun) = counted(m.groupValues[1]) ?: return null
+            return listOf(CostPart.Discard(CostObjects.Choose(Filters.noun(noun) ?: return null, count = Value.Fixed(count))))
         }
         // "Tap two untapped Elves you control": tapping as a cost can only tap untapped permanents you control
         // (CR 602.2b, 701.26a), so the canonical form names only the kind (as crew does).
@@ -230,7 +231,8 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             return listOf(CostPart.PutCounters(kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)))
         }
         RETURN_TO_HAND_COST.matchEntire(text)?.let { m ->
-            return listOf(CostPart.ReturnToHand(CostObjects.Choose(Filters.noun(m.groupValues[1]) ?: return null)))
+            val (count, noun) = counted(m.groupValues[1]) ?: return null
+            return listOf(CostPart.ReturnToHand(CostObjects.Choose(Filters.noun(noun) ?: return null, count = Value.Fixed(count))))
         }
         EXILE_FROM_HAND_COST.matchEntire(text)?.let { m ->
             return listOf(CostPart.Exile(CostObjects.Choose(Filters.noun(m.groupValues[1]) ?: return null), from = Zone.Hand))
@@ -240,6 +242,13 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             return listOf(CostPart.Sacrifice(if (isSelf(what)) CostObjects.Self else CostObjects.Choose(Filters.noun(what.removeArticle()) ?: return null)))
         }
         return null
+    }
+
+    /** "a card" → 1 and "card"; "two cards" → 2 and "cards". */
+    private fun counted(phrase: String): Pair<Int, String>? {
+        val first = phrase.substringBefore(' ')
+        val count = if (first == "a" || first == "an") 1 else Numbers.count(first) ?: return 1 to phrase
+        return count to phrase.substringAfter(' ')
     }
 
     /** The effect sentences of a spell or ability, in order. */
@@ -306,6 +315,81 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     }
 
     private fun effect(sentence: String, context: Context): List<Step>? {
+        // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
+        if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        PUT_FROM_HAND_ON_TOP.matchEntire(sentence)?.let { m ->
+            val n = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), n, n), bind = "put"),
+                Step.Do(Effect.Move(Objects.Bound("put"), Destination(Zone.Library, libraryPosition = 0))))
+        }
+        PLAYERS_DRAW.matchEntire(sentence)?.let { m ->
+            val players = Filters.players(m.groupValues[1]) ?: return null
+            val steps = mutableListOf<Step>(Step.Do(Effect.Draw(players, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+            if (m.groupValues[3].isNotEmpty())
+                steps += Step.Do(Effect.Discard(players, Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null), random = m.groupValues[4].isNotEmpty()))
+            if (m.groupValues[5].isNotEmpty()) steps += Step.Do(Effect.LoseLife(players, Value.Fixed(m.groupValues[5].toInt())))
+            return steps
+        }
+        EACH_PLAYER_DISCARDS_HAND_DRAWS.matchEntire(sentence)?.let { m ->
+            val each = Players.Each(PlayerFilter.Any)
+            return listOf(
+                Step.Do(Effect.Discard(each, objects = Objects.Each(ObjectFilter.InZone(Zone.Hand)))),
+                Step.Do(Effect.Draw(each, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        DISCARD_UNLESS_ATTACKED.matchEntire(sentence)?.let { m ->
+            val attacked = arcanum.api.Condition.HappenedThisTurn(arcanum.api.EventPattern.Attack(attacker = ObjectFilter.ControlledBy(PlayerFilter.You)))
+            return listOf(Step.If(arcanum.api.Condition.Not(attacked),
+                then = listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))))
+        }
+        SCRY_OR_SURVEIL.matchEntire(sentence)?.let { m ->
+            val n = Value.Fixed(m.groupValues[2].toInt())
+            return listOf(Step.Do(if (m.groupValues[1] == "Scry") Effect.Scry(Players.You, n) else Effect.Surveil(Players.You, n)))
+        }
+        SEARCH_TO_TOP.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removeArticle().removeSuffix(" card").ifEmpty { "card" }) ?: return null
+            return listOf(
+                Step.Do(Effect.Search(Players.You, filter, reveal = m.groupValues[2].isNotEmpty(), bind = "found")),
+                Step.Do(Effect.Shuffle(Players.You, except = Objects.Bound("found"))),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Library, libraryPosition = 0))))
+        }
+        SEARCH_PUT_SHUFFLE.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removeArticle().removeSuffix(" card")) ?: return null
+            val to = if (m.groupValues[2] == "into your hand") Destination(Zone.Hand) else Destination(Zone.Battlefield)
+            val steps = mutableListOf<Step>(
+                Step.Do(Effect.Search(Players.You, filter, bind = "found")),
+                Step.Do(Effect.Move(Objects.Bound("found"), to)))
+            if (m.groupValues[3].isNotEmpty()) steps += Step.Do(Effect.Discard(Players.You, random = true))
+            steps += Step.Do(Effect.Shuffle(Players.You))
+            return steps
+        }
+        if (sentence == "Look at target player's hand.") {
+            val player = context.targetPlayer()
+            return listOf(Step.Do(Effect.LookAt(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.Is(player)))))))
+        }
+        TARGET_PLAYER_MILLS.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Mill(context.targetPlayer(), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        LOOK_PUT_BACK.matchEntire(sentence)?.let { m ->
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)), bind = "seen")),
+                Step.Do(Effect.Reorder(Objects.Bound("seen"))))
+        }
+        if (sentence == "You may shuffle.") return listOf(Step.May(listOf(Step.Do(Effect.Shuffle(Players.You)))))
+        if (sentence == "Investigate.") return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Investigate())))
+        TARGET_GETS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(
+                listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
+                arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            context.targets += TargetSlot("cards", TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+            return listOf(Step.Do(Effect.Move(Objects.Target("cards"), Destination(Zone.Hand))))
+        }
+        YOU_LOSE_LIFE.matchEntire(sentence)?.let { m -> return listOf(Step.Do(Effect.LoseLife(Players.You, Value.Fixed(m.groupValues[1].toInt())))) }
         SELF_DEALS_DAMAGE_TO_EACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val amount = Value.Fixed(m.groupValues[2].toInt())
             val to = Filters.players(m.groupValues[3])?.let { arcanum.api.Recipients(players = it) }
@@ -522,13 +606,6 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             val filter = Filters.noun(noun) ?: return null
             return listOf(Step.Do(Effect.Destroy(context.target(Filters.slotName(noun), filter))))
         }
-        SEARCH_PUT_SHUFFLE.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].removeArticle().removeSuffix(" card")) ?: return null
-            return listOf(
-                Step.Do(Effect.Search(Players.You, filter, bind = "found")),
-                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))),
-                Step.Do(Effect.Shuffle(Players.You)))
-        }
         // "[A], then [B].": tried last, after the wordings that contain ", then" themselves.
         THEN.matchEntire(sentence)?.let { m ->
             val first = effect(m.groupValues[1] + ".", context) ?: return null
@@ -540,6 +617,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
 
     /** "{C}", "{B}{B}", "{R} or {G}", "one mana of any color", "three mana of any one color" (CR 106.1). */
     private fun mana(text: String): ManaKind? {
+        ANY_COMBINATION.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), combination = true) }
         ANY_COLOR.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1].ifEmpty { m.groupValues[2] }) ?: return null)) }
         ManaCost.parse(text)?.let { return ManaKind.Fixed(it) }
         val colors = text.split(Regex(""",? or |, """)).map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
@@ -579,7 +657,7 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val RETURN_TARGET_TO_HAND = Regex("""Return target (.+) to its owner's hand\.""")
         val ITS_CONTROLLER_GAINS_LIFE_EQUAL_TO_POWER = Regex("""Its controller gains life equal to its power\.""")
         val UNTAP_UP_TO = Regex("""Untap up to (\w+) (.+)\.""")
-        val RETURN_TO_HAND_COST = Regex("""Return an? (.+) to its owner's hand""")
+        val RETURN_TO_HAND_COST = Regex("""Return (.+) to (?:its|their) owners?'s? hands?""")
         val EXILE_FROM_HAND_COST = Regex("""Exile an? (.+) from your hand""")
         val COUNTER_TARGET = Regex("""Counter target (.+?)(?: unless its controller pays (\{.+\}))?\.""")
         val COUNTERED_THIS_WAY = Regex("""If that spell is countered this way, (exile it|put it on top of its owner's library|put it into its owner's hand) instead of .+\.""")
@@ -632,7 +710,19 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val ADD_MANA = Regex("""Add (.+)\.""")
         val PLAYERS_GAIN_LIFE = Regex("""(.+) gains? (\d+) life\.""")
         val DESTROY_TARGET = Regex("""Destroy target (.+)\.""")
-        val SEARCH_PUT_SHUFFLE = Regex("""Search your library for (.+), put it onto the battlefield, then shuffle\.""")
+        val SEARCH_PUT_SHUFFLE = Regex("""Search your library for (.+?), put (?:it|that card) (onto the battlefield|into your hand)(, discard a card at random)?, then shuffle\.""")
+        val SEARCH_TO_TOP = Regex("""Search your library for (.+?), (reveal it, )?then shuffle and put that card on top\.""")
+        val PUT_FROM_HAND_ON_TOP = Regex("""Put (\w+) cards? from your hand on top of your library(?: in any order)?\.""")
+        val PLAYERS_DRAW = Regex("""(Each player|You) draws? (\w+) cards?(?:, then discards? (\w+) cards?( at random)?)?(?: and loses? (\d+) life)?\.""")
+        val EACH_PLAYER_DISCARDS_HAND_DRAWS = Regex("""Each player discards their hand, then draws (\w+) cards\.""")
+        val DISCARD_UNLESS_ATTACKED = Regex("""Discard (a|one|two) cards? unless you attacked this turn\.""")
+        val SCRY_OR_SURVEIL = Regex("""(Scry|Surveil) (\d+)\.""")
+        val TARGET_PLAYER_MILLS = Regex("""Target player mills (\w+) cards?\.""")
+        val LOOK_PUT_BACK = Regex("""Look at the top (\w+) cards of your library, then put them back in any order\.""")
+        val TARGET_GETS_UNTIL_EOT = Regex("""Target (.+) gets ([+-]\d+)/([+-]\d+) until end of turn\.""")
+        val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
+        val YOU_LOSE_LIFE = Regex("""You lose (\d+) life\.""")
+        val ANY_COMBINATION = Regex("""(\w+) mana in any combination of colors""")
     }
 }
 

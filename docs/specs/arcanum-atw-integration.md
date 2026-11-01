@@ -17,6 +17,12 @@ catalog entries the owner approves when its phase is built.
 - **Zone-change count per card** (D21). The engine's object id is the ATW card id
   plus this count; it goes up on every move between zones. Stored, not derived from
   history (SYS-026).
+- **Zone mapping** (D38): look/reveal panels are not zone changes; a shuffle advances
+  the zone-change count of the shuffled cards (CR 701.20d). Temp piles are a manual
+  tabletop tool and are not supported by Automatum.
+- **Version per game** (D38): the game stores its definition and engine version; a
+  client on another version plays manually until it updates, and the server refuses
+  its automated batches.
 - **Timestamp per card** (D34): from a game-wide integer counter, set on entering a
   zone, attaching, turning face up/down and transforming; assigned by ATW itself, with
   or without Automatum. Only ever goes up: undo leaves it alone (otherwise every

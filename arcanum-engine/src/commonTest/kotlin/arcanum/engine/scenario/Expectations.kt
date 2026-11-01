@@ -107,7 +107,11 @@ class ZoneQuery(private val scenario: Scenario, private val label: String, priva
     /** An ability on the Stack as "ability of [source]", a copy of a spell as "copy of [spell]". */
     private fun stackName(id: ObjectId): String {
         val item = scenario.state.stackItems[id] ?: return "ability $id"
-        val source = item.source?.let { s -> scenario.state.obj(s)?.let { scenario.nameOf(it) } ?: item.snapshots.firstOrNull { it.id == s }?.characteristics?.name }
+        val view = scenario.view()
+        val source = item.source?.let { s ->
+            view[s]?.name ?: item.snapshots.firstOrNull { it.id == s }?.characteristics?.name
+                ?: arcanum.engine.query.Lki.find(scenario.state, s)?.characteristics?.name
+        }
         return when (item.kind) {
             is arcanum.engine.state.StackItemKind.SpellCopy -> "copy of ${item.snapshots.lastOrNull()?.characteristics?.name ?: source}"
             else -> "ability of $source"

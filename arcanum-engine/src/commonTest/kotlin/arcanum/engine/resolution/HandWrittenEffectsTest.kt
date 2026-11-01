@@ -787,7 +787,7 @@ class HandWrittenEffectsTest {
         resolve()
         beginStep(TurnStep.End)
 
-        expect { stack.names shouldBe listOf("ability of null") }
+        expect { stack.names shouldBe listOf("ability of Test Patience") }
         resolve()
         expect { alice.hand has "Forest" }
         assertTrue(state.delayedTriggers.isEmpty(), "It triggered once and ended (CR 603.7c)")

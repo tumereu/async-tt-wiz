@@ -52,8 +52,12 @@ import arcanum.engine.view.isInstantOrSorcery
 internal object Triggers {
     /** Events whose triggers are checked on the game as it was just before (CR 603.10a). */
     fun looksBack(change: Change): Boolean = when (change) {
-        is Change.ZoneChange -> change.moves.any { it.from == Zone.Battlefield || it.from == Zone.Graveyard || it.from == Zone.Stack }
-        is Change.Removed, is Change.Attached -> true
+        // Leaving the battlefield, and an object all players can see put into a hand or library
+        is Change.ZoneChange -> change.moves.any {
+            it.from == Zone.Battlefield || ((it.to == Zone.Hand || it.to == Zone.Library) && it.from != Zone.Hand && it.from != Zone.Library)
+        }
+        is Change.Removed -> true
+        is Change.Attached -> change.before != null && change.after != change.before
         is Change.Status -> change.flag == StatusFlag.PhasedOut
         else -> false
     }
@@ -222,7 +226,8 @@ internal object Triggers {
     /** CR 603.3b: a player with two or more triggers puts them on the Stack in the order they choose (P5: only when the
      * order can matter). */
     private fun order(act: Act, player: PlayerId, mine: List<WaitingTrigger>): List<WaitingTrigger> {
-        if (mine.size < 2 || mine.all { it.ability == mine.first().ability && it.source == mine.first().source && it.event == mine.first().event }) return mine
+        // Triggers of the same ability of the same source are taken as interchangeable (P5)
+        if (mine.size < 2 || mine.all { it.ability == mine.first().ability && it.source == mine.first().source }) return mine
         val options = mine.mapIndexed { i, t -> TriggerOption(i, t.source, (t.ability as? Ability.Triggered)?.text) }
         val order = (act.asker.ask { Decision.OrderTriggers(it, player, null, options) } as Answer.Order).order
         require(order.sorted() == mine.indices.toList()) { "Order every trigger once: $order" }

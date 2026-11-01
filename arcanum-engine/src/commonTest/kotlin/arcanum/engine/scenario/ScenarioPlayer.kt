@@ -25,8 +25,11 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
 
     /** Puts cards onto the battlefield under this player's control, controlled since before this turn unless [sick]
      * (CR 302.6). */
-    fun battlefield(vararg names: String, tapped: Boolean = false, sick: Boolean = false, counters: List<Pair<CounterKind, Int>> = emptyList()) {
-        scenario.put(this, names.toList(), Zone.Battlefield, tapped = tapped, sick = sick, counters = counters)
+    fun battlefield(
+        vararg names: String, tapped: Boolean = false, sick: Boolean = false, faceDown: Boolean = false,
+        counters: List<Pair<CounterKind, Int>> = emptyList(),
+    ) {
+        scenario.put(this, names.toList(), Zone.Battlefield, tapped = tapped, sick = sick, counters = counters, faceDown = faceDown)
     }
 
     fun hand(vararg names: String) {

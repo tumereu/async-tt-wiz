@@ -16,7 +16,9 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.decision.FilledObject
 import arcanum.engine.decision.RandomKind
 import arcanum.engine.input.Input
+import arcanum.engine.state.Bindings
 import arcanum.engine.state.CardId
+import arcanum.engine.state.NamedValue
 import arcanum.engine.state.ControlSince
 import arcanum.engine.state.CounterEntry
 import arcanum.engine.state.EffectId
@@ -94,23 +96,39 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
         scripted.addAll(answers)
     }
 
-    /** An effect object made by hand during setup (as if a spell had resolved earlier). */
+    /**
+     * An effect object made during setup, as if a spell had resolved earlier (CR 611.2): [mechanics] locked onto the
+     * cards [on] (CR 611.2c), or applied to [affects] when given; [names] are its frozen names (D37). It gets the next
+     * timestamp (CR 613.7b).
+     */
     fun effect(
-        controller: ScenarioPlayer, vararg mechanics: Mechanic, on: List<String>, duration: arcanum.api.Duration = arcanum.api.Duration.EndOfTurn,
+        controller: ScenarioPlayer, vararg mechanics: Mechanic, on: List<String> = emptyList(),
+        affects: arcanum.api.Affected? = null, names: Map<String, String> = emptyMap(),
+        duration: arcanum.api.Duration = arcanum.api.Duration.EndOfTurn,
     ): EffectId {
         setup()
         val id = EffectId("E${state.effects.size + 1}")
         val timestamp = ++state.timestampCounter
         state.effects[id] = EffectObject(
-            id = id, mechanics = mechanics.toList(), affects = null, locked = on.map { card(it) }, source = null,
-            controller = controller.id, timestamp = timestamp, createdTurn = state.turn.number, duration = duration,
+            id = id, mechanics = mechanics.toList(), affects = affects, locked = if (affects == null) on.map { card(it) } else null,
+            source = null, controller = controller.id, timestamp = timestamp, createdTurn = state.turn.number, duration = duration,
+            names = Bindings(names.mapValues { (_, name) -> NamedValue.Objects(listOf(card(name))) }),
         )
         return id
+    }
+
+    /** Attaches the Aura or Equipment [attachment] to [to] during setup (CR 301.5, 303.4); it gets a new timestamp
+     * (CR 613.7e). */
+    fun attach(attachment: String, to: String) {
+        setup()
+        val id = card(attachment)
+        state.objects[id] = state.objOrThrow(id).copy(attachedTo = target(to), timestamp = ++state.timestampCounter)
     }
 
     internal fun put(
         owner: ScenarioPlayer, names: List<String>, zone: Zone, tapped: Boolean = false, sick: Boolean = false,
         hidden: Boolean = false, counters: List<Pair<CounterKind, Int>> = emptyList(), top: Boolean = false,
+        faceDown: Boolean = false,
     ): List<ObjectId> {
         setup()
         return names.map { name ->
@@ -122,7 +140,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
             val onBattlefield = zone == Zone.Battlefield
             val o = GameObject(
                 id = id, owner = owner.id, controller = if (onBattlefield || zone == Zone.Stack) owner.id else null,
-                zone = zone, definition = if (hidden) null else definition, tapped = tapped,
+                zone = zone, definition = if (hidden) null else definition, tapped = tapped, faceDown = faceDown,
                 counters = counters.map { (kind, n) -> CounterEntry(kind, n, timestamp) }
                     .sortedWith(compareBy({ it.timestamp }, { it.kind.toString() })),
                 timestamp = timestamp,

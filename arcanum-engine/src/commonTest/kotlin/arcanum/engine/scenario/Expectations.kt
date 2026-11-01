@@ -48,44 +48,47 @@ class Expectations internal constructor(private val scenario: Scenario, val view
 
     private val String.ref: CardRef get() = CardRef(scenario.card(this), this)
 
-    private fun CardRef.view(): ObjectView = view[id] ?: fail("$label isn't in the view")
+    private fun CardRef.objectView(): ObjectView = this@Expectations.view[id] ?: fail("$label isn't in the view")
+
+    /** The card as the view sees it. */
+    val CardRef.view: ObjectView get() = objectView()
 
     // ---- Characteristics (after layers, CR 613)
 
     val String.power: Int? get() = ref.power
     val String.toughness: Int? get() = ref.toughness
-    val String.loyalty: Int? get() = ref.view().characteristics?.loyalty
+    val String.loyalty: Int? get() = ref.objectView().characteristics?.loyalty
     val String.colors: List<Color> get() = ref.colors
     val String.types: List<CardType> get() = ref.types
     val String.subtypes: List<Subtype> get() = ref.subtypes
     val String.controller: PlayerId? get() = ref.controller
     val String.zone: Zone get() = ref.zone
     val String.tapped: Boolean get() = ref.tapped
-    val String.view: ObjectView get() = ref.view()
+    val String.view: ObjectView get() = ref.objectView()
     fun String.counters(kind: CounterKind): Int = ref.counters(kind)
 
-    val CardRef.power: Int? get() = view().characteristics?.power
-    val CardRef.toughness: Int? get() = view().characteristics?.toughness
-    val CardRef.colors: List<Color> get() = view().characteristics?.colors.orEmpty()
-    val CardRef.types: List<CardType> get() = view().characteristics?.types.orEmpty()
-    val CardRef.subtypes: List<Subtype> get() = view().characteristics?.subtypes.orEmpty()
-    val CardRef.controller: PlayerId? get() = view().controller
-    val CardRef.zone: Zone get() = view().zone
-    val CardRef.tapped: Boolean get() = view().obj?.tapped == true
-    fun CardRef.counters(kind: CounterKind): Int = view().obj?.counters(kind) ?: 0
+    val CardRef.power: Int? get() = objectView().characteristics?.power
+    val CardRef.toughness: Int? get() = objectView().characteristics?.toughness
+    val CardRef.colors: List<Color> get() = objectView().characteristics?.colors.orEmpty()
+    val CardRef.types: List<CardType> get() = objectView().characteristics?.types.orEmpty()
+    val CardRef.subtypes: List<Subtype> get() = objectView().characteristics?.subtypes.orEmpty()
+    val CardRef.controller: PlayerId? get() = objectView().controller
+    val CardRef.zone: Zone get() = objectView().zone
+    val CardRef.tapped: Boolean get() = objectView().obj?.tapped == true
+    fun CardRef.counters(kind: CounterKind): Int = objectView().obj?.counters(kind) ?: 0
 
     infix fun String.hasKeyword(kind: KeywordKind) = ref.hasKeyword(kind)
     infix fun String.lacksKeyword(kind: KeywordKind) = ref.lacksKeyword(kind)
     infix fun CardRef.hasKeyword(kind: KeywordKind) =
-        assertTrue(view().characteristics?.hasKeyword(kind) == true, "$label should have ${kind.text}")
+        assertTrue(objectView().characteristics?.hasKeyword(kind) == true, "$label should have ${kind.text}")
     infix fun CardRef.lacksKeyword(kind: KeywordKind) =
-        assertTrue(view().characteristics?.hasKeyword(kind) != true, "$label shouldn't have ${kind.text}")
+        assertTrue(objectView().characteristics?.hasKeyword(kind) != true, "$label shouldn't have ${kind.text}")
 
     /** Whether a rule applies to it that isn't a characteristic (D24): `"X" hasMechanic { it is Mechanic.CantBlock }`. */
     infix fun String.hasMechanic(test: (Mechanic) -> Boolean) =
-        assertTrue(ref.view().has(test), "$this should have that mechanic: ${ref.view().mechanics.map { it.mechanic }}")
+        assertTrue(ref.objectView().has(test), "$this should have that mechanic: ${ref.objectView().mechanics.map { it.mechanic }}")
     infix fun String.lacksMechanic(test: (Mechanic) -> Boolean) =
-        assertTrue(!ref.view().has(test), "$this shouldn't have that mechanic: ${ref.view().mechanics.map { it.mechanic }}")
+        assertTrue(!ref.objectView().has(test), "$this shouldn't have that mechanic: ${ref.objectView().mechanics.map { it.mechanic }}")
 
     // ---- Zones and history
 

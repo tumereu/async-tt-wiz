@@ -22,8 +22,8 @@ internal fun face(
 
 /**
  * Card definitions for engine tests, by name (D61): the invented cube cards of the parser tests (498+, D46), the basic
- * lands, and cards a test invents itself ([invent]). Each is parsed from its oracle text once, on first use, and shared
- * by all tests.
+ * lands, cards a test invents itself ([invent]), and hand-written definitions for structures the cube lacks
+ * ([InventedCards]). Each is parsed from its oracle text once, on first use, and shared by all tests.
  */
 object Cards {
     private val texts: Map<String, CubeCardText> by lazy { CubeCardTexts.all.associateBy { it.name } }
@@ -35,7 +35,7 @@ object Cards {
 
     /** The definition of the card named [name] (a multi-faced card by either its full "A // B" name or its first
      * face's name). */
-    fun definition(name: String): CardDefinition = parsed.getOrPut(name) {
+    fun definition(name: String): CardDefinition = InventedCards.all[name] ?: parsed.getOrPut(name) {
         val text = invented[name] ?: texts[name] ?: BASICS[name]
             ?: CubeCardTexts.all.firstOrNull { it.faces.first().name == name }
             ?: error("No test card named \"$name\"")

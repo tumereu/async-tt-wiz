@@ -1,7 +1,7 @@
 package arcanum.tools
 
 import arcanum.parser.OracleFace
-import arcanum.api.UnparsedAbility
+import arcanum.api.Ability
 import arcanum.parser.OracleNormalizer
 import arcanum.parser.OracleParser
 import arcanum.parser.Pattern
@@ -40,7 +40,7 @@ fun main(args: Array<String>) {
     val unparsedKeywords = HashMap<String, Int>()
     faces.values.filter { it.text.isNotBlank() }.forEach { face ->
         val definition = OracleParser.parse(face.name, face.text)
-        val unparsed = definition.abilities.filterIsInstance<UnparsedAbility>()
+        val unparsed = definition.abilities.filterIsInstance<Ability.Unparsed>()
         abilities += definition.abilities.size
         parsed += definition.abilities.size - unparsed.size
         if (unparsed.isEmpty()) facesParsed++

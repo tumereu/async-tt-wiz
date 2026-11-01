@@ -57,7 +57,8 @@ that exist today.
 | D14 | The parser is built **case by case, AI-assisted**: one effect or a group of similar wordings at a time, deciding together how to parse it, then implementing it. The owner reviews code periodically. (D5's "no LLM fallback" is about the parser itself, not how it is developed.) |
 | D15 | **Test data is our own:** invented card names with real-MTG-like wording (a real card's text with a different name and mana cost, or merges of several cards). The frequency analysis runs on a local MTGJSON download that is never committed (D-243). |
 | D16 | Library rules: KDoc and a short README per library; tests cite Comprehensive Rules numbers and are protected like catalog-linked tests; a build check keeps the libraries free of ATW modules. |
-| D17 | Types in the libraries are **sealed hierarchies rather than enums with values**, unless that causes serialization or multiplatform problems. Keywords: one sealed type per keyword carrying exactly its values (`Keyword.Crew(amount)`); a keyword is a rules hook or a named template for an ordinary ability, decided per keyword as the ability language grows; ability words (threshold, landfall) are conditions, not keywords. |
+| D17 | Types in the libraries are **sealed hierarchies rather than enums with values**, unless that causes serialization or multiplatform problems. |
+| D18 | **Card model:** a card is a layout and faces; a face is its characteristics plus abilities; abilities are the CR kinds (spell, activated, triggered, static) plus keywords. **Effects** (one-shot) and **mechanics** (continuous rules the engine applies) are separate; each mechanic defines how duplicates combine. **Keywords** stay keyword abilities with their identity (for "with flying", "loses flying"); one shared table in arcanum-api maps every keyword to abilities built from mechanics when definitions are loaded (deathtouch 1:1, flying → general "can't be blocked except by"). Ability words are labels on ordinary abilities. |
 
 ## 3. Principles
 
@@ -172,66 +173,39 @@ overrides, versioned, delivered by the server and cached by the app. Updating a
 definition improves future automation without an app release; accepted events never
 change.
 
-## 5. Card definition format (arcanum-api)
+## 5. Card definition model (arcanum-api)
 
-A typed tree mirroring the Comprehensive Rules, serialised as JSON, with a compact
-text form for hand-written definitions and tests. The text form below is
-illustrative; exact syntax is decided in phase 0.
-
-### Building blocks
-
-| Block | Covers | CR |
-|---|---|---|
-| Ability kinds | Spell, Activated, Triggered, Static, Keyword, Replacement, Mana | 113, 601–605 |
-| Cost | mana, {T}, sacrifice, discard, pay life, remove counters | 118, 602 |
-| Target slots | named slots with a filter and count ("target creature you don't control") | 115 |
-| Effects | damage, destroy, exile, draw, discard, mill, move, counters, tokens, life, tap/untap, P/T change, gain keyword, copy, counter spell, search, … | 701 |
-| Filters | object selectors ("other artifact creatures you control", "nonland permanent an opponent controls") | 109, 205 |
-| Values | numbers, X, counts ("the number of Elves you control"), references to named targets | 107 |
-| Durations | until end of turn, until your next turn, for as long as ~ remains, permanent | 611 |
-| Conditions | intervening if, "if you control …", kicker paid, threshold-style counts | 603.4 |
-| Modes | choose one / two / one or more, with per-mode targets | 700.2 |
-
-### Examples
+The model is the Kotlin code in `arcanum-api` (overview in `Definitions.kt`, examples
+in `ExampleCardsTest`). In short (D18):
 
 ```
-# Lightning Bolt — "Lightning Bolt deals 3 damage to any target."
-spell:
-  target t: any
-  effect: damage(source=~, to=t, amount=3)
-
-# Glorious Anthem — "Creatures you control get +1/+1."
-static:
-  affects: creatures(controller=you)
-  layer 7c: pt(+1, +1)
-
-# "Other artifact creatures you control get +1/+1."
-static:
-  affects: creatures(controller=you, types=[artifact], other=true)
-  layer 7c: pt(+1, +1)
-
-# Giant Growth — "Target creature gets +3/+3 until end of turn."
-spell:
-  target t: creature
-  effect: pt(t, +3, +3, until=endOfTurn)     # resolves into a visible effect object
-
-# Elvish Visionary — "When ~ enters, draw a card." (normalised self-reference)
-triggered:
-  when: enters(~)
-  effect: draw(you, 1)
-
-# Llanowar Elves — "{T}: Add {G}."
-mana:
-  cost: tap(~)
-  produce: G
+CardDefinition: layout + faces
+FaceDefinition: name, mana cost, colour indicator, super/card/subtypes, P/T, loyalty,
+                defense, abilities
+Ability: Spell | Activated | Triggered | Static | Keyword | Unparsed
+  Spell/Activated/Triggered → Instructions: targets, modes, steps (Do effect, May, If,
+                              ForEach, Repeat, Choose, Manual)
+  Activated → Cost + activation rules; Triggered → Trigger + intervening if
+  Static → mechanics applied to objects/players/game while a condition holds
+Effect   (one-shot, CR 610): damage, destroy, move, draw, counters, tokens, life,
+          ApplyMechanics (continuous effect with a duration), delayed triggers, …
+Mechanic (continuous, CR 611): layer effects, rules the engine asks about (deathtouch,
+          lifelink, trample…), combat restrictions, permissions and costs, game rules,
+          replacement and prevention; each states its layer and duplicate stacking
+Keyword: kept as a keyword ability; KeywordExpansions maps it to abilities
+Building blocks: Cost, Trigger/EventPattern, Objects/ObjectFilter, Players/
+          PlayerFilter, Value, Condition, Duration, ManaProduction, TokenSpec
 ```
+
+Card memory (CR 607 linked abilities, chosen colours) is named data on the source
+(`Effect.Remember`, `Step.Choose(remember = true)`), returned to the host as a
+visible object (P2). Text the model can't express stays as `Ability.Unparsed`,
+`Step.Manual` or `CostPart.Manual`, so a card can be partly automated.
 
 ### Per-card status
 
-Each definition records, per ability: `auto`, `partial` (some effects automated,
-the rest shown as a reminder to do by hand) or `manual`, plus the definition version
-and the parser version that produced it. Hand-written overrides take precedence over
-parser output and survive re-parsing.
+An ability is automated when it has no `Unparsed`/`Manual` parts and its keyword has
+an expansion; otherwise it is shown for handling by hand.
 
 ## 6. Parser (arcanum-parser)
 

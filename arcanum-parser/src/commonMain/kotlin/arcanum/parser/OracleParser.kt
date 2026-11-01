@@ -5,23 +5,24 @@ import arcanum.api.FaceDefinition
 import arcanum.api.HasAmount
 import arcanum.api.HasCost
 import arcanum.api.Keyword
+import arcanum.api.Cost
+import arcanum.api.CostPart
 import arcanum.api.ManaCost
-import arcanum.api.UnparsedAbility
 
 /**
  * Parses one card face's oracle text into a [FaceDefinition]. Reads only the text (no card-data keyword lists), so it
- * works on any card, including custom ones. What it can't read is kept as [UnparsedAbility], never guessed.
+ * works on any card, including custom ones. What it can't read is kept as [Ability.Unparsed], never guessed.
  *
  * Understood so far: keyword lines ("Flying, first strike", "Equip {2}", "Crew 3", "Suspend 4—{1}{R}") for the
  * keywords in [KeywordSyntax.all]. Reminder text in parentheses is ignored.
  */
 object OracleParser {
     fun parse(name: String, text: String): FaceDefinition =
-        FaceDefinition(name, text.split('\n').filter { it.isNotBlank() }.flatMap(::line))
+        FaceDefinition(name = name, abilities = text.split('\n').filter { it.isNotBlank() }.flatMap(::line))
 
     private fun line(raw: String): List<Ability> {
         val line = REMINDER.replace(raw, "").trim()
-        return keywordLine(line) ?: listOf(UnparsedAbility(raw.trim()))
+        return keywordLine(line) ?: listOf(Ability.Unparsed(raw.trim()))
     }
 
     /**
@@ -33,7 +34,7 @@ object OracleParser {
         if (line.isEmpty() || (line.endsWith(".") && !line.contains('—'))) return null
         val parts = line.split(if (line.contains("; ")) "; " else ", ")
         val first = keyword(parts.first()) ?: return null
-        return listOf(first) + parts.drop(1).map { keyword(it) ?: UnparsedAbility(it) }
+        return listOf(first) + parts.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
     }
 
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
@@ -63,11 +64,18 @@ object OracleParser {
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */
 object OracleRenderer {
     fun render(ability: Ability): String = when (ability) {
-        is UnparsedAbility -> ability.text
+        is Ability.Unparsed -> ability.text
+        is Keyword.Kicker -> "Kicker " + ability.costs.joinToString(" and/or ") { cost(it) }
         is Keyword -> buildString {
             append(ability.text)
             if (ability is HasAmount) append(' ').append(ability.amount)
-            if (ability is HasCost) append(if (ability is HasAmount) "—" else " ").append(ability.cost)
+            if (ability is HasCost) append(if (ability is HasAmount) "—" else " ").append(cost(ability.cost))
         }
+        else -> error("Rendering ${ability::class.simpleName} is not written yet")
+    }
+
+    /** Mana-only costs as printed; other costs are not rendered yet. */
+    private fun cost(cost: Cost): String = cost.parts.joinToString(", ") { part ->
+        (part as? CostPart.Mana)?.cost?.toString() ?: error("Rendering cost part $part is not written yet")
     }
 }

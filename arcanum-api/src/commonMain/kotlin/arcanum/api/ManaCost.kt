@@ -7,7 +7,8 @@ import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-/** The five colours (CR 105.1), with their mana symbol letters. */
+/** The five colours (CR 105.1), with their mana symbol letters. Serialised as the letter ("W"). */
+@Serializable(with = ColorSerializer::class)
 sealed class Color(val symbol: Char) {
     data object White : Color('W')
     data object Blue : Color('U')
@@ -112,5 +113,14 @@ internal object ManaCostSerializer : KSerializer<ManaCost> {
     override fun deserialize(decoder: Decoder): ManaCost {
         val text = decoder.decodeString()
         return ManaCost.parse(text) ?: throw IllegalArgumentException("Not a mana cost: $text")
+    }
+}
+
+internal object ColorSerializer : KSerializer<Color> {
+    override val descriptor = PrimitiveSerialDescriptor("arcanum.api.Color", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: Color) = encoder.encodeString(value.symbol.toString())
+    override fun deserialize(decoder: Decoder): Color {
+        val text = decoder.decodeString()
+        return text.singleOrNull()?.let(Color::of) ?: throw IllegalArgumentException("Not a colour: $text")
     }
 }

@@ -2,8 +2,8 @@ package arcanum.parser
 
 import arcanum.api.Ability
 import arcanum.api.Keyword
+import arcanum.api.Cost
 import arcanum.api.ManaCost
-import arcanum.api.UnparsedAbility
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -11,7 +11,7 @@ import kotlin.test.assertTrue
 /** Keyword lines (CR 702). Test cards are invented: our own names and costs, real oracle wording. */
 class OracleParserKeywordTest {
     private fun abilities(text: String, name: String = "Test Card"): List<Ability> = OracleParser.parse(name, text).abilities
-    private fun mana(text: String) = ManaCost.parse(text)!!
+    private fun mana(text: String) = Cost.mana(ManaCost.parse(text)!!)
 
     // CR 702.9 Flying, 702.7 First strike, 702.15 Lifelink
     @Test
@@ -39,7 +39,7 @@ class OracleParserKeywordTest {
     fun keywordsWithAManaCost() {
         assertEquals(listOf(Keyword.Equip(mana("{2}{W}"))), abilities("Equip {2}{W}"))
         assertEquals(listOf(Keyword.Cycling(mana("{U/P}"))), abilities("Cycling {U/P}"))
-        assertEquals(listOf(Keyword.Kicker(mana("{1}{R}"))), abilities("Kicker {1}{R}"))
+        assertEquals(listOf(Keyword.Kicker(listOf(mana("{1}{R}")))), abilities("Kicker {1}{R}"))
         assertEquals(listOf(Keyword.Multikicker(mana("{X}"))), abilities("Multikicker {X}"))
     }
 
@@ -53,8 +53,8 @@ class OracleParserKeywordTest {
     @Test
     fun wardWithManaCostParsesButOtherCostsStayUnparsed() {
         assertEquals(listOf(Keyword.Ward(mana("{2}"))), abilities("Ward {2}"))
-        assertEquals(listOf(UnparsedAbility("Ward—Pay 3 life.")), abilities("Ward—Pay 3 life."))
-        assertEquals(listOf(Keyword.Flying, UnparsedAbility("ward—Discard a card.")),
+        assertEquals(listOf(Ability.Unparsed("Ward—Pay 3 life.")), abilities("Ward—Pay 3 life."))
+        assertEquals(listOf(Keyword.Flying, Ability.Unparsed("ward—Discard a card.")),
             abilities("Flying; ward—Discard a card."))
     }
 
@@ -62,13 +62,13 @@ class OracleParserKeywordTest {
     fun keywordWrittenWithTheWrongValuesStaysUnparsed() {
         listOf("Flying 2", "Crew", "Crew X", "Equip", "Equip legendary creature {3}", "Kicker {1}{U} and/or {2}{B}",
             "Suspend 4", "Partner—Friends forever").forEach { text ->
-            assertEquals(listOf(UnparsedAbility(text)), abilities(text), text)
+            assertEquals(listOf(Ability.Unparsed(text)), abilities(text), text)
         }
     }
 
     @Test
     fun unknownLaterPartsStayUnparsedOneByOne() {
-        assertEquals(listOf(Keyword.Flying, UnparsedAbility("quickdraw"), Keyword.Haste),
+        assertEquals(listOf(Keyword.Flying, Ability.Unparsed("quickdraw"), Keyword.Haste),
             abilities("Flying, quickdraw, haste"))
     }
 
@@ -76,13 +76,13 @@ class OracleParserKeywordTest {
     fun sentencesAreNotKeywordLines() {
         listOf("Flying creatures you control get +1/+1.", "When Test Card enters, draw a card.",
             "Choose one —", "Threshold — Test Card gets +2/+2 as long as seven or more cards are in your graveyard.")
-            .forEach { text -> assertEquals(listOf(UnparsedAbility(text)), abilities(text), text) }
+            .forEach { text -> assertEquals(listOf(Ability.Unparsed(text)), abilities(text), text) }
     }
 
     @Test
     fun eachLineIsReadOnItsOwnAndUnparsedLinesKeepTheirReminderText() {
         assertEquals(listOf(Keyword.Vigilance, Keyword.Equip(mana("{3}")),
-            UnparsedAbility("Equipped creature gets +1/+1. (Equipped creatures are stronger.)")),
+            Ability.Unparsed("Equipped creature gets +1/+1. (Equipped creatures are stronger.)")),
             abilities("Vigilance\nEquip {3}\nEquipped creature gets +1/+1. (Equipped creatures are stronger.)"))
     }
 

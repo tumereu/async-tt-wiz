@@ -7,21 +7,30 @@ lives here. Design: `docs/specs/arcanum-automatum.md` §4.1 and §5.
 
 ## Contents
 
-- `FaceDefinition(name, abilities)`: what one card face does.
-- `Ability`: sealed; so far `Keyword` or `UnparsedAbility` (text kept as printed).
-- `Keyword`: sealed, one type per keyword ability (CR 702) carrying exactly its
-  values: `Keyword.Flying`, `Keyword.Crew(amount)`, `Keyword.Equip(cost)`,
-  `Keyword.Suspend(amount, cost)`. Each knows its printed `text` and defining `rule`.
-  Keywords written with a quality, object or non-mana cost come later.
-- `ManaCost` / `ManaSymbol` (CR 107.4) and `Color` (CR 105.1); a mana cost is
-  serialised as its printed text, e.g. `"{2}{W}"`.
-- `ComprehensiveRules.EFFECTIVE_DATE`: the one pinned Comprehensive Rules version
-  (2026-09-25). Code and tests cite rule numbers of this version (`// CR 613.4c`).
+The definition model (overview in `Definitions.kt`):
 
-JSON (kotlinx.serialization): `{"name":"…","abilities":[{"type":"flying"},
-{"type":"equip","cost":"{2}{W}"},{"type":"unparsed","text":"…"}]}`.
+- `CardDefinition(layout, faces)`; `FaceDefinition`: name, mana cost, colour
+  indicator, supertypes/types/subtypes, P/T, loyalty, defense, abilities.
+- `Ability`: `Spell`, `Activated`, `Triggered`, `Static` (the CR kinds), `Keyword`,
+  `Unparsed`. Spell/activated/triggered carry `Instructions` (targets, modes,
+  `Step`s of one-shot `Effect`s); static abilities carry `Mechanic`s.
+- `Effect` (one-shot, CR 610) vs `Mechanic` (continuous, CR 611): each mechanic
+  states its layer and how duplicates combine (`Stacking`: redundant, additive,
+  independent). `Effect.ApplyMechanics` creates a continuous effect with a
+  `Duration`.
+- `Keyword`: one sealed type per keyword with exactly its values; `KeywordKind`
+  names a keyword without values for filters ("creatures with flying").
+  `KeywordExpansions` is the shared table mapping keywords to abilities built from
+  mechanics (flying → `CantBeBlocked`, deathtouch → `Deathtouch`).
+- Building blocks: `Cost`/`CostPart`, `Trigger`/`EventPattern`, `Objects`/
+  `ObjectFilter`, `Players`/`PlayerFilter`, `Value`, `Condition`, `Duration`,
+  `ManaProduction`, `TokenSpec`, `KeywordAction`.
+- `ManaCost`/`ManaSymbol` (CR 107.4), `Color`, and basic vocabularies (`CardType`,
+  `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
+- `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).
 
-Types are sealed hierarchies rather than enums with values (owner preference).
+`ExampleCardsTest` shows a dozen invented cards written in the model and their
+JSON. Types are sealed hierarchies rather than enums with values (owner preference).
 
 ## Rules
 

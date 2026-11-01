@@ -1,0 +1,181 @@
+package arcanum.api
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlinx.serialization.json.Json
+
+/**
+ * Invented cards with real oracle wording, written in the definition model, to show how common card text is expressed
+ * and that whole definitions survive JSON unchanged. Names and costs are ours.
+ */
+class ExampleCardsTest {
+    private val json = Json { prettyPrint = false }
+    private fun mana(text: String) = ManaCost.parse(text)!!
+    private fun n(value: Int) = Value.Fixed(value)
+    private fun creature(name: String, cost: String, power: Int, toughness: Int, vararg abilities: Ability) = FaceDefinition(
+        name, mana(cost), types = listOf(CardType.Creature), power = PrintedNumber.Fixed(power),
+        toughness = PrintedNumber.Fixed(toughness), abilities = abilities.toList())
+    private val creatures = ObjectFilter.Type(CardType.Creature)
+    private val youControl = ObjectFilter.ControlledBy(PlayerFilter.You)
+    private fun all(vararg filters: ObjectFilter) = ObjectFilter.And(filters.toList())
+    private val entersSelf = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield))
+
+    /** "Sparkbolt deals 3 damage to any target." */
+    private val sparkbolt = FaceDefinition("Sparkbolt", mana("{R}"), types = listOf(CardType.Instant), abilities = listOf(
+        Ability.Spell(Instructions(
+            targets = listOf(TargetSlot("t", TargetKind.Either(
+                ObjectFilter.Or(listOf(creatures, ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle))),
+                PlayerFilter.Any))),
+            steps = listOf(Step.Do(Effect.DealDamage(Recipients(Objects.Target("t"), Players.Target("t")), n(3))))))))
+
+    /** "Other artifact creatures you control get +1/+1." */
+    private val banner = FaceDefinition("Brightforge Banner", mana("{2}"), types = listOf(CardType.Artifact), abilities = listOf(
+        Ability.Static(listOf(Mechanic.ModifyPowerToughness(n(1), n(1))),
+            Affected.Objects(Objects.Each(all(creatures, ObjectFilter.Type(CardType.Artifact), youControl,
+                ObjectFilter.Not(ObjectFilter.Is(Objects.Self))))))))
+
+    /** "Target creature gets +3/+3 until end of turn." */
+    private val surge = FaceDefinition("Surge of Vigor", mana("{G}"), types = listOf(CardType.Instant), abilities = listOf(
+        Ability.Spell(Instructions(
+            targets = listOf(TargetSlot("c", TargetKind.Objects(creatures))),
+            steps = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(n(3), n(3))),
+                Affected.Objects(Objects.Target("c")), Duration.EndOfTurn)))))))
+
+    /** Flying / "When this creature enters, draw a card." */
+    private val scout = creature("Thornveil Scout", "{2}{U}", 1, 1, Keyword.Flying,
+        Ability.Triggered(entersSelf, Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You))))))
+
+    /** "{T}: Add {G}." */
+    private val elf = creature("Mossgrown Elf", "{G}", 1, 1,
+        Ability.Activated(Cost(listOf(CostPart.TapSelf)), Instructions(steps = listOf(
+            Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(mana("{G}")))))))))
+
+    /** "This land enters tapped." / "{T}: Add {G} or {W}." */
+    private val grove = FaceDefinition("Quiet Grove", types = listOf(CardType.Land), abilities = listOf(
+        Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+            modify = listOf(Modification.EntersTapped)))),
+        Ability.Activated(Cost(listOf(CostPart.TapSelf)), Instructions(steps = listOf(Step.Do(Effect.AddMana(
+            ManaProduction(ManaKind.Choose(n(1), listOf(Color.Green, Color.White))))))))))
+
+    /** "When this enchantment enters, exile target nonland permanent an opponent controls until this enchantment
+     * leaves the battlefield." */
+    private val prison = FaceDefinition("Warden's Prison", mana("{1}{W}"), types = listOf(CardType.Enchantment), abilities = listOf(
+        Ability.Triggered(entersSelf, Instructions(
+            targets = listOf(TargetSlot("p", TargetKind.Objects(all(ObjectFilter.Category(ObjectCategory.Permanent),
+                ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), ObjectFilter.ControlledBy(PlayerFilter.Opponent))))),
+            steps = listOf(
+                Step.Do(Effect.Move(Objects.Target("p"), Destination(Zone.Exile)), bind = "exiled"),
+                Step.Do(Effect.Remember("exiled", Objects.Bound("exiled")))))),
+        Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield)),
+            Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Remembered("exiled"), Destination(Zone.Battlefield,
+                controller = Players.OwnerOf(Objects.Remembered("exiled"))))))))))
+
+    /** "Choose one — • Counter target noncreature spell unless its controller pays {2}. • ~ deals 2 damage to target
+     * creature. • Draw two cards, then discard two cards." */
+    private val charm = FaceDefinition("Splitmind Charm", mana("{U}{R}"), types = listOf(CardType.Instant), abilities = listOf(
+        Ability.Spell(Instructions(modes = Modes(listOf(
+            Mode(Instructions(
+                targets = listOf(TargetSlot("s", TargetKind.Objects(all(ObjectFilter.Category(ObjectCategory.Spell),
+                    ObjectFilter.Not(creatures))))),
+                steps = listOf(Step.Do(Effect.Counter(Objects.Target("s"), unlessPaid = Cost.mana(mana("{2}"))))))),
+            Mode(Instructions(
+                targets = listOf(TargetSlot("c", TargetKind.Objects(creatures))),
+                steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("c")), n(2)))))),
+            Mode(Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You, n(2))),
+                Step.Do(Effect.Discard(Players.You, n(2))))))))))))
+
+    /** "If this creature would die, exile it instead." */
+    private val gravewalker = creature("Restless Gravewalker", "{1}{B}", 2, 2,
+        Ability.Static(listOf(Mechanic.Replacement(
+            EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard),
+            modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile)))))))
+
+    /** Saga: "I, II — Create a 1/1 white Soldier creature token. III — Creatures you control get +1/+1 until end of
+     * turn." */
+    private val saga = FaceDefinition("Tale of the Watch", mana("{2}{W}"), types = listOf(CardType.Enchantment),
+        subtypes = listOf(Subtype("Saga")), abilities = listOf(
+            Ability.Triggered(Trigger.Chapter(listOf(1, 2)), Instructions(steps = listOf(Step.Do(Effect.CreateToken(
+                TokenSpec.Defined(FaceDefinition("Soldier", colorIndicator = listOf(Color.White), types = listOf(CardType.Creature),
+                    subtypes = listOf(Subtype("Soldier")), power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1)))))))),
+            Ability.Triggered(Trigger.Chapter(listOf(3)), Instructions(steps = listOf(Step.Do(Effect.ApplyMechanics(
+                listOf(Mechanic.ModifyPowerToughness(n(1), n(1))), Affected.Objects(Objects.Each(all(creatures, youControl))),
+                Duration.EndOfTurn)))))))
+
+    /** Planeswalker: "+1: Draw a card." / "−3: ~ deals 3 damage to target creature." */
+    private val walker = FaceDefinition("Velka, Storm Herald", mana("{2}{R}{R}"), supertypes = listOf(Supertype.Legendary),
+        types = listOf(CardType.Planeswalker), subtypes = listOf(Subtype("Velka")), loyalty = PrintedNumber.Fixed(4),
+        abilities = listOf(
+            Ability.Activated(Cost(listOf(CostPart.Loyalty(n(1)))), Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You))))),
+            Ability.Activated(Cost(listOf(CostPart.Loyalty(n(-3)))), Instructions(
+                targets = listOf(TargetSlot("c", TargetKind.Objects(creatures))),
+                steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("c")), n(3))))))))
+
+    /** Equipment: "Equipped creature gets +2/+0." / Equip {1} */
+    private val blade = FaceDefinition("Gearwright Blade", mana("{1}"), types = listOf(CardType.Artifact),
+        subtypes = listOf(Subtype("Equipment")), abilities = listOf(
+            Ability.Static(listOf(Mechanic.ModifyPowerToughness(n(2), n(0))), Affected.Objects(Objects.AttachedTo())),
+            Keyword.Equip(Cost.mana(mana("{1}")))))
+
+    /** Kicker {2}{R} / "~ deals 2 damage to target creature. If this spell was kicked, it deals 4 damage instead." */
+    private val kicked = FaceDefinition("Flarecall Blast", mana("{R}"), types = listOf(CardType.Sorcery), abilities = listOf(
+        Keyword.Kicker(listOf(Cost.mana(mana("{2}{R}")))),
+        Ability.Spell(Instructions(
+            targets = listOf(TargetSlot("c", TargetKind.Objects(creatures))),
+            steps = listOf(Step.If(Condition.Paid(Keyword.Kicker.Kind),
+                then = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("c")), n(4)))),
+                otherwise = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("c")), n(2))))))))))
+
+    /** Adventure: creature face and its Adventure instant. */
+    private val adventure = CardDefinition(Layout.Adventure, listOf(
+        creature("Hedge Rider", "{1}{G}", 2, 2),
+        FaceDefinition("Trample the Hedge", mana("{G}"), types = listOf(CardType.Instant), subtypes = listOf(Subtype("Adventure")),
+            abilities = listOf(Ability.Spell(Instructions(
+                targets = listOf(TargetSlot("c", TargetKind.Objects(creatures))),
+                steps = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(n(2), n(2))),
+                    Affected.Objects(Objects.Target("c")), Duration.EndOfTurn)))))))))
+
+    @Test
+    fun exampleCardsSurviveJson() {
+        val cards = listOf(sparkbolt, banner, surge, scout, elf, grove, prison, charm, gravewalker, saga, walker, blade, kicked)
+            .map { CardDefinition(Layout.Normal, listOf(it)) } + adventure
+        cards.forEach { card ->
+            val text = json.encodeToString(CardDefinition.serializer(), card)
+            assertEquals(card, json.decodeFromString(CardDefinition.serializer(), text), card.faces.first().name)
+        }
+    }
+
+    @Test
+    fun readableJsonForASimpleSpell() {
+        assertEquals(
+            """{"name":"Surge of Vigor","manaCost":"{G}","types":[{"type":"instant"}],"abilities":[{"type":"spell",""" +
+                """"instructions":{"targets":[{"name":"c","what":{"type":"objects","filter":{"type":"type","cardType":""" +
+                """{"type":"creature"}}}}],"steps":[{"type":"do","effect":{"type":"apply","mechanics":[{"type":"modify-pt",""" +
+                """"power":{"type":"fixed","value":3},"toughness":{"type":"fixed","value":3}}],"affects":{"type":"objects",""" +
+                """"objects":{"type":"target","slot":"c"}},"duration":{"type":"end-of-turn"}}}]}}]}""",
+            json.encodeToString(FaceDefinition.serializer(), surge))
+    }
+
+    // CR 702.9b, 702.17: flying expands to a blocking restriction naming flying and reach; reach adds nothing itself.
+    @Test
+    fun flyingExpandsToAGeneralBlockingRestriction() {
+        assertEquals(listOf(Ability.Static(listOf(Mechanic.CantBeBlocked(onlyBy = ObjectFilter.Or(listOf(
+            ObjectFilter.HasKeyword(Keyword.Flying), ObjectFilter.HasKeyword(Keyword.Reach))))))),
+            KeywordExpansions.expand(Keyword.Flying))
+        assertEquals(emptyList(), KeywordExpansions.expand(Keyword.Reach))
+    }
+
+    // CR 702.2: deathtouch maps one to one to its mechanic.
+    @Test
+    fun deathtouchExpandsToItsOwnMechanic() {
+        assertEquals(listOf(Ability.Static(listOf(Mechanic.Deathtouch))), KeywordExpansions.expand(Keyword.Deathtouch))
+    }
+
+    // CR 702.63a: vanishing is three abilities.
+    @Test
+    fun vanishingExpandsToThreeAbilitiesThatSurviveJson() {
+        val abilities = KeywordExpansions.expand(Keyword.Vanishing(3))!!
+        assertEquals(3, abilities.size)
+        val face = FaceDefinition("Fading Wisp", abilities = abilities)
+        assertEquals(face, json.decodeFromString(FaceDefinition.serializer(), json.encodeToString(FaceDefinition.serializer(), face)))
+    }
+}

@@ -24,6 +24,7 @@ kotlin {
         commonTest.dependencies { implementation(libs.kotlin.test) }
         jvmTest.dependencies {
             implementation(libs.kotlin.test.junit5)
+            implementation(libs.kotlin.reflect) // lists sealed types for completeness tests
             implementation(project.dependencies.platform(libs.junit.bom))
             runtimeOnly(libs.junit.jupiter)
             runtimeOnly(libs.junit.launcher)

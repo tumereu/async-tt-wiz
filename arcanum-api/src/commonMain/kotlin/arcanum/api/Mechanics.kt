@@ -59,11 +59,11 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     /** Add or replace types. [replaceSubtypes]: the new subtypes replace the old ones **of the same kind** only
-     * ("becomes a Zombie" replaces creature types, not land types, CR 205.1a). Setting a land's subtype to a basic land
-     * type also removes all abilities from its rules text and old land types (CR 305.7, Blood Moon); the engine does
-     * that for any such effect. */
+     * ("becomes a Zombie" replaces creature types, not land types, CR 205.1a). When new basic land types replace a
+     * land's old land types, it also loses all abilities from its rules text and old land types (CR 305.7, Blood Moon);
+     * gaining a land type "in addition to its other types" keeps them. */
     @Serializable @SerialName("types") data class SetTypes(
-        val add: List<CardType> = emptyList(), val addSubtypes: List<Subtype> = emptyList(),
+        val add: List<CardType> = emptyList(), val addSubtypes: List<SubtypeRef> = emptyList(),
         val addSupertypes: List<Supertype> = emptyList(), val remove: List<CardType> = emptyList(),
         val replaceTypes: Boolean = false, val replaceSubtypes: Boolean = false,
     ) : Mechanic {
@@ -74,7 +74,7 @@ sealed interface Mechanic {
     @Serializable @SerialName("all-creature-types") data object AllCreatureTypes : Mechanic {
         override val layer: Layer get() = Layer.Type
     }
-    @Serializable @SerialName("colors") data class SetColors(val colors: List<Color>, val add: Boolean = false) : Mechanic {
+    @Serializable @SerialName("colors") data class SetColors(val colors: List<ColorRef>, val add: Boolean = false) : Mechanic {
         override val layer: Layer get() = Layer.Color
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -160,10 +160,12 @@ sealed interface Mechanic {
     @Serializable @SerialName("maximum-blockers") data class MaximumBlockers(val count: Int) : Mechanic
     /** Can attack as though it didn't have defender. */
     @Serializable @SerialName("attacks-despite-defender") data object CanAttackDespiteDefender : Mechanic
-    /** "Creatures can't attack [target] unless their controller pays [cost] for each" (CR 508.1g). */
     /** "You may [cost] as this creature attacks. When you do, [then]" (exert, CR 701.43d, 508.1g): an optional cost paid
      * while declaring it as an attacker, with a reflexive trigger. */
     @Serializable @SerialName("as-attacks") data class AsAttacks(val cost: Cost, val then: Instructions? = null) : Mechanic
+    /** No more than [count] creatures can attack [target] (or at all) each combat. */
+    @Serializable @SerialName("maximum-attackers") data class MaximumAttackers(val count: Int, val target: Recipients? = null) : Mechanic
+    /** "Creatures can't attack [target] unless their controller pays [cost] for each" (CR 508.1g). */
     @Serializable @SerialName("attack-cost") data class AttackCost(val cost: Cost, val target: Recipients? = null) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -197,7 +199,14 @@ sealed interface Mechanic {
      */
     @Serializable @SerialName("may-play") data class MayPlay(
         val from: Zone, val how: PlayKind = PlayKind.Cast, val resultingSpell: ObjectFilter? = null, val topOnly: Boolean = false,
-        val cost: Cost? = null, val then: Destination? = null, val manaAsAnyColor: Boolean = false,
+        val cost: Cost? = null, val withoutPaying: Boolean = false,
+        /** Paid in addition to its other costs ("by discarding a land card in addition to paying its other costs":
+         * retrace, jump-start). */
+        val additionalCost: Cost? = null,
+        /** Cast transformed (disturb) or prepared. */
+        val transformed: Boolean = false,
+        /** Where it goes instead of anywhere other than the battlefield when it leaves the Stack (flashback: exile). */
+        val then: Destination? = null, val manaAsAnyColor: Boolean = false,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */
@@ -224,7 +233,16 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-be-activated") data class CantBeActivated(val manaAbilities: Boolean = true) : Mechanic
     /** The affected permanents can't be regenerated: regeneration shields don't apply to them (CR 701.19c). */
     @Serializable @SerialName("cant-be-regenerated") data object CantBeRegenerated : Mechanic
+    /** When the card itself may be cast ("Cast this spell only during combat", "only if …"); prohibitions on other spells
+     * are [CantCast]. */
     @Serializable @SerialName("cast-restriction") data class CastRestriction(val timing: Timing? = null, val condition: Condition? = null) : Mechanic
+    /** The affected players can't cast spells matching [spells] ("Your opponents can't cast noncreature spells", "can't
+     * cast more than one spell each turn" with a condition on [Players.Affected]); [Objects.Tested] is the spell. */
+    @Serializable @SerialName("cant-cast") data class CantCast(val spells: ObjectFilter = ObjectFilter.Any) : Mechanic
+    /** The affected permanents can't be sacrificed. */
+    @Serializable @SerialName("cant-be-sacrificed") data object CantBeSacrificed : Mechanic
+    /** The affected players can't draw more than [count] cards each turn. */
+    @Serializable @SerialName("max-draws") data class MaxDrawsPerTurn(val count: Int) : Mechanic
     @Serializable @SerialName("extra-land-plays") data class ExtraLandPlays(val count: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
@@ -287,12 +305,13 @@ sealed interface Mechanic {
 sealed interface CopyException {
     @Serializable @SerialName("name") data class Name(val name: String) : CopyException
     @Serializable @SerialName("types") data class Types(
-        val add: List<CardType> = emptyList(), val addSubtypes: List<Subtype> = emptyList(),
+        val add: List<CardType> = emptyList(), val addSubtypes: List<SubtypeRef> = emptyList(),
         val addSupertypes: List<Supertype> = emptyList(), val removeSupertypes: List<Supertype> = emptyList(),
         /** Replaces the creature types ("except it's a Bird"). */
         val replaceSubtypes: Boolean = false,
     ) : CopyException
-    @Serializable @SerialName("colors") data class Colors(val colors: List<Color>) : CopyException
+    /** Its colours become [colors], or also [colors] when [add] ("in addition to its other colors"). */
+    @Serializable @SerialName("colors") data class Colors(val colors: List<ColorRef>, val add: Boolean = false) : CopyException
     @Serializable @SerialName("pt") data class PowerToughness(val power: Int, val toughness: Int) : CopyException
     @Serializable @SerialName("abilities") data class AddAbilities(val abilities: List<Ability>) : CopyException
     @Serializable @SerialName("mana-cost") data class ManaCostOf(val cost: ManaCost?) : CopyException

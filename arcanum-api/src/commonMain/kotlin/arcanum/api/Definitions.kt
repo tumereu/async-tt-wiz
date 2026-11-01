@@ -283,8 +283,10 @@ sealed interface Step {
     @Serializable @SerialName("do") data class Do(val effect: Effect) : Step
     /** An action that is a cost paid on resolution (CR 118.12): "You may [do X]. If you do, …", or [mandatory], "[Do X].
      * If you can't, …". X is [cost] when it is something costs can say (sacrifice, discard, exile, tap, return, reveal,
-     * pay life or mana), otherwise [steps] (draw, put onto the battlefield, cast, …); exactly one is given. It can be
-     * chosen only if it can be done in full (CR 601.2h, 118.3); mana abilities are allowed (CR 608.2g). [bind] names the
+     * pay life or mana), otherwise [steps] (draw, put onto the battlefield, cast, …); exactly one is given. A cost can be
+     * chosen only if it can be paid in full (CR 601.2h, 118.3); a draw can always be chosen, even from an empty library
+     * (CR 121.3); mana abilities are allowed (CR 608.2g). "[Do X] unless [player] pays" is [Unless], not a Pay
+     * (CR 118.12a). [bind] names the
      * outcome: paid, declined or couldn't pay, read with [Condition.Did] and [Condition.CouldNot]. Any "you may X. If
      * you do" is a Pay; [May] is for "you may X" alone. */
     @Serializable @SerialName("pay") data class Pay(
@@ -294,19 +296,24 @@ sealed interface Step {
     /** Only inside [Modification.AsEnters]: change how the object enters (tapped, with counters, with abilities, as a
      * copy). Entering tapped is not becoming tapped (CR 110.5b, 603.2e). */
     @Serializable @SerialName("modify") data class Modify(val modification: Modification) : Step
-    /** "[steps] unless [payer] pays [cost]" ("Counter target spell unless its controller pays {2}"). */
+    /** "[steps] unless [payer] pays [cost]" ("Counter target spell unless its controller pays {2}"); the one form for
+     * "unless" (CR 118.12a). */
     @Serializable @SerialName("unless") data class Unless(val payer: Players, val cost: Cost, val steps: List<Step>) : Step
     /** "You may …" / "Target player may …" with nothing depending on it (CR 608.2d): [player] decides whether [steps]
-     * happen. With a following "if you do", it is a [Pay]. */
+     * happen. With a following "if you do", it is a [Pay]; "you may put a card from among them …" is a [Choose] of zero
+     * or one. */
     @Serializable @SerialName("may") data class May(val steps: List<Step>, val player: Players = Players.You) : Step
-    /** "If …, … Otherwise, …". "If you do" is [Condition.Did]. */
+    /** "If …, … Otherwise, …". "If you do" is [Condition.Did]. A conditional "If [condition], [do Y] instead" in a spell
+     * is [otherwise]/[then]; an "instead" that replaces an event is [Instructions.replacements]. */
     @Serializable @SerialName("if") data class If(val condition: Condition, val then: List<Step>, val otherwise: List<Step> = emptyList()) : Step
     /** "For each …": [steps] run once per object or player in [each], bound to [bind]. [together] (CR 608.2e): step by
      * step, all players make that step's choices in turn order, then the step happens for all of them at once ("Each
-     * opponent sacrifices a creature": one event, so "one or more" triggers trigger once). A name bound inside is one
-     * per player and, for the joint action, the group of all of them. */
+     * opponent sacrifices a creature": one event, so "one or more" triggers trigger once); use it for every "each
+     * player/opponent [does something]" (CR 101.4). A name bound inside is one per player and, for the joint action and
+     * after the loop, the group of all of them. [startingWith]: turn order starting with that player ("starting with
+     * you"). */
     @Serializable @SerialName("for-each") data class ForEach(
-        val each: Each, val bind: String, val steps: List<Step>, val together: Boolean = false,
+        val each: Each, val bind: String, val steps: List<Step>, val together: Boolean = false, val startingWith: Players? = null,
     ) : Step
     @Serializable @SerialName("repeat") data class Repeat(val times: Value, val steps: List<Step>) : Step
     /** A choice made during resolution (colour, creature type, number, card name, player, objects, option),

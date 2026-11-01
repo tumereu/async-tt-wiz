@@ -665,9 +665,10 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "echo"; override val text: String get() = "Echo"; override val rule: String get() = "702.30" }
     }
     /** Multikicker (CR 702.33c) */
+    /** Multikicker is a kicker (CR 702.33c): "kicked" and "with kicker" find it, so its kind is kicker's. */
     @Serializable @SerialName("multikicker") data class Multikicker(override val cost: Cost) : Keyword, HasCost {
-        override val kind: KeywordKind get() = Kind
-        companion object Kind : KeywordKind { override val id: String get() = "multikicker"; override val text: String get() = "Multikicker"; override val rule: String get() = "702.33c" }
+        override val kind: KeywordKind get() = Kicker.Kind
+        override val text: String get() = "Multikicker"; override val rule: String get() = "702.33c"
     }
     /** Flashback (CR 702.34) */
     @Serializable @SerialName("flashback") data class Flashback(override val cost: Cost) : Keyword, HasCost {
@@ -685,9 +686,10 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "morph"; override val text: String get() = "Morph"; override val rule: String get() = "702.37" }
     }
     /** Megamorph (CR 702.37b) */
+    /** Megamorph is a morph (CR 702.37b): its kind is morph's. */
     @Serializable @SerialName("megamorph") data class Megamorph(override val cost: Cost) : Keyword, HasCost {
-        override val kind: KeywordKind get() = Kind
-        companion object Kind : KeywordKind { override val id: String get() = "megamorph"; override val text: String get() = "Megamorph"; override val rule: String get() = "702.37b" }
+        override val kind: KeywordKind get() = Morph.Kind
+        override val text: String get() = "Megamorph"; override val rule: String get() = "702.37b"
     }
     /** Entwine (CR 702.42) */
     @Serializable @SerialName("entwine") data class Entwine(override val cost: Cost) : Keyword, HasCost {
@@ -934,9 +936,11 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "protection"; override val text: String get() = "Protection"; override val rule: String get() = "702.16" }
     }
     /** Hexproof from [quality]. (CR 702.11d) */
+    /** Hexproof from a quality is a hexproof ability (CR 702.11d–e): "loses hexproof" and "with hexproof" find it, so its
+     * kind is hexproof's. */
     @Serializable @SerialName("hexproof-from") data class HexproofFrom(val from: ObjectFilter) : Keyword {
-        override val kind: KeywordKind get() = Kind
-        companion object Kind : KeywordKind { override val id: String get() = "hexproof-from"; override val text: String get() = "Hexproof from"; override val rule: String get() = "702.11d" }
+        override val kind: KeywordKind get() = Hexproof
+        override val text: String get() = "Hexproof from"; override val rule: String get() = "702.11d"
     }
     /** Swampwalk, nonbasic landwalk, …: [land] is the kind of land, [printed] the written word ("Swampwalk"). (CR 702.14) */
     @Serializable @SerialName("landwalk") data class Landwalk(val land: ObjectFilter, val printed: String) : Keyword {
@@ -1105,11 +1109,9 @@ interface KeywordKind {
                 Keyword.Buyback.Kind,
                 Keyword.Cycling.Kind,
                 Keyword.Echo.Kind,
-                Keyword.Multikicker.Kind,
                 Keyword.Flashback.Kind,
                 Keyword.Madness.Kind,
                 Keyword.Morph.Kind,
-                Keyword.Megamorph.Kind,
                 Keyword.Entwine.Kind,
                 Keyword.Ninjutsu.Kind,
                 Keyword.Transmute.Kind,
@@ -1158,7 +1160,6 @@ interface KeywordKind {
                 Keyword.Kicker.Kind,
                 Keyword.Enchant.Kind,
                 Keyword.Protection.Kind,
-                Keyword.HexproofFrom.Kind,
                 Keyword.Landwalk.Kind,
                 Keyword.Affinity.Kind,
                 Keyword.Splice.Kind,

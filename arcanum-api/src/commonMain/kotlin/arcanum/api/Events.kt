@@ -47,11 +47,11 @@ sealed interface EventPattern {
     @Serializable @SerialName("player-counters") data class PlayerCountersPut(val players: PlayerFilter = PlayerFilter.Any, val kind: CounterKind? = null) : EventPattern
     @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter = ObjectFilter.Any, val forMana: Boolean? = null) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter = ObjectFilter.Any) : EventPattern
-    /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. */
+    /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),
+     * defender (a planeswalker or battle attacked); [Players.EventPlayer] is the player attacked. */
     @Serializable @SerialName("attack") data class Attack(val attacker: ObjectFilter = ObjectFilter.Any, val alone: Boolean = false, val target: RecipientFilter? = null) : EventPattern
-    /** A creature blocks [attacker]. Roles object (the blocker), attacker. */
     /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
-     * once per attacker blocked (CR 509.3a, c). Roles object (the blocker), other combatant (the attacker). */
+     * once per attacker blocked (CR 509.3a, b). Roles object (the blocker), other combatant (the attacker). */
     @Serializable @SerialName("block") data class Block(
         val blocker: ObjectFilter = ObjectFilter.Any, val attacker: ObjectFilter = ObjectFilter.Any, val perAttacker: Boolean = false,
     ) : EventPattern

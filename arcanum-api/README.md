@@ -21,7 +21,8 @@ The definition model (overview in `Definitions.kt`):
 - `Keyword`: one sealed type per keyword with exactly its values; `KeywordKind`
   names a keyword without values for filters ("creatures with flying").
   `KeywordExpansions` is the shared table mapping keywords to abilities built from
-  mechanics (flying → `CantBeBlocked`, deathtouch → `Deathtouch`).
+  mechanics (flying → `CanBeBlockedOnlyBy`, deathtouch → `Deathtouch`); ability labels (exhaust, boast, …)
+  add their rules through `withLabelRules`.
   Mechanics that are only a keyword's meaning are `Mechanic.KeywordOnly` and
   appear only there; `DefinitionChecks.problems` reports them in definitions.
 - Building blocks: `Cost`/`CostPart`, `Trigger`/`EventPattern`, `Objects`/
@@ -31,8 +32,8 @@ The definition model (overview in `Definitions.kt`):
   `Zone`, `TurnStep`, `CounterKind`, `Status`, …).
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).
 
-`ExampleCardsTest` shows a dozen invented cards written in the model and their
-JSON. Decisions from the API reviews (D19–D39) are built here where they concern card
+`ExampleCardsTest` shows about twenty invented cards written in the model and their
+JSON. Decisions from the API reviews (D19–D45) are built here where they concern card
 definitions; the runtime types they describe (object ids, Stack items and
 sequences, effect objects, ledgers, tagged events, timestamps) belong to the engine
 API and are not built yet. `DefinitionChecks.problems` reports definitions the

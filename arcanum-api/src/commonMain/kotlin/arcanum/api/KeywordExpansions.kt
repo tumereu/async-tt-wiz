@@ -50,7 +50,7 @@ object KeywordExpansions {
             by = ObjectFilter.ControlledBy(PlayerFilter.Opponent), fromSource = keyword.from))
         // CR 702.14c: can't be blocked as long as the defending player controls such a land
         is Keyword.Landwalk -> listOf(Ability.Static(listOf(Mechanic.CantBeBlocked),
-            condition = Condition.Exists(ObjectFilter.And(listOf(keyword.land, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Defending)))))))
+            condition = Condition.Exists(ObjectFilter.And(listOf(keyword.land, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.DefendingPlayerOf(Objects.Self))))))))
         // CR 702.5a / 303.4: restricts what the Aura targets and enchants
         is Keyword.Enchant -> static(Mechanic.CanEnchant(keyword.what))
         // CR 702.6a: "[Cost]: Attach this permanent to target creature you control. Activate only as a sorcery."
@@ -82,7 +82,7 @@ object KeywordExpansions {
         is Keyword.Kicker -> keyword.costs.map { cost ->
             Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Kicker.Kind, cost, optional = true)))
         }
-        is Keyword.Multikicker -> static(Mechanic.AdditionalCost(Keyword.Multikicker.Kind,
+        is Keyword.Multikicker -> static(Mechanic.AdditionalCost(Keyword.Kicker.Kind,
             keyword.cost, optional = true, repeatable = true))
         // CR 702.63a: enters with N time counters; upkeep: remove one; when the last is removed, sacrifice it
         is Keyword.Vanishing -> {

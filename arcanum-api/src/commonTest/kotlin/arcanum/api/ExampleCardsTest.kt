@@ -55,7 +55,7 @@ class ExampleCardsTest {
         Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
             modify = listOf(Modification.EntersTapped)))),
         Ability.Activated(Cost(listOf(CostPart.TapSelf)), Instructions(steps = listOf(Step.Do(Effect.AddMana(
-            ManaProduction(ManaKind.Choose(n(1), listOf(Color.Green, Color.White))))))))))
+            ManaProduction(ManaKind.Choose(n(1), listOf(ColorRef.Literal(Color.Green), ColorRef.Literal(Color.White)))))))))))
 
     /** "When this enchantment enters, exile target nonland permanent an opponent controls until this enchantment
      * leaves the battlefield." */
@@ -279,6 +279,20 @@ class ExampleCardsTest {
         val boast = KeywordExpansions.withLabelRules(labelled(AbilityLabel.Boast)) as Ability.Activated
         assertEquals(1, boast.rules.perTurn)
         assertEquals(true, boast.rules.condition != null)
+    }
+
+    // D45: one way to write each thing. "Any target" is read whole; counts compared with a number are Exists.
+    @Test
+    fun nonCanonicalFormsAreReported() {
+        val anyTarget = TargetKind.Either(ObjectFilter.Type(CardType.Creature), PlayerFilter.Any)
+        fun spell(to: Recipients) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Half Bolt", abilities = listOf(
+            Ability.Spell(Instructions(targets = listOf(TargetSlot("t", anyTarget)), steps = listOf(Step.Do(Effect.DealDamage(to, n(3))))))))))
+        assertEquals(emptyList(), DefinitionChecks.problems(spell(Recipients(target = "t"))))
+        assertEquals(1, DefinitionChecks.problems(spell(Recipients(objects = Objects.Target("t")))).size)
+        val counted = CardDefinition(Layout.Normal, listOf(FaceDefinition("Count Twice", abilities = listOf(Ability.Spell(Instructions(
+            steps = listOf(Step.If(Condition.Compare(Value.Count(Objects.Each(creatures)), Comparison.AtLeast, n(3)),
+                listOf(Step.Do(Effect.Draw(Players.You)))))))))))
+        assertEquals(1, DefinitionChecks.problems(counted).size)
     }
 
     // D27: a number read from a group must say how it combines.

@@ -13,7 +13,8 @@ sealed interface Value {
      * the number chosen), or remembered on the source. */
     @Serializable @SerialName("bound") data class Bound(val name: String) : Value
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Value
-    /** The amount the triggering or replaced event was about ("that much damage", "that much life"). */
+    /** The amount the triggering or replaced event was about ("that much damage", "that much life"); in a batch
+     * trigger, the batch's total. */
     @Serializable @SerialName("event-amount") data object EventAmount : Value
 
     @Serializable @SerialName("count") data class Count(val objects: Objects) : Value
@@ -29,7 +30,9 @@ sealed interface Value {
     /** Devotion to [colors] (CR 700.5). */
     @Serializable @SerialName("devotion") data class Devotion(val colors: List<Color>, val players: Players = Players.You) : Value
     /** How many times [event] happened this turn ("the number of creatures that died this turn"). */
-    @Serializable @SerialName("events-this-turn") data class EventsThisTurn(val event: EventPattern, val measure: Measure = Measure.Objects) : Value
+    @Serializable @SerialName("events-this-turn") data class EventsThisTurn(val event: EventPattern, val measure: Measure = Measure.Events) : Value
+    /** [players]'s starting life total (CR 103.4). */
+    @Serializable @SerialName("starting-life") data class StartingLife(val players: Players = Players.You) : Value
     /** Mana spent to cast [of] (this object by default; "that spell" in a cast trigger): all of it, only mana of [color]
      * ("if at least three white mana was spent"), or the number of colours ([distinctColors]). A permanent keeps this
      * from the spell it was (CR 400.7d). */
@@ -99,8 +102,16 @@ sealed interface Condition {
     @Serializable @SerialName("not") data class Not(val condition: Condition) : Condition
     @Serializable @SerialName("compare") data class Compare(val left: Value, val comparison: Comparison, val right: Value) : Condition
     /** At least [atLeast] objects match ("if you control an artifact"). */
+    /** At least [atLeast] objects match ("if you control three or more artifacts"); not written as a count compared
+     * with a fixed number. */
     @Serializable @SerialName("exists") data class Exists(val filter: ObjectFilter, val atLeast: Int = 1) : Condition
+    /** Every one of [players] matches [filter]. */
     @Serializable @SerialName("player-is") data class PlayerMatches(val players: Players, val filter: PlayerFilter) : Condition
+    /** Some player matching [players] passes [test], with [Players.Tested] as that player ("if an opponent controls
+     * more lands than you", "an opponent has 10 or more cards in their graveyard"). */
+    @Serializable @SerialName("any-player") data class AnyPlayer(val players: PlayerFilter, val test: Condition) : Condition
+    /** Every player matching [players] passes [test]. */
+    @Serializable @SerialName("all-players") data class AllPlayers(val players: PlayerFilter, val test: Condition) : Condition
     @Serializable @SerialName("object-is") data class ObjectMatches(val objects: Objects, val filter: ObjectFilter) : Condition
     @Serializable @SerialName("your-turn") data object YourTurn : Condition
     @Serializable @SerialName("step") data class StepIs(val step: TurnStep) : Condition
@@ -112,7 +123,8 @@ sealed interface Condition {
     @Serializable @SerialName("could-not") data class CouldNot(val name: String) : Condition
     /** The coin flip named [name] was won. */
     @Serializable @SerialName("won-flip") data class WonFlip(val name: String) : Condition
-    /** An optional or additional cost was paid when casting [of] ("if it was kicked", "if that spell was kicked"). */
+    /** An optional, additional or alternative cost of [keyword] was paid when casting [of] ("if it was kicked", "if
+     * its evoke cost was paid", "if it escaped", "if that spell was kicked"; CR 607.2i). */
     @Serializable @SerialName("paid") data class Paid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val times: Int = 1,
@@ -126,7 +138,7 @@ sealed interface Condition {
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(
-        val event: EventPattern, val atLeast: Int = 1, val measure: Measure = Measure.Objects,
+        val event: EventPattern, val atLeast: Int = 1, val measure: Measure = Measure.Events,
     ) : Condition
     /** The objects named [name] by an effect are not empty ("if a creature died this way"). */
     @Serializable @SerialName("non-empty") data class NonEmpty(val name: String) : Condition

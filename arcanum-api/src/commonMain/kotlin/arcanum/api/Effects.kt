@@ -57,7 +57,12 @@ sealed interface Effect {
         val library: Players, val filter: ObjectFilter, val max: Value = Value.Fixed(1), val reveal: Boolean = false,
         val zones: List<Zone> = listOf(Zone.Library), val differentNames: Boolean = false, val bind: String? = null,
     ) : Effect
-    @Serializable @SerialName("shuffle") data class Shuffle(val library: Players) : Effect
+    /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
+     * on top", CR 701.24b); the cards left out keep their identity. */
+    @Serializable @SerialName("shuffle") data class Shuffle(val library: Players, val except: Objects? = null) : Effect
+    /** [chooser] puts [objects] back in any order where they are ("put them back in any order", CR 401.4): not a zone
+     * change, they keep their identity. */
+    @Serializable @SerialName("reorder") data class Reorder(val objects: Objects, val chooser: Players = Players.You) : Effect
     @Serializable @SerialName("reveal") data class Reveal(val objects: Objects, val bind: String? = null) : Effect
     /** [players] look at [objects] (hidden from others); [bind] names them for "from among them". */
     @Serializable @SerialName("look") data class LookAt(val objects: Objects, val players: Players = Players.You, val bind: String? = null) : Effect
@@ -96,7 +101,7 @@ sealed interface Effect {
      * ("a Role token attached to target creature", CR 303.4f). */
     @Serializable @SerialName("create-token") data class CreateToken(
         val token: TokenSpec, val count: Value = Value.Fixed(1), val controller: Players = Players.You,
-        val tapped: Boolean = false, val attacking: Recipients? = null, val attachedTo: Recipients? = null,
+        val tapped: Boolean = false, val attacking: AttackTarget? = null, val attachedTo: Recipients? = null,
         val bind: String? = null,
     ) : Effect
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
@@ -154,10 +159,14 @@ sealed interface Effect {
     @Serializable @SerialName("forget") data class Forget(val key: String) : Effect
 
     @Serializable @SerialName("extra-turn") data class ExtraTurn(val players: Players = Players.You) : Effect
-    @Serializable @SerialName("extra-combat") data class ExtraCombat(val untapAttackers: Boolean = false) : Effect
+    /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
+    @Serializable @SerialName("extra-combat") data class ExtraCombat(val untapAttackers: Boolean = false, val followedByMain: Boolean = false) : Effect
+    @Serializable @SerialName("exchange-life") data class ExchangeLife(val first: Players, val second: Players) : Effect
+    /** [mechanics] apply to the spell [objects] and to the permanent it becomes (CR 400.7d): "that creature enters with
+     * two additional +1/+1 counters", "it can't be countered". Mana riders use the same idea ([ManaProduction.spellGets]). */
+    @Serializable @SerialName("spell-gets") data class SpellGets(val objects: Objects, val mechanics: List<Mechanic>) : Effect
     @Serializable @SerialName("win") data class WinGame(val players: Players = Players.You) : Effect
     @Serializable @SerialName("lose") data class LoseGame(val players: Players) : Effect
-    /** Cast [objects] without paying their mana cost, or by paying [cost] (CR 601.2, "you may cast it"). */
     /** Cast [objects] now ([how] play: a land is played instead, CR 305.1), without paying their mana cost or by paying
      * [cost]; [bind] names the resulting spell ("If that spell would be put into your graveyard, exile it instead"). */
     @Serializable @SerialName("cast") data class Cast(
@@ -174,7 +183,8 @@ sealed interface Effect {
         val filter: ObjectFilter, val library: Players = Players.You, val count: Value = Value.Fixed(1),
         val reveal: Boolean = true, val foundBind: String? = null, val restBind: String? = null,
     ) : Effect
-    @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction) : Effect
+    /** A keyword action; [bind] names what it acted on ("the beheld card", "the evidence collected"). */
+    @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction, val bind: String? = null) : Effect
 }
 
 /** Who or what receives damage or an attachment: objects, players, or both; [target] is everything chosen for that
@@ -182,7 +192,7 @@ sealed interface Effect {
 @Serializable
 data class Recipients(val objects: Objects? = null, val players: Players? = null, val target: String? = null)
 
-/** Where [Effect.Move] puts things (CR 400.7). [owner] true: the owner's zone of that kind (the normal case). */
+/** Where [Effect.Move] puts things (CR 400.7): the owner's zone of that kind. */
 @Serializable
 data class Destination(
     val zone: Zone,
@@ -203,7 +213,7 @@ data class Destination(
     val counters: List<CountersToPut> = emptyList(),
     /** Onto the battlefield attacking ([attacking] = what it attacks; null = not attacking). Not declared as an
      * attacker, so "whenever attacks" doesn't trigger (CR 508.4). */
-    val attacking: Recipients? = null,
+    val attacking: AttackTarget? = null,
 )
 
 /** [amount] counters of [kind]. */
@@ -223,6 +233,17 @@ sealed interface TokenSpec {
     @Serializable @SerialName("predefined") data class Predefined(val name: String) : TokenSpec
     /** A token that's a copy of [objects] (CR 707), with the exceptions [except] (CR 707.9b). */
     @Serializable @SerialName("copy") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : TokenSpec
+}
+
+/** What something put onto the battlefield attacking attacks (CR 508.4). */
+@Serializable
+sealed interface AttackTarget {
+    /** Its controller chooses a player, planeswalker or battle it could attack ("tapped and attacking"). */
+    @Serializable @SerialName("chosen") data object Chosen : AttackTarget
+    /** The same player, planeswalker or battle [objects] is attacking (ninjutsu, myriad: "attacking that player"). */
+    @Serializable @SerialName("same-as") data class SameAs(val objects: Objects) : AttackTarget
+    /** These ("attacking that opponent"). */
+    @Serializable @SerialName("these") data class These(val recipients: Recipients) : AttackTarget
 }
 
 /** What [KeywordAction.Double] doubles. */

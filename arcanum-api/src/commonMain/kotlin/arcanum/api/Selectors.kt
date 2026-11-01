@@ -17,7 +17,8 @@ sealed interface Objects {
     @Serializable @SerialName("bound") data class Bound(val name: String) : Objects
     /** Card memory kept on the source under [key] ("the exiled card" of an O-Ring, CR 607). */
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Objects
-    /** An object of the triggering or replaced event ("it", "that creature"); [role] picks which one. */
+    /** An object of the triggering or replaced event ("it", "that creature"); [role] picks which one. In a trigger that
+     * fires once for a batch ([Trigger.On.oneOrMore]) it is every object of the batch in that role ("those creatures"). */
     @Serializable @SerialName("event") data class EventObject(val role: EventRole = EventRole.Object) : Objects
     /** The object a source Aura or Equipment is attached to ("enchanted creature", "equipped creature"). */
     @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Self) : Objects
@@ -26,6 +27,8 @@ sealed interface Objects {
     @Serializable @SerialName("self-after") data object SelfAfter : Objects
     /** Inside an [ObjectFilter]: the object being tested ("creatures whose power is greater than their toughness"). */
     @Serializable @SerialName("tested") data object Tested : Objects
+    /** The planeswalkers or battles [attackers] are attacking ("the planeswalker it's attacking"). */
+    @Serializable @SerialName("attacked-by") data class AttackedBy(val attackers: Objects) : Objects
     /** Objects attached to [of] ("Auras attached to it"). */
     @Serializable @SerialName("attachments") data class AttachmentsOf(val of: Objects, val filter: ObjectFilter = ObjectFilter.Any) : Objects
     /** Every object matching [filter] ("each creature", "creatures you control"). On the battlefield unless the filter
@@ -60,6 +63,8 @@ sealed interface EventRole {
     /** In a block or becoming blocked: the creature on the other side ("destroy that creature" for "blocks or becomes
      * blocked by"). */
     @Serializable @SerialName("other-combatant") data object OtherCombatant : EventRole
+    /** In an attack: the planeswalker or battle attacked (the attacked player is [Players.EventPlayer]). */
+    @Serializable @SerialName("defender") data object Defender : EventRole
 }
 
 /**
@@ -79,11 +84,14 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("category") data class Category(val category: ObjectCategory) : ObjectFilter
     @Serializable @SerialName("type") data class Type(val cardType: CardType) : ObjectFilter
     @Serializable @SerialName("supertype") data class Super(val supertype: Supertype) : ObjectFilter
-    @Serializable @SerialName("subtype") data class Sub(val subtype: Subtype) : ObjectFilter
-    /** Has the creature type remembered or bound under [key] ("creatures of the chosen type"). */
-    @Serializable @SerialName("chosen-subtype") data class ChosenSub(val key: String) : ObjectFilter
-    @Serializable @SerialName("color") data class OfColor(val color: Color) : ObjectFilter
-    @Serializable @SerialName("chosen-color") data class ChosenColor(val key: String) : ObjectFilter
+    /** Has [subtype] ("Elf", or "the chosen type" through [SubtypeRef.Chosen]). */
+    @Serializable @SerialName("subtype") data class Sub(val subtype: SubtypeRef) : ObjectFilter {
+        constructor(subtype: Subtype) : this(SubtypeRef.Literal(subtype))
+    }
+    /** Is [color] ("red", or "the chosen colour" through [ColorRef.Chosen]). */
+    @Serializable @SerialName("color") data class OfColor(val color: ColorRef) : ObjectFilter {
+        constructor(color: Color) : this(ColorRef.Literal(color))
+    }
     @Serializable @SerialName("colorless") data object Colorless : ObjectFilter
     @Serializable @SerialName("multicolored") data object Multicolored : ObjectFilter
     @Serializable @SerialName("monocolored") data object Monocolored : ObjectFilter
@@ -136,6 +144,23 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("this-turn") data class ThisTurn(val event: EventPattern) : ObjectFilter
 }
 
+/** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,
+ * CR 607.2d). */
+@Serializable
+sealed interface SubtypeRef {
+    @Serializable @SerialName("literal") data class Literal(val subtype: Subtype) : SubtypeRef
+    @Serializable @SerialName("chosen") data class Chosen(val key: String) : SubtypeRef
+}
+
+/** A colour written out, the one chosen under [Chosen.key], or each colour of [Of.objects] ("a colour among the exiled
+ * cards"). */
+@Serializable
+sealed interface ColorRef {
+    @Serializable @SerialName("literal") data class Literal(val color: Color) : ColorRef
+    @Serializable @SerialName("chosen") data class Chosen(val key: String) : ColorRef
+    @Serializable @SerialName("of") data class Of(val objects: Objects) : ColorRef
+}
+
 /** Object categories (CR 109.1, 110, 111, 112, 113). */
 @Serializable
 sealed interface ObjectCategory {
@@ -143,6 +168,7 @@ sealed interface ObjectCategory {
     @Serializable @SerialName("token") data object Token : ObjectCategory
     @Serializable @SerialName("permanent") data object Permanent : ObjectCategory
     @Serializable @SerialName("spell") data object Spell : ObjectCategory
+    /** An ability on the Stack, of any kind; [ObjectFilter.AbilityOf] says which kind and source. */
     @Serializable @SerialName("ability") data object StackAbility : ObjectCategory
 }
 
@@ -176,12 +202,20 @@ sealed interface Players {
     @Serializable @SerialName("bound") data class Bound(val name: String) : Players
     @Serializable @SerialName("remembered") data class Remembered(val key: String) : Players
     /** The player the triggering or replaced event was about ("that player"): the caster, the player dealt damage, the
-     * player who drew, discarded, gained or lost life, the active player of a step that begins. */
+     * player who drew, discarded, gained or lost life, the active player of a step that begins, the player attacked
+     * (or controlling what was attacked). In a batch trigger, every such player. */
     @Serializable @SerialName("event-player") data object EventPlayer : Players
     @Serializable @SerialName("controller-of") data class ControllerOf(val objects: Objects) : Players
     @Serializable @SerialName("owner-of") data class OwnerOf(val objects: Objects) : Players
     @Serializable @SerialName("active") data object Active : Players
+    /** The defending player of the source (or of the trigger's attacking creature) in two-player games; in general the
+     * player [DefendingPlayerOf] that creature (CR 506.2a, 506.2c). */
     @Serializable @SerialName("defending") data object Defending : Players
+    /** The player [attackers] are attacking, or the controller of the planeswalker or protector of the battle they
+     * attack ("defending player" of that creature, CR 506.2c). */
+    @Serializable @SerialName("defending-player-of") data class DefendingPlayerOf(val attackers: Objects) : Players
+    /** Inside a [Condition.AnyPlayer] / [Condition.AllPlayers] test: the player being tested. */
+    @Serializable @SerialName("tested") data object Tested : Players
     /** The player [of] is attached to ("enchanted player", Curses, CR 303.4m). */
     @Serializable @SerialName("attached-to") data class AttachedTo(val of: Objects = Objects.Self) : Players
     /** In a static ability's mechanics or condition: each affected player in turn ("Each player can't cast more than one

@@ -39,8 +39,8 @@ sealed interface CostPart {
     ) : CostPart
     /** Pay one of [options] ("discard a card or pay {5}"). */
     @Serializable @SerialName("one-of") data class OneOf(val options: List<Cost>) : CostPart
-    /** A keyword action as a cost: behold, collect evidence, forage, exert. */
-    @Serializable @SerialName("action") data class Action(val action: KeywordAction) : CostPart
+    /** A keyword action as a cost: behold, collect evidence, forage, exert; [bind] names what it used ("the beheld card"). */
+    @Serializable @SerialName("action") data class Action(val action: KeywordAction, val bind: String? = null) : CostPart
     @Serializable @SerialName("return-to-hand") data class ReturnToHand(val what: CostObjects, val preBind: String? = null, val postBind: String? = null) : CostPart
     @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
@@ -83,11 +83,10 @@ data class Total(val property: NumericProperty, val atLeast: Value)
 sealed interface ManaKind {
     /** These symbols ("{G}{G}", "{C}"), [times] times when given ("Add {G} for each Elf you control"). */
     @Serializable @SerialName("fixed") data class Fixed(val mana: ManaCost, val times: Value? = null) : ManaKind
-    /** [amount] mana of one colour among [colors] (two or more; all five when null): "Add one mana of any color".
-     * [combination]: any combination of those colours instead of one colour. */
-    @Serializable @SerialName("choose") data class Choose(val amount: Value, val colors: List<Color>? = null, val combination: Boolean = false) : ManaKind
+    /** [amount] mana of one colour among [colors] (two or more, "the chosen color" through [ColorRef.Chosen], "a color
+     * among exiled cards" through [ColorRef.Of]; all five when null). [combination]: any combination of those colours
+     * instead of one colour. */
+    @Serializable @SerialName("choose") data class Choose(val amount: Value, val colors: List<ColorRef>? = null, val combination: Boolean = false) : ManaKind
     /** [amount] mana of any colour/type a land matching [filter] could produce (Reflecting Pool style). */
     @Serializable @SerialName("as-could") data class AsCouldProduce(val filter: ObjectFilter, val amount: Value = Value.Fixed(1)) : ManaKind
-    /** [amount] mana of the colour chosen under [key] ("Add one mana of the chosen color"). */
-    @Serializable @SerialName("chosen-color") data class ChosenColor(val key: String, val amount: Value = Value.Fixed(1)) : ManaKind
 }

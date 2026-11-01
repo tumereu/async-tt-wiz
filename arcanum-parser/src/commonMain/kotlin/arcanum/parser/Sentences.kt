@@ -73,6 +73,12 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        // "[If it's not your turn, ]you may [cost] rather than pay this spell's mana cost." (CR 118.9)
+        ALTERNATIVE_COST.matchEntire(line)?.let { m ->
+            val parts = m.groupValues[2].split(" and ").map { costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }.flatten()
+            val condition = when (m.groupValues[1]) { "" -> null; "If it's not your turn, " -> arcanum.api.Condition.Not(arcanum.api.Condition.YourTurn); else -> return null }
+            return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost(parts))), condition = condition)
+        }
         OTHERS_GET.matchEntire(line)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return Ability.Static(
@@ -177,6 +183,12 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             return listOf(CostPart.PutCounters(kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)))
         }
+        RETURN_TO_HAND_COST.matchEntire(text)?.let { m ->
+            return listOf(CostPart.ReturnToHand(CostObjects.Choose(Filters.noun(m.groupValues[1]) ?: return null)))
+        }
+        EXILE_FROM_HAND_COST.matchEntire(text)?.let { m ->
+            return listOf(CostPart.Exile(CostObjects.Choose(Filters.noun(m.groupValues[1]) ?: return null), from = Zone.Hand))
+        }
         SACRIFICE.matchEntire(text)?.let { m ->
             val what = m.groupValues[1]
             return listOf(CostPart.Sacrifice(if (isSelf(what)) CostObjects.Self else CostObjects.Choose(Filters.noun(what.removeArticle()) ?: return null)))
@@ -188,11 +200,12 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     fun instructions(text: String): Instructions? {
         val context = Context()
         val steps = sentences(text).map { effect(it, context) ?: return null }.flatten()
-        return Instructions(targets = context.targets, steps = steps)
+        return Instructions(targets = context.targets, steps = steps, replacements = context.replacements)
     }
 
     private class Context {
         var flip = false
+        val replacements = mutableListOf<Mechanic.Replacement>()
         val targets = mutableListOf<TargetSlot>()
         fun target(noun: String, filter: ObjectFilter): Objects {
             targets += TargetSlot(noun, TargetKind.Objects(filter))
@@ -204,6 +217,35 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
     }
 
     private fun effect(sentence: String, context: Context): List<Step>? {
+        COUNTER_TARGET.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val spell = context.target(Filters.slotName(m.groupValues[1]), filter)
+            val counter = Step.Do(Effect.Counter(spell))
+            if (m.groupValues[2].isEmpty()) return listOf(counter)
+            val cost = ManaCost.parse(m.groupValues[2]) ?: return null
+            return listOf(Step.Unless(Players.ControllerOf(spell), Cost.mana(cost), listOf(counter)))
+        }
+        COUNTERED_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val spell = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
+            val to = when (m.groupValues[1]) {
+                "exile it" -> Destination(Zone.Exile)
+                "put it on top of its owner's library" -> Destination(Zone.Library, libraryPosition = 0)
+                "put it into its owner's hand" -> Destination(Zone.Hand)
+                else -> return null
+            }
+            // CR 614.15: a replacement of this spell's own effect, applied while it resolves
+            context.replacements += Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(spell), from = Zone.Stack, to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(to)))
+            return emptyList()
+        }
+        NEXT_MAIN_PHASE_ADD_MANA_VALUE.matchEntire(sentence)?.let {
+            val spell = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(listOf(EventPattern.StepBegins(arcanum.api.TurnStep.PrecombatMain, PlayerFilter.You),
+                    EventPattern.StepBegins(arcanum.api.TurnStep.PostcombatMain, PlayerFilter.You))),
+                Instructions(steps = listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!,
+                    times = Value.Of(arcanum.api.NumericProperty.ManaValue, spell, arcanum.api.Combine.Single))))))))))
+        }
         ADD_X_ANY_COMBINATION.matchEntire(sentence)?.let {
             return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Announced(), combination = true)))))
         }
@@ -318,6 +360,12 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val SENTENCE_END = Regex("""(?<=\.)\s+""")
         val ABILITY_WORD = Regex("""([A-Z][A-Za-z' ]+) — (.+)""")
         const val IMPRINTED = "imprinted"
+        val ALTERNATIVE_COST = Regex("""(If it's not your turn, )?[Yy]ou may (.+) rather than pay this spell's mana cost\.""")
+        val RETURN_TO_HAND_COST = Regex("""Return an? (.+) to its owner's hand""")
+        val EXILE_FROM_HAND_COST = Regex("""Exile an? (.+) from your hand""")
+        val COUNTER_TARGET = Regex("""Counter target (.+?)(?: unless its controller pays (\{.+\}))?\.""")
+        val COUNTERED_THIS_WAY = Regex("""If that spell is countered this way, (exile it|put it on top of its owner's library|put it into its owner's hand) instead of .+\.""")
+        val NEXT_MAIN_PHASE_ADD_MANA_VALUE = Regex("""At the beginning of your next main phase, add an amount of \{C\} equal to that spell's mana value\.""")
         val yourHand = ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))
         val INSTEAD_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?(.+) instead if (.+)\.""")
         val DOESNT_UNTAP = Regex("""(.+) doesn't untap during your untap step\.""")

@@ -39,9 +39,13 @@ object OracleParser {
             val line = REMINDER.replace(raw, "").trim()
             val previous = result.lastOrNull()
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
+            val parsed = if (instead == null) keywordLine(line) ?: sentences.line(line)?.let(::listOf) else null
             when {
                 instead != null -> result[result.size - 1] = instead
-                else -> result += keywordLine(line) ?: sentences.line(line)?.let(::listOf) ?: listOf(Ability.Unparsed(raw.trim()))
+                // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
+                previous is Ability.Spell && parsed?.singleOrNull() is Ability.Spell && (parsed.single() as Ability.Spell).abilityWord == null ->
+                    result[result.size - 1] = previous.copy(instructions = previous.instructions.join((parsed.single() as Ability.Spell).instructions))
+                else -> result += parsed ?: listOf(Ability.Unparsed(raw.trim()))
             }
         }
         return result
@@ -107,3 +111,8 @@ object OracleRenderer {
         (part as? CostPart.Mana)?.cost?.toString() ?: error("Rendering cost part $part is not written yet")
     }
 }
+
+private fun arcanum.api.Instructions.join(next: arcanum.api.Instructions) = copy(
+    targets = targets + next.targets, steps = steps + next.steps, replacements = replacements + next.replacements,
+    announced = (announced + next.announced).distinct(),
+)

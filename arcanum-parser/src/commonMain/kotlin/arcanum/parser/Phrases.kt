@@ -36,6 +36,14 @@ internal object Filters {
      */
     fun noun(phrase: String): ObjectFilter? {
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
+        WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
+            return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, Value.Fixed(m.groupValues[2].toInt())))
+        }
+        WITH_POWER_OR_TOUGHNESS_AT_MOST.matchEntire(phrase)?.let { m ->
+            val n = Value.Fixed(m.groupValues[2].toInt())
+            return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(
+                ObjectFilter.Power(arcanum.api.Comparison.AtMost, n), ObjectFilter.Toughness(arcanum.api.Comparison.AtMost, n))))
+        }
         CONTROLLED.matchEntire(phrase)?.let { m ->
             val who = when (m.groupValues[2]) { "you control" -> PlayerFilter.You; "an opponent controls" -> PlayerFilter.Opponent; else -> return null }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -56,7 +64,8 @@ internal object Filters {
             val modifiers = phrase.split(", ")
             return ObjectFilter.And(modifiers.flatMap { part -> (noun(part) ?: return null).let { if (it is ObjectFilter.And) it.all else listOf(it) } })
         }
-        val words = phrase.removeSuffix(" card").removeSuffix(" cards").split(' ').map { singular(it) }
+        val trimmed = phrase.removeSuffix(" cards").let { if (it.contains(' ')) it.removeSuffix(" card") else it }
+        val words = trimmed.split(' ').map { singular(it) }
         val parts = words.map { word(it) ?: return null }
         return parts.singleOrNull() ?: ObjectFilter.And(parts)
     }
@@ -66,7 +75,7 @@ internal object Filters {
 
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
     fun slotName(phrase: String): String {
-        val core = CONTROLLED.matchEntire(phrase)?.groupValues?.get(1) ?: phrase
+        val core = (CONTROLLED.matchEntire(phrase)?.groupValues?.get(1) ?: phrase).substringBefore(" with ")
         return if (core.contains(" or ") || core.contains(", ")) "permanent" else core.split(' ').last()
     }
 
@@ -81,6 +90,13 @@ internal object Filters {
 
     private fun word(word: String): ObjectFilter? {
         if (word.startsWith("non")) return word(word.removePrefix("non"))?.let { ObjectFilter.Not(it) }
+        when (word) {
+            "spell" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)
+            "token" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Token)
+            "permanent" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
+            "card" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
+        }
+        COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         CARD_TYPES[word]?.let { return ObjectFilter.Type(it) }
         SUPERTYPES[word]?.let { return ObjectFilter.Super(it) }
         if (word.first().isUpperCase()) return ObjectFilter.Sub(Subtype(word))
@@ -94,9 +110,12 @@ internal object Filters {
     }
 
     private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
+    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+)""")
+    private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or less""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
     private val CONTROLLED = Regex("""(.+) (you control|an opponent controls)""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
+    private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
     /** Plural creature types as printed ("Elves you control"); regular plurals are only read where the text needs them. */
     private val IRREGULAR_PLURALS = mapOf("Elves" to "Elf", "Dwarves" to "Dwarf", "Wolves" to "Wolf", "Goblins" to "Goblin",

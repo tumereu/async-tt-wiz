@@ -17,6 +17,9 @@ catalog entries the owner approves when its phase is built.
 - **Zone-change count per card** (D21). The engine's object id is the ATW card id
   plus this count; it goes up on every move between zones. Stored, not derived from
   history (SYS-026).
+- **Timestamp per card** (D34): from a game-wide integer counter, set on entering a
+  zone, attaching, turning face up/down and transforming; assigned by ATW itself, with
+  or without Automatum.
 - **Tagged events** (D33): Automatum events carry their Magic meaning ("sacrificed",
   "died", …) and a snapshot of the objects involved, used for "this turn" questions
   and for history texts. Manual events carry none and don't count.

@@ -17,8 +17,11 @@ catalog entries the owner approves when its phase is built.
 - **Zone-change count per card** (D21). The engine's object id is the ATW card id
   plus this count; it goes up on every move between zones. Stored, not derived from
   history (SYS-026).
-- **Ledgers** (D22): hidden engine bookkeeping at game, player and card-instance
-  scope (cards drawn, creatures died, mana spent, kicked, …); key names and values
+- **Tagged events** (D33): Automatum events carry their Magic meaning ("sacrificed",
+  "died", …) and a snapshot of the objects involved, used for "this turn" questions
+  and for history texts. Manual events carry none and don't count.
+- **Ledgers** (D22, per object only): hidden engine bookkeeping on card instances
+  (mana spent, X, kicked, activations this turn, …); key names and values
   come from the engine. Events change them by increments and set changes so undo
   works. An Automatum debug menu shows them. Undo that removes the cause of a later
   automated result is fixed by hand.

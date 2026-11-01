@@ -586,7 +586,7 @@ internal object Actions {
     }
 
     /** Ledger key of a player who drew from an empty library since state-based actions were last checked. */
-    const val EMPTY_DRAW = "\$drew-from-empty-library"
+    const val EMPTY_DRAW = arcanum.engine.turn.Steps.EMPTY_LIBRARY_DRAW
 
     /** [player] mills [count] (CR 701.17): the top cards into the graveyard as one event. */
     fun mill(act: Act, cause: Cause?, player: PlayerId, count: Int): Map<ObjectId, ObjectId> {

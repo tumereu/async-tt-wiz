@@ -139,8 +139,12 @@ internal object Steps {
             TurnStep.Untap -> { untap(recorder); Next.GoOn }
             TurnStep.Draw -> {
                 // CR 103.8a: the starting player skips the draw of their first turn in a two-player game
-                if (!(s.turn.number == 1 && s.skipFirstDraw)) draw(recorder, s.turn.active)
-                Next.Priority
+                if (s.turn.number == 1 && s.skipFirstDraw) Next.Priority
+                // Through the event pipeline, so replacements of draws apply (CR 121.6, 614)
+                else when (val p = arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.Draw(s.turn.active, 1))) {
+                    is Progress.Waiting -> Next.Wait(p)
+                    Progress.Done -> Next.Priority
+                }
             }
             TurnStep.DeclareAttackers -> { Combat.beginDeclareAttackers(recorder); Next.Priority }
             TurnStep.DeclareBlockers -> { Combat.beginDeclareBlockers(recorder); Next.Priority }
@@ -185,18 +189,6 @@ internal object Steps {
     /** CR 702.26a: phasing, the keyword or its meaning. */
     private fun hasPhasing(snap: Snapshot, id: arcanum.engine.state.ObjectId): Boolean =
         snap.view[id]?.characteristics?.hasKeyword(arcanum.api.Keyword.Phasing) == true || snap.view[id]?.has { it == Mechanic.Phasing } == true
-
-    /** A turn-based draw (CR 504.1, 121.1); from an empty library the player loses at the next check (CR 704.5b). */
-    fun draw(recorder: Recorder, player: PlayerId) {
-        val s = recorder.state
-        val top = s.player(player).library.firstOrNull()
-        if (top == null) {
-            val before = s.player(player).ledger[EMPTY_LIBRARY_DRAW] ?: 0
-            recorder.record(Change.Ledger(player, EMPTY_LIBRARY_DRAW, before, before + 1))
-        } else {
-            recorder.record(Changes.move(s, listOf(top), Zone.Hand, meanings = listOf(Meaning.Drew)))
-        }
-    }
 
     // ---- Cleanup (CR 514)
 

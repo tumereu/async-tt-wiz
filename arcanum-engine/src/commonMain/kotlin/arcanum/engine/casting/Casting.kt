@@ -36,11 +36,14 @@ internal object Casting {
         Legality.cantPlayLand(snap, input.player, input.card, input.face)?.let { throw IllegalArgumentException("Can't play that land: $it") }
         val s = recorder.state
         // CR 305.1: a special action; the land simply enters the battlefield (CR 712.11: with the face played up)
-        recorder.record(Changes.move(s, listOf(input.card), Zone.Battlefield, controller = input.player, meanings = listOf(Meaning.PlayedLand)))
-        val entered = (input.card as ObjectId.Card).next()
-        if (input.face != s.objOrThrow(entered).face) recorder.record(Change.Face(entered, s.objOrThrow(entered).face, input.face))
         val turn = s.turn
         recorder.record(Changes.step(s, turn.copy(landsPlayed = turn.landsPlayed + (input.player to (turn.landsPlayed[input.player] ?: 0) + 1))))
+        // Through the event pipeline: "enters tapped", "as this land enters" choices (CR 614.12); a choice waits
+        val entering = arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.Move(listOf(input.card), Zone.Battlefield,
+            listOf(Meaning.PlayedLand), under = input.player, controller = input.player, source = input.card))
+        if (entering is Progress.Waiting) return entering
+        val entered = (input.card as ObjectId.Card).next()
+        s.obj(entered)?.let { if (input.face != it.face) recorder.record(Change.Face(entered, it.face, input.face)) }
         keepPriority(recorder, input.player)
         return Progress.Done
     }

@@ -271,44 +271,13 @@ internal object Combat {
         return continueAssigning(recorder, action.copy(assigned = action.assigned + assignments, attackers = action.attackers.drop(1)))
     }
 
-    /** CR 510.2, 120.3: all combat damage at once, as one damage event, then its results. */
+    /** CR 510.2, 120.3: all combat damage at once, as one damage event through the event pipeline (prevention,
+     * replacements, results, lifelink: [arcanum.engine.action.Actions.damage]); a replacement order to choose waits
+     * ([Continuation.Event]). */
     private fun deal(recorder: Recorder, action: TurnAction.CombatDamage): Progress {
         val list = action.assigned.filter { it.amount > 0 }
         if (list.isEmpty()) return Progress.Done
-        val snap = Snapshot(recorder.state)
-        recorder.record(Change.Damage(list.map { DamageDealt(it.source, it.target, it.amount, combat = true, sourceSeen = snap.snapshot(it.source)) }))
-        list.forEach { a ->
-            val s = recorder.state
-            val infect = has(snap, a.source, Mechanic.Infect)
-            val wither = has(snap, a.source, Mechanic.Wither)
-            when (val t = a.target) {
-                is TargetRef.Player -> {
-                    // CR 120.3a–b: life loss, or poison counters from infect
-                    if (infect) recorder.record(Changes.counters(s, t, CounterKind.Poison, a.amount))
-                    else recorder.record(Changes.life(s, t.id, -a.amount, listOf(Meaning.LifeLost)))
-                    // CR 702.164c: toxic gives poison counters on combat damage to a player
-                    val toxic = snap.view[a.source]?.mechanics.orEmpty().mapNotNull { it.mechanic as? Mechanic.Toxic }.sumOf { it.amount }
-                    if (toxic > 0) recorder.record(Changes.counters(recorder.state, t, CounterKind.Poison, toxic))
-                }
-                is TargetRef.Object -> {
-                    val c = snap.view[t.id]?.characteristics
-                    // CR 120.3c: damage to a planeswalker removes loyalty counters; CR 120.3h: to a battle, defense counters
-                    if (c?.isType(CardType.Planeswalker) == true) recorder.record(Changes.counters(s, t, CounterKind.Loyalty, -a.amount))
-                    if (c?.isType(CardType.Battle) == true) recorder.record(Changes.counters(recorder.state, t, CounterKind.Defense, -a.amount))
-                    if (c?.isType(CardType.Creature) == true) {
-                        // CR 120.3d–e: infect and wither damage to a creature is -1/-1 counters
-                        if (infect || wither) recorder.record(Changes.counters(recorder.state, t, CounterKind.PowerToughness(-1, -1), a.amount))
-                        else recorder.record(Changes.damageMarked(recorder.state, t.id, a.amount, deathtouch = has(snap, a.source, Mechanic.Deathtouch)))
-                    }
-                }
-            }
-        }
-        // CR 702.15b: lifelink: the source's controller gains that much life, one gain per source
-        list.groupBy { it.source }.forEach { (source, dealt) ->
-            if (!has(snap, source, Mechanic.Lifelink)) return@forEach
-            val controller = snap.board.controller(source) ?: return@forEach
-            recorder.record(Changes.life(recorder.state, controller, dealt.sumOf { it.amount }, listOf(Meaning.LifeGained)))
-        }
-        return Progress.Done
+        val dealt = list.map { DamageDealt(it.source, it.target, it.amount, combat = true) }
+        return arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.Damage(dealt, recorder.state.turn.active))
     }
 }

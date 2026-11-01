@@ -102,7 +102,9 @@ internal object Resolution {
         item.targets.forEach { (slotName, chosen) ->
             if (chosen.isEmpty()) return@forEach
             anyTargets = true
-            val slot = slots.firstOrNull { it.name == slotName }
+            // Repeated modes keep their slots as "name@position" (casting's targetKey): bound under the name too
+            val baseName = slotName.substringBefore('@')
+            val slot = slots.firstOrNull { it.name == baseName }
             val legal = chosen.filter { ref ->
                 if (slot == null) when (ref) {
                     is TargetRef.Object -> act.state.obj(ref.id) != null || ref.id in act.state.stackItems
@@ -111,6 +113,7 @@ internal object Resolution {
             }
             if (legal.isNotEmpty()) anyLegal = true
             names = names.with(slotName, NamedValue.Targets(legal))
+            if (baseName != slotName && names[baseName] == null) names = names.with(baseName, NamedValue.Targets(legal))
         }
         if (anyTargets && !anyLegal) {
             // CR 608.2b: it doesn't resolve; a spell goes to its owner's graveyard

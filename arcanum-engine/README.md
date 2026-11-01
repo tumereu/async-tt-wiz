@@ -61,11 +61,32 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   lifelink, infect, wither, toxic, dividing damage. A spell becomes cast with the
   `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
   under `name@position` (`targetKey`).
-- Interim (`turn/Interim.kt`): while resolution and state-based actions throw "not implemented
-  yet", a spell's card just goes where it goes (CR 608.3) and the basic state-based actions
-  apply; combat damage and land plays don't go through replacement or prevention yet.
-- Not yet: resolution and replacements, triggers and the event matching behind "this turn"
-  (`History` answers "nothing happened"), state-based actions; in the flow: attack costs and
+- Done, what happens (`action/`, `resolution/`, `trigger/`, `sba/`): the event pipeline
+  (`Actions`; every game action of effects, state-based and turn-based actions): zone changes
+  with new ids, last known information and "as enters" steps, damage with protection,
+  prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
+  deathtouch, lifelink, toxic and excess; life, counters, tapping, tokens (D35 ids), draws,
+  mills, discards, host-ordered shuffles (D25) and host fills (D60). Replacement effects
+  (CR 614, 616): own replacements first, control, copy, transformed, then the affected player's
+  order when it matters; each once per event; "instead", modifications, optional ones, linked
+  "when applied" triggers, one-use shields and regeneration (D26). Resolution (CR 608): target
+  re-check and fizzling, partial legality, every `Step` and every `Effect` (keyword actions
+  without a table entry are done directly or by hand), effect objects with locked sets (CR
+  611.2c), delayed and reflexive triggers, copies of spells, casting without paying from an
+  effect, the card going to the graveyard/exile/battlefield. A step that needs a decision is
+  taken back and redone with the answers so far (D29); earlier steps stay done (D31).
+  Triggers: detection as each event is recorded, looking back for CR 603.10a events, batches,
+  "nth this turn", per-turn limits, intervening and trigger-only conditions, state triggers,
+  chapters, "triggers an additional time"; waiting triggers in `GameState.triggered`, put on
+  the Stack in APNAP order with their order, modes and targets. State-based actions (CR 704.5a–q,
+  v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
+  Events outside resolution (land plays, the draw step's draw, combat damage) go through
+  `Events.run` and wait with `Continuation.Event`.
+- Not yet: casting for a cost from an effect (madness: done by hand), additional combat
+  phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
+  cycling/crewing/saddling/expending/day-night events, `CountersPut.causedBy`, `nthThisTurn`'s
+  `during`, "do this only once each turn", repeated target slot names of repeated modes
+  (bound under the first); in the flow: attack costs and
   "as it attacks" costs, battles as attack targets,
   splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
   up, mana abilities' other effects (left as a `Manual` step). Also missing: text-changing
@@ -94,7 +115,9 @@ Setup (`alice.battlefield/hand/library/graveyard/exile`, `life`, `counters`, `tu
 choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanceTo(step)`
 (declaring no attackers or blockers on the way), `answers`, `attacks`, `blocks`, hand-made
 `change`/`move`), expectations (`expect { … }`). Random results are scripted with
-`random(…)` or seeded; hidden cards are filled in by the harness. Every scenario checks D59:
+`random(…)` or seeded; hidden cards are filled in by the harness. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
+`activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
+run resolution, state-based actions and triggers without priority. Every scenario checks D59:
 reverting all its changes restores the state after setup.
 
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into

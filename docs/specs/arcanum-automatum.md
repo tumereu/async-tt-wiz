@@ -50,6 +50,7 @@ that exist today.
 | D8 | **Three generic libraries** (arcanum-api, arcanum-parser, arcanum-engine) with no ATW knowledge; the engine talks in MTG terms; ATW integrates them. The owner reviews their code and documentation at least at the interface level. |
 | D9 | Phase 0 (§13) is as described; the order of later phases may change as work goes on. |
 | D10 | The open questions (§15) are expected to be settled by playtesting. |
+| D11 | Any decision (a trigger's targets, trigger order, an opponent's choice during resolution) can be made **by either player on the other's behalf**. Such a decision pauses the other player's automatic playback by default, and the UI makes clear you are acting for someone else. The phone test (SYS-036) still applies. |
 
 ## 3. Principles
 
@@ -72,7 +73,9 @@ that exist today.
   ended effects) just happen. A choice appears only when a player has one to make.
 - **P6 Shared code.** All three libraries are Kotlin Multiplatform common code, so the
   Android app predicts locally within SYS-025 and the future web client reuses them.
-- **P7 The server stays authoritative over actions, not over automation.** Since any
+- **P7 Anyone may decide for anyone (D11).** A decision belongs to a player by the
+  rules, but either player can make it, as with every manual action (SYS-036).
+- **P8 The server stays authoritative over actions, not over automation.** Since any
   player may do anything manually, the server does not need to re-check that an
   automated batch followed the rules. It validates the actions as it does today, plus
   the new shared objects (§8).
@@ -107,6 +110,9 @@ ATW table ──► ATW integration ──► engine game state (MTG terms) ─�
     …, choose mode, choose mana sources, order triggers, choose a card to discard),
     or a list of **MTG-level changes** (move object, deal damage, gain life, add
     counter, create token, tap, add effect object, …).
+  - Each decision request names the player who decides it by the rules. The engine
+    accepts the answer whoever gives it (P7); who actually answered is the
+    caller's business.
   - **Decisions are data, not callbacks.** The caller answers a request by calling
     again with the answers so far. The engine keeps no session between calls, so a
     decision can wait for days, cross devices or be answered by the other player.
@@ -319,8 +325,8 @@ it applies automatically.
 The engine sees only what its caller sees (unknown objects, §4.1). It never reveals
 anything by itself: an effect that needs hidden information is either done through a
 server-filled action or asked from the player who can see it. Choices the opponent
-must make (e.g. "discard a card") are shared pending choices that only that player
-answers (§8).
+must make (e.g. "discard a card") are shared pending decisions (§8); deciding one for
+them follows §7.9.
 
 ### 7.8 Mana payment
 
@@ -331,6 +337,20 @@ with several colours, and sources with conditions or extra costs (treasures,
 "spend only on creature spells", summoning-sick creatures). The player can change the
 suggestion in the cast dialog. Mana that is added but not spent at once (rituals) is
 kept in a visible **mana pool** until it empties at the end of the step (P2).
+
+### 7.9 Deciding for another player (D11)
+
+Every pending decision is shown to the player it belongs to, and the other player can
+open and answer it too, like any manual action:
+- The UI makes clear you are acting on someone else's behalf (who the decision belongs
+  to, and that you are making it for them) before you confirm.
+- History records it as your action made for them ("Chose Grizzly Bears as the target
+  for bob's trigger").
+- By default it pauses the other player's automatic playback at that event, so they
+  see what was decided for them.
+- A decision that needs hidden information of the other player (e.g. which card they
+  discard from their hand) needs the same extra step to reach that information as
+  today (SYS-036): it is never shown to you by default.
 
 ## 8. New shared state in ATW
 
@@ -343,7 +363,7 @@ catalog entries.
 | Structured Stack entry | Which ability of which card, chosen modes, X, targets by named slot, controller. Today's text marks (STK-016) stay for manual entries. |
 | Effect objects | Continuous effects with source, affected objects, layer, timestamp and duration; shown on the cards they affect; settable and removable by hand. |
 | Card memory | Chosen colour/type/name, "exiled with ~", attached-to, kicked, etc. |
-| Pending decisions | Triggers waiting for their controller's choice, and choices another player must make during resolution. Answered asynchronously. |
+| Pending decisions | Triggers waiting for a choice, and choices made during resolution, each with the player it belongs to. Answered asynchronously, by that player or on their behalf (§7.9). |
 | Mana pool | Mana added but not yet spent (§7.8). |
 | Typed counters | +1/+1, −1/−1, loyalty, named counters (§7.1). |
 | Automation flag on events | Marks an action batch as produced by automation, for history texts ("Lightning Bolt dealt 3 damage to Grizzly Bears"). |
@@ -381,8 +401,8 @@ catalog entries.
   computations; the engine must meet the 20 ms budget and is covered by the existing
   slow-action reports.
 - **Rule versions (SYS-031):** recorded events never depend on definitions.
-- **Player access (SYS-036/037):** every assisted action is available to both
-  players on any card, like manual actions ("phone test").
+- **Player access (SYS-036/037):** every assisted action and every decision is
+  available to both players on any card, like manual actions ("phone test", §7.9).
 
 ## 12. Licences (summary)
 

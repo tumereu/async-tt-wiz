@@ -95,7 +95,9 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
         }
 
     /** The permission used to cast it from elsewhere than the hand (D41): found by where it was granted. */
-    val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = way.permission?.let { p -> permissionMechanic(plain, p) }
+    val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = way.permission?.let { p ->
+        (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p)
+    }
 
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
     val bestowed = alternative?.second?.keyword == Keyword.Bestow.Kind

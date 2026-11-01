@@ -53,9 +53,9 @@ internal object Casting {
         Legality.cantCast(snap, input.player, input.card, input.way)?.let { throw IllegalArgumentException("Can't cast that: $it") }
         val o = recorder.state.objOrThrow(input.card)
         val fromHand = o.zone == Zone.Hand && o.owner == input.player
-        val permission = if (fromHand && input.way.permission == null) null
-            else Legality.permission(snap, input.player, input.card, input.way, PlayKind.Cast)?.first
-        val way = input.way.copy(permission = permission)
+        val permitted = if (fromHand && input.way.permission == null) null
+            else Legality.permission(snap, input.player, input.card, input.way, PlayKind.Cast)
+        val way = input.way.copy(permission = permitted?.first)
         val alternative = Legality.alternative(snap, input.card, way)
         val faceDown = alternative?.second?.faceDown == true
         val start = recorder.changes.size
@@ -65,7 +65,7 @@ internal object Casting {
         if (way.face != recorder.state.objOrThrow(onStack).face) recorder.record(Change.Face(onStack, recorder.state.objOrThrow(onStack).face, way.face))
         var names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))
         if (faceDown) names = names.with(FACE_DOWN, NamedValue.Option(alternative!!.second.keyword?.id ?: "morph"))
-        val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way), AnnounceStage.Modes, Choices(names = names))
+        val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way, permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay), AnnounceStage.Modes, Choices(names = names))
         return advance(recorder, c, start)
     }
 

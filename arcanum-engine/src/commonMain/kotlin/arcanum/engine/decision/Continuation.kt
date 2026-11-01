@@ -91,8 +91,11 @@ sealed interface Continuation {
 /** What is being cast or activated. */
 @Serializable
 sealed interface Announced {
-    /** The card [card], cast [way] (CR 601.2a). */
-    @Serializable @SerialName("spell") data class Spell(val card: ObjectId, val way: CastWay) : Announced
+    /** The card [card], cast [way] (CR 601.2a); [permitted] is the permission it is cast under as it was before the card
+     * moved (retrace granted only to cards in a graveyard still adds its cost, CR 601.2f). */
+    @Serializable @SerialName("spell") data class Spell(
+        val card: ObjectId, val way: CastWay, val permitted: arcanum.api.Mechanic.MayPlay? = null,
+    ) : Announced
     /** Ability [origin] of [source] (CR 602.2a), with a copy of the [ability] (D23). */
     @Serializable @SerialName("ability") data class Ability(
         val source: ObjectId, val origin: AbilityOrigin, val ability: arcanum.api.Ability,

@@ -1,8 +1,11 @@
 package arcanum.tools
 
 import arcanum.parser.OracleFace
+import arcanum.api.UnparsedAbility
 import arcanum.parser.OracleNormalizer
+import arcanum.parser.OracleParser
 import arcanum.parser.Pattern
+import arcanum.parser.PatternKind
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonToken
 import java.io.File
@@ -12,7 +15,9 @@ import java.util.zip.GZIPInputStream
 /**
  * Counts normalised oracle-text patterns ([OracleNormalizer]) over every card face in a local MTGJSON file and writes
  * them, most frequent first, as TSV. Reads AllPrintings (data → set → cards) or AtomicCards (data → name → faces).
- * Skips Un-cards (isFunny), online-only printings and rebalanced Alchemy cards. Args: <mtgjson file> <output tsv>.
+ * Skips Un-cards (isFunny), online-only printings and rebalanced Alchemy cards. Also runs [OracleParser] over every
+ * face and reports how much it reads, with the keyword-like lines it still leaves unparsed in a second file next to
+ * the first (unparsed-keywords.tsv). Args: <mtgjson file> <output tsv>.
  */
 fun main(args: Array<String>) {
     require(args.size == 2) { "Usage: PatternFrequencies <MTGJSON .json or .json.gz> <output .tsv>" }
@@ -29,9 +34,29 @@ fun main(args: Array<String>) {
     val rank = ranked.withIndex().associate { (index, entry) -> entry.key to index + 1 }
     val lines = counts.values.sum()
     val withText = facePatterns.filter { it.isNotEmpty() }
+    var abilities = 0
+    var parsed = 0
+    var facesParsed = 0
+    val unparsedKeywords = HashMap<String, Int>()
+    faces.values.filter { it.text.isNotBlank() }.forEach { face ->
+        val definition = OracleParser.parse(face.name, face.text)
+        val unparsed = definition.abilities.filterIsInstance<UnparsedAbility>()
+        abilities += definition.abilities.size
+        parsed += definition.abilities.size - unparsed.size
+        if (unparsed.isEmpty()) facesParsed++
+        unparsed.forEach { u ->
+            OracleNormalizer.patterns(OracleFace(face.name, u.text, face.keywords), creatureTypes)
+                .filter { it.kind == PatternKind.KEYWORD }.forEach { unparsedKeywords.merge(it.text, 1, Int::plus) }
+        }
+    }
     val out = File(args[1]).apply { parentFile.mkdirs() }
+    File(out.parentFile, "unparsed-keywords.tsv").bufferedWriter().use { w ->
+        w.appendLine("count\tkeyword pattern")
+        unparsedKeywords.entries.sortedByDescending { it.value }.forEach { (text, count) -> w.appendLine("$count\t$text") }
+    }
     out.bufferedWriter().use { w ->
         w.appendLine("# ${faces.size} card faces, ${withText.size} with rules text, $lines pattern lines, ${counts.size} distinct patterns")
+        w.appendLine("# parser: $parsed of $abilities abilities read (${percent(parsed, abilities)}), $facesParsed of ${withText.size} faces with text fully read (${percent(facesParsed, withText.size)})")
         listOf(50, 100, 250, 500, 1000, 2000).forEach { top ->
             val coveredLines = ranked.take(top).sumOf { it.value }
             val coveredFaces = withText.count { list -> list.all { rank.getValue(it) <= top } }

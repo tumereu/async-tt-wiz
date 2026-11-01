@@ -57,6 +57,7 @@ that exist today.
 | D14 | The parser is built **case by case, AI-assisted**: one effect or a group of similar wordings at a time, deciding together how to parse it, then implementing it. The owner reviews code periodically. (D5's "no LLM fallback" is about the parser itself, not how it is developed.) |
 | D15 | **Test data is our own:** invented card names with real-MTG-like wording (a real card's text with a different name and mana cost, or merges of several cards). The frequency analysis runs on a local MTGJSON download that is never committed (D-243). |
 | D16 | Library rules: KDoc and a short README per library; tests cite Comprehensive Rules numbers and are protected like catalog-linked tests; a build check keeps the libraries free of ATW modules. |
+| D17 | Types in the libraries are **sealed hierarchies rather than enums with values**, unless that causes serialization or multiplatform problems. Keywords: one sealed type per keyword carrying exactly its values (`Keyword.Crew(amount)`); a keyword is a rules hook or a named template for an ordinary ability, decided per keyword as the ability language grows; ability words (threshold, landfall) are conditions, not keywords. |
 
 ## 3. Principles
 

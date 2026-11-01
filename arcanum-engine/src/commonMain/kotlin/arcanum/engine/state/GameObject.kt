@@ -1,0 +1,141 @@
+package arcanum.engine.state
+
+import arcanum.api.CardDefinition
+import arcanum.api.Color
+import arcanum.api.CounterKind
+import arcanum.api.KeywordKind
+import arcanum.api.KeywordKindSerializer
+import arcanum.api.Layout
+import arcanum.api.ObjectMark
+import arcanum.api.Zone
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+/**
+ * A card or token as an object in one zone (CR 109, 400.7): what the host knows about it, before any continuous
+ * effect is applied. Its characteristics after layers come from the view ([arcanum.engine.Engine.view]).
+ *
+ * Immutable: a [arcanum.engine.change.Change] replaces it with a changed copy. Moving to another zone makes a new
+ * object with a new [id] (D21).
+ */
+@Serializable
+data class GameObject(
+    val id: ObjectId.Card,
+    val owner: PlayerId,
+    /** The player it entered the battlefield (or was put on the Stack) under (CR 110.2); null in other zones, where
+     * the owner answers for it (CR 108.4a). Control-changing effects apply in layer 2 of the view, not here. */
+    val controller: PlayerId? = null,
+    val zone: Zone,
+    /** The card's definition; null for an unknown object, a card the caller can't see (D60). */
+    val definition: CardDefinition?,
+    /** Which face is up: 0 the front; 1 the back of a transformed or modal double-faced card, the flipped half of a
+     * flip card (CR 710), or the second half / Adventure being cast (CR 709, 715). */
+    val face: Int = 0,
+    /** A token (CR 111); [definition] holds its characteristics as created. */
+    val token: Boolean = false,
+    val tapped: Boolean = false,
+    /** Face down (CR 708): a 2/2 with no name, text, types other than creature, or mana cost (CR 708.2a). */
+    val faceDown: Boolean = false,
+    /** Phased out: treated as though it doesn't exist (CR 702.26b). */
+    val phasedOut: Boolean = false,
+    /** Marks only effects put on it: monstrous, suspected, saddled, … ([arcanum.api.Effect.Mark]). */
+    val marks: List<ObjectMark> = emptyList(),
+    val counters: List<CounterEntry> = emptyList(),
+    /** Damage marked on it (CR 120.3e), removed in the cleanup step. */
+    val damage: Int = 0,
+    /** Dealt damage by a source with deathtouch since the last state-based action check (CR 704.5h). */
+    val deathtouchDamage: Boolean = false,
+    /** The object or player this Aura, Equipment or Fortification is attached to (CR 301.5, 303.4). */
+    val attachedTo: TargetRef? = null,
+    /** CR 613.7: set as it enters a zone, becomes attached, turns face up or down, or transforms (D34). */
+    val timestamp: Long,
+    /** Who has controlled it continuously since which turn: the summoning sickness rule (CR 302.6, D39). */
+    val controlSince: ControlSince? = null,
+    /** Card memory (CR 607): chosen colours and names, "exiled with", keyword-linked cards (D41). */
+    val memory: Bindings = Bindings.EMPTY,
+    /** What the engine remembers about this object instance (D22, D41): cast facts, activations per turn. */
+    val facts: ObjectFacts = ObjectFacts(),
+    /** Players who goaded it (CR 701.15). */
+    val goadedBy: List<PlayerId> = emptyList(),
+) {
+    val card: CardId get() = id.card
+
+    /** Not known to the caller (D60). */
+    val unknown: Boolean get() = definition == null
+
+    /** A transformed double-faced permanent (CR 712): its back face is up. */
+    val transformed: Boolean get() = definition?.layout == Layout.Transform && face == 1
+
+    /** A flipped flip card (CR 710). */
+    val flipped: Boolean get() = definition?.layout == Layout.Flip && face == 1
+
+    fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
+}
+
+/** [count] counters of [kind], with the timestamp the kind last got (CR 613.7c). */
+@Serializable
+data class CounterEntry(val kind: CounterKind, val count: Int, val timestamp: Long)
+
+/** [player] has controlled the object continuously since the start of turn [turn] (CR 302.6). */
+@Serializable
+data class ControlSince(val player: PlayerId, val turn: Int)
+
+/**
+ * Facts about one object instance (D22, D33, D41): how it was cast, what was paid, and how often its abilities were
+ * used in which turn. A permanent keeps the cast facts of the spell it was (CR 400.7d); everything else starts fresh
+ * with a new object.
+ */
+@Serializable
+data class ObjectFacts(
+    /** The zone it was cast from; null if it wasn't cast. */
+    val castFrom: Zone? = null,
+    /** The value of X chosen when cast (CR 107.3m). */
+    val x: Int? = null,
+    /** Mana spent to cast it, by kind. */
+    val manaSpent: List<ManaSpent> = emptyList(),
+    /** Optional and additional costs paid, with how often (kicker, CR 702.33). */
+    val paid: List<PaidCost> = emptyList(),
+    /** The alternative cost it was cast for, by keyword (evoke, dash, …), or [PaidCost.WITHOUT_KEYWORD]. */
+    val alternative: PaidCost? = null,
+    /** Mode indices ever chosen for it ("choose one that hasn't been chosen"). */
+    val modesChosen: List<Int> = emptyList(),
+    /** Objects used to pay its costs a special way (convoke, delve; CR 702.51c), by the way's name. */
+    val paidWith: Bindings = Bindings.EMPTY,
+    /** Activations of its abilities by turn (CR 602.5b, 606.3); key is the ability's origin key. */
+    val activations: List<TurnCount> = emptyList(),
+    /** Resolutions of its abilities by turn ("if this is the second time this ability has resolved this turn"). */
+    val resolutions: List<TurnCount> = emptyList(),
+    /** Triggers of its abilities by turn ("triggers only once each turn", CR 603.2h). */
+    val triggers: List<TurnCount> = emptyList(),
+)
+
+/** Mana of one kind spent: a colour, or colourless when [color] is null. */
+@Serializable
+data class ManaSpent(val color: Color?, val amount: Int)
+
+/** A cost paid [times] times: the cost of [keyword] (the [costIndex]th of its costs), or the spell's own additional
+ * cost when [keyword] is null. */
+@Serializable
+data class PaidCost(
+    @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind?,
+    val times: Int,
+    val costIndex: Int? = null,
+) {
+    companion object {
+        /** An alternative cost without a keyword ("you may pay … rather than pay this spell's mana cost"). */
+        val WITHOUT_KEYWORD = PaidCost(null, 1)
+    }
+}
+
+/** [count] uses of ability [key] in turn [turn] (D41: per turn number, so nothing resets at turn start). */
+@Serializable
+data class TurnCount(val key: String, val turn: Int, val count: Int)
+
+/** A state of an object a [arcanum.engine.change.Change.Status] switches on or off. */
+@Serializable
+sealed interface StatusFlag {
+    @Serializable @SerialName("tapped") data object Tapped : StatusFlag
+    @Serializable @SerialName("face-down") data object FaceDown : StatusFlag
+    @Serializable @SerialName("phased-out") data object PhasedOut : StatusFlag
+    @Serializable @SerialName("marked") data class Marked(val mark: ObjectMark) : StatusFlag
+}

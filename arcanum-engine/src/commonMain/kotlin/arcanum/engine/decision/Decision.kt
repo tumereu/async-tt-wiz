@@ -1,0 +1,232 @@
+package arcanum.engine.decision
+
+import arcanum.api.CardType
+import arcanum.api.Color
+import arcanum.api.Cost
+import arcanum.api.ManaCost
+import arcanum.api.ObjectFilter
+import arcanum.api.Subtype
+import arcanum.engine.state.ObjectId
+import arcanum.engine.state.PlayerId
+import arcanum.engine.state.TargetRef
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+
+/** Names one decision; an [arcanum.engine.input.Input.Answer] quotes it. Serialised as the plain string. */
+@Serializable(with = DecisionIdSerializer::class)
+data class DecisionId(val value: String) {
+    override fun toString(): String = value
+}
+
+/**
+ * Something a player has to decide before the engine can go on (D58): data only, never a callback, so it can wait
+ * for days, cross devices or be answered by another player (P7, D11). [player] is who decides by the rules; [source]
+ * the object the decision is about, when there is one. Each kind is answered with the [Answer] of the same name.
+ */
+@Serializable
+sealed interface Decision {
+    val id: DecisionId
+    val player: PlayerId
+    val source: ObjectId?
+
+    /** Choose targets for slot [slot] among [options] (CR 601.2c, 603.3d): [min] to [max] (null: any number). */
+    @Serializable @SerialName("targets")
+    data class Targets(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val slot: String, val options: List<TargetRef>, val min: Int, val max: Int?,
+    ) : Decision
+
+    /** Choose modes (CR 700.2, 601.2b): [min] to [max] of [options], by index; the same one again if [repeatable]. */
+    @Serializable @SerialName("modes")
+    data class Modes(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val options: List<ModeOption>, val min: Int, val max: Int, val repeatable: Boolean = false,
+    ) : Decision
+
+    /** Announce the value of [name] ("X", CR 107.3a, 601.2b): at least [min], at most [max] when known. */
+    @Serializable @SerialName("announce")
+    data class Announce(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val name: String, val min: Int, val max: Int? = null,
+    ) : Decision
+
+    /** Pay [cost] (CR 601.2g–h, 605.3): which mana in the pool, which mana abilities, which other ways ([options]);
+     * [suggestion] is the engine's suggested payment (§7.8), empty when it found none. */
+    @Serializable @SerialName("mana-payment")
+    data class ManaPayment(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val cost: ManaCost, val options: List<ManaUse>, val suggestion: List<ManaUse>,
+    ) : Decision
+
+    /** Yes or no: "you may …" (CR 608.2d), or pay [cost] on resolution (CR 118.12, D40) when given. */
+    @Serializable @SerialName("may")
+    data class May(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val text: String, val cost: Cost? = null,
+    ) : Decision
+
+    /** Choose [min] to [max] (null: any number) of [options], not targeting (CR 608.2d, 701.x): a card to discard, a
+     * creature to sacrifice, cards from among them. [text] says what for. */
+    @Serializable @SerialName("objects")
+    data class ChooseObjects(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val options: List<ObjectId>, val min: Int, val max: Int?, val text: String,
+    ) : Decision
+
+    /** Choose one of named [options] ("odd or even"). */
+    @Serializable @SerialName("option")
+    data class ChooseOption(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val options: List<String>,
+    ) : Decision
+
+    /** Choose a colour among [among]. */
+    @Serializable @SerialName("color")
+    data class ChooseColor(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val among: List<Color>,
+    ) : Decision
+
+    /** Choose a subtype: a creature type when [among] is null (CR 205.3e), else one of [among] (basic land types). */
+    @Serializable @SerialName("subtype")
+    data class ChooseSubtype(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val among: List<Subtype>? = null,
+    ) : Decision
+
+    /** Choose a card type among [among]. */
+    @Serializable @SerialName("card-type")
+    data class ChooseCardType(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val among: List<CardType>,
+    ) : Decision
+
+    /** Name a card matching [filter] (CR 201.3). */
+    @Serializable @SerialName("card-name")
+    data class ChooseCardName(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val filter: ObjectFilter,
+    ) : Decision
+
+    /** Choose a number from [min] to [max] (null: no upper limit). */
+    @Serializable @SerialName("number")
+    data class ChooseNumber(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val min: Int, val max: Int?,
+    ) : Decision
+
+    /** Choose a player among [options]. */
+    @Serializable @SerialName("player")
+    data class ChoosePlayer(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val options: List<PlayerId>,
+    ) : Decision
+
+    /** Divide [amount] among [among], at least [minEach] each (CR 601.2d); also assigning an attacker's combat damage
+     * among its blockers (CR 510.1c–d), where [lethal] says what each needs before the next can get damage beyond it
+     * and the defending player or planeswalker may be among [among] for trample. */
+    @Serializable @SerialName("divide")
+    data class Divide(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val amount: Int, val among: List<TargetRef>, val minEach: Int, val lethal: List<Share> = emptyList(),
+    ) : Decision
+
+    /** Order triggered abilities that triggered at once (CR 603.3b): the first in [Answer.Order] goes on the Stack first. */
+    @Serializable @SerialName("order-triggers")
+    data class OrderTriggers(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId? = null,
+        val triggers: List<TriggerOption>,
+    ) : Decision
+
+    /** Choose which replacement effect applies first (CR 616.1, D36; one at a time, the rest are checked again). */
+    @Serializable @SerialName("replacement")
+    data class ChooseReplacement(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val options: List<ReplacementOption>,
+    ) : Decision
+
+    /** The legend rule (CR 704.5j): keep one of [among], which share the name [name]; the rest go to the graveyard. */
+    @Serializable @SerialName("legend-rule")
+    data class LegendRule(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId? = null,
+        val name: String, val among: List<ObjectId>,
+    ) : Decision
+
+    /** A random result the host answers at once with its own randomness (D25). */
+    @Serializable @SerialName("random")
+    data class Random(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val what: RandomKind,
+    ) : Decision
+
+    /** The identities of unknown [objects] the effect needs (D60): a search, look, reveal, "if it's a land", a random
+     * discard. The host fills them in; a plain draw needs none. */
+    @Serializable @SerialName("host-fill")
+    data class HostFill(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val objects: List<ObjectId>, val reason: String,
+    ) : Decision
+
+    /** Something to do by hand (D61): [text] is shown; answered [Answer.Done]. */
+    @Serializable @SerialName("manual")
+    data class Manual(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val text: String,
+    ) : Decision
+}
+
+/** One mode of a modal spell or ability (CR 700.2), with its printed [text] when known. */
+@Serializable
+data class ModeOption(val index: Int, val text: String?, val available: Boolean = true)
+
+/** [amount] for [target], in a division. */
+@Serializable
+data class Share(val target: TargetRef, val amount: Int)
+
+/** One triggered ability waiting to go on the Stack: [index] into the waiting list, its [source] and [text]. */
+@Serializable
+data class TriggerOption(val index: Int, val source: ObjectId?, val text: String?)
+
+/** One replacement effect that could apply ([index] for the answer), from [source], with its [text]. */
+@Serializable
+data class ReplacementOption(val index: Int, val source: ObjectId?, val text: String?)
+
+/** What kind of random result a [Decision.Random] needs (D25). */
+@Serializable
+sealed interface RandomKind {
+    @Serializable @SerialName("coin") data object CoinFlip : RandomKind
+    /** [count] rolls of a [sides]-sided die (CR 706). */
+    @Serializable @SerialName("die") data class Die(val sides: Int, val count: Int) : RandomKind
+    /** [count] of [among] at random. */
+    @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int) : RandomKind
+}
+
+/**
+ * One way to pay part of a mana cost (CR 601.2g–h): mana already in the pool, a mana ability to activate (with the
+ * colour it should make when it makes a choice), objects used another way (convoke, delve, improvise), or life for a
+ * Phyrexian symbol (CR 107.4f).
+ */
+@Serializable
+sealed interface ManaUse {
+    /** The mana at [index] of the payer's pool. */
+    @Serializable @SerialName("pool") data class Pool(val index: Int) : ManaUse
+    /** Activate mana ability [ability] of [source], choosing [color] when it makes a choice. */
+    @Serializable @SerialName("ability") data class Ability(
+        val source: ObjectId, val ability: arcanum.engine.view.AbilityOrigin, val color: Color? = null,
+    ) : ManaUse
+    /** Tap or exile [objects] another way ([arcanum.api.ManaPaymentWay]). */
+    @Serializable @SerialName("special") data class Special(val way: arcanum.api.ManaPaymentWay, val objects: List<ObjectId>) : ManaUse
+    /** Pay 2 life for the Phyrexian symbol at [symbol] (its index in the cost). */
+    @Serializable @SerialName("life") data class Life(val symbol: Int) : ManaUse
+}
+
+internal object DecisionIdSerializer : KSerializer<DecisionId> {
+    override val descriptor = PrimitiveSerialDescriptor("arcanum.engine.DecisionId", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: DecisionId) = encoder.encodeString(value.value)
+    override fun deserialize(decoder: Decoder) = DecisionId(decoder.decodeString())
+}

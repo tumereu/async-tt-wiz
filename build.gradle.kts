@@ -62,14 +62,18 @@ tasks.register("verifyModuleBoundaries") {
             ":arcanum-engine" to setOf(":arcanum-api"),
             ":arcanum-tools" to setOf(":arcanum-parser"),
         )
+        // Project dependencies allowed only in test configurations: the engine's tests parse the invented cube cards.
+        val testOnly = mapOf(":arcanum-engine" to setOf(":arcanum-parser"))
         subprojects.forEach { project ->
+            val allowedInTests = testOnly[project.path].orEmpty()
             val actual = project.configurations.flatMap { configuration ->
+                val isTest = configuration.name.contains("test", ignoreCase = true)
                 configuration.dependencies.withType<ProjectDependency>().mapNotNull { dependency ->
                     if (dependency.path == project.path) {
                         // AGP adds the app-under-test to instrumentation's graph.
-                        check(configuration.name.contains("test", ignoreCase = true))
+                        check(isTest)
                         null
-                    } else dependency.path
+                    } else if (isTest && dependency.path in allowedInTests) null else dependency.path
                 }
             }.toSet()
             check(actual == expected.getValue(project.path)) { "${project.path}: unexpected dependencies $actual" }

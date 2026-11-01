@@ -1,0 +1,90 @@
+package arcanum.engine.state
+
+import arcanum.api.Color
+import arcanum.api.CounterKind
+import arcanum.api.Designation
+import arcanum.api.Duration
+import arcanum.api.Instructions
+import arcanum.api.Mechanic
+import arcanum.api.ObjectFilter
+import arcanum.api.TurnStep
+import kotlinx.serialization.Serializable
+
+/**
+ * A player (CR 102) and their own zones. Library index 0 is the top card; hand, graveyard and outside list cards in
+ * the order they arrived (the last is the newest, the top of the graveyard).
+ */
+@Serializable
+data class PlayerState(
+    val id: PlayerId,
+    val life: Int,
+    /** Starting life total (CR 103.4). */
+    val startingLife: Int = 20,
+    /** Player counters: poison, energy, rad, … (CR 122.1). */
+    val counters: List<CounterEntry> = emptyList(),
+    /** Mana added and not yet spent (CR 106.4). */
+    val manaPool: List<ManaUnit> = emptyList(),
+    /** Lost the game (CR 104.3); kept in turn order, skipped by turns and priority. */
+    val lost: Boolean = false,
+    val designations: List<Designation> = emptyList(),
+    val library: List<ObjectId> = emptyList(),
+    val hand: List<ObjectId> = emptyList(),
+    val graveyard: List<ObjectId> = emptyList(),
+    /** Outside the game: sideboard, companion (CR 400.11). */
+    val outside: List<ObjectId> = emptyList(),
+    /** Player-scoped ledger entries (D22), by key. */
+    val ledger: Map<String, Int> = emptyMap(),
+) {
+    fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
+}
+
+/**
+ * One mana in a pool (CR 106.4): its [color] (null: colourless), where it came from, what it may be spent on
+ * ([restriction], CR 106.6), what it gives the spell it pays for ([spellGets], CR 106.6a), how long it stays, and
+ * its "when spent" trigger (D42).
+ */
+@Serializable
+data class ManaUnit(
+    val color: Color?,
+    val source: ObjectId? = null,
+    val snow: Boolean = false,
+    val restriction: ObjectFilter? = null,
+    val spellGets: List<Mechanic> = emptyList(),
+    val keptUntil: Duration? = null,
+    val whenSpent: Instructions? = null,
+)
+
+/**
+ * Whose turn it is and where (CR 500). [turnStarted] holds, for each player, the number of the latest turn they
+ * began: the summoning sickness rule reads it (CR 302.6).
+ */
+@Serializable
+data class TurnState(
+    val number: Int,
+    val active: PlayerId,
+    val step: TurnStep,
+    /** Lands each player played this turn (CR 305.2). */
+    val landsPlayed: Map<PlayerId, Int> = emptyMap(),
+    val turnStarted: Map<PlayerId, Int> = emptyMap(),
+    /** Players taking extra turns after this one, in order (CR 500.7). */
+    val extraTurns: List<PlayerId> = emptyList(),
+)
+
+/** Who has priority and how many players in a row have passed (CR 117, D57). Null holder: nobody (untap, cleanup). */
+@Serializable
+data class PriorityState(val holder: PlayerId?, val passes: Int = 0)
+
+/** The current combat (CR 506): attacking creatures and what they attack, blockers and what they block. */
+@Serializable
+data class CombatState(
+    val attackers: List<Attacker> = emptyList(),
+    val blockers: List<Blocker> = emptyList(),
+)
+
+/** [id] attacks [target] (a player, planeswalker or battle); [blocked] once blockers are declared (CR 509.1h). */
+@Serializable
+data class Attacker(val id: ObjectId, val target: TargetRef, val blocked: Boolean = false)
+
+/** [id] blocks [attackers]. */
+@Serializable
+data class Blocker(val id: ObjectId, val attackers: List<ObjectId>)

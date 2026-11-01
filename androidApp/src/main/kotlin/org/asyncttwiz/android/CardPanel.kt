@@ -205,8 +205,8 @@ internal fun CardPanelHeaders(scene: TableScene, viewer: String, writable: Boole
 internal data class PanelCardAction(val name: String, val label: String = name, val zone: PlayZone? = null,
     val reveal: Boolean = false, val bottom: Boolean = false, val tapped: Boolean = false, val shuffle: Boolean = false,
     val temp: Int? = null)
-/** The same 5-column layout for every left card panel (search, look, reveal, Graveyard, Exile): 18 cells, 4 rows. */
-internal val panelCardActions = listOf(PanelCardAction("Inspect"), PanelCardAction("Inspect other side", "Other side"),
+/** The 5-column layout of every left card panel, Temp cells excluded. */
+private val panelMoveActions = listOf(PanelCardAction("Inspect"), PanelCardAction("Inspect other side", "Other side"),
     PanelCardAction("Ping / Unping", "Ping"),
     PanelCardAction("Hand", zone = PlayZone.HAND), PanelCardAction("Reveal+Hand", "Reveal\nhand", PlayZone.HAND, reveal = true),
     PanelCardAction("Battlefield", zone = PlayZone.BATTLEFIELD), PanelCardAction("Battlefield tapped", "Tapped", PlayZone.BATTLEFIELD, tapped = true),
@@ -214,8 +214,14 @@ internal val panelCardActions = listOf(PanelCardAction("Inspect"), PanelCardActi
     PanelCardAction("Exile", zone = PlayZone.EXILE),
     PanelCardAction("Library top", zone = PlayZone.LIBRARY), PanelCardAction("Reveal+Top", "Reveal\ntop", PlayZone.LIBRARY, reveal = true),
     PanelCardAction("Library bottom", zone = PlayZone.LIBRARY, bottom = true),
-    PanelCardAction("Shuffle into library", zone = PlayZone.LIBRARY, shuffle = true)) +
-    TempPiles.NUMBERS.map { PanelCardAction("Temp $it", temp = it) }
+    PanelCardAction("Shuffle into library", zone = PlayZone.LIBRARY, shuffle = true))
+/** Search, look, reveal, Graveyard and Exile panels: 15 cells, 3 rows, with Temp 1 only (ZON-042). */
+internal val panelCardActions = panelMoveActions + PanelCardAction("Temp 1", temp = 1)
+/** A Temp pile's panel (its Look): 18 cells, 4 rows, with Temp 1–4 (ZON-042). */
+internal val tempPilePanelCardActions = panelMoveActions + TempPiles.NUMBERS.map { PanelCardAction("Temp $it", temp = it) }
+/** The panel card menu of [display]: Temp 1–4 only when it shows a Temp pile. */
+internal fun panelCardActionsFor(board: BoardState, display: ContentsDisplay): List<PanelCardAction> =
+    if (board.containers.any { it.id == display.containerId && it.temp }) tempPilePanelCardActions else panelCardActions
 
 /** The tapped card alone, or (when it is selected) every selected card of THIS panel. */
 internal fun panelCardTargets(display: ContentsDisplay, id: String, selected: Set<String>): List<String> =
@@ -251,7 +257,8 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
     val cell = CardRingGeometry.cell.toFloat()
     val columns = CardRingPages.columns
     val width = if (rest) 5 * cell + 8f else columns * cell + (columns - 1) * 2f
-    val height = if (rest) cell else ceil(panelCardActions.size / columns.toFloat()) * (cell + 2f) - 2f
+    val actions = panelCardActionsFor(play.board, display)
+    val height = if (rest) cell else ceil(actions.size / columns.toFloat()) * (cell + 2f) - 2f
     val x = if (rest) panel.closeBounds.x else scene.cardPanels.maxOf { it.bounds.right } + 4f
     val y = if (rest) panel.closeBounds.y else panel.viewport.bounds.y + 2f
     val annotations = LocalTableMenuAnnotations.current
@@ -265,14 +272,14 @@ internal fun CardPanelPopup(toolkit: TableToolkitController, play: PlayState, sc
             }
         } else Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             val controls = panelCardControls(toolkit, play, panel, id!!, annotations)
-            for (row in panelCardActions.zip(controls).chunked(columns)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            for (row in actions.zip(controls).chunked(columns)) Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 for ((action, control) in row) InlinePopupCell(control, label = panelCardActionLabel(action))
             }
         }
     }
 }
 
-/** Controls in [panelCardActions] order. Inspect and Other side act on the tapped card; every other cell on
+/** Controls in [panelCardActionsFor] order. Inspect and Other side act on the tapped card; every other cell on
  * [panelCardTargets] as ONE invocation; two or more cards onto a Library top/bottom go in random order. */
 internal fun panelCardControls(toolkit: TableToolkitController, play: PlayState, panel: CardPanelGeometry, id: String,
     annotations: TableMenuAnnotations?): List<MenuControl> {
@@ -285,7 +292,7 @@ internal fun panelCardControls(toolkit: TableToolkitController, play: PlayState,
     val visible = toolkit.popupItem?.takeIf { it.cardId == id }?.covered == false
     val other = if (!visible) faces.singleOrNull { it.faceId == card?.faceId } else faces.firstOrNull { it.faceId != card?.faceId }
     val temps = tempPileTools(toolkit, play, ids, enabled)
-    return panelCardActions.map { action ->
+    return panelCardActionsFor(play.board, display).map { action ->
         when {
             action.name == "Inspect" -> MenuControl(action.name) { toolkit.inspect(id) }
             action.name == "Inspect other side" -> MenuControl(action.name, enabled && card != null && other != null) {

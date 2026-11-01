@@ -7,7 +7,8 @@ internal data class CardRingPage(val name: String, val actions: List<String>)
 internal data class CardRingSlot(val id: String, val cell: Int, val span: Int)
 
 /** One fixed layout per context. A layout applies fully: every cell is always shown (disabled when it does not apply). */
-internal enum class CardMenuLayout { CARD, COMBAT, HAND, PANEL }
+/** [CardMenuLayout.TEMP_PANEL]: cards in a panel showing a Temp pile (its Look), the only menu with Temp 1–4 (ZON-042). */
+internal enum class CardMenuLayout { CARD, COMBAT, HAND, PANEL, TEMP_PANEL }
 
 internal object CardRingPages {
     const val columns = 5
@@ -15,6 +16,8 @@ internal object CardRingPages {
     /** Owner proposal under playtest: cards in panels get their own one-page layout; false falls back to [CardMenuLayout.CARD]. */
     const val panelLayout = true
     val tempPiles = listOf("Temp 1", "Temp 2", "Temp 3", "Temp 4")
+    /** Battlefield, hand and panel menus move cards only into Temp 1 (ZON-042). */
+    private val tempOne = listOf("Temp 1")
     private val libraryMoves = listOf("Library top", "Library bottom", "Shuffle into library")
 
     /** Battlefield, token and face-down cards. */
@@ -27,7 +30,7 @@ internal object CardRingPages {
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
             "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1",
-            "flip", "switchFace") + tempPiles + listOf("Deal to target", "Deal to target or creatures",
+            "flip", "switchFace") + tempOne + listOf("Deal to target", "Deal to target or creatures",
             // Round 34: rarely needed, so last on More rather than on Everyday.
             "damage")))
     /** Attacker/blocker copies in the combat area: combat controls, plus P/T, damage/EOT marks and moves of the real card (CMB-003). */
@@ -35,10 +38,13 @@ internal object CardRingPages {
         "Graveyard", "Exile", "Hand", "corner", "damage", "eotCorner", "eotNote", "eotKeywords",
         "Deal to target", "Deal to target or creatures", "Link", "Links")))
     val hand = listOf(CardRingPage("Hand", listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile") +
-        libraryMoves + tempPiles + listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
-    /** Search, look, reveal, graveyard, exile and Temp contents. */
-    val panel = listOf(CardRingPage("Card", listOf("inspect", "otherSide", "Ping / Unping", "Hand", "Battlefield", "Move to Stack",
-        "Graveyard", "Exile") + libraryMoves + tempPiles))
+        libraryMoves + tempOne + listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
+    private val panelMoves = listOf("inspect", "otherSide", "Ping / Unping", "Hand", "Battlefield", "Move to Stack",
+        "Graveyard", "Exile") + libraryMoves
+    /** Search, look, reveal, graveyard and exile contents. */
+    val panel = listOf(CardRingPage("Card", panelMoves + tempOne))
+    /** A Temp pile's contents (its Look): the panel layout with Temp 1–4. */
+    val tempPanel = listOf(CardRingPage("Card", panelMoves + tempPiles))
 
     /** Only the state twins replace a cell; nothing is ever added, hidden or left blank. */
     fun pages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false): List<CardRingPage> = when (layout) {
@@ -52,6 +58,7 @@ internal object CardRingPages {
         CardMenuLayout.COMBAT -> combat
         CardMenuLayout.HAND -> hand
         CardMenuLayout.PANEL -> if (panelLayout) panel else pages(CardMenuLayout.CARD, token, attacker)
+        CardMenuLayout.TEMP_PANEL -> if (panelLayout) tempPanel else pages(CardMenuLayout.CARD, token, attacker)
     }
 
     /** Combat copies get the combat layout; a real card's zone picks the rest. Stack entries are managed in Manage Stack;
@@ -59,7 +66,10 @@ internal object CardRingPages {
     fun context(board: org.asyncttwiz.protocol.BoardState, viewId: String): CardMenuLayout? {
         if (org.asyncttwiz.protocol.CombatStackRules.occurrences(board.combat).any { it.id == viewId }) return CardMenuLayout.COMBAT
         val card = board.cards.singleOrNull { it.id == viewId } ?: return null
-        return when (board.containers.singleOrNull { it.id == card.containerId }?.zone) {
+        val container = board.containers.singleOrNull { it.id == card.containerId }
+        // A Temp pile's cards are only ever tapped in its Look panel.
+        if (container?.temp == true) return if (panelLayout) CardMenuLayout.TEMP_PANEL else CardMenuLayout.CARD
+        return when (container?.zone) {
             org.asyncttwiz.protocol.PlayZone.HAND -> CardMenuLayout.HAND
             org.asyncttwiz.protocol.PlayZone.STACK -> null
             org.asyncttwiz.protocol.PlayZone.BATTLEFIELD, null -> CardMenuLayout.CARD

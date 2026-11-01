@@ -73,6 +73,24 @@ class CardPanelUiTest {
         assertTrue(CardVisibility.isVisibleFaceUp(f.play.board, f.card(40), f.other))
     }
 
+    // ZON-042, ZON-058
+    @Test fun aTempPilesLookPanelOffersTempOneToFourWhileOtherPanelsOfferTempOne() {
+        setup()
+        assertTrue(ui.toTemp(listOf(f.card(40).id), 1))
+        val temp = TempPiles.containerId(f.play.id, f.actor, 1)
+        assertEquals(temp, f.card(40).containerId)
+        assertTrue(f.lobby.gameplay(PlayAction.ShowContents(temp, ContentsSelection.TOP, 1)))
+        mount()
+        val item = scene().items.single { it.viewport.startsWith("cardPanel/") }
+        compose.onNodeWithContentDescription(item.label).performClick()
+        compose.mainClock.advanceTimeBy(350)
+        compose.onNodeWithContentDescription("Panel card actions").assertExists()
+        for (n in 1..4) compose.onNodeWithContentDescription("Temp $n").assertExists()
+        compose.onNodeWithContentDescription("Temp 1").assertIsNotEnabled()
+        click("Temp 3")
+        assertEquals(TempPiles.containerId(f.play.id, f.actor, 3), f.card(40).containerId)
+    }
+
     // ZON-066
     @Test fun libraryPanelAutoClosesOnLastMenuMoveAndAnotherCanOpenImmediately() {
         setup(); ui.openLibrary(f.container(PlayZone.LIBRARY)); mount()
@@ -356,7 +374,7 @@ class CardPanelUiTest {
             .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
     }
 
-    // ZON-058
+    // ZON-042, ZON-058
     @Test fun localViewSitsBesideLookHasFixedGreyedMenuAndSupportsHoldAndDragOut() {
         setup()
         assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.GRAVEYARD), PlayZone.GRAVEYARD)))
@@ -375,7 +393,10 @@ class CardPanelUiTest {
         compose.onNodeWithContentDescription(item.label).assertIsSelected()
         for (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top"))
             compose.onNodeWithContentDescription(label).assertIsNotEnabled()
-        assertEquals(18, panelCardActions.size)
+        // ZON-042: Temp 1 only outside a Temp pile's panel.
+        assertEquals(15, panelCardActions.size)
+        compose.onNodeWithContentDescription("Temp 1").assertExists()
+        compose.onNodeWithContentDescription("Temp 2").assertDoesNotExist()
         val menu = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
         assertEquals(s.cardPanels.maxOf { it.bounds.right } + 4, menu.left, .1f)
         assertEquals(local.viewport.bounds.y + 2, menu.top, .1f)

@@ -1,0 +1,1 @@
+mod: Battlefield, hand and panel card menus now offer only Temp 1; a Temp pile's Look panel still offers Temp 1–4.

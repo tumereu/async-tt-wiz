@@ -179,15 +179,21 @@ class CardPanelLayoutTest {
         }
     }
 
-    // ZON-058, ZON-059
+    // ZON-042, ZON-058, ZON-059
     @Test fun unifiedMenuGreysRevealedAndSameZoneCellsWithoutRemovingThem() {
         val play = manyCards()
         val display = play.board.contentsDisplays.single()
         val id = display.cardIds.first()
-        assertEquals(18, panelCardActions.size)
+        assertEquals(15, panelCardActions.size)
         assertEquals(listOf("Inspect", "Other side", "Ping", "Hand", "Reveal\nhand", "Battlefield", "Tapped", "Stack", "Graveyard",
-            "Exile", "Library top", "Reveal\ntop", "Library bottom", "Shuffle into library", "Temp 1", "Temp 2", "Temp 3", "Temp 4"),
+            "Exile", "Library top", "Reveal\ntop", "Library bottom", "Shuffle into library", "Temp 1"),
             panelCardActions.map { it.label })
+        assertEquals(panelCardActions, panelCardActionsFor(play.board, display))
+        // A Temp pile's panel (its Look) has Temp 1–4.
+        assertEquals(panelCardActions.map { it.label } + listOf("Temp 2", "Temp 3", "Temp 4"), tempPilePanelCardActions.map { it.label })
+        val temp = play.board.copy(containers = play.board.containers.map {
+            if (it.id == display.containerId) it.copy(temp = true, tempNumber = 1) else it })
+        assertEquals(tempPilePanelCardActions, panelCardActionsFor(temp, display))
         // A Library look panel: only shuffling into its own Library is greyed.
         assertEquals(listOf("Shuffle into library"), panelCardActions.filterNot {
             panelCardActionEnabled(it, display, listOf(id), null, play.board) }.map { it.name })

@@ -35,3 +35,6 @@ catalog entries the owner approves when its phase is built.
 - **Shuffles** (D25): the engine asks ATW to shuffle; ATW uses its existing shuffle
   and unknown library order.
 - **Secret choices**: manual until ATW can store an answer one player can't read.
+- **Waiting actions** (D29): while an action waits for a decision, none of it is
+  applied; the Stack item (or the step, for combat damage) shows "waiting for a
+  choice from P2".

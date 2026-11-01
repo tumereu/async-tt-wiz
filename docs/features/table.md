@@ -130,7 +130,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 - **TBL-089** The hand card menu is one page: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1, Discard random, Reveal random, Exile random, Random to library bottom. (r36)
 - **TBL-090** Hand "Play" does the same as double-tapping the card; "Face down" casts it face down (STK-005). (r35)
-- **TBL-091** The combat copy menu has Inspect, Note, Ping, Attack →, Remove from combat, Graveyard, Exile, Hand, Deal to target, Deal to target or creatures, Link and Links, and nothing that changes the real card (tap the real card for that). (r28)
+- **TBL-091** The combat copy menu is described in CMB-003. (r36)
 
 ### Card state rules
 

@@ -180,6 +180,7 @@ class CastingTest {
         alice.battlefield("Mountain", "Forest")
         alice.hand("Grindstone Rasp")
         alice.battlefield("Lotus Frond")
+        bob.battlefield("Thicketwood Elves")
         alice.casts("Grindstone Rasp", modes = listOf(0))
         assertIs<Decision.Targets>(pending)
         assertFailsWith<IllegalArgumentException> { answer(Answer.Targets(listOf(target("Lotus Frond")))) }
@@ -223,7 +224,7 @@ class CastingTest {
     @Test
     fun protectionFromBlueStopsBlueSpells() = scenario {
         alice.battlefield("Island", "Island")
-        bob.battlefield("Glade Sprite Ranger")
+        bob.battlefield("Glade Sprite Ranger", "Thicketwood Elves")
         alice.hand("Click Back")
         alice.casts("Click Back")
         assertTrue(TargetRef.Object(card("Glade Sprite Ranger")) !in assertIs<Decision.Targets>(pending).options)
@@ -242,15 +243,23 @@ class CastingTest {
         assertEquals(listOf(TargetRef.Object(card("Elvish Seer"))), assertIs<Decision.Targets>(pending).options)
     }
 
-    // CR 601.2c: with no legal target, a spell that needs one can't be cast: the cast is refused and rewound
+    // CR 601.2c, 601.2e: with no legal target, a spell that needs one can't be cast: refused, nothing changes
     @Test
     fun noLegalTargetNoSpell() = scenario {
         alice.battlefield("Island", "Island")
         alice.hand("Denial")
-        alice.casts("Denial")
-        assertIs<Decision.Targets>(pending).let { assertTrue(it.options.isEmpty()) }
-        perform(Input.Cancel)
+        assertFailsWith<IllegalArgumentException> { alice.casts("Denial") }
         expect { alice.hand has "Denial" }
+    }
+
+    // CR 601.2c, 700.2: a mode without legal targets can't be chosen
+    @Test
+    fun modeWithoutTargetsRefused() = scenario {
+        alice.battlefield("Mountain", "Mountain")
+        alice.hand("Grindstone Rasp")
+        alice.casts("Grindstone Rasp")
+        assertFailsWith<IllegalArgumentException> { answer(Answer.Modes(listOf(1))) }
+        assertIs<Decision.Modes>(pending)
     }
 
     // CR 601.2c: counter target spell: the spells on the Stack are the options

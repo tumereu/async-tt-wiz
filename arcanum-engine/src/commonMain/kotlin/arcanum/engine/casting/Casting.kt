@@ -106,6 +106,16 @@ internal object Casting {
         while (true) {
             val plan = Plan(recorder.state, c)
             val q = plan.next() ?: return Payment.finish(recorder, c, emptyList(), from)
+            // CR 601.2c, 601.2h: without enough legal targets or objects to pay with, it can't be cast or activated:
+            // the input (or answer) is refused; an open cast can still be cancelled
+            when {
+                q is Question.Target && q.options.size < q.min ->
+                    throw IllegalArgumentException("Not enough legal targets for ${q.slot.key}: ${q.options.size} of ${q.min}")
+                q is Question.Objects && q.choice.options.size < q.choice.min ->
+                    throw IllegalArgumentException("Not enough to ${q.choice.text.lowercase()}: ${q.choice.options.size} of ${q.choice.min}")
+                q is Question.OneOf && q.part.options.none { option -> Answers.payable(plan, option.parts) } ->
+                    throw IllegalArgumentException("None of ${q.labels} can be paid")
+            }
             val auto = Answers.automatic(plan, q)
             if (auto != null) {
                 c = c.copy(choices = Answers.apply(plan, q, auto))

@@ -170,12 +170,15 @@ internal object Mana {
         val result = mutableListOf<Source>()
         snap.state.battlefield.forEach { id ->
             if (snap.board.controller(id) != player && manaAbilities(snap, id).none { activatableByOthers(it) }) return@forEach
-            manaAbilities(snap, id).forEach { inst ->
+            val usable = manaAbilities(snap, id).mapNotNull { inst ->
                 val ability = inst.ability as Ability.Activated
-                if (!isSimple(ability) || !canActivate(snap, player, id, inst)) return@forEach
-                val ys = yields(snap, player, id, ability)
-                if (ys.isEmpty()) return@forEach
-                result += Source(id, inst.origin, ability, ys, penalty(snap, id, ability, ys), exclusive = true)
+                if (!isSimple(ability) || !canActivate(snap, player, id, inst)) return@mapNotNull null
+                yields(snap, player, id, ability).takeIf { it.isNotEmpty() }?.let { Triple(inst, ability, it) }
+            }
+            // A source that could make more colours (with any of its abilities) keeps more options open
+            val colors = usable.flatMap { (_, _, ys) -> ys.flatMap { it.colors } }.distinct().size
+            usable.forEach { (inst, ability, ys) ->
+                result += Source(id, inst.origin, ability, ys, penalty(snap, id, ability, ys, colors), exclusive = true)
             }
         }
         return result.sortedBy { it.penalty }
@@ -185,9 +188,9 @@ internal object Mana {
         (inst.ability as? Ability.Activated)?.rules?.activatedBy != arcanum.api.PlayerFilter.You
 
     /** Cheaper sources are used first: lands before other permanents, few colours before many, nothing given up. */
-    private fun penalty(snap: Snapshot, id: ObjectId, ability: Ability.Activated, yields: List<Yield>): Int {
+    private fun penalty(snap: Snapshot, id: ObjectId, ability: Ability.Activated, yields: List<Yield>, colors: Int): Int {
         val c = snap.view[id]?.characteristics
-        var p = yields.flatMap { it.colors }.distinct().size * 2
+        var p = colors * 2
         if (c?.isType(CardType.Creature) == true) p += 10
         if (c?.isType(CardType.Land) != true) p += 3
         ability.cost.parts.forEach { part ->
@@ -321,7 +324,7 @@ internal object Mana {
             poolPayers(snap, player, paysFor).forEach { add(it.use) }
             sources(snap, player).forEach { s ->
                 val colors = s.yields.filter { it.choice }.flatMap { it.colors }.distinct()
-                if (colors.isEmpty()) add(ManaUse.Ability(s.id, s.origin))
+                if (colors.isEmpty()) add(ManaUse.Ability(s.id, s.origin, s.colors.singleOrNull()))
                 else colors.forEach { c -> add(ManaUse.Ability(s.id, s.origin, c)) }
             }
             cost.symbols.forEachIndexed { i, s -> if (s is ManaSymbol.Phyrexian || s is ManaSymbol.PhyrexianHybrid) add(ManaUse.Life(i)) }
@@ -357,7 +360,7 @@ internal object Mana {
         fun payersOf(list: List<Pair<Source, Color?>>): List<Payer> = list.flatMap { (s, c) ->
             s.yields.flatMap { y ->
                 units(y, c, s.id).filter { allowed(snap, player, it, paysFor) }
-                    .map { u -> Payer(setOf(u.color), u.snow, ManaUse.Ability(s.id, s.origin, if (y.choice) c else null), u) }
+                    .map { u -> Payer(setOf(u.color), u.snow, ManaUse.Ability(s.id, s.origin, if (y.choice) c else s.colors.singleOrNull()), u) }
             }
         }
         fun go(from: Int): List<ManaUse>? {
@@ -366,7 +369,7 @@ internal object Mana {
             val used = assign(needs, payers)
             if (used != null) {
                 val poolUses = used.mapNotNull { it.use as? ManaUse.Pool }.distinct()
-                return poolUses + chosen.map { (s, c) -> ManaUse.Ability(s.id, s.origin, if (s.yields.any { it.choice }) c else null) }
+                return poolUses + chosen.map { (s, c) -> ManaUse.Ability(s.id, s.origin, if (s.yields.any { it.choice }) c else s.colors.singleOrNull()) }
             }
             if (chosen.size >= needs.size) return null
             val missing = missingColors(needs, payers)

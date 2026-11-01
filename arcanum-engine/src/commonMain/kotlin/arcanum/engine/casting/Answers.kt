@@ -100,7 +100,7 @@ internal object Answers {
     }
 
     /** Whether cost [parts] could be paid: enough objects to choose, enough life. */
-    private fun payable(plan: Plan, parts: List<CostPart>): Boolean = parts.all { part ->
+    fun payable(plan: Plan, parts: List<CostPart>): Boolean = parts.all { part ->
         when (part) {
             is CostPart.PayLife -> plan.snap.state.player(plan.player).life >= plan.eval.value(part.amount)
             else -> {

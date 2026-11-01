@@ -176,6 +176,11 @@ object OracleParser {
             val cost = Sentences(setOf("this card")).cost(m.groupValues[2]) ?: return null
             return if (m.groupValues[1] == "Evoke") Keyword.Evoke(cost) else Keyword.Escape(cost)
         }
+        // chunk 40: "Forestwalk", "Islandwalk" (CR 702.14a): a land type, then "walk"
+        LANDWALK.matchEntire(part)?.let { m ->
+            if (m.groupValues[1] !in RulesWords.subtypes) return null
+            return Keyword.Landwalk(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])), part)
+        }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
             lower.startsWith(k.lowercase) && (lower.length == k.lowercase.length || lower[k.lowercase.length] in " —")
@@ -207,6 +212,8 @@ object OracleParser {
     // chunk 30
     private val AFFINITY = Regex("""Affinity for (\w+)""")
     private val DASH_COST = Regex("""(Evoke|Escape)—(.+?)\.?""")
+    // chunk 40
+    private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

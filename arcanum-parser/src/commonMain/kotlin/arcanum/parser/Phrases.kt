@@ -35,10 +35,18 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // chunk 40: "another creature", "other Elves you control": any but this object
+        OTHER.matchEntire(phrase)?.let { m -> return all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun(m.groupValues[1]) ?: return null) }
+        // chunks 31, 42: "creature card in your graveyard", "instant or sorcery card in your graveyard"
+        IN_YOUR_GRAVEYARD.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+        }
         // chunk 14: "instant or sorcery spell": the head noun covers both alternatives.
         OR_SPELL.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)) }
         // chunk 14: "permanent card" (CR 110.4a): an artifact, battle, creature, enchantment, land, or planeswalker card.
         if (phrase == "permanent card" || phrase == "permanent cards") return ObjectFilter.Or(PERMANENT_TYPES.map { ObjectFilter.Type(it) })
+        // chunk 42: "nonland permanent card"
+        QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
         // chunk 21: "creatures you control with +1/+1 counters on them"
         WITH_COUNTERS.matchEntire(phrase)?.let { m ->
@@ -47,10 +55,7 @@ internal object Filters {
         }
         // chunk 20: "artifact and/or enchantment" is either of them
         if (phrase.contains(" and/or ")) return noun(phrase.replace(" and/or ", " or "))
-        // chunk 31: "instant or sorcery card in your graveyard", "card from a graveyard"
-        IN_YOUR_GRAVEYARD.matchEntire(phrase)?.let { m ->
-            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
-        }
+        // chunk 31: "card from a graveyard"
         FROM_A_GRAVEYARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)) }
         // chunk 32: "creature card with power 2 or less", "… with toughness 2 or less"
         WITH_POWER_OR_TOUGHNESS.matchEntire(phrase)?.let { m ->
@@ -147,6 +152,11 @@ internal object Filters {
             "permanent" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)
             "card" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
             "attacking" -> return ObjectFilter.HasStatus(arcanum.api.Status.Attacking) // chunk 32
+            // chunk 40: "spell or ability" (an ability on the Stack, CR 113.1)
+            "ability" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility)
+            // chunk 41: "a tapped land"
+            "tapped" -> return ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
+            "untapped" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         CARD_TYPES[word]?.let { return ObjectFilter.Type(it) }
@@ -194,6 +204,10 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // chunk 40
+    private val OTHER = Regex("""(?:an)?other (.+)""")
+    // chunk 42
+    private val QUALIFIED_PERMANENT_CARD = Regex("""(.+) permanent cards?""")
 }
 
 /** Trigger events ("this land or another land you control enters", "the beginning of your upkeep"). */
@@ -280,6 +294,10 @@ internal object Events {
         ENTERS_FROM_YOUR_HAND.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Hand, to = Zone.Battlefield)
         }
+        // chunk 42: "you sacrifice a land": only its controller sacrifices a permanent (CR 701.21a)
+        YOU_SACRIFICE.matchEntire(text)?.let { m ->
+            return EventPattern.Sacrifice(Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)))
+        }
         return null
     }
 
@@ -294,6 +312,8 @@ internal object Events {
             return ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
                 Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), other)))
         }
+        // chunk 40: "another nontoken creature you control"
+        if (text.startsWith("another ")) return Filters.noun(text)
         // chunk 25: "a creature", "a land you control", "one or more creature cards"
         ARTICLE_NOUN.matchEntire(text)?.let { m -> return Filters.noun(m.groupValues[1]) }
         // chunk 30: "another creature or artifact you control"
@@ -335,6 +355,8 @@ internal object Events {
     private val ENTERS_FROM_YOUR_HAND = Regex("""(.+) enters from your hand""")
     // chunk 33
     private val LEAVES_THE_BATTLEFIELD = Regex("""(.+) leaves the battlefield""")
+    // chunk 42
+    private val YOU_SACRIFICE = Regex("""you sacrifice an? (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -415,6 +437,14 @@ internal object Conditions {
         // chunk 25: "it wasn't the first land you played this turn": this turn's land plays include it (CR 305.2a)
         if (text == "it wasn't the first land you played this turn")
             return Condition.HappenedThisTurn(EventPattern.PlayLand(players = PlayerFilter.You), atLeast = 2)
+        // chunk 41: "this creature is attacking"
+        SELF_IS_ATTACKING.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
+        }
+        // chunk 42: "there are three or more land cards in your graveyard"
+        THERE_ARE_N_OR_MORE.matchEntire(text)?.let { m ->
+            return Condition.Exists(Filters.noun(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null)
+        }
         return null
     }
 
@@ -439,6 +469,10 @@ internal object Conditions {
     private val SACRIFICED_AT_LEAST = Regex("""the sacrificed (\w+)'s (power|toughness) was (\d+) or greater""")
     // chunk 21
     private val SELF_IS_UNTAPPED = Regex("""(.+) is untapped""")
+    // chunk 41
+    private val SELF_IS_ATTACKING = Regex("""(.+) is attacking""")
+    // chunk 42
+    private val THERE_ARE_N_OR_MORE = Regex("""there are (\w+) or more (.+)""")
 }
 
 /** The name a sacrifice cost gives the sacrificed object when the effect reads it ("the sacrificed creature's power"). */

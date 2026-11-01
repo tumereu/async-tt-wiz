@@ -67,6 +67,14 @@ internal object CombatRules {
     fun illegalAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): String? {
         if (attacks.map { it.attacker }.distinct().size != attacks.size) return "A creature attacks only once"
         attacks.forEach { a -> if (!canAttack(snap, player, a.attacker, a.target)) return "${a.attacker} can't attack ${a.target}" }
+        // CR 508.1c: "no more than N creatures can attack": counted per effect among the creatures it restricts
+        attacks.flatMap { a -> mechanics(snap, a.attacker).filter { it.mechanic is Mechanic.MaximumAttackers }.map { it to a } }
+            .groupBy({ (applied, _) -> Triple(applied.source, applied.origin, applied.effect) }, { (applied, a) -> applied to a })
+            .forEach { (_, list) ->
+                val m = list.first().first.mechanic as Mechanic.MaximumAttackers
+                val counted = list.filter { (applied, a) -> m.target == null || a.target in recipients(snap, applied, a.attacker, m.target!!) }
+                if (counted.size > m.count) return "No more than ${m.count} creature(s) can attack"
+            }
         // CR 508.1d: requirements, as many as can be obeyed (simplified: each creature that must attack and can, does)
         val attacking = attacks.map { it.attacker }.toSet()
         snap.state.battlefield.forEach { id ->
@@ -133,6 +141,17 @@ internal object CombatRules {
         blocks.groupBy { it.blocker }.forEach { (blocker, bs) ->
             val capacity = blockCapacity(snap, blocker)
             if (capacity != null && bs.size > capacity) return "$blocker can block only $capacity creature(s)"
+        }
+        // CR 509.1c: requirements (simplified: a creature that must block and can block a matching attacker, does)
+        val blocking = blocks.map { it.blocker }.toSet()
+        snap.state.battlefield.forEach { id ->
+            if (id in blocking) return@forEach
+            mechanics(snap, id).forEach { applied ->
+                val m = applied.mechanic as? Mechanic.MustBlock ?: return@forEach
+                val e = snap.evaluator(applied.controller, self = applied.source ?: id, names = applied.names)
+                val could = snap.state.combat?.attackers.orEmpty().any { a -> e.matches(m.attackers, a.id) && canBlock(snap, player, id, a.id) }
+                if (could) return "$id blocks each combat if able"
+            }
         }
         blocks.groupBy { it.attacker }.forEach { (attacker, bs) ->
             mechanics(snap, attacker).forEach { applied ->

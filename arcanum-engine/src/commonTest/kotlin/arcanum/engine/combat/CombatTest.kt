@@ -142,6 +142,33 @@ class CombatTest {
         alice.attacks("Elvish Seer", "Thicketwood Elves")
     }
 
+    // CR 508.1c: "No more than one creature can attack each combat"
+    @Test
+    fun maximumAttackers() = scenario {
+        alice.battlefield("Thicketwood Elves", "Elvish Seer")
+        effect(bob, Mechanic.MaximumAttackers(1), affects = Affected.Objects(Objects.Each(arcanum.api.ObjectFilter.Type(arcanum.api.CardType.Creature))),
+            duration = Duration.Indefinitely)
+        toAttackers()
+        assertFailsWith<IllegalArgumentException> { alice.attacks("Thicketwood Elves", "Elvish Seer") }
+        alice.attacks("Elvish Seer")
+    }
+
+    // CR 509.1c: a creature that blocks each combat if able must block when it can
+    @Test
+    fun mustBlock() = scenario {
+        cards()
+        alice.battlefield("Plodding Bear")
+        bob.battlefield("Thicketwood Elves", "Elvish Seer")
+        effect(alice, Mechanic.MustBlock(arcanum.api.ObjectFilter.Any), affects = Affected.Objects(Objects.Bound("it")),
+            names = mapOf("it" to "Thicketwood Elves"), duration = Duration.Indefinitely)
+        toAttackers()
+        alice.attacks("Plodding Bear")
+        toBlockers()
+        assertFailsWith<IllegalArgumentException> { bob.blocks() }
+        assertFailsWith<IllegalArgumentException> { bob.blocks("Elvish Seer" to "Plodding Bear") }
+        bob.blocks("Thicketwood Elves" to "Plodding Bear")
+    }
+
     // CR 508.1: only the active player declares attackers
     @Test
     fun onlyTheActivePlayerAttacks() = scenario {

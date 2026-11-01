@@ -66,7 +66,7 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   apply; combat damage and land plays don't go through replacement or prevention yet.
 - Not yet: resolution and replacements, triggers and the event matching behind "this turn"
   (`History` answers "nothing happened"), state-based actions; in the flow: attack costs and
-  "as it attacks" costs, block requirements, maximum attackers, battles as attack targets,
+  "as it attacks" costs, battles as attack targets,
   splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
   up, mana abilities' other effects (left as a `Manual` step). Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects

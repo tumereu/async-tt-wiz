@@ -61,10 +61,14 @@ class Chunk07CounterspellsTest {
     private fun counterUnless(what: ObjectFilter, cost: String) = Ability.Spell(Instructions(
         targets = listOf(TargetSlot(name = "spell", what = TargetKind.Objects(what))),
         steps = listOf(
-            Step.Unless(
-                payer = Players.ControllerOf(targetSpell),
+            Step.Pay(
                 cost = manaCost(cost),
-                steps = listOf(Step.Do(Effect.Counter(targetSpell))),
+                payer = Players.ControllerOf(targetSpell),
+                bind = "paid",
+            ),
+            Step.If(
+                condition = Condition.Not(Condition.Did("paid")),
+                then = listOf(Step.Do(Effect.Counter(targetSpell))),
             ),
         ),
     ))

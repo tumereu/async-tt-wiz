@@ -73,8 +73,9 @@ class ExampleCardsTest {
             Mode(Instructions(
                 targets = listOf(TargetSlot("s", TargetKind.Objects(all(ObjectFilter.Category(ObjectCategory.Spell),
                     ObjectFilter.Not(creatures))))),
-                steps = listOf(Step.Unless(Players.ControllerOf(Objects.Target("s")), Cost.mana(mana("{2}")),
-                    listOf(Step.Do(Effect.Counter(Objects.Target("s")))))))),
+                steps = listOf(
+                    Step.Pay(Cost.mana(mana("{2}")), payer = Players.ControllerOf(Objects.Target("s")), bind = "paid"),
+                    Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Counter(Objects.Target("s")))))))),
             Mode(Instructions(
                 targets = listOf(TargetSlot("c", TargetKind.Objects(creatures))),
                 steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("c")), n(2)))))),
@@ -159,9 +160,10 @@ class ExampleCardsTest {
     private val shockland = FaceDefinition("Ashen Crossing", types = listOf(CardType.Land),
         subtypes = listOf(Subtype("Mountain"), Subtype("Swamp")), abilities = listOf(
             Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                // "you may pay 2 life. If you don't, …" = "… unless you pay 2 life" (CR 118.12a)
+                // "you may pay 2 life. If you don't, …": the same shape as "… unless you pay 2 life" (CR 118.12a)
                 modify = listOf(Modification.AsEnters(listOf(
-                    Step.Unless(Players.You, Cost(listOf(CostPart.PayLife(n(2)))), listOf(Step.Modify(Modification.EntersTapped)))))))))))
+                    Step.Pay(Cost(listOf(CostPart.PayLife(n(2)))), payer = Players.You, bind = "paid"),
+                    Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Modify(Modification.EntersTapped)))))))))))
 
     /** "Whenever this creature attacks, you may sacrifice another creature. When you do, this creature deals 2 damage
      * to any target." */

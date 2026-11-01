@@ -310,10 +310,10 @@ sealed interface Step {
      * If you can't, …". X is [cost] when it is something costs can say (sacrifice, discard, exile, tap, return, reveal,
      * pay life or mana), otherwise [steps] (draw, put onto the battlefield, cast, …); exactly one is given. A cost can be
      * chosen only if it can be paid in full (CR 601.2h, 118.3); a draw can always be chosen, even from an empty library
-     * (CR 121.3); mana abilities are allowed (CR 608.2g). "[Do X] unless [player] pays" is [Unless], not a Pay
-     * (CR 118.12a). [bind] names the
-     * outcome: paid, declined or couldn't pay, read with [Condition.Did] and [Condition.CouldNot]. Any "you may X. If
-     * you do" is a Pay; [May] is for "you may X" alone. */
+     * (CR 121.3); mana abilities are allowed (CR 608.2g). [bind] names the outcome: paid, declined or couldn't pay, read
+     * with [Condition.Did] and [Condition.CouldNot]. Any "you may X. If you do" is a Pay; [May] is for "you may X"
+     * alone. "[Do Y] unless [player] pays [cost]" (CR 118.12a) and "you may pay [cost]. If you don't, [do Y]" are both
+     * a Pay by that player followed by `If(Not(Did(bind)), then = [Y])`: one shape for both. */
     @Serializable @SerialName("pay") data class Pay(
         val cost: Cost? = null, val steps: List<Step> = emptyList(), val payer: Players = Players.You,
         val mandatory: Boolean = false, val bind: String? = null,
@@ -321,9 +321,6 @@ sealed interface Step {
     /** Only inside [Modification.AsEnters]: change how the object enters (tapped, with counters, with abilities, as a
      * copy). Entering tapped is not becoming tapped (CR 110.5b, 603.2e). */
     @Serializable @SerialName("modify") data class Modify(val modification: Modification) : Step
-    /** "[steps] unless [payer] pays [cost]" ("Counter target spell unless its controller pays {2}"); the one form for
-     * "unless" (CR 118.12a). */
-    @Serializable @SerialName("unless") data class Unless(val payer: Players, val cost: Cost, val steps: List<Step>) : Step
     /** "You may …" / "Target player may …" with nothing depending on it (CR 608.2d): [player] decides whether [steps]
      * happen. With a following "if you do", it is a [Pay]; "you may put a card from among them …" is a [Choose] of zero
      * or one. */

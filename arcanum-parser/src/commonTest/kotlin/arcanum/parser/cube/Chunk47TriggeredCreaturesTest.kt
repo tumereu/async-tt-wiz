@@ -198,11 +198,17 @@ class Chunk47TriggeredCreaturesTest {
                 nthThisTurn = 1,
             ),
             instructions = Instructions(
-                steps = listOf(Step.Unless(
-                    payer = Players.EventPlayer,
-                    cost = Cost(listOf(CostPart.Mana(ManaCost.parse("{X}")!!, x = Value.Of(NumericProperty.Power, Objects.Self, Combine.Single)))),
-                    steps = listOf(drawACard),
-                )),
+                steps = listOf(
+                    Step.Pay(
+                        cost = Cost(listOf(CostPart.Mana(ManaCost.parse("{X}")!!, x = Value.Of(NumericProperty.Power, Objects.Self, Combine.Single)))),
+                        payer = Players.EventPlayer,
+                        bind = "paid",
+                    ),
+                    Step.If(
+                        condition = Condition.Not(Condition.Did("paid")),
+                        then = listOf(drawACard),
+                    ),
+                ),
             ),
         ),
     )

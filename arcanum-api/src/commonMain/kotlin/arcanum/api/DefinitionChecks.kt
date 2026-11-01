@@ -64,7 +64,7 @@ object DefinitionChecks {
     )
     private val eventScoped = setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
     private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
-    private val asEntersSteps = setOf("pay", "unless", "choose", "if", "modify")
+    private val asEntersSteps = setOf("pay", "choose", "if", "modify")
     private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind")
 
     /** Problems in [card], one readable line each; empty when it is fine. [keywordTable]: [card] holds abilities from
@@ -81,15 +81,6 @@ object DefinitionChecks {
     private fun walk(element: JsonElement, inMechanics: Boolean, found: MutableList<String>) {
         when (element) {
             is JsonArray -> {
-                element.zipWithNext().forEach { (a, b) ->
-                    val pay = a as? JsonObject; val iff = b as? JsonObject
-                    // Only a Pay of a cost: Unless can't hold steps (fabricate, madness).
-                    val bind = pay?.takeIf { it.typeName() == "pay" && it["cost"] != null }?.string("bind")
-                    val cond = iff?.takeIf { it.typeName() == "if" }?.get("condition") as? JsonObject
-                    if (bind != null && cond?.typeName() == "not" && (cond["condition"] as? JsonObject)?.let { it.typeName() == "did" && it.string("name") == bind } == true &&
-                        (iff["otherwise"] as? JsonArray).isNullOrEmpty())
-                        found += "\"may pay … If they don't\" is Unless (CR 118.12a)"
-                }
                 element.forEach { walk(it, inMechanics, found) }
             }
             is JsonObject -> {
@@ -109,7 +100,7 @@ object DefinitionChecks {
                         if (step.typeName() !in asEntersSteps && step.typeName() != "do") found += "\"as enters\" may only pay, choose, check or modify how it enters, not \"${step.typeName()}\" (CR 614.12)"
                     }
                     var decides = false
-                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() in setOf("pay", "unless", "choose")) decides = true }
+                    visitAll(element["steps"] ?: JsonArray(emptyList())) { if (it.typeName() in setOf("pay", "choose")) decides = true }
                     if (!decides) found += "\"as enters\" without a payment or choice: write the modification directly, with the static ability's condition"
                 }
                 if (type == "pay" && ((element["cost"] != null) == ((element["steps"] as? JsonArray)?.isNotEmpty() == true)))

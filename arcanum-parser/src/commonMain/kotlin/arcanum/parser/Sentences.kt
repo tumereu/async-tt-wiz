@@ -219,8 +219,8 @@ internal class Sentences(
         }
         AS_ENTERS_PAY_LIFE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                modify = listOf(Modification.AsEnters(listOf(Step.Unless(Players.You, Cost(listOf(CostPart.PayLife(Value.Fixed(m.groupValues[2].toInt())))),
-                    listOf(Step.Modify(Modification.EntersTapped)))))))))
+                modify = listOf(Modification.AsEnters(unlessPays(Players.You, Cost(listOf(CostPart.PayLife(Value.Fixed(m.groupValues[2].toInt())))),
+                    listOf(Step.Modify(Modification.EntersTapped))))))))
         }
         // chunk 26: 'Creature tokens you control have "[ability]"' (CR 113.10)
         HAVE_QUOTED.matchEntire(line)?.let { m ->
@@ -1694,7 +1694,7 @@ internal class Sentences(
             val counter = Step.Do(Effect.Counter(spell))
             if (m.groupValues[2].isEmpty()) return listOf(counter)
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
-            return listOf(Step.Unless(Players.ControllerOf(spell), Cost.mana(cost), listOf(counter)))
+            return unlessPays(Players.ControllerOf(spell), Cost.mana(cost), listOf(counter))
         }
         COUNTERED_THIS_WAY.matchEntire(sentence)?.let { m ->
             val spell = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
@@ -2410,7 +2410,7 @@ internal class Sentences(
             val mana = ManaCost.parse(m.groupValues[2]) ?: return null
             val x = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { selfNumber(it) ?: return null }
             val steps = effect(m.groupValues[1] + ".", context) ?: return null
-            return listOf(Step.Unless(Players.EventPlayer, Cost(listOf(CostPart.Mana(mana, x = x))), steps))
+            return unlessPays(Players.EventPlayer, Cost(listOf(CostPart.Mana(mana, x = x))), steps)
         }
         // chunk 46: "Until your next turn, target player who was dealt combat damage by Hope of Ghirapur this turn can't cast
         // noncreature spells."
@@ -2451,7 +2451,7 @@ internal class Sentences(
         // chunk 50: "[Do X] unless you [pay a cost]." (CR 118.12a)
         UNLESS_YOU.matchEntire(sentence)?.let { m ->
             costPart(m.groupValues[2].replaceFirstChar { it.uppercase() })?.let { parts ->
-                effect(m.groupValues[1] + ".", context)?.let { return listOf(Step.Unless(Players.You, Cost(parts), it)) }
+                effect(m.groupValues[1] + ".", context)?.let { return unlessPays(Players.You, Cost(parts), it) }
             }
         }
         // chunk 52: "Reveal cards from the top of your library until you reveal an Elf or Elemental card." (CR 701.20)
@@ -2525,7 +2525,7 @@ internal class Sentences(
             val card = context.it ?: return null
             return listOf(Step.Do(Effect.LoseLife(players, Value.Of(arcanum.api.NumericProperty.ManaValue, card, arcanum.api.Combine.Single))))
         }
-        // "[Effect] unless [condition]." (not "unless [player] pays", which is Step.Unless)
+        // "[Effect] unless [condition]." (not "unless [player] pays", which is a pay, see unlessPays)
         UNLESS_CONDITION.matchEntire(sentence)?.let { m ->
             Conditions.condition(m.groupValues[2], self)?.let { condition ->
                 val then = effect(m.groupValues[1] + ".", context) ?: return null
@@ -3275,6 +3275,15 @@ private fun Instructions.withX(x: Value): Instructions {
         else -> e
     }
     return json.decodeFromJsonElement(Instructions.serializer(), replace(json.encodeToJsonElement(Instructions.serializer(), this)))
+}
+
+/** "[steps] unless [payer] pays [cost]" (CR 118.12a): the payer may pay; if they didn't, [steps] happen (D52). The
+ * outcome is named "paid", or "unless-paid" when [steps] already use that name. */
+private fun unlessPays(payer: Players, cost: Cost, steps: List<Step>): List<Step> {
+    val bind = if (kotlinx.serialization.json.Json.encodeToString(kotlinx.serialization.builtins.ListSerializer(Step.serializer()), steps)
+            .contains("\"paid\"")) "unless-paid" else "paid"
+    return listOf(Step.Pay(cost, payer = payer, bind = bind),
+        Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did(bind)), then = steps))
 }
 
 internal fun String.removeArticle() = removePrefix("a ").removePrefix("an ")

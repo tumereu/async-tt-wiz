@@ -114,7 +114,8 @@ sealed interface Effect {
     @Serializable @SerialName("copy-spell") data class CopySpell(
         val objects: Objects, val controller: Players = Players.You, val newTargets: Boolean = true, val bind: String? = null,
     ) : Effect
-    /** Counter a spell or ability (CR 701.6); "unless its controller pays" is a [Step.Unless] around it. */
+    /** Counter a spell or ability (CR 701.6); "unless its controller pays" is a [Step.Pay] by that player and a
+     * [Step.If] that counters when they didn't (CR 118.12a). */
     @Serializable @SerialName("counter") data class Counter(val objects: Objects) : Effect
     @Serializable @SerialName("add-mana") data class AddMana(val mana: ManaProduction, val players: Players = Players.You) : Effect
 

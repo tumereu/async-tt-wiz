@@ -132,7 +132,7 @@ class Chunk56MultiFacedCardsTest {
         ),
     )
 
-    /** The land face: "you may pay 3 life. If you don't, it enters tapped" is Unless (CR 614.12, 118.12a). */
+    /** The land face: "you may pay 3 life. If you don't, it enters tapped" is a pay, then entering tapped if not paid (CR 614.12, 118.12a). */
     @Test
     fun summitAscetic() = cardFaces(
         layout = Layout.ModalDoubleFaced,
@@ -166,11 +166,17 @@ class Chunk56MultiFacedCardsTest {
         ) to abilities(
             Ability.Static(listOf(Mechanic.Replacement(
                 event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                modify = listOf(Modification.AsEnters(listOf(Step.Unless(
-                    payer = Players.You,
-                    cost = Cost(listOf(CostPart.PayLife(Value.Fixed(3)))),
-                    steps = listOf(Step.Modify(Modification.EntersTapped)),
-                )))),
+                modify = listOf(Modification.AsEnters(listOf(
+                    Step.Pay(
+                        cost = Cost(listOf(CostPart.PayLife(Value.Fixed(3)))),
+                        payer = Players.You,
+                        bind = "paid",
+                    ),
+                    Step.If(
+                        condition = Condition.Not(Condition.Did("paid")),
+                        then = listOf(Step.Modify(Modification.EntersTapped)),
+                    ),
+                ))),
             ))),
             Ability.Activated(
                 cost = Cost(listOf(CostPart.TapSelf)),

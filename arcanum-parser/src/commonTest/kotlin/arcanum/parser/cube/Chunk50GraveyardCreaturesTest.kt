@@ -282,7 +282,7 @@ class Chunk50GraveyardCreaturesTest {
         ),
     )
 
-    /** CR 118.12a: "sacrifice it unless you sacrifice a land" is an Unless; CR 305.2: an additional land play. */
+    /** CR 118.12a: "sacrifice it unless you sacrifice a land" is a pay, then the sacrifice if not paid; CR 305.2: an additional land play. */
     @Test
     fun theBogmawHorror() = card(
         name = "The Bogmaw Horror",
@@ -300,11 +300,17 @@ class Chunk50GraveyardCreaturesTest {
         Ability.Triggered(
             trigger = Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
             instructions = Instructions(
-                steps = listOf(Step.Unless(
-                    payer = Players.You,
-                    cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Land))))),
-                    steps = listOf(Step.Do(Effect.Sacrifice(Objects.Self))),
-                )),
+                steps = listOf(
+                    Step.Pay(
+                        cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(ObjectFilter.Type(CardType.Land))))),
+                        payer = Players.You,
+                        bind = "paid",
+                    ),
+                    Step.If(
+                        condition = Condition.Not(Condition.Did("paid")),
+                        then = listOf(Step.Do(Effect.Sacrifice(Objects.Self))),
+                    ),
+                ),
             ),
         ),
         Ability.Static(

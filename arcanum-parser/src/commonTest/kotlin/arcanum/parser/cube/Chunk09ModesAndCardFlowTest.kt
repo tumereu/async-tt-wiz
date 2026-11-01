@@ -5,6 +5,7 @@ import arcanum.api.Affected
 import arcanum.api.CardType
 import arcanum.api.Choice
 import arcanum.api.Color
+import arcanum.api.Condition
 import arcanum.api.Cost
 import arcanum.api.CostPart
 import arcanum.api.Destination
@@ -132,10 +133,14 @@ class Chunk09ModesAndCardFlowTest {
                     ObjectFilter.Category(ObjectCategory.Spell),
                 )))),
                 steps = listOf(
-                    Step.Unless(
-                        payer = Players.ControllerOf(Objects.Target("spell")),
+                    Step.Pay(
                         cost = manaCost("{2}"),
-                        steps = listOf(Step.Do(Effect.Counter(Objects.Target("spell")))),
+                        payer = Players.ControllerOf(Objects.Target("spell")),
+                        bind = "paid",
+                    ),
+                    Step.If(
+                        condition = Condition.Not(Condition.Did("paid")),
+                        then = listOf(Step.Do(Effect.Counter(Objects.Target("spell")))),
                     ),
                 ),
             ),

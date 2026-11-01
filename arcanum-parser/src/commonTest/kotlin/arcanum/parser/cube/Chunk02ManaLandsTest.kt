@@ -4,6 +4,7 @@ import arcanum.api.Ability
 import arcanum.api.CardType
 import arcanum.api.Color
 import arcanum.api.ColorRef
+import arcanum.api.Condition
 import arcanum.api.Cost
 import arcanum.api.CostObjects
 import arcanum.api.CostPart
@@ -31,8 +32,8 @@ import kotlin.test.Test
 
 /**
  * Chunk 2: lands that make mana or find lands. Dual lands have only reminder text: their mana abilities come from their
- * basic land types (CR 305.6), so they parse to no abilities. Shock lands add "as this enters" (CR 614.12), written as
- * "unless" (CR 118.12a). Fetch lands are one activated ability that searches.
+ * basic land types (CR 305.6), so they parse to no abilities. Shock lands add "as this enters" (CR 614.12): a pay of life,
+ * then entering tapped if it wasn't paid (CR 118.12a). Fetch lands are one activated ability that searches.
  */
 class Chunk02ManaLandsTest {
     // ---- Shared shapes
@@ -68,10 +69,14 @@ class Chunk02ManaLandsTest {
                 event = EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(
                     Modification.AsEnters(listOf(
-                        Step.Unless(
-                            payer = Players.You,
+                        Step.Pay(
                             cost = Cost(listOf(CostPart.PayLife(Value.Fixed(2)))),
-                            steps = listOf(Step.Modify(Modification.EntersTapped)),
+                            payer = Players.You,
+                            bind = "paid",
+                        ),
+                        Step.If(
+                            condition = Condition.Not(Condition.Did("paid")),
+                            then = listOf(Step.Modify(Modification.EntersTapped)),
                         ),
                     )),
                 ),

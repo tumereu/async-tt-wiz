@@ -64,8 +64,9 @@ object KeywordExpansions {
         // that spell or ability unless that player pays [cost]."
         is Keyword.Ward -> listOf(Ability.Triggered(
             Trigger.On(EventPattern.BecomesTarget(ObjectFilter.Is(Objects.Self), ObjectFilter.ControlledBy(PlayerFilter.Opponent))),
-            Instructions(steps = listOf(Step.Unless(Players.ControllerOf(Objects.EventObject(EventRole.Source)), keyword.cost,
-                listOf(Step.Do(Effect.Counter(Objects.EventObject(EventRole.Source)))))))))
+            Instructions(steps = listOf(
+                Step.Pay(keyword.cost, payer = Players.ControllerOf(Objects.EventObject(EventRole.Source)), bind = "paid"),
+                Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Counter(Objects.EventObject(EventRole.Source)))))))))
         // CR 702.29a: "[Cost], Discard this card: Draw a card." (works from the hand)
         is Keyword.Cycling -> listOf(cycling(keyword.cost, Effect.Draw(Players.You)))
         // CR 702.29e: "[Cost], Discard this card: Search your library for a [type] card, reveal it, put it into your

@@ -1,6 +1,10 @@
 package arcanum.engine.cube
 
 import arcanum.api.Ability
+import arcanum.api.Affected
+import arcanum.api.EventPattern
+import arcanum.api.PlayerFilter
+import arcanum.api.RecipientFilter
 import arcanum.api.CardDefinition
 import arcanum.api.CardType
 import arcanum.api.Effect
@@ -236,6 +240,40 @@ class Chunk08BurnAndRemovalScenariosTest {
             stack.names shouldBe listOf("Doomfire")
             bob.graveyard has "Denial"
         }
+        allPass()
+
+        expect { bob.life shouldBe 15 }
+    }
+
+    /** "Prevent all damage that would be dealt to you." ({2}{W} enchantment, written in the model: the parser doesn't
+     * read it yet) */
+    private val veil = Cards.define("Hallowed Veil", CardDefinition(Layout.Normal, listOf(FaceDefinition(
+        "Hallowed Veil", ManaCost.parse("{2}{W}"), types = listOf(CardType.Enchantment),
+        abilities = listOf(Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any,
+            RecipientFilter(players = PlayerFilter.You)))), Affected.Objects(Objects.Self))),
+    ))))
+
+    /** Doomfire with a small X: its damage is prevented. */
+    @Test
+    fun doomfirePrevented() = scenario {
+        alice.battlefield("Mountain", "Mountain", "Mountain")
+        alice.hand("Doomfire")
+        bob.battlefield(veil)
+
+        alice.casts("Doomfire", x = 2, target = "bob")
+        allPass()
+
+        expect { bob.life shouldBe 20 }
+    }
+
+    /** Doomfire with X 5: the damage can't be prevented (CR 615.12). */
+    @Test
+    fun doomfireCantBePreventedWithXFive() = scenario {
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        alice.hand("Doomfire")
+        bob.battlefield(veil)
+
+        alice.casts("Doomfire", x = 5, target = "bob")
         allPass()
 
         expect { bob.life shouldBe 15 }

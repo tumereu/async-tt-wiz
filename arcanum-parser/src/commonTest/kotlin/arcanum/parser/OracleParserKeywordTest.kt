@@ -76,7 +76,7 @@ class OracleParserKeywordTest {
     fun sentencesAreNotKeywordLines() {
         listOf("Flying creatures you control get +1/+1.", "When Test Card enters, draw a card.",
             "Choose one —", "Threshold — Test Card gets +2/+2 as long as seven or more cards are in your graveyard.")
-            .forEach { text -> assertEquals(listOf(Ability.Unparsed(text)), abilities(text), text) }
+            .forEach { text -> assertTrue(abilities(text).none { it is Keyword }, text) }
     }
 
     @Test

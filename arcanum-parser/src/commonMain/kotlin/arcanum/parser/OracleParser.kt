@@ -20,7 +20,8 @@ object OracleParser {
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
         val face = characteristics(card)
-        return face.copy(abilities = abilities(card.text, selfNames(card.name, face)))
+        val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }
+        return face.copy(abilities = abilities(card.text, selfNames(card.name, face), isSpell))
     }
 
     fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
@@ -31,8 +32,8 @@ object OracleParser {
             listOf("this card", "this permanent", "this spell")
 
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
-    private fun abilities(text: String, self: Set<String>): List<Ability> {
-        val sentences = Sentences(self)
+    private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
+        val sentences = Sentences(self, isSpell)
         return text.split('\n').filter { REMINDER.replace(it, "").isNotBlank() }.flatMap { raw ->
             val line = REMINDER.replace(raw, "").trim()
             keywordLine(line) ?: sentences.line(line)?.let(::listOf) ?: listOf(Ability.Unparsed(raw.trim()))

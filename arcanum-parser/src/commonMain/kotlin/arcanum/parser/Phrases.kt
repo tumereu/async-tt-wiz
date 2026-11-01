@@ -92,6 +92,9 @@ internal object Filters {
 internal object Events {
     fun event(text: String, self: Set<String>): EventPattern? {
         ENTERS.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, to = Zone.Battlefield) }
+        PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+        }
         return null
     }
 
@@ -108,12 +111,18 @@ internal object Events {
     }
 
     private val ENTERS = Regex("""(.+) enters""")
+    private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String): Condition? {
+        CONTROL_N_OR_MORE.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2] + " you control") ?: return null
+            return Condition.Exists(filter, atLeast = n)
+        }
         CONTROL_N_WITH_DIFFERENT_NAMES.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2] + " you control") ?: return null
@@ -122,6 +131,7 @@ internal object Conditions {
         return null
     }
 
+    private val CONTROL_N_OR_MORE = Regex("""you control (\w+) or more (\w+)""")
     private val CONTROL_N_WITH_DIFFERENT_NAMES = Regex("""you control (\w+) or more (.+) with different names""")
 }
 

@@ -33,7 +33,7 @@ import arcanum.api.Zone
  * so far. Each wording is one rule; a line no rule reads stays [Ability.Unparsed]. [self] holds the names the card
  * calls itself ("this land", its own name).
  */
-internal class Sentences(private val self: Set<String>) {
+internal class Sentences(private val self: Set<String>, private val isSpell: Boolean = false) {
     /** The card's name or "this land" / "This land" (a sentence may start with it). */
     private fun isSelf(text: String) = text in self || text.replaceFirstChar { it.lowercase() } in self
 
@@ -49,8 +49,11 @@ internal class Sentences(private val self: Set<String>) {
                 else -> null
             }
         }
-        return static(line) ?: triggered(line) ?: activated(line)
+        return static(line) ?: triggered(line) ?: activated(line) ?: spell(line)
     }
+
+    /** The instructions of an instant or sorcery (CR 113.3a). */
+    private fun spell(line: String): Ability? = if (isSpell) instructions(line)?.let { Ability.Spell(it) } else null
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
@@ -72,6 +75,11 @@ internal class Sentences(private val self: Set<String>) {
         val cost = cost(line.substring(0, colon)) ?: return null
         var text = line.substring(colon + 2)
         var costChange: Value? = null
+        var condition: arcanum.api.Condition? = null
+        ACTIVATE_ONLY_IF.find(text)?.let { m ->
+            condition = Conditions.condition(m.groupValues[1]) ?: return null
+            text = text.removeRange(m.range).trim()
+        }
         COSTS_LESS_FOR_EACH.find(text)?.let { m ->
             val per = Numbers.mana(m.groupValues[1]) ?: return null
             val count = Filters.objects(m.groupValues[2]) ?: return null
@@ -79,7 +87,7 @@ internal class Sentences(private val self: Set<String>) {
             text = text.removeRange(m.range).trim()
         }
         val instructions = instructions(text) ?: return null
-        return Ability.Activated(cost, instructions, arcanum.api.ActivationRules(costChange = costChange))
+        return Ability.Activated(cost, instructions, arcanum.api.ActivationRules(costChange = costChange, condition = condition))
     }
 
     /** "Whenever [event], [if condition,] [effect]." (CR 603.1) */
@@ -107,6 +115,11 @@ internal class Sentences(private val self: Set<String>) {
         DISCARD_COST.matchEntire(text)?.let { m ->
             if (isSelf(m.groupValues[1])) return listOf(CostPart.Discard(CostObjects.Self))
             return null
+        }
+        TAP_UNTAPPED.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(CostPart.TapObjects(CostObjects.Choose(ObjectFilter.And(listOf(
+                ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped)), filter)))))
         }
         SACRIFICE.matchEntire(text)?.let { m ->
             val what = m.groupValues[1]
@@ -188,8 +201,9 @@ internal class Sentences(private val self: Set<String>) {
         return null
     }
 
-    /** "{C}", "{B}{B}", "{R} or {G}" (CR 106.1). */
+    /** "{C}", "{B}{B}", "{R} or {G}", "one mana of any color", "three mana of any one color" (CR 106.1). */
     private fun mana(text: String): ManaKind? {
+        ANY_COLOR.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)) }
         ManaCost.parse(text)?.let { return ManaKind.Fixed(it) }
         val colors = text.split(" or ").map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
             ?.let { (it as? arcanum.api.ManaSymbol.Colored)?.color } ?: return null }
@@ -198,7 +212,8 @@ internal class Sentences(private val self: Set<String>) {
 
     /** Sentences in order; a "Spend this mana only …" sentence stays with the mana it restricts. */
     private fun sentences(text: String): List<String> {
-        val raw = SENTENCE_END.split(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }.map { if (it.endsWith(".")) it else "$it." }
+        val raw = SENTENCE_END.split(text.trim()).map { it.trim() }.filter { it.isNotEmpty() }
+            .map { if (it.endsWith(".")) it else "$it." }.map { it.replaceFirstChar { c -> c.uppercase() } }
         return raw.fold(mutableListOf()) { acc, sentence ->
             if (sentence.startsWith("Spend this mana only") && acc.isNotEmpty()) acc[acc.size - 1] = acc.last() + " " + sentence
             else acc += sentence
@@ -209,6 +224,9 @@ internal class Sentences(private val self: Set<String>) {
     private companion object {
         val SENTENCE_END = Regex("""(?<=\.)\s+""")
         val ABILITY_WORD = Regex("""([A-Z][A-Za-z' ]+) — (.+)""")
+        val ACTIVATE_ONLY_IF = Regex("""Activate only if (.+?)\.""")
+        val TAP_UNTAPPED = Regex("""Tap an untapped (.+)""")
+        val ANY_COLOR = Regex("""(\w+) mana of any (?:one )?color""")
         val ENTERS_TAPPED = Regex("""(.+) enters tapped\.""")
         val WHENEVER = Regex("""(Whenever|When|At) (.+?), (.+)""")
         val INTERVENING_IF = Regex("""if (.+?), (.+)""")

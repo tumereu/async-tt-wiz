@@ -21,7 +21,18 @@ object OracleParser {
     fun parse(card: OracleCard): FaceDefinition {
         val face = characteristics(card)
         val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }
-        return face.copy(abilities = abilities(card.text, selfNames(card.name, face), isSpell))
+        val self = selfNames(card.name, face)
+        var abilities = abilities(card.text, self, isSpell)
+        val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true
+        if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
+        // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
+        if (abilities.any { it is Keyword.Overload }) {
+            val spellText = card.text.split('\n').map { REMINDER.replace(it, "").trim() }
+                .filter { it.isNotEmpty() && keywordLine(it) == null }.joinToString(" ")
+            val overloaded = Sentences(self, isSpell).instructions(spellText.replace("target ", "each "))
+            abilities = abilities.map { if (it is Keyword.Overload && overloaded != null) it.copy(instructions = overloaded) else it }
+        }
+        return face.copy(abilities = abilities)
     }
 
     fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
@@ -65,6 +76,10 @@ object OracleParser {
 
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
     fun keyword(part: String): Keyword? {
+        // "Flashback—Sacrifice a Mountain." (CR 702.34a): a cost that isn't only mana.
+        FLASHBACK_COST.matchEntire(part)?.let { m ->
+            return Keyword.Flashback(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
+        }
         // "Splice onto Arcane {1}{R}" (CR 702.47a): a quality, then a cost.
         SPLICE.matchEntire(part)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
@@ -87,6 +102,7 @@ object OracleParser {
 
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
+    private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
     private val REMINDER = Regex("""\s*\([^)]*\)""")
     private val AMOUNT = Regex(""" (\d+)""")

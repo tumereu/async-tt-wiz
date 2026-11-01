@@ -1,1 +1,1 @@
-Landscape Training deck opened for editing and switched to its Text tab: the list as text with Save and a deck cover choice.
+Landscape Training deck opened for editing and switched to its Text tab: the list as text in a full-width box with no counts, Save, a deck cover choice and Delete deck at the top right.

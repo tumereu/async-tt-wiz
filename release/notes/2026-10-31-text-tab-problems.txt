@@ -1,0 +1,1 @@
+mod: In the deck and cube editor's Text tab, the list uses the full width, lines with problems are underlined in red, and the tab shows a red mark while problems remain.

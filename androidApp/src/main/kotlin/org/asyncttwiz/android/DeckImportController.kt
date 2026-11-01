@@ -18,14 +18,16 @@ data class DeckImportState(val active: Boolean = false, val text: String = "", v
     val cover: String? = null, val choosingCover: Boolean = false, val discard: Boolean = false,
     val lookupFailed: Boolean = false, val linkDialog: Boolean = false, val url: String = "",
     val clipboardRead: Boolean = false, val fetchingUrl: Boolean = false, val linkError: String? = null,
-    val destination: DeckSection = DeckSection.MAINBOARD)
+    val destination: DeckSection = DeckSection.MAINBOARD,
+    /** LOB-057: the editor's "Delete deck" confirmation, its request in flight and its failure. */
+    val deleteDialog: Boolean = false, val deleting: Boolean = false, val deleteError: String? = null)
 
 /** Personal volatile draft, retained by the Activity ViewModel across rotation, never a saved deck. */
 class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit) : AutoCloseable, CardListEditor {
     var state by mutableStateOf(DeckImportState())
         private set
-    /** The editor's catalog search page (Add cards). */
+    /** The editor's catalog search page (a section header's +). */
     val search = CardListSearch(worker, post)
     override val kind get() = CardListKind.DECK
     override val entries: List<ResolvedDeckEntry>? get() = state.result?.takeIf { it.issues.isEmpty() }?.entries
@@ -40,11 +42,25 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     /** A Cards tab or search edit: the list is replaced and its text rewritten, already resolved, so no lookup runs. */
     override fun applyCards(entries: List<ResolvedDeckEntry>, catalog: CatalogMetadata?) {
         if (closed || !editable) return
+        val before = UndoStep(state.text, state.result, state.cover, chosenCover)
         epoch++; retryPlan = null; relookupAfterCurrent = false; saveAfterLookup = false
         val text = CardListEdits.text(kind, entries)
         state = state.copy(text = text, result = DeckImportResult(text, entries, emptyList(), catalog ?: state.result?.catalog),
             preview = false, error = null, lookupFailed = false)
-        if (state.cover != null && coverCards.none { it.digest == state.cover }) { chosenCover = null; state = state.copy(cover = null) }
+        val cleared = state.cover != null && coverCards.none { it.digest == state.cover }
+        if (cleared) { chosenCover = null; state = state.copy(cover = null) }
+        undo.push(if (cleared) before else before.copy(cover = null, chosenCover = null))
+    }
+    /** The list before one Cards tab or search change, and the cover that change cleared (null when it kept it). */
+    private data class UndoStep(val text: String, val result: DeckImportResult?, val cover: String?, val chosenCover: SubmittedDefinition?)
+    private val undo = CardListUndo<UndoStep>()
+    override val canUndo get() = undo.steps.isNotEmpty()
+    override fun undoCards() {
+        if (closed || !editable) return
+        val step = undo.pop() ?: return
+        epoch++; retryPlan = null; relookupAfterCurrent = false; saveAfterLookup = false
+        state = state.copy(text = step.text, result = step.result, preview = false, error = null, lookupFailed = false)
+        if (step.cover != null && state.cover == null) { chosenCover = step.chosenCover; state = state.copy(cover = step.cover) }
     }
     @Volatile private var epoch = 0L
     private var closed = false
@@ -116,7 +132,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
                 else {
                     // An ordinary editable paste list: the list is replaced, a typed name is kept and
                     // the cover stays while it is still one of the cards (the sources have no cover).
-                    source = null; retryPlan = null
+                    source = null; retryPlan = null; undo.clear()
                     state = state.copy(text = imported.parsed.text, name = state.name.ifBlank { imported.name },
                         result = resolved?.getOrNull(), busy = false, fetchingUrl = false, linkDialog = false,
                         linkError = null, preview = false, lookupFailed = resolved?.isFailure == true,
@@ -200,7 +216,48 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             } } } }
         }, saved = saved)
     }
-    fun open() { if (!closed) { epoch++; search.reset(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
+    private var deleteAction: (() -> ((String, DeleteDeck) -> Unit)?)? = null
+    private var deleted: (String) -> Unit = {}
+    /** A delete that failed keeps its request id, so retrying it cannot delete twice. */
+    private var pendingDelete: Pair<String, DeleteDeck>? = null
+    fun connectDelete(action: () -> ((String, DeleteDeck) -> Unit)?, deleted: (String) -> Unit) {
+        deleteAction = action; this.deleted = deleted
+    }
+    fun connectDelete(api: Decks, credential: () -> String?, deleted: (String) -> Unit) {
+        connectDelete(action = {
+            credential()?.let { token -> { id: String, request: DeleteDeck -> kotlinx.coroutines.runBlocking {
+                serviceRetry(current = { credential() == token }) { api.delete(token, id, request) }
+            }; Unit } }
+        }, deleted = deleted)
+    }
+    /** The name the deck was saved with, for the delete confirmation. */
+    val savedName: String get() = initial.name
+    /** LOB-057: the editor of a saved deck offers "Delete deck", confirmed first. */
+    val canDelete: Boolean get() = state.active && state.editing && state.target != null && !state.saving
+    fun requestDelete() { if (!closed && canDelete) state = state.copy(deleteDialog = true, deleteError = null) }
+    fun dismissDeleteError() { state = state.copy(deleteError = null) }
+    fun dismissDelete() { if (!state.deleting) state = state.copy(deleteDialog = false, deleteError = null) }
+    fun confirmDelete() {
+        if (closed || !state.deleteDialog || state.deleting) return
+        val id = state.target ?: return
+        val action = deleteAction?.invoke() ?: run { state = state.copy(deleteError = "Sign in to delete this deck."); return }
+        val request = pendingDelete?.takeIf { it.first == id } ?: (id to DeleteDeck(java.util.UUID.randomUUID().toString()))
+        pendingDelete = request
+        state = state.copy(deleting = true, deleteError = null)
+        worker.execute {
+            val outcome = runCatching { action(id, request.second) }
+            post { if (!closed) {
+                if (outcome.isSuccess) {
+                    pendingDelete = null
+                    if (state.active && state.target == id) exit()
+                    deleted(id)
+                } else if (state.active && state.target == id) {
+                    state = state.copy(deleting = false, deleteError = deckError(outcome.exceptionOrNull() as? Exception ?: Exception()))
+                }
+            } }
+        }
+    }
+    fun open() { if (!closed) { epoch++; search.reset(); undo.clear(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
     fun openEditor(detail: DeckDetail) {
         open()
         if (closed) return
@@ -218,10 +275,10 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         open()
         if (!closed) state = state.copy(target = deck.id, name = deck.name)
     }
-    fun exit() { epoch++; search.reset(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
+    fun exit() { epoch++; search.reset(); undo.clear(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active) { if (!state.saving) epoch++; retryPlan = null
-            relookupAfterCurrent = false; saveAfterLookup = false
+            relookupAfterCurrent = false; saveAfterLookup = false; undo.clear()
             state = state.copy(text = text, busy = false, fetchingUrl = false, result = null, preview = false, error = null, lookupFailed = false) }
     }
     fun lookup() {
@@ -299,7 +356,8 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             }
         }
     }
-    fun back() { if (inspection.state != null) inspection.close() else if (search.state.open) search.close()
+    fun back() { if (inspection.state != null) inspection.close() else if (state.deleteDialog) dismissDelete()
+        else if (search.state.open) search.close()
         else if (state.linkDialog) closeLink()
         else if (state.choosingCover) closeCover()
         else if (state.discard) keepEditing() else if (state.preview) editList() else cancel() }

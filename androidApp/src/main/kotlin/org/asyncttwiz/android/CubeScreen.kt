@@ -107,13 +107,6 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                                 }
                                 DeckViewColumnsControl(columns)
                             }
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                ScreenOutlinedButton(onClick = { controller.dialog(CubeDialog.RENAME) }) {
-                                    EntryIcon(null, "rename"); Spacer(Modifier.width(6.dp)); Text("Rename")
-                                }
-                                TextButton(onClick = { controller.dialog(CubeDialog.DELETE) }, Modifier.heightIn(min = 48.dp),
-                                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete cube") }
-                            }
                             if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {
                                 EntryIcon(null, "pods"); Spacer(Modifier.width(8.dp)); Text("Draft this cube")
                             }
@@ -142,6 +135,13 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
         PodCardArtPreview(card, tile.name, previewScroll)
     }
     DeckCardInspection(controller.inspection)
+    CubeDialogs(controller)
+}
+
+/** Rename (no longer offered on screen) and the Delete cube confirmation, which the cube editor opens (LOB-057). */
+@Composable
+private fun CubeDialogs(controller: CubeController) {
+    val state = controller.state
     if (state.dialog != null) {
         val deleting = state.dialog == CubeDialog.DELETE
         ScreenDialog(controller::dismiss, error = state.error, dismissError = controller::dismissError,
@@ -149,7 +149,8 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                 DialogCancelButton(if (deleting) "Keep cube" else "Cancel", controller::dismiss, enabled = !state.busy)
                 DialogMainButton(if (deleting) "Delete cube" else "Save name", controller::confirm, enabled = !state.busy, danger = deleting)
             }) {
-            if (deleting) Text("Delete ${state.detail?.saved?.cube?.name}? Deletion cannot be undone.")
+            if (deleting) Text("Delete ${state.detail?.saved?.cube?.takeIf { !state.editing || it.id == state.target }?.name
+                ?: state.name}? Deletion cannot be undone.")
             else {
                 val name = rememberDialogField(state.name)
                 OutlinedTextField(name.value, { name.value = it; controller.name(it.text) }, Modifier.fillMaxWidth().dialogField(name),
@@ -184,11 +185,13 @@ private fun CubeImportScreen(controller: CubeController, navigation: (() -> Unit
                 .semantics { contentDescription = "Cube name" }, placeholder = "Cube name",
                 keyboardOptions = imeOptions(ImeAction.Next))
         },
-        listField = { ImportListField(state.text, controller::text, "Card list", "cube-list") },
+        listField = { ImportListField(state.text, controller::text, "Card list", "cube-list", problemLines(state.text, state.result)) },
         feedback = {
             ImportError(state.error)
-            ImportResultSummary(state.result, deck = false, lineNumbers = true)
-        })
+            ImportResultSummary(state.result, lineNumbers = true)
+        }, deleteLabel = if (state.target != null) "Delete cube" else null, delete = controller::requestDelete,
+        deleteEnabled = controller.canDelete, textProblems = state.result?.takeIf { it.text == state.text }?.issues?.isNotEmpty() == true)
+    CubeDialogs(controller)
     if (state.linkDialog) ImportLinkDialog(state.cobraInput, controller::cobraInput, "Cube Cobra link or ID", "cube-url",
         "Paste Cube Cobra link", controller::pasteCobra, controller::importCobra,
         state.cobraInput.isNotBlank() && !state.busy, state.fetching, state.linkError, controller::closeLink)

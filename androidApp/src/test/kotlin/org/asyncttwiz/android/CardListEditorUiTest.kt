@@ -127,12 +127,12 @@ class CardListEditorUiTest {
         compose.onNodeWithText("Discard unsaved changes?").assertIsDisplayed()
     }
 
-    // LOB-106, LOB-107
+    // LOB-105, LOB-106, LOB-107
     @Test fun searchAddsToTheChosenSectionSquaresRemoveAndDoneKeepsTheChanges() {
         val editor = editor()
         connectSearch(editor, "Meadow Sentinel", "Rune Bear")
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
-        compose.onNodeWithContentDescription("Add cards").performClick()
+        compose.onNodeWithContentDescription("Add cards to Mainboard").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithTag("card-search").assertIsDisplayed()
         compose.onNodeWithText("Type a card name or search terms, or choose filters.").assertIsDisplayed()
@@ -178,15 +178,72 @@ class CardListEditorUiTest {
         assertEquals(5, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD))
         assertTrue("1 Rune Bear (NEW) 9" in editor.state.text)
 
-        // The destination is remembered for the session and the search is kept; a new session starts at Main.
-        compose.onNodeWithContentDescription("Add cards").performClick()
+        // LOB-105: search starts at the section whose + was tapped, and the search is kept for the session.
+        compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-maybe"))
+        compose.onNodeWithTag("add-cards-maybe").performClick()
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("destination-side").assertIsSelected()
+        compose.onNodeWithTag("destination-maybe").assertIsSelected()
+        compose.onNodeWithTag("destination-side").assertIsNotSelected()
         compose.onNodeWithText("Done").assertIsDisplayed()
         assertEquals(1, searched.size, "Coming back keeps the results")
-        compose.runOnIdle { editor.exit(); editor.openEditor(detail) }
-        assertEquals(DeckSection.MAINBOARD, editor.destination)
-        assertFalse(editor.search.state.open)
+        compose.runOnIdle { editor.search.close() }
+        compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-main"))
+        compose.onNodeWithTag("add-cards-main").performClick()
+        compose.onNodeWithTag("destination-main").assertIsSelected()
+    }
+
+    // LOB-105, LOB-049: a round Undo at the bottom left, shown only when there is something to undo, takes back Cards tab and
+    // search changes one at a time.
+    @Test fun undoTakesBackCardsTabAndSearchChangesOneAtATime() {
+        val editor = editor()
+        connectSearch(editor, "Rune Bear")
+        val original = editor.state.text
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
+        compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
+        val sentinel = "editor-card-MAINBOARD/${digest("Meadow Sentinel")}"
+        compose.onNodeWithTag(sentinel).performTouchInput { swipeRight() }
+        compose.runOnIdle { assertEquals(1, count(editor, "Meadow Sentinel", DeckSection.SIDEBOARD)) }
+        compose.onNodeWithTag("card-list-undo").assertIsDisplayed()
+        compose.onNodeWithTag(sentinel).performTouchInput { click() }
+        compose.onNodeWithText("Remove all").performClick()
+        compose.onNodeWithTag("add-cards-main").performClick()
+        compose.onNodeWithTag("card-search-field").performTextInput("rune")
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
+        compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
+        compose.onNodeWithTag("card-search-done").performClick()
+        compose.runOnIdle { assertEquals(2, count(editor, "Rune Bear", DeckSection.MAINBOARD)) }
+
+        // Each tap takes back one change, newest first: two search adds, Remove all, then the swipe.
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle { assertEquals(1, count(editor, "Rune Bear", DeckSection.MAINBOARD)) }
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle { assertEquals(0, count(editor, "Rune Bear", DeckSection.MAINBOARD)); assertEquals(0, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD)) }
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle { assertEquals(3, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD)) }
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle {
+            assertEquals(4, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD))
+            assertEquals(0, count(editor, "Meadow Sentinel", DeckSection.SIDEBOARD))
+            assertEquals(original, editor.state.text, "Undoing every change gives back the text the editor opened with")
+            assertTrue(editor.state.result!!.resolved)
+        }
+        compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
+
+        // A cover the change cleared comes back with it; a Text tab edit starts the undo over.
+        compose.runOnIdle {
+            val ward = editor.coverCards.first { it.definition.name == "Aegis Ward" }.digest
+            editor.cover(ward)
+            editor.applyCards(CardListEdits.removeAll(editor.entries!!, digest("Aegis Ward"), DeckSection.MAINBOARD), editor.listCatalog)
+            assertNull(editor.state.cover)
+            editor.undoCards()
+            assertEquals(ward, editor.state.cover)
+            editor.applyCards(CardListEdits.change(editor.entries!!, digest("Aegis Ward"), DeckSection.MAINBOARD, -1), editor.listCatalog)
+            assertTrue(editor.canUndo)
+            editor.edit(editor.state.text + "\n1 Rune Bear")
+            assertFalse(editor.canUndo)
+        }
+        compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
     }
 
     // LOB-106: Main, Side and Maybe squares in that order, each only while its section holds copies; a tap on a square removes
@@ -314,10 +371,58 @@ class CardListEditorUiTest {
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
         compose.onNodeWithText("The list has problems. Fix them in the Text tab.").assertIsDisplayed()
         compose.onNodeWithText("Line 2: Unknown Card could not be resolved.").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Add cards").assertIsNotEnabled()
+        // LOB-107: the + buttons are off: the sections don't show until the list resolves.
+        compose.onNodeWithTag("add-cards-main").assertDoesNotExist()
     }
 
-    // DRF-003, LOB-064, LOB-106: the cube editor is the same editor with Main | Maybe, and asks before discarding.
+    // LOB-059: the Text tab's box is full width with no counts; problems show in a fixed area under it and as a red error
+    // icon on the Text tab while they remain.
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun textTabIsFullWidthWithProblemsUnderItAndAnErrorIcon() {
+        val editor = editor()
+        val text = editor.state.text
+        val clean = editor.state.result!!
+        editor.seed(editor.state.copy(result = DeckImportResult(text, emptyList(),
+            listOf(ImportIssue(2, "Meadow Sentinel is ambiguous. Include an exact (SET) collector-number.")), null)))
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, true, null, null) } } }
+        compose.onNodeWithTag("card-list-tab-text").assert(hasContentDescription("The list has problems"))
+        compose.onNodeWithTag("text-tab-problems", useUnmergedTree = true).assertIsDisplayed()
+        compose.onNodeWithTag("card-list-tab-text").performClick()
+        val box = compose.onNodeWithTag("deck-list").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertEquals(892f - 32f, box.width, 1f, "The box is full width in landscape too")
+        val message = compose.onNodeWithText("Line 2: Meadow Sentinel is ambiguous. Include an exact (SET) collector-number.")
+            .assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(message.top >= box.bottom, "Messages show under the box")
+        compose.onNodeWithText("60 main · 15 side").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(setOf(2), problemLines(editor.state.text, editor.state.result)) }
+        // Once the list resolves, the icon goes and the Text tab still shows no counts.
+        compose.runOnIdle { editor.seed(editor.state.copy(result = clean)) }
+        compose.onNodeWithTag("text-tab-problems", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("60 main · 15 side").assertDoesNotExist()
+        compose.onNodeWithText("Line 2", substring = true).assertDoesNotExist()
+    }
+
+    // LOB-105: a new list shows every section, empty ones too, each header's + opening search with that section chosen.
+    @Test fun everySectionHeaderHasAPlusThatOpensSearchWithThatSection() {
+        val editor = DeckImportController({ error("No lookup expected") }, Immediate, { it() }).also { it.open() }
+        connectSearch(editor, "Rune Bear")
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
+        compose.onNodeWithTag("card-list-tab-cards").performClick()
+        for ((label, tag) in listOf("Mainboard" to "main", "Sideboard" to "side", "Maybeboard" to "maybe")) {
+            compose.onNodeWithTag("card-list-cards").performScrollToNode(hasText("$label · 0"))
+            compose.onNodeWithText("$label · 0").assertIsDisplayed()
+            compose.onNodeWithTag("add-cards-$tag").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("card-search").assertIsDisplayed()
+            compose.onNodeWithTag("destination-$tag").assertIsSelected()
+            compose.runOnIdle { editor.search.close() }
+        }
+        compose.onAllNodesWithText("Empty").assertCountEquals(3)
+        // Changing the section inside search still works.
+        compose.onNodeWithTag("add-cards-side").performClick()
+        compose.onNodeWithTag("destination-main").performClick()
+        compose.runOnIdle { assertEquals(DeckSection.MAINBOARD, editor.destination) }
+    }
+
+    // DRF-003, LOB-064, LOB-105, LOB-106: the cube editor is the same editor with Main | Maybe, and asks before discarding.
     @Test fun cubeEditorUsesMainAndMaybeAndConfirmsDiscard() {
         val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")))
         val digest = DeckJson.digest(bear)
@@ -344,9 +449,16 @@ class CardListEditorUiTest {
             compose.runOnIdle { assertEquals(listOf(DeckSection.MAINBOARD to 2, DeckSection.MAYBEBOARD to 1),
                 cubes.entries!!.map { it.section to it.quantity }) }
             compose.onNodeWithText("2 main · 1 maybe").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Add cards").performClick()
+            // LOB-105: the cube editor's Undo takes the swipe back.
+            compose.onNodeWithTag("card-list-undo").performClick()
+            compose.onNodeWithText("3 main").assertIsDisplayed()
+            compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
+            compose.onNodeWithTag("editor-card-MAINBOARD/$digest").performTouchInput { swipeRight() }
+            compose.onNodeWithTag("add-cards-side").assertDoesNotExist()
+            compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-maybe"))
+            compose.onNodeWithTag("add-cards-maybe").performClick()
             compose.onNodeWithTag("destination-side").assertDoesNotExist()
-            compose.onNodeWithTag("destination-maybe").performClick()
+            compose.onNodeWithTag("destination-maybe").assertIsSelected()
             assertEquals(DeckSection.MAYBEBOARD, cubes.destination)
             compose.runOnIdle { cubes.back() }
             compose.onNodeWithTag("card-list-cards").assertIsDisplayed()
@@ -361,17 +473,76 @@ class CardListEditorUiTest {
         } finally { cubes.close() }
     }
 
-    // LOB-056, LOB-057, SYS-054: a saved deck shows Maybe in its section colour when it has Maybe cards; Rename opens the dialog.
-    @Test fun savedDeckShowsMaybeAndRename() {
+    // LOB-056, LOB-057, SYS-054: a saved deck shows Maybe in its section colour when it has Maybe cards; Edit is its only button.
+    @Test fun savedDeckShowsMaybeAndOnlyEdit() {
         val library = fixture.library
         library.seed(library.state.copy(detail = detail.copy(saved = detail.saved.copy(entries = detail.saved.entries +
             SavedDeckEntry(SavedDeckSection.MAYBEBOARD, digest("Ember Adept"), 2)))))
         compose.setContent { ScreenTheme { SavedDeckScreen(library, null, importDeck = {}) } }
         compose.onNodeWithTag("deck-view").performScrollToNode(hasText("Maybeboard · 2"))
         compose.onNodeWithContentDescription("Ember Adept, 2 copies, Maybeboard").assertExists()
-        compose.onNodeWithText("Rename").performClick()
-        compose.onNodeWithText("Rename deck").assertIsDisplayed()
-        assertEquals(DeckDialog.RENAME, library.state.dialog)
+        compose.onNodeWithText("Edit").assertIsDisplayed()
+        compose.onNodeWithText("Rename").assertDoesNotExist()
+        compose.onNodeWithText("Delete saved deck").assertDoesNotExist()
+        compose.onNodeWithText("Delete draft deck").assertDoesNotExist()
+    }
+
+    // LOB-057: a draft deck shows Delete draft deck beside Save as deck at the top right; deleting is confirmed.
+    @Test fun draftDeckShowsDeleteBesideSaveAsDeckAtTheTopRight() {
+        val fixture = ScreenFixtures().apply { configure("draft-deck-detail") }
+        compose.setContent { ScreenTheme { SavedDeckScreen(fixture.library, null, importDeck = {}) } }
+        val title = compose.onNodeWithText("Draft deck").fetchSemanticsNode().boundsInRoot
+        val delete = compose.onNodeWithText("Delete draft deck").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        val save = compose.onNodeWithText("Save as deck").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        assertTrue(delete.right <= save.left && delete.center.y in title.top..title.bottom && save.center.y in title.top..title.bottom,
+            "Delete draft deck sits beside Save as deck in the top bar")
+        val sections = compose.onNodeWithText("Mainboard · 60").fetchSemanticsNode().boundsInRoot
+        assertTrue(save.bottom <= sections.top)
+        compose.onNodeWithText("Edit").assertDoesNotExist()
+        compose.onNodeWithText("Rename").assertDoesNotExist()
+        compose.onNodeWithText("Delete draft deck").performClick()
+        compose.onNodeWithText("Deletion cannot be undone.").assertIsDisplayed()
+        assertEquals(DeckDialog.DELETE, fixture.library.state.dialog)
+    }
+
+    // LOB-057: the editor of a saved deck has a red Delete deck at the top right, confirmed with "Deletion cannot be undone.";
+    // a new import has none.
+    @Test fun savedDeckEditorDeletesTheDeckAfterConfirmation() {
+        val editor = editor()
+        val deleted = mutableListOf<String>(); val requests = mutableListOf<Pair<String, DeleteDeck>>()
+        var fail = true
+        editor.connectDelete({ { id, request -> requests += id to request; if (fail) throw DeckFailure("network") } }, { deleted += it })
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) {
+            if (editor.state.active) DeckImportScreen(editor, false, null, null)
+        } } }
+        compose.onNodeWithTag("deck-name").performTextReplacement("Renamed")
+        compose.onNodeWithTag("delete-list").assertTextEquals("Delete deck").performClick()
+        compose.onNodeWithText("Delete deck?").assertIsDisplayed()
+        compose.onNodeWithText(detail.saved.deck.name).assertIsDisplayed()
+        compose.onNodeWithText("Deletion cannot be undone.").assertIsDisplayed()
+        compose.onNodeWithText("Keep deck").performClick()
+        compose.onNodeWithText("Delete deck?").assertDoesNotExist()
+        assertTrue(requests.isEmpty(), "Delete needs confirmation")
+        compose.onNodeWithTag("deck-name").assertTextEquals("Renamed")
+
+        compose.onNodeWithTag("delete-list").performClick()
+        compose.onNode(hasText("Delete deck") and hasAnyAncestor(isDialog())).performClick()
+        compose.onNodeWithText("Could not reach the deck service. Your input is kept. Check your connection and retry.").assertIsDisplayed()
+        assertTrue(editor.state.active && deleted.isEmpty())
+        fail = false
+        compose.runOnIdle { editor.dismissDeleteError() }
+        compose.onNode(hasText("Delete deck") and hasAnyAncestor(isDialog())).performClick()
+        compose.runOnIdle {
+            assertEquals(listOf(detail.saved.deck.id, detail.saved.deck.id), requests.map { it.first })
+            assertEquals(requests[0].second, requests[1].second, "A retried delete keeps its request id")
+            assertEquals(listOf(detail.saved.deck.id), deleted)
+            assertFalse(editor.state.active)
+        }
+
+        // A new import is not a saved deck: no Delete.
+        compose.runOnIdle { editor.open() }
+        compose.onNodeWithTag("open-import-link").assertIsDisplayed()
+        compose.onNodeWithTag("delete-list").assertDoesNotExist()
     }
 }
 

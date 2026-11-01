@@ -163,17 +163,24 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
 }
 
 /** One section of the visual deck shared by game preparation, saved-deck and saved-cube viewing: a coloured "Mainboard · 60"
- * [header] (a cube has no sections), optional [basics] steppers, then type groups of card tiles [columns] wide drawn by [tile]. */
+ * [header] (a cube has no sections) with an optional [headerAction] at its right end, optional [basics] steppers, then type
+ * groups of card tiles [columns] wide drawn by [tile]. */
 internal fun LazyListScope.visualDeckSection(source: SavedDeckSection, count: Long, groups: List<PreparationGroup>, columns: Int,
-    basics: (@Composable () -> Unit)? = null, header: Boolean = true, tile: @Composable (PreparationTile) -> Unit) {
+    basics: (@Composable () -> Unit)? = null, header: Boolean = true, headerAction: (@Composable () -> Unit)? = null,
+    tile: @Composable (PreparationTile) -> Unit) {
     val title = source.label()
     val color = source.preparationColor()
     if (source != SavedDeckSection.MAINBOARD) item("gap-$source") { Spacer(Modifier.height(16.dp)) }
     if (header) item("header-$source") {
         Surface(Modifier.fillMaxWidth().animateItem(fadeInSpec = null, fadeOutSpec = null, placementSpec = tween(180)),
             color = color.copy(alpha = .16f).compositeOver(MaterialTheme.colorScheme.surfaceContainer)) {
-            Text("$title · $count", Modifier.padding(horizontal = PreparationGutter, vertical = 10.dp)
+            @Composable fun headerText(modifier: Modifier) = Text("$title · $count", modifier.padding(horizontal = PreparationGutter, vertical = 10.dp)
                 .semantics { heading() }, color = color, style = MaterialTheme.typography.titleLarge)
+            if (headerAction == null) headerText(Modifier)
+            else Row(verticalAlignment = Alignment.CenterVertically) {
+                headerText(Modifier.weight(1f))
+                headerAction()
+            }
         }
     }
     if (basics != null) item("basics-$source") {

@@ -65,15 +65,25 @@ internal fun DeckImportScreen(controller: DeckImportController, landscape: Boole
             DeckMetadataHeader(state.name, controller.currentCover, controller::name,
                 if (state.result?.resolved == true) controller::chooseCover else null, padding = PaddingValues(0.dp))
         },
-        listField = { ImportListField(state.text, controller::edit, "Deck list", "deck-list") },
+        listField = { ImportListField(state.text, controller::edit, "Deck list", "deck-list", problemLines(state.text, state.result)) },
         feedback = {
             ImportError(state.error)
             if (state.lookupFailed) ScreenOutlinedButton(onClick = { keyboard?.hide(); controller.lookup() },
                 enabled = !state.busy && !state.saving && catalog?.state?.busy != true, modifier = Modifier.testTag("retry-lookup")) {
                 EntryIcon(null, "refresh"); Spacer(Modifier.width(8.dp)); Text("Retry lookup")
             }
-            ImportResultSummary(state.result, deck = true, lineNumbers = true)
-        })
+            ImportResultSummary(state.result, lineNumbers = true)
+        }, deleteLabel = if (state.editing && state.target != null) "Delete deck" else null, delete = controller::requestDelete,
+        deleteEnabled = controller.canDelete, textProblems = state.result?.takeIf { it.text == state.text }?.issues?.isNotEmpty() == true)
+    // LOB-057: deleting a saved deck from its editor is confirmed first.
+    if (state.deleteDialog) ScreenDialog(controller::dismissDelete, busyMessage = if (state.deleting) "Deleting deck…" else null,
+        error = state.deleteError, dismissError = controller::dismissDeleteError, title = "Delete deck?", actions = {
+            DialogCancelButton("Keep deck", controller::dismissDelete, enabled = !state.deleting)
+            DialogMainButton("Delete deck", controller::confirmDelete, enabled = !state.deleting, danger = true)
+        }) {
+        Text(controller.savedName, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+        Text("Deletion cannot be undone.")
+    }
     if (state.linkDialog) ImportLinkDialog(state.url, controller::url, "Deck link or site:ID", "deck-url", "Paste deck link",
         controller::pasteUrl, controller::importUrl, state.url.isNotBlank() && !state.saving && (!state.busy || state.fetchingUrl),
         state.fetchingUrl, state.linkError, controller::closeLink)

@@ -1,0 +1,1 @@
+mod: In the deck and cube editor, each section has its own + button that opens card search for that section; empty sections show too.

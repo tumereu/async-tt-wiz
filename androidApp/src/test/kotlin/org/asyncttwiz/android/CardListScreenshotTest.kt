@@ -75,7 +75,11 @@ class CardListScreenshotTest {
     @Test fun cubeEditPortrait() = cubeEdit(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cubeEditLandscape() = cubeEdit(true)
 
-    private fun cubeEdit(landscape: Boolean) {
+    // DRF-010, LOB-057: the saved cube view has Edit as its only top button, then the name and Draft this cube.
+    @Test fun savedCubePortrait() = cubeEdit(false, editing = false)
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun savedCubeLandscape() = cubeEdit(true, editing = false)
+
+    private fun cubeEdit(landscape: Boolean, editing: Boolean = true) {
         val main = listOf("Meadow Sentinel", "Rune Bear", "Ember Adept", "Rune Bolt", "Aegis Ward", "Rune Golem", "Quiet Grove")
         val maybe = listOf("Rune Wall", "Rune Charm")
         val definitions = (main + maybe).associate { definition(it).let { card -> DeckJson.digest(card) to card } }
@@ -95,11 +99,22 @@ class CardListScreenshotTest {
             override fun close() = Unit
         }
         val cubes = CubeController(api, { "token" }, { error("No lookup expected") }, { error("unused") }, Immediate, { it() })
-        cubes.open("cube"); cubes.edit()
+        cubes.open("cube")
+        if (!editing) {
+            compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) {
+                CubeScreen(cubes, if (landscape) null else ({}), draftCube = {}, landscape = landscape)
+            } } }
+            compose.onNodeWithText("Draft this cube").assertIsDisplayed()
+            captureShot(path("cube-detail", landscape), "${orientation(landscape)} saved Runes cube in its picture view: Edit at the " +
+                "top right as its only top button, the name with 7 total copies and Draft this cube, then Mainboard and Maybeboard.")
+            return
+        }
+        cubes.edit()
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { CubeScreen(cubes, if (landscape) null else ({}), landscape = landscape) } } }
         compose.onNodeWithText("7 main · 2 maybe").assertIsDisplayed()
+        compose.onNodeWithTag("delete-list").assertIsDisplayed()
         captureShot(path("cube-edit-cards", landscape), "${orientation(landscape)} Edit cube screen for the Runes cube on its Cards tab: " +
-            "Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, the round Add cards button and Save.")
+            "Delete cube at the top right, Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, a + at the right of each section header, and Save.")
     }
 
     // DRF-141, DRF-142, SYS-054

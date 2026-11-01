@@ -49,9 +49,10 @@ class DeckViewColumnsTest {
             fixture.library.inspection.close()
             compose.onNodeWithTag("deck-view").performScrollToNode(hasText("Sideboard · 15"))
             compose.onNodeWithContentDescription("Quiet Grove, 15 copies, Sideboard").assertExists()
-            // LOB-057: Rename and Delete sit under the name, above the sections.
-            compose.onNodeWithText("Delete saved deck").assertIsDisplayed()
-            compose.onNodeWithText("Rename").assertIsDisplayed()
+            // LOB-057: Edit is the only button above a saved deck.
+            compose.onNodeWithText("Edit").assertIsDisplayed()
+            compose.onNodeWithText("Delete saved deck").assertDoesNotExist()
+            compose.onNodeWithText("Rename").assertDoesNotExist()
             compose.onNodeWithText("Maybeboard", substring = true).assertDoesNotExist()
         } finally { fixture.library.close() }
     }

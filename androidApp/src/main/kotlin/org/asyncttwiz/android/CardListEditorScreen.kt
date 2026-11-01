@@ -49,14 +49,15 @@ internal enum class CardListTab(val label: String) { CARDS("Cards"), TEXT("Text"
 
 /**
  * The one editor of decks and cubes: name (and a deck's cover) on top, Cards | Text tabs, one full-width Save at the
- * bottom. Changes in either tab are kept only by Save. The Cards tab's Add cards opens the full-screen [search] page.
+ * bottom. Changes in either tab are kept only by Save. A Cards tab section header's + opens the full-screen [search] page.
  */
 @Composable
 internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, landscape: Boolean, editor: CardListEditor,
     search: CardListSearch, tab: CardListTab, onTab: (CardListTab) -> Unit, openLink: () -> Unit, linkEnabled: Boolean,
     canSave: Boolean, saving: Boolean, save: () -> Unit, saveTag: String, lookupPending: Boolean, error: String?,
     dismissError: () -> Unit, nameRow: @Composable () -> Unit, listField: @Composable ColumnScope.() -> Unit,
-    feedback: @Composable ColumnScope.() -> Unit) {
+    feedback: @Composable ColumnScope.() -> Unit, deleteLabel: String? = null, delete: () -> Unit = {}, deleteEnabled: Boolean = true,
+    textProblems: Boolean = false) {
     if (search.state.open) { CardSearchPage(editor, search, landscape); DeckCardInspection(editor.inspection); return }
     val keyboard = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
@@ -65,19 +66,30 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
         TabRow(selectedTabIndex = tab.ordinal, modifier) {
             CardListTab.entries.forEach { entry ->
                 Tab(selected = tab == entry, onClick = { keyboard?.hide(); focus.clearFocus(); onTab(entry) },
-                    modifier = Modifier.testTag("card-list-tab-${entry.name.lowercase()}"), text = { Text(entry.label) })
+                    modifier = Modifier.testTag("card-list-tab-${entry.name.lowercase()}"), text = {
+                        // LOB-059: the Text tab shows a red error icon while the list has problems.
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text(entry.label)
+                            if (entry == CardListTab.TEXT && textProblems) Icon(screenIcon("error"), "The list has problems",
+                                Modifier.size(18.dp).testTag("text-tab-problems"), tint = MaterialTheme.colorScheme.error)
+                        }
+                    })
             }
         }
     }
     Column(Modifier.fillMaxSize()) {
         // Landscape keeps the pictures tall enough: the name joins the title row, the Cards summary the tab row.
+        // LOB-057: a saved list's editor also has a red Delete at the top right; in portrait the link then shows as its icon.
         val link: @Composable () -> Unit = {
             val open = { keyboard?.hide(); focus.clearFocus(); openLink() }
-            if (landscape || androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 400)
+            if (landscape || (deleteLabel == null && androidx.compose.ui.platform.LocalConfiguration.current.screenWidthDp >= 400))
                 ScreenOutlinedButton(open, Modifier.testTag("open-import-link"), enabled = linkEnabled) {
                     EntryIcon(null, "link"); Spacer(Modifier.width(8.dp)); Text(IMPORT_FROM_LINK)
                 }
             else ScreenIconButton(IMPORT_FROM_LINK, "link", open, Modifier.testTag("open-import-link"), enabled = linkEnabled)
+            if (deleteLabel != null) TextButton({ keyboard?.hide(); focus.clearFocus(); delete() },
+                Modifier.heightIn(min = 48.dp).testTag("delete-list"), enabled = deleteEnabled,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(deleteLabel, maxLines = 1) }
         }
         if (landscape) Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -96,10 +108,8 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
         Box(Modifier.weight(1f).fillMaxWidth()) {
             when (tab) {
                 CardListTab.CARDS -> CardListCardsTab(editor, search, lookupPending, columns, summary = !landscape, feedback)
-                CardListTab.TEXT -> if (landscape) Row(Modifier.fillMaxSize().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(1f).fillMaxHeight(), content = listField)
-                    Column(Modifier.weight(1f).fillMaxHeight().verticalScrollable(), verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
-                } else Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // LOB-059: the box is full width; problems show in a fixed area under it.
+                CardListTab.TEXT -> Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Column(Modifier.weight(1f).fillMaxWidth(), content = listField)
                     Column(Modifier.height(96.dp).fillMaxWidth().verticalScrollable(), verticalArrangement = Arrangement.spacedBy(8.dp), content = feedback)
                 }
@@ -169,7 +179,13 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                         val rows = entries.filter { it.section == section }
                         val definitions = rows.associate { it.printing.id to definitionOf(it) }
                         val groups = preparationGroups(rows.map { it.printing.id to it.quantity.toLong() }, definitions)
-                        visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count) { tile ->
+                        // LOB-105: every section shows, even when empty; its header's + opens search with that section chosen.
+                        visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count, headerAction = {
+                            IconButton({ editor.destination(section); search.open(CardListEdits.total(entries)) },
+                                Modifier.testTag("add-cards-${saved.shortLabel().lowercase()}"), enabled = editor.editable) {
+                                Icon(screenIcon("add"), "Add cards to ${saved.sectionLabel()}", tint = saved.sectionColor())
+                            }
+                        }) { tile ->
                             val key = "$section/${tile.digest}"
                             EditorCard(editor, tile, key, section, menus, onHold = { open ->
                                 if (open) {
@@ -183,12 +199,13 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                 }
             }
         }
-        Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(56.dp).testTag("add-cards"),
-            shape = CircleShape, color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
-            shadowElevation = 4.dp) {
-            IconButton({ search.open(CardListEdits.total(entries.orEmpty())) }, enabled = entries != null && editor.editable,
-                modifier = Modifier.semantics { contentDescription = "Add cards" }) {
-                Icon(screenIcon("add"), null)
+        // LOB-105, LOB-049: shown only when there is something to undo.
+        if (entries != null && editor.canUndo) {
+            Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(48.dp).testTag("card-list-undo"),
+                shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 4.dp) {
+                IconButton(editor::undoCards, enabled = editor.editable, modifier = Modifier.semantics { contentDescription = "Undo" }) {
+                    TableChromeIcon("undo")
+                }
             }
         }
     }
@@ -255,7 +272,7 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
 }
 
 /**
- * Full-screen catalog search (Add cards): the search field and quick filter chips on top, results as pictures, then the
+ * Full-screen catalog search (a section's +): the search field and quick filter chips on top, results as pictures, then the
  * destination group (Main | Side | Maybe; cubes Main | Maybe) and "Done · +N cards" within thumb reach. Tap a result to
  * add one copy to the destination, tap a section square to remove one from it, hold to preview. Done or Back keeps every change.
  */

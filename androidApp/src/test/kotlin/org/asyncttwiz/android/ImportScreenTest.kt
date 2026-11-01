@@ -71,7 +71,7 @@ class ImportScreenTest {
         } finally { controller.close() }
     }
 
-    // LOB-061
+    // LOB-061, LOB-059
     @Test fun deckPasteIconImportsAtOnceTypedLinksWaitForImportAndTheResultIsAnEditablePasteList() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val controller = DeckImportController({ resolved(it) }, worker) { it() }
@@ -98,7 +98,9 @@ class ImportScreenTest {
             compose.runOnIdle { worker.drain() }
             assertEquals(listOf("456"), fetched)
             compose.onNodeWithTag("deck-url").assertDoesNotExist()
-            compose.onNodeWithText("2 main · 1 side").assertIsDisplayed()
+            compose.runOnIdle { assertEquals(listOf(2L, 1L), listOf(DeckSection.MAINBOARD, DeckSection.SIDEBOARD).map(controller.state.result!!::count)) }
+            // LOB-059: the Text tab shows no counts.
+            compose.onNodeWithText("2 main · 1 side").assertDoesNotExist()
             compose.onNodeWithTag("deck-name").assertTextEquals("Site deck 456")
             compose.onNodeWithTag("deck-list").assertTextContains("2 Rune Bear", substring = true)
             compose.onNodeWithContentDescription("Choose deck cover").assertIsDisplayed()
@@ -170,8 +172,8 @@ class ImportScreenTest {
             compose.onNodeWithTag("deck-list").assertTextContains("2 Rune Bear", substring = true)
             assertTrue(worker.queue.isEmpty())
             compose.mainClock.advanceTimeBy(500)
-            compose.runOnIdle { worker.drain() }
-            compose.onNodeWithText("2 main · 1 side").assertIsDisplayed()
+            compose.runOnIdle { worker.drain(); assertTrue(controller.state.result!!.resolved) }
+            compose.onNodeWithText("2 main · 1 side").assertDoesNotExist() // LOB-059: no counts on the Text tab.
             compose.onNodeWithTag("save-deck").assertIsNotEnabled() // No name yet.
             compose.onNodeWithTag("deck-name").performTextInput("Bears")
             compose.onNodeWithTag("save-deck").assertIsEnabled()
@@ -179,6 +181,7 @@ class ImportScreenTest {
             compose.mainClock.advanceTimeBy(500)
             compose.runOnIdle { worker.drain() }
             compose.onNodeWithText("Line 1: Unknown could not be resolved.").assertIsDisplayed()
+            compose.onNodeWithTag("card-list-tab-text").assert(hasContentDescription("The list has problems"))
             compose.onNodeWithTag("save-deck").assertIsNotEnabled()
         } finally { controller.close() }
     }
@@ -228,7 +231,7 @@ class ImportScreenTest {
         } finally { controller.close(); worker.drain() }
     }
 
-    // DRF-008, DRF-009
+    // DRF-008, DRF-009, LOB-059
     @Test fun cubePasteIconImportsAtOnceWhileTypedLinksWaitForImportAndSaveNeedsAName() {
         val worker = Worker(); val fetched = mutableListOf<String>()
         val result = DeckImportResult("1 Rune Bear", listOf(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, listOf(printing), listOf(1))),
@@ -254,7 +257,8 @@ class ImportScreenTest {
             compose.runOnIdle { worker.drain() }
             assertEquals(listOf("typed"), fetched)
             compose.onNodeWithTag("cube-url").assertDoesNotExist()
-            compose.onNodeWithText("1 card").assertIsDisplayed()
+            compose.runOnIdle { assertTrue(controller.state.result!!.resolved) }
+            compose.onNodeWithText("1 card").assertDoesNotExist() // LOB-059: no counts on the Text tab.
             compose.onNodeWithTag("cube-name").assertTextEquals("typed")
             compose.onNodeWithTag("cube-list").assertTextContains("1 Rune Bear", substring = true)
             compose.onNodeWithTag("save-cube").assertIsEnabled()
@@ -299,8 +303,8 @@ class ImportScreenTest {
         } finally { compose.mainClock.autoAdvance = true; controller.close(); worker.drain() }
     }
 
-    // DRF-010
-    @Test fun savedCubeShowsPicturesUnderEditWithRenameConfirmedDeleteAndDraftThisCube() {
+    // DRF-010, LOB-057: Edit is the only button above a saved cube; Delete cube is in its editor, confirmed first.
+    @Test fun savedCubeShowsPicturesUnderEditAndDraftThisCubeAndItsEditorDeletesItConfirmed() {
         val worker = Worker()
         val card = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear")))
         val digest = DeckJson.digest(card)
@@ -332,32 +336,32 @@ class ImportScreenTest {
             val list = compose.onNodeWithContentDescription(tile).assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             compose.onNodeWithTag("cube-view").performScrollToIndex(0)
             val edit = compose.onNodeWithText("Edit").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            val rename = compose.onNodeWithText("Rename").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
-            assertTrue(edit.bottom <= rename.top && edit.bottom <= list.top, "Edit sits in the top bar above the pictures")
+            assertTrue(edit.bottom <= list.top, "Edit sits in the top bar above the pictures")
+            compose.onNodeWithText("Rename").assertDoesNotExist()
+            compose.onNodeWithText("Delete cube").assertDoesNotExist()
 
             compose.onNodeWithText("Draft this cube").assertIsDisplayed().performClick()
             assertEquals(listOf(saved.cube.id), drafted)
 
-            compose.onNodeWithText("Rename").performClick()
-            compose.onNodeWithText("Rename cube").assertIsDisplayed()
-            compose.onNode(hasText("Cube name") and hasSetTextAction()).performTextReplacement("Runes II")
-            compose.onNodeWithText("Save name").performClick()
+            compose.onNodeWithText("Edit").performClick()
             compose.runOnIdle { worker.drain() }
-            assertEquals("Runes II", renames.single().name); assertNull(renames.single().entries)
-            compose.onNodeWithText("Rename cube").assertDoesNotExist()
-            compose.onNodeWithText("Runes II").assertIsDisplayed()
-
-            compose.onNodeWithText("Delete cube").performClick()
+            compose.onNodeWithText("Edit cube").assertIsDisplayed()
+            compose.onNodeWithTag("cube-name").performTextReplacement("Runes II")
+            compose.onNodeWithTag("delete-list").assertTextEquals("Delete cube").performClick()
             compose.onNodeWithText("Delete cube?").assertIsDisplayed()
+            compose.onNodeWithText("Delete Runes? Deletion cannot be undone.").assertIsDisplayed()
             compose.onNodeWithText("Keep cube").performClick()
             compose.runOnIdle { worker.drain() }
             assertTrue(deletes.isEmpty(), "Delete needs confirmation")
             compose.onNodeWithText("Delete cube?").assertDoesNotExist()
-            compose.onNodeWithText("Delete cube").performClick()
+            compose.onNodeWithTag("cube-name").assertTextEquals("Runes II")
+            compose.onNodeWithTag("delete-list").performClick()
             compose.onNode(hasText("Delete cube") and hasAnyAncestor(isDialog())).performClick()
             compose.runOnIdle { worker.drain() }
             assertEquals(1, deletes.size)
-            compose.runOnIdle { assertNull(controller.state.selected) }
+            assertTrue(renames.isEmpty())
+            compose.runOnIdle { assertNull(controller.state.selected); assertFalse(controller.state.editing) }
+            compose.onNodeWithText("Discard unsaved changes?").assertDoesNotExist()
         } finally { controller.close(); worker.drain() }
     }
 }

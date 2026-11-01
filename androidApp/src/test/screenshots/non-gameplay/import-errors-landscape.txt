@@ -1,1 +1,1 @@
-Landscape deck import screen for a pasted list with one error: Unknown Card could not be resolved.
+Landscape deck import screen on its Text tab for a pasted list with one error: line 3 underlined in red, the message Unknown Card could not be resolved under the full-width box, and a red error icon on the Text tab.

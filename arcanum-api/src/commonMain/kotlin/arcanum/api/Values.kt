@@ -154,6 +154,8 @@ sealed interface Condition {
     @Serializable @SerialName("non-empty") data class NonEmpty(val name: String) : Condition
     /** Your speed is 4, the most it can be (max speed, CR 702.178). */
     @Serializable @SerialName("max-speed") data object MaxSpeed : Condition
+    /** This card is the companion its owner revealed before the game (CR 702.139a). */
+    @Serializable @SerialName("revealed-companion") data object RevealedCompanion : Condition
     /** The option [option] was chosen in the [Step.Choose] named [name]. */
     @Serializable @SerialName("chose") data class Chose(val name: String, val option: String) : Condition
     /** The mode at [index] (from 0) of the resolving spell or ability was chosen. */

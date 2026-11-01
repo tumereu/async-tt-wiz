@@ -18,6 +18,8 @@ sealed interface EventPattern {
      * is also [PlayLand]. */
     @Serializable @SerialName("zone-change") data class ZoneChange(
         val objects: ObjectFilter = ObjectFilter.Any, val from: Zone? = null, val to: Zone? = null,
+        /** Only the move of a spell as it finishes resolving ("as it resolves", CR 608.2n), not a countered spell. */
+        val resolving: Boolean = false,
     ) : EventPattern
     /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
      * from exile"). Role object = the spell. */
@@ -46,7 +48,7 @@ sealed interface EventPattern {
         val objects: ObjectFilter = ObjectFilter.Any, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
     ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes unattached from something matching [from]
-     * (CR 701.3d). */
+     * (CR 701.3d). Roles object (the attachment), from (what it was attached to, last known information). */
     @Serializable @SerialName("unattach") data class Unattach(val objects: ObjectFilter = ObjectFilter.Any, val from: ObjectFilter = ObjectFilter.Any) : EventPattern
     /** Counters of [kind] are removed from an object matching [objects]; [last]: only when that removal leaves none
      * ("when the last time counter is removed", CR 702.63a), part of the trigger event, not an intervening if. */

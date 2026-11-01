@@ -124,13 +124,13 @@ object KeywordExpansions {
         // CR 702.44a: enters with a +1/+1 counter (as a creature) or a charge counter for each colour of mana spent
         Keyword.Sunburst -> listOf(
             Ability.Static(listOf(entersWith(CounterKind.PowerToughness(1, 1), Value.ManaSpent(distinctColors = true))),
-                condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.Type(CardType.Creature))),
+                condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.Type(CardType.Creature, ignoringTypeChanges = true))),
             Ability.Static(listOf(entersWith(CounterKind.Named("charge"), Value.ManaSpent(distinctColors = true))),
-                condition = Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Type(CardType.Creature)))))
+                condition = Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Type(CardType.Creature, ignoringTypeChanges = true)))))
         // CR 702.88a: cast from your hand, it is exiled instead of going to the graveyard as it resolves, and at the
         // beginning of your next upkeep you may cast it from exile without paying its mana cost
         Keyword.Rebound -> listOf(Ability.Static(listOf(Mechanic.Replacement(
-            EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack, to = Zone.Graveyard),
+            EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack, to = Zone.Graveyard, resolving = true),
             instead = Instructions(steps = listOf(
                 Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = "rebound")),
                 Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)),
@@ -158,7 +158,7 @@ object KeywordExpansions {
         Keyword.Cascade -> listOf(Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
             Step.Do(Effect.RevealUntil(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), lowerManaValue)),
                 into = Zone.Exile, foundBind = "hit", restBind = "missed")),
-            Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("hit"), withoutPaying = true, bind = "cast")))),
+            Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("hit"), withoutPaying = true, bind = "cast", resultingSpell = lowerManaValue)))),
             Step.Do(Effect.Move(Objects.Except(Objects.Union(listOf(Objects.Bound("hit"), Objects.Bound("missed"))), Objects.Bound("cast")),
                 Destination(Zone.Library, libraryPosition = -1, randomOrder = true)))))))
         // CR 702.91a: "Whenever this creature attacks, each other attacking creature gets +1/+0 until end of turn."
@@ -198,15 +198,15 @@ object KeywordExpansions {
         // CR 702.35a: discarded into exile instead of the graveyard; "When this card is exiled this way, its owner may
         // cast it by paying [cost] rather than paying its mana cost. If that player doesn't, they put this card into
         // their graveyard."
-        is Keyword.Madness -> listOf(
-            Ability.Static(listOf(Mechanic.Replacement(EventPattern.Discard(ObjectFilter.Is(Objects.Self)),
-                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), functionsIn = listOf(Zone.Hand)),
-            Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Hand, to = Zone.Exile)),
-                Instructions(steps = listOf(
-                    Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.SelfAfter, cost = keyword.cost, caster = Players.OwnerOf(Objects.SelfAfter)))),
-                        payer = Players.OwnerOf(Objects.SelfAfter), bind = "cast"),
-                    Step.If(Condition.Not(Condition.Did("cast")), listOf(Step.Do(Effect.Move(Objects.SelfAfter, Destination(Zone.Graveyard))))))),
-                functionsIn = listOf(Zone.Exile)))
+        is Keyword.Madness -> listOf(Ability.Static(listOf(Mechanic.Replacement(EventPattern.Discard(ObjectFilter.Is(Objects.Self)),
+            modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))),
+            whenApplied = Instructions(steps = listOf(
+                Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.EventObject(EventRole.After), cost = keyword.cost,
+                    caster = Players.OwnerOf(Objects.EventObject(EventRole.After))))),
+                    payer = Players.OwnerOf(Objects.EventObject(EventRole.After)), bind = "cast"),
+                Step.If(Condition.Not(Condition.Did("cast")),
+                    listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Graveyard))))))))),
+            functionsIn = listOf(Zone.Hand)))
         // CR 702.43a: enters with N +1/+1 counters; "When this permanent is put into a graveyard from the battlefield,
         // you may put a +1/+1 counter on target artifact creature for each +1/+1 counter on this permanent."
         is Keyword.Modular -> listOf(
@@ -239,7 +239,10 @@ object KeywordExpansions {
                 Ability.Triggered(Trigger.On(EventPattern.CountersRemoved(ObjectFilter.Is(Objects.Self), CounterKind.Time, last = true)),
                     Instructions(steps = listOf(
                         Step.May(listOf(Step.Do(Effect.Cast(Objects.Self, how = PlayKind.Play, withoutPaying = true, bind = "played")))),
-                        Step.Do(Effect.SpellGets(Objects.Bound("played"), listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))))))),
+                        Step.If(Condition.ObjectMatches(Objects.Bound("played"), ObjectFilter.Type(CardType.Creature)), listOf(
+                            Step.Do(Effect.SpellGets(Objects.Bound("played"), listOf(Mechanic.GainAbilities(listOf(Keyword.Haste))),
+                                duration = Duration.AsLongAs(Condition.ObjectMatches(Objects.Bound("played"),
+                                    ObjectFilter.ControlledBy(PlayerFilter.You))))))))),
                     interveningIf = Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Exile)), functionsIn = listOf(Zone.Exile)))
         }
         // CR 702.122a: "Tap any number of other untapped creatures you control with total power N or greater: This
@@ -269,7 +272,10 @@ object KeywordExpansions {
                 steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Target("creature")))))),
                 ActivationRules(timing = Timing.Sorcery)),
             Ability.Activated(keyword.cost, steps(Effect.Unattach(Objects.Self)), ActivationRules(timing = Timing.Sorcery,
-                condition = Condition.ObjectMatches(Objects.AttachedTo(), ObjectFilter.Type(CardType.Creature)))))
+                condition = Condition.ObjectMatches(Objects.AttachedTo(), ObjectFilter.Type(CardType.Creature)))),
+            // CR 702.151b: attached to a creature, it stops being a creature until it becomes unattached
+            Ability.Static(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))),
+                condition = Condition.ObjectMatches(Objects.AttachedTo(), ObjectFilter.Type(CardType.Creature))))
         // CR 702.123a: "When this permanent enters, you may put N +1/+1 counters on it. If you don't, create N 1/1
         // colorless Servo artifact creature tokens."
         is Keyword.Fabricate -> listOf(Ability.Triggered(entersSelf, Instructions(steps = listOf(
@@ -287,13 +293,16 @@ object KeywordExpansions {
                 Step.Choose(Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("seen")), bind = "hidden"),
                 Step.Do(Effect.Move(Objects.Bound("hidden"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
                 Step.Do(Effect.Remember(Keyword.Hideaway.Kind.id, Objects.Bound("exiled"))),
+                // The exiled card gains "the player who controls the permanent that exiled it may look at it"
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(Objects.Affected)), Affected.Objects(Objects.Bound("exiled")),
+                    Duration.Indefinitely)),
                 Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("hidden")),
-                    Destination(Zone.Library, libraryPosition = -1, randomOrder = true)))))),
-            Ability.Static(listOf(Mechanic.MayLookAt(Objects.LinkedTo(Keyword.Hideaway.Kind)))))
+                    Destination(Zone.Library, libraryPosition = -1, randomOrder = true)))))))
         // CR 702.27a: optional additional cost; if paid, the spell goes to its owner's hand instead of the graveyard
         is Keyword.Buyback -> listOf(
             Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Buyback.Kind, keyword.cost, optional = true))),
-            Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack, to = Zone.Graveyard),
+            Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack,
+                to = Zone.Graveyard, resolving = true),
                 modify = listOf(Modification.ChangeDestination(Destination(Zone.Hand))))), condition = Condition.Paid(Keyword.Buyback.Kind)))
         // CR 702.138a: cast from your graveyard by paying [cost] rather than its mana cost
         is Keyword.Escape -> static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, cost = keyword.cost))
@@ -307,7 +316,7 @@ object KeywordExpansions {
         // empty Stack)
         is Keyword.CompanionAbility -> listOf(Ability.SpecialAction(Cost.mana(ManaCost.parse("{3}")!!),
             steps(Effect.Move(Objects.Self, Destination(Zone.Hand))), timing = Timing.Sorcery, functionsIn = listOf(Zone.Outside),
-            oncePerGame = true))
+            oncePerGame = true, condition = Condition.RevealedCompanion))
         else -> null
     }
 
@@ -319,11 +328,11 @@ object KeywordExpansions {
         // CR 701.16a: create a Clue token (CR 111.10f)
         is KeywordAction.Investigate -> listOf(Step.Do(Effect.CreateToken(TokenSpec.Predefined("Clue"), count = action.count)))
         // CR 701.50a: draw N, then discard N; for each nonland card discarded, put a +1/+1 counter on the conniving creature
-        is KeywordAction.Connive -> listOf(
-            Step.Do(Effect.Draw(Players.ControllerOf(action.objects), action.count)),
-            Step.Do(Effect.Discard(Players.ControllerOf(action.objects), action.count, preBind = "connived")),
-            Step.Do(Effect.PutCounters(action.objects, CounterKind.PowerToughness(1, 1), Value.Count(Objects.Each(ObjectFilter.And(listOf(
-                ObjectFilter.Is(Objects.Bound("connived")), ObjectFilter.Not(ObjectFilter.Type(CardType.Land)))))))))
+        is KeywordAction.Connive -> listOf(Step.ForEach(Each.Objects(action.objects), "conniver", listOf(
+            Step.Do(Effect.Draw(Players.ControllerOf(Objects.Bound("conniver")), action.count)),
+            Step.Do(Effect.Discard(Players.ControllerOf(Objects.Bound("conniver")), action.count, preBind = "connived")),
+            Step.Do(Effect.PutCounters(Objects.Bound("conniver"), CounterKind.PowerToughness(1, 1), Value.Count(Objects.Where(
+                Objects.Bound("connived"), ObjectFilter.Not(ObjectFilter.Type(CardType.Land)))))))))
         // CR 701.39a: put N +1/+1 counters on a creature with the least toughness among creatures you control
         is KeywordAction.Bolster -> {
             val mine = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You)))
@@ -360,9 +369,10 @@ object KeywordExpansions {
     /** CR 702.37a–b: cast face down for {3}; turn face up for [cost] (megamorph: and put a +1/+1 counter on it). */
     private fun morph(cost: Cost, megamorph: Boolean): List<Ability> = listOf(
         Ability.Static(listOf(Mechanic.AlternativeCost(Keyword.Morph, Cost.mana(ManaCost.parse("{3}")!!), faceDown = true))),
-        Ability.SpecialAction(cost, Instructions(steps = listOfNotNull(Step.Do(Effect.TurnFaceUp(Objects.Self)),
-            if (megamorph) Step.Do(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))) else null)),
-            functionsIn = listOf(Zone.Battlefield)))
+        Ability.SpecialAction(cost, steps(Effect.TurnFaceUp(Objects.Self,
+            counters = if (megamorph) listOf(CountersToPut(CounterKind.PowerToughness(1, 1))) else emptyList())),
+            functionsIn = listOf(Zone.Battlefield),
+            condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.FaceDown))))
 
     /**
      * [ability] with the rules its [AbilityLabel] adds (CR 702.142a, 702.169b–d, 702.177a, 702.178a, 702.193a). Power-up's

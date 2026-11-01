@@ -49,6 +49,9 @@ sealed interface Objects {
     @Serializable @SerialName("paid-with") data class PaidWith(val way: ManaPaymentWay, val of: Objects = Self) : Objects
     /** [count] of [of] chosen at random ("a card at random in target player's hand"); answered by the host (D25). */
     @Serializable @SerialName("random") data class Random(val of: Objects, val count: Value = Value.Fixed(1)) : Objects
+    /** Those of [objects] that match [filter], wherever they are ("each nonland card discarded this way"); unlike
+     * [Each], which looks at the battlefield unless the filter names zones. */
+    @Serializable @SerialName("where") data class Where(val objects: Objects, val filter: ObjectFilter) : Objects
     /** [base] without [minus] ("the rest", "the other cards"). */
     @Serializable @SerialName("except") data class Except(val base: Objects, val minus: Objects) : Objects
 }
@@ -74,6 +77,8 @@ sealed interface EventRole {
     @Serializable @SerialName("other-combatant") data object OtherCombatant : EventRole
     /** In an attack: the planeswalker or battle attacked (the attacked player is [Players.EventPlayer]). */
     @Serializable @SerialName("defender") data object Defender : EventRole
+    /** In an unattach event: the object or player it was attached to. */
+    @Serializable @SerialName("from") data object From : EventRole
 }
 
 /**
@@ -91,7 +96,8 @@ sealed interface ObjectFilter {
 
     /** What kind of object (CR 109.1): card, token, spell, permanent, ability on the Stack. */
     @Serializable @SerialName("category") data class Category(val category: ObjectCategory) : ObjectFilter
-    @Serializable @SerialName("type") data class Type(val cardType: CardType) : ObjectFilter
+    /** Has [cardType]; [ignoringTypeChanges]: as it would be without type-changing effects (sunburst, CR 702.44a). */
+    @Serializable @SerialName("type") data class Type(val cardType: CardType, val ignoringTypeChanges: Boolean = false) : ObjectFilter
     @Serializable @SerialName("supertype") data class Super(val supertype: Supertype) : ObjectFilter
     /** Has [subtype] ("Elf", or "the chosen type" through [SubtypeRef.Chosen]). */
     @Serializable @SerialName("subtype") data class Sub(val subtype: SubtypeRef) : ObjectFilter {
@@ -117,8 +123,6 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("chosen-name") data class ChosenName(val name: String) : ObjectFilter
     /** Has the card name kept as card memory under [key] ("the chosen name" of a permanent). */
     @Serializable @SerialName("remembered-name") data class RememberedName(val key: String) : ObjectFilter
-    /** This activated ability itself ("This ability costs {1} less to activate"). */
-    @Serializable @SerialName("this-ability") data object ThisAbility : ObjectFilter
 
     /** Has the keyword ability [keyword] ("creatures with flying"), including typecycling for cycling (CR 702.29f). */
     @Serializable @SerialName("has-keyword") data class HasKeyword(
@@ -236,6 +240,9 @@ sealed interface Players {
      * the battle they attack (CR 506.2, 802.2a). In an attack trigger, "defending player" is
      * `DefendingPlayerOf(EventObject())`; [EventPlayer] is only for "the player it's attacking". */
     @Serializable @SerialName("defending-player-of") data class DefendingPlayerOf(val attackers: Objects) : Players
+    /** In a permission ([Mechanic.MayPlay]): the player using it ("Any player may cast creature spells … from their
+     * hand": cards owned by the holder). */
+    @Serializable @SerialName("holder") data object Holder : Players
     /** Inside a [PlayerFilter.Where] condition: the player being tested. */
     @Serializable @SerialName("tested") data object Tested : Players
     /** In a [TargetSlot.perPlayer] slot's filter: the player this target is for ("target creature that player controls"). */

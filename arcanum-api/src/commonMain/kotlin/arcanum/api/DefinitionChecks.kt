@@ -60,9 +60,10 @@ object DefinitionChecks {
         "becomes-target" to setOf("object", "source"),
         "attack" to setOf("object", "defender"),
         "discard" to setOf("before", "after"),
+        "unattach" to setOf("object", "from"),
     )
     private val eventScoped = setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
-    private val manyObjects = setOf("each", "union", "except", "library-cards")
+    private val manyObjects = setOf("each", "union", "except", "library-cards", "remembered", "where")
     private val asEntersSteps = setOf("pay", "unless", "choose", "if", "modify")
     private val nameKeys = listOf("bind", "preBind", "postBind", "foundBind", "restBind", "chosenBind", "otherBind")
 
@@ -124,7 +125,7 @@ object DefinitionChecks {
                     element.typeOf("affects") != "next-spells" &&
                     (element["mechanics"] as? JsonArray).orEmpty().any { (it as? JsonObject)?.typeName() in eventScoped })
                     found += "an effect with event-scoped mechanics changes the rules of the game; leave its affects empty (CR 611.2c)"
-                if (type == "compare" && element.typeOf("right") == "fixed") {
+                if (type == "compare" && element.typeOf("right") == "fixed" && element.typeOf("comparison") in setOf("ge", "gt")) {
                     val left = element["left"] as? JsonObject
                     if (left?.typeName() == "count" && left.typeOf("objects") == "each") found += "a count of matching objects compared with a number: use Exists"
                     if (left?.typeName() == "events-this-turn") found += "a count of this turn's events compared with a number: use HappenedThisTurn"
@@ -156,6 +157,36 @@ object DefinitionChecks {
                     val body = (element["steps"] as? JsonArray).orEmpty()
                     if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do")
                         found += "a single effect for each player: give the effect the players (one event); loops are for several steps"
+                }
+                if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")
+                    found += "objects narrowed from a reference are Objects.Where (Each looks at the battlefield)"
+                if (type == "may") (element["steps"] as? JsonArray)?.firstOrNull()?.let { first ->
+                    val choice = (first as? JsonObject)?.takeIf { it.typeName() == "choose" }?.get("choice") as? JsonObject
+                    if (choice?.typeName() == "objects" && choice.fixed("min") == 1 && choice.fixed("max") == 1)
+                        found += "\"you may choose one\" is a choice of zero or one, not May"
+                }
+                if (type == "pay" && element.string("bind") == null)
+                    found += "a Pay that nothing reads is a May; give it a bind for \"if you do\""
+                if (type == "discard" && element.typeOf("count") == "count")
+                    found += "\"discard your hand\" is Discard(objects = the cards in that hand)"
+                if (type == "cast" && "objects" in element && element.boolean("withoutPaying") && element["cost"] != null)
+                    found += "cast either without paying or for a cost, not both"
+                if (type == "sacrifice" && "what" in element && element.typeOf("what") == "self" && element["preBind"] != null)
+                    found += "the sacrificed source is Objects.Self (its last known information, CR 113.7a)"
+                if (type == "modify" && element.typeOf("modification") == "destination")
+                    found += "\"if it would enter, … instead\" is a replacement's instead, not an \"as enters\" modification"
+                if (type == "delayed-trigger" && element.boolean("repeats") && element["duration"] == null)
+                    found += "a repeating delayed trigger needs a duration"
+                if (type == "as-long-as") (element["condition"] as? JsonObject)?.let { c ->
+                    if (c.typeName() == "object-is" && c.typeOf("objects") in setOf("bound", "target") && c.typeOf("filter") == "in-zone")
+                        found += "\"for as long as it remains there\" is Indefinitely: it is a new object once it leaves (CR 400.7)"
+                }
+                if (type == "if") {
+                    fun damage(branch: JsonElement?) = ((branch as? JsonArray)?.singleOrNull() as? JsonObject)?.takeIf { it.typeName() == "do" }
+                        ?.get("effect") as? JsonObject
+                    val a = damage(element["then"]); val b = damage(element["otherwise"])
+                    if (a?.typeName() == "damage" && b?.typeName() == "damage" && JsonObject(a - "cantBePrevented") == JsonObject(b - "cantBePrevented"))
+                        found += "conditional \"the damage can't be prevented\" is a static DamageCantBePrevented with that condition"
                 }
                 if (type == "objects" && "filter" in element && "min" in element) {
                     val min = element.fixed("min"); val max = element.fixed("max")
@@ -215,6 +246,7 @@ object DefinitionChecks {
             (scope.usedSlots - scope.slots).forEach { found += "$name: target slot \"$it\" is used but not declared in its ability" }
             (scope.usedAnnounced - scope.announced).forEach { found += "$name: \"$it\" is used but never announced" }
             if (scope.usesDividedShare && scope.dividedSlots.isEmpty()) found += "$name: a divided share is read without a divided target slot"
+            if (scope.usesCastX && ability.typeName() == "spell") found += "$name: inside the spell's own instructions X is Announced"
             if (scope.usesAffected && ability.typeName() != "static") found += "$name: \"the affected object/player\" outside a static ability or effect"
             scope.recipientUses.forEach { (slot, halves, byTarget) ->
                 val either = slot in scope.eitherSlots
@@ -253,6 +285,7 @@ object DefinitionChecks {
         val usedAnnounced = mutableSetOf<String>()
         var usesDividedShare = false
         var usesAffected = false
+        var usesCastX = false
         val nested = mutableListOf<JsonObject>()
         val eitherSlots = mutableSetOf<String>()
         /** Recipients naming a target slot: slot, uses objects, uses players, written with `target`. */
@@ -276,7 +309,10 @@ object DefinitionChecks {
                     }
                     (element["announced"] as? JsonArray)?.forEach { announced += it.jsonPrimitive.content }
                     when (element.typeName()) {
-                        "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose", "chosen" -> element.string("name")?.let { usedNames += it }
+                        "bound", "excess", "did", "could-not", "won-flip", "non-empty", "chose", "chosen", "chosen-name", "searched" ->
+                            element.string("name")?.let { usedNames += it }
+                        "targets-legal" -> (element["slots"] as? JsonArray)?.forEach { usedSlots += it.jsonPrimitive.content }
+                        "cast-x" -> if (element["of"] == null) usesCastX = true
                         "target" -> element.string("slot")?.let { usedSlots += it }
                         "announced" -> usedAnnounced += element.string("name") ?: "X"
                         "divided-share" -> usesDividedShare = true

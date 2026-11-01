@@ -91,7 +91,8 @@ sealed interface Effect {
     @Serializable @SerialName("flip") data class Flip(val objects: Objects) : Effect
     /** [players] skip their next turn. */
     @Serializable @SerialName("skip-next-turn") data class SkipNextTurn(val players: Players = Players.You) : Effect
-    @Serializable @SerialName("turn-face-up") data class TurnFaceUp(val objects: Objects) : Effect
+    /** Turn [objects] face up, putting [counters] on as it is turned (megamorph, CR 702.37b). */
+    @Serializable @SerialName("turn-face-up") data class TurnFaceUp(val objects: Objects, val counters: List<CountersToPut> = emptyList()) : Effect
     @Serializable @SerialName("turn-face-down") data class TurnFaceDown(val objects: Objects) : Effect
     @Serializable @SerialName("phase-out") data class PhaseOut(val objects: Objects) : Effect
     /** Put [mark] on [objects], or take it off ([remove], "is no longer suspected"). Saddled ends at end of turn or when
@@ -179,7 +180,11 @@ sealed interface Effect {
      * two additional +1/+1 counters", "it can't be countered". Inside [mechanics], [Objects.Affected] is the spell and the
      * permanent it becomes; values are fixed when this effect happens (CR 608.2h). Mana riders use the same idea
      * ([ManaProduction.spellGets]). */
-    @Serializable @SerialName("spell-gets") data class SpellGets(val objects: Objects, val mechanics: List<Mechanic>) : Effect
+    @Serializable @SerialName("spell-gets") data class SpellGets(
+        val objects: Objects, val mechanics: List<Mechanic>,
+        /** How long it lasts ("until you lose control of the spell or the permanent it becomes"); null: for good. */
+        val duration: Duration? = null,
+    ) : Effect
     @Serializable @SerialName("win") data class WinGame(val players: Players = Players.You) : Effect
     @Serializable @SerialName("lose") data class LoseGame(val players: Players) : Effect
     /** [caster] casts [objects] now ([how] play: a land is played instead, CR 305.1), without paying their mana cost or by paying
@@ -187,6 +192,8 @@ sealed interface Effect {
     @Serializable @SerialName("cast") data class Cast(
         val objects: Objects, val how: PlayKind = PlayKind.Cast, val withoutPaying: Boolean = false, val cost: Cost? = null,
         val bind: String? = null, val caster: Players = Players.You,
+        /** Only if the resulting spell matches ("if the resulting spell's mana value is less", cascade, CR 702.85a). */
+        val resultingSpell: ObjectFilter? = null,
     ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
      * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once
@@ -248,8 +255,7 @@ sealed interface TokenSpec {
      * indicator. [power]/[toughness] set computed values ("an X/X Ooze token"), fixed when created and part of its
      * copiable values (CR 707.2). */
     @Serializable @SerialName("defined") data class Defined(val face: FaceDefinition, val power: Value? = null, val toughness: Value? = null) : TokenSpec
-    /** A predefined token (CR 111.10): Treasure, Clue, Food, Blood, Map, Powerstone, … by name; the shared table
-     * holds their definitions. */
+    /** A predefined token (CR 111.10) by name; [PredefinedTokens] holds the definitions it knows. */
     @Serializable @SerialName("predefined") data class Predefined(val name: String) : TokenSpec
     /** A token that's a copy of [objects] (CR 707), with the exceptions [except] (CR 707.9b). */
     @Serializable @SerialName("copy") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : TokenSpec

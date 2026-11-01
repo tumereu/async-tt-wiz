@@ -35,7 +35,7 @@ The definition model (overview in `Definitions.kt`):
 - `ComprehensiveRules.EFFECTIVE_DATE`: the pinned rules version (2026-09-25).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
-JSON. Decisions from the API reviews (D19–D48) are built here where they concern card
+JSON. Decisions from the API reviews (D19–D49) are built here where they concern card
 definitions; the runtime types they describe (object ids, Stack items and
 sequences, effect objects, ledgers, tagged events, timestamps) belong to the engine
 API and are not built yet. `DefinitionChecks.problems` reports definitions the

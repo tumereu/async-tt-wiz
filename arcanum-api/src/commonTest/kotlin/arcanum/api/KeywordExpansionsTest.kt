@@ -56,4 +56,36 @@ class KeywordExpansionsTest {
             assertEquals(emptyList(), DefinitionChecks.problems(card(listOf(Ability.Spell(Instructions(steps = steps))))), action.toString())
         }
     }
+
+    // CR 702.35a: "When this card is exiled this way": the trigger is linked to the discard replacement, not any exile.
+    @Test
+    fun madnessTriggersOnlyThroughItsReplacement() {
+        val abilities = KeywordExpansions.expand(Keyword.Madness(cost))!!
+        val replacement = ((abilities.single() as Ability.Static).mechanics.single() as Mechanic.Replacement)
+        assertEquals(EventPattern.Discard(ObjectFilter.Is(Objects.Self)), replacement.event)
+        assertNotNull(replacement.whenApplied)
+    }
+
+    // CR 702.88a, 702.27a: rebound and buyback act "as it resolves", not when the spell is countered (CR 608.2n).
+    @Test
+    fun reboundAndBuybackOnlyAsTheSpellResolves() {
+        val rebound = (KeywordExpansions.expand(Keyword.Rebound)!!.single() as Ability.Static).mechanics.single() as Mechanic.Replacement
+        assertEquals(true, (rebound.event as EventPattern.ZoneChange).resolving)
+        val buyback = (KeywordExpansions.expand(Keyword.Buyback(cost))!![1] as Ability.Static).mechanics.single() as Mechanic.Replacement
+        assertEquals(true, (buyback.event as EventPattern.ZoneChange).resolving)
+    }
+
+    // CR 702.151b: an attached reconfigure Equipment stops being a creature.
+    @Test
+    fun reconfigureStopsBeingACreatureWhileAttached() {
+        val static = KeywordExpansions.expand(Keyword.Reconfigure(cost))!!.filterIsInstance<Ability.Static>().single()
+        assertEquals(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))), static.mechanics)
+    }
+
+    // CR 701.50a: connive counts the discarded nonland cards wherever they went (not on the battlefield).
+    @Test
+    fun conniveCountsDiscardedCardsWhereverTheyAre() {
+        val text = Json.encodeToString(Step.serializer(), KeywordExpansions.expand(KeywordAction.Connive())!!.single())
+        assertEquals(true, "\"type\":\"where\"" in text)
+    }
 }

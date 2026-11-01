@@ -159,6 +159,8 @@ sealed interface Ability {
         val functionsIn: List<Zone>? = null,
         /** Only once each game (companion, CR 116.2g). */
         val oncePerGame: Boolean = false,
+        /** Only while this holds ("turn a face-down permanent face up", CR 702.37e; "the companion you revealed"). */
+        val condition: Condition? = null,
         val text: String? = null,
     ) : Ability
 
@@ -188,6 +190,8 @@ data class ActivationRules(
     val perTurn: Int? = null,
     /** "Activate only once": once for as long as the object exists (exhaust, CR 702.177a). */
     val once: Boolean = false,
+    /** "This ability costs [costChange] more (negative: less) to activate" (generic mana). */
+    val costChange: Value? = null,
     /** "Activate only if …". */
     val condition: Condition? = null,
 )

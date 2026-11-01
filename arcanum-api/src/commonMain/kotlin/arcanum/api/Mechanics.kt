@@ -321,6 +321,9 @@ sealed interface Mechanic {
         val instead: Instructions? = null,
         val modify: List<Modification> = emptyList(),
         val optional: Boolean = false,
+        /** A triggered ability linked to this replacement, triggering each time it is applied ("When this card is
+         * exiled this way", madness, CR 702.35a, 603.11); [Objects.EventObject] in it is the replaced event's object. */
+        val whenApplied: Instructions? = null,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }

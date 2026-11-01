@@ -154,6 +154,15 @@ object OracleParser {
                 else -> arcanum.api.TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null)
             })
         }
+        // chunk 50: "protection from blue", "protection from multicolored" (CR 702.16a)
+        PROTECTION.matchEntire(part)?.let { m ->
+            return Keyword.Protection(when (val quality = m.groupValues[1]) {
+                "multicolored" -> arcanum.api.ObjectFilter.Multicolored
+                "monocolored" -> arcanum.api.ObjectFilter.Monocolored
+                "everything" -> arcanum.api.ObjectFilter.Any
+                else -> Filters.noun(quality) ?: return null
+            })
+        }
         val lower = part.lowercase()
         val syntax = BY_LENGTH.firstOrNull { k ->
             lower.startsWith(k.lowercase) && (lower.length == k.lowercase.length || lower[k.lowercase.length] in " —")
@@ -182,6 +191,8 @@ object OracleParser {
     private val ENCHANT = Regex("""Enchant (.+)""")
     // chunk 13
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
+    // chunk 50
+    private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

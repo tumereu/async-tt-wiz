@@ -40,11 +40,25 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     /** A Cards tab or search edit: the list is replaced and its text rewritten, already resolved, so no lookup runs. */
     override fun applyCards(entries: List<ResolvedDeckEntry>, catalog: CatalogMetadata?) {
         if (closed || !editable) return
+        val before = UndoStep(state.text, state.result, state.cover, chosenCover)
         epoch++; retryPlan = null; relookupAfterCurrent = false; saveAfterLookup = false
         val text = CardListEdits.text(kind, entries)
         state = state.copy(text = text, result = DeckImportResult(text, entries, emptyList(), catalog ?: state.result?.catalog),
             preview = false, error = null, lookupFailed = false)
-        if (state.cover != null && coverCards.none { it.digest == state.cover }) { chosenCover = null; state = state.copy(cover = null) }
+        val cleared = state.cover != null && coverCards.none { it.digest == state.cover }
+        if (cleared) { chosenCover = null; state = state.copy(cover = null) }
+        undo.push(if (cleared) before else before.copy(cover = null, chosenCover = null))
+    }
+    /** The list before one Cards tab or search change, and the cover that change cleared (null when it kept it). */
+    private data class UndoStep(val text: String, val result: DeckImportResult?, val cover: String?, val chosenCover: SubmittedDefinition?)
+    private val undo = CardListUndo<UndoStep>()
+    override val canUndo get() = undo.steps.isNotEmpty()
+    override fun undoCards() {
+        if (closed || !editable) return
+        val step = undo.pop() ?: return
+        epoch++; retryPlan = null; relookupAfterCurrent = false; saveAfterLookup = false
+        state = state.copy(text = step.text, result = step.result, preview = false, error = null, lookupFailed = false)
+        if (step.cover != null && state.cover == null) { chosenCover = step.chosenCover; state = state.copy(cover = step.cover) }
     }
     @Volatile private var epoch = 0L
     private var closed = false
@@ -116,7 +130,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
                 else {
                     // An ordinary editable paste list: the list is replaced, a typed name is kept and
                     // the cover stays while it is still one of the cards (the sources have no cover).
-                    source = null; retryPlan = null
+                    source = null; retryPlan = null; undo.clear()
                     state = state.copy(text = imported.parsed.text, name = state.name.ifBlank { imported.name },
                         result = resolved?.getOrNull(), busy = false, fetchingUrl = false, linkDialog = false,
                         linkError = null, preview = false, lookupFailed = resolved?.isFailure == true,
@@ -200,7 +214,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
             } } } }
         }, saved = saved)
     }
-    fun open() { if (!closed) { epoch++; search.reset(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
+    fun open() { if (!closed) { epoch++; search.reset(); undo.clear(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState(active = true); initial = state } }
     fun openEditor(detail: DeckDetail) {
         open()
         if (closed) return
@@ -218,10 +232,10 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
         open()
         if (!closed) state = state.copy(target = deck.id, name = deck.name)
     }
-    fun exit() { epoch++; search.reset(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
+    fun exit() { epoch++; search.reset(); undo.clear(); inspection.close(); retryPlan = null; source = null; chosenCover = null; saveAfterLookup = false; relookupAfterCurrent = false; state = DeckImportState() }
     fun edit(text: String) {
         if (!closed && state.active) { if (!state.saving) epoch++; retryPlan = null
-            relookupAfterCurrent = false; saveAfterLookup = false
+            relookupAfterCurrent = false; saveAfterLookup = false; undo.clear()
             state = state.copy(text = text, busy = false, fetchingUrl = false, result = null, preview = false, error = null, lookupFailed = false) }
     }
     fun lookup() {

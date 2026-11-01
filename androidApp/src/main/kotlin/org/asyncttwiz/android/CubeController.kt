@@ -48,9 +48,19 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     /** A Cards tab or search edit: the list is replaced and its text rewritten, already resolved, so no lookup runs. */
     override fun applyCards(entries: List<ResolvedDeckEntry>, catalog: CatalogMetadata?) {
         if (closed || !editable) return
+        undo.push(state.text to state.result)
         editInput()
         val text = CardListEdits.text(kind, entries)
         state = state.copy(text = text, result = DeckImportResult(text, entries, emptyList(), catalog ?: state.result?.catalog), error = null)
+    }
+    /** The text and list before each Cards tab or search change. */
+    private val undo = CardListUndo<Pair<String, DeckImportResult?>>()
+    override val canUndo get() = undo.steps.isNotEmpty()
+    override fun undoCards() {
+        if (closed || !editable) return
+        val (text, result) = undo.pop() ?: return
+        editInput()
+        state = state.copy(text = text, result = result, error = null)
     }
     /** Leaving the editor: asks "Discard unsaved changes?" when the name or list changed. */
     fun cancelEdit() {
@@ -59,7 +69,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     fun keepEditing() { state = state.copy(discard = false) }
     fun discardEdit() {
         if (state.busy) { epoch++; state = state.copy(busy = false, saving = false, fetching = false) }
-        search.reset(); source = null; cobraSource = null; pendingSave = null
+        search.reset(); undo.clear(); source = null; cobraSource = null; pendingSave = null
         state = state.copy(editing = false, result = null, error = null, discard = false)
     }
     @Volatile private var epoch = 0L
@@ -78,7 +88,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         if (!closed && state.dialog == null && !state.editing && detail.saved.entries.any { it.definition == identity })
             detail.definitions[identity]?.let { inspection.open(InspectedCard.retained(identity, it)) }
     }
-    fun clear() { inspection.close(); search.reset(); epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
+    fun clear() { inspection.close(); search.reset(); undo.clear(); epoch++; definitionCache = ConcurrentHashMap(); source = null; cobraSource = null; pendingSave = null; pendingUpdate = null; pendingDelete = null; state = CubeState() }
     fun dismissError() { state = state.copy(error = null) }
     fun back() {
         if (inspection.state != null) { inspection.close(); return }
@@ -123,7 +133,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     }
     fun newCube() {
         if (state.busy) return
-        source = null; cobraSource = null; pendingSave = null; search.reset()
+        source = null; cobraSource = null; pendingSave = null; search.reset(); undo.clear()
         state = state.copy(editing = true, target = null, name = "", text = "", cobraInput = "",
             provenance = null, result = null, error = null, linkDialog = false, clipboardRead = false,
             linkError = null, destination = DeckSection.MAINBOARD, discard = false)
@@ -132,7 +142,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     fun edit() {
         if (state.busy) return
         val detail = state.detail ?: return
-        val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null; search.reset()
+        val retained = CubeEditorSource(detail); source = retained; cobraSource = null; pendingSave = null; search.reset(); undo.clear()
         state = state.copy(editing = true, target = detail.saved.cube.id, name = detail.saved.cube.name,
             text = retained.text, cobraInput = "", provenance = detail.saved.cube.cubeCobraId,
             result = null, error = null, linkDialog = false, clipboardRead = false, linkError = null,
@@ -145,7 +155,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         pendingSave = null
     }
     fun name(value: String) { editInput(); pendingUpdate = null; state = state.copy(name = value, error = null) }
-    fun text(value: String) { editInput(); state = state.copy(text = value, result = null, error = null) }
+    fun text(value: String) { editInput(); undo.clear(); state = state.copy(text = value, result = null, error = null) }
     fun cobraInput(value: String) {
         if (state.fetching) { epoch++; state = state.copy(busy = false, fetching = false) }
         state = state.copy(cobraInput = value, linkError = null)
@@ -200,7 +210,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             val parsed = fetchCobra(id)
             val result = resolveCobra(parsed)
             return@work {
-                source = null; cobraSource = parsed; pendingSave = null
+                source = null; cobraSource = parsed; pendingSave = null; undo.clear()
                 // An ordinary editable paste list: the list is replaced and a typed name is kept.
                 state = state.copy(text = parsed.text, name = state.name.ifBlank { id }, provenance = id,
                     result = result, linkDialog = false, linkError = null, error = null)
@@ -240,7 +250,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
             return@work {
                 pendingSave = null
                 if (state.text == input.text && state.name == input.name) {
-                    source = null; cobraSource = null; search.reset(); state = state.copy(editing = false, result = null)
+                    source = null; cobraSource = null; search.reset(); undo.clear(); state = state.copy(editing = false, result = null)
                     open(saved.cube.id)
                 } else { initial = input.name to input.text; state = state.copy(target = saved.cube.id) }
             }

@@ -189,6 +189,15 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                 }
             }
         }
+        // LOB-105, LOB-049: shown only when there is something to undo.
+        if (entries != null && editor.canUndo) {
+            Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(48.dp).testTag("card-list-undo"),
+                shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 4.dp) {
+                IconButton(editor::undoCards, enabled = editor.editable, modifier = Modifier.semantics { contentDescription = "Undo" }) {
+                    TableChromeIcon("undo")
+                }
+            }
+        }
     }
     held?.second?.let { tile ->
         val card = remember(tile.digest, tile.definition) {

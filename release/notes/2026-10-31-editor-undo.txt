@@ -1,0 +1,1 @@
+add: The deck and cube editor has an Undo button that takes back card changes one at a time.

@@ -190,6 +190,60 @@ class CardListEditorUiTest {
         compose.onNodeWithTag("destination-main").assertIsSelected()
     }
 
+    // LOB-105, LOB-049: a round Undo at the bottom left, shown only when there is something to undo, takes back Cards tab and
+    // search changes one at a time.
+    @Test fun undoTakesBackCardsTabAndSearchChangesOneAtATime() {
+        val editor = editor()
+        connectSearch(editor, "Rune Bear")
+        val original = editor.state.text
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
+        compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
+        val sentinel = "editor-card-MAINBOARD/${digest("Meadow Sentinel")}"
+        compose.onNodeWithTag(sentinel).performTouchInput { swipeRight() }
+        compose.runOnIdle { assertEquals(1, count(editor, "Meadow Sentinel", DeckSection.SIDEBOARD)) }
+        compose.onNodeWithTag("card-list-undo").assertIsDisplayed()
+        compose.onNodeWithTag(sentinel).performTouchInput { click() }
+        compose.onNodeWithText("Remove all").performClick()
+        compose.onNodeWithTag("add-cards-main").performClick()
+        compose.onNodeWithTag("card-search-field").performTextInput("rune")
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
+        compose.onNodeWithTag("search-result-Rune Bear").performTouchInput { click() }
+        compose.onNodeWithTag("card-search-done").performClick()
+        compose.runOnIdle { assertEquals(2, count(editor, "Rune Bear", DeckSection.MAINBOARD)) }
+
+        // Each tap takes back one change, newest first: two search adds, Remove all, then the swipe.
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle { assertEquals(1, count(editor, "Rune Bear", DeckSection.MAINBOARD)) }
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle { assertEquals(0, count(editor, "Rune Bear", DeckSection.MAINBOARD)); assertEquals(0, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD)) }
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle { assertEquals(3, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD)) }
+        compose.onNodeWithTag("card-list-undo").performClick()
+        compose.runOnIdle {
+            assertEquals(4, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD))
+            assertEquals(0, count(editor, "Meadow Sentinel", DeckSection.SIDEBOARD))
+            assertEquals(original, editor.state.text, "Undoing every change gives back the text the editor opened with")
+            assertTrue(editor.state.result!!.resolved)
+        }
+        compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
+
+        // A cover the change cleared comes back with it; a Text tab edit starts the undo over.
+        compose.runOnIdle {
+            val ward = editor.coverCards.first { it.definition.name == "Aegis Ward" }.digest
+            editor.cover(ward)
+            editor.applyCards(CardListEdits.removeAll(editor.entries!!, digest("Aegis Ward"), DeckSection.MAINBOARD), editor.listCatalog)
+            assertNull(editor.state.cover)
+            editor.undoCards()
+            assertEquals(ward, editor.state.cover)
+            editor.applyCards(CardListEdits.change(editor.entries!!, digest("Aegis Ward"), DeckSection.MAINBOARD, -1), editor.listCatalog)
+            assertTrue(editor.canUndo)
+            editor.edit(editor.state.text + "\n1 Rune Bear")
+            assertFalse(editor.canUndo)
+        }
+        compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
+    }
+
     // LOB-063, LOB-107: adding past the limit is refused with a reason.
     @Test fun searchRefusesCardsPastTheLimit() {
         val editor = editor()
@@ -265,6 +319,11 @@ class CardListEditorUiTest {
             compose.runOnIdle { assertEquals(listOf(DeckSection.MAINBOARD to 2, DeckSection.MAYBEBOARD to 1),
                 cubes.entries!!.map { it.section to it.quantity }) }
             compose.onNodeWithText("2 main · 1 maybe").assertIsDisplayed()
+            // LOB-105: the cube editor's Undo takes the swipe back.
+            compose.onNodeWithTag("card-list-undo").performClick()
+            compose.onNodeWithText("3 main").assertIsDisplayed()
+            compose.onNodeWithTag("card-list-undo").assertDoesNotExist()
+            compose.onNodeWithTag("editor-card-MAINBOARD/$digest").performTouchInput { swipeRight() }
             compose.onNodeWithTag("add-cards-side").assertDoesNotExist()
             compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-maybe"))
             compose.onNodeWithTag("add-cards-maybe").performClick()

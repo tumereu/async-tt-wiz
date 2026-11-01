@@ -1,5 +1,9 @@
 package org.asyncttwiz.android
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.referentialEqualityPolicy
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.CatalogCard
@@ -130,8 +134,24 @@ interface CardListEditor {
     fun applyCards(entries: List<ResolvedDeckEntry>, catalog: CatalogMetadata?)
     /** A retained card's saved definition, by printing id; null for catalog cards. */
     fun retainedDefinition(printingId: String): CardDefinition?
+    /** LOB-105: a Cards tab or search change can be taken back, one at a time. */
+    val canUndo: Boolean
+    /** Takes back the latest Cards tab or search change. */
+    fun undoCards()
     /** The latest Cards tab or search message (e.g. a refused add); null clears it. */
     val cardsError: String?
     fun cardsMessage(message: String?)
     val inspection: CardInspectionController
+}
+
+/**
+ * Personal undo of Cards tab and search changes (LOB-105): each step is what the list was before one change, newest last,
+ * at most [PreparationUndo.LIMIT] as in preparation. Text tab edits, link imports and a new edit session start it over.
+ */
+internal class CardListUndo<T> {
+    var steps by mutableStateOf<List<T>>(emptyList(), referentialEqualityPolicy())
+        private set
+    fun push(step: T) { steps = (steps + step).takeLast(PreparationUndo.LIMIT) }
+    fun pop(): T? = steps.lastOrNull()?.also { steps = steps.dropLast(1) }
+    fun clear() { if (steps.isNotEmpty()) steps = emptyList() }
 }

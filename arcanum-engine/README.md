@@ -56,7 +56,8 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8), cancel;
   alternative costs and permissions (evoke, flashback, escape, overload, retrace, morph, "rather
   than pay"), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
-  mana abilities without the Stack; special actions (suspend, turning face up); combat:
+  mana abilities without the Stack (their other effects at once, a part needing a decision
+  by hand; "in any combination of colors" asks a colour per mana); special actions (suspend, turning face up); combat:
   declarations with their restrictions, first/double strike steps, trample, deathtouch,
   lifelink, infect, wither, toxic, dividing damage. A spell becomes cast with the
   `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
@@ -89,7 +90,7 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs, battles as attack targets,
   splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
-  up, mana abilities' other effects (left as a `Manual` step). Also missing: text-changing
+  up, mana paid while resolving ("you may pay {4}": a `Manual` step). Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only), the Inspect breakdown of where a value comes from.
 
@@ -117,7 +118,8 @@ choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanc
 `change`/`move`), expectations (`expect { … }`). Random results are scripted with
 `random(…)` or seeded; hidden cards are filled in by the harness. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
 `activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
-run resolution, state-based actions and triggers without priority. Every scenario checks D59:
+run resolution, state-based actions and triggers without priority. `cube/` holds a smoke
+scenario for every cube card, a file per parser chunk (`ChunkNN…ScenariosTest`). Every scenario checks D59:
 reverting all its changes restores the state after setup.
 
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into

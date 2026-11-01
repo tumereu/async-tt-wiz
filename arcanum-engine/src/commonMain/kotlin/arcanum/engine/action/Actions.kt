@@ -488,7 +488,13 @@ internal object Actions {
     // ---- Tapping (CR 701.26)
 
     fun tap(act: Act, ids: List<ObjectId>, tapped: Boolean, meanings: List<Meaning> = emptyList()): List<ObjectId> =
-        ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && act.obj(it)?.tapped != tapped }.onEach {
+        ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && act.obj(it)?.tapped != tapped }.filter {
+            // CR 122.1d: a permanent with a stun counter that would become untapped loses a stun counter instead
+            if (tapped || act.obj(it)!!.counters(CounterKind.Stun) == 0) true else {
+                act.record(Changes.counters(act.state, TargetRef.Object(it), CounterKind.Stun, -1))
+                false
+            }
+        }.onEach {
             act.record(Changes.tap(act.state, it, tapped, meanings))
         }
 
@@ -522,7 +528,9 @@ internal object Actions {
             proposed = { s -> Change.Created(planned(s).mapIndexed { i, o -> Placed(o, act.state.battlefield.size + i) }) },
             modify = { s, r, _ ->
                 var result: List<Pair<FaceDefinition, Int>>? = s
-                val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
+                // "That many" (CR 614.1a): the tokens this event would create so far
+                val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names,
+                    event = arcanum.engine.state.TriggerEvent(amount = s.sumOf { it.second })))
                 r.mechanic.modify.forEach { mod ->
                     result = when (mod) {
                         Modification.Skip -> null

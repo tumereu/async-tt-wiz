@@ -140,6 +140,8 @@ class ActivationTest {
         alice.battlefield("Scorching Mudlizard", "Mountain")
         alice.library("Island")
         bob.battlefield("Mountain")
+        // Bob draws in turn 2 (an empty library would end the game, CR 704.5b)
+        bob.library("Island")
         alice.activates("Scorching Mudlizard")
         allPass()
         advanceTo(TurnStep.PrecombatMain, turn = 3)

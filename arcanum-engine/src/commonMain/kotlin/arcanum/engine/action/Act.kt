@@ -101,7 +101,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         return ObjectSnapshot(
             id = id, owner = o.owner, controller = v?.controller ?: o.controller, zone = o.zone,
             characteristics = v?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
-            token = o.token, attachedTo = o.attachedTo, facts = o.facts,
+            token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
         )
     }
 

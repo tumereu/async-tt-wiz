@@ -100,8 +100,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
         is Objects.AttachedTo -> objects(objects.of).mapNotNull { (state.obj(it)?.attachedTo as? TargetRef.Object)?.id }
-        // The source's new object after a zone change: worked out by the flow that knows the move.
-        Objects.SelfAfter -> boundObjects(ctx.names[SELF_AFTER])
+        // The source's new object after a zone change: bound by a flow that knows the move, else found in the log
+        Objects.SelfAfter -> ctx.names[SELF_AFTER]?.let { boundObjects(it) } ?: listOfNotNull(ctx.self?.let { Lki.newObject(state, it) })
         Objects.Tested -> listOfNotNull(ctx.tested)
         is Objects.AttackedBy -> {
             val attackers = objects(objects.attackers).toSet()
@@ -163,11 +163,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         else -> emptyList()
     }
 
-    /** What the source remembers (D41); after it left its zone, what it remembered then: a leaves-the-battlefield
-     * ability still finds the cards its linked ability exiled (CR 607.2a). */
+    /** What the source remembers (D41); after it left its zone, what it remembered then (its last known information,
+     * kept by the Stack item or the log): a leaves-the-battlefield ability still finds the cards its linked ability
+     * exiled (CR 607.2a). */
     private fun selfMemory(key: String): NamedValue? = ctx.self?.let { self ->
         val o = state.obj(self)
-        if (o != null) o.memory[key] else Lki.memory(state, self)?.get(key)
+        if (o != null) o.memory[key]
+        else (board.snapshot(self)?.memory?.takeIf { it.values.isNotEmpty() } ?: Lki.memory(state, self))?.get(key)
     }
 
     // ---- Players

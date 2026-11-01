@@ -76,6 +76,16 @@ sealed interface Continuation {
     @Serializable @SerialName("turn-based")
     data class TurnBased(val action: TurnAction, override val then: Continuation? = null) : Continuation
 
+    /** Starting the game (CR 103) at [stage] with [options]: the stage is redone from its start with [answers] so far
+     * (D29); earlier stages are committed ([arcanum.engine.setup.Setup]). */
+    @Serializable @SerialName("setup")
+    data class Setup(
+        val stage: arcanum.engine.setup.SetupStage,
+        val options: arcanum.engine.setup.StartOptions,
+        val answers: List<Answer> = emptyList(),
+        override val then: Continuation? = null,
+    ) : Continuation
+
     /** An event paused for a replacement choice or an "as enters" step (CR 614.12, 616.1, D29/D36): [event] is redone
      * from its start with [answers] so far. */
     @Serializable @SerialName("event")
@@ -91,8 +101,11 @@ sealed interface Continuation {
 /** What is being cast or activated. */
 @Serializable
 sealed interface Announced {
-    /** The card [card], cast [way] (CR 601.2a). */
-    @Serializable @SerialName("spell") data class Spell(val card: ObjectId, val way: CastWay) : Announced
+    /** The card [card], cast [way] (CR 601.2a); [permitted] is the permission it is cast under as it was before the card
+     * moved (retrace granted only to cards in a graveyard still adds its cost, CR 601.2f). */
+    @Serializable @SerialName("spell") data class Spell(
+        val card: ObjectId, val way: CastWay, val permitted: arcanum.api.Mechanic.MayPlay? = null,
+    ) : Announced
     /** Ability [origin] of [source] (CR 602.2a), with a copy of the [ability] (D23). */
     @Serializable @SerialName("ability") data class Ability(
         val source: ObjectId, val origin: AbilityOrigin, val ability: arcanum.api.Ability,

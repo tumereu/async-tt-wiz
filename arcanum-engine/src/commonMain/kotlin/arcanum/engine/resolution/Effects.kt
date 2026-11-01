@@ -701,7 +701,22 @@ internal object Effects {
     private fun fix(e: Evaluator, mechanic: Mechanic): Mechanic = when (mechanic) {
         is Mechanic.ModifyPowerToughness -> Mechanic.ModifyPowerToughness(fixValue(e, mechanic.power), fixValue(e, mechanic.toughness))
         is Mechanic.SetPowerToughness -> Mechanic.SetPowerToughness(mechanic.power?.let { fixValue(e, it) }, mechanic.toughness?.let { fixValue(e, it) })
+        // "Protection from the color of your choice": the colour chosen now (CR 608.2h), not looked up later
+        is Mechanic.GainAbilities -> Mechanic.GainAbilities(mechanic.abilities.map { a ->
+            if (a is arcanum.api.Keyword.Protection) arcanum.api.Keyword.Protection(fixColors(e, a.from)) else a
+        })
         else -> mechanic
+    }
+
+    private fun fixColors(e: Evaluator, filter: ObjectFilter): ObjectFilter = when (filter) {
+        is ObjectFilter.OfColor -> if (filter.color !is arcanum.api.ColorRef.Chosen) filter else {
+            val colors = e.colors(filter.color).map { ObjectFilter.OfColor(arcanum.api.ColorRef.Literal(it)) }
+            colors.singleOrNull() ?: ObjectFilter.Or(colors)
+        }
+        is ObjectFilter.And -> ObjectFilter.And(filter.all.map { fixColors(e, it) })
+        is ObjectFilter.Or -> ObjectFilter.Or(filter.any.map { fixColors(e, it) })
+        is ObjectFilter.Not -> ObjectFilter.Not(fixColors(e, filter.filter))
+        else -> filter
     }
 
     private fun fixValue(e: Evaluator, value: Value): Value =

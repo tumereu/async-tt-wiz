@@ -32,18 +32,33 @@ internal object Lki {
             when (val change = state.log[i].change) {
                 is Change.ZoneChange -> change.moves.firstOrNull { it.before.id == id }?.let { m ->
                     return m.seen ?: ObjectSnapshot(m.before.id, m.before.owner, m.before.controller, m.before.zone, printed(m.before),
-                        m.before.counters, m.before.damage, m.before.tapped, m.before.token, m.before.attachedTo, m.before.facts)
+                        m.before.counters, m.before.damage, m.before.tapped, m.before.token, m.before.attachedTo, m.before.facts, m.before.memory)
                 }
                 is Change.Removed -> change.objects.firstOrNull { it.obj.id == id }?.let { p ->
                     val o = p.obj
                     return ObjectSnapshot(o.id, o.owner, o.controller, o.zone, printed(o), o.counters, o.damage, o.tapped, o.token,
-                        o.attachedTo, o.facts)
+                        o.attachedTo, o.facts, o.memory)
                 }
                 else -> Unit
             }
         }
         state.stackItems.values.forEach { item -> item.snapshots.firstOrNull { it.id == id }?.let { return it } }
         state.delayedTriggers.values.forEach { d -> d.snapshots.firstOrNull { it.id == id }?.let { return it } }
+        return null
+    }
+
+    /**
+     * The new object [id] became by its last zone change (CR 400.7), when it went to a public zone and is still there
+     * ("this card" in the graveyard for an ability that triggered as it died, CR 603.6e); null otherwise.
+     */
+    fun newObject(state: GameState, id: ObjectId): ObjectId? {
+        if (state.obj(id) != null) return null
+        for (i in state.log.indices.reversed()) {
+            val change = state.log[i].change as? Change.ZoneChange ?: continue
+            val m = change.moves.firstOrNull { it.before.id == id } ?: continue
+            val public = m.to != arcanum.api.Zone.Hand && m.to != arcanum.api.Zone.Library
+            return m.after.id.takeIf { public && state.obj(it)?.zone == m.to }
+        }
         return null
     }
 

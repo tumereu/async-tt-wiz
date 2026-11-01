@@ -95,4 +95,6 @@ data class ObjectSnapshot(
     val token: Boolean = false,
     val attachedTo: TargetRef? = null,
     val facts: ObjectFacts = ObjectFacts(),
+    /** Its card memory (D22): what its linked abilities remembered (CR 607.2a), e.g. the card it exiled. */
+    val memory: Bindings = Bindings.EMPTY,
 )

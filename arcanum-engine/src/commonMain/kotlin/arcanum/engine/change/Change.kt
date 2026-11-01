@@ -355,6 +355,14 @@ sealed interface GameEvent {
     @Serializable @SerialName("surveilled") data class Surveilled(val player: PlayerId, val count: Int) : GameEvent
     /** [player] copied the spell [copy] (CR 707.10). */
     @Serializable @SerialName("copied") data class Copied(val player: PlayerId, val copy: ObjectId) : GameEvent
+    /** [player] is the starting player (CR 103.1), chosen by [chooser] (null: given). */
+    @Serializable @SerialName("starting-player") data class StartingPlayer(val player: PlayerId, val chooser: PlayerId?) : GameEvent
+    /** [player] took their [count]th mulligan (CR 103.5). */
+    @Serializable @SerialName("mulliganed") data class Mulliganed(val player: PlayerId, val count: Int) : GameEvent
+    /** [player] kept an opening hand of [cards] cards (CR 103.5). */
+    @Serializable @SerialName("kept") data class Kept(val player: PlayerId, val cards: Int) : GameEvent
+    /** [player] conceded the game (CR 104.3a). */
+    @Serializable @SerialName("conceded") data class Conceded(val player: PlayerId) : GameEvent
 }
 
 /**

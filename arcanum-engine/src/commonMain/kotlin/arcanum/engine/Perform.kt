@@ -14,6 +14,8 @@ import arcanum.engine.trigger.Triggers
 import arcanum.engine.turn.Priority
 import arcanum.engine.turn.Steps
 import arcanum.engine.decision.TurnAction
+import arcanum.engine.setup.GameEnd
+import arcanum.engine.setup.Setup
 
 /** How far a flow got: finished, or waiting for a decision (D58). */
 internal sealed interface Progress {
@@ -32,6 +34,8 @@ internal sealed interface Progress {
  */
 internal object Perform {
     fun run(state: GameState, input: Input): Outcome {
+        require(!GameEnd.over(state)) { "The game is over (CR 104.1)" }
+        if (input is Input.Concede) return GameEnd.concede(state, input)
         val recorder = Recorder(state.deepCopy())
         val open = recorder.state.pending
         val progress = if (open != null) {
@@ -55,11 +59,18 @@ internal object Perform {
                 is Input.PassPriority -> Priority.pass(recorder, input)
                 is Input.DeclareAttackers -> Combat.declareAttackers(recorder, input)
                 is Input.DeclareBlockers -> Combat.declareBlockers(recorder, input)
+                is Input.StartGame -> Setup.start(recorder, input)
+                is Input.Concede -> error("Conceding is handled above")
                 is Input.Answer -> throw IllegalArgumentException("No decision is open")
                 Input.Cancel -> throw IllegalArgumentException("Nothing to cancel")
             }
         }
         val final = if (progress is Progress.Done) afterAction(recorder) else progress
+        // CR 104.1: the game ends at once; nothing waits any more
+        if (GameEnd.over(recorder.state)) {
+            GameEnd.close(recorder)
+            return Outcome(recorder.changes.toList(), null)
+        }
         if (final is Progress.Waiting) recorder.record(Changes.pending(recorder.state, final.pending))
         return Outcome(recorder.changes.toList(), (final as? Progress.Waiting)?.pending)
     }
@@ -76,6 +87,7 @@ internal object Perform {
                 is TurnAction.CombatDamage -> Combat.resume(recorder, continuation, answer)
                 TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, answer)
             }
+            is Continuation.Setup -> Setup.resume(recorder, continuation, answer)
         }
         return progress
     }
@@ -83,6 +95,7 @@ internal object Perform {
     /** CR 117.5: before a player gets priority, state-based actions and triggered abilities, until nothing happens. */
     fun afterAction(recorder: Recorder): Progress {
         (checks(recorder) as? Progress.Waiting)?.let { return it }
+        if (GameEnd.over(recorder.state)) return Progress.Done
         return Priority.give(recorder)
     }
 
@@ -92,6 +105,9 @@ internal object Perform {
         while (true) {
             val before = recorder.changes.size
             (StateBasedActions.check(recorder) as? Progress.Waiting)?.let { return it }
+            // CR 104.2a: one player left wins at once; CR 800.4a: in a game that goes on, players who lost leave it
+            if (GameEnd.over(recorder.state)) return Progress.Done
+            GameEnd.leaveLost(recorder)
             (Triggers.place(recorder) as? Progress.Waiting)?.let { return it }
             if (recorder.changes.size == before) return Progress.Done
         }

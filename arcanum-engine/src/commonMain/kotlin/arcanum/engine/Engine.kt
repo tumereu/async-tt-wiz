@@ -6,6 +6,10 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
+import arcanum.engine.setup.GameResult
+import arcanum.engine.setup.Seat
+import arcanum.engine.setup.Setup
+import arcanum.engine.setup.result
 import arcanum.engine.view.Layers
 import arcanum.engine.view.View
 import kotlinx.serialization.Serializable
@@ -29,6 +33,18 @@ object Engine {
      * [GameState.pending] is set, only its [Input.Answer] (or [Input.Cancel] for a cast) is accepted.
      */
     fun perform(state: GameState, input: Input): Outcome = Perform.run(state, input)
+
+    /**
+     * A game before it begins (CR 103): [seats] in seat order with their decks as libraries in the order given and their
+     * sideboards outside the game, each at [startingLife] (CR 103.4). [skipFirstDraw]: the starting player skips the draw
+     * of their first turn (CR 103.8a: two players; 103.8c: nobody in other multiplayer games). Nothing random happens
+     * here: [Input.StartGame] then chooses the starting player, shuffles and deals opening hands (D25).
+     */
+    fun newGame(seats: List<Seat>, startingLife: Int = 20, skipFirstDraw: Boolean = seats.size == 2): GameState =
+        Setup.newGame(seats, startingLife, skipFirstDraw)
+
+    /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
+    fun result(state: GameState): GameResult? = state.result
 }
 
 /**

@@ -100,6 +100,7 @@ internal object Casts {
      */
     fun announceOrNull(
         act: Act, controller: PlayerId, source: ObjectId?, instructions: Instructions, names: Bindings, self: ObjectId?, required: Boolean,
+        event: arcanum.engine.state.TriggerEvent? = null,
     ): Pair<List<Int>, Map<String, List<TargetRef>>>? {
         val modes = instructions.modes?.let { m ->
             // "Choose one that hasn't been chosen (this turn)": modes this object chose before aren't available
@@ -124,9 +125,10 @@ internal object Casts {
         }.orEmpty()
         val slots = instructions.targets + modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
         val targets = LinkedHashMap<String, List<TargetRef>>()
-        val e = act.evaluator(arcanum.engine.query.Context(controller, source, names))
+        // A triggered ability's targets may depend on its event ("with lesser mana value", CR 603.3d)
+        val e = act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event))
         for (slot in slots) {
-            val options = Targeting.options(act, slot, controller, source, names, targets, self)
+            val options = Targeting.options(act, slot, controller, source, names, targets, self, event = event)
             val min = e.value(slot.min)
             val max = slot.max?.let { e.value(it) }
             if (options.size < min && required) return null

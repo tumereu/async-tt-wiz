@@ -166,7 +166,7 @@ internal object Triggers {
         val o = board.state.obj(id) ?: return board.snapshot(id)
         val v = board.view[id]
         return ObjectSnapshot(id, o.owner, v?.controller ?: o.controller, o.zone, v?.characteristics, o.counters, o.damage,
-            o.tapped, o.token, o.attachedTo, o.facts)
+            o.tapped, o.token, o.attachedTo, o.facts, o.memory)
     }
 
     /** "Triggers only once each turn" (CR 603.2h): counted on the source object per turn number (D41). */
@@ -264,7 +264,7 @@ internal object Triggers {
     private fun push(act: Act, t: WaitingTrigger) {
         val ability = t.ability as? Ability.Triggered ?: return
         val stackId = ObjectId.StackItem("trigger:${act.state.nextTimestamp()}")
-        val choices = Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true) ?: return
+        val choices = Casts.announceOrNull(act, t.controller, t.source, ability.instructions, t.names, stackId, required = true, event = t.event) ?: return
         t.source?.let { recordTriggerCount(act, it, t.origin) }
         val item = StackItem(
             id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,

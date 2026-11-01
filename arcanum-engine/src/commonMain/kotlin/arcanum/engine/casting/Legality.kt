@@ -169,7 +169,7 @@ internal object Legality {
     private fun cantCastBy(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CantCast ?: return@any false
-            snap.evaluator(applied.controller, self = applied.source).let { e ->
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).let { e ->
                 e.with(e.ctx.copy(tested = card, affectedPlayer = player)).matches(asSpell(m.spells), card)
             }
         }

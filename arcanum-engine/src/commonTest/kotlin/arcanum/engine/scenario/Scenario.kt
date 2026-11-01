@@ -252,14 +252,24 @@ class Scenario internal constructor(playerCount: Int, seed: Long) {
         repeat(state.players.count { !it.lost }) { if (state.priority.holder != null && pending == null) passPriority() }
     }
 
-    /** Players pass priority until [step] of turn [turn] begins. */
+    /** Players pass priority until [step] of turn [turn] begins; awaited declarations of attackers and blockers are
+     * made empty ([declareNone]). */
     fun advanceTo(step: TurnStep, turn: Int = state.turn.number) {
         var guard = 200
         while ((state.turn.step != step || state.turn.number != turn) && guard-- > 0) {
             if (pending != null) fail("Waiting for ${pending} before $step")
-            passPriority()
+            if (state.priority.holder == null) declareNone() else passPriority()
         }
         if (guard <= 0) fail("Never reached $step of turn $turn")
+    }
+
+    /** Declares no attackers or no blockers for every player the game waits for (CR 508.1, 509.1). */
+    fun declareNone() {
+        val inputs = players.flatMap { p -> Engine.options(state, p.id) }.filter {
+            (it is Input.DeclareAttackers && it.attacks.isEmpty()) || (it is Input.DeclareBlockers && it.blocks.isEmpty())
+        }
+        if (inputs.isEmpty()) fail("Nobody has priority and no declaration is awaited in ${state.turn}")
+        inputs.forEach { perform(it) }
     }
 
     private fun randomAnswer(kind: RandomKind): Answer {

@@ -44,6 +44,9 @@ data class GameState(
     /** The game-wide timestamp counter (CR 613.7, D34): the highest timestamp given so far. Never goes back, also not
      * on [revert]. */
     var timestampCounter: Long = 0,
+    /** The starting player skips the draw step of turn 1 (CR 103.8a, two players); the host sets false where nobody
+     * skips it (CR 103.8c). A setting of the game, not changed by play. */
+    var skipFirstDraw: Boolean = true,
 ) {
     // ---- Players
 

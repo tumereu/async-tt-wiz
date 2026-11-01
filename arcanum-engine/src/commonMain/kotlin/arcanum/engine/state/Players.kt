@@ -74,11 +74,19 @@ data class TurnState(
 @Serializable
 data class PriorityState(val holder: PlayerId?, val passes: Int = 0)
 
-/** The current combat (CR 506): attacking creatures and what they attack, blockers and what they block. */
+/** The current combat (CR 506): attacking creatures and what they attack, blockers and what they block. It exists from
+ * the declaration of attackers (CR 508.1) to the end of combat (CR 511.3). */
 @Serializable
 data class CombatState(
     val attackers: List<Attacker> = emptyList(),
     val blockers: List<Blocker> = emptyList(),
+    /** Defending players who have declared blockers (CR 509.1); the declare blockers step waits for the rest. */
+    val blockersDeclaredBy: List<PlayerId> = emptyList(),
+    /** The combat damage step now is the first-strike one (CR 510.4): a second one follows. */
+    val firstStrikeStep: Boolean = false,
+    /** The creatures that assigned combat damage in a first-strike step (CR 510.4, 702.4c–d); null when there was
+     * none this combat. */
+    val firstStrikers: List<ObjectId>? = null,
 )
 
 /** [id] attacks [target] (a player, planeswalker or battle); [blocked] once blockers are declared (CR 509.1h). */

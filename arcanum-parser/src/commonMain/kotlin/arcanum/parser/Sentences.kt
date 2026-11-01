@@ -179,6 +179,8 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
                 modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))),
                 condition = arcanum.api.Condition.Paid(arcanum.api.Keyword.Escape.Kind))
         }
+        // chunk 33: "X can't be 0."
+        X_CANT_BE.matchEntire(line)?.let { m -> return Ability.Static(listOf(Mechanic.XAtLeast(m.groupValues[1].toInt() + 1))) }
         // chunk 32: "Golems you control have first strike."
         HAVE_KEYWORDS.matchEntire(line)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
@@ -238,8 +240,11 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val conditional = INTERVENING_IF.matchEntire(rest)
         val interveningIf = conditional?.let { Conditions.condition(it.groupValues[1], self) ?: return null }
         triggerIt = itOf(events)
-        val instructions = instructions(conditional?.groupValues?.get(2) ?: rest)
+        var instructions = instructions(conditional?.groupValues?.get(2) ?: rest)
         triggerIt = null
+        // chunk 33: X in this permanent's enters trigger is the X chosen for the spell it was (CR 107.3m)
+        if (events == listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)) && !rest.contains("where X is"))
+            instructions = instructions?.withX(Value.CastX())
         return Ability.Triggered(arcanum.api.Trigger.On(events, oneOrMore = oneOrMore), instructions ?: return null,
             interveningIf = interveningIf, perTurn = perTurn)
     }
@@ -345,6 +350,16 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             val otherwise = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
             return steps.dropLast(1) + last.copy(otherwise = otherwise)
         }
+        // chunk 33: "If this creature was kicked, copy that spell twice instead." after a delayed copy trigger
+        COPY_TWICE_IF_KICKED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val delayed = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateDelayedTrigger ?: return null
+            val twice = delayed.copy(instructions = delayed.instructions.copy(steps = listOf(Step.Repeat(Value.Fixed(2), delayed.instructions.steps))))
+            return steps.dropLast(1) + Step.If(arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind),
+                then = listOf(Step.Do(twice)), otherwise = listOf(Step.Do(delayed)))
+        }
+        // chunk 33: "You may choose new targets for the copies." (CR 707.10c)
+        if (sentence == "You may choose new targets for the copies." && steps.isNotEmpty())
+            return steps.map { withNewTargets(it) ?: return null }
         val previous = (steps.lastOrNull() as? Step.Do)?.effect
         // chunk 32: "Copy target instant or sorcery spell. You may choose new targets for the copy." (CR 707.10c)
         if (previous is Effect.CopySpell && sentence == "You may choose new targets for the copy.")
@@ -905,6 +920,28 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
                 Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1)), bind = "sacrificed", chooser = Players.Bound(player)),
                 Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))))
         }
+        // "gain control of": a control-changing effect with no end (CR 613.1b)
+        GAIN_CONTROL_OF_TARGET.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), arcanum.api.Affected.Objects(target),
+                arcanum.api.Duration.Indefinitely)))
+        }
+        IF_THAT_IS_ATTACH_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val slot = context.targets.lastOrNull()?.takeIf { it.name == m.groupValues[1] } ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            val target = Objects.Target(slot.name)
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(target, filter),
+                then = listOf(Step.Do(Effect.Attach(target, arcanum.api.Recipients(objects = Objects.Self))))))
+        }
+        // "copy the next … spell you cast this turn when you cast it": a delayed trigger that fires once (CR 603.7)
+        COPY_NEXT_SPELL.matchEntire(sentence)?.let { m ->
+            val spell = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.Cast(spell, by = PlayerFilter.You)),
+                Instructions(steps = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(), newTargets = false)))),
+                duration = arcanum.api.Duration.EndOfTurn)))
+        }
         if (sentence == "Look at target opponent's hand.") {
             return listOf(Step.Do(Effect.LookAt(Objects.Each(handOf(context.targetOpponent())))))
         }
@@ -963,6 +1000,18 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
             return listOf(Step.Do(Effect.Draw(players, n)))
         }
         return null
+    }
+
+    /** chunk 33: [step] with its spell copies (in delayed triggers, ifs and repeats too) allowed new targets. */
+    private fun withNewTargets(step: Step): Step? = when (step) {
+        is Step.If -> step.copy(then = step.then.map { withNewTargets(it) ?: return null }, otherwise = step.otherwise.map { withNewTargets(it) ?: return null })
+        is Step.Repeat -> step.copy(steps = step.steps.map { withNewTargets(it) ?: return null })
+        is Step.Do -> when (val e = step.effect) {
+            is Effect.CopySpell -> Step.Do(e.copy(newTargets = true))
+            is Effect.CreateDelayedTrigger -> Step.Do(e.copy(instructions = e.instructions.copy(steps = e.instructions.steps.map { withNewTargets(it) ?: return null })))
+            else -> null
+        }
+        else -> null
     }
 
     /** chunk 33: the cards in [player]'s hand. */
@@ -1138,6 +1187,11 @@ internal class Sentences(private val self: Set<String>, private val isSpell: Boo
         val DAMAGE_EQUAL_TO_POWER = Regex("""(.+) deals damage equal to its power to any target\.""")
         val OPPONENTS_CANT_CAST = Regex("""Your opponents can't cast (.+) this turn\.""")
         val YOU_AND_TARGET_OPPONENT_DRAW = Regex("""You and target opponent each draw (\w+) cards?\.""")
+        val X_CANT_BE = Regex("""X can't be (\d+)\.""")
+        val GAIN_CONTROL_OF_TARGET = Regex("""Gain control of target (.+)\.""")
+        val IF_THAT_IS_ATTACH_IT = Regex("""If that (\w+) is an? (.+), attach it to (.+)\.""")
+        val COPY_NEXT_SPELL = Regex("""Copy the next (.+) you cast this turn when you cast it\.""")
+        val COPY_TWICE_IF_KICKED = Regex("""If (.+) was kicked, copy that spell twice instead\.""")
     }
 }
 

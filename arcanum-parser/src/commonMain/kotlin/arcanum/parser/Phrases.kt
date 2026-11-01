@@ -261,6 +261,10 @@ internal object Conditions {
         }
         // chunk 32: "you've discarded a card this turn"
         if (text == "you've discarded a card this turn") return Condition.HappenedThisTurn(EventPattern.Discard(players = PlayerFilter.You))
+        // chunk 33: "it was kicked", "this creature was kicked" (CR 702.33d)
+        WAS_KICKED.matchEntire(text)?.takeIf { it.groupValues[1] == "it" || it.groupValues[1] in self }?.let {
+            return Condition.Paid(arcanum.api.Keyword.Kicker.Kind)
+        }
         // chunk 32: "it's attacking" (about this permanent)
         if (text == "it's attacking") return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(arcanum.api.Status.Attacking))
         CARD_TYPES_IN_GRAVEYARD.matchEntire(text)?.let { m ->
@@ -297,6 +301,8 @@ internal object Conditions {
     private val SELF_IN_YOUR_GRAVEYARD = Regex("""(.+) is in your graveyard""")
     // chunk 32
     private val MANA_WAS_SPENT = Regex("""((?:\{[WUBRG]\})+) was spent to cast it""")
+    // chunk 33
+    private val WAS_KICKED = Regex("""(.+) was kicked""")
     private val CARD_TYPES_IN_GRAVEYARD = Regex("""there are (\w+) or more card types among cards in your graveyard""")
     private val SELF_IS_TAPPED = Regex("""(.+) is tapped""")
     private val CARDS_IN_YOUR_GRAVEYARD = Regex("""there are (\w+) or more cards in your graveyard""")

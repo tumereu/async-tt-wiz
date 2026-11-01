@@ -80,7 +80,7 @@ object OracleParser {
             }
             val previous = result.lastOrNull()
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
-            val parsed = if (instead == null) keywordLine(line) ?: sentences.line(line)?.let(::listOf) else null
+            val parsed = if (instead == null) keywordLine(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
             when {
                 instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
@@ -121,6 +121,13 @@ object OracleParser {
         }
         val first = keyword(parts.first()) ?: return null
         return listOf(first) + parts.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
+    }
+
+    /** chunk 33: "Kicker {X}. X can't be 0.": a keyword line, then a sentence about it on the same line. */
+    private fun keywordThenSentence(line: String, sentences: Sentences): List<Ability>? {
+        val dot = line.indexOf(". ").takeIf { it > 0 } ?: return null
+        val keywords = keywordLine(line.substring(0, dot))?.takeIf { parts -> parts.none { it is Ability.Unparsed } } ?: return null
+        return keywords + (sentences.line(line.substring(dot + 2)) ?: return null)
     }
 
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */

@@ -49,9 +49,10 @@ catalog wins. Where neither says, ask rather than pick.
   above it (`// TBL-012`). Changing or deleting such a test requires the entry
   to change in the same commit.
 - Screenshot tests compare against committed images in
-  `androidApp/src/test/screenshots/`. Re-record only for an intended visual
-  change (`./scripts/gradle.sh :androidApp:testDebugUnitTest -Pscreenshots=record
-  --tests <Class>`) and list the changed images in your final reply. Every
+  `androidApp/src/test/screenshots/`. You may re-record them freely
+  (`./scripts/gradle.sh :androidApp:testDebugUnitTest
+  -Pscreenshots=record --tests <Class>`); list the changed images in your final
+  reply. Every
   committed screenshot is captured with the `captureShot` caption helper; its
   caption says in one plain sentence what the picture shows and how the test got there.
 - Changed screenshots and catalog entries block releases until the owner has
@@ -90,7 +91,9 @@ catalog wins. Where neither says, ask rather than pick.
   tasks: `:protocol:jvmTest`, `:core:jvmTest`, `:client-storage:test`,
   `:server:test`, `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`,
   `:arcanum-parser:jvmTest`, `:arcanum-engine:jvmTest`.
-  Run only the tasks relevant to what you changed.
+  While implementing, run the tasks relevant to what you changed. After a batch
+  of implementations is merged, all the tasks above run together on the merged
+  result, and failures are fixed before the batch is done.
 - If a check fails, fix the cause. If the same failure persists after two real
   attempts, or the failure is environmental (network, Docker, emulator), stop
   and report it instead of retrying.

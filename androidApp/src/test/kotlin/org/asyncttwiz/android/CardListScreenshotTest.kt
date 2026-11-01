@@ -95,7 +95,7 @@ class CardListScreenshotTest {
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { CubeScreen(cubes, if (landscape) null else ({}), landscape = landscape) } } }
         compose.onNodeWithText("7 main · 2 maybe").assertIsDisplayed()
         captureShot(path("cube-edit-cards", landscape), "${orientation(landscape)} Edit cube screen for the Runes cube on its Cards tab: " +
-            "Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, the round Add cards button and Save.")
+            "Mainboard and Maybeboard sections as pictures by type in 5 (landscape 8) columns, a + at the right of each section header, and Save.")
     }
 
     // DRF-141, DRF-142, SYS-054

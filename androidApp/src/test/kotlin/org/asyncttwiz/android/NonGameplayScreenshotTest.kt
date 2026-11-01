@@ -300,7 +300,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "deck-detail" -> "saved Training deck in its picture view: Rename and Delete saved deck under the name, then the 60-card mainboard and sideboard in the default 3 columns"
             "deck-detail-columns" -> "saved Training deck in its picture view with the column setting changed to 5"
             "draft-deck-detail" -> "deck saved from the Cube night draft pod, in its picture view with Save as deck and Delete draft deck"
-            "deck-edit" -> "Training deck opened for editing on its Cards tab: Mainboard and Sideboard as pictures, the round Add cards button, Save and a deck cover choice"
+            "deck-edit" -> "Training deck opened for editing on its Cards tab: Mainboard and Sideboard as pictures, a + at the right of each section header, Save and a deck cover choice"
             "deck-edit-text" -> "Training deck opened for editing and switched to its Text tab: the list as text with Save and a deck cover choice"
             "deck-edit-cover" -> "Training deck opened for editing with the Choose cover picker open"
             "deck-art" -> "saved Training deck with a Meadow Sentinel card opened in the Inspect view"

@@ -31,7 +31,7 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
     private val fetchCobra: (String) -> ParsedDeck = ::fetchCubeCobra) : AutoCloseable, CardListEditor {
     var state by mutableStateOf(CubeState())
         private set
-    /** The editor's catalog search page (Add cards). */
+    /** The editor's catalog search page (a section header's +). */
     val search = CardListSearch(worker, post)
     /** Name and text the editor opened with, to ask before discarding changes. */
     private var initial: Pair<String, String> = "" to ""

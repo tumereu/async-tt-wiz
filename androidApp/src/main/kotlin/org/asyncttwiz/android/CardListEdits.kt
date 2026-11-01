@@ -123,7 +123,7 @@ interface CardListEditor {
     val entries: List<ResolvedDeckEntry>?
     val listCatalog: CatalogMetadata?
     val editable: Boolean
-    /** Where search adds cards; Main each time the editor opens, then remembered for the edit session. */
+    /** Where search adds cards: the section whose + opened it, changeable inside search. */
     val destination: DeckSection
     fun destination(section: DeckSection)
     /** Replaces the list with [entries] (and the text with its rewrite), keeping it resolved without a new lookup. */

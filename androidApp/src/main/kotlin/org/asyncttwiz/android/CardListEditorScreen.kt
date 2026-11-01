@@ -49,7 +49,7 @@ internal enum class CardListTab(val label: String) { CARDS("Cards"), TEXT("Text"
 
 /**
  * The one editor of decks and cubes: name (and a deck's cover) on top, Cards | Text tabs, one full-width Save at the
- * bottom. Changes in either tab are kept only by Save. The Cards tab's Add cards opens the full-screen [search] page.
+ * bottom. Changes in either tab are kept only by Save. A Cards tab section header's + opens the full-screen [search] page.
  */
 @Composable
 internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, landscape: Boolean, editor: CardListEditor,
@@ -169,7 +169,13 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                         val rows = entries.filter { it.section == section }
                         val definitions = rows.associate { it.printing.id to definitionOf(it) }
                         val groups = preparationGroups(rows.map { it.printing.id to it.quantity.toLong() }, definitions)
-                        visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count) { tile ->
+                        // LOB-105: every section shows, even when empty; its header's + opens search with that section chosen.
+                        visualDeckSection(saved, rows.sumOf { it.quantity.toLong() }, groups, columns.count, headerAction = {
+                            IconButton({ editor.destination(section); search.open(CardListEdits.total(entries)) },
+                                Modifier.testTag("add-cards-${saved.shortLabel().lowercase()}"), enabled = editor.editable) {
+                                Icon(screenIcon("add"), "Add cards to ${saved.sectionLabel()}", tint = saved.sectionColor())
+                            }
+                        }) { tile ->
                             val key = "$section/${tile.digest}"
                             EditorCard(editor, tile, key, section, menus, onHold = { open ->
                                 if (open) {
@@ -181,14 +187,6 @@ private fun CardListCardsTab(editor: CardListEditor, search: CardListSearch, loo
                         }
                     }
                 }
-            }
-        }
-        Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(56.dp).testTag("add-cards"),
-            shape = CircleShape, color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary,
-            shadowElevation = 4.dp) {
-            IconButton({ search.open(CardListEdits.total(entries.orEmpty())) }, enabled = entries != null && editor.editable,
-                modifier = Modifier.semantics { contentDescription = "Add cards" }) {
-                Icon(screenIcon("add"), null)
             }
         }
     }
@@ -255,7 +253,7 @@ private fun EditorCard(editor: CardListEditor, tile: PreparationTile, key: Strin
 }
 
 /**
- * Full-screen catalog search (Add cards): the search field and quick filter chips on top, results as pictures, then the
+ * Full-screen catalog search (a section's +): the search field and quick filter chips on top, results as pictures, then the
  * destination group (Main | Side | Maybe; cubes Main | Maybe) and "Done · +N cards" within thumb reach. Tap a result to
  * add one copy to the destination, tap its ×N chip to remove one, hold to preview. Done or Back keeps every change.
  */

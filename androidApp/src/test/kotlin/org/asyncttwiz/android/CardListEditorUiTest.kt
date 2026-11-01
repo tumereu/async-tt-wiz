@@ -126,12 +126,12 @@ class CardListEditorUiTest {
         compose.onNodeWithText("Discard unsaved changes?").assertIsDisplayed()
     }
 
-    // LOB-106, LOB-107
+    // LOB-105, LOB-106, LOB-107
     @Test fun searchAddsToTheChosenSectionChipsRemoveAndDoneKeepsTheChanges() {
         val editor = editor()
         connectSearch(editor, "Meadow Sentinel", "Rune Bear")
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
-        compose.onNodeWithContentDescription("Add cards").performClick()
+        compose.onNodeWithContentDescription("Add cards to Mainboard").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.onNodeWithTag("card-search").assertIsDisplayed()
         compose.onNodeWithText("Type a card name or search terms, or choose filters.").assertIsDisplayed()
@@ -176,15 +176,18 @@ class CardListEditorUiTest {
         assertEquals(5, count(editor, "Meadow Sentinel", DeckSection.MAINBOARD))
         assertTrue("1 Rune Bear (NEW) 9" in editor.state.text)
 
-        // The destination is remembered for the session and the search is kept; a new session starts at Main.
-        compose.onNodeWithContentDescription("Add cards").performClick()
+        // LOB-105: search starts at the section whose + was tapped, and the search is kept for the session.
+        compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-maybe"))
+        compose.onNodeWithTag("add-cards-maybe").performClick()
         compose.mainClock.advanceTimeBy(500)
-        compose.onNodeWithTag("destination-side").assertIsSelected()
+        compose.onNodeWithTag("destination-maybe").assertIsSelected()
+        compose.onNodeWithTag("destination-side").assertIsNotSelected()
         compose.onNodeWithText("Done").assertIsDisplayed()
         assertEquals(1, searched.size, "Coming back keeps the results")
-        compose.runOnIdle { editor.exit(); editor.openEditor(detail) }
-        assertEquals(DeckSection.MAINBOARD, editor.destination)
-        assertFalse(editor.search.state.open)
+        compose.runOnIdle { editor.search.close() }
+        compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-main"))
+        compose.onNodeWithTag("add-cards-main").performClick()
+        compose.onNodeWithTag("destination-main").assertIsSelected()
     }
 
     // LOB-063, LOB-107: adding past the limit is refused with a reason.
@@ -210,10 +213,32 @@ class CardListEditorUiTest {
         compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
         compose.onNodeWithText("The list has problems. Fix them in the Text tab.").assertIsDisplayed()
         compose.onNodeWithText("Line 2: Unknown Card could not be resolved.").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Add cards").assertIsNotEnabled()
+        // LOB-107: the + buttons are off: the sections don't show until the list resolves.
+        compose.onNodeWithTag("add-cards-main").assertDoesNotExist()
     }
 
-    // DRF-003, LOB-064, LOB-106: the cube editor is the same editor with Main | Maybe, and asks before discarding.
+    // LOB-105: a new list shows every section, empty ones too, each header's + opening search with that section chosen.
+    @Test fun everySectionHeaderHasAPlusThatOpensSearchWithThatSection() {
+        val editor = DeckImportController({ error("No lookup expected") }, Immediate, { it() }).also { it.open() }
+        connectSearch(editor, "Rune Bear")
+        compose.setContent { ScreenTheme { Surface(Modifier.fillMaxSize()) { DeckImportScreen(editor, false, null, null) } } }
+        compose.onNodeWithTag("card-list-tab-cards").performClick()
+        for ((label, tag) in listOf("Mainboard" to "main", "Sideboard" to "side", "Maybeboard" to "maybe")) {
+            compose.onNodeWithTag("card-list-cards").performScrollToNode(hasText("$label · 0"))
+            compose.onNodeWithText("$label · 0").assertIsDisplayed()
+            compose.onNodeWithTag("add-cards-$tag").assertIsDisplayed().performClick()
+            compose.onNodeWithTag("card-search").assertIsDisplayed()
+            compose.onNodeWithTag("destination-$tag").assertIsSelected()
+            compose.runOnIdle { editor.search.close() }
+        }
+        compose.onAllNodesWithText("Empty").assertCountEquals(3)
+        // Changing the section inside search still works.
+        compose.onNodeWithTag("add-cards-side").performClick()
+        compose.onNodeWithTag("destination-main").performClick()
+        compose.runOnIdle { assertEquals(DeckSection.MAINBOARD, editor.destination) }
+    }
+
+    // DRF-003, LOB-064, LOB-105, LOB-106: the cube editor is the same editor with Main | Maybe, and asks before discarding.
     @Test fun cubeEditorUsesMainAndMaybeAndConfirmsDiscard() {
         val bear = CardDefinition("Rune Bear", listOf(DefinitionFace("rune-bear", "Rune Bear", typeLine = "Creature — Bear")))
         val digest = DeckJson.digest(bear)
@@ -240,9 +265,11 @@ class CardListEditorUiTest {
             compose.runOnIdle { assertEquals(listOf(DeckSection.MAINBOARD to 2, DeckSection.MAYBEBOARD to 1),
                 cubes.entries!!.map { it.section to it.quantity }) }
             compose.onNodeWithText("2 main · 1 maybe").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Add cards").performClick()
+            compose.onNodeWithTag("add-cards-side").assertDoesNotExist()
+            compose.onNodeWithTag("card-list-cards").performScrollToNode(hasTestTag("add-cards-maybe"))
+            compose.onNodeWithTag("add-cards-maybe").performClick()
             compose.onNodeWithTag("destination-side").assertDoesNotExist()
-            compose.onNodeWithTag("destination-maybe").performClick()
+            compose.onNodeWithTag("destination-maybe").assertIsSelected()
             assertEquals(DeckSection.MAYBEBOARD, cubes.destination)
             compose.runOnIdle { cubes.back() }
             compose.onNodeWithTag("card-list-cards").assertIsDisplayed()

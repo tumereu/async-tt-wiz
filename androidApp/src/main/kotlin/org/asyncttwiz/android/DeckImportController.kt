@@ -25,7 +25,7 @@ class DeckImportController(private val resolve: (String) -> DeckImportResult,
     private val worker: ExecutorService, private val post: (() -> Unit) -> Unit) : AutoCloseable, CardListEditor {
     var state by mutableStateOf(DeckImportState())
         private set
-    /** The editor's catalog search page (Add cards). */
+    /** The editor's catalog search page (a section header's +). */
     val search = CardListSearch(worker, post)
     override val kind get() = CardListKind.DECK
     override val entries: List<ResolvedDeckEntry>? get() = state.result?.takeIf { it.issues.isEmpty() }?.entries

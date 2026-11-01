@@ -406,8 +406,12 @@ class Chunk03UtilityLandsTest {
                                     ObjectFilter.Or(listOf("Plains", "Island", "Swamp", "Mountain", "Forest").map { ObjectFilter.Sub(Subtype(it)) }),
                                 )),
                                 bind = "found",
+                                searcher = Players.ControllerOf(Objects.Target("permanent")),
                             )),
-                            Step.Do(Effect.Move(Objects.Bound("found"), to = Destination(Zone.Battlefield))),
+                            Step.Do(Effect.Move(
+                                Objects.Bound("found"),
+                                to = Destination(Zone.Battlefield, controller = Players.ControllerOf(Objects.Target("permanent"))),
+                            )),
                             Step.Do(Effect.Shuffle(Players.ControllerOf(Objects.Target("permanent")))),
                         ),
                     ),

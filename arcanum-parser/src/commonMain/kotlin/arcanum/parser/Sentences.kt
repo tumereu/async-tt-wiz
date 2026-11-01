@@ -1069,8 +1069,8 @@ internal class Sentences(
             val player = context.lastTargetController() ?: return null
             val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
             return listOf(Step.May(player = player, steps = listOf(
-                Step.Do(Effect.Search(player, filter, bind = "found")),
-                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty()))),
+                Step.Do(Effect.Search(player, filter, bind = "found", searcher = player)),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = m.groupValues[2].isNotEmpty(), controller = player))),
                 Step.Do(Effect.Shuffle(player)))))
         }
         PLAYERS_GAIN_LIFE.matchEntire(sentence)?.let { m ->

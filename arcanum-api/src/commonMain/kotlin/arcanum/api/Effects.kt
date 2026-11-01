@@ -52,12 +52,15 @@ sealed interface Effect {
     /** [bind] names the cards put on the bottom (scry) or into the graveyard (surveil). */
     @Serializable @SerialName("scry") data class Scry(val players: Players, val count: Value, val bind: String? = null) : Effect
     @Serializable @SerialName("surveil") data class Surveil(val players: Players, val count: Value, val bind: String? = null) : Effect
-    /** Search [library]'s [zones] (their library, "and/or graveyard") for up to [max] cards matching [filter], with
-     * [differentNames] if they must all have different names; the found cards are named [bind] and moved by a following
-     * step. [reveal] shows them (CR 701.23). */
+    /** [searcher] searches [library]'s [zones] (their library, "and/or graveyard") for up to [max] cards matching
+     * [filter], with [differentNames] if they must all have different names; the found cards are named [bind] and moved by
+     * a following step. [reveal] shows them (CR 701.23). Any player may be told to search any player's library: "search
+     * target opponent's library" is `library = Target`, searcher you; "its controller may search their library" is both
+     * that player. */
     @Serializable @SerialName("search") data class Search(
         val library: Players, val filter: ObjectFilter, val max: Value = Value.Fixed(1), val reveal: Boolean = false,
         val zones: List<Zone> = listOf(Zone.Library), val differentNames: Boolean = false, val bind: String? = null,
+        val searcher: Players = Players.You,
     ) : Effect
     /** Shuffle [library]'s library, leaving out [except] (cards just found by a search: "then shuffle and put that card
      * on top", CR 701.24b); the cards left out keep their identity. */

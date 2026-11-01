@@ -293,7 +293,7 @@ class Chunk33EntersRemovalTest {
         Keyword.Flash,
         Keyword.Lifelink,
         whenThisEnters(
-            Step.Do(Effect.Move(Objects.Target("creature"), to = Destination(Zone.Exile))),
+            Step.Do(Effect.Move(Objects.Target("creature"), to = Destination(Zone.Exile), postBind = "exiled")),
             Step.Do(Effect.GainLife(
                 players = Players.ControllerOf(Objects.Target("creature")),
                 amount = Value.Of(NumericProperty.Power, Objects.Target("creature"), Combine.Single),

@@ -1,8 +1,9 @@
 # Arcanum Automatum — design draft
 
-**Status: draft for owner review (2026-11-01).** Not approved, not on the roadmap or
-backlog, and nothing is built from it. Breaking parts (new shared state, catalog
-changes) need the owner's go-ahead per phase.
+**Status: phase 0 approved (2026-11-01).** Developed alongside the Android
+improvements, before the web client (roadmap). Phase 0 builds the libraries in this
+repository without integrating them into ATW. Each later phase, and every new shared
+state or catalog change, needs the owner's go-ahead.
 
 ## 1. What it is
 
@@ -52,6 +53,10 @@ that exist today.
 | D10 | The open questions (§15) are expected to be settled by playtesting. |
 | D11 | Any decision (a trigger's targets, trigger order, an opponent's choice during resolution) can be made **by either player on the other's behalf**. Such a decision pauses the other player's automatic playback by default, and the UI makes clear you are acting for someone else. The phone test (SYS-036) still applies. |
 | D12 | **Autoplay decisions** (§7.10) go on the roadmap: stored answers, applied deterministically by exactly one client even while their player is offline. |
+| D13 | Arcanum is developed **alongside the Android improvements, before the web client**. The libraries live in this repository; phase 0 does not integrate them into ATW. |
+| D14 | The parser is built **case by case, AI-assisted**: one effect or a group of similar wordings at a time, deciding together how to parse it, then implementing it. The owner reviews code periodically. (D5's "no LLM fallback" is about the parser itself, not how it is developed.) |
+| D15 | **Test data is our own:** invented card names with real-MTG-like wording (a real card's text with a different name and mana cost, or merges of several cards). The frequency analysis runs on a local MTGJSON download that is never committed (D-243). |
+| D16 | Library rules: KDoc and a short README per library; tests cite Comprehensive Rules numbers and are protected like catalog-linked tests; a build check keeps the libraries free of ATW modules. |
 
 ## 3. Principles
 
@@ -133,7 +138,28 @@ permanents is small; if measurements show it is too slow for SYS-025, the
 integration can keep and update the snapshot incrementally without changing the
 engine API.
 
-### 4.3 Where definitions come from
+### 4.3 Rules version (Comprehensive Rules drift)
+
+The Comprehensive Rules are revised several times a year, usually with each set
+release; each version has an effective date. Most numbers stay put, but rules are
+added, reworded, and now and then removed or renumbered (2024 example: damage
+assignment order was removed from combat). Oracle wording changes too (errata,
+"enters the battlefield" → "enters").
+
+- The libraries name **one pinned CR version** (its effective date) in one place.
+  Code and tests cite rule numbers of that version (`// CR 613.4c`).
+- **Updating the pin** is a deliberate task: download the old and new CR text
+  locally (not committed), let a small developer script list the rule numbers that
+  were added, changed, removed or renumbered and where the code and tests cite them,
+  then review exactly those places. Test changes then follow the protection rule
+  (D16) because the rule they encode changed.
+- **Oracle wording drift** shows up when the frequency analysis runs on a newer
+  MTGJSON: new or changed patterns appear and cards change parse status. Our test
+  cards (D15) don't change on their own.
+- In ATW, a rules update never changes past games: recorded events don't depend on
+  the engine (P1).
+
+### 4.4 Where definitions come from
 
 Definitions are dynamic data like other card data (D-243): produced by the parser
 (as a developer tool or a server job, open question), merged with hand-written
@@ -221,10 +247,14 @@ Our own, from MTGJSON oracle text. The plan:
    becomes `manual` (or `partial` when the unparsed part is a separable sentence),
    with the original text attached for the UI.
 5. **Round-trip check.** A renderer turns definitions back into English; the test
-   suite compares it with the oracle text for the parsed corpus to catch wrong
-   parses. A golden corpus of hand-checked cards protects behaviour.
+   suite compares it with the test card text to catch wrong parses. A golden corpus
+   of our own test cards (D15) protects behaviour.
 6. **Coverage numbers** per pattern for the developer (a tool output, not a product
    document).
+
+**Workflow (D14).** One effect or a group of similar wordings at a time, usually in
+frequency order: look at the real wordings in the local analysis, decide together how
+they parse and what definition they produce, write test cards for them, implement.
 
 Out of scope for parsing: `isFunny` cards, digital-only mechanics, and text the
 engine cannot represent yet (left manual until the engine supports it).
@@ -317,9 +347,10 @@ the player. All are taken back with the batch's Undo.
 
 Combat lanes already exist (CMB-*). The engine adds combat damage: first strike /
 double strike damage steps, trample excess, deathtouch counting as lethal, lifelink;
-menace/flying/reach shown as warnings (never blocks). Damage assignment order for
-several blockers is a choice for the attacker; when there is only one way to assign,
-it applies automatically.
+menace/flying/reach shown as warnings (never blocks). An attacker blocked by several
+creatures divides its damage among them as its controller chooses (current rules, no
+damage assignment order); when there is only one sensible way, it applies
+automatically.
 
 ### 7.7 Hidden information
 
@@ -455,7 +486,7 @@ Phase 0 is fixed; the order and content of later phases may change as work goes 
 
 | Phase | Content | New shared state |
 |---|---|---|
-| 0 | arcanum-api format, arcanum-parser skeleton, pattern frequency measurement, golden corpus, arcanum-engine API skeleton with MTG-term tests. No app changes. | none |
+| 0 | arcanum-api format, arcanum-parser skeleton, pattern frequency measurement, test-card corpus, pinned CR version, arcanum-engine API skeleton with MTG-term tests. No app changes. | none |
 | 1 | Derived view: static P/T and keyword effects, layers, typed counters, Inspect details; game automation toggle; combat damage. | toggle, typed counters, effect objects |
 | 2 | Cast dialog with targets and suggested mana tapping, accept automatically; Activate; resolution of simple spells and abilities (damage, destroy, exile, draw, counters, tokens, pump with durations, bounce); "Automatum off". | structured Stack entries, mana pool, automation flag |
 | 3 | Triggers (enters, dies, attacks, upkeep, end step), trigger ordering, delayed triggers, state-based actions. | pending decisions, card memory |

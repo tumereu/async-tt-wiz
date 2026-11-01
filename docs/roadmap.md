@@ -9,6 +9,16 @@ Long-term direction, in order. Rough by design; the owner changes it as plans ch
 - History of played games.
 - Possibly more game modes (Commander and others).
 
+## Alongside 1: Arcanum Automatum
+
+Optional MTG rules automation: an assistant that works out board state (P/T,
+keywords), casts, resolves and handles triggers, asking only when there is a
+decision, while everything stays doable by hand. Built as generic libraries
+(arcanum-api, arcanum-parser, arcanum-engine) in this repository, then integrated
+into the app phase by phase, before the web client. Spec:
+`docs/specs/arcanum-automatum.md`. Later: autoplay decisions (stored answers such
+as a fixed trigger order).
+
 ## 2. Desktop web client
 
 Same game engine and server, its own UI: things are done the desktop way

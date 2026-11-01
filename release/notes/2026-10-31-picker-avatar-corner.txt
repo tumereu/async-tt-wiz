@@ -1,0 +1,1 @@
+mod: In Grid, Rotisserie and Rochester drafts the picker's avatar now sits in the card's top left corner.

@@ -19,14 +19,12 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
-import kotlin.math.roundToInt
 import org.asyncttwiz.protocol.PodGridView as GridViewData
 
 /** Selection is personal UI state; neither the board nor the pool predicts a pick. */
@@ -171,9 +169,6 @@ internal val PodGridBandWidth = 5.dp
 /** Bands stop this short of a cell's sides across their line, so two adjacent parallel bands stay apart. */
 internal val PodGridBandGap = 1.dp
 
-/** The picker badge sits this far down the card: just below a printed card's name bar, at the top-left of its art. */
-internal const val PodGridPickerBadgeTop = .115f
-
 /** Discarded cards fade most; while a line is selected the other live cards dim slightly so the selection stands out. */
 internal fun podGridArtAlpha(cell: PodGridCell, live: Boolean, highlighted: Boolean, selecting: Boolean) = when {
     cell.discarded -> .35f
@@ -279,20 +274,21 @@ private fun PodGridSlot(board: GridPublicBoard, cell: PodGridCell, position: Int
                 .background(MaterialTheme.colorScheme.tertiary, MaterialTheme.shapes.extraSmall)
                 .padding(horizontal = 3.dp), color = MaterialTheme.colorScheme.onTertiary, fontSize = 9.sp,
                 lineHeight = 10.sp)
-            if (cell.pickedBy != null) {
-                val account = members.find { it.accountId == cell.pickedBy }
-                // Top-left of the art: clear of the mana cost and the name bar above it, and of New below.
-                Box(Modifier.layout { measurable, constraints ->
-                    val badge = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
-                    layout(badge.width, badge.height) {
-                        badge.place(3.dp.roundToPx(), (constraints.maxHeight * PodGridPickerBadgeTop).roundToInt())
-                    }
-                }.testTag("$tag-picker-$position").clearAndSetSemantics {}
-                    .size(18.dp).background(picker ?: OpponentTableColor, CircleShape).padding(2.dp)) {
-                    if (account != null) Avatar(account, size = 14.dp)
-                }
-            }
+            if (cell.pickedBy != null) PodPickerBadge(members.find { it.accountId == cell.pickedBy },
+                picker ?: OpponentTableColor, "$tag-picker-$position")
         }
+    }
+}
+
+/**
+ * A taken card's picker: their small avatar in a ring of their pick colour, in the card's top left corner over the name
+ * (DRF-085). Grid, Rotisserie and Rochester cards all use it.
+ */
+@Composable
+internal fun BoxScope.PodPickerBadge(account: AccountIdentity?, color: Color, tag: String) {
+    Box(Modifier.align(Alignment.TopStart).testTag(tag).clearAndSetSemantics {}.size(18.dp)
+        .background(color, CircleShape).padding(2.dp)) {
+        if (account != null) Avatar(account, size = 14.dp)
     }
 }
 

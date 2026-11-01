@@ -100,12 +100,19 @@ class PodLimitedScreenshotTest {
         compose.waitForIdle()
     }
 
+    // DRF-085: the picker's avatar sits in the card's top left corner, over the name (as in Grid).
+    private fun assertPickerInCorner(tag: String) {
+        val card = compose.onNodeWithTag(tag).fetchSemanticsNode().boundsInRoot
+        val badge = compose.onNodeWithTag("$tag-picker", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        kotlin.test.assertEquals(card.topLeft, badge.topLeft, "badge $badge on card $card")
+    }
+
     private fun shot(name: String, caption: String) {
         File(SCREENSHOTS).mkdirs()
         compose.onRoot().captureShot(File(SCREENSHOTS, "$name.png").path, caption)
     }
 
-    // DRF-153
+    // DRF-153, DRF-085
     @Test fun rotisseriePoolWithPicksAndASelection() {
         val board = copies.take(12).mapIndexed { index, copy ->
             LimitedSlot(copy, when (index) { 0 -> "bob"; 4 -> "carol"; 7 -> "alice"; else -> null })
@@ -118,6 +125,7 @@ class PodLimitedScreenshotTest {
         }
         shot("pod-rotisserie", "Rotisserie draft for three on Alice's turn: the whole pool sorted by colour, " +
             "with the three cards already taken greyed and marked with their picker's avatar.")
+        assertPickerInCorner("pod-rotisserie-copy-0")
         compose.onNodeWithTag("pod-rotisserie-copy-6").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()
@@ -126,7 +134,7 @@ class PodLimitedScreenshotTest {
             "\"Pick Serra Angel\".")
     }
 
-    // DRF-155
+    // DRF-155, DRF-085
     @Test fun rochesterOpenPacksWithHeadersAndPicks() {
         fun pack(index: Int, opener: String, current: String?, picked: Map<Int, String>): LimitedPackView {
             val cards = copies.drop(index * 6).take(6)
@@ -146,6 +154,7 @@ class PodLimitedScreenshotTest {
         compose.waitForIdle()
         shot("pod-rochester", "Rochester draft for three, round 1: Alice's two packs to pick from come first, the pack " +
             "waiting for Bob last; taken cards are greyed with their picker's avatar and Alice has framed one card.")
+        assertPickerInCorner("pod-rochester-copy-2")
     }
 
     // DRF-157

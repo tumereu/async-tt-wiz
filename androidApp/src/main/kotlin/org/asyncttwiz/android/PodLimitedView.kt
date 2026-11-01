@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -29,7 +28,6 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
-import kotlin.math.roundToInt
 
 /** A limited engine's move, sent by [PodController.turn]. */
 internal typealias PodTurnSender = (action: LimitedAction, turn: Int, card: String?, packId: String?, pile: Int?) -> Unit
@@ -118,15 +116,7 @@ internal fun PodLimitedCard(copy: DraftCopy, definition: CardDefinition?, picked
         if (selected) Box(Modifier.matchParentSize().background(MaterialTheme.colorScheme.primary.copy(alpha = PodGridHighlightTint)))
         Box(Modifier.matchParentSize().border(if (selected) 3.dp else 1.dp,
             if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, shape))
-        if (pickedBy != null) Box(Modifier.layout { measurable, constraints ->
-            val badge = measurable.measure(constraints.copy(minWidth = 0, minHeight = 0))
-            layout(badge.width, badge.height) {
-                badge.place(3.dp.roundToPx(), (constraints.maxHeight * PodGridPickerBadgeTop).roundToInt())
-            }
-        }.testTag("$tag-picker").clearAndSetSemantics {}.size(18.dp)
-            .background(colors[pickedBy] ?: OpponentTableColor, CircleShape).padding(2.dp)) {
-            picker?.let { Avatar(it, size = 14.dp) }
-        }
+        if (pickedBy != null) PodPickerBadge(picker, colors[pickedBy] ?: OpponentTableColor, "$tag-picker")
     }
 }
 

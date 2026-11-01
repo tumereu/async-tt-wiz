@@ -148,11 +148,10 @@ class PodGridScreenshotTest {
         listOf(border + 1, image.height - border - 2).forEach { y ->
             assertEquals(0xff111111.toInt(), image.getRGB(image.width / 2, y), "pixel at y=$y of ${image.height}")
         }
-        // The picker badge sits top-left, below the name bar (mana cost and name stay visible).
+        // DRF-085: the picker badge sits in the card's top left corner, over the name.
         val slot = compose.onNodeWithTag("pod-grid-grid-0-slot-1").fetchSemanticsNode().boundsInRoot
         val badge = compose.onNodeWithTag("pod-grid-grid-0-picker-1", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        assertTrue(badge.left - slot.left < slot.width / 4 && badge.top - slot.top >= slot.height * .11f &&
-            badge.bottom - slot.top < slot.height * .3f, "badge $badge in slot $slot")
+        assertEquals(slot.topLeft, badge.topLeft, "badge $badge in slot $slot")
         compose.onNodeWithContentDescription("Select row 3").performClick()
         compose.mainClock.advanceTimeBy(500)
         compose.waitForIdle()

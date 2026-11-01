@@ -94,6 +94,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **CMB-008** Pairs are packed groups with single faint dividers (no per-column borders), centred as a group and re-centred when added; cards sit centred in their slot (one attacker over two blockers is centred), with about two card-border widths of margin. (r7)
 - **CMB-009** Dragging a battlefield card into the combat area makes its copy there. Dropping left or right of all groups makes a new pair at that end; near a divider, a new pair there. While dragging, a faint shorter divider shows where it lands; reordering works the same both ways. Dragging a copy between rows changes its role. (r7)
 - **CMB-010** Dragging a combat copy to a real zone (e.g. graveyard) moves the real card there. (r1)
+- **CMB-027** A card dragged into the combat area (from the battlefield or from another combat slot) that covers at least half the width of a card in the row it is dropped in goes beside that card, on the side the dragged card's centre is closer to: it joins that card's pair, or over a card of its own pair it changes places within the pair. With less overlap the gaps of CMB-009 apply. This wins over divider drops and reordering pairs, in both rows. (r36)
 
 ### Attack targets
 

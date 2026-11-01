@@ -136,6 +136,31 @@ class CombatRetargetDragTest {
             f.id("attacker1"), walker(0), f.id("pair1"))
     }
 
+    // CMB-027, CMB-015
+    @Test fun coveringHalfAnAttackerInAnotherLaneJoinsItsPairAndAttacksItsTarget() {
+        // pair1 attacks the player, pair2 the walker: drop pair1's attacker mostly over pair2's attacker, right of its centre.
+        val initial = state(1, listOf(null, walker(0)))
+        for (viewer in listOf(f.a, f.b)) for (landscape in listOf(true, false)) {
+            val label = "viewer ${if (viewer == f.a) "attacker" else "defender (mirrored)"}, ${if (landscape) "landscape" else "portrait"}"
+            val session = Session(initial, viewer, landscape)
+            val destination = session.drag(f.id("attacker1")) { scene ->
+                val target = scene.items.single { it.cardId == f.id("attacker2") }
+                TablePoint(target.bounds.center.x + scene.cardWidth * .3f, target.bounds.center.y)
+            }
+            assertIs<TableDestination.Combat>(destination, label)
+            assertTrue(session.recorded.isNotEmpty() && session.recorded.none {
+                it is PlayAction.Combat && it.action is CombatAction.SetAttackTarget }, "$label: ${session.recorded}")
+            val pairs = session.play.board.combat!!.pairs
+            val joined = pairs.single { it.id == f.id("pair2") }
+            assertEquals(listOf(f.id("attacker2"), f.id("attacker1")), joined.attackers.map { it.id }, label)
+            assertEquals(walker(0), joined.attackTarget, label)
+            // The blocker of the attacker's old pair stays where it was.
+            val old = pairs.single { it.id == f.id("pair1") }
+            assertEquals(initial.board.combat!!.pairs.first().blockers, old.blockers, label)
+            assertNull(old.attackTarget, label)
+        }
+    }
+
     // CMB-010
     @Test fun draggingACombatCopyOntoItsOwnersGraveyardMovesTheRealCardThere() {
         val initial = f.combat()

@@ -1,0 +1,1 @@
+add: With Automatum on, combat follows the rules: attack and block by dragging creatures into the combat area, see the damage before it happens, split damage with a suggestion filled in (the defender can split theirs early), dragging a card from your hand casts or plays it, spells below the top of the Stack can be targeted, and moving cards or life by hand with drags is refused.

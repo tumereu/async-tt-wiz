@@ -24,7 +24,8 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
             if (toolkit != null) {
                 val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
                 QuickActionStrip(play, toolkitQuickContext(play, selection, accountId)
-                    .copy(combatDamageEdits = toolkit.combatDamageEdits(play)), toolkit.table, endingColor,
+                    .copy(combatDamageEdits = toolkit.combatDamageEdits(play), automatumCombat = toolkit.combat.ready(play)),
+                    toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform)
                 runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
                     Modifier.align(Alignment.CenterStart).padding(start = 10.dp), holdName = if (runtime.redo != null) "Redo" else null,

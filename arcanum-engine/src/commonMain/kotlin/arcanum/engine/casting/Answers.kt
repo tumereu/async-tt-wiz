@@ -104,17 +104,34 @@ internal object Answers {
         else -> null
     }
 
-    /** Whether cost [parts] could be paid: enough objects to choose, enough life (CR 119.4), energy, cards to mill. */
+    /** Whether cost [parts] could be paid: enough objects to choose, enough life (CR 119.4), energy, cards to mill,
+     * counters to remove from the objects it names (CR 118.3). */
     fun payable(plan: Plan, parts: List<CostPart>): Boolean = parts.all { part ->
         val you = plan.snap.state.player(plan.player)
         when (part) {
             is CostPart.PayLife -> you.life >= plan.eval.value(part.amount)
             is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
             is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
+            is CostPart.RemoveCounters -> when (val from = part.from) {
+                is arcanum.api.CostObjects.Choose -> Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
+                    .let { choice -> choice == null || choice.options.size >= choice.min }
+                arcanum.api.CostObjects.Self -> enoughCounters(plan, part, listOf(plan.sourceId))
+                is arcanum.api.CostObjects.These -> enoughCounters(plan, part, plan.eval.objects(from.objects))
+            }
             else -> {
                 val choice = Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
                 choice == null || choice.options.size >= choice.min
             }
+        }
+    }
+
+    /** Whether each of [ids] has the counters [part] removes (of its kind, else of the kind it has first, as paid). */
+    private fun enoughCounters(plan: Plan, part: CostPart.RemoveCounters, ids: List<arcanum.engine.state.ObjectId>): Boolean {
+        val n = plan.eval.value(part.amount)
+        return ids.all { id ->
+            val o = plan.snap.state.obj(id) ?: return@all false
+            val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@all n <= 0
+            o.counters(kind) >= n
         }
     }
 }

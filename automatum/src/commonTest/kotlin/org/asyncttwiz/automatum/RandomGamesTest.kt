@@ -9,6 +9,7 @@ import org.asyncttwiz.protocol.PlayZone
 import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /**
  * Seeded random games over `Engine.options` driven through ATW (the I0 acceptance check, integration spec §3): every
@@ -55,11 +56,9 @@ class RandomGamesTest {
                 rt.apply(call, decision.player.value)
                 handOvers++
             } else if (decision != null) {
-                // Answers, or cancelling a cast or activation that can't go on (D58)
-                val options = Engine.options(rt.engine(flowView), decision.player).ifEmpty {
-                    players.flatMap { p -> Engine.options(rt.engine(flowView), PlayerId(p)).filterIsInstance<Input.Cancel>() }
-                }
-                if (options.isEmpty()) { stop = "nothing listed for $decision"; break }
+                // Every open decision lists an answer (and the caster may cancel a cast or activation, D58)
+                val options = Engine.options(rt.engine(flowView), decision.player)
+                if (options.none { it is Input.Answer }) fail("seed $seed: no answer listed for $decision")
                 val input = options.random(random)
                 rt.perform(input, (input as? Input.Cancel)?.player?.value ?: decision.player.value, flowView)
             } else {

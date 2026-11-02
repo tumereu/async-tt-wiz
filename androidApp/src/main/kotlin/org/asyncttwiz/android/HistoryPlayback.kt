@@ -328,17 +328,24 @@ class HistoryPlayback(initial: HistoryTree,
     /**
      * I-D41 (HIS-093): playback reached [pause], the viewer's pause on the shown board: Auto stops there (no time limit)
      * unless the next group is the viewer's own; once per point. Only forward along the live line, never in a rewind.
+     * [key] names the pause ([pauseKey]): a group that leaves the same pause shown (a ping or comment right after it)
+     * doesn't stop again (#6).
      */
-    fun stopAtPause(viewer: String, pause: Boolean): Boolean {
-        if (!foreground || !position.playing || !pause || position.mode != HistoryMode.PLAYBACK) return false
+    fun stopAtPause(viewer: String, pause: Boolean, key: Any? = null): Boolean {
+        if (!foreground || !position.playing || position.mode != HistoryMode.PLAYBACK) return false
+        if (!pause) { pauseStopKey = null; return false }
         val cursor = position.cursorId
         if (cursor == tree.sharedHeadId || cursor == pauseStopCursor || !tree.isAncestor(cursor, tree.sharedHeadId)) return false
+        if (key != null && key == pauseStopKey) return false
         val next = tree.path(tree.sharedHeadId).getOrNull(tree.depth(cursor) + 1)?.let(tree.nodes::get)
         if (next?.author == viewer) return false
         pauseStopCursor = cursor
+        pauseStopKey = key
         pause()
         return true
     }
+    /** The pause [stopAtPause] or an auto-pause last stopped at ([pauseKey]), so it is one stop however it was reached. */
+    private var pauseStopKey: Any? = null
 
     /** Present the final board before a result without enabling personal timeline mode. */
     fun holdLiveAt(id: String) {
@@ -467,9 +474,12 @@ class HistoryPlayback(initial: HistoryTree,
         return true
     }
 
-    /** Invoked only once the selected group's scene is on screen. Resuming cannot re-trigger it. */
-    fun pauseAfterAnimation(): Boolean {
+    /** Invoked only once the selected group's scene is on screen. Resuming cannot re-trigger it. [shownPause]: the viewer's
+     * pause shown there ([pauseKey]; null: none), which this stop also counts as (#6, [stopAtPause]). */
+    fun pauseAfterAnimation(shownPause: Any? = null): Boolean {
         if (!foreground || !position.playing || autoPauseCursor != position.cursorId) return false
+        pauseStopCursor = position.cursorId
+        pauseStopKey = shownPause
         pause()
         return true
     }
@@ -774,3 +784,8 @@ internal fun passedFor(node: GameplayMutation, viewer: String): Boolean {
     val priority = ((node.action as? PlayAction.Mtg)?.action as? MtgAction.SetPriority) ?: return false
     return priority.before?.holder == viewer && priority.after?.holder != viewer
 }
+
+/** HIS-093 (#6): [viewer]'s pause on [board] as one value, the same while only pings and comments follow it (the turn,
+ * the priority and the Stack); null when [board] isn't their pause. */
+internal fun pauseKey(board: BoardState?, viewer: String): Any? = board?.takeIf { org.asyncttwiz.automatum.PausePoints.pauseFor(it, viewer) }
+    ?.let { listOf(it.turn, it.priority, CombatStackRules.stack(it).cards) }

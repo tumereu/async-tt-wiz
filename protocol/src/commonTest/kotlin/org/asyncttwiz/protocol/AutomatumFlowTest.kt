@@ -171,7 +171,8 @@ class AutomatumFlowTest {
         assertEquals(listOf(effect), head(off).board.engineRecords)
     }
 
-    // SYS-062 (I-D23): no branch starts while a flow is open, from the live game or from a point inside the flow
+    // SYS-062 (I-D23, I-D41 decision A): no branch starts from a point inside an open flow; a branch from before the flow
+    // leaves the live line's open flow behind with that line (a late reaction, pausereview #7)
     @Test fun noBranchWhileAFlowIsOpen() {
         var tree = GameplayTree(base())
         tree = play(tree, a, PlayAction.SetTapped(gameplayId(11), true))
@@ -181,9 +182,10 @@ class AutomatumFlowTest {
         tree = play(tree, b, PlayAction.SetLife(b, "17"))
         fun branch(at: String) = HistoryContinuation.change(tree, a, command(GameAction.Play(PlayAction.SetLife(a, "5")))
             .copy(continuation = Continuation(at, true)))
-        assertEquals(RuleRefusals.FLOW_OPEN, branch(earlier).reason)
         assertEquals(RuleRefusals.FLOW_OPEN, branch(inside).reason)
-        // Once the flow is closed, branching works again
+        val left = assertNotNull(branch(earlier).tree, "a branch from before the flow")
+        assertFalse(Automatum.flowOpen(head(left).board), "the open flow stays on the line left")
+        // Once the flow is closed, branching from before it works as always
         tree = play(tree, b, mtg(MtgAction.SetRecord(open.id, open, null)))
         assertNotNull(HistoryContinuation.change(tree, a, command(GameAction.Play(PlayAction.SetLife(a, "5")))
             .copy(continuation = Continuation(earlier, true))).tree)

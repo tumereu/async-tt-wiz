@@ -65,6 +65,9 @@ internal class CastController(
     private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
     private val work: AutomatumWork = AutomatumWork.Inline,
+    /** A cast or ability is being begun, before the board it begins on is read (#1: it holds the viewer's pause shown,
+     * [PauseController.holdForReaction], so it begins on that point's board). */
+    private val beginning: () -> Unit = {},
 ) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
@@ -104,6 +107,7 @@ internal class CastController(
      * about it is read or shown), or (once worked out) the engine doesn't allow it now (I-D28).
      */
     fun start(cardId: String): Boolean {
+        beginning()
         val play = current() ?: return false
         if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }
@@ -139,6 +143,7 @@ internal class CastController(
      * [text] shown for an ability. False with a message when it can't be begun.
      */
     fun begin(cardId: String, input: Input, text: String? = null): Boolean {
+        beginning()
         val play = current() ?: return false
         if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }

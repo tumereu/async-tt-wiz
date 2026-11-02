@@ -85,6 +85,13 @@ object KeywordExpansions {
         }
         is Keyword.Multikicker -> static(Mechanic.AdditionalCost(Keyword.Kicker.Kind,
             keyword.cost, optional = true, repeatable = true))
+        // blb: CR 702.175a: "You may pay an additional [cost] as you cast this spell" and "When this permanent enters, if
+        // its offspring cost was paid, create a token that's a copy of it, except it's 1/1."
+        is Keyword.Offspring -> listOf(
+            Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Offspring.Kind, keyword.cost, optional = true)), affects = Affected.Objects(Objects.Self)),
+            Ability.Triggered(entersSelf, steps(Effect.CreateToken(TokenSpec.CopyOf(Objects.Self, except = listOf(CopyException.PowerToughness(1, 1))),
+                count = Value.Fixed(1), controller = Players.You)), interveningIf = Condition.Paid(Keyword.Offspring.Kind, times = 1, of = Objects.Self)),
+        )
         // CR 702.63a: enters with N time counters; upkeep: remove one; when the last is removed, sacrifice it
         is Keyword.Vanishing -> {
             val time = CounterKind.Time

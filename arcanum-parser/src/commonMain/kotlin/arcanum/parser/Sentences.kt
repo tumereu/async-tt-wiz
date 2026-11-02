@@ -393,6 +393,10 @@ internal class Sentences(
         CANT_BE_BLOCKED_EXCEPT_BY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             return Ability.Static(listOf(Mechanic.CanBeBlockedOnlyBy(Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
         }
+        // blb chunk 01: "This creature can't be blocked by creatures with power 2 or less." (CR 509.1b)
+        Blb.CANT_BE_BLOCKED_BY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
+        }
         // chunk 36: "During your turn, [static ability]."
         DURING_YOUR_TURN_STATIC.matchEntire(line)?.let { m ->
             val inner = static(m.groupValues[1].replaceFirstChar { it.uppercase() }) as? Ability.Static ?: return null
@@ -1125,7 +1129,7 @@ internal class Sentences(
         /** "target player" */
         fun targetPlayer(): Players {
             if (targets.none { it.name == "player" }) targets += TargetSlot("player", arcanum.api.TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
-            return Players.Target("player")
+            return Players.Target("player").also { lastPlayer = it } // blb chunk 01: "they"
         }
 
         fun target(noun: String, filter: ObjectFilter): Objects {
@@ -1176,6 +1180,8 @@ internal class Sentences(
     private fun effect(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        // blb: the Bloomburrow wordings (blbEffect), tried first; each is specific and falls through when it can't read
+        blbEffect(sentence, context)?.let { return it }
         // chunk 12
         SEARCH_LIBRARY_AND_OR_GRAVEYARD.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
@@ -1652,6 +1658,9 @@ internal class Sentences(
             val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             val to = when (val what = m.groupValues[3]) {
                 "any target" -> { context.anyTarget(); arcanum.api.Recipients(target = "any") }
+                // blb chunk 01
+                "target player" -> arcanum.api.Recipients(players = context.targetPlayer())
+                "target opponent" -> arcanum.api.Recipients(players = context.targetOpponent())
                 else -> {
                     val noun = what.removePrefix("target ").takeIf { what.startsWith("target ") } ?: return null
                     arcanum.api.Recipients(objects = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null))
@@ -1850,9 +1859,13 @@ internal class Sentences(
         }
         CREATE_TOKEN.matchEntire(sentence)?.let { m ->
             // chunk 42: "a tapped 4/4 green Beast creature token"
-            val tokens = TAPPED_TOKENS.replaceFirst(m.groupValues[1], "$1 ")
+            // blb chunk 01: "… token that's tapped and attacking" (CR 508.4: its controller chooses what it attacks)
+            val attacking = Blb.TAPPED_AND_ATTACKING.find(m.groupValues[1])
+            val printed = attacking?.let { m.groupValues[1].removeRange(it.range) } ?: m.groupValues[1]
+            val tokens = TAPPED_TOKENS.replaceFirst(printed, "$1 ")
             val (count, token) = Tokens.spec(tokens) ?: return null
-            return listOf(Step.Do(Effect.CreateToken(token, count = Value.Fixed(count), tapped = tokens != m.groupValues[1], controller = Players.You)))
+            return listOf(Step.Do(Effect.CreateToken(token, count = Value.Fixed(count), tapped = tokens != printed || attacking != null, controller = Players.You,
+                attacking = attacking?.let { arcanum.api.AttackTarget.Chosen })))
         }
         THAT_PLAYER_MAY_SEARCH.matchEntire(sentence)?.let { m ->
             val player = context.lastTargetController() ?: return null
@@ -1915,7 +1928,7 @@ internal class Sentences(
         }
         // chunk 26: "Each opponent loses 1 life."
         PLAYERS_LOSE_LIFE.matchEntire(sentence)?.let { m ->
-            Filters.players(m.groupValues[1])?.let { return listOf(Step.Do(Effect.LoseLife(it, Value.Fixed(m.groupValues[2].toInt())))) }
+            playersIn(m.groupValues[1], context)?.let { return listOf(Step.Do(Effect.LoseLife(it, Value.Fixed(m.groupValues[2].toInt())))) }
         }
         // chunk 26: "This enchantment deals that much damage to each opponent."
         DEALS_THAT_MUCH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -2092,7 +2105,7 @@ internal class Sentences(
                 isSelf(on) -> Objects.Self
                 // chunk 36: "on it"
                 on == "it" -> context.it
-                on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), Filters.noun(it) ?: return null) }
+                on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), nounIn(it, context) ?: return null) }
                 // chunk 35: other wordings ("on Korvold and draw a card") are left to the rules below
                 else -> null
             }
@@ -2888,6 +2901,72 @@ internal class Sentences(
         }
     }
 
+    // ---- blb: Bloomburrow wordings (the set's parser tests, sets/blb/BlbChunk*Test.kt)
+
+    /** A noun phrase in a trigger's effect: "creature you control other than that creature" excludes the event's object. */
+    // blb chunk 01
+    private fun nounIn(phrase: String, context: Context): ObjectFilter? {
+        Blb.OTHER_THAN_THAT.matchEntire(phrase)?.let { m ->
+            val that = context.that ?: return null
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(that)))
+        }
+        return Filters.noun(phrase)
+    }
+
+    /** blb chunk 01: a player phrase that may name a target ("Target opponent", "target player") as well as "each opponent". */
+    private fun playersIn(phrase: String, context: Context): Players? = when (phrase.lowercase()) {
+        "target opponent" -> context.targetOpponent()
+        "target player" -> context.targetPlayer()
+        else -> Filters.players(phrase)
+    }
+
+    /** The Bloomburrow effect wordings; null when none reads [sentence]. */
+    private fun blbEffect(sentence: String, context: Context): List<Step>? {
+        // blb chunk 01: "Target Mouse you control gains your choice of double strike or trample until end of turn." (chosen as
+        // it resolves, CR 608.2d)
+        Blb.GAINS_YOUR_CHOICE.matchEntire(sentence)?.let { m ->
+            val keywords = listOf(m.groupValues[2], m.groupValues[3]).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            fun gain(keyword: arcanum.api.Keyword) = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(keyword))),
+                Affected.Objects(target), arcanum.api.Duration.EndOfTurn))
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf(m.groupValues[2], m.groupValues[3])), bind = "keyword", chooser = Players.You),
+                Step.If(arcanum.api.Condition.Chose("keyword", m.groupValues[2]), then = listOf(gain(keywords[0])), otherwise = listOf(gain(keywords[1]))))
+        }
+        // blb chunk 01: "Tap up to one target creature", "Tap target creature an opponent controls"; "it" is then the target
+        Blb.TAP_TARGET.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2]
+            val slot = Filters.slotName(noun)
+            val upTo = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Numbers.count(it) ?: return null }
+            context.targets += TargetSlot(slot, TargetKind.Objects(Filters.noun(noun) ?: return null),
+                min = Value.Fixed(if (upTo == null) 1 else 0), max = Value.Fixed(upTo ?: 1))
+            context.it = Objects.Target(slot)
+            return listOf(Step.Do(Effect.Tap(Objects.Target(slot))))
+        }
+        // blb chunk 01: "Target opponent loses 3 life unless they sacrifice a nonland permanent of their choice or discard a
+        // card." (CR 118.12a: the player named before may pay one of the costs)
+        Blb.UNLESS_THEY.matchEntire(sentence)?.let { m ->
+            val options = m.groupValues[2].split(" or ").map { option ->
+                Cost(costPart(option.removeSuffix(" of their choice").replaceFirstChar { it.uppercase() }) ?: return null)
+            }
+            val steps = effect(m.groupValues[1] + ".", context) ?: return null
+            val payer = context.lastPlayer ?: return null
+            return unlessPays(payer, options.singleOrNull() ?: Cost(listOf(CostPart.OneOf(options))), steps)
+        }
+        return null
+    }
+
+    /** Regular expressions of the Bloomburrow wordings. */
+    private object Blb {
+        // blb chunk 01
+        val TAPPED_AND_ATTACKING = Regex(""" that(?:'s| are) tapped and attacking$""")
+        val CANT_BE_BLOCKED_BY = Regex("""(.+) can't be blocked by (.+)\.""")
+        val OTHER_THAN_THAT = Regex("""(.+) other than that creature""")
+        val GAINS_YOUR_CHOICE = Regex("""Target (.+) gains your choice of ([a-z ]+) or ([a-z ]+) until end of turn\.""")
+        val TAP_TARGET = Regex("""Tap (?:up to (\w+) )?target (.+)\.""")
+        val UNLESS_THEY = Regex("""(.+) unless (?:they|that player) (.+)\.""")
+    }
+
     private companion object {
         // chunk 35: also after a quoted ability that ends a sentence ('… with "This token can't block." If …')
         val SENTENCE_END = Regex("""(?<=\.)\s+|(?<=\.")\s+""")
@@ -2942,7 +3021,7 @@ internal class Sentences(
         val ADD_MANA_FOR_EACH = Regex("""Add (\{.\}) for each (.+)\.""")
         val DRAW = Regex("""Draw (a|one|two|three|four|five|six|seven) cards?\.""")
         val DISCARD = Regex("""[Dd]iscard (a|one|two|three|four|five|six|seven) cards?\.""")
-        val CREATE_TOKEN = Regex("""[Cc]reate (.+ tokens?(?: with .+)?)\.""")
+        val CREATE_TOKEN = Regex("""[Cc]reate (.+ tokens?(?: with .+)?(?: that(?:'s| are) tapped and attacking)?)\.""")
         val SELF_DEALS_DAMAGE_TO_EACH = Regex("""(.+?) deals (\d+) damage to (each .+)\.""")
         val EXILE_THEN_RETURN = Regex("""Exile (another )?target (.+), then return (?:it|that card) to the battlefield under its owner's control\.""")
         val TARGET_PLAYER_DRAWS = Regex("""Target player draws (\w+) cards?(?:, then discards (\w+) cards?)?\.""")

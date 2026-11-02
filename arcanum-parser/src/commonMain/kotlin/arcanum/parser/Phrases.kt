@@ -74,7 +74,9 @@ internal object Filters {
         // chunk 32: "creature card with power 2 or less", "… with toughness 2 or less"
         WITH_POWER_OR_TOUGHNESS.matchEntire(phrase)?.let { m ->
             val n = Value.Fixed(m.groupValues[3].toInt())
-            val test = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtMost, n) else ObjectFilter.Toughness(Comparison.AtMost, n)
+            // blb chunk 01: "… or greater"
+            val comparison = if (m.groupValues[4] == "greater") Comparison.AtLeast else Comparison.AtMost
+            val test = if (m.groupValues[2] == "power") ObjectFilter.Power(comparison, n) else ObjectFilter.Toughness(comparison, n)
             return all(noun(m.groupValues[1]) ?: return null, test)
         }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
@@ -216,7 +218,7 @@ internal object Filters {
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
     // chunk 32
-    private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or less""")
+    private val WITH_POWER_OR_TOUGHNESS = Regex("""(.+) with (power|toughness) (\d+) or (less|greater)""")
     private val SINGULAR_NOUNS = setOf("land", "creature", "artifact", "enchantment", "planeswalker", "instant", "sorcery", "card",
         "permanent", "spell", "token")
     val CARD_TYPES = mapOf("artifact" to CardType.Artifact, "creature" to CardType.Creature, "enchantment" to CardType.Enchantment,
@@ -342,6 +344,17 @@ internal object Events {
             return EventPattern.Sacrifice(if (kind == null) yours else Filters.all(kind, yours))
         }
         if (text == "an opponent gains life") return EventPattern.GainLife(PlayerFilter.Opponent)
+        // blb chunk 01
+        if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
+        // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
+        BECOMES_TARGET.matchEntire(text)?.let { m ->
+            val by = when (m.groupValues[2]) {
+                "you control" -> PlayerFilter.You
+                "an opponent controls" -> PlayerFilter.Opponent
+                else -> return null
+            }
+            return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, by = ObjectFilter.ControlledBy(by))
+        }
         // chunk 33: leaves-the-battlefield (CR 603.6c)
         LEAVES_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield)
@@ -453,6 +466,8 @@ internal object Events {
     private val EXILED_FROM_THE_BATTLEFIELD = Regex("""(.+) is exiled from the battlefield""")
     // chunk 56
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
+    // blb chunk 01
+    private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */

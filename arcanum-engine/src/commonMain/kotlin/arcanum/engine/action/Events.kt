@@ -41,6 +41,14 @@ sealed interface PlannedEvent {
         override val controller: PlayerId, override val source: ObjectId? = null,
     ) : PlannedEvent
 
+    /** rtr chunk 07: [controller] pays the total cost to attack [cost] (CR 508.1h–j), then [attacks] become attacking creatures
+     * (CR 508.1f, k). */
+    @Serializable @SerialName("declare-attackers")
+    data class DeclareAttackers(
+        val attacks: List<arcanum.engine.input.Attack>, val cost: arcanum.api.ManaCost,
+        override val controller: PlayerId, override val source: ObjectId? = null,
+    ) : PlannedEvent
+
     /** [ids] move to [to] as one event; onto the battlefield under [under]'s control. */
     @Serializable @SerialName("move")
     data class Move(
@@ -80,6 +88,10 @@ internal object Events {
             is PlannedEvent.Draw -> Actions.draw(act, cause, event.player, event.count)
             is PlannedEvent.Counters -> event.on.forEach {
                 Actions.putCounters(act, cause, arcanum.engine.state.TargetRef.Object(it), event.kind, event.amount)
+            }
+            is PlannedEvent.DeclareAttackers -> {
+                act.payMana(event.controller, null, event.cost)
+                arcanum.engine.combat.Combat.attack(act.state, act::record, event.attacks)
             }
             is PlannedEvent.Move -> Actions.move(act, cause, event.ids.map {
                 PlannedMove(it, event.to, controller = event.under, tapped = event.tapped, meanings = event.meanings)

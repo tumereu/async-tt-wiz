@@ -115,6 +115,11 @@ internal object Filters {
         ENTERED_THIS_TURN.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Any, to = Zone.Battlefield)))
         }
+        // rtr chunk 05: "creature that dealt damage this turn" (the source of a damage event)
+        DEALT_DAMAGE_THIS_TURN_AS_SOURCE.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()),
+                role = arcanum.api.EventRole.Source))
+        }
         // blb chunk 06: "creature an opponent controls that was dealt damage this turn"
         DEALT_DAMAGE_THIS_TURN.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter())))
@@ -236,7 +241,7 @@ internal object Filters {
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
-        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" that dealt ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
@@ -273,6 +278,9 @@ internal object Filters {
             // dsk chunk 06: "a face-down permanent" (CR 708)
             "face-down" -> return ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)
             "untapped" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
+            // rtr chunk 05: "monocolored creature", "multicolored spell" (CR 105.2)
+            "monocolored" -> return ObjectFilter.Monocolored
+            "multicolored" -> return ObjectFilter.Multicolored
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
         // chunk 50: "historic": artifacts, legendaries and Sagas (CR 700.6)
@@ -350,6 +358,8 @@ internal object Filters {
     // blb chunk 08
     private val WITHOUT_KEYWORD = Regex("""(.+) without ([a-z ]+)""")
     private val ENTERED_THIS_TURN = Regex("""(.+) that entered the battlefield this turn""")
+    // rtr chunk 05
+    private val DEALT_DAMAGE_THIS_TURN_AS_SOURCE = Regex("""(.+) that dealt damage this turn""")
     // blb chunk 06
     private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that was dealt damage this turn""")
     // blb chunk 05
@@ -1212,6 +1222,16 @@ internal object Values {
             return Value.Count(Objects.Each(Filters.all(ObjectFilter.InZone(zone), ObjectFilter.OwnedBy(PlayerFilter.You))))
         }
         DEVOTION.matchEntire(text)?.let { m -> return Value.Devotion(listOf(COLORS[m.groupValues[1]] ?: return null), players = Players.You) }
+        // rtr chunk 06: "the power of the creature that died" (as it last existed, CR 603.10a)
+        if (text == "the power of the creature that died") return Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(arcanum.api.EventRole.Before), Combine.Single)
+        // rtr chunk 06: "the sacrificed creature's toughness" (as it last existed, CR 608.2h)
+        SACRIFICED_PROPERTY.matchEntire(text)?.let { m ->
+            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
+            return Value.Of(property, Objects.Bound(SACRIFICED), Combine.Single)
+        }
+        // rtr chunk 05: "the total life lost by your opponents this turn"
+        if (text == "the total life lost by your opponents this turn")
+            return Value.EventsThisTurn(EventPattern.LoseLife(PlayerFilter.Opponent), arcanum.api.Measure.Amount)
         // One exiled card, but card memory may hold several: read as their total (DefinitionChecks).
         if (text == "the mana value of the exiled card")
             return Value.Of(arcanum.api.NumericProperty.ManaValue, exiled ?: return null, Combine.Total)
@@ -1230,6 +1250,8 @@ internal object Values {
     // blb gaps 2
     private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
+    // rtr chunk 06
+    private val SACRIFICED_PROPERTY = Regex("""the sacrificed creature's (power|toughness)""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")

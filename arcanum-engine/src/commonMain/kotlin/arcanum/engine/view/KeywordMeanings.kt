@@ -133,7 +133,7 @@ object KeywordMeanings {
                 Keyword.Awaken.Kind, Keyword.Impending.Kind, Keyword.Prototype.Kind)
         }
         at(Moment.Enters) {
-            listOf(Keyword.Unleash, Keyword.HiddenAgenda, Keyword.Riot, Keyword.Daybound, Keyword.Nightbound, Keyword.Compleated,
+            listOf(Keyword.HiddenAgenda, Keyword.Riot, Keyword.Daybound, Keyword.Nightbound, Keyword.Compleated,
                 Keyword.ReadAhead, Keyword.Ravenous, Keyword.StartYourEngines, Keyword.Storied, Keyword.Amplify.Kind,
                 Keyword.Bloodthirst.Kind, Keyword.Devour.Kind, Keyword.Tribute.Kind, Keyword.Backup.Kind, Keyword.Echo.Kind,
                 Keyword.PartnerWith.Kind)
@@ -155,7 +155,7 @@ object KeywordMeanings {
         at(Moment.PutIntoAGraveyard) { listOf(Keyword.Aftermath, Keyword.Disturb.Kind, Keyword.Harmonize.Kind, Keyword.Mayhem.Kind) }
         at(Moment.PutIntoAHand) { listOf(Keyword.Miracle.Kind) }
         at(Moment.YourCreatureDies) { listOf(Keyword.Recover.Kind) }
-        at(Moment.ExileFromGraveyard) { listOf(Keyword.Embalm.Kind, Keyword.Eternalize.Kind, Keyword.Scavenge.Kind, Keyword.Encore.Kind) }
+        at(Moment.ExileFromGraveyard) { listOf(Keyword.Embalm.Kind, Keyword.Eternalize.Kind, Keyword.Encore.Kind) }
         at(Moment.DiscardAsSorcery) { listOf(Keyword.Transmute.Kind) }
         at(Moment.TapCreaturesWithTotalPower) { listOf(Keyword.Saddle.Kind) }
         at(Moment.TapAnotherCreature) { listOf(Keyword.Station) }

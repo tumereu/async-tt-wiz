@@ -345,7 +345,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 } ?: true
                 toOk && attachmentsOk
             }
-            is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id)
+            is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id, role = filter.role)
             // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
@@ -570,6 +570,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.Times -> value(value.value) * value.factor
         is Value.Half -> value(value.value).let { if (value.roundUp) (it + 1) / 2 else it / 2 }
         is Value.Max -> value.parts.maxOfOrNull { value(it) } ?: 0
+        // rtr chunk 09: how many of the colours (each counted once) the objects have (CR 105.2)
+        is Value.SharedColors -> {
+            val among = value.colors.flatMap { colors(it) }.toSet()
+            objects(value.objects).flatMap { characteristics(it)?.colors.orEmpty() }.distinct().count { it in among }
+        }
         is Value.Min -> value.parts.minOfOrNull { value(it) } ?: 0
     }
 
@@ -759,8 +764,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 internal object History {
     fun happened(
         evaluator: Evaluator, event: arcanum.api.EventPattern, objectId: ObjectId? = null, player: PlayerId? = null,
+        // rtr chunk 05: only in this role of the event ("that dealt damage this turn": the source)
+        role: arcanum.api.EventRole? = null,
     ): Boolean = instances(evaluator, event).any { e ->
-        (objectId == null || e.objects.any { objectId in it.ids }) && (player == null || player in e.players)
+        (objectId == null || e.objects.any { (role == null || it.role == role) && objectId in it.ids }) && (player == null || player in e.players)
     }
 
     fun count(evaluator: Evaluator, event: arcanum.api.EventPattern, measure: arcanum.api.Measure): Int {

@@ -100,6 +100,31 @@ internal object CombatRules {
         return null
     }
 
+    /**
+     * rtr chunk 07: the total cost to attack with [attacks] (CR 508.1h): the mana of each "can't attack … unless their controller
+     * pays" that applies to an attacker and what it attacks ([Mechanic.AttackCost], read with its own "you"), X worked out;
+     * null when nothing is asked. Only mana parts are known (no card asks another kind of cost yet).
+     */
+    fun attackCost(snap: Snapshot, attacks: List<Attack>): arcanum.api.ManaCost? {
+        val symbols = attacks.flatMap { a ->
+            mechanics(snap, a.attacker).flatMap { applied ->
+                val m = applied.mechanic as? Mechanic.AttackCost ?: return@flatMap emptyList()
+                if (m.target != null && a.target !in recipients(snap, applied, a.attacker, m.target!!)) return@flatMap emptyList()
+                val e = snap.evaluator(applied.controller, self = applied.source ?: a.attacker, names = applied.names).let { it.with(it.ctx.copy(affected = a.attacker)) }
+                m.cost.parts.filterIsInstance<arcanum.api.CostPart.Mana>().flatMap { part ->
+                    val mana = part.x?.let { arcanum.engine.mana.Mana.withX(part.cost, mapOf('X' to e.value(it))) } ?: part.cost
+                    List(part.times?.let { e.value(it) } ?: 1) { mana.symbols }.flatten()
+                }
+            }
+        }
+        return arcanum.api.ManaCost(symbols).takeIf { arcanum.engine.mana.Mana.needs(it).isNotEmpty() }
+    }
+
+    /** rtr chunk 07: whether [player] could pay the cost to attack with [attacks] (CR 508.1d: a declaration needing a cost they
+     * don't pay isn't made). */
+    fun canPayToAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): Boolean =
+        attackCost(snap, attacks)?.let { arcanum.engine.mana.Mana.suggest(snap, player, it, null).isNotEmpty() } ?: true
+
     /** One requirement on [creature] (CR 508.1d): it attacks, anything when [targets] is null. */
     private class AttackRequirement(val creature: ObjectId, val targets: List<TargetRef>?) {
         fun obeyedBy(target: TargetRef) = targets == null || target in targets

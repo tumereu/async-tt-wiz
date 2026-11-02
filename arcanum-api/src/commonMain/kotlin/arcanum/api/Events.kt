@@ -42,7 +42,13 @@ sealed interface EventPattern {
     @Serializable @SerialName("draw") data class Draw(val players: PlayerFilter) : EventPattern
     /** A player discards a card. Roles before (the card in hand, last known information) and after (the card in the
      * graveyard, or wherever a replacement put it). */
-    @Serializable @SerialName("discard") data class Discard(val cards: ObjectFilter, val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("discard") data class Discard(
+        val cards: ObjectFilter, val players: PlayerFilter,
+        // rtr chunk 06
+        /** Only a discard caused by a spell or ability matching this ("If a spell or ability an opponent controls causes you to
+         * discard this card"); a discard as a cost or a game rule (the cleanup step) has no such cause. */
+        val causedBy: ObjectFilter? = null,
+    ) : EventPattern
     @Serializable @SerialName("sacrifice") data class Sacrifice(val objects: ObjectFilter) : EventPattern
     /** Counters of [kind] are put on an object matching [objects], by an effect of a spell or ability matching [causedBy]
      * when given ("by a modular triggered ability"). */

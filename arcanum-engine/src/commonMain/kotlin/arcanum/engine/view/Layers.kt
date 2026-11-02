@@ -73,6 +73,15 @@ internal object Layers {
         return run.run().also { cache.set(it, readsLog = run.reads.log) }
     }
 
+    /** [Explanation] of object [id] (spec §7.1): the layers worked out afresh, recording each effect that changed it. */
+    fun explain(state: GameState, id: ObjectId): Explanation? {
+        val run = LayerRun(state, traced = id)
+        val view = run.run()
+        val base = run.base ?: return null
+        val characteristics = view[id]?.characteristics ?: return null
+        return Explanation(id, base, run.trace.toList(), characteristics)
+    }
+
     /** The layer a mechanic applies in; a characteristic-defining P/T applies in 7a (CR 613.4a). */
     fun layerOf(mechanic: Mechanic, characteristicDefining: Boolean): Layer? = when {
         mechanic is Mechanic.SetPowerToughness && characteristicDefining -> Layer.PowerToughnessDefining
@@ -195,14 +204,22 @@ private sealed interface Op {
 
 private class Started(val effect: ContinuousEffect, val affected: Set<ObjectId>)
 
-internal class LayerRun(private val state: GameState) {
+internal class LayerRun(private val state: GameState, private val traced: ObjectId? = null) {
     /** What this run read beyond objects and characteristics (kept with the view, [ViewCache]). */
     val reads = ViewReads()
+    /** For [Layers.explain]: [traced]'s characteristics after layer 1, and each effect that changed them. */
+    var base: Characteristics? = null
+        private set
+    val trace = mutableListOf<ExplainedEffect>()
+    /** Every object's characteristics after layer 1 ([ObjectView.base]). */
+    private var initial: Map<ObjectId, Characteristics> = emptyMap()
     private val copiable = Copiable(state, reads)
     private val started = LinkedHashMap<String, Started>()
 
     fun run(): View {
         val board = WorkBoard(state, initialWork(), reads)
+        initial = board.work.mapValues { it.value.chars }
+        if (traced != null) base = board.work[traced]?.chars
         Layers.ORDER.forEach { layer ->
             runLayer(board, layer)
             if (layer == Layer.Type) afterTypes(board)
@@ -247,7 +264,9 @@ internal class LayerRun(private val state: GameState) {
             val result = resolved[next]
             if (next.key !in started && result.exists) started[next.key] = Started(next, result.affected)
             val changed = changesBoard(board, result)
+            val before = traced?.let { board.work[it] }
             apply(board, result)
+            if (before != null) record(layer, next, before, board.work.getValue(traced!!))
             applied += next.key
             // What was worked out on the board before stays true unless it read what this effect changed
             if (changed) {
@@ -256,6 +275,23 @@ internal class LayerRun(private val state: GameState) {
                 resolved.changed(powerToughnessOnly)
             }
         }
+    }
+
+    private fun record(layer: Layer, e: ContinuousEffect, before: Partial, after: Partial) {
+        if (before == after) return
+        val instance = e.instance
+        val source = when {
+            e.effect != null -> EffectSource.EffectObject(e.effect)
+            instance?.origin is AbilityOrigin.FromCounter -> {
+                val kind = (instance.origin as AbilityOrigin.FromCounter).kind
+                EffectSource.Counters(e.self!!, kind, state.obj(e.self)?.counters?.firstOrNull { it.kind == kind }?.count ?: 0)
+            }
+            e.holder != null && instance != null -> EffectSource.StaticAbility(e.holder, instance.origin, e.cda)
+            else -> return
+        }
+        trace += ExplainedEffect(layer, source, e.timestamp, before.chars, after.chars,
+            before.controller.takeIf { before.controller != after.controller },
+            after.controller.takeIf { before.controller != after.controller })
     }
 
     /** What each effect does on the board as it is now ([resolve]), kept until the board changes in what it read. */
@@ -604,14 +640,14 @@ internal class LayerRun(private val state: GameState) {
             objects[o.id] = ObjectView(
                 id = o.id, owner = o.owner, controller = controller, zone = o.zone,
                 characteristics = board.work[o.id]?.chars, mechanics = objectMechanics[o.id].orEmpty(),
-                summoningSick = evaluator.summoningSick(o, controller), obj = o,
+                summoningSick = evaluator.summoningSick(o, controller), obj = o, base = initial[o.id],
             )
         }
         state.stackItems.values.filter { it.kind is StackItemKind.SpellCopy }.forEach { item ->
             objects[item.id] = ObjectView(
                 id = item.id, owner = item.controller, controller = board.work[item.id]?.controller ?: item.controller,
                 zone = Zone.Stack, characteristics = board.work[item.id]?.chars, mechanics = objectMechanics[item.id].orEmpty(),
-                summoningSick = false, obj = null,
+                summoningSick = false, obj = null, base = initial[item.id],
             )
         }
         val players = state.players.associate { it.id to PlayerView(it.id, playerMechanics[it.id].orEmpty()) }

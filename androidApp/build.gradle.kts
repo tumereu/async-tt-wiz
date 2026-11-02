@@ -280,6 +280,8 @@ dependencies {
     implementation(project(":core"))
     implementation(project(":protocol"))
     implementation(project(":client-storage"))
+    // Arcanum Automatum in ATW (integration spec §3): the engine's view of the board (I1).
+    implementation(project(":automatum"))
     implementation(platform(libs.compose.bom))
     implementation(libs.activity.compose)
     implementation(libs.compose.ui)

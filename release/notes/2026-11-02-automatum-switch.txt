@@ -1,0 +1,1 @@
+add: A new Automatum switch in the top bar: when it is on, creatures show their power and toughness worked out from counters and effects, Inspect explains where the numbers come from, and holding the switch shows its settings.

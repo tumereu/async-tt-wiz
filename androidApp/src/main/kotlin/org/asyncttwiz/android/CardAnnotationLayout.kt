@@ -1,16 +1,20 @@
 package org.asyncttwiz.android
 
 /** Face-local units (28 × 40), independent of HUD size and battlefield zoom. */
-internal data class CardAnnotationLayout(val note: TableBounds?, val counters: List<TableBounds>, val eotNote: TableBounds? = null)
+internal data class CardAnnotationLayout(val note: TableBounds?, val counters: List<TableBounds>, val eotNote: TableBounds? = null,
+    /** Automatum's marks (I1): changed types and colours, keywords gained or lost, typed counters. */
+    val marks: TableBounds? = null)
 
 internal fun cardAnnotationLayout(titleBand: Float, artBottom: Float, noteHeight: Float,
-    counterHeight: Float, hasNote: Boolean, counterCount: Int, hasEotNote: Boolean = false): CardAnnotationLayout {
-    if (hasEotNote) {
-        val base = cardAnnotationLayout(titleBand, artBottom, noteHeight * if (hasNote) 2 else 1, counterHeight, true, counterCount)
-        val note = requireNotNull(base.note).copy(height = noteHeight)
-        // Separate chips share the note column, never replace the permanent note.
-        return base.copy(note = if (hasNote) note else null,
-            eotNote = note.copy(y = if (hasNote) note.y + note.height else note.y))
+    counterHeight: Float, hasNote: Boolean, counterCount: Int, hasEotNote: Boolean = false, hasMarks: Boolean = false): CardAnnotationLayout {
+    if (hasEotNote || hasMarks) {
+        val lines = listOf(hasNote, hasEotNote, hasMarks).count { it }
+        val base = cardAnnotationLayout(titleBand, artBottom, noteHeight * lines, counterHeight, true, counterCount)
+        val first = requireNotNull(base.note).copy(height = noteHeight)
+        // Separate chips share the note column, one line each, never replacing the permanent note.
+        var y = first.y
+        fun next(present: Boolean) = if (present) first.copy(y = y).also { y += noteHeight } else null
+        return base.copy(note = next(hasNote), eotNote = next(hasEotNote), marks = next(hasMarks))
     }
     val top = titleBand - 1f
     if (counterCount > 2) {

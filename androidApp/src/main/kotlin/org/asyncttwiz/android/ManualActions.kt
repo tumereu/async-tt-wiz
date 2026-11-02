@@ -65,8 +65,13 @@ class ManualActions {
     fun valueActions(state: PlayState, viewer: String): List<PlayAction> {
         val draft = editor ?: return emptyList()
         if (!draft.scope.usable(state) || !draft.valid) return emptyList()
-        return draft.scope.actions(state, draft.field, draft.text, viewer)
+        return draft.scope.actions(state, draft.field, draft.text, viewer).filterNot {
+            (it is PlayAction.SetCorner && cornerLocked(it.cardId)) || (it is PlayAction.SetEotCorner && cornerLocked(it.cardId))
+        }
     }
+
+    /** Automatum on (I1, TBL-114): whether a card's P/T is computed, so typed P/T values skip it. Set by the card menu. */
+    var cornerLocked: (String) -> Boolean = { false }
 
     fun submitValue(state: PlayState, viewer: String, submit: (PlayAction) -> Boolean): Boolean {
         val actions = valueActions(state, viewer)

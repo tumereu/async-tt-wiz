@@ -36,6 +36,7 @@ by the owner before release.
 | I-D25 | **Emblems** show as a chip by the player's life square with the emblem's text; playtesting decides whether other UI is needed (owner, 2026-11-02). |
 | I-D26 | **Redo assigns fresh timestamps** when it re-applies an event, so stamp order follows real event order (owner, 2026-11-02; a starting point — undo/redo's final shape is decided by playtesting once Automatum is complete). |
 | I-D27 | **Hidden information is about what is shown, not what the client receives** (owner, 2026-11-02): ATW clients may hold hidden identities (opponent's hand, face-down cards) in their data; what matters is that the UI never shows them to a player who shouldn't see them. Wherever the engine or the integration could either keep data from the client or just not show it, choose the path that is easiest to implement and maintain. |
+| I-D28 | **Automatum on allows only what the engine considers legal; off allows any board manipulation** (owner, 2026-11-02). With Automatum on, manual board edits are not offered (e.g. the P/T corner shows the computed value and isn't editable; keywords in notes are just notes); each phase blocks the manual ways as the engine takes them over, until I4 where only engine-legal actions remain. With it off, the board can be changed in every current (and possible new) manual way. Switching back on does a best-effort recovery from the board (`EngineState.from`); what can't be recovered is lost and the game may then play differently — accepted. |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);
@@ -83,8 +84,13 @@ out of anything stuck.
   types and colours.
 - **Inspect** explains each value: "2/2 printed, +1/+1 Glorious Anthem, +3/+3 Giant Growth until end of turn".
   Effect objects show on the cards they affect, "(until end of turn)" as today (TBL-110).
-- Manual play is unchanged. Open (decide when built): a manual P/T edit while on becomes a player-set P/T effect
-  (layer 7b) shown and removable like any effect; keywords in notes count as manually granted keywords.
+- With Automatum on, the P/T corner shows the computed value and isn't editable; keywords in notes are just notes
+  (I-D28). Other manual play is unchanged in I1.
+- **Built (app only, no rules change):** `ComputedBoard` (module `automatum/`) builds the engine state with full
+  information (I-D27) on a worker whenever the board changes and maps `Engine.view` onto Battlefield cards: P/T of
+  creatures, keywords gained and lost, changed types and colours (against `ObjectView.base`, the values after layer 1),
+  typed counters; `Engine.explain` (engine) gives Inspect's breakdown. The switch and its hold panel (§5) are in the top
+  bar. Catalog: TBL-110, TBL-112–TBL-114, TRN-054, TRN-055, SYS-055, SYS-063, HIS-091.
 
 ### I2 — Casting and resolving
 

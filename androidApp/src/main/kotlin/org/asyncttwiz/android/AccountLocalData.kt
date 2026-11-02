@@ -3,7 +3,10 @@ package org.asyncttwiz.android
 import android.content.Context
 import android.util.AtomicFile
 import org.asyncttwiz.storage.AndroidClientStorage
+import org.asyncttwiz.protocol.SubmittedDefinition
+import org.asyncttwiz.storage.CardDefinitions
 import org.asyncttwiz.storage.ClientStorage
+import org.asyncttwiz.storage.ParsedCard
 import org.asyncttwiz.storage.StorageOpenResult
 import org.asyncttwiz.storage.StoredPayload
 import org.asyncttwiz.storage.GameplayTreeCache
@@ -47,7 +50,13 @@ class AccountStorageHandle(private val open: () -> StorageOpenResult) : AutoClos
         }
     }
 
-    @Synchronized override fun close() { closed = true; handle?.close(); handle = null }
+    private var cardDefinitions: CardDefinitions? = null
+
+    /** The game's card definitions for Automatum (I-D2), parsed or read from the device cache. Blocking. */
+    @Synchronized fun cardDefinitions(submitted: Collection<SubmittedDefinition>): Map<String, ParsedCard> =
+        if (closed) emptyMap() else storage { s -> (cardDefinitions ?: CardDefinitions(s).also { cardDefinitions = it }).forDefinitions(submitted) }
+
+    @Synchronized override fun close() { closed = true; handle?.close(); handle = null; cardDefinitions = null }
 }
 
 class AndroidAccountLocalData(context: Context) : AccountLocalData, AutoCloseable {
@@ -56,6 +65,7 @@ class AndroidAccountLocalData(context: Context) : AccountLocalData, AutoCloseabl
     private val handle = AccountStorageHandle { AndroidClientStorage.open(database) }
     private fun <T> storage(block: (ClientStorage) -> T) = handle.storage(block)
     fun treeCache(accountId: String, gameId: String, playId: String) = handle.treeCache(accountId, gameId, playId)
+    fun cardDefinitions(submitted: Collection<SubmittedDefinition>) = handle.cardDefinitions(submitted)
     override fun close() = handle.close()
 
     override fun activate(accountId: String): ShellDestination = storage {

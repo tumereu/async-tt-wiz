@@ -41,6 +41,8 @@ internal fun rememberTableTokenCatalog(accountId: String, gameId: String, playId
 /** Other runtime owners supply real routes. Null means unavailable, never a successful-looking stub. */
 data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() -> Unit)? = null,
     val undo: (() -> Boolean)? = null, val redo: (() -> Boolean)? = null, val reviewing: Boolean = false,
+    /** I-D19: takes an open Automatum flow back on the server ([GameAction.RevertFlow]) before switching it off. */
+    val revertFlow: (() -> Boolean)? = null,
     val controlsConnected: Boolean? = null,
     val ping: ((EventPingIntent) -> Boolean)? = null, val tokenCatalog: TableTokenCatalog? = null,
     val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
@@ -310,6 +312,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                    armedSplit = history.armed?.takeIf { !history.provisional })
                         }) else null, undo = { controller.historyControl(GameAction.Undo) },
                         redo = { controller.historyControl(GameAction.Redo) }, reviewing = !editable,
+                        revertFlow = { controller.historyControl(GameAction.RevertFlow) },
                         opponentBranched = playback?.branched == true, oldBranch = playback?.oldBranch == true,
                         timelinePlayback = if (!editable) playback?.status else null,
                         continuationArmed = history.armed != null,

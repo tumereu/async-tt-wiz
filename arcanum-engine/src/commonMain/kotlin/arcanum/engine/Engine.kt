@@ -24,6 +24,14 @@ object Engine {
      * players, and the game rules in force (P3). A pure function of [state]. */
     fun view(state: GameState): View = Layers.view(state)
 
+    /**
+     * Where object [id]'s characteristics come from (spec §7.1, a host's Inspect: "2/2 printed, +1/+1 from an anthem,
+     * +3/+3 until end of turn"): its values after layer 1, then each continuous effect that changed them in the order
+     * applied (CR 613), with what made it. Works the layers out afresh (one [view]'s cost). Null when [id] has no
+     * characteristics (an unknown object, D60, or no such object).
+     */
+    fun explain(state: GameState, id: arcanum.engine.state.ObjectId): arcanum.engine.view.Explanation? = Layers.explain(state, id)
+
     /** What [player] may do now: play a land, cast, activate, pass, declare, or answer the open decision. */
     fun options(state: GameState, player: PlayerId): List<Input> = Options.of(state, player)
 

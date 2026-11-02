@@ -292,7 +292,7 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Exact typed shared controls use the SAME original queue and processing-time target.
      * No fixed Undo target, alternate endpoint, or durable offline command queue. */
     fun historyControl(game: GameSummary, actor: String, action: GameAction): Boolean {
-        if (action != GameAction.Undo && action != GameAction.Redo) return false
+        if (action != GameAction.Undo && action != GameAction.Redo && action != GameAction.RevertFlow) return false
         return gameplayCommand(game, actor, action, null, null) != null
     }
 

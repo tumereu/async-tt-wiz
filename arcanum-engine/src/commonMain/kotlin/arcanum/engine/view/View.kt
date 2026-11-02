@@ -53,6 +53,9 @@ data class ObjectView(
     val summoningSick: Boolean,
     /** The object as stored, before continuous effects. */
     val obj: GameObject?,
+    /** Its characteristics after layer 1 only (printed, copied or face down, CR 613.2), before every other continuous
+     * effect: what [characteristics] is compared with to show what effects changed. Null for an unknown object. */
+    val base: Characteristics? = null,
 ) {
     val name: String? get() = characteristics?.name
     val power: Int? get() = characteristics?.power

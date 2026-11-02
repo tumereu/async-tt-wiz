@@ -72,6 +72,12 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     val battlefield = enabled && cardModificationEnabled(zone)
     fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
     fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
+    // Automatum on (I1, I-D28): a card whose P/T the engine computes shows it, and its P/T can't be edited by hand.
+    val computed = LocalComputedBoard.current
+    val computedCorner = computed.cards[card.id]?.corner
+    fun cornerLocked(target: PlayCard) = computed.cards[target.id]?.corner != null
+    val cornerEditable = computedCorner == null
+    SideEffect { actions.cornerLocked = { id -> computed.cards[id]?.corner != null } }
     val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
     val other = if (card.covered) faces.singleOrNull { it.faceId == card.faceId } else faces.firstOrNull { it.faceId != card.faceId }
     val entries = mutableListOf<RingEntry>()
@@ -83,7 +89,8 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     })
     add("flip", if (card.covered) "Face up" else "Face down",
         MenuControl(if (card.covered) "Turn face up" else "Turn face down", enabled) { send { PlayAction.SetCovered(it.id, !card.covered) } })
-    add("resetCorner", "Reset P/T", MenuControl("Reset corner", battlefield) { send { PlayAction.ResetCorner(it.id) } })
+    add("resetCorner", "Reset P/T", MenuControl("Reset corner", battlefield && cornerEditable) {
+        send { if (cornerLocked(it)) null else PlayAction.ResetCorner(it.id) } })
     add("resetCounters", "Reset", MenuControl("Reset counters", battlefield) { emit(resetCardCounters(state, scope)) })
     val projection = previewViewId in CombatStackRules.projectionIds(state.board)
     add("note", "Note", MenuControl("Edit card note", enabled && cardModificationEnabled(zone, note = true, projection = projection)) {
@@ -99,9 +106,10 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         send { target -> nextPrintedFace(state, target) }
     })
     fun corner(part: CornerPart, delta: Int) = scope.cardActions(state) {
-        if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
+        if (!cornerLocked(it) && ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
     fun whole(delta: Int) = scope.cardActions(state) {
+        if (cornerLocked(it)) return@cardActions null
         val part = if ('/' in it.corner) CornerPart.BOTH else CornerPart.WHOLE
         if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
     }
@@ -120,13 +128,13 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     }, RingCompound(if (hidden) "—" else card.damage.ifEmpty { "0" }, markAdjustment("Decrease damage", damage(-1)), markAdjustment("Increase damage", damage(1)),
         drag = { if (marksEnabled) emit(damage(it)) }, dragValue = if (hidden) "" else card.damage.ifEmpty { "0" }))
     fun eot(part: CornerPart, delta: Int) = markActions {
-        if (ManualText.adjustEotCorner(it.eotCorner, part, delta) != null) PlayAction.AdjustEotCorner(it.id, part, delta) else null
+        if (!cornerLocked(it) && ManualText.adjustEotCorner(it.eotCorner, part, delta) != null) PlayAction.AdjustEotCorner(it.id, part, delta) else null
     }
-    entries += RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", marksEnabled, color = Color(EotPowerToughnessColor)) {
+    entries += RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", marksEnabled && cornerEditable, color = Color(EotPowerToughnessColor)) {
         actions.edit(ManualValue(ManualValueKind.EOT_CORNER), state, viewer)
     }, RingCompound(if (hidden) "—" else "⌛${card.eotCorner.ifEmpty { "0/0" }}", markAdjustment("Decrease EOT P/T", eot(CornerPart.BOTH, -1)),
         markAdjustment("Increase EOT P/T", eot(CornerPart.BOTH, 1)), drag = { delta ->
-            if (marksEnabled) emit(markActions { target -> cornerDragValue(target.eotCorner.ifEmpty { "0/0" }, delta)?.let { PlayAction.SetEotCorner(target.id, it) } })
+            if (marksEnabled && cornerEditable) emit(markActions { target -> if (cornerLocked(target)) null else cornerDragValue(target.eotCorner.ifEmpty { "0/0" }, delta)?.let { PlayAction.SetEotCorner(target.id, it) } })
         }, dragValue = if (hidden) "" else card.eotCorner.ifEmpty { "0/0" }, corner = true))
     add("eotNote", "EOT note", MenuControl("Edit EOT note", marksEnabled) {
         actions.edit(ManualValue(ManualValueKind.EOT_NOTE), state, viewer)
@@ -143,12 +151,12 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
         Triple(CornerPart.LEFT, -1, "EOT −1/−0"), Triple(CornerPart.RIGHT, -1, "EOT +0/−1"))) {
         add("eotCorner/${part.name}/$delta", symbol, markAdjustment("EOT P/T ${symbol.removePrefix("EOT ")}", eot(part, delta)))
     }
-    entries += RingEntry("corner", "P/T", MenuControl("Set corner", battlefield) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
-        RingCompound(if (hidden) "—" else card.corner.ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
-            if (battlefield) emit(scope.cardActions(state) { target ->
-                cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
+    entries += RingEntry("corner", "P/T", MenuControl("Set corner", battlefield && cornerEditable) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
+        RingCompound(if (hidden) "—" else (computedCorner ?: card.corner).ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
+            if (battlefield && cornerEditable) emit(scope.cardActions(state) { target ->
+                if (cornerLocked(target)) null else cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
             })
-        }, dragValue = if (hidden) "" else card.corner, corner = true))
+        }, dragValue = if (hidden) "" else computedCorner ?: card.corner, corner = true))
     // Always shown; disabled on cards without a two-part P/T.
     for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+1/+0"), Triple(CornerPart.RIGHT, 1, "+0/+1"),
         Triple(CornerPart.LEFT, -1, "−1/−0"), Triple(CornerPart.RIGHT, -1, "+0/−1"))) {

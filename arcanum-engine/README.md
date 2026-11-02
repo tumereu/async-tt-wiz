@@ -9,6 +9,7 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 
 ```kotlin
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
+Engine.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
 Engine.options(state, player): List<Input>       // what a player may do now: exact (every input listed is accepted)
 Engine.perform(state, input): Outcome            // Outcome(changes, pending); never writes `state`
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
@@ -52,7 +53,10 @@ seeded random games of cube cards, failing on any open player decision without a
   may", a choice or a cost to pay reads as the sentence of the ability's printed text, modes and triggers to order
   as their printed lines (with the trigger's `AbilityOrigin`), replacements to order as their ability's text; plain
   words where a definition has no text.
-- `view/` — `View`/`ObjectView`/`Characteristics`, `AbilityOrigin` (an ability's path, D42/D44);
+- `view/` — `View`/`ObjectView`/`Characteristics` (`ObjectView.base`: the values after layer 1 only, to compare
+  with), `AbilityOrigin` (an ability's path, D42/D44); `Explanation` (`Engine.explain`, a host's Inspect): the values
+  after layer 1, then each continuous effect that changed the object in the order applied, with its layer, timestamp,
+  values before and after and its `EffectSource` (a static ability, an effect object, counters);
   the layer system (`Layers`, `Copiable`), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
@@ -248,7 +252,7 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
   other keyword actions as costs (behold, forage, exert); no cube card has any of these. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
-  only), the Inspect breakdown of where a value comes from. Around the game: opening-hand actions (CR 103.6) and
+  only). Around the game: opening-hand actions (CR 103.6) and
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
   starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
   choosing, are not applied); restarting a game (CR 104.1).

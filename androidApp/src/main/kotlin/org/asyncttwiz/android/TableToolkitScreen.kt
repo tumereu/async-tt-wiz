@@ -63,6 +63,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 pendingSuggestionId = suggestion?.id, mayAccept = suggestion?.author?.let { it != toolkit.viewer } == true,
                 perform = toolkit::perform, names = names, onTimeline = onTimeline)
         }
+        "automatum" -> AutomatumPanel(play, toolkit.viewer, LocalComputedBoard.current, enabled, toolkit::dismiss) { toolkit.submit(it) }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
         "mulligan" -> toolkit.library?.let { library ->
             val owner = play.board.containers.single { it.id == library.controller.libraryId }.accountId.orEmpty()

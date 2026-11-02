@@ -412,7 +412,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         // Rules v36 (Arcanum integration I0): nothing sends these yet besides the switch; plain texts until the
         // engine's own history lines (CausedBy, D33) are built.
         is PlayAction.Mtg -> when (val mtg = action.action) {
-            is MtgAction.SetAutomatum -> text("Automatum turned ${if (mtg.on) "on" else "off"}", "Automatum")
+            // HIS-091 (I1): the switch names who turned it, "alice turned Automatum on"
+            is MtgAction.SetAutomatum -> text("${historyPlayerName(event.author, usernames)} turned Automatum ${if (mtg.on) "on" else "off"}", "Automatum")
             is MtgAction.SetPriority -> text("Priority → ${mtg.after?.holder?.let { historyPlayerName(it, usernames) } ?: "nobody"}", "Priority")
             is MtgAction.SetManaPool -> text("${playerPrefix(mtg.accountId)}${if (mtg.accountId == event.author) "Mana" else "mana"} → " +
                 mtg.after.joinToString("") { it.color }.ifEmpty { "empty" }, "Mana")

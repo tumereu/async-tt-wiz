@@ -137,7 +137,13 @@ data class TableItem(
     /** A public face-down Battlefield card's title stand-in ("?"): the same for every viewer, never its front. */
     val coveredTitle: String = "",
     /** LIFE only: the player's emblems' texts (I-D25), oldest first, drawn as chips beside the square. */
-    val emblems: List<String> = emptyList()
+    val emblems: List<String> = emptyList(),
+    /** Automatum on (I1): the colour of a computed P/T (up, down, mixed); null for the manual corner's colours. */
+    val cornerColor: Int? = null,
+    /** Automatum on (I1): an until-end-of-turn effect changes the computed P/T (⌛ as TBL-023). */
+    val cornerHourglass: Boolean = false,
+    /** Automatum on (I1): changed types and colours, keywords gained or lost and typed counters, as one chip. */
+    val automatumMarks: List<String> = emptyList()
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -250,7 +256,7 @@ object TablePresentation {
     /** The square scales with the hand size and fits the hand row, never below [MIN_MODE_BUTTON]. */
     fun modeButtonSize(handScale: Float, railHeight: Float) = minOf(MODE_BUTTON * handScale, railHeight).coerceAtLeast(MIN_MODE_BUTTON)
     // Reserve the maximum chrome width so the opponent's fixed Hand does not move in review.
-    const val TOOLBAR = 212f
+    const val TOOLBAR = 264f
     private const val PILE_START = 76f
     private fun landscapePileSpacing(pileWidth: Float) = maxOf(52f, pileWidth + 12f)
     /** Below this width the portrait counter grid's cells get too small to read and hit. */
@@ -286,7 +292,8 @@ object TablePresentation {
         ui: TableLayoutState = TableLayoutState(), placements: Map<String, TablePlacement> = emptyMap(),
         toolbarWidth: Float = TOOLBAR, reviewing: Boolean = false, combatBandHeight: Float? = null,
         appearance: CardAppearance = CardAppearance(),
-        logicalPositions: Map<String, TablePlacement> = logicalPlacements(play)): TableScene {
+        logicalPositions: Map<String, TablePlacement> = logicalPlacements(play),
+        computed: org.asyncttwiz.automatum.ComputedBoard = org.asyncttwiz.automatum.ComputedBoard.NONE): TableScene {
         require(play.gameId == game.id && play.id == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
@@ -421,13 +428,16 @@ object TablePresentation {
             val coveredTitle = if (zone == PlayZone.BATTLEFIELD && faceDown && !frozen) FACE_DOWN_TITLE else ""
             val entered = zone == PlayZone.BATTLEFIELD && (!hidden || coveredTitle.isNotEmpty()) && !frozen &&
                 EnteredTurn.marked(play.board, card)
+            // Automatum on (I1): a Battlefield card (and its combat copies) shows the engine's P/T and marks.
+            val auto = if (values && zone == PlayZone.BATTLEFIELD && !frozen) computed.cards[card.id] else null
+            val autoCorner = auto?.corner
             val label = "$title, owner ${name(card.owner)}, ${if (tapped) "tapped" else "untapped"}" +
                 if (entered) ", entered this turn" else ""
             return TableItem("card/$viewId", b, if (projection) "${if (frozen) "Retained effect, read-only" else "Projection"}, $label" else label,
                  if (hidden) "" else title, if (projection && zone == PlayZone.STACK) CombatStackRules.controller(play.board, viewId) else card.owner,
                  zone, kind = TableItemKind.CARD, viewport = viewport,
-                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else effectiveCorner(card),
-                damage = if (!values) "" else card.damage, eotCorner = if (!values) "" else card.eotCorner,
+                cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: effectiveCorner(card),
+                damage = if (!values) "" else card.damage, eotCorner = if (!values || autoCorner != null) "" else card.eotCorner,
                 eotNote = if (!values) "" else card.eotNote,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 // A copy or Stack entry without a note of its own shows the real card's note (CMB-005, STK-009).
@@ -436,7 +446,10 @@ object TablePresentation {
                 counters = if (!values) emptyMap() else card.counters.filterValues(::nonzero),
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
-                    changedPowerToughness = if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
+                    changedPowerToughness = if (autoCorner != null) false
+                        else if (faceDown) changedFaceDownPowerToughness(card.corner) else !hidden && changedPowerToughness(card.corner, f),
+                    cornerColor = if (autoCorner != null) computedCornerColor(auto.trend) else null,
+                    cornerHourglass = autoCorner != null && auto.untilEndOfTurn, automatumMarks = auto?.marks.orEmpty(),
                     frontTypeLine = if (hidden) "" else definitions[card.definition]?.faces?.firstOrNull()?.typeLine.orEmpty(),
                     enteredThisTurn = entered, coveredTitle = coveredTitle).also { if (draw) items += it }
         }

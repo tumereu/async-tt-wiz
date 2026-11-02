@@ -20,7 +20,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         search.source = { query, cursor -> this@AuthViewModel.catalog.repository.searchCards(query, cursor) }
     }
     private val revocations = Executors.newSingleThreadExecutor { Thread(it, "best-effort-logout") }
-    private val local = AndroidAccountLocalData(application)
+    private val local = AndroidAccountLocalData(application).also { local ->
+        AutomatumBoards.definitionSource = local::cardDefinitions
+    }
     val activity = AndroidActivityDelivery.get(application)
     fun openActivity(route: ActivityRoute) {
         if (route.kind.isPodActivity()) {

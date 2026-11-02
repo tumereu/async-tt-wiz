@@ -595,8 +595,8 @@ class HistoryTextTest {
     // HIS-091
     @Test fun automatumEventsReadPlainly() {
         val on = format(PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-        assertEquals("Automatum turned on", on.description); assertEquals("Automatum", on.label)
-        assertEquals("Automatum turned off", format(PlayAction.Mtg(MtgAction.SetAutomatum(false))).description)
+        assertEquals("alice turned Automatum on", on.description); assertEquals("Automatum", on.label)
+        assertEquals("bob turned Automatum off", format(PlayAction.Mtg(MtgAction.SetAutomatum(false)), author = f.b).description)
         assertEquals("Priority → bob", format(PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(f.b)))).description)
         assertEquals("Mana → RG", format(PlayAction.Mtg(MtgAction.SetManaPool(f.a, emptyList(), listOf(PoolMana("R"), PoolMana("G"))))).description)
         assertEquals("Automatum records updated", format(PlayAction.Mtg(MtgAction.SetRecord("e", null,

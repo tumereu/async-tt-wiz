@@ -195,6 +195,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     fun tableMenu() { dismiss(); panel = "table" }
     fun phasePicker() { dismiss(); panel = "phase" }
+    /** The Automatum switch's hold panel (integration spec §5). */
+    fun automatumPanel() { dismiss(); panel = "automatum" }
+
+    /**
+     * The Automatum switch (integration spec §5): turns it [on] or off for the whole game, one shared event. Switching off
+     * during an open flow first takes the flow back on the server ([revertFlow], I-D19); switching off closes the
+     * flow either way (I-D24). A refusal (I-D15) shows its reason like any refused action.
+     */
+    fun setAutomatum(on: Boolean, revertFlow: (() -> Boolean)?): Boolean {
+        val play = current() ?: return false
+        if (!on && Automatum.flowOpen(play.board)) revertFlow?.invoke()
+        return submit(PlayAction.Mtg(MtgAction.SetAutomatum(on)))
+    }
     fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
 
     /** Open information is a personal route, not a shared View/Reveal reference display.

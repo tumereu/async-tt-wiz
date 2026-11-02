@@ -1,5 +1,7 @@
 package org.asyncttwiz.android
 
+import org.asyncttwiz.automatum.ComputedBoard
+
 import androidx.activity.compose.BackHandler
 
 import androidx.compose.foundation.horizontalScroll
@@ -193,12 +195,13 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
     names: Map<String, String> = emptyMap(), peek: Boolean = false, peekScroll: ScrollState? = null) {
     if (inspection.gameId != state.gameId || inspection.playId != state.id) return
     BackHandler(enabled = peek, onBack = close)
+    val computed = LocalComputedBoard.current
     val card = inspection.snapshot ?: CombatStackRules.inspection(state.board, inspection.cardId) ?: return
     // TBL-111: holding a battlefield card that lies on others previews it and every card under it.
     val below = if (peek && inspection.snapshot == null) battlefieldPileBelow(state.board, inspection.cardId) else emptyList()
     if (below.isNotEmpty()) {
         val cards = remember(state, viewer, inspection, names) {
-            listOf(pilePeekCard(state, viewer, card, names, inspection)) + below.map { pilePeekCard(state, viewer, it, names, null) }
+            listOf(pilePeekCard(state, viewer, card, names, inspection, computed)) + below.map { pilePeekCard(state, viewer, it, names, null, computed) }
         }
         PilePeek(cards, peekScroll ?: rememberScrollState())
         return
@@ -219,7 +222,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         } else AlertDialog(onDismissRequest = close, title = { Text(if (definition == null) "Card data unavailable" else "Covered card") },
             text = { Text(listOfNotNull("Owner ${names[card.owner] ?: "Player"}",
                 // A face-down Battlefield card's values are public (rules v23); its face stays hidden.
-                *(if (publicFaceDown(state.board, card)) arrayOf(inspectedCorner(card).takeIf(String::isNotBlank),
+                *(if (publicFaceDown(state.board, card)) arrayOf(computedCorner(computed, card, viewer) ?: inspectedCorner(card).takeIf(String::isNotBlank),
                     card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
                     card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
                     card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
@@ -242,7 +245,9 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
             marks.firstOrNull()?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown, flipped) }
-        if (controller.state != null) CardInspection(controller, inspectionAnnotation(card, names, inspection.provisional),
+        val annotation = remember(card, names, inspection.provisional, computed, viewer) {
+            inspectionAnnotation(card, names, inspection.provisional, computed, viewer) }
+        if (controller.state != null) CardInspection(controller, annotation,
             markedOptions = marks,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
              projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll,
@@ -253,15 +258,26 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
     }
 }
 
-/** The text above a game card's inspection: owner, tapped state and the card's current table values. */
-private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, provisional: Boolean): String = listOfNotNull(
+/** The text above a game card's inspection: owner, tapped state and the card's current table values; with Automatum
+ * on (I1), where its computed values come from instead of the manual corner. */
+private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, provisional: Boolean,
+    computed: ComputedBoard = ComputedBoard.NONE, viewer: String = ""): String = listOfNotNull(
     "Provisional inspection · awaiting shared result".takeIf { provisional },
     "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
-    inspectedCorner(card).takeIf(String::isNotBlank),
+    computedCorner(computed, card, viewer) ?: inspectedCorner(card).takeIf(String::isNotBlank),
     card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
     card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
     card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
     card.note.takeIf(String::isNotBlank)).joinToString("\n")
+
+/** Automatum on (I1): where [card]'s computed values come from, one line each ("7/7: 1/1 printed, +1/+1 Elvish
+ * Hierophant, +3/+3 Giant Growth until end of turn"), then its typed counters; null when nothing is computed for it. */
+internal fun computedCorner(computed: ComputedBoard, card: PlayCard, viewer: String): String? {
+    val values = computed.cards[card.id] ?: return null
+    return (computed.explain(card.id, viewer) +
+        listOfNotNull(values.counters.takeIf { it.isNotEmpty() }?.joinToString(" · ", prefix = "Counters: ")))
+        .joinToString("\n").ifBlank { null }
+}
 
 /** TBL-111: the cards under [cardId] in its battlefield pile (TBL-053), top first; empty when nothing lies under it. */
 internal fun battlefieldPileBelow(board: BoardState, cardId: String): List<PlayCard> {
@@ -284,7 +300,7 @@ internal sealed interface PilePeekCard {
 
 /** [card] as its own hold preview shows it to [viewer] (a face-down front stays hidden from the opponent, TBL-109). */
 private fun pilePeekCard(state: PlayState, viewer: String, card: PlayCard, names: Map<String, String>,
-    inspection: ManualInspection?): PilePeekCard {
+    inspection: ManualInspection?, computed: ComputedBoard): PilePeekCard {
     val definition = state.definitions.singleOrNull { it.digest == card.definition }?.definition
         ?: return PilePeekCard.Covered(card.id, "Card data unavailable")
     val allowed = if (ManualDisclosure.faceDownFrontHidden(state, card, viewer)) emptyList() else
@@ -298,7 +314,7 @@ private fun pilePeekCard(state: PlayState, viewer: String, card: PlayCard, names
     val opened = CardInspectionController().apply {
         open(shown, faces.indexOfFirst { it.faceId == card.faceId }, flippedOnTable(definition, card.faceId))
     }.state!!
-    return PilePeekCard.Shown(card.id, opened, inspectionAnnotation(card, names, inspection?.provisional == true),
+    return PilePeekCard.Shown(card.id, opened, inspectionAnnotation(card, names, inspection?.provisional == true, computed, viewer),
         if (card.owner == viewer) OwnTableColor else OpponentTableColor, ManualDisclosure.faceDownOutsideHiddenZones(state.board, card))
 }
 

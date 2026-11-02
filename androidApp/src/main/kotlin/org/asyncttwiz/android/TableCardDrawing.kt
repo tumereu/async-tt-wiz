@@ -114,7 +114,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
     }
     fun DrawScope.cardAnnotations(i: TableItem, x: Float, y: Float, z: Float) {
         // Hidden cards carry no values; a public face-down card's values are drawn on its back.
-        if (i.note.isEmpty() && i.eotNote.isEmpty() && i.counters.isEmpty()) return
+        if (i.note.isEmpty() && i.eotNote.isEmpty() && i.counters.isEmpty() && i.automatumMarks.isEmpty()) return
         // Use the complete font bounds plus padding, not the old fixed art band.
         paint.textSize = 7 * noteScale * z * density
         val noteMetrics = paint.fontMetrics
@@ -123,7 +123,8 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         val valueMetrics = paint.fontMetrics
         val counterHeight = maxOf(10 * valueScale, (valueMetrics.bottom - valueMetrics.top) / (z * density) + 2f)
         val entries = CounterColor.entries.mapNotNull { color -> i.counters[color]?.takeIf(TablePresentation::nonzero)?.let { color to it } }
-        val layout = cardAnnotationLayout(titleBand, artBottom, noteHeight, counterHeight, i.note.isNotEmpty(), entries.size, i.eotNote.isNotEmpty())
+        val layout = cardAnnotationLayout(titleBand, artBottom, noteHeight, counterHeight, i.note.isNotEmpty(), entries.size,
+            i.eotNote.isNotEmpty(), i.automatumMarks.isNotEmpty())
         fun label(value: String, b: TableBounds, metrics: Paint.FontMetrics) {
             val baseline = y + (b.y + b.height / 2) * z - (metrics.top + metrics.bottom) / (2 * density)
             // Only horizontal clipping: every line retains its complete vertical extent.
@@ -146,6 +147,15 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
             drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
             paint.color = EotPowerToughnessColor
             label(value, b, noteMetrics)
+        }
+        layout.marks?.let { slot ->
+            val value = i.automatumMarks.joinToString(", ").take(32)
+            paint.textSize = 7 * noteScale * z * density
+            val b = slot.copy(width = minOf(slot.width, cache.measure(value) / (z * density) + 2f))
+            drawRoundRect(Color.White, xy(x + b.x * z, y + b.y * z), size(b.width * z, b.height * z), CornerRadius(z * density))
+            paint.color = EmblemChipColor.toArgb()
+            label(value, b, noteMetrics)
+            paint.color = android.graphics.Color.DKGRAY
         }
         paint.textSize = 7 * valueScale * z * density
         entries.forEachIndexed { index, (color, value) ->
@@ -176,7 +186,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         val x = 0f; val y = 0f
         val z = if (i.kind == TableItemKind.CARD) i.faceTransform().width / 28f else i.bounds.width / 28f
         val cardWidth = 28f * z; val cardHeight = 40f * z
-        val corner = if (i.eotCorner.isEmpty()) i.corner else "⌛${i.corner}"
+        val corner = if (i.eotCorner.isEmpty() && !i.cornerHourglass) i.corner else "⌛${i.corner}"
         fun damageBadge() {
             if (!TablePresentation.nonzero(i.damage)) return
             val previousColor = paint.color
@@ -203,7 +213,8 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
             drawRoundRect(Color.White, xy(x + cardWidth - badgeWidth - 2 * z, y + artBottom * z - z),
                 size(badgeWidth, maxOf(10f, 7 * valueScale + 3) * z), CornerRadius(z * density))
             val previousColor = paint.color
-            if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
+            if (i.cornerColor != null) paint.color = i.cornerColor
+            else if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
             else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
             fittedText(corner, x + cardWidth - 4 * z, y + cardHeight - 3 * z, badgeWidth - 4 * z, right = true)
             paint.color = previousColor
@@ -256,7 +267,8 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
         }
         paint.textSize = 7 * valueScale * z * density
         val previousColor = paint.color
-        if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
+        if (i.cornerColor != null) paint.color = i.cornerColor
+        else if (i.eotCorner.isNotEmpty()) paint.color = EotPowerToughnessColor
         else if (i.changedPowerToughness) paint.color = ChangedPowerToughnessColor
         fittedText(corner, x + cardWidth - titleInset, y + cardHeight - 3 * z, cardWidth - 2 * titleInset, right = true)
         paint.color = previousColor

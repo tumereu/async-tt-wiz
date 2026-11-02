@@ -30,7 +30,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-018** Real cards are rectangles with a border in the owner's colour; tokens have cut corners in the owner's colour with the same size; Stack and combat copies have a dashed border. (r1)
 - **TBL-019** Normal cards show the art crop in the art box, with the app drawing the name and P/T; custom-image cards show the whole image with no name and P/T on a small background in the corner; cards without art show a type icon. (r4)
 - **TBL-020** Card names on the table shrink and clip to the card, never ending in "…". (r13)
-- **TBL-021** P/T sits in the bottom-right corner; planeswalkers show loyalty there, battles their defense, and Sagas start at 1. (r16)
+- **TBL-021** P/T sits in the bottom-right corner; planeswalkers show loyalty there, battles their defense, and Sagas start at 1. With Automatum on, a creature's corner shows the P/T Automatum works out instead (TBL-112). (r37)
 - **TBL-022** P/T that differs from the printed value is drawn in brown (#A0522D). (r15)
 - **TBL-023** A card with an until-end-of-turn P/T change shows its P/T in teal with an hourglass ⌛ in front. (r16)
 - **TBL-024** Damage shows as a red-outlined badge left of P/T; it fills red when damage reaches the card's toughness (a hint only). (r16)
@@ -42,6 +42,8 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-030** Hidden cards (opponent's hand, face-down outside the battlefield) show no counters, notes or P/T. (r19)
 - **TBL-031** Every tap on a card shows a short press border, so both taps of a double tap are visible; the selection border rotates with the card, also mid-animation. (r11)
 - **TBL-032** Linked cards (and linked Stack or combat copies) are joined by a gray line. (r12)
+- **TBL-112** With Automatum on, a battlefield creature (and its combat copies) shows in its corner the P/T Automatum works out from its printed values, its Automatum counters and the effects in play, not the hand-set corner: green when it is above the printed value in one number and below in neither, red the other way round, brown when one number is up and the other down, the usual ink when unchanged, with ⌛ in front while an until-end-of-turn effect changes it. Loyalty, defense, Sagas and other non-creature corners stay as set by hand. While the board holds something Automatum can't take over (a hand-made Stack entry, cards in a Temp pile, data it can't read), every card shows its hand-set values. The values follow each board change, worked out in the background without delaying the action itself. (r37)
+- **TBL-113** With Automatum on, what Automatum changed on a battlefield card besides P/T shows as one violet-text chip below its notes (first 32 characters): a changed type line, changed colours, keywords it gained ("Flying") or lost ("no Flying"), and its Automatum counters ("+1/+1 ×2"). Keyword notes (TBL-086) are only notes then; Automatum doesn't read them. (r37)
 - **TBL-033** Changes to a card's P/T or counters flash a small change tag such as "+2" (changes close together add up; about 1 s, then a 0.5 s fade); note, owner, face and link changes briefly highlight the card. Both players' changes, live and in playback, never on jumps or catch-up. (r14)
 
 ### Card sizes
@@ -108,7 +110,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-075** On tokens, Hand becomes "Remove token", and Library top, Library bottom and Shuffle into library remove the token. (r28)
 - **TBL-077** Clone makes a token copy of the card; a non-land copy appears in the main row. (r30)
 - **TBL-085** Keywords and EOT keywords open a toggle grid of Flying, First strike, Double strike, Deathtouch, Lifelink, Trample, Haste, Vigilance, Reach, Menace, Hexproof, Indestructible, Defender, Ward, Can't block, Goaded; each toggle saves at once and the grid stays open. (r19)
-- **TBL-086** Keyword toggles write the note as keywords joined by ", " (e.g. "Flying, Trample"); any other note text greys them out; with several cards a toggle is on only if all have it. They are greyed out on hidden cards. (r19)
+- **TBL-086** Keyword toggles write the note as keywords joined by ", " (e.g. "Flying, Trample"); any other note text greys them out; with several cards a toggle is on only if all have it. They are greyed out on hidden cards. With Automatum on they still write notes, which Automatum doesn't read (TBL-113). (r37)
 
 ### Counters page
 
@@ -120,6 +122,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 ### More page
 
 - **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Face down/up, Switch face, Temp 1, Deal to target, Deal to target or creatures, and Set damage last. (r36)
+- **TBL-114** With Automatum on, a card whose P/T Automatum works out (TBL-112) can't have its P/T set by hand: P/T (which shows the computed value), EOT P/T, the P/T and until-end-of-turn P/T step buttons and Reset P/T are greyed out for it, and with several cards selected they change only the others. Everything else in the menus works as with Automatum off. (r37)
 - **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones show the same icon with a small hourglass in its top-right corner, not touching the symbols or the label; all stay visible, greyed out on cards without P/T. (r36)
 - **TBL-084** Owner shows the owner's colour and is enabled only for battlefield tokens; tapping it gives the token to the other player. (r28)
 - **TBL-076** "Switch face" turns to the next face and works only on truly two-faced cards (transform, modal double-faced, meld, battle); adventure, split, flip and aftermath cards have one face. Switching either way also sets the corner to the new face's printed value (P/T, loyalty for planeswalkers, defense for battles, 1 for Sagas, empty when the face has none); a face-down card keeps its corner. One Undo takes back both. (r35)
@@ -157,5 +160,5 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 - **TBL-107** Inspect from the menu shows the full card image, with tidy "‹ n/m ›" buttons to switch faces on multi-faced cards. (r31)
 - **TBL-108** Split cards, Rooms, Planes and Battles turn sideways when inspected; aftermath and flip cards get a Rotate button in Inspect only; sideways cards are no taller than upright ones (at most 448 dp). (r30)
 - **TBL-109** Inspecting your own face-down card shows its front dimmed with a "Face down" label; ordinary holds and inspects never show a hidden side to the opponent. (r21)
-- **TBL-110** Inspect shows the card's current P/T as "X/Y", and until-end-of-turn changes and notes marked "(until end of turn)". (r16)
+- **TBL-110** Inspect shows the card's current P/T as "X/Y", and until-end-of-turn changes and notes marked "(until end of turn)". With Automatum on, a card whose P/T Automatum works out shows where it comes from instead, one line for P/T and one per other change: "4/6: 1/3 printed, +1/+1 counters, +2/+2 Wild Surge until end of turn", "Flying — Wild Surge until end of turn", then "Counters: +1/+1 ×1"; a source the viewer may not see reads "a card". The hold preview shows the same. (r37)
 - **TBL-111** Holding a card that lies on top of other cards in a battlefield pile (TBL-053) previews it and then each card under it, in pile order, one below the other in the same scrolling preview; each shows only what the table shows of it (a face-down card stays hidden from the opponent). (r36)

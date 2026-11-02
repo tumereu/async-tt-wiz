@@ -2,8 +2,11 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 
-/** Player-facing text for a refused Undo/Redo original; null for any other action. */
+/** Player-facing text for a refused Undo/Redo/Automatum flow revert original; null for any other action. */
 internal fun historyControlFailure(action: GameAction?, reason: String?): String? {
+    // I-D19: switching Automatum off still closes the flow when its revert is refused (I-D24).
+    if (action == GameAction.RevertFlow) return if (reason == "noFlow") "Automatum had already finished its step."
+        else "Automatum's unfinished step couldn't be taken back; it was closed as it is."
     val verb = when (action) { GameAction.Undo -> "undo"; GameAction.Redo -> "redo"; else -> return null }
     val explanation = when (reason) {
         "tooFarBack" -> "your opponent has made too many moves since your last one."

@@ -160,7 +160,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val statusVersion = statusBubbles.version
     val statusModes = remember(statusBubbles, statusVersion, play.currentNodeId, play.board.players) { statusBubbles.modes(play) }
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
-    CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes,
+    val computedBoard = rememberComputedBoard(play, accountId)
+    CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
         LocalStatusBubbles provides statusBubbles, LocalOpponentPresence provides runtime.opponentPresence) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
@@ -180,7 +181,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
     }) {
         val compactHeader = maxWidth < 400.dp
-        val toolbarWidth = if (compactHeader) 192f else TablePresentation.TOOLBAR
+        val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
         val cardAppearance = rememberCardAppearance()
         val fieldScale = cardScale(cardAppearance.cardSize)
         val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f * fieldScale, 40f * fieldScale,
@@ -189,9 +190,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
         var previousBand by remember { mutableFloatStateOf(bandHeight) }
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance) {
+        val computed = LocalComputedBoard.current
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance, computed) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance, logicalPositions)
+                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance, logicalPositions,
+                computed)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }

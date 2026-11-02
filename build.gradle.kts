@@ -53,7 +53,7 @@ tasks.register("verifyModuleBoundaries") {
             ":core" to emptySet(),
             ":protocol" to setOf(":core", ":scale-fixtures"),
             ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser"),
-            ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":scale-fixtures"),
+            ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum", ":scale-fixtures"),
             ":server" to setOf(":core", ":protocol", ":scale-fixtures"),
             ":scale-fixtures" to setOf(":protocol"),
             // Arcanum libraries are generic MTG code: they never depend on ATW modules.

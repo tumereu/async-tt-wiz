@@ -40,7 +40,10 @@ The definition model (overview in `Definitions.kt`):
   (`KeywordAction.ManifestDread`, `EventPattern.ManifestDread`, `ObjectMark.Manifested`, `Mechanic.CantBeTurnedFaceUp`),
   impending (a `KeywordExpansions` entry), Leylines (`Mechanic.MayBeginOnBattlefield`), and smaller pieces
   (`Triggered.once`, `TargetSlot.sameController`, `Choice.Objects.distinct`, `ObjectFilter.SingleTarget`,
-  `Condition.Prime`, `AlternativeCost.perTurn`, combat and player mechanics such as `MustBeBlocked`).
+  `Condition.Prime`, `AlternativeCost.perTurn`, combat and player mechanics such as `MustBeBlocked`), a prevention
+  effect's additional effect (`Mechanic.Prevention.additional`, CR 615.5), what a permanent is as it enters
+  (`Destination.entersAs`, CR 611.2e), "repeat this process" (`Step.RepeatWhile`) and copies of cards
+  (`Effect.CopyCard`, CR 707.12).
 - Bloomburrow (set `blb`): gift (`Keyword.Gift`, `Gifted`, `CostPart.ChoosePlayer`, `Players.ChosenAsCost`,
   `EventPattern.GiveGift`, `TargetSlot.onlyIf`), Classes (`Keyword.ClassLevel`, `Effect.SetClassLevel`,
   `EventPattern.BecomesLevel`), forage (`EventPattern.Forage`), pawprint modes (`Modes.pawprintLimit`,

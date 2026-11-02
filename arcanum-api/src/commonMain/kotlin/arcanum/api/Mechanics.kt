@@ -238,10 +238,11 @@ sealed interface Mechanic {
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.
-     * In a static ability of another object, the affected cards get it when that ability's controller casts them ("You
-     * may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast"); [perTurn]: that player may use it only
-     * that many times each turn ("Once each turn, you may pay {0} rather than pay the mana cost for a spell you cast from
-     * exile"). */
+     * In a static ability of another object, the affected spells get it when that ability's controller casts them ("You
+     * may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast": [ObjectFilter.WasCast]); a card is
+     * tested as the spell it becomes as it is cast from where it is (CR 601.2a), so "a spell you cast from exile" is
+     * `WasCast(Zone.Exile)`. [perTurn]: that player may use it only that many times each turn ("Once each turn, you may
+     * pay {0} rather than pay the mana cost for a spell you cast from exile"), counted on the ability's object. */
     @Serializable @SerialName("alternative-cost") data class AlternativeCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val faceDown: Boolean = false, val perTurn: Int? = null,
@@ -362,8 +363,15 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     /** Prevent all of the damage matching [event], or [each] of each such damage event ("prevent 1 of that damage",
-     * CR 615). Shields with an amount that gets used up are [Effect.PreventDamage]. */
-    @Serializable @SerialName("prevention") data class Prevention(val event: EventPattern, val each: Value? = null) : Mechanic {
+     * CR 615). Shields with an amount that gets used up are [Effect.PreventDamage]. [additional]: what it also does,
+     * immediately after the prevention (CR 615.5: "prevent that damage and each opponent mills that many cards"), with
+     * the damage that would have been dealt as the event's amount ([Value.EventAmount]); for damage that can't be
+     * prevented it still happens (CR 615.12). */
+    @Serializable @SerialName("prevention") data class Prevention(
+        val event: EventPattern, val each: Value? = null,
+        // dsk gaps
+        val additional: Instructions? = null,
+    ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
 }

@@ -201,6 +201,8 @@ internal object Triggers {
     /** "Triggers only once each turn" (CR 603.2): counted on the source object per turn number (D41) once put on the
      * Stack, and the instances that triggered and still wait to be put there. */
     private fun limited(state: GameState, s: Source, instances: List<TriggerEvent>): List<TriggerEvent> {
+        // dsk gaps: "Do this only once each turn" (CR 603.2h): only if its controller hasn't taken that action this turn
+        if (s.ability.actionOncePerTurn && actionTaken(state, s.id, s.origin, s.controller)) return emptyList()
         // "This ability triggers only once": for as long as the object exists
         if (s.ability.once) {
             val waiting = state.triggered.count { it.source == s.id && it.origin?.key == s.origin.key }
@@ -212,6 +214,17 @@ internal object Triggers {
         val placed = state.obj(s.id)?.facts?.triggers?.firstOrNull { it.key == s.origin.key && it.turn == state.turn.number }?.count ?: 0
         return instances.take((limit - placed - waiting).coerceAtLeast(0))
     }
+
+    // dsk gaps
+    /** Whether [player] has taken the action of [source]'s "Do this only once each turn" ability [origin] this turn
+     * (CR 603.2h): counted on the source object per turn number (D41). */
+    fun actionTaken(state: GameState, source: ObjectId?, origin: AbilityOrigin?, player: PlayerId): Boolean {
+        val key = actionKey(origin ?: return false, player)
+        return state.obj(source ?: return false)?.facts?.activations.orEmpty().any { it.key == key && it.turn == state.turn.number }
+    }
+
+    /** The key under which a taken "Do this only once each turn" action is counted. */
+    fun actionKey(origin: AbilityOrigin, player: PlayerId): String = "\$action:${origin.key}@$player"
 
     /** The instances of [trigger] in [change] (CR 603.2): one per event, or one per batch ([Trigger.On.oneOrMore], CR
      * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,

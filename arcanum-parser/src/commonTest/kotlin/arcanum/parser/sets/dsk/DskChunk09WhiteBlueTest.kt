@@ -482,7 +482,8 @@ class DskChunk09WhiteBlueTest {
         ))),
     )
 
-    /** "Prevent that damage and each opponent mills that many cards": the damage is replaced by the milling (CR 614.1a). */
+    /** "Prevent that damage and each opponent mills that many cards": a prevention effect (CR 615.1a) whose additional
+     * effect mills as many cards as the damage that would have been dealt (CR 615.5). */
     @Test
     fun theMindflayer() = card(
         name = "The Mindflayer",
@@ -496,9 +497,9 @@ class DskChunk09WhiteBlueTest {
     ) parsesTo abilities(
         Ability.Static(listOf(Mechanic.CantBeBlocked), affects = Affected.Objects(Objects.Self)),
         Ability.Static(
-            mechanics = listOf(Mechanic.Replacement(
+            mechanics = listOf(Mechanic.Prevention(
                 EventPattern.Damage(youControl, RecipientFilter(players = PlayerFilter.Opponent)),
-                instead = Instructions(steps = listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), Value.EventAmount)))),
+                additional = Instructions(steps = listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), Value.EventAmount)))),
             )),
             affects = Affected.Objects(Objects.Self),
         ),

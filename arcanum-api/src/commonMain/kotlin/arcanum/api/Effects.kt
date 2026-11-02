@@ -110,6 +110,11 @@ sealed interface Effect {
         val tapped: Boolean = false, val attacking: AttackTarget? = null, val attachedTo: Recipients? = null,
         val bind: String? = null,
     ) : Effect
+    // dsk gaps
+    /** "Copy them" (CR 707.12): a copy of each card of [objects], created in the zone the card is in and owned by
+     * [owner], the player instructed to create it (CR 112.2a); named [bind] for the "cast the copies" that follows. A
+     * copy of a card isn't a card; in any zone other than the Stack or the battlefield it ceases to exist (CR 704.5e). */
+    @Serializable @SerialName("copy-card") data class CopyCard(val objects: Objects, val owner: Players, val bind: String) : Effect
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
     @Serializable @SerialName("copy-spell") data class CopySpell(
         val objects: Objects, val controller: Players, val newTargets: Boolean, val bind: String? = null,
@@ -261,6 +266,11 @@ data class Destination(
     /** Onto the battlefield attacking ([attacking] = what it attacks; null = not attacking). Not declared as an
      * attacker, so "whenever attacks" doesn't trigger (CR 508.4). */
     val attacking: AttackTarget? = null,
+    // dsk gaps
+    /** What the instruction says the permanent is as it enters ("return it to the battlefield … It's an enchantment."):
+     * a continuous effect that applies as it enters the battlefield, not after (CR 611.2e), so its enters triggers and
+     * state-based actions see it. */
+    val entersAs: List<Mechanic> = emptyList(),
 )
 
 /** [amount] counters of [kind]. */

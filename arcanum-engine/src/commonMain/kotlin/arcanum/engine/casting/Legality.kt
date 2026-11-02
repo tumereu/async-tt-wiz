@@ -116,7 +116,7 @@ internal object Legality {
         if (way.face !in castableFaces(o)) return "face ${way.face} can't be cast"
         val face = face(o, way) ?: return "no face ${way.face}"
         val chars = snap.view[card]?.characteristics
-        val faceDown = alternative(snap, card, way)?.second?.faceDown == true
+        val faceDown = alternative(snap, card, way, player)?.second?.faceDown == true
         val types = if (faceDown) listOf(CardType.Creature) else face.types
         if (CardType.Land in types) return "lands are played, not cast (CR 305.9)"
         if (!hasPriority(snap, player)) return "$player doesn't have priority"
@@ -127,7 +127,7 @@ internal object Legality {
         (permission?.second?.mechanic as? Mechanic.MayPlay)?.resultingSpell?.let { filter ->
             if (faceMatches(filter, face) == false) return "that permission doesn't let it be cast as ${face.name}"
         }
-        if (way.alternative != null && alternative(snap, card, way) == null) return "no such alternative cost, or its condition isn't met"
+        if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         val instant = !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
@@ -200,21 +200,43 @@ internal object Legality {
     }
 
     /** The alternative cost [way] names: its static ability and mechanic, when it exists and its condition holds (CR 118.9). */
-    fun alternative(snap: Snapshot, card: ObjectId, way: CastWay): Pair<AbilityInstance, Mechanic.AlternativeCost>? {
+    fun alternative(snap: Snapshot, card: ObjectId, way: CastWay, player: PlayerId): Pair<AbilityInstance, Mechanic.AlternativeCost>? {
         val origin = way.alternative ?: return null
-        return alternativeCosts(snap, card).firstOrNull { it.first.origin == origin }
+        return alternativeCosts(snap, card, player).firstOrNull { it.first.origin == origin }
     }
 
-    /** The alternative costs a card offers whose conditions hold: [Mechanic.AlternativeCost] in its static abilities. */
-    fun alternativeCosts(snap: Snapshot, card: ObjectId): List<Pair<AbilityInstance, Mechanic.AlternativeCost>> {
+    /** The alternative costs [player] may cast a card for, whose conditions hold: [Mechanic.AlternativeCost] in its
+     * static abilities, and those another object's static ability gives the spells its controller casts (dsk gaps: "you
+     * may pay {0} rather than pay the mana cost for a spell you cast from exile", tested on the card as the spell cast
+     * from where it is, CR 601.2a; their origin is [AbilityOrigin.FromAbility] of that ability), each
+     * [Mechanic.AlternativeCost.perTurn] times each turn. */
+    fun alternativeCosts(snap: Snapshot, card: ObjectId, player: PlayerId): List<Pair<AbilityInstance, Mechanic.AlternativeCost>> {
         val owner = snap.state.obj(card)?.owner ?: return emptyList()
         val you = snap.board.controller(card) ?: owner
-        return snap.view[card]?.characteristics?.abilities.orEmpty().flatMap { inst ->
+        val own = snap.view[card]?.characteristics?.abilities.orEmpty().flatMap { inst ->
             val static = inst.ability as? Ability.Static ?: return@flatMap emptyList()
             if (static.condition != null && !snap.evaluator(you, self = card).holds(static.condition!!)) return@flatMap emptyList()
             static.mechanics.filterIsInstance<Mechanic.AlternativeCost>().map { inst to it }
         }
+        // dsk gaps
+        val granted = snap.view[card]?.mechanics.orEmpty().mapNotNull { applied ->
+            val m = applied.mechanic as? Mechanic.AlternativeCost ?: return@mapNotNull null
+            val source = applied.source?.takeIf { it != card } ?: return@mapNotNull null
+            val by = applied.origin ?: return@mapNotNull null
+            if (applied.controller != player) return@mapNotNull null
+            val index = (snap.view[source]?.characteristics?.abilities.orEmpty().firstOrNull { it.origin == by }?.ability as? Ability.Static)
+                ?.mechanics?.indexOf(m)?.takeIf { it >= 0 } ?: 0
+            val origin = AbilityOrigin.FromAbility(source, by, index, 0)
+            if (m.perTurn != null && activationsThisTurn(snap, source, alternativeKey(origin)) >= m.perTurn!!) return@mapNotNull null
+            AbilityInstance(Ability.Static(listOf(m), affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self)), origin) to m
+        }
+        return own + granted
     }
+
+    /** The use count key of a granted alternative cost with a limit each turn, kept on the granting object. */
+    fun alternativeKey(origin: AbilityOrigin.FromAbility): String = ALTERNATIVE_PREFIX + "${origin.by.key}/m${origin.mechanic}"
+
+    private const val ALTERNATIVE_PREFIX = "$" + "alternative:"
 
     // ---- Activated abilities (CR 602, 606)
 

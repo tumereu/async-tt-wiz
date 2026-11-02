@@ -1,6 +1,11 @@
 package org.asyncttwiz.android
 
 import androidx.compose.foundation.border
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoFixHigh
+import androidx.compose.material.icons.outlined.Bolt
+import androidx.compose.material.icons.outlined.HourglassTop
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.ScrollState
@@ -39,10 +44,12 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
         popup?.bounds, popup?.owner == null || popup.owner == toolkit.viewer)) {
     val annotations = LocalTableMenuAnnotations.current
     val tools = if (bound == null) emptyList() else cardContextTools(toolkit, play, bound, selection, names, enabled, annotations)
+    val rows = if (bound == null || !play.board.automatum || toolkit.manual.scope == null) emptyList()
+        else automatumRows(toolkit, play, bound, names, enabled)
     ManualActionsHost(play, toolkit.viewer, toolkit.manual, enabled, landscape, names,
         submitAll = toolkit::submitAll, completeValue = toolkit::completeValue, tools = tools,
         previewViewId = bound?.contextViewId, inspect = bound?.let { { toolkit.inspect(it.contextViewId) } },
-        editProjectionNote = bound?.let { { editProjectionNote(it.contextViewId) } }) { action -> toolkit.submit(action) }
+        editProjectionNote = bound?.let { { editProjectionNote(it.contextViewId) } }, automatumRows = rows) { action -> toolkit.submit(action) }
 
     when (val panel = toolkit.panel) {
         "attackTarget" -> if (bound != null) InlinePopupPanel(toolkit::dismiss, "Attack →") {
@@ -71,12 +78,14 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             MulliganDialog(library.controller, library.handIds, owner, toolkit::dismiss, toolkit::dismiss)
         }
         "library" -> toolkit.library?.let { library -> InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, height = 304.dp) {
-            LibraryActions(library.controller, play.board, library.handIds,
-                onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
+            AutomatumZoneMenu(play) {
+                LibraryActions(library.controller, play.board, library.handIds,
+                    onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
+            }
         } }
         "temp" -> toolkit.library?.let { library -> TempPiles.refs(play)[library.controller.libraryId]?.let { ref ->
             InlinePopupPanel(toolkit::dismiss, "Temp ${ref.number}", width = 264.dp, height = 288.dp,
-                key = "temp/${library.controller.libraryId}") {
+                key = "temp/${library.controller.libraryId}") { AutomatumZoneMenu(play) {
                 val tempId = library.controller.libraryId
                 TempPileActions(library.controller, play.board, ref, onShow = toolkit::showLibraryContents,
                     toLibrary = { bottom -> toolkit.tempToLibrary(tempId, bottom) },
@@ -87,7 +96,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                     // Turning this very pile off removes it from the table, so its menu closes too.
                     close = { toolkit.closeTempPile(ref.accountId, ref.number) },
                     onComplete = toolkit::dismiss)
-            }
+            } }
         } }
         "occurrence" -> if (bound != null && toolkit.manual.editor == null) {
             // The source left play: the same combat layout, with source-dependent cells disabled.
@@ -104,7 +113,10 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val pile = play.board.containers.singleOrNull { it.id == panel.substringAfter('/') && it.zone in PublicPiles.zones }
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
             else InlinePopupPanel(toolkit::dismiss, moveZoneLabel(pile.zone), width = 152.dp, height = 104.dp, key = panel) {
-                PublicPileActions(toolkit, play, pile)
+                // Looking stays with Automatum on: Search is kept beside "Manual…"
+                AutomatumZoneMenu(play, kept = {
+                    InlinePopupCell(MenuControl("Search", pile.cards.isNotEmpty()) { toolkit.openPublicPile(pile.id, toggle = false) })
+                }) { PublicPileActions(toolkit, play, pile) }
             }
         } else if (scene != null) CardPanelPopup(toolkit, play, scene)
     }
@@ -133,6 +145,83 @@ internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, vie
 @Composable
 private fun ToolkitDialog(dismiss: () -> Unit, title: String? = null, content: @Composable ColumnScope.() -> Unit) {
     TableMenuPanel(dismiss, title = title, content = content)
+}
+
+/**
+ * Automatum on (§3 I4): what the engine offers for the card a menu was opened on (a combat copy's real card), as rows
+ * above the menu's cells: casts, a land play, each activated ability with its text, mana abilities and special actions,
+ * those it doesn't allow now greyed with the reason on tap. A card in the other player's hand shows only a greyed Cast
+ * (I-D27: nothing about it is read). Until Automatum has worked the board out (SYS-025) one greyed row says so.
+ */
+internal fun automatumRows(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, names: Map<String, String>,
+    enabled: Boolean): List<EngineRow> {
+    val cardId = CombatStackRules.liveSource(play.board, bound.contextViewId)?.id ?: bound.contextViewId
+    val card = play.board.cards.singleOrNull { it.id == cardId } ?: return emptyList()
+    val zone = play.board.containers.singleOrNull { it.id == card.containerId }?.zone
+    if (zone == PlayZone.HAND && !CastController.ownHand(play, cardId, toolkit.viewer))
+        return listOf(EngineRow(MenuControl("Cast", false, refused = CastController.NOT_YOURS) {}, PlayCardIcon))
+    val plays = toolkit.cardPlays(play)
+        ?: return listOf(EngineRow(MenuControl(WORKING_OUT, false) {}, Icons.Outlined.HourglassTop))
+    val name = CastController.cardName(play, cardId)
+    val busy = when {
+        toolkit.cast.open -> CastController.BUSY
+        Automatum.flowOpen(play.board) -> SharedFlowController.BUSY
+        else -> null
+    }
+    return plays.of(cardId).map { offered ->
+        val label = when (offered.kind) {
+            org.asyncttwiz.automatum.CardPlay.Kind.Cast -> if (offered.text == "Cast") "Cast" else "Cast · ${offered.text}"
+            else -> offered.text
+        }
+        val reason = busy ?: offered.refusal?.let { engineRefusal(it, offered.kind, name, names) }
+        EngineRow(MenuControl(label, enabled && offered.legal && busy == null, refused = reason) {
+            if (toolkit.play(cardId, offered)) toolkit.dismiss()
+        }, engineIcon(offered.kind))
+    }
+}
+
+internal const val WORKING_OUT = "Automatum is working out what this card can do…"
+
+/** The reason shown for something the engine doesn't allow now (§3 I4), in plain words. */
+internal fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, kind: org.asyncttwiz.automatum.CardPlay.Kind,
+    name: String, names: Map<String, String>): String = when (refusal) {
+    is org.asyncttwiz.automatum.CardPlay.Refusal.Priority ->
+        refusal.holder?.let { "${names[it] ?: "The other player"} holds priority now." } ?: "Nobody holds priority now."
+    org.asyncttwiz.automatum.CardPlay.Refusal.Timing -> "Only in your main phase while the Stack is empty."
+    org.asyncttwiz.automatum.CardPlay.Refusal.Loyalty -> "A loyalty ability: once each turn, in your main phase while the Stack is empty."
+    org.asyncttwiz.automatum.CardPlay.Refusal.Used -> "Already used as often as allowed this turn."
+    org.asyncttwiz.automatum.CardPlay.Refusal.NotYours -> when (kind) {
+        org.asyncttwiz.automatum.CardPlay.Kind.Cast, org.asyncttwiz.automatum.CardPlay.Kind.Play -> CastController.NOT_YOURS
+        else -> "Only its controller can do that."
+    }
+    org.asyncttwiz.automatum.CardPlay.Refusal.Other -> when (kind) {
+        org.asyncttwiz.automatum.CardPlay.Kind.Cast -> "$name can't be cast now."
+        org.asyncttwiz.automatum.CardPlay.Kind.Play -> "$name can't be played now."
+        else -> "$name: Automatum doesn't allow that now (a cost it can't pay, or nothing to target)."
+    }
+}
+
+private fun engineIcon(kind: org.asyncttwiz.automatum.CardPlay.Kind) = when (kind) {
+    org.asyncttwiz.automatum.CardPlay.Kind.Cast, org.asyncttwiz.automatum.CardPlay.Kind.Play -> PlayCardIcon
+    org.asyncttwiz.automatum.CardPlay.Kind.Mana -> Icons.Outlined.WaterDrop
+    org.asyncttwiz.automatum.CardPlay.Kind.Special -> Icons.Outlined.AutoFixHigh
+    org.asyncttwiz.automatum.CardPlay.Kind.Ability -> Icons.Outlined.Bolt
+}
+
+/**
+ * A zone menu (Library, Graveyard, Exile, Temp pile) with Automatum on (§3 I4, I-D28): what has no game effect
+ * ([kept], looking) and "Manual…", which opens today's menu ([manual]) only while Automatum waits for something done by
+ * hand (I-D37), else greyed with the reason on tap. With Automatum off it is today's menu.
+ */
+@Composable
+internal fun AutomatumZoneMenu(play: PlayState, kept: @Composable () -> Unit = {}, manual: @Composable () -> Unit) {
+    var open by remember(play.board.automatum) { mutableStateOf(false) }
+    if (!play.board.automatum || open) { manual(); return }
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        kept()
+        InlinePopupCell(MenuControl(CardRingPages.MANUAL, AutomatumBoards.manualAllowed(play), refused = AutomatumDrags.MANUAL) { open = true },
+            CardRingPages.MANUAL)
+    }
 }
 
 /** The tools of the captured context's layout (cells CardActions builds itself are not included). */
@@ -192,7 +281,7 @@ internal fun projectionMenuTools(toolkit: TableToolkitController, play: PlayStat
             toolkit.openAttackTargets()
         },
         MenuControl("Remove from combat", enabled && combat.isNotEmpty()) {
-            if (toolkit.removeOccurrences(bound.copy(viewIds = combat))) toolkit.dismiss()
+            if (toolkit.removeFromCombat(bound.copy(viewIds = combat))) toolkit.dismiss()
         },
         MenuControl("Graveyard", enabled && live.isNotEmpty()) {
             toolkit.batch { live.forEach { toolkit.submit(CombatStackController.graveyard(play.board, it)) } }

@@ -57,6 +57,27 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return null
     }
     private var handPlaysPending: Any? = null
+
+    /** What the engine offers the viewer for each card on [play] (§3 I4: the card menus), or null while it is being
+     * worked out off the main thread (SYS-025); the menus recompose once it is ready. */
+    internal fun cardPlays(play: PlayState): org.asyncttwiz.automatum.CardPlays? {
+        handPlaysReady
+        AutomatumBoards.cachedCardPlays(play, viewer)?.let { return it }
+        if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.cardPlays(play, viewer, ::engineTags)
+        if (cardPlaysPending !== play.board) {
+            cardPlaysPending = play.board
+            automatumWork.run({ AutomatumBoards.cardPlays(play, viewer, ::engineTags) }) { cardPlaysPending = null; handPlaysReady++ }
+        }
+        return null
+    }
+    private var cardPlaysPending: Any? = null
+
+    /** Begins what a card menu offers through Automatum ([CastController.begin]): the cast panel's flow. */
+    internal fun play(cardId: String, play: org.asyncttwiz.automatum.CardPlay): Boolean {
+        val input = play.input ?: return false
+        error = null
+        return cast.begin(cardId, input, play.text)
+    }
     val manual = ManualActions()
     val layoutState = mutableStateOf(TableLayoutState())
     val selectionState = mutableStateOf(TableSelection())
@@ -87,6 +108,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     var error by mutableStateOf<String?>(null); private set
     fun dismissError() { error = null }
+    /** Shows why a greyed control can't be used ([MenuControl.refused]). */
+    fun refuse(message: String) { error = message }
+    /** Automatum on (I-D28): the ordinary actions an Automatum interaction is made of (moving a card within its own
+     * Battlefield or hand, the combat draft) go through while this is above zero; other manual changes are refused. */
+    private var engineRoute = 0
+    private fun <T> engineRoute(block: () -> T): T { engineRoute++; try { return block() } finally { engineRoute-- } }
     var stackBubbleEntry by mutableStateOf<String?>(null); private set
     fun dismissTapUi() { dismiss(); showStackBubbles(null) }
     private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String)
@@ -187,6 +214,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             action is PlayAction.BeginTurn
         if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
         if (step) return SharedFlowController.STEPS_FORWARD
+        // I4, I-D28: only what the rules allow; manual changes only while Automatum waits for something done by hand
+        if (!byHand && engineRoute == 0 && AutomatumDrags.manual(action)) return when (action) {
+            is PlayAction.Stack -> AutomatumDrags.STACK
+            is PlayAction.SetLife, is PlayAction.AdjustLife -> AutomatumDrags.LIFE
+            else -> AutomatumDrags.MANUAL
+        }
         return null
     }
 
@@ -667,9 +700,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun handle(intent: TableIntent): Boolean {
         // Automatum on (I2a, ZON-004): a hand double-tap casts (or plays, a land) through the engine
         if (intent is TableIntent.Move && intent.handDoubleTap && current()?.board?.automatum == true) return cast.start(intent.scope.contextId)
-        // Automatum on (I-D36, I-D28): a drag is the engine action it means, or refused with the reason
-        if (intent is TableIntent.Move && intent.drag && current()?.board?.automatum == true) return automatumDrag(intent)
-        if (intent is TableIntent.PlayerDelta && intent.color == null && current()?.board?.automatum == true) {
+        // Automatum on (I-D36, I-D28): a drag is the engine action it means, or refused with the reason; while Automatum
+        // waits for something done by hand drags work as with it off (I-D37, SYS-069)
+        val engineDrags = current()?.let { it.board.automatum && !AutomatumBoards.byHand(it) } == true
+        if (intent is TableIntent.Move && intent.drag && engineDrags) return automatumDrag(intent)
+        if (intent is TableIntent.PlayerDelta && intent.color == null && engineDrags) {
             error = AutomatumDrags.LIFE; return false
         }
         if (intent is TableIntent.Batch) return batchResult(intent.invocationId) {
@@ -698,24 +733,17 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 if (intent.scope.cardIds.distinct().size > 1) { error = AutomatumDrags.ONE_AT_A_TIME; return false }
                 return cast.start(intent.scope.contextId)
             }
-            AutomatumDrags.Route.Place -> return handle(intent.copy(drag = false))
+            AutomatumDrags.Route.Place -> return engineRoute { handle(intent.copy(drag = false)) }
             AutomatumDrags.Route.Combat -> {
                 val destination = (intent.destination as TableDestination.Combat).destination
                 val bound = bind(intent.scope, intent.sources) ?: return false
                 combat.draftRefusal(play, bound.sourceIds, destination.role, destination.pairId, destination.attackTarget)
                     ?.let { error = it; return false }
-                return handle(intent.copy(drag = false))
+                return engineRoute { handle(intent.copy(drag = false)) }
             }
             AutomatumDrags.Route.LeaveDraft -> {
                 val bound = bind(intent.scope, intent.sources) ?: return false
-                val choices = combat.shown(play).choices
-                // Only what is still a draft leaves: any copy while attackers are awaited, blockers while blockers are
-                val blockers = bound.viewIds.all { id -> play.board.combat?.pairs?.any { p -> p.blockers.any { it.id == id } } == true }
-                if (choices.declaring == null || (!choices.attackers && !blockers)) {
-                    error = if (choices.declaring == null) CombatController.DECLARED else CombatController.DECLARED_ATTACKERS
-                    return false
-                }
-                return removeOccurrences(bound)
+                return leaveDraft(play, bound)
             }
             is AutomatumDrags.Route.Refused -> { error = route.reason; return false }
         }
@@ -894,12 +922,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         // them when the attack is declared (CR 508.1f)
         if (play.board.automatum) {
             combat.draftRefusal(play, eligible, CombatRole.ATTACKER, null, null)?.let { error = it; return@batchResult false }
-            if (current()?.board?.combat == null) submit(PlayAction.Combat(CombatAction.Open))
-            val area = current()?.board?.combat?.id ?: return@batchResult false
-            var drafted = false
-            eligible.forEach { drafted = submit(PlayAction.Combat(CombatAction.Declare(area, it))) || drafted }
-            if (drafted) selectionState.value = selectionState.value.afterDeclare()
-            return@batchResult drafted
+            return@batchResult engineRoute {
+                if (current()?.board?.combat == null) submit(PlayAction.Combat(CombatAction.Open))
+                val area = current()?.board?.combat?.id ?: return@engineRoute false
+                var drafted = false
+                eligible.forEach { drafted = submit(PlayAction.Combat(CombatAction.Declare(area, it))) || drafted }
+                if (drafted) selectionState.value = selectionState.value.afterDeclare()
+                drafted
+            }
         }
         // Taps first: a tap group folds the following declarations into one history group.
         if (tap) eligible.forEach { submit(PlayAction.SetTapped(it, true)) }
@@ -916,6 +946,21 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             CombatStackRules.canProject(play.board, card) } }
             ?.let { sent = submit(PlayAction.Stack(StackAction.AddEffect(id, CombatStackRules.stackDigest(it)))) || sent } }
         sent
+    }
+    /** Combat copies leave the combat area: with Automatum on only what is still a draft of the declaration it awaits
+     * (CMB-028): any copy while attackers are awaited, blockers while blockers are. */
+    fun removeFromCombat(bound: ToolkitCapture): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        return if (play.board.automatum && !AutomatumBoards.byHand(play)) leaveDraft(play, bound) else removeOccurrences(bound)
+    }
+    private fun leaveDraft(play: PlayState, bound: ToolkitCapture): Boolean {
+        val choices = combat.shown(play).choices
+        val blockers = bound.viewIds.all { id -> play.board.combat?.pairs?.any { p -> p.blockers.any { it.id == id } } == true }
+        if (choices.declaring == null || (!choices.attackers && !blockers)) {
+            error = if (choices.declaring == null) CombatController.DECLARED else CombatController.DECLARED_ATTACKERS
+            return false
+        }
+        return engineRoute { removeOccurrences(bound) }
     }
     fun removeOccurrences(bound: ToolkitCapture): Boolean = batchResult {
         var sent = false
@@ -936,7 +981,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (viewIds != null) capture = capture?.copy(viewIds = viewIds)
         manual.close(); panel = "attackTarget"
     }
-    fun setAttackTarget(bound: ToolkitCapture, cardId: String?): Boolean = batchResult {
+    fun setAttackTarget(bound: ToolkitCapture, cardId: String?): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        if (!play.board.automatum || AutomatumBoards.byHand(play)) return retarget(bound, cardId)
+        // Automatum on (CMB-028): a drafted attacker attacks another target only as Automatum allows
+        val sources = CombatStackController.attackerPairs(play.board, bound.viewIds).flatMap { it.attackers }.map { it.sourceId }
+        sources.firstNotNullOfOrNull { combat.draftRefusal(play, listOf(it), CombatRole.ATTACKER, null, cardId) }?.let { error = it; return false }
+        return engineRoute { retarget(bound, cardId) }
+    }
+    private fun retarget(bound: ToolkitCapture, cardId: String?): Boolean = batchResult {
         val board = current()?.board ?: return@batchResult false
         if (board.combat?.id != bound.areaId) return@batchResult false
         var sent = false

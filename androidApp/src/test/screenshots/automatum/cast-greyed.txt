@@ -1,1 +1,1 @@
-With every Mountain tapped, the hand menu of Storm Spark shows Automatum's Cast greyed out: the engine doesn't allow casting it now.
+With every Mountain tapped, the hand menu of Storm Spark shows Automatum's Cast row greyed out above Inspect and a greyed "Manual…": the engine doesn't allow casting it now.

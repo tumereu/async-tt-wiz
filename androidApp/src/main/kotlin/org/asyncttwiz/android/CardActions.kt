@@ -63,7 +63,8 @@ internal fun leftPlayMarkEntries(): List<RingEntry> {
 internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
     enabled: Boolean, names: Map<String, String>,
     submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), previewViewId: String? = null,
-    inspect: (() -> Unit)? = null, editProjectionNote: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
+    inspect: (() -> Unit)? = null, editProjectionNote: (() -> Unit)? = null, automatumRows: List<EngineRow> = emptyList(),
+    submit: (PlayAction) -> Boolean) {
     val card = TablePresentation.cardForActions(state, scope.contextId)
     val zone = state.board.containers.single { it.id == card.containerId }.zone
     // Values of a card whose face this viewer cannot see never show; they can still be edited blind (rules v30 policy:
@@ -178,19 +179,31 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     }
     for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
     val layout = CardRingPages.context(state.board, previewViewId ?: card.id) ?: CardMenuLayout.CARD
-    val pages = CardRingPages.pages(layout, token = card.token, attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id)),
-        cast = state.board.automatum && CastController.playLabel(state, card.id, viewer) == "Cast")
+    val attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id))
+    // Automatum on (§3 I4, I-D28): the engine's actions, what has no game effect, and "Manual…", which opens today's
+    // menu only while Automatum waits for something done by hand (I-D37)
+    val automatum = state.board.automatum
+    var manualOpen by remember(scope.contextId, previewViewId, automatum) { mutableStateOf(false) }
+    val engineMenu = automatum && !manualOpen
+    if (engineMenu) entries += RingEntry(CardRingPages.MANUAL, CardRingPages.MANUAL, MenuControl(CardRingPages.MANUAL,
+        enabled && AutomatumBoards.manualAllowed(state), refused = AutomatumDrags.MANUAL) { manualOpen = true })
+    val pages = if (engineMenu) CardRingPages.automatumPages(layout, token = card.token, attacker = attacker)
+        else CardRingPages.pages(layout, token = card.token, attacker = attacker,
+            cast = automatum && CastController.playLabel(state, card.id, viewer) == "Cast")
+    val rows = if (engineMenu) automatumRows else emptyList()
     val view = previewViewId ?: card.id
     val anchors = LocalCardRingAnchors.current
     CompositionLocalProvider(LocalValueDragSide provides cardValueDragSide(state.board, card, viewer)) {
-    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages)
+    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages,
+        rows, remembered = !engineMenu)
     else BoxWithConstraints(Modifier.fillMaxSize()) {
         // A browser/off-screen source has no table drawing: retain the old preview, not an invisible anchor.
         val size = rememberCardAppearance().size(CardArea.PANELS)
         val anchor = TableBounds(maxWidth.value / 2 - 24 * size, maxHeight.value / 2 - 50 * size, 48f * size, 100f * size)
         Box(Modifier.offset(anchor.x.dp, anchor.y.dp)) { ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId) }
         CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
-            CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages)
+            CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages,
+                rows, remembered = !engineMenu)
         }
     }
     }
@@ -278,8 +291,12 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
     selected: Boolean = false, circle: Boolean = false, tooltipName: String = name,
     assignedHold: (() -> Unit)? = null, holdName: String? = null, iconTint: Color? = null,
     bordered: Boolean = true, modifier: Modifier = Modifier, labelled: Boolean = false,
-    dragValue: String? = null, onDelta: ((Long) -> Unit)? = null, onClick: () -> Unit) {
-    val currentClick by rememberUpdatedState(onClick)
+    dragValue: String? = null, onDelta: ((Long) -> Unit)? = null, refused: String? = null, onClick: () -> Unit) {
+    // A refused square stays greyed but says why on tap (I-D28)
+    val refuse = LocalRefusal.current
+    val reason = refused.takeIf { !enabled }
+    val tappable = enabled || reason != null
+    val currentClick by rememberUpdatedState(if (reason != null) { { refuse(reason) } } else onClick)
     val currentHold by rememberUpdatedState(assignedHold)
     var tooltip by remember { mutableStateOf(false) }
     var delta by remember { mutableStateOf<Long?>(null) }
@@ -292,14 +309,14 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
         role = Role.Button
         this.selected = selected
         if (!enabled) disabled()
-        onClick { if (enabled) currentClick(); enabled }
+        onClick { if (tappable) currentClick(); tappable }
         if (assignedHold != null) onLongClick(holdName) { if (enabled) currentHold?.invoke(); enabled }
     }.onKeyEvent {
         if (enabled && it.key in listOf(Key.Enter, Key.Spacebar, Key.DirectionCenter)) {
             if (it.type == KeyEventType.KeyUp) currentClick()
             true
         } else false
-    }.focusable(enabled).pointerInput(enabled) {
+    }.focusable(enabled).pointerInput(enabled, reason) {
         val press = ManualActionPress()
         awaitEachGesture {
             val down = awaitFirstDown()
@@ -319,7 +336,7 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
                         if (!change.pressed) { released = true; change.consume(); break }
                     }
                 }
-                if (released) { if (press.release() && enabled) capturedClick() }
+                if (released) { if (press.release() && tappable) capturedClick() }
                 else if (!press.consumed) {
                     press.hold(if (enabled) capturedHold else null)
                     tooltip = press.tooltip

@@ -179,9 +179,10 @@ class AutomatumScreenshotTest {
         val (toolkit, _) = render(play)
         compose.runOnIdle { toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id))) }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Set corner").performScrollTo().assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Increase corner").assertIsNotEnabled()
-        compose.onNodeWithContentDescription("Set EOT P/T").assertIsNotEnabled()
+        // TBL-116: with Automatum on the P/T controls are in the usual menu behind "Manual…", greyed while Automatum
+        // doesn't wait for something done by hand
+        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Set corner").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Set EOT P/T").assertDoesNotExist()
     }
 }

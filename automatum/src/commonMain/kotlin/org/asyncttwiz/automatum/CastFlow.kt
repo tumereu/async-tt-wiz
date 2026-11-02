@@ -23,7 +23,7 @@ import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.PlayState
 
 /**
- * Casting a spell or playing a land through the engine as a **private flow** (integration spec I-D11, §3 I2): the
+ * Casting a spell, playing a land or activating an ability (a special action too) through the engine as a **private flow** (integration spec I-D11, §3 I2): the
  * acting client keeps its engine calls on the device and sends everything as one batch ([plan]) when the cast is
  * complete; cancelling before that only drops these local steps, and nothing reaches the other player.
  *
@@ -41,7 +41,7 @@ class CastFlow private constructor(
     val definitions: Map<String, CardDefinition>,
     val player: String,
     val log: List<LoggedChange>,
-    /** [Input.Cast] or [Input.PlayLand] of [player]. */
+    /** [Input.Cast], [Input.PlayLand] or [Input.Activate] of [player]. */
     val begin: Input,
     /** The answers given, in order. */
     val answers: List<Answer>,
@@ -50,6 +50,8 @@ class CastFlow private constructor(
     val call: EngineCall,
     /** Each answered decision with its answer, in order. */
     val steps: List<Pair<Decision, Answer>>,
+    /** How many objects the Stack held before [begin]. */
+    private val stackBefore: Int,
 ) {
     /** The open question of the cast or land play itself, or null when it is complete and can be sent ([plan]). A
      * decision after it (the order or targets of triggers it caused, the legend rule) belongs to the shared flow that
@@ -59,8 +61,16 @@ class CastFlow private constructor(
     /** True when nothing is left to decide in the cast or land play itself. */
     val complete: Boolean get() = pending == null
 
-    /** The ATW card being cast or played. */
-    val cardId: String get() = call.ids.atw(((begin as? Input.Cast)?.card ?: (begin as Input.PlayLand).card).let { (it as ObjectId.Card).card })
+    /** The ATW card being cast or played, or whose ability is activated. */
+    val cardId: String get() = call.ids.atw(when (begin) {
+        is Input.Cast -> begin.card
+        is Input.PlayLand -> begin.card
+        is Input.Activate -> begin.source
+        else -> error("Not a cast, land play or activation")
+    }.let { (it as ObjectId.Card).card })
+
+    /** Whether this flow activates an ability or takes a special action (not a cast or land play). */
+    val activation: Boolean get() = begin is Input.Activate
 
     /** The engine state the cast is at now (after every step so far). */
     val state: GameState get() = call.working
@@ -124,12 +134,14 @@ class CastFlow private constructor(
      * and keep priority" isn't offered) and the automatic passes after it ([StepFlow.automatic], I-D18), so with nothing
      * to respond with the spell resolves in the same batch and the game goes on to the next point where a player can act
      * (the steps too, I-D35), or to its first decision (a shared flow from there, I-D11).
-     * A land play keeps priority with its player (CR 305.1, 116.3c). [call] stays the cast alone.
+     * An activated ability on the Stack is passed on the same way (§3 I4); a land play, a mana ability and a special
+     * action keep priority with their player (CR 305.1, 605.3a, 116.3c). [call] stays the cast alone.
      */
     fun sent(): EngineCall {
         check(complete) { "The cast isn't complete" }
         val done = replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true).call
-        if (begin is Input.Cast && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == player) {
+        val stacked = begin is Input.Cast || (begin is Input.Activate && done.working.stack.size > stackBefore)
+        if (stacked && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == player) {
             done.perform(Input.PassPriority(PlayerId(player)), automatic = true)
             StepFlow.automatic(done)
         }
@@ -160,7 +172,7 @@ class CastFlow private constructor(
 
     companion object {
         /**
-         * Begins [begin] ([Input.Cast] or [Input.PlayLand]) for [player] on [play], then gives [answers] in order.
+         * Begins [begin] ([Input.Cast], [Input.PlayLand] or [Input.Activate]) for [player] on [play], then gives [answers] in order.
          * @throws IllegalArgumentException when the engine refuses to begin it, or one of [answers].
          * @throws Unsupported when the board holds something the engine can't take over.
          */
@@ -179,6 +191,7 @@ class CastFlow private constructor(
         internal fun replay(c: Context, begin: Input, answers: List<Answer>, strict: Boolean): CastFlow {
             val call = EngineCall(c.play, c.definitions, null, c.log, c.seeds.reader())
             HostPriority.settle(call)
+            val stackBefore = call.working.stack.size
             call.perform(begin)
             val given = mutableListOf<Answer>()
             val steps = mutableListOf<Pair<Decision, Answer>>()
@@ -194,7 +207,7 @@ class CastFlow private constructor(
                 given += answer
                 steps += open to answer
             }
-            return CastFlow(c.play, c.definitions, c.player, c.log, begin, given, c.seeds, call, steps)
+            return CastFlow(c.play, c.definitions, c.player, c.log, begin, given, c.seeds, call, steps, stackBefore)
         }
 
         /** What [Input.Cast] [way] says beside the plain cast: its face when the card has several to cast, its

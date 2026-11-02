@@ -11,6 +11,7 @@ import arcanum.api.CardDefinition
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
 import arcanum.engine.state.LoggedChange
+import org.asyncttwiz.automatum.CardPlays
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.automatum.ComputedBoard
@@ -92,6 +93,28 @@ internal object AutomatumBoards {
         return result
     }
 
+    private val cardPlays = object : LinkedHashMap<PlaysKey, CardPlays>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<PlaysKey, CardPlays>?) = size > 8
+    }
+
+    /** What the engine offers [viewer] for each card on [play]'s board, when already worked out. */
+    fun cachedCardPlays(play: PlayState, viewer: String): CardPlays? = synchronized(cardPlays) { cardPlays[PlaysKey(play.board, viewer)] }
+
+    /** What the engine offers [viewer] for each card on [play]'s board (§3 I4: the card menus): kept for the latest
+     * boards; worked out now when not yet (blocking: one engine `options` and `view`). */
+    fun cardPlays(play: PlayState, viewer: String, tags: () -> List<MtgTag?>): CardPlays {
+        cachedCardPlays(play, viewer)?.let { return it }
+        val result = try {
+            val definitions = definitions(play.definitions)
+            CardPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
+        } catch (problem: Exception) {
+            AppLog.warn("automatum", "Couldn't list card plays: ${problem::class.java.simpleName}")
+            CardPlays.NONE
+        }
+        synchronized(cardPlays) { cardPlays[PlaysKey(play.board, viewer)] = result }
+        return result
+    }
+
     private val flows = object : LinkedHashMap<IdentityKey, SharedFlow?>(16, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<IdentityKey, SharedFlow?>?) = size > 8
     }
@@ -101,6 +124,15 @@ internal object AutomatumBoards {
     /** Whether [play]'s board has a shared flow to show (I2): an open decision, or something on the Stack. */
     fun sharedFlowShown(play: PlayState): Boolean = play.board.automatum &&
         (org.asyncttwiz.protocol.Automatum.flowOpen(play.board) || play.board.stackEffects.any { it.item != null })
+
+    /** Whether Automatum's open choice on [play]'s board is something to do by hand (I-D37): manual edits are allowed
+     * until it is answered. Known once the shared flow is worked out ([cachedFlow]). */
+    fun byHand(play: PlayState): Boolean = org.asyncttwiz.protocol.Automatum.flowOpen(play.board) &&
+        cachedFlow(play)?.decision is arcanum.engine.decision.Decision.Manual
+
+    /** Whether manual controls work on [play]'s board: Automatum off, or its open choice is something to do by hand
+     * (I-D28, I-D37). */
+    fun manualAllowed(play: PlayState): Boolean = !play.board.automatum || byHand(play)
 
     /** The shared flow of [play]'s board already worked out, if any. */
     fun cachedFlow(play: PlayState): SharedFlow? = synchronized(flows) { flows[IdentityKey(play.board)] }
@@ -190,6 +222,7 @@ internal object AutomatumBoards {
         parsed.clear(); unreadable.clear()
         synchronized(boards) { boards.clear() }
         synchronized(plays) { plays.clear() }
+        synchronized(cardPlays) { cardPlays.clear() }
         synchronized(flows) { flows.clear() }
         synchronized(combats) { combats.clear() }
         synchronized(decoders) { decoders.clear() }

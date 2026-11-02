@@ -1,0 +1,1 @@
+With Automatum on and Mountains untapped, Storm Spark's hand menu shows Automatum's "Cast" as a row above Inspect and a greyed "Manual…".

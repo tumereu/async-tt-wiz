@@ -201,12 +201,13 @@ internal fun ManualActionsHost(state: PlayState, viewer: String, actions: Manual
     landscape: Boolean, names: Map<String, String>,
     submitAll: ((List<PlayAction>) -> Unit)? = null, completeValue: (() -> Boolean)? = null,
     tools: List<MenuControl> = emptyList(), previewViewId: String? = null, inspect: (() -> Unit)? = null,
-    editProjectionNote: (() -> Unit)? = null, submit: (PlayAction) -> Boolean) {
+    editProjectionNote: (() -> Unit)? = null, automatumRows: List<EngineRow> = emptyList(), submit: (PlayAction) -> Boolean) {
     val scope = actions.scope
     if (scope != null && scope.usable(state)) {
         if (scope.player) PlayerActions(state, scope, actions, canEdit, names, viewer, submit = submit)
         else if (actions.editor == null && actions.keywords == null && state.board.cards.any { it.id == scope.contextId })
-            CardActions(state, viewer, scope, actions, canEdit, names, submitAll, tools, previewViewId, inspect, editProjectionNote, submit)
+            CardActions(state, viewer, scope, actions, canEdit, names, submitAll, tools, previewViewId, inspect, editProjectionNote,
+                automatumRows, submit)
         actions.keywords?.let { eot ->
             if (actions.editor == null) KeywordToggles(state, scope, eot, canEdit, actions::close) { requests ->
                 if (requests.isEmpty()) Unit else if (submitAll != null) submitAll(requests) else requests.forEach { submit(it) }

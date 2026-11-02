@@ -42,6 +42,7 @@ internal fun menuIcon(name: String): ImageVector {
     val n = name.lowercase()
     return when {
         n == "timeline" -> Icons.Outlined.History
+        n == "manual…" -> Icons.Outlined.PanTool
         n == "ready" -> Icons.Outlined.CheckCircleOutline
         n == "edit status" -> Icons.Outlined.Edit
         n == "clear status" -> Icons.Outlined.Close
@@ -193,12 +194,17 @@ internal fun MenuWindowDimming() {
 
 @Composable
 internal fun MenuButton(name: String, modifier: Modifier = Modifier, enabled: Boolean = true,
-    fill: Color? = null, onClick: () -> Unit) {
-    ManualActionSquare(name, "", enabled, fill = fill, modifier = modifier, labelled = true, onClick = onClick)
+    fill: Color? = null, refused: String? = null, onClick: () -> Unit) {
+    ManualActionSquare(name, "", enabled, fill = fill, modifier = modifier, labelled = true, refused = refused, onClick = onClick)
 }
 
+/** [refused]: a greyed control that says why on tap (Automatum on, I-D28: manual actions are refused with their reason,
+ * SYS-040: shown and greyed, never hidden). */
 internal data class MenuControl(val name: String, val enabled: Boolean = true, val selected: Boolean = false,
-    val color: Color? = null, val click: () -> Unit)
+    val color: Color? = null, val refused: String? = null, val click: () -> Unit)
+
+/** Shows the reason of a greyed control tapped ([MenuControl.refused]) as the table's floating message. */
+internal val LocalRefusal = staticCompositionLocalOf<(String) -> Unit> { {} }
 
 @Composable
 internal fun MenuControl.Square() = ManualActionSquare(name, "", enabled, selected = selected, iconTint = color, onClick = click)

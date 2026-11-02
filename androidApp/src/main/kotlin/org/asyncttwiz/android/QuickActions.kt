@@ -32,9 +32,9 @@ data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: 
     val combatDamageEdits: Int = 0,
     /** Automatum on (I3): what the engine allows in combat now, once worked out ([automatumCombatQuickActions]). */
     val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null)
-/** A disabled action stays in place, greyed and inert. */
+/** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
-    val enabled: Boolean = true)
+    val enabled: Boolean = true, val refused: String? = null)
 
 /** Complete G11/G12 catalog. Phase offerings precede an explicit Stack target; never guess top. */
 object QuickActions {
@@ -114,7 +114,21 @@ object QuickActions {
         if (!turnPlayer && play.board.players.any { it.accountId == context.viewer } &&
             TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_BLOCKERS)
             add("No blocks + next", "", TableActionIntent.Next(scope))
+        // Automatum on (§3 I4, I-D28): quick actions that change the game by hand (untapping, drawing, mulligans,
+        // closing the combat area) stay in place, greyed, and say why; step changes go through Automatum (TRN-057)
+        if (play.board.automatum && !AutomatumBoards.manualAllowed(play))
+            return result.map { if (manualIntent(it.intent)) it.copy(enabled = false, refused = AutomatumDrags.MANUAL) else it }
         return result
+    }
+
+    /** Whether [intent] changes the game by hand rather than moving the turn on. */
+    fun manualIntent(intent: TableActionIntent): Boolean = when (intent) {
+        is TableActionIntent.Bundle -> intent.actions.any(::manualIntent)
+        is TableActionIntent.Untap, is TableActionIntent.Draw, is TableActionIntent.Library, is TableActionIntent.Orient,
+        is TableActionIntent.Token -> true
+        is TableActionIntent.Combat -> intent.tool != CombatTool.AUTOMATUM_DECLARE && intent.tool != CombatTool.AUTOMATUM_PASS &&
+            intent.tool != CombatTool.DECLARE
+        else -> false
     }
 }
 
@@ -157,7 +171,7 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 for (action in actions) key(action.intent) {
-                    InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope)) { perform(action.intent) },
+                    InlinePopupCell(MenuControl(action.name, action.enabled && controller.enabled(scope), refused = action.refused) { perform(action.intent) },
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }

@@ -161,7 +161,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val statusModes = remember(statusBubbles, statusVersion, play.currentNodeId, play.board.players) { statusBubbles.modes(play) }
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
     val computedBoard = rememberComputedBoard(play, accountId, toolkit?.let { t -> { t.engineTags() } })
+    val refusal: (String) -> Unit = remember(toolkit) { { message -> toolkit?.refuse(message) } }
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
+        LocalRefusal provides refusal,
         LocalStatusBubbles provides statusBubbles, LocalOpponentPresence provides runtime.opponentPresence) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {

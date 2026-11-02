@@ -145,6 +145,10 @@ internal object Triggers {
             val ability = instance.ability as? Ability.Triggered ?: return@mapNotNull null
             // Emblems' abilities work in the command zone (CR 114.4)
             if (o.zone != Zone.Command && o.zone !in Functioning.zones(ability, c.isInstantOrSorcery())) return@mapNotNull null
+            // CR 702.21a: a ward ability of an object whose ward "doesn't trigger"
+            val expansion = instance.origin as? AbilityOrigin.Expansion
+            if (expansion != null && o.mechanics.any { it.mechanic == arcanum.api.Mechanic.WardDoesntTrigger } &&
+                c.abilities.any { it.origin == expansion.keyword && it.ability is arcanum.api.Keyword.Ward }) return@mapNotNull null
             Source(o.id, o.controller ?: o.owner, ability, instance.origin)
         }
     }

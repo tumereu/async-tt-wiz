@@ -38,6 +38,11 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // blb chunk 11: "creature you control with toughness greater than its power"
+        TOUGHNESS_GREATER_THAN_POWER.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Toughness(Comparison.Greater,
+                Value.Of(arcanum.api.NumericProperty.Power, Objects.Tested, Combine.Single)))
+        }
         // blb chunk 09: "creature card you own in exile and in your graveyard"
         OWN_IN_EXILE_AND_GRAVEYARD.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You),
@@ -277,6 +282,8 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // blb chunk 11
+    private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")
     // blb chunk 09
     private val OWN_IN_EXILE_AND_GRAVEYARD = Regex("""(.+) you own in exile and in your graveyard""")
     // blb chunk 08
@@ -347,6 +354,15 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // blb chunk 11: "one or more other creatures you control leave the battlefield without dying" (CR 700.4: dying is
+        // going to a graveyard from the battlefield)
+        LEAVES_WITHOUT_DYING.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, notTo = Zone.Graveyard)
+        }
+        // blb chunk 11: "this creature deals damage to an opponent"
+        DEALS_DAMAGE_TO_AN_OPPONENT.matchEntire(text)?.let { m ->
+            return EventPattern.Damage(subject(m.groupValues[1], self) ?: return null, arcanum.api.RecipientFilter(players = PlayerFilter.Opponent))
+        }
         // chunk 20
         DIES.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
@@ -498,6 +514,9 @@ internal object Events {
     }
 
     private val ENTERS = Regex("""(.+) enters?""")
+    // blb chunk 11
+    private val LEAVES_WITHOUT_DYING = Regex("""(.+) leaves? the battlefield without dying""")
+    private val DEALS_DAMAGE_TO_AN_OPPONENT = Regex("""(.+) deals damage to an opponent""")
     // blb chunk 04: "your first main phase", "your second main phase" (CR 505.1a)
     private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step|first main phase|second main phase)""")
     private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
@@ -565,6 +584,10 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // blb chunk 11: "another creature entered the battlefield under your control this turn" (looks back over the turn)
+        if (text == "another creature entered the battlefield under your control this turn")
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))), to = Zone.Battlefield), atLeast = 1, measure = Measure.Events)
         // blb chunk 09: "there are four or more card types among cards exiled with this creature" (CR 607.2a)
         CARD_TYPES_EXILED_WITH.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
             return Condition.Compare(Value.CountDistinct(Objects.Remembered(EXILED_WITH), SharedQuality.CardType), Comparison.AtLeast,

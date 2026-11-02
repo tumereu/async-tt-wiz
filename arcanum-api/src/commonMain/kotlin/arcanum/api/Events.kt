@@ -20,6 +20,8 @@ sealed interface EventPattern {
         val objects: ObjectFilter, val from: Zone? = null, val to: Zone? = null,
         /** Only the move of a spell as it finishes resolving ("as it resolves", CR 608.2n), not a countered spell. */
         val resolving: Boolean = false,
+        /** Only a move to any zone but this one ("leaves the battlefield without dying": not to a graveyard, CR 700.4). */
+        val notTo: Zone? = null,
     ) : EventPattern
     /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
      * from exile"). Role object = the spell. */

@@ -32,6 +32,7 @@ internal object EventMatcher {
     fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> moves(change).filter { m ->
             (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
+                (pattern.notTo == null || m.to != pattern.notTo) &&
                 (!pattern.resolving || Meaning.Resolved in m.meanings) &&
                 e.matches(pattern.objects, tested(m, pattern.from, proposed))
         }.map { moveEvent(e, it, proposed, pattern.from) }

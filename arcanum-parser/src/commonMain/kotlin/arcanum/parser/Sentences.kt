@@ -1536,6 +1536,31 @@ internal class Sentences(
             if (flips != null && ((flips.steps.singleOrNull() as? Step.Do)?.effect as? Effect.FlipCoin)?.bind == "flip")
                 return steps.dropLast(1) + flips.copy(steps = flips.steps + Step.If(arcanum.api.Condition.WonFlip("flip"), then = listOf(Step.Do(Effect.ExtraTurn(Players.You)))))
         }
+        // dgm chunk 05: "[This] deals damage equal to the discarded card's mana value to that permanent or player." after "discard a
+        // card": the discard names the card (CR 608.2h)
+        Gtc.DEALS_DAMAGE_EQUAL_DISCARDED_TO_THAT.matchEntire(sentence)?.let { m ->
+            val source = gtcSource(m.groupValues[1], context) ?: return@let
+            if (context.targets.none { it.name == "any" }) return@let
+            val at = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Discard)?.postBind == null && (it as? Step.Do)?.effect is Effect.Discard }
+            if (at < 0) return@let
+            val discard = (steps[at] as Step.Do).effect as Effect.Discard
+            return steps.toMutableList().also { it[at] = Step.Do(discard.copy(postBind = "discarded")) } + Step.Do(Effect.DealDamage(Recipients(target = "any"),
+                Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound("discarded"), arcanum.api.Combine.Single), source = source))
+        }
+        // dgm: "Exile all creatures you control. At the beginning of the next combat, return those cards to the battlefield under their
+        // owner's control and those creatures gain haste until end of turn." (CR 603.7)
+        Gtc.RETURN_AT_NEXT_COMBAT_WITH_HASTE.matchEntire(sentence)?.let {
+            val exiled = Objects.Bound("exiled")
+            // dgm chunk 05: the exile before it names the cards
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
+            if (move.to.zone != Zone.Exile) return@let
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = "exiled")) + listOf(Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.Any)),
+                Instructions(steps = listOf(
+                    Step.Do(Effect.Move(exiled, Destination(Zone.Battlefield, controller = Players.OwnerOf(exiled)), postBind = "returned")),
+                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))), Affected.Objects(Objects.Bound("returned")),
+                        arcanum.api.Duration.EndOfTurn)))))))
+        }
         // dgm: "It gains haste until end of turn." after putting a card onto the battlefield: that permanent
         Gtc.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
@@ -5090,12 +5115,6 @@ internal class Sentences(
         // dgm: "Choose any target. Draw three cards, then discard a card. [This] deals damage equal to the discarded card's mana value
         // to that permanent or player."
         if (sentence == "Choose any target.") { context.anyTarget(); return emptyList() }
-        Gtc.DEALS_DAMAGE_EQUAL_DISCARDED_TO_THAT.matchEntire(sentence)?.let { m ->
-            val source = gtcSource(m.groupValues[1], context) ?: return null
-            if (context.targets.none { it.name == "any" }) return null
-            return listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"),
-                Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound("discarded"), arcanum.api.Combine.Single), source = source)))
-        }
         // dgm: "up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block
         // this combat." (CR 508.1d, 509.1c; until the combat ends)
         Gtc.ATTACKS_OR_BLOCKS_AND_CANT.matchEntire(sentence)?.let {
@@ -5131,8 +5150,10 @@ internal class Sentences(
         // abilities, and gains flying." / "Until end of turn, target creature loses all abilities and becomes a red Weird with base
         // power and toughness 0/1." (a creature type replacing its creature types, CR 205.1a; layers 4–7b)
         Gtc.UNTIL_EOT_BECOMES_WITH_BASE.matchEntire(sentence)?.let { m ->
-            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
-            val body = m.groupValues[2]
+            // dgm chunk 05: "each" in the overloaded text (CR 702.96b)
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            val target = if (m.groupValues[1] == "each") Objects.Each(noun) else context.target(Filters.slotName(m.groupValues[2]), noun)
+            val body = m.groupValues[3]
             val becomes = Gtc.BECOMES_COLOR_TYPE_BASE.find(body) ?: return null
             val colors = becomes.groupValues[1].split(" and ").map { ColorRef.Literal(BECOME_COLORS[it] ?: return null) }
             val subtype = becomes.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
@@ -5152,7 +5173,8 @@ internal class Sentences(
         Gtc.THAT_CREATURE_GETS_MINUS_FOR_EACH.matchEntire(sentence)?.let { m ->
             val target = lastTarget() ?: return null
             val per = Value.Count(Objects.Each(Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))))
-            fun times(n: Int) = when (n) { 0 -> Value.Fixed(0); else -> Value.Times(per, n) }
+            // dgm chunk 05: -1/-1 for each card: minus that many
+            fun times(n: Int) = when (n) { 0 -> Value.Fixed(0); else -> Value.Times(per, -n) }
             return listOf(apply(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[1].toInt()), times(m.groupValues[2].toInt()))), target))
         }
         // dgm: "you may switch this creature's power and toughness until end of turn." (layer 7d)
@@ -5162,16 +5184,6 @@ internal class Sentences(
         // dgm: "Put two +1/+1 counters on enchanted creature."
         Gtc.PUT_N_COUNTERS_ON_ATTACHED.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.PutCounters(Objects.AttachedTo(Objects.Self), Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
-        }
-        // dgm: "Exile all creatures you control. At the beginning of the next combat, return those cards to the battlefield under their
-        // owner's control and those creatures gain haste until end of turn." (CR 603.7)
-        Gtc.RETURN_AT_NEXT_COMBAT_WITH_HASTE.matchEntire(sentence)?.let {
-            val exiled = Objects.Bound("exiled")
-            return listOf(Step.Do(Effect.CreateDelayedTrigger(
-                arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.BeginningOfCombat, PlayerFilter.Any)),
-                Instructions(steps = listOf(
-                    Step.Do(Effect.Move(exiled, Destination(Zone.Battlefield, controller = Players.OwnerOf(exiled)), postBind = "returned")),
-                    apply(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))), Objects.Bound("returned")))))))
         }
         Gtc.EXILE_ALL_POSTBIND.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.Move(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null), Destination(Zone.Exile), postBind = "exiled")))

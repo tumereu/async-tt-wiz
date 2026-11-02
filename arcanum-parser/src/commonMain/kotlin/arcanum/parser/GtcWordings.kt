@@ -114,7 +114,7 @@ internal object Gtc {
     val ATTACKS_OR_BLOCKS_AND_CANT = Regex("""Up to one target creature attacks or blocks this combat if able and up to one target creature can't attack or block this combat\.""")
     val IF_ITS_A_PUT_ONTO_BATTLEFIELD_OTHERWISE_HAND = Regex("""If it's an? (.+?), put it onto the battlefield\. Otherwise, put it into your hand\.""")
     val EACH_OPPONENT_LOSES_TWO_TIMES_X = Regex("""Each opponent loses two times X life\.""")
-    val UNTIL_EOT_BECOMES_WITH_BASE = Regex("""Until end of turn, target (.+?) (becomes .+|loses all abilities and becomes .+)\.""")
+    val UNTIL_EOT_BECOMES_WITH_BASE = Regex("""Until end of turn, (target|each) (.+?) (becomes .+|loses all abilities and becomes .+)\.""")
     val BECOMES_COLOR_TYPE_BASE = Regex("""becomes an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) with base power and toughness (\d+)/(\d+)""")
     val THAT_CREATURE_GETS_MINUS_FOR_EACH = Regex("""That creature gets -(\d+)/-(\d+) until end of turn for each (.+?) card in your graveyard\.""")
     val MAY_SWITCH_PT = Regex("""You may switch (.+?)'s power and toughness until end of turn\.""")

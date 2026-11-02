@@ -155,7 +155,7 @@ class HistoryUiSpineTest {
     }
 
     @Test fun actualAccountStorageFactoryColdOfflineSessionPrivateClearAndAccountSwitchShareOneDriver() {
-        val file = java.nio.file.Files.createTempFile(java.nio.file.Path.of("/tmp/opencode"), "history-account-", ".db")
+        val file = java.nio.file.Files.createTempFile("history-account-", ".db")
         val uiThread = Thread.currentThread()
         val worker = Executors.newSingleThreadExecutor()
         val posts = LinkedBlockingQueue<() -> Unit>()

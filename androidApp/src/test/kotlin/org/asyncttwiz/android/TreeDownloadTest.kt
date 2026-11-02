@@ -163,7 +163,7 @@ class TreeDownloadTest {
             assertEquals(0, value.generation.tree.work.ancestrySteps, "No selected-ancestry walk on restore")
             assertEquals(0, value.generation.tree.work.rootMaterializations)
         }
-        val file = java.nio.file.Files.createTempFile(java.nio.file.Path.of("/tmp/opencode"), "annotation-restore-", ".db")
+        val file = java.nio.file.Files.createTempFile("annotation-restore-", ".db")
         fun open() = (ClientStorage.open { app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver("jdbc:sqlite:$file",
             java.util.Properties().apply { setProperty("foreign_keys", "true") }) } as StorageOpenResult.Opened).storage
         fun seed(): PlayState = open().use { storage ->
@@ -325,7 +325,7 @@ class TreeDownloadTest {
         var tree = f.root()
         repeat(10_000) { n -> tree = f.tap(tree, 1000 + n, tapped = n % 2 == 0) }
         val transfer = f.transfer(f.generation(tree), chunkSize = 1024 * 1024)
-        val file = java.nio.file.Files.createTempFile(java.nio.file.Path.of("/tmp/opencode"), "tree-restore-", ".db")
+        val file = java.nio.file.Files.createTempFile("tree-restore-", ".db")
         fun open() = (ClientStorage.open { app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver("jdbc:sqlite:$file",
             java.util.Properties().apply { setProperty("foreign_keys", "true") }) } as StorageOpenResult.Opened).storage
         try {

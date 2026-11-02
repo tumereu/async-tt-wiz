@@ -138,7 +138,7 @@ internal object LibraryKnowledge {
                 }
             }
         }
-        val resolved = command.copy(action = GameAction.Play(move))
+        val resolved = command.copy(action = GameAction.Play(move, (command.action as? GameAction.Play)?.tag))
         if (!move.source.takeFromEdge && beforeReseed == null) return resolved
         val source = state.board.containers.singleOrNull { it.id == move.source.containerId && it.zone == PlayZone.LIBRARY }
             ?: return resolved
@@ -156,7 +156,8 @@ internal object LibraryKnowledge {
             move.source.edge == MoveSourceEdge.BOTTOM -> source.cards.lastOrNull()
             else -> null
         } ?: return resolved
-        return command.copy(action = GameAction.Play(move.copy(cardId = id, source = move.source.copy(bottomSlice = slice))))
+        return command.copy(action = GameAction.Play(move.copy(cardId = id, source = move.source.copy(bottomSlice = slice)),
+            (command.action as? GameAction.Play)?.tag))
     }
 
     /** The layers of every Library-zone container after [action] turned [before] into [board]. New layers get

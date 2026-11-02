@@ -5,7 +5,7 @@ import kotlin.test.*
 /** Rules v33: multi-step advances record every step they pass, ending exactly where the single event did. */
 class StepRunTest {
     private val f = UndoFixture
-    private val p = TurnPosition.entries
+    private val p = TurnPosition.MANUAL
     private fun state(position: TurnPosition, number: String = "2", attackers: Boolean = false, holder: String? = null): PlayState {
         val root = f.root()
         return root.copy(board = root.board.copy(turn = TurnState(f.a, number, position.phase, position.step),
@@ -35,7 +35,7 @@ class StepRunTest {
             StepRun.between(state(TurnPosition.UNTAP).board, null))
         assertEquals(all, StepRun.between(state(TurnPosition.UNTAP, attackers = true).board, null))
         for (from in p) for (attackers in listOf(false, true)) {
-            val expected = p.drop(from.ordinal + 1).filter { attackers ||
+            val expected = p.drop(p.indexOf(from) + 1).filter { attackers ||
                 it != TurnPosition.DECLARE_BLOCKERS && it != TurnPosition.COMBAT_DAMAGE }
             assertEquals(expected, StepRun.between(state(from, attackers = attackers).board, null), "$from $attackers")
         }
@@ -57,7 +57,7 @@ class StepRunTest {
     @Test fun betweenStopsBeforeTheTargetAndIsEmptyForEarlierTargets() {
         for (from in p) for (to in p) {
             val between = StepRun.between(state(from, attackers = true).board, to)
-            assertEquals(if (to.ordinal > from.ordinal) p.subList(from.ordinal + 1, to.ordinal) else emptyList(), between, "$from → $to")
+            assertEquals(if (to.ordinal > from.ordinal) p.subList(p.indexOf(from) + 1, p.indexOf(to)) else emptyList(), between, "$from → $to")
         }
         assertEquals(listOf(TurnPosition.BEGIN_COMBAT, TurnPosition.DECLARE_ATTACKERS, TurnPosition.END_COMBAT,
             TurnPosition.POSTCOMBAT_MAIN), StepRun.between(state(TurnPosition.PRECOMBAT_MAIN).board, TurnPosition.END_STEP))

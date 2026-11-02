@@ -42,8 +42,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
         val ready = AutomatumBoards.cachedFlow(play)
-        val history = toolkit.engineTags()
-        flows.show(ready ?: withContext(Dispatchers.Default) { AutomatumBoards.sharedFlow(play, history) })
+        // SYS-025: the history's tags are walked and the flow worked out off the main thread
+        flows.show(ready ?: withContext(Dispatchers.Default) { AutomatumBoards.sharedFlow(play, toolkit.engineTags()) })
     }
     if (!shown) return
     val flow = flows.view?.takeIf { it.play.board === play.board } ?: return

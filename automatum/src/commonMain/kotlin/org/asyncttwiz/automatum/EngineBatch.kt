@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.change.Change
 import arcanum.engine.change.Meaning
@@ -131,7 +132,10 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             } else if (pendingLog.isNotEmpty()) pendingCause = pendingCause ?: cause(change)
         }
         // Each change settled the values it touched; one look over everything makes sure nothing was missed.
+        current = call.changes.lastIndex
         settle(null)
+        // I-D34: with Automatum on the move follows who must act (folded into the batch's event, I-D35)
+        if (actions.isNotEmpty()) acting(engine)?.let { who -> if (board.effectiveAttentionHolder != who) play(PlayAction.PassAttention) }
         if (pendingLog.isNotEmpty()) {
             if (actions.isEmpty()) throw Unmappable("engine events without any ATW action to carry them: ${call.changes}")
             val last = tags.last()
@@ -173,15 +177,33 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     }
 
     /**
-     * Whether [action] is shown inside the visible event before it (I-D22: history events are natural branching points,
-     * one per possible player action; [org.asyncttwiz.protocol.MtgFacts.folds]): engine bookkeeping, and a priority
-     * change that isn't a player's own pass (automatic passes, priority given after a resolution or a step).
+     * Whether [action] is shown inside the visible event before it (I-D22, I-D35: history events are natural branching
+     * points, one per point where a player can act; [org.asyncttwiz.protocol.MtgFacts.folds]): everything after the
+     * batch's first member. A call runs from one player's input to the next point where a player can act, so the batch
+     * is one event: the input leads it, and what Automatum did by itself (turn-based actions, triggers, resolutions,
+     * state-based actions, the host's passes, bookkeeping) is folded into it.
      */
-    private fun folds(action: PlayAction): Boolean = when (val mtg = (action as? PlayAction.Mtg)?.action) {
-        is MtgAction.SetPriority -> current !in call.ownPasses
-        is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetStackItem -> true
-        is MtgAction.SetRecord -> (mtg.before ?: mtg.after)?.kind != EngineRecordKind.Emblem
-        else -> false
+    @Suppress("UNUSED_PARAMETER")
+    private fun folds(action: PlayAction): Boolean = actions.isNotEmpty()
+
+    /** Priority the host gives before the input (a call's first changes, [HostPriority]) waits for the first member the
+     * input itself makes, so that leads the batch's event (I-D35, i12review #11); the final settle sends it anyway. */
+    private fun waitsForInput(): Boolean = actions.isEmpty() && current !in call.ownPasses && current < call.changes.lastIndex
+
+    /**
+     * Who must act once the call is done (I-D34): the player an open decision belongs to, else the priority holder, else
+     * the player who declares attackers or blockers (CR 508.1, 509.1); null when the game is over.
+     */
+    private fun acting(s: GameState): String? {
+        if (arcanum.engine.Engine.result(s) != null) return null
+        s.pending?.decision?.player?.let { return it.value }
+        s.priority.holder?.let { return it.value }
+        return when (s.turn.step) {
+            TurnStep.DeclareAttackers -> s.turn.active.value.takeIf { s.combat == null }
+            TurnStep.DeclareBlockers -> s.players.firstOrNull { it.id != s.turn.active }?.id?.value
+                .takeIf { s.combat?.let { c -> !c.blocksDecided && c.attackers.isNotEmpty() } == true }
+            else -> null
+        }
     }
 
     private val board get() = atw.board
@@ -377,16 +399,27 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             val other = board.players.singleOrNull { it.accountId != before.active.value }?.accountId
             play(if (after.active.value == other) PlayAction.EndTurn else PlayAction.BeginTurn(after.active.value))
         }
-        val target = EngineCodec.position(after.step)
+        val target = EngineCodec.position(after.step, firstStrike = after.step == TurnStep.CombatDamage && firstStrikeBegins())
         // I-D22, StepRun: a step the call goes on from (nobody could act in it: the host passed for everyone, or it has no
         // priority) is a passed step; the last step change of the call is the step players act in and gets the move
         if (TurnPosition.of(board.turn) != target) play(PlayAction.ChooseStep(target, through = laterStep()))
     }
 
-    /** Whether a later change of the call begins another step or turn. */
-    private fun laterStep(): Boolean {
-        val later = call.changes.subList(current + 1, call.changes.size)
-        return later.any { it is Change.Step && (it.after.step != it.before.step || it.after.number != it.before.number) }
+    /** A step's beginning (CR 500): a turn-state change that only counts a land or an extra turn begins none. */
+    private fun begins(change: Change): Boolean = change is Change.Step &&
+        (Meaning.StepBegan in change.meanings || change.after.step != change.before.step || change.after.number != change.before.number)
+
+    /** Whether a later change of the call begins another step or turn (the second combat damage step too, CR 510.4). */
+    private fun laterStep(): Boolean = call.changes.subList(current + 1, call.changes.size).any(::begins)
+
+    /** Whether the combat damage step beginning now is the first-strike one (I-D31, CR 510.4): the engine marks its combat
+     * so right after the step begins, before any other step does. */
+    private fun firstStrikeBegins(): Boolean {
+        for (change in call.changes.subList(current + 1, call.changes.size)) {
+            if (begins(change)) return false
+            if (change is Change.Combat && change.after?.firstStrikeStep == true && change.before?.firstStrikeStep != true) return true
+        }
+        return false
     }
 
     /** The combat lanes show the engine's combat (CMB-*): a pair per attacker with its target, blockers in the pair of
@@ -498,7 +531,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         }
         for (p in board.players) playerValues(p.accountId)
         val priority = engine.priority.takeUnless { it.holder == null && it.passes == 0 }?.let { MtgPriority(it.holder?.value, it.passes) }
-        if (board.priority != priority) play(PlayAction.Mtg(MtgAction.SetPriority(board.priority, priority)))
+        if (board.priority != priority && !waitsForInput()) play(PlayAction.Mtg(MtgAction.SetPriority(board.priority, priority)))
         for (entry in EngineState.entries(board)) {
             val key = entries.entries.firstOrNull { it.value == entry.id }?.key ?: continue
             val wanted = engine.stackItems[key]?.let { EngineCodec.stackItem(it, ids::ref) }

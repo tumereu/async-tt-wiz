@@ -145,6 +145,10 @@ internal object Triggers {
             val ability = instance.ability as? Ability.Triggered ?: return@mapNotNull null
             // Emblems' abilities work in the command zone (CR 114.4)
             if (o.zone != Zone.Command && o.zone !in Functioning.zones(ability, c.isInstantOrSorcery())) return@mapNotNull null
+            // CR 702.21a: a ward ability of an object whose ward "doesn't trigger"
+            val expansion = instance.origin as? AbilityOrigin.Expansion
+            if (expansion != null && o.mechanics.any { it.mechanic == arcanum.api.Mechanic.WardDoesntTrigger } &&
+                c.abilities.any { it.origin == expansion.keyword && it.ability is arcanum.api.Keyword.Ward }) return@mapNotNull null
             Source(o.id, o.controller ?: o.owner, ability, instance.origin)
         }
     }
@@ -174,7 +178,7 @@ internal object Triggers {
         state: GameState, board: ViewBoard, now: View, change: Change, s: Source, lookBack: Boolean, whole: Change = change,
     ): List<WaitingTrigger> {
         val e = Evaluator(board, Context(s.controller, s.id))
-        val instances = instancesOf(e, board.state, s.ability.trigger, change, whole)
+        val instances = instancesOf(e, board.state, s.ability.trigger, change, whole, door = (s.origin.root as? AbilityOrigin.Printed)?.face)
         if (instances.isEmpty()) return emptyList()
         val nowBoard = ViewBoard(state, now)
         val sourceSeen = if (lookBack) snapshot(board, s.id) else null
@@ -197,6 +201,12 @@ internal object Triggers {
     /** "Triggers only once each turn" (CR 603.2): counted on the source object per turn number (D41) once put on the
      * Stack, and the instances that triggered and still wait to be put there. */
     private fun limited(state: GameState, s: Source, instances: List<TriggerEvent>): List<TriggerEvent> {
+        // "This ability triggers only once": for as long as the object exists
+        if (s.ability.once) {
+            val waiting = state.triggered.count { it.source == s.id && it.origin?.key == s.origin.key }
+            val placed = state.obj(s.id)?.facts?.triggers?.filter { it.key == s.origin.key }?.sumOf { it.count } ?: 0
+            return instances.take((1 - placed - waiting).coerceAtLeast(0))
+        }
         val limit = s.ability.perTurn ?: return instances
         val waiting = state.triggered.count { it.source == s.id && it.origin?.key == s.origin.key }
         val placed = state.obj(s.id)?.facts?.triggers?.firstOrNull { it.key == s.origin.key && it.turn == state.turn.number }?.count ?: 0
@@ -207,10 +217,10 @@ internal object Triggers {
      * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,
      * or earlier batches, so "one or more cards for the first time each turn" keeps the whole batch); chapter abilities
      * as lore counters pass their numbers (CR 714.2b). */
-    fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change, whole: Change = change): List<TriggerEvent> = when (trigger) {
+    fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change, whole: Change = change, door: Int? = null): List<TriggerEvent> = when (trigger) {
         is Trigger.On -> {
             fun units(c: Change): List<TriggerEvent> {
-                val all = trigger.events.flatMap { EventMatcher.instances(e, it, c) }
+                val all = trigger.events.flatMap { EventMatcher.instances(e, it, c, door = door) }
                 return when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()
@@ -249,7 +259,7 @@ internal object Triggers {
         view.rules.flatMap { applied ->
             val m = applied.mechanic as? Mechanic.TriggersAdditionalTime ?: return@flatMap emptyList()
             val e = Evaluator(ViewBoard(state, view), Context(applied.controller, applied.source, applied.names))
-            if (EventMatcher.instances(e, m.event, change).isEmpty()) return@flatMap emptyList()
+            if (m.event != null && EventMatcher.instances(e, m.event!!, change).isEmpty()) return@flatMap emptyList()
             found.filter { t -> t.delayedTrigger == null && t.source != null && e.matches(m.sources, t.source!!) }
         }
 

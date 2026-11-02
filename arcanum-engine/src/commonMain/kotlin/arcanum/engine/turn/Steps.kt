@@ -215,7 +215,9 @@ internal object Steps {
         val after = Snapshot(recorder.state)
         recorder.state.battlefield.toList().forEach { id ->
             val o = recorder.state.obj(id) ?: return@forEach
-            if (!o.tapped || o.phasedOut || after.board.controller(id) != active) return@forEach
+            // CR 502.3: "untaps during each other player's untap step"
+            if (!o.tapped || o.phasedOut) return@forEach
+            if (after.board.controller(id) != active && after.view[id]?.has { it == Mechanic.UntapsDuringOtherUntapSteps } != true) return@forEach
             if (after.view[id]?.has { it == Mechanic.DoesntUntap } == true) return@forEach
             if (o.counters(CounterKind.Stun) > 0) {
                 recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), CounterKind.Stun, -1))
@@ -265,7 +267,12 @@ internal object Steps {
     fun maxHandSize(s: GameState, player: PlayerId): Int {
         val mechanics = Snapshot(s).view.players[player]?.mechanics.orEmpty().map { it.mechanic }
         if (mechanics.any { it == Mechanic.NoMaximumHandSize }) return Int.MAX_VALUE
-        return 7 + mechanics.filterIsInstance<Mechanic.MaximumHandSizeChange>().sumOf { it.change }
+        // "Your maximum hand size is equal to …" sets it instead of seven
+        val snap = Snapshot(s)
+        val set = snap.view.players[player]?.mechanics.orEmpty().lastOrNull { it.mechanic is Mechanic.MaximumHandSize }?.let { applied ->
+            snap.evaluator(applied.controller, self = applied.source, names = applied.names).value((applied.mechanic as Mechanic.MaximumHandSize).value)
+        }
+        return (set ?: 7) + mechanics.filterIsInstance<Mechanic.MaximumHandSizeChange>().sumOf { it.change }
     }
 
     /** An answer to the cleanup discard's decisions: the discard is redone with it, then the rest of the cleanup step. */

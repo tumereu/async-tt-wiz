@@ -140,6 +140,16 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     }
 
     /**
+     * Takes the special action named [rule] of the permanent [name] (CR 116.2): "unlock-left"/"unlock-right" pays a
+     * locked door's unlock cost (CR 709.5e), "manifested" turns a manifested creature card face up (CR 701.40b); pays as
+     * [casts] does.
+     */
+    fun takesSpecialAction(name: String, rule: String, paying: List<String>? = null): Outcome {
+        val outcome = scenario.perform(Input.Activate(id, toActivate(name), arcanum.engine.view.AbilityOrigin.Rule(rule)))
+        return answerAnnouncing(outcome, emptyList(), null, null, paying, null, null, emptyList(), null)
+    }
+
+    /**
      * Puts [name] on the Stack as a spell this player cast (tagged cast, so cast triggers trigger), without paying its
      * costs: for scenarios about resolution (CR 608) rather than casting (CR 601.2). [targets] by name fill the target
      * slots in order (each up to its maximum); left-over targets go to an "enchant" slot (Auras); [divided] gives each

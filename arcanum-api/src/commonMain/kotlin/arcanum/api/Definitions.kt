@@ -107,6 +107,9 @@ sealed interface Ability {
         val interveningIf: Condition? = null,
         /** "This ability triggers only once each turn" = 1. */
         val perTurn: Int? = null,
+        /** "This ability triggers only once": once for as long as its object exists (a new object after a zone change
+         * may trigger it again, CR 400.7). */
+        val once: Boolean = false,
         /** "… Do this only once each turn": triggers only if its source's controller hasn't yet taken that action this
          * turn (CR 603.2h). */
         val actionOncePerTurn: Boolean = false,
@@ -297,6 +300,8 @@ data class TargetSlot(
      * that has its effect only if the gift was promised has its targets only then (CR 702.174m). Otherwise the spell is
      * treated as though it doesn't have that target. */
     val onlyIf: Condition? = null,
+    /** The objects chosen must all have the same controller ("two target creatures controlled by the same opponent"). */
+    val sameController: Boolean = false,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */
@@ -384,6 +389,8 @@ sealed interface Choice {
      * ("from among them"). With fewer available than [min], all available are chosen (CR 609.3). */
     @Serializable @SerialName("objects") data class Objects(
         val filter: ObjectFilter, val min: Value, val max: Value?, val from: arcanum.api.Objects? = null,
+        /** The chosen objects must all differ in this quality ("creature cards with different powers"). */
+        val distinct: SharedQuality? = null,
     ) : Choice
     /** Choose one of named options ("odd or even", "left or right"). */
     @Serializable @SerialName("option") data class Option(val options: List<String>) : Choice

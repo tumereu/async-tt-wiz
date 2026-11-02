@@ -205,6 +205,9 @@ internal object Actions {
                 if (m.memory.values.isNotEmpty()) after = after.copy(memory = m.memory)
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
                 if (toBattlefield && m.transformed && before.definition?.layout == Layout.Transform) after = after.copy(face = 1)
+                // CR 709.5d: a Room enters with the half cast as a spell unlocked
+                if (toBattlefield && before.zone == Zone.Stack && arcanum.engine.room.Rooms.isRoom(before.definition))
+                    after = after.copy(marks = after.marks + arcanum.api.ObjectMark.Unlocked(arcanum.engine.room.Rooms.door(before.face)))
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
                 // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
                 if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
@@ -222,6 +225,7 @@ internal object Actions {
             act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + arcanum.engine.state.Attacker(after, m.attacking!!))))
         }
         act.record(Change.ZoneChange(all))
+        arcanum.engine.room.Rooms.enteredUnlocked(act, all.filter { it.before.zone == Zone.Stack && it.after.zone == Zone.Battlefield }.map { it.after.id })
         // CR 400.7: a spell whose card left the Stack is no longer a spell (one resolving keeps its item in its
         // continuation, Continuation.Resolving.left)
         all.filter { it.before.zone == Zone.Stack && it.after.zone != Zone.Stack }.forEach { mv ->

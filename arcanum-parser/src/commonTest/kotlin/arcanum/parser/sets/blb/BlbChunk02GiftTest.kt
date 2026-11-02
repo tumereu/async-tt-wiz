@@ -531,7 +531,7 @@ class BlbChunk02GiftTest {
         },
     )
 
-    // CR 701.14a: fighting; the second target is named after its whole phrase, the first having taken "creature"
+    // CR 701.14a: fighting; the second target is "other creature", the first having taken "creature"
     @Test
     fun reedbedScuffle() = card(
         name = "Reedbed Scuffle",
@@ -546,10 +546,10 @@ class BlbChunk02GiftTest {
         spell(
             listOf(
                 slot("creature", creatureYouControl),
-                slot("creature you don't control", ObjectFilter.And(listOf(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You))))),
+                slot("other creature", ObjectFilter.And(listOf(creature, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.You))))),
             ),
             Step.If(promised, then = listOf(counters(Objects.Target("creature")))),
-            Step.Do(Effect.Fight(Objects.Target("creature"), Objects.Target("creature you don't control"))),
+            Step.Do(Effect.Fight(Objects.Target("creature"), Objects.Target("other creature"))),
         ),
     )
 

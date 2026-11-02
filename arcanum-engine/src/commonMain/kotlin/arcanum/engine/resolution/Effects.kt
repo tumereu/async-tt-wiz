@@ -176,6 +176,9 @@ internal object Effects {
             is Effect.TurnFaceUp -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
                 if (!o.faceDown) return@forEach
+                if (act.view()[id]?.has { it == Mechanic.CantBeTurnedFaceUp } == true) return@forEach
+                // CR 701.40a: no longer a manifested permanent once face up
+                if (ObjectMark.Manifested in o.marks) Actions.tapStatus(act, id, StatusFlag.Marked(ObjectMark.Manifested), false)
                 // CR 708.8: turned face up, everyone sees it (D60)
                 act.fill(o.controller ?: o.owner, scope.self, listOf(id), "turned face up", public = true)
                 act.record(Change.Status(id, StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
@@ -288,7 +291,49 @@ internal object Effects {
             is Effect.RevealUntil -> revealUntil(scope, effect)
             is Effect.CreateEmblem -> scope.players(effect.players).forEach { p -> createEmblem(scope, p, effect.abilities) }
             is Effect.Action -> keywordAction(scope, effect.action, effect.bind)
+            // CR 709.5f: the chooser picks a locked door of each (or the door named)
+            is Effect.UnlockDoor -> {
+                val unlocked = onBattlefield(scope, effect.objects).filter { id ->
+                    val locked = arcanum.engine.room.Rooms.locked(act.state.objOrThrow(id))
+                    val door = effect.door?.takeIf { it in locked } ?: when (locked.size) {
+                        0 -> null
+                        1 -> if (effect.door == null) locked.single() else null
+                        else -> chooseDoor(scope, effect.chooser, id, locked, "Unlock which door?")
+                    } ?: return@filter false
+                    arcanum.engine.room.Rooms.unlock(act, id, door, scope.players(effect.chooser).firstOrNull())
+                    true
+                }
+                scope.bind(effect.bind, NamedValue.Objects(unlocked))
+            }
+            // CR 709.5g
+            is Effect.LockDoor -> onBattlefield(scope, effect.objects).forEach { id ->
+                val o = act.state.objOrThrow(id)
+                if (!arcanum.engine.room.Rooms.isRoom(o.definition)) return@forEach
+                val open = listOf(arcanum.api.Door.Left, arcanum.api.Door.Right).filter { arcanum.engine.room.Rooms.unlocked(o, it) }
+                val door = when (open.size) {
+                    0 -> return@forEach
+                    1 -> open.single()
+                    else -> chooseDoor(scope, effect.chooser, id, open, "Lock which door?")
+                }
+                arcanum.engine.room.Rooms.lock(act, id, door)
+            }
+            // The counters [of] has (as it last existed), each kind and number, put on each object
+            is Effect.PutCountersOf -> {
+                val board = scope.eval().board
+                val counters = scope.objects(effect.of).flatMap { id -> act.state.obj(id)?.counters ?: board.snapshot(id)?.counters.orEmpty() }
+                onBattlefield(scope, effect.objects).forEach { to ->
+                    counters.forEach { c -> if (c.count > 0) Actions.putCounters(act, cause, TargetRef.Object(to), c.kind, c.count) }
+                }
+            }
         }
+    }
+
+    private fun chooseDoor(scope: Scope, chooser: Players, id: ObjectId, doors: List<arcanum.api.Door>, text: String): arcanum.api.Door {
+        val player = scope.players(chooser).firstOrNull() ?: scope.actor
+        val names = scope.act.state.objOrThrow(id).definition?.faces.orEmpty()
+        val options = doors.map { names.getOrNull(arcanum.engine.room.Rooms.face(it))?.name ?: it.toString() }
+        val chosen = scope.act.chooseOption(player, id, options)
+        return doors[options.indexOf(chosen).coerceAtLeast(0)]
     }
 
     // ---- Helpers
@@ -1009,8 +1054,29 @@ internal object Effects {
                 Costs.pay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))
                 act.record(Change.Happened(GameEvent.Foraged(scope.actor)))
             }
+            is KeywordAction.ManifestDread -> scope.players(action.players).forEach { p -> manifestDread(scope, p, bind) }
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
+    }
+
+    /**
+     * CR 701.62a: [player] looks at the top two cards of their library, manifests one (CR 701.40a: face down as a 2/2,
+     * [ObjectMark.Manifested]) and puts the other into their graveyard; then the manifest-dread event (701.62b).
+     */
+    private fun manifestDread(scope: Scope, player: PlayerId, bind: String?) {
+        val act = scope.act
+        val top = act.state.player(player).library.take(2)
+        act.fill(player, scope.self, top, "manifest dread")
+        val chosen = if (top.size <= 1) top else act.chooseObjects(player, scope.self, top, 1, 1, "Manifest which card?")
+        val moved = if (chosen.isEmpty()) emptyMap() else Actions.move(act, scope.cause, chosen.map {
+            PlannedMove(it, Zone.Battlefield, controller = player, faceDown = true)
+        })
+        val manifested = chosen.firstOrNull()?.let { moved[it] }?.takeIf { act.state.obj(it)?.zone == Zone.Battlefield }
+        manifested?.let { Actions.tapStatus(act, it, StatusFlag.Marked(ObjectMark.Manifested), true) }
+        val rest = top.filterNot { it in chosen }.filter { act.state.obj(it) != null }
+        val graveyard = Actions.moveTo(act, scope.cause, rest, Zone.Graveyard)
+        act.record(Change.Happened(GameEvent.ManifestedDread(player, manifested, graveyard.values.toList())))
+        scope.bind(bind, NamedValue.Objects(listOfNotNull(manifested)))
     }
 
     private const val POPULATED = "\$populated"

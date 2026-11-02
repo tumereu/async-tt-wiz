@@ -61,6 +61,8 @@ object DefinitionChecks {
         "attack" to setOf("object", "defender"),
         "discard" to setOf("before", "after"),
         "unattach" to setOf("object", "from"),
+        // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
+        "manifest-dread" to setOf("object", "rest"),
     )
     private val selfAffected = json.encodeToJsonElement(Affected.serializer(), Affected.Objects(Objects.Self))
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
@@ -259,8 +261,10 @@ object DefinitionChecks {
         val spellSlots = mutableSetOf<String>()
         abilities.filter { it.typeName() == "spell" }.forEach { spell -> visitAll(spell) { o ->
             if (o.typeName() == null && "what" in o) o.string("name")?.let { spellSlots += it } } }
+        // A cost reduction of the spell is applied after its targets are chosen too ("costs {3} less if it targets a tapped
+        // creature", CR 601.2f).
         fun isCostStatic(a: JsonObject) = a.typeName() == "static" && (a["mechanics"] as? JsonArray).orEmpty()
-            .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost") }
+            .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost", "cost-change") }
         abilities.forEach { ability ->
             when {
                 ability.typeName() == "spell" -> check(ability, costNames)

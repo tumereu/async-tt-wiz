@@ -413,6 +413,14 @@ sealed interface GameEvent {
     @Serializable @SerialName("gave-gift") data class GaveGift(val player: PlayerId) : GameEvent
     /** The Class [id] became level [level] (CR 716.2a). */
     @Serializable @SerialName("became-level") data class BecameLevel(val id: ObjectId, val level: Int) : GameEvent
+    /** [player] unlocked door [door] (0 left, 1 right) of [id] (CR 709.5h); [fully]: it now has both unlocked designations
+     * (709.5i). */
+    @Serializable @SerialName("unlocked") data class Unlocked(val player: PlayerId, val id: ObjectId, val door: Int, val fully: Boolean) : GameEvent
+    /** [player] manifested dread (CR 701.62b): [manifested] the permanent (null if none), [rest] the cards put into their
+     * graveyard. */
+    @Serializable @SerialName("manifested-dread") data class ManifestedDread(
+        val player: PlayerId, val manifested: ObjectId?, val rest: List<ObjectId>,
+    ) : GameEvent
 }
 
 /**

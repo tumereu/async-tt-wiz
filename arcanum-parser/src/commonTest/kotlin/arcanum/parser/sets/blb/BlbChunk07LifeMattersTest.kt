@@ -370,7 +370,7 @@ class BlbChunk07LifeMattersTest {
         text = "At the beginning of your second main phase, if an opponent lost life this turn, exile the top two cards of your library. Choose one of them. Until end of turn, you may play that card.",
     ) parsesTo abilities(
         Ability.Triggered(
-            trigger = Trigger.On(EventPattern.StepBegins(TurnStep.PostcombatMain, PlayerFilter.You)),
+            trigger = Trigger.On(listOf(EventPattern.StepBegins(TurnStep.PostcombatMain, PlayerFilter.You)), nthThisTurn = 1),
             instructions = steps(
                 Step.Do(Effect.Move(Objects.LibraryCards(Players.You, one(2), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
                 Step.Choose(Choice.Objects(ObjectFilter.Any, min = one(), max = one(), from = Objects.Bound("exiled")), bind = "chosen", chooser = Players.You),

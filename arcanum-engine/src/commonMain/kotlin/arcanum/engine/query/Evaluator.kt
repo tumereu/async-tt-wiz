@@ -105,7 +105,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun objects(objects: Objects): List<ObjectId> = when (objects) {
         Objects.Self -> listOfNotNull(ctx.self)
-        is Objects.Target -> boundObjects(ctx.names[objects.slot])
+        // A spell's own static ability reads the spell's chosen targets ("costs {1} less if it targets a tapped creature",
+        // CR 601.2f: the total cost is determined after the targets are chosen)
+        is Objects.Target -> ctx.names[objects.slot]?.let { boundObjects(it) }
+            ?: ctx.self?.let { s -> state.stackItems[s]?.targets?.get(objects.slot)?.filterIsInstance<TargetRef.Object>()?.map { it.id } }.orEmpty()
         is Objects.Bound -> boundObjects(ctx.names[objects.name])
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
@@ -293,8 +296,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.ControlledBy -> controllerOf(id)?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
-            is ObjectFilter.Named -> c?.name == filter.name
-            is ObjectFilter.SameNameAs -> c?.name != null && objects(filter.objects).any { characteristics(it)?.name == c.name }
+            is ObjectFilter.Named -> filter.name in names(c)
+            // CR 709.4a: a split card has each of its halves' names
+            is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
             is ObjectFilter.ChosenName -> c?.name != null && (ctx.names[filter.name] as? NamedValue.Name)?.name == c.name
             is ObjectFilter.RememberedName -> c?.name != null && (selfMemory(filter.key) as? NamedValue.Name)?.name == c.name
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
@@ -337,6 +341,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 toOk && attachmentsOk
             }
             is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id)
+            // CR 115.7: one target in all ("with a single target"), of [target] when given
+            is ObjectFilter.SingleTarget -> {
+                val targets = state.stackItems[id]?.targets?.values?.flatten().orEmpty()
+                targets.size == 1 && filter.target.let { f -> f == null || (targets[0] as? TargetRef.Object)?.id?.let { matches(f, it) } == true }
+            }
         }
     }
 
@@ -351,6 +360,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             AbilityKind.Static -> false
             AbilityKind.Mana -> ability?.isManaAbility() == true
             AbilityKind.Loyalty -> (ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is CostPart.Loyalty }
+            // Special actions don't use the Stack (CR 116.1): only one being taken matches (a provisional item, for its
+            // costs and the mana spent on it)
+            AbilityKind.Unlock -> arcanum.engine.room.Rooms.isUnlockRule(item.origin)
+            AbilityKind.TurnFaceUp -> (ability as? Ability.SpecialAction)?.instructions?.steps.orEmpty()
+                .any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp }
         }
         val sourceOk = filter.source?.let { f -> item.source?.let { matches(f, it) } ?: false } ?: true
         val labelOk = filter.label?.let { label ->
@@ -411,7 +425,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     private fun GameObject.printedTypes(): List<CardType> = definition?.faces?.getOrNull(face)?.types.orEmpty()
 
-    private fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
+    /** [a] and [b] share [quality] ("share a color", "with the same power"). */
+    fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
         val ca = characteristics(a) ?: return false
         val cb = characteristics(b) ?: return false
         return when (quality) {
@@ -426,6 +441,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
         }
     }
+
+    /** Its names: one, or each half's (CR 709.4a), or none (face down, CR 708.2a). */
+    private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
 
     private fun creatureTypes(c: Characteristics) = c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Creature }
 
@@ -523,6 +541,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }
             }
+            // CR 709.5c
+            NumericProperty.UnlockedDoors -> o?.marks.orEmpty().count { it is arcanum.api.ObjectMark.Unlocked }
         }
     }
 
@@ -560,7 +580,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.Color -> cs.flatMap { it.colors }.distinct().size
             SharedQuality.CardType -> cs.flatMap { it.types }.distinct().size
             SharedQuality.CreatureType -> cs.flatMap { creatureTypes(it) }.distinct().size
-            SharedQuality.Name -> cs.mapNotNull { it.name }.distinct().size
+            SharedQuality.Name -> cs.flatMap { names(it) }.distinct().size
             SharedQuality.BasicLandType -> cs.flatMap { c -> c.subtypes.filter { it in Subtypes.basicLandTypes } }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
         }
@@ -610,6 +630,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             val level = if (isClass || o == null) boundNumber(selfMemory(CLASS_LEVEL)).coerceAtLeast(1) else o.counters(CounterKind.Level)
             level >= condition.level
         }
+        is Condition.Prime -> value(condition.value).let { n -> n >= 2 && (2..n / 2).none { n % it == 0 } }
         Condition.IsDay -> state.ledger[DAY_NIGHT] == DAY
         Condition.IsNight -> state.ledger[DAY_NIGHT] == NIGHT
     }
@@ -671,6 +692,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             AbilityKind.Static -> this is Ability.Static
             AbilityKind.Mana -> isManaAbility()
             AbilityKind.Loyalty -> this is Ability.Activated && cost.parts.any { it is CostPart.Loyalty }
+            // CR 709.5e: unlocking is a rule of Room permanents, not an ability they have
+            AbilityKind.Unlock -> false
+            AbilityKind.TurnFaceUp -> this is Ability.SpecialAction && instructions.steps.any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp }
         }
     }
 }

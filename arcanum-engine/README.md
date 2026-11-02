@@ -242,17 +242,25 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
   Events outside resolution (land plays, the draw step's draw, combat damage) go through
   `Events.run` and wait with `Continuation.Event`.
-- Done, the game around it (`setup/`): starting a game (CR 103) with companions and London mulligans, conceding,
+- Done, the game around it (`setup/`): starting a game (CR 103) with companions, London mulligans and opening-hand
+  actions ("you may begin the game with it on the battlefield", CR 103.6a), conceding,
   the end of the game (CR 104) and players leaving a multiplayer game (CR 800.4a, j, k).
+- Done, Duskmourn (`room/`, scenarios in `commonTest/…/sets/dsk/`): Rooms (CR 709.5: casting a door unlocks it,
+  locked halves lose their text, unlocking as a special action, unlock and full-unlock triggers), manifest dread and
+  turning a manifested card face up, impending, survival, delirium, eerie, behold as a cost, "must be blocked if
+  able", "can't attack or block alone", untapping in other players' untap steps, no loss at 0 life, a set maximum
+  hand size, hexproof and ward set aside, targets with one controller, choices "with different" qualities.
 - Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `CountersPut.causedBy`, `nthThisTurn`'s
   `during`, "do this only once each turn", repeated target slot names of repeated modes
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
-  other keyword actions as costs (behold, forage, exert); no cube card has any of these. Also missing: text-changing
+  other keyword actions as costs (forage, exert); no cube card has any of these. An alternative cost another
+  object grants ("once each turn, you may pay {0} rather than pay the mana cost for a spell you cast from exile") is
+  not offered. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
-  only). Around the game: opening-hand actions (CR 103.6) and
+  only). Around the game:
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
   starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
   choosing, are not applied); restarting a game (CR 104.1).

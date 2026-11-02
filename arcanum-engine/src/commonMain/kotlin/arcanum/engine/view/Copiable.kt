@@ -65,6 +65,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         }
         // CR 702.103b: a bestowed spell or permanent is an Aura enchantment with enchant creature
         if (o.bestowed) faces = faces.map { IndexedFace(it.index, bestowed(it.face)) }
+        // CR 709.5: a Room's locked halves have no name, mana cost or rules text
+        faces = arcanum.engine.room.Rooms.lockedHalves(o, faces)
         return faces
     }
 
@@ -124,7 +126,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             val symbols = merged.flatMap { it.manaCost?.symbols.orEmpty() }
             val onBattlefield = o?.zone == Zone.Battlefield
             return Characteristics(
-                name = merged.joinToString(" // ") { it.name }.ifEmpty { null },
+                name = merged.map { it.name }.filter { it.isNotEmpty() }.joinToString(" // ").ifEmpty { null },
                 manaCost = if (merged.all { it.manaCost == null }) null else ManaCost(symbols),
                 colors = Color.all.filter { c -> merged.any { c in colorsOf(it) } },
                 supertypes = merged.flatMap { it.supertypes }.distinct(),

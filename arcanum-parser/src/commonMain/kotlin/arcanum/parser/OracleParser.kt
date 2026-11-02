@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 2
+    const val VERSION: Int = 14
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -67,12 +67,17 @@ object OracleParser {
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
         // chunks 21, 26: abilities that exile are linked to "cards exiled with [this]" (CR 607.2a)
-        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") })
+        // dsk chunk 09: "each card exiled with it"
+        val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it "))
         // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
+        // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost
+        sentences.discardedCard = text.contains("the discarded card")
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
+            // dsk chunk 09: an exile effect of a card that refers to the cards "exiled with it" keeps them
+            text.contains("exiled with it ") -> arcanum.api.Objects.Remembered(EXILED_WITH)
             else -> null
         }
         val result = mutableListOf<Ability>()
@@ -121,6 +126,18 @@ object OracleParser {
                 raws += printed
                 continue
             }
+            // dsk chunk 07: "Delirium — Choose one. If …, choose one or more instead." and its "• " modes (CR 700.2)
+            if (isSpell && i < lines.size && lines[i].startsWith("• ") && line.contains(" instead.")) {
+                val modeLines = mutableListOf<String>()
+                var j = i
+                while (j < lines.size && lines[j].startsWith("• ")) modeLines += REMINDER.replace(lines[j++].removePrefix("• "), "").trim()
+                sentences.modesWithMaxIf(line, modeLines)?.let { spell ->
+                    i = j
+                    result += spell
+                    raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                    continue
+                }
+            }
             // "Choose one —" and its "• " modes (CR 700.2)
             val choose = CHOOSE.matchEntire(line)
             if (choose != null && isSpell) {
@@ -130,6 +147,16 @@ object OracleParser {
                 result += if (modes != null) Ability.Spell(arcanum.api.Instructions(modes = modes))
                     else Ability.Unparsed((listOf(raw) + modeLines.map { "• $it" }).joinToString("\n"))
                 raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                continue
+            }
+            // dsk chunk 12: an activated ability with modes ("[cost]: Choose one —", CR 700.2)
+            val activatedChoose = if (!isSpell && line.contains(": ")) CHOOSE.matchEntire(line.substringAfter(": ")) else null
+            if (activatedChoose != null && i < lines.size && lines[i].startsWith("• ")) {
+                val modeLines = mutableListOf<String>()
+                while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
+                val printed = (listOf(raw.trim()) + modeLines.map { "• $it" }).joinToString("\n")
+                result += sentences.modalActivated(line.substringBefore(": "), activatedChoose, modeLines) ?: Ability.Unparsed(printed)
+                raws += printed
                 continue
             }
             // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
@@ -142,8 +169,17 @@ object OracleParser {
                 continue
             }
             val previous = result.lastOrNull()
-            val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
-            val parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            // dsk chunk 07: "If …, instead …" replaces the whole spell
+            val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) ?: sentences.insteadAll(line, previous) else null
+            var parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            // dsk chunk 07: a later paragraph of a spell that refers to its earlier targets is read with them (CR 113.3a)
+            if (instead == null && parsed == null && isSpell && previous is Ability.Spell) {
+                sentences.continuation(line, previous.instructions)?.let { joined ->
+                    result[result.size - 1] = previous.copy(instructions = joined)
+                    raws[raws.size - 1] += "\n" + raw.trim()
+                    continue
+                }
+            }
             when {
                 instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.
@@ -291,12 +327,22 @@ object OracleParser {
         // (CR 702.74a, 702.138a): a cost that isn't only mana.
         DASH_COST.matchEntire(part)?.let { m ->
             val cost = Sentences(setOf("this card")).cost(m.groupValues[2]) ?: return null
+            // dsk chunk 06: "Equip—Sacrifice a creature." (CR 702.6a), "Ward—Discard a card." (CR 702.21a)
             return when (m.groupValues[1]) {
                 "Evoke" -> Keyword.Evoke(cost)
-                // blb chunk 03: "Ward—Sacrifice a Food.", "Ward—Pay 2 life." (CR 702.21a)
-                "Ward" -> Keyword.Ward(cost)
+                "Equip" -> Keyword.Equip(cost)
+                "Ward", "ward" -> Keyword.Ward(cost)
                 else -> Keyword.Escape(cost)
             }
+        }
+        // dsk chunk 06: "Plainscycling {2}", "Basic landcycling {1}" (CR 702.29e)
+        TYPECYCLING.matchEntire(part)?.let { m ->
+            val cost = ManaCost.parse(m.groupValues[2]) ?: return null
+            val cards = when (val type = m.groupValues[1]) {
+                "Basic land" -> Filters.noun("basic land") ?: return null
+                else -> if (type in RulesWords.subtypes) arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(type)) else return null
+            }
+            return Keyword.Typecycling(cards, part.substringBefore(' ' + m.groupValues[2]), Cost.mana(cost))
         }
         // chunk 40: "Forestwalk", "Islandwalk" (CR 702.14a): a land type, then "walk"
         LANDWALK.matchEntire(part)?.let { m ->
@@ -351,7 +397,9 @@ object OracleParser {
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
     // chunk 30
     private val AFFINITY = Regex("""Affinity for (\w+)""")
-    private val DASH_COST = Regex("""(Evoke|Escape|Ward)—(.+?)\.?""")
+    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward)—(.+?)\.?""")
+    // dsk chunk 06
+    private val TYPECYCLING = Regex("""([A-Z][a-z]+(?: land)?)cycling (\{.+\})""")
     // chunk 40
     private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
     // chunk 45

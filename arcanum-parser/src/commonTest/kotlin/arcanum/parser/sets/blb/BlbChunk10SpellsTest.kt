@@ -176,7 +176,7 @@ class BlbChunk10SpellsTest {
         },
     )
 
-    // CR 601.2f: the reduction applies when the spell targets such a creature; the owner chooses top or bottom
+    // CR 601.2f: the reduction applies when the spell's target is such a creature; the owner chooses top or bottom
     @Test
     fun grimDowngust() = card(
         name = "Grim Downgust",
@@ -190,8 +190,8 @@ class BlbChunk10SpellsTest {
         Ability.Static(
             listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), CostChange.Less(arcanum.api.ManaCost.parse("{1}")!!, one()))),
             affects = Affected.Objects(Objects.Self),
-            condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.Targets(objects = Objects.Each(ObjectFilter.And(listOf(
-                ObjectFilter.Or(listOf(ObjectFilter.HasStatus(Status.Attacking), ObjectFilter.HasStatus(Status.Tapped))), creature))))),
+            condition = Condition.ObjectMatches(Objects.Target("creature"),
+                ObjectFilter.Or(listOf(ObjectFilter.HasStatus(Status.Attacking), ObjectFilter.HasStatus(Status.Tapped)))),
         ),
         spell(
             listOf(slot("creature", creature)),

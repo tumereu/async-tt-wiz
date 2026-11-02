@@ -249,8 +249,7 @@ class BlbChunk08TypalTest {
             Step.Do(Effect.Move(Objects.Target("creature"), Destination(Zone.Exile), postBind = "exiled")),
             Step.Do(Effect.CreateDelayedTrigger(
                 Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any)),
-                steps(Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled"))),
-                    postBind = "returned"))),
+                steps(Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled")))))),
             )),
             targets = listOf(slot("creature", ObjectFilter.And(listOf(other, creature, you)), min = 0)),
         ),

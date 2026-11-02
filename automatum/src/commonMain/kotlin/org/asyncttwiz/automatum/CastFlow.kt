@@ -238,22 +238,38 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>, val un
 }
 
 /**
- * Priority while Automatum doesn't run the steps yet (integration phases I2–I3): ATW's steps and turns still change by
- * hand, which doesn't give priority (CR 117.3a), so before an engine call the host settles it as the rules would have:
- * with an empty Stack in a step with priority, the active player holds it, nobody having passed; with spells or
- * abilities on the Stack, the player who holds it keeps it (nobody: the active player). In the untap and cleanup steps
- * nobody gets priority (CR 502.4, 514.3). The change goes out with the call's batch.
+ * Priority where ATW's steps and turns changed by hand (with Automatum off, or before Automatum ran the steps, I2):
+ * a step changed by hand doesn't give priority (CR 117.3a), so before an engine call the host settles it as the rules
+ * would have: nobody holding it, the active player gets it (no passes) — with spells or abilities on the Stack too; with
+ * an empty Stack and no passes made, a priority holder other than the active player is left from a turn changed by hand
+ * and the active player gets it. Otherwise (the steps the engine runs, StepFlow) priority is kept as it is: a player
+ * other than the active one holds it on an empty Stack only after passes. In the untap and cleanup steps nobody gets
+ * priority (CR 502.4, 514.3), nor while attackers or blockers are awaited (CR 508.1, 509.1). The change goes out with
+ * the call's batch.
  */
 internal object HostPriority {
     fun settle(call: EngineCall) {
         val s = call.working
-        if (s.pending != null || s.turn.step == TurnStep.Untap || s.turn.step == TurnStep.Cleanup) return
-        val active = s.turn.active
-        val wanted = when {
-            s.stack.isEmpty() -> PriorityState(active, 0)
-            s.priority.holder == null -> PriorityState(active, 0)
-            else -> return
-        }
+        val wanted = wanted(s) ?: return
         if (s.priority != wanted) call.host(Change.Priority(s.priority, wanted, listOf(Meaning.PriorityGranted)))
+    }
+
+    /** The priority [s] should have (null: leave it as it is). */
+    fun wanted(s: GameState): PriorityState? {
+        if (s.pending != null || s.turn.step == TurnStep.Untap || s.turn.step == TurnStep.Cleanup || awaitsDeclaration(s)) return null
+        val active = s.turn.active
+        val holder = s.priority.holder
+        return when {
+            holder == null -> PriorityState(active, 0)
+            s.stack.isEmpty() && s.priority.passes == 0 && holder != active -> PriorityState(active, 0)
+            else -> null
+        }
+    }
+
+    /** Attackers or blockers are awaited (CR 508.1, 509.1): nobody has priority until they are declared. */
+    private fun awaitsDeclaration(s: GameState): Boolean = s.priority.holder == null && when (s.turn.step) {
+        TurnStep.DeclareAttackers -> s.combat == null
+        TurnStep.DeclareBlockers -> s.combat?.let { !it.blocksDecided && it.attackers.isNotEmpty() } == true
+        else -> false
     }
 }

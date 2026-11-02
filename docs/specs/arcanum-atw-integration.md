@@ -133,6 +133,17 @@ out of anything stuck.
   to accept).
 - The step button (TRN-007) moves through steps with the engine: untap, draw, cleanup and "at the beginning of …"
   triggers happen by themselves.
+- **Built (I3 groundwork, module `automatum/`, no UI yet):** `StepFlow.pass(call, player, until)` is the step button: the
+  priority holder passes ("End turn": the host goes on passing for them this turn and declares no attackers, or only
+  what must attack), then the host's automatic passes (`StepFlow.automatic`, I-D18) run to the next point where a player
+  could act; steps passed on the way are `ChooseStep(through = true)`, the last one moves the move (I-D22, TRN-014).
+  `StepFlow.answer` answers a shared flow's decision (cleanup discard, triggers). `CombatFlow`: `choices` (who may
+  attack what and block whom, with the least declaration requirements make), `attackRefusal`/`blockRefusal` (the
+  engine's reason, cards by name), `declareAttackers`/`declareBlockers` from lane data (`LaneAttack`, `LaneBlock`;
+  `lanes(area)` reads them from a combat area), `division`/`divide` (I-D29, the suggestion when no shares are given),
+  `preview` (the damage, life changes and deaths if everyone passes with the suggested divisions, also for blocks still
+  being arranged) and `firstStrikeStep`. `HostPriority` keeps priority as the engine left it (a holder other than the
+  active player on an empty Stack without passes is taken as left from a turn changed by hand).
 
 ### I4 — Automatum-only controls
 

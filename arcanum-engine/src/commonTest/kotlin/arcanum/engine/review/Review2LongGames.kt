@@ -65,6 +65,8 @@ internal class LongGame(
     /** At every decision, also try answers of every kind with odd contents: each must be accepted or refused with
      * [IllegalArgumentException], never crash (the one answer-validation path). */
     private val malformed: Boolean = false,
+    /** Each player's 40 card names (review 3's themed cube decks), instead of random ones. */
+    private val decks: Map<PlayerId, List<String>>? = null,
 ) {
     private val rnd = Random(seed)
     private val json = Json
@@ -92,6 +94,9 @@ internal class LongGame(
 
     /** 16 basics of two colours and 24 random cube cards. */
     private fun deck(player: PlayerId): List<DeckCard> {
+        decks?.get(player)?.let { names ->
+            return names.mapIndexed { i, name -> DeckCard(CardId("${player.value}.$i"), Cards.definition(name)) }
+        }
         val basics = BASICS.shuffled(rnd).take(2)
         val names = List(16) { basics[it % 2] } + List(24) { Cards.cubeNames.random(rnd) }
         return names.shuffled(rnd).mapIndexed { i, name -> DeckCard(CardId("${player.value}.$i"), Cards.definition(name)) }

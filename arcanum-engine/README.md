@@ -225,7 +225,10 @@ ones aren't (D60). Two seeds and one seed on each player's view run in the norma
 `-Parcanum.longGames.viewer=alice`, `-Parcanum.longGames.malformed=true` to also try odd answers of every kind at every
 decision) and `--tests '*Review2LongGamesJvmTest*'`. `hidden/ViewerKnowledgeTest` plays the hidden-information rule on
 both players' views with every host answer through JSON; `decision/AnswerCheckTest` the answer checks. `review/Review*Test.kt` are the adversarial
-reviews' scenarios; failing ones are `@Ignore`d with their finding number.
+reviews' scenarios; failing ones are `@Ignore`d with their finding number. Review 3 adds `review/Review3Host.kt`, a host
+written against the public API only that keeps the full-information state and each player's view in step (D60), four
+themed 40-card cube decks (`Review3Decks`), their long games (`-Parcanum.review3.games=N --tests '*Review3CubeDecksJvmTest*'`)
+and printed timings on large boards (`-Parcanum.review3.perf=true --tests '*Review3PerformanceJvmTest*' -i`).
 
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into
 `cards/CubeCardTexts.kt`; after the parser tests change, regenerate with

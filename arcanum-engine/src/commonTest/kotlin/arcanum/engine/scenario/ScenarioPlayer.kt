@@ -62,6 +62,14 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
             state.updatePlayerForSetup { it.copy(life = value) }
         }
 
+    /** "Skip when I have no choice" (I-D18): set during setup, read in expectations. */
+    var skipWhenNoChoice: Boolean
+        get() = state.player(id).skipWhenNoChoice
+        set(value) {
+            scenario.setup()
+            state.updatePlayerForSetup { it.copy(skipWhenNoChoice = value) }
+        }
+
     /** Sets this player's counters of [kind] (poison, energy, …) during setup. */
     fun counters(kind: CounterKind, count: Int) {
         scenario.setup()

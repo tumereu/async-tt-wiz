@@ -130,6 +130,7 @@ internal object ChangeSamples {
             on(base, Change.Ledger(alice, "expend", 0, 4)),
             on(base, Change.Lost(bob, false, true)),
             on(base, Change.PlayerDesignation(alice, Designation.Monarch, false, true)),
+            on(base, Change.SkipWhenNoChoice(bob, true, false)),
             on(base, Change.Shuffle(alice, library, library.reversed().map { it.copy(id = it.id.next()) })),
             on(base, Change.Reorder(Zone.Library, alice, base.player(alice).library, base.player(alice).library.reversed())),
             on(withUnknown, Change.Filled(unknown, base.objOrThrow(spark))),

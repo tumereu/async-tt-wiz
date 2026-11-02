@@ -38,6 +38,31 @@ internal object Costs {
 
     fun canPay(scope: Scope, payer: PlayerId, cost: Cost): Boolean = cost.parts.all { canPay(scope, payer, it) }
 
+    /**
+     * Whether [payer] being able to pay [cost] depends on cards only they may see (I-D18): a part that chooses cards in a
+     * hidden zone by what they are ("discard a land card") could go either way, and every part that can't be paid is one
+     * of those. Unknown cards it looks at are filled in for [payer] first (D60).
+     */
+    fun hiddenDecides(scope: Scope, payer: PlayerId, cost: Cost): Boolean {
+        val deciding = cost.parts.filter { hiddenDecides(scope, payer, it) }
+        return deciding.isNotEmpty() && cost.parts.all { it in deciding || canPay(scope, payer, it) }
+    }
+
+    private fun hiddenDecides(scope: Scope, payer: PlayerId, part: CostPart): Boolean = when (part) {
+        is CostPart.Discard -> !part.random && poolDecides(scope, payer, part.what, Zone.Hand)
+        is CostPart.Exile -> poolDecides(scope, payer, part.what, part.from)
+        is CostPart.Reveal -> poolDecides(scope, payer, part.what, Zone.Hand)
+        // Each option is looked at, so every unknown card is filled in
+        is CostPart.OneOf -> part.options.map { hiddenDecides(scope, payer, it) }.any { it }
+        else -> false
+    }
+
+    private fun poolDecides(scope: Scope, payer: PlayerId, what: CostObjects, zone: Zone): Boolean {
+        val choose = what as? CostObjects.Choose ?: return false
+        val e = scope.eval()
+        return scope.act.hiddenDecides(payer, scope.self, pool(scope, payer, zone)) { e.identityDecides(choose.filter, it) }
+    }
+
     private fun canPay(scope: Scope, payer: PlayerId, part: CostPart): Boolean {
         val state = scope.act.state
         return when (part) {
@@ -171,22 +196,29 @@ internal object Costs {
             is CostObjects.These -> scope.objects(what.objects).filter { state.obj(it)?.zone == zone }
             is CostObjects.Choose -> {
                 val e = scope.eval()
-                val ids = when (zone) {
-                    Zone.Battlefield -> state.battlefield.filter { e.controllerOf(it) == payer }
-                    Zone.Exile, Zone.Stack, Zone.Command -> state.zone(zone, null).filter { state.obj(it)?.owner == payer }
-                    else -> state.zone(zone, payer)
-                }
-                ids.filter { e.matches(what.filter, it) }
+                pool(scope, payer, zone).filter { e.matches(what.filter, it) }
             }
         }.filter(extra)
     }
 
+    /** What [payer] may choose from for a cost in [zone]: their own permanents, or cards they own there. */
+    private fun pool(scope: Scope, payer: PlayerId, zone: Zone): List<ObjectId> {
+        val state = scope.act.state
+        return when (zone) {
+            Zone.Battlefield -> state.battlefield.filter { scope.eval().controllerOf(it) == payer }
+            Zone.Exile, Zone.Stack, Zone.Command -> state.zone(zone, null).filter { state.obj(it)?.owner == payer }
+            else -> state.zone(zone, payer)
+        }
+    }
+
     private fun choose(scope: Scope, payer: PlayerId, what: CostObjects, zone: Zone, verb: String, extra: (ObjectId) -> Boolean = { true }): List<ObjectId> {
+        // I-D18: a forced choice of cards only the payer sees ("discard a land card" with one land card in hand)
+        val hidden = zone != Zone.Battlefield && poolDecides(scope, payer, what, zone)
         val options = candidates(scope, payer, what, zone, extra)
         return when (what) {
             is CostObjects.Choose -> {
                 val n = what.count?.let { scope.value(it) }
-                scope.act.chooseObjects(payer, scope.self, options, n ?: 0, n, "Choose to $verb")
+                scope.act.chooseObjects(payer, scope.self, options, n ?: 0, n, "Choose to $verb", hidden)
             }
             else -> options
         }

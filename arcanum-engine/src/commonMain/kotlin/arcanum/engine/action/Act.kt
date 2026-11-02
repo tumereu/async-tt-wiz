@@ -158,11 +158,59 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     fun yesNo(player: PlayerId, source: ObjectId?, text: String, cost: arcanum.api.Cost? = null): Boolean =
         (asker.ask { Decision.May(it, player, source, text, cost) } as Answer.YesNo).yes
 
-    /** Chooses [min]..[max] of [options]; with no more options than [min] all are chosen without asking (CR 609.3). */
-    fun chooseObjects(player: PlayerId, source: ObjectId?, options: List<ObjectId>, min: Int, max: Int?, text: String): List<ObjectId> {
+    /** I-D18: [player] is asked a decision the rules leave them no choice in when they turned "Skip when I have no
+     * choice" off and the skip depends on cards only they may see ([hiddenDecides]). */
+    fun asksAnyway(player: PlayerId, hiddenDecides: Boolean): Boolean = hiddenDecides && !state.player(player).skipWhenNoChoice
+
+    /** A cost [player] can't pay ("you may discard a land card", CR 118.3): asked anyway when [asksAnyway] (I-D18), with
+     * only "no" accepted ([Decision.May.payable]). */
+    fun cannotPay(player: PlayerId, source: ObjectId?, text: String, cost: arcanum.api.Cost?, hiddenDecides: Boolean) {
+        if (!asksAnyway(player, hiddenDecides)) return
+        val yes = (asker.ask { Decision.May(it, player, source, text, cost, payable = false) } as Answer.YesNo).yes
+        require(!yes) { "The cost can't be paid" }
+    }
+
+    /**
+     * Whether what [player] may choose among [pool] depends on cards only they may see (I-D18): a card of the pool in
+     * their hand, outside the game or that only they may look at (not a face-down permanent or spell, which everyone
+     * sees as it is, CR 708.2a) for which [decides] (whether it would be offered depends on what card it is). Those
+     * still unknown in the state are filled in for [player] first (D60), so the choice is worked out on what they are,
+     * unless not [fill] (a flow that offers unknown cards as they are).
+     */
+    fun hiddenDecides(
+        player: PlayerId, source: ObjectId?, pool: List<ObjectId>, fill: Boolean = true, decides: (ObjectId) -> Boolean,
+    ): Boolean {
+        if (pool.isEmpty()) return false
+        val private = Knowledge.privateTo(state, view(), player)
+        val deciding = pool.filter { id ->
+            id in private && state.obj(id)?.zone.let { it != arcanum.api.Zone.Battlefield && it != arcanum.api.Zone.Stack } && decides(id)
+        }
+        val unknown = deciding.filter { state.obj(it)?.unknown == true }
+        if (fill && unknown.isNotEmpty()) fill(player, source, unknown, "choose among them")
+        return deciding.isNotEmpty()
+    }
+
+    /**
+     * Chooses [min]..[max] of [options]; with no more options than [min] all are chosen without asking (CR 609.3), and
+     * with none nothing is asked, unless [asksAnyway] for [hiddenDecides] (I-D18): then the forced choice is asked with
+     * only that answer (all of them, or none).
+     */
+    fun chooseObjects(
+        player: PlayerId, source: ObjectId?, options: List<ObjectId>, min: Int, max: Int?, text: String,
+        hiddenDecides: Boolean = false,
+    ): List<ObjectId> {
         val top = max?.coerceAtMost(options.size) ?: options.size
-        if (options.isEmpty() || top == 0) return emptyList()
-        if (options.size <= min) return options
+        val forced = when {
+            options.isEmpty() || top == 0 -> emptyList()
+            options.size <= min -> options
+            else -> null
+        }
+        if (forced != null) {
+            if (!asksAnyway(player, hiddenDecides)) return forced
+            val chosen = (asker.ask { Decision.ChooseObjects(it, player, source, forced, forced.size, forced.size, text) } as Answer.Objects).chosen
+            require(chosen.toSet() == forced.toSet()) { "Not a valid choice: $chosen" }
+            return forced
+        }
         val chosen = (asker.ask { Decision.ChooseObjects(it, player, source, options, min.coerceAtMost(top), top, text) } as Answer.Objects).chosen
         require(chosen.all { it in options } && chosen.size in min.coerceAtMost(top)..top) { "Not a valid choice: $chosen" }
         return chosen

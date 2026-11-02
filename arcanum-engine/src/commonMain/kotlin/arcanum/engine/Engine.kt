@@ -63,6 +63,16 @@ object Engine {
     fun otherViewDecision(state: GameState, filled: List<arcanum.engine.decision.FilledObject>): arcanum.engine.decision.Decision? =
         arcanum.engine.resolution.OtherView.next(state, filled)
 
+    /**
+     * Whether a host passes priority for [player] now (I-D3, I-D18): they hold it, nothing is pending, and [options]
+     * offers them nothing but passing (mana abilities aside). With their "Skip when I have no choice" setting
+     * ([arcanum.engine.state.PlayerState.skipWhenNoChoice]) on, that is enough; off, only when it doesn't depend on cards
+     * only they may see (an empty hand and no face-down permanent: an instant they can't afford is theirs to pass with).
+     * False while such cards are unknown in [state] (another player's view, D60): their own view decides. The engine never
+     * passes for anyone by itself; a host performs [Input.PassPriority] for each player this says, one at a time.
+     */
+    fun shouldPassFor(state: GameState, player: PlayerId): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player)
+
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result
 }

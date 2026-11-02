@@ -291,6 +291,7 @@ object Engine {
     fun view(state: GameState): View                              // derived characteristics (layers, CR 613), per object
     fun options(state: GameState, player: PlayerId): List<Input>  // what a player may do now
     fun perform(state: GameState, input: Input): Outcome          // reads state, never writes it
+    fun shouldPassFor(state: GameState, player: PlayerId): Boolean // a host passes priority for them now (I-D18)
 }
 data class Outcome(val changes: List<Change>, val pending: Pending?)
 data class Pending(val decision: Decision, val continuation: Continuation)
@@ -350,6 +351,16 @@ fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // t
   public zone or revealed, are filled in as they are), committing step by step; `Engine.otherViewDecision` shows a
   host that doesn't keep the player's state what they face. Not yet: a face-down cast of a card unknown to the view
   (filled publicly), private looks outside a resolution (a companion check at the start).
+- **Skip when I have no choice** (I-D18, refines D57 and P5): a per-player setting in the state
+  (`PlayerState.skipWhenNoChoice`, on by default, changed by a host's `Change.SkipWhenNoChoice`). The engine never
+  passes priority by itself; `Engine.shouldPassFor(state, player)` tells a host to pass for a player who holds priority
+  and can do nothing but pass (mana abilities aside): on, always; off, only when no card only they may see (hand,
+  face-down cards, cards only they may look at) could have let them act; never while such cards are unknown in the
+  state (D60). Inside a flow, a question with nothing to choose is skipped when on; off, when the skip depends on the
+  player's hidden cards (a card of the choice's pool in a hidden zone could be offered or not by what card it is), it is
+  asked with only its forced answer (a choice offering exactly the forced cards, or `May(payable = false)` for a cost
+  they can't pay). Unknown cards such a skip depends on are filled in for the player first, either way. Skips that
+  depend on nothing hidden stay automatic (P5).
 - **Answers** are checked on one path against what their decision asked (kind, allowed values, counts, uniqueness,
   zones, exactly the filled objects, new ids): a wrong one is refused with `IllegalArgumentException` and changes
   nothing, never a crash.

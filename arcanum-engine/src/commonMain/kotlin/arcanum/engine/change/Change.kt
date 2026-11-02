@@ -245,6 +245,14 @@ sealed interface Change {
         override fun inverse() = copy(before = after, after = before)
     }
 
+    /** A player's "Skip when I have no choice" setting changes (I-D18, [arcanum.engine.state.PlayerState.skipWhenNoChoice]):
+     * made by a host, not by the game. */
+    @Serializable @SerialName("skip-when-no-choice")
+    data class SkipWhenNoChoice(val player: PlayerId, val before: Boolean, val after: Boolean) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
     /** A player gets or loses a designation: monarch, initiative, city's blessing (CR 724–726). */
     @Serializable @SerialName("designation")
     data class PlayerDesignation(val player: PlayerId, val designation: Designation, val before: Boolean, val after: Boolean) : Change {

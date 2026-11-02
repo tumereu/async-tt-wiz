@@ -1156,6 +1156,10 @@ internal class Sentences(
         val during = DURING_YOUR_TURN.matchEntire(text)
         val events = during?.groupValues?.get(1) ?: text
         val onlyIf = during?.let { arcanum.api.Condition.YourTurn }
+        // gtc chunk 07: "you cast your second spell each turn" (the second spell you cast this turn, CR 603.2)
+        Gtc.YOUR_NTH_SPELL_EACH_TURN.matchEntire(events)?.let { m ->
+            return arcanum.api.Trigger.On(listOf(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You)), nthThisTurn = Numbers.ordinal(m.groupValues[1]) ?: return null) to onlyIf
+        }
         // dsk chunk 07: "this creature attacks while there are four or more …": checked only as it would trigger
         WHILE.matchEntire(events)?.let { m ->
             val condition = Conditions.condition(m.groupValues[2], self)
@@ -1414,7 +1418,13 @@ internal class Sentences(
         // An X this reader can't define stays in the text for the sentence rules that read it themselves.
         // blb gaps 2: a comma kept inside a quoted ability before "where X is" ('… you control," where X is …')
         val text = printed.replace(",\" where X is ", ".\", where X is ")
-        val defined = WHERE_X.find(text)?.let { Values.value(it.groupValues[1], exiledCard) }
+        // gtc chunk 06: "When enchanted creature dies, …, where X is its power": the creature that died, as it last existed (CR 603.10a)
+        val diedOther = (event as? EventPattern.ZoneChange)?.takeIf { it.to == Zone.Graveyard && it.from == Zone.Battlefield &&
+            it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) }
+        val defined = WHERE_X.find(text)?.let { w ->
+            if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
+            else Values.value(w.groupValues[1], exiledCard)
+        }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself
         if (defined == null) WHERE_X.find(text)?.let { selfNumber(it.groupValues[1]) }?.let { own ->
             return read(text, null, seedTargets, event, them, that, itZone) ?: read(text, own, seedTargets, event, them, that, itZone)
@@ -1434,6 +1444,8 @@ internal class Sentences(
         if (event is EventPattern.StepBegins || event is EventPattern.Expend) context.it = Objects.Self
         // blb chunk 05: "Whenever a creature you control deals combat damage to a player, … exile it": the creature dealing it
         if (event is EventPattern.Damage && event.source != ObjectFilter.Is(Objects.Self) && event.to.objects == null) context.it = Objects.EventObject(EventRole.Source)
+        // gtc chunk 07: "When this creature deals combat damage, return it to its owner's hand": it is this creature
+        if (event is EventPattern.Damage && event.source == ObjectFilter.Is(Objects.Self) && event.to == RecipientFilter()) context.it = Objects.Self
         // chunk 36: "Whenever this creature attacks, put a +1/+1 counter on it": it is this creature
         if (event is EventPattern.Attack && event.attacker == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
@@ -1468,6 +1480,12 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // gtc chunk 06: "He's still a planeswalker." / "It's still a land." after it became a creature in addition to its types:
+        // a reminder (CR 205.1b), nothing changes
+        if (Gtc.STILL_A.matches(sentence)) {
+            val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics
+            if (apply != null && apply.mechanics.any { it is Mechanic.SetTypes && CardType.Creature in it.add && !it.replaceTypes }) return steps.toList()
+        }
         // dsk gaps: "It's an enchantment." after returning it to the battlefield: it isn't a creature as it enters (layer 4,
         // CR 611.2e), so its enters triggers and state-based actions see an enchantment
         if (sentence == "It's an enchantment.") {
@@ -4153,6 +4171,7 @@ internal class Sentences(
     /** gtc: the rules of a static ability's "has …"/"gets …"/"can't …" ("has flying", "have haste and attack each combat if
      * able", "has hexproof and can't be blocked by more than one creature"). */
     private fun gtcStaticPredicates(text: String): List<Mechanic>? = text.split(Gtc.STATIC_PREDICATE_AND).flatMap { part ->
+        if (part == "can't be blocked by more than one creature") return@flatMap listOf(Mechanic.MaximumBlockers(1))
         Gtc.HAVE_KEYWORDS.matchEntire(part)?.let { m ->
             listOf(Mechanic.GainAbilities(m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }))
         } ?: Gtc.GET_PT.matchEntire(part)?.let { m ->
@@ -4160,7 +4179,6 @@ internal class Sentences(
         } ?: Gtc.CANT_BE_BLOCKED_BY.matchEntire(part)?.let { m -> listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[1]) ?: return null)) }
         ?: when (part) {
             "attack each combat if able", "attacks each combat if able" -> listOf(Mechanic.MustAttack())
-            "can't be blocked by more than one creature" -> listOf(Mechanic.MaximumBlockers(1))
             "can't attack or block" -> listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any))
             "its activated abilities can't be activated" -> listOf(Mechanic.CantBeActivated(manaAbilities = true))
             "can't block" -> listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any))
@@ -4193,6 +4211,25 @@ internal class Sentences(
         Gtc.REGENERATE.matchEntire(sentence)?.let { m ->
             val objects = gtcSubject(m.groupValues[1], context) ?: return null
             return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Regenerate(objects))))
+        }
+        // gtc chunk 07: "If a spell cast this way would be put into a graveyard, exile it instead." (after casting cards this way)
+        if (sentence == "If a spell cast this way would be put into a graveyard, exile it instead.") {
+            return listOf(apply(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound("cast")), to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, arcanum.api.Duration.Indefinitely))
+        }
+        // gtc chunk 10: "Search your library for up to X Forest cards, where X is the number of permanents destroyed this way, put
+        // those cards onto the battlefield tapped, then shuffle."
+        Gtc.SEARCH_UP_TO_X_DESTROYED.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(
+                Step.Do(Effect.Search(Players.You, filter, max = Value.Count(Objects.Bound("destroyed")), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // gtc chunk 09: "Untap those creatures. They gain haste until end of turn." (the Primordial's targets)
+        if (sentence == "They gain haste until end of turn.") {
+            val objects = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(apply(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))), objects))
         }
         // gtc chunk 06: "Prevent all damage that would be dealt to target creature this turn." / "… to you this turn." (CR 615)
         Gtc.PREVENT_ALL_DAMAGE_TO.matchEntire(sentence)?.let { m ->
@@ -4477,7 +4514,7 @@ internal class Sentences(
                 Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single),
                 Value.Of(arcanum.api.NumericProperty.Toughness, of, arcanum.api.Combine.Single))))))
         }
-        return null
+        return gtcEffect4(sentence, context)
     }
 
     /** gtc: cost parts ("Remove five blaze counters from this enchantment", "Remove one or more +1/+1 counters from among
@@ -4491,6 +4528,132 @@ internal class Sentences(
             val objects = if (isSelf(from)) CostObjects.Self
                 else CostObjects.Choose(Filters.noun(from.removeArticle()) ?: return null, count = if (among) null else Value.Fixed(1))
             return listOf(CostPart.RemoveCounters(kind, amount, objects, distributed = among))
+        }
+        return null
+    }
+
+    /** gtc chunk 06: the keywords offered by "choose first strike, vigilance, or lifelink" for "gain that ability". */
+    private var gtcChosenKeywords: List<String> = emptyList()
+
+    /** gtc: the Gatecrash one-shot wordings (each opponent's Primordials, choices of abilities, becoming creatures). */
+    private fun gtcEffect4(sentence: String, context: Context): List<Step>? {
+        val eot = arcanum.api.Duration.EndOfTurn
+        // gtc chunk 06: "choose first strike, vigilance, or lifelink. Creatures you control gain that ability until end of turn."
+        Gtc.CHOOSE_KEYWORD.matchEntire(sentence)?.let { m ->
+            val options = m.groupValues[1].split(Regex(""",? or |, """))
+            if (options.any { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) == null }) return null
+            gtcChosenKeywords = options
+            return listOf(Step.Choose(arcanum.api.Choice.Option(options), bind = "ability", chooser = Players.You))
+        }
+        Gtc.GAIN_THAT_ABILITY.matchEntire(sentence)?.let { m ->
+            if (gtcChosenKeywords.isEmpty()) return null
+            val objects = gtcSubject(m.groupValues[1], context) ?: return null
+            return gtcChosenKeywords.map { keyword ->
+                Step.If(arcanum.api.Condition.Chose("ability", keyword), then = listOf(Step.Do(Effect.ApplyMechanics(
+                    listOf(Mechanic.GainAbilities(listOf(OracleParser.keyword(keyword.replaceFirstChar { it.uppercase() })!!))), arcanum.api.Affected.Objects(objects), eot))))
+            }
+        }
+        // gtc chunks 06, 07, 13: "[This artifact] becomes a 1/1 red and white Soldier artifact creature with double strike until end
+        // of turn." / "Until end of turn, Gideon becomes a Human Soldier creature with power and toughness each equal to the number of
+        // loyalty counters on him and gains indestructible." (types added, CR 205.1b; numbers fixed, CR 608.2h)
+        Gtc.BECOMES.matchEntire(sentence)?.let { m ->
+            val untilEot = m.groupValues[1].isNotEmpty() || m.groupValues[5].isNotEmpty()
+            if (!untilEot) return@let
+            val targets = context.targets.size
+            val objects = gtcSubject(m.groupValues[2], context) ?: return@let
+            val mechanics = gtcBecomes(m.groupValues[3]) ?: run { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
+            val gains = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { k ->
+                Mechanic.GainAbilities(k.split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null })
+            }
+            val cantBeBlocked = Mechanic.CantBeBlocked.takeIf { m.groupValues[6].isNotEmpty() }
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics + listOfNotNull(gains, cantBeBlocked), arcanum.api.Affected.Objects(objects), eot)))
+        }
+        // gtc chunk 06: "it gets +1/+1 until end of turn for each creature it's blocking." (the attackers it blocks, CR 509.1a)
+        Gtc.GETS_FOR_EACH_BLOCKED.matchEntire(sentence)?.let { m ->
+            val per = Value.Count(Objects.EventObject(EventRole.OtherCombatant))
+            fun times(n: Int) = when (n) { 0 -> Value.Fixed(0); 1 -> per; else -> Value.Times(per, n) }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[1].toInt()), times(m.groupValues[2].toInt()))),
+                arcanum.api.Affected.Objects(Objects.Self), eot)))
+        }
+        // gtc chunk 09: "you win the game." (CR 104.2b)
+        if (sentence == "You win the game.") return listOf(Step.Do(Effect.WinGame(Players.You)))
+        // gtc chunk 06: "Put a loyalty counter on Gideon for each creature target opponent controls."
+        Gtc.PUT_COUNTER_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val objects = gtcSubject(m.groupValues[2], context) ?: return null
+            val noun = m.groupValues[3]
+            val filter = Gtc.TARGET_OPPONENT_CONTROLS.matchEntire(noun)?.let { t ->
+                Filters.all(Filters.noun(t.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(context.targetOpponent())))
+            } ?: Filters.noun(noun) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(objects, kind, Value.Count(Objects.Each(filter)))))
+        }
+        // gtc chunks 06-10: the Primordials: "For each opponent, exile up to one target creature that player controls and that player
+        // gains life equal to its power." (one target for each opponent, CR 601.2c)
+        Gtc.FOR_EACH_OPPONENT.matchEntire(sentence)?.let { m -> return gtcForEachOpponent(m.groupValues[1], context) }
+        return null
+    }
+
+    /** gtc: "a 1/1 red and white Soldier artifact creature with double strike", "a Human Soldier creature with power and
+     * toughness each equal to …": the mechanics of becoming it (layers 4, 5, 6, 7b). */
+    private fun gtcBecomes(text: String): List<Mechanic>? {
+        val m = Gtc.BECOMES_DESCRIPTION.matchEntire(text) ?: return null
+        val subtypes = m.groupValues[4].trim().split(' ').filter { it.isNotEmpty() }.map { if (it in RulesWords.subtypes) it else return null }
+        val types = if (m.groupValues[5] == "artifact creature") listOf(CardType.Artifact, CardType.Creature) else listOf(CardType.Creature)
+        val colors = m.groupValues[3].takeIf { it.isNotEmpty() }?.split(" and ")?.map { ColorRef.Literal(BECOME_COLORS[it] ?: return null) }
+        var keywords: List<Ability>? = null
+        var pt: Pair<Value, Value>? = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Value.Fixed(it.toInt()) to Value.Fixed(m.groupValues[2].toInt()) }
+        m.groupValues[6].takeIf { it.isNotEmpty() }?.let { with ->
+            val each = Gtc.PT_EACH_EQUAL.matchEntire(with)
+            if (each != null) {
+                val value = gtcSelfValue(each.groupValues[1]) ?: return null
+                pt = value to value
+            } else keywords = with.split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+        }
+        val (power, toughness) = pt ?: return null
+        return listOf<Mechanic>(Mechanic.SetTypes(add = types, addSubtypes = subtypes.map { arcanum.api.SubtypeRef.Literal(Subtype(it)) })) +
+            listOfNotNull(colors?.let { Mechanic.SetColors(it) }, keywords?.let { Mechanic.GainAbilities(it) }) +
+            Mechanic.SetPowerToughness(power, toughness)
+    }
+
+    /** gtc chunk 06: "the number of loyalty counters on him" (this object). */
+    private fun gtcSelfValue(text: String): Value? = Gtc.COUNTERS_ON_SELF.matchEntire(text)?.let { m ->
+        Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[1]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
+    } ?: Values.value(text)
+
+    /** gtc: "For each opponent, …" of the Primordials: a target for each opponent among that player's objects (CR 601.2c). */
+    private fun gtcForEachOpponent(text: String, context: Context): List<Step>? {
+        val eot = arcanum.api.Duration.EndOfTurn
+        fun slot(name: String, filter: ObjectFilter, upTo: Boolean) = TargetSlot(name, TargetKind.Objects(filter),
+            min = Value.Fixed(if (upTo) 0 else 1), max = Value.Fixed(1), perPlayer = PlayerFilter.Opponent)
+        val theirs = ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer))
+        val theirGraveyard = Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.SlotPlayer)))
+        Gtc.PRIMORDIAL_EXILE_GAIN_LIFE.matchEntire(text)?.let { m ->
+            context.targets += slot("creature", Filters.all(Filters.noun(m.groupValues[1]) ?: return null, theirs), upTo = true)
+            val it = Objects.Bound("creature")
+            return listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Target("creature")), "creature", listOf(
+                Step.Do(Effect.Move(it, Destination(Zone.Exile))),
+                Step.Do(Effect.GainLife(Players.ControllerOf(it), Value.Of(arcanum.api.NumericProperty.Power, it, arcanum.api.Combine.Single))))))
+        }
+        Gtc.PRIMORDIAL_CAST.matchEntire(text)?.let { m ->
+            context.targets += slot("card", Filters.all(Filters.noun(m.groupValues[1]) ?: return null, theirGraveyard), upTo = true)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(0), null, from = Objects.Target("card")), bind = "toCast", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("toCast"), arcanum.api.PlayKind.Cast, withoutPaying = true, bind = "cast", caster = Players.You)))
+        }
+        Gtc.PRIMORDIAL_PUT_ONTO_BATTLEFIELD.matchEntire(text)?.let { m ->
+            context.targets += slot("card", Filters.all(Filters.noun(m.groupValues[1]) ?: return null, theirGraveyard), upTo = true)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(0), null, from = Objects.Target("card")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You))))
+        }
+        Gtc.PRIMORDIAL_GAIN_CONTROL.matchEntire(text)?.let { m ->
+            context.targets += slot("creature", Filters.all(Filters.noun(m.groupValues[1]) ?: return null, theirs), upTo = true)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), arcanum.api.Affected.Objects(Objects.Target("creature")), eot)))
+        }
+        Gtc.PRIMORDIAL_DESTROY.matchEntire(text)?.let { m ->
+            val noun = m.groupValues[1]
+            context.targets += slot(Filters.slotName(noun), Filters.all(Filters.noun(noun) ?: return null, theirs), upTo = false)
+            return listOf(Step.Do(Effect.Destroy(Objects.Target(Filters.slotName(noun)), preBind = "destroyed")))
         }
         return null
     }
@@ -7149,6 +7312,10 @@ private fun Instructions.withX(x: Value): Instructions {
     val replacement = json.encodeToJsonElement(Value.serializer(), x)
     fun replace(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when {
         e == announced -> replacement
+        // gtc chunk 07: "unless its controller pays {X}, where X is …": the {X} of a mana cost paid on resolution is that number
+        e is kotlinx.serialization.json.JsonObject && (e["type"] as? kotlinx.serialization.json.JsonPrimitive)?.content == "mana" &&
+            (e["cost"] as? kotlinx.serialization.json.JsonPrimitive)?.content?.contains("{X}") == true && "x" !in e ->
+            kotlinx.serialization.json.JsonObject(e + ("x" to replacement))
         e is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.mapValues { replace(it.value) })
         e is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { replace(it) })
         else -> e

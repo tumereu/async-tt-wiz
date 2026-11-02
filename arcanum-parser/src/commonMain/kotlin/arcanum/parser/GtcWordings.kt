@@ -48,6 +48,26 @@ internal object Gtc {
     val ADD_MANA_FOR_EACH_COUNTER = Regex("""Add (\{.\} for each \S+ counter on .+)\.""")
     val MANA_FOR_EACH_COUNTER = Regex("""(\{.\}) for each (\S+) counter on (.+)""")
 
+    val STILL_A = Regex("""(?:It's|He's|She's) still an? (?:land|planeswalker|artifact)\.""")
+    val CHOOSE_KEYWORD = Regex("""Choose ([a-z ]+(?:, [a-z ]+)*,? or [a-z ]+)\.""")
+    val GAIN_THAT_ABILITY = Regex("""(.+) gain that ability until end of turn\.""")
+    val BECOMES = Regex("""(Until end of turn, )?(.+?) becomes (an? .+?)(?: and gains (.+?))?( until end of turn)?( and can't be blocked this turn)?\.""")
+    val BECOMES_DESCRIPTION = Regex("""an? (?:(\d+)/(\d+) )?(?:((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) )?((?:[A-Z][a-z]+ )*)(artifact creature|creature)(?: with (.+))?""")
+    val PT_EACH_EQUAL = Regex("""power and toughness each equal to (.+)""")
+    val COUNTERS_ON_SELF = Regex("""the number of (\S+) counters on (?:him|her|it|this creature|this permanent)""")
+    val PUT_COUNTER_FOR_EACH = Regex("""Put an? (\S+) counter on (.+?) for each (.+)\.""")
+    val TARGET_OPPONENT_CONTROLS = Regex("""(.+) target opponent controls""")
+    val FOR_EACH_OPPONENT = Regex("""For each opponent, (.+)""")
+    val PRIMORDIAL_EXILE_GAIN_LIFE = Regex("""exile up to one target (.+?) that player controls and that player gains life equal to its power\.""")
+    val PRIMORDIAL_CAST = Regex("""you may cast up to one target (.+?) from that player's graveyard without paying its mana cost\.""")
+    val PRIMORDIAL_PUT_ONTO_BATTLEFIELD = Regex("""you may put up to one target (.+?) from that player's graveyard onto the battlefield under your control\.""")
+    val PRIMORDIAL_GAIN_CONTROL = Regex("""gain control of up to one target (.+?) that player controls until end of turn\.""")
+    val PRIMORDIAL_DESTROY = Regex("""destroy target (.+?) that player controls\.""")
+    val SEARCH_UP_TO_X_DESTROYED = Regex("""Search your library for up to X (.+?) cards?, where X is the number of permanents destroyed this way, put those cards onto the battlefield tapped, then shuffle\.""")
+
+    val YOUR_NTH_SPELL_EACH_TURN = Regex("""you cast your (\w+) spell each turn""")
+    val GETS_FOR_EACH_BLOCKED = Regex("""It gets \+(\d+)/\+(\d+) until end of turn for each creature it's blocking\.""")
+
     // static abilities
     val OTHERS_ENTER_TAPPED = Regex("""(.+) enter tapped\.""")
     val ENCHANTED_HAS_QUOTED = Regex("""Enchanted (land|creature|permanent|artifact) has "(.+)"""")

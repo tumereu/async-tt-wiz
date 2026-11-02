@@ -73,6 +73,12 @@ internal object Filters {
         if (phrase == "any card") return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
         // dsk chunk 01: "creature spells you cast": spells a player cast are spells they control (CR 112.2)
         SPELLS_YOU_CAST.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)) }
+        // blb gaps 2: "instant and sorcery spells you cast": each spell of either type
+        SPELLS_OF_TYPES_YOU_CAST.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1] + " or " + m.groupValues[2] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
+        }
+        // blb gaps 2: "creature spells with {X} in their mana costs" (CR 107.3)
+        WITH_X_IN_MANA_COST.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.XInManaCost) }
         // dsk chunk 01: "creatures with power 3 or greater"
         WITH_POWER_OR_GREATER.matchEntire(phrase)?.let { m ->
             val n = Value.Fixed(m.groupValues[3].toInt())
@@ -144,7 +150,8 @@ internal object Filters {
         }
         WITH_MANA_VALUE.matchEntire(phrase)?.let { m ->
             val value = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
-            val comparison = if (m.groupValues[3].isEmpty()) arcanum.api.Comparison.Equal else arcanum.api.Comparison.AtMost
+            // blb gaps 2: "… or greater"
+            val comparison = when (m.groupValues[3]) { "" -> arcanum.api.Comparison.Equal; " or greater" -> arcanum.api.Comparison.AtLeast; else -> arcanum.api.Comparison.AtMost }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(comparison, value))
         }
         WITH_POWER_OR_TOUGHNESS_AT_MOST.matchEntire(phrase)?.let { m ->
@@ -296,7 +303,10 @@ internal object Filters {
     private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
-    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
+    private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less| or greater)?""")
+    // blb gaps 2
+    private val SPELLS_OF_TYPES_YOU_CAST = Regex("""(\w+) and (\w+) spells you cast""")
+    private val WITH_X_IN_MANA_COST = Regex("""(.+) with \{X\} in (?:its|their) mana costs?""")
     private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or (less|greater)""")
     // blb chunk 10
     private val STATUS_ALTERNATIVES = Regex("""((?:attacking|blocking|tapped|untapped)(?:(?:, |,? or )(?:attacking|blocking|tapped|untapped))+) (.+)""")
@@ -439,6 +449,8 @@ internal object Events {
         // dsk chunk 08: "you cast an instant or sorcery spell that targets only a single creature you control", "you gain life",
         // "you lose life"
         YOU_CAST_SPELL_THAT.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You) }
+        // blb gaps 2: "you cast a creature spell with mana value 4 or greater" (the event's object is a spell: the filter names its kind)
+        YOU_CAST_SPELL_WITH.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.noun(m.groupValues[1] + " " + m.groupValues[2]) ?: return null, by = PlayerFilter.You) }
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
         if (text == "you lose life") return EventPattern.LoseLife(PlayerFilter.You)
         // dsk chunk 07: "a source you control deals noncombat damage to an opponent"
@@ -636,6 +648,8 @@ internal object Events {
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
     private val YOU_CAST_SPELL_THAT = Regex("""you cast an? (.+ spell that .+)""")
+    // blb gaps 2
+    private val YOU_CAST_SPELL_WITH = Regex("""you cast an? (.+) spell (with .+)""")
     // dsk chunk 07
     private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you)""")
     // dsk chunk 06
@@ -1181,6 +1195,13 @@ internal object Values {
         UNLOCKED_DOORS_AMONG.matchEntire(text)?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.UnlockedDoors, Filters.objects(m.groupValues[1]) ?: return null, Combine.Total)
         }
+        // blb gaps 2: "the number of creatures that were exiled under your opponents' control this turn" (from the battlefield)
+        EXILED_UNDER_CONTROL.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val who = if (m.groupValues[2] == "your opponents'") PlayerFilter.Opponent else PlayerFilter.You
+            return Value.EventsThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(who)),
+                from = Zone.Battlefield, to = Zone.Exile), arcanum.api.Measure.Objects)
+        }
         DIED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return Value.EventsThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)),
@@ -1206,6 +1227,8 @@ internal object Values {
         return null
     }
 
+    // blb gaps 2
+    private val EXILED_UNDER_CONTROL = Regex("""the number of (.+) that were exiled under (your|your opponents') control this turn""")
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
     // dsk chunk 02
     private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")

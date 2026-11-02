@@ -146,7 +146,7 @@ internal object Payment {
         byWay.forEach { (way, ids) ->
             when (way) {
                 // CR 702.51a, 702.126a: tap them
-                ManaPaymentWay.TapCreatures, ManaPaymentWay.TapArtifacts -> ids.forEach { recorder.record(Changes.tap(recorder.state, it)) }
+                ManaPaymentWay.TapCreatures, ManaPaymentWay.TapArtifacts, ManaPaymentWay.TapCreaturesForAnyMana -> ids.forEach { recorder.record(Changes.tap(recorder.state, it)) }
                 // CR 702.66a: exile them from the graveyard
                 ManaPaymentWay.ExileFromGraveyard -> Actions.move(act, costCause(plan), ids.map { PlannedMove(it, Zone.Exile) })
             }

@@ -398,6 +398,11 @@ sealed interface ManaPaymentWay {
     @Serializable @SerialName("tap-creatures") data object TapCreatures : ManaPaymentWay
     /** Tap an untapped artifact you control for each generic mana (improvise, CR 702.126a). */
     @Serializable @SerialName("tap-artifacts") data object TapArtifacts : ManaPaymentWay
+    // blb gaps 2
+    /** Tap an untapped creature you control rather than pay one mana of any kind ("For each mana in this ability's
+     * activation cost, you may tap an untapped creature you control rather than pay that mana"): unlike convoke (CR
+     * 702.51a) the creature's colour doesn't matter. Used by [ActivationRules.payManaBy]. */
+    @Serializable @SerialName("tap-creatures-for-any-mana") data object TapCreaturesForAnyMana : ManaPaymentWay
 }
 
 /** Whether a permission lets a card be played (lands included) or only cast. */

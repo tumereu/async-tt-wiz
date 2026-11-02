@@ -170,6 +170,14 @@ sealed interface ObjectFilter {
     /** A spell or ability with exactly one target, which matches [target] when given ("target spell or ability with a
      * single target", "a spell that targets only a single creature you control", CR 115.7). */
     @Serializable @SerialName("single-target") data class SingleTarget(val target: ObjectFilter? = null) : ObjectFilter
+    // blb gaps 2
+    /** Its mana cost has an {X} in it ("creature spells with {X} in their mana costs", CR 107.3, 202.1). */
+    @Serializable @SerialName("x-in-mana-cost") data object XInManaCost : ObjectFilter
+    /** A spell that is the [n]th spell matching [spells] its caster cast this turn ("if it's the first instant spell …
+     * you've cast this turn", CR 603.4): cast spells counted in order, as they were as cast (CR 601.2i); copies aren't
+     * cast (CR 707.10). A spell that became this object (CR 400.7) is judged as this object, so "the first Otter spell other
+     * than [this]" doesn't count the spell this permanent was. Which spell of the turn it is can't change once it is cast. */
+    @Serializable @SerialName("nth-spell-this-turn") data class NthSpellThisTurn(val spells: ObjectFilter, val n: Int) : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

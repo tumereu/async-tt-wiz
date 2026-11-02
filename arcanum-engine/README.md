@@ -253,7 +253,9 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
 - Done, Bloomburrow (scenarios in `commonTest/…/sets/blb/`): offspring, gift (the promised player, gift targets only
   when promised, "whenever you give a gift"), forage as an effect and as a cost, Class levels, pawprint modes, valiant
   and expend, counters put by your effects, leaving the battlefield without dying, a spell's static ability reading its
-  own targets for its cost (CR 601.2f).
+  own targets for its cost (CR 601.2f); finality counters (CR 122.1h), emblems' static abilities (CR 114.4), the nth
+  spell of a kind cast this turn (the spell a permanent was judged as that permanent), spells with {X} in their mana
+  costs, creatures tapped rather than paying an activated ability's mana.
 - Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s

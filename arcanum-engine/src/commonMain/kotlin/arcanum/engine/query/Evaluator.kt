@@ -341,6 +341,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 toOk && attachmentsOk
             }
             is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id)
+            // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
+            ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
+            is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
             // CR 115.7: one target in all ("with a single target"), of [target] when given
             is ObjectFilter.SingleTarget -> {
                 val targets = state.stackItems[id]?.targets?.values?.flatten().orEmpty()
@@ -732,6 +735,26 @@ internal object History {
         val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
         val index = casts.indexOfFirst { c -> arcanum.engine.trigger.EventMatcher.castObject(c) in of }
         return if (index < 0) casts.size else index
+    }
+
+    /** blb gaps 2: whether [id] is the [ObjectFilter.NthSpellThisTurn.n]th spell matching its filter that its caster cast
+     * this turn. A cast spell that became the evaluator's own object (CR 400.7) is judged as that object ("the first Otter
+     * spell other than Alania"). */
+    fun isNthSpell(evaluator: Evaluator, filter: ObjectFilter.NthSpellThisTurn, id: ObjectId): Boolean {
+        evaluator.board.readingLog()
+        val state = evaluator.board.state
+        val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
+            .map { (it as arcanum.engine.change.Change.StackItemAdded).item }
+        val index = casts.indexOfFirst { it.id == id }
+        if (index < 0) return false
+        val self = evaluator.ctx.self
+        fun counts(spell: ObjectId): Boolean {
+            val judged = if (self != null && spell != self && Lki.newObject(state, spell) == self) self else spell
+            return evaluator.matches(filter.spells, judged)
+        }
+        if (!counts(id)) return false
+        val caster = casts[index].controller
+        return casts.take(index).count { it.controller == caster && counts(it.id) } + 1 == filter.n
     }
 
     private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern): List<TriggerEvent> {

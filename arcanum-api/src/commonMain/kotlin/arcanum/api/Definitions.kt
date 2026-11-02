@@ -201,6 +201,11 @@ data class ActivationRules(
     val costChange: CostChange? = null,
     /** "Activate only if …". */
     val condition: Condition? = null,
+    // blb gaps 2
+    /** Other ways the activation cost's mana may be paid ("For each mana in this ability's activation cost, you may tap an
+     * untapped creature you control rather than pay that mana": [ManaPaymentWay.TapCreaturesForAnyMana]); cost changes
+     * apply first, so they change how much may be paid this way (CR 601.2f, 602.2b). */
+    val payManaBy: List<ManaPaymentWay> = emptyList(),
 )
 
 /** When something may be cast or activated. */

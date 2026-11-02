@@ -362,8 +362,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             increases, reductions)
     }
 
-    /** Other ways to pay its mana (CR 702.51, 702.66, 702.126). */
-    val manaWays: List<ManaPaymentWay> = if (!isSpell) emptyList() else
+    /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2). */
+    val manaWays: List<ManaPaymentWay> = if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
         snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }
 
     /** "You can't spend mana to cast this spell": only its other ways pay (convoke, delve). */

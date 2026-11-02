@@ -10374,6 +10374,25 @@ internal class Sentences(
                 Step.Choose(arcanum.api.Choice.Objects(equipment, Value.Fixed(0), Value.Fixed(1)), bind = "equipment", chooser = Players.You),
                 Step.Do(Effect.Attach(Objects.Bound("equipment"), arcanum.api.Recipients(objects = target)))))
         }
+        // hob chunk 13: "Untap another target creature you control. If that creature is a Bear, put a +1/+1 counter on it." ("that
+        // creature" and "it" are the target, not the creature whose ability it is)
+        Hob.IF_THAT_CREATURE_IS_COUNTER_ON_IT.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(target, kind), then = listOf(
+                Step.Do(Effect.PutCounters(target, Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(1)))))
+        }
+        // hob chunk 14: "You may behold an Elf. If you do, untap that land." after a land found was put onto the battlefield: that land
+        // is the new permanent (CR 400.7)
+        Hob.BEHOLD_IF_YOU_DO_UNTAP.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Move)?.let { move -> move.objects == Objects.Bound("found") &&
+                move.to.zone == Zone.Battlefield } == true }.takeIf { it >= 0 } ?: return null
+            val move = (steps[index] as Step.Do).effect as Effect.Move
+            return steps.toMutableList().also { it[index] = Step.Do(move.copy(postBind = "land")) } +
+                Step.Pay(Cost(listOf(CostPart.Action(arcanum.api.KeywordAction.Behold(filter), bind = "beheld"))), payer = Players.You, bind = "paid") +
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Untap(Objects.Bound("land")))))
+        }
         // hob chunk 12: "If you discard a land card this way, put it from your graveyard onto the battlefield tapped."
         if (Hob.DISCARD_LAND_THIS_WAY_PUT_ONTO.matches(sentence)) {
             val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Discard) != null }.takeIf { it >= 0 } ?: return null
@@ -10966,12 +10985,6 @@ internal class Sentences(
             context.targets += hobSlot(Filters.slotName(noun), Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(noun) ?: return null), min = 0)
             return listOf(Step.Do(Effect.Move(Objects.Target(Filters.slotName(noun)), Destination(Zone.Hand), postBind = "returned")),
                 Step.If(arcanum.api.Condition.NonEmpty("returned"), then = listOf(Step.Do(Effect.PutCounters(Objects.Self, Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(1))))))
-        }
-        // hob chunk 13: "You may behold an Elf. If you do, untap that land." (after searching for a land put onto the battlefield)
-        Hob.BEHOLD_IF_YOU_DO_UNTAP.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
-            return listOf(Step.Pay(Cost(listOf(CostPart.Action(arcanum.api.KeywordAction.Behold(filter), bind = "beheld"))), payer = Players.You, bind = "paid"),
-                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Untap(Objects.Bound("found"))))))
         }
         return null
     }

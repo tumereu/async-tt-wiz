@@ -151,7 +151,6 @@ class Review1EdgeTest {
 
     /** A creature that must attack: "declare no attackers" isn't offered. */
     // CR 508.1d
-    @Ignore("review1 #14: options always offer declaring no attackers, also when a creature must attack")
     @Test
     fun noEmptyAttackOfferedWhenACreatureMustAttack() = scenario {
         alice.battlefield("Kael's Marauder")

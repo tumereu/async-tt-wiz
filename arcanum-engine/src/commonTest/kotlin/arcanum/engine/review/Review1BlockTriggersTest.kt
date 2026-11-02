@@ -39,7 +39,6 @@ class Review1BlockTriggersTest {
 
     /** "Becomes blocked" triggers when a blocker is declared for it. */
     // CR 509.3c
-    @Ignore("review1 #20: blocked/unblocked triggers read the blockers-declared change before attackers are marked blocked: becomes-blocked never triggers, isn't-blocked always does")
     @Test
     fun becomesBlockedTriggers() = scenario {
         alice.battlefield(blockedOne)
@@ -54,7 +53,6 @@ class Review1BlockTriggersTest {
 
     /** "Attacks and isn't blocked" doesn't trigger for a blocked attacker. */
     // CR 509.3g
-    @Ignore("review1 #20: blocked/unblocked triggers read the blockers-declared change before attackers are marked blocked: becomes-blocked never triggers, isn't-blocked always does")
     @Test
     fun blockedAttackerIsntUnblocked() = scenario {
         alice.battlefield(unblockedOne)
@@ -84,7 +82,6 @@ class Review1BlockTriggersTest {
     /** Requirements are obeyed as far as restrictions allow: two creatures that must attack under "no more than one
      * creature can attack" — attacking with one of them is legal. */
     // CR 508.1d
-    @Ignore("review1 #21: a must-attack requirement that a restriction makes impossible to fully obey leaves no legal attack declaration")
     @Test
     fun mustAttackUnderAMaximumOfOne() = scenario {
         alice.battlefield("Kael's Marauder", "Kael's Marauder")

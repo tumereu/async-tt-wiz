@@ -63,8 +63,26 @@ internal object CombatRules {
             r.players?.let { e.players(it).map { p -> TargetRef.Player(p) } }.orEmpty()
     }
 
-    /** Why [attacks] isn't a legal declaration for [player], or null (CR 508.1a–d). */
+    /** Why [attacks] isn't a legal declaration for [player], or null (CR 508.1a–d): it breaks a restriction, or obeys
+     * fewer requirements than a declaration that breaks none could (CR 508.1d). */
     fun illegalAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): String? {
+        attackRestriction(snap, player, attacks)?.let { return it }
+        val requirements = attackRequirements(snap, player)
+        if (requirements.isEmpty()) return null
+        val obeyed = requirements.count { it.obeyedBy(attacks) }
+        val most = mostObeyedAttack(snap, player, requirements).first
+        if (obeyed >= most) return null
+        val missed = requirements.first { !it.obeyedBy(attacks) }
+        return "${missed.creature} attacks each combat if able: $obeyed of the $most requirements that can be obeyed are (CR 508.1d)"
+    }
+
+    /** A declaration of attackers that obeys as many requirements as any legal one can (CR 508.1d): only creatures that
+     * must attack, each attacking what obeys the most of its requirements; empty when there are none. */
+    fun requiredAttack(snap: Snapshot, player: PlayerId): List<Attack> =
+        attackRequirements(snap, player).takeIf { it.isNotEmpty() }?.let { mostObeyedAttack(snap, player, it).second }.orEmpty()
+
+    /** CR 508.1a–c: the restrictions; adding attackers never mends a broken one. */
+    private fun attackRestriction(snap: Snapshot, player: PlayerId, attacks: List<Attack>): String? {
         if (attacks.map { it.attacker }.distinct().size != attacks.size) return "A creature attacks only once"
         attacks.forEach { a -> if (!canAttack(snap, player, a.attacker, a.target)) return "${a.attacker} can't attack ${a.target}" }
         // CR 508.1c: "no more than N creatures can attack": counted per effect among the creatures it restricts
@@ -75,14 +93,59 @@ internal object CombatRules {
                 val counted = list.filter { (applied, a) -> m.target == null || a.target in recipients(snap, applied, a.attacker, m.target!!) }
                 if (counted.size > m.count) return "No more than ${m.count} creature(s) can attack"
             }
-        // CR 508.1d: requirements, as many as can be obeyed (simplified: each creature that must attack and can, does)
-        val attacking = attacks.map { it.attacker }.toSet()
-        snap.state.battlefield.forEach { id ->
-            if (id !in attacking && mechanics(snap, id).any { it.mechanic is Mechanic.MustAttack } && canAttack(snap, player, id, null)) {
-                return "$id attacks each combat if able"
-            }
-        }
         return null
+    }
+
+    /** One requirement on [creature] (CR 508.1d): it attacks, anything when [targets] is null. */
+    private class AttackRequirement(val creature: ObjectId, val targets: List<TargetRef>?) {
+        fun obeyedBy(target: TargetRef) = targets == null || target in targets
+        fun obeyedBy(attacks: List<Attack>) = attacks.any { it.attacker == creature && obeyedBy(it.target) }
+    }
+
+    /** Each "attacks (…) each combat if able" on a creature [player] controls that could attack. */
+    private fun attackRequirements(snap: Snapshot, player: PlayerId): List<AttackRequirement> =
+        snap.state.battlefield.filter { id -> mechanics(snap, id).any { it.mechanic is Mechanic.MustAttack } && canAttack(snap, player, id, null) }
+            .flatMap { id ->
+                mechanics(snap, id).mapNotNull { applied ->
+                    val m = applied.mechanic as? Mechanic.MustAttack ?: return@mapNotNull null
+                    AttackRequirement(id, m.target?.let { recipients(snap, applied, id, it) })
+                }
+            }
+
+    private fun mostObeyedAttack(snap: Snapshot, player: PlayerId, requirements: List<AttackRequirement>): Pair<Int, List<Attack>> {
+        val targets = attackTargets(snap, player)
+        val choices = requirements.map { it.creature }.distinct().map { id ->
+            targets.filter { canAttack(snap, player, id, it) }.map { t -> Attack(id, t) to requirements.count { it.creature == id && it.obeyedBy(t) } }
+        }
+        return mostObeyed(choices, { attackRestriction(snap, player, it) == null }, { true })
+    }
+
+    /** Declarations searched for the most requirements before taking the best found (a guard against huge boards). */
+    private const val SEARCH_BUDGET = 20_000
+
+    /**
+     * The most requirements a legal declaration obeys and one that does (CR 508.1d, 509.1c): each creature takes one of
+     * its [choices] (with the requirements that choice obeys) or none; [partial] refuses a declaration no addition could
+     * make legal, [whole] checks a complete one. Branches that can't beat the best so far are cut.
+     */
+    private fun <T> mostObeyed(choices: List<List<Pair<T, Int>>>, partial: (List<T>) -> Boolean, whole: (List<T>) -> Boolean): Pair<Int, List<T>> {
+        val sorted = choices.map { list -> list.sortedByDescending { it.second } }
+        val bound = IntArray(sorted.size + 1)
+        for (i in sorted.indices.reversed()) bound[i] = bound[i + 1] + (sorted[i].maxOfOrNull { it.second } ?: 0).coerceAtLeast(0)
+        var best = -1
+        var bestDeclaration = emptyList<T>()
+        var budget = SEARCH_BUDGET
+        fun search(i: Int, declaration: List<T>, score: Int) {
+            if (budget-- <= 0 || score + bound[i] <= best) return
+            if (i == sorted.size) {
+                if (whole(declaration)) { best = score; bestDeclaration = declaration }
+                return
+            }
+            sorted[i].forEach { (choice, value) -> (declaration + choice).let { if (partial(it)) search(i + 1, it, score + value) } }
+            search(i + 1, declaration, score)
+        }
+        search(0, emptyList(), 0)
+        return best.coerceAtLeast(0) to bestDeclaration
     }
 
     /** Could anything [player] controls attack at all (P5: nothing to declare otherwise)? */
@@ -134,36 +197,75 @@ internal object CombatRules {
         return 1 + ms.filterIsInstance<Mechanic.CanBlockAdditional>().sumOf { it.count }
     }
 
-    /** Why [blocks] isn't a legal declaration for [player], or null (CR 509.1a–c). */
+    /** Why [blocks] isn't a legal declaration for [player], or null (CR 509.1a–c): it breaks a restriction, or obeys
+     * fewer requirements than a declaration that breaks none could (CR 509.1c). */
     fun illegalBlock(snap: Snapshot, player: PlayerId, blocks: List<Block>): String? {
+        blockRestriction(snap, player, blocks, whole = true)?.let { return it }
+        val requirements = blockRequirements(snap, player)
+        if (requirements.isEmpty()) return null
+        val obeyed = requirements.count { it.obeyedBy(blocks) }
+        val most = mostObeyedBlock(snap, player, requirements).first
+        if (obeyed >= most) return null
+        val missed = requirements.first { !it.obeyedBy(blocks) }
+        return "${missed.creature} blocks each combat if able: $obeyed of the $most requirements that can be obeyed are (CR 509.1c)"
+    }
+
+    /** A declaration of blockers that obeys as many requirements as any legal one can (CR 509.1c); empty when there are
+     * none. Each blocker blocks one attacker in it. */
+    fun requiredBlock(snap: Snapshot, player: PlayerId): List<Block> =
+        blockRequirements(snap, player).takeIf { it.isNotEmpty() }?.let { mostObeyedBlock(snap, player, it).second }.orEmpty()
+
+    /** CR 509.1a–b: the restrictions; only "except by N or more" ([whole]) can be mended by adding blockers. */
+    private fun blockRestriction(snap: Snapshot, player: PlayerId, blocks: List<Block>, whole: Boolean): String? {
         if (blocks.distinct().size != blocks.size) return "The same block twice"
         blocks.forEach { b -> if (!canBlock(snap, player, b.blocker, b.attacker)) return "${b.blocker} can't block ${b.attacker}" }
         blocks.groupBy { it.blocker }.forEach { (blocker, bs) ->
             val capacity = blockCapacity(snap, blocker)
             if (capacity != null && bs.size > capacity) return "$blocker can block only $capacity creature(s)"
         }
-        // CR 509.1c: requirements (simplified: a creature that must block and can block a matching attacker, does)
-        val blocking = blocks.map { it.blocker }.toSet()
-        snap.state.battlefield.forEach { id ->
-            if (id in blocking) return@forEach
-            mechanics(snap, id).forEach { applied ->
-                val m = applied.mechanic as? Mechanic.MustBlock ?: return@forEach
-                val e = snap.evaluator(applied.controller, self = applied.source ?: id, names = applied.names)
-                val could = snap.state.combat?.attackers.orEmpty().any { a -> e.matches(m.attackers, a.id) && canBlock(snap, player, id, a.id) }
-                if (could) return "$id blocks each combat if able"
-            }
-        }
         blocks.groupBy { it.attacker }.forEach { (attacker, bs) ->
             mechanics(snap, attacker).forEach { applied ->
                 when (val m = applied.mechanic) {
                     // CR 702.111b: menace and similar
-                    is Mechanic.MinimumBlockers -> if (bs.size < m.count) return "$attacker can't be blocked except by ${m.count} or more creatures"
+                    is Mechanic.MinimumBlockers -> if (whole && bs.size < m.count) return "$attacker can't be blocked except by ${m.count} or more creatures"
                     is Mechanic.MaximumBlockers -> if (bs.size > m.count) return "$attacker can't be blocked by more than ${m.count} creatures"
                     else -> Unit
                 }
             }
         }
         return null
+    }
+
+    /** One requirement on [creature] (CR 509.1c): it blocks one of [attackers] (those it could block). */
+    private class BlockRequirement(val creature: ObjectId, val attackers: Set<ObjectId>) {
+        fun obeyedBy(blocks: List<Block>) = blocks.any { it.blocker == creature && it.attacker in attackers }
+    }
+
+    /** Each "blocks (…) each combat if able" on a creature [player] controls that could block a matching attacker. */
+    private fun blockRequirements(snap: Snapshot, player: PlayerId): List<BlockRequirement> {
+        val attackers = snap.state.combat?.attackers.orEmpty().map { it.id }
+        return snap.state.battlefield.flatMap { id ->
+            mechanics(snap, id).mapNotNull { applied ->
+                val m = applied.mechanic as? Mechanic.MustBlock ?: return@mapNotNull null
+                val e = snap.evaluator(applied.controller, self = applied.source ?: id, names = applied.names)
+                attackers.filter { a -> e.matches(m.attackers, a) && canBlock(snap, player, id, a) }.toSet()
+                    .takeIf { it.isNotEmpty() }?.let { BlockRequirement(id, it) }
+            }
+        }
+    }
+
+    /** Creatures that must block choose among what they could block; others join only where "except by N or more"
+     * makes a second blocker matter. */
+    private fun mostObeyedBlock(snap: Snapshot, player: PlayerId, requirements: List<BlockRequirement>): Pair<Int, List<Block>> {
+        val attackers = snap.state.combat?.attackers.orEmpty().map { it.id }
+        val required = requirements.map { it.creature }.distinct()
+        val needCompany = attackers.filter { a -> mechanics(snap, a).any { it.mechanic is Mechanic.MinimumBlockers } }
+        val helpers = snap.state.battlefield.filter { it !in required && needCompany.any { a -> canBlock(snap, player, it, a) } }
+        val choices = required.map { id ->
+            attackers.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to requirements.count { it.creature == id && a in it.attackers } }
+        } + helpers.map { id -> needCompany.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to 0 } }
+        return mostObeyed(choices, { blockRestriction(snap, player, it, whole = false) == null },
+            { blockRestriction(snap, player, it, whole = true) == null })
     }
 
     /** Could [player] block anything at all (P5: nothing to declare otherwise)? */

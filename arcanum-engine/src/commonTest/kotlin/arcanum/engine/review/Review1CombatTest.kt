@@ -82,7 +82,6 @@ class Review1CombatTest {
 
     /** Several blockers: the attacker's controller divides the damage as they choose, even with enough for each. */
     // CR 510.1c
-    @Ignore("review1 #6: damage among several blockers is fixed when it covers lethal for each; 510.1c makes it a free choice")
     @Test
     fun damageAmongBlockersIsAChoice() = scenario {
         cards()
@@ -128,6 +127,8 @@ class Review1CombatTest {
         allPass()
         bob.blocks("Thicketwood Elves" to "Review Wurm")
         allPass()
+        // CR 702.19b: the excess is its controller's choice; the suggestion sends it to the planeswalker
+        divideAsSuggested()
         expect {
             bob.graveyard has "Ignia, Acolyte of Embers"
             bob.life shouldBe 20

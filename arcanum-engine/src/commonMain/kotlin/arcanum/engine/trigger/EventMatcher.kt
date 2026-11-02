@@ -93,7 +93,8 @@ internal object EventMatcher {
         is EventPattern.Attack -> attacks(e, change, pattern)
         is EventPattern.Block -> blocks(e, change, pattern)
         is EventPattern.BecomesBlocked -> becomesBlocked(e, change, pattern)
-        is EventPattern.AttacksUnblocked -> (change as? Change.Combat)?.takeIf { Meaning.BlockersDeclared in it.meanings }?.after
+        // CR 509.3g: when blockers are declared and the attacker has none (CR 509.1h)
+        is EventPattern.AttacksUnblocked -> (change as? Change.Combat)?.takeIf { it.after?.blocksDecided == true && it.before?.blocksDecided != true }?.after
             ?.attackers.orEmpty().filter { !it.blocked && e.matches(pattern.attacker, it.id) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))), listOfNotNull(defendingPlayer(e, it.target))) }
         is EventPattern.BecomesTarget -> targeted(change).flatMap { (item, refs) ->
@@ -247,8 +248,8 @@ internal object EventMatcher {
     }
 
     private fun becomesBlocked(e: Evaluator, change: Change, pattern: EventPattern.BecomesBlocked): List<TriggerEvent> {
+        // CR 509.3c: an attacker that was unblocked (or not yet either) and is blocked after the change
         val c = change as? Change.Combat ?: return emptyList()
-        if (Meaning.BlockersDeclared !in c.meanings) return emptyList()
         val wasBlocked = c.before?.attackers.orEmpty().filter { it.blocked }.map { it.id }.toSet()
         return c.after?.attackers.orEmpty().filter { it.blocked && it.id !in wasBlocked && e.matches(pattern.attacker, it.id) }.flatMap { a ->
             val blockers = c.after?.blockers.orEmpty().filter { a.id in it.attackers && e.matches(pattern.blocker, it.id) }.map { it.id }

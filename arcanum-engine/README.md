@@ -82,8 +82,11 @@ turn goes on without them (CR 800.4j).
   mana abilities without the Stack (their other effects at once, a part needing a decision
   by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
   once (CR 605.4a); special actions (suspend, turning face up); combat:
-  declarations with their restrictions, first/double strike steps, trample, deathtouch,
-  lifelink, infect, wither, toxic, dividing damage. A spell becomes cast with the
+  declarations with their restrictions and as many requirements as they allow (CR 508.1d, 509.1c),
+  the last blockers declaration making attackers blocked or unblocked in the same change (CR 509.1h),
+  removal from combat checked after every event (CR 506.4), first/double strike steps, trample,
+  deathtouch, lifelink, infect, wither, toxic, dividing damage as its controller chooses whenever
+  more than one division is legal (CR 510.1c–d, 702.19b; `Decision.Divide.suggested` gives one). A spell becomes cast with the
   `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
   under `name@position` (`targetKey`).
 - Done, what happens (`action/`, `resolution/`, `trigger/`, `sba/`): the event pipeline

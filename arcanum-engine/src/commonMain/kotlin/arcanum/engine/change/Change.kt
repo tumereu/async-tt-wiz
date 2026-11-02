@@ -415,6 +415,8 @@ sealed interface Meaning {
     @Serializable @SerialName("attackers-declared") data object AttackersDeclared : Meaning
     @Serializable @SerialName("blockers-declared") data object BlockersDeclared : Meaning
     @Serializable @SerialName("combat-ended") data object CombatEnded : Meaning
+    /** Attackers or blockers stopped being in combat before it ended (CR 506.4). */
+    @Serializable @SerialName("removed-from-combat") data object RemovedFromCombat : Meaning
     @Serializable @SerialName("effect-ended") data object EffectEnded : Meaning
     @Serializable @SerialName("shield-used") data object ShieldUsed : Meaning
     /** Done by a state-based action (CR 704). */

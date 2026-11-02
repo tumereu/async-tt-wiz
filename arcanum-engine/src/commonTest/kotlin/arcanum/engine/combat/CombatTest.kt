@@ -498,6 +498,8 @@ class CombatTest {
         toBlockers()
         bob.blocks("Elvish Seer" to "Twinblade Stomper")
         toDamage()
+        // CR 702.19b: the excess over lethal damage goes where its controller chooses: to the player here
+        divideAsSuggested()
         expect {
             bob.graveyard has "Elvish Seer"
             bob.life shouldBe 19
@@ -516,6 +518,10 @@ class CombatTest {
         toBlockers()
         bob.blocks("Gearwing Glider" to "Mirebloat, the Undermuck")
         toDamage()
+        // The excess is its controller's choice; the suggestion is lethal damage to the blocker, the rest to the player
+        val d = assertIs<Decision.Divide>(pending)
+        assertEquals(listOf(Share(target("Gearwing Glider"), 2), Share(TargetRef.Player(bob.id), 1)), d.suggested)
+        divideAsSuggested()
         expect {
             bob.graveyard has "Gearwing Glider"
             bob.life shouldBe 19
@@ -533,6 +539,7 @@ class CombatTest {
         toBlockers()
         bob.blocks("Wall of Portents" to "Venomhorn Brute")
         toDamage()
+        divideAsSuggested()
         expect {
             bob.graveyard has "Wall of Portents"
             bob.life shouldBe 17
@@ -623,9 +630,10 @@ class CombatTest {
         assertFailsWith<IllegalArgumentException> { answer(Answer.Division(listOf(Share(target("Plodding Bear"), 2), Share(TargetRef.Player(bob.id), 1)))) }
     }
 
-    // §7.6: enough damage for lethal to every blocker: assigned without asking
+    // CR 510.1c: enough damage for lethal to every blocker is still divided as its controller chooses; the suggestion
+    // gives each lethal damage and the rest to the first
     @Test
-    fun enoughForAllIsAutomatic() = scenario {
+    fun enoughForAllIsStillAChoice() = scenario {
         cards()
         alice.battlefield("Old Mammoth")
         bob.battlefield("Plodding Bear", "Elvish Seer")
@@ -634,11 +642,78 @@ class CombatTest {
         toBlockers()
         bob.blocks("Plodding Bear" to "Old Mammoth", "Elvish Seer" to "Old Mammoth")
         toDamage()
-        assertNull(pending)
+        val d = assertIs<Decision.Divide>(pending)
+        assertEquals(listOf(Share(target("Plodding Bear"), 4), Share(target("Elvish Seer"), 1)), d.suggested)
+        divideAsSuggested()
         expect {
             bob.graveyard has "Plodding Bear"
             bob.graveyard has "Elvish Seer"
         }
+    }
+
+    // CR 510.1c: with enough for both, all of it may still go to one blocker
+    @Test
+    fun allDamageOnOneOfTwoBlockers() = scenario {
+        cards()
+        alice.battlefield("Old Mammoth")
+        bob.battlefield("Plodding Bear", "Elvish Seer")
+        toAttackers()
+        alice.attacks("Old Mammoth")
+        toBlockers()
+        bob.blocks("Plodding Bear" to "Old Mammoth", "Elvish Seer" to "Old Mammoth")
+        toDamage()
+        alice.answers(Answer.Division(listOf(Share(target("Plodding Bear"), 5))))
+        expect {
+            bob.graveyard has "Plodding Bear"
+            bob.battlefield has "Elvish Seer"
+        }
+    }
+
+    // CR 702.19b: with trample, the excess may go to the blocker instead of the player
+    @Test
+    fun trampleExcessMayStayOnTheBlocker() = scenario {
+        alice.battlefield("Mirebloat, the Undermuck")
+        bob.battlefield("Gearwing Glider")
+        toAttackers()
+        alice.attacks("Mirebloat, the Undermuck")
+        toBlockers()
+        bob.blocks("Gearwing Glider" to "Mirebloat, the Undermuck")
+        toDamage()
+        alice.answers(Answer.Division(listOf(Share(target("Gearwing Glider"), 3))))
+        expect {
+            bob.graveyard has "Gearwing Glider"
+            bob.life shouldBe 20
+        }
+    }
+
+    // CR 702.19b: a trampler with no more than lethal damage for its one blocker assigns it all there without asking
+    @Test
+    fun trampleWithoutExcessIsAutomatic() = scenario {
+        cards()
+        alice.battlefield("Twinblade Stomper")
+        bob.battlefield("Hill Ox")
+        toAttackers()
+        alice.attacks("Twinblade Stomper")
+        toBlockers()
+        bob.blocks("Hill Ox" to "Twinblade Stomper")
+        toDamage()
+        assertNull(pending)
+        expect { bob.life shouldBe 20 }
+    }
+
+    // CR 510.1c: one blocker, no trample: no choice
+    @Test
+    fun oneBlockerTakesAllWithoutAsking() = scenario {
+        cards()
+        alice.battlefield("Old Mammoth")
+        bob.battlefield("Plodding Bear")
+        toAttackers()
+        alice.attacks("Old Mammoth")
+        toBlockers()
+        bob.blocks("Plodding Bear" to "Old Mammoth")
+        toDamage()
+        assertNull(pending)
+        expect { bob.graveyard has "Plodding Bear" }
     }
 
     // CR 702.19b: with trample and several blockers, the player gets damage only once each blocker has lethal

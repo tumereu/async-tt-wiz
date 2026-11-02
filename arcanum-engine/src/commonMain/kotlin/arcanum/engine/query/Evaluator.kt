@@ -332,8 +332,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Status.Attacking -> state.combat?.attackers.orEmpty().any { it.id == id }
         Status.Blocking -> state.combat?.blockers.orEmpty().any { it.id == id }
         Status.Blocked -> state.combat?.attackers.orEmpty().any { it.id == id && it.blocked }
-        Status.Unblocked -> state.combat?.attackers.orEmpty().any { it.id == id && !it.blocked } &&
-            state.turn.step != arcanum.api.TurnStep.DeclareAttackers
+        // CR 509.1h, 508.4d: unblocked once blockers are declared
+        Status.Unblocked -> state.combat?.let { c -> c.blocksDecided && c.attackers.any { it.id == id && !it.blocked } } == true
         Status.Goaded -> o?.goadedBy?.isNotEmpty() == true
         is Status.Marked -> o?.marks?.contains(status.mark) == true
     }

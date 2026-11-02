@@ -784,7 +784,7 @@ internal object Effects {
             attackers = combat.attackers.filter { it.id !in gone },
             blockers = combat.blockers.filter { it.id !in gone }.map { b -> b.copy(attackers = b.attackers.filter { it !in gone }) },
         )
-        if (after != combat) act.record(Change.Combat(combat, after))
+        if (after != combat) act.record(Change.Combat(combat, after, listOf(arcanum.engine.change.Meaning.RemovedFromCombat)))
     }
 
     /** CR 701.12: nothing happens unless both can be exchanged; each gets a control effect for good. */

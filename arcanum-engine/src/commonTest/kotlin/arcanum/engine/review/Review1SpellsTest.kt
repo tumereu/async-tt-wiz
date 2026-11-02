@@ -101,7 +101,6 @@ class Review1SpellsTest {
 
     /** A creature whose controller changes is removed from combat: it deals no combat damage. */
     // CR 506.4
-    @Ignore("review1 #13: a creature that changes control or stops being a creature stays in combat")
     @Test
     fun controlChangeRemovesFromCombat() = scenario {
         Cards.invent("Review Ox", "{2}{G}", "Creature — Ox", "", "3/3")
@@ -109,12 +108,13 @@ class Review1SpellsTest {
         advanceTo(TurnStep.DeclareAttackers)
         alice.attacks("Review Ox")
         gainControlNow(bob, "Review Ox")
+        // A change made by hand doesn't run the engine; its next run removes the creature (as after any event)
+        settle()
         assertTrue(state.combat!!.attackers.none { it.id == card("Review Ox") }, "Still attacking: ${state.combat}")
     }
 
     /** The same, by the engine's own flow: damage isn't dealt by a creature its defender now controls. */
     // CR 506.4
-    @Ignore("review1 #13: a creature that changes control or stops being a creature stays in combat")
     @Test
     fun stolenAttackerDealsNoDamage() = scenario {
         Cards.invent("Review Ox", "{2}{G}", "Creature — Ox", "", "3/3")
@@ -130,7 +130,6 @@ class Review1SpellsTest {
 
     /** An attacking creature that stops being a creature is removed from combat. */
     // CR 506.4
-    @Ignore("review1 #13: a creature that changes control or stops being a creature stays in combat")
     @Test
     fun noncreatureIsRemovedFromCombat() = scenario {
         Cards.invent("Review Ox", "{2}{G}", "Creature — Ox", "", "3/3")

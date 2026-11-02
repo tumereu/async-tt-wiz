@@ -17,7 +17,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import kotlin.math.roundToInt
 import org.asyncttwiz.automatum.PausePoints
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
@@ -55,7 +54,7 @@ internal object LivePause {
     }
 }
 
-/** A pause shown on the live board [node] since [startedAt] (the controller's clock); [running] until it runs out. */
+/** A pause shown on the live board [node] since [startedAt] (the frame clock's time); [running] until it runs out. */
 internal data class ShownPause(val node: String, val role: PauseRole, val startedAt: Long, val running: Boolean = true)
 
 /** How a pause reaches the timeline (I-D41, STK-039): set by the table's host. */
@@ -74,7 +73,7 @@ internal interface PauseRoutes {
  * The viewer's pauses (I-D41): the one shown on the live board ([shown], set by [AutomatumPauseDriver]) and the one they
  * hold ([heldNode]). Personal display state only; what goes to the game goes through [SharedFlowController].
  */
-internal class PauseController(private val clock: () -> Long = ::monotonicMillis) {
+internal class PauseController {
     var shown by mutableStateOf<ShownPause?>(null); private set
     /** The point the viewer held at (STK-039). */
     var heldNode by mutableStateOf<String?>(null); private set
@@ -82,15 +81,16 @@ internal class PauseController(private val clock: () -> Long = ::monotonicMillis
     var liveHead by mutableStateOf<String?>(null)
     var routes: PauseRoutes? = null
 
-    fun show(node: String, role: PauseRole) { shown = ShownPause(node, role, clock()) }
+    /** Shows [role]'s pause on [node] from [at], the frame clock's time (so its bar and its timer agree). */
+    fun show(node: String, role: PauseRole, at: Long) { shown = ShownPause(node, role, at) }
     fun clear() { shown = null }
     /** The pause on [node] ran out: still shown, no longer timed. */
     fun end(node: String) { shown?.takeIf { it.node == node }?.let { shown = it.copy(running = false) } }
     /** The pause on [node] while it runs. */
     fun running(node: String): ShownPause? = shown?.takeIf { it.node == node && it.running }
-    /** The part of the pause still to run, 1 to 0, in hundredths (the bar is drawn from it). */
-    fun remaining(pause: ShownPause): Float = if (pause.role.millis <= 0) 0f
-        else ((1f - (clock() - pause.startedAt).toFloat() / pause.role.millis).coerceIn(0f, 1f) * 100).roundToInt() / 100f
+    /** The part of [pause] still to run at [now] (frame clock), 1 to 0. */
+    fun remaining(pause: ShownPause, now: Long): Float = if (pause.role.millis <= 0) 0f
+        else (1f - (now - pause.startedAt).toFloat() / pause.role.millis).coerceIn(0f, 1f)
 
     /** Hold or Respond in a running pause: the viewer stays at [node] as long as they like (STK-039). */
     fun hold(node: String): Boolean {
@@ -136,7 +136,7 @@ internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: His
             playback?.releasePause()
             return@LaunchedEffect
         }
-        pause.show(node, role)
+        pause.show(node, role, withFrameMillis { it })
         when (role) {
             is PauseRole.Yours -> {
                 playback?.holdPause(node)
@@ -166,8 +166,9 @@ internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: His
 /** The pause's time running out: a thin violet bar that empties (STK-037, STK-038). */
 @Composable
 internal fun PauseProgress(pause: PauseController, shown: ShownPause) {
-    val progress = remember(shown) { Animatable(pause.remaining(shown)) }
+    val progress = remember(shown) { Animatable(1f) }
     LaunchedEffect(shown) {
+        progress.snapTo(pause.remaining(shown, withFrameMillis { it }))
         val left = (progress.value * shown.role.millis).toInt()
         if (left > 0) progress.animateTo(0f, tween(left, easing = LinearEasing))
     }

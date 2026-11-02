@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 10
+    const val VERSION: Int = 11
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -118,6 +118,16 @@ object OracleParser {
                 result += if (modes != null) Ability.Spell(arcanum.api.Instructions(modes = modes))
                     else Ability.Unparsed((listOf(raw) + modeLines.map { "• $it" }).joinToString("\n"))
                 raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                continue
+            }
+            // dsk chunk 12: an activated ability with modes ("[cost]: Choose one —", CR 700.2)
+            val activatedChoose = if (!isSpell && line.contains(": ")) CHOOSE.matchEntire(line.substringAfter(": ")) else null
+            if (activatedChoose != null && i < lines.size && lines[i].startsWith("• ")) {
+                val modeLines = mutableListOf<String>()
+                while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
+                val printed = (listOf(raw.trim()) + modeLines.map { "• $it" }).joinToString("\n")
+                result += sentences.modalActivated(line.substringBefore(": "), activatedChoose, modeLines) ?: Ability.Unparsed(printed)
+                raws += printed
                 continue
             }
             // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)

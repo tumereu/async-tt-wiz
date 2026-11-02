@@ -321,6 +321,15 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 12: "this creature becomes the target of a spell or ability an opponent controls"
+        BECOMES_TARGET_OF_OPPONENTS.matchEntire(text)?.let { m ->
+            return EventPattern.BecomesTarget(subject(m.groupValues[1], self) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Opponent))
+        }
+        // dsk chunk 12: "one or more land cards are put into your graveyard from your library" (a batch)
+        PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(Filters.all(subject(m.groupValues[1], self) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You)),
+                from = Zone.Library, to = Zone.Graveyard)
+        }
         // dsk chunk 11: "a creature you control becomes blocked" (once per combat each, CR 509.3c)
         BECOMES_BLOCKED.matchEntire(text)?.let { m -> return EventPattern.BecomesBlocked(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Any) }
         // dsk chunk 11: "one or more creatures die" (a batch), "an opponent draws a card"
@@ -497,6 +506,9 @@ internal object Events {
     // dsk chunk 11
     private val DIE_PLURAL = Regex("""(one or more .+) die""")
     private val BECOMES_BLOCKED = Regex("""(.+) becomes blocked""")
+    // dsk chunk 12
+    private val BECOMES_TARGET_OF_OPPONENTS = Regex("""(.+) becomes the target of a spell or ability an opponent controls""")
+    private val PUT_INTO_YOUR_GRAVEYARD_FROM_LIBRARY = Regex("""(one or more .+) are put into your graveyard from your library""")
     // dsk chunk 10
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
@@ -891,6 +903,12 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)
+        if (text == "the power of the creature you chose or the card you revealed") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound("beheld"), Combine.Single)
+        // dsk chunk 12: "the greatest power among creatures you control"
+        if (text.startsWith("the greatest power among ")) {
+            return Value.Of(arcanum.api.NumericProperty.Power, Filters.objects(text.removePrefix("the greatest power among ")) ?: return null, Combine.Greatest)
+        }
         // dsk chunk 07: "the number of card types among cards in your graveyard"
         if (text == "the number of card types among cards in your graveyard")
             return Value.CountDistinct(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))), SharedQuality.CardType)

@@ -33,6 +33,10 @@ data class GameObject(
     val face: Int = 0,
     /** A token (CR 111); [definition] holds its characteristics as created. */
     val token: Boolean = false,
+    // dsk gaps
+    /** A copy of a card (CR 707.12), not a card; [definition] holds the copied card's characteristics. It ceases to exist
+     * in any zone other than the Stack or the battlefield (CR 704.5e). */
+    val copyOfCard: Boolean = false,
     val tapped: Boolean = false,
     /** Face down (CR 708): a 2/2 with no name, text, types other than creature, or mana cost (CR 708.2a). */
     val faceDown: Boolean = false,

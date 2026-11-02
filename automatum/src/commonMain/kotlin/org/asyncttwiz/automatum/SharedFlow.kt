@@ -22,10 +22,10 @@ import org.asyncttwiz.protocol.PlayState
  * and either player may answer it (D11). Built on [play]'s board with full information (I-D17, I-D27: the client holds
  * every card; what a player is shown is the app's business), so [Engine.shouldPassFor] can pass for either player.
  *
- * [pass] ("Let it resolve") and [answer] each give the [EngineCall] to plan into one batch ([EngineBatch.plan]); both
- * then pass automatically for whoever the engine says should ([autoPass], I-D3, I-D18), so with nothing to respond with
- * a spell resolves at once. Steps and turns still change by hand (I3): the host never passes on an empty Stack, which
- * would end the step.
+ * [pass] ("Let it resolve"), [step] (the step button, §3 I3) and [answer] each give the [EngineCall] to plan into one
+ * batch ([EngineBatch.plan]); all then pass automatically for whoever the engine says should ([StepFlow.automatic],
+ * I-D3, I-D18), so with nothing to respond with a spell resolves at once, and on an empty Stack the steps go on (with
+ * their turn-based actions and triggers) up to the next point where a player can act (I-D35).
  */
 class SharedFlow(
     val play: PlayState,
@@ -47,9 +47,19 @@ class SharedFlow(
     val decision: Decision? get() = view.pending?.decision
 
     /** Who holds priority with something on the Stack and nothing to decide: the player who may respond or let the top
-     * resolve. Null otherwise (an empty Stack: steps change by hand until I3). */
+     * resolve. Null otherwise (on an empty Stack the step button passes, [step]). */
     val priority: String? get() = state.takeIf { it.pending == null && it.stack.isNotEmpty() && it.result == null }
         ?.priority?.holder?.value
+
+    /** Who holds priority now with nothing to decide (an empty Stack too), or null. */
+    val holder: String? get() = state.takeIf { it.pending == null && it.result == null }?.priority?.holder?.value
+
+    /** The player who declares attackers or blockers now (CR 508.1, 509.1): nobody holds priority until they do; null
+     * when no declaration is awaited. */
+    val declaring: String? get() = state.takeIf { it.pending == null && it.result == null && it.priority.holder == null }?.let { s ->
+        Engine.options(s, s.turn.active).firstOrNull { it is Input.DeclareAttackers }?.let { s.turn.active.value }
+            ?: s.players.firstOrNull { p -> Engine.options(s, p.id).any { it is Input.DeclareBlockers } }?.id?.value
+    }
 
     /** The top of the Stack, which resolves next (CR 405.5); null when the Stack is empty. */
     val top: StackItem? get() = state.stack.lastOrNull()?.let { state.stackItems[it] }
@@ -61,7 +71,25 @@ class SharedFlow(
      * the top of the Stack (CR 117.4). Anyone may pass for [player] (D11). */
     fun pass(player: String): EngineCall = call().apply {
         perform(Input.PassPriority(PlayerId(player)))
-        autoPass(this)
+        StepFlow.automatic(this)
+    }
+
+    /**
+     * The step button with Automatum on (§3 I3, TRN-007): [player], who holds priority, passes as far as [until] asks
+     * ([StepFlow.pass]), then the automatic passes. Anyone may pass for the player who holds priority (D11).
+     * @throws IllegalArgumentException when [player] doesn't hold priority or a decision is open (nothing changes).
+     */
+    fun step(player: String, until: StepFlow.Until): EngineCall = call().apply { StepFlow.pass(this, player, until) }
+
+    /**
+     * Declares what ATW's lanes hold (the step button in the declare attackers or blockers step, CR 508.1, 509.1), then
+     * the automatic passes.
+     * @throws CombatRefused when the engine refuses the declaration (nothing changes).
+     */
+    fun declare(): EngineCall = call().apply {
+        val (attacks, blocks) = CombatFlow.lanes(play.board.combat)
+        if (Engine.options(working, working.turn.active).any { it is Input.DeclareAttackers }) CombatFlow.declareAttackers(this, attacks)
+        else CombatFlow.declareBlockers(this, blocks)
     }
 
     /**
@@ -72,7 +100,7 @@ class SharedFlow(
         val open = requireNotNull(decision) { "Nothing to answer" }
         return call().apply {
             perform(Input.Answer(open.id, answer))
-            autoPass(this)
+            StepFlow.automatic(this)
         }
     }
 
@@ -103,24 +131,4 @@ class SharedFlow(
 
     /** The ATW card of an engine object, when it is a card. */
     fun atwCard(id: ObjectId): String? = (id as? ObjectId.Card)?.let { view.ids.atw(it.card) }
-
-    companion object {
-        /** More passes than any Stack needs; a guard against a host loop. */
-        private const val MAX_PASSES = 500
-
-        /**
-         * Passes priority for whoever holds it while [Engine.shouldPassFor] says so (I-D3, I-D18, each player's own
-         * "Skip when I have no choice"), stopping at a decision, an empty Stack (steps change by hand until I3) or the
-         * end of the game. The passes are automatic: the history folds them into the batch's visible event (I-D22).
-         */
-        fun autoPass(call: EngineCall) {
-            repeat(MAX_PASSES) {
-                val s = call.working
-                if (s.pending != null || s.stack.isEmpty() || s.result != null) return
-                val holder = s.priority.holder ?: return
-                if (!Engine.shouldPassFor(s, holder)) return
-                call.perform(Input.PassPriority(holder), automatic = true)
-            }
-        }
-    }
 }

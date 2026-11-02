@@ -47,14 +47,17 @@ internal sealed interface Prevention {
     /** All damage to [recipient] from sources [from] matches (protection, CR 702.16e). */
     data class Protection(val from: arcanum.api.ObjectFilter, val recipient: ObjectId) : Prevention
 
-    /** All of the damage, or [each] of each such damage event. */
-    data class Amount(val each: arcanum.api.Value?) : Prevention
+    /** All of the damage, or [each] of each such damage event; then its [additional] effect (CR 615.5). */
+    data class Amount(val each: arcanum.api.Value?, val additional: arcanum.api.Instructions? = null) : Prevention
 
     /** Up to the amount left on a shield (CR 615.7, D26), used up as it prevents. */
     data class Shield(val effect: EffectId) : Prevention
 
     /** Prevents all of the damage, whatever the amount. */
     val all: Boolean get() = this is Protection || (this is Amount && each == null)
+
+    /** Does more than prevent (CR 615.5), so the order it applies in can matter. */
+    val hasAdditional: Boolean get() = this is Amount && additional != null
 }
 
 /**
@@ -165,7 +168,8 @@ internal object Replacements {
         // only prevent or change the amount (none is left either way); among prevention effects only, those that aren't
         // used up go first, then shields oldest first, so no shield is used up for nothing (P5)
         val preventions = matching.filter { it.first.prevention != null }
-        if (preventions.isNotEmpty()) {
+        // dsk gaps: an additional effect depends on how much is left to prevent (CR 615.5), so its order matters
+        if (preventions.isNotEmpty() && preventions.none { it.first.prevention!!.hasAdditional }) {
             val all = preventions.firstOrNull { it.first.prevention!!.all }
             if (all != null && matching.all { (r, _) -> r.prevention != null || onlyAmount(r) }) return all
             if (preventions.size == matching.size) return preventions.sortedBy { if (it.first.prevention is Prevention.Shield) 1 else 0 }.first()

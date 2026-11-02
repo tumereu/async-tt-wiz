@@ -38,6 +38,7 @@ private fun Instructions.reachableSteps(): List<Step> {
                 is Step.If -> { visit(step.then); visit(step.otherwise) }
                 is Step.ForEach -> visit(step.steps)
                 is Step.Repeat -> visit(step.steps)
+                is Step.RepeatWhile -> visit(step.steps)
                 is Step.Do, is Step.Bind, is Step.Modify, is Step.Choose, is Step.Manual -> Unit
             }
         }

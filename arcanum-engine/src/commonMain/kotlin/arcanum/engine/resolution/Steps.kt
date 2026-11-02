@@ -121,10 +121,21 @@ internal object Steps {
                 }
                 gathered.forEach { (name, ids) -> scope.bind(name, NamedValue.Objects(ids)) }
             }
+            // dsk gaps: "… and repeat this process" (CR 608.2c); a process that would never end stops at a bound
+            is Step.RepeatWhile -> {
+                var times = 0
+                do {
+                    run(scope, step.steps)
+                    times++
+                } while (times < REPEAT_LIMIT && scope.holds(step.condition))
+            }
             is Step.Choose -> choose(scope, step)
             is Step.Manual -> act.manual(scope.actor, scope.self, step.text)
         }
     }
+
+    /** The most times a [Step.RepeatWhile] repeats in one resolution. */
+    private const val REPEAT_LIMIT = 1000
 
     /** The prompt of an optional step (API review 3): its sentence of the resolving ability's printed text. */
     private fun mayText(scope: Scope, step: Step): String = arcanum.engine.decision.Texts.may(scope.cause.item?.ability, step)

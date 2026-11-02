@@ -661,6 +661,10 @@ internal class LayerRun(private val state: GameState, private val traced: Object
      * player could use it for. */
     private fun placedOn(board: WorkBoard, e: ContinuousEffect, mechanic: Mechanic, objects: arcanum.api.Objects): List<ObjectId> {
         val eval = evaluator(board, e)
+        // dsk gaps: an alternative cost for spells cast from a zone is on the cards there, as the spells they would be
+        // (CR 601.2a), and on the spell being cast
+        if (mechanic is Mechanic.AlternativeCost) return eval.with(eval.ctx.copy(prospectiveCast = true)).objects(objects)
+            .filter { state.obj(it)?.zone != Zone.Battlefield }
         if (mechanic !is Mechanic.MayPlay) return eval.objects(objects)
         return state.players.flatMap { p -> eval.with(eval.ctx.copy(holder = p.id)).objects(objects) }.distinct()
     }

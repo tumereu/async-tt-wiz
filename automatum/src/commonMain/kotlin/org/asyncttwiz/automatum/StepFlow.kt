@@ -34,6 +34,13 @@ object StepFlow {
          * declare, their own triggers' targets, the cleanup discard).
          */
         data object EndOfTurn : Until
+
+        /**
+         * A later step of this turn (the phase dialog, TRN-009): as [EndOfTurn], but the host stops passing for the
+         * player once the turn reaches [position] (or a step after it, when the turn skips it); combat with nothing
+         * attacking when [position] comes after combat.
+         */
+        data class Step(val position: org.asyncttwiz.protocol.TurnPosition) : Until
     }
 
     /**
@@ -52,10 +59,31 @@ object StepFlow {
         HostPriority.settle(call)
         val s = call.working
         require(s.pending == null) { "A decision is open: ${s.pending?.decision}" }
+        val keep = when (until) {
+            Until.Pass -> null
+            Until.EndOfTurn -> Keep(player, s.turn.number, null)
+            is Until.Step -> Keep(player, s.turn.number, until.position)
+        }
+        // Attackers awaited (CR 508.1): "End turn" or a step after combat declares none for its player (or what must
+        // attack) and goes on; nobody holds priority to pass
+        if (s.priority.holder == null && keep != null && s.turn.active.value == player && keep.declaresNone(s)) return automatic(call, keep)
         require(s.priority.holder?.value == player) { "$player doesn't hold priority (${s.priority.holder ?: "nobody"} does)" }
-        val turn = s.turn.number
         call.perform(Input.PassPriority(PlayerId(player)))?.let { return it }
-        return automatic(call, player.takeIf { until == Until.EndOfTurn }?.let { it to turn })
+        return automatic(call, keep)
+    }
+
+    /** The player the host goes on passing for in turn [turn] (I-D22), until the turn reaches [stop] (null: its end). */
+    private class Keep(val player: String, val turn: Int, val stop: org.asyncttwiz.protocol.TurnPosition?) {
+        /** Whether [s] is in this keep's turn and hasn't reached [stop] yet. */
+        fun going(s: arcanum.engine.state.GameState): Boolean = s.turn.number == turn && !reached(s)
+
+        /** Whether the turn reached [stop] or went past it. */
+        fun reached(s: arcanum.engine.state.GameState): Boolean = stop != null && s.turn.number == turn &&
+            EngineCodec.position(s.turn.step, s.combat?.firstStrikeStep == true).ordinal >= stop.ordinal
+
+        /** Whether its player declares no attackers when asked: the turn ends, or [stop] comes after combat. */
+        fun declaresNone(s: arcanum.engine.state.GameState): Boolean = s.turn.number == turn &&
+            (stop == null || stop.ordinal >= org.asyncttwiz.protocol.TurnPosition.END_COMBAT.ordinal)
     }
 
     /**
@@ -80,23 +108,25 @@ object StepFlow {
      */
     fun automatic(call: EngineCall): Pending? = automatic(call, null)
 
-    private fun automatic(call: EngineCall, keepPassing: Pair<String, Int>?): Pending? {
+    private fun automatic(call: EngineCall, keep: Keep?): Pending? {
         val start = call.working.turn.number
         repeat(MAX_AUTOMATIC_PASSES) {
             val s = call.working
             s.pending?.let { return it }
             if (Engine.result(s) != null) return null
             if (s.turn.number >= start + 2) return null
-            val ending = keepPassing != null && s.turn.number == keepPassing.second
+            // The step the player chose is reached: they act in it (TRN-009)
+            if (keep != null && keep.reached(s)) return null
+            val going = keep != null && keep.going(s)
             val holder = s.priority.holder ?: run {
                 // "End turn" declares no attackers for its player, or the least the requirements make attack (CR 508.1d)
-                val declaration = if (!ending || s.turn.active.value != keepPassing!!.first) null
+                val declaration = if (!going || s.turn.active.value != keep!!.player || !keep.declaresNone(s)) null
                     else Engine.options(s, s.turn.active).filterIsInstance<Input.DeclareAttackers>().firstOrNull()
                 declaration ?: return null
                 call.perform(declaration)?.let { return it }
                 return@repeat
             }
-            val intent = ending && holder.value == keepPassing!!.first
+            val intent = going && holder.value == keep!!.player
             if (!intent && !Engine.shouldPassFor(s, holder)) return null
             call.perform(Input.PassPriority(holder), automatic = true)?.let { return it }
         }

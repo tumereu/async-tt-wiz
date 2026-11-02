@@ -396,6 +396,14 @@ internal object Payment {
                     names = Bindings(mapOf(arcanum.engine.resolution.Effects.FOLLOWS_SPELL to NamedValue.Objects(listOfNotNull(id, next)))))
             })
         }
+        // dsk gaps: a granted alternative cost with a limit each turn is used once more
+        plan.alternative?.let { (inst, m) ->
+            val origin = inst.origin as? AbilityOrigin.FromAbility ?: return@let
+            if (m.perTurn == null) return@let
+            val source = recorder.state.obj(origin.source) ?: return@let
+            recorder.record(Change.Facts(source.id, source.facts, source.facts.copy(
+                activations = Legality.counted(source.facts.activations, Legality.alternativeKey(origin), recorder.state.turn.number))))
+        }
         // CR 106.6a: mana that gives the spell something
         spent.filter { it.spellGets.isNotEmpty() }.forEachIndexed { i, unit ->
             recorder.record(Changes.effect(recorder.state) { t ->

@@ -575,6 +575,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.Half -> value(value.value).let { if (value.roundUp) (it + 1) / 2 else it / 2 }
         is Value.Max -> value.parts.maxOfOrNull { value(it) } ?: 0
         is Value.Min -> value.parts.minOfOrNull { value(it) } ?: 0
+        // gtc chunk 05: the greatest of a value for each player ("the greatest number of cards a player discarded this way")
+        is Value.GreatestFor -> players(value.players).maxOfOrNull { p -> with(ctx.copy(testedPlayer = p)).value(value.value) } ?: 0
     }
 
     private fun boundNumber(value: NamedValue?): Int = when (value) {

@@ -63,6 +63,11 @@ sealed interface Value {
      * or ability was put on the Stack ("3 damage divided as you choose", CR 601.2d). */
     @Serializable @SerialName("divided-share") data object DividedShare : Value
 
+    // gtc chunk 05
+    /** The greatest of [value] for each of [players], read with [Players.Tested] as that player ("the greatest number of cards
+     * a player discarded this way"); 0 when there are none. */
+    @Serializable @SerialName("greatest-for") data class GreatestFor(val players: Players, val value: Value) : Value
+
     @Serializable @SerialName("sum") data class Sum(val parts: List<Value>) : Value
     @Serializable @SerialName("difference") data class Difference(val from: Value, val minus: Value) : Value
     @Serializable @SerialName("times") data class Times(val value: Value, val factor: Int) : Value

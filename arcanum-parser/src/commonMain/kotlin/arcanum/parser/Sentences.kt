@@ -1018,7 +1018,7 @@ internal class Sentences(
             text = text.removeRange(m.range).trim()
         }
         // chunk 40: an X in the activation cost ("{X}", "Sacrifice X Squirrels") is announced as it is activated (CR 107.3a, k)
-        val xInCost = X_IN_COST.containsMatchIn(line.substring(0, colon))
+        val xInCost = X_IN_COST.containsMatchIn(line.substring(0, colon)) || line.substring(0, colon).contains(" one or more ") // gtc chunk 04
         announcedX = xInCost
         val parsed = try { instructions(text) } finally { announcedX = false }
         val instructions = parsed?.let { i ->
@@ -1281,6 +1281,7 @@ internal class Sentences(
     }
 
     private fun costPart(text: String): List<CostPart>? {
+        gtcCostPart(text)?.let { return it } // gtc
         if (text == "{T}") return listOf(CostPart.TapSelf)
         // chunk 26: "[+1]", "[−2]", "[0]" (CR 606.4)
         LOYALTY.matchEntire(text)?.let { m ->
@@ -4339,11 +4340,9 @@ internal class Sentences(
             val targets = context.targets.size
             val steps = mutableListOf<Step>()
             for ((i, action) in actions.withIndex()) {
-                val subject = if (i == 0) m.groupValues[1] else "That player"
-                steps += effect("$subject $action.", context) ?: run {
+                steps += effect("${m.groupValues[1]} $action.", context) ?: run {
                     while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let
                 }
-                if (i == 0) context.player = context.lastPlayer
             }
             return steps
         }
@@ -4351,6 +4350,56 @@ internal class Sentences(
         Gtc.UNTAP_THAT.matchEntire(sentence)?.let { m ->
             val objects = gtcSubject(if (m.groupValues[1] == "those creatures") "it" else "That creature", context) ?: return null
             return listOf(Step.Do(Effect.Untap(objects)))
+        }
+        // gtc chunk 03: "pay any amount of life." (CR 119.4, 107.1b: any number from 0 up to your life total)
+        if (sentence == "Pay any amount of life.") {
+            context.thatMuch = Value.Bound("life")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0), Value.LifeOf(Players.You)), bind = "life", chooser = Players.You),
+                Step.Pay(Cost(listOf(CostPart.PayLife(Value.Bound("life")))), payer = Players.You, mandatory = true, bind = "paid"))
+        }
+        // gtc chunk 03: "Target opponent reveals that many cards from their hand. You choose one of them and exile it." (CR 701.20a)
+        Gtc.REVEALS_THAT_MANY_FROM_HAND.matchEntire(sentence)?.let {
+            val many = context.thatMuch ?: return null
+            val player = context.targetOpponent()
+            context.revealed = Objects.Bound("revealed")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(handOf(player), many, many), bind = "revealed", chooser = player),
+                Step.Do(Effect.Reveal(Objects.Bound("revealed"))))
+        }
+        if (sentence == "You choose one of them and exile it.") {
+            val from = context.revealed ?: return null
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = from), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))))
+        }
+        // gtc chunk 05: "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded
+        // this way." (each discards at once, CR 101.4; then each draws)
+        if (sentence == "Each player discards their hand, then draws cards equal to the greatest number of cards a player discarded this way.") {
+            val each = Players.Each(PlayerFilter.Any)
+            val greatest = Value.GreatestFor(each, Value.Count(Objects.Where(Objects.Bound("discarded"), ObjectFilter.OwnedBy(PlayerFilter.Is(Players.Tested)))))
+            return listOf(
+                Step.Do(Effect.Discard(each, Value.Fixed(1), filter = ObjectFilter.Any, objects = Objects.Each(ObjectFilter.InZone(Zone.Hand)), postBind = "discarded")),
+                Step.Do(Effect.Draw(each, greatest)))
+        }
+        // gtc chunk 04: "This turn, each creature you control enters with an additional +1/+1 counter on it." (CR 614.1c)
+        Gtc.THIS_TURN_ENTERS_WITH_ADDITIONAL.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(EventPattern.ZoneChange(filter, to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(1))))), null, arcanum.api.Duration.EndOfTurn)))
+        }
+        // gtc chunk 04: "Move any number of +1/+1 counters from target creature onto another target creature with the same
+        // controller."
+        Gtc.MOVE_ANY_NUMBER_OF_COUNTERS.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val from = context.target("creature", Filters.noun(m.groupValues[2]) ?: return null)
+            val onto = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(from))))
+            context.targets += TargetSlot("other creature", TargetKind.Objects(onto), min = Value.Fixed(1), max = Value.Fixed(1), distinctFrom = listOf("creature"))
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0), Value.Of(arcanum.api.NumericProperty.Counters(kind), from, arcanum.api.Combine.Single)),
+                    bind = "moved", chooser = Players.You),
+                Step.Do(Effect.MoveCounters(from, Objects.Target("other creature"), kind, Value.Bound("moved"))))
         }
         return gtcEffect3(sentence, context)
     }
@@ -4417,12 +4466,31 @@ internal class Sentences(
         Gtc.PUT_COUNTER_ON_ATTACHED.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(Effect.PutCounters(Objects.AttachedTo(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1))))
         }
+        // gtc chunk 04: "Add {G} for each +1/+1 counter on this creature."
+        Gtc.ADD_MANA_FOR_EACH_COUNTER.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(mana(m.groupValues[1]) ?: return null), players = Players.You)))
+        }
         // gtc chunk 10: "Choose target creature you control. You gain life equal to that creature's power plus its toughness."
         Gtc.GAIN_LIFE_POWER_PLUS_TOUGHNESS.matchEntire(sentence)?.let {
             val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
             return listOf(Step.Do(Effect.GainLife(Players.You, Value.Sum(listOf(
                 Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single),
                 Value.Of(arcanum.api.NumericProperty.Toughness, of, arcanum.api.Combine.Single))))))
+        }
+        return null
+    }
+
+    /** gtc: cost parts ("Remove five blaze counters from this enchantment", "Remove one or more +1/+1 counters from among
+     * creatures you control", "Discard two cards", "Mill four cards", "Return this Aura to its owner's hand"). */
+    private fun gtcCostPart(text: String): List<CostPart>? {
+        Gtc.REMOVE_COUNTERS_COST.matchEntire(text)?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val amount = if (m.groupValues[1] == "one or more") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val among = m.groupValues[3].startsWith("among ")
+            val from = m.groupValues[3].removePrefix("among ")
+            val objects = if (isSelf(from)) CostObjects.Self
+                else CostObjects.Choose(Filters.noun(from.removeArticle()) ?: return null, count = if (among) null else Value.Fixed(1))
+            return listOf(CostPart.RemoveCounters(kind, amount, objects, distributed = among))
         }
         return null
     }
@@ -4834,6 +4902,11 @@ internal class Sentences(
 
     /** "{C}", "{B}{B}", "{R} or {G}", "one mana of any color", "three mana of any one color" (CR 106.1). */
     private fun mana(text: String): ManaKind? {
+        // gtc chunk 04: "{G} for each +1/+1 counter on this creature"
+        Gtc.MANA_FOR_EACH_COUNTER.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            return ManaKind.Fixed(ManaCost.parse(m.groupValues[1]) ?: return null,
+                times = Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[2]) ?: return null), Objects.Self, arcanum.api.Combine.Single))
+        }
         // dsk chunk 14: "one mana of the chosen color" (as this permanent entered)
         if (text == "one mana of the chosen color") return ManaKind.Choose(Value.Fixed(1), listOf(ColorRef.Remembered(CHOSEN_COLOR)))
         ANY_COMBINATION.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), combination = true) }

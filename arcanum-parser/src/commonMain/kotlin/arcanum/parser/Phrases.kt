@@ -261,6 +261,10 @@ internal object Filters {
             return all(noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()), role = arcanum.api.EventRole.Source))
         }
+        // gtc chunk 04: "creature with power less than or equal to the number of +1/+1 counters removed this way"
+        GTC_WITH_POWER_AT_MOST_VALUE.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Power(Comparison.AtMost, Values.value(m.groupValues[2]) ?: return null))
+        }
         // dgm: "creatures named Biovisionary" (CR 201.2)
         GTC_NAMED.matchEntire(phrase)?.let { m ->
             val named = all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Named(m.groupValues[2]))
@@ -274,6 +278,7 @@ internal object Filters {
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
     private val GTC_WITH_POWER_X = Regex("""(.+) with power X or less""")
+    private val GTC_WITH_POWER_AT_MOST_VALUE = Regex("""(.+) with power less than or equal to (.+)""")
     private val GTC_DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that dealt damage this turn""")
     private val GTC_NAMED = Regex("""(creatures?|permanents?) named (.+?)( you control)?""")
 
@@ -1303,6 +1308,8 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
+        if (Regex("""the number of \S+ counters removed this way""").matches(text)) return Value.Announced(name = "X")
         // dsk chunk 12: "the power of the creature you chose or the card you revealed" (the beheld creature, CR 701.4a)
         if (text == "the power of the creature you chose or the card you revealed") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound("beheld"), Combine.Single)
         // dsk chunk 12: "the greatest power among creatures you control"

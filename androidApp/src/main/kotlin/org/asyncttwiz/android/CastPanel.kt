@@ -273,10 +273,14 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
             }
         }
         is Decision.Divide -> {
-            var shares by remember(decision.id) { mutableStateOf(decision.among.associateWith { decision.minEach }) }
+            // Pre-filled with the engine's suggestion when it has one (combat damage: lethal to each in turn, I-D29)
+            val suggested = decision.suggested.associate { it.target to it.amount }
+            var shares by remember(decision.id) { mutableStateOf(decision.among.associateWith { suggested[it] ?: decision.minEach }) }
+            val lethal = decision.lethal.associate { it.target to it.amount }
             Section("Divide ${decision.amount}") {
                 for (target in decision.among) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(targetName(flow, play, names, target), Modifier.weight(1f), fontSize = 12.sp)
+                    Text(targetName(flow, play, names, target) + (lethal[target]?.let { " (lethal $it)" } ?: ""),
+                        Modifier.weight(1f), fontSize = 12.sp)
                     Stepper(shares.getValue(target), decision.minEach, decision.amount) { shares = shares + (target to it) }
                 }
                 Button({ cast.answer(Answer.Division(shares.map { arcanum.engine.decision.Share(it.key, it.value) })) },

@@ -293,7 +293,7 @@ class TableGestureCoordinator(
                     }
                     c.destination?.let { d ->
                         emit(TableIntent.Selection(c.selection.afterMove(c.scope.contextId)))
-                        emit(TableIntent.Move(c.scope, d, c.sources))
+                        emit(TableIntent.Move(c.scope, d, c.sources, drag = true))
                     }
                 }
             }
@@ -381,7 +381,7 @@ class TableGestureCoordinator(
         if (!scene.canDrag(item)) return
         val id = item.cardId ?: return
         val scope = if (item.zone == PlayZone.STACK) TableScope(id, listOf(id)) else selection.scope(id, order())
-        if (writable && targetsExist(scope)) emit(TableIntent.Move(scope, destination, scene.sources.filterKeys { it in scope.cardIds }))
+        if (writable && targetsExist(scope)) emit(TableIntent.Move(scope, destination, scene.sources.filterKeys { it in scope.cardIds }, drag = true))
     }
     fun select(item: TableItem) { if (!reviewing) item.cardId?.let { emit(TableIntent.Selection(selection.toggle(it))) } }
     private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->

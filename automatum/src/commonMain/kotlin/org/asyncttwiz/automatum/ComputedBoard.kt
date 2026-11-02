@@ -28,6 +28,7 @@ import org.asyncttwiz.protocol.PlayZone
  * - [gained]/[lost]: keyword abilities it has that its base values don't, and the other way round (layer 6).
  * - [typeLine]/[colors]: its type line and colours when an effect changed them (layers 4, 5); null when unchanged.
  * - [counters]: its typed counters (§4.2) as "+1/+1 ×2", "charge ×1", "Flying counter ×1".
+ * - [keywords]: every keyword ability it has.
  */
 data class ComputedCard(
     val cardId: String,
@@ -41,6 +42,8 @@ data class ComputedCard(
     val typeLine: String? = null,
     val colors: String? = null,
     val counters: List<String> = emptyList(),
+    /** Every keyword ability it has now ("Flying", "First strike"), as the engine works them out (layer 6). */
+    val keywords: List<String> = emptyList(),
 ) {
     /** The computed P/T as the corner shows it ("3/3"); null when the engine gives the card no power and toughness. */
     val corner: String? get() = if (power != null && toughness != null) "$power/$toughness" else null
@@ -194,6 +197,7 @@ class ComputedBoard private constructor(
                     typeLine = typeLine(chars).takeIf { it != typeLine(base) },
                     colors = colors(chars).takeIf { chars.colors != base.colors },
                     counters = card.typedCounters.filter { it.count != 0 }.map { "${counterName(it.kind)} ×${it.count}" },
+                    keywords = chars.keywords.map(Keyword::text),
                 )
             }
             return ComputedBoard(cards, emptyList(), manualAbilities, manualCards, state, view, ids)

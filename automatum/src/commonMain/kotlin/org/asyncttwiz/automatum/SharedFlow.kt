@@ -1,6 +1,7 @@
 package org.asyncttwiz.automatum
 
 import arcanum.api.CardDefinition
+import arcanum.api.TurnStep
 import arcanum.engine.Engine
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
@@ -74,6 +75,23 @@ class SharedFlow(
             perform(Input.Answer(open.id, answer))
             autoPass(this)
         }
+    }
+
+    /**
+     * Answers the open division of combat damage with [shares] (null: the suggestion, I-D29), then the host's automatic
+     * passes through the steps ([CombatFlow.divide]): the damage is dealt and the game goes on to the next point where a
+     * player could act. A division a player gave early for the decision after it is applied on the way (I-D33).
+     * @throws IllegalArgumentException when no division is open or the engine refuses [shares] (nothing changes).
+     */
+    fun divide(shares: Map<MtgRef, Int>?): EngineCall = call().apply { CombatFlow.divide(this, shares) }
+
+    /** The open division of combat damage in ATW's terms, or null (also null for a division of a spell's damage). */
+    val division: DamageDivision? get() {
+        val d = decision as? Decision.Divide ?: return null
+        val combat = state.combat ?: return null
+        if (state.turn.step != TurnStep.CombatDamage || (combat.attackers.none { it.id == d.source } && combat.blockers.none { it.id == d.source }))
+            return null
+        return CombatFlow.division(view)
     }
 
     /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0). */

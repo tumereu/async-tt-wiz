@@ -145,7 +145,9 @@ object EngineState {
             turn = TurnState(board.turn.number.toInt(), PlayerId(board.turn.accountId), EngineCodec.step(position),
                 turnExtras.landsPlayed.takeIf { turnExtras.turn == null || turnExtras.turn == board.turn.number.toInt() } ?: emptyMap(), turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns),
             priority = board.priority?.let { PriorityState(it.holder?.let(::PlayerId), it.passes) } ?: PriorityState(null),
-            combat = records[EngineCodec.COMBAT]?.let { EngineCodec.decode(combatSerializer, it.data) } ?: lanes(board, ids),
+            // In the declare attackers step lanes without the engine's combat are a draft of the declaration (I3b)
+            combat = records[EngineCodec.COMBAT]?.let { EngineCodec.decode(combatSerializer, it.data) }
+                ?: lanes(board, ids).takeUnless { position == TurnPosition.DECLARE_ATTACKERS },
             ledger = records[EngineCodec.LEDGER]?.let { EngineCodec.decode(ledgerSerializer, it.data).toMutableMap() } ?: mutableMapOf(),
             log = log.toMutableList(),
             pending = records[Automatum.CONTINUATION_ID]?.let { TagCodec.of(state, definitions).decode(FlowRecord.serializer(), it.data).pending },
@@ -223,6 +225,7 @@ object EngineState {
             EngineRecordKind.DelayedTrigger -> "a delayed trigger Automatum recorded"
             EngineRecordKind.Continuation -> "Automatum's open choice"
             EngineRecordKind.Emblem -> "an emblem"
+            EngineRecordKind.PreAnswer -> "an early answer"
             else -> "what Automatum recorded about the game"
         }) {
             when (record.kind) {
@@ -234,6 +237,7 @@ object EngineState {
                 EngineRecordKind.Triggered -> EngineCodec.decode(triggeredSerializer, record.data)
                 EngineRecordKind.Continuation -> codec.decode(FlowRecord.serializer(), record.data)
                 EngineRecordKind.Emblem -> EngineCodec.emblem(record)
+                EngineRecordKind.PreAnswer -> PreAnswers.decode(record)
             }
         }
         for (entry in board.stackEffects) {

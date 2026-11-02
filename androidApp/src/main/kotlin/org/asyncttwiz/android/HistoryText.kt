@@ -430,6 +430,10 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 val owner = emblem.player?.let(::playerPrefix).orEmpty()
                 if (mtg.after == null) text("${owner}Emblem removed", "Emblem")
                 else text("${owner}Emblem → " + emblem.text.replace('\n', ' ').let { if (it.length > 48) it.take(48).trimEnd() + "…" else it }, "Emblem")
+            } ?: (mtg.after ?: mtg.before)?.takeIf { it.kind == EngineRecordKind.PreAnswer }?.let { early ->
+                // I-D33: a division (or another answer) given early, before its decision opened
+                val forWhom = early.player?.takeIf { it != event.author }?.let { " for ${historyPlayerName(it, usernames)}" }.orEmpty()
+                text(if (mtg.after == null) "Early answer withdrawn$forWhom" else "Answer given early$forWhom", "Early answer")
             } ?: text("Automatum records updated", "Automatum")
             is MtgAction.Restamp, is MtgAction.SetLedger -> text("Automatum records updated", "Automatum")
             MtgAction.ClearRecords -> text("Automatum data cleared", "Automatum")

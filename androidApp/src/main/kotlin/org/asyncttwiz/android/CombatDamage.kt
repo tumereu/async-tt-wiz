@@ -70,8 +70,18 @@ internal object CombatDamage {
      * All sources read the original P/T; marked damage accumulates within this invocation.
      * Unknown recipient numbers skip the whole dealer rather than publishing a partial assignment. */
     fun assign(play: PlayState, selected: Collection<String>, targetOnly: Boolean = false,
-        step: CombatDamageStep = CombatDamageStep.ALL): CombatDamageAssignment {
+        step: CombatDamageStep = CombatDamageStep.ALL,
+        computed: org.asyncttwiz.automatum.ComputedBoard? = null): CombatDamageAssignment {
         val board = play.board
+        // Automatum on (i12review #5, TBL-112, TBL-113): P/T and keywords as Automatum works them out; notes are only notes
+        fun hasKeyword(play: PlayState, card: PlayCard, keyword: String): Boolean = computed?.cards?.get(card.id)
+            ?.let { c -> c.keywords.any { it.equals(keyword, ignoreCase = true) } } ?: CombatDamage.hasKeyword(play, card, keyword)
+        fun dealsInStep(play: PlayState, card: PlayCard, step: CombatDamageStep): Boolean = when (step) {
+            CombatDamageStep.ALL -> true
+            CombatDamageStep.FIRST_STRIKE -> hasKeyword(play, card, "First strike") || hasKeyword(play, card, "Double strike")
+            CombatDamageStep.REGULAR -> !hasKeyword(play, card, "First strike") || hasKeyword(play, card, "Double strike")
+        }
+        fun effectiveCorner(card: PlayCard): String = computed?.cards?.get(card.id)?.corner ?: org.asyncttwiz.android.effectiveCorner(card)
         val cards = board.cards.associateBy { it.id }
         val damage = linkedMapOf<String, BigInteger>()
         val deathtouchDamage = mutableSetOf<String>()

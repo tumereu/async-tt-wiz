@@ -11,6 +11,8 @@ import arcanum.api.CardDefinition
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
 import arcanum.engine.state.LoggedChange
+import org.asyncttwiz.automatum.CombatFlow
+import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.automatum.ComputedBoard
 import org.asyncttwiz.automatum.EngineLog
 import org.asyncttwiz.automatum.HandPlays
@@ -19,6 +21,7 @@ import org.asyncttwiz.protocol.GameplayTree
 import org.asyncttwiz.protocol.MtgTag
 import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.SubmittedDefinition
+import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.storage.ParsedCard
 import java.util.concurrent.ConcurrentHashMap
 
@@ -117,6 +120,32 @@ internal object AutomatumBoards {
         return result
     }
 
+    private val combats = object : LinkedHashMap<IdentityKey, CombatShown>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<IdentityKey, CombatShown>?) = size > 8
+    }
+
+    /** What the table shows of combat on [play]'s board already worked out, if any. */
+    fun cachedCombat(play: PlayState): CombatShown? = synchronized(combats) { combats[IdentityKey(play.board)] }
+
+    /** What the table shows of combat on [play]'s board (I3: declarations, the damage preview, early divisions): kept
+     * for the latest boards; worked out now when not yet (blocking: a few engine calls). [CombatShown.NONE] outside
+     * combat or with Automatum off. [tags]: the history's tags (D33), read only when it has to be worked out. */
+    fun combat(play: PlayState, tags: () -> List<MtgTag?>): CombatShown {
+        if (!play.board.automatum || play.board.turn.let { TurnPosition.of(it) } !in COMBAT_STEPS) return CombatShown.NONE
+        cachedCombat(play)?.let { return it }
+        val result = try {
+            val definitions = definitions(play.definitions)
+            CombatFlow.shown(play, definitions, engineLog(play, definitions, tags()))
+        } catch (problem: Exception) {
+            AppLog.warn("automatum", "Couldn't work combat out: ${problem::class.java.simpleName}")
+            CombatShown.NONE
+        }
+        synchronized(combats) { combats[IdentityKey(play.board)] = result }
+        return result
+    }
+
+    private val COMBAT_STEPS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.COMBAT_DAMAGE)
+
     /** The game's event log readers (one per play, for the card data read so far): each history tag is read once. */
     private val decoders = object : LinkedHashMap<String, Pair<Set<String>, EngineLog.Decoder>>(4, .75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Set<String>, EngineLog.Decoder>>?) = size > 4
@@ -162,6 +191,7 @@ internal object AutomatumBoards {
         synchronized(boards) { boards.clear() }
         synchronized(plays) { plays.clear() }
         synchronized(flows) { flows.clear() }
+        synchronized(combats) { combats.clear() }
         synchronized(decoders) { decoders.clear() }
     }
 

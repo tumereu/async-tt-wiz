@@ -22,6 +22,7 @@ import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.CombatArea
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.PlayState
+import org.asyncttwiz.protocol.TurnPosition
 
 /** An attack as ATW's lanes hold it (CMB-012): the creature [cardId] attacks the planeswalker or battle card [target]
  * (its lane), or the defending player when null (as `CombatPair.attackTarget`). */
@@ -105,6 +106,35 @@ data class DamagePreview(
 }
 
 /**
+ * What the table shows of combat through the engine now (§3 I3 on today's lanes; the combat area redesign, I-D32, comes
+ * later):
+ *
+ * - [choices]: what may be declared now ([CombatFlow.choices]);
+ * - [preview]: the damage if every player passed from now on (I-D29, [CombatFlow.preview]), with the blocks the lanes
+ *   hold while blockers are still declared and each early division given ([PreAnswers]); worked out in the declare
+ *   blockers step, the first-strike damage step and while a division of combat damage is open, else null;
+ * - [alsoBlocks]: each blocker that blocks more than one attacker (CR 509.1a) and how many more: the lanes show it only
+ *   in the pair of the first;
+ * - [early]: the divisions of combat damage still to come in this step after the open one (CR 510.1c–d): their players
+ *   may answer them early (I-D33, [PreAnswers]);
+ * - [passing]: who holds priority with an empty Stack in combat once blockers are declared (the declare blockers step,
+ *   the first-strike damage step): their pass goes on to the (next) combat damage; null otherwise;
+ * - [firstStrikeStep]: the combat damage step now is the first-strike one (CR 510.4).
+ */
+data class CombatShown(
+    val choices: CombatChoices,
+    val preview: DamagePreview? = null,
+    val alsoBlocks: Map<String, Int> = emptyMap(),
+    val early: List<DamageDivision> = emptyList(),
+    val passing: String? = null,
+    val firstStrikeStep: Boolean = false,
+) {
+    companion object {
+        val NONE = CombatShown(CombatChoices.NONE)
+    }
+}
+
+/**
  * Combat through the engine (§3 I3, CR 506–511): ATW's lanes ↔ the engine's declarations, attack and block legality
  * with reasons, divisions of combat damage (I-D29) and the damage preview. Results come back to the lanes through
  * [EngineBatch] (one pair per attacker in its target's lane, blockers in the pair of the first attacker they block;
@@ -122,6 +152,49 @@ object CombatFlow {
             return CombatChoices.NONE.copy(unsupported = problem.reasons)
         }
         return choices(call)
+    }
+
+    /**
+     * What the table shows of combat on [play] now ([CombatShown]); [CombatShown.NONE] with Automatum off, outside combat
+     * or on a board the engine can't take over. Worked out with full information (I-D17, I-D27; the app shows only what
+     * each player may see). Never throws.
+     */
+    fun shown(play: PlayState, definitions: Map<String, CardDefinition>, log: List<LoggedChange>): CombatShown {
+        if (!play.board.automatum || TurnPosition.of(play.board.turn) !in COMBAT_POSITIONS) return CombatShown.NONE
+        return try {
+            shown(EngineCall(play, definitions, EngineState.flowViewer(play.board), log) { error("No randomness while looking") })
+        } catch (problem: Unsupported) {
+            CombatShown(CombatChoices.NONE.copy(unsupported = problem.reasons))
+        } catch (_: RuntimeException) {
+            CombatShown.NONE
+        }
+    }
+
+    /** Whether [board]'s combat runs through the engine: attackers were declared through it (its combat record is
+     * there), so it deals the combat damage itself. */
+    fun throughEngine(board: org.asyncttwiz.protocol.BoardState): Boolean = board.engineRecords.any { it.id == EngineCodec.COMBAT }
+
+    /** What the table shows of combat in [call]'s state now ([CombatShown]). */
+    fun shown(call: EngineCall): CombatShown {
+        val s = call.working
+        val choices = choices(call)
+        val open = division(call)
+        val firstStrike = firstStrikeStep(call)
+        val blocks = if (choices.declaring != null && !choices.attackers) lanes(call.state.board.combat).second else null
+        val previewed = !choices.attackers && (s.turn.step == TurnStep.DeclareBlockers || open != null || firstStrike)
+        val early = PreAnswers.of(call.state.board).filterIsInstance<PreAnswer.Division>()
+            .associate { d -> d.source.cardId to d.shares.associate { it.target to it.amount } }
+        val preview = if (!previewed) null else try { preview(call, blocks, early) } catch (_: RuntimeException) { null }
+        val coming = if (open == null) emptyList() else preview?.divisions.orEmpty().map { it.first }
+            .filter { it.source != open.source }.distinctBy { it.source }
+        val also = s.combat?.blockers.orEmpty().filter { it.attackers.size > 1 }
+            .associate { call.ids.atw((it.id as ObjectId.Card).card) to it.attackers.size - 1 }
+        val combat = s.combat
+        val passing = s.priority.holder?.value?.takeIf {
+            s.pending == null && s.stack.isEmpty() && combat != null && combat.attackers.isNotEmpty() &&
+                ((s.turn.step == TurnStep.DeclareBlockers && combat.blocksDecided) || firstStrike)
+        }
+        return CombatShown(choices, preview, also, coming, passing, firstStrike)
     }
 
     /** What may be declared in [call]'s state now. */
@@ -294,6 +367,7 @@ object CombatFlow {
     }
 
     private val COMBAT = setOf(TurnStep.DeclareAttackers, TurnStep.DeclareBlockers, TurnStep.CombatDamage)
+    private val COMBAT_POSITIONS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.COMBAT_DAMAGE)
 
     // ---- Inputs from lanes
 

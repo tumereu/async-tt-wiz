@@ -369,6 +369,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         .semantics { contentDescription = "Stack text marks ${indices.sorted().joinToString { (it + 1).toString() }}" })
                 }
             }
+            // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
+            toolkit?.combat?.ready(play)?.let { shown -> CombatPreviewMarks(play, shown, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds } }
             if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, { preview }, writable) { intent ->
                 if (intent is TableIntent.StackDestination) toolkit?.showStackBubbles(null)
                 callback?.invoke(intent)

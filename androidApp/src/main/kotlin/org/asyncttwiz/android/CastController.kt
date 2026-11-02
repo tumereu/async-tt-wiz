@@ -210,6 +210,13 @@ internal class CastController(
         return targetGlow(play, decision.options.map(f::ref))
     }
 
+    /** The Stack entries that are legal targets of the open question, top first (picked in Manage Stack). */
+    fun stackTargets(play: PlayState): List<String> {
+        val f = flow ?: return emptyList()
+        val decision = f.pending as? Decision.Targets ?: return emptyList()
+        return targetEntries(play, decision.options.map(f::ref))
+    }
+
     /**
      * The board the player acts on may have changed under the open cast (D32: the other player acted, an Undo): the cast
      * is worked out again on it, keeping the choices that still fit, the player's own mana tapping included while its
@@ -415,10 +422,20 @@ internal class CastController(
 }
 
 /** The table items that glow for the legal targets [refs] (I-D6): cards by id, a Graveyard or Exile pile holding one
- * (tapped, it opens to pick from, i12review #14), Stack entries by id, players by their life square. */
+ * (tapped, it opens to pick from, i12review #14), Stack entries by id, and the Stack itself when an entry below the top
+ * is one (tapped, Manage Stack opens to pick from), players by their life square. */
 internal fun targetGlow(play: PlayState, refs: List<MtgRef>): Set<String> = refs.flatMap { ref -> when (ref) {
     is MtgRef.Player -> listOf("life/${ref.accountId}")
     is MtgRef.Card -> listOf(ref.cardId) + listOfNotNull(play.board.cards.singleOrNull { it.id == ref.cardId }?.containerId
         ?.takeIf { id -> play.board.containers.any { it.id == id && it.zone in PublicPiles.zones } })
     is MtgRef.StackItem -> listOfNotNull(play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id)
-} }.toSet()
+} }.toSet() + listOfNotNull(CombatStackRules.stack(play.board).takeIf { stack ->
+    targetEntries(play, refs).any { it != stack.cards.firstOrNull() } }?.id)
+
+/** The Stack entries that are legal targets among [refs]: a spell by its card (its item's object), an ability by its
+ * item (I-D6), top first. */
+internal fun targetEntries(play: PlayState, refs: List<MtgRef>): List<String> {
+    val wanted = refs.filter { it !is MtgRef.Player }.toSet()
+    val entries = play.board.stackEffects.associateBy { it.id }
+    return CombatStackRules.stack(play.board).cards.filter { id -> entries[id]?.item?.id in wanted }
+}

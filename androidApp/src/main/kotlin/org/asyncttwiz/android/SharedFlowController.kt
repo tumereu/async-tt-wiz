@@ -94,6 +94,9 @@ internal class SharedFlowController(
         val flow = flowOf(play) ?: return false
         val open = flow.decision ?: return false
         if (open.id.value != shownDecision) { fail("The table changed: look at the choice again."); return false }
+        // A division of combat damage (I-D29): the damage is dealt and the game goes on through the steps (I3)
+        if (answer is Answer.Division && flow.division != null)
+            return sendCall(play) { flow.divide(answer.shares.associate { flow.ref(it.target) to it.amount }) }
         return sendCall(play) { flow.answer(answer) }
     }
 
@@ -120,6 +123,13 @@ internal class SharedFlowController(
         val flow = view ?: return emptySet()
         val decision = answering as? Decision.Targets ?: return emptySet()
         return targetGlow(play, decision.options.map(flow::ref))
+    }
+
+    /** The Stack entries that are legal targets of the open decision the viewer answers, top first. */
+    fun stackTargets(play: PlayState): List<String> {
+        val flow = view ?: return emptyList()
+        val decision = answering as? Decision.Targets ?: return emptyList()
+        return targetEntries(play, decision.options.map(flow::ref))
     }
 
     override val engine: GameState get() = view!!.state

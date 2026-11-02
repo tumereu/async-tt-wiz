@@ -18,7 +18,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ParsedCard
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -156,8 +155,7 @@ class AutomatumI12ReviewTest {
     }
 
     // i12review #5 (CMB-024 "using current … P/T", TBL-112): with Automatum on the attacker shows its computed 4/4 (printed
-    // 2/2 with two +1/+1 counters), but "Deal combat damage" deals the hand-set corner's 2
-    @Ignore("i12review #5: combat damage ignores the computed P/T")
+    // 2/2 with two +1/+1 counters), and "Deal combat damage" on a combat declared by hand deals that 4, not the hand-set 2
     @Test fun combatDamageUsesTheComputedPowerToughness() {
         val fixture = CombatDamageFixture(attackers = listOf("2/2"))
         val face = DefinitionFace(TableToolFixture.id(25), "Combatant", typeLine = "Creature — Bear", power = "2", toughness = "2")

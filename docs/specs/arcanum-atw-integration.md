@@ -161,6 +161,19 @@ out of anything stuck.
   being arranged) and `firstStrikeStep`. `HostPriority` keeps priority as the engine left it (a holder other than the
   active player on an empty Stack without passes is taken as left from a turn changed by hand). `SharedFlow.autoPass`
   (I2b) still stops on an empty Stack; the app moves to `StepFlow` when it runs the steps through the engine.
+- **Built (I3b, drags, interim combat, pre-events):** drags are engine actions (I-D36, `AutomatumDrags`): a hand card onto
+  the Battlefield or Stack plays or casts it, a creature into the combat area joins the declaration's draft, moving within
+  its own Battlefield or hand stays, other drags and life drags are refused (menus keep their manual moves until I4).
+  Combat on today's lanes (I-D32 deferred): while a declaration is awaited the lanes are its draft (`EngineState.from`
+  reads lanes without the engine's combat record in the declare attackers step as undeclared); Attack/Block declare them
+  through `CombatFlow`, "Deal damage" is the priority holder's pass; `CombatFlow.shown` gives the damage preview (also of
+  blocks being arranged), "+N" for a blocker of several attackers and the divisions still to come. Divisions are the shared
+  flow's choice, pre-filled with the suggestion, answered through `CombatFlow.divide`. Pre-events (I-D33, `PreAnswers`):
+  an early answer is an engine record of its own kind (`EngineRecordKind.PreAnswer`, not part of the planned board's
+  digest) set by an ordinary event; `EngineCall` applies it when its decision opens and every automated batch removes it.
+  A combat declared by hand is dealt with the engine's P/T and keywords (i12review #5). A Stack entry below the top is
+  picked as a target in Manage Stack. Catalog: ZON-077, TRN-031, CMB-017/018/020/022/025, CMB-028–CMB-030, STK-015,
+  STK-023, STK-033, STK-034, TBL-051.
 
 ### I4 — Automatum-only controls
 

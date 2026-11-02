@@ -1,0 +1,49 @@
+package org.asyncttwiz.android
+
+import org.asyncttwiz.protocol.*
+
+/**
+ * What a drag means with Automatum on (integration spec I-D36, I-D28): the engine action it stands for, or a refusal
+ * with the reason. Life and zone moves by hand are refused while Automatum is on; only moving a card within its own
+ * Battlefield or hand, which changes nothing Automatum reads, stays as it is.
+ */
+internal object AutomatumDrags {
+    sealed interface Route {
+        /** A hand card onto the Battlefield or the Stack: played (a land) or cast through the engine (ZON-004). */
+        data object Cast : Route
+        /** Within its own Battlefield or hand: only its place changes. */
+        data object Place : Route
+        /** Into the combat area: the draft of the declaration the engine awaits ([CombatController.draftRefusal]). */
+        data object Combat : Route
+        /** A combat copy dragged out of the lanes onto the Battlefield: it leaves the draft. */
+        data object LeaveDraft : Route
+        data class Refused(val reason: String) : Route
+    }
+
+    fun route(play: PlayState, intent: TableIntent.Move): Route {
+        val board = play.board
+        val ids = intent.scope.cardIds.ifEmpty { listOf(intent.scope.contextId) }
+        if (ids.any { it in CombatStackRules.stack(board).cards }) return Route.Refused(STACK)
+        val destination = intent.destination
+        if (destination is TableDestination.Combat) return Route.Combat
+        val target = when (destination) {
+            is TableDestination.Container -> board.containers.singleOrNull { it.id == destination.id }
+            is TableDestination.Grid -> board.containers.singleOrNull { it.id == destination.containerId }
+            is TableDestination.CardPile -> board.cards.singleOrNull { it.id == destination.cardId }
+                ?.let { card -> board.containers.singleOrNull { it.id == card.containerId } }
+            is TableDestination.Combat -> null
+        } ?: return Route.Refused(MANUAL_MOVE)
+        if (ids.any { id -> CombatStackRules.occurrences(board.combat).any { it.id == id } })
+            return if (target.zone == PlayZone.BATTLEFIELD) Route.LeaveDraft else Route.Refused(MANUAL_MOVE)
+        val from = ids.map { id -> board.cards.singleOrNull { it.id == id }?.containerId
+            ?.let { c -> board.containers.singleOrNull { it.id == c } } ?: return Route.Refused(MANUAL_MOVE) }
+        if (from.all { it.zone == PlayZone.HAND } && target.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.STACK)) return Route.Cast
+        if (from.all { it.id == target.id } && target.zone in setOf(PlayZone.BATTLEFIELD, PlayZone.HAND)) return Route.Place
+        return Route.Refused(MANUAL_MOVE)
+    }
+
+    const val MANUAL_MOVE = "With Automatum on, cards move only by the rules. Switch Automatum off to move them by hand."
+    const val STACK = "Automatum resolves the Stack: let it resolve, or switch Automatum off to move it by hand."
+    const val LIFE = "With Automatum on, life changes only by the rules. Switch Automatum off to change it by hand."
+    const val ONE_AT_A_TIME = "Cast or play one card at a time."
+}

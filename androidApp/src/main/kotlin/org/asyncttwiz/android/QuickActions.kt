@@ -29,7 +29,9 @@ data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: 
     val combatAreaId: String? = null,
     val playable: Boolean = true, val viewer: String? = null,
     /** [CombatDamage.recentDamageEdits] on the shown path; only read at Combat damage. */
-    val combatDamageEdits: Int = 0)
+    val combatDamageEdits: Int = 0,
+    /** Automatum on (I3): what the engine allows in combat now, once worked out ([automatumCombatQuickActions]). */
+    val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null)
 /** A disabled action stays in place, greyed and inert. */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
     val enabled: Boolean = true)
@@ -61,6 +63,9 @@ object QuickActions {
         val turnPlayer = context.viewer == play.board.turn.accountId
         // Turn numbers count both players' turns, so "1" is only the starting player's first turn: no draw.
         val firstTurn = play.board.turn.number == "1"
+        // Automatum on (I3): combat goes through the engine; its own offerings replace the manual ones
+        val automatumCombat = automatumCombatQuickActions(play, context, scope)
+        if (automatumCombat != null) return result.apply { addAll(automatumCombat) }
         // The starting player's turn-1 shortcuts wait until neither player is still mulliganing.
         if (turnPlayer && !(firstTurn && PlayerStatus.anyOpening(play.board))) when (TurnPosition.of(play.board.turn)) {
             TurnPosition.UNTAP -> {

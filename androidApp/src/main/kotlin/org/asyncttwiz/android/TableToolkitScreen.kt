@@ -29,7 +29,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
-    val context = toolkitQuickContext(play, selection, toolkit.viewer)
+    val context = toolkitQuickContext(play, selection, toolkit.viewer).copy(automatumCombat = toolkit.combat.ready(play))
     val bound = toolkit.capture
     val popup = toolkit.popupItem
     fun editProjectionNote(id: String) {
@@ -56,7 +56,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             } }
         }
         "manageStack" -> ManageStackDialog(play, toolkit.viewer, enabled, toolkit::dismiss,
-            perform = { toolkit.handle(it) }, editNote = { id -> toolkit.manual.projectionNote(play, id, toolkit.viewer) })
+            perform = { toolkit.handle(it) }, editNote = { id -> toolkit.manual.projectionNote(play, id, toolkit.viewer) },
+            targets = if (toolkit.stackTargeting) toolkit.stackTargets(play) else null, pickTarget = toolkit::pickStackTarget)
         "table" -> {
             val suggestion = accepted?.board?.resultSuggestion
             TableActionMenu(play, toolkit.viewer, context, toolkit.table, endingColor, toolkit::dismiss,
@@ -120,6 +121,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     CastPanelHost(toolkit, play, scene, names)
     // Automatum (I2b): priority, resolution and trigger choices by the Stack
     SharedFlowHost(toolkit, play, scene, names)
+    // Automatum (I3): what combat allows and would do on this board, worked out in the background
+    AutomatumCombatHost(toolkit, play)
 }
 
 internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, viewer: String? = null): QuickContext = QuickContext(

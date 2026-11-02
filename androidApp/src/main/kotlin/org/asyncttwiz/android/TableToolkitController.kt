@@ -35,6 +35,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it })
+    /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
+    internal val combat = CombatController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, { submit(it) }, ::engineTags,
+        { error = it }, automatumWork)
     /** What the viewer may cast or play from their hand now (I-D28). */
     fun handPlays(play: PlayState): org.asyncttwiz.automatum.HandPlays = AutomatumBoards.handPlays(play, viewer, ::engineTags)
     val manual = ManualActions()
@@ -201,7 +204,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return true
     }
 
-    fun dismiss() { panel = null; library = null; manual.close(); capture = null; popupItem = null }
+    fun dismiss() { panel = null; library = null; manual.close(); capture = null; popupItem = null; stackTargeting = false }
     internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
         manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
         tokens.showingCatalog || tokens.showingLinks
@@ -258,6 +261,20 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return submit(PlayAction.Mtg(MtgAction.SetAutomatum(on)))
     }
     fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
+    /** Manage Stack is open to pick a target from (an entry below the top, I-D6). */
+    var stackTargeting by mutableStateOf(false); private set
+    /** The Stack entries the open cast or choice may target now, top first; empty when none. */
+    fun stackTargets(play: PlayState): List<String> = if (cast.targeting) cast.stackTargets(play)
+        else if (flows.targeting) flows.stackTargets(play) else emptyList()
+    /** Picks the Stack entry [entryId] as a target in Manage Stack; the panel closes once picked. */
+    fun pickStackTarget(entryId: String) {
+        val play = current() ?: return
+        val entry = play.board.stackEffects.singleOrNull { it.id == entryId } ?: return
+        val item = TableItem("card/$entryId", TableBounds(0f, 0f, 0f, 0f), "Stack entry", "", zone = PlayZone.STACK,
+            kind = TableItemKind.CARD, cardId = entryId, sourceId = entry.sourceId)
+        if (cast.targeting) cast.tapTarget(item) else flows.tapTarget(item)
+        dismiss()
+    }
 
     /** Open information is a personal route, not a shared View/Reveal reference display.
      * [toggle] closes the pile's panel when it is already open; the pile menu's Search and the
@@ -334,6 +351,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 item.id in cast.glow(play) + flows.glow(play)) {
                 openPublicPile(item.id, toggle = false); targetPile = item.id
                 layoutState.value = layoutState.value.copy(localPileTargets = true)
+                return
+            }
+            // An entry below the top of the Stack is a legal target: Manage Stack opens to pick it from
+            if (play != null && item.zone == PlayZone.STACK && CombatStackRules.stack(play.board).id in cast.glow(play) + flows.glow(play)) {
+                stackContents(); stackTargeting = true
                 return
             }
             if (cast.targeting) cast.tapTarget(item) else flows.tapTarget(item)
@@ -600,6 +622,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun handle(intent: TableIntent): Boolean {
         // Automatum on (I2a, ZON-004): a hand double-tap casts (or plays, a land) through the engine
         if (intent is TableIntent.Move && intent.handDoubleTap && current()?.board?.automatum == true) return cast.start(intent.scope.contextId)
+        // Automatum on (I-D36, I-D28): a drag is the engine action it means, or refused with the reason
+        if (intent is TableIntent.Move && intent.drag && current()?.board?.automatum == true) return automatumDrag(intent)
+        if (intent is TableIntent.PlayerDelta && intent.color == null && current()?.board?.automatum == true) {
+            error = AutomatumDrags.LIFE; return false
+        }
         if (intent is TableIntent.Batch) return batchResult(intent.invocationId) {
             intent.intents.all { handle(it) }
         }
@@ -613,6 +640,36 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             handleOne(intent)
         } else handleOne(intent)
     }
+    /**
+     * A drag with Automatum on (I-D36): a hand card dropped on the Battlefield or the Stack is played or cast (the cast
+     * panel, as a double-tap, ZON-004); a creature dropped into the combat area joins the draft of the declaration the
+     * engine awaits ([CombatController.draftRefusal]); a card moved within its own Battlefield or hand only changes its
+     * place. Everything else would change the game by hand and is refused with the reason (I-D28).
+     */
+    private fun automatumDrag(intent: TableIntent.Move): Boolean {
+        val play = current()?.takeIf { enabled() } ?: return false
+        when (val route = AutomatumDrags.route(play, intent)) {
+            AutomatumDrags.Route.Cast -> {
+                if (intent.scope.cardIds.distinct().size > 1) { error = AutomatumDrags.ONE_AT_A_TIME; return false }
+                return cast.start(intent.scope.contextId)
+            }
+            AutomatumDrags.Route.Place -> return handle(intent.copy(drag = false))
+            AutomatumDrags.Route.Combat -> {
+                val destination = (intent.destination as TableDestination.Combat).destination
+                val bound = bind(intent.scope, intent.sources) ?: return false
+                combat.draftRefusal(play, bound.sourceIds, destination.role, destination.pairId, destination.attackTarget)
+                    ?.let { error = it; return false }
+                return handle(intent.copy(drag = false))
+            }
+            AutomatumDrags.Route.LeaveDraft -> {
+                val bound = bind(intent.scope, intent.sources) ?: return false
+                if (combat.shown(play).choices.declaring == null) { error = AutomatumDrags.MANUAL_MOVE; return false }
+                return removeOccurrences(bound)
+            }
+            is AutomatumDrags.Route.Refused -> { error = route.reason; return false }
+        }
+    }
+
     private fun handleOne(intent: TableIntent): Boolean {
         return when (intent) {
             is TableIntent.StackBubbles -> { showStackBubbles(intent.entryId); true }
@@ -661,6 +718,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         }
     }
     fun perform(intent: TableActionIntent): Boolean {
+        // Automatum on (I3): declarations and passing on to the damage are engine calls of their own
+        if (intent is TableActionIntent.Combat && (intent.tool == CombatTool.AUTOMATUM_DECLARE || intent.tool == CombatTool.AUTOMATUM_PASS)) {
+            if (!table.enabled(intent.scope)) return false
+            if (cast.open) { error = CastController.BUSY; return false }
+            return (if (intent.tool == CombatTool.AUTOMATUM_DECLARE) combat.declare() else combat.pass()).also {
+                if (it) selectionState.value = TableSelection()
+            }
+        }
         // Experimental damage shortcuts return their whole-batch success, not the void route receipt.
         if (intent is TableActionIntent.Combat && intent.tool in combatDamageTools) {
             if (!table.enabled(intent.scope)) return false
@@ -716,6 +781,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
             CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE, CombatTool.REGULAR_DAMAGE,
             CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
+            CombatTool.AUTOMATUM_DECLARE -> combat.declare()
+            CombatTool.AUTOMATUM_PASS -> combat.pass()
         }
     }
     /** Declare blockers, then Combat damage, as two separate invocations (two undo steps, two events). */
@@ -755,7 +822,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     internal fun dealCombatDamage(ids: List<String>, targetOnly: Boolean = false,
         step: CombatDamageStep = CombatDamageStep.ALL, areaId: String?): Boolean {
         val play = current()?.takeIf { enabled() && it.board.combat?.id == areaId } ?: return false
-        val assignment = CombatDamage.assign(play, ids, targetOnly, step)
+        // Automatum on (I3): a combat declared through Automatum gets its damage from Automatum; one declared by hand
+        // is dealt with the values Automatum works out (P/T and keywords, i12review #5), not the hand-set ones
+        if (play.board.automatum && org.asyncttwiz.automatum.CombatFlow.throughEngine(play.board)) {
+            error = CombatController.DAMAGE_BY_AUTOMATUM; return false
+        }
+        val computed = if (play.board.automatum) AutomatumBoards.compute(play, viewer).takeIf { it.unsupported.isEmpty() } else null
+        val assignment = CombatDamage.assign(play, ids, targetOnly, step, computed)
         val sent = batchResult { assignment.actions.all { submit(it) } }
         if (sent && assignment.notes.isNotEmpty()) error = assignment.notes.joinToString("\n")
         return sent
@@ -765,6 +838,17 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val eligible = ids.distinct().filter { id -> play.board.cards.any { card -> card.id == id &&
             play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } } }
         if (eligible.isEmpty()) return@batchResult false
+        // Automatum on (I3): Declare puts them into the draft in the lanes, only as the engine allows; attacking taps
+        // them when the attack is declared (CR 508.1f)
+        if (play.board.automatum) {
+            combat.draftRefusal(play, eligible, CombatRole.ATTACKER, null, null)?.let { error = it; return@batchResult false }
+            if (current()?.board?.combat == null) submit(PlayAction.Combat(CombatAction.Open))
+            val area = current()?.board?.combat?.id ?: return@batchResult false
+            var drafted = false
+            eligible.forEach { drafted = submit(PlayAction.Combat(CombatAction.Declare(area, it))) || drafted }
+            if (drafted) selectionState.value = selectionState.value.afterDeclare()
+            return@batchResult drafted
+        }
         // Taps first: a tap group folds the following declarations into one history group.
         if (tap) eligible.forEach { submit(PlayAction.SetTapped(it, true)) }
         if (current()?.board?.combat == null) submit(PlayAction.Combat(CombatAction.Open))

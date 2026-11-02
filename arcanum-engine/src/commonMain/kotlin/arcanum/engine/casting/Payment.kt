@@ -271,7 +271,9 @@ internal object Payment {
                 if (part.random) refuse("Random discards as a cost aren't supported yet")
                 val ids = objects(part.what)
                 check(ids, Zone.Hand)
-                move(ids, Zone.Graveyard, listOf(Meaning.Discarded), part.preBind, part.postBind)
+                // CR 702.29c: discarding the card to pay a cycling (or typecycling) cost is cycling it
+                val cycled = part.what == CostObjects.Self && plan.keyword().let { it is Keyword.Cycling || it is Keyword.Typecycling }
+                move(ids, Zone.Graveyard, listOf(Meaning.Discarded) + listOfNotNull(Meaning.Cycled.takeIf { cycled }), part.preBind, part.postBind)
             }
             is CostPart.Exile -> {
                 val ids = objects(part.what)

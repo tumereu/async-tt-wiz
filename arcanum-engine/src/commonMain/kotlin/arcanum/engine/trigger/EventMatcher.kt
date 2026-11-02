@@ -147,9 +147,22 @@ internal object EventMatcher {
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player), amount = it.results.sum())) }.orEmpty()
         is EventPattern.FlipCoin -> ((change as? Change.Happened)?.event as? GameEvent.CoinFlipped)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
-        // Cycling, day/night, crewing, saddling and expending aren't tagged yet.
-        is EventPattern.Cycle, is EventPattern.DayNightChanges, is EventPattern.Crewed, is EventPattern.Saddled,
-        is EventPattern.Expend -> emptyList()
+        // CR 702.29c: the card discarded to pay a cycling cost, seen as it was in the hand
+        is EventPattern.Cycle -> moves(change).filter {
+            Meaning.Cycled in it.meanings && e.matches(pattern.players, it.before.owner) &&
+                (e.matches(pattern.cards, it.before.id) || e.matches(pattern.cards, it.after.id))
+        }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
+        // CR 702.122e: "becomes crewed" is a crew ability of it resolving
+        is EventPattern.Crewed -> (change as? Change.StackItemRemoved)?.takeIf { Meaning.Resolved in it.meanings }?.item
+            ?.takeIf { it.kind == arcanum.engine.state.StackItemKind.Activated }?.let { item ->
+                val vehicle = item.source ?: return@let null
+                val expansion = item.origin as? arcanum.engine.view.AbilityOrigin.Expansion ?: return@let null
+                val keyword = e.characteristics(vehicle)?.abilities?.firstOrNull { it.origin == expansion.keyword }?.ability
+                if (keyword is arcanum.api.Keyword.Crew && e.matches(pattern.objects, vehicle))
+                    listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(vehicle))), listOf(item.controller))) else null
+            }.orEmpty()
+        // Day/night, saddling and expending aren't tagged yet.
+        is EventPattern.DayNightChanges, is EventPattern.Saddled, is EventPattern.Expend -> emptyList()
     }
 
     /** A spell's cast event (CR 601.2i): the Stack item of a cast spell put on the Stack, tagged [Meaning.Cast]. */

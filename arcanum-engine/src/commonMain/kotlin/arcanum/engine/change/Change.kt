@@ -416,6 +416,8 @@ sealed interface Meaning {
     @Serializable @SerialName("destroyed") data object Destroyed : Meaning
     @Serializable @SerialName("sacrificed") data object Sacrificed : Meaning
     @Serializable @SerialName("discarded") data object Discarded : Meaning
+    /** A card discarded to pay the cost of a cycling ability: it was cycled (CR 702.29c, 702.29f). */
+    @Serializable @SerialName("cycled") data object Cycled : Meaning
     @Serializable @SerialName("drew") data object Drew : Meaning
     @Serializable @SerialName("milled") data object Milled : Meaning
     @Serializable @SerialName("exiled") data object Exiled : Meaning

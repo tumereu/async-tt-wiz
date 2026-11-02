@@ -279,6 +279,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         }
     }
 
+    /** The keyword whose expansion this activated ability is (cycling, crew), as the source is now. */
+    fun keyword(): Keyword? {
+        val expansion = origin as? AbilityOrigin.Expansion ?: return null
+        return snap.view[sourceId]?.characteristics?.abilities?.firstOrNull { it.origin == expansion.keyword }?.ability as? Keyword
+    }
+
     private fun snap0Face() = plain.state.obj(itemId)?.let { o -> o.definition?.faces?.getOrNull(o.face) }
 
     /** Cost changes that apply (CR 601.2f): from the game's rules and the ability's own (CR 602.2b). */

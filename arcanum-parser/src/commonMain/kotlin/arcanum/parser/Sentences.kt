@@ -2696,7 +2696,10 @@ internal class Sentences(
     private fun itCondition(text: String, context: Context): arcanum.api.Condition? {
         // blb chunk 02: "that creature isn't legendary", "that creature is a Bird, Frog, Otter, or Rat"
         Blb.IT_IS.matchEntire(text)?.let { m ->
-            val it = context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+            // blb chunk 13: "that creature" after a target names the target, not the trigger's event object
+            val event = context.it is Objects.EventObject
+            val it = (if (text.startsWith("that creature ") && event) target ?: context.it else context.it ?: target) ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
             return arcanum.api.Condition.ObjectMatches(it, if (m.groupValues[1] == "is") filter else ObjectFilter.Not(filter))
         }
@@ -2970,10 +2973,10 @@ internal class Sentences(
         return ManaKind.Choose(Value.Fixed(1), colors.map { ColorRef.Literal(it) })
     }
 
-    /** chunk 26: "+1", "-X" in "gets +1/+1": X of the spell, or of the permanent's spell (CR 107.3a, 107.3m). */
     /** blb chunk 11: "+X" defined by the ability's own "where X is" (replaced as the instructions are read). */
     private fun xOrChange(text: String): Value? = if (text == "+X") Value.Announced(name = "X") else ptChange(text)
 
+    /** chunk 26: "+1", "-X" in "gets +1/+1": X of the spell, or of the permanent's spell (CR 107.3a, 107.3m). */
     private fun ptChange(text: String): Value? {
         val x = if (isSpell || announcedX) Value.Announced(name = "X") else Value.CastX(of = Objects.Self)
         return when (text) {

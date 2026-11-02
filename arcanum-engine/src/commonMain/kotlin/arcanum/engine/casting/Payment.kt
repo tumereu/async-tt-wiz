@@ -89,6 +89,10 @@ internal object Payment {
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
         total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
+        // blb: each forage paid (its parts' keys carry it, Costs.total) is a forage (CR 701.61a)
+        total.parts.mapNotNull { kp -> kp.key.substringBefore(Costs.FORAGE, "").takeIf { it.isNotEmpty() } }.distinct().forEach {
+            recorder.record(Change.Happened(GameEvent.Foraged(plan.player)))
+        }
         val names = Bindings(bound)
         return when {
             plan.isManaAbility -> finishManaAbility(recorder, plan, names)
@@ -360,6 +364,10 @@ internal object Payment {
             alternative = alternativePaid(plan),
             modesChosen = (o.facts.modesChosen + plan.choices.modes).distinct(),
             paidWith = Bindings(paidWith.map { (way, ids) -> way.toString() to NamedValue.Objects(ids) as NamedValue }.toMap()),
+            // blb: the opponent chosen for a gift (CR 702.174a)
+            chosenPlayer = plan.total.parts.firstNotNullOfOrNull { kp ->
+                (plan.choices.names[Plan.PLAYER + kp.key] as? NamedValue.Players)?.ids?.firstOrNull()?.takeIf { kp.part is CostPart.ChoosePlayer }
+            },
         )
         if (facts != o.facts) recorder.record(Change.Facts(id, o.facts, facts))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
@@ -373,6 +381,13 @@ internal object Payment {
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
+            // blb: what the permission gives a spell cast with it ("that creature enters with a finality counter", CR 400.7d)
+            if (permission.spellGets.isNotEmpty()) recorder.record(Changes.effect(recorder.state) { t ->
+                val next = (id as? ObjectId.Card)?.next()
+                EffectObject(EffectId("permission:$id"), permission.spellGets, affects = null, locked = listOfNotNull(id, next), source = null,
+                    controller = plan.player, timestamp = t, createdTurn = s.turn.number, duration = Duration.Indefinitely,
+                    names = Bindings(mapOf(arcanum.engine.resolution.Effects.FOLLOWS_SPELL to NamedValue.Objects(listOfNotNull(id, next)))))
+            })
         }
         // CR 106.6a: mana that gives the spell something
         spent.filter { it.spellGets.isNotEmpty() }.forEachIndexed { i, unit ->

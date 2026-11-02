@@ -249,6 +249,11 @@ internal object Events {
     /** One or more events of one trigger ("this artifact enters or leaves the battlefield", "attacks or blocks"). */
     // chunk 21
     fun events(text: String, self: Set<String>): List<EventPattern>? {
+        // blb chunk 03: "this artifact enters and when you sacrifice it" (only its controller sacrifices it, CR 701.21a)
+        ENTERS_AND_WHEN_YOU_SACRIFICE_IT.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Sacrifice(subject))
+        }
         ENTERS_OR_LEAVES.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             val second = if (m.groupValues[2] == "leaves the battlefield") EventPattern.ZoneChange(subject, from = Zone.Battlefield)
@@ -348,6 +353,8 @@ internal object Events {
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
         // blb chunk 02: CR 702.174c
         if (text == "you give a gift") return EventPattern.GiveGift(PlayerFilter.You)
+        // blb chunk 03: CR 701.61a
+        if (text == "you forage") return EventPattern.Forage(PlayerFilter.You)
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
             val by = when (m.groupValues[2]) {
@@ -470,6 +477,8 @@ internal object Events {
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
     // blb chunk 01
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
+    // blb chunk 03
+    private val ENTERS_AND_WHEN_YOU_SACRIFICE_IT = Regex("""(.+) enters and when you sacrifice it""")
 }
 
 /** Conditions ("if you control seven or more lands with different names"). */
@@ -591,6 +600,22 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // blb chunk 03: "A or if B"
+        OR_IF.matchEntire(text)?.let { m ->
+            val first = condition(m.groupValues[1], self) ?: return null
+            val second = condition(m.groupValues[2], self) ?: return null
+            return Condition.Or(listOf(first, second))
+        }
+        // blb chunk 03: "three or more cards left your graveyard this turn": each card counts (CR 400.7)
+        N_LEFT_YOUR_GRAVEYARD_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[2]) ?: return null,
+                ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = Numbers.count(m.groupValues[1]) ?: return null, measure = Measure.Objects)
+        }
+        // blb chunk 03: "you've sacrificed a Food this turn"
+        SACRIFICED_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.Sacrifice(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
+        }
         // blb chunk 02: "the gift was promised" (CR 702.174k)
         if (text == "the gift was promised") return Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self)
         if (text == "the gift wasn't promised") return Condition.Not(Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self))
@@ -636,6 +661,10 @@ internal object Conditions {
     // chunk 36
     private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // blb chunk 03
+    private val OR_IF = Regex("""(.+?) or if (.+)""")
+    private val N_LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""(\w+) or more (.+) left your graveyard this turn""")
+    private val SACRIFICED_THIS_TURN = Regex("""you've sacrificed an? (.+) this turn""")
     // chunk 56
     private val CONTROL_N_OR_MORE_PHRASE = Regex("""you control (\w+) or more (.+)""")
 }
@@ -701,6 +730,12 @@ internal object Counters {
             "level" -> arcanum.api.CounterKind.Level
             "stun" -> arcanum.api.CounterKind.Stun
             "shield" -> arcanum.api.CounterKind.Shield
+            // blb chunk 03: counters with rules meaning (CR 122.1)
+            "finality" -> arcanum.api.CounterKind.Finality
+            "lore" -> arcanum.api.CounterKind.Lore
+            "defense" -> arcanum.api.CounterKind.Defense
+            "rad" -> arcanum.api.CounterKind.Rad
+            "hone" -> arcanum.api.CounterKind.Hone
             else -> if (text.all { it.isLetter() }) arcanum.api.CounterKind.Named(text) else null
         }
     }

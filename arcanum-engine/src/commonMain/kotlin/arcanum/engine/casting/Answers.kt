@@ -86,6 +86,11 @@ internal object Answers {
                 c.copy(names = c.names.with(q.key, NamedValue.Colors(before + color)))
             }
             is Question.Pay -> refuse("Mana is paid when the cast finishes")
+            is Question.Player -> {
+                val chosen = (answer as? Answer.Player)?.player ?: refuse("Expected a player")
+                if (chosen !in q.among) refuse("Not a player to choose: $chosen")
+                c.copy(names = c.names.with(Plan.PLAYER + q.key, NamedValue.Players(listOf(chosen))))
+            }
         }
     }
 
@@ -101,6 +106,8 @@ internal object Answers {
             if (ch.total == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
         }
         is Question.Target -> if (q.options.isEmpty() && q.min == 0) Answer.Targets(emptyList()) else null
+        // blb: the only opponent there is (CR 702.174a, two players)
+        is Question.Player -> q.among.singleOrNull()?.let { Answer.Player(it) }
         else -> null
     }
 

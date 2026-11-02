@@ -91,7 +91,8 @@ internal object Costs {
                 (scope.self?.let { state.obj(it)?.counters(CounterKind.Loyalty) } ?: 0) >= -scope.value(part.amount)
             is CostPart.Mill -> state.player(payer).library.size >= scope.value(part.count)
             is CostPart.OneOf -> part.options.any { canPay(scope, payer, it) }
-            is CostPart.Action -> true
+            // blb: forage can be paid when one of its two ways can (CR 701.61a)
+            is CostPart.Action -> if (part.action == arcanum.api.KeywordAction.Forage) canPay(scope, payer, arcanum.engine.casting.Costs.forage) else true
             is CostPart.ChoosePlayer -> state.players.any { scope.eval().matches(part.filter, it.id) }
         }
     }

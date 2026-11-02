@@ -1004,6 +1004,11 @@ internal object Effects {
             }
             // CR 701.39b: put a +1/+1 counter on each of up to N other target creatures
             is KeywordAction.Support -> act.manual(scope.actor, scope.self, "Support ${scope.value(action.count)}")
+            // blb: CR 701.61a: exile three cards from your graveyard or sacrifice a Food; nothing if neither can be done
+            KeywordAction.Forage -> if (Costs.canPay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))) {
+                Costs.pay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))
+                act.record(Change.Happened(GameEvent.Foraged(scope.actor)))
+            }
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
     }

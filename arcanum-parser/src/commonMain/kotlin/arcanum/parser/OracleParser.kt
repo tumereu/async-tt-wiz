@@ -249,7 +249,12 @@ object OracleParser {
         // (CR 702.74a, 702.138a): a cost that isn't only mana.
         DASH_COST.matchEntire(part)?.let { m ->
             val cost = Sentences(setOf("this card")).cost(m.groupValues[2]) ?: return null
-            return if (m.groupValues[1] == "Evoke") Keyword.Evoke(cost) else Keyword.Escape(cost)
+            return when (m.groupValues[1]) {
+                "Evoke" -> Keyword.Evoke(cost)
+                // blb chunk 03: "Ward—Sacrifice a Food.", "Ward—Pay 2 life." (CR 702.21a)
+                "Ward" -> Keyword.Ward(cost)
+                else -> Keyword.Escape(cost)
+            }
         }
         // chunk 40: "Forestwalk", "Islandwalk" (CR 702.14a): a land type, then "walk"
         LANDWALK.matchEntire(part)?.let { m ->
@@ -304,7 +309,7 @@ object OracleParser {
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
     // chunk 30
     private val AFFINITY = Regex("""Affinity for (\w+)""")
-    private val DASH_COST = Regex("""(Evoke|Escape)—(.+?)\.?""")
+    private val DASH_COST = Regex("""(Evoke|Escape|Ward)—(.+?)\.?""")
     // chunk 40
     private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
     // chunk 45

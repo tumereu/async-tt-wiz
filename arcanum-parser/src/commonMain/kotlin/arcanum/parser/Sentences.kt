@@ -790,6 +790,11 @@ internal class Sentences(
         if (events == "you attack")
             return arcanum.api.Trigger.On(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true) to onlyIf
         // chunks 36, 47: "you discard one or more cards", "… nonland cards": once for the batch
+        // blb chunk 03: "you sacrifice one or more Foods": once for the batch (only a permanent's controller sacrifices it)
+        Blb.YOU_SACRIFICE_ONE_OR_MORE.matchEntire(events)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.Sacrifice(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true) to onlyIf
+        }
         YOU_DISCARD_ONE_OR_MORE.matchEntire(events)?.let { m ->
             val cards = if (m.groupValues[1] == "cards") ObjectFilter.Any else Filters.noun(m.groupValues[1]) ?: return null
             return arcanum.api.Trigger.On(EventPattern.Discard(cards, PlayerFilter.You), oneOrMore = true) to onlyIf
@@ -908,6 +913,8 @@ internal class Sentences(
         COLLECT_EVIDENCE.matchEntire(text)?.let { m ->
             return listOf(CostPart.Action(arcanum.api.KeywordAction.CollectEvidence(Value.Fixed(m.groupValues[1].toInt()))))
         }
+        // blb chunk 03: "Forage" (CR 701.61a)
+        if (text == "Forage") return listOf(CostPart.Action(arcanum.api.KeywordAction.Forage))
         return null
     }
 
@@ -967,6 +974,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        blbModify(sentence, steps, context)?.let { return it }
         // blb chunk 02: "If the gift was promised, instead [effect]." replaces the sentence before; each version's targets
         // are chosen only when it is the one that happens (CR 702.174m)
         Blb.GIFT_INSTEAD.matchEntire(sentence)?.let { m ->
@@ -2981,8 +2989,41 @@ internal class Sentences(
         return steps.dropLast(1) + Step.Do(named) + parsed
     }
 
+    /** The Bloomburrow sentences that change the steps before them; null when none reads [sentence]. */
+    private fun blbModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // blb chunk 03: "If you cast a spell this way, that creature enters with a finality counter on it." after a
+        // permission: the spell cast with it gets that (CR 400.7d)
+        Blb.CAST_THIS_WAY_ENTERS_WITH.matchEntire(sentence)?.let { m ->
+            val apply = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics) ?: return null
+            val may = apply.mechanics.singleOrNull() as? Mechanic.MayPlay ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val gets = Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
+                modify = listOf(arcanum.api.Modification.EntersWithCounters(kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+            return steps.dropLast(1) + Step.Do(apply.copy(mechanics = listOf(may.copy(spellGets = may.spellGets + gets))))
+        }
+        return null
+    }
+
     /** The Bloomburrow static wordings; null when none reads [line]. */
     private fun blbStatic(line: String): Ability? {
+        // blb chunk 03: "Other creatures are Food artifacts in addition to their other types and have "[ability]"." (CR
+        // 205.1b, 613.1d, f)
+        Blb.ARE_IN_ADDITION.matchEntire(line)?.let { m ->
+            val affected = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val (types, subtypes) = typesAndSubtypes(m.groupValues[2]) ?: return null
+            val granted = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Sentences(setOf("this permanent", "this creature")).line("$it.") ?: return null }
+            return Ability.Static(listOf<Mechanic>(Mechanic.SetTypes(add = types, addSubtypes = subtypes)) +
+                listOfNotNull(granted?.let { Mechanic.GainAbilities(listOf(it)) }), affects = Affected.Objects(Objects.Each(affected)))
+        }
+        // blb chunk 03: 'Enchanted permanent is a colorless Food artifact with "[ability]" and loses all other card types and
+        // abilities.' (CR 613.1d–f: the types and subtypes replaced, colourless, the granted ability kept)
+        Blb.ENCHANTED_IS_A_COLORLESS.matchEntire(line)?.let { m ->
+            val (types, subtypes) = typesAndSubtypes(m.groupValues[1]) ?: return null
+            val granted = Sentences(setOf("this artifact", "this permanent")).line(m.groupValues[2] + ".") ?: return null
+            return Ability.Static(listOf(Mechanic.SetTypes(add = types, addSubtypes = subtypes, replaceTypes = true, replaceSubtypes = true),
+                Mechanic.SetColors(emptyList()), Mechanic.LoseAbilities(), Mechanic.GainAbilities(listOf(granted))),
+                affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
+        }
         // blb chunk 02: "Equipped creature gets +3/+3 and loses flying.", "… gets +2/+0 and has first strike, vigilance,
         // trample, and haste." (CR 613.4c, 613.1f)
         Blb.ATTACHED_GETS_HAS_LOSES.matchEntire(line)?.let { m ->
@@ -3002,8 +3043,54 @@ internal class Sentences(
         return null
     }
 
+    /** blb chunk 03: "Food artifacts" → card types and subtypes (plurals singular). */
+    private fun typesAndSubtypes(words: String): Pair<List<arcanum.api.CardType>, List<arcanum.api.SubtypeRef>>? {
+        val types = mutableListOf<arcanum.api.CardType>()
+        val subtypes = mutableListOf<arcanum.api.SubtypeRef>()
+        for (word in words.split(' ')) {
+            val single = if (word.first().isLowerCase()) word.removeSuffix("s") else word.removeSuffix("s").takeIf { it in RulesWords.subtypes } ?: word
+            Filters.CARD_TYPES[single]?.let { types += it } ?: if (single in RulesWords.subtypes) subtypes += arcanum.api.SubtypeRef.Literal(Subtype(single)) else return null
+        }
+        return types to subtypes
+    }
+
     /** The Bloomburrow effect wordings; null when none reads [sentence]. */
     private fun blbEffect(sentence: String, context: Context): List<Step>? {
+        // blb chunk 03: "Forage." (CR 701.61a), as in "You may forage."
+        if (sentence == "Forage.") return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Forage)))
+        // blb chunk 03: "Until end of turn, you may cast creature spells from your graveyard by foraging in addition to paying
+        // their other costs." (CR 601.2a, 601.2f)
+        Blb.MAY_CAST_FROM_GRAVEYARD_BY.matchEntire(sentence)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replace(" spells", " cards").replace(" and ", " or ")) ?: return null
+            val extra = when (val by = m.groupValues[2]) {
+                "foraging" -> CostPart.Action(arcanum.api.KeywordAction.Forage)
+                else -> costPart(by.replaceFirstChar { it.uppercase() })?.singleOrNull() ?: return null
+            }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, additionalCost = Cost(listOf(extra)),
+                holder = PlayerFilter.You)), Affected.Objects(Objects.Each(Filters.all(spells, ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You)))), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 03: "Put a +1/+1 counter on it for each other Squirrel and/or Food you control."
+        Blb.PUT_COUNTERS_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val on = when {
+                isSelf(m.groupValues[3]) -> Objects.Self
+                m.groupValues[3] == "it" -> context.it ?: return null
+                else -> return null
+            }
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[4]) ?: return null))
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(on, kind, if (n == 1) per else Value.Times(per, n))))
+        }
+        // blb chunk 03: "If you control a Squirrel or returned a Squirrel card to your hand this way, create a Food token."
+        Blb.IF_CONTROL_OR_RETURNED.matchEntire(sentence)?.let { m ->
+            val chosen = context.chosen.lastOrNull()?.let { Objects.Bound(it) } ?: Objects.Bound("chosen")
+            val control = Filters.noun(m.groupValues[1] + " you control") ?: return null
+            val returned = Filters.noun(m.groupValues[2]) ?: return null
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Or(listOf(arcanum.api.Condition.Exists(control, atLeast = 1),
+                arcanum.api.Condition.ObjectMatches(chosen, returned))), then = then))
+        }
         // blb chunk 02: "If the gift was promised, [effect]." Its targets are chosen only if the gift was promised (CR
         // 702.174m); "… and that creature isn't legendary" is checked as it resolves.
         Blb.GIFT_IF.matchEntire(sentence)?.let { m ->
@@ -3203,6 +3290,14 @@ internal class Sentences(
         val RETURN_COUNTED_FROM_GRAVEYARD = Regex("""[Rr]eturn (up to )?(two|three|four|five) target (.+?) from your graveyard to (your hand|the battlefield)\.""")
         val DESTROY_N_TARGETS = Regex("""[Dd]estroy (two|three) target (.+)\.""")
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // blb chunk 03
+        val YOU_SACRIFICE_ONE_OR_MORE = Regex("""you sacrifice one or more (.+)""")
+        val CAST_THIS_WAY_ENTERS_WITH = Regex("""If you cast a spell this way, that creature enters with (a|an|one|two) (\S+) counters? on it\.""")
+        val ARE_IN_ADDITION = Regex("""(.+) (?:are|is) (?:an? )?([A-Za-z ]+?) in addition to (?:their|its) other types(?: and (?:have|has) "(.+?)\.?")?\.?""")
+        val ENCHANTED_IS_A_COLORLESS = Regex("""Enchanted permanent is a colorless ([A-Za-z ]+?) with "(.+)" and loses all other card types and abilities\.""")
+        val MAY_CAST_FROM_GRAVEYARD_BY = Regex("""Until end of turn, you may cast (.+?) from your graveyard by (foraging|paying \d+ life) in addition to paying their other costs\.""")
+        val PUT_COUNTERS_FOR_EACH = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+?) for each (.+)\.""")
+        val IF_CONTROL_OR_RETURNED = Regex("""If you control an? (\w+) or returned an? (.+?) to your hand this way, (.+)\.""")
         val DEALS_TO_ANY_AND_EACH = Regex("""(.+) deals (\d+) damage to any target and (\d+) damage to each (.+)\.""")
         val DEALS_TO_THAT_CREATURES_CONTROLLER = Regex("""(.+) deals (\d+) damage to that creature's controller\.""")
         val COPY_OF_THAT_EXCEPT_PT = Regex("""[Cc]reate a token that's a copy of (?:that creature|it), except it's (\d+)/(\d+)\.""")
@@ -3511,7 +3606,7 @@ internal class Sentences(
         val PAY_MANA = Regex("""Pay (\{.+\})""")
         val EXILE_TOP_CARD = Regex("""Exile the top card of your library( face down)?\.""")
         const val EXILE_ONE_OF_THEM_FROM_GRAVEYARD = "Exile one of them from your graveyard"
-        val MAY_PUT_FROM_AMONG_THEM_INTO_HAND = Regex("""You may put an? (.+?) from among them into your hand\.""")
+        val MAY_PUT_FROM_AMONG_THEM_INTO_HAND = Regex("""You may put an? (.+?) from among (?:them|the cards milled this way) into your hand\.""")
         val IF_IT_ENTERED_UNDER_YOUR_CONTROL = Regex("""If it entered under your control, (.+)""")
         val PUT_ALL_EXILED_WITH_INTO_HANDS = Regex("""Put all cards exiled with (.+) into their owners' hands\.""")
         val SACRIFICE_A = Regex("""Sacrifice (another|an?) (.+)\.""")

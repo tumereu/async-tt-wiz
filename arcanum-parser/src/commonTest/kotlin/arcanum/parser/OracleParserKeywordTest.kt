@@ -49,11 +49,11 @@ class OracleParserKeywordTest {
         assertEquals(listOf(Keyword.Suspend(4, mana("{1}{R}"))), abilities("Suspend 4—{1}{R}"))
     }
 
-    // CR 702.21 Ward: only mana costs so far; other costs stay unparsed
+    // CR 702.21a Ward [cost]: a mana cost, or after an em dash any cost (blb chunk 03: "Ward—Pay 3 life.")
     @Test
-    fun wardWithManaCostParsesButOtherCostsStayUnparsed() {
+    fun wardParsesManaAndDashCosts() {
         assertEquals(listOf(Keyword.Ward(mana("{2}"))), abilities("Ward {2}"))
-        assertEquals(listOf(Ability.Unparsed("Ward—Pay 3 life.")), abilities("Ward—Pay 3 life."))
+        assertEquals(listOf(Keyword.Ward(arcanum.api.Cost(listOf(arcanum.api.CostPart.PayLife(arcanum.api.Value.Fixed(3)))))), abilities("Ward—Pay 3 life."))
         assertEquals(listOf(Keyword.Flying, Ability.Unparsed("ward—Discard a card.")),
             abilities("Flying; ward—Discard a card."))
     }

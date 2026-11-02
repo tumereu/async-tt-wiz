@@ -183,6 +183,26 @@ internal object Resolution {
     }
 
     /**
+     * blb: CR 702.174c: a player gives a gift as an instant or sorcery spell they control whose gift was promised
+     * resolves, or as the gift trigger of a permanent they control resolves (the triggered ability of the gift keyword's
+     * expansion, [arcanum.api.KeywordExpansions]).
+     */
+    private fun givesGift(act: Act, item: StackItem): Boolean {
+        if (item.kind == StackItemKind.Spell || item.kind is StackItemKind.SpellCopy) {
+            val types = act.view()[item.id]?.characteristics?.types.orEmpty()
+            if (types.none { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }) return false
+            val facts = item.facts ?: act.state.obj(item.id)?.facts ?: return false
+            return facts.paid.any { it.keyword == arcanum.api.Keyword.Gift.Kind && it.times > 0 }
+        }
+        val origin = item.origin as? arcanum.engine.view.AbilityOrigin.Expansion ?: return false
+        if (item.ability !is arcanum.api.Ability.Triggered) return false
+        val printed = origin.keyword as? arcanum.engine.view.AbilityOrigin.Printed ?: return false
+        val card = (item.source as? arcanum.engine.state.ObjectId.Card)?.card ?: return false
+        val definition = act.state.objects.values.firstOrNull { it.card == card }?.definition ?: return false
+        return definition.faces.getOrNull(printed.face)?.abilities?.getOrNull(printed.index) is arcanum.api.Keyword.Gift
+    }
+
+    /**
      * The item leaves the Stack (CR 608.2n): an instant or sorcery card goes to its owner's graveyard (or where its
      * permission says, flashback CR 702.34a); a permanent spell enters the battlefield under its controller's control,
      * an Aura attached to what it targeted (CR 608.3, 303.4f); abilities and copies just leave.
@@ -190,6 +210,7 @@ internal object Resolution {
     internal fun finish(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
         val card = act.state.obj(item.id)
+        if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.GaveGift(item.controller)))
         if (item.kind is StackItemKind.SpellCopy && !fizzled && card == null) {
             // CR 707.10f, 608.3f: a copy of a permanent spell becomes a token permanent as it resolves
             val c = act.view()[item.id]?.characteristics

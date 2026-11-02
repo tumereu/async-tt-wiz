@@ -220,6 +220,10 @@ sealed interface Mechanic {
         val holder: PlayerFilter,
         /** Only by its [viaAlternative] alternative cost ("cast it from your graveyard using its bestow ability"). */
         @Serializable(with = KeywordKindSerializer::class) val viaAlternative: KeywordKind? = null,
+        /** What a spell cast with this permission and the permanent it becomes get ("If you cast a spell this way, that
+         * creature enters with a finality counter on it", CR 400.7d); [Objects.Affected] in them is that spell (as
+         * [Effect.SpellGets]). */
+        val spellGets: List<Mechanic> = emptyList(),
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */

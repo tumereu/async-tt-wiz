@@ -15,7 +15,11 @@ object PhysicalCardFaces {
                 face.defense.takeIf { it.isNotEmpty() }?.let { "Defense: $it" }.orEmpty())
                 .filter { it.isNotEmpty() }.joinToString("\n")
         }
+        // The printed parts stay readable for rules engines.
+        val parts = definition.faces.map { PrintedPart(it.name, it.typeLine, it.manaCost, it.rulesText, it.power, it.toughness,
+            it.loyalty, it.defense, it.colorIndicator) }
         return definition.copy(faces = listOf(first.copy(name = definition.name, otherFaceIds = emptyList(),
-            manaCost = "", rulesText = text, power = "", toughness = "", loyalty = "", defense = "")))
+            manaCost = "", rulesText = text, power = "", toughness = "", loyalty = "", defense = "", colorIndicator = null,
+            parts = parts)))
     }
 }

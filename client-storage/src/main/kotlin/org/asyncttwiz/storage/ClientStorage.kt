@@ -151,10 +151,11 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
         Unit
     }
 
-    /** Cached Arcanum definitions made by parser [parserVersion] for [cardIds]; absent ids were never cached. */
-    internal fun cachedCardDefinitions(parserVersion: Long, cardIds: Collection<String>): List<CachedCardDefinition> = access {
+    /** Cached Arcanum definitions made by parser [parserVersion] for these definition digests; absent ones were never
+     * cached. */
+    internal fun cachedCardDefinitions(parserVersion: Long, digests: Collection<String>): List<CachedCardDefinition> = access {
         // API29's SQLite allows 999 bound values per statement.
-        cardIds.distinct().chunked(500).flatMap { chunk ->
+        digests.distinct().chunked(500).flatMap { chunk ->
             database.cardDefinitionCacheQueries.selectDefinitions(parserVersion, chunk, ::CachedCardDefinition).executeAsList()
         }
     }
@@ -162,8 +163,7 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
     internal fun cacheCardDefinitions(parserVersion: Long, entries: List<CachedCardDefinition>) = access {
         database.transaction {
             entries.forEach {
-                database.cardDefinitionCacheQueries.putDefinition(it.cardId, parserVersion, it.sourceDigest, it.definitionJson,
-                    it.manualAbilities, it.problem)
+                database.cardDefinitionCacheQueries.putDefinition(it.digest, parserVersion, it.definitionJson, it.manualAbilities, it.problem)
             }
         }
     }
@@ -267,8 +267,9 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
                 }
                 tables["public_cache"] = listOf("cache_key:TEXT:1:1", "payload_version:INTEGER:1:0", "payload_json:TEXT:1:0")
             }
-            if (version >= 4L) {
-                tables["card_definition"] = listOf("card_id:TEXT:1:1", "parser_version:INTEGER:1:2", "source_digest:TEXT:1:0",
+            // Version 4's card_definition cache is dropped by the migration to 5, so it isn't checked.
+            if (version >= 5L) {
+                tables["card_definition_cache"] = listOf("definition_digest:TEXT:1:1", "parser_version:INTEGER:1:2",
                     "definition_json:TEXT:0:0", "manual_abilities:INTEGER:1:0", "problem:TEXT:0:0")
             }
             tables.forEach { (table, expected) ->

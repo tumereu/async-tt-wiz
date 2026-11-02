@@ -82,4 +82,29 @@ class DecksTest {
         assertFailsWith<SerializationException> { DeckJson.format.decodeFromString<UpdateDeck>(input.replace("]}}", "],\"mode\":\"MERGE\"}}")) }
         assertFailsWith<SerializationException> { DeckJson.format.decodeFromString<UpdateDeck>(input.replace("\"entries\"", "\"unknown\"")) }
     }
+
+    /** Printed values for rules engines (docs/specs/arcanum-atw-integration.md I-D2): absent, they are left out of the
+     * JSON, so existing definitions keep their bytes and digests (the literal vector above). */
+    @Test fun colourIndicatorAndPrintedPartsAreOptionalAdditions() {
+        assertFalse(DeckJson.definitionBytes(card()).decodeToString().let { "colorIndicator" in it || "parts" in it })
+        val back = DefinitionFace(other, "Howling Back", listOf(id), typeLine = "Creature — Wolf", colorIndicator = "G")
+        val transform = CardDefinition("Front // Howling Back", listOf(DefinitionFace(id, "Front", listOf(other)), back),
+            layout = "transform")
+        assertTrue(DeckValidation.definition(transform))
+        assertEquals(transform, DeckJson.format.decodeFromString<CardDefinition>(DeckJson.format.encodeToString(transform)))
+        assertNotEquals(DeckJson.digest(transform), DeckJson.digest(transform.copy(faces = listOf(transform.faces[0], back.copy(colorIndicator = null)))))
+        for (invalid in listOf("", "g", "GW", "WUBRGW", "X"))
+            assertFalse(DeckValidation.definition(transform.copy(faces = listOf(transform.faces[0], back.copy(colorIndicator = invalid)))), invalid)
+
+        // Flattening a split card's halves into one physical face keeps them as printed parts.
+        val split = CardDefinition("Kindle // Rime", listOf(
+            DefinitionFace(id, "Kindle", listOf(other), "Instant", "{1}{R}", "Kindle deals 2 damage to any target."),
+            DefinitionFace(other, "Rime", listOf(id), "Instant", "{1}{U}", "Draw a card.")), provider = "mtgjson", layout = "split")
+        val physical = PhysicalCardFaces.normalize(split)
+        assertEquals(listOf(PrintedPart("Kindle", "Instant", "{1}{R}", "Kindle deals 2 damage to any target."),
+            PrintedPart("Rime", "Instant", "{1}{U}", "Draw a card.")), physical.faces.single().parts)
+        assertTrue(DeckValidation.definition(physical))
+        assertEquals(physical, DeckJson.format.decodeFromString<CardDefinition>(DeckJson.format.encodeToString(physical)))
+        assertEquals(physical, PhysicalCardFaces.normalize(physical))
+    }
 }

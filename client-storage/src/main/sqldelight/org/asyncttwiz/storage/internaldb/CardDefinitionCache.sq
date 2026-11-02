@@ -1,24 +1,23 @@
--- Arcanum card definitions parsed on the device from catalog cards (CardDefinitions), per parser version.
--- Public derived data like public_cache, never account data. definition_json is null when the card's printed
--- values could not be read; problem then says why.
-CREATE TABLE card_definition (
-  card_id TEXT NOT NULL,
+-- Arcanum card definitions parsed on the device from a game's card data (CardDefinitions), keyed by the card data's
+-- definition digest and the parser version. Public derived data like public_cache, never account data.
+-- definition_json is null when the card's printed values could not be read; problem then says why.
+CREATE TABLE card_definition_cache (
+  definition_digest TEXT NOT NULL,
   parser_version INTEGER NOT NULL,
-  source_digest TEXT NOT NULL,
   definition_json TEXT,
   manual_abilities INTEGER NOT NULL CHECK (manual_abilities >= 0),
   problem TEXT,
-  PRIMARY KEY (card_id, parser_version),
+  PRIMARY KEY (definition_digest, parser_version),
   CHECK ((definition_json IS NULL) != (problem IS NULL))
 );
 
 selectDefinitions:
-SELECT card_id, source_digest, definition_json, manual_abilities, problem FROM card_definition
-WHERE parser_version = ? AND card_id IN ?;
+SELECT definition_digest, definition_json, manual_abilities, problem FROM card_definition_cache
+WHERE parser_version = ? AND definition_digest IN ?;
 
 putDefinition:
-INSERT OR REPLACE INTO card_definition(card_id, parser_version, source_digest, definition_json, manual_abilities, problem)
-VALUES (?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO card_definition_cache(definition_digest, parser_version, definition_json, manual_abilities, problem)
+VALUES (?, ?, ?, ?, ?);
 
 deleteOtherParserVersions:
-DELETE FROM card_definition WHERE parser_version != ?;
+DELETE FROM card_definition_cache WHERE parser_version != ?;

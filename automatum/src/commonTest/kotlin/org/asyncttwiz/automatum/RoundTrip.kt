@@ -54,11 +54,11 @@ internal class RoundTrip(var state: PlayState, val definitions: Map<String, Card
     fun seed(): String = RandomV1.encodeSeed(Random(random.nextLong()).nextBytes(32))
 
     /** The engine state of the board as [viewer] sees it. */
-    fun engine(viewer: String? = null): GameState = EngineState.from(state, definitions, viewer, EngineLog.from(tags))
+    fun engine(viewer: String? = null): GameState = EngineState.from(state, definitions, viewer, EngineLog.from(tags, state, definitions))
 
     /** Performs [input] as [actor] in [viewer]'s view: one engine call, one ATW batch, checked. */
     fun perform(input: Input, actor: String, viewer: String? = null): EngineCall {
-        val call = EngineCall(state, definitions, viewer, EngineLog.from(tags), ::seed)
+        val call = EngineCall(state, definitions, viewer, EngineLog.from(tags, state, definitions), ::seed)
         call.perform(input)
         apply(call, actor)
         return call

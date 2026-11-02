@@ -10,6 +10,7 @@ import arcanum.engine.Pending
 import arcanum.engine.change.Change
 import arcanum.engine.decision.WaitingTrigger
 import arcanum.engine.state.Bindings
+import arcanum.engine.state.CardId
 import arcanum.engine.state.CombatState
 import arcanum.engine.state.ControlSince
 import arcanum.engine.state.CounterEntry
@@ -26,6 +27,10 @@ import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.asyncttwiz.protocol.EngineRecord
@@ -240,6 +245,85 @@ internal sealed interface LogOp {
 /** What an automated history event's tag carries for the engine: its part of the event log. */
 @Serializable
 internal data class TagData(val log: List<LogOp> = emptyList())
+
+/**
+ * How a tag writes its [TagData] (D33): every card object the log names carries the card's whole definition, and what
+ * everyone saw of it its printed abilities again. Where that definition is the game's own card data of the ATW card the
+ * object is (any card but a token), the tag writes a reference instead ([CARD] for the definition, [PRINTED] for a
+ * printed ability as the definition has it), and reading the tag puts the definition back from the board ([of]).
+ * Tags stay small (a board wipe of complex creatures fits the server's limits) and name no hidden card (a face-down
+ * spell, a card moved within a library): the reference says only which card, which the event's actions name anyway.
+ * Tokens' definitions stay written out: a token that left the game is on no board to read it from.
+ */
+internal class TagCodec(private val definition: (CardId) -> CardDefinition?) {
+    private val definitions = mutableMapOf<CardId, JsonElement?>()
+    private fun definitionJson(card: CardId): JsonElement? =
+        definitions.getOrPut(card) { definition(card)?.let { EngineCodec.json.encodeToJsonElement(CardDefinition.serializer(), it) } }
+
+    fun encode(data: TagData): String = rewrite(EngineCodec.json.encodeToJsonElement(TagData.serializer(), data), compact = true).toString()
+
+    /** @throws IllegalArgumentException when the tag can't be read (another shape, or a card the board doesn't have). */
+    fun decode(text: String): TagData =
+        EngineCodec.json.decodeFromJsonElement(TagData.serializer(), rewrite(EngineCodec.json.parseToJsonElement(text), compact = false))
+
+    /** The card object named by [obj]'s [key] ("c:<card>#<count>"). */
+    private fun cardOf(obj: JsonObject, key: String): CardId? {
+        val id = (obj[key] as? JsonPrimitive)?.takeIf { it.isString && it.content.startsWith("c:") } ?: return null
+        return (runCatching { EngineCodec.json.decodeFromJsonElement(ObjectId.serializer(), id) }.getOrNull() as? ObjectId.Card)?.card
+    }
+
+    /** Face [face]'s printed ability [index] in [definition]'s JSON. */
+    private fun printed(definition: JsonElement?, face: Int, index: Int): JsonElement? =
+        ((((definition as? JsonObject)?.get("faces") as? JsonArray)?.getOrNull(face) as? JsonObject)?.get("abilities") as? JsonArray)?.getOrNull(index)
+
+    /**
+     * [element] with references written ([compact]) or read back. A card object's "definition" is its card's; an
+     * "ability" with a printed "origin" is one of [holder]'s: the card of the nearest enclosing object (a Stack item's
+     * source, else an object's own card), as a seen snapshot's abilities and a Stack item's ability are.
+     */
+    private fun rewrite(element: JsonElement, compact: Boolean, holder: CardId? = null): JsonElement = when (element) {
+        is JsonArray -> JsonArray(element.map { rewrite(it, compact, holder) })
+        is JsonObject -> {
+            val card = cardOf(element, "id")
+            val here = cardOf(element, "source") ?: card ?: holder
+            val origin = element["origin"] as? JsonObject
+            val face = (origin?.get("face") as? JsonPrimitive)?.content?.toIntOrNull()
+            val index = (origin?.get("index") as? JsonPrimitive)?.content?.toIntOrNull()
+            val printedAt = if ((origin?.get("type") as? JsonPrimitive)?.content == "printed" && face != null && index != null && here != null)
+                Triple(here, face, index) else null
+            JsonObject(element.mapValues { (key, value) ->
+                when {
+                    card != null && key == "definition" -> if (compact) {
+                        if (value is JsonObject && value == definitionJson(card)) JsonPrimitive(CARD) else value
+                    } else if (value == JsonPrimitive(CARD)) definitionJson(card) ?: throw IllegalArgumentException("no card data for $card")
+                    else value
+                    printedAt != null && key == "ability" -> {
+                        val (of, f, i) = printedAt
+                        if (compact) {
+                            if (value is JsonObject && value == printed(definitionJson(of), f, i)) JsonPrimitive(PRINTED) else value
+                        } else if (value == JsonPrimitive(PRINTED))
+                            printed(definitionJson(of), f, i) ?: throw IllegalArgumentException("no printed ability $f.$i of $of")
+                        else value
+                    }
+                    else -> rewrite(value, compact, here)
+                }
+            })
+        }
+        else -> element
+    }
+
+    companion object {
+        const val CARD = "@card"
+        const val PRINTED = "@printed"
+
+        /** References resolved against [state]'s cards and [definitions] (by ATW definition digest): a card that isn't a
+         * token, by its id. The same function writes and reads a tag, so it reads back exactly what was written. */
+        fun of(state: org.asyncttwiz.protocol.PlayState, definitions: Map<String, CardDefinition>): TagCodec {
+            val cards = state.board.cards.associateBy { it.id }
+            return TagCodec { id -> cards[id.value]?.takeIf { !it.token }?.let { definitions[it.definition] } }
+        }
+    }
+}
 
 /** The waiting triggers record ([EngineCodec.TRIGGERED]). */
 internal val triggeredSerializer: KSerializer<List<WaitingTrigger>> = kotlinx.serialization.builtins.ListSerializer(WaitingTrigger.serializer())

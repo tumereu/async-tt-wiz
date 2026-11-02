@@ -20,6 +20,7 @@ import org.asyncttwiz.protocol.Automatum
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CardVisibility
 import org.asyncttwiz.protocol.CombatStackRules
+import org.asyncttwiz.protocol.EngineRecordKind
 import org.asyncttwiz.protocol.MtgFacts
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.MtgStackKind
@@ -146,7 +147,7 @@ object EngineState {
     /** Whose view an open shared flow was made in (D60): it is resumed in that view. Null when no flow is open or it was
      * made with full information. */
     fun flowViewer(board: BoardState): String? = board.engineRecords.singleOrNull { it.id == Automatum.CONTINUATION_ID }
-        ?.let { EngineCodec.decode(FlowRecord.serializer(), it.data).viewer }
+        ?.let { runCatching { EngineCodec.decode(FlowRecord.serializer(), it.data).viewer }.getOrNull() }
 
     /**
      * What on [state]'s board the engine can't take over (§5), each as a sentence; empty when [from] can build it:
@@ -167,8 +168,8 @@ object EngineState {
                 problems += "the spell ${item.id} isn't a card on the board"
         }
         for (card in board.cards) {
-            val ledger = CardLedger.of(card.ledger)
-            if (ledger.definition == null && card.definition !in definitions) {
+            val ledgerDefinition = runCatching { CardLedger.of(card.ledger).definition }.getOrNull()
+            if (ledgerDefinition == null && card.definition !in definitions) {
                 val zone = if (card.id in spells) Zone.Stack else board.containers.singleOrNull { it.id == card.containerId }?.zone?.let(::zone)
                 val hidden = viewer != null && zone != null && zone != Zone.Battlefield && zone != Zone.Graveyard &&
                     zone != Zone.Stack && !(zone == Zone.Exile && !card.isFaceDown) &&
@@ -179,6 +180,44 @@ object EngineState {
         }
         board.players.filter { it.life.toIntOrNull() == null }.forEach { problems += "player ${it.accountId} has life \"${it.life}\"" }
         if (TurnPosition.of(board.turn) == null || board.turn.number.toIntOrNull() == null) problems += "the turn isn't a known step"
+        problems += unreadable(board)
+        return problems
+    }
+
+    /**
+     * The engine data on [board] the engine can't read back (P8: the server checks only that it is JSON; an app update
+     * may change its shape, D62): records, Stack items, ledgers, typed counter kinds and mana. Each as a sentence.
+     */
+    private fun unreadable(board: BoardState): List<String> {
+        val problems = mutableListOf<String>()
+        fun check(what: String, read: () -> Unit) {
+            runCatching(read).onFailure { problems += "$what can't be read by this version of the rules engine (${it.message?.take(120)})" }
+        }
+        for (record in board.engineRecords) check("engine record ${record.id}") {
+            when (record.kind) {
+                EngineRecordKind.Effect -> EngineCodec.effect(record)
+                EngineRecordKind.DelayedTrigger -> EngineCodec.delayed(record)
+                EngineRecordKind.Ledger -> EngineCodec.decode(ledgerSerializer, record.data)
+                EngineRecordKind.Turn -> EngineCodec.decode(TurnExtras.serializer(), record.data)
+                EngineRecordKind.Combat -> EngineCodec.decode(combatSerializer, record.data)
+                EngineRecordKind.Triggered -> EngineCodec.decode(triggeredSerializer, record.data)
+                EngineRecordKind.Continuation -> EngineCodec.decode(FlowRecord.serializer(), record.data)
+            }
+        }
+        for (entry in board.stackEffects) {
+            val item = entry.item ?: continue
+            if (item.data.isNotEmpty()) check("the Stack item of entry ${entry.id}") { EngineCodec.stackItem(item) }
+            else if (item.kind != MtgStackKind.Spell) problems += "the Stack item of entry ${entry.id} has no engine data"
+        }
+        for (card in board.cards) {
+            if (card.ledger.isNotEmpty()) check("the engine ledger of card ${card.id}") { CardLedger.of(card.ledger) }
+            card.typedCounters.forEach { counter -> check("the counter kind \"${counter.kind}\" on card ${card.id}") { EngineCodec.counterKind(counter.kind) } }
+        }
+        for (player in board.players) {
+            if (player.ledger.isNotEmpty()) check("the engine ledger of player ${player.accountId}") { PlayerLedger.of(player.ledger) }
+            player.typedCounters.forEach { counter -> check("the counter kind \"${counter.kind}\" of player ${player.accountId}") { EngineCodec.counterKind(counter.kind) } }
+            player.manaPool.forEach { mana -> check("the mana in the pool of player ${player.accountId}") { EngineCodec.mana(mana) } }
+        }
         return problems
     }
 
@@ -269,17 +308,30 @@ internal object Derived {
 
 /** The engine's event log (D33) from the history: each automated event's tag carries its part of it. */
 object EngineLog {
-    /** The log made by [tags], the tags of the history's events in order (manual events' tags carry none). */
-    fun from(tags: List<MtgTag?>): List<LoggedChange> {
+    /**
+     * The log made by [tags], the tags of the history's events in order (manual events' tags carry none), on the game
+     * [state] with its card [definitions] (by ATW definition digest): a tag names the cards' definitions by reference
+     * ([TagCodec]).
+     *
+     * @throws Unsupported when a tag's engine data can't be read (made by another app version, or not by this mapping):
+     *   the engine would otherwise miss events of this turn without saying so.
+     */
+    fun from(tags: List<MtgTag?>, state: PlayState, definitions: Map<String, CardDefinition>): List<LoggedChange> {
+        val codec = TagCodec.of(state, definitions)
         val log = mutableListOf<LoggedChange>()
-        for (tag in tags) {
+        val unreadable = mutableListOf<String>()
+        for ((i, tag) in tags.withIndex()) {
             val data = tag?.data?.takeIf { it.isNotEmpty() } ?: continue
-            val parsed = runCatching { EngineCodec.decode(TagData.serializer(), data) }.getOrNull() ?: continue
+            val parsed = runCatching { codec.decode(data) }.getOrElse {
+                unreadable += "the engine data of history event ${i + 1} can't be read (${it.message?.take(120)})"
+                continue
+            }
             for (op in parsed.log) when (op) {
                 is LogOp.Add -> log += op.entry
                 LogOp.Drop -> if (log.isNotEmpty()) log.removeAt(log.lastIndex)
             }
         }
+        if (unreadable.isNotEmpty()) throw Unsupported(unreadable)
         return log
     }
 }

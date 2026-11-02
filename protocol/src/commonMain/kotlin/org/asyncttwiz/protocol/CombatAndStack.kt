@@ -402,7 +402,8 @@ object CombatStackRules {
 
     /** Called by the shared record boundary, including future real-move/token reducers. */
     internal fun closeInvariants(before: BoardState, candidate: BoardState, rulesVersion: Int = 18): BoardState? {
-        val vanished = before.cards.filter { old -> candidate.cards.none { it.id == old.id } }
+        val remaining = candidate.cards.mapTo(HashSet()) { it.id }
+        val vanished = before.cards.filter { old -> old.id !in remaining }
         if (vanished.any { !it.token }) return null
         val battlefield = candidate.containers.filter { it.zone == PlayZone.BATTLEFIELD }.map { it.id }.toSet()
         val live = candidate.cards.associateBy { it.id }

@@ -48,7 +48,7 @@ class RandomGamesTest {
             val flowView = if (views) EngineState.flowViewer(rt.state.board) else null
             if (decision is Decision.OtherView) {
                 // D31: handed to its player, who decides in their own view; the call goes on in the flow's view
-                val call = EngineCall(rt.state, rt.definitions, flowView, EngineLog.from(rt.tags), rt::seed)
+                val call = EngineCall(rt.state, rt.definitions, flowView, EngineLog.from(rt.tags, rt.state, rt.definitions), rt::seed)
                 val filled = call.otherView(decision)
                 val asked = Engine.otherViewDecision(call.working, filled) ?: run { stop = "other view without a decision"; null } ?: break
                 val answer = simpleAnswer(asked) ?: run { stop = "no simple answer to $asked"; null } ?: break

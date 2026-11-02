@@ -53,6 +53,16 @@ object Engine {
     fun visible(state: GameState, player: PlayerId): Set<arcanum.engine.state.ObjectId> =
         arcanum.engine.action.Knowledge.visible(state, view(state), player)
 
+    /**
+     * For a host whose [state] waits on a [arcanum.engine.decision.Decision.OtherView] (D60, D31) and that doesn't keep
+     * that player's own state: the decision the player faces next in their view, given the identities [filled] of the
+     * decision's objects, with the cards only they may see (their options name them). Null when the answers so far are
+     * enough, or more identities are needed (the engine then asks again). Shows nothing to anyone else; changes
+     * nothing.
+     */
+    fun otherViewDecision(state: GameState, filled: List<arcanum.engine.decision.FilledObject>): arcanum.engine.decision.Decision? =
+        arcanum.engine.resolution.OtherView.next(state, filled)
+
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result
 }

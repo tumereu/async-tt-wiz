@@ -152,13 +152,25 @@ object Meanings {
 internal class Recorder(val state: GameState) {
     val changes = mutableListOf<Change>()
 
-    fun record(change: Change) {
+    /** What the instructions being run now are (their changes carry it, [Change.causedBy]); set by
+     * [arcanum.engine.resolution.Steps.run]. */
+    internal var by: CausedBy? = null
+
+    fun record(made: Change) {
+        val change = by?.let { made.causedBy(it) } ?: made
         val before = if (change.isEvent && arcanum.engine.trigger.Triggers.looksBack(change)) state.deepCopy() else null
         state.apply(change)
         changes += change
         if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before)
         // CR 506.4: what an event takes out of combat leaves it at once (combat changes set combat as they mean it)
         if (change.isEvent && change !is Change.Combat) arcanum.engine.combat.Combat.removeWhatLeft(this)
+    }
+
+    /** Applies and keeps [change] as it is, finding no triggers: for changes already worked out with their triggers
+     * ([arcanum.engine.action.Knowledge.forgetHidden]). */
+    fun append(change: Change) {
+        state.apply(change)
+        changes += change
     }
 
     /** Takes back every change after the first [size] (a step that stopped for a decision is redone from its start

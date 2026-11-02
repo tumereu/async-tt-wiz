@@ -288,7 +288,10 @@ internal object Triggers {
     private fun order(act: Act, player: PlayerId, mine: List<WaitingTrigger>): List<WaitingTrigger> {
         // Triggers of the same ability of the same source are taken as interchangeable (P5)
         if (mine.size < 2 || mine.all { it.ability == mine.first().ability && it.source == mine.first().source }) return mine
-        val options = mine.mapIndexed { i, t -> TriggerOption(i, t.source, (t.ability as? Ability.Triggered)?.text) }
+        // API review 3: each with its printed text and origin, so two triggers of one source can be told apart
+        val options = mine.mapIndexed { i, t ->
+            TriggerOption(i, t.source, arcanum.engine.decision.Texts.of(t.ability, t.origin, t.sourceSeen?.characteristics), t.origin)
+        }
         val order = (act.asker.ask { Decision.OrderTriggers(it, player, null, options) } as Answer.Order).order
         require(order.sorted() == mine.indices.toList()) { "Order every trigger once: $order" }
         return order.map { mine[it] }

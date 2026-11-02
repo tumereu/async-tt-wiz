@@ -289,6 +289,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             decision is Decision.HostFill -> perform(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
                 FilledObject(id, hostKnows(id))
             })).also { throughJson(it) })
+            decision is Decision.OtherView -> hostOtherView(decision)?.let { perform(Input.Answer(decision.id, it).also { a -> throughJson(a) }) } ?: outcome
             else -> outcome
         }
     }
@@ -329,7 +330,27 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     val pending: Decision? get() = state.pending?.decision
 
     /** Answers the open decision. */
-    fun answer(answer: Answer): Outcome = perform(Input.Answer(pending?.id ?: fail("Nothing to answer"), answer))
+    fun answer(answer: Answer): Outcome {
+        val open = pending ?: fail("Nothing to answer")
+        // In a viewer's state, the steps another player decides in their view (D60, D31): the host sends their answers
+        if (open is Decision.OtherView) return perform(Input.Answer(open.id, otherView(open, listOf(answer))))
+        return perform(Input.Answer(open.id, answer))
+    }
+
+    /** As the host, the answer to [d]: the identities of its objects, and [answers] given in its player's view. */
+    internal fun otherView(d: Decision.OtherView, answers: List<Answer>): Answer.OtherView =
+        Answer.OtherView(d.objects.map { FilledObject(it, hostKnows(it)) }, answers)
+
+    /** What the harness, as the host, answers [d] by itself: the identities, with a random result when the steps wait for
+     * one ([Engine.otherViewDecision]); null when they wait for a player's decision, which the scenario answers. */
+    private fun hostOtherView(d: Decision.OtherView): Answer.OtherView? {
+        val filled = otherView(d, emptyList())
+        return when (val next = Engine.otherViewDecision(state, filled.filled)) {
+            null -> filled
+            is Decision.Random -> filled.copy(answers = listOf(randomAnswer(next.what)))
+            else -> null
+        }
+    }
 
     /** The player with priority passes it (CR 117.3d). */
     fun passPriority(): Outcome = perform(Input.PassPriority(state.priority.holder ?: fail("Nobody has priority")))
@@ -379,6 +400,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             decision is Decision.HostFill -> driveAnswer(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
                 FilledObject(id, hostKnows(id))
             })))
+            decision is Decision.OtherView -> hostOtherView(decision)?.let { driveAnswer(Input.Answer(decision.id, it)) } ?: outcome
             else -> outcome
         }
     }

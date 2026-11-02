@@ -60,13 +60,56 @@ fun cardFaces(layout: Layout, vararg faces: Pair<OracleCard, List<Ability>>) {
     assertEquals(emptyList(), DefinitionChecks.problems(definition), faces.first().first.name)
 }
 
-/** The printed characteristics read back unchanged and the abilities are [expected]. */
+/** The printed characteristics read back unchanged and the abilities are [expected]; their texts are checked apart
+ * ([checkTexts]), so expectations state what the text means. */
 private fun checkFace(printed: OracleCard, face: FaceDefinition, expected: List<Ability>) {
     assertEquals(printed.typeLine, TypeLine.render(face), "type line")
     assertEquals(printed.manaCost, face.manaCost?.toString(), "mana cost")
     assertEquals(printed.colorIndicator, face.colorIndicator?.joinToString("") { it.symbol.toString() }, "colour indicator")
     assertEquals(listOf(printed.power, printed.toughness, printed.loyalty), listOf(face.power, face.toughness, face.loyalty).map(PrintedNumbers::render), "P/T, loyalty")
-    assertEquals(expected, face.abilities, printed.name)
+    assertEquals(expected, face.abilities.map(::withoutText), printed.name)
+    checkTexts(printed, face.abilities)
+}
+
+/** [ability] without its printed text and its modes' texts. */
+fun withoutText(ability: Ability): Ability = when (ability) {
+    is Ability.Spell -> ability.copy(text = null, instructions = withoutText(ability.instructions))
+    is Ability.Activated -> ability.copy(text = null, instructions = withoutText(ability.instructions))
+    is Ability.Triggered -> ability.copy(text = null, instructions = withoutText(ability.instructions))
+    is Ability.Static -> ability.copy(text = null)
+    is Ability.SpecialAction -> ability.copy(text = null, instructions = withoutText(ability.instructions))
+    else -> ability
+}
+
+private fun withoutText(instructions: Instructions): Instructions =
+    instructions.copy(modes = instructions.modes?.let { m -> m.copy(options = m.options.map { it.copy(text = null) }) })
+
+/**
+ * Each parsed ability keeps its printed text: one or more whole lines of the card, in order, without reminder text (a
+ * spell's lines, a modal spell's "Choose one —" with its "• " lines, a leveler band); each mode its "• " line without
+ * the bullet. Keywords have their own text; unparsed text stays as printed.
+ */
+private fun checkTexts(printed: OracleCard, abilities: List<Ability>) {
+    val lines = printed.text.lines().map { Regex("""\s*\([^)]*\)""").replace(it, "").trim() }.filter { it.isNotEmpty() }
+    var from = 0
+    abilities.forEach { ability ->
+        val (text, instructions) = when (ability) {
+            is Ability.Spell -> ability.text to ability.instructions
+            is Ability.Activated -> ability.text to ability.instructions
+            is Ability.Triggered -> ability.text to ability.instructions
+            is Ability.Static -> ability.text to null
+            is Ability.SpecialAction -> ability.text to ability.instructions
+            else -> return@forEach
+        }
+        val own = text?.lines() ?: kotlin.test.fail("${printed.name}: no text for $ability")
+        val at = (from until lines.size).firstOrNull { lines.drop(it).take(own.size) == own }
+            ?: (0 until lines.size).firstOrNull { lines.drop(it).take(own.size) == own }
+            ?: kotlin.test.fail("${printed.name}: \"$text\" isn't the card's lines in order: $lines")
+        from = at
+        instructions?.modes?.options?.forEach { mode ->
+            assertEquals(true, "• ${mode.text}" in own, "${printed.name}: mode text \"${mode.text}\" isn't one of the ability's lines")
+        }
+    }
 }
 
 /** A card with no rules text. */

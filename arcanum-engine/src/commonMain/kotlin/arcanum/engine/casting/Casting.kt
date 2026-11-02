@@ -14,6 +14,7 @@ import arcanum.engine.decision.Announced
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Choices
 import arcanum.engine.decision.Continuation
+import arcanum.engine.decision.Decision
 import arcanum.engine.input.CastWay
 import arcanum.engine.input.Input
 import arcanum.engine.state.Bindings
@@ -33,6 +34,7 @@ import arcanum.engine.state.PriorityState
  */
 internal object Casting {
     fun playLand(recorder: Recorder, input: Input.PlayLand): Progress {
+        fillPlayed(recorder, input, input.player, input.card, "played")?.let { return it }
         val snap = recorder.snapshot()
         Legality.cantPlayLand(snap, input.player, input.card, input.face)?.let { throw IllegalArgumentException("Can't play that land: $it") }
         val s = recorder.state
@@ -49,7 +51,8 @@ internal object Casting {
         return Progress.Done
     }
 
-    fun cast(recorder: Recorder, input: Input.Cast): Progress {
+    fun cast(recorder: Recorder, input: Input.Cast, from: Int = recorder.changes.size): Progress {
+        fillPlayed(recorder, input, input.player, input.card, "cast")?.let { return it }
         val snap = recorder.snapshot()
         Legality.cantCast(snap, input.player, input.card, input.way)?.let { throw IllegalArgumentException("Can't cast that: $it") }
         val o = recorder.state.objOrThrow(input.card)
@@ -59,7 +62,7 @@ internal object Casting {
         val way = input.way.copy(permission = permitted?.first)
         val alternative = Legality.alternative(snap, input.card, way)
         val faceDown = alternative?.second?.faceDown == true
-        val start = recorder.changes.size
+        val start = from
         // CR 601.2a: the card moves to the Stack and becomes the topmost object there
         recorder.record(Changes.move(recorder.state, listOf(input.card), Zone.Stack, controller = input.player, faceDown = faceDown))
         val onStack = (input.card as ObjectId.Card).next()
@@ -70,7 +73,8 @@ internal object Casting {
         return advance(recorder, c, start)
     }
 
-    fun activate(recorder: Recorder, input: Input.Activate): Progress {
+    fun activate(recorder: Recorder, input: Input.Activate, from: Int = recorder.changes.size): Progress {
+        fillPlayed(recorder, input, input.player, input.source, "activated")?.let { return it }
         val snap = recorder.snapshot()
         val instance = Legality.instance(snap, input.source, input.ability)
             ?: throw IllegalArgumentException("${input.source} has no ability ${input.ability.key}")
@@ -79,7 +83,39 @@ internal object Casting {
         val id = "a${recorder.state.nextTimestamp()}.${recorder.state.stack.size}"
         val c = Continuation.Announcing(input.player, Announced.Ability(input.source, input.ability, instance.ability),
             AnnounceStage.Modes, Choices(names = Bindings.EMPTY.with(Plan.ITEM, NamedValue.Option(id))))
-        return advance(recorder, c, recorder.changes.size)
+        return advance(recorder, c, from)
+    }
+
+    /**
+     * D60: in a viewer's state ([arcanum.engine.state.GameState.viewer]), another player plays, casts or activates a card
+     * the viewer doesn't know (a host keeping one state per player forwards their input). The card becomes public as it
+     * is played: a land enters face up (CR 305.1), a spell's card moves to the Stack (CR 601.2a), an ability activated
+     * from a hidden zone reveals its card (CR 602.2a), a face-down permanent's only ability turns it face up (CR 708.2,
+     * 702.37e). So the host fills exactly that card in publicly ([Decision.HostFill]) and the input is redone
+     * ([Continuation.Played]); its legality is checked then. Null when the card is known.
+     */
+    private fun fillPlayed(recorder: Recorder, input: Input, player: arcanum.engine.state.PlayerId, card: ObjectId, reason: String): Progress? {
+        val o = recorder.state.obj(card) ?: return null
+        if (!o.unknown) return null
+        val decision = Decision.HostFill(decisionId(recorder.state, "played"), player, card, listOf(card), reason, public = true)
+        return Progress.Waiting(Pending(decision, Continuation.Played(input)))
+    }
+
+    /** The card of a [Continuation.Played] is filled in (checked against its [Decision.HostFill]): the input is redone. */
+    fun resumePlayed(recorder: Recorder, continuation: Continuation.Played, answer: Answer): Progress {
+        // The fill is part of the cast or activation: cancelling it forgets the card again (CR 601.2, D58)
+        val from = recorder.changes.size
+        val filled = (answer as Answer.Filled).objects
+        filled.forEach { f ->
+            val before = recorder.state.objOrThrow(f.id)
+            recorder.record(Change.Filled(before, before.copy(definition = f.definition)))
+        }
+        return when (val input = continuation.input) {
+            is Input.PlayLand -> playLand(recorder, input)
+            is Input.Cast -> cast(recorder, input, from)
+            is Input.Activate -> activate(recorder, input, from)
+            else -> throw IllegalStateException("Only plays, casts and activations wait for their card: $input")
+        }
     }
 
     fun resume(recorder: Recorder, continuation: Continuation.Announcing, answer: Answer): Progress {
@@ -106,6 +142,16 @@ internal object Casting {
     /** [Input.Cancel]: [player] takes back their open cast or activation, everything it did, last first (CR 601.2,
      * D58). Only the player casting or activating it may. */
     fun cancel(recorder: Recorder, continuation: Continuation, player: arcanum.engine.state.PlayerId): Progress {
+        if (continuation is Continuation.Played) {
+            val by = when (val i = continuation.input) {
+                is Input.PlayLand -> i.player
+                is Input.Cast -> i.player
+                is Input.Activate -> i.player
+                else -> null
+            }
+            require(by == player) { "Only $by can take back their play, not $player" }
+            return Progress.Done
+        }
         val open = continuation as? Continuation.Announcing
             ?: throw IllegalArgumentException("Only a cast or an activation can be cancelled")
         require(open.player == player) { "Only ${open.player} can cancel what they are casting or activating, not $player" }

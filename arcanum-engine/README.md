@@ -14,6 +14,7 @@ Engine.perform(state, input): Outcome            // Outcome(changes, pending); n
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
+Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
 
@@ -36,12 +37,17 @@ games of cube cards. `revert` takes changes back last first; after a host drops 
 - `change/` — `Change` (sealed, serializable): every change carries before- and after-values
   and its `Meaning`s (cast, died, sacrificed, …); events are logged for "this turn" questions.
   `Change.Reverted` takes a change back inside a batch (cancelling a cast). `Changes` builds
-  changes from the state they apply to (a zone change makes new ids and timestamps).
+  changes from the state they apply to (a zone change makes new ids and timestamps). Changes made by a spell's or
+  ability's instructions carry `CausedBy` (its source, the name it had, controller, Stack item) for history lines;
+  damage carries its source as it was (`DamageDealt.sourceSeen`).
 - `input/` — `Input`: `PlayLand`, `Cast(card, way)`, `Activate`, `PassPriority`,
   `DeclareAttackers`, `DeclareBlockers`, `Answer`, `Cancel(player)`, `StartGame(options)`, `Concede`. Each names the
   acting player (answers excepted: anyone may answer, P7); only the player casting or activating may cancel.
 - `decision/` — `Decision` (data only, with id and deciding player) and its `Answer`;
-  `Continuation`, the open flow the host stores opaquely (D58).
+  `Continuation`, the open flow the host stores opaquely (D58). Decisions carry text for people (`Texts`): a "you
+  may", a choice or a cost to pay reads as the sentence of the ability's printed text, modes and triggers to order
+  as their printed lines (with the trigger's `AbilityOrigin`), replacements to order as their ability's text; plain
+  words where a definition has no text.
 - `view/` — `View`/`ObjectView`/`Characteristics`, `AbilityOrigin` (an ability's path, D42/D44);
   the layer system (`Layers`, `Copiable`), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
@@ -91,8 +97,24 @@ tests play). One rule, in the event pipeline and the effects that look:
   nothing is forgotten.
 - **What each player may see:** a face-down permanent is a nameless 2/2 creature even unseen (CR 708.2a); `options`
   offers another player no answer naming cards hidden from them; `Engine.visible(state, player)` says what a host may
-  show each player. A pending decision over cards hidden from others (a search's matches) is shown only to its player,
-  and a fill that isn't public, asked in another player's view, is done in that player's view (D31).
+  show each player. A pending decision over cards hidden from others (a search's matches) is shown only to its player.
+- **A host keeping one state per player** forwards each player's inputs to the other states:
+  - Another player's `PlayLand`, `Cast` or `Activate` of a card the viewer doesn't know asks `HostFill` (public) for
+    exactly that card, which becomes public as it is played (CR 305.1, 601.2a, 602.2a), then goes on
+    (`Continuation.Played`; cancelling the cast forgets it again). `options` doesn't list such plays in the viewer's
+    state (it can't check them); the host takes them from the player's own state.
+  - A resolution that reaches cards only another player may look at (their search, scry, surveil, look, a choice
+    among cards hidden from the viewer) is done in that player's view (D31): it waits on `Decision.OtherView(player,
+    objects)`. The host has the player decide in their own state and answers `Answer.OtherView(filled, answers)`: the
+    identities of `objects` and the answers given there (anyone's decisions and random results, in order; never host
+    fills), all at once or as they come. Each step is worked out with them and committed without them
+    (`Knowledge.forgetHidden`: the identities are in neither the state nor the changes; a card the viewer then sees,
+    put into a public zone or revealed, is filled in as it would have been asked; triggers are found as with the
+    identities). The state keeps only the answers and which cards are hidden, so the identities come with every
+    answer; while more are needed the engine asks `OtherView` again. Once nothing is hidden the resolution goes on as
+    usual. `Engine.otherViewDecision(state, filled)` gives a host that doesn't keep the player's state the decision
+    they face. Not yet: a face-down cast of a card unknown to the view (filled publicly), private looks outside a
+    resolution (a companion check at the start).
 
 Every answer, a player's or the host's, is checked against its decision before anything happens (`AnswerCheck`: kind,
 allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a wrong one is refused with

@@ -155,6 +155,12 @@ internal class LongGame(
         if (d is Decision.HostFill) {
             return Input.Answer(d.id, Answer.Filled(d.objects.map { FilledObject(it, truth(it)) }))
         }
+        if (d is Decision.OtherView) {
+            // As the host: the identities, and the other player's next answer in their view (D31), when one is needed
+            val filled = d.objects.map { FilledObject(it, truth(it)) }
+            val next = Engine.otherViewDecision(state, filled)
+            return Input.Answer(d.id, Answer.OtherView(filled, listOfNotNull(next?.let { someAnswer(it) })))
+        }
         if (!state.started && d == null) return Input.StartGame()
         val listed = state.players.flatMap { Engine.options(state, it.id) }.distinct()
         if (listed.isEmpty()) fail("Stuck: nothing listed at ${d ?: state.turn}")
@@ -165,6 +171,31 @@ internal class LongGame(
         val busy = inputsThisTurn > 60
         return if (!busy && doing.isNotEmpty() && rnd.nextInt(3) > 0) doing.random(rnd)
         else listed.filter { it !in doing || it is Input.DeclareAttackers || it is Input.DeclareBlockers }.ifEmpty { listed }.random(rnd)
+    }
+
+    /** A legal answer to [d], a decision another player faces in their view ([Engine.otherViewDecision]), chosen at
+     * random where it is a choice. */
+    private fun someAnswer(d: Decision): Answer = when (d) {
+        is Decision.Random -> random(d.what)
+        is Decision.May -> Answer.YesNo(rnd.nextBoolean())
+        is Decision.ChooseObjects -> Answer.Objects(d.options.shuffled(rnd).take(rnd.nextInt(d.min, (d.max ?: d.options.size).coerceAtLeast(d.min) + 1)))
+        is Decision.Targets -> Answer.Targets(d.options.shuffled(rnd).take(d.min.coerceAtLeast(1).coerceAtMost(d.max ?: d.options.size)))
+        is Decision.Modes -> Answer.Modes(d.options.filter { it.available }.map { it.index }.take(d.min))
+        is Decision.ChooseOption -> Answer.Option(d.options.random(rnd))
+        is Decision.ChooseColor -> Answer.ColorChoice(d.among.random(rnd))
+        is Decision.ChoosePlayer -> Answer.Player(d.options.random(rnd))
+        is Decision.ChooseNumber -> Answer.Number(d.min)
+        is Decision.Announce -> Answer.Number(d.min)
+        is Decision.ChooseCardType -> Answer.CardTypeChoice(d.among.random(rnd))
+        is Decision.ChooseSubtype -> Answer.SubtypeChoice(d.among?.random(rnd) ?: Subtype("Elf"))
+        is Decision.ChooseCardName -> Answer.CardName("Forest")
+        is Decision.OrderTriggers -> Answer.Order(d.triggers.map { it.index })
+        is Decision.ChooseReplacement -> Answer.Replacement(d.options.first().index)
+        is Decision.LegendRule -> Answer.Keep(d.among.first())
+        is Decision.ManaPayment -> Answer.ManaPayment(d.suggestion)
+        is Decision.Divide -> Answer.Division(d.suggested.ifEmpty { listOf(Share(d.among.first(), d.amount)) })
+        is Decision.Manual -> Answer.Done
+        is Decision.HostFill, is Decision.OtherView -> fail("A host's decision inside another view: $d")
     }
 
     private fun truth(id: ObjectId): arcanum.api.CardDefinition =

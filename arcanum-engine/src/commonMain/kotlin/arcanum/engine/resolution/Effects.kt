@@ -483,7 +483,8 @@ internal object Effects {
             val e = scope.eval()
             var options = cards.filter { e.matches(effect.filter, it) }
             val max = scope.value(effect.max)
-            val chosen = act.chooseObjects(searcher, scope.self, options, 0, max, "Search for ${effect.filter}".take(120))
+            val chosen = act.chooseObjects(searcher, scope.self, options, 0, max,
+                arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "search", "Search"))
             if (effect.differentNames) {
                 val names = chosen.map { e.characteristics(it)?.name }
                 require(names.distinct().size == names.size) { "The cards must have different names" }

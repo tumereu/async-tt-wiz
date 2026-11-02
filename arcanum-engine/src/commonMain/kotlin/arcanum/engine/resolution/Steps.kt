@@ -73,6 +73,27 @@ internal object Steps {
     fun run(scope: Scope, steps: List<Step>) = steps.forEach { run(scope, it) }
 
     fun run(scope: Scope, step: Step) {
+        // What the step's changes are made by, for history (D33): this scope's source and Stack item
+        val recorder = scope.act.recorder
+        val outer = recorder.by
+        recorder.by = causedBy(scope, outer)
+        try {
+            runStep(scope, step)
+        } finally {
+            recorder.by = outer
+        }
+    }
+
+    private fun causedBy(scope: Scope, outer: arcanum.engine.change.CausedBy?): arcanum.engine.change.CausedBy {
+        val cause = scope.cause
+        val source = scope.entering?.id ?: cause.source
+        if (outer != null && outer.source == source && outer.item == cause.item?.id && outer.controller == cause.controller) return outer
+        val name = source?.let { scope.act.view()[it]?.characteristics?.name }
+            ?: cause.item?.snapshots?.firstOrNull { it.id == source }?.characteristics?.name
+        return arcanum.engine.change.CausedBy(source, name, cause.controller, cause.item?.id)
+    }
+
+    private fun runStep(scope: Scope, step: Step) {
         val act = scope.act
         when (step) {
             is Step.Do -> Effects.perform(scope, step.effect)
@@ -83,7 +104,7 @@ internal object Steps {
             is Step.Modify -> modify(scope, step.modification)
             is Step.May -> {
                 val player = scope.players(step.player).firstOrNull() ?: return
-                if (act.yesNo(player, scope.self, "You may: ${describe(step.steps)}")) withActor(scope, player) { run(scope, step.steps) }
+                if (act.yesNo(player, scope.self, mayText(scope, step))) withActor(scope, player) { run(scope, step.steps) }
             }
             is Step.If -> run(scope, if (scope.holds(step.condition)) step.then else step.otherwise)
             is Step.ForEach -> forEach(scope, step)
@@ -93,7 +114,8 @@ internal object Steps {
         }
     }
 
-    private fun describe(steps: List<Step>): String = steps.joinToString("; ") { it.toString() }.take(160)
+    /** The prompt of an optional step (API review 3): its sentence of the resolving ability's printed text. */
+    private fun mayText(scope: Scope, step: Step): String = arcanum.engine.decision.Texts.may(scope.cause.item?.ability, step)
 
     private fun withActor(scope: Scope, player: PlayerId, block: () -> Unit) {
         val saved = scope.actor
@@ -157,7 +179,7 @@ internal object Steps {
         if (s is Step.May) {
             val doing = scopes.filter { sc ->
                 val player = sc.players(s.player).firstOrNull() ?: return@filter false
-                sc.act.yesNo(player, sc.self, "You may: ${describe(s.steps)}")
+                sc.act.yesNo(player, sc.self, mayText(sc, s))
             }
             s.steps.forEach { inner -> stepTogether(scope, doing, inner) }
             return
@@ -208,7 +230,7 @@ internal object Steps {
                 val e2 = scope.eval()
                 val options = (from ?: e2.each(choice.filter)).filter { act.state.obj(it) != null && e2.matches(choice.filter, it) }
                 NamedValue.Objects(act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },
-                    "Choose ${choice.filter}".take(120)))
+                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose")))
             }
             is Choice.Option -> NamedValue.Option(act.chooseOption(chooser, source, choice.options))
         }
@@ -234,11 +256,12 @@ internal object Steps {
         val outcome = if (cost != null) {
             when {
                 !Costs.canPay(scope, payer, cost) -> PayOutcome.CouldNotPay
-                !step.mandatory && !act.yesNo(payer, scope.self, "Pay ${Costs.describe(cost)}?", cost) -> PayOutcome.Declined
+                !step.mandatory && !act.yesNo(payer, scope.self,
+                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "pay", "Pay ${Costs.describe(cost)}?"), cost) -> PayOutcome.Declined
                 else -> { withActor(scope, payer) { Costs.pay(scope, payer, cost) }; PayOutcome.Paid }
             }
         } else {
-            if (!step.mandatory && !act.yesNo(payer, scope.self, "You may: ${describe(step.steps)}")) PayOutcome.Declined
+            if (!step.mandatory && !act.yesNo(payer, scope.self, mayText(scope, step))) PayOutcome.Declined
             else { withActor(scope, payer) { run(scope, step.steps) }; PayOutcome.Paid }
         }
         scope.bind(step.bind, NamedValue.Payment(outcome))

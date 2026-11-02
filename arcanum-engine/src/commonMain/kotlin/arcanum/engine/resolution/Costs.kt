@@ -32,7 +32,7 @@ internal object Costs {
         when (part) {
             is CostPart.Mana -> part.cost.toString()
             is CostPart.PayLife -> "life"
-            else -> part::class.simpleName ?: "cost"
+            else -> arcanum.engine.decision.Texts.words(part::class.simpleName ?: "cost")
         }
     }
 

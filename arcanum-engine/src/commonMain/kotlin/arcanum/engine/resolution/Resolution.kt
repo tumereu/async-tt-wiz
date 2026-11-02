@@ -49,8 +49,14 @@ internal object Resolution {
         return run(recorder, Continuation.Resolving(top, 0, names))
     }
 
-    fun resume(recorder: Recorder, continuation: Continuation.Resolving, answer: Answer): Progress =
-        run(recorder, continuation.copy(answers = continuation.answers + answer))
+    fun resume(recorder: Recorder, continuation: Continuation.Resolving, answer: Answer): Progress {
+        if (continuation.otherView != null) {
+            val sent = answer as Answer.OtherView
+            return OtherView.run(recorder, continuation.copy(answers = continuation.answers + sent.answers),
+                sent.filled.associate { it.id to it.definition })
+        }
+        return run(recorder, continuation.copy(answers = continuation.answers + answer))
+    }
 
     fun resumeEvent(recorder: Recorder, continuation: Continuation.Event, answer: Answer): Progress =
         Events.resume(recorder, continuation, answer)
@@ -63,13 +69,13 @@ internal object Resolution {
 
     fun causeOf(item: StackItem) = Cause(item.controller, item.source ?: item.id, item, item.id.toString())
 
-    private fun run(recorder: Recorder, start: Continuation.Resolving): Progress {
+    internal fun run(recorder: Recorder, start: Continuation.Resolving): Progress {
         var c = start
         while (true) {
             val item = c.left ?: recorder.state.stackItems[c.item] ?: return Progress.Done
             val steps = stepsOf(item)
             val mark = recorder.changes.size
-            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}"))
+            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}", mayAskOtherView = true))
             try {
                 if (c.step < steps.size) {
                     val scope = Scope(act, causeOf(item), c.names, item.event)
@@ -84,6 +90,10 @@ internal object Resolution {
             } catch (n: NeedDecision) {
                 recorder.rollback(mark)
                 return Progress.Waiting(Pending(n.decision, c))
+            } catch (n: arcanum.engine.action.NeedOtherView) {
+                // D60, D31: cards only another player may look at; from this step on, worked out as in their view
+                recorder.rollback(mark)
+                return OtherView.start(c, n)
             }
         }
     }
@@ -154,7 +164,7 @@ internal object Resolution {
      * permission says, flashback CR 702.34a); a permanent spell enters the battlefield under its controller's control,
      * an Aura attached to what it targeted (CR 608.3, 303.4f); abilities and copies just leave.
      */
-    private fun finish(act: Act, item: StackItem, fizzled: Boolean) {
+    internal fun finish(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
         val card = act.state.obj(item.id)
         if (item.kind != StackItemKind.Spell || card == null) {

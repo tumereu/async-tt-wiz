@@ -146,7 +146,7 @@ internal class Sentences(
     /** "Choose one —" with its modes; "Choose three. You may choose the same mode more than once." (CR 700.2) */
     fun modes(choose: MatchResult, modeLines: List<String>): arcanum.api.Modes? {
         val n = Numbers.count(choose.groupValues[1]) ?: return null
-        val options = modeLines.map { arcanum.api.Mode(instructions(it) ?: return null) }
+        val options = modeLines.map { arcanum.api.Mode(instructions(it) ?: return null, text = it) }
         if (options.isEmpty()) return null
         // "Choose one or more —" / "Choose one or both —": up to every mode, each at most once.
         val max = if (choose.groupValues[2].isNotEmpty()) options.size else n
@@ -738,7 +738,7 @@ internal class Sentences(
         val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
         val choose = CHOOSE_MODES.matchEntire(m.groupValues[3]) ?: return null
         val n = Numbers.count(choose.groupValues[1]) ?: return null
-        val options = modeLines.map { arcanum.api.Mode(instructions(it, that = that(trigger)) ?: return null) }
+        val options = modeLines.map { arcanum.api.Mode(instructions(it, that = that(trigger)) ?: return null, text = it) }
         if (options.isEmpty()) return null
         val unchosen = choose.groupValues[2].isNotEmpty()
         val thisTurn = choose.groupValues[3].isNotEmpty()

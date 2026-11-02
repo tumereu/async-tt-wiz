@@ -94,7 +94,6 @@ class Review3ApiTest {
     /** A "you may" a UI shows reads as text, not as the engine's internal data: Warden's Reclamation's "you may copy this
      * spell" is shown as `You may: Do(effect=CopySpell(objects=Self, …))`. */
     // D58
-    @Ignore("review3 #API-1: Decision.May.text of a resolution step is a Kotlin toString of the step")
     @Test
     fun aMaysTextIsReadable() = scenario {
         alice.graveyard("Warden's Reclamation", "Tinkered Mite")
@@ -106,7 +105,6 @@ class Review3ApiTest {
 
     /** The modes of a modal spell carry their text so a UI can show them (Stormforge Charm). */
     // CR 700.2
-    @Ignore("review3 #API-2: ModeOption.text is null for the cube's modal spells")
     @Test
     fun modesCarryTheirText() = scenario {
         alice.battlefield("Island", "Mountain")
@@ -119,7 +117,6 @@ class Review3ApiTest {
     /** Two triggered abilities of one source waiting at once (Vivacity's two "enters" abilities, both conditions met)
      * are told apart by their text in the order decision. */
     // CR 603.3b
-    @Ignore("review3 #API-3: TriggerOption.text is null for parsed abilities: two triggers of one source can't be told apart")
     @Test
     fun triggersToOrderCarryTheirText() = scenario {
         alice.battlefield("Mountain", "Mountain", "Forest", "Forest", "Forest")

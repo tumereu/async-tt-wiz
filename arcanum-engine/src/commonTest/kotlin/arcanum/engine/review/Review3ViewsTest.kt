@@ -20,16 +20,17 @@ import kotlin.test.assertTrue
  */
 class Review3ViewsTest {
     /** In alice's view bob casts Storm Spark from his hand: the card becomes public as it goes on the Stack (CR 601.2a),
-     * so the view asks the host to fill it (public) and goes on; bob is offered the cast in alice's view as in his. */
+     * so the view asks the host to fill it (public) and goes on. alice's view doesn't list the cast among bob's options:
+     * the card is unknown there and options are exact (D60, README "Interface"); the host forwards bob's input from his
+     * own view. */
     // CR 601.2a, 400.2, D60
-    @Ignore("review3 #4: a viewer's state refuses the other player's cast from a hidden hand (\"unknown card\")")
     @Test
     fun theOpponentCastsFromAHiddenHandInTheViewersState() = scenario {
         viewer(alice)
         bob.battlefield("Mountain")
         bob.hand("Storm Spark")
         alice.passes()
-        assertTrue(castOptions(bob, "Storm Spark").isNotEmpty(), "bob's cast is offered in alice's view")
+        assertTrue(castOptions(bob, "Storm Spark").isEmpty(), "a card unknown in alice's view isn't listed for bob there")
         bob.casts("Storm Spark", target = "alice")
         allPass()
         expect {
@@ -41,7 +42,6 @@ class Review3ViewsTest {
 
     /** In alice's view bob plays a land from his hidden hand: it goes onto the battlefield face up, filled for everyone. */
     // CR 305.1, 400.2, D60
-    @Ignore("review3 #4: a viewer's state refuses the other player's land play from a hidden hand (\"unknown card\")")
     @Test
     fun theOpponentPlaysALandFromAHiddenHandInTheViewersState() = scenario {
         viewer(alice)
@@ -119,7 +119,6 @@ class Review3ViewsTest {
      * carries none of those cards known. A host with one state per player has no other way on than answering it (D31's
      * "done in that player's view" has no API to bring the result into bob's state). */
     // D60, D31, CR 701.16a
-    @Ignore("review3 #5: a look only the other player may see can be completed in a view only by filling it there")
     @Test
     fun aLookByTheOtherPlayerLeavesTheViewIgnorant() = scenario {
         viewer(bob)
@@ -137,7 +136,6 @@ class Review3ViewsTest {
      * the view only knows by id, and the engine refuses it rather than asking for it. (The host workaround: apply a
      * hand-made [Change.Filled] first.) */
     // D60
-    @Ignore("review3 #4: a viewer's state refuses the other player's cast from a hidden hand (\"unknown card\")")
     @Test
     fun theOpponentsCastIsAcceptedAsInput() = scenario {
         viewer(alice)

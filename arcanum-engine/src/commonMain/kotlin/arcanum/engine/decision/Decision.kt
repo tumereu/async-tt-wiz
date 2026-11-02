@@ -171,13 +171,33 @@ sealed interface Decision {
      * §7.0 "Hidden information"): searched, looked at, revealed, put into a public zone, a face-down card leaving or
      * turning face up, a card the viewer may look at. The host answers [Answer.Filled] for exactly these objects.
      * [public]: everyone sees them now (revealed, put into a graveyard, exile or the battlefield face up, CR 708.9);
-     * else only [player] looks at them, and a host whose viewer ([arcanum.engine.state.GameState.viewer]) is another
-     * player doesn't answer it in that view but has the step done in [player]'s view (D31).
+     * else only [player] looks at them. In a viewer's state ([arcanum.engine.state.GameState.viewer]) a resolution
+     * never asks another player's private fill: it asks [OtherView] instead.
      */
     @Serializable @SerialName("host-fill")
     data class HostFill(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val objects: List<ObjectId>, val reason: String, val public: Boolean = false,
+    ) : Decision
+
+    /**
+     * In a viewer's state ([arcanum.engine.state.GameState.viewer], D60), a resolution reached cards only [player] may
+     * look at (a search, scry, surveil, look or a choice among hidden cards; [reason] says which), so the rest of it is
+     * worked out as in [player]'s view (D31): the host has [player] decide in their view and answers
+     * [Answer.OtherView] with the identities of [objects] (each one this view doesn't know whose identity the rest of
+     * the resolution needs so far, in the order it needed them) and the answers given in [player]'s view since the
+     * first [answered] (decisions of everyone, random results; never host fills), in the order given there.
+     *
+     * The engine works the rest of the resolution out with those identities and keeps none of them: its changes say
+     * only what this view may see (cards put into a public zone or revealed are filled in then; the others stay
+     * unknown, also in the changes). While the answers don't reach the end of the resolution, or another card's
+     * identity is needed, it asks again with the answers so far ([answered] grows) and [objects] as needed. Nothing
+     * is kept between the calls but the answers, so the identities are sent with every answer.
+     */
+    @Serializable @SerialName("other-view")
+    data class OtherView(
+        override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
+        val objects: List<ObjectId>, val reason: String, val answered: Int = 0,
     ) : Decision
 
     /** Something to do by hand (D61): [text] is shown; answered [Answer.Done]. */
@@ -196,9 +216,10 @@ data class ModeOption(val index: Int, val text: String?, val available: Boolean 
 @Serializable
 data class Share(val target: TargetRef, val amount: Int)
 
-/** One triggered ability waiting to go on the Stack: [index] into the waiting list, its [source] and [text]. */
+/** One triggered ability waiting to go on the Stack: [index] into the waiting list, its [source], its printed [text] (a
+ * keyword's name for a keyword's trigger) and which of its source's abilities it is ([origin], D23). */
 @Serializable
-data class TriggerOption(val index: Int, val source: ObjectId?, val text: String?)
+data class TriggerOption(val index: Int, val source: ObjectId?, val text: String?, val origin: arcanum.engine.view.AbilityOrigin? = null)
 
 /** One replacement effect that could apply ([index] for the answer), from [source], with its [text]. */
 @Serializable

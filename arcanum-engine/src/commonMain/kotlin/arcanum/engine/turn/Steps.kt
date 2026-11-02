@@ -130,11 +130,29 @@ internal object Steps {
             turnStarted = s.turn.turnStarted + (next to number),
             extraTurns = if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
         )
+        // CR 800.4m: players who left and whose turn would have begun now (passed over in turn order)
+        val passedOver = if (extra == null) leftPlayersBetween(s, s.turn.active, next) else emptyList()
         recorder.record(Changes.step(s, turn, listOf(Meaning.TurnBegan, Meaning.StepBegan)))
+        // Their effects lasting until their next turn, or until a point in it, end as that turn would have begun
+        passedOver.forEach { left -> endEffects(recorder, onlyController = left) { d, _ -> keyedToYourNextTurn(d) } }
         // "Until your next turn" ends as that player's next turn begins (CR 611.2b)
         endEffects(recorder, onlyController = next) { d, _ -> d == Duration.UntilYourNextTurn }
         endEffects(recorder) { d, you -> d is Duration.UntilStep && d.step == TurnStep.Untap && untilStepMatches(recorder.state, d, you) }
     }
+
+    /** The players who left the game seated after [from] and before [to] in turn order: the ones a turn going from
+     * [from] to [to] passes over. */
+    private fun leftPlayersBetween(s: GameState, from: PlayerId, to: PlayerId): List<PlayerId> {
+        val order = s.players.map { it.id }
+        val start = order.indexOf(from)
+        if (start < 0) return emptyList()
+        return (1 until order.size).map { order[(start + it) % order.size] }.takeWhile { it != to }.filter { s.player(it).lost }
+    }
+
+    /** Durations that last until their controller's next turn or a point in it (CR 611.2b, 800.4m). */
+    private fun keyedToYourNextTurn(d: Duration): Boolean = d == Duration.UntilYourNextTurn || d == Duration.UntilEndOfYourNextTurn ||
+        (d is Duration.UntilStep && d.whose == arcanum.api.PlayerFilter.You) ||
+        (d is Duration.ThroughNextStep && d.whose == Players.You)
 
     private fun turnBasedActions(recorder: Recorder): Next {
         val s = recorder.state

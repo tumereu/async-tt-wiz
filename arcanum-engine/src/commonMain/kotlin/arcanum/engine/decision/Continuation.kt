@@ -45,13 +45,16 @@ sealed interface Continuation {
     /** Resolving Stack item [item] (CR 608.2): [step] is the index of the next step of its instructions (the chosen
      * modes' steps, then the common ones); [names] what was bound so far (targets still legal, announced values, binds
      * of earlier steps). A step that needs decisions is redone from its start with [answers] so far (D29, D31); steps
-     * before it are committed. */
+     * before it are committed. [left] is the item once its card has left the Stack during its own resolution (a spell
+     * shuffled into its library by its own steps, CR 400.7): it is then in no zone and not in `stackItems`, and its
+     * remaining steps still run. */
     @Serializable @SerialName("resolving")
     data class Resolving(
         val item: ObjectId,
         val step: Int = 0,
         val names: Bindings = Bindings.EMPTY,
         val answers: List<Answer> = emptyList(),
+        val left: arcanum.engine.state.StackItem? = null,
         override val then: Continuation? = null,
     ) : Continuation
 

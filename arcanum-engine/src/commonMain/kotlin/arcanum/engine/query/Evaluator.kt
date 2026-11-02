@@ -478,10 +478,24 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     /** Mana value; X counts its announced value on the Stack (CR 202.3e), also for a spell that has left the Stack and is
      * read as it last existed there (CR 608.2h: "that spell's mana value" of a countered spell). */
-    fun manaValue(id: ObjectId, c: Characteristics): Int = c.manaValue(when {
-        zoneOf(id) == Zone.Stack -> state.stackItems[id]?.announced?.get("X") ?: 0
-        else -> lki(id)?.takeIf { it.zone == Zone.Stack }?.facts?.x ?: 0
-    })
+    fun manaValue(id: ObjectId, c: Characteristics): Int {
+        val x = when {
+            zoneOf(id) == Zone.Stack -> state.stackItems[id]?.announced?.get("X") ?: 0
+            else -> lki(id)?.takeIf { it.zone == Zone.Stack }?.facts?.x ?: 0
+        }
+        return (frontFaceCost(id)?.let { c.copy(manaCost = it) } ?: c).manaValue(x)
+    }
+
+    /** CR 712.8c, e: a nonmodal double-faced permanent or spell with its back face up has its front face's mana value;
+     * one copying something (a back face included) has the copy's (0 for a back face, which has no mana cost). */
+    private fun frontFaceCost(id: ObjectId): arcanum.api.ManaCost? {
+        val o = state.obj(id) ?: return null
+        val definition = o.definition ?: return null
+        if (definition.layout != arcanum.api.Layout.Transform || o.face == 0 || o.faceDown) return null
+        if (o.zone != Zone.Battlefield && o.zone != Zone.Stack) return null
+        if (state.effects.values.any { e -> e.locked?.contains(id) == true && e.mechanics.any { it is arcanum.api.Mechanic.CopyOf } }) return null
+        return definition.faces.first().manaCost ?: arcanum.api.ManaCost(emptyList())
+    }
 
     private fun combine(how: Combine, values: List<Int>): Int = when (how) {
         Combine.Single -> values.firstOrNull() ?: 0

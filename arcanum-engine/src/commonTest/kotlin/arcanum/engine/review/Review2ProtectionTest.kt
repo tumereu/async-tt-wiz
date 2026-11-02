@@ -89,7 +89,6 @@ class Review2ProtectionTest {
 
     /** Protection from colorless unattaches a colorless Equipment; the Equipment stays on the battlefield. */
     // CR 702.16d, 704.5n
-    @Ignore("review2 #12: Equipment stays attached to a creature with protection from it")
     @Test
     fun equipmentFallsOffProtectionFromColorless() = scenario {
         alice.battlefield("Bestower of Sigils", "Brakka, Wild Whelp", "Bonevise")
@@ -99,6 +98,19 @@ class Review2ProtectionTest {
         answer(Answer.Option(decision<Decision.ChooseOption>().options.first { "colorless" in it.lowercase() }))
         expect { "Bonevise".zone shouldBe arcanum.api.Zone.Battlefield }
         assertNull(state.objOrThrow(card("Bonevise")).attachedTo)
+    }
+
+    /** Protection from a quality the Equipment doesn't have (green) leaves it attached. */
+    // CR 702.16d, 704.5n
+    @Test
+    fun equipmentStaysWithProtectionFromAnotherQuality() = scenario {
+        alice.battlefield("Bestower of Sigils", "Brakka, Wild Whelp", "Bonevise")
+        attach("Bonevise", "Brakka, Wild Whelp")
+        alice.activates("Bestower of Sigils", target = "Brakka, Wild Whelp")
+        allPass()
+        answer(Answer.Option("a color"))
+        answer(Answer.ColorChoice(Color.Green))
+        assertEquals(TargetRef.Object(card("Brakka, Wild Whelp")), state.objOrThrow(card("Bonevise")).attachedTo)
     }
 
     /** Shalecoil Wyrm's protection from multicolored: Sudden Rot ({B}{G}) can't target it. */

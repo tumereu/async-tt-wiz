@@ -66,7 +66,7 @@ internal object Resolution {
     private fun run(recorder: Recorder, start: Continuation.Resolving): Progress {
         var c = start
         while (true) {
-            val item = recorder.state.stackItems[c.item] ?: return Progress.Done
+            val item = c.left ?: recorder.state.stackItems[c.item] ?: return Progress.Done
             val steps = stepsOf(item)
             val mark = recorder.changes.size
             val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}"))
@@ -74,9 +74,11 @@ internal object Resolution {
                 if (c.step < steps.size) {
                     val scope = Scope(act, causeOf(item), c.names, item.event)
                     Steps.run(scope, steps[c.step])
-                    c = c.copy(step = c.step + 1, names = scope.names, answers = emptyList())
+                    // Its card may have left the Stack (CR 400.7): the item stays with the flow for the steps left
+                    val left = c.left ?: item.takeIf { it.id !in recorder.state.stackItems }
+                    c = c.copy(step = c.step + 1, names = scope.names, answers = emptyList(), left = left)
                 } else {
-                    finish(act, item, fizzled = false)
+                    if (c.left == null) finish(act, item, fizzled = false)
                     return Progress.Done
                 }
             } catch (n: NeedDecision) {

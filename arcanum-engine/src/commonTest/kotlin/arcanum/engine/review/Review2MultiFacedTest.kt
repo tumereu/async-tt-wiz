@@ -9,7 +9,6 @@ import arcanum.engine.input.Input
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.TargetRef
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -93,7 +92,6 @@ class Review2MultiFacedTest {
     /** A transformed permanent's mana value is its front face's: Risen Leviathan has mana value 2, so Rescind with X 2
      * can target it. */
     // CR 712.8e
-    @Ignore("review2 #13: a transformed permanent's mana value is its back face's (0), not its front face's")
     @Test
     fun aTransformedPermanentHasItsFrontFacesManaValue() = scenario {
         alice.battlefield("Island", "Island", "Island")

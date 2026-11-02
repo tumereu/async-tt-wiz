@@ -205,6 +205,11 @@ internal object Actions {
             act.record(Change.Combat(combat, combat.copy(attackers = combat.attackers + arcanum.engine.state.Attacker(after, m.attacking!!))))
         }
         act.record(Change.ZoneChange(all))
+        // CR 400.7: a spell whose card left the Stack is no longer a spell (one resolving keeps its item in its
+        // continuation, Continuation.Resolving.left)
+        all.filter { it.before.zone == Zone.Stack && it.after.zone != Zone.Stack }.forEach { mv ->
+            act.state.stackItems[mv.before.id]?.let { act.record(Change.StackItemRemoved(it, null)) }
+        }
         return all.associate { it.before.id to it.after.id }
     }
 

@@ -114,7 +114,7 @@ internal object GameEnd {
 
     /** An open flow can go on unless the Stack item it resolves has left the game. */
     private fun stillOpen(s: GameState, c: Continuation): Boolean =
-        c !is Continuation.Resolving || c.item in s.stackItems
+        c !is Continuation.Resolving || c.item in s.stackItems || (c.left != null && !s.player(c.left.controller).lost)
 
     /** Players who lost in a game that goes on leave it (CR 800.4a): checked with the state-based actions. */
     fun leaveLost(recorder: Recorder) {

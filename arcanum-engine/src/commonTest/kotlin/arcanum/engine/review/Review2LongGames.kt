@@ -46,7 +46,7 @@ internal class LongGame(
     private val jsonEvery: Int = 1,
     /** A host that drops old turns' events at each new turn ([GameState.forgetOlderTurns]). */
     private val forgetOldTurns: Boolean = true,
-    /** Invariant checks to leave out (known findings), by name: "orphanStackItem". */
+    /** Invariant checks to leave out (known findings), by name: "orphanStackItem" (none open now). */
     private val skip: Set<String> = emptySet(),
 ) {
     private val rnd = Random(seed)

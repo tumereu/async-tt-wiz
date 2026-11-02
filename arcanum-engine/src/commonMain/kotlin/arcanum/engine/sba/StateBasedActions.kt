@@ -101,7 +101,7 @@ internal object StateBasedActions {
                     equipment -> hostChars?.isType(CardType.Creature) == true || canAttachTo(act, id, host)
                     fortification -> hostChars?.isType(CardType.Land) == true
                     else -> false
-                }
+                } && !protectedFrom(act, TargetRef.Object(host), id)
                 if (!legal) unattach += id
             }
             // CR 704.5q: +1/+1 and -1/-1 counters annihilate
@@ -182,15 +182,16 @@ internal object StateBasedActions {
         } && !protectedFrom(act, host, id)
     }
 
-    /** CR 702.16c: a permanent or player with protection can't be enchanted by an Aura with that quality. */
-    private fun protectedFrom(act: Act, host: TargetRef, aura: ObjectId): Boolean {
+    /** CR 702.16c, d: a permanent or player with protection can't be enchanted by an Aura, or equipped or fortified by
+     * an Equipment or Fortification, with that quality. */
+    private fun protectedFrom(act: Act, host: TargetRef, attachment: ObjectId): Boolean {
         val mechanics = when (host) {
             is TargetRef.Object -> act.view()[host.id]?.mechanics.orEmpty()
             is TargetRef.Player -> act.view().players[host.id]?.mechanics.orEmpty()
         }
         return mechanics.any { a ->
             val p = a.mechanic as? Mechanic.Protection ?: return@any false
-            act.evaluator(Context(a.controller, a.source)).matches(p.from, aura)
+            act.evaluator(Context(a.controller, a.source)).matches(p.from, attachment)
         }
     }
 

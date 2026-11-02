@@ -1,7 +1,6 @@
 package arcanum.engine.review
 
 import arcanum.engine.scenario.scenario
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -16,7 +15,7 @@ class Review2LongGamesTest {
     // CR 103, 104, D56, D58, D59
     @Test
     fun seededGamesKeepEveryInvariant() {
-        SEEDS.forEach { seed -> LongGame(seed, jsonEvery = 10, skip = KNOWN).play() }
+        SEEDS.forEach { seed -> LongGame(seed, jsonEvery = 10).play() }
     }
 
     /** A spell that shuffles itself into its library as it resolves (Verdant Moon's Apex) leaves nothing behind on the
@@ -42,7 +41,6 @@ class Review2LongGamesTest {
      * but its Stack item is still in [arcanum.engine.state.GameState.stackItems] though no zone holds it. A host that
      * shows the Stack from the items shows a spell that isn't there. */
     // CR 608.2n, 400.7, D58
-    @Ignore("review2 #6: while a resolution waits after its spell left the Stack, a Stack item stays that no zone holds")
     @Test
     fun aWaitingResolutionKeepsNoStackItemForAMovedSpell() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", "Forest")
@@ -62,11 +60,22 @@ class Review2LongGamesTest {
         assertTrue(game.stackItems.keys.all { it in game.stack }, "items no zone holds: ${game.stackItems.keys - game.stack.toSet()}")
     }
 
+    /** A spell returned to its owner's hand by another ability (Grubb losing its flip) is no longer a spell: no Stack
+     * item stays for it. */
+    // CR 400.7
+    @Test
+    fun aSpellReturnedToHandLeavesNoStackItem() = scenario {
+        alice.battlefield("Grubb, the Fingerless", "Mountain")
+        alice.hand("Storm Spark")
+        random(arcanum.engine.decision.Answer.CoinFlip(false))
+        alice.casts("Storm Spark", target = "bob")
+        allPass()
+        expect { alice.hand has "Storm Spark" }
+        assertTrue(state.stackItems.isEmpty(), "items left: ${state.stackItems.keys}")
+    }
+
     companion object {
         /** Seeds that finish in a few seconds each. */
         private val SEEDS = listOf(7L, 9L)
-
-        /** Checks left out because of open findings (#6: Stack items of a spell that left the Stack mid-resolution). */
-        val KNOWN = setOf("orphanStackItem")
     }
 }

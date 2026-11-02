@@ -12,7 +12,6 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.TargetRef
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -203,7 +202,6 @@ class Review2PlaneswalkerTest {
 
     /** "Until your next turn" from a player who leaves the game lasts until that turn would have begun. */
     // CR 800.4m
-    @Ignore("review2 #11: \"until your next turn\" of a player who left the game never ends")
     @Test
     fun untilYourNextTurnWhenThePlayerLeaves() = scenario(players = 3) {
         bob.battlefield("Brakka, Wild Whelp")
@@ -217,6 +215,53 @@ class Review2PlaneswalkerTest {
         expect { "Brakka, Wild Whelp".power shouldBe 0 }
         // alice's turn would have begun now (turn 4 is bob's)
         advanceTo(TurnStep.PrecombatMain, turn = 4)
+        expect { "Brakka, Wild Whelp".power shouldBe 2 }
+    }
+
+    /** A player who leaves during another player's turn: their "until your next turn" ends as the next turn begins
+     * when that turn would have been theirs (carol's turn 3 → alice's seat → bob's turn 4). */
+    // CR 800.4m
+    @Test
+    fun untilYourNextTurnWhenThePlayerLeavesInAnotherPlayersTurn() = scenario(players = 3) {
+        val carol = players[2]
+        bob.battlefield("Brakka, Wild Whelp")
+        players.forEach { it.library("Island", "Island", "Island") }
+        turn(number = 3, active = carol)
+        effect(alice, minusTwo, on = listOf("Brakka, Wild Whelp"), duration = Duration.UntilYourNextTurn)
+        perform(Input.Concede(alice.id))
+        expect { "Brakka, Wild Whelp".power shouldBe 0 }
+        advanceTo(TurnStep.Upkeep, turn = 4)
+        expect { "Brakka, Wild Whelp".power shouldBe 2 }
+    }
+
+    /** "Until the end of your next turn" of a player who left also ends as that turn would have begun, not at the end
+     * of the turn that follows it. */
+    // CR 800.4m
+    @Test
+    fun untilTheEndOfYourNextTurnWhenThePlayerLeaves() = scenario(players = 3) {
+        bob.battlefield("Brakka, Wild Whelp")
+        players.forEach { it.library("Island", "Island", "Island") }
+        effect(alice, minusTwo, on = listOf("Brakka, Wild Whelp"), duration = Duration.UntilEndOfYourNextTurn)
+        perform(Input.Concede(alice.id))
+        advanceTo(TurnStep.PrecombatMain, turn = 3)
+        expect { "Brakka, Wild Whelp".power shouldBe 0 }
+        advanceTo(TurnStep.Upkeep, turn = 4)
+        expect { "Brakka, Wild Whelp".power shouldBe 2 }
+    }
+
+    /** Another player's "until your next turn" isn't touched by a player leaving: bob's effect lasts to bob's turn. */
+    // CR 611.2b, 800.4m
+    @Test
+    fun untilYourNextTurnOfAPlayerStillInTheGame() = scenario(players = 3) {
+        alice.battlefield("Brakka, Wild Whelp")
+        players.forEach { it.library("Island", "Island", "Island") }
+        turn(number = 3, active = players[2])
+        effect(bob, minusTwo, on = listOf("Brakka, Wild Whelp"), duration = Duration.UntilYourNextTurn)
+        perform(Input.Concede(players[2].id))
+        // carol's turn goes on without her; alice's turn 4 passes over nobody who left between carol and alice
+        advanceTo(TurnStep.PrecombatMain, turn = 4)
+        expect { "Brakka, Wild Whelp".power shouldBe 0 }
+        advanceTo(TurnStep.Upkeep, turn = 5)
         expect { "Brakka, Wild Whelp".power shouldBe 2 }
     }
 

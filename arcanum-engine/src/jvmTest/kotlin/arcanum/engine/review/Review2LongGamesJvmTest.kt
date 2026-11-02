@@ -17,7 +17,7 @@ class Review2LongGamesJvmTest {
         val players = System.getProperty("arcanum.longGames.players")?.toIntOrNull() ?: 2
         val failures = (from until from + games).mapNotNull { seed ->
             try {
-                LongGame(seed, players = players, jsonEvery = 5, skip = Review2LongGamesTest.KNOWN).play()
+                LongGame(seed, players = players, jsonEvery = 5).play()
                 null
             } catch (e: LongGameFailure) {
                 e.message + (e.cause?.let { "\n  caused by ${it::class.simpleName}: ${it.message}" } ?: "")

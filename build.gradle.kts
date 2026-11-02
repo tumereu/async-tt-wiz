@@ -52,7 +52,7 @@ tasks.register("verifyModuleBoundaries") {
         val expected = mapOf(
             ":core" to emptySet(),
             ":protocol" to setOf(":core", ":scale-fixtures"),
-            ":client-storage" to setOf(":core"),
+            ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser"),
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":scale-fixtures"),
             ":server" to setOf(":core", ":protocol", ":scale-fixtures"),
             ":scale-fixtures" to setOf(":protocol"),

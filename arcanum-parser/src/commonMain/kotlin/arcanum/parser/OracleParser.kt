@@ -20,6 +20,13 @@ import arcanum.api.Objects
  * all its spell text unparsed (CR 608.2b).
  */
 object OracleParser {
+    /**
+     * The parser's output version. Bump it with every change that changes what the parser returns for any card (a
+     * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
+     * parsed again.
+     */
+    const val VERSION: Int = 1
+
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
         val face = characteristics(card)

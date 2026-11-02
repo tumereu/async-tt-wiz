@@ -17,6 +17,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 - `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
   double-faced; CR 709, 712, 715) → `CardDefinition`, each face parsed on its own. A face's
   colour indicator is read from `OracleCard.colorIndicator` ("U").
+- `OracleParser.VERSION`: the parser's output version. Hosts that store parsed definitions keep them per version
+  and parse again when it changes. **Bump it in every change that changes the parser's output for any card.**
 - Subtypes and ability words are accepted only from the lists in the pinned
   Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c). Exhaust, Boast, Max speed,
   Power-up and Solved become ability labels.
@@ -57,4 +59,5 @@ coverage in its header, and `unparsed-keywords.tsv` (never committed).
 - Test cards are invented: our own names and costs, wording copied from real oracle
   templates or merged from several cards. No real card data is committed.
 - Unparsed text is kept and reported, never guessed.
+- Any change to the parser's output bumps `OracleParser.VERSION` in the same commit.
 - Generic MTG code: no dependency on any ATW module; Kotlin Multiplatform common code.

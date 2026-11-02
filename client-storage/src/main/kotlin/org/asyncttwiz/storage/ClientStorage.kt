@@ -151,6 +151,29 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
         Unit
     }
 
+    /** Cached Arcanum definitions made by parser [parserVersion] for [cardIds]; absent ids were never cached. */
+    internal fun cachedCardDefinitions(parserVersion: Long, cardIds: Collection<String>): List<CachedCardDefinition> = access {
+        // API29's SQLite allows 999 bound values per statement.
+        cardIds.distinct().chunked(500).flatMap { chunk ->
+            database.cardDefinitionCacheQueries.selectDefinitions(parserVersion, chunk, ::CachedCardDefinition).executeAsList()
+        }
+    }
+
+    internal fun cacheCardDefinitions(parserVersion: Long, entries: List<CachedCardDefinition>) = access {
+        database.transaction {
+            entries.forEach {
+                database.cardDefinitionCacheQueries.putDefinition(it.cardId, parserVersion, it.sourceDigest, it.definitionJson,
+                    it.manualAbilities, it.problem)
+            }
+        }
+    }
+
+    /** Drops definitions made by any other parser version. */
+    internal fun evictCardDefinitionsExcept(parserVersion: Long) = access {
+        database.cardDefinitionCacheQueries.deleteOtherParserVersions(parserVersion)
+        Unit
+    }
+
     /** One installation profile; switching accounts never makes the former replica readable. */
     fun activateAccount(accountId: String) = access {
         require(accountId.isNotEmpty())
@@ -243,6 +266,10 @@ class ClientStorage private constructor(private val driver: SqlDriver) : AutoClo
                     tables[table] = tables.getValue(table) + "payload_version:INTEGER:1:0"
                 }
                 tables["public_cache"] = listOf("cache_key:TEXT:1:1", "payload_version:INTEGER:1:0", "payload_json:TEXT:1:0")
+            }
+            if (version >= 4L) {
+                tables["card_definition"] = listOf("card_id:TEXT:1:1", "parser_version:INTEGER:1:2", "source_digest:TEXT:1:0",
+                    "definition_json:TEXT:0:0", "manual_abilities:INTEGER:1:0", "problem:TEXT:0:0")
             }
             tables.forEach { (table, expected) ->
                 val actual = driver.executeQuery(null, "PRAGMA table_info($table)", { cursor ->

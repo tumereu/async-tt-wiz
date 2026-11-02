@@ -52,7 +52,7 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(Long.MAX_VALUE, listOf(first.copy(payload = StoredPayload(3, "{}")))), storage.accepted("replica-a"))
             assertNull(storage.accepted("replica-b"))
         }
-        assertEquals("3", scalar("PRAGMA user_version"))
+        assertEquals("4", scalar("PRAGMA user_version"))
         assertEquals("ok", scalar("PRAGMA integrity_check"))
         println("PASS actual SQLite ${scalar("SELECT sqlite_version()")} file-backed create/commit/reopen, exact signed-64-bit cursor")
     }
@@ -75,7 +75,7 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(2, listOf(second)), storage.accepted("account:profile"))
             assertEquals(StoredPayload(1, "keep"), storage.publicCache("catalog"))
         }
-        assertEquals("3", scalar("PRAGMA user_version"))
+        assertEquals("4", scalar("PRAGMA user_version"))
     }
 
     // LOB-007
@@ -166,7 +166,7 @@ class ClientStorageTest {
             assertNull(storage.personal("replica-a", "draft"))
             assertEquals(AcceptedSnapshot(7, listOf(first)), storage.accepted("replica-a"))
         }
-        assertEquals("accepted_cursor,accepted_record,personal_state,public_cache", scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)"))
+        assertEquals("accepted_cursor,accepted_record,card_definition,personal_state,public_cache", scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)"))
         println("PASS separate accepted/personal/public-cache tables; no outgoing/prediction/exposure journal")
     }
 
@@ -182,7 +182,7 @@ class ClientStorageTest {
                 assertNull(storage.publicCache("missing"))
             }
         }
-        assertEquals("3", scalar("PRAGMA user_version"))
+        assertEquals("4", scalar("PRAGMA user_version"))
         open().use { storage ->
             storage.commitAccepted("replica-a", 9007199254740993, 9007199254740994, listOf(second))
             storage.cachePublic("new", StoredPayload(2, "{}"))

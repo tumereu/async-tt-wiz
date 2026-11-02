@@ -1,0 +1,12 @@
+-- Arcanum card definitions parsed on the device (CardDefinitionCache.sq): a new cache table only.
+-- IF NOT EXISTS: re-running from an older user_version over a current schema keeps working.
+CREATE TABLE IF NOT EXISTS card_definition (
+  card_id TEXT NOT NULL,
+  parser_version INTEGER NOT NULL,
+  source_digest TEXT NOT NULL,
+  definition_json TEXT,
+  manual_abilities INTEGER NOT NULL CHECK (manual_abilities >= 0),
+  problem TEXT,
+  PRIMARY KEY (card_id, parser_version),
+  CHECK ((definition_json IS NULL) != (problem IS NULL))
+);

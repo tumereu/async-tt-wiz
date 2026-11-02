@@ -298,6 +298,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // fra: a prepare spell (CR 722.3c, d)
             ObjectFilter.PrepareSpell -> o?.prepareSpellOf != null
             ObjectFilter.HasDealtCombatDamage -> o?.facts?.dealtCombatDamage == true
+            // hob: the condition read with this object as the tested one
+            is ObjectFilter.Where -> with(ctx.copy(tested = id)).holds(filter.condition)
             ObjectFilter.Colorless -> c != null && c.colors.isEmpty()
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
@@ -707,6 +709,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             level >= condition.level
         }
         is Condition.Prime -> value(condition.value).let { n -> n >= 2 && (2..n / 2).none { n % it == 0 } }
+        // hob
+        is Condition.Odd -> value(condition.value) % 2 != 0
+        is Condition.RememberedOption -> (selfMemory(condition.key) as? NamedValue.Option)?.option == condition.option
         Condition.IsDay -> state.ledger[DAY_NIGHT] == DAY
         Condition.IsNight -> state.ledger[DAY_NIGHT] == NIGHT
     }

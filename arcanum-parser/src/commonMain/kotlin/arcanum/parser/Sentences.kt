@@ -54,6 +54,7 @@ internal class Sentences(
 
     /** Lines that are more than one ability. */
     fun multi(line: String): List<Ability>? {
+        hobMulti(line)?.let { return it } // hob
         // dgm: "Whenever an opponent casts a spell during your turn and when this creature dies, [effect]": two trigger conditions,
         // the first only during your turn (CR 603.1)
         Gtc.OPPONENT_CASTS_DURING_YOUR_TURN_AND_DIES.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -149,6 +150,7 @@ internal class Sentences(
     private var triggerIt: Pair<Objects, Zone?>? = null
 
     fun line(line: String): Ability? {
+        hobLine(line)?.let { return it } // hob
         fraLine(line)?.let { return it } // fra
         // chunk 56: a Saga's "I, II — [effect]" is a chapter ability for each listed chapter (CR 714.2b, c)
         CHAPTERS.matchEntire(line)?.let { m ->
@@ -264,6 +266,7 @@ internal class Sentences(
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        hobStatic(line)?.let { return it } // hob
         fraStatic(line)?.let { return it } // fra
         gtcStatic(line)?.let { return it } // gtc
         blbStatic(line)?.let { return it }
@@ -1159,6 +1162,10 @@ internal class Sentences(
     /** "Whenever [event], choose one that hasn't been chosen this turn —" with its "• " modes (CR 700.2). */
     // chunk 21
     fun modalTrigger(header: String, modeLines: List<String>): Ability? {
+        // hob chunk 07: "Landfall — Whenever a land you control enters, choose one —" (an ability word, CR 207.2c)
+        ABILITY_WORD.matchEntire(header)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) }?.let { w ->
+            return (modalTrigger(w.groupValues[2], modeLines) as? Ability.Triggered)?.copy(abilityWord = w.groupValues[1])
+        }
         val m = WHENEVER.matchEntire(header) ?: return null
         val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
         val choose = CHOOSE_MODES.matchEntire(m.groupValues[3]) ?: return null
@@ -1177,6 +1184,7 @@ internal class Sentences(
         val during = DURING_YOUR_TURN.matchEntire(text)
         val events = during?.groupValues?.get(1) ?: text
         val onlyIf = during?.let { arcanum.api.Condition.YourTurn }
+        hobTrigger(events)?.let { return it to onlyIf } // hob
         fraTrigger(events)?.let { return it to onlyIf } // fra
         // gtc chunk 07: "you cast your second spell each turn" (the second spell you cast this turn, CR 603.2)
         Gtc.YOUR_NTH_SPELL_EACH_TURN.matchEntire(events)?.let { m ->
@@ -1308,6 +1316,7 @@ internal class Sentences(
     }
 
     private fun costPart(text: String): List<CostPart>? {
+        hobCostPart(text)?.let { return it } // hob
         fraCostPart(text)?.let { return it } // fra
         rtrCostPart(text)?.let { return it } // rtr
         gtcCostPart(text)?.let { return it } // gtc
@@ -1485,7 +1494,13 @@ internal class Sentences(
         val outerX = announcedX
         if (whereX != null) announcedX = true
         try {
-            for (sentence in sentences(if (whereX == null) text else text.removeRange(whereX.range))) {
+            // hob: wordings of several sentences read as a whole (the hob rules see the ability's whole text first)
+            val body = (if (whereX == null) text else text.removeRange(whereX.range)).trim()
+            val wholeFrom = context.targets.size
+            val whole = if (body.contains(". ")) hobEffect(body.replaceFirstChar { it.uppercase() }, context) else null
+            if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
+            if (whole != null) steps += whole
+            else for (sentence in sentences(if (whereX == null) text else text.removeRange(whereX.range))) {
                 // blb chunk 02: where the sentence's targets and steps begin ("If the gift was promised, instead …" replaces them)
                 val targetsFrom = context.targets.size
                 val stepsFrom = steps.size
@@ -1507,6 +1522,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        hobModify(sentence, steps, context)?.let { return it } // hob
         fraModify(sentence, steps, context)?.let { return it } // fra
         // gtc chunk 06: "He's still a planeswalker." / "It's still a land." after it became a creature in addition to its types:
         // a reminder (CR 205.1b), nothing changes
@@ -2713,6 +2729,7 @@ internal class Sentences(
     private fun effectRules(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        hobEffect(sentence, context)?.let { return it } // hob
         // gtc: the Gatecrash and Dragon's Maze wordings, tried first; each falls through when it can't read the sentence
         gtcEffect(sentence, context)?.let { return it }
         // blb: the Bloomburrow wordings (blbEffect), tried first; each is specific and falls through when it can't read
@@ -10110,6 +10127,864 @@ internal class Sentences(
         val THAT_CREATURES_POWER = Regex("""that creature's power is (\d+) or (less|greater)""")
         val FOR_EACH_QUALITY_MAY_FROM_AMONG = Regex("""For each (card type|color), you may (exile|put into your hand) a card of that (?:type|color) from among them\.""")
         val MAY_CAST_FROM_AMONG_EXILED_IF = Regex("""You may cast a spell from among the exiled cards without paying its mana cost if you exiled (\w+) or more cards this way\.""")
+    }
+
+    // ---- hob: The Hobbit wordings (the set's parser tests, sets/hob/HobChunk*Test.kt); regexes in [Hob]
+
+    private val hobSelfOnly get() = Affected.Objects(Objects.Self)
+    private fun hobN(word: String): Int? = Numbers.count(word)
+    private fun hobPump(objects: Objects, p: Int, t: Int) = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(p), Value.Fixed(t))),
+        Affected.Objects(objects), arcanum.api.Duration.EndOfTurn))
+    /** "Goblins" (as in "amass Goblins 2") → the subtype Goblin. */
+    private fun hobSubtype(plural: String): Subtype? = listOf(plural.removeSuffix("s"), plural.removeSuffix("es"), plural)
+        .firstOrNull { it in RulesWords.subtypes }?.let(::Subtype)
+    private fun hobAmass(subtype: String, count: Value, bind: String? = null): Step? =
+        Step.Do(Effect.Action(arcanum.api.KeywordAction.Amass(hobSubtype(subtype) ?: return null, count), bind = bind))
+    private val hobRecruit get() = Step.Do(Effect.Action(arcanum.api.KeywordAction.Recruit))
+    private fun hobAnd(a: arcanum.api.Condition, b: arcanum.api.Condition?) = if (b == null) a else arcanum.api.Condition.And(listOf(a, b))
+    private fun hobSlot(name: String, filter: ObjectFilter, min: Int = 1, max: Int? = 1) =
+        TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(min), max = max?.let { Value.Fixed(it) })
+    private val hobNextEndStep get() = arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any))
+    private fun hobUnderOwner(objects: Objects) = Destination(Zone.Battlefield, controller = Players.OwnerOf(objects))
+    /** "put [an/all/up to two] [noun] card(s) from among them into your hand" after a mill named "milled". */
+    private fun hobFromAmong(how: String, noun: String, from: Objects): List<Step>? {
+        val filter = Filters.noun(noun) ?: Filters.noun("$noun card") ?: return null
+        val among = Objects.Where(from, Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard)))
+        return when (how) {
+            "all" -> listOf(Step.Do(Effect.Move(among, Destination(Zone.Hand))))
+            else -> {
+                val (min, max) = if (how.startsWith("up to ")) 0 to (hobN(how.removePrefix("up to ")) ?: return null) else 1 to 1
+                listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(min), Value.Fixed(max), from = among), bind = "chosen", chooser = Players.You),
+                    Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+            }
+        }
+    }
+
+    /** hob: whole lines read before the other rules. */
+    private fun hobLine(line: String): Ability? {
+        // hob chunk 10: "As Gollum enters, choose odd or even." (kept on the permanent, CR 607.2a)
+        Hob.CHOOSE_ODD_OR_EVEN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && it.groupValues[2] == "odd" }?.let { m ->
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.AsEnters(listOf(Step.Choose(arcanum.api.Choice.Option(listOf(m.groupValues[2], m.groupValues[3])),
+                    bind = "quality", remember = true, chooser = Players.You)))))), affects = hobSelfOnly)
+        }
+        // hob chunk 10: "Whenever you put one or more counters on a Goblin, Orc, or Army you control, The Great Goblin deals 2 damage
+        // to target opponent." (once for the batch, put by your spells and abilities)
+        Hob.PUT_COUNTERS_ON_ONE_OR_MORE.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val trigger = arcanum.api.Trigger.On(listOf(EventPattern.CountersPut(filter, null, causedBy = ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true)
+            return Ability.Triggered(trigger, Instructions(targets = listOf(TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent), min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Target("opponent")), Value.Fixed(m.groupValues[3].toInt()), Objects.Self)))))
+        }
+        // hob chunk 10: "When Tom, Bert, and William die, if they were a creature, return them to the battlefield. They're an artifact."
+        // (the card in the graveyard returns as an artifact only, CR 611.2e; "if they were a creature": as they last existed)
+        Hob.DIES_IF_CREATURE_RETURN_ARTIFACT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val died = arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard))
+            val card = Objects.EventObject(EventRole.After)
+            return Ability.Triggered(died, Instructions(steps = listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield,
+                controller = Players.OwnerOf(card), entersAs = listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact), replaceTypes = true))))))),
+                interveningIf = arcanum.api.Condition.ObjectMatches(Objects.EventObject(EventRole.Before), ObjectFilter.Type(CardType.Creature)))
+        }
+        // hob chunk 11: "When The Notary Hobbits enter, if they're not a token, create two tokens that are copies of them, except the
+        // tokens aren't legendary." (CR 707.9b)
+        Hob.NOT_TOKEN_CREATE_COPIES_NOT_LEGENDARY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val entered = arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield))
+            return Ability.Triggered(entered, Instructions(steps = listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Self,
+                except = listOf(arcanum.api.CopyException.Types(removeSupertypes = listOf(Supertype.Legendary)))), Value.Fixed(hobN(m.groupValues[2]) ?: return null), Players.You)))),
+                interveningIf = arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token))))
+        }
+        // hob chunk 09: the whole text of a spell that chooses its targets by whether it was kicked (two target slots, each only when it
+        // applies, CR 601.2c), returns them and creates birds for those returned at the next upkeep (a delayed trigger, CR 603.7)
+        if (isSpell) Hob.EAGLES_ARE_COMING.matchEntire(line)?.let { m ->
+            val one = Filters.noun(m.groupValues[1]) ?: return null
+            val many = Filters.noun(m.groupValues[2].removeSuffix("s")) ?: Filters.noun(m.groupValues[2]) ?: return null
+            val kicked = arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self)
+            val token = Tokens.spec(m.groupValues[3])?.second ?: return null
+            val returned = Objects.Bound("returned")
+            return Ability.Spell(Instructions(
+                targets = listOf(
+                    hobSlot("creature", Filters.all(one, ObjectFilter.OwnedBy(PlayerFilter.You))).copy(onlyIf = arcanum.api.Condition.Not(kicked)),
+                    hobSlot("creatures", Filters.all(many, ObjectFilter.OwnedBy(PlayerFilter.You)), min = 0, max = null).copy(onlyIf = kicked)),
+                steps = listOf(
+                    Step.Do(Effect.Move(Objects.Union(listOf(Objects.Target("creature"), Objects.Target("creatures"))), Destination(Zone.Hand), postBind = "returned")),
+                    Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, whose = PlayerFilter.Any)),
+                        Instructions(steps = listOf(Step.Do(Effect.CreateToken(token, Value.Count(returned), Players.You)))))))))
+        }
+        return null
+    }
+
+    /** hob: static abilities, tried first in [static]. */
+    private fun hobStatic(line: String): Ability? {
+        // hob chunk 01: "As long as you have an enduring story, [ability]." (CR 702.195b)
+        Hob.AS_LONG_AS_ENDURING.matchEntire(line)?.let { m ->
+            val inner = static(m.groupValues[1].replaceFirstChar { it.uppercase() }) as? Ability.Static ?: return@let
+            return inner.copy(condition = hobAnd(HobPhrases.enduringStory, inner.condition))
+        }
+        // hob chunk 01: "Bombur doesn't untap during your untap step unless you have an enduring story."
+        Hob.DOESNT_UNTAP_UNLESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            return Ability.Static(listOf(Mechanic.DoesntUntap), affects = hobSelfOnly, condition = arcanum.api.Condition.Not(condition))
+        }
+        // hob chunk 01: "You may pay {0} rather than pay the equip cost of the first equip ability you activate each turn." (CR 118.9)
+        Hob.PAY_ZERO_RATHER_THAN_EQUIP.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.AbilityAlternativeCost(ObjectFilter.AbilityOf(keyword = arcanum.api.Keyword.Equip.Kind),
+                Cost.mana(ManaCost.parse(m.groupValues[1]) ?: return null), firstEachTurn = true)), affects = Affected.Players(Players.You))
+        }
+        // hob chunk 06: "Equip abilities you activate that target this creature cost {2} less to activate." (CR 601.2f, 602.2b)
+        Hob.EQUIP_ABILITIES_TARGETING_SELF_COST_LESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.AbilityOf(keyword = arcanum.api.Keyword.Equip.Kind), ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Targets(objects = Objects.Self)), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1)))), affects = hobSelfOnly)
+        }
+        // hob chunk 06: "If a triggered ability of equipped creature triggers, that ability triggers an additional time." (CR 603.2d)
+        if (Hob.TRIGGERED_ABILITY_OF_EQUIPPED.matches(line))
+            return Ability.Static(listOf(Mechanic.TriggersAdditionalTime(null, ObjectFilter.Is(Objects.AttachedTo(Objects.Self)))), affects = hobSelfOnly)
+        // hob chunk 06: "Instant and sorcery spells you cast cost {X} less to cast, where X is equipped creature's power." (CR 601.2f)
+        Hob.INSTANT_SORCERY_COST_X_LESS_EQUIPPED.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(spells, arcanum.api.CostChange.Less(ManaCost.parse("{1}")!!,
+                Value.Of(arcanum.api.NumericProperty.Power, Objects.AttachedTo(Objects.Self), arcanum.api.Combine.Single)))), affects = hobSelfOnly)
+        }
+        // hob chunk 07: "This creature gets +2/+0 for each graveyard with seven or more cards in it."
+        Hob.GETS_FOR_EACH_GRAVEYARD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val count = Value.CountPlayers(HobPhrases.graveyardsWith(hobN(m.groupValues[4]) ?: return null))
+            fun times(n: Int) = if (n == 0) Value.Fixed(0) else if (n == 1) count else Value.Times(count, n)
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[2].toInt()), times(m.groupValues[3].toInt()))), affects = hobSelfOnly)
+        }
+        // hob chunk 08: "This creature can't attack unless you control two or more other Wolves." (CR 508.1c)
+        Hob.CANT_ATTACK_UNLESS_CONTROL.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
+            return Ability.Static(listOf(Mechanic.CantAttack()), affects = hobSelfOnly, condition = arcanum.api.Condition.Not(arcanum.api.Condition.Exists(
+                Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = hobN(m.groupValues[2]) ?: return null)))
+        }
+        // hob chunk 10: "If a creature an opponent controls would die, exile it instead. When you do, create a 2/2 green Wolf creature
+        // token." (CR 614.1a, a linked trigger, CR 603.11)
+        Hob.IF_EXILE_INSTEAD_WHEN_YOU_DO.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val then = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(filter, from = Zone.Battlefield, to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))), whenApplied = then)), affects = hobSelfOnly)
+        }
+        // hob chunk 09: "Spells you cast from anywhere other than your hand cost {1} less to cast." (CR 601.2f)
+        Hob.CAST_FROM_ANYWHERE_OTHER_COST_LESS.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Not(ObjectFilter.WasCast(Zone.Hand))), arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[1]) ?: return null, Value.Fixed(1)))), affects = hobSelfOnly)
+        }
+        // hob chunk 12: "If one or more tokens would be created under your control, twice that many of those tokens are created
+        // instead." (CR 614.1a)
+        if (Hob.TOKENS_TWICE_THAT_MANY.matches(line))
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CreateToken(ObjectFilter.ControlledBy(PlayerFilter.You)),
+                modify = listOf(Modification.MultiplyAmount(2)))), affects = hobSelfOnly)
+        // hob chunk 12: "If you would draw a card except the first one you draw in each of your draw steps, draw two cards instead."
+        if (Hob.DRAW_EXCEPT_FIRST_DRAW_TWO.matches(line))
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Draw(PlayerFilter.You, exceptFirstIn = arcanum.api.TurnStep.Draw),
+                instead = Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(2))))))), affects = hobSelfOnly)
+        // hob chunk 12: "You may cast this spell as though it had flash if you control a Human." (CR 702.8a)
+        Hob.MAY_CAST_AS_FLASH_IF_CONTROL.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.InstantSpeed), affects = hobSelfOnly,
+                condition = arcanum.api.Condition.Exists(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = 1))
+        }
+        // hob chunk 12: "Thranduil has all activated abilities of all Elf cards in your graveyard." (layer 6, CR 613.1f)
+        Hob.HAS_ACTIVATED_OF_CARDS_IN_GRAVEYARD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilitiesOf(Objects.Each(Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You))))), affects = hobSelfOnly)
+        }
+        return null
+    }
+
+    /** hob: lines that are two abilities. */
+    private fun hobMulti(line: String): List<Ability>? {
+        // hob chunk 11: "The first creature spell you cast each turn costs {2} less to cast and can be cast as though it had flash."
+        // A cost reduction and a permission of the player, both only while no such spell was cast this turn (CR 601.2f, 702.8a)
+        Hob.FIRST_SPELL_COSTS_LESS_AND_FLASH.matchEntire(line)?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val spells = Filters.noun(m.groupValues[1] + " spell") ?: return null
+            val first = arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(EventPattern.Cast(kind, by = PlayerFilter.You), atLeast = 1,
+                measure = Measure.Events))
+            return listOf(
+                Ability.Static(listOf(Mechanic.CostChange(Filters.all(spells, ObjectFilter.ControlledBy(PlayerFilter.You)),
+                    arcanum.api.CostChange.Less(ManaCost.parse(m.groupValues[2]) ?: return null, Value.Fixed(1)))), affects = hobSelfOnly, condition = first),
+                Ability.Static(listOf(Mechanic.CastAsThoughFlash(kind)), affects = Affected.Players(Players.You), condition = first))
+        }
+        return null
+    }
+
+    /** hob: trigger events, tried first in [trigger]. */
+    private fun hobTrigger(events: String): arcanum.api.Trigger.On? {
+        // hob chunk 07: "an opponent draws their second card each turn" (that player's second draw this turn)
+        Hob.OPPONENT_DRAWS_NTH.matchEntire(events)?.let { m ->
+            return arcanum.api.Trigger.On(listOf(EventPattern.Draw(PlayerFilter.Opponent)), nthThisTurn = Numbers.ordinal(m.groupValues[1]) ?: return null)
+        }
+        // hob chunk 09: "you activate an ability of a creature" (mana abilities too, CR 605)
+        Hob.ACTIVATE_ABILITY_OF.matchEntire(events)?.let { m ->
+            return arcanum.api.Trigger.On(EventPattern.Activate(Filters.noun(m.groupValues[1]) ?: return null, PlayerFilter.You, manaAbilities = true))
+        }
+        // hob chunk 07: "you draw a card" (once per card drawn, CR 121.2)
+        if (events == "you draw a card") return arcanum.api.Trigger.On(EventPattern.Draw(PlayerFilter.You))
+        // hob chunk 10: "a player loses life" (once per life-loss event; damage causes loss of life, CR 120.3a)
+        if (Hob.A_PLAYER_LOSES_LIFE.matches(events)) return arcanum.api.Trigger.On(EventPattern.LoseLife(PlayerFilter.Any))
+        // hob chunk 03: "a creature card leaves your graveyard" (CR 603.10a)
+        if (events == "a creature card leaves your graveyard")
+            return arcanum.api.Trigger.On(EventPattern.ZoneChange(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.Category(arcanum.api.ObjectCategory.Card),
+                ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard))
+        // hob chunk 10: "an opponent casts a spell with mana value of the chosen quality" (odd or even, chosen as it entered)
+        if (Hob.OPPONENT_CASTS_CHOSEN_QUALITY.matches(events)) {
+            val odd = arcanum.api.Condition.Odd(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Tested, arcanum.api.Combine.Single))
+            val quality = ObjectFilter.Where(arcanum.api.Condition.Or(listOf(
+                arcanum.api.Condition.And(listOf(arcanum.api.Condition.RememberedOption("quality", "odd"), odd)),
+                arcanum.api.Condition.And(listOf(arcanum.api.Condition.RememberedOption("quality", "even"), arcanum.api.Condition.Not(odd))))))
+            return arcanum.api.Trigger.On(EventPattern.Cast(quality, PlayerFilter.Opponent))
+        }
+        // hob chunk 10: "you attack with creatures with total power 12 or greater for the first time each turn" (CR 508.3d)
+        Regex("""you attack with creatures with total power (\d+) or greater for the first time each turn""").matchEntire(events)?.let { m ->
+            return arcanum.api.Trigger.On(listOf(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true, nthThisTurn = 1,
+                batchTotal = arcanum.api.Total(arcanum.api.NumericProperty.Power, Value.Fixed(m.groupValues[1].toInt())))
+        }
+        return null
+    }
+
+    /** hob: sentences that change the steps before them, tried first in [modify]. */
+    private fun hobModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // hob chunk 02: "Counter target spell. If that spell's mana value was 2 or less, recruit." (the countered spell as it last existed)
+        Hob.IF_SPELLS_MANA_VALUE_RECRUIT.matchEntire(sentence)?.let { m ->
+            val spell = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
+            val comparison = if (m.groupValues[2] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(spell, ObjectFilter.ManaValue(comparison, Value.Fixed(m.groupValues[1].toInt()))), then = listOf(hobRecruit))
+        }
+        // hob chunk 03: "Its controller amasses Goblins X, where X is that creature's power." after destroying a target (its last known
+        // information, CR 608.2h; the player amasses, CR 701.47a)
+        Hob.CONTROLLER_AMASSES_X_POWER.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
+            val amass = hobAmass(m.groupValues[1], Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single)) ?: return null
+            return steps + Step.ForEach(arcanum.api.Each.Players(Players.ControllerOf(target)), "player", listOf(amass), together = true)
+        }
+        // hob chunk 03: "If you controlled that creature, draw a card." (as it last existed)
+        Hob.IF_YOU_CONTROLLED_THAT_CREATURE.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.ControlledBy(PlayerFilter.You)), then = then)
+        }
+        // hob chunk 06: "If it's a Dwarf, you may attach an Equipment you control to it."
+        Hob.IF_DWARF_MAY_ATTACH.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.let { Objects.Target(it.name) } ?: return null
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val equipment = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(target, kind), then = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(equipment, Value.Fixed(0), Value.Fixed(1)), bind = "equipment", chooser = Players.You),
+                Step.Do(Effect.Attach(Objects.Bound("equipment"), arcanum.api.Recipients(objects = target)))))
+        }
+        // hob chunk 12: "If you discard a land card this way, put it from your graveyard onto the battlefield tapped."
+        if (Hob.DISCARD_LAND_THIS_WAY_PUT_ONTO.matches(sentence)) {
+            val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Discard) != null }.takeIf { it >= 0 } ?: return null
+            val discard = (steps[index] as Step.Do).effect as Effect.Discard
+            val discarded = Objects.Bound("discarded")
+            return steps.toMutableList().also { it[index] = Step.Do(discard.copy(postBind = "discarded")) } +
+                Step.If(arcanum.api.Condition.ObjectMatches(discarded, Filters.all(ObjectFilter.Type(CardType.Land), ObjectFilter.InZone(Zone.Graveyard))),
+                    then = listOf(Step.Do(Effect.Move(discarded, Destination(Zone.Battlefield, tapped = true)))))
+        }
+        // hob chunk 09: "It gets +2/+2 until end of turn." etc. are read by the general rules; "Target creature … Return each chosen …"
+        return null
+    }
+
+    /** hob: effect sentences, tried first in [effectRules]. */
+    private fun hobEffect(sentence: String, context: Context): List<Step>? {
+        // hob chunk 02: "Recruit." / "You recruit." (CR 701.70a)
+        if (Hob.RECRUIT.matches(sentence)) return listOf(hobRecruit)
+        // hob chunk 06: "For each opponent, exile up to one target nonland permanent that player controls until this enchantment leaves the
+        // battlefield." (one target for each opponent, CR 601.2c; returning at once when it leaves, CR 610.3)
+        Hob.PER_OPPONENT_EXILE_UNTIL_LEAVES.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val noun = m.groupValues[1]
+            context.targets += TargetSlot(Filters.slotName(noun), TargetKind.Objects(Filters.all(Filters.noun(noun) ?: return null,
+                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.SlotPlayer)))), min = Value.Fixed(0), max = Value.Fixed(1), perPlayer = PlayerFilter.Opponent)
+            return listOf(Step.Do(Effect.Move(Objects.Target(Filters.slotName(noun)), Destination(Zone.Exile), untilLeaves = Objects.Self)))
+        }
+        // hob chunk 07: "It gets +1/+1 until end of turn for each other creature you control."
+        Hob.IT_GETS_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: Objects.Self
+            val count = Value.Count(Filters.objects(m.groupValues[3]) ?: return null)
+            fun times(n: Int) = if (n == 0) Value.Fixed(0) else if (n == 1) count else Value.Times(count, n)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[1].toInt()), times(m.groupValues[2].toInt()))),
+                Affected.Objects(it), arcanum.api.Duration.EndOfTurn)))
+        }
+        // hob chunk 10: "Creatures target player controls get -1/-1 until end of turn." (the affected set fixed as it resolves, CR 611.2c)
+        Hob.CREATURES_TARGET_PLAYER_CONTROLS_GET.matchEntire(sentence)?.let { m ->
+            val player = context.targetPlayer()
+            val filter = Filters.all(Filters.noun(m.groupValues[1].removeSuffix("s").lowercase()) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(player)))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)),
+                Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // hob chunk 10: "Target opponent sacrifices a creature of their choice." (CR 701.21a)
+        Hob.TARGET_OPPONENT_SACRIFICES.matchEntire(sentence)?.let { m ->
+            val opponent = context.targetOpponent()
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(opponent)))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "sacrificed", chooser = opponent),
+                Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))
+        }
+        // hob chunk 12: "Create X tapped Treasure tokens." (X defined by "where X is")
+        Hob.CREATE_X_TAPPED.matchEntire(sentence)?.let { m ->
+            val token = Tokens.spec("a ${m.groupValues[1]} token")?.second ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Announced("X"), Players.You, tapped = true)))
+        }
+        // hob chunk 03: "Amass Goblins 2." / "Amass Goblins 1, then attach this Equipment to the amassed Army." (CR 701.47a, c)
+        Hob.AMASS.matchEntire(sentence)?.let { m ->
+            val count = if (m.groupValues[2] == "X") Value.Announced("X") else Value.Fixed(m.groupValues[2].toInt())
+            if (m.groupValues[3].isEmpty()) return listOf(hobAmass(m.groupValues[1], count) ?: return null)
+            if (!isSelf(m.groupValues[4])) return null
+            return listOf(hobAmass(m.groupValues[1], count, bind = "amassed") ?: return null,
+                Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = Objects.Bound("amassed")))))
+        }
+        // hob chunk 03: "Amass Goblins X, where X is this creature's power." (as it last existed when it died, CR 608.2h)
+        Hob.AMASS_X_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val of = if (context.selfDied()) Objects.EventObject(EventRole.Before) else Objects.Self
+            return listOf(hobAmass(m.groupValues[1], Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single)) ?: return null)
+        }
+        // hob chunk 03: "Amass Goblins 1. If this spell was cast from a graveyard, amass Goblins 3 instead."
+        Hob.AMASS_INSTEAD_IF_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val normal = hobAmass(m.groupValues[1], Value.Fixed(m.groupValues[2].toInt())) ?: return null
+            val more = hobAmass(m.groupValues[3], Value.Fixed(m.groupValues[4].toInt())) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.CastFrom(Zone.Graveyard, Objects.Self), then = listOf(more), otherwise = listOf(normal)))
+        }
+        // hob chunk 12: "You may sacrifice another creature. When you do, Bolg deals damage equal to that creature's power to another
+        // target creature. If excess damage was dealt this way, amass Goblins X, where X is that excess damage." (CR 603.12, 120.4a)
+        Hob.SACRIFICE_WHEN_YOU_DO_EXCESS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val sacrificed = Objects.Bound(SACRIFICED)
+            val amass = hobAmass(m.groupValues[2], Value.Excess("damage")) ?: return null
+            val reflexive = Instructions(targets = listOf(hobSlot("creature", Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Type(CardType.Creature)))),
+                steps = listOf(
+                    Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target("creature")),
+                        Value.Of(arcanum.api.NumericProperty.Power, sacrificed, arcanum.api.Combine.Single), Objects.Self, bind = "damage")),
+                    Step.If(arcanum.api.Condition.Compare(Value.Excess("damage"), arcanum.api.Comparison.Greater, Value.Fixed(0)), then = listOf(amass))))
+            return listOf(Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Type(CardType.Creature)),
+                count = Value.Fixed(1)), preBind = SACRIFICED))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
+        }
+        // hob chunk 01: "You may discard your hand. Draw X cards, where X is the number of cards discarded this way." (CR 608.2c)
+        // "If you have an enduring story, Balin deals X damage to each opponent." follows as its own sentence.
+        if (sentence == "You may discard your hand.") {
+            return listOf(Step.May(listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(1), ObjectFilter.Any, objects = Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand),
+                ObjectFilter.OwnedBy(PlayerFilter.You))), postBind = "discarded"))), player = Players.You))
+        }
+        if (sentence == "Draw X cards, where X is the number of cards discarded this way.")
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("discarded")))))
+        Hob.IF_ENDURING_DEALS_X.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.If(HobPhrases.enduringStory, then = listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                Value.Count(Objects.Bound("discarded")), Objects.Self)))))
+        }
+        // hob chunk 04: "Search your library for up to two basic Plains cards, exile them, then shuffle." (kept as this card's
+        // exiled cards, CR 607.2a)
+        Hob.SEARCH_EXILE_THEM.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[2]) ?: Filters.noun(m.groupValues[2] + " card") ?: return null
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(hobN(m.groupValues[1]) ?: return null), zones = listOf(Zone.Library),
+                bind = "found", searcher = Players.You)),
+                Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled"))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // hob chunk 04: "Put a card exiled with this Saga into its owner's hand."
+        Hob.PUT_A_CARD_EXILED_WITH_INTO_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Remembered(EXILED_WITH)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // hob chunk 04: "Whenever you attack this turn, [effect]" (a delayed trigger for the rest of the turn, CR 603.7b, 508.3d)
+        Hob.WHENEVER_YOU_ATTACK_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val inner = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true),
+                inner, duration = arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
+        // hob chunk 04: "Prevent all damage that would be dealt by up to one target creature for as long as this Saga remains on the
+        // battlefield." (CR 615)
+        Hob.FOR_AS_LONG_AS_REMAINS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val duration = arcanum.api.Duration.UntilLeaves(Objects.Self)
+            Hob.PREVENT_ALL_DAMAGE_DEALT_BY.matchEntire(m.groupValues[1])?.let { p ->
+                val target = context.target(Filters.slotName(p.groupValues[2]), Filters.noun(p.groupValues[2]) ?: return null)
+                if (p.groupValues[1].isNotEmpty()) context.targets[context.targets.lastIndex] = context.targets.last().copy(min = Value.Fixed(0))
+                return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Is(target), arcanum.api.RecipientFilter()))),
+                    null, duration)))
+            }
+            // "Target creature you control gains hexproof for as long as this Saga remains on the battlefield."
+            val until = effect(m.groupValues[1] + " until end of turn.", context) ?: return null
+            return until.map { step ->
+                val apply = (step as? Step.Do)?.effect as? Effect.ApplyMechanics ?: return null
+                Step.Do(apply.copy(duration = duration))
+            }
+        }
+        // hob chunk 04: "Exile up to one target creature or land you control. If you do, return it to the battlefield under its owner's
+        // control at the beginning of the next end step." (CR 603.7)
+        Hob.EXILE_UP_TO_ONE_RETURN_NEXT_END.matchEntire(sentence)?.let { m ->
+            context.targets += hobSlot(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null, min = 0)
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.Target(Filters.slotName(m.groupValues[1])), Destination(Zone.Exile), postBind = "exiled")),
+                Step.If(arcanum.api.Condition.NonEmpty("exiled"), then = listOf(Step.Do(Effect.CreateDelayedTrigger(hobNextEndStep,
+                    Instructions(steps = listOf(Step.Do(Effect.Move(exiled, hobUnderOwner(exiled))))))))))
+        }
+        // hob chunk 04: "Create a Treasure token. Then if you control four or more Treasures, sacrifice this Saga. If you do, create a
+        // 6/6 red Dragon creature token with flying." (a sacrifice on resolution, CR 118.12)
+        Hob.CREATE_THEN_IF_SACRIFICE_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[4]) }?.let { m ->
+            val first = effect("Create ${m.groupValues[1]}.", context) ?: return null
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
+            val then = effect("Create ${m.groupValues[5]}.", context) ?: return null
+            return first + Step.If(arcanum.api.Condition.Exists(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = hobN(m.groupValues[2]) ?: return null),
+                then = listOf(Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Self))), payer = Players.You, mandatory = true, bind = "sacrificed"),
+                    Step.If(arcanum.api.Condition.Did("sacrificed"), then = then)))
+        }
+        // hob chunk 04: 'This Saga gains "Landfall — Whenever a land you control enters, create a 1/1 green Elf creature token."'
+        // (for as long as it stays, CR 611.2a)
+        Hob.SAGA_GAINS_QUOTED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val granted = Sentences(setOf("this permanent")).line(m.groupValues[2]) ?: return null
+            if (granted is Ability.Unparsed) return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(granted))), hobSelfOnly, arcanum.api.Duration.Indefinitely)))
+        }
+        // hob chunk 05: "Mill four cards, then put an instant or sorcery card from among them into your hand."
+        Hob.MILL_THEN_PUT_FROM_AMONG.matchEntire(sentence)?.let { m ->
+            val milled = Objects.Bound("milled")
+            return listOf(Step.Do(Effect.Mill(Players.You, Value.Fixed(hobN(m.groupValues[1]) ?: return null), postBind = "milled"))) +
+                (hobFromAmong(m.groupValues[2], m.groupValues[3], milled) ?: return null)
+        }
+        // hob chunk 05: "Tap one or two target creatures."
+        Hob.TAP_ONE_OR_TWO.matchEntire(sentence)?.let { m ->
+            // the plural slot name, as the dsk chunk 12 wording with "untapped … you control" has it
+            val noun = m.groupValues[1].replace("creatures", "creature")
+            context.targets += hobSlot("creatures", Filters.noun(noun) ?: return null, min = 1, max = 2)
+            return listOf(Step.Do(Effect.Tap(Objects.Target("creatures"))))
+        }
+        // hob chunk 05: "Exchange control of two target nonland permanents that share a card type." (CR 701.12; the second target
+        // shares a card type with the first)
+        Hob.EXCHANGE_CONTROL_SHARING.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null
+            context.targets += hobSlot("permanent", filter)
+            context.targets += hobSlot("other permanent", Filters.all(filter, ObjectFilter.Shares(arcanum.api.SharedQuality.CardType, Objects.Target("permanent"))))
+                .copy(distinctFrom = listOf("permanent"))
+            return listOf(Step.Do(Effect.ExchangeControl(Objects.Target("permanent"), Objects.Target("other permanent"))))
+        }
+        // hob chunk 05: "Exile two target creatures and/or lands you control, then return them to the battlefield under their owner's
+        // control." (CR 400.7)
+        Hob.EXILE_TWO_RETURN.matchEntire(sentence)?.let { m ->
+            val phrase = m.groupValues[1].replace(" and/or ", " or ").replace("creatures", "creature").replace("lands", "land")
+            context.targets += hobSlot("permanents", Filters.noun(phrase) ?: return null, min = 2, max = 2)
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.Target("permanents"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Move(exiled, hobUnderOwner(exiled))))
+        }
+        // hob chunk 05: "Look at the top two cards of your library and exile them face down. For as long as they remain exiled, you may
+        // play them if you control a Wizard." (CR 406.3)
+        Hob.LOOK_EXILE_FACE_DOWN_PLAY_IF.matchEntire(sentence)?.let { m ->
+            val n = hobN(m.groupValues[1]) ?: return null
+            val kind = Filters.noun(m.groupValues[2]) ?: return null
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Players.You, bind = "looked")),
+                Step.Do(Effect.Move(Objects.Bound("looked"), Destination(Zone.Exile, faceDown = true), postBind = "exiled")),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayLookAt(exiled)), Affected.Players(Players.You), arcanum.api.Duration.Indefinitely)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You,
+                    condition = arcanum.api.Condition.Exists(Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = 1))),
+                    Affected.Objects(exiled), arcanum.api.Duration.Indefinitely)))
+        }
+        // hob chunk 05: "You may play an additional land this turn."
+        if (Hob.YOU_MAY_PLAY_ADDITIONAL_LAND.matches(sentence))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ExtraLandPlays(1)), Affected.Players(Players.You), arcanum.api.Duration.EndOfTurn)))
+        // hob chunk 06: "Create a 2/2 red Dwarf creature token, then attach this Equipment to it."
+        Hob.CREATE_THEN_ATTACH_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val token = Tokens.spec(m.groupValues[1] + " token")?.second ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(1), Players.You, bind = "token")),
+                Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = Objects.Bound("token")))))
+        }
+        // hob chunk 06: 'Create a colorless Equipment artifact token named Axe with "…" and equip {2}. When you do, attach it to target
+        // creature you control.' (a reflexive trigger after a mandatory action, CR 603.12)
+        Hob.CREATE_NAMED_EQUIPMENT_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
+            val created = effect(m.groupValues[1] + ".", context) ?: return null
+            val create = (created.singleOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return null
+            val noun = m.groupValues[2]
+            val reflexive = Instructions(targets = listOf(hobSlot(Filters.slotName(noun), Filters.noun(noun) ?: return null)),
+                steps = listOf(Step.Do(Effect.Attach(Objects.Bound("token"), arcanum.api.Recipients(objects = Objects.Target(Filters.slotName(noun)))))))
+            return listOf(Step.Do(create.copy(bind = "token")), Step.Do(Effect.ReflexiveTrigger(reflexive)))
+        }
+        // hob chunk 06: "Each equipped attacking creature gains double strike until end of turn." (fixed as it resolves, CR 611.2c)
+        Hob.EACH_EQUIPPED_ATTACKING_GAINS.matchEntire(sentence)?.let { m ->
+            val keywords = m.groupValues[1].split(Regex(", and |, | and ")).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val filter = Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
+                ObjectFilter.Attached(attachments = ObjectFilter.Sub(Subtype("Equipment"))))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(Objects.Each(filter)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // hob chunk 06: "attach target Equipment you control to up to one target creature you control." (CR 701.3)
+        Hob.ATTACH_TARGET_EQUIPMENT_TO_UP_TO_ONE.matchEntire(sentence)?.let { m ->
+            context.targets += hobSlot("Equipment", Filters.all(ObjectFilter.Sub(Subtype("Equipment")), ObjectFilter.ControlledBy(PlayerFilter.You)))
+            context.targets += hobSlot(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null, min = 0)
+            return listOf(Step.Do(Effect.Attach(Objects.Target("Equipment"), arcanum.api.Recipients(objects = Objects.Target(Filters.slotName(m.groupValues[1]))))))
+        }
+        // hob chunk 06: "attach any number of target Equipment you control to target creature you control. When one or more Equipment
+        // become attached to that creature this way, that creature deals damage equal to its power to up to one target creature."
+        Hob.ATTACH_ANY_NUMBER_REFLEXIVE.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            context.targets += hobSlot("Equipment", Filters.all(ObjectFilter.Sub(Subtype("Equipment")), ObjectFilter.ControlledBy(PlayerFilter.You)), min = 0, max = null)
+            context.targets += hobSlot(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            val creature = Objects.Target(Filters.slotName(noun))
+            val victim = Filters.noun(m.groupValues[2]) ?: return null
+            val reflexive = Instructions(targets = listOf(hobSlot("other creature", victim, min = 0)), steps = listOf(Step.Do(Effect.DealDamage(
+                arcanum.api.Recipients(objects = Objects.Target("other creature")), Value.Of(arcanum.api.NumericProperty.Power, creature, arcanum.api.Combine.Single), creature))))
+            return listOf(Step.Do(Effect.Attach(Objects.Target("Equipment"), arcanum.api.Recipients(objects = creature))),
+                Step.If(arcanum.api.Condition.Exists(Filters.all(ObjectFilter.Is(Objects.Target("Equipment")), ObjectFilter.Attached(to = creature)), atLeast = 1),
+                    then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
+        }
+        // hob chunk 06: "When this Equipment enters, attach it to target Dwarf you control." (CR 701.3)
+        Hob.ATTACH_SELF_TO_TARGET_DWARF.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            return listOf(Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)))))
+        }
+        // hob chunk 06: "Put a hone counter on Sting for each creature target opponent controls. Attach Sting to up to one target
+        // creature you control." (CR 122.1j)
+        Hob.HONE_PER_CREATURE_THEN_ATTACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[3]) }?.let { m ->
+            val opponent = context.targetOpponent()
+            val counted = Filters.noun(m.groupValues[2]) ?: return null
+            val noun = m.groupValues[4]
+            context.targets += hobSlot(Filters.slotName(noun), Filters.noun(noun) ?: return null, min = 0)
+            return listOf(Step.Do(Effect.PutCounters(Objects.Self, arcanum.api.CounterKind.Hone,
+                Value.Count(Objects.Each(Filters.all(counted, ObjectFilter.ControlledBy(PlayerFilter.Is(opponent))))))),
+                Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = Objects.Target(Filters.slotName(noun))))))
+        }
+        // hob chunk 06: "It deals 1 damage to any target. If a Dragon is dealt damage this way, destroy it."
+        Hob.DEALS_1_IF_DRAGON_DESTROY.matchEntire(sentence)?.takeIf { it.groupValues[1].isEmpty() || isSelf(it.groupValues[1]) }?.let { m ->
+            context.anyTarget()
+            val kind = Filters.noun(m.groupValues[3]) ?: return null
+            val any = Objects.Target("any")
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"), Value.Fixed(m.groupValues[2].toInt()), Objects.Self, bind = "damage")),
+                Step.If(arcanum.api.Condition.And(listOf(arcanum.api.Condition.Compare(Value.Bound("damage"), arcanum.api.Comparison.Greater, Value.Fixed(0)),
+                    arcanum.api.Condition.ObjectMatches(any, kind))), then = listOf(Step.Do(Effect.Destroy(any)))))
+        }
+        // hob chunk 06: "Choose a creature type. Create a Treasure token for each creature you control of that type."
+        Hob.CHOOSE_TYPE_TREASURE_PER.matchEntire(sentence)?.let { m ->
+            val token = Tokens.spec("a ${m.groupValues[1]} token")?.second ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.CreatureType, bind = "type", chooser = Players.You),
+                Step.Do(Effect.CreateToken(token, Value.Count(Objects.Each(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+                    ObjectFilter.Sub(arcanum.api.SubtypeRef.Chosen("type"))))), Players.You)))
+        }
+        // hob chunk 07: "Two target players each draw a card."
+        Hob.TWO_TARGET_PLAYERS_EACH_DRAW.matchEntire(sentence)?.let { m ->
+            val n = hobN(m.groupValues[1]) ?: return null
+            context.targets += TargetSlot("players", TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(n), max = Value.Fixed(n))
+            val count = if (m.groupValues[2] == "a") 1 else hobN(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.Target("players"), Value.Fixed(count))))
+        }
+        // hob chunk 07: "Draw a card for each graveyard with seven or more cards in it."
+        Hob.DRAW_FOR_EACH_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.CountPlayers(HobPhrases.graveyardsWith(hobN(m.groupValues[1]) ?: return null)))))
+        }
+        // hob chunk 07: "you may have this creature's base power and toughness become 4/2 until end of turn." (layer 7b)
+        Hob.MAY_HAVE_BASE_PT_BECOME.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return listOf(Step.May(listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()),
+                Value.Fixed(m.groupValues[3].toInt()))), hobSelfOnly, arcanum.api.Duration.EndOfTurn))), player = Players.You))
+        }
+        // hob chunk 07: "You may draw X cards, where X is the amount of mana spent to cast that spell. If you do, discard two cards."
+        Hob.MAY_DRAW_X_IF_YOU_DO_DISCARD.matchEntire(sentence)?.let { m ->
+            val spell = context.that ?: Objects.EventObject(EventRole.Object)
+            return listOf(Step.Pay(steps = listOf(Step.Do(Effect.Draw(Players.You, Value.ManaSpent(of = spell)))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Discard(Players.You, Value.Fixed(hobN(m.groupValues[1]) ?: return null), ObjectFilter.Any)))))
+        }
+        // hob chunk 07: '{5}{G}{G}: This enchantment becomes a Bear creature in addition to its other types and gains "This creature's
+        // power and toughness are each equal to the number of lands you control."' (for good, CR 611.2a)
+        Hob.BECOMES_CREATURE_GAINS_QUOTED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val granted = Sentences(setOf("this creature")).line(m.groupValues[3]) ?: return null
+            if (granted is Ability.Unparsed) return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature),
+                addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))), Mechanic.GainAbilities(listOf(granted))), hobSelfOnly, arcanum.api.Duration.Indefinitely)))
+        }
+        // hob chunk 08: "until end of turn, this creature gets +1/+0 and creatures you control gain trample."
+        Hob.UNTIL_EOT_GETS_AND_GAIN.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val others = Filters.noun(m.groupValues[4]) ?: return null
+            val keywords = m.groupValues[5].split(Regex(", and |, | and ")).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            return listOf(hobPump(Objects.Self, m.groupValues[2].toInt(), m.groupValues[3].toInt()),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(Objects.Each(others)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // hob chunk 09: "Search your library for up to two basic land cards, reveal them, put one onto the battlefield tapped and the
+        // other into your hand, then shuffle."
+        Hob.SEARCH_PUT_ONE_BATTLEFIELD_OTHER_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[2]) ?: Filters.noun(m.groupValues[2] + " card") ?: return null
+            val found = Objects.Bound("found")
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(hobN(m.groupValues[1]) ?: return null), reveal = true,
+                zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = found), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = true))),
+                Step.Do(Effect.Move(Objects.Except(found, Objects.Bound("chosen")), Destination(Zone.Hand))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // hob chunk 09: "Exile all attacking creatures target player controls. That player may search their library for that many basic
+        // land cards, put those cards onto the battlefield tapped, then shuffle." (CR 701.23, D50)
+        Hob.EXILE_ALL_ATTACKING_TARGET_PLAYER.matchEntire(sentence)?.let { m ->
+            val player = context.targetPlayer()
+            val filter = Filters.noun(m.groupValues[1]) ?: Filters.noun(m.groupValues[1] + " card") ?: return null
+            return listOf(
+                Step.Do(Effect.Move(Objects.Each(Filters.all(ObjectFilter.Type(CardType.Creature), ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
+                    ObjectFilter.ControlledBy(PlayerFilter.Is(player)))), Destination(Zone.Exile), postBind = "exiled")),
+                Step.May(listOf(
+                    Step.Do(Effect.Search(player, filter, max = Value.Count(Objects.Bound("exiled")), zones = listOf(Zone.Library), bind = "found", searcher = player)),
+                    Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
+                    Step.Do(Effect.Shuffle(player))), player = player))
+        }
+        // hob chunk 09: "Until end of turn, target creature becomes an artifact in addition to its other types and gains indestructible."
+        Hob.BECOMES_TYPE_AND_GAINS.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            val type = if (m.groupValues[2] == "artifact") CardType.Artifact else CardType.Enchantment
+            val keywords = m.groupValues[3].split(Regex(", and |, | and ")).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(type)), Mechanic.GainAbilities(keywords)),
+                Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // hob chunk 09: "players can't cast spells this turn."
+        if (Hob.PLAYERS_CANT_CAST_THIS_TURN.matches(sentence))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantCast(ObjectFilter.Any)), Affected.Players(Players.Each(PlayerFilter.Any)), arcanum.api.Duration.EndOfTurn)))
+        // hob chunk 09: "Return target spell to its owner's hand." (CR 701.6 isn't countering)
+        if (Hob.RETURN_TARGET_SPELL_TO_HAND.matches(sentence))
+            return listOf(Step.Do(Effect.Move(context.target("spell", ObjectFilter.Category(arcanum.api.ObjectCategory.Spell)), Destination(Zone.Hand))))
+        // hob chunk 09: "Gandalf's owner shuffles him into their library and draws three cards." (CR 701.24)
+        Hob.OWNER_SHUFFLES_SELF_DRAWS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val owner = Players.OwnerOf(Objects.Self)
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Library))), Step.Do(Effect.Shuffle(owner)),
+                Step.Do(Effect.Draw(owner, Value.Fixed(hobN(m.groupValues[2]) ?: return null))))
+        }
+        // hob chunk 09: "Exile up to two other target nonland permanents you control. Return those cards to the battlefield under their
+        // owner's control at the beginning of the next end step." (CR 603.7)
+        Hob.EXILE_UP_TO_TWO_RETURN_NEXT_END.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2].replace("permanents", "permanent")
+            context.targets += hobSlot("permanents", Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(noun) ?: return null),
+                min = 0, max = hobN(m.groupValues[1]) ?: return null)
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.Target("permanents"), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.CreateDelayedTrigger(hobNextEndStep, Instructions(steps = listOf(Step.Do(Effect.Move(exiled, hobUnderOwner(exiled))))))))
+        }
+        // hob chunk 09: "tap enchanted creature and remove all counters from it."
+        if (Hob.TAP_ENCHANTED_REMOVE_COUNTERS.matches(sentence)) {
+            val enchanted = Objects.AttachedTo(Objects.Self)
+            return listOf(Step.Do(Effect.Tap(enchanted)), Step.Do(Effect.RemoveCounters(enchanted, null,
+                Value.Of(arcanum.api.NumericProperty.Counters(null), enchanted, arcanum.api.Combine.Single))))
+        }
+        // hob chunk 09: "Look at the top four cards of your library and separate them into a face-down pile and a face-up pile. An
+        // opponent chooses one of the piles. Put that pile into your hand and the other into your graveyard."
+        Hob.RIDDLES.matchEntire(sentence)?.let { m ->
+            val n = hobN(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Players.You, bind = "looked")),
+                Step.Choose(arcanum.api.Choice.Player(PlayerFilter.Opponent), bind = "opponent", chooser = Players.You),
+                Step.Do(Effect.SeparatePiles(Objects.Bound("looked"), separator = Players.You, chooser = Players.Bound("opponent"), chosenBind = "chosen pile",
+                    otherBind = "other pile", faceDownPile = true)),
+                Step.Do(Effect.Move(Objects.Bound("chosen pile"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Bound("other pile"), Destination(Zone.Graveyard))))
+        }
+        // hob chunk 09: "Counter target spell. If a permanent spell is countered this way, exile it instead of putting it into its
+        // owner's graveyard. You may cast that card without paying its mana cost for as long as it remains exiled." (CR 614.15)
+        if (Hob.COUNTER_EXILE_PERMANENT_CAST_FREE.matches(sentence)) {
+            val spell = context.target("spell", ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
+            val permanentSpell = Filters.all(ObjectFilter.Is(spell), Filters.noun("permanent card") ?: return null)
+            val exiled = Objects.Bound("exiled")
+            context.replacements += Mechanic.Replacement(EventPattern.ZoneChange(permanentSpell, from = Zone.Stack, to = Zone.Graveyard),
+                instead = Instructions(steps = listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.Before), Destination(Zone.Exile), postBind = "exiled")))))
+            return listOf(Step.Do(Effect.Counter(spell)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, withoutPaying = true, holder = PlayerFilter.You)),
+                    Affected.Objects(exiled), arcanum.api.Duration.Indefinitely)))
+        }
+        // hob chunk 09: "You may cast an artifact, instant, or sorcery spell from your graveyard. If an instant or sorcery spell cast
+        // this way would be put into your graveyard, exile it instead." (CR 608.2g)
+        Hob.MAY_CAST_FROM_GRAVEYARD_EXILE_INSTEAD.matchEntire(sentence)?.let { m ->
+            val kinds = Filters.noun(m.groupValues[1] + " card") ?: return null
+            val exiledKinds = Filters.noun(m.groupValues[2] + " card") ?: return null
+            val cards = Filters.all(kinds, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(cards, Value.Fixed(0), Value.Fixed(1)), bind = "card", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("card"), PlayKind.Cast, bind = "spell", caster = Players.You)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(EventPattern.ZoneChange(Filters.all(ObjectFilter.Is(Objects.Bound("spell")), exiledKinds),
+                    from = Zone.Stack, to = Zone.Graveyard), modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, arcanum.api.Duration.Indefinitely)))
+        }
+        // hob chunk 10: "Target opponent sacrifices a creature of their choice." (the new template for "sacrifices a creature")
+        Hob.SACRIFICES_OF_THEIR_CHOICE.matchEntire(sentence)?.let { m -> return effect(m.groupValues[1] + ".", context) }
+        // hob chunk 10: "exile up to one target card from an opponent's graveyard."
+        if (Hob.EXILE_UP_TO_ONE_FROM_OPPONENTS_GRAVEYARD.matches(sentence)) {
+            context.targets += hobSlot("card", Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.Opponent)), min = 0)
+            return listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Exile))))
+        }
+        // hob chunk 10: "Exile the top X cards of target opponent's library. You may play those cards this turn. If you cast a spell this
+        // way, pay life equal to its mana value rather than pay its mana cost." (CR 118.9)
+        if (Hob.PLAY_EXILED_TOP_X_PAY_LIFE.matches(sentence)) {
+            val opponent = context.targetOpponent()
+            return listOf(Step.Do(Effect.Move(Objects.LibraryCards(opponent, Value.Announced("X"), fromTop = true), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You,
+                    cost = Cost(listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Affected, arcanum.api.Combine.Single)))))),
+                    Affected.Objects(Objects.Bound("exiled")), arcanum.api.Duration.EndOfTurn)))
+        }
+        // hob chunk 10: "That player mills that many cards." (the life lost)
+        if (Hob.THAT_PLAYER_MILLS_THAT_MANY.matches(sentence)) return listOf(Step.Do(Effect.Mill(Players.EventPlayer, Value.EventAmount)))
+        // hob chunk 10: "You draw a card and lose 1 life."
+        Hob.YOU_DRAW_AND_LOSE.matchEntire(sentence)?.let { m ->
+            val n = if (m.groupValues[1] == "a") 1 else hobN(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(n))), Step.Do(Effect.LoseLife(Players.You, Value.Fixed(m.groupValues[2].toInt()))))
+        }
+        // hob chunk 10: "You may sacrifice another creature. If you do, put a number of +1/+1 counters on this creature equal to the
+        // sacrificed creature's power." (as it last existed, CR 608.2h)
+        Hob.MAY_SACRIFICE_COUNTERS_EQUAL_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, count = Value.Fixed(1)), preBind = SACRIFICED))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.PutCounters(Objects.Self, arcanum.api.CounterKind.PowerToughness(1, 1),
+                    Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound(SACRIFICED), arcanum.api.Combine.Single))))))
+        }
+        // hob chunk 10: 'Put onto the battlefield under your control all creature cards in your opponents' graveyards that were put
+        // there from the battlefield this turn. They are Food artifacts with "…".' (as they enter, CR 611.2e)
+        Hob.SUPPER.matchEntire(sentence)?.let { m ->
+            val cards = Filters.noun(m.groupValues[1].removeSuffix("s")) ?: Filters.noun(m.groupValues[1]) ?: return null
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val granted = Sentences(setOf("this artifact")).line(m.groupValues[3]) ?: return null
+            if (granted is Ability.Unparsed) return null
+            val dead = Filters.all(cards, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.Opponent),
+                ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Any, from = Zone.Battlefield, to = Zone.Graveyard), role = EventRole.After))
+            return listOf(Step.Do(Effect.Move(Objects.Each(dead), Destination(Zone.Battlefield, controller = Players.You, entersAs = listOf(
+                Mechanic.SetTypes(add = listOf(CardType.Artifact), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))), replaceTypes = true, replaceSubtypes = true),
+                Mechanic.GainAbilities(listOf(granted)))))))
+        }
+        // hob chunk 10: "Gandalf gets +1/+1 until end of turn and deals 1 damage to each opponent."
+        Hob.GETS_AND_DEALS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return listOf(hobPump(Objects.Self, m.groupValues[2].toInt(), m.groupValues[3].toInt()),
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Each(PlayerFilter.Opponent)), Value.Fixed(m.groupValues[4].toInt()), Objects.Self)))
+        }
+        // hob chunk 10: "he deals 3 damage divided as you choose among one, two, or three targets." (CR 601.2d, 115.4)
+        Hob.DEALS_DIVIDED_AMONG.matchEntire(sentence)?.takeIf { it.groupValues[1].isEmpty() || isSelf(it.groupValues[1]) }?.let { m ->
+            val amount = Value.Fixed(m.groupValues[2].toInt())
+            context.anyTarget()
+            context.targets[context.targets.lastIndex] = context.targets.last().copy(max = Value.Fixed(3), divided = amount)
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"), Value.DividedShare, Objects.Self)))
+        }
+        // hob chunk 10: "he deals damage equal to the number of Treasures you control to any target."
+        Hob.DEALS_DAMAGE_EQUAL_NUMBER_ANY.matchEntire(sentence)?.takeIf { it.groupValues[1].isEmpty() || isSelf(it.groupValues[1]) }?.let { m ->
+            val amount = Values.value(m.groupValues[2]) ?: return null
+            context.anyTarget()
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"), amount, Objects.Self)))
+        }
+        // hob chunk 10: "Reveal the top thirteen cards of your library. Put a random creature card from among them onto the battlefield.
+        // Put the rest on the bottom of your library in a random order." (CR 701.20)
+        Hob.REVEAL_TOP_RANDOM_ONTO.matchEntire(sentence)?.let { m ->
+            val n = hobN(m.groupValues[1]) ?: return null
+            val kind = Filters.noun(m.groupValues[2] + " card") ?: Filters.noun(m.groupValues[2]) ?: return null
+            val revealed = Objects.Bound("revealed")
+            return listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), bind = "revealed")),
+                Step.Bind(Objects.Random(Objects.Where(revealed, kind), Value.Fixed(1)), "picked"),
+                Step.Do(Effect.Move(Objects.Bound("picked"), Destination(Zone.Battlefield))),
+                Step.Do(Effect.Move(Objects.Except(revealed, Objects.Bound("picked")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // hob chunk 10: "Put a quest counter on this enchantment. If it has six or more quest counters on it, sacrifice it. If you do,
+        // search your hand and/or library for a Dragon card and put it onto the battlefield. If you search your library this way, shuffle."
+        Hob.QUEST_COUNTER_SACRIFICE_SEARCH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[4] + " card") ?: Filters.noun(m.groupValues[4]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Fixed(1))),
+                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = hobN(m.groupValues[3]) ?: return null)), then = listOf(
+                    Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Self))), payer = Players.You, mandatory = true, bind = "sacrificed"),
+                    Step.If(arcanum.api.Condition.Did("sacrificed"), then = listOf(
+                        Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), zones = listOf(Zone.Hand, Zone.Library), bind = "found", searcher = Players.You)),
+                        Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))),
+                        Step.If(arcanum.api.Condition.Searched("found", Zone.Library), then = listOf(Step.Do(Effect.Shuffle(Players.You)))))))))
+        }
+        // hob chunk 10: "create a 3/1 colorless Wall artifact creature token with defender named Stone Boulder." (CR 111.4)
+        Hob.CREATE_NAMED_ARTIFACT_CREATURE_TOKEN.matchEntire(sentence)?.let { m ->
+            val subtype = m.groupValues[3].takeIf { it in RulesWords.subtypes } ?: return null
+            val keyword = OracleParser.keyword(m.groupValues[4].replaceFirstChar { it.uppercase() }) ?: return null
+            val face = arcanum.api.FaceDefinition(m.groupValues[5], colorIndicator = emptyList(), types = listOf(CardType.Artifact, CardType.Creature),
+                subtypes = listOf(Subtype(subtype)), power = arcanum.api.PrintedNumber.Fixed(m.groupValues[1].toInt()),
+                toughness = arcanum.api.PrintedNumber.Fixed(m.groupValues[2].toInt()), abilities = listOf(keyword))
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(face), Value.Fixed(1), Players.You)))
+        }
+        // hob chunk 12: "create X tapped Treasure tokens, where X is the number of artifacts your opponents control."
+        Hob.CREATE_X_TAPPED_TREASURES_WHERE.matchEntire(sentence)?.let { m ->
+            val token = Tokens.spec("a ${m.groupValues[1]} token")?.second ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Values.value(m.groupValues[2]) ?: return null, Players.You, tapped = true)))
+        }
+        // hob chunk 11: "put a trample counter on up to one target creature you control. It becomes a Bear in addition to its other
+        // types. Then if you control three or more Bears, draw two cards." (for good, CR 611.2a)
+        Hob.TRAMPLE_COUNTER_BECOMES_THEN_DRAW.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[2]
+            context.targets += hobSlot(Filters.slotName(noun), Filters.noun(noun) ?: return null, min = 0)
+            val target = Objects.Target(Filters.slotName(noun))
+            val subtype = m.groupValues[3].takeIf { it in RulesWords.subtypes } ?: return null
+            val counted = Filters.noun(m.groupValues[5]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(target, kind, Value.Fixed(1))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))))),
+                    Affected.Objects(target), arcanum.api.Duration.Indefinitely)),
+                Step.If(arcanum.api.Condition.Exists(Filters.all(counted, ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = hobN(m.groupValues[4]) ?: return null),
+                    then = listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(hobN(m.groupValues[6]) ?: return null))))))
+        }
+        // hob chunk 11: "put X +1/+1 counters on target creature you control, where X is that spell's mana value." (the cast spell)
+        Hob.PUT_X_COUNTERS_WHERE_SPELLS_MV.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[2]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.PutCounters(target, kind, Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Object), arcanum.api.Combine.Single))))
+        }
+        // hob chunk 11: "choose up to one other target creature you control. Its base power and toughness become equal to Galion's power
+        // and toughness until end of turn." (fixed as it resolves, CR 608.2h, layer 7b)
+        Hob.CHOOSE_UP_TO_ONE_BASE_PT_EQUAL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val noun = m.groupValues[1].removePrefix("other target ")
+            context.targets += hobSlot(Filters.slotName(noun), Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(noun) ?: return null), min = 0)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetPowerToughness(Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single),
+                Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Self, arcanum.api.Combine.Single))), Affected.Objects(Objects.Target(Filters.slotName(noun))),
+                arcanum.api.Duration.EndOfTurn)))
+        }
+        // hob chunk 11: "Reveal cards from the top of your library until you reveal a creature card. If its mana value is less than or
+        // equal to the number of lands you control, put it onto the battlefield. Otherwise, put it into your hand. Put the rest on the
+        // bottom of your library in a random order."
+        Hob.REVEAL_UNTIL_MV_LANDS.matchEntire(sentence)?.let { m ->
+            val kind = Filters.noun(m.groupValues[1] + " card") ?: Filters.noun(m.groupValues[1]) ?: return null
+            val found = Objects.Bound("found")
+            return listOf(Step.Do(Effect.RevealUntil(kind, Players.You, Value.Fixed(1), reveal = true, foundBind = "found", restBind = "rest")),
+                Step.If(arcanum.api.Condition.ObjectMatches(found, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost,
+                    Value.Count(Filters.objects(m.groupValues[2]) ?: return null))),
+                    then = listOf(Step.Do(Effect.Move(found, Destination(Zone.Battlefield)))), otherwise = listOf(Step.Do(Effect.Move(found, Destination(Zone.Hand))))),
+                Step.Do(Effect.Move(Objects.Bound("rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // hob chunk 11: "Look at the top twenty cards of your library, put any number of land cards from among them onto the
+        // battlefield tapped, then shuffle."
+        Hob.LOOK_TOP_PUT_ANY_NUMBER_ONTO_THEN_SHUFFLE.matchEntire(sentence)?.let { m ->
+            val kind = Filters.noun(m.groupValues[2] + " card") ?: Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(hobN(m.groupValues[1]) ?: return null), fromTop = true), Players.You, bind = "looked")),
+                Step.Choose(arcanum.api.Choice.Objects(kind, Value.Fixed(0), null, from = Objects.Bound("looked")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, tapped = true))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // hob chunk 11: "Add X mana of any one color, where X is this creature's power. Spend this mana only to cast Elf spells and
+        // activate abilities of Elf sources." (CR 106.6)
+        Hob.ADD_X_ANY_ONE_COLOR_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val spells = Filters.noun(m.groupValues[2] + " spell") ?: return null
+            val sources = Filters.noun(m.groupValues[3]) ?: return null
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)),
+                restriction = ObjectFilter.Or(listOf(spells, ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated, source = sources)))), Players.You)))
+        }
+        // hob chunk 12: "Return this card from your graveyard to the battlefield attached to target creature you control with power 1 or
+        // less." (CR 303.4f)
+        Hob.RETURN_SELF_ATTACHED_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = m.groupValues[2]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, attachedTo = arcanum.api.Recipients(objects = target)))))
+        }
+        // hob chunk 12: "return up to one other target permanent you control to its owner's hand. If you do, put a +1/+1 counter on this
+        // creature." (only if a permanent was returned)
+        Hob.RETURN_UP_TO_ONE_IF_YOU_DO_COUNTER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val noun = m.groupValues[1].removePrefix("other target ")
+            context.targets += hobSlot(Filters.slotName(noun), Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), Filters.noun(noun) ?: return null), min = 0)
+            return listOf(Step.Do(Effect.Move(Objects.Target(Filters.slotName(noun)), Destination(Zone.Hand), postBind = "returned")),
+                Step.If(arcanum.api.Condition.NonEmpty("returned"), then = listOf(Step.Do(Effect.PutCounters(Objects.Self, Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(1))))))
+        }
+        // hob chunk 13: "You may behold an Elf. If you do, untap that land." (after searching for a land put onto the battlefield)
+        Hob.BEHOLD_IF_YOU_DO_UNTAP.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Pay(Cost(listOf(CostPart.Action(arcanum.api.KeywordAction.Behold(filter), bind = "beheld"))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.Untap(Objects.Bound("found"))))))
+        }
+        return null
+    }
+
+    /** hob: cost parts, tried first in [costPart]. */
+    private fun hobCostPart(text: String): List<CostPart>? {
+        // hob chunk 13: "Discard a legendary card with the same name as a legendary permanent you control"
+        if (Hob.DISCARD_LEGENDARY_SAME_NAME.matches(text)) {
+            val legendary = ObjectFilter.Super(Supertype.Legendary)
+            return listOf(CostPart.Discard(CostObjects.Choose(Filters.all(legendary, ObjectFilter.SameNameAs(Objects.Each(Filters.all(legendary,
+                ObjectFilter.ControlledBy(PlayerFilter.You))))), count = Value.Fixed(1))))
+        }
+        return null
     }
 }
 

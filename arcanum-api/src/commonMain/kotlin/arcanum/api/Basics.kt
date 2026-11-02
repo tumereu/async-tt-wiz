@@ -157,12 +157,16 @@ sealed interface Door {
     @Serializable @SerialName("right") data object Right : Door
 }
 
-/** Player designations: the monarch (CR 725), the initiative (CR 726), the city's blessing (CR 702.131c). */
+/** Player designations: the monarch (CR 725), the initiative (CR 726), the city's blessing (CR 702.131c), an enduring story
+ * (CR 702.195b). */
 @Serializable
 sealed interface Designation {
     @Serializable @SerialName("monarch") data object Monarch : Designation
     @Serializable @SerialName("initiative") data object Initiative : Designation
     @Serializable @SerialName("citys-blessing") data object CitysBlessing : Designation
+    // hob
+    /** An enduring story, which storied gives for the rest of the game (CR 702.195a, b). */
+    @Serializable @SerialName("enduring-story") data object EnduringStory : Designation
 }
 
 /** Comparisons used by filters and conditions. */

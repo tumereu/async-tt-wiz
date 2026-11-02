@@ -250,6 +250,9 @@ sealed interface Mechanic {
          * creature enters with a finality counter on it", CR 400.7d); [Objects.Affected] in them is that spell (as
          * [Effect.SpellGets]). */
         val spellGets: List<Mechanic> = emptyList(),
+        // hob
+        /** The permission can be used only while this holds ("you may play them if you control a Wizard"). */
+        val condition: Condition? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
      * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.
@@ -371,6 +374,17 @@ sealed interface Mechanic {
      * trigger", CR 603.2): triggered abilities don't trigger on events matching [event]. Scoped by its event, like
      * [TriggersAdditionalTime]. */
     @Serializable @SerialName("event-doesnt-trigger") data class EventDoesntTrigger(val event: EventPattern) : Mechanic
+    // hob
+    /** The affected players get [designation] for the rest of the game any time the ability's condition holds and they don't
+     * have it (storied, CR 702.195a): a static ability, not a trigger, so it happens at once, and continuous effects are
+     * applied again before triggers are checked (702.195c). */
+    @Serializable @SerialName("gets-designation") data class GetsDesignation(val designation: Designation) : Mechanic
+    /** The affected players may pay [cost] rather than pay the activation cost of abilities matching [abilities]
+     * ([ObjectFilter.AbilityOf]) they activate (CR 118.9, 602.2b); [firstEachTurn]: only for the first such ability each of them
+     * activates each turn ("the first equip ability you activate each turn"). */
+    @Serializable @SerialName("ability-alternative-cost") data class AbilityAlternativeCost(
+        val abilities: ObjectFilter, val cost: Cost, val firstEachTurn: Boolean = false,
+    ) : Mechanic
 
     // ---- Replacement and prevention (CR 614, 615) ----
     /**

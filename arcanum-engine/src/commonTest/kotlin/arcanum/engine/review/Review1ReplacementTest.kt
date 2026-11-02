@@ -166,7 +166,6 @@ class Review1ReplacementTest {
 
     /** Elenwyn's "enters with additional +1/+1 counters" adds to the creature's own "enters with X counters". */
     // CR 614.1c, 616.1e, 122.6
-    @Ignore("review1 #4: two enters-with-counters replacements make two counter entries of one kind; only one counts")
     @Test
     fun twoEntersWithCountersAddUp() = scenario {
         alice.battlefield("Elenwyn, Spinner of Dawn", "Plains", "Plains", "Plains", "Plains")
@@ -196,7 +195,6 @@ class Review1ReplacementTest {
     /** Counters put on a creature as a cost are put on it: "that many minus one" applies (Zealous Druid's cost puts
      * none). */
     // CR 614.1a, 122.6, 118.3
-    @Ignore("review1 #3: counters put as a cost bypass counter replacements")
     @Test
     fun counterReplacementAppliesToACostsCounters() = scenario {
         alice.battlefield("Mender of Afflictions", "Zealous Druid")

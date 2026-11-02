@@ -137,10 +137,19 @@ data class Choices(
     /** Names bound by paying costs ("the sacrificed creature"). */
     val names: Bindings = Bindings.EMPTY,
     val snapshots: List<ObjectSnapshot> = emptyList(),
+    /** The payment under way when paying waits for a decision (a replacement effect on a cost's event, CR 601.2h,
+     * 614): the mana [Paying.uses] answered and the answers so far; the payment is redone from its start with them (D29). */
+    val paying: Paying? = null,
 )
 
+/** A payment being redone with its [uses] and the [answers] to the decisions it asked so far (D29). */
+@Serializable
+data class Paying(val uses: List<ManaUse>, val answers: List<Answer> = emptyList())
+
 /** A triggered ability that triggered and waits to be put on the Stack (CR 603.3), with its controller (CR 109.4b),
- * a copy of the ability (D23), its source's last known information and the event it triggered on. */
+ * a copy of the ability (D23), its source's last known information and the event it triggered on; a delayed trigger's
+ * [snapshots] of the objects it refers to (D21). [oneShot]: not a triggered ability but the second one-shot effect of an
+ * "until" (CR 610.3), done right after the event without the Stack. */
 @Serializable
 data class WaitingTrigger(
     val controller: PlayerId,
@@ -151,6 +160,8 @@ data class WaitingTrigger(
     val event: TriggerEvent = TriggerEvent(),
     val delayedTrigger: EffectId? = null,
     val names: Bindings = Bindings.EMPTY,
+    val snapshots: List<ObjectSnapshot> = emptyList(),
+    val oneShot: Boolean = false,
 )
 
 /** A turn-based action waiting for a choice (CR 703). */
@@ -160,8 +171,9 @@ sealed interface TurnAction {
     @Serializable @SerialName("combat-damage") data class CombatDamage(
         val firstStrike: Boolean, val assigned: List<Assignment> = emptyList(), val attackers: List<ObjectId>,
     ) : TurnAction
-    /** The active player discards down to their maximum hand size (CR 514.1). */
-    @Serializable @SerialName("cleanup-discard") data object CleanupDiscard : TurnAction
+    /** The active player discards down to their maximum hand size (CR 514.1), through the event pipeline (madness):
+     * redone from its start with the [answers] so far (D29). */
+    @Serializable @SerialName("cleanup-discard") data class CleanupDiscard(val answers: List<Answer> = emptyList()) : TurnAction
 }
 
 /** [amount] combat damage from [source] assigned to [target]. */

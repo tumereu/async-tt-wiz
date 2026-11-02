@@ -74,7 +74,6 @@ class Chunk33EntersRemovalScenariosTest {
 
     /** When the Bat leaves, the exiled card comes back. */
     // CR 610.3: "until … leaves the battlefield": a one-shot effect right after it leaves, without the Stack
-    @Ignore("engine: 'until' returns are a delayed trigger on the Stack (TriggerTest.exiledUntilItLeaves cites CR 603.7c); owner to decide")
     @Test
     fun deepGrottoBatGivesTheCardBack() = scenario {
         alice.battlefield("Swamp", "Swamp", "Mountain")

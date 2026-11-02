@@ -63,7 +63,9 @@ object Changes {
                 token = before.token,
                 tapped = tapped,
                 faceDown = faceDown,
-                counters = counters.map { (kind, n) -> CounterEntry(kind, n, stamp) },
+                // One entry per kind: counters of one kind it enters with add up (CR 122.6)
+                counters = counters.groupBy({ it.first }, { it.second }).map { (kind, n) -> CounterEntry(kind, n.sum(), stamp) }
+                    .filter { it.count > 0 },
                 timestamp = stamp,
                 controlSince = if (to == Zone.Battlefield) ControlSince(newController!!, state.turn.number) else null,
                 facts = if (keepsCastFacts) before.facts.copy(activations = emptyList(), resolutions = emptyList(), triggers = emptyList())

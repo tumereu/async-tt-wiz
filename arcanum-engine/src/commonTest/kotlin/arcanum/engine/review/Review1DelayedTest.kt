@@ -29,7 +29,6 @@ class Review1DelayedTest {
     /** Mana Siphon remembers the countered spell's mana value on the Stack, X included. */
     // CR 202.3e, 608.2h, 603.7
     @Test
-    @Ignore("review1 #23: a delayed trigger reads a countered spell's mana value from its card in the graveyard (X lost), not as it last existed on the Stack")
     fun manaSiphonUsesTheManaValueOnTheStack() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain")
         alice.hand("Doomfire")

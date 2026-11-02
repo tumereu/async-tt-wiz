@@ -90,13 +90,20 @@ class Chunk57UnCardsScenariosTest {
         }
     }
 
-    // CR 702.29a
+    // CR 702.29a, 702.35a: cycling discards it as a cost, so madness exiles it; not cast (no mana left), it goes to the
+    // graveyard, then the cycling draw resolves
     @Test
     fun blastFromBeforeCycling() = scenario {
         alice.battlefield("Mountain", "Mountain")
         alice.hand("Blast from Before")
         alice.library("Forest")
         alice.activates("Blast from Before")
+        expect {
+            alice.exile has "Blast from Before"
+            stack.size shouldBe 2
+        }
+        allPass()
+        if (pending is Decision.May) alice.answers(Answer.YesNo(false))
         expect { alice.graveyard has "Blast from Before" }
         allPass()
         expect { alice.hand.names shouldBe listOf("Forest") }
@@ -153,7 +160,6 @@ class Chunk57UnCardsScenariosTest {
     }
 
     // CR 702.35a, 614.1: discarded to pay a cost, it's exiled too
-    @Ignore("engine: replacement effects on zone changes paid as costs (Payment moves bypass the event pipeline)")
     @Test
     fun blastFromBeforeMadnessDiscardedAsACost() = scenario {
         alice.battlefield("Rancid Imp")

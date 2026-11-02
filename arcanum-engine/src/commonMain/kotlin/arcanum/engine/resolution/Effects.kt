@@ -374,7 +374,8 @@ internal object Effects {
         val after = moves.mapNotNull { moved[it.id] }
         scope.bind(effect.postBind, NamedValue.Objects(after))
         effect.untilLeaves?.let { until ->
-            // CR 610.3: when that object leaves the battlefield, the cards return (a delayed trigger here, D19)
+            // CR 610.3: when that object leaves the battlefield, a second one-shot effect returns the cards right after
+            // that event, without the Stack (kept as a one-shot delayed trigger, D19)
             val leaving = scope.objects(until)
             if (after.isNotEmpty()) createDelayed(scope,
                 Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Bound(UNTIL_SOURCE)), from = Zone.Battlefield)),
@@ -382,7 +383,7 @@ internal object Effects {
                     from ?: Zone.Battlefield,
                     controller = Players.OwnerOf(Objects.Bound(UNTIL_RETURNED))))))),
                 duration = null, repeats = false,
-                extra = mapOf(UNTIL_SOURCE to NamedValue.Objects(leaving), UNTIL_RETURNED to NamedValue.Objects(after)))
+                extra = mapOf(UNTIL_SOURCE to NamedValue.Objects(leaving), UNTIL_RETURNED to NamedValue.Objects(after)), oneShot = true)
         }
     }
 
@@ -756,7 +757,7 @@ internal object Effects {
 
     private fun createDelayed(
         scope: Scope, trigger: Trigger, instructions: Instructions, duration: Duration?, repeats: Boolean,
-        extra: Map<String, NamedValue> = emptyMap(),
+        extra: Map<String, NamedValue> = emptyMap(), oneShot: Boolean = false,
     ) {
         val act = scope.act
         val names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
@@ -772,7 +773,10 @@ internal object Effects {
         act.record(Change.DelayedTriggerAdded(DelayedTrigger(
             id = EffectId("D$ts"), trigger = trigger, instructions = instructions, duration = duration, repeats = repeats,
             source = scope.self, controller = scope.you, timestamp = ts, createdTurn = act.state.turn.number, names = names,
-            snapshots = refs.mapNotNull { act.snapshot(it) },
+            // An object that already left (a countered spell) is kept as it last existed (CR 608.2h), not read later from
+            // a log the host may have trimmed
+            snapshots = refs.mapNotNull { act.snapshot(it) ?: arcanum.engine.query.Lki.find(act.state, it) },
+            oneShot = oneShot,
         )))
     }
 

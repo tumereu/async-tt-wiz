@@ -287,7 +287,6 @@ class Chunk50GraveyardCreaturesScenariosTest {
     }
 
     // CR 702.84a, 614.1: sacrificed as a cost, it's exiled instead too
-    @Ignore("engine: replacement effects on zone changes paid as costs (Payment moves bypass the event pipeline)")
     @Test
     fun cinderGatewardenUnearthedSacrificedAsACost() = scenario {
         alice.battlefield("Mountain", "Corpse Gnawer")

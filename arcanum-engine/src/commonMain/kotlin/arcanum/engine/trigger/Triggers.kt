@@ -90,7 +90,7 @@ internal object Triggers {
                 val ability = Ability.Triggered(dt.trigger, dt.instructions)
                 (if (dt.repeats) instances else instances.take(1)).forEach { instance ->
                     found += WaitingTrigger(dt.controller, ability, null, dt.source, dt.snapshots.firstOrNull { it.id == dt.source },
-                        instance, delayedTrigger = dt.id, names = dt.names)
+                        instance, delayedTrigger = dt.id, names = dt.names, snapshots = dt.snapshots, oneShot = dt.oneShot)
                 }
                 if (!dt.repeats) delayedFired += dt
             }
@@ -169,31 +169,39 @@ internal object Triggers {
             o.tapped, o.token, o.attachedTo, o.facts, o.memory)
     }
 
-    /** "Triggers only once each turn" (CR 603.2h): counted on the source object per turn number (D41). */
+    /** "Triggers only once each turn" (CR 603.2): counted on the source object per turn number (D41) once put on the
+     * Stack, and the instances that triggered and still wait to be put there. */
     private fun limited(state: GameState, s: Source, instances: List<TriggerEvent>): List<TriggerEvent> {
         val limit = s.ability.perTurn ?: return instances
-        val o = state.obj(s.id) ?: return instances.take(limit)
-        val used = o.facts.triggers.firstOrNull { it.key == s.origin.key && it.turn == state.turn.number }?.count ?: 0
-        return instances.take((limit - used).coerceAtLeast(0))
+        val waiting = state.triggered.count { it.source == s.id && it.origin?.key == s.origin.key }
+        val placed = state.obj(s.id)?.facts?.triggers?.firstOrNull { it.key == s.origin.key && it.turn == state.turn.number }?.count ?: 0
+        return instances.take((limit - placed - waiting).coerceAtLeast(0))
     }
 
     /** The instances of [trigger] in [change] (CR 603.2): one per event, or one per batch ([Trigger.On.oneOrMore], CR
-     * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn]); chapter abilities as lore counters pass
-     * their numbers (CR 714.2b). */
+     * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,
+     * or earlier batches, so "one or more cards for the first time each turn" keeps the whole batch); chapter abilities
+     * as lore counters pass their numbers (CR 714.2b). */
     fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change): List<TriggerEvent> = when (trigger) {
         is Trigger.On -> {
-            val all = trigger.events.flatMap { EventMatcher.instances(e, it, change) }
-            val counted = trigger.nthThisTurn?.let { n ->
-                val earlier = state.eventsOf(state.turn.number).takeWhile { it !== change && it != change }
-                    .sumOf { c -> trigger.events.sumOf { EventMatcher.instances(e, it, c).size } }
-                all.filterIndexed { i, _ -> earlier + i + 1 == n }
-            } ?: all
-            when {
-                !trigger.oneOrMore -> counted
-                counted.isEmpty() -> emptyList()
-                trigger.batchPerPlayer -> counted.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
-                else -> listOf(batch(counted))
-            }.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
+            fun units(c: Change): List<TriggerEvent> {
+                val all = trigger.events.flatMap { EventMatcher.instances(e, it, c) }
+                return when {
+                    !trigger.oneOrMore -> all
+                    all.isEmpty() -> emptyList()
+                    trigger.batchPerPlayer -> all.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
+                    else -> listOf(batch(all))
+                }
+            }
+            val now = units(change)
+            val counted = if (now.isEmpty()) now else trigger.nthThisTurn?.let { n ->
+                val earlier = state.eventsOf(state.turn.number).takeWhile { it !== change && it != change }.flatMap { units(it) }
+                if (!trigger.oneOrMore) now.filterIndexed { i, _ -> earlier.size + i + 1 == n }
+                else now.filter { unit ->
+                    earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n
+                }
+            } ?: now
+            counted.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
         }
         is Trigger.Chapter -> (change as? Change.Counters)?.let { c ->
             val holder = (c.holder as? TargetRef.Object)?.id ?: return@let null
@@ -236,6 +244,12 @@ internal object Triggers {
         val mark = recorder.changes.size
         val act = Act(recorder, Asker(answers, "triggers@${recorder.state.nextTimestamp()}"))
         return try {
+            // CR 610.3: an "until" return not done yet (its event happened outside the event pipeline) happens first;
+            // state-based actions are checked again before triggers go on the Stack (Perform.checks goes round)
+            if (waiting.any { it.oneShot }) {
+                runOneShots(act)
+                return Progress.Done
+            }
             recorder.record(Change.TriggersWaiting(waiting, emptyList()))
             // CR 603.3b: APNAP order: the active player's go on the Stack first, so they resolve last
             act.state.apnap().forEach { player ->
@@ -247,6 +261,26 @@ internal object Triggers {
             recorder.rollback(mark)
             Progress.Waiting(Pending(n.decision, Continuation.PlacingTriggers(waiting, answers = answers)))
         }
+    }
+
+    /**
+     * CR 610.3: the second one-shot effects of "until" effects whose event happened (the exiled cards return), done at
+     * once without the Stack; those created by one event happen together (CR 610.3d).
+     */
+    fun runOneShots(act: Act) {
+        val waiting = act.state.triggered.toList()
+        val due = waiting.filter { it.oneShot }
+        if (due.isEmpty()) return
+        act.record(Change.TriggersWaiting(waiting, waiting.filterNot { it.oneShot }))
+        val batch = mutableListOf<arcanum.engine.resolution.Batched>()
+        val scopes = due.map { t ->
+            val cause = arcanum.engine.action.Cause(t.controller, t.source, key = "until@${act.state.nextTimestamp()}")
+            arcanum.engine.resolution.Scope(act, cause, t.names, t.event, batch = batch).also { scope ->
+                (t.ability as? Ability.Triggered)?.instructions?.steps?.let { arcanum.engine.resolution.Steps.run(scope, it) }
+                scope.batch = null
+            }
+        }
+        arcanum.engine.resolution.Steps.flush(act, scopes.first().cause, batch)
     }
 
     /** CR 603.3b: a player with two or more triggers puts them on the Stack in the order they choose (P5: only when the
@@ -269,7 +303,7 @@ internal object Triggers {
         val item = StackItem(
             id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,
             origin = t.origin, targets = choices.second, modes = choices.first, names = t.names,
-            snapshots = listOfNotNull(t.sourceSeen), event = t.event, delayedTrigger = t.delayedTrigger,
+            snapshots = (listOfNotNull(t.sourceSeen) + t.snapshots).distinctBy { it.id }, event = t.event, delayedTrigger = t.delayedTrigger,
             timestamp = act.state.nextTimestamp(),
         )
         act.record(Change.StackItemAdded(item, act.state.stack.size, listOf(Meaning.Triggered)))

@@ -125,7 +125,6 @@ class Chunk52StaticsAndCastTriggersScenariosTest {
 
     /** Mender of Afflictions: one fewer -1/-1 counter is put on your creatures. */
     // CR 614.1a, 702.79a, 122.6: counters a permanent enters with are put on it
-    @Ignore("engine: replacement effects on counters a permanent enters with (CR 122.6)")
     @Test
     fun menderOfAfflictionsWithPersist() = scenario {
         alice.battlefield("Mender of Afflictions", "Corpse Gnawer", "Haven Warden")

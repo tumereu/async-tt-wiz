@@ -104,7 +104,7 @@ internal object Steps {
         flush(scope.act, scope.cause, batch)
     }
 
-    private fun flush(act: Act, cause: Cause, batch: List<Batched>) {
+    fun flush(act: Act, cause: Cause, batch: List<Batched>) {
         if (batch.isEmpty()) return
         val moved = Actions.move(act, cause, batch.flatMap { it.moves }, noRegeneration = batch.any { it.noRegeneration })
         batch.forEach { b ->

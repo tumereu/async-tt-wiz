@@ -54,6 +54,9 @@ internal interface Board {
 
     /** Last known information of an object that has left its zone (CR 608.2h, 603.10): null for a current object. */
     fun snapshot(id: ObjectId): arcanum.engine.state.ObjectSnapshot? = Lki.find(state, id)
+
+    /** The zone of an object that doesn't exist yet but is being tested as it would be (CR 614.12): an entering token. */
+    fun proposedZone(id: ObjectId): Zone? = null
 }
 
 /**
@@ -236,7 +239,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Category -> when (filter.category) {
                 ObjectCategory.Card -> (o != null && !o.token) || lki(id)?.token == false
                 ObjectCategory.Token -> o?.token ?: lki(id)?.token ?: false
-                ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield
+                // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
+                ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
                 ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy }
                 ObjectCategory.StackAbility -> state.stackItems[id]?.kind.let { it == StackItemKind.Activated || it == StackItemKind.Triggered }
             }
@@ -346,7 +350,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return since.player != controller || since.turn >= started
     }
 
-    private fun zoneOf(id: ObjectId): Zone? = state.obj(id)?.zone ?: if (id in state.stackItems) Zone.Stack else lki(id)?.zone
+    /** Where [id] is now. An object that left its zone is in none (CR 400.7): "if this card is in your graveyard" is false
+     * for it, whatever its last known information says (CR 603.4); an object about to exist is where it would be. */
+    private fun zoneOf(id: ObjectId): Zone? = state.obj(id)?.zone ?: if (id in state.stackItems) Zone.Stack else board.proposedZone(id)
 
     /** Last known information of [id] when it has left its zone (CR 608.2h). */
     private fun lki(id: ObjectId) = if (state.obj(id) == null) board.snapshot(id) else null
@@ -470,9 +476,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         }
     }
 
-    /** Mana value; X counts its announced value on the Stack (CR 202.3e). */
-    fun manaValue(id: ObjectId, c: Characteristics): Int =
-        c.manaValue(if (zoneOf(id) == Zone.Stack) state.stackItems[id]?.announced?.get("X") ?: 0 else 0)
+    /** Mana value; X counts its announced value on the Stack (CR 202.3e), also for a spell that has left the Stack and is
+     * read as it last existed there (CR 608.2h: "that spell's mana value" of a countered spell). */
+    fun manaValue(id: ObjectId, c: Characteristics): Int = c.manaValue(when {
+        zoneOf(id) == Zone.Stack -> state.stackItems[id]?.announced?.get("X") ?: 0
+        else -> lki(id)?.takeIf { it.zone == Zone.Stack }?.facts?.x ?: 0
+    })
 
     private fun combine(how: Combine, values: List<Int>): Int = when (how) {
         Combine.Single -> values.firstOrNull() ?: 0

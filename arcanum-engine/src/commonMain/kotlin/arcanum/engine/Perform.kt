@@ -85,7 +85,7 @@ internal object Perform {
             is Continuation.StateBased -> StateBasedActions.resume(recorder, continuation, answer)
             is Continuation.TurnBased -> when (continuation.action) {
                 is TurnAction.CombatDamage -> Combat.resume(recorder, continuation, answer)
-                TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, answer)
+                is TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, continuation.action, answer)
             }
             is Continuation.Setup -> Setup.resume(recorder, continuation, answer)
         }

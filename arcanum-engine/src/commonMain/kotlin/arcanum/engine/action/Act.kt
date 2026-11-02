@@ -171,7 +171,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
             Decision.ManaPayment(it, player, source, cost, arcanum.engine.mana.Mana.options(snap, player, cost, null),
                 arcanum.engine.mana.Mana.suggest(snap, player, cost, null))
         } as Answer.ManaPayment).uses
-        arcanum.engine.casting.Payment.payOnResolution(recorder, player, cost, uses)
+        arcanum.engine.casting.Payment.payOnResolution(this, player, cost, uses)
     }
 
     /** Something to do by hand (D61): shown to [player], answered "done". */

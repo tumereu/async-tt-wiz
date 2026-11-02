@@ -252,7 +252,10 @@ internal object Setup {
     private fun companion(act: Act, asked: List<PlayerId>): SetupStage {
         val player = order(act.state).firstOrNull { it !in asked } ?: return SetupStage.Shuffle
         val candidates = companions(act, player)
-        val chosen = act.chooseObjects(player, null, candidates, 0, 1, "Reveal a companion (CR 103.2b)")
+        // I-D18: whether a card outside the game is a companion is the player's to know (unknown ones are offered as
+        // they are, see [companions])
+        val hidden = act.hiddenDecides(player, null, act.state.player(player).outside, fill = false) { true }
+        val chosen = act.chooseObjects(player, null, candidates, 0, 1, "Reveal a companion (CR 103.2b)", hidden)
         chosen.singleOrNull()?.let { id ->
             // D60: a companion chosen in another player's view becomes public as it is revealed
             act.fill(player, null, listOf(id), "Revealed companion (CR 103.2b)", public = true)

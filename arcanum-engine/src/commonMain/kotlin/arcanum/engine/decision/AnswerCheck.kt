@@ -33,7 +33,7 @@ internal object AnswerCheck {
                 if (v < decision.min || (decision.max != null && v > decision.max)) refuse("Choose a number from ${decision.min} to ${decision.max ?: "any"}: $v")
             }
             is Decision.ManaPayment -> expect<Answer.ManaPayment>(decision, answer)
-            is Decision.May -> expect<Answer.YesNo>(decision, answer)
+            is Decision.May -> if (expect<Answer.YesNo>(decision, answer).yes && !decision.payable) refuse("The cost can't be paid: only no")
             is Decision.ChooseObjects -> {
                 val chosen = expect<Answer.Objects>(decision, answer).chosen
                 distinct(chosen, "object")

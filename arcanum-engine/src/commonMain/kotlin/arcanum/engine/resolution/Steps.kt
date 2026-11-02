@@ -227,10 +227,13 @@ internal object Steps {
             is Choice.Objects -> {
                 val from = choice.from?.let { e.objects(it) }
                 if (from != null) act.fill(chooser, source, from, "choose from among them")
+                // I-D18: whether cards only the chooser sees decide what is offered (filled in first when unknown)
+                val pool = (from ?: e.inZonesOf(choice.filter)).filter { act.state.obj(it) != null }
+                val hidden = act.hiddenDecides(chooser, source, pool) { e.identityDecides(choice.filter, it) }
                 val e2 = scope.eval()
-                val options = (from ?: e2.each(choice.filter)).filter { act.state.obj(it) != null && e2.matches(choice.filter, it) }
+                val options = pool.filter { act.state.obj(it) != null && e2.matches(choice.filter, it) }
                 NamedValue.Objects(act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },
-                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose")))
+                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose"), hidden))
             }
             is Choice.Option -> NamedValue.Option(act.chooseOption(chooser, source, choice.options))
         }
@@ -254,10 +257,12 @@ internal object Steps {
         val payer = scope.players(step.payer).firstOrNull() ?: scope.actor
         val cost = step.cost
         val outcome = if (cost != null) {
+            val text = arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "pay", "Pay ${Costs.describe(cost)}?")
+            // I-D18: whether cards only the payer sees decide if it can be paid (filled in first when unknown)
+            val hidden = Costs.hiddenDecides(scope, payer, cost)
             when {
-                !Costs.canPay(scope, payer, cost) -> PayOutcome.CouldNotPay
-                !step.mandatory && !act.yesNo(payer, scope.self,
-                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "pay", "Pay ${Costs.describe(cost)}?"), cost) -> PayOutcome.Declined
+                !Costs.canPay(scope, payer, cost) -> PayOutcome.CouldNotPay.also { act.cannotPay(payer, scope.self, text, cost, hidden) }
+                !step.mandatory && !act.yesNo(payer, scope.self, text, cost) -> PayOutcome.Declined
                 else -> { withActor(scope, payer) { Costs.pay(scope, payer, cost) }; PayOutcome.Paid }
             }
         } else {

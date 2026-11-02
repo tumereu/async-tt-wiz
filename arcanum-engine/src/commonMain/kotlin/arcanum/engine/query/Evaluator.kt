@@ -147,9 +147,13 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     /** Every object matching [filter] in the zones it names, else on the battlefield (the Stack for spells and
      * abilities); phased-out permanents are treated as though they don't exist (CR 702.26b). */
-    fun each(filter: ObjectFilter): List<ObjectId> {
+    fun each(filter: ObjectFilter): List<ObjectId> = inZonesOf(filter).filter { matches(filter, it) }
+
+    /** The objects [each] looks at for [filter]: everything in the zones it names (the battlefield, or the Stack, when
+     * it names none). */
+    fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
         val zones = zonesIn(filter).ifEmpty { if (filter.mentionsStack()) setOf(Zone.Stack) else setOf(Zone.Battlefield) }
-        val candidates = zones.flatMap { zone ->
+        return zones.flatMap { zone ->
             when (zone) {
                 Zone.Stack -> state.stack
                 Zone.Battlefield -> state.battlefield.filter { state.obj(it)?.phasedOut != true }
@@ -158,7 +162,26 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 else -> state.players.flatMap { state.zone(zone, it.id) }
             }
         }
-        return candidates.filter { matches(filter, it) }
+    }
+
+    /**
+     * Whether [id] matching [filter] depends on what card it is (I-D18): with its identity unknown, it could
+     * match and could fail to. Parts about what the card is (types, colours, name, abilities, keywords, P/T, mana value,
+     * sharing a quality) could go either way; the rest (zone, owner, controller, status, counters, what it targets, a
+     * card or a token, events) is read as it is.
+     */
+    fun identityDecides(filter: ObjectFilter, id: ObjectId): Boolean = could(filter, id, true) && could(filter, id, false)
+
+    /** Whether [filter] could be [result] for [id] whatever card it is. */
+    private fun could(filter: ObjectFilter, id: ObjectId, result: Boolean): Boolean = when (filter) {
+        is ObjectFilter.And -> if (result) filter.all.all { could(it, id, true) } else filter.all.any { could(it, id, false) }
+        is ObjectFilter.Or -> if (result) filter.any.any { could(it, id, true) } else filter.any.all { could(it, id, false) }
+        is ObjectFilter.Not -> could(filter.filter, id, !result)
+        ObjectFilter.Any, is ObjectFilter.Is, is ObjectFilter.Category, is ObjectFilter.ControlledBy, is ObjectFilter.OwnedBy,
+        is ObjectFilter.InZone, is ObjectFilter.AbilityOf, is ObjectFilter.WasCast, is ObjectFilter.WasPaid,
+        is ObjectFilter.HasStatus, ObjectFilter.SummoningSick, is ObjectFilter.HasCounter, is ObjectFilter.Targets,
+        is ObjectFilter.Attached, is ObjectFilter.ThisTurn -> matches(filter, id) == result
+        else -> true
     }
 
     private fun boundObjects(value: NamedValue?): List<ObjectId> = when (value) {

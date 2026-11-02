@@ -14,6 +14,7 @@ Engine.perform(state, input): Outcome            // Outcome(changes, pending); n
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
+Engine.shouldPassFor(state, player): Boolean     // a host passes priority for this player now (I-D3, I-D18)
 Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
@@ -126,6 +127,30 @@ tests play). One rule, in the event pipeline and the effects that look:
     reveal (the host forwards their choice) is filled in publicly.
   - Not yet: a face-down cast of a card unknown to the view is filled publicly (CR 708.2 would keep it unknown; the
     face-down cost comes from the card's own ability, which the view can't read).
+
+## Skip when I have no choice (I-D18)
+
+Each player has a setting in the state, `PlayerState.skipWhenNoChoice` (on by default; a host changes it with
+`Change.SkipWhenNoChoice`, `Changes.skipWhenNoChoice`). The engine never passes priority by itself: a host asks
+`Engine.shouldPassFor(state, player)` after each outcome and performs `PassPriority` while it says so. It is true when the
+player holds priority, nothing is pending and `options` offers nothing but passing (mana abilities aside); on, that is
+enough; off, only when the player has no card only they may see (`Knowledge.privateTo`: hand, face-down permanents and
+spells, cards only they may look at; not cards outside the game), so an instant they can't afford is theirs to pass
+with, and an empty hand isn't. While such cards are unknown in the state (another player's view, D60) it is false.
+
+Inside a flow, a question with nothing to choose ("you may discard a land card" with no land card in hand, "choose a
+creature card in your hand" with none, a choice the rules force, CR 609.3) is skipped on; off, when the skip depends on
+the player's hidden cards, they are asked it: the choice with only its forced answer (`ChooseObjects` offering exactly
+the forced cards, none or all, as min and max), or a cost they can't pay as `Decision.May(payable = false)`, only "no"
+accepted. A skip depends on hidden cards when a card of the choice's pool in a hidden zone (hand, outside the game, a
+library card only they may look at; a face-down permanent is a public 2/2, CR 708.2a) could be offered or not depending
+on what card it is (`Evaluator.identityDecides`: types, colours, names, abilities, P/T and mana value could go either
+way; zone, owner, controller, status and counters are read). Such cards still unknown in the state are filled in for
+the player first (in another player's view, as a step done in their view, D31), on or off, so the choice is worked out
+on what they are. Skips that depend on nothing hidden ("discard a card" with one card in hand, "sacrifice a creature"
+with one creature, a search of a library nobody sees) stay automatic either way (P5). Covered: choices of objects during
+resolution (`Step.Choose`), discards with a filter, costs paid on resolution and their choices, the companion reveal at
+the start; not casting and activating, which the player does themselves.
 
 Every answer, a player's or the host's, is checked against its decision before anything happens (`AnswerCheck`: kind,
 allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a wrong one is refused with
@@ -269,7 +294,8 @@ ones aren't (D60). Two seeds and one seed on each player's view run in the norma
 `-Parcanum.longGames=N` (`-Parcanum.longGames.players=3`, `-Parcanum.longGames.from=S`,
 `-Parcanum.longGames.viewer=alice`, `-Parcanum.longGames.malformed=true` to also try odd answers of every kind at every
 decision) and `--tests '*Review2LongGamesJvmTest*'`. `hidden/ViewerKnowledgeTest` plays the hidden-information rule on
-both players' views with every host answer through JSON; `decision/AnswerCheckTest` the answer checks. `review/Review*Test.kt` are the adversarial
+both players' views with every host answer through JSON; `hidden/SkipWhenNoChoiceTest` the "Skip when I have no choice"
+setting (I-D18) both ways on every view; `decision/AnswerCheckTest` the answer checks. `review/Review*Test.kt` are the adversarial
 reviews' scenarios; failing ones are `@Ignore`d with their finding number. Review 3 adds `review/Review3Host.kt`, a host
 written against the public API only that keeps the full-information state and each player's view in step (D60), four
 themed 40-card cube decks (`Review3Decks`), their long games (`-Parcanum.review3.games=N --tests '*Review3CubeDecksJvmTest*'`)

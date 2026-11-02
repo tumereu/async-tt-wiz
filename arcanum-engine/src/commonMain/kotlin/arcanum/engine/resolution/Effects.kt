@@ -428,8 +428,10 @@ internal object Effects {
             } else {
                 if (effect.filter != ObjectFilter.Any) act.fill(p, scope.self, hand, "discard")
                 val e = scope.eval()
+                // I-D18: "discard a creature card" decided by cards only the player sees
+                val hidden = act.hiddenDecides(p, scope.self, act.state.player(p).hand) { e.identityDecides(effect.filter, it) }
                 val options = act.state.player(p).hand.filter { e.matches(effect.filter, it) }
-                act.chooseObjects(p, scope.self, options, n, n, "Discard")
+                act.chooseObjects(p, scope.self, options, n, n, "Discard", hidden)
             }
         }
         scope.bind(effect.preBind, NamedValue.Objects(discarded))

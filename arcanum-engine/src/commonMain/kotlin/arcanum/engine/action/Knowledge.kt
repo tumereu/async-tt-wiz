@@ -63,6 +63,14 @@ internal object Knowledge {
         state.objects.values.filter { mayKnow(it, player) }.map { it.id }.toSet() +
             lookable(state, view).filter { (_, looker) -> looker == null || looker == player }.map { it.first }
 
+    /** Objects only [player] may see (I-D18): [visible] to them and not to some other player still in the game (their
+     * hand and cards outside the game, face-down cards they control, cards only they may look at). Library cards nobody
+     * may look at aren't among them. */
+    fun privateTo(state: GameState, view: View, player: PlayerId): Set<ObjectId> {
+        val others = state.players.filter { it.id != player && !it.lost }.map { visible(state, view, it.id) }
+        return visible(state, view, player).filter { id -> others.any { id !in it } }.toSet()
+    }
+
     /** Cards a "you may look at … any time" ability lets a player look at (CR 401.5), with who may look (null: revealed
      * to everyone): applied to a player ("the top card of your library") or to the cards themselves. */
     fun lookable(state: GameState, view: View): List<Pair<ObjectId, PlayerId?>> {

@@ -179,6 +179,10 @@ internal object Applier {
                 check(p.lost == change.before) { "Lost of ${change.player} isn't ${change.before}" }
                 p.copy(lost = change.after)
             }
+            is Change.SkipWhenNoChoice -> state.updatePlayer(change.player) { p ->
+                check(p.skipWhenNoChoice == change.before) { "Skip when no choice of ${change.player} isn't ${change.before}" }
+                p.copy(skipWhenNoChoice = change.after)
+            }
             is Change.PlayerDesignation -> state.updatePlayer(change.player) { p ->
                 check((change.designation in p.designations) == change.before) { "${change.designation} of ${change.player} isn't ${change.before}" }
                 p.copy(designations = (if (change.after) p.designations + change.designation else p.designations - change.designation)

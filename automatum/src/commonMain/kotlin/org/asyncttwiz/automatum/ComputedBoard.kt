@@ -248,6 +248,7 @@ class ComputedBoard private constructor(
             is Duration.UntilStep, is Duration.ThroughNextStep -> "until a later step"
             is Duration.AsLongAs -> "for as long as its condition holds"
             is Duration.UntilLeaves -> "until its source leaves the battlefield"
+            is Duration.UntilCast -> "until the exiled card is cast"
             Duration.Indefinitely -> null
         }
 

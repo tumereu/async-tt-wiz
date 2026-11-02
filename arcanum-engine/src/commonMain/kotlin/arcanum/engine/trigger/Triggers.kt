@@ -53,8 +53,7 @@ internal object Triggers {
     /** Events whose triggers are checked on the game as it was just before (CR 603.10a). */
     fun looksBack(change: Change): Boolean = when (change) {
         // Leaving the battlefield, and an object all players can see put into a hand or library
-        // fra: a discard too, so the card's own "when you discard this card" is found where it works, the hand (CR 113.6k)
-        is Change.ZoneChange -> change.moves.any { looksBack(it) || (it.from == Zone.Hand && Meaning.Discarded in it.meanings) }
+        is Change.ZoneChange -> change.moves.any { looksBack(it) }
         is Change.Removed -> true
         is Change.Attached -> change.before != null && change.after != change.before
         is Change.Status -> change.flag == StatusFlag.PhasedOut
@@ -86,6 +85,7 @@ internal object Triggers {
                 val part = if (before == null) change else seenByNewObject(change, s) ?: return@forEach
                 found += check(state, ViewBoard(state, now), now, part, s, lookBack = false, whole = change)
             }
+        found += discardedFromHand(state, now, change, seen)
         found += additional(state, now, change, found)
         val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
         state.delayedTriggers.values.toList().forEach { dt ->
@@ -139,6 +139,24 @@ internal object Triggers {
         val before = recorder.state.triggered.toList()
         recorder.record(Change.TriggersWaiting(before, before + triggers))
     }
+
+    // fra
+    /**
+     * A card's own "when you discard this card" works from the hand (CR 113.6k): found on the discarded card as it is now,
+     * its abilities that work only in the hand (those that work where it went were found with the other new objects).
+     */
+    private fun discardedFromHand(state: GameState, now: View, change: Change, seen: Set<String>): List<WaitingTrigger> =
+        (change as? Change.ZoneChange)?.moves.orEmpty().filter { it.from == Zone.Hand && Meaning.Discarded in it.meanings }.flatMap { m ->
+            val o = now[m.after.id] ?: return@flatMap emptyList()
+            val c = o.characteristics ?: return@flatMap emptyList()
+            c.abilities.flatMap { inst ->
+                val ability = inst.ability as? Ability.Triggered
+                if (ability == null || Functioning.zones(ability, c.isInstantOrSorcery()) != setOf(Zone.Hand) ||
+                    "${o.id}/${inst.origin.key}" in seen) emptyList()
+                // the event names the card as it was in the hand
+                else check(state, ViewBoard(state, now), now, change, Source(m.before.id, o.owner, ability, inst.origin), lookBack = false)
+            }
+        }
 
     /** One triggered ability of an object where it functions (CR 113.6). */
     private data class Source(val id: ObjectId, val controller: PlayerId, val ability: Ability.Triggered, val origin: AbilityOrigin)

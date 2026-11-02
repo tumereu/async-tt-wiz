@@ -49,7 +49,8 @@ class ManualTokenLinkIntegrationTest {
         val clone = accept(PlayAction.CloneToken(tokenId))
         val cloneId = CommandIds.uuidV5(clone.requestId, "token/0")
         val cloned = current.board.cards.single { it.id == cloneId }
-        assertEquals(source.copy(id = cloneId, placement = cloned.placement), cloned)
+        // Rules v36: the copy is a new object with the next timestamp.
+        assertEquals(source.copy(id = cloneId, placement = cloned.placement, timestamp = MtgFacts.clock(beforeClone.board) + 1), cloned)
         assertEquals(submitted, clone.transition.cloneRead!!.definition)
         val changedSource = beforeClone.copy(board = beforeClone.board.copy(cards = beforeClone.board.cards.map {
             if (it.id == tokenId) it.copy(note = "different relevant input") else it

@@ -103,8 +103,9 @@ class PilePrefixInsertionTest {
         assertEquals("accepted", accepted.outcome)
         assertEquals("", accepted.state!!.board.cards.single { it.id == a }.note)
         assertEquals("current target note", accepted.state.board.cards.single { it.id == x }.note)
-        assertEquals(edited.board.cards.single { it.id == a }.copy(containerId = field, placement = placement(root), covered = false, note = "",
-            enteredTurn = edited.board.turn.number),
+        // Rules v36: entering the Battlefield makes a new object with the next timestamp.
+        assertEquals(edited.board.cards.single { it.id == a }.let { it.copy(containerId = field, placement = placement(root), covered = false, note = "",
+            enteredTurn = edited.board.turn.number, zoneChanges = it.zoneChanges + 1, timestamp = MtgFacts.clock(edited.board) + 1) },
             accepted.state.board.cards.single { it.id == a })
         assertNull(accepted.mutation!!.transition.movement!!.stackFrom)
         assertEquals("invalidInput", gameplayChange(root, first.copy(expectedStackDigest = GameplayRules.stackDigest(root)), 143).reason)

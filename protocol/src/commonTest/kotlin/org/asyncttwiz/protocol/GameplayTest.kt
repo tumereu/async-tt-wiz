@@ -71,8 +71,9 @@ class GameplayTest {
             if (it.id == first) it.copy(tapped = true) else it })) // Retained legacy Library orientation.
         val accepted = gameplayChange(tapped, draw, 95)
         assertFalse(accepted.state!!.board.cards.single { it.id == first }.tapped)
-        assertEquals(state.board.cards.single { it.id == first }.copy(containerId = hand.id, note = ""),
-            accepted.state.board.cards.single { it.id == first })
+        // Rules v36: the drawn card is a new object with the next timestamp.
+        assertEquals(state.board.cards.single { it.id == first }.copy(containerId = hand.id, note = "", zoneChanges = 1,
+            timestamp = MtgFacts.clock(tapped.board) + 1), accepted.state.board.cards.single { it.id == first })
         val member = draw.copy(cardId = second, source = MoveSource(library.id))
         assertEquals("accepted", gameplayChange(state, member, 96).outcome)
         assertEquals("missingReference", gameplayChange(state, draw.copy(cardId = gameplayId(999)), 97).reason)

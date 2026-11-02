@@ -44,7 +44,10 @@ import kotlinx.serialization.Serializable
     val requestId: String, val author: String, val invocationId: String?, val action: PlayAction,
     val transition: GameplayTransition, val schemaVersion: Int = 1, val grouping: HistorySemantic? = null,
     val revealsInformation: Boolean = false, val references: List<GameplayNodeReference> = emptyList(),
-    val bookkeeping: GameplayBookkeeping? = null)
+    val bookkeeping: GameplayBookkeeping? = null,
+    /** Rules v36: the event's Magic meaning and what made it (D33), see [MtgFacts.tag]. */
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tag: MtgTag? = null)
 /** An accepted dependency on a concrete logical event and its relevant transition, never a retargetable label. */
 @Serializable data class GameplayNodeReference(val nodeId: String, val transition: GameplayTransition)
 

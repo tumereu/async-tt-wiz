@@ -377,6 +377,16 @@ internal object GameplayConcerns {
                 is StackAction.RemoveEffect -> projection(stack.occurrenceId)
                 is StackAction.ReorderEffect -> projection(stack.occurrenceId)
             }
+            // Rules v36: the sealed delta witnesses each value set; an object named by its id also concerns that the
+            // card is still that object (its zone-change count), and a structured item that its entry is on the Stack.
+            is PlayAction.Mtg -> when (val mtg = a.action) {
+                is MtgAction.SetCounter -> (mtg.holder as? MtgRef.Card)?.let { entity("card", it.cardId, "zoneChanges") }
+                is MtgAction.SetLedger -> (mtg.holder as? MtgRef.Card)?.let { entity("card", it.cardId, "zoneChanges") }
+                is MtgAction.Attach -> entity("card", mtg.card.cardId, "zoneChanges")
+                is MtgAction.SetStackItem -> fields += ConcernField.StackMember(mtg.entryId)
+                is MtgAction.SetAutomatum, is MtgAction.SetPriority, is MtgAction.SetManaPool, is MtgAction.Restamp,
+                is MtgAction.SetRecord -> Unit
+            }
             is PlayAction.SetFace -> {
                 definition(card(a.cardId).definition)
                 // Rules v35 assigns the new face's printed corner, even when it happens to be unchanged.

@@ -142,6 +142,41 @@ Visible in an Automatum debug view (P2).
 
 Look and reveal panels are not zone changes; temp piles are a manual tool Automatum doesn't support (D38).
 
+### 4.5 Where it lives (built in I0, rules v36)
+
+All in `protocol/` (`Automatum.kt` and the model files); the server stores and checks them with the shared reducer.
+
+- **Switch:** `BoardState.automatum`, changed by `PlayAction.Mtg(MtgAction.SetAutomatum(on))`; the event's author is who.
+- **Per card** (`PlayCard`): `zoneChanges` (engine id `ObjectId.Card(card id, zoneChanges)`), `timestamp`,
+  `typedCounters: List<TypedCounter(kind, count, timestamp)>`, `attachedTo: MtgRef?`, `ledger` (opaque). Damage is
+  the existing `PlayCard.damage` (TBL-024); the six colour counters stay manual.
+- **Per player** (`PlayPlayer`): `manaPool: List<PoolMana(color W/U/B/R/G/C, data)>`, `typedCounters`, `ledger`.
+- **Game** (`BoardState`): `priority: MtgPriority(holder, passes)?`; `engineRecords: List<EngineRecord(id, kind,
+  timestamp?, data)>`, kinds effect, delayed trigger, game ledger, turn and combat extras (lands played, first-strike
+  step, …), waiting triggers, and the continuation (id `continuation`, shared flows only).
+- **Stack:** `StackEffect.item: MtgStackItem(id, kind, controller, ability, source, targets by slot, modes, values
+  ("X"), timestamp, data)`; null on manual entries. The entry itself is today's `StackAction.AddEffect`.
+- **Events:** `MtgAction.SetPriority`, `SetManaPool`, `SetCounter` (card object or player), `Attach`, `Restamp`
+  (zone-change count and timestamp as the engine made them), `SetLedger`, `SetStackItem`, `SetRecord`. Each carries
+  `before` and `after`; it is refused ("inapplicable") when the board no longer holds `before`, so a batch built on
+  another state fails whole (SYS-010). A card named as `MtgRef.Card(id, zoneChanges)` must still be that object.
+- **Tags:** `GameAction.Play.tag` / `GameAction.PlayBatch.tags` (one per member) carry `MtgTag(meanings, causedBy:
+  MtgCause(controller, source, name, item), data)`, recorded as `GameplayMutation.tag` and sealed with the event.
+  A batch is automated when its members carry tags; the server checks only their form (P8). A manual single-card
+  zone change is tagged with the meanings the move alone defines (`MtgFacts.implied`: entered, left-battlefield,
+  died, put-into-graveyard, exiled).
+- **Automatic in every v36 event** (`MtgFacts.after`), with or without Automatum: a zone change (between
+  containers, except Battlefield to Battlefield) counts up, stamps and clears typed counters, attachment and ledger;
+  a shuffle (Shuffle, Mulligan, a closing Search or shuffle-rest panel) counts up the library's cards; attaching,
+  face up/down and another face on the Battlefield stamp; a step or turn change empties mana pools.
+- **Timestamps and undo:** the clock is not stored. A new stamp is one more than the highest stamp on the board
+  before and after the event (`MtgFacts.clock`: cards, counters, Stack items, records), in card order within an
+  event. No event writes the clock, so undoing an earlier event never clashes with a later one's stamps; replay keeps
+  recorded stamps. After an undo the clock may fall below a stamp once given, but only stamps of objects on the
+  board are compared and later stamps are always higher, so stamp order is event order (D34's intent).
+- **Undo rule:** each value is its own delta entity or path (`automatum`, `priority`, one `record` per id, card and
+  player fields), so a later event blocks undo only through the records and fields it touched.
+
 ## 5. The Automatum switch
 
 - A round sigil button in the table's top bar, beside Table actions (I-D4).

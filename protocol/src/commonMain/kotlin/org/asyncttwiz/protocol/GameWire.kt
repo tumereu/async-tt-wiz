@@ -6,7 +6,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 
 /** Highest recorded-transition rules understood by this build; also used when recording new events. */
-const val CURRENT_GAMEPLAY_RULES_VERSION = 35
+const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
@@ -25,8 +25,14 @@ const val GAME_PROTOCOL_MINOR = 2
     @Serializable @SerialName("undo") data object Undo : GameAction
     @Serializable @SerialName("redo") data object Redo : GameAction
     @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
-    @Serializable @SerialName("play") data class Play(val action: PlayAction) : GameAction
-    @Serializable @SerialName("playBatch") data class PlayBatch(val actions: List<PlayAction>) : GameAction
+    /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent for manual play. */
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @Serializable @SerialName("play") data class Play(val action: PlayAction,
+        @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tag: MtgTag? = null) : GameAction
+    /** [tags] (rules v36): the tag of each member by index, as [Play.tag]; at most one per member. */
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    @Serializable @SerialName("playBatch") data class PlayBatch(val actions: List<PlayAction>,
+        @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tags: List<MtgTag?> = emptyList()) : GameAction
     @Serializable @SerialName("acceptInvitation") data object AcceptInvitation : GameAction
     @Serializable @SerialName("declineInvitation") data object DeclineInvitation : GameAction
     @Serializable @SerialName("reinvite") data object Reinvite : GameAction
@@ -137,9 +143,11 @@ object GameWire {
             require(DeckValidation.uuid(command.action.suggestionId))
         } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
-            if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action))
+            if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action) &&
+                command.action.tag?.let(MtgTag::valid) != false)
             if (command.action is GameAction.PlayBatch) require(command.action.actions.size in 1..100 &&
-                command.action.actions.all(GameplayRules::valid))
+                command.action.actions.all(GameplayRules::valid) && command.action.tags.size <= command.action.actions.size &&
+                command.action.tags.all { it?.let(MtgTag::valid) != false })
         } else {
             require(command.scope.preparationId != null && command.scope.playId == null)
             when (val action = command.action) {

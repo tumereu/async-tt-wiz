@@ -94,8 +94,9 @@ class TokensAndLinksTest {
         assertReplayAndInverse(linked, clone)
         val source = linked.board.cards.single()
         val token = clone.state!!.board.cards.single { it.token }
+        // Rules v36: the copy is a new object with the next timestamp.
         assertEquals(source.copy(id = token.id, owner = id(7), token = true, placement = token.placement,
-            enteredTurn = linked.board.turn.number), token)
+            enteredTurn = linked.board.turn.number, timestamp = MtgFacts.clock(linked.board) + 1), token)
         assertEquals(linked.board.links, clone.state.board.links) // never copies incident links
         assertEquals(source, clone.state.board.cards.single { !it.token })
         assertEquals(submitted, clone.mutation!!.transition.cloneRead!!.definition)

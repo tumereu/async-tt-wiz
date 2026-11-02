@@ -6491,7 +6491,9 @@ internal class Sentences(
         // one." (CR 118.12: "if you do" checks the sacrifice)
         Rtr.IF_NO_CARDS_EXILED_WITH_SACRIFICE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val then = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { effect(it.replaceFirstChar { c -> c.uppercase() } + ".", context) ?: return null }.orEmpty()
-            return listOf(Step.If(arcanum.api.Condition.Compare(Value.Count(Objects.Remembered(EXILED_WITH)), arcanum.api.Comparison.Equal, Value.Fixed(0)),
+            // the cards still in exile (one that left is a new object, CR 400.7)
+            val stillExiled = Objects.Where(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))
+            return listOf(Step.If(arcanum.api.Condition.Compare(Value.Count(stillExiled), arcanum.api.Comparison.Equal, Value.Fixed(0)),
                 then = listOf(Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Self))), payer = Players.You, mandatory = true, bind = "sacrificed")) +
                     listOfNotNull(then.takeIf { it.isNotEmpty() }?.let { Step.If(arcanum.api.Condition.Did("sacrificed"), then = it) })))
         }

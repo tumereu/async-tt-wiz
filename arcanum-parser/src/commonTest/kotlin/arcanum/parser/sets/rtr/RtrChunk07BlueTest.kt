@@ -268,7 +268,7 @@ class RtrChunk07BlueTest {
             Step.Choose(Choice.Objects(ObjectFilter.SameNameAs(Objects.EventObject(arcanum.api.EventRole.Object)), n(0), n(1), from = Objects.Remembered("exiled")),
                 bind = "chosen", chooser = Players.You),
             Rtr.move(Objects.Bound("chosen"), Zone.Hand),
-            Step.If(Condition.Compare(Value.Count(Objects.Remembered("exiled")), Comparison.Equal, n(0)), then = listOf(
+            Step.If(Condition.Compare(Value.Count(Objects.Where(Objects.Remembered("exiled"), ObjectFilter.InZone(Zone.Exile))), Comparison.Equal, n(0)), then = listOf(
                 Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Self))), payer = Players.You, mandatory = true, bind = "sacrificed"),
                 Step.If(Condition.Did("sacrificed"), then = listOf(Step.Do(Effect.ExtraTurn(Players.You))))))),
     )

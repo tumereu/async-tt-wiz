@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 16
+    const val VERSION: Int = 17
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -39,7 +39,8 @@ object OracleParser {
         if (abilities.any { it is Keyword.Overload }) {
             val spellText = card.text.split('\n').map { REMINDER.replace(it, "").trim() }
                 .filter { it.isNotEmpty() && keywordLine(it) == null }.joinToString(" ")
-            val overloaded = Sentences(self, isSpell).instructions(spellText.replace("target ", "each "))
+            // rtr chunk 08: a sentence starting with "Target" becomes "Each"
+            val overloaded = Sentences(self, isSpell).instructions(spellText.replace("target ", "each ").replace("Target ", "Each "))
             abilities = abilities.map { if (it is Keyword.Overload && overloaded != null) it.copy(instructions = overloaded) else it }
         }
         return face.copy(abilities = abilities)

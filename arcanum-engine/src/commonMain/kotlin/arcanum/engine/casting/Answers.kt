@@ -79,6 +79,10 @@ internal object Answers {
                 val ch = q.choice
                 if (chosen.distinct().size != chosen.size || chosen.any { it !in ch.options }) refuse("Not among the options")
                 if (chosen.size < ch.min || (ch.max != null && chosen.size > ch.max)) refuse("Choose ${ch.min} to ${ch.max ?: "any number"}")
+                // rtr chunk 07: "with the same name": all of them share it
+                ch.shared?.let { quality ->
+                    if (chosen.any { a -> chosen.any { b -> a != b && !plan.eval.shares(quality, a, b) } }) refuse("The chosen objects must share $quality")
+                }
                 ch.total?.let { total ->
                     val sum = chosen.sumOf { plan.eval.property(total.property, it) }
                     if (sum < plan.eval.value(total.atLeast)) refuse("Their total ${total.property} must be at least ${plan.eval.value(total.atLeast)}")
@@ -109,7 +113,7 @@ internal object Answers {
         }
         is Question.Objects -> {
             val ch = q.choice
-            if (ch.total == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
+            if (ch.total == null && ch.shared == null && ch.max != null && ch.min == ch.max && ch.options.size == ch.min) Answer.Objects(ch.options) else null
         }
         is Question.Target -> if (q.options.isEmpty() && q.min == 0) Answer.Targets(emptyList()) else null
         // blb: the only opponent there is (CR 702.174a, two players)

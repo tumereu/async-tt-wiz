@@ -68,11 +68,14 @@ private fun PlayerLifeRow(state: PlayState, player: PlayPlayer, actions: ManualA
             shape = shape, border = BorderStroke(1.dp, color.copy(alpha = .5f)), shadowElevation = 3.dp) {
             Box(Modifier.clearAndSetSemantics {}, contentAlignment = Alignment.Center) { MenuIcon("Life", tint = color) }
         }
+        // Automatum on (TRN-031, I-D28): life changes only by the rules, by hand only while Automatum waits for it (I-D37)
+        val manual = AutomatumBoards.manualAllowed(state)
+        val refused = AutomatumDrags.LIFE.takeIf { !manual }
         fun adjust(delta: Int) = MenuControl("${if (delta > 0) "Increase" else "Decrease"} life",
-            enabled && ManualText.add(player.life, delta.toLong()) != null) {
+            enabled && manual && ManualText.add(player.life, delta.toLong()) != null, refused = refused) {
             submit(PlayAction.AdjustLife(player.accountId, delta.toString()))
         }
-        ValueControl(player.life, MenuControl("Set life", enabled) {
+        ValueControl(player.life, MenuControl("Set life", enabled && manual, refused = refused) {
             actions.edit(ManualValue(ManualValueKind.LIFE), state, player.accountId)
         }, adjust(-1), adjust(1), dragValue = player.life,
             drag = { submit(PlayAction.AdjustLife(player.accountId, it.toString())) })

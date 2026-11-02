@@ -83,6 +83,10 @@ internal class CastController(
      * engine's suggestion pays. */
     var acceptAutomatically by mutableStateOf(false)
 
+    /** The text of the ability being activated (§3 I4), shown in the panel instead of the card's whole text; null for
+     * a cast or land play. */
+    var abilityText by mutableStateOf<String?>(null); private set
+
     /** The card being cast while the engine begins the cast (before [flow] is there). */
     private var starting by mutableStateOf<String?>(null)
     private var listed: List<Answer> = emptyList()
@@ -109,6 +113,7 @@ internal class CastController(
         val accept = acceptAutomatically
         starting = cardId
         hidden = false
+        abilityText = null
         return step {
             val definitions = AutomatumBoards.definitions(play)
             val plays = AutomatumBoards.handPlays(play, viewer) { history }
@@ -120,6 +125,37 @@ internal class CastController(
                 CastFlow.start(play, definitions, viewer, AutomatumBoards.engineLog(play, definitions, history), ways.first(), seeds())
             } catch (problem: IllegalArgumentException) {
                 return@step Step.Drop("$name can't be cast now.")
+            } catch (problem: Unsupported) {
+                return@step Step.Drop("$TAKE_OVER ${problem.reasons.firstOrNull()}")
+            }
+            settle(flow, auto = true, accept, keep = null, ways = ways)
+        }
+    }
+
+    /**
+     * Begins what a card menu offers (§3 I4, [org.asyncttwiz.automatum.CardPlays]): [input] (a cast one way, a land play,
+     * activating an ability or taking a special action) of the card [cardId], through the same panel as a cast, its
+     * [text] shown for an ability. False with a message when it can't be begun.
+     */
+    fun begin(cardId: String, input: Input, text: String? = null): Boolean {
+        val play = current() ?: return false
+        if (!play.board.automatum) return false
+        if (open) { fail(BUSY); return false }
+        if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
+        val history = tags()
+        val accept = acceptAutomatically
+        starting = cardId
+        hidden = false
+        abilityText = text.takeIf { input is Input.Activate }
+        return step {
+            val definitions = AutomatumBoards.definitions(play)
+            val ways = if (input is Input.Activate) listOf(input)
+                else AutomatumBoards.handPlays(play, viewer) { history }.of(cardId).takeIf { input in it } ?: listOf(input)
+            val name = cardName(play, cardId)
+            val flow = try {
+                CastFlow.start(play, definitions, viewer, AutomatumBoards.engineLog(play, definitions, history), input, seeds())
+            } catch (problem: IllegalArgumentException) {
+                return@step Step.Drop(if (input is Input.Activate) "$name: that can't be done now." else "$name can't be cast now.")
             } catch (problem: Unsupported) {
                 return@step Step.Drop("$TAKE_OVER ${problem.reasons.firstOrNull()}")
             }
@@ -196,7 +232,7 @@ internal class CastController(
     fun cancel() {
         generation++
         busy = false; starting = null
-        flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false
+        flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
         listed = emptyList(); visible = emptySet()
     }
 

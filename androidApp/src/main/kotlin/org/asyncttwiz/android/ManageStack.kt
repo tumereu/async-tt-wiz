@@ -31,12 +31,15 @@ internal object StackMenuActions {
         note: (() -> Unit)? = null, ping: (() -> Unit)? = null): List<MenuControl> {
         val effect = state.board.stackEffects.find { it.id == entryId }
         val movable = effect?.isCopy != true
+        // Automatum on (§3 I4, I-D28): Automatum resolves the Stack; its entries change only by the rules
+        val manual = AutomatumBoards.manualAllowed(state)
+        val refused = AutomatumDrags.STACK.takeIf { !manual }
         return listOf(
-            MenuControl("Remove from Stack", enabled && effect != null) { perform(TableIntent.Submit(remove(entryId), null)) },
-            MenuControl("Put to battlefield", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
-            MenuControl("Put to graveyard", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
-            MenuControl("Copy", enabled) { perform(TableIntent.Submit(copy(state, entryId), null)) },
-            MenuControl("Change controller", enabled && effect != null) { perform(TableIntent.Submit(changeController(state, entryId), null)) },
+            MenuControl("Remove from Stack", enabled && manual && effect != null, refused = refused) { perform(TableIntent.Submit(remove(entryId), null)) },
+            MenuControl("Put to battlefield", enabled && manual && movable, refused = refused) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
+            MenuControl("Put to graveyard", enabled && manual && movable, refused = refused) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
+            MenuControl("Copy", enabled && manual, refused = refused) { perform(TableIntent.Submit(copy(state, entryId), null)) },
+            MenuControl("Change controller", enabled && manual && effect != null, refused = refused) { perform(TableIntent.Submit(changeController(state, entryId), null)) },
             MenuControl("Edit note", enabled && effect != null && note != null) { note?.invoke() },
             MenuControl("Ping / Unping", enabled && ping != null) { ping?.invoke() })
     }
@@ -118,8 +121,13 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             Icons.Outlined.AdsClick)
                         StackMenuActions.controls(state, id, enabled, perform, note = editNote?.let { { it(id) } },
                             ping = annotations?.let { { StackMenuActions.ping(state, id, it) } }).forEachIndexed { action, control ->
-                            FilledTonalIconButton(onClick = control.click, enabled = control.enabled,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).ringInputTarget()) {
+                            // A refused button stays greyed but says why on tap (I-D28)
+                            val refuse = LocalRefusal.current
+                            val reason = control.refused.takeIf { !control.enabled }
+                            FilledTonalIconButton(onClick = if (reason != null) { { refuse(reason) } } else control.click,
+                                enabled = control.enabled || reason != null,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).ringInputTarget()
+                                    .then(if (reason != null) Modifier.alpha(.38f) else Modifier)) {
                                 Icon(icons[action], control.name, Modifier.size(22.dp))
                             }
                         }

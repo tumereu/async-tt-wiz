@@ -46,6 +46,24 @@ internal object CardRingPages {
     /** A Temp pile's contents (its Look): the panel layout with Temp 1–4. */
     val tempPanel = listOf(CardRingPage("Card", panelMoves + tempPiles))
 
+    /** The cell that opens a context's manual menu with Automatum on (§3 I4). */
+    const val MANUAL = "Manual…"
+
+    /**
+     * Automatum on (§3 I4, I-D28): the engine's actions for the card are rows above these cells, then what has no game
+     * effect (inspecting, notes, pings, links, the six colour counters Automatum ignores) and the combat draft; the rest
+     * of today's menu is behind "Manual…" ([MANUAL]), which opens it only while Automatum waits for something done by
+     * hand (I-D37).
+     */
+    fun automatumPages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false): List<CardRingPage> = when (layout) {
+        CardMenuLayout.CARD -> listOf(CardRingPage("Automatum", listOf("inspect", "otherSide", "note", "Ping / Unping",
+            if (attacker) "Attack →" else "Declare without tapping", "Link", "Unlink", MANUAL)), card[1])
+        CardMenuLayout.COMBAT -> listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →",
+            "Remove from combat", "Link", "Links", MANUAL)))
+        CardMenuLayout.HAND -> listOf(CardRingPage("Hand", listOf("inspect", MANUAL)))
+        CardMenuLayout.PANEL, CardMenuLayout.TEMP_PANEL -> listOf(CardRingPage("Card", listOf("inspect", "otherSide", "Ping / Unping", MANUAL)))
+    }
+
     /** Only the state twins replace a cell; nothing is ever added, hidden or left blank. */
     fun pages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false, cast: Boolean = false): List<CardRingPage> = when (layout) {
         CardMenuLayout.CARD -> card.mapIndexed { index, page -> if (index != 0) page else page.copy(actions = page.actions.map { id ->

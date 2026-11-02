@@ -219,7 +219,6 @@ class AutomatumI3ReviewTest {
 
     // #6 (STK-032 vs ZON-077, I-D37): "the table's manual edits (life, counters, moves) work until Done", but drags, the
     // way cards are moved and life is changed on the table, are still refused as Automatum drags
-    @Ignore("i3review #6: drags (moves, life) are refused while a by-hand step waits for them")
     @Test fun dragsWorkWhileSomethingIsDoneByHand() {
         val alice = byHandOpen()
         val creature = card(play, brute, aField)

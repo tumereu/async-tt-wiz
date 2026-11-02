@@ -196,6 +196,18 @@ out of anything stuck.
 
 - With Automatum on, menus show the engine's actions; the manual actions move behind a "Manual…" entry. Moves that
   break the rules are refused (D32). Hold-to-inspect and the other gestures stay as they are.
+- **Built (I4):** `CardPlays` (module `automatum/`) lists, per card the viewer can see, the engine's casts, land plays,
+  activated abilities (mana abilities, special actions) with their printed text, legal ones with the engine's input and
+  the others with a reason (`CardPlay.Refusal`, tried with `Engine.perform`); `CastFlow` takes `Input.Activate` (the
+  cast panel's flow, "Activate"; an ability that went on the Stack is passed on like a cast, a mana ability or special
+  action keeps priority). App: card menus with Automatum on have the engine's rows above the cells that have no game
+  effect and "Manual…" (`CardRingPages.automatumPages`), zone menus "Manual…" (`AutomatumZoneMenu`); "Manual…" opens
+  today's menu only during a `Manual` decision (I-D37). Every manual `PlayAction` is refused by the toolkit
+  (`AutomatumDrags.manual`) except while a `Manual` decision is open and inside Automatum's own routes (moving within
+  one's own Battlefield or hand, the combat draft); refused controls stay greyed and say why on tap
+  (`MenuControl.refused`, `LocalRefusal`): Life panel, Table actions, quick actions, Stack bubbles and Manage Stack.
+  Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-116, ZON-007, ZON-013, ZON-077, ZON-078, TRN-010, TRN-031, TRN-059,
+  CMB-025, STK-035, SYS-069.
 
 ## 4. Shared state ATW adds
 

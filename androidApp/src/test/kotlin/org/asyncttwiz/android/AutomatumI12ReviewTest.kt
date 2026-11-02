@@ -154,8 +154,9 @@ class AutomatumI12ReviewTest {
         compose.onAllNodesWithText("Hidden Basilisk", substring = true).assertCountEquals(0)
     }
 
-    // i12review #5 (CMB-024 "using current … P/T", TBL-112): with Automatum on the attacker shows its computed 4/4 (printed
-    // 2/2 with two +1/+1 counters), and "Deal combat damage" on a combat declared by hand deals that 4, not the hand-set 2
+    // i12review #5 (CMB-024 "using current … P/T", CMB-025, TBL-112): with Automatum on the attacker shows its computed 4/4
+    // (printed 2/2 with two +1/+1 counters), and the damage worked out for a combat declared by hand is that 4, not the
+    // hand-set 2; dealing it by hand is refused while Automatum doesn't wait for something done by hand (SYS-069)
     @Test fun combatDamageUsesTheComputedPowerToughness() {
         val fixture = CombatDamageFixture(attackers = listOf("2/2"))
         val face = DefinitionFace(TableToolFixture.id(25), "Combatant", typeLine = "Creature — Bear", power = "2", toughness = "2")
@@ -175,9 +176,12 @@ class AutomatumI12ReviewTest {
             "the table shows 4/4")
         val gameplay = mutableListOf<PlayAction>()
         val toolkit = TableToolkitController(fixture.actor, { play }, { true }, { action, _ -> gameplay += action; true })
-        AutomatumBoards.compute(play, fixture.actor)
-        assertTrue(toolkit.dealCombatDamage(fixture.attackerViews, areaId = play.board.combat!!.id))
-        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(fixture.defender, "-4")), gameplay)
+        val computed = AutomatumBoards.compute(play, fixture.actor)
+        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(fixture.defender, "-4")),
+            CombatDamage.assign(play, fixture.attackerViews, false, CombatDamageStep.ALL, computed).actions)
+        assertFalse(toolkit.dealCombatDamage(fixture.attackerViews, areaId = play.board.combat!!.id))
+        assertEquals(AutomatumDrags.LIFE, toolkit.error)
+        assertTrue(gameplay.isEmpty())
     }
 
     // i12review #7 (STK-024 "tapping a chip taps or untaps it", I-D6): the tapped sources are a set whose colours are

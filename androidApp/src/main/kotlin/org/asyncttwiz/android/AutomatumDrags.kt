@@ -46,4 +46,24 @@ internal object AutomatumDrags {
     const val STACK = "Automatum resolves the Stack: let it resolve, or switch Automatum off to move it by hand."
     const val LIFE = "With Automatum on, life changes only by the rules. Switch Automatum off to change it by hand."
     const val ONE_AT_A_TIME = "Cast or play one card at a time."
+    /** Any other change made by hand while Automatum is on (I-D28, §3 I4). */
+    const val MANUAL = "With Automatum on, the game changes only by the rules. Switch Automatum off to change it by hand."
+
+    /**
+     * Whether [action] changes the game by hand, which Automatum on refuses (I-D28) unless its open choice is something
+     * to do by hand (I-D37). What has no game effect stays: notes, pings, statuses, marks, links, the six colour
+     * counters Automatum ignores, dice and coins, inspecting, result suggestions, passing the move, keeping a library's
+     * top card revealed, closing a panel, and Automatum's own records.
+     */
+    fun manual(action: PlayAction): Boolean = when (action) {
+        is PlayAction.Ping, is PlayAction.Unping, is PlayAction.SetStatus, is PlayAction.SetNote, is PlayAction.SetEotNote,
+        is PlayAction.SetProjectionNote, is PlayAction.Link, is PlayAction.RemoveLink, is PlayAction.LinkProjections,
+        is PlayAction.RemoveProjectionLink, is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.InspectFace,
+        is PlayAction.SuggestResult, is PlayAction.DeclineResult, is PlayAction.WithdrawResult, is PlayAction.EventComment,
+        PlayAction.PassAttention, is PlayAction.SetKeepTopRevealed, is PlayAction.DismissContents,
+        is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
+        is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter, is PlayAction.Mtg -> false
+        is PlayAction.Stack -> action.action !is StackAction.MarkText
+        else -> true
+    }
 }

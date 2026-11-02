@@ -1,0 +1,1 @@
+add: With Automatum on, card menus list what the card can do by the rules (casting it, playing it, each of its abilities with its text) and you use them like casting a spell; everything done by hand moves behind "Manual…", which opens only while Automatum asks you to do something by hand.

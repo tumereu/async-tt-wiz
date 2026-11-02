@@ -80,20 +80,29 @@ internal fun ringPlaceholder(id: String): RingEntry {
     return RingEntry(id, ringShortLabel(name), MenuControl(name, false) {})
 }
 
+/** One thing the engine offers for the card (§3 I4): a full-width row above the menu's cells, its [icon] by kind. */
+internal data class EngineRow(val control: MenuControl, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+
+/** [rows]: the engine's actions shown above the first page's cells (Automatum on, §3 I4); [remembered]: the page opened
+ * last is remembered per layout (the Automatum menu always opens on its first page). */
 @Composable
 internal fun CardActionRing(game: String, viewer: String, identity: String, viewId: String,
     entries: List<RingEntry>, own: Boolean, ownerColor: Color, dismiss: () -> Unit,
-    layout: CardMenuLayout, pages: List<CardRingPage> = CardRingPages.pages(layout)) {
+    layout: CardMenuLayout, pages: List<CardRingPage> = CardRingPages.pages(layout),
+    rows: List<EngineRow> = emptyList(), remembered: Boolean = true) {
     val context = LocalContext.current
     val store = remember(context, viewer, game) { CardRingPageStore(context, viewer, game) }
-    var page by remember(viewer, game, layout) { mutableIntStateOf(store.read(layout)) }
+    var page by remember(viewer, game, layout, remembered) { mutableIntStateOf(if (remembered) store.read(layout) else 0) }
     val selectedPage = page.coerceIn(pages.indices)
     val slots = CardRingPages.layout(pages[selectedPage].actions)
     // Reserve the tallest page, including empty rows, so placement and the header never jump.
     val gridRows = pages.maxOf { inlinePopupGridRows(CardRingPages.layout(it.actions)) }
+    val rowsHeight = rows.size * (EngineRowHeight + InlinePopupStyle.cellGap)
+    val reserved = pages.indices.maxOf { index -> inlinePopupGridRows(CardRingPages.layout(pages[index].actions)).let { r ->
+        r * CardRingGeometry.cell + (r - 1).coerceAtLeast(0) * InlinePopupStyle.cellGap } + if (index == 0) rowsHeight else 0f }
     val anchor = LocalCardRingAnchors.current[viewId]
     val paged = pages.size > 1
-    val selectPage: (Int) -> Unit = { page = it; store.write(it, layout) }
+    val selectPage: (Int) -> Unit = { page = it; if (remembered) store.write(it, layout) }
     val switchPage: (Int) -> Unit = { delta -> if (paged) selectPage(CardRingPages.adjacent(selectedPage, delta, pages.size)) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
     val gridWidth = CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap
@@ -110,10 +119,12 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
             // A single-page layout has no page header at all.
             if (paged) InlinePopupPages(pages.map { it.name }, selectedPage, ownerColor, selectPage)
             key(identity, viewId, selectedPage) {
-                Column(Modifier.heightIn(max = (contentHeight - if (paged) 52f else 0f).coerceAtLeast(48f).dp)
+                val maxHeight = (contentHeight - if (paged) 52f else 0f).coerceAtLeast(48f)
+                Column(Modifier.heightIn(min = minOf(reserved, maxHeight).dp, max = maxHeight.dp)
                     .verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
-                    repeat(gridRows) { row ->
+                    if (selectedPage == 0) for (row in rows) EngineActionRow(row, ownerColor)
+                    repeat(if (rows.isEmpty()) gridRows else inlinePopupGridRows(slots)) { row ->
                         Row(horizontalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
                             var column = 0
                             while (column < CardRingPages.columns) {
@@ -131,6 +142,24 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
             }
         }
     }
+    }
+}
+
+private const val EngineRowHeight = 40f
+
+/** An engine action of the card (§3 I4): its icon and its text (an ability's printed text), greyed with its reason
+ * when Automatum doesn't allow it now. */
+@Composable
+private fun EngineActionRow(row: EngineRow, color: Color) {
+    val control = row.control
+    RingPress(control, Modifier.width((CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap).dp)
+        .heightIn(min = EngineRowHeight.dp), AutomatumViolet) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+            androidx.compose.material3.Icon(row.icon, null, Modifier.size(20.dp),
+                tint = AutomatumViolet.copy(alpha = if (control.enabled) 1f else .35f))
+            Text(control.name, Modifier.weight(1f).padding(start = 8.dp), color = MenuInk.copy(alpha = if (control.enabled) 1f else .38f),
+                fontSize = 12.sp, lineHeight = 14.sp, fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -362,9 +391,13 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
 internal fun RingPress(control: MenuControl, modifier: Modifier, color: Color,
     fill: Color = Color.White, role: Role = Role.Button, bordered: Boolean = true, content: @Composable () -> Unit) {
     var tooltip by remember { mutableStateOf(false) }
-    Surface(modifier.pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) { contentDescription = control.name; selected = control.selected }
-        .combinedClickable(enabled = control.enabled, role = role, hapticFeedbackEnabled = false,
-            onLongClick = { tooltip = true }, onClick = control.click),
+    // A refused control stays greyed but says why on tap (I-D28)
+    val refuse = LocalRefusal.current
+    val reason = control.refused.takeIf { !control.enabled }
+    Surface(modifier.pressFeedback(control.enabled).ringInputTarget().semantics(mergeDescendants = true) {
+            contentDescription = control.name; selected = control.selected; if (!control.enabled) disabled() }
+        .combinedClickable(enabled = control.enabled || reason != null, role = role, hapticFeedbackEnabled = false,
+            onLongClick = { tooltip = true }, onClick = if (reason != null) { { refuse(reason) } } else control.click),
         shape = if (bordered) RoundedCornerShape(3.dp) else androidx.compose.ui.graphics.RectangleShape,
         color = fill.compositeOver(Color.White), shadowElevation = if (bordered) 3.dp else 0.dp,
         border = if (bordered) BorderStroke(if (control.selected) 2.dp else 1.dp, color.copy(alpha = if (control.enabled) .5f else .2f)) else null) {

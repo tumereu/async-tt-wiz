@@ -139,7 +139,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, nam
                 if (cast.busy) Working()
                 EyeButton(hidden = false, cast::toggleHidden)
             }
-            cardText(play, flow.cardId)?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
+            (cast.abilityText ?: cardText(play, flow.cardId))?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
             if (cast.ways.size > 1) Section("Cast as") {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     for (way in cast.ways) FilterChip(way == flow.begin, { if (way != flow.begin) cast.way(way) },
@@ -148,7 +148,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, nam
             }
             flow.steps.forEachIndexed { index, (decision, answer) -> AnsweredSection(cast, flow, play, names, index, decision, answer) }
             when (val open = flow.pending) {
-                null -> Text("Ready to cast.", fontSize = 12.sp)
+                null -> Text(if (flow.activation) "Ready." else "Ready to cast.", fontSize = 12.sp)
                 is Decision.ManaPayment -> ManaSection(cast, cast, play, open)
                 else -> OpenSection(cast, cast, play, names, open)
             }
@@ -159,7 +159,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, nam
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { Text("Cancel") }
                 Button(cast::cast, enabled = !cast.busy && (cast.paid || flow.complete),
-                    colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text(if (land(flow)) "Play" else "Cast") }
+                    colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text(actionLabel(flow)) }
             }
         }
     }
@@ -393,7 +393,12 @@ internal fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast
 
 // ---- Words
 
-private fun land(flow: CastFlow) = flow.begin is Input.PlayLand
+/** The panel's main button: Play for a land, Activate for an ability or special action (§3 I4), else Cast. */
+private fun actionLabel(flow: CastFlow) = when {
+    flow.begin is Input.PlayLand -> "Play"
+    flow.activation -> "Activate"
+    else -> "Cast"
+}
 
 private fun spellName(flow: CastFlow, play: PlayState): String {
     val cast = flow.begin as? Input.Cast

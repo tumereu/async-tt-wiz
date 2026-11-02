@@ -207,6 +207,10 @@ sealed interface Mechanic {
     @Serializable @SerialName("damage-as-unblocked") data object AssignsDamageAsThoughUnblocked : Mechanic
     /** Assigns no combat damage. */
     @Serializable @SerialName("no-combat-damage") data object AssignsNoCombatDamage : Mechanic
+    // fra
+    /** With negative power, assigns combat damage as though its power were positive: as much as its power below 0 ("If
+     * Loot's power is negative, he assigns combat damage as though his power were positive", CR 510.1a otherwise: none). */
+    @Serializable @SerialName("damage-as-though-power-positive") data object AssignsDamageAsThoughPowerPositive : Mechanic
 
     // ---- Permissions, costs and casting (CR 601, 117, 118) ----
     /** May be cast (or activated) at any time it could cast an instant (flash, CR 702.8): the affected objects. */
@@ -349,6 +353,24 @@ sealed interface Mechanic {
     /** "If this card is in your opening hand, you may begin the game with it on the battlefield" (CR 103.6a): an
      * opening-hand action, taken after mulligans; works in the hand. */
     @Serializable @SerialName("may-begin-on-battlefield") data object MayBeginOnBattlefield : Mechanic
+    // fra
+    /** "A deck can have any number of cards named ~" (CR 100.2a): a deck-construction rule, nothing during a game. */
+    @Serializable @SerialName("any-number-in-deck") data object AnyNumberInDeck : Mechanic
+    /** The affected planeswalkers aren't put into their owners' graveyards for having 0 loyalty (CR 704.5i doesn't apply to
+     * them). */
+    @Serializable @SerialName("no-graveyard-for-zero-loyalty") data object NoGraveyardForZeroLoyalty : Mechanic
+    /** The "legend rule" (CR 704.5j) doesn't apply to the affected permanents. */
+    @Serializable @SerialName("legend-rule-doesnt-apply") data object LegendRuleDoesntApply : Mechanic
+    /** The affected players can't activate abilities matching [abilities] ([ObjectFilter.AbilityOf]: "can't activate
+     * abilities that aren't mana abilities", split second, CR 702.61a); for players what [CantCast] is for spells. */
+    @Serializable @SerialName("cant-activate") data class CantActivate(val abilities: ObjectFilter) : Mechanic
+    /** Loyalty abilities of the affected permanents may be activated on any player's turn any time their controller could
+     * cast an instant (CR 606.3 otherwise: only as a sorcery); still only once each turn. */
+    @Serializable @SerialName("loyalty-at-instant-speed") data object LoyaltyAtInstantSpeed : Mechanic
+    /** "[Event] doesn't cause abilities to trigger" ("Artifacts and creatures entering the battlefield don't cause abilities to
+     * trigger", CR 603.2): triggered abilities don't trigger on events matching [event]. Scoped by its event, like
+     * [TriggersAdditionalTime]. */
+    @Serializable @SerialName("event-doesnt-trigger") data class EventDoesntTrigger(val event: EventPattern) : Mechanic
 
     // ---- Replacement and prevention (CR 614, 615) ----
     /**
@@ -469,4 +491,11 @@ sealed interface Modification {
     /** The event doesn't happen at all ("If you would draw a card, skip that draw instead"). Skipping a step is
      * [Mechanic.SkipStep]; preventing damage is [Mechanic.Prevention] or [Effect.PreventDamage] (CR 615, not 614). */
     @Serializable @SerialName("skip") data object Skip : Modification
+    // fra
+    /** The entering permanent enters with [mark] ("This creature enters prepared", CR 722.3a): it has the designation as it
+     * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). */
+    @Serializable @SerialName("enters-marked") data class EntersMarked(val mark: ObjectMark) : Modification
+    /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
+     * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */
+    @Serializable @SerialName("create-instead") data class CreateInstead(val token: TokenSpec) : Modification
 }

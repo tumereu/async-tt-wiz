@@ -66,7 +66,9 @@ internal object StateBasedActions {
 
         // CR 704.5a, b, c: a player with 0 or less life, who drew from an empty library, or with 10 or more poison
         // counters loses (unless they can't, CR 104.3b)
-        val losers = state.players.filter { p ->
+        // fra: once one player is left (another won the game, CR 104.2b) the game is over (CR 104.1): nobody loses after
+        val over = state.players.count { !it.lost } <= 1
+        val losers = if (over) emptyList() else state.players.filter { p ->
             // "You don't lose the game for having 0 or less life."
             !p.lost && (p.life <= 0 && view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.NoLossForZeroLife } ||
                 (p.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 || p.counters(CounterKind.Poison) >= 10) &&
@@ -77,7 +79,8 @@ internal object StateBasedActions {
         // CR 704.5d: a token in a zone other than the battlefield ceases to exist
         val strayTokens = state.objects.values.filter { it.token && it.zone != Zone.Battlefield } +
             // dsk gaps: CR 704.5e: a copy of a card in a zone other than the Stack or the battlefield ceases to exist
-            state.objects.values.filter { it.copyOfCard && it.zone != Zone.Battlefield && it.zone != Zone.Stack }
+            state.objects.values.filter { it.copyOfCard && it.zone != Zone.Battlefield && it.zone != Zone.Stack &&
+                !arcanum.engine.prepare.Prepare.keptInExile(state, it) } // fra: CR 722.3c
 
         val battlefield = state.battlefield.filter { state.obj(it)?.phasedOut == false }
         battlefield.forEach { id ->
@@ -93,7 +96,9 @@ internal object StateBasedActions {
                 }
             }
             // CR 704.5i: a planeswalker with 0 loyalty
-            if (c.isType(CardType.Planeswalker) && o.counters(CounterKind.Loyalty) <= 0) toGraveyard += id
+            // fra: "Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty."
+            if (c.isType(CardType.Planeswalker) && o.counters(CounterKind.Loyalty) <= 0 &&
+                view[id]?.has { it == Mechanic.NoGraveyardForZeroLoyalty } != true) toGraveyard += id
             // CR 704.5v: a battle with 0 defense
             if (c.isType(CardType.Battle) && o.counters(CounterKind.Defense) <= 0) toGraveyard += id
             // CR 704.5m: an Aura attached to an illegal object or player, or not attached
@@ -128,7 +133,9 @@ internal object StateBasedActions {
         }
 
         // CR 704.5j: a player with two or more legendary permanents with the same name chooses one; the rest go
-        battlefield.filter { view[it]?.characteristics?.supertypes?.contains(Supertype.Legendary) == true }
+        // fra: permanents the "legend rule" doesn't apply to
+        battlefield.filter { view[it]?.characteristics?.supertypes?.contains(Supertype.Legendary) == true &&
+            view[it]?.has { m -> m == Mechanic.LegendRuleDoesntApply } != true }
             .groupBy { (view[it]?.controller ?: state.objOrThrow(it).owner) to view[it]?.characteristics?.name }
             .filter { (key, ids) -> key.second != null && ids.size >= 2 }
             .forEach { (key, ids) ->

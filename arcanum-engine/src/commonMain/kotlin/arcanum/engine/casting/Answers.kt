@@ -61,6 +61,11 @@ internal object Answers {
                 if (q.slot.slot.sameOwner &&
                     chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.state.obj(id)?.owner } }.distinct().size > 1)
                     refuse("The targets must have the same owner")
+                // fra: "up to one target … of each card type": each target stands for a value of its own
+                q.slot.slot.onePer?.let { quality ->
+                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
+                    if (!plan.snap.evaluator(plan.player).eachStandsForOne(quality, ids)) refuse("Each target must stand for a different $quality")
+                }
                 val key = q.slot.key
                 if (q.forPlayer == null) c.copy(targets = c.targets + (key to chosen))
                 else c.copy(

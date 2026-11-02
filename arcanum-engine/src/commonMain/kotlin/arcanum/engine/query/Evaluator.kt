@@ -295,6 +295,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Super -> c?.supertypes.orEmpty().contains(filter.supertype)
             is ObjectFilter.Sub -> subtypes(filter.subtype).any { c?.hasSubtype(it) == true }
             is ObjectFilter.OfColor -> colors(filter.color).any { c?.colors.orEmpty().contains(it) }
+            // fra: a prepare spell (CR 722.3c, d)
+            ObjectFilter.PrepareSpell -> o?.prepareSpellOf != null
+            ObjectFilter.HasDealtCombatDamage -> o?.facts?.dealtCombatDamage == true
             ObjectFilter.Colorless -> c != null && c.colors.isEmpty()
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
@@ -400,7 +403,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Status.Transformed -> o?.transformed == true
         Status.Flipped -> o?.flipped == true
         Status.PhasedOut -> o?.phasedOut == true
-        Status.Attacking -> state.combat?.attackers.orEmpty().any { it.id == id }
+        // fra: one that left is read as it last existed (CR 608.2h)
+        Status.Attacking -> state.combat?.attackers.orEmpty().any { it.id == id } || (o == null && lki(id)?.attacking == true)
         Status.Blocking -> state.combat?.blockers.orEmpty().any { it.id == id }
         Status.Blocked -> state.combat?.attackers.orEmpty().any { it.id == id && it.blocked }
         // CR 509.1h, 508.4d: unblocked once blockers are declared
@@ -472,6 +476,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             }
             SharedQuality.Name -> ca.name != null && ca.name == cb.name
             SharedQuality.BasicLandType -> ca.subtypes.any { it in Subtypes.basicLandTypes && it in cb.subtypes }
+            SharedQuality.PlaneswalkerType -> planeswalkerTypes(ca).any { it in planeswalkerTypes(cb) }
             is SharedQuality.Number -> property(quality.property, a) == property(quality.property, b)
         }
     }
@@ -490,6 +495,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 SharedQuality.CreatureType -> if (c.allCreatureTypes) listOf("every creature type $i") else creatureTypes(c)
                 SharedQuality.Name -> names(c)
                 SharedQuality.BasicLandType -> c.subtypes.filter { it in Subtypes.basicLandTypes }
+                SharedQuality.PlaneswalkerType -> planeswalkerTypes(c)
                 is SharedQuality.Number -> listOf(property(quality.property, id))
             }
         }
@@ -503,6 +509,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
 
     private fun creatureTypes(c: Characteristics) = c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Creature }
+    // fra: a planeswalker's planeswalker types (CR 205.3j)
+    private fun planeswalkerTypes(c: Characteristics) =
+        if (c.isType(arcanum.api.CardType.Planeswalker)) c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Planeswalker } else emptyList()
 
     // ---- References to colours and types
 
@@ -539,6 +548,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.SpellsCastBefore -> History.spellsCastBefore(this, objects(value.of))
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
+        is Value.Quotient -> if (value.divisor <= 0) 0 else value(value.value) / value.divisor
         is Value.Count -> objects(value.objects).size
         is Value.CountPlayers -> players(value.players).size
         is Value.CountDistinct -> distinct(value.quality, objects(value.objects))
@@ -646,6 +656,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             SharedQuality.CreatureType -> cs.flatMap { creatureTypes(it) }.distinct().size
             SharedQuality.Name -> cs.flatMap { names(it) }.distinct().size
             SharedQuality.BasicLandType -> cs.flatMap { c -> c.subtypes.filter { it in Subtypes.basicLandTypes } }.distinct().size
+            SharedQuality.PlaneswalkerType -> cs.flatMap { planeswalkerTypes(it) }.distinct().size
             is SharedQuality.Number -> ids.map { property(quality.property, it) }.distinct().size
         }
     }
@@ -676,6 +687,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             facts(id)?.castFrom?.let { condition.zone == null || it == condition.zone } ?: false
         }
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
+        is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()
         // Speed (CR 702.178) isn't modelled yet.
         Condition.MaxSpeed -> false
@@ -776,18 +788,20 @@ internal object History {
         (objectId == null || e.objects.any { (role == null || it.role == role) && objectId in it.ids }) && (player == null || player in e.players)
     }
 
-    fun count(evaluator: Evaluator, event: arcanum.api.EventPattern, measure: arcanum.api.Measure): Int {
+    /** How many times [event] happened in [turn] (this turn when null; fra: the previous turn for "last turn"). */
+    fun count(evaluator: Evaluator, event: arcanum.api.EventPattern, measure: arcanum.api.Measure, turn: Int? = null): Int {
         evaluator.board.readingLog()
         val state = evaluator.board.state
+        val number = turn ?: state.turn.number
         return when (measure) {
-            arcanum.api.Measure.Events -> state.eventsOf(state.turn.number).count { change ->
+            arcanum.api.Measure.Events -> state.eventsOf(number).count { change ->
                 arcanum.engine.trigger.EventMatcher.instances(evaluator, event, change).isNotEmpty()
             }
-            arcanum.api.Measure.Objects -> instances(evaluator, event).flatMap { e ->
+            arcanum.api.Measure.Objects -> instances(evaluator, event, number).flatMap { e ->
                 (e.objects.firstOrNull { it.role == arcanum.api.EventRole.Object || it.role == arcanum.api.EventRole.Before }
                     ?: e.objects.firstOrNull())?.ids.orEmpty()
             }.size
-            arcanum.api.Measure.Amount -> instances(evaluator, event).sumOf { it.amount ?: 0 }
+            arcanum.api.Measure.Amount -> instances(evaluator, event, number).sumOf { it.amount ?: 0 }
         }
     }
 
@@ -820,10 +834,10 @@ internal object History {
         return casts.take(index).count { it.controller == caster && counts(it.id) } + 1 == filter.n
     }
 
-    private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern): List<TriggerEvent> {
+    private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern, turn: Int? = null): List<TriggerEvent> {
         evaluator.board.readingLog()
         val state = evaluator.board.state
-        return state.eventsOf(state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it) }
+        return state.eventsOf(turn ?: state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it) }
     }
 }
 

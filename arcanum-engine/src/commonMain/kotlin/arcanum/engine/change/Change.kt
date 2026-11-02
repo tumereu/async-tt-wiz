@@ -381,7 +381,12 @@ data class DamageDealt(
 sealed interface GameEvent {
     /** [player] activated an ability of [source] (CR 602); mana abilities too (CR 605). */
     @Serializable @SerialName("activated")
-    data class Activated(val player: PlayerId, val source: ObjectId, val ability: String, val manaAbility: Boolean) : GameEvent
+    data class Activated(
+        val player: PlayerId, val source: ObjectId, val ability: String, val manaAbility: Boolean,
+        // fra
+        /** For a loyalty ability, the loyalty counters its cost put (positive) or removed (negative) (CR 606.4). */
+        val loyalty: Int? = null,
+    ) : GameEvent
     /** [ids] were revealed to every player (CR 701.20). */
     @Serializable @SerialName("revealed") data class Revealed(val player: PlayerId, val ids: List<ObjectId>) : GameEvent
     /** [player] flipped a coin (CR 705). */

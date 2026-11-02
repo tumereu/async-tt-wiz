@@ -74,22 +74,30 @@ class PausePointsTest {
         assertEquals(Point.Pause, PausePoints.of(alice, alice, TurnPosition.DECLARE_BLOCKERS, null, attacking = true, fullControl = false))
         assertEquals(Point.Pause, PausePoints.of(bob, alice, TurnPosition.DECLARE_BLOCKERS, null, attacking = true, fullControl = false))
         assertNull(PausePoints.of(bob, alice, TurnPosition.DECLARE_ATTACKERS, null, attacking = false, fullControl = false))
+        // The other player's end step (I-D41 decision B, pausereview #8); the active player's own end step isn't one
+        assertEquals(Point.Pause, PausePoints.of(bob, alice, TurnPosition.END_STEP, null, attacking = false, fullControl = false))
+        assertNull(PausePoints.of(alice, alice, TurnPosition.END_STEP, null, attacking = false, fullControl = false))
         // Every other step: a pause only with Full control
         for (step in listOf(TurnPosition.UPKEEP, TurnPosition.DRAW, TurnPosition.BEGIN_COMBAT, TurnPosition.COMBAT_DAMAGE,
             TurnPosition.END_COMBAT, TurnPosition.END_STEP)) for (holder in listOf(alice, bob)) {
-            assertNull(PausePoints.of(holder, alice, step, null, attacking = false, fullControl = false), "$step")
+            if (step != TurnPosition.END_STEP || holder == alice)
+                assertNull(PausePoints.of(holder, alice, step, null, attacking = false, fullControl = false), "$step")
             assertEquals(Point.Pause, PausePoints.of(holder, alice, step, null, attacking = false, fullControl = true), "$step")
         }
     }
 
     // STK-036, review item B: End turn while Bob could cast Storm Spark in every step: Automatum passes for both players
-    // through the rest of her turn and his upkeep and draw, up to his main phase, his stop: one step instead of eight
+    // through the rest of her turn up to her end step, his pause (I-D41 decision B); his pass there goes on through his
+    // upkeep and draw up to his main phase, his stop: two steps instead of eight
     @Test fun endTurnRunsToTheOtherPlayersMainPhase() {
         at(TurnPosition.PRECOMBAT_MAIN, 3)
         armed()
         val rt = game()
         rt.run(alice) { StepFlow.pass(it, alice, StepFlow.Until.EndOfTurn) }
-        assertEquals(1, rt.batches.size)
+        assertEquals(TurnPosition.END_STEP, position(rt))
+        assertEquals(At(bob, Point.Pause), PausePoints.at(rt.state.board))
+        rt.run(bob) { StepFlow.pass(it, bob) }
+        assertEquals(2, rt.batches.size)
         assertEquals(TurnState(bob, "4", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step), rt.state.board.turn)
         assertEquals(bob, rt.state.board.priority?.holder)
         assertEquals(At(bob, Point.Stop), PausePoints.at(rt.state.board))

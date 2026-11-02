@@ -62,10 +62,12 @@ internal object Triggers {
 
     /** Finds what [change] triggers (CR 603.2) and records it as waiting. [before] is the game just before it, for
      * look-back events. */
-    fun detect(recorder: Recorder, change: Change, before: GameState?, viewBefore: View? = null) {
-        if (change is Change.TriggersWaiting || change is Change.DelayedTriggerRemoved || change is Change.DelayedTriggerAdded) return
+    fun detect(recorder: Recorder, whole: Change, before: GameState?, viewBefore: View? = null) {
+        if (whole is Change.TriggersWaiting || whole is Change.DelayedTriggerRemoved || whole is Change.DelayedTriggerAdded) return
         val state = recorder.state
         val now = Engine.view(state)
+        // fra: objects whose entering doesn't cause abilities to trigger (CR 603.2): the event without them
+        val change = withoutMuted(state, now, whole) ?: return
         val found = mutableListOf<WaitingTrigger>()
         val seen = mutableSetOf<String>()
         // CR 603.10a: look back for leaving the battlefield and the other look-back events
@@ -83,6 +85,7 @@ internal object Triggers {
                 val part = if (before == null) change else seenByNewObject(change, s) ?: return@forEach
                 found += check(state, ViewBoard(state, now), now, part, s, lookBack = false, whole = change)
             }
+        found += discardedFromHand(state, now, change, seen)
         found += additional(state, now, change, found)
         val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
         state.delayedTriggers.values.toList().forEach { dt ->
@@ -136,6 +139,24 @@ internal object Triggers {
         val before = recorder.state.triggered.toList()
         recorder.record(Change.TriggersWaiting(before, before + triggers))
     }
+
+    // fra
+    /**
+     * A card's own "when you discard this card" works from the hand (CR 113.6k): found on the discarded card as it is now,
+     * its abilities that work only in the hand (those that work where it went were found with the other new objects).
+     */
+    private fun discardedFromHand(state: GameState, now: View, change: Change, seen: Set<String>): List<WaitingTrigger> =
+        (change as? Change.ZoneChange)?.moves.orEmpty().filter { it.from == Zone.Hand && Meaning.Discarded in it.meanings }.flatMap { m ->
+            val o = now[m.after.id] ?: return@flatMap emptyList()
+            val c = o.characteristics ?: return@flatMap emptyList()
+            c.abilities.flatMap { inst ->
+                val ability = inst.ability as? Ability.Triggered
+                if (ability == null || Functioning.zones(ability, c.isInstantOrSorcery()) != setOf(Zone.Hand) ||
+                    "${o.id}/${inst.origin.key}" in seen) emptyList()
+                // the event names the card as it was in the hand
+                else check(state, ViewBoard(state, now), now, change, Source(m.before.id, o.owner, ability, inst.origin), lookBack = false)
+            }
+        }
 
     /** One triggered ability of an object where it functions (CR 113.6). */
     private data class Source(val id: ObjectId, val controller: PlayerId, val ability: Ability.Triggered, val origin: AbilityOrigin)
@@ -204,7 +225,7 @@ internal object Triggers {
         val o = board.state.obj(id) ?: return board.snapshot(id)
         val v = board.view[id]
         return ObjectSnapshot(id, o.owner, v?.controller ?: o.controller, o.zone, v?.characteristics, o.counters, o.damage,
-            o.tapped, o.token, o.attachedTo, o.facts, o.memory)
+            o.tapped, o.token, o.attachedTo, o.facts, o.memory, attacking = board.state.combat?.attackers.orEmpty().any { it.id == id })
     }
 
     /** "Triggers only once each turn" (CR 603.2): counted on the source object per turn number (D41) once put on the
@@ -282,6 +303,24 @@ internal object Triggers {
     private fun batch(instances: List<TriggerEvent>): TriggerEvent {
         val roles = instances.flatMap { it.objects }.groupBy { it.role }.map { (role, list) -> RoleObjects(role, list.flatMap { it.ids }.distinct()) }
         return TriggerEvent(roles, instances.flatMap { it.players }.distinct(), instances.mapNotNull { it.amount }.takeIf { it.isNotEmpty() }?.sum())
+    }
+
+    /** fra: [change] without the parts [Mechanic.EventDoesntTrigger] mutes ("Artifacts and creatures entering the battlefield
+     * don't cause abilities to trigger"); null when nothing of it is left. */
+    private fun withoutMuted(state: GameState, view: View, change: Change): Change? {
+        val muting = view.rules.filter { it.mechanic is Mechanic.EventDoesntTrigger }
+        if (muting.isEmpty() || change !is Change.ZoneChange) return change
+        val kept = change.moves.filter { mv ->
+            muting.none { applied ->
+                val e = Evaluator(ViewBoard(state, view), Context(applied.controller, applied.source, applied.names))
+                EventMatcher.instances(e, (applied.mechanic as Mechanic.EventDoesntTrigger).event, Change.ZoneChange(listOf(mv))).isNotEmpty()
+            }
+        }
+        return when {
+            kept.size == change.moves.size -> change
+            kept.isEmpty() -> null
+            else -> change.copy(moves = kept)
+        }
     }
 
     /** "Triggers an additional time" (CR 603.2d). */

@@ -214,7 +214,9 @@ internal object Combat {
     private fun amount(snap: Snapshot, id: ObjectId): Int {
         val c = snap.view[id]?.characteristics ?: return 0
         if (has(snap, id, Mechanic.AssignsNoCombatDamage)) return 0
-        return (if (has(snap, id, Mechanic.AssignsDamageByToughness)) c.toughness else c.power)?.coerceAtLeast(0) ?: 0
+        // fra: "assigns combat damage as though his power were positive" (negative power counts as its size)
+        val power = c.power?.let { if (it < 0 && has(snap, id, Mechanic.AssignsDamageAsThoughPowerPositive)) -it else it }
+        return (if (has(snap, id, Mechanic.AssignsDamageByToughness)) c.toughness else power)?.coerceAtLeast(0) ?: 0
     }
 
     /** Lethal damage for [target] from [source] (CR 120.4a, 702.19b): toughness less damage already marked and damage

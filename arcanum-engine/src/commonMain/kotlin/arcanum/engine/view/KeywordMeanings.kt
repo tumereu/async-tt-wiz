@@ -126,7 +126,7 @@ object KeywordMeanings {
         val m = mutableMapOf<KeywordKind, List<Moment>>()
         fun at(vararg moment: Moment, kinds: () -> List<KeywordKind>) = kinds().forEach { m[it] = moment.toList() }
         at(Moment.Cast) {
-            listOf(Keyword.Epic, Keyword.Gravestorm, Keyword.Conspire, Keyword.SplitSecond, Keyword.Assist,
+            listOf(Keyword.Epic, Keyword.Gravestorm, Keyword.Conspire, Keyword.Assist,
                 Keyword.Demonstrate, Keyword.Bargain, Keyword.Spree, Keyword.Tiered, Keyword.Undaunted, Keyword.Ascend, Keyword.Ripple.Kind,
                 Keyword.Casualty.Kind, Keyword.Teamwork.Kind, Keyword.Entwine.Kind, Keyword.Replicate.Kind, Keyword.Prowl.Kind,
                 Keyword.Dash.Kind, Keyword.Surge.Kind, Keyword.Emerge.Kind, Keyword.Spectacle.Kind, Keyword.Mutate.Kind,

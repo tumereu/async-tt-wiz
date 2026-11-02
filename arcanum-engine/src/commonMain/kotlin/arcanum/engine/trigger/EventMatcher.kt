@@ -53,7 +53,14 @@ internal object EventMatcher {
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(item.id))), listOf(item.controller))) else emptyList()
         } else emptyList()
         is EventPattern.Activate -> ((change as? Change.Happened)?.event as? GameEvent.Activated)?.let { a ->
-            if ((pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
+            // fra: only loyalty abilities, and only those whose cost removed enough loyalty counters (CR 606.4)
+            val kindMatches = when (pattern.kind) {
+                null -> true
+                arcanum.api.AbilityKind.Loyalty -> a.loyalty != null
+                arcanum.api.AbilityKind.Mana -> a.manaAbility
+                else -> true
+            } && (pattern.removedLoyaltyAtLeast == null || (a.loyalty ?: 0) <= -pattern.removedLoyaltyAtLeast!!)
+            if (kindMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.source))), listOf(a.player))) else null
         }.orEmpty()
         is EventPattern.Damage -> (change as? Change.Damage)?.dealt.orEmpty().filter { d ->

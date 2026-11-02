@@ -242,13 +242,17 @@ object GameplayRules {
         return execute(prepared, actor, LibraryKnowledge.resolveEdge(prepared, command), EventReferenceResolver.UNAVAILABLE)
     }
 
+    /** [plannedBefore]: a branch start's board before its libraries were reseeded (HIS-042), which an automated batch
+     * may also have been planned on (pausereview #10). */
     fun change(state: PlayState, actor: String, command: GameCommand,
-        references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
+        references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE, plannedBefore: BoardState? = null): GameplayChange {
         if (!GameWire.valid(command)) return GameplayChange(reason = "invalidInput")
         // Rules v36 (SYS-057): an automated event applies only while Automatum is on (I-D24) ...
         (command.action as? GameAction.Play)?.tag?.let { if (!state.board.automatum) return GameplayChange(reason = "inapplicable") }
         // ... and an automated batch only to the board it was planned on (#4).
-        (command.action as? GameAction.Play)?.tag?.board?.let { if (MtgFacts.digest(state.board) != it) return GameplayChange(reason = "inapplicable") }
+        (command.action as? GameAction.Play)?.tag?.board?.let {
+            if (MtgFacts.digest(state.board) != it && plannedBefore?.let(MtgFacts::digest) != it) return GameplayChange(reason = "inapplicable")
+        }
         // A first move into a Temp pile creates it inside this same mutation (rules v23).
         val prepared = TempPiles.prepare(state, command)
         val resolved = LibraryKnowledge.resolveEdge(prepared, command)

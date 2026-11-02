@@ -95,7 +95,7 @@ object Cards {
 
     private val LAYOUTS = mapOf(
         "Normal" to Layout.Normal, "Split" to Layout.Split, "Flip" to Layout.Flip, "Transform" to Layout.Transform,
-        "ModalDoubleFaced" to Layout.ModalDoubleFaced, "Adventure" to Layout.Adventure, "Omen" to Layout.Omen,
+        "ModalDoubleFaced" to Layout.ModalDoubleFaced, "Adventure" to Layout.Adventure, "Omen" to Layout.Omen, "Prepare" to Layout.Prepare,
     )
 
     /** The basic lands (CR 305.6): no rules text; their mana ability comes from their land type. */

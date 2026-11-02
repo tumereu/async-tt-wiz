@@ -111,7 +111,10 @@ class SettingsScreenTest {
         compose.onNodeWithTag("proceed-at-once").performClick()
         compose.onNodeWithTag("full-control").performClick()
         compose.waitForIdle()
-        assertEquals(PauseSettings(proceedAtOnce = true, fullControl = true), PausePreferences(context, "pauses").settings)
+        val kept = PausePreferences(context, "pauses").settings
+        // pausereview #5: switching Full control records when it changed, so it goes into games once
+        assertTrue(kept.fullControlChanged > 1)
+        assertEquals(PauseSettings(proceedAtOnce = true, fullControl = true, fullControlChanged = kept.fullControlChanged), kept)
         assertEquals(PauseSettings(), PausePreferences(context, "someone else").settings)
         compose.onNodeWithTag("full-control").assertIsOn()
     }

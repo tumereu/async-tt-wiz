@@ -41,6 +41,8 @@ internal class SharedFlowController(
     private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
     private val work: AutomatumWork = AutomatumWork.Inline,
+    /** "Respond" was tapped (#2: it holds the viewer's pause, [PauseController.holdForReaction]). */
+    private val onRespond: () -> Unit = {},
 ) : FlowQuestions {
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
@@ -82,7 +84,7 @@ internal class SharedFlowController(
     fun toggleHidden() { hidden = !hidden }
 
     /** "Respond": the prompt shrinks to a bar while the player casts from the hand. */
-    fun respond(play: PlayState) { responding = play.currentNodeId; hidden = false }
+    fun respond(play: PlayState) { onRespond(); responding = play.currentNodeId; hidden = false }
     fun stopResponding() { responding = null }
 
     /** "Choose for them" confirmed (D11): the viewer answers the other player's open decision. */

@@ -82,10 +82,11 @@ object DefinitionChecks {
         return found
     }
 
-    private fun walk(element: JsonElement, inMechanics: Boolean, found: MutableList<String>) {
+    /** [affected]: the affects of the nearest effect (ApplyMechanics) around [element], when there is one (fra). */
+    private fun walk(element: JsonElement, inMechanics: Boolean, found: MutableList<String>, affected: JsonElement? = null) {
         when (element) {
             is JsonArray -> {
-                element.forEach { walk(it, inMechanics, found) }
+                element.forEach { walk(it, inMechanics, found, affected) }
             }
             is JsonObject -> {
                 val type = element.typeName()
@@ -177,7 +178,9 @@ object DefinitionChecks {
                 if (type == "delayed-trigger" && element.boolean("repeats") && element["duration"] == null)
                     found += "a repeating delayed trigger needs a duration"
                 if (type == "as-long-as") (element["condition"] as? JsonObject)?.let { c ->
-                    if (c.typeName() == "object-is" && c.typeOf("objects") in setOf("bound", "target") && c.typeOf("filter") == "in-zone")
+                    // fra: an effect on other objects lasting while this one stays in a zone ("until this card is cast from exile")
+                    val onOthers = (affected as? JsonObject)?.get("objects")?.let { it != c["objects"] } == true
+                    if (!onOthers && c.typeName() == "object-is" && c.typeOf("objects") in setOf("bound", "target") && c.typeOf("filter") == "in-zone")
                         found += "\"for as long as it remains there\" is Indefinitely: it is a new object once it leaves (CR 400.7)"
                 }
                 if (type == "if") {
@@ -211,7 +214,7 @@ object DefinitionChecks {
                     if (min != null && max != null) checkCounts("target slot", min, max, found)
                 }
                 // Mechanic lists: "mechanics" (static abilities, ApplyMechanics) and "spellGets" (mana riders).
-                element.forEach { (key, value) -> walk(value, key == "mechanics" || key == "spellGets", found) }
+                element.forEach { (key, value) -> walk(value, key == "mechanics" || key == "spellGets", found, if (type == "apply") element["affects"] else affected) }
             }
             is JsonPrimitive -> Unit
         }
@@ -273,6 +276,8 @@ object DefinitionChecks {
             when {
                 ability.typeName() == "spell" -> check(ability, costNames)
                 isCostStatic(ability) -> check(ability, costNames, spellSlots)
+                // fra: an equip ability's cost change reads the creature it targets, the slot its expansion declares (CR 702.6a)
+                ability.typeName() == "equip" -> check(ability, costNames, setOf("creature"))
                 // The Stack item holds the cost names: a cost reduction can read them ("for each card exiled this way").
                 else -> check(ability, costNames)
             }

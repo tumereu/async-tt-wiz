@@ -70,6 +70,9 @@ internal data class PlannedMove(
     // dsk gaps
     /** What the instruction says it is as it enters the battlefield (CR 611.2e): applied as it enters. */
     val entersAs: List<Mechanic> = emptyList(),
+    // fra
+    /** Marks it enters with ("enters prepared", CR 722.3a). */
+    val marks: List<arcanum.api.ObjectMark> = emptyList(),
 )
 
 /**
@@ -154,9 +157,11 @@ internal object Actions {
                     chosen.firstOrNull()?.let { move.copy(copyOf = it to mod.except) } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
+                // fra: "enters prepared" (CR 722.3a)
+                is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
-                is Modification.AlsoCreate -> move
+                is Modification.AlsoCreate, is Modification.CreateInstead -> move
             }
         }
         return move
@@ -237,6 +242,14 @@ internal object Actions {
         }
         act.record(Change.ZoneChange(all))
         arcanum.engine.room.Rooms.enteredUnlocked(act, all.filter { it.before.zone == Zone.Stack && it.after.zone == Zone.Battlefield }.map { it.after.id })
+        // fra: marks it enters with; becoming prepared makes its prepare spell's copy (CR 722.3a, c)
+        moves.filter { it.marks.isNotEmpty() && it.to == Zone.Battlefield }.forEach { m ->
+            val after = all.first { it.before.id == m.id }.after.id
+            m.marks.distinct().forEach { mark ->
+                if (mark == arcanum.api.ObjectMark.Prepared) arcanum.engine.prepare.Prepare.becomePrepared(act, after)
+                else tapStatus(act, after, StatusFlag.Marked(mark), true)
+            }
+        }
         // CR 400.7: a spell whose card left the Stack is no longer a spell (one resolving keeps its item in its
         // continuation, Continuation.Resolving.left)
         all.filter { it.before.zone == Zone.Stack && it.after.zone != Zone.Stack }.forEach { mv ->
@@ -371,6 +384,11 @@ internal object Actions {
         val board = act.board()
         val dealt = after.map { it.copy(sourceSeen = it.sourceSeen ?: act.snapshot(it.source)) }
         act.record(Change.Damage(dealt))
+        // fra: what has dealt combat damage remembers it ("as long as they haven't dealt combat damage yet")
+        dealt.filter { it.combat }.map { it.source }.distinct().forEach { source ->
+            val o = act.obj(source) ?: return@forEach
+            if (!o.facts.dealtCombatDamage) act.record(Change.ObjectUpdated(o, o.copy(facts = o.facts.copy(dealtCombatDamage = true))))
+        }
         var excess = 0
         val lifelink = mutableMapOf<PlayerId, Int>()
         dealt.forEach { d ->
@@ -598,7 +616,9 @@ internal object Actions {
                 if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
             modify = { n, r, _ -> modifyAmount(act, n, r) },
             instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0
-        if (final > 0) act.record(Changes.counters(act.state, holder, kind, final, meanings))
+        // fra: the counters put name their cause too ("whenever you put one or more loyalty counters on a planeswalker")
+        if (final > 0) act.record(Changes.counters(act.state, holder, kind, final, meanings).let { c ->
+            if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) })
         Replacements.addLinked(act, linked)
         return final.coerceAtLeast(0)
     }
@@ -669,6 +689,14 @@ internal object Actions {
                         is Modification.MultiplyAmount -> result?.map { (f, k) -> f to k * mod.factor }
                         is Modification.AddAmount -> result?.map { (f, k) -> f to k + e.value(mod.amount) }
                         is Modification.AlsoCreate -> result?.plus(tokenFace(act, e, mod.token) to e.value(mod.count))
+                        // fra: the matching tokens are created as another token instead, as many (CR 614.1a)
+                        is Modification.CreateInstead -> result?.map { (f, k) ->
+                            val probe = planned(listOf(f to 1)).single()
+                            val pattern = r.mechanic.event as? arcanum.api.EventPattern.CreateToken
+                            val matches = pattern == null || Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
+                                Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
+                            if (matches) tokenFace(act, e, mod.token) to k else f to k
+                        }
                         is Modification.EntersTapped -> result
                         else -> result
                     }

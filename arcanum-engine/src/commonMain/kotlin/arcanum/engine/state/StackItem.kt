@@ -102,4 +102,7 @@ data class ObjectSnapshot(
     val facts: ObjectFacts = ObjectFacts(),
     /** Its card memory (D22): what its linked abilities remembered (CR 607.2a), e.g. the card it exiled. */
     val memory: Bindings = Bindings.EMPTY,
+    // fra
+    /** It was an attacking creature ("if it wasn't attacking", CR 608.2h). */
+    val attacking: Boolean = false,
 )

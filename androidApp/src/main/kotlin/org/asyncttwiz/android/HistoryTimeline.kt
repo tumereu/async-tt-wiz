@@ -271,10 +271,11 @@ fun HistoryPlaybackPanel(playback: HistoryPlayback, timelineEndpoint: String, vi
         if (!readOnly && playback.foreground && animationFinished) {
             if (playback.finishAnimation(position.cursorId)) return@LaunchedEffect
             if (!position.playing) return@LaunchedEffect
-            if (playback.pauseAfterAnimation()) return@LaunchedEffect
-            // HIS-093 (I-D41): with Automatum on, Auto stops where the viewer had a pause, without a time limit
-            if (playback.stopAtPause(viewer, latestBoard?.let { org.asyncttwiz.automatum.PausePoints.pauseFor(it, viewer) } == true))
-                return@LaunchedEffect
+            // HIS-093 (I-D41): with Automatum on, Auto stops where the viewer had a pause, without a time limit; once
+            // for one pause, also when an auto-pause stopped there (#6)
+            val pause = pauseKey(latestBoard, viewer)
+            if (playback.pauseAfterAnimation(pause)) return@LaunchedEffect
+            if (playback.stopAtPause(viewer, pause != null, pause)) return@LaunchedEffect
             // Sample once per completed animation: a setting change affects the next pause,
             // not a pause already in progress. A manual start steps at once.
             delay(playback.nextStepDelayMillis(latestPauseMillis, latestRewindPauseMillis))

@@ -59,7 +59,12 @@ object KeywordExpansions {
                 targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOfNotNull(
                     ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You), keyword.onto))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Target("creature")))))),
-            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You, costChange = keyword.costChange)))
+        // fra: CR 702.61a: "As long as this spell is on the stack, players can't cast other spells or activate abilities that
+        // aren't mana abilities."
+        Keyword.SplitSecond -> listOf(Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Not(ObjectFilter.Is(Objects.Self))),
+            Mechanic.CantActivate(ObjectFilter.Not(ObjectFilter.AbilityOf(kind = AbilityKind.Mana)))),
+            affects = Affected.Players(Players.Each(PlayerFilter.Any)), functionsIn = listOf(Zone.Stack)))
         // CR 702.21a: "Whenever this permanent becomes the target of a spell or ability an opponent controls, counter
         // that spell or ability unless that player pays [cost]."
         is Keyword.Ward -> listOf(Ability.Triggered(
@@ -550,8 +555,27 @@ object KeywordExpansions {
                     Value.Of(NumericProperty.Toughness, Objects.Each(mine), Combine.Least)))), Value.Fixed(1), Value.Fixed(1)), bind = "bolstered", chooser = Players.You),
                 Step.Do(Effect.PutCounters(Objects.Bound("bolstered"), CounterKind.PowerToughness(1, 1), action.count)))
         }
+        // fra: CR 701.71a: create a Jace token if you control none, then put N loyalty counters on a Jace token you control
+        is KeywordAction.EmpowerJace -> listOf(
+            Step.If(Condition.Not(Condition.Exists(jaceTokenYouControl, atLeast = 1)),
+                then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(JACE_TOKEN), count = Value.Fixed(1), controller = Players.You)))),
+            Step.Choose(Choice.Objects(jaceTokenYouControl, Value.Fixed(1), Value.Fixed(1)), bind = "empowered", chooser = Players.You),
+            Step.Do(Effect.PutCounters(Objects.Bound("empowered"), CounterKind.Loyalty, action.count)))
         else -> null
     }
+
+    // fra
+    /** The token empower Jace creates (CR 701.71a): a blue Jace planeswalker token with 0 loyalty, "[−1]: Surveil 1" and
+     * "[−3]: Draw a card." */
+    val JACE_TOKEN: FaceDefinition = FaceDefinition("Jace Token", colorIndicator = listOf(Color.Blue), types = listOf(CardType.Planeswalker),
+        subtypes = listOf(Subtype("Jace")), loyalty = PrintedNumber.Fixed(0), abilities = listOf(
+            Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(-1)))), steps(Effect.Surveil(Players.You, Value.Fixed(1))),
+                ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You), text = "[−1]: Surveil 1."),
+            Ability.Activated(Cost(listOf(CostPart.Loyalty(Value.Fixed(-3)))), steps(Effect.Draw(Players.You, Value.Fixed(1))),
+                ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You), text = "[−3]: Draw a card."),
+        ))
+    private val jaceTokenYouControl = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Sub(Subtype("Jace")),
+        ObjectFilter.Category(ObjectCategory.Token), ObjectFilter.ControlledBy(PlayerFilter.You)))
 
     /** blb: what the chosen [player] gets from a gift (CR 702.174d–i). */
     private fun giftSteps(gift: Gifted, player: Players): List<Step> {

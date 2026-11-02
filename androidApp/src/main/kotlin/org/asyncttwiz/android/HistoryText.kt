@@ -421,7 +421,11 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.Mtg -> when (val mtg = action.action) {
             // HIS-091 (I1): the switch names who turned it, "alice turned Automatum on"
             is MtgAction.SetAutomatum -> text("${historyPlayerName(event.author, usernames)} turned Automatum ${if (mtg.on) "on" else "off"}", "Automatum")
-            is MtgAction.SetPriority -> text("Priority → ${mtg.after?.holder?.let { historyPlayerName(it, usernames) } ?: "nobody"}", "Priority")
+            // HIS-091 (pausereview #12): a pass made for the player holding priority (after their pause, or Pass for
+            // them) names both players
+            is MtgAction.SetPriority -> mtg.before?.holder?.takeIf { it != event.author && it != mtg.after?.holder }?.let { holder ->
+                text("${historyPlayerName(event.author, usernames)} passed for ${historyPlayerName(holder, usernames)}", "Pass")
+            } ?: text("Priority → ${mtg.after?.holder?.let { historyPlayerName(it, usernames) } ?: "nobody"}", "Priority")
             is MtgAction.SetManaPool -> text("${playerPrefix(mtg.accountId)}${if (mtg.accountId == event.author) "Mana" else "mana"} → " +
                 mtg.after.joinToString("") { it.color }.ifEmpty { "empty" }, "Mana")
             is MtgAction.SetCounter -> {

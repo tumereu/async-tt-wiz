@@ -10,7 +10,6 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
 import kotlin.random.Random
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -18,7 +17,7 @@ import kotlin.test.fail
 
 /**
  * Adversarial review of the pause points (integration spec I-D41, "pausereview"): where the host passes and where the
- * board says a player has a stop or a pause. Ignored tests are findings (~/projects/atw-cache/arcanum-pause-review.md).
+ * board says a player has a stop or a pause. Each "pausereview #N" test was a finding (~/projects/atw-cache/arcanum-pause-review.md), now fixed.
  */
 class PauseReviewTest {
     init { CombatCards.ensured }
@@ -32,12 +31,9 @@ class PauseReviewTest {
     }
     private fun position(rt: RoundTrip) = TurnPosition.of(rt.state.board.turn)
 
-    // pausereview #8 (needs owner decision; CR 117.3a, 513.1): Bob holds Storm Spark and an untapped Mountain. Alice
-    // passes in her second main phase: without Full control Bob gets no pause in her end step (nor in her upkeep, draw or
-    // beginning of combat): Automatum passes for him up to his own main phase, so "at the end of your turn" instants and
-    // beginning-of-combat taps need Full control, which then pauses everywhere. Proposed: the other player's end step is
-    // a pause for a player who could act (as the opponent's attack is).
-    @Ignore // pausereview #8: needs owner decision: the opponent's end step is no pause without Full control
+    // pausereview #8, STK-036 (I-D41 decision B; CR 117.3a, 513.1): Bob holds Storm Spark and an untapped Mountain.
+    // Alice passes in her second main phase: without Full control Bob gets a pause in her end step (for "at the end of
+    // turn" instants), as for her attack; her upkeep, draw and beginning of combat stay pauses only with Full control.
     @Test fun theOpponentsEndStepIsAPause() {
         at(TurnPosition.POSTCOMBAT_MAIN, 3)
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")

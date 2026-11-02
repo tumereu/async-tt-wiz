@@ -58,6 +58,15 @@ internal object Filters {
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
+        // blb chunk 08: "creature you control without flying", "… that entered the battlefield this turn"
+        WITHOUT_KEYWORD.matchEntire(phrase)?.let { m ->
+            OracleParser.keyword(m.groupValues[2].replaceFirstChar { it.uppercase() })?.let { k ->
+                return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.HasKeyword(k.kind)))
+            }
+        }
+        ENTERED_THIS_TURN.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Any, to = Zone.Battlefield)))
+        }
         // blb chunk 06: "creature an opponent controls that was dealt damage this turn"
         DEALT_DAMAGE_THIS_TURN.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter())))
@@ -144,6 +153,11 @@ internal object Filters {
             val list = phrase.split(Regex(""",? or |, """)).filter { it.isNotEmpty() }
             return ObjectFilter.Or(list.map { noun(it.removeArticle()) ?: return null })
         }
+        // blb chunk 08: "Rabbits, Bats, Birds, and Mice": a list of creature types is any of them (CR 205.3m)
+        if (phrase.contains(", and ")) {
+            val items = phrase.split(Regex(""",? and |, """)).map { singular(it) }
+            if (items.all { it in RulesWords.subtypes }) return ObjectFilter.Or(items.map { ObjectFilter.Sub(Subtype(it)) })
+        }
         if (phrase.contains(", ")) {
             val modifiers = phrase.split(", ")
             return all(*modifiers.map { noun(it) ?: return null }.toTypedArray())
@@ -161,7 +175,7 @@ internal object Filters {
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
         // blb chunk 06: "… that was dealt damage this turn" is not part of the name
-        val core = phrase.substringBefore(" that was ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        val core = phrase.substringBefore(" that was ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
@@ -247,6 +261,9 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // blb chunk 08
+    private val WITHOUT_KEYWORD = Regex("""(.+) without ([a-z ]+)""")
+    private val ENTERED_THIS_TURN = Regex("""(.+) that entered the battlefield this turn""")
     // blb chunk 06
     private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that was dealt damage this turn""")
     // blb chunk 05
@@ -646,6 +663,15 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // blb chunk 08: "you don't control a Snail"
+        DONT_CONTROL_A.matchEntire(text)?.let { m ->
+            return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null, atLeast = 1))
+        }
+        // blb chunk 08: "a Bird, Frog, Otter, or Rat entered the battlefield under your control this turn"
+        ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield), atLeast = 1, measure = Measure.Events)
+        }
         // blb chunk 07: "you gained or lost life this turn", "you gained and lost life this turn", "you've lost life this turn",
         // "an opponent lost life this turn" (CR 119.9, 119.10)
         LIFE_THIS_TURN.matchEntire(text)?.let { m ->
@@ -723,6 +749,9 @@ internal object Conditions {
     // chunk 36
     private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // blb chunk 08
+    private val DONT_CONTROL_A = Regex("""you don't control an? (.+)""")
+    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
     // blb chunk 07
     private val LIFE_THIS_TURN = Regex("""(you|you've|an opponent) (gained|lost)(?: (or|and) (gained|lost))? life this turn""")
     // blb chunk 05
@@ -835,6 +864,7 @@ internal object Values {
         if (text == "the mana value of the exiled card")
             return Value.Of(arcanum.api.NumericProperty.ManaValue, exiled ?: return null, Combine.Total)
         NUMBER_OF.matchEntire(text)?.let { m -> return Value.Count(Filters.objects(m.groupValues[1]) ?: return null) }
+
         return null
     }
 
@@ -842,5 +872,6 @@ internal object Values {
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")
     private val DEVOTION = Regex("""your devotion to (white|blue|black|red|green)""")
     private val NUMBER_OF = Regex("""the number of (.+)""")
+
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
 }

@@ -489,6 +489,11 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // dsk chunk 03: "there are two or more unlocked doors among Rooms you control" (CR 709.5c)
+        UNLOCKED_DOORS_AT_LEAST.matchEntire(text)?.let { m ->
+            return Condition.Compare(Values.value("the number of unlocked doors among " + m.groupValues[2]) ?: return null, Comparison.AtLeast,
+                Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        }
         // dsk chunk 01: a Room on the battlefield has only its unlocked doors' names (CR 709.5), so these are the names among
         // the Rooms
         NAMES_AMONG_UNLOCKED_DOORS.matchEntire(text)?.let { m ->
@@ -620,6 +625,7 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    private val UNLOCKED_DOORS_AT_LEAST = Regex("""there are (\w+) or more unlocked doors among (.+)""")
     private val NAMES_AMONG_UNLOCKED_DOORS = Regex("""there are (\w+) or more different names among unlocked doors of Rooms you control""")
     // chunk 30
     private val CONTROL_AT_LEAST = Regex("""you control at least (\w+) (other )?(.+)""")
@@ -654,7 +660,8 @@ internal object Conditions {
     // chunk 52
     // chunk 36
     private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
-    private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // dsk chunk 03: "if it's the second time" after "if this is the first time this ability has resolved this turn"
+    private val NTH_RESOLUTION = Regex("""(?:this is|it's) the (\w+) time(?: this ability has resolved this turn)?""")
     // chunk 56
     private val CONTROL_N_OR_MORE_PHRASE = Regex("""you control (\w+) or more (.+)""")
 }
@@ -733,6 +740,8 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        // dsk chunk 03: "the number of counters on this creature" (every kind; as it last existed once it has left, CR 608.2h)
+        if (text == "the number of counters on this creature") return Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, Combine.Single)
         // dsk chunk 02: "the number of unlocked doors among Rooms you control" (CR 709.5c)
         UNLOCKED_DOORS_AMONG.matchEntire(text)?.let { m ->
             return Value.Of(arcanum.api.NumericProperty.UnlockedDoors, Filters.objects(m.groupValues[1]) ?: return null, Combine.Total)

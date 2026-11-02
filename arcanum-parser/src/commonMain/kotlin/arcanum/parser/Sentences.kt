@@ -172,6 +172,12 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
+        // dsk chunk 03: "Unlock costs you pay cost {1} less." (the unlock special action, CR 709.5e)
+        UNLOCK_COSTS_LESS.matchEntire(line)?.let { m ->
+            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Unlock), ObjectFilter.ControlledBy(PlayerFilter.You)),
+                change = arcanum.api.CostChange.Less(mana, Value.Fixed(1)))), affects = Affected.Objects(Objects.Self))
+        }
         // dsk chunk 01: "Untap each creature you control during each other player's untap step." (CR 502.3)
         UNTAP_DURING_OTHER_UNTAP_STEPS.matchEntire(line)?.let { m ->
             return Ability.Static(listOf(Mechanic.UntapsDuringOtherUntapSteps), affects = Affected.Objects(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null)))
@@ -490,9 +496,10 @@ internal class Sentences(
         }
         // chunk 46: "Nonartifact spells cost {1} more to cast."
         SPELLS_COST.matchEntire(line)?.let { m ->
-            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() } + " spell") ?: return null
-            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
-            val change = if (m.groupValues[3] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
+            val kind = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() } + " spell") ?: return null
+            val spells = if (m.groupValues[2].isEmpty()) kind else Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.You))
+            val mana = ManaCost.parse(m.groupValues[3]) ?: return null
+            val change = if (m.groupValues[4] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
             return Ability.Static(listOf(Mechanic.CostChange(spells, change = change)), affects = Affected.Objects(Objects.Self))
         }
         // chunk 46: "Prevent all combat damage that would be dealt to attacking artifact creatures you control." (CR 615)
@@ -1320,6 +1327,66 @@ internal class Sentences(
         ADD_MANA_SPEND_ONLY_TO.matchEntire(sentence)?.let { m ->
             val kind = mana(m.groupValues[1]) ?: return null
             return listOf(Step.Do(Effect.AddMana(ManaProduction(kind, restriction = spendOnlyTo(m.groupValues[2]) ?: return null), players = Players.You)))
+        }
+        // dsk chunk 03: "Unlock a locked door of up to one target Room you control." / "… of a Room you control." (CR 709.5f)
+        UNLOCK_A_LOCKED_DOOR.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[3]
+            val filter = Filters.noun(noun) ?: return null
+            if (m.groupValues[1].isEmpty() && m.groupValues[2] != "target ") {
+                return listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, HAS_A_LOCKED_DOOR), Value.Fixed(1), Value.Fixed(1)), bind = "room", chooser = Players.You),
+                    Step.Do(Effect.UnlockDoor(Objects.Bound("room"), chooser = Players.You)))
+            }
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(if (m.groupValues[1].isEmpty()) 1 else 0),
+                max = Value.Fixed(m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Numbers.count(it) ?: return null } ?: 1))
+            return listOf(Step.Do(Effect.UnlockDoor(Objects.Target(name), chooser = Players.You)))
+        }
+        // dsk chunk 03: "Lock or unlock a door of target Room you control." (CR 709.5f, g; one of the two, chosen as it resolves)
+        LOCK_OR_UNLOCK.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf("lock", "unlock")), bind = "lockOrUnlock", chooser = Players.You),
+                Step.If(arcanum.api.Condition.Chose("lockOrUnlock", "lock"),
+                    then = listOf(Step.Do(Effect.LockDoor(target, chooser = Players.You))),
+                    otherwise = listOf(Step.Do(Effect.UnlockDoor(target, chooser = Players.You)))))
+        }
+        // dsk chunk 03: "Return an enchantment card from your graveyard to your hand or unlock a locked door of a Room you
+        // control.": one of the two, chosen as it resolves
+        RETURN_OR_UNLOCK.matchEntire(sentence)?.let { m ->
+            val card = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val unlock = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf("return", "unlock")), bind = "returnOrUnlock", chooser = Players.You),
+                Step.If(arcanum.api.Condition.Chose("returnOrUnlock", "return"),
+                    then = listOf(Step.Choose(arcanum.api.Choice.Objects(card, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                        Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand)))),
+                    otherwise = unlock))
+        }
+        // dsk chunk 03: "This creature can attack this turn as though it didn't have defender." (CR 702.3b)
+        CAN_ATTACK_AS_THOUGH_NO_DEFENDER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CanAttackDespiteDefender), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 03: "Surveil 2 if this is the first time this ability has resolved this turn."
+        EFFECT_IF.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self)
+            val then = condition?.let { effect(m.groupValues[1] + ".", context) }
+            if (condition != null && then != null) return listOf(Step.If(condition, then = then))
+        }
+        // dsk chunk 03: "Put a creature card from a graveyard onto the battlefield under your control." (chosen as it resolves)
+        PUT_CARD_FROM_A_GRAVEYARD_ONTO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You))))
+        }
+        // dsk chunk 03: "Put all enchantment cards from among them into your hand and the rest on the bottom of your library in a
+        // random order." (no choice)
+        PUT_ALL_FROM_AMONG_THEM_REST_BOTTOM.matchEntire(sentence)?.let { m ->
+            val them = Objects.Bound(context.seen ?: return null)
+            val chosen = Objects.Where(them, Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.Move(chosen, Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(them, chosen), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
         // dsk chunk 01: "Destroy all creatures with power 3 or greater."
         DESTROY_ALL.matchEntire(sentence)?.let { m -> Filters.noun(m.groupValues[1])?.let { return listOf(Step.Do(Effect.Destroy(Objects.Each(it)))) } }
@@ -3159,6 +3226,19 @@ internal class Sentences(
         val ADDITIONAL_CREATURE_TYPE = Regex("""it's an? (\w+) in addition to its other creature types""")
         const val MANIFESTED = "manifested"
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // dsk chunk 03
+        val UNLOCK_COSTS_LESS = Regex("""Unlock costs you pay cost ((?:\{[^}]+\})+) less\.""")
+        val UNLOCK_A_LOCKED_DOOR = Regex("""Unlock a locked door of (?:up to (\w+) )?(target |an? )(.+)\.""")
+        /** A Room with at least one locked door (CR 709.5c). */
+        val HAS_A_LOCKED_DOOR = ObjectFilter.Not(ObjectFilter.And(listOf(
+            ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Unlocked(arcanum.api.Door.Left))),
+            ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Unlocked(arcanum.api.Door.Right))))))
+        val LOCK_OR_UNLOCK = Regex("""Lock or unlock a door of target (.+)\.""")
+        val RETURN_OR_UNLOCK = Regex("""Return an? (.+?) from your graveyard to your hand or (unlock .+)\.""")
+        val CAN_ATTACK_AS_THOUGH_NO_DEFENDER = Regex("""(.+) can attack this turn as though it didn't have defender\.""")
+        val EFFECT_IF = Regex("""(.+) if (this is the \w+ time this ability has resolved this turn)\.""")
+        val PUT_CARD_FROM_A_GRAVEYARD_ONTO_BATTLEFIELD = Regex("""Put an? (.+?) from a graveyard onto the battlefield under your control\.""")
+        val PUT_ALL_FROM_AMONG_THEM_REST_BOTTOM = Regex("""Put all (.+?) from among them into your hand and the rest on the bottom of your library in a random order\.""")
         // dsk chunk 02
         val NO_MAXIMUM_HAND_SIZE = Regex("""You have no maximum hand size( and don't lose the game for having 0 or less life)?\.""")
         val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may pay (\{[^ ]+\}) rather than pay the mana cost for (?:a spell|spells) you cast( from exile)?\.""")
@@ -3407,7 +3487,8 @@ internal class Sentences(
         val AS_ENTERS_CHOOSE_TYPE = Regex("""As (.+) enters, choose a creature type\.""")
         val IS_THE_CHOSEN_TYPE = Regex("""(.+) is the chosen type in addition to its other types\.""")
         val PT_EACH_EQUAL_TO_NUMBER = Regex("""(.+)'s power and toughness are each equal to the number of (.+)\.""")
-        val SPELLS_COST = Regex("""(.+) spells cost ((?:\{[^}]+\})+) (more|less) to cast\.""")
+        // dsk chunk 03: "Enchantment spells you cast cost {1} less to cast."
+        val SPELLS_COST = Regex("""(.+) spells( you cast)? cost ((?:\{[^}]+\})+) (more|less) to cast\.""")
         val PREVENT_ALL_COMBAT_DAMAGE_TO = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
         val BOLSTER = Regex("""Bolster (\d+)\.""")
         val UNTIL_YOUR_NEXT_TURN_CANT_CAST = Regex("""Until your next turn, target player(?: who was dealt combat damage by (.+?) this turn)? can't cast (.+?) spells\.""")

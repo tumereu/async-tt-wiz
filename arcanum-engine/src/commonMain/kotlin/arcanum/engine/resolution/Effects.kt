@@ -202,6 +202,7 @@ internal object Effects {
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
             is Effect.CreateToken -> createToken(scope, effect)
             is Effect.CopySpell -> copySpell(scope, effect)
+            is Effect.CopyCard -> copyCards(scope, effect)
             is Effect.Counter -> counter(scope, scope.objects(effect.objects))
             is Effect.AddMana -> scope.players(effect.players).forEach { p -> addMana(scope, p, effect.mana) }
             is Effect.ApplyMechanics -> applyMechanics(scope, effect.mechanics, effect.affects, effect.duration, effect.uses)
@@ -377,6 +378,35 @@ internal object Effects {
         }
     }
 
+    // dsk gaps
+    /**
+     * "Copy them" (CR 707.12): a copy of each card, created in the zone the card is in (as the last object there) and
+     * owned by the player instructed to create it (CR 112.2a), with the card's copiable values (CR 707.2). The copies
+     * are named for the "cast the copies" after it; those not cast cease to exist when state-based actions are next
+     * checked (CR 704.5e).
+     */
+    private fun copyCards(scope: Scope, effect: Effect.CopyCard) {
+        val act = scope.act
+        val owner = scope.players(effect.owner).firstOrNull() ?: scope.actor
+        val creator = "${scope.cause.key}@${act.state.nextTimestamp()}/copy"
+        val first = act.state.nextTimestamp()
+        val copies = scope.objects(effect.objects).mapNotNull { act.state.obj(it) }.filter { !it.unknown }.mapIndexed { i, card ->
+            GameObject(
+                id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = owner, zone = card.zone,
+                // A card outside the battlefield and the Stack has its printed copiable values
+                definition = card.definition, copyOfCard = true, timestamp = first + i,
+            )
+        }
+        if (copies.isNotEmpty()) {
+            val placed = copies.groupBy { it.zone to it.owner }.flatMap { (where, group) ->
+                val start = act.state.zone(where.first, where.second).size
+                group.mapIndexed { i, o -> Placed(o, start + i) }
+            }
+            act.record(Change.Created(placed, listOf(Meaning.CardCopied)))
+        }
+        scope.bind(effect.bind, NamedValue.Objects(copies.map { it.id }))
+    }
+
     // ---- Zone changes
 
     private fun move(scope: Scope, effect: Effect.Move) {
@@ -417,6 +447,7 @@ internal object Effects {
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
                 attachTo = attachTo, transformed = dest.transformed, attacking = attacking,
                 newId = newIds?.getOrNull(i) as ObjectId.Card?,
+                entersAs = if (dest.zone == Zone.Battlefield) dest.entersAs else emptyList(),
             )
         }
         val batch = scope.batch

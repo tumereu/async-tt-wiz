@@ -88,6 +88,7 @@ internal object Texts {
                 is Step.If -> { s.then.forEach(::walk); s.otherwise.forEach(::walk) }
                 is Step.ForEach -> s.steps.forEach(::walk)
                 is Step.Repeat -> s.steps.forEach(::walk)
+                is Step.RepeatWhile -> s.steps.forEach(::walk)
                 else -> {}
             }
         }

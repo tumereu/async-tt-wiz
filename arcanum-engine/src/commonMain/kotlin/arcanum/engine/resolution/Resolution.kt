@@ -100,9 +100,18 @@ internal object Resolution {
             val mark = recorder.changes.size
             val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}", mayAskOtherView = true))
             try {
+                // dsk gaps: "Do this only once each turn" (CR 603.2h): once its action was taken this turn, it does nothing
+                val once = (item.ability as? Ability.Triggered)?.takeIf { it.actionOncePerTurn } != null
+                if (once && c.step == 0 && arcanum.engine.trigger.Triggers.actionTaken(recorder.state, item.source, item.origin, item.controller)) {
+                    c = c.copy(step = steps.size)
+                    continue
+                }
                 if (c.step < steps.size) {
                     val scope = Scope(act, causeOf(item), c.names, item.event)
                     Steps.run(scope, steps[c.step])
+                    if (once && c.step == actionStep(steps) && actionDone(steps[c.step], scope, recorder.changes.size > mark)) {
+                        actionTakenBy(act, item)
+                    }
                     // Its card may have left the Stack (CR 400.7): the item stays with the flow for the steps left
                     val left = c.left ?: item.takeIf { it.id !in recorder.state.stackItems }
                     c = c.copy(step = c.step + 1, names = scope.names, answers = emptyList(), left = left)
@@ -119,6 +128,29 @@ internal object Resolution {
                 return OtherView.start(c, n)
             }
         }
+    }
+
+    // dsk gaps
+    /** The step that is the action of a "Do this only once each turn" ability (CR 603.2h): its first optional part, or
+     * its last step when it has none. */
+    private fun actionStep(steps: List<Step>): Int =
+        steps.indexOfFirst { (it is Step.Pay && !it.mandatory) || it is Step.May }.takeIf { it >= 0 } ?: steps.lastIndex
+
+    /** Whether the action [step] was taken: a payment made, a "you may" that did something, any other step done. */
+    private fun actionDone(step: Step, scope: Scope, changed: Boolean): Boolean = when (step) {
+        is Step.Pay -> (step.bind?.let { scope.names[it] } as? NamedValue.Payment)?.outcome == arcanum.engine.state.PayOutcome.Paid ||
+            (step.bind == null && changed)
+        is Step.May -> changed
+        else -> true
+    }
+
+    /** Counts the action of [item]'s ability as taken this turn by its controller, on its source (D41). */
+    private fun actionTakenBy(act: Act, item: StackItem) {
+        val origin = item.origin ?: return
+        val o = item.source?.let { act.state.obj(it) } ?: return
+        val key = arcanum.engine.trigger.Triggers.actionKey(origin, item.controller)
+        act.record(Change.Facts(o.id, o.facts, o.facts.copy(
+            activations = arcanum.engine.casting.Legality.counted(o.facts.activations, key, act.state.turn.number))))
     }
 
     /**

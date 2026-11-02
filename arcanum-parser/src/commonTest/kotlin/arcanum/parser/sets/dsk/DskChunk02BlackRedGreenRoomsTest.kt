@@ -223,7 +223,8 @@ class DskChunk02BlackRedGreenRoomsTest {
         ) to abilities(
             Ability.Static(
                 mechanics = listOf(Mechanic.AlternativeCost(cost = Cost.mana(ManaCost.parse("{0}")!!), perTurn = 1)),
-                affects = Affected.Objects(Objects.Each(ObjectFilter.InZone(Zone.Exile))),
+                // The spell cast from exile (CR 601.2a)
+                affects = Affected.Objects(Objects.Each(ObjectFilter.WasCast(Zone.Exile))),
             ),
         ),
     )

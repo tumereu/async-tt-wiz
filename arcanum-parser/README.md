@@ -23,7 +23,7 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c). Exhaust, Boast, Max speed,
   Power-up and Solved become ability labels.
 - Set tests (`commonTest/…/sets/<code>/`): every card of a set with invented names. Duskmourn (`dsk`): all 276
-  cards parse except The Tale of Tamiyo (a repeated mill-and-compare process and casting copies from exile).
+  cards parse.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

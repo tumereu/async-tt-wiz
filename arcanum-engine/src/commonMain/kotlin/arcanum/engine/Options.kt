@@ -309,7 +309,7 @@ internal object Options {
         // From the hand: as usual, or under a permission that changes how (without paying its mana cost, CR 601.2f)
         val granted = Legality.permissions(snap, player, card, arcanum.api.PlayKind.Cast).map { it.first }
         val permissions = if (fromHand) listOf(null) + granted else granted
-        val alternatives = listOf(null) + Legality.alternativeCosts(snap, card).map { it.first.origin }
+        val alternatives = listOf(null) + Legality.alternativeCosts(snap, card, player).map { it.first.origin }
         Legality.castableFaces(o).flatMap { face ->
             permissions.flatMap { permission ->
                 alternatives.map { alt -> CastWay(face, alt, permission) }

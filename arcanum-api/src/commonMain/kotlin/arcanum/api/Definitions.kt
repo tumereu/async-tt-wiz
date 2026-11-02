@@ -111,7 +111,9 @@ sealed interface Ability {
          * may trigger it again, CR 400.7). */
         val once: Boolean = false,
         /** "… Do this only once each turn": triggers only if its source's controller hasn't yet taken that action this
-         * turn (CR 603.2h). */
+         * turn (CR 603.2h). The action is the ability's first optional part ("you may discard a card. If you do, …"),
+         * taken when it is done, or the whole ability when it has none; an instance that resolves after it was taken
+         * that turn does nothing. */
         val actionOncePerTurn: Boolean = false,
         /** A condition checked only when it would trigger, not again on resolution ("This ability triggers only if this
          * Case is solved", CR 702.169c), unlike [interveningIf]. */
@@ -346,6 +348,10 @@ sealed interface Step {
         val each: Each, val bind: String, val steps: List<Step>, val together: Boolean = false, val startingWith: Players? = null,
     ) : Step
     @Serializable @SerialName("repeat") data class Repeat(val times: Value, val steps: List<Step>) : Step
+    // dsk gaps
+    /** "… and repeat this process" (CR 608.2c): [steps] run, then again for as long as [condition] holds after them
+     * (names bound by the steps are those of the latest run). */
+    @Serializable @SerialName("repeat-while") data class RepeatWhile(val steps: List<Step>, val condition: Condition) : Step
     /** A choice made during resolution (colour, creature type, number, card name, player, objects, option),
      * named [bind]. With [remember], it is kept on the source as card memory (CR 607 linked abilities, "As ~ enters,
      * choose a colour"). Secret choices stay manual (D25). */

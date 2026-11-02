@@ -241,11 +241,11 @@ internal class Sentences(
             return Ability.Static(mechanics, affects = Affected.Players(Players.You))
         }
         // dsk chunk 02: "[Once each turn, ]you may pay {0} rather than pay the mana cost for a spell you cast from exile." An
-        // alternative cost (CR 118.9) for the cards its controller casts (from exile, or from anywhere)
+        // alternative cost (CR 118.9) for the spells its controller casts (from exile, or from anywhere; dsk gaps: the spell
+        // cast from a zone, CR 601.2a, not the card in that zone)
         ALTERNATIVE_COST_FOR_SPELLS.matchEntire(line)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
-            val cards = if (m.groupValues[3].isEmpty()) ObjectFilter.Or(EVERY_ZONE.filter { it != Zone.Battlefield && it != Zone.Stack }.map { ObjectFilter.InZone(it) })
-                else ObjectFilter.InZone(Zone.Exile)
+            val cards = if (m.groupValues[3].isEmpty()) ObjectFilter.WasCast() else ObjectFilter.WasCast(Zone.Exile)
             return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
@@ -317,10 +317,10 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.CantAttackAlone, Mechanic.CantBlockAlone), affects = Affected.Objects(Objects.Self))
         }
         // dsk chunk 09: "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that
-        // many cards.": the damage is replaced by milling (CR 614.1a)
+        // many cards.": a prevention effect with an additional effect (CR 615.5; dsk gaps: not a replacement)
         if (line == "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards.") {
-            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You), RecipientFilter(players = PlayerFilter.Opponent)),
-                instead = Instructions(steps = listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), Value.EventAmount)))))), affects = Affected.Objects(Objects.Self))
+            return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You), RecipientFilter(players = PlayerFilter.Opponent)),
+                additional = Instructions(steps = listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), Value.EventAmount)))))), affects = Affected.Objects(Objects.Self))
         }
         // dsk chunk 08: "If this card is in your opening hand, you may begin the game with it on the battlefield." (CR 103.6a)
         if (line == "If this card is in your opening hand, you may begin the game with it on the battlefield.")
@@ -1350,6 +1350,39 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // dsk gaps: "It's an enchantment." after returning it to the battlefield: it isn't a creature as it enters (layer 4,
+        // CR 611.2e), so its enters triggers and state-based actions see an enchantment
+        if (sentence == "It's an enchantment.") {
+            val move = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Battlefield } ?: return null
+            return steps.dropLast(1) + Step.Do(move.copy(to = move.to.copy(entersAs = move.to.entersAs + Mechanic.SetTypes(remove = listOf(CardType.Creature)))))
+        }
+        // dsk gaps: "If two cards that share a card type were milled this way, draw a card and repeat this process." after
+        // milling: the milling and the draw again while the condition holds (CR 608.2c)
+        REPEAT_IF_MILLED_SHARE.matchEntire(sentence)?.let { m ->
+            val mill = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Mill)?.takeIf { it.postBind == null } ?: return null
+            val quality = when (m.groupValues[1]) {
+                "card type" -> arcanum.api.SharedQuality.CardType
+                "color" -> arcanum.api.SharedQuality.Color
+                else -> return null
+            }
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            val milled = Objects.Bound("milled")
+            val shared = arcanum.api.Condition.ObjectMatches(Objects.Where(milled, ObjectFilter.Shares(quality, milled)), ObjectFilter.Any)
+            return steps.dropLast(1) + Step.RepeatWhile(listOf(Step.Do(mill.copy(postBind = "milled")), Step.If(shared, then = then)), shared)
+        }
+        // dsk gaps: "Copy them." after exiling cards: copies of those cards (CR 707.12), named for the casting that follows
+        if (sentence == "Copy them." || sentence == "Copy it.") {
+            val move = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Exile } ?: return null
+            val bind = move.postBind ?: "exiled"
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.CopyCard(Objects.Bound(bind), owner = Players.You, bind = COPIES))
+        }
+        // dsk gaps: "You may cast any number of the copies." / "You may cast the copy." after copying cards: each copy may be
+        // cast (CR 707.12a), paying its costs
+        CAST_THE_COPIES.matchEntire(sentence)?.let {
+            val copy = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CopyCard) ?: return null
+            val cast = { objects: Objects -> Step.May(listOf(Step.Do(Effect.Cast(objects, PlayKind.Cast, caster = Players.You))), player = Players.You) }
+            return steps + Step.ForEach(arcanum.api.Each.Objects(Objects.Bound(copy.bind)), bind = "copy", steps = listOf(cast(Objects.Bound("copy"))))
+        }
         // dsk chunk 13: "Shards you control become copies of it until the next end step." after exiling a target (layer 1; the
         // exiled card's copiable values, CR 707.2)
         BECOME_COPIES_OF_IT_UNTIL_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
@@ -2245,11 +2278,6 @@ internal class Sentences(
             val both = Objects.Union(listOf(Objects.Self, context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)))
             return listOf(Step.Do(Effect.Move(both, Destination(Zone.Library))), Step.Do(Effect.Shuffle(Players.OwnerOf(both))))
         }
-        // dsk chunk 08: "It's an enchantment." after returning it: it stops being a creature (layer 4, CR 613.1d)
-        if (sentence == "It's an enchantment." && context.it != null) {
-            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))),
-                arcanum.api.Affected.Objects(Objects.Bound("returned")), arcanum.api.Duration.Indefinitely)))
-        }
         // dsk chunk 08: "Target opponent loses that much life." (the event's amount)
         TARGET_LOSES_THAT_MUCH.matchEntire(sentence)?.let { m ->
             val player = if (m.groupValues[1] == "player") context.targetPlayer() else context.targetOpponent()
@@ -2448,6 +2476,14 @@ internal class Sentences(
         }
         DRAW_OR_DISCARD_X.matchEntire(sentence)?.let { m ->
             return listOf(Step.Do(if (m.groupValues[1] == "Draw") Effect.Draw(Players.You, Value.Announced(name = "X")) else Effect.Discard(Players.You, Value.Announced(name = "X"), filter = ObjectFilter.Any)))
+        }
+        // dsk gaps: "Exile any number of target instant, sorcery, and/or Tamiyo planeswalker cards from your graveyard."
+        EXILE_ANY_NUMBER_FROM_YOUR_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            // Cards in a graveyard, not permanents: the slot is "cards"
+            val noun = m.groupValues[1]
+            val filter = Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            context.targets += TargetSlot("cards", TargetKind.Objects(filter), min = Value.Fixed(0), max = null)
+            return listOf(Step.Do(Effect.Move(Objects.Target("cards"), Destination(Zone.Exile))))
         }
         RETURN_ANY_NUMBER_OF_TARGETS_TO_HAND.matchEntire(sentence)?.let { m ->
             val noun = m.groupValues[1]
@@ -4137,6 +4173,7 @@ internal class Sentences(
     private fun withNewTargets(step: Step): Step? = when (step) {
         is Step.If -> step.copy(then = step.then.map { withNewTargets(it) ?: return null }, otherwise = step.otherwise.map { withNewTargets(it) ?: return null })
         is Step.Repeat -> step.copy(steps = step.steps.map { withNewTargets(it) ?: return null })
+        is Step.RepeatWhile -> step.copy(steps = step.steps.map { withNewTargets(it) ?: return null })
         is Step.Do -> when (val e = step.effect) {
             is Effect.CopySpell -> Step.Do(e.copy(newTargets = true))
             is Effect.CreateDelayedTrigger -> Step.Do(e.copy(instructions = e.instructions.copy(steps = e.instructions.steps.map { withNewTargets(it) ?: return null })))
@@ -4323,6 +4360,11 @@ internal class Sentences(
         val MAY_CAST_SELF_FROM_GRAVEYARD_IF = Regex("""You may cast (.+) from your graveyard if (.+?)\. If you do, (.+) enters with an? (\S+) counter on it\.""")
         val PT_COLOR_TYPE_IN_ADDITION = Regex("""it's an? (\d+)/(\d+) (\w+) (\w+) creature in addition to its other colors and types(?: and it has (.+))?""")
         val BECOME_COPIES_OF_IT_UNTIL_NEXT_END_STEP = Regex("""(.+) become copies of it until the next end step\.""")
+        // dsk gaps
+        val REPEAT_IF_MILLED_SHARE = Regex("""If two cards that share a (card type|color) were milled this way, (.+) and repeat this process\.""")
+        val EXILE_ANY_NUMBER_FROM_YOUR_GRAVEYARD = Regex("""Exile any number of target (.+) from your graveyard\.""")
+        val CAST_THE_COPIES = Regex("""You may cast (?:any number of the copies|the copy)\.""")
+        const val COPIES = "copies"
         val SELF_DEALS_THAT_MUCH_TO_ANY_TARGET = Regex("""(.+) deals that much damage to any target\.""")
         val SELF_DEALS_AND_YOU_GAIN = Regex("""(.+) deals (X|\d+) damage to each opponent and you gain (X|\d+) life\.""")
         val IF_YOU_PUT_NO_CARDS_INTO_HAND = Regex("""If you put no cards into your hand this way, (.+)""")

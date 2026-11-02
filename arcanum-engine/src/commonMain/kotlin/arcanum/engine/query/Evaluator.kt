@@ -86,6 +86,10 @@ internal data class Context(
     val stackItem: StackItem? = null,
     /** The share of a divided amount for the target being affected (CR 601.2d). */
     val dividedShare: Int? = null,
+    // dsk gaps
+    /** Cards not on the Stack or the battlefield are tested as the spell they would be if cast from where they are
+     * (CR 601.2a): [ObjectFilter.WasCast] from their zone. For alternative costs given to spells cast from a zone. */
+    val prospectiveCast: Boolean = false,
 )
 
 /**
@@ -152,7 +156,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     /** The objects [each] looks at for [filter]: everything in the zones it names (the battlefield, or the Stack, when
      * it names none). */
     fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
-        val zones = zonesIn(filter).ifEmpty { if (filter.mentionsStack()) setOf(Zone.Stack) else setOf(Zone.Battlefield) }
+        val zones = zonesIn(filter).ifEmpty { if (filter.mentionsStack()) setOf(Zone.Stack) else setOf(Zone.Battlefield) } + prospectiveZones(filter)
         return zones.flatMap { zone ->
             when (zone) {
                 Zone.Stack -> state.stack
@@ -270,7 +274,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Not -> !matches(filter.filter, id)
             is ObjectFilter.Is -> id in objects(filter.objects)
             is ObjectFilter.Category -> when (filter.category) {
-                ObjectCategory.Card -> (o != null && !o.token) || lki(id)?.token == false
+                // dsk gaps: a copy of a card isn't a card (CR 109.1)
+                ObjectCategory.Card -> (o != null && !o.token && !o.copyOfCard) || (o == null && lki(id)?.token == false)
                 ObjectCategory.Token -> o?.token ?: lki(id)?.token ?: false
                 // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
                 ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
@@ -299,7 +304,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
-            is ObjectFilter.WasCast -> facts(id)?.castFrom?.let { filter.from == null || it == filter.from } ?: false
+            is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             is ObjectFilter.WasPaid -> (facts(id)?.paid.orEmpty().filter { it.keyword == filter.keyword }.sumOf { it.times }) >= filter.times
             is ObjectFilter.HasStatus -> hasStatus(id, o, filter.status)
             ObjectFilter.SummoningSick -> o != null && summoningSick(o, controllerOf(id))
@@ -402,6 +407,28 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     /** Where [id] is now. An object that left its zone is in none (CR 400.7): "if this card is in your graveyard" is false
      * for it, whatever its last known information says (CR 603.4); an object about to exist is where it would be. */
+    // dsk gaps
+    /** With [Context.prospectiveCast]: the zones spells matching [filter]'s [ObjectFilter.WasCast] are being or could be
+     * cast from, and the Stack. */
+    private fun prospectiveZones(filter: ObjectFilter): Set<Zone> {
+        if (!ctx.prospectiveCast) return emptySet()
+        fun froms(f: ObjectFilter): List<Zone?> = when (f) {
+            is ObjectFilter.WasCast -> listOf(f.from)
+            is ObjectFilter.And -> f.all.flatMap { froms(it) }
+            is ObjectFilter.Or -> f.any.flatMap { froms(it) }
+            else -> emptyList()
+        }
+        val from = froms(filter)
+        if (from.isEmpty()) return emptySet()
+        return setOf(Zone.Stack) + from.flatMap { z -> z?.let { listOf(it) } ?: CAST_FROM }
+    }
+
+    /** Where spells can be cast from ("spells you cast"). */
+    private val CAST_FROM = listOf(Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Command)
+
+    private fun prospectiveCastFrom(id: ObjectId): Zone? =
+        if (!ctx.prospectiveCast) null else zoneOf(id)?.takeIf { it != Zone.Stack && it != Zone.Battlefield }
+
     private fun zoneOf(id: ObjectId): Zone? = state.obj(id)?.zone ?: if (id in state.stackItems) Zone.Stack else board.proposedZone(id)
 
     /** Last known information of [id] when it has left its zone (CR 608.2h). */

@@ -60,13 +60,18 @@ internal object Casting {
         val permitted = if (fromHand && input.way.permission == null) null
             else Legality.permission(snap, input.player, input.card, input.way, PlayKind.Cast)
         val way = input.way.copy(permission = permitted?.first)
-        val alternative = Legality.alternative(snap, input.card, way)
+        val alternative = Legality.alternative(snap, input.card, way, input.player)
         val faceDown = alternative?.second?.faceDown == true
         val start = from
         // CR 601.2a: the card moves to the Stack and becomes the topmost object there
         recorder.record(Changes.move(recorder.state, listOf(input.card), Zone.Stack, controller = input.player, faceDown = faceDown))
         val onStack = (input.card as ObjectId.Card).next()
         if (way.face != recorder.state.objOrThrow(onStack).face) recorder.record(Change.Face(onStack, recorder.state.objOrThrow(onStack).face, way.face))
+        // dsk gaps: from here on it is a spell being cast from where it was (CR 601.2a), so "a spell you cast from exile"
+        // is known as its costs are determined (CR 601.2b, f)
+        recorder.state.objOrThrow(onStack).let { moved ->
+            recorder.record(Change.Facts(onStack, moved.facts, moved.facts.copy(castFrom = o.zone)))
+        }
         var names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))
         if (faceDown) names = names.with(FACE_DOWN, NamedValue.Option(alternative!!.second.keyword?.id ?: "morph"))
         val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way, permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay), AnnounceStage.Modes, Choices(names = names))

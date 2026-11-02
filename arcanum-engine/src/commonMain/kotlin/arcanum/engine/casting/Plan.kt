@@ -91,10 +91,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     val castFrom: Zone? = ((choices.names[FROM] as? NamedValue.Option)?.option)?.let { zoneByName(it) }
 
-    /** The alternative cost used: its static ability (looked up on the card on the Stack) and mechanic. */
+    /** The alternative cost used: its static ability (looked up on the card on the Stack) and mechanic, or one another
+     * object's ability gives the spell (dsk gaps: the spell is one cast from [castFrom], CR 601.2a). */
     val alternative: Pair<AbilityInstance, Mechanic.AlternativeCost>? = if (!isSpell || way.alternative == null) null
         else plain.view[itemId]?.characteristics?.abilities.orEmpty().firstOrNull { it.origin == way.alternative }?.let { inst ->
             (inst.ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.AlternativeCost>()?.firstOrNull()?.let { inst to it }
+        } ?: (way.alternative as? AbilityOrigin.FromAbility)?.let { origin ->
+            Legality.alternativeCosts(plain, itemId, player).firstOrNull { it.first.origin == origin }
         }
 
     /** Cast while another spell or ability resolves (CR 608.2g). */

@@ -80,8 +80,12 @@ class CardDefinitions internal constructor(
         else -> ParsedCard.Unreadable(entry.problem.orEmpty())
     }
 
-    private companion object {
-        val json = Json
+    companion object {
+        private val json = Json
+
+        /** Every subtype the pinned Comprehensive Rules list ([OracleParser.subtypes]): a choice of a creature type with
+         * no given list offers those that are creature types, never only the game's (I-D27, CR 205.3m). */
+        val ruleSubtypes: Set<String> get() = OracleParser.subtypes
     }
 }
 

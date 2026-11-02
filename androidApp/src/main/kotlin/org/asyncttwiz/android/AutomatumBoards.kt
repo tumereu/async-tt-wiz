@@ -161,7 +161,8 @@ internal object AutomatumBoards {
         synchronized(flows) { if (flows.containsKey(IdentityKey(play.board))) return flows[IdentityKey(play.board)] }
         val result = try {
             val definitions = definitions(play.definitions)
-            SharedFlow(play, definitions, engineLog(play, definitions, tags), ::seed)
+            // SYS-025 (final cast review #9): what the panel reads is worked out here, off the main thread
+            SharedFlow(play, definitions, engineLog(play, definitions, tags), ::seed).prepared()
         } catch (problem: Exception) {
             AppLog.warn("automatum", "Couldn't read the shared flow: ${problem::class.java.simpleName}")
             null

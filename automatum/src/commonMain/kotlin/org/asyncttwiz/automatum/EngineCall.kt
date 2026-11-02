@@ -164,10 +164,13 @@ class EngineCall(
     private fun objects(player: PlayerId, what: RandomKind.Objects): Answer.RandomObjects {
         val seed = seeds()
         val atw = what.among.map { (it as? ObjectId.Card)?.let { o -> hidden[o.card] ?: ids.atw(o.card) } ?: error("Not a card: $it") }
-        val owner = shuffled(what)
+        val owner = if (what.library.isNotEmpty()) player else shuffled(what)
         val order = if (owner == null) RandomV1.shuffle(atw, seed).take(what.count) else {
-            // ATW shuffles the whole library with the seed; cards the shuffle leaves out (CR 701.24b) go back on top
-            val library = working.player(owner).library.map { (it as ObjectId.Card).card.let { c -> hidden[c] ?: ids.atw(c) } }
+            // ATW shuffles the whole library with the seed; cards the shuffle leaves out (CR 701.24b) go back on top.
+            // Final cast review #7: the library as the engine shuffles it, not as it is while the decision is asked (cards
+            // found earlier in the step, "search …, put them onto the battlefield, then shuffle", have left it by then)
+            val library = what.library.ifEmpty { working.player(owner).library }
+                .map { (it as ObjectId.Card).card.let { c -> hidden[c] ?: ids.atw(c) } }
             RandomV1.shuffle(library, seed).filter { it in atw }
         }
         val byAtw = atw.zip(what.among).toMap()

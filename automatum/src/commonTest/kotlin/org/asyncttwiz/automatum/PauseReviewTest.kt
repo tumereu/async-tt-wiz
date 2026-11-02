@@ -10,7 +10,6 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
 import kotlin.random.Random
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -18,7 +17,7 @@ import kotlin.test.fail
 
 /**
  * Adversarial review of the pause points (integration spec I-D41, "pausereview"): where the host passes and where the
- * board says a player has a stop or a pause. Ignored tests are findings (~/projects/atw-cache/arcanum-pause-review.md).
+ * board says a player has a stop or a pause. Each "pausereview #N" test was a finding (~/projects/atw-cache/arcanum-pause-review.md), now fixed.
  */
 class PauseReviewTest {
     init { CombatCards.ensured }
@@ -48,13 +47,12 @@ class PauseReviewTest {
         assertEquals(At(bob, Point.Pause), PausePoints.at(rt.state.board))
     }
 
-    // pausereview #9 (CR 117.3a/117.3d, 605.3a; TBL-115 "a mana ability ... its player keeping priority"): Bob has Full
+    // SYS-067, pausereview #9 (fixed with final cast review #3) (CR 117.3a/117.3d, 605.3a; TBL-115 "a mana ability ... its player keeping priority"): Bob has Full
     // control and a pause in Alice's upkeep (empty Stack, Alice passed). He taps his Mountain for mana first (a mana
     // ability keeps priority) and then wants to pass (or cast). The mana ability made the passes in a row 0, and the host's
     // priority fix-up ([HostPriority], an empty Stack with no passes gives priority to the active player) hands priority
     // back to Alice on the next call: the board ([PausePoints.at], the pause bar) says Bob holds it, every engine call
     // says Alice does, so Bob's Pass acts for Alice and his cast is refused.
-    @Ignore // pausereview #9: a mana ability at an empty-Stack pause of the non-active player hands priority to the active player
     @Test fun aManaAbilityAtAnEmptyStackPauseKeepsPriority() {
         at(TurnPosition.UPKEEP, 3)
         table.put(alice, PlayZone.LIBRARY, "Island", "Island")
@@ -138,7 +136,7 @@ class PauseReviewTest {
                 }
                 else -> {
                     // The holder as every engine call sees it (#9: the host's fix-up may differ from the board)
-                    val holder = HostPriority.wanted(s)?.holder ?: s.priority.holder!!
+                    val holder = HostPriority.wanted(s, HostPriority.kept(rt.state.board))?.holder ?: s.priority.holder!!
                     val doing = Engine.options(s, holder).filter { it is Input.Cast || it is Input.PlayLand || it is Input.Activate }
                     if (doing.isNotEmpty() && random.nextInt(3) > 0) {
                         // As the app sends a cast or ability: then the host's passes ([CastFlow.sent], I-D41)
@@ -153,7 +151,7 @@ class PauseReviewTest {
             val after = rt.engine()
             val holder = after.priority.holder
             if (after.pending != null || holder == null || Engine.result(after) != null) continue
-            HostPriority.wanted(after)?.takeIf { it.holder != holder }?.let {
+            HostPriority.wanted(after, HostPriority.kept(rt.state.board))?.takeIf { it.holder != holder }?.let {
                 settled += "seed $seed call $done ${TurnPosition.of(rt.state.board.turn)}: board ${rt.state.board.priority}, host ${it.holder}"
                 continue
             }

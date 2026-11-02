@@ -230,7 +230,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   protection, prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
   deathtouch, lifelink, toxic and excess; life (paying life is losing it, through life-loss replacements, CR 119.4), counters, tapping, tokens (D35 ids), draws,
   mills, discards (cards put into one library position together in their owner's order, CR
-  401.4), host-ordered shuffles (D25) and host fills and forgetting (D60, see Hidden information); mana costs paid while resolving
+  401.4), host-ordered shuffles (D25; the random decision names the whole library as it is shuffled, `RandomKind.Objects.library`) and host fills and forgetting (D60, see Hidden information); mana costs paid while resolving
   ("unless … pays", ward) with a payment decision, not asked when they can't be paid (CR
   118.3). Replacement effects
   (CR 614, 616): own replacements first, control, copy, transformed, then the affected player's

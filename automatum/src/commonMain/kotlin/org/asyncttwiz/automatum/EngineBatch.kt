@@ -105,6 +105,9 @@ object EngineBatch {
     const val MAX_COMMAND_BYTES = GameWire.MAX_MESSAGE_BYTES / 4
 }
 
+/** The seed of a shuffle of at most one card, which the engine orders without asking the host ([Planner]). */
+private val SINGLE_CARD_SEED = org.asyncttwiz.protocol.RandomV1.encodeSeed(ByteArray(32))
+
 private class Planner(private val call: EngineCall, private val actor: String, command: GameCommand) {
     private val template = command.copy(action = GameAction.PlayBatch(listOf(PlayAction.PassAttention)))
     private var atw: PlayState = call.state
@@ -390,12 +393,17 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     }
 
     private fun shuffle(change: Change.Shuffle) {
-        val answer = shuffles.firstOrNull { it.player == change.player } ?: throw Unmappable("a shuffle the host didn't answer")
-        shuffles.remove(answer)
-        val library = container(PlayZone.LIBRARY, change.player.value)
-        play(PlayAction.ShuffleLibrary(library.id, answer.seed))
         // CR 701.24b: cards the shuffle left out go back on top as they were
         val kept = change.after.filter { a -> change.before.any { it.id == a.id } }
+        // A library of at most one card (but those left out) is shuffled without asking the host for an order; ATW's shuffle
+        // still says it (the card's zone-change count goes up, CR 701.24a), and any seed gives that one order
+        val seed = if (change.after.size - kept.size <= 1) SINGLE_CARD_SEED else {
+            val answer = shuffles.firstOrNull { it.player == change.player } ?: throw Unmappable("a shuffle the host didn't answer")
+            shuffles.remove(answer)
+            answer.seed
+        }
+        val library = container(PlayZone.LIBRARY, change.player.value)
+        play(PlayAction.ShuffleLibrary(library.id, seed))
         for (k in kept.reversed()) {
             val card = atwCard(k.id)
             play(PlayAction.MoveCard(card.id, source(card), MoveDestination(library.id, MoveInsertion.TOP)))
@@ -751,7 +759,8 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     val turn = TurnExtras(state.turn.landsPlayed, state.turn.turnStarted.takeIf { it != Derived.turnStarted(board) },
         state.turn.extraTurns, state.skipFirstDraw, state.turn.number.takeIf { state.turn.landsPlayed.isNotEmpty() },
         TurnExtras.at(state.turn.number, EngineCodec.position(state.turn.step, state.combat?.firstStrikeStep == true))
-            .takeIf { state.priority.passes > 0 })
+            // Final cast review #3: also where the engine left priority with a player other than the active one (HostPriority.kept)
+            .takeIf { state.priority.passes > 0 || state.priority.holder.let { it != null && it != state.turn.active } })
     if (turn != TurnExtras()) add(EngineRecord(EngineCodec.TURN, EngineRecordKind.Turn, data = EngineCodec.encode(TurnExtras.serializer(), turn)))
     state.combat?.let { add(EngineCodec.combatRecord(it, state.turn.number)) }
     if (state.triggered.isNotEmpty())

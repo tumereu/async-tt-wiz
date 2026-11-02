@@ -1,0 +1,1 @@
+fix: With Automatum on, naming a card lets you write any name with suggestions from your card records, and choosing a creature type offers every type, so neither hints at your opponent's hand.

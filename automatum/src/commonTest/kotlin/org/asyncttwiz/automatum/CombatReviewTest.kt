@@ -62,7 +62,7 @@ class CombatReviewTest {
         rt.state.board.containers.single { c -> c.id == rt.state.board.cards.single { it.id == card }.containerId }.zone
     private fun passBob(rt: RoundTrip) = rt.run(bob) { StepFlow.pass(it, bob) }
     /** Whoever holds priority as the host takes it (HostPriority) passes. */
-    private fun pass(rt: RoundTrip) = rt.call().working.let { HostPriority.wanted(it)?.holder ?: it.priority.holder }!!.value.let { holder -> rt.run(holder) { StepFlow.pass(it, holder) } }
+    private fun pass(rt: RoundTrip) = rt.call().working.let { HostPriority.wanted(it, HostPriority.kept(rt.state.board))?.holder ?: it.priority.holder }!!.value.let { holder -> rt.run(holder) { StepFlow.pass(it, holder) } }
 
     private fun manual(rt: RoundTrip, actor: String, action: PlayAction) {
         val command = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "combat-review/${manualRequests++}"),
@@ -262,6 +262,6 @@ class CombatReviewTest {
         assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
         offAndOn(rt)
         assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
-        assertEquals(null, HostPriority.wanted(rt.call().working), "the host leaves priority with Bob")
+        assertEquals(null, HostPriority.wanted(rt.call().working, HostPriority.kept(rt.state.board)), "the host leaves priority with Bob")
     }
 }

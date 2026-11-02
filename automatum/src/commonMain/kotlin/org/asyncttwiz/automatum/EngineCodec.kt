@@ -288,7 +288,8 @@ internal data class TurnExtras(
      * turns) starts with no lands played. Null in records made before it was kept. */
     val turn: Int? = null,
     /** Where the passes in a row of the game's priority were counted ([at]: ATW's turn number and step), while there are
-     * any (#10): a step or turn changed by hand since starts the count again. Null without passes. */
+     * any (#10): a step or turn changed by hand since starts the count again; also while a player other than the active
+     * one holds priority, so the host keeps it with them in that step ([HostPriority.kept]). Null otherwise. */
     val passesAt: String? = null,
 ) {
     companion object {

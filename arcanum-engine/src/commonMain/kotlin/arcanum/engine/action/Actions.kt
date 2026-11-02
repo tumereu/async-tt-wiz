@@ -785,7 +785,7 @@ internal object Actions {
         val library = act.state.player(player).library
         val shuffled = library.filter { it !in kept }
         val hidden = act.state.viewer != null && shuffled.size > 1
-        val order = if (shuffled.size <= 1) shuffled else act.randomObjects(player, source, shuffled, shuffled.size, newIds = hidden)
+        val order = if (shuffled.size <= 1) shuffled else act.randomObjects(player, source, shuffled, shuffled.size, newIds = hidden, library = library)
         val before = library.map { act.state.objOrThrow(it) }
         val after = library.filter { it in kept }.map { act.state.objOrThrow(it) } + if (hidden) {
             // Each new id takes a place in the library; which card is where only the host knows

@@ -150,7 +150,7 @@ private const val EngineRowHeight = 40f
 /** An engine action of the card (§3 I4): its icon and its text (an ability's printed text), greyed with its reason
  * when Automatum doesn't allow it now. */
 @Composable
-private fun EngineActionRow(row: EngineRow, color: Color) {
+internal fun EngineActionRow(row: EngineRow, color: Color) {
     val control = row.control
     RingPress(control, Modifier.width((CardRingGeometry.gridSide + (CardRingPages.columns - 1) * InlinePopupStyle.cellGap).dp)
         .heightIn(min = EngineRowHeight.dp), AutomatumViolet) {

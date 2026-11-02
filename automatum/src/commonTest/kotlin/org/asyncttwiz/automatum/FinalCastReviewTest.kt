@@ -15,7 +15,6 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
 import kotlin.random.Random
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -26,7 +25,7 @@ import kotlin.test.assertTrue
 
 /**
  * Final adversarial review of casting, activating, the Stack, resolution and triggers through Automatum (report
- * `arcanum-final-cast-review.md`, outside the repo): each test pins a problem found, ignored while it isn't fixed.
+ * `arcanum-final-cast-review.md`, outside the repo): each test pins a problem found there, now fixed.
  */
 class FinalCastReviewTest {
     init { CombatCards.ensured }
@@ -55,10 +54,9 @@ class FinalCastReviewTest {
         return flow
     }
 
-    // finalreview-cast #1 (I-D27, CR 201.3): naming a card for Whispered Therapy-like spells lists the names of cards in
+    // STK-041, finalreview-cast #1 (I-D27, CR 201.3): naming a card for Whispered Therapy-like spells lists the names of cards in
     // the opponent's hidden hand (the engine's listed answers are the names of cards in the game, on full information);
     // the decision panel shows the listed answers as its buttons, so the caster reads the opponent's hand
-    @Ignore("finalreview-cast #1: card-name choices list the opponent's hidden hand cards")
     @Test fun namingACardDoesNotListTheOpponentsHiddenHand() {
         Cards.invent("Velvet Secret", "{1}{U}", "Instant", "Draw a card.")
         Cards.invent("Quiet Reserve", "{2}{G}", "Creature — Elf", "", "2/2")
@@ -74,9 +72,8 @@ class FinalCastReviewTest {
         assertTrue("Velvet Secret" !in names, "listed: $names")
     }
 
-    // finalreview-cast #2 (CR 702.102a, DGM fuse, I-D6): the cast panel's "Cast as" chips and the card menu's rows name a
+    // STK-023, finalreview-cast #2 (CR 702.102a, DGM fuse, I-D6): the cast panel's "Cast as" chips and the card menu's rows name a
     // fused cast exactly like casting the left half alone
-    @Ignore("finalreview-cast #2: a fused cast is labelled like the left half alone")
     @Test fun fusedCastHasItsOwnLabel() {
         val fuse = "Fuse (You may cast one or both halves of this card from your hand.)"
         val name = Cards.inventFaces("Split",
@@ -89,11 +86,10 @@ class FinalCastReviewTest {
         assertNotEquals(left, fused)
     }
 
-    // finalreview-cast #3 (CR 117.3c, 117.4; CR 116.2b): Bob, holding priority after Alice passed on an empty Stack,
+    // SYS-067, TBL-115, finalreview-cast #3 (CR 117.3c, 117.4; CR 116.2b): Bob, holding priority after Alice passed on an empty Stack,
     // activates a mana ability (the same for a special action, turning a face-down creature face up); the engine leaves
     // him priority with no passes in a row, which HostPriority reads as "left from a turn changed by hand" and hands to
     // Alice, so Bob's next cast is refused ("Alice holds priority") while the board still shows him holding priority
-    @Ignore("finalreview-cast #3: the non-active player loses priority after a mana ability or special action")
     @Test fun nonActivePlayerKeepsPriorityAfterAManaAbility() {
         Cards.invent("Sudden Vigor", "{G}", "Instant", "Target creature gets +3/+3 until end of turn.")
         table.turn = TurnState(alice, "1", TurnPosition.END_STEP.phase, TurnPosition.END_STEP.step)
@@ -113,7 +109,6 @@ class FinalCastReviewTest {
     // finalreview-cast #4 (SYS-010, D59, CR 106.4): a mana pool holding two equal mana (one source's {R}{R}) gets one
     // more: the event can't be undone (GameplayHistory.reverse gives null), so a batch adding mana that way can't be
     // undone and the found game's RoundTrip fails; the sequence delta anchors the new entry "after R", which matches twice
-    @Ignore("finalreview-cast #4: adding mana to a pool holding two equal mana can't be undone")
     @Test fun manaAddedAfterTwoEqualManaCanBeUndone() {
         val rt = RoundTrip(table.state(), table.definitions)
         val red = org.asyncttwiz.protocol.PoolMana("R", """{"color":null,"source":"c:ritual#7"}""")
@@ -134,12 +129,11 @@ class FinalCastReviewTest {
         assertEquals(listOf(red, red), assertNotNull(undone, "undo of the second pool change").players.single { it.accountId == alice }.manaPool)
     }
 
-    // finalreview-cast #6 (I-D41, STK-026, CR 117.3c): a land play whose landfall trigger goes on the Stack keeps the
+    // ZON-004, TBL-115, finalreview-cast #6 (I-D41, STK-026, CR 117.3c): a land play whose landfall trigger goes on the Stack keeps the
     // trigger waiting for its own controller's "Let it resolve", while after a cast or an activation the host passes for
     // the caster (their own thing on top is no pause without Full control) and, Bob unable to respond, it resolves in the
     // same batch; CastFlow.sent() runs the passes only for a cast or an ability that went on the Stack (the same for a
     // special action whose trigger goes on the Stack)
-    @Ignore("finalreview-cast #6: a land play's trigger waits for its controller to pass")
     @Test fun landfallTriggerResolvesLikeACastsAbility() {
         Cards.invent("Moss Pilgrim", "{1}{G}", "Creature — Elf", "Landfall — Whenever a land you control enters, you gain 2 life.", "1/1")
         table.put(alice, PlayZone.BATTLEFIELD, "Moss Pilgrim")
@@ -183,7 +177,6 @@ class FinalCastReviewTest {
     // finalreview-cast #7 (CR 701.23, 701.24, I-D14, SYS-010): "each player may search their library … then shuffle" (the
     // cube's Seasoned Pathfinder dying) can't be sent: EngineBatch refuses the resolution with "the shuffle's order
     // differs from ATW's", so the game is stuck at that decision (found in the seeded games, seed 111)
-    @Ignore("finalreview-cast #7: each player's search-and-shuffle can't be mapped")
     @Test fun eachPlayerSearchesAndShuffles() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         val (pathfinder) = table.put(alice, PlayZone.BATTLEFIELD, "Seasoned Pathfinder")
@@ -205,6 +198,50 @@ class FinalCastReviewTest {
         }
         assertEquals(2, rt.state.board.cards.count { c -> rt.state.board.containers.single { c.id in it.cards }.zone == PlayZone.BATTLEFIELD &&
             table.names[c.id] in setOf("Forest", "Plains", "Island", "Swamp") }, "each player's searched land entered")
+    }
+
+    // finalreview-cast #7 follow-up (CR 701.24a, seed 101 of the games): a library left with one card (or none) is shuffled
+    // without the host being asked for an order; the batch still says the shuffle, and the round trip holds
+    @Test fun searchAndShuffleOfAOneCardLibrary() {
+        table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
+        val (pathfinder) = table.put(alice, PlayZone.BATTLEFIELD, "Seasoned Pathfinder")
+        val (spark) = table.put(alice, PlayZone.HAND, "Storm Spark")
+        table.put(alice, PlayZone.LIBRARY, "Forest", "Denial")
+        table.put(bob, PlayZone.LIBRARY, "Storm Spark")
+        val rt = RoundTrip(table.state(), table.definitions)
+        rt.apply(cast(rt, alice, spark, { d -> d.options.single { (it as? TargetRef.Object)?.id?.let { o -> (o as? ObjectId.Card)?.card?.value } == pathfinder } }).sent(), alice)
+        var guard = 10
+        while (guard-- > 0) {
+            val shared = flow(rt)
+            val d = shared.decision
+            when {
+                d is Decision.ChooseObjects -> rt.apply(shared.answer(Answer.Objects(d.options.take(1))), d.player.value)
+                d != null -> rt.apply(shared.answer(shared.listedAnswers().first()), d.player.value)
+                shared.priority != null -> rt.apply(shared.pass(shared.priority!!), shared.priority!!)
+                else -> break
+            }
+        }
+        assertTrue(rt.state.board.cards.any { c -> table.names[c.id] == "Forest" &&
+            rt.state.board.containers.single { c.id in it.cards }.zone == PlayZone.BATTLEFIELD }, "Alice's Forest entered")
+        assertEquals(1, rt.state.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == alice }.cards.size)
+    }
+
+    // STK-041, finalreview-cast #1 (I-D27, CR 205.3m): choosing a creature type lists only the types of objects the chooser may see,
+    // never those of the other player's hidden hand
+    @Test fun creatureTypeChoiceListsNoHiddenTypes() {
+        val (copycat) = table.put(alice, PlayZone.HAND, "Gleaming Copycat")
+        Cards.invent("Hollow Mystic", "{1}{U}", "Creature — Merfolk Wizard", "", "1/1")
+        table.put(bob, PlayZone.HAND, "Hollow Mystic")
+        table.put(alice, PlayZone.BATTLEFIELD, "Island", "Island", "Island", "Island")
+        val rt = RoundTrip(table.state(), table.definitions)
+        val plays = HandPlays.of(rt.state, table.definitions, alice, log(rt))
+        var flow = CastFlow.start(rt.state, table.definitions, alice, log(rt), plays.of(copycat).first(), seeds())
+        while (flow.pending is Decision.ManaPayment) flow = flow.answer(Answer.ManaPayment((flow.pending as Decision.ManaPayment).suggestion))
+        val choosing = flow.pending ?: flow(rt.also { it.apply(flow.sent(), alice) }).decision
+        assertIs<Decision.ChooseSubtype>(choosing, "Gleaming Copycat asks for a creature type")
+        val listed = (if (flow.pending != null) flow.listedAnswers() else flow(rt).listedAnswers())
+            .filterIsInstance<Answer.SubtypeChoice>().map { it.subtype.name }
+        assertTrue("Merfolk" !in listed && "Wizard" !in listed, "listed: $listed")
     }
 
     // CR 115.1, 701.6a, STK-023 (checked fine): a counterspell's target is the spell's Stack entry

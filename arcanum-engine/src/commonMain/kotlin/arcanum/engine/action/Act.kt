@@ -308,7 +308,8 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     }
 
     /** Ids for "[count] of [among] at random", or new ids for [among] put in a random order hidden from the viewer
-     * ([RandomKind.Objects.newIds], D60). */
-    fun randomObjects(player: PlayerId, source: ObjectId?, among: List<ObjectId>, count: Int, newIds: Boolean = false): List<ObjectId> =
-        (random(player, source, RandomKind.Objects(among, count, newIds)) as Answer.RandomObjects).chosen
+     * ([RandomKind.Objects.newIds], D60); [library]: the whole library a shuffle is of ([RandomKind.Objects.library]). */
+    fun randomObjects(player: PlayerId, source: ObjectId?, among: List<ObjectId>, count: Int, newIds: Boolean = false,
+        library: List<ObjectId> = emptyList()): List<ObjectId> =
+        (random(player, source, RandomKind.Objects(among, count, newIds, library)) as Answer.RandomObjects).chosen
 }

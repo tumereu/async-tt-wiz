@@ -185,6 +185,12 @@ reverting all its changes restores the state after setup.
 `cube/Chunk*ScenariosTest.kt` play each invented cube card the way a player would (cast with its
 costs, abilities activated, triggers triggered) and check the outcome a Magic player expects.
 
+`review/Review2LongGames.kt` plays whole games from `Engine.newGame` with random 40-card cube decks by a seeded random
+policy over `Engine.options`, checking D56/D58/D59 and zone, id, counter and timestamp invariants after every input; two
+seeds run in the normal suite, more with `-Parcanum.longGames=N` (`-Parcanum.longGames.players=3`,
+`-Parcanum.longGames.from=S`) and `--tests '*Review2LongGamesJvmTest*'`. `review/Review*Test.kt` are the adversarial
+reviews' scenarios; failing ones are `@Ignore`d with their finding number.
+
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into
 `cards/CubeCardTexts.kt`; after the parser tests change, regenerate with
 `./scripts/gradle.sh :arcanum-engine:jvmTest -Parcanum.regenerate=true --tests '*CubeCardsInSyncTest*'`.

@@ -243,6 +243,11 @@ internal object Filters {
                     (p as? ObjectFilter.And)?.all?.firstOrNull { it is ObjectFilter.ControlledBy } } ?: return null)
             }
         }
+        // dgm: "instant and sorcery" (cards of either type, "instant and sorcery spells")
+        GTC_TYPE_AND_TYPE.matchEntire(phrase)?.let { m ->
+            val a = CARD_TYPES[m.groupValues[1]]; val b = CARD_TYPES[m.groupValues[2]]
+            if (a != null && b != null) return ObjectFilter.Or(listOf(ObjectFilter.Type(a), ObjectFilter.Type(b)))
+        }
         // gtc chunk 08: "creature cards in your opponents' graveyards", "cards in your opponents' graveyards"
         GTC_IN_OPPONENTS_GRAVEYARDS.matchEntire(phrase)?.let { m ->
             val kind = if (m.groupValues[1].isEmpty()) ObjectFilter.Category(arcanum.api.ObjectCategory.Card) else noun(m.groupValues[1] + " card") ?: return null
@@ -274,6 +279,7 @@ internal object Filters {
     }
 
     // gtc
+    private val GTC_TYPE_AND_TYPE = Regex("""([a-z]+) and ([a-z]+)""")
     private val GTC_TYPES_AND = Regex("""([a-z]+)s and ([a-z]+)s(| you control| your opponents control| an opponent controls)""")
     private val GTC_IN_OPPONENTS_GRAVEYARDS = Regex("""(?:(.+) )?cards? in your opponents' graveyards""")
     private val GTC_WITH_NO_COUNTERS = Regex("""(.+) with no (\S+) counters on (?:them|it)""")
@@ -708,6 +714,15 @@ internal object Events {
         Gtc.ABILITY_OF_IS_ACTIVATED_NOT_MANA.matchEntire(text)?.let { m ->
             return EventPattern.Activate(subject(m.groupValues[1], self) ?: return null, by = PlayerFilter.Any, manaAbilities = false)
         }
+        // dgm: "this creature attacks a player and isn't blocked" (CR 509.1h); "a player casts a spell from their hand"; "you cast an
+        // instant or sorcery spell from your library" (CR 601.2a: from where it was)
+        Gtc.ATTACKS_A_PLAYER_AND_ISNT_BLOCKED.matchEntire(text)?.let { m ->
+            return EventPattern.AttacksUnblocked(subject(m.groupValues[1], self) ?: return null, target = arcanum.api.RecipientFilter(players = PlayerFilter.Any))
+        }
+        if (Gtc.PLAYER_CASTS_FROM_HAND.matches(text)) return EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.Any, from = Zone.Hand)
+        Gtc.YOU_CAST_FROM_YOUR_LIBRARY.matchEntire(text)?.let { m ->
+            return EventPattern.Cast(Filters.noun(m.groupValues[1] + " spell") ?: return null, by = PlayerFilter.You, from = Zone.Library)
+        }
         // gtc chunk 06: "the beginning of the end step", "the beginning of each combat": every player's (CR 513.1, 507.1)
         when (text) {
             "the beginning of the end step" -> return EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)
@@ -861,6 +876,10 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // dgm: "this creature isn't a token" (CR 111.1)
+        GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
+            return Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.Category(arcanum.api.ObjectCategory.Token)))
+        }
         // blb chunk 12: "an opponent controls more lands than you", "an opponent has more life than you", "… more cards in hand
         // than you": some opponent compared with you (CR 102.3)
         OPPONENT_CONTROLS_MORE.matchEntire(text)?.let { m ->
@@ -1207,6 +1226,8 @@ internal object Conditions {
     // dsk chunk 03: "if it's the second time" after "if this is the first time this ability has resolved this turn"
     private val NTH_RESOLUTION = Regex("""(?:this is|it's) the (\w+) time(?: this ability has resolved this turn)?""")
     // blb chunk 12
+    // dgm
+    private val GTC_ISNT_A_TOKEN = Regex("""(.+) isn't a token""")
     private val OPPONENT_CONTROLS_MORE = Regex("""an opponent controls more (.+) than you""")
     private val TOTAL_POWER = Regex("""(.+) have total power (\d+) or greater""")
     private val SELF_POWER_AT_LEAST = Regex("""(.+)'s power is (\d+) or greater""")

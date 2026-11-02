@@ -49,6 +49,13 @@ sealed interface Mechanic {
     sealed interface KeywordOnly : Mechanic
 
     // ---- Layer 1–7: characteristics (CR 613) ----
+    // dgm
+    /** A text-changing effect (CR 612): every instance of the word [from] in the affected objects' rules text becomes [to]
+     * (layer 3, CR 613.1c); a basic land type also in their type line (CR 612.2). Mana symbols aren't words (CR 612.2). */
+    @Serializable @SerialName("change-text") data class ChangeText(val from: TextWord, val to: TextWord) : Mechanic {
+        override val layer: Layer get() = Layer.Text
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** Becomes a copy of [objects] (CR 707), with [except] as part of the copy (CR 707.9b). */
     @Serializable @SerialName("copy-of") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : Mechanic {
         override val layer: Layer get() = Layer.Copy
@@ -185,6 +192,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("can-block-any-number") data object CanBlockAnyNumber : Mechanic
     /** Can't attack alone: it can be declared as an attacker only with another attacker (CR 506.5, 508.1c). */
     @Serializable @SerialName("cant-attack-alone") data object CantAttackAlone : Mechanic
+    // dgm
+    /** Can only attack alone: it can't be declared as an attacker together with another attacker (CR 506.5, 508.1c). */
+    @Serializable @SerialName("can-only-attack-alone") data object CanOnlyAttackAlone : Mechanic
     /** Can't block alone: it can be declared as a blocker only with another blocker (CR 506.5, 509.1b). */
     @Serializable @SerialName("cant-block-alone") data object CantBlockAlone : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
@@ -422,6 +432,13 @@ sealed interface ManaPaymentWay {
 sealed interface PlayKind {
     @Serializable @SerialName("play") data object Play : PlayKind
     @Serializable @SerialName("cast") data object Cast : PlayKind
+}
+
+/** A word a text-changing effect replaces (CR 612.2): a colour word or a basic land type. */
+@Serializable
+sealed interface TextWord {
+    @Serializable @SerialName("color") data class ColorWord(val color: ColorRef) : TextWord
+    @Serializable @SerialName("land-type") data class LandType(val subtype: SubtypeRef) : TextWord
 }
 
 /** How a replacement effect changes an event (CR 614.1). */

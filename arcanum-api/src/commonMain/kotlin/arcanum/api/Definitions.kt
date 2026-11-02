@@ -312,6 +312,10 @@ data class TargetSlot(
     // gtc chunk 10
     /** The objects chosen must all have the same owner ("up to three target cards from a single graveyard"). */
     val sameOwner: Boolean = false,
+    // dgm
+    /** The targets are chosen at random among the legal ones as it is put on the Stack ("any target chosen at random"); they are
+     * still targets (CR 115.1). */
+    val atRandom: Boolean = false,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */

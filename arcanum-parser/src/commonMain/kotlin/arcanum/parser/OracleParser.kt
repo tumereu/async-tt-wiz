@@ -268,7 +268,11 @@ object OracleParser {
             else -> line.split(", ")
         }
         val first = keyword(parts.first()) ?: return null
-        return listOf(first) + parts.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
+        // dgm: "protection from white and from black" is two protection abilities (CR 702.16g)
+        val split = parts.drop(1).flatMap { p ->
+            PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
+        }
+        return listOf(first) + split.map { keyword(it) ?: Ability.Unparsed(it) }
     }
 
     /** chunk 33: "Kicker {X}. X can't be 0.": a keyword line, then a sentence about it on the same line. */
@@ -437,6 +441,9 @@ object OracleRenderer {
         (part as? CostPart.Mana)?.cost?.toString() ?: error("Rendering cost part $part is not written yet")
     }
 }
+
+// dgm
+private val PROTECTION_FROM_AND_FROM = Regex("""[Pp]rotection from (\w+) and from (\w+)""")
 
 private fun arcanum.api.Instructions.join(other: arcanum.api.Instructions): arcanum.api.Instructions {
     // gtc chunk 13: a later line's "target creature" is another target (CR 115.3): a name of its own

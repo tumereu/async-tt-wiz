@@ -125,9 +125,7 @@ class AutomatumI12ReviewTest {
     }
 
     // i12review #3 (I-D27, STK-005, CMB-025): Alice targets Bob's face-down creature; the cast panel's answered Target
-    // section names it by its real card ("Hidden Basilisk"): CastPanel.objectName falls back to the game's card data when
-    // Alice's engine state doesn't know the object
-    @Ignore("i12review #3: the cast panel names a face-down target")
+    // section named it by its real card ("Hidden Basilisk") in I2a; fixed by I2b (CastController.shown), kept as a check
     @Test fun faceDownTargetIsNotNamedInTheCastPanel() {
         val hidden = f.source(f.b, "2/3")
         val play = board(listOf(mountain, spark), listOf(mountain)) { card ->

@@ -73,7 +73,8 @@ class I12ReviewTest {
             HandPlays.of(rt.state, table.definitions, alice, emptyList()).of(spark).first(), seeds())
         flow = flow.answer(Answer.Targets(listOf(TargetRef.Player(PlayerId(bob)))))
         flow = flow.answer(Answer.ManaPayment((flow.pending as Decision.ManaPayment).suggestion))
-        rt.apply(flow.call, alice)
+        // What the app sends (CastFlow.plan): the cast with the passes and resolution that follow it (I2b)
+        rt.apply(flow.sent(), alice)
         val visible = rt.batches.last().filter { it.grouping?.folded != true }
         val shown = visible.map { m -> (m.action as? PlayAction.Mtg)?.action?.let { it::class.simpleName } ?: m.action::class.simpleName }
         assertFalse((visible.first().action as? PlayAction.Mtg)?.action is MtgAction.SetPriority, "the cast's first visible event: $shown")

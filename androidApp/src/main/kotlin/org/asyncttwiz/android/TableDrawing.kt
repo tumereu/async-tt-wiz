@@ -52,8 +52,10 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             // CMB-007: the battlefields' own colours reach into the band between them; the combat area is a panel on it,
             // sized to its content
             val upper = scene.fields.first(); val lower = scene.fields.last()
-            drawRect(battlefieldColor(upper.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y), size(b.width, b.height / 2))
-            drawRect(battlefieldColor(lower.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y + b.height / 2), size(b.width, b.height / 2))
+            if (scene.combatLabels.isEmpty()) drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height)) else {
+                drawRect(battlefieldColor(upper.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y), size(b.width, b.height / 2))
+                drawRect(battlefieldColor(lower.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y + b.height / 2), size(b.width, b.height / 2))
+            }
             val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
             if (port != null && scene.combatLabels.isNotEmpty()) {
                 val pad = 3f

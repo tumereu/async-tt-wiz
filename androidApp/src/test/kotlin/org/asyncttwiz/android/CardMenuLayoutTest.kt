@@ -30,8 +30,8 @@ class CardMenuLayoutTest {
         assertEquals(listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
             "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1", "flip", "switchFace",
-            "Temp 1", "Deal to target", "Deal to target or creatures", "damage"), more)
-        assertEquals(18, CardRingPages.layout(more).last().cell)
+            "Temp 1", "damage"), more)
+        assertEquals(16, CardRingPages.layout(more).last().cell)
         assertEquals(listOf("Counters"), CardRingPages.pages(CardMenuLayout.CARD).filter { "eotNote" in it.actions }.map { it.name })
         val twins = ids(CardMenuLayout.CARD, token = true, attacker = true)[0]
         assertEquals(everyday.map { when (it) { "Declare without tapping" -> "Attack →"; "Hand" -> "Remove token"; else -> it } }, twins)
@@ -41,10 +41,10 @@ class CardMenuLayoutTest {
     // CMB-003, TBL-064, TBL-071, TBL-089, TBL-091, ZON-007, ZON-042
     @Test fun singlePageLayoutsHaveExactCells() {
         val combat = listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat", "Graveyard", "Exile", "Hand",
-            "corner", "damage", "eotCorner", "eotNote", "eotKeywords", "Deal to target", "Deal to target or creatures", "Link", "Links")
+            "corner", "damage", "eotCorner", "eotNote", "eotKeywords", "Link", "Links")
         assertEquals(listOf(combat), ids(CardMenuLayout.COMBAT))
-        // Four full rows of 5: P/T closes row 2, Damage and EOT P/T open row 3.
-        assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 15, 16, 17, 18, 19), CardRingPages.layout(combat).map { it.cell })
+        // P/T closes row 2, Damage and EOT P/T open row 3; Link and Links end row 4.
+        assertEquals(listOf(0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 15, 16, 17), CardRingPages.layout(combat).map { it.cell })
         assertEquals(listOf(listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile", "Library top",
             "Library bottom", "Shuffle into library", "Temp 1",
             "Discard random", "Reveal random", "Exile random", "Random to library bottom")), ids(CardMenuLayout.HAND))
@@ -116,7 +116,8 @@ class CardMenuLayoutTest {
         val hand = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
         val library = board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
         val views = listOf(f.source(f.a, "1/3").id, f.id("attacker1"), f.id("blocker"), hand.cards.first(), library.cards.first())
-        val removed = listOf("Select / deselect", "Tap selected scope", "Untap selected scope", "Source actions", "Temp pile")
+        val removed = listOf("Select / deselect", "Tap selected scope", "Untap selected scope", "Source actions", "Temp pile",
+            "Deal to target", "Deal to target or creatures")
         val dropZones = CombatStackPresentation.combat(board, 48f, 68f).destinations.map { it.label }
         assertTrue(dropZones.isNotEmpty())
         for (view in views) {
@@ -137,7 +138,6 @@ class CardMenuLayoutTest {
         val sentinel = f.source(f.a, "1/3")
         val real = tools(toolkit, play, sentinel.id)
         assertTrue(real.single { it.name == "Attack →" }.enabled)
-        assertTrue(real.single { it.name == "Deal to target" }.enabled)
         real.single { it.name == "Attack →" }.click()
         assertEquals("attackTarget", toolkit.panel)
         assertEquals(listOf(f.id("attacker1")), toolkit.capture?.viewIds)
@@ -149,7 +149,6 @@ class CardMenuLayoutTest {
             play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }
         val notInCombat = tools(toolkit(play), play, idle.id)
         assertFalse(notInCombat.single { it.name == "Attack →" }.enabled)
-        assertFalse(notInCombat.single { it.name == "Deal to target" }.enabled)
         assertTrue(notInCombat.single { it.name == "Temp 2" }.enabled)
     }
 

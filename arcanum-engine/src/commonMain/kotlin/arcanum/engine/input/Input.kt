@@ -87,6 +87,9 @@ data class CastWay(
     val alternative: AbilityOrigin? = null,
     /** The permission used ([arcanum.api.Mechanic.MayPlay]). */
     val permission: Permission? = null,
+    // gtc
+    /** Both halves of a split card with fuse cast from the hand as one spell (CR 702.102a), [face] 0. */
+    val fused: Boolean = false,
 )
 
 /** Which [arcanum.api.Mechanic.MayPlay] lets a card be played: one in a static ability of [source], or in effect

@@ -35,7 +35,9 @@ import arcanum.api.Zone
  */
 object KeywordMeanings {
     /** Keywords the engine applies in its own code rather than through abilities. */
-    val engineCode: Set<KeywordKind> = setOf(Keyword.Phasing)
+    val engineCode: Set<KeywordKind> = setOf(Keyword.Phasing,
+        // gtc: casting both halves of a split card (CR 702.102) is a way to cast it ([arcanum.engine.input.CastWay.fused])
+        Keyword.Fuse)
 
     /** The abilities [keyword] stands for; empty for [engineCode] keywords and those with no rules meaning. */
     fun expand(keyword: Keyword): List<Ability> =
@@ -124,7 +126,7 @@ object KeywordMeanings {
         val m = mutableMapOf<KeywordKind, List<Moment>>()
         fun at(vararg moment: Moment, kinds: () -> List<KeywordKind>) = kinds().forEach { m[it] = moment.toList() }
         at(Moment.Cast) {
-            listOf(Keyword.Epic, Keyword.Gravestorm, Keyword.Conspire, Keyword.SplitSecond, Keyword.Cipher, Keyword.Fuse, Keyword.Assist,
+            listOf(Keyword.Epic, Keyword.Gravestorm, Keyword.Conspire, Keyword.SplitSecond, Keyword.Assist,
                 Keyword.Demonstrate, Keyword.Bargain, Keyword.Spree, Keyword.Tiered, Keyword.Undaunted, Keyword.Ascend, Keyword.Ripple.Kind,
                 Keyword.Casualty.Kind, Keyword.Teamwork.Kind, Keyword.Entwine.Kind, Keyword.Replicate.Kind, Keyword.Prowl.Kind,
                 Keyword.Dash.Kind, Keyword.Surge.Kind, Keyword.Emerge.Kind, Keyword.Spectacle.Kind, Keyword.Mutate.Kind,
@@ -140,7 +142,6 @@ object KeywordMeanings {
         }
         at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
         at(Moment.Enters, Moment.AnotherCreatureEnters) { listOf(Keyword.Graft.Kind) }
-        at(Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Evolve) }
         at(Moment.Attacks) {
             listOf(Keyword.Provoke, Keyword.Myriad, Keyword.Melee, Keyword.Dethrone, Keyword.Enlist, Keyword.Mobilize.Kind,
                 Keyword.Firebending.Kind)
@@ -151,7 +152,7 @@ object KeywordMeanings {
         at(Moment.Dies, Moment.Cast) { listOf(Keyword.Haunt) }
         at(Moment.YourUpkeep) { listOf(Keyword.CumulativeUpkeep.Kind) }
         at(Moment.CombatDamageToAPlayer) { listOf(Keyword.Ingest) }
-        at(Moment.YouCastASpell) { listOf(Keyword.Extort, Keyword.Increment) }
+        at(Moment.YouCastASpell) { listOf(Keyword.Increment) }
         at(Moment.PutIntoAGraveyard) { listOf(Keyword.Aftermath, Keyword.Disturb.Kind, Keyword.Harmonize.Kind, Keyword.Mayhem.Kind) }
         at(Moment.PutIntoAHand) { listOf(Keyword.Miracle.Kind) }
         at(Moment.YourCreatureDies) { listOf(Keyword.Recover.Kind) }

@@ -70,11 +70,14 @@ internal object Casting {
         // dsk gaps: from here on it is a spell being cast from where it was (CR 601.2a), so "a spell you cast from exile"
         // is known as its costs are determined (CR 601.2b, f)
         recorder.state.objOrThrow(onStack).let { moved ->
-            recorder.record(Change.Facts(onStack, moved.facts, moved.facts.copy(castFrom = o.zone)))
+            recorder.record(Change.Facts(onStack, moved.facts, moved.facts.copy(castFrom = o.zone, fused = way.fused)))
         }
         var names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))
         if (faceDown) names = names.with(FACE_DOWN, NamedValue.Option(alternative!!.second.keyword?.id ?: "morph"))
-        val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way, permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay), AnnounceStage.Modes, Choices(names = names))
+        // gtc: a fused split spell is both halves, left then right (CR 702.102d): as its two "modes", both chosen
+        if (way.fused) names = names.with(Plan.MODES_ASKED, NamedValue.Number(1))
+        val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way, permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay), AnnounceStage.Modes,
+            Choices(names = names, modes = if (way.fused) listOf(0, 1) else emptyList()))
         return advance(recorder, c, start)
     }
 

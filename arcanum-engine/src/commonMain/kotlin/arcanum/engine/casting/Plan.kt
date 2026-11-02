@@ -111,6 +111,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         else way.permission?.let { p -> (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p) }
 
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
+    // gtc
+    val fused = way.fused
     val bestowed = alternative?.second?.keyword == Keyword.Bestow.Kind
 
     /** A card in the caster's hand with "splice onto [quality]" that matches this spell (CR 702.47a): its mechanic and
@@ -123,7 +125,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
      * (its targets couldn't be kept apart).
      */
     val spliceable: List<Spliceable> by lazy {
-        if (!isSpell || byEffect || overloaded) return@lazy emptyList()
+        if (!isSpell || byEffect || overloaded || fused) return@lazy emptyList()
         val e = plain.evaluator(player, self = itemId)
         val main = spellAbilities().flatMap { (it.ability as Ability.Spell).instructions.targets.map { t -> t.name } }.toMutableSet()
         plain.state.player(player).hand.filter { it != itemId }.mapNotNull { id ->
@@ -208,6 +210,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         if (overloaded) {
             snap0Abilities().firstNotNullOfOrNull { (it.ability as? Keyword.Overload)?.instructions }?.let { return it }
         }
+        // gtc: CR 702.102d: a fused split spell follows its left half's instructions, then its right half's; each half's
+        // targets are its own (as two modes, so a slot name both use is kept apart, CR 700.2d)
+        if (fused) {
+            val halves = spellAbilities().map { (it.ability as Ability.Spell).instructions }
+            return Instructions(modes = arcanum.api.Modes(halves.map { arcanum.api.Mode(it) }, min = halves.size, max = halves.size, chooser = arcanum.api.Players.You),
+                announced = halves.flatMap { it.announced }.distinct())
+        }
         // CR 702.47b, c: the spliced cards' text follows the spell's own
         val all = spellAbilities().map { (it.ability as Ability.Spell).instructions } + spliced.map { it.instructions }
         return when (all.size) {
@@ -222,7 +231,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     }
 
     private fun spellAbility(): Ability? = when {
-        overloaded || spliced.isNotEmpty() -> Ability.Spell(spellInstructions())
+        overloaded || fused || spliced.isNotEmpty() -> Ability.Spell(spellInstructions())
         spellAbilities().size == 1 -> spellAbilities().single().ability
         spellAbilities().isEmpty() -> null
         else -> Ability.Spell(spellInstructions())

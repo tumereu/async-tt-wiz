@@ -187,9 +187,15 @@ internal object Triggers {
             val check = Evaluator(nowBoard, Context(s.controller, s.id, event = instance))
             (s.ability.triggersOnlyIf?.let { check.holds(it) } ?: true) && (s.ability.interveningIf?.let { check.holds(it) } ?: true)
         }.let { limited(state, s, it) }.map { instance ->
-            WaitingTrigger(s.controller, s.ability, s.origin, s.id, sourceSeen ?: snapshot(nowBoard, s.id), instance)
+            WaitingTrigger(s.controller, s.ability, s.origin, s.id, sourceSeen ?: snapshot(nowBoard, s.id), instance, names = grantedNames(state, s.origin))
         }
     }
+
+    // gtc
+    /** The names of the effect that granted a triggered ability ("the encoded card" of cipher, CR 702.99c): the granted
+     * ability refers to what the effect bound as it was created. */
+    private fun grantedNames(state: GameState, origin: AbilityOrigin): arcanum.engine.state.Bindings =
+        (origin as? AbilityOrigin.FromEffect)?.let { state.effects[it.effect]?.names } ?: arcanum.engine.state.Bindings.EMPTY
 
     private fun snapshot(board: ViewBoard, id: ObjectId): ObjectSnapshot? {
         val o = board.state.obj(id) ?: return board.snapshot(id)

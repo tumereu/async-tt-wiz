@@ -110,6 +110,16 @@ internal object Legality {
 
     /** Why [player] can't begin to cast [card] [way] now, or null when they can (CR 601.3, 117.1a). Costs and targets
      * are checked as the cast goes on. */
+    // gtc
+    /** Why [o] can't be cast fused (CR 702.102a): a split card with fuse, from its owner's hand, both halves at once. */
+    private fun cantFuse(o: GameObject, way: CastWay, fromHand: Boolean, permitted: Boolean): String? {
+        val d = o.definition ?: return "no card"
+        if (d.layout != arcanum.api.Layout.Split || d.faces.none { f -> f.abilities.any { it is Keyword.Fuse } }) return "it has no fuse"
+        if (!fromHand || permitted) return "fused only from your hand (CR 702.102a)"
+        if (way.face != 0 || way.alternative != null) return "a fused spell is both halves, for their mana costs"
+        return null
+    }
+
     fun cantCast(snap: Snapshot, player: PlayerId, card: ObjectId, way: CastWay): String? {
         val o = snap.state.obj(card) ?: return "no such card"
         if (o.unknown) return "unknown card"
@@ -117,7 +127,9 @@ internal object Legality {
         val face = face(o, way) ?: return "no face ${way.face}"
         val chars = snap.view[card]?.characteristics
         val faceDown = alternative(snap, card, way, player)?.second?.faceDown == true
-        val types = if (faceDown) listOf(CardType.Creature) else face.types
+        val types = if (faceDown) listOf(CardType.Creature)
+            else if (way.fused) o.definition!!.faces.flatMap { it.types }.distinct().let { t -> if (CardType.Sorcery in t) t - CardType.Instant else t }
+            else face.types
         if (CardType.Land in types) return "lands are played, not cast (CR 305.9)"
         if (!hasPriority(snap, player)) return "$player doesn't have priority"
         val fromHand = o.zone == Zone.Hand && o.owner == player
@@ -128,6 +140,7 @@ internal object Legality {
             if (faceMatches(filter, face) == false) return "that permission doesn't let it be cast as ${face.name}"
         }
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
+        if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         val instant = !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
             snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))

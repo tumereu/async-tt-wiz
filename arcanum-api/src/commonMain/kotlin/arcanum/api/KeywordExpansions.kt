@@ -505,6 +505,27 @@ object KeywordExpansions {
                 steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
                 interveningIf = Condition.Or(listOf(greater(NumericProperty.Power), greater(NumericProperty.Toughness)))))
         }
+        // gtc: CR 702.99a: as the spell resolves, its card may be exiled encoded on a creature you control instead of going to
+        // the graveyard (a copy isn't a card and isn't moved there); CR 702.99c: as long as the card stays encoded (in exile,
+        // the creature on the battlefield), that creature has "Whenever this creature deals combat damage to a player, you
+        // may copy the encoded card and you may cast the copy without paying its mana cost." The granted ability refers to
+        // the card through the names of the effect granting it.
+        Keyword.Cipher -> {
+            val encoded = Objects.Bound("encoded")
+            val trigger = Ability.Triggered(Trigger.On(combatDamageToPlayer), Instructions(steps = listOf(
+                Step.Do(Effect.CopyCard(encoded, owner = Players.You, bind = "copy")),
+                Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("copy"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You))))
+            val creatureYouControl = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You)))
+            listOf(Ability.Static(listOf(Mechanic.Replacement(
+                EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack, to = Zone.Graveyard, resolving = true),
+                instead = Instructions(steps = listOf(
+                    Step.Choose(Choice.Objects(creatureYouControl, Value.Fixed(1), Value.Fixed(1)), bind = "encodedOn", chooser = Players.You),
+                    Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = "encoded")),
+                    Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(trigger))), Affected.Objects(Objects.Bound("encodedOn")),
+                        Duration.AsLongAs(Condition.ObjectMatches(encoded, ObjectFilter.InZone(Zone.Exile))))))),
+                optional = true)),
+                condition = Condition.Exists(creatureYouControl, atLeast = 1), affects = Affected.Objects(Objects.Self)))
+        }
         else -> null
     }
 

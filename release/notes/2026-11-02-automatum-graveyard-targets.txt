@@ -1,0 +1,1 @@
+add: With Automatum on, a spell's target in a graveyard or exile can be picked: tap the glowing pile and choose the card from it.

@@ -50,6 +50,11 @@ object Automatum {
     /** Whether a shared flow is open: the board holds the continuation (I-D8). */
     fun flowOpen(board: BoardState): Boolean = board.engineRecords.any { it.id == CONTINUATION_ID }
 
+    /** Whether [board] holds data "Clear Automatum data" removes ([MtgAction.ClearRecords]): engine records, the priority
+     * holder, card and player ledgers. Typed counters and mana pools are game values and stay. */
+    fun recorded(board: BoardState): Boolean = board.engineRecords.isNotEmpty() || board.priority != null ||
+        board.cards.any { it.ledger.isNotEmpty() } || board.players.any { it.ledger.isNotEmpty() }
+
     /** I-D15: why Automatum can't be turned on now (a [RuleRefusals] code), or null when it can: the Stack holds a
      * manual entry (one without a structured item, STK-016) or a Temp pile holds cards (D38). */
     fun turnOnRefusal(board: BoardState): String? {
@@ -180,8 +185,9 @@ object Automatum {
      * ([MtgFacts.stampUnstamped]). Turning it off always applies and closes an open flow's continuation; effect records
      * stay (I-D24). */
     @Serializable @SerialName("setAutomatum") data class SetAutomatum(val on: Boolean) : MtgAction
-    /** "Clear Automatum data" (I-D24): removes every engine record (effects, delayed triggers, the open continuation, …)
-     * and the priority holder. Always applies; changes nothing when there is nothing to clear. */
+    /** "Clear Automatum data" (I-D24): removes every engine record (effects, delayed triggers, the open continuation, …),
+     * the priority holder and the card and player ledgers ([Automatum.recorded]); typed counters and mana pools stay.
+     * Always applies; changes nothing when there is nothing to clear. */
     @Serializable @SerialName("clearRecords") data object ClearRecords : MtgAction
     /** The actor's own "Skip when I have no choice" (I-D18, [PlayPlayer.skipWhenNoChoice]); only its player changes it. */
     @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
@@ -277,8 +283,10 @@ object MtgRules {
                 // I-D24: switching off closes the open flow; every other record stays.
                 else -> board.copy(automatum = false, engineRecords = board.engineRecords.filterNot { it.id == Automatum.CONTINUATION_ID })
             }
-            MtgAction.ClearRecords -> if (board.engineRecords.isEmpty() && board.priority == null) return unchanged
-                else board.copy(engineRecords = emptyList(), priority = null)
+            MtgAction.ClearRecords -> if (!Automatum.recorded(board)) return unchanged
+                else board.copy(engineRecords = emptyList(), priority = null,
+                    cards = board.cards.map { if (it.ledger.isEmpty()) it else it.copy(ledger = "") },
+                    players = board.players.map { if (it.ledger.isEmpty()) it else it.copy(ledger = "") })
             is MtgAction.SetSkipWhenNoChoice -> {
                 val player = player(actor) ?: return reject("missingReference")
                 if (player.skipWhenNoChoice == action.on) return unchanged

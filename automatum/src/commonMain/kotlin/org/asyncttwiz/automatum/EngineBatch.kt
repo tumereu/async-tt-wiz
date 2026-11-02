@@ -378,7 +378,15 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             play(if (after.active.value == other) PlayAction.EndTurn else PlayAction.BeginTurn(after.active.value))
         }
         val target = EngineCodec.position(after.step)
-        if (TurnPosition.of(board.turn) != target) play(PlayAction.ChooseStep(target))
+        // I-D22, StepRun: a step the call goes on from (nobody could act in it: the host passed for everyone, or it has no
+        // priority) is a passed step; the last step change of the call is the step players act in and gets the move
+        if (TurnPosition.of(board.turn) != target) play(PlayAction.ChooseStep(target, through = laterStep()))
+    }
+
+    /** Whether a later change of the call begins another step or turn. */
+    private fun laterStep(): Boolean {
+        val later = call.changes.subList(current + 1, call.changes.size)
+        return later.any { it is Change.Step && (it.after.step != it.before.step || it.after.number != it.before.number) }
     }
 
     /** The combat lanes show the engine's combat (CMB-*): a pair per attacker with its target, blockers in the pair of

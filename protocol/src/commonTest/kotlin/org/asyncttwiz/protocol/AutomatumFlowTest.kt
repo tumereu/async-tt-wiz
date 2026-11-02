@@ -13,6 +13,8 @@ class AutomatumFlowTest {
     private var request = 900
 
     private fun base(): PlayState = gameplayFixture().withBattlefieldCards(gameplayId(10), gameplayId(11))
+    /** [base] with Automatum on: automated (tagged) events apply only then (SYS-057). */
+    private fun on(): PlayState = base().let { it.copy(board = it.board.copy(automatum = true)) }
     private fun card(state: PlayState, n: Int) = state.board.cards.single { it.id == gameplayId(n) }
     private fun command(action: GameAction) = GameCommand(gameplayId(request++), GameScope(gameplayId(1), playId = gameplayId(2)),
         action, gameplayId(80), "1")
@@ -71,7 +73,7 @@ class AutomatumFlowTest {
         assertTrue(valid(100, false)); assertFalse(valid(101, false))
         assertTrue(valid(1000, true)); assertFalse(valid(1001, true))
         // One automated batch of 300 members is one Undo
-        val tree = GameplayTree(base())
+        val tree = GameplayTree(on())
         val untaps = List(300) { PlayAction.SetTapped(gameplayId(10 + it % 2), it / 2 % 2 == 0) }
         val batch = command(GameAction.PlayBatch(untaps, listOf(tag)))
         val after = assertNotNull(HistoryContinuation.change(tree, b, batch).tree)
@@ -136,7 +138,7 @@ class AutomatumFlowTest {
     // SYS-060 (I-D19, I-D24): reverting an open flow takes back every event since its opening batch, whoever made them,
     // and goes to nobody's redo; switching off then closes nothing more, and effect records made before the flow stay
     @Test fun revertingAFlowTakesBackEveryStepSinceItsStart() {
-        var tree = GameplayTree(base())
+        var tree = GameplayTree(on())
         tree = play(tree, a, mtg(MtgAction.SetRecord(effect.id, null, effect)))
         val before = tree
         // The flow's opening batch: a tap, then the continuation
@@ -175,20 +177,47 @@ class AutomatumFlowTest {
             .copy(continuation = Continuation(earlier, true))).tree)
     }
 
-    // SYS-060 (I-D24): "Clear Automatum data" removes every engine record and the priority holder
+    // SYS-060 (I-D24): "Clear Automatum data" removes every engine record, the priority holder and the card and player
+    // ledgers; typed counters and mana pools are game values and stay
     @Test fun clearingAutomatumData() {
         var state = accept(base(), mtg(MtgAction.SetRecord(effect.id, null, effect)))
         state = accept(state, mtg(MtgAction.SetRecord(open.id, null, open)))
         state = accept(state, mtg(MtgAction.SetPriority(null, MtgPriority(b))))
+        state = state.copy(board = state.board.copy(
+            cards = state.board.cards.map { if (it.id == gameplayId(10)) it.copy(ledger = """{"memory":{}}""",
+                typedCounters = listOf(TypedCounter("+1/+1", 1, 4))) else it },
+            players = state.board.players.map { if (it.accountId == a) it.copy(ledger = """{"ledger":{}}""",
+                manaPool = listOf(PoolMana("R"))) else it }))
         val cleared = accept(state, mtg(MtgAction.ClearRecords), b)
         assertTrue(cleared.board.engineRecords.isEmpty())
         assertNull(cleared.board.priority)
+        assertTrue(cleared.board.cards.all { it.ledger.isEmpty() } && cleared.board.players.all { it.ledger.isEmpty() })
+        assertEquals(1, card(cleared, 10).typedCounters.single().count)
+        assertEquals(listOf(PoolMana("R")), cleared.board.players.single { it.accountId == a }.manaPool)
+        assertFalse(Automatum.recorded(cleared.board))
         assertEquals("noOp", change(cleared, mtg(MtgAction.ClearRecords)).outcome)
+        // Only a ledger left is still something to clear (the panel's button is enabled by the same check)
+        val ledgerOnly = cleared.copy(board = cleared.board.copy(cards = cleared.board.cards.map {
+            if (it.id == gameplayId(11)) it.copy(ledger = """{"memory":{}}""") else it }))
+        assertTrue(Automatum.recorded(ledgerOnly.board))
+        assertTrue(accept(ledgerOnly, mtg(MtgAction.ClearRecords)).board.cards.all { it.ledger.isEmpty() })
+    }
+
+    // SYS-057 (I-D24, i12review #1): an automated event is refused while Automatum is off, so a cast worked out before the
+    // switch went off can't arrive after it
+    @Test fun automatedEventsAreRefusedWhileAutomatumIsOff() {
+        val tag = MtgTag(listOf("tapped"))
+        assertEquals("inapplicable", change(base(), PlayAction.SetTapped(gameplayId(10), true), tag = tag).reason)
+        assertEquals("accepted", change(on(), PlayAction.SetTapped(gameplayId(10), true), tag = tag).outcome)
+        // The same event made by hand applies either way
+        assertEquals("accepted", change(base(), PlayAction.SetTapped(gameplayId(10), true)).outcome)
+        val batch = command(GameAction.PlayBatch(listOf(PlayAction.SetTapped(gameplayId(10), true)), listOf(tag)))
+        assertNull(HistoryContinuation.change(GameplayTree(base()), a, batch).tree, "the whole batch is refused")
     }
 
     // SYS-057 (#4): an automated batch names the board it was planned on; on another board its first member is refused
     @Test fun aBatchPlannedOnAnotherBoardIsRefused() {
-        val state = base()
+        val state = on()
         val planned = MtgTag(listOf("life-changed"), board = MtgFacts.digest(state.board))
         assertEquals("accepted", change(state, PlayAction.AdjustLife(b, "-3"), tag = planned).outcome)
         val edited = accept(state, PlayAction.SetLife(b, "15"))

@@ -64,6 +64,14 @@ internal class RoundTrip(var state: PlayState, val definitions: Map<String, Card
         return call
     }
 
+    /** A fresh engine call on the board, in [viewer]'s view. */
+    fun call(viewer: String? = null): EngineCall = EngineCall(state, definitions, viewer, EngineLog.from(tags, state, definitions), ::seed)
+
+    /** Makes one call on the board with [body] (a [StepFlow] or [CombatFlow] function), sends it as [actor]'s batch and
+     * checks the round trip. */
+    fun run(actor: String, viewer: String? = null, body: (EngineCall) -> Unit): EngineCall =
+        call(viewer).also { body(it); apply(it, actor) }
+
     /** Applies [call]'s changes as one ATW batch and checks the round trip. */
     fun apply(call: EngineCall, actor: String) {
         lastCall = call

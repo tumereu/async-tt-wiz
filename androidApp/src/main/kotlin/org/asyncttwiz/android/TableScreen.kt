@@ -391,4 +391,5 @@ internal fun tableToolkit(controller: LobbyController, history: TableHistoryCont
     }, acceptedInspection = controller::inspectFace,
     waitingForConnection = { game.id !in controller.table.value.connectedGames }, playBatch = controller::gameplayBatch,
     playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } },
-    automatedBatch = { batch, requestId -> controller.gameplayBatch(batch.actions, requestId, batch.tags) })
+    automatedBatch = { batch, requestId -> controller.gameplayBatch(batch.actions, requestId, batch.tags) },
+    automatumWork = AutomatumWork.Background)

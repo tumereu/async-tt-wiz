@@ -78,7 +78,9 @@ internal fun cardPanelGeometry(play: PlayState, viewer: String, ui: TableLayoutS
         val localZone = if (display == local) play.board.containers.single { it.id == display.containerId }.zone else null
         val entries = if (localZone != null) contentsEntries(play, PileContents(display.containerId, "", display.cardIds), viewer)
             else contentsEntries(play, display, viewer)
-        val grouped = if (localZone != null) panelGroups(entries)
+        // Picking targets: each card is its own object, so none are grouped
+        val grouped = if (localZone != null && !ui.localPileTargets) panelGroups(entries)
+            else if (localZone != null) entries.map { listOf(it) }
             else if (display.search && display.author == viewer) entries.groupBy {
                 it.name to (it.cardId in display.revealedIds)
             }.values.toList() else entries.map { listOf(it) }

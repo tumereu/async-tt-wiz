@@ -82,6 +82,8 @@ class AutomatumRuntimeTest {
                 fun state() = f.games.head(f.a, f.game.id).play!!
                 fun batch(actions: List<PlayAction>, tags: List<MtgTag?>, stream: GameplayFixture.Stream = f.owner) =
                     stream.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(actions, tags))
+                // Automated events apply only with Automatum on (SYS-057)
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.Mtg(MtgAction.SetAutomatum(true)))).outcome)
                 val start = state()
                 val open = EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation, data = """{"step":1}""")
                 // A flow opened by the owner's batch of 150 members (more than a player's own batch may hold) ...

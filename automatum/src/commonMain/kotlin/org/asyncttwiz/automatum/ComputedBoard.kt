@@ -72,7 +72,7 @@ data class ComputedCard(
 class ComputedBoard private constructor(
     val cards: Map<String, ComputedCard>,
     val unsupported: List<String>,
-    /** Abilities of the game's cards the engine leaves to the players (unparsed, I-D21), in all. */
+    /** Abilities the engine leaves to the players (unparsed, I-D21) of the cards [viewer] may see (I-D27), in all. */
     val manualAbilities: Int,
     /** The cards with manual abilities [viewer] may see (I-D27), by name, with how many each has. */
     val manualCards: List<Pair<String, Int>>,
@@ -164,7 +164,7 @@ class ComputedBoard private constructor(
          */
         fun of(play: PlayState, definitions: Map<String, CardDefinition>, viewer: String): ComputedBoard {
             val (manualAbilities, manualCards) = manual(play, definitions, viewer)
-            val unsupported = EngineState.unsupported(play, definitions)
+            val unsupported = EngineState.unsupported(play, definitions, viewer)
             if (unsupported.isNotEmpty()) return ComputedBoard(emptyMap(), unsupported, manualAbilities, manualCards, null, null, null)
             // Full information (I-D27): only Battlefield cards are shown, each as anyone may see it (a face-down
             // permanent is a nameless 2/2, CR 708.2a).
@@ -205,12 +205,13 @@ class ComputedBoard private constructor(
             val seen = mutableSetOf<String>()
             val shown = LinkedHashMap<String, Int>()
             for (card in play.board.cards) {
+                // I-D27: only cards the viewer may see count, so the number tells nothing of hidden ones
+                if (!CardVisibility.isVisibleFaceUp(play.board, card, viewer)) continue
                 val definition = definitions[card.definition] ?: byDigest[card.definition]?.definition?.let(PrintedCards::definition) ?: continue
                 val count = definition.faces.sumOf { face -> face.abilities.count { it is Ability.Unparsed } }
                 if (count == 0) continue
                 if (seen.add(card.definition)) total += count
-                if (CardVisibility.isVisibleFaceUp(play.board, card, viewer))
-                    shown[definition.faces.firstOrNull()?.name ?: "A card"] = count
+                shown[definition.faces.firstOrNull()?.name ?: "A card"] = count
             }
             return total to shown.entries.map { it.key to it.value }.sortedBy { it.first }
         }

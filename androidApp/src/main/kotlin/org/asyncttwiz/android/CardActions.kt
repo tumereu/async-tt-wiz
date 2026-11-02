@@ -179,7 +179,7 @@ internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, a
     for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
     val layout = CardRingPages.context(state.board, previewViewId ?: card.id) ?: CardMenuLayout.CARD
     val pages = CardRingPages.pages(layout, token = card.token, attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id)),
-        cast = state.board.automatum && !CastController.land(state, card.id))
+        cast = state.board.automatum && CastController.playLabel(state, card.id, viewer) == "Cast")
     val view = previewViewId ?: card.id
     val anchors = LocalCardRingAnchors.current
     CompositionLocalProvider(LocalValueDragSide provides cardValueDragSide(state.board, card, viewer)) {

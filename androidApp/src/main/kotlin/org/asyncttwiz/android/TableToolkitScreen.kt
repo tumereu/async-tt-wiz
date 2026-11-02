@@ -133,6 +133,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     CastPanelHost(toolkit, play, scene, names)
     // Automatum (I2b): priority, resolution and trigger choices by the Stack
     SharedFlowHost(toolkit, play, scene, names)
+    // I-D40: a step that would act for the other player asks first
+    ActingForDialog(toolkit.flows, names)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background
     AutomatumCombatHost(toolkit, play)
 }

@@ -10,6 +10,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.EngineBatch
 import org.asyncttwiz.automatum.EngineCall
@@ -97,28 +98,53 @@ internal class SharedFlowController(
         }
     }
 
+    /** I-D40: a step the viewer asked for that would act for the other player, shown for confirmation ([confirmActing]);
+     * null when none waits. */
+    var acting by mutableStateOf<ActingFor?>(null); private set
+
     /**
      * The step button, the step arrow and the phase dialog with Automatum on (TRN-057): the player holding priority
      * passes [until] as far as asked, whoever pressed it (TRN-004, D11), then Automatum goes on to the next point where a
      * player can act. With attackers or blockers awaited it declares what the combat lanes hold ("End turn" and a step
      * after combat attack with nothing instead). Refused while the Stack holds anything (STK-029) or a choice is open.
+     * When that would act for the other player nothing is sent: [acting] asks the viewer first (I-D40) and
+     * [confirmActing] goes on ([confirmed]: the player the viewer agreed to act for).
      */
-    fun step(until: StepFlow.Until): Boolean {
+    fun step(until: StepFlow.Until, confirmed: String? = null): Boolean {
         val play = current() ?: return false
         if (Automatum.flowOpen(play.board)) { fail(BUSY); return false }
         if (CombatStackRules.stack(play.board).cards.isNotEmpty()) { fail(STACK_WAITING); return false }
+        acting = null
         return sendCall(play) { flow ->
             val holder = flow.holder
             val declaring = if (holder == null) flow.declaring else null
             val active = flow.state.turn.active.value
+            val actor = holder ?: declaring ?: throw Refused(NOTHING_TO_PASS)
+            val declares = holder == null && !(declaring == active && until != StepFlow.Until.Pass)
+            // I-D40: acting for the other player asks first
+            if (actor != viewer && actor != confirmed) throw Ask(ActingFor(play.board, actor, until, when {
+                !declares -> ActingFor.Kind.Pass(priority = holder != null)
+                declaring == active -> ActingFor.Kind.DeclareAttackers(CombatFlow.lanes(play.board.combat).first.size)
+                else -> ActingFor.Kind.DeclareBlockers(CombatFlow.lanes(play.board.combat).second.map { it.blockerId }.distinct().size)
+            }))
             when {
                 holder != null -> flow.step(holder, until)
-                declaring == null -> throw Refused(NOTHING_TO_PASS)
-                declaring == active && until != StepFlow.Until.Pass -> flow.step(active, until)
+                !declares -> flow.step(active, until)
                 else -> flow.declare()
             }
         }
     }
+
+    /** I-D40: the viewer confirmed [acting]: the step goes on for that player, unless the table changed meanwhile. */
+    fun confirmActing(): Boolean {
+        val asked = acting ?: return false
+        acting = null
+        if (current()?.board !== asked.board) { fail("The table changed: try again."); return false }
+        return step(asked.until, confirmed = asked.player)
+    }
+
+    /** I-D40: the viewer cancelled [acting]; nothing is sent. */
+    fun cancelActing() { acting = null }
 
     override fun answer(answer: Answer): Boolean {
         val play = current() ?: return false
@@ -215,9 +241,13 @@ internal class SharedFlowController(
     /** A refusal with its message for the player (null: none). */
     private class Refused(message: String?) : Exception(message)
 
+    /** I-D40: the call would act for the other player; the viewer is asked first. */
+    private class Ask(val acting: ActingFor) : Exception()
+
     private sealed interface Outcome {
         class Send(val board: BoardState, val batch: GameAction.PlayBatch, val requestId: String) : Outcome
         class Fail(val message: String?) : Outcome
+        class Confirm(val acting: ActingFor) : Outcome
         data object Empty : Outcome
     }
 
@@ -239,6 +269,8 @@ internal class SharedFlowController(
                     GameAction.PlayBatch(listOf(PlayAction.PassAttention)), UUID.randomUUID().toString(), "1")
                 val plan = EngineBatch.plan(call, viewer, command)
                 if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
+            } catch (ask: Ask) {
+                Outcome.Confirm(ask.acting)
             } catch (refused: Refused) {
                 Outcome.Fail(refused.message)
             } catch (refused: CombatRefused) {
@@ -257,6 +289,7 @@ internal class SharedFlowController(
             busy = false
             result = when (outcome) {
                 is Outcome.Fail -> { outcome.message?.let(fail); false }
+                is Outcome.Confirm -> { fail(null); acting = outcome.acting.takeIf { current()?.board === it.board }; false }
                 Outcome.Empty -> { fail(null); picked = emptyList(); true }
                 is Outcome.Send -> when {
                     current()?.board !== outcome.board -> { fail("The table changed: try again."); false }
@@ -289,5 +322,21 @@ internal class SharedFlowController(
         const val NOTHING_TO_PASS = "Automatum couldn't go on from here."
         /** TRN-057: steps and turns change only through Automatum while it is on. */
         const val STEPS_FORWARD = "With Automatum on, the turn moves on through Automatum: use Next step or End turn."
+    }
+}
+
+/**
+ * I-D40: a step a player asked for that acts for the other [player] (who holds priority or must declare), waiting for
+ * the asking player's confirmation ([SharedFlowController.acting]); planned on [board], so it goes on only while the
+ * table is still that board.
+ */
+internal class ActingFor(val board: BoardState, val player: String, val until: StepFlow.Until, val kind: Kind) {
+    sealed interface Kind {
+        /** [player] passes as far as [until] asks: holding [priority], or else with their attack awaited (declared empty). */
+        data class Pass(val priority: Boolean) : Kind
+        /** [player]'s attack is declared as the combat lanes hold it: [count] attackers. */
+        data class DeclareAttackers(val count: Int) : Kind
+        /** [player]'s blocks are declared as the combat lanes hold them: [count] blockers. */
+        data class DeclareBlockers(val count: Int) : Kind
     }
 }

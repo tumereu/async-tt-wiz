@@ -89,7 +89,8 @@ class AutomatumTest {
         }
         val board = state.board
         assertFalse(board.automatum)
-        assertEquals(MtgPriority(b, 1), board.priority)
+        // SYS-070 (I-D42): turning Automatum on started the passes in a row again
+        assertEquals(MtgPriority(b, 0), board.priority)
         assertEquals(listOf(PoolMana("R"), PoolMana("C", """{"source":"x"}""")), board.players.single { it.accountId == a }.manaPool)
         assertEquals(listOf(counter.copy(count = 3)), card(state, 10).typedCounters)
         assertEquals(listOf(TypedCounter("poison", 1, 6)), board.players.single { it.accountId == b }.typedCounters)
@@ -283,6 +284,30 @@ class AutomatumTest {
             (first.action as GameAction.PlayBatch).actions[0])).mutation!!.grouping?.folded)
         assertNotEquals(true, change(state, mtg(MtgAction.SetPriority(null, MtgPriority(b))), MtgTag(folded = true)).mutation!!.grouping?.folded)
         assertTrue(MtgTag.valid(MtgTag(folded = true)))
+    }
+
+    // SYS-070 (I-D42): turning Automatum on drops the combat record, waiting triggers, early answers and the passes in a
+    // row recorded before it; effects, delayed triggers, emblems and the turn record stay; undoing the switch restores them
+    @Test fun switchingOnDropsTurnScopedEngineData() {
+        val combat = EngineRecord("combat", EngineRecordKind.Combat, data = """{"attackers":[]}""")
+        val waiting = EngineRecord("triggered", EngineRecordKind.Triggered, data = "[]")
+        val early = EngineRecord("pre-answer:1", EngineRecordKind.PreAnswer, data = "{}", player = b)
+        val turn = EngineRecord("turn", EngineRecordKind.Turn, data = "{}")
+        val emblem = EngineRecord("emblem:1", EngineRecordKind.Emblem, 9, "{}", a, "Flying")
+        val kept = listOf(effect, trigger, emblem, turn)
+        val off = base().let { it.copy(board = it.board.copy(priority = MtgPriority(b, 1),
+            engineRecords = (kept + listOf(combat, waiting, early)).sortedBy { it.id })) }
+        val on = accept(off, mtg(MtgAction.SetAutomatum(true))).state!!
+        assertTrue(on.board.automatum)
+        assertEquals(kept.sortedBy { it.id }, on.board.engineRecords)
+        assertEquals(MtgPriority(b, 0), on.board.priority)
+        // Off and on again with nothing turn-scoped left: only the switch changes
+        val again = accept(accept(on, mtg(MtgAction.SetAutomatum(false))).state!!, mtg(MtgAction.SetAutomatum(true))).state!!
+        assertEquals(on.board, again.board)
+        // Undo of the switch brings them back
+        val switched = assertNotNull(GameplayTree(off).play(a, command(GameAction.Play(mtg(MtgAction.SetAutomatum(true))))).tree)
+        val undone = assertNotNull(SelectiveUndo.change(switched, a, command(GameAction.Undo)).tree)
+        assertEquals(off.board, undone.stateAt(undone.currentNodeId)!!.board)
     }
 
     // SYS-066 (I-D25): an emblem record says whose it is and its text; other records say neither

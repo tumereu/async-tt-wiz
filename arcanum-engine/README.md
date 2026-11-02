@@ -253,7 +253,11 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
 - Done, Bloomburrow (scenarios in `commonTest/…/sets/blb/`): offspring, gift (the promised player, gift targets only
   when promised, "whenever you give a gift"), forage as an effect and as a cost, Class levels, pawprint modes, valiant
   and expend, counters put by your effects, leaving the battlefield without dying, a spell's static ability reading its
-  own targets for its cost (CR 601.2f).
+  own targets for its cost (CR 601.2f); losing all abilities and base power and toughness until your next turn, a land
+  type for as long as a counter stays, the first instant or sorcery each turn costing less, a repeating delayed trigger
+  that blinks a creature, entering as a copy within the mana spent, one card of each card type (an object standing for
+  one of its types), a punisher repeated per counter, exiled cards played until your next end step; "this turn"
+  conditions of static abilities read spells that have resolved as they last existed (CR 608.2h).
 - Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s

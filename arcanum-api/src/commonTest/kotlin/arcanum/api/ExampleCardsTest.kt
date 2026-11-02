@@ -356,6 +356,21 @@ class ExampleCardsTest {
         assertEquals(1, DefinitionChecks.problems(card(Value.Of(NumericProperty.Power, mine, Combine.Single))).size)
     }
 
+    // blb gaps, CR 205.2a: "for each card type, you may exile a card of that type" chooses several, one per card type
+    @Test
+    fun onePerValueNeedsSeveralAndNoDistinct() {
+        fun card(max: Value?, distinct: SharedQuality?) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Sorting Omen", abilities = listOf(
+            Ability.Spell(Instructions(steps = listOf(
+                Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, n(5), fromTop = true), bind = "seen")),
+                Step.Choose(Choice.Objects(ObjectFilter.Any, min = n(0), max = max, from = Objects.Bound("seen"), distinct = distinct,
+                    onePer = SharedQuality.CardType), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))),
+            )))))))
+        assertEquals(emptyList(), DefinitionChecks.problems(card(max = null, distinct = null)))
+        assertEquals(1, DefinitionChecks.problems(card(max = n(1), distinct = null)).size)
+        assertEquals(1, DefinitionChecks.problems(card(max = null, distinct = SharedQuality.CardType)).size)
+    }
+
     @Test
     fun readableJsonForASimpleSpell() {
         assertEquals(

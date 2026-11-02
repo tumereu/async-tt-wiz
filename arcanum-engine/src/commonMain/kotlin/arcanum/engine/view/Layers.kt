@@ -138,7 +138,10 @@ internal data class Partial(
 
 /** The board part-way through the layers: the evaluator reads characteristics as far as they are worked out. */
 internal class WorkBoard(override val state: GameState, val work: MutableMap<ObjectId, Partial>, val reads: ViewReads = ViewReads()) : Board {
+    // blb gaps: an object that has left its zone reads as it last existed (CR 608.2h), as in the finished view: "if you
+    // cast an instant or sorcery spell this turn" tests the spell after it resolved
     override fun characteristics(id: ObjectId): Characteristics? = work[id]?.chars
+        ?: if (state.obj(id) == null && id !in state.stackItems) { readingLog(); snapshot(id)?.characteristics } else null
 
     override fun controller(id: ObjectId): PlayerId? {
         val o = state.obj(id) ?: return work[id]?.controller ?: state.stackItems[id]?.controller

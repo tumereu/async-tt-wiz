@@ -45,7 +45,8 @@ The definition model (overview in `Definitions.kt`):
   `EventPattern.GiveGift`, `TargetSlot.onlyIf`), Classes (`Keyword.ClassLevel`, `Effect.SetClassLevel`,
   `EventPattern.BecomesLevel`), forage (`EventPattern.Forage`), pawprint modes (`Modes.pawprintLimit`,
   `Mode.pawprints`), and smaller pieces (`MayPlay.spellGets`, `CountersPut.causedBy`/`PlayerCountersPut.causedBy`,
-  `ZoneChange.notTo` for leaving the battlefield without dying).
+  `ZoneChange.notTo` for leaving the battlefield without dying, `Choice.Objects.onePer` for "for each card type, … a card
+  of that type").
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

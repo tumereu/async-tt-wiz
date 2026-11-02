@@ -443,6 +443,29 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     }
 
     /** Its names: one, or each half's (CR 709.4a), or none (face down, CR 708.2a). */
+    /** blb gaps: whether each of [ids] can stand for a different value of [quality] that it has ("for each card type, … a
+     * card of that type": an artifact creature card is the artifact or the creature), found by matching each object to a
+     * value of its own, trying again with another for the objects already matched (CR 205.2a). An object with every
+     * creature type (changeling, CR 702.73a) can always stand for one more. */
+    fun eachStandsForOne(quality: SharedQuality, ids: List<ObjectId>): Boolean {
+        val values: List<List<Any>> = ids.mapIndexed { i, id ->
+            val c = characteristics(id) ?: return false
+            when (quality) {
+                SharedQuality.Color -> c.colors
+                SharedQuality.CardType -> c.types
+                SharedQuality.CreatureType -> if (c.allCreatureTypes) listOf("every creature type $i") else creatureTypes(c)
+                SharedQuality.Name -> names(c)
+                SharedQuality.BasicLandType -> c.subtypes.filter { it in Subtypes.basicLandTypes }
+                is SharedQuality.Number -> listOf(property(quality.property, id))
+            }
+        }
+        val holder = mutableMapOf<Any, Int>()
+        fun place(i: Int, tried: MutableSet<Any>): Boolean = values[i].any { v ->
+            tried.add(v) && (holder[v]?.let { other -> place(other, tried) } ?: true).also { placed -> if (placed) holder[v] = i }
+        }
+        return values.indices.all { place(it, mutableSetOf()) }
+    }
+
     private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
 
     private fun creatureTypes(c: Characteristics) = c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Creature }

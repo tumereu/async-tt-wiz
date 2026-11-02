@@ -391,6 +391,12 @@ sealed interface Choice {
         val filter: ObjectFilter, val min: Value, val max: Value?, val from: arcanum.api.Objects? = null,
         /** The chosen objects must all differ in this quality ("creature cards with different powers"). */
         val distinct: SharedQuality? = null,
+        // blb gaps
+        /** At most one chosen object for each value of this quality, each object standing for one value it has ("For each
+         * card type, you may exile a card of that type from among them": an artifact creature card may be the artifact or
+         * the creature, so it can go with a creature card standing for the creature). Unlike [distinct], two chosen objects
+         * may share a value as long as each can stand for a different one (CR 205.2a lists the card types). */
+        val onePer: SharedQuality? = null,
     ) : Choice
     /** Choose one of named options ("odd or even", "left or right"). */
     @Serializable @SerialName("option") data class Option(val options: List<String>) : Choice

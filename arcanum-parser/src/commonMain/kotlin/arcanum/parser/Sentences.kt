@@ -251,6 +251,7 @@ internal class Sentences(
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
         blbStatic(line)?.let { return it }
+        blbGapsStatic(line)?.let { return it } // blb gaps
         // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
         NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
             val mechanics = listOf(Mechanic.NoMaximumHandSize) + listOfNotNull(Mechanic.NoLossForZeroLife.takeIf { m.groupValues[1].isNotEmpty() })
@@ -1083,7 +1084,10 @@ internal class Sentences(
         val about = (interveningIf as? arcanum.api.Condition.ObjectMatches)
         triggerIt = itOf(trigger.events)
         // blb chunk 04: with an event that has no object ("whenever you expend 4"), "it" is this permanent
-        val event = trigger.events.firstOrNull { it is EventPattern.Expend } ?: trigger.events.first()
+        val event = trigger.events.firstOrNull { it is EventPattern.Expend }
+            // blb gaps: "whenever this creature enters or attacks, put a counter on it": "it" is this creature, as when it attacks
+            ?: trigger.events.takeIf { events -> events.size > 1 && events.all { selfEntersOrAttacks(it) } }?.firstOrNull { it is EventPattern.Attack }
+            ?: trigger.events.first()
         // dsk chunk 13: "that much"/"that many" after an intervening if: the amount the condition counts
         conditionAmount = interveningIf?.let(::amountOf)
         var instructions = try {
@@ -1378,7 +1382,7 @@ internal class Sentences(
 
     /** The effect sentences of a spell or ability, in order. */
     fun instructions(text: String, seedTargets: List<TargetSlot> = emptyList(), event: EventPattern? = null, them: Objects? = null,
-                     that: Objects? = null): Instructions? {
+                     that: Objects? = null, itZone: Zone? = null): Instructions? {
         // chunk 30: "…, where X is [a number]" defines X for the whole ability (CR 107.3c)
         // An X this reader can't define stays in the text for the sentence rules that read it themselves.
         val x = WHERE_X.find(text)?.let { Values.value(it.groupValues[1], exiledCard) }
@@ -1397,6 +1401,8 @@ internal class Sentences(
         context.them = them
         // chunk 20
         context.that = that
+        // blb gaps: the zone "it" is in, when the caller knows it ("you may exile it" about a permanent)
+        context.itZone = itZone
         val steps = mutableListOf<Step>()
         // dsk chunk 12: an X that "where X is" defines is read as that value, not as the X its permanent was cast with
         val outerX = announcedX
@@ -2511,6 +2517,7 @@ internal class Sentences(
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
         // blb: the Bloomburrow wordings (blbEffect), tried first; each is specific and falls through when it can't read
         blbEffect(sentence, context)?.let { return it }
+        blbGapsEffect(sentence, context)?.let { return it } // blb gaps
         // dsk: the Duskmourn wordings, tried first (their own function keeps this one under the JVM's method size limit)
         setWordings(sentence, context)?.let { return it }
         // dsk chunk 01: "Destroy all creatures with power 3 or greater."
@@ -3232,7 +3239,12 @@ internal class Sentences(
                 listOf(CostPart.Exile(CostObjects.Choose(ObjectFilter.Is(Objects.EventObject(arcanum.api.EventRole.After)), count = Value.Fixed(1)), from = Zone.Graveyard,
                     postBind = "exiled"))
             }
-            val parts = them ?: costPart(action) ?: exileThatCard(action, context) ?: action.split(" and ").map { costPart(it.replaceFirstChar { c -> c.uppercase() }) }
+            // blb gaps: "you may exile it" about a permanent the caller named: a cost on resolution, "it" is then the exiled card
+            val exileIt = context.it?.takeIf { action == "Exile it" && context.itZone == Zone.Battlefield }?.let { it ->
+                context.it = Objects.Bound("exiled")
+                listOf(CostPart.Exile(CostObjects.These(it), from = Zone.Battlefield, postBind = "exiled"))
+            }
+            val parts = them ?: exileIt ?: costPart(action) ?: exileThatCard(action, context) ?: action.split(" and ").map { costPart(it.replaceFirstChar { c -> c.uppercase() }) }
                 .takeIf { it.size > 1 && it.all { p -> p != null } }?.flatMap { it!! }
             val pay = if (parts != null) Step.Pay(Cost(parts), bind = "paid", payer = Players.You)
                 else Step.Pay(steps = effect("$action.", context) ?: return null, bind = "paid", payer = Players.You)
@@ -3507,9 +3519,10 @@ internal class Sentences(
         }
         // chunk 56: "Exile the top two cards of your library." ("those cards")
         EXILE_TOP_N.matchEntire(sentence)?.let { m ->
-            val n = Numbers.count(m.groupValues[1]) ?: return null
+            // blb gaps: "the top X cards", X defined by the ability ("where X is …", CR 107.3c)
+            val n = if (m.groupValues[1] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             context.them = Objects.Bound("exiled")
-            return listOf(Step.Do(Effect.Move(Objects.LibraryCards(Players.You, Value.Fixed(n), fromTop = true), Destination(Zone.Exile), postBind = "exiled")))
+            return listOf(Step.Do(Effect.Move(Objects.LibraryCards(Players.You, n, fromTop = true), Destination(Zone.Exile), postBind = "exiled")))
         }
         // chunk 56: "You may play those cards this turn." (lands too, CR 305.1)
         if (sentence == "You may play those cards this turn.") {
@@ -3764,8 +3777,9 @@ internal class Sentences(
         }
         // chunk 47: "You may play that card this turn." / "… until your next end step." (the exiled card)
         YOU_MAY_PLAY_THAT_CARD.matchEntire(sentence)?.let { m ->
-            val exiled = (context.it as? Objects.Bound) ?: return null
-            val duration = if (m.groupValues[1] == "this turn") arcanum.api.Duration.EndOfTurn
+            // blb gaps: "You may play those cards until your next end step." (the cards exiled before)
+            val exiled = (if (m.groupValues[1] == "those cards") context.them else context.it) as? Objects.Bound ?: return null
+            val duration = if (m.groupValues[2] == "this turn") arcanum.api.Duration.EndOfTurn
                 else arcanum.api.Duration.UntilStep(arcanum.api.TurnStep.End, PlayerFilter.You)
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Play, holder = PlayerFilter.You)),
                 arcanum.api.Affected.Objects(exiled), duration)))
@@ -6111,7 +6125,7 @@ internal class Sentences(
         val CONNIVES = Regex("""(.+) connives\.""")
         val PUT_THAT_MANY_COUNTERS = Regex("""Put that many (\S+) counters on (.+)\.""")
         val YOU_LOSE_LIFE_EQUAL_TO_ITS = Regex("""You lose life equal to its (mana value|power)\.""")
-        val YOU_MAY_PLAY_THAT_CARD = Regex("""You may play that card (this turn|until your next end step)\.""")
+        val YOU_MAY_PLAY_THAT_CARD = Regex("""You may play (that card|those cards) (this turn|until your next end step)\.""") // blb gaps: those cards
         val IF_YOU_WIN_THE_FLIP = Regex("""If you win the flip, (.+)""")
         val RETURN_THAT_TO_OWNERS_HAND = Regex("""Return that (?:spell|card|creature|permanent) to its owner's hand\.""")
         val COPY_THAT_SPELL = Regex("""Copy that spell(?:, and you may choose new targets for the copy)?\.""")
@@ -6158,6 +6172,262 @@ internal class Sentences(
         val BECOME_COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
         val IF_CONDITION = Regex("""If (.+?), (.+)\.""")
         val IT_HAS_NO_COUNTERS = Regex("""it has no (\S+) counters on it""")
+    }
+
+    // ---- blb gaps: Bloomburrow wordings that needed new rules (sets/blb/BlbChunk14GapsUntilAndCopiesTest.kt)
+
+    /** blb gaps: this object entering or attacking. */
+    private fun selfEntersOrAttacks(event: EventPattern): Boolean = event == EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield) ||
+        event == EventPattern.Attack(ObjectFilter.Is(Objects.Self))
+
+    /** blb gaps: static wordings; null when none reads [line]. */
+    private fun blbGapsStatic(line: String): Ability? {
+        // "As an additional cost to cast this spell, you may sacrifice any number of nonland permanents. This spell costs {1}
+        // less to cast for each permanent sacrificed this way." (CR 601.2b, 601.2f: the reduction counts the chosen permanents)
+        BlbGaps.ADDITIONAL_SACRIFICE_ANY_NUMBER_REDUCTION.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val per = ManaCost.parse(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(
+                Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, count = null), preBind = BlbGaps.SACRIFICED)))),
+                Mechanic.CostChange(ObjectFilter.Is(Objects.Self), change = arcanum.api.CostChange.Less(per, Value.Count(Objects.Bound(BlbGaps.SACRIFICED))))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // "The first instant or sorcery spell you cast each turn costs {U} less to cast for each land you control with a flood
+        // counter on it." It applies while you have cast no such spell this turn: a spell becomes cast only once its cost is
+        // determined and paid (CR 601.2f, 601.2i).
+        BlbGaps.FIRST_SPELL_EACH_TURN_COSTS_LESS.matchEntire(line)?.let { m ->
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            val spells = Filters.noun(m.groupValues[1] + " spell") ?: return null
+            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
+            val times = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Value.Count(Filters.objects(it) ?: return null) } ?: Value.Fixed(1)
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(spells, ObjectFilter.ControlledBy(PlayerFilter.You)), arcanum.api.CostChange.Less(mana, times))),
+                affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(EventPattern.Cast(kind, by = PlayerFilter.You), atLeast = 1,
+                    measure = Measure.Events)))
+        }
+        // "You may have this creature enter as a copy of any creature on the battlefield [with …], except [exceptions]." (CR
+        // 614.1c, 707.9b)
+        BlbGaps.ENTER_AS_COPY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val of = copyCandidates(m.groupValues[2]) ?: return null
+            val except = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { gapCopyExceptions(it) ?: return null }.orEmpty()
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersAsCopy(of, except, optional = true)))), affects = Affected.Objects(Objects.Self))
+        }
+        return null
+    }
+
+    /** blb gaps: "creature on the battlefield with mana value less than or equal to the amount of mana spent to cast this
+     * creature" (the mana spent, kept by the permanent, CR 400.7d). */
+    private fun copyCandidates(phrase: String): ObjectFilter? {
+        val m = BlbGaps.ON_THE_BATTLEFIELD_WITH.matchEntire(phrase) ?: return null
+        val noun = Filters.noun(m.groupValues[1]) ?: return null
+        if (m.groupValues[2].isEmpty()) return noun
+        BlbGaps.MANA_VALUE_AT_MOST_MANA_SPENT.matchEntire(m.groupValues[2])?.takeIf { isSelf(it.groupValues[1]) } ?: return null
+        return Filters.all(noun, ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.ManaSpent(of = Objects.Self)))
+    }
+
+    /** blb gaps: "it's a Bird in addition to its other types and it has flying" (CR 707.9b). */
+    private fun gapCopyExceptions(text: String): List<arcanum.api.CopyException>? {
+        copyExceptions(text)?.let { return it }
+        val m = BlbGaps.TYPE_IN_ADDITION_AND_HAS.matchEntire(text) ?: return null
+        val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
+        val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+        return listOf(arcanum.api.CopyException.Types(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+            arcanum.api.CopyException.AddAbilities(keywords))
+    }
+
+    /** blb gaps: "loses all abilities", "can't be blocked", "has base power and toughness 2/2" … (layers 6, 7b). */
+    private fun gapPredicates(text: String): List<Mechanic>? = text.split(BlbGaps.PREDICATE_AND).map { predicate ->
+        BlbGaps.BASE_PT.matchEntire(predicate)?.let { m ->
+            Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))
+        } ?: predicates(predicate)?.singleOrNull() ?: return null
+    }
+
+    private fun gapDuration(text: String): arcanum.api.Duration? = when (text) {
+        "until end of turn", "this turn" -> arcanum.api.Duration.EndOfTurn
+        "until your next turn" -> arcanum.api.Duration.UntilYourNextTurn
+        else -> null
+    }
+
+    /** blb gaps: the object "it" names after a sentence that chose a target: that target; otherwise the ability's "it". */
+    private fun gapIt(context: Context): Objects? {
+        val from = context.previous?.first ?: context.targets.size
+        return context.targets.drop(from).lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: context.it
+    }
+
+    /** blb gaps: effect wordings; null when none reads [sentence]. */
+    private fun blbGapsEffect(sentence: String, context: Context): List<Step>? {
+        // "Up to one target artifact, creature, or planeswalker an opponent controls loses all abilities until your next turn.",
+        // "Target creature you control can't be blocked this turn." (CR 611.2c: the affected object is fixed as it resolves)
+        BlbGaps.TARGET_UNTIL.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2]
+            val filter = Filters.noun(noun) ?: return@let
+            val mechanics = gapPredicates(m.groupValues[3]) ?: return@let
+            val duration = gapDuration(m.groupValues[4]) ?: return@let
+            val upTo = if (m.groupValues[1].isEmpty()) null else Numbers.count(m.groupValues[1]) ?: return@let
+            val name = context.name(Filters.slotName(noun))
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(if (upTo == null) 1 else 0), max = Value.Fixed(upTo ?: 1))
+            context.it = Objects.Target(name)
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(Objects.Target(name)), duration)))
+        }
+        // "If it's a creature, it also has base power and toughness 2/2 until your next turn." (checked as it resolves)
+        BlbGaps.IF_ITS_A_IT_ALSO.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return@let
+            val filter = Filters.noun(m.groupValues[1]) ?: return@let
+            val mechanics = gapPredicates(m.groupValues[2]) ?: return@let
+            val duration = gapDuration(m.groupValues[3]) ?: return@let
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(it, filter),
+                then = listOf(Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(it), duration)))))
+        }
+        // "It's an Island in addition to its other types for as long as it has a flood counter on it." (CR 305.7, 611.2b)
+        BlbGaps.TYPE_FOR_AS_LONG_AS_COUNTER.matchEntire(sentence)?.let { m ->
+            val it = gapIt(context) ?: return@let
+            val subtype = m.groupValues[1].takeIf { s -> s in RulesWords.subtypes } ?: return@let
+            val kind = Counters.kind(m.groupValues[2]) ?: return@let
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype))))),
+                Affected.Objects(it), arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.HasCounter(kind, atLeast = 1))))))
+        }
+        // "Whenever that creature deals combat damage this turn, [effect]": a delayed trigger that triggers each time this turn
+        // (CR 603.7b), about the creature named now (603.7c); "it" in it is the creature dealing the damage
+        BlbGaps.WHENEVER_THAT_CREATURE_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val that = gapIt(context) ?: return@let
+            val event = EventPattern.Damage(ObjectFilter.Is(that), RecipientFilter(), combat = if (m.groupValues[1].isNotEmpty()) true else null)
+            val inner = instructions(m.groupValues[2], event = event, itZone = Zone.Battlefield)?.takeIf { it.targets.isEmpty() } ?: return@let
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(event), inner, duration = arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
+        // "Then for each blight counter on it, each opponent loses 4 life unless …": the rest happens that many times, counted
+        // as it begins (CR 608.2h)
+        BlbGaps.FOR_EACH_COUNTER_ON_IT.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return@let
+            val kind = Counters.kind(m.groupValues[1]) ?: return@let
+            val steps = effect(m.groupValues[2].replaceFirstChar { c -> c.uppercase() }, context) ?: return@let
+            return listOf(Step.Repeat(Value.Of(arcanum.api.NumericProperty.Counters(kind), it, arcanum.api.Combine.Single), steps))
+        }
+        // "Each opponent loses 4 life unless that player sacrifices a nonland permanent of their choice or discards a card." (CR
+        // 101.4, 118.12a): each opponent may pay; those who don't lose the life
+        BlbGaps.EACH_OPPONENT_UNLESS.matchEntire(sentence)?.let { m ->
+            val options = m.groupValues[2].split(" or ").map { option ->
+                val verb = option.substringBefore(' ')
+                val plain = BlbGaps.THIRD_PERSON[verb]?.let { it + option.removePrefix(verb) } ?: option
+                Cost(costPart(plain.removeSuffix(" of their choice").replaceFirstChar { it.uppercase() }) ?: return@let)
+            }
+            val player = Players.Bound("opponent")
+            val effect = BlbGaps.LOSES_LIFE.matchEntire(m.groupValues[1])?.let { Effect.LoseLife(player, Value.Fixed(it.groupValues[1].toInt())) } ?: return@let
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true,
+                steps = unlessPays(player, options.singleOrNull() ?: Cost(listOf(CostPart.OneOf(options))), listOf(Step.Do(effect)))))
+        }
+        // "At the beginning of your next end step, [effect]." (a delayed trigger, CR 603.7)
+        BlbGaps.AT_YOUR_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
+            val targets = context.targets.size
+            val inner = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context)?.takeIf { context.targets.size == targets } ?: return@let
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.You)),
+                Instructions(steps = inner))))
+        }
+        // "Stormwing deals 2 damage to each opponent for each of those cards that are still exiled." (the cards that are still
+        // the same objects in exile, CR 400.7)
+        BlbGaps.DEALS_DAMAGE_FOR_EACH_STILL_EXILED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val them = context.them ?: return@let
+            val players = Filters.players(m.groupValues[3]) ?: return@let
+            val per = Value.Count(Objects.Where(them, ObjectFilter.InZone(Zone.Exile)))
+            val n = Numbers.count(m.groupValues[2]) ?: return@let
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = players), times(per, n), source = Objects.Self)))
+        }
+        // "Choose target creature." (only a target; "that creature" and "it" afterwards)
+        BlbGaps.CHOOSE_TARGET.matchEntire(sentence)?.takeIf { !it.groupValues[1].contains(" card") }?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return@let)
+            context.it = target
+            return emptyList()
+        }
+        // "If that creature's power is 2 or less or if you control another Lizard, gain control of that creature until end of
+        // turn, untap it, and it gains haste until end of turn." (CR 613.1b; the condition is checked as it resolves)
+        BlbGaps.IF_OR_IF.matchEntire(sentence)?.let { m ->
+            val conditions = m.groupValues[1].split(" or if ").map { gapCondition(it, context) ?: return@let }
+            val g = BlbGaps.GAIN_CONTROL_UNTAP_GAINS.matchEntire(m.groupValues[2]) ?: return@let
+            val it = context.it ?: return@let
+            val keywords = g.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return@let }
+            val then = listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), Affected.Objects(it), arcanum.api.Duration.EndOfTurn)),
+                Step.Do(Effect.Untap(it)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(it), arcanum.api.Duration.EndOfTurn)))
+            return listOf(Step.If(conditions.singleOrNull() ?: arcanum.api.Condition.Or(conditions), then = then))
+        }
+        // "For each card type, you may exile a card of that type from among them." (one card per card type; a card of several
+        // types stands for one of them, CR 205.2a)
+        BlbGaps.FOR_EACH_QUALITY_MAY_FROM_AMONG.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return@let
+            val quality = when (m.groupValues[1]) { "card type" -> arcanum.api.SharedQuality.CardType; "color" -> arcanum.api.SharedQuality.Color; else -> return@let }
+            val to = when (m.groupValues[2]) { "exile" -> Zone.Exile; "put into your hand" -> Zone.Hand; else -> return@let }
+            context.picked = BlbGaps.CHOSEN
+            context.them = Objects.Bound(BlbGaps.EXILED)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, min = Value.Fixed(0), max = null, from = Objects.Bound(seen), onePer = quality),
+                    bind = BlbGaps.CHOSEN, chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound(BlbGaps.CHOSEN), Destination(to), postBind = if (to == Zone.Exile) BlbGaps.EXILED else null)))
+        }
+        // "Put the rest into your graveyard." after picking from among them
+        if (sentence == "Put the rest into your graveyard." && context.seen != null && context.picked != null) {
+            return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(context.seen!!), Objects.Bound(context.picked!!)), Destination(Zone.Graveyard))))
+        }
+        // "You may cast a spell from among the exiled cards without paying its mana cost if you exiled four or more cards this
+        // way." (CR 608.2g: cast while this resolves)
+        BlbGaps.MAY_CAST_FROM_AMONG_EXILED_IF.matchEntire(sentence)?.let { m ->
+            val exiled = context.them as? Objects.Bound ?: return@let
+            if (exiled.name != BlbGaps.EXILED) return@let
+            val n = Numbers.count(m.groupValues[1]) ?: return@let
+            context.picked = BlbGaps.CAST
+            return listOf(Step.If(arcanum.api.Condition.Compare(Value.Count(exiled), arcanum.api.Comparison.AtLeast, Value.Fixed(n)), then = listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Not(ObjectFilter.Type(arcanum.api.CardType.Land)), min = Value.Fixed(0), max = Value.Fixed(1),
+                    from = exiled), bind = BlbGaps.CAST, chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound(BlbGaps.CAST), PlayKind.Cast, withoutPaying = true, caster = Players.You)))))
+        }
+        // "Then put the rest of the exiled cards into your hand."
+        if (sentence == "Put the rest of the exiled cards into your hand." && context.picked == BlbGaps.CAST) {
+            return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(BlbGaps.EXILED), Objects.Bound(BlbGaps.CAST)), Destination(Zone.Hand))))
+        }
+        return null
+    }
+
+    /** blb gaps: "that creature's power is 2 or less", "you control another Lizard". */
+    private fun gapCondition(text: String, context: Context): arcanum.api.Condition? {
+        BlbGaps.THAT_CREATURES_POWER.matchEntire(text)?.let { m ->
+            val it = context.it ?: return null
+            val comparison = if (m.groupValues[2] == "less") arcanum.api.Comparison.AtMost else arcanum.api.Comparison.AtLeast
+            return arcanum.api.Condition.ObjectMatches(it, ObjectFilter.Power(comparison, Value.Fixed(m.groupValues[1].toInt())))
+        }
+        return Conditions.condition(text, self)
+    }
+
+    /** Regular expressions and names of the blb gaps wordings. */
+    private object BlbGaps {
+        const val SACRIFICED = "sacrificed"
+        const val CHOSEN = "chosen"
+        const val EXILED = "exiled"
+        const val CAST = "cast"
+        val ADDITIONAL_SACRIFICE_ANY_NUMBER_REDUCTION = Regex("""As an additional cost to cast this spell, you may sacrifice any number of (.+?)\. This spell costs ((?:\{[^}]+\})+) less to cast for each (?:permanent|creature|artifact) sacrificed this way\.""")
+        val FIRST_SPELL_EACH_TURN_COSTS_LESS = Regex("""The first (.+?) spell you cast each turn costs ((?:\{[^}]+\})+) less to cast(?: for each (.+))?\.""")
+        val ENTER_AS_COPY = Regex("""You may have (.+?) enter as a copy of any (.+?)(?:, except (.+))?\.""")
+        val ON_THE_BATTLEFIELD_WITH = Regex("""(.+?) on the battlefield(?: with (.+))?""")
+        val MANA_VALUE_AT_MOST_MANA_SPENT = Regex("""mana value less than or equal to the amount of mana spent to cast (.+)""")
+        val TYPE_IN_ADDITION_AND_HAS = Regex("""it's an? (\S+) in addition to its other types and it has (.+)""")
+        val PREDICATE_AND = Regex(""" and (?=(?:has|loses|can't|gets) )""")
+        val BASE_PT = Regex("""(?:also )?has base power and toughness (\d+)/(\d+)""")
+        val TARGET_UNTIL = Regex("""(?:Up to (\w+) target|Target) (.+?) ((?:loses all abilities|can't be blocked|has base power and toughness).*?) (until end of turn|until your next turn|this turn)\.""")
+        val IF_ITS_A_IT_ALSO = Regex("""If it's an? (.+?), it (?:also )?(.+?) (until end of turn|until your next turn)\.""")
+        val TYPE_FOR_AS_LONG_AS_COUNTER = Regex("""It's an? (\S+) in addition to its other types for as long as it has an? (\S+) counter on it\.""")
+        val WHENEVER_THAT_CREATURE_THIS_TURN = Regex("""Whenever that creature deals (combat )?damage this turn, (.+)""")
+        val FOR_EACH_COUNTER_ON_IT = Regex("""For each (\S+) counter on it, (.+)""")
+        val EACH_OPPONENT_UNLESS = Regex("""Each opponent (.+?) unless that player (.+)\.""")
+        val LOSES_LIFE = Regex("""loses (\d+) life""")
+        val THIRD_PERSON = mapOf("sacrifices" to "sacrifice", "discards" to "discard", "pays" to "pay", "exiles" to "exile", "returns" to "return")
+        val AT_YOUR_NEXT_END_STEP = Regex("""At the beginning of your next end step, (.+)""")
+        val DEALS_DAMAGE_FOR_EACH_STILL_EXILED = Regex("""(.+?) deals (\w+) damage to (.+?) for each of those cards that are still exiled\.""")
+        val CHOOSE_TARGET = Regex("""Choose target (.+)\.""")
+        val IF_OR_IF = Regex("""If (.+? or if .+?), (.+)\.""")
+        val GAIN_CONTROL_UNTAP_GAINS = Regex("""gain control of (that creature|it) until end of turn, untap it, and it gains (.+) until end of turn""")
+        val THAT_CREATURES_POWER = Regex("""that creature's power is (\d+) or (less|greater)""")
+        val FOR_EACH_QUALITY_MAY_FROM_AMONG = Regex("""For each (card type|color), you may (exile|put into your hand) a card of that (?:type|color) from among them\.""")
+        val MAY_CAST_FROM_AMONG_EXILED_IF = Regex("""You may cast a spell from among the exiled cards without paying its mana cost if you exiled (\w+) or more cards this way\.""")
     }
 }
 

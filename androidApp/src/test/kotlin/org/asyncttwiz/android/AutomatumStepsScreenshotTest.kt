@@ -247,7 +247,7 @@ class AutomatumStepsScreenshotTest {
         assertEquals(SharedFlowController.STACK_WAITING, waiting.error)
     }
 
-    // TRN-060, TRN-004, I-D40: Bob presses Next step while Alice holds priority in her main phase: he is asked first and
+    // TRN-061, TRN-004, I-D40: Bob presses Next step while Alice holds priority in her main phase: he is asked first and
     // nothing is sent until he confirms; Cancel sends nothing; confirmed, it is Alice's pass as if she had pressed it
     @Test fun steppingForTheOtherPlayerAsksFirst() {
         val play = board()
@@ -277,7 +277,7 @@ class AutomatumStepsScreenshotTest {
         assertEquals(MtgPriority(f.b, 1), after.board.priority, "Alice passed; Bob, who could cast Storm Spark, holds priority")
     }
 
-    // TRN-060, I-D40: End turn and a later step for the other player say what they do for them, as do declarations; a
+    // TRN-061, I-D40: End turn and a later step for the other player say what they do for them, as do declarations; a
     // confirmation given after the table changed sends nothing
     @Test fun actingForTheOtherPlayerSaysWhatItDoes() {
         val play = board()

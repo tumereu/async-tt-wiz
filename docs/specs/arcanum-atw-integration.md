@@ -208,6 +208,10 @@ out of anything stuck.
   (`TurnExtras.passesAt`) and restart after a step changed by hand. "By hand" is read from the continuation record
   (`EngineState.byHand`). Panels name objects in public zones only when visible to the viewer (a face-down spell, blocker
   or source); combat drafts are checked against the last shown combat and engine reasons worked out off the main thread.
+- **Built (loops):** `StepFlow.automatic` keeps `Engine.loopKey` of each state it passes in with something on the Stack;
+  the same key again with only forced passes since (CR 104.4b, 732.4) stops the batch with `Input.MandatoryLoop`, whose
+  `Decision.Manual` the shared-flow panel shows ("The game is a draw: …"); answering it makes the engine's game a draw.
+  A call that goes round too often inside the engine stops with a "Possible loop" `Decision.Manual` (engine safety cap).
 
 ### I4 — Automatum-only controls
 
@@ -231,7 +235,7 @@ out of anything stuck.
   blockers), dropped when the table changed. Answers and "Pass for them" already asked; casts and early divisions are
   the viewer's own; combat drafts are reversible lane edits and don't ask. `SetAutomatum(true)` drops the `combat`,
   `triggered` and pre-answer records and sets passes in a row to 0 (`Automatum.turnScoped`), recorded in the sealed
-  delta so Undo of the switch restores them. Catalog: TRN-004, TRN-057, TRN-060, SYS-055, SYS-070.
+  delta so Undo of the switch restores them. Catalog: TRN-004, TRN-057, TRN-061, SYS-055, SYS-070.
 
 ## 4. Shared state ATW adds
 

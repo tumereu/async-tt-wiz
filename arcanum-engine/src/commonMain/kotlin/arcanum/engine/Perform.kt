@@ -12,6 +12,7 @@ import arcanum.engine.sba.StateBasedActions
 import arcanum.engine.state.GameState
 import arcanum.engine.trigger.Triggers
 import arcanum.engine.turn.Priority
+import arcanum.engine.turn.Loops
 import arcanum.engine.turn.Steps
 import arcanum.engine.decision.TurnAction
 import arcanum.engine.setup.GameEnd
@@ -27,7 +28,8 @@ internal sealed interface Progress {
  * [Engine.perform]: works on a copy of the state (D56), records every change as it is made, and after the input runs
  * the checks a player's priority waits for (CR 117.5): state-based actions (CR 704.3) and putting triggered abilities on
  * the Stack (CR 603.3), repeated until neither does anything, then priority (CR 117.3). A flow that needs a decision
- * stops with [Progress.Waiting]; its pending decision is recorded as the last change.
+ * stops with [Progress.Waiting]; its pending decision is recorded as the last change. A call that would go on without
+ * end stops with "possible loop" ([Loops.capped]); a host reports a loop of mandatory actions ([Input.MandatoryLoop]).
  *
  * Each concern lives in its own object, filled in by its part of the engine: [Casting] (cast, activate, play a land,
  * mana payment), [Resolution], [Triggers], [StateBasedActions], [Combat] and [Priority] (steps and turns).
@@ -70,6 +72,7 @@ internal object Perform {
                 is Input.DeclareAttackers -> Combat.declareAttackers(recorder, input)
                 is Input.DeclareBlockers -> Combat.declareBlockers(recorder, input)
                 is Input.StartGame -> Setup.start(recorder, input)
+                is Input.MandatoryLoop -> Loops.report(recorder)
                 is Input.Concede -> error("Conceding is handled above")
                 is Input.Answer -> throw IllegalArgumentException("No decision is open")
                 is Input.Cancel -> throw IllegalArgumentException("Nothing to cancel")
@@ -99,6 +102,7 @@ internal object Perform {
             }
             is Continuation.Setup -> Setup.resume(recorder, continuation, answer)
             is Continuation.Played -> Casting.resumePlayed(recorder, continuation, answer)
+            is Continuation.Loop -> Loops.resume(recorder, continuation)
         }
         return progress
     }
@@ -111,9 +115,12 @@ internal object Perform {
     }
 
     /** State-based actions (CR 704.3) and putting triggered abilities on the Stack (CR 603.3), repeated until neither
-     * does anything; also the cleanup step's check (CR 514.3a). */
+     * does anything; also the cleanup step's check (CR 514.3a). A call that goes round too often stops with "possible
+     * loop" ([Loops.capped]). */
     fun checks(recorder: Recorder): Progress {
         while (true) {
+            Loops.capped(recorder)?.let { return it }
+            recorder.rounds++
             val before = recorder.changes.size
             // CR 506.4: also after changes made by hand (D42), which don't pass through the engine's events
             Combat.removeWhatLeft(recorder)

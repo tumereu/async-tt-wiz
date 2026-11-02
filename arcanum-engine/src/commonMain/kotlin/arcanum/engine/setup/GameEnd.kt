@@ -30,7 +30,8 @@ sealed interface GameResult {
     /** [winner] is the only player left (CR 104.2a). */
     @Serializable @SerialName("won") data class Won(val winner: PlayerId) : GameResult
 
-    /** Every remaining player lost at once (CR 104.4a). */
+    /** Every remaining player lost at once (CR 104.4a), or left together in a loop of mandatory actions (CR 104.4b,
+     * [arcanum.engine.input.Input.MandatoryLoop]). */
     @Serializable @SerialName("draw") data object Draw : GameResult
 }
 

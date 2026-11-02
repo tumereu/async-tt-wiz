@@ -82,20 +82,26 @@ class I12ReviewTest {
         assertTrue(visible.none { (it.action as? PlayAction.Mtg)?.action is MtgAction.SetManaPool }, "visible events: $shown")
     }
 
-    // i12review #12: the reasons Automatum gives players for not taking over a board (hold panel TRN-055, cast refusal
-    // "Automatum can't take over this board: …") name Stack entries, cards and players by their internal ids
-    @Ignore("i12review #12: board refusal reasons show internal ids")
+    // i12review #12 (TRN-055, STK-023): the reasons Automatum gives players for not taking over a board (hold panel, cast
+    // refusal "Automatum can't take over this board: …") are plain sentences with card names, never internal ids
     @Test fun refusalReasonsNameNoInternalIds() {
-        val (spark) = table.put(alice, PlayZone.HAND, "Storm Spark")
+        val (spark, held) = table.put(alice, PlayZone.HAND, "Storm Spark", "Storm Spark")
         val state = table.state()
         val entry = CardIds.of(state.board).engine(spark).value.reversed()
         val stackId = state.board.containers.single { it.zone == PlayZone.STACK }.id
         val manual = state.copy(board = state.board.copy(stackEffects = listOf(StackEffect(entry, spark)),
-            cards = state.board.cards.map { if (it.id == spark) it.copy(damage = "x") else it },
+            cards = state.board.cards.map { if (it.id == held) it.copy(damage = "x") else it },
             containers = state.board.containers.map { if (it.id == stackId) it.copy(cards = listOf(entry)) else it }))
         val reasons = EngineState.unsupported(manual, table.definitions)
         assertTrue(reasons.isNotEmpty())
         val uuid = Regex("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}")
         assertTrue(reasons.none(uuid::containsMatchIn), "plain words: $reasons")
+        // Named only for a viewer who may see the card (I-D27): the Stack entry is public; the other Storm Spark is in
+        // Alice's hand, hidden from Bob
+        val shownToAlice = EngineState.unsupported(manual, table.definitions, alice)
+        assertTrue("Storm Spark on the Stack is a manual entry" in shownToAlice &&
+            shownToAlice.any { "Storm Spark has damage \"x\"" in it }, "$shownToAlice")
+        val shownToBob = EngineState.unsupported(manual, table.definitions, bob)
+        assertTrue(shownToBob.none { "Storm Spark has damage" in it } && shownToBob.any { "A hidden card has damage" in it }, "$shownToBob")
     }
 }

@@ -162,43 +162,69 @@ object EngineState {
         ?.let { runCatching { (EngineCodec.json.parseToJsonElement(it.data).jsonObject["viewer"] as? JsonPrimitive)?.contentOrNull }.getOrNull() }
 
     /**
-     * What on [state]'s board the engine can't take over (§5), each as a sentence; empty when [from] can build it:
-     * manual Stack entries (STK-016, no structured item), cards in Temp piles (D38: a manual tool), engine data this
-     * version can't read, and life totals, damage or turn numbers that aren't plain numbers. A card whose card data the
-     * parser couldn't read isn't one of them: it plays with its printed values and manual abilities ([PrintedCards],
-     * I-D21). [definitions] and [viewer] are as for [from].
+     * What on [state]'s board the engine can't take over (§5), each as a plain sentence players read (the Automatum
+     * panel, a refused cast): empty when [from] can build it: manual Stack entries (STK-016, no structured item), cards
+     * in Temp piles (D38: a manual tool), engine data this version can't read, and life totals, damage or turn numbers
+     * that aren't plain numbers. Cards are named only when [viewer] may see them face up (I-D27; null: when everyone
+     * may), players as "your" and "the other player's". A card whose card data the parser couldn't read isn't one of
+     * them: it plays with its printed values and manual abilities ([PrintedCards], I-D21). [definitions] is as for [from].
      */
-    @Suppress("UNUSED_PARAMETER")
     fun unsupported(state: PlayState, definitions: Map<String, CardDefinition>, viewer: String? = null): List<String> {
         val board = state.board
+        val words = Words(state, viewer)
         val problems = mutableListOf<String>()
         val entries = entries(board)
-        entries.filter { it.item == null }.forEach { problems += "Stack entry ${it.id} is a manual entry" }
-        board.containers.filter { it.temp && it.cards.isNotEmpty() }.forEach { problems += "Temp pile ${it.id} holds cards" }
-        entries.mapNotNull { it.item }.filter { it.kind == MtgStackKind.Spell }.forEach { item ->
-            val ref = item.id as? MtgRef.Card
+        entries.filter { it.item == null }.forEach { problems += "${words.entry(it)} on the Stack is a manual entry" }
+        board.containers.filter { it.temp && it.cards.isNotEmpty() }.forEach { problems += "${words.player(it.accountId, true)} Temp pile holds cards" }
+        entries.filter { it.item?.kind == MtgStackKind.Spell }.forEach { entry ->
+            val ref = entry.item!!.id as? MtgRef.Card
             if (ref == null || board.cards.none { it.id == ref.cardId && it.zoneChanges == ref.zoneChanges })
-                problems += "the spell ${item.id} isn't a card on the board"
+                problems += "a spell on the Stack isn't a card on the table any more"
         }
         for (card in board.cards) {
-            if (card.damage.isNotEmpty() && card.damage.toIntOrNull() == null) problems += "card ${card.id} has damage \"${card.damage}\""
+            if (card.damage.isNotEmpty() && card.damage.toIntOrNull() == null) problems += "${words.card(card)} has damage \"${card.damage}\", not a number"
         }
-        board.players.filter { it.life.toIntOrNull() == null }.forEach { problems += "player ${it.accountId} has life \"${it.life}\"" }
+        board.players.filter { it.life.toIntOrNull() == null }.forEach { problems += "${words.player(it.accountId, true)} life \"${it.life}\" isn't a number" }
         if (TurnPosition.of(board.turn) == null || board.turn.number.toIntOrNull() == null) problems += "the turn isn't a known step"
-        problems += unreadable(board, TagCodec.of(state, definitions))
-        return problems
+        problems += unreadable(board, TagCodec.of(state, definitions), words)
+        return problems.map { it.replaceFirstChar(Char::uppercaseChar) }
+    }
+
+    /** Names in [unsupported]'s sentences: cards only as [viewer] may see them, players relative to [viewer]. */
+    private class Words(private val state: PlayState, private val viewer: String?) {
+        fun card(card: PlayCard?): String {
+            card ?: return "a card"
+            if (!CardVisibility.isVisibleFaceUp(state.board, card, viewer ?: "")) return "a hidden card"
+            val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
+            return (faces?.singleOrNull { it.faceId == card.faceId } ?: faces?.firstOrNull())?.name ?: "a card"
+        }
+        fun entry(entry: StackEffect): String =
+            if (entry.faceDown) "a face-down spell"
+            else card(state.board.cards.singleOrNull { it.id == entry.sourceId })
+        fun player(id: String?, possessive: Boolean): String = when {
+            viewer != null && id == viewer -> if (possessive) "your" else "you"
+            viewer != null && id != null -> if (possessive) "the other player's" else "the other player"
+            else -> if (possessive) "a player's" else "a player"
+        }
     }
 
     /**
      * The engine data on [board] the engine can't read back (P8: the server checks only that it is JSON; an app update
      * may change its shape, D62): records, Stack items, ledgers, typed counter kinds and mana. Each as a sentence.
      */
-    private fun unreadable(board: BoardState, codec: TagCodec): List<String> {
+    private fun unreadable(board: BoardState, codec: TagCodec, words: Words): List<String> {
         val problems = mutableListOf<String>()
+        val version = "can't be read by this version of the app"
         fun check(what: String, read: () -> Unit) {
-            runCatching(read).onFailure { problems += "$what can't be read by this version of the rules engine (${it.message?.take(120)})" }
+            runCatching(read).onFailure { problems += "$what $version" }
         }
-        for (record in board.engineRecords) check("engine record ${record.id}") {
+        for (record in board.engineRecords) check(when (record.kind) {
+            EngineRecordKind.Effect -> "an effect Automatum recorded"
+            EngineRecordKind.DelayedTrigger -> "a delayed trigger Automatum recorded"
+            EngineRecordKind.Continuation -> "Automatum's open choice"
+            EngineRecordKind.Emblem -> "an emblem"
+            else -> "what Automatum recorded about the game"
+        }) {
             when (record.kind) {
                 EngineRecordKind.Effect -> EngineCodec.effect(record)
                 EngineRecordKind.DelayedTrigger -> EngineCodec.delayed(record)
@@ -212,17 +238,18 @@ object EngineState {
         }
         for (entry in board.stackEffects) {
             val item = entry.item ?: continue
-            if (item.data.isNotEmpty()) check("the Stack item of entry ${entry.id}") { EngineCodec.stackItem(item) }
-            else if (item.kind != MtgStackKind.Spell) problems += "the Stack item of entry ${entry.id} has no engine data"
+            val what = "Automatum's data of ${words.entry(entry)} on the Stack"
+            if (item.data.isNotEmpty()) check(what) { EngineCodec.stackItem(item) }
+            else if (item.kind != MtgStackKind.Spell) problems += "$what is missing"
         }
         for (card in board.cards) {
-            if (card.ledger.isNotEmpty()) check("the engine ledger of card ${card.id}") { CardLedger.of(card.ledger) }
-            card.typedCounters.forEach { counter -> check("the counter kind \"${counter.kind}\" on card ${card.id}") { EngineCodec.counterKind(counter.kind) } }
+            if (card.ledger.isNotEmpty()) check("Automatum's ledger of ${words.card(card)}") { CardLedger.of(card.ledger) }
+            card.typedCounters.forEach { counter -> check("the \"${counter.kind}\" counters on ${words.card(card)}") { EngineCodec.counterKind(counter.kind) } }
         }
         for (player in board.players) {
-            if (player.ledger.isNotEmpty()) check("the engine ledger of player ${player.accountId}") { PlayerLedger.of(player.ledger) }
-            player.typedCounters.forEach { counter -> check("the counter kind \"${counter.kind}\" of player ${player.accountId}") { EngineCodec.counterKind(counter.kind) } }
-            player.manaPool.forEach { mana -> check("the mana in the pool of player ${player.accountId}") { EngineCodec.mana(mana) } }
+            if (player.ledger.isNotEmpty()) check("Automatum's ledger of ${words.player(player.accountId, false)}") { PlayerLedger.of(player.ledger) }
+            player.typedCounters.forEach { counter -> check("${words.player(player.accountId, true)} \"${counter.kind}\" counters") { EngineCodec.counterKind(counter.kind) } }
+            player.manaPool.forEach { mana -> check("the mana in ${words.player(player.accountId, true)} pool") { EngineCodec.mana(mana) } }
         }
         return problems
     }
@@ -322,23 +349,47 @@ object EngineLog {
      * @throws Unsupported when a tag's engine data can't be read (made by another app version, or not by this mapping):
      *   the engine would otherwise miss events of this turn without saying so.
      */
-    fun from(tags: List<MtgTag?>, state: PlayState, definitions: Map<String, CardDefinition>): List<LoggedChange> {
-        val codec = TagCodec.of(state, definitions)
-        val log = mutableListOf<LoggedChange>()
-        val unreadable = mutableListOf<String>()
-        for ((i, tag) in tags.withIndex()) {
-            val data = tag?.data?.takeIf { it.isNotEmpty() } ?: continue
-            val parsed = runCatching { codec.decode(data) }.getOrElse {
-                unreadable += "the engine data of history event ${i + 1} can't be read (${it.message?.take(120)})"
-                continue
+    fun from(tags: List<MtgTag?>, state: PlayState, definitions: Map<String, CardDefinition>): List<LoggedChange> =
+        Decoder(definitions).log(tags, state)
+
+    /** The entries of [log] an engine call reads (D33, [GameState.forgetOlderTurns]): this and last turn's, for a game in
+     * turn [turn]. All of them when [turn] is null. */
+    fun recent(log: List<LoggedChange>, turn: Int?): List<LoggedChange> =
+        if (turn == null || log.all { it.turn >= turn - 1 }) log else log.filter { it.turn >= turn - 1 }
+
+    /**
+     * [from] for one game's history as it grows (SYS-025, no full-history rebuild): each tag's engine data is read once
+     * and kept, so a longer history costs only its new tags. The game's card data never changes for a card (tokens'
+     * definitions are written out in full), so what was read on an earlier board reads the same on a later one.
+     * Not for use from several threads at once (callers lock it). [definitions] as for [from].
+     */
+    class Decoder(private val definitions: Map<String, CardDefinition>) {
+        private val read = HashMap<String, List<LogOp>>()
+        private var codecFor: PlayState? = null
+        private var codec: TagCodec? = null
+
+        /** [from] of [tags] on [state]. @throws Unsupported as [from]. */
+        fun log(tags: List<MtgTag?>, state: PlayState): List<LoggedChange> {
+            val log = mutableListOf<LoggedChange>()
+            val unreadable = mutableListOf<String>()
+            for ((i, tag) in tags.withIndex()) {
+                val data = tag?.data?.takeIf { it.isNotEmpty() } ?: continue
+                val ops = read[data] ?: runCatching { codec(state).decode(data).log }.getOrElse {
+                    unreadable += "an earlier Automatum step in the history (event ${i + 1}) can't be read by this version of the app"
+                    continue
+                }.also { read[data] = it }
+                for (op in ops) when (op) {
+                    is LogOp.Add -> log += op.entry
+                    LogOp.Drop -> if (log.isNotEmpty()) log.removeAt(log.lastIndex)
+                }
             }
-            for (op in parsed.log) when (op) {
-                is LogOp.Add -> log += op.entry
-                LogOp.Drop -> if (log.isNotEmpty()) log.removeAt(log.lastIndex)
-            }
+            if (unreadable.isNotEmpty()) throw Unsupported(unreadable)
+            return log
         }
-        if (unreadable.isNotEmpty()) throw Unsupported(unreadable)
-        return log
+
+        private fun codec(state: PlayState): TagCodec {
+            if (codecFor?.board !== state.board) { codec = TagCodec.of(state, definitions); codecFor = state }
+            return codec!!
+        }
     }
 }
-

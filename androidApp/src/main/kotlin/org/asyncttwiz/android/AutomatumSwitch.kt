@@ -115,7 +115,7 @@ internal fun AutomatumPanel(play: PlayState, viewer: String, computed: ComputedB
             Switch(own.skipWhenNoChoice, { submit(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(it))) }, enabled = enabled,
                 modifier = Modifier.semantics { contentDescription = "Skip when I have no choice" })
         }
-        OutlinedButton({ confirmClear = true }, enabled = enabled && automatumDataPresent(board)) { Text("Clear Automatum data") }
+        OutlinedButton({ confirmClear = true }, enabled = enabled && Automatum.recorded(board)) { Text("Clear Automatum data") }
         HorizontalDivider()
         Text("Engine data", fontWeight = FontWeight.Bold, fontSize = 12.sp)
         val lines = automatumDebugLines(board)
@@ -126,7 +126,7 @@ internal fun AutomatumPanel(play: PlayState, viewer: String, computed: ComputedB
         }
     }
     if (confirmClear) AlertDialog({ confirmClear = false }, title = { Text("Clear Automatum data?") },
-        text = { Text("Removes every effect, ledger and record Automatum keeps in this game. Cards stay where they are.") },
+        text = { Text("Removes every effect, ledger and record Automatum keeps in this game. Cards, counters and mana stay as they are.") },
         confirmButton = { TextButton({ confirmClear = false; submit(PlayAction.Mtg(MtgAction.ClearRecords)) }) { Text("Clear") } },
         dismissButton = { TextButton({ confirmClear = false }) { Text("Cancel") } })
 }
@@ -141,10 +141,6 @@ internal fun automatumStatus(on: Boolean, computed: ComputedBoard): String {
         else -> "$manual abilities are manual"
     }
 }
-
-private fun automatumDataPresent(board: BoardState) = board.engineRecords.isNotEmpty() ||
-    board.cards.any { it.ledger.isNotEmpty() || it.typedCounters.isNotEmpty() } ||
-    board.players.any { it.ledger.isNotEmpty() || it.typedCounters.isNotEmpty() || it.manaPool.isNotEmpty() } || board.priority != null
 
 /** The engine's records and ledgers as stored (P2): one line each, data cut at 160 characters. */
 internal fun automatumDebugLines(board: BoardState): List<String> {

@@ -50,16 +50,23 @@ class I12ReviewProbeTest {
             flow = flow.answer(Answer.ManaPayment(payment.suggestion))
             val cast = mark.elapsedNow(); mark = clock.markNow()
             rt.apply(flow.call, alice)
-            // The engine log is decoded from every automated tag since the game began on each cast start, follow and
-            // listing (AutomatumBoards.engineLog): a long game's worth of cast batches' tags
+            // The engine log of a long game's worth of cast batches' tags (each one different, as in a real history):
+            // read whole once, then (the app's EngineLog.Decoder, kept per game) again with one more event, which reads
+            // only the new tag (#6 fix: no full-history decode per cast start, follow or listing)
             val tags = rt.tags.filter { !it?.data.isNullOrEmpty() }
-            val history = List(2000 / tags.size.coerceAtLeast(1)) { tags }.flatten()
+            var n = 0
+            val history = List(2000 / tags.size.coerceAtLeast(1)) { tags }.flatten().map { it!!.copy(data = it.data + " ".repeat(++n % 64) + "\n".repeat(n / 64)) }
+            val decoder = EngineLog.Decoder(table.definitions)
             mark = clock.markNow()
-            EngineLog.from(history, rt.state, table.definitions)
-            val log = mark.elapsedNow()
+            val whole = decoder.log(history.dropLast(1), rt.state)
+            val log = mark.elapsedNow(); mark = clock.markNow()
+            val grown = decoder.log(history, rt.state)
+            val incremental = mark.elapsedNow()
+            assertTrue(grown.size >= whole.size)
+            assertTrue(grown == EngineLog.from(history, rt.state, table.definitions), "kept reads give the same log")
             if (round == rounds - 1) println("i12 probe: hand plays $listing, cast start $start, target answer $target, " +
                 "pays $pays, pays for all ${payment.options.size} uses $toggleAll, mana answer $cast; " +
-                "engine log of ${history.size} tags $log")
+                "engine log of ${history.size - 1} tags read whole $log, then with one more tag $incremental")
         }
     }
 }

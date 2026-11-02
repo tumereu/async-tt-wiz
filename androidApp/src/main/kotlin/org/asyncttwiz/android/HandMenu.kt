@@ -33,12 +33,14 @@ internal fun handMenuTools(toolkit: TableToolkitController, play: PlayState, bou
 /**
  * The hand menu's Play (ZON-007). With Automatum on (I2, I-D28) it is the engine's: "Cast" for a non-land card, "Play"
  * for a land, for the card the menu was opened on, greyed while the engine doesn't allow it now (always shown, the menu
- * always-show rule).
+ * always-show rule). A card in the other player's hand is "Cast" whatever it is, and greyed: only its owner casts it
+ * (I-D27, nothing about the hidden card is read).
  */
 private fun playControl(toolkit: TableToolkitController, play: PlayState, context: String, ids: List<String>, enabled: Boolean): MenuControl {
     if (!play.board.automatum) return MenuControl("Play", enabled) { if (toolkit.playHand(ids)) toolkit.dismiss() }
-    val name = if (CastController.land(play, context)) "Play" else "Cast"
-    val legal = enabled && !toolkit.cast.open && toolkit.handPlays(play).of(context).isNotEmpty()
+    val own = CastController.ownHand(play, context, toolkit.viewer)
+    val name = if (own) CastController.playLabel(play, context, toolkit.viewer) else "Cast"
+    val legal = enabled && own && !toolkit.cast.open && toolkit.handPlays(play).of(context).isNotEmpty()
     return MenuControl(name, legal) { if (toolkit.cast.start(context)) toolkit.dismiss() }
 }
 

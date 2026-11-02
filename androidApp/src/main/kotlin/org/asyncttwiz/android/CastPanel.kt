@@ -34,6 +34,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.CastFlow
+import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.protocol.*
 
 /**
@@ -51,8 +52,11 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, sce
     val key = "accept/${toolkit.viewer}"
     var accept by remember(key) { mutableStateOf(preferences.getBoolean(key, false)) }
     SideEffect { cast.acceptAutomatically = accept }
+    // Targets are chosen: a pile opened to pick them from closes again once they are (i12review #14)
+    LaunchedEffect(cast.targeting || toolkit.flows.targeting) { if (!cast.targeting && !toolkit.flows.targeting) toolkit.targetingEnded() }
     val flow = cast.flow ?: return
-    LaunchedEffect(IdentityKey(play.board)) { cast.follow(play) }
+    // The board the player acts on (never one reviewed in the timeline, i12review #10) may have moved on
+    LaunchedEffect(IdentityKey(play.board)) { cast.follow() }
     BackHandler { cast.cancel() }
     val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
     // The slim bar sits over the own hand row (hand cards are never targets), so the battlefield stays free to tap
@@ -113,6 +117,7 @@ private fun TargetBar(cast: CastController, flow: CastFlow, play: PlayState) {
         Row(Modifier.padding(start = 14.dp, end = 4.dp).heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
             Text("${spellName(flow, play)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
                 fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (cast.busy) Working()
             if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
                 Text(if (cast.picked.isEmpty()) "None" else "Done")
             }
@@ -130,6 +135,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, nam
         Column(Modifier.padding(10.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(spellName(flow, play), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                if (cast.busy) Working()
                 EyeButton(hidden = false, cast::toggleHidden)
             }
             cardText(play, flow.cardId)?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
@@ -151,11 +157,18 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, nam
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
                 TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { Text("Cancel") }
-                Button(cast::cast, enabled = cast.paid || flow.complete,
+                Button(cast::cast, enabled = !cast.busy && (cast.paid || flow.complete),
                     colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text(if (land(flow)) "Play" else "Cast") }
             }
         }
     }
+}
+
+/** Automatum is working out the last step (SYS-025): a small violet spinner; the panel takes no input meanwhile. */
+@Composable
+private fun Working() {
+    CircularProgressIndicator(Modifier.size(18.dp).semantics { contentDescription = "Automatum is working" },
+        color = AutomatumViolet, strokeWidth = 2.dp)
 }
 
 @Composable
@@ -323,12 +336,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
 @Composable
 internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, decision: Decision.ManaPayment) {
     Section("Mana · ${decision.cost}") {
-        val groups = decision.options.groupBy { use -> when (use) {
-            is ManaUse.Ability -> use.source.toString()
-            is ManaUse.Pool -> "pool/${use.index}"
-            is ManaUse.Life -> "life/${use.symbol}"
-            is ManaUse.Special -> "special/${use.way}/${use.objects}"
-        } }.values.toList()
+        val groups = ManaPicks.groups(decision)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             for (group in groups) {
                 val used = cast.mana.firstOrNull { it in group }

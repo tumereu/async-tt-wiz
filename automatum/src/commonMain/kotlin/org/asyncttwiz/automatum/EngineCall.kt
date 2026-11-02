@@ -108,7 +108,7 @@ class EngineCall(
         val played = state.board.cards.singleOrNull { it.id == atw } ?: error("No card $atw to fill $id")
         // I-D21: a card the device couldn't read plays with its printed values and manual abilities
         val definition = CardLedger.of(played.ledger).definition ?: definitions[played.definition]
-            ?: PrintedCards.definition(state, played) ?: throw Unsupported(listOf("card $atw has no card data"))
+            ?: PrintedCards.definition(state, played) ?: throw Unsupported(listOf("A card has no card data"))
         return FilledObject(id, definition)
     }
 

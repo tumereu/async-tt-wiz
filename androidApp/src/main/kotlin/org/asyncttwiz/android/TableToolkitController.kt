@@ -20,7 +20,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private val playTree: (() -> GameplayTree?)? = null,
     private val continuation: () -> Continuation? = { null },
     /** One automated batch (Automatum, I-D11) with its tags, sent with the given request id. */
-    automatedBatch: ((GameAction.PlayBatch, String) -> Boolean)? = null) : TableActionRoutes {
+    automatedBatch: ((GameAction.PlayBatch, String) -> Boolean)? = null,
+    /** Where a cast's engine work runs (SYS-025): off the main thread in the app. */
+    automatumWork: AutomatumWork = AutomatumWork.Inline) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     private var draft: PlayBatchDraft? = null
     fun current(): PlayState? = (draft?.state ?: state())?.takeIf { TableActionScope(it.gameId, it.id) == identity }
@@ -28,12 +30,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** The history's tags up to the shown board (the engine's event log, D33). */
     fun engineTags(): List<MtgTag?> = current()?.let { engineTags(playTree?.invoke(), it.currentNodeId) }.orEmpty()
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
-    internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it })
+    internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
+        automatumWork)
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it })
     /** What the viewer may cast or play from their hand now (I-D28). */
-    fun handPlays(play: PlayState): org.asyncttwiz.automatum.HandPlays = AutomatumBoards.handPlays(play, viewer, engineTags())
+    fun handPlays(play: PlayState): org.asyncttwiz.automatum.HandPlays = AutomatumBoards.handPlays(play, viewer, ::engineTags)
     val manual = ManualActions()
     val layoutState = mutableStateOf(TableLayoutState())
     val selectionState = mutableStateOf(TableSelection())
@@ -244,10 +247,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /**
      * The Automatum switch (integration spec §5): turns it [on] or off for the whole game, one shared event. Switching off
      * during an open flow first takes the flow back on the server ([revertFlow], I-D19); switching off closes the
-     * flow either way (I-D24). A refusal (I-D15) shows its reason like any refused action.
+     * flow either way (I-D24), and drops the player's own open cast, which nothing was sent of. A refusal (I-D15) shows
+     * its reason like any refused action.
      */
     fun setAutomatum(on: Boolean, revertFlow: (() -> Boolean)?): Boolean {
         val play = current() ?: return false
+        // The player's own open cast was never sent (I-D11): switching off simply drops it (i12review #2)
+        if (!on) cast.cancel()
         if (!on && Automatum.flowOpen(play.board)) revertFlow?.invoke()
         return submit(PlayAction.Mtg(MtgAction.SetAutomatum(on)))
     }
@@ -261,7 +267,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
         if (container.zone == PlayZone.STACK) { stackContents(); return }
         dismiss(); showStackBubbles(null)
-        layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { toggle && it == layoutState.value.localPileId })
+        layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { toggle && it == layoutState.value.localPileId },
+            localPileTargets = false)
     }
     /** A Graveyard/Exile pile tap opens that pile's menu (either player's pile), like the Library menu. */
     fun openPileMenu(id: String) {
@@ -274,7 +281,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val current = selectionState.value
         selectionState.value = current.copy(ids = if (selected) current.ids + ids else current.ids - ids.toSet())
     }
-    fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null); dismiss() }
+    fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false); dismiss() }
+    /** The pile opened to pick targets from ([open]), closed again once the targets are chosen. */
+    private var targetPile: String? = null
+    internal fun targetingEnded() {
+        val pile = targetPile ?: return
+        targetPile = null
+        if (layoutState.value.localPileId == pile) layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false)
+    }
     fun publicContents(): PileContents? {
         val id = layoutState.value.localPileId?.takeIf { panel == null } ?: return null
         val play = current() ?: return null
@@ -312,9 +326,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
 
     fun open(captured: TableIntent.Actions, item: TableItem, selection: TableSelection) {
-        // Targets are picked on the table while a cast asks for them (I-D5, I-D6)
-        if (cast.targeting) { cast.tapTarget(item); return }
-        if (flows.targeting) { flows.tapTarget(item); return }
+        // Targets are picked on the table while a cast asks for them (I-D5, I-D6); a Graveyard or Exile pile holding some
+        // opens as its card panel to pick them from (i12review #14)
+        if (cast.targeting || flows.targeting) {
+            val play = current()
+            if (play != null && item.kind == TableItemKind.PILE && item.zone in PublicPiles.zones &&
+                item.id in cast.glow(play) + flows.glow(play)) {
+                openPublicPile(item.id, toggle = false); targetPile = item.id
+                layoutState.value = layoutState.value.copy(localPileTargets = true)
+                return
+            }
+            if (cast.targeting) cast.tapTarget(item) else flows.tapTarget(item)
+            return
+        }
         val play = current() ?: return
         if (item.viewport.startsWith("cardPanel/")) {
             val display = (play.board.contentsDisplays + listOfNotNull(localPanelDisplay(play, viewer, layoutState.value)))

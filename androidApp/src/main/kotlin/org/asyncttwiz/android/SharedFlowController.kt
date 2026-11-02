@@ -12,6 +12,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.EngineBatch
 import org.asyncttwiz.automatum.EngineCall
+import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.Unmappable
 import org.asyncttwiz.protocol.*
@@ -118,21 +119,18 @@ internal class SharedFlowController(
     fun glow(play: PlayState): Set<String> {
         val flow = view ?: return emptySet()
         val decision = answering as? Decision.Targets ?: return emptySet()
-        return decision.options.mapNotNull { target -> when (val ref = flow.ref(target)) {
-            is MtgRef.Player -> "life/${ref.accountId}"
-            is MtgRef.Card -> ref.cardId
-            is MtgRef.StackItem -> play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id
-        } }.toSet()
+        return targetGlow(play, decision.options.map(flow::ref))
     }
 
     override val engine: GameState get() = view!!.state
     override fun atwCard(id: ObjectId): String? = view?.atwCard(id)
     override fun listedAnswers(): List<Answer> = view?.listedAnswers().orEmpty()
     override val paid: Boolean get() = view?.pays(mana) == true
+    /** The tapped sources are a set: their colours are worked out together ([ManaPicks], as in a cast). */
     override fun toggleMana(group: List<ManaUse>) {
         val flow = view ?: return
-        if (mana.any { it in group }) { mana = mana.filterNot { it in group }; return }
-        mana = group.firstOrNull { flow.pays(mana + it) }?.let { mana + it } ?: (mana + group.first())
+        val decision = flow.decision as? Decision.ManaPayment ?: return
+        mana = ManaPicks.toggle(decision, mana, group, flow::pays)
     }
 
     /** I-D27: the viewer sees what the rules let them see; the deciding player also the cards their own choice offers
@@ -154,15 +152,18 @@ internal class SharedFlowController(
     private fun sendCall(play: PlayState, perform: () -> EngineCall): Boolean {
         val route = send ?: run { fail("Automatum isn't available here."); return false }
         val call = try { perform() } catch (problem: IllegalArgumentException) {
-            fail("Automatum doesn't allow that: ${problem.message?.take(80)}"); return false
+            AppLog.info("automatum", "Answer refused: ${problem.message?.take(200)}")
+            fail(CastController.NOT_ALLOWED); return false
         } catch (problem: IllegalStateException) {
-            fail("Automatum couldn't go on (${problem.message?.take(80)})."); return false
+            AppLog.warn("automatum", "Shared flow couldn't go on: ${problem.message?.take(200)}")
+            fail("Automatum couldn't go on from here."); return false
         }
         val requestId = UUID.randomUUID().toString()
         val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
             GameAction.PlayBatch(listOf(PlayAction.PassAttention)), UUID.randomUUID().toString(), "1")
         val plan = try { EngineBatch.plan(call, viewer, command) } catch (problem: Unmappable) {
-            fail("Automatum couldn't send that (${problem.message?.take(80)})."); return false
+            AppLog.warn("automatum", "Shared flow step couldn't be planned: ${problem.message?.take(200)}")
+            fail("Automatum couldn't send that."); return false
         }
         fail(null)
         picked = emptyList()

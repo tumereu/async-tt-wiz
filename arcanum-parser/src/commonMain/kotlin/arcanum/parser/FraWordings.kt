@@ -74,6 +74,7 @@ internal object Fra {
     val HAVE_NO_MORE_THAN_ATTACK = Regex("""(.+?) you control have "No more than (\w+) creatures? can attack this planeswalker each combat\."""")
     val HAVE_QUOTED_LOYALTY = Regex("""(Planeswalkers) you control have "(\[[^\]]+\]: .+)"""")
     val AS_LONG_AS_MAY_CAST_EXILED = Regex("""As long as (.+?), you may cast the exiled card, and mana of any type can be spent to cast that spell\.""")
+    val SPELLS_WITH_MV_AT_MOST = Regex("""spells with mana value less than or equal to (.+)""")
     val MAY_CAST_FROM_HAND_WITHOUT_PAYING = Regex("""You may cast (spells with .+?) from your hand without paying their mana costs\.""")
     val HAS_KEYWORD_UNTIL_DEALT_COMBAT_DAMAGE = Regex("""(.+?) has ([a-z ,]+) as long as (?:it hasn't|they haven't|he hasn't|she hasn't) dealt combat damage yet\.""")
     val POWER_EQUAL_TO = Regex("""(.+?)'s power is equal to (.+?)(?:( and its toughness is equal to that number plus) (\w+))?\.""")

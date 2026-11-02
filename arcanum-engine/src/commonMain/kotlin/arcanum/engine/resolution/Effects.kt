@@ -1011,6 +1011,13 @@ internal object Effects {
 
     // ---- Keyword actions (CR 701)
 
+    /** fra: what [player] can behold (CR 701.4a): matching cards in their hand and permanents they control. */
+    fun beholdable(scope: Scope, player: arcanum.engine.state.PlayerId, filter: arcanum.api.ObjectFilter): List<ObjectId> {
+        val e = scope.eval()
+        val state = scope.act.state
+        return (state.player(player).hand + state.battlefield.filter { e.controllerOf(it) == player }).filter { e.matches(filter, it) }
+    }
+
     private fun keywordAction(scope: Scope, action: KeywordAction, bind: String?) {
         val act = scope.act
         KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
@@ -1066,6 +1073,14 @@ internal object Effects {
                 else act.chooseObjects(scope.actor, scope.self, armies, 1, 1, "Amass").first()
                 Actions.putCounters(act, cause, TargetRef.Object(army), CounterKind.PowerToughness(1, 1), e.value(action.count))
                 scope.bind(bind, NamedValue.Objects(listOf(army)))
+            }
+            // fra: CR 701.4a: reveal a matching card from your hand or choose a matching permanent you control
+            is KeywordAction.Behold -> {
+                val options = beholdable(scope, scope.actor, action.filter)
+                val chosen = act.chooseObjects(scope.actor, scope.self, options, 1, 1, "Behold")
+                val revealed = chosen.filter { act.state.obj(it)?.zone == Zone.Hand }
+                if (revealed.isNotEmpty()) act.record(Change.Happened(arcanum.engine.change.GameEvent.Revealed(scope.actor, revealed)))
+                scope.bind(bind, NamedValue.Objects(chosen))
             }
             is KeywordAction.Goad -> onBattlefield(scope, action.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)

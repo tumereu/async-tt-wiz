@@ -161,7 +161,7 @@ internal object Actions {
                 is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
-                is Modification.AlsoCreate -> move
+                is Modification.AlsoCreate, is Modification.CreateInstead -> move
             }
         }
         return move
@@ -616,7 +616,9 @@ internal object Actions {
                 if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
             modify = { n, r, _ -> modifyAmount(act, n, r) },
             instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0
-        if (final > 0) act.record(Changes.counters(act.state, holder, kind, final, meanings))
+        // fra: the counters put name their cause too ("whenever you put one or more loyalty counters on a planeswalker")
+        if (final > 0) act.record(Changes.counters(act.state, holder, kind, final, meanings).let { c ->
+            if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) })
         Replacements.addLinked(act, linked)
         return final.coerceAtLeast(0)
     }
@@ -687,6 +689,14 @@ internal object Actions {
                         is Modification.MultiplyAmount -> result?.map { (f, k) -> f to k * mod.factor }
                         is Modification.AddAmount -> result?.map { (f, k) -> f to k + e.value(mod.amount) }
                         is Modification.AlsoCreate -> result?.plus(tokenFace(act, e, mod.token) to e.value(mod.count))
+                        // fra: the matching tokens are created as another token instead, as many (CR 614.1a)
+                        is Modification.CreateInstead -> result?.map { (f, k) ->
+                            val probe = planned(listOf(f to 1)).single()
+                            val pattern = r.mechanic.event as? arcanum.api.EventPattern.CreateToken
+                            val matches = pattern == null || Evaluator(ProposedBoard(act.board(), mapOf(probe.id to probe)),
+                                Context(you = r.controller, self = r.source, names = r.names)).matches(pattern.tokens, probe.id)
+                            if (matches) tokenFace(act, e, mod.token) to k else f to k
+                        }
                         is Modification.EntersTapped -> result
                         else -> result
                     }

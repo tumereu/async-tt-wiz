@@ -8445,8 +8445,7 @@ internal class Sentences(
         Fra.TOKENS_CREATED_INSTEAD.matchEntire(line)?.let { m ->
             val tokens = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You))
             val (_, token) = Tokens.spec("a " + m.groupValues[2] + " token" + (if (m.groupValues[3].isEmpty()) "" else " with " + m.groupValues[3])) ?: return null
-            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CreateToken(tokens), instead = Instructions(steps = listOf(
-                Step.Do(Effect.CreateToken(token, Value.EventAmount, controller = Players.You)))))), affects = selfOnly)
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CreateToken(tokens), modify = listOf(Modification.CreateInstead(token)))), affects = selfOnly)
         }
         // fra chunk 10: "Enchanted creature loses all abilities and doesn't untap during its controller's untap step."
         if (line == "Enchanted creature loses all abilities and doesn't untap during its controller's untap step.")
@@ -8488,7 +8487,10 @@ internal class Sentences(
         // fra chunk 10: "You may cast spells with mana value less than or equal to the number of creatures you control from your hand
         // without paying their mana costs." (CR 118.9)
         Fra.MAY_CAST_FROM_HAND_WITHOUT_PAYING.matchEntire(line)?.let { m ->
-            val spells = fraPlural(m.groupValues[1]) ?: return null
+            // the cards in the hand, tested as the spells they would become (CR 601.3): their mana value
+            val spells = Fra.SPELLS_WITH_MV_AT_MOST.matchEntire(m.groupValues[1])?.let { v ->
+                ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Values.value(v.groupValues[1]) ?: return null)
+            } ?: return null
             return Ability.Static(listOf(Mechanic.MayPlay(Zone.Hand, arcanum.api.PlayKind.Cast, withoutPaying = true, holder = PlayerFilter.You)),
                 affects = Affected.Objects(Objects.Each(Filters.all(spells, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }

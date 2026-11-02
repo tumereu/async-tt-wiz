@@ -495,4 +495,7 @@ sealed interface Modification {
     /** The entering permanent enters with [mark] ("This creature enters prepared", CR 722.3a): it has the designation as it
      * enters, with what gaining it brings (a prepared permanent's copy of its prepare spell, 722.3c). */
     @Serializable @SerialName("enters-marked") data class EntersMarked(val mark: ObjectMark) : Modification
+    /** The tokens of a token-creating event that match the replacement's event are created as [token] instead, as many ("that
+     * many 5/5 red Dragon creature tokens with flying are created instead", CR 614.1a); other tokens of the event stay. */
+    @Serializable @SerialName("create-instead") data class CreateInstead(val token: TokenSpec) : Modification
 }

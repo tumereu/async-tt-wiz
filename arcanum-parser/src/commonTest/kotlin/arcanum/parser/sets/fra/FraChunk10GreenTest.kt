@@ -208,7 +208,7 @@ class FraChunk10GreenTest {
         type = "Enchantment",
         text = "You may cast spells with mana value less than or equal to the number of creatures you control from your hand without paying their mana costs.",
     ) parsesTo abilities(static(Mechanic.MayPlay(Zone.Hand, PlayKind.Cast, withoutPaying = true, holder = PlayerFilter.You),
-            affects = Objects.Each(and(spellFilter, ObjectFilter.ManaValue(Comparison.AtMost, Value.Count(Objects.Each(creatureYouControl))), ObjectFilter.InZone(Zone.Hand),
+            affects = Objects.Each(and(ObjectFilter.ManaValue(Comparison.AtMost, Value.Count(Objects.Each(creatureYouControl))), ObjectFilter.InZone(Zone.Hand),
                 ObjectFilter.OwnedBy(PlayerFilter.You)))))
 
     // CR 613.1d, 613.4b

@@ -186,8 +186,7 @@ class FraChunk09RedTest {
             If one or more artifact tokens would be created under your control, that many 5/5 red Dragon creature tokens with flying are created instead.
         """,
     ) parsesTo abilities(Keyword.Flying, static(Mechanic.Replacement(EventPattern.CreateToken(and(artifact, controlledBy(PlayerFilter.You))),
-            instead = Instructions(steps = listOf(Step.Do(Effect.CreateToken(creatureToken("Dragon", listOf(Color.Red), 5, 5, abilities = listOf(Keyword.Flying)),
-                Value.EventAmount, Players.You)))))))
+            modify = listOf(Modification.CreateInstead(creatureToken("Dragon", listOf(Color.Red), 5, 5, abilities = listOf(Keyword.Flying)))))))
 
     @Test
     fun eardrumSplitter() = card(

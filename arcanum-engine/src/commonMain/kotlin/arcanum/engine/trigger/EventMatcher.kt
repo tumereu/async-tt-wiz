@@ -29,7 +29,7 @@ import arcanum.engine.state.TriggerEvent
  * event (a replacement deciding whether it applies, CR 614.12), objects are tested as they are before the event.
  */
 internal object EventMatcher {
-    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false): List<TriggerEvent> = when (pattern) {
+    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> moves(change).filter { m ->
             (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
                 (!pattern.resolving || Meaning.Resolved in m.meanings) &&
@@ -171,6 +171,15 @@ internal object EventMatcher {
             ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
         // Day and night aren't tracked yet.
         is EventPattern.DayNightChanges -> emptyList()
+        // CR 709.5h, i: given an unlocked designation; "this door" is the half the ability is printed on ([door])
+        is EventPattern.Unlock -> ((change as? Change.Happened)?.event as? GameEvent.Unlocked)
+            ?.takeIf { (!pattern.fully || it.fully) && (!pattern.thisDoor || door == null || it.door == door) && e.matches(pattern.objects, it.id) }
+            ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))), listOf(it.player))) }.orEmpty()
+        // CR 701.62b: once the whole action is done
+        is EventPattern.ManifestDread -> ((change as? Change.Happened)?.event as? GameEvent.ManifestedDread)
+            ?.takeIf { e.matches(pattern.players, it.player) }
+            ?.let { listOf(TriggerEvent(listOfNotNull(it.manifested?.let { m -> RoleObjects(EventRole.Object, listOf(m)) },
+                RoleObjects(EventRole.Rest, it.rest)), listOf(it.player))) }.orEmpty()
     }
 
     /** A spell's cast event (CR 601.2i): the Stack item of a cast spell put on the Stack, tagged [Meaning.Cast]. */

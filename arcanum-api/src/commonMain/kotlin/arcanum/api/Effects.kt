@@ -216,6 +216,20 @@ sealed interface Effect {
     @Serializable @SerialName("emblem") data class CreateEmblem(val abilities: List<Ability>, val players: Players) : Effect
     /** A keyword action; [bind] names what it acted on ("the beheld card", "the evidence collected"). */
     @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction, val bind: String? = null) : Effect
+    /** "Unlock a locked door of [objects]" (CR 709.5f): for each of [objects] with a locked half, [chooser] chooses one of
+     * its locked halves (or [door] only, when given: the unlock special action of CR 709.5e) and it gets that half's
+     * unlocked designation ([ObjectMark.Unlocked]); [bind] names the permanents unlocked. Unlocking triggers "when you
+     * unlock this door" (709.5h). */
+    @Serializable @SerialName("unlock-door") data class UnlockDoor(
+        val objects: Objects, val chooser: Players, val door: Door? = null, val bind: String? = null,
+    ) : Effect
+    /** "Lock a door of [objects]" (CR 709.5g): [chooser] chooses an unlocked half of each and it loses that half's
+     * unlocked designation. */
+    @Serializable @SerialName("lock-door") data class LockDoor(val objects: Objects, val chooser: Players) : Effect
+    /** Put on each of [objects] the counters [of] has: every kind, as many of each ("put those counters on up to one
+     * target creature"), read as [of] last existed when it has left (CR 608.2h). Nothing is removed from [of]; moving
+     * counters is [MoveCounters]. */
+    @Serializable @SerialName("put-counters-of") data class PutCountersOf(val objects: Objects, val of: Objects) : Effect
 }
 
 /** Who or what receives damage or an attachment: objects, players, or both; [target] is everything chosen for that
@@ -298,6 +312,11 @@ sealed interface KeywordAction {
     @Serializable @SerialName("discover") data class Discover(val count: Value) : KeywordAction
     @Serializable @SerialName("venture") data object Venture : KeywordAction
     @Serializable @SerialName("manifest") data class Manifest(val count: Value) : KeywordAction
+    /** "[Players] manifest(s) dread" (CR 701.62a): look at the top two cards of their library, manifest one of them
+     * (CR 701.40a: onto the battlefield face down as a 2/2 creature, [ObjectMark.Manifested]) and put the other into
+     * their graveyard. The bind of [Effect.Action] names the manifested permanent ("that creature"). Triggers "whenever
+     * you manifest dread" once it is done (701.62b). */
+    @Serializable @SerialName("manifest-dread") data class ManifestDread(val players: Players) : KeywordAction
     @Serializable @SerialName("monstrosity") data class Monstrosity(val count: Value) : KeywordAction
     @Serializable @SerialName("adapt") data class Adapt(val count: Value) : KeywordAction
     @Serializable @SerialName("goad") data class Goad(val objects: Objects) : KeywordAction

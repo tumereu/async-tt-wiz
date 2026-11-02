@@ -79,6 +79,8 @@ sealed interface EventRole {
     @Serializable @SerialName("defender") data object Defender : EventRole
     /** In an unattach event: the object or player it was attached to. */
     @Serializable @SerialName("from") data object From : EventRole
+    /** In a manifest-dread event: the cards put into the graveyard (CR 701.62a). */
+    @Serializable @SerialName("rest") data object Rest : EventRole
 }
 
 /**
@@ -165,6 +167,9 @@ sealed interface ObjectFilter {
     @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null) : ObjectFilter
     /** Something happened to it this turn ("creatures that attacked this turn", "entered this turn"). */
     @Serializable @SerialName("this-turn") data class ThisTurn(val event: EventPattern) : ObjectFilter
+    /** A spell or ability with exactly one target, which matches [target] when given ("target spell or ability with a
+     * single target", "a spell that targets only a single creature you control", CR 115.7). */
+    @Serializable @SerialName("single-target") data class SingleTarget(val target: ObjectFilter? = null) : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,
@@ -219,6 +224,12 @@ sealed interface AbilityKind {
     @Serializable @SerialName("static") data object Static : AbilityKind
     @Serializable @SerialName("mana") data object Mana : AbilityKind
     @Serializable @SerialName("loyalty") data object Loyalty : AbilityKind
+    /** The special action of paying a locked door's mana cost to unlock it (CR 709.5e): "unlock costs", "spend this mana
+     * only to unlock a door". */
+    @Serializable @SerialName("unlock") data object Unlock : AbilityKind
+    /** A special action that turns a face-down permanent face up (CR 116.2b: morph, disguise, manifest, cloak): "spend this
+     * mana only to turn a permanent face up". */
+    @Serializable @SerialName("turn-face-up") data object TurnFaceUp : AbilityKind
 }
 
 @Serializable

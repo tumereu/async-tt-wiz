@@ -92,6 +92,9 @@ sealed interface NumericProperty {
     @Serializable @SerialName("loyalty") data object Loyalty : NumericProperty
     /** Counters of [kind], or of every kind ("the number of counters on it") when null. */
     @Serializable @SerialName("counters") data class Counters(val kind: CounterKind?) : NumericProperty
+    /** How many of its halves are unlocked (CR 709.5c): 0–2 for a Room, 0 for other objects ("the number of unlocked
+     * doors among Rooms you control" is their total). */
+    @Serializable @SerialName("unlocked-doors") data object UnlockedDoors : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */
@@ -166,6 +169,8 @@ sealed interface Condition {
     @Serializable @SerialName("searched") data class Searched(val name: String, val zone: Zone) : Condition
     /** The source Class is at [level] or higher (CR 716). Levelers compare their [CounterKind.Level] counters. */
     @Serializable @SerialName("class-level") data class ClassLevelAtLeast(val level: Int) : Condition
+    /** [value] is a prime number ("you control a prime number of lands"). */
+    @Serializable @SerialName("prime") data class Prime(val value: Value) : Condition
     @Serializable @SerialName("day") data object IsDay : Condition
     @Serializable @SerialName("night") data object IsNight : Condition
 }

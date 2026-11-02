@@ -172,6 +172,13 @@ sealed interface AbilityOrigin {
         override val key: String get() = "b:$from/${origin.key}"
     }
 
+    /** A special action the rules give an object rather than an ability it has (CR 116.2): unlocking a Room's locked
+     * door (CR 709.5e, [name] "unlock-left" / "unlock-right"), turning a manifested permanent face up (CR 701.40b,
+     * "manifested"). */
+    @Serializable @SerialName("rule") data class Rule(val name: String) : AbilityOrigin {
+        override val key: String get() = "r:$name"
+    }
+
     /** The first origin in the path: where the ability chain started. */
     val root: AbilityOrigin
         get() = when (this) {

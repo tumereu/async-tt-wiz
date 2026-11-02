@@ -30,6 +30,8 @@ class KeywordExpansionsTest {
         Keyword.Frenzy(1), Keyword.Poisonous(1), Keyword.Reinforce(1, cost), Keyword.Annihilator(1), Keyword.UmbraArmor, Keyword.Undying,
         Keyword.Outlast(cost), Keyword.Exploit, Keyword.Renown(1), Keyword.Devoid, Keyword.Skulk, Keyword.Improvise, Keyword.Afflict(1),
         Keyword.JumpStart, Keyword.Mentor, Keyword.Afterlife(1), Keyword.LivingMetal, Keyword.ForMirrodin, Keyword.JobSelect,
+        // CR 702.176 (dsk)
+        Keyword.Impending(4, cost),
     )
 
     private fun card(abilities: List<Ability>) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Test Subject",
@@ -64,6 +66,20 @@ class KeywordExpansionsTest {
     }
 
     // CR 702.35a: "When this card is exiled this way": the trigger is linked to the discard replacement, not any exile.
+    // CR 702.176a: the counters, the type loss and the end-step trigger all depend on the impending cost having been paid
+    @Test
+    fun impendingOnlyMattersWhenItsCostWasPaid() {
+        val abilities = KeywordExpansions.expand(Keyword.Impending(5, cost))!!
+        val paid = Condition.Paid(Keyword.Impending.Kind, times = 1, of = Objects.Self)
+        assertEquals(Mechanic.AlternativeCost(Keyword.Impending.Kind, cost), (abilities[0] as Ability.Static).mechanics.single())
+        assertEquals(paid, (abilities[1] as Ability.Static).condition)
+        val notACreature = abilities[2] as Ability.Static
+        assertEquals(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))), notACreature.mechanics)
+        assertEquals(Condition.And(listOf(paid, Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(CounterKind.Time, atLeast = 1)))),
+            notACreature.condition)
+        assertEquals(notACreature.condition, (abilities[3] as Ability.Triggered).interveningIf)
+    }
+
     @Test
     fun madnessTriggersOnlyThroughItsReplacement() {
         val abilities = KeywordExpansions.expand(Keyword.Madness(cost))!!

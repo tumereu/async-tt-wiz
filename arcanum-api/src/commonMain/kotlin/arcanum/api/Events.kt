@@ -105,6 +105,16 @@ sealed interface EventPattern {
     @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter) : EventPattern
     /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
     @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter) : EventPattern
+    /** A permanent matching [objects] is given an unlocked designation (CR 709.5h), as it enters or later; [thisDoor]:
+     * only the half the triggered ability is printed on ("When you unlock this door"); [fully]: only when it then has
+     * both ("whenever you fully unlock a Room", CR 709.5i). Role object (the permanent); [Players.EventPlayer] is its
+     * controller, the player who unlocked it. */
+    @Serializable @SerialName("unlock") data class Unlock(
+        val objects: ObjectFilter, val thisDoor: Boolean = false, val fully: Boolean = false,
+    ) : EventPattern
+    /** A player matching [players] manifests dread (CR 701.62b), once the whole action is done. Roles object (the
+     * manifested permanent, if any) and rest (the cards put into the graveyard). */
+    @Serializable @SerialName("manifest-dread") data class ManifestDread(val players: PlayerFilter) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */

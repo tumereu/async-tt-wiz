@@ -259,6 +259,9 @@ internal object Legality {
             else -> Unit
         }
         if (action.oncePerGame && activationsEver(snap, source, instance.origin.key) > 0) return "only once each game"
+        // Unable to Scream: "can't be turned face up"
+        if (action.instructions.steps.any { (it as? arcanum.api.Step.Do)?.effect is arcanum.api.Effect.TurnFaceUp } &&
+            snap.view[source]?.has { it == arcanum.api.Mechanic.CantBeTurnedFaceUp } == true) return "it can't be turned face up"
         return null
     }
 
@@ -295,9 +298,18 @@ internal object Legality {
      */
     fun faceDownActions(snap: Snapshot, id: ObjectId): List<AbilityInstance> {
         val o = snap.state.obj(id) ?: return emptyList()
-        if (!o.faceDown) return emptyList()
+        // CR 709.5e: unlocking a Room's locked door
+        if (!o.faceDown) return arcanum.engine.room.Rooms.unlockActions(snap.state, id)
         val face = o.definition?.faces?.firstOrNull() ?: return emptyList()
-        return face.abilities.flatMapIndexed { i, ability ->
+        // CR 701.40b: a manifested creature card turns face up for its mana cost
+        val manifested = if (arcanum.api.ObjectMark.Manifested in o.marks && CardType.Creature in face.types && face.manaCost != null)
+            listOf(AbilityInstance(Ability.SpecialAction(arcanum.api.Cost.mana(face.manaCost!!),
+                arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.TurnFaceUp(arcanum.api.Objects.Self)))),
+                timing = Timing.Any, functionsIn = listOf(arcanum.api.Zone.Battlefield),
+                condition = arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Self, arcanum.api.ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)),
+                text = "Turn it face up for its mana cost"), AbilityOrigin.Rule("manifested")))
+            else emptyList()
+        return manifested + face.abilities.flatMapIndexed { i, ability ->
             val printed = AbilityOrigin.Printed(0, i)
             when (ability) {
                 is Ability.SpecialAction -> listOf(AbilityInstance(ability, printed))

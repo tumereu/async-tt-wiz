@@ -129,8 +129,26 @@ sealed interface ObjectMark {
     @Serializable @SerialName("saddled") data object Saddled : ObjectMark
     /** A solved Case (CR 719.3b). */
     @Serializable @SerialName("solved") data object Solved : ObjectMark
+    /** "Left half unlocked" / "right half unlocked" (CR 709.5c): the unlocked designations of a permanent with a shared
+     * type line (a Room). Given as it enters for the half cast (709.5d), by unlocking (709.5e, f), taken by locking
+     * (709.5g); [Effect.UnlockDoor] and [Effect.LockDoor] set them, never [Effect.Mark]. A half without it is locked. */
+    @Serializable @SerialName("unlocked") data class Unlocked(val door: Door) : ObjectMark
+    /** A manifested permanent (CR 701.40a): face down because it was manifested, for as long as it stays face down; its
+     * controller may turn it face up for its mana cost if it's a creature card (701.40b). Set by the engine as it
+     * manifests. */
+    @Serializable @SerialName("manifested") data object Manifested : ObjectMark
     /** Any other mark by name. */
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
+}
+
+/** A half of a permanent with a shared type line, a Room's door (CR 709.5, 709.5j): the left half is the card's first
+ * face, the right half its second. */
+@Serializable
+sealed interface Door {
+    /** The left half (face 0). */
+    @Serializable @SerialName("left") data object Left : Door
+    /** The right half (face 1). */
+    @Serializable @SerialName("right") data object Right : Door
 }
 
 /** Player designations: the monarch (CR 725), the initiative (CR 726), the city's blessing (CR 702.131c). */

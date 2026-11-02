@@ -177,6 +177,10 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
     @Serializable @SerialName("can-block-any-number") data object CanBlockAnyNumber : Mechanic
+    /** Can't attack alone: it can be declared as an attacker only with another attacker (CR 506.5, 508.1c). */
+    @Serializable @SerialName("cant-attack-alone") data object CantAttackAlone : Mechanic
+    /** Can't block alone: it can be declared as a blocker only with another blocker (CR 506.5, 509.1b). */
+    @Serializable @SerialName("cant-block-alone") data object CantBlockAlone : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
     @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter) : Mechanic
     /** Assigns combat damage equal to its toughness rather than its power (CR 510.1). */
@@ -263,6 +267,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-be-activated") data class CantBeActivated(val manaAbilities: Boolean) : Mechanic
     /** The affected permanents can't be regenerated: regeneration shields don't apply to them (CR 701.19c). */
     @Serializable @SerialName("cant-be-regenerated") data object CantBeRegenerated : Mechanic
+    /** The affected face-down permanents can't be turned face up: neither by a special action (CR 116.2b, 701.40b) nor by an
+     * effect. */
+    @Serializable @SerialName("cant-be-turned-face-up") data object CantBeTurnedFaceUp : Mechanic
     /** When the card itself may be cast ("Cast this spell only during combat", "only if …"); prohibitions on other spells
      * are [CantCast]. */
     @Serializable @SerialName("cast-restriction") data class CastRestriction(val timing: Timing? = null, val condition: Condition? = null) : Mechanic
@@ -303,6 +310,17 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    /** The affected permanents untap during each other player's untap step too (CR 502.3). */
+    @Serializable @SerialName("untaps-during-other-untap-steps") data object UntapsDuringOtherUntapSteps : Mechanic
+    /** The affected players don't lose the game for having 0 or less life (CR 704.5a doesn't apply to them). */
+    @Serializable @SerialName("no-loss-for-zero-life") data object NoLossForZeroLife : Mechanic
+    /** The affected players' maximum hand size is [value] (CR 402.2), instead of seven. */
+    @Serializable @SerialName("maximum-hand-size-is") data class MaximumHandSize(val value: Value) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
+    /** "If this card is in your opening hand, you may begin the game with it on the battlefield" (CR 103.6a): an
+     * opening-hand action, taken after mulligans; works in the hand. */
+    @Serializable @SerialName("may-begin-on-battlefield") data object MayBeginOnBattlefield : Mechanic
 
     // ---- Replacement and prevention (CR 614, 615) ----
     /**

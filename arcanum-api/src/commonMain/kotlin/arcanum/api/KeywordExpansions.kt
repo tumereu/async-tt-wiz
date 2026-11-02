@@ -426,6 +426,21 @@ object KeywordExpansions {
             targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
             steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))))),
             rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        // CR 702.176a: "You may choose to pay [cost] rather than pay this spell's mana cost," "If you chose to pay this
+        // permanent's impending cost, it enters with N time counters on it," "As long as this permanent's impending cost
+        // was paid and it has a time counter on it, it's not a creature," and "At the beginning of your end step, if this
+        // permanent's impending cost was paid and it has a time counter on it, remove a time counter from it."
+        is Keyword.Impending -> {
+            val time = CounterKind.Time
+            val paid = Condition.Paid(Keyword.Impending.Kind, times = 1, of = Objects.Self)
+            val waiting = Condition.And(listOf(paid, Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(time, atLeast = 1))))
+            listOf(
+                Ability.Static(listOf(Mechanic.AlternativeCost(Keyword.Impending.Kind, keyword.cost)), affects = Affected.Objects(Objects.Self)),
+                Ability.Static(listOf(entersWith(time, Value.Fixed(keyword.amount))), condition = paid, affects = Affected.Objects(Objects.Self)),
+                Ability.Static(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))), condition = waiting, affects = Affected.Objects(Objects.Self)),
+                Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.You)),
+                    steps(Effect.RemoveCounters(Objects.Self, time, Value.Fixed(1))), interveningIf = waiting))
+        }
         else -> null
     }
 

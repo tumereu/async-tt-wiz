@@ -151,7 +151,8 @@ out of anything stuck.
   `lanes(area)` reads them from a combat area), `division`/`divide` (I-D29, the suggestion when no shares are given),
   `preview` (the damage, life changes and deaths if everyone passes with the suggested divisions, also for blocks still
   being arranged) and `firstStrikeStep`. `HostPriority` keeps priority as the engine left it (a holder other than the
-  active player on an empty Stack without passes is taken as left from a turn changed by hand).
+  active player on an empty Stack without passes is taken as left from a turn changed by hand). `SharedFlow.autoPass`
+  (I2b) still stops on an empty Stack; the app moves to `StepFlow` when it runs the steps through the engine.
 
 ### I4 — Automatum-only controls
 

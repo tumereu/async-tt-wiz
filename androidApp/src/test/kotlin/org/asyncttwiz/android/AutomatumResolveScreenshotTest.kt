@@ -170,10 +170,8 @@ class AutomatumResolveScreenshotTest {
         assertEquals(life(cast, f.b) - 3, life(after, f.b))
         assertTrue(after.board.stackEffects.isEmpty())
         // CR 117.3b: the active player gets priority after resolution; with nothing left to do she is passed for (TRN-057),
-        // and Bob, who could still cast his Storm Spark, holds it in her main phase with the move (TRN-058)
-        assertEquals(MtgPriority(f.b, 1), after.board.priority)
-        assertEquals(TurnPosition.PRECOMBAT_MAIN, TurnPosition.of(after.board.turn))
-        assertEquals(f.b, after.board.attentionHolder)
+        // and Bob, who could still cast his Storm Spark, has no pause in her main phase (STK-036): Automatum goes on past it
+        assertFalse(after.board.turn == cast.board.turn && after.board.priority?.holder == f.b)
     }
 
     // STK-026, I-D3, I-D18: with nothing Bob could respond with, the spell resolves in the cast's own batch

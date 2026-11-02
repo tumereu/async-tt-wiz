@@ -125,6 +125,11 @@ class HistoryPlayback(initial: HistoryTree,
     var foreground by mutableStateOf(true); private set
     /** A remote flip or final board is still LIVE, but must settle before moving on. */
     var livePanelReveal by mutableStateOf(false); private set
+    /** I-D41 (STK-037): the live board held while the viewer's pause runs ([holdPause]); its end is [releasePause], not the
+     * playback pause. */
+    var livePause by mutableStateOf<String?>(null); private set
+    /** The point a playback stopped at for the viewer's pause ([stopAtPause]), so continuing from it doesn't stop again. */
+    private var pauseStopCursor: String? = null
     private var panelViewer: String? = null
     private var removedParents: Map<String, String> = emptyMap()
     private var rollbackPlan: Pair<String, String>? = null
@@ -241,7 +246,9 @@ class HistoryPlayback(initial: HistoryTree,
         shownLive?.let(::resolveCursor)?.takeIf { opponentBranchedFrom(it, viewer) }?.let { pauseForBranch(it); return }
         val cursor = resolveCursor(position.cursorId)
         if (cursor != position.cursorId) onJump()
-        val held = livePanelReveal && tree.contains(position.cursorId) && tree.isAncestor(position.cursorId, tree.sharedHeadId)
+        if (livePause != null && (livePause != position.cursorId || !tree.contains(position.cursorId))) livePause = null
+        val held = (livePanelReveal || livePause != null) && tree.contains(position.cursorId) &&
+            tree.isAncestor(position.cursorId, tree.sharedHeadId)
         val reveal = if (foreground && position.mode == HistoryMode.LIVE) {
             if (held) position.cursorId else nextPanelReveal(cursor)
         } else null
@@ -275,7 +282,7 @@ class HistoryPlayback(initial: HistoryTree,
      * when opening the game there (orange notice, Rewind, locked strip). */
     private fun pauseForBranch(shown: String) {
         onJump() // Queued live effects belong to the line being left.
-        livePanelReveal = false; finalAnimationCursor = null; autoPauseCursor = null
+        livePanelReveal = false; livePause = null; finalAnimationCursor = null; autoPauseCursor = null
         immediateStepCursor = null; lineAnchor = null; resumeHold = false
         position = HistoryPosition(shown, HistoryMode.PLAYBACK, false, tree.version(shown))
         detectBranch()
@@ -289,6 +296,8 @@ class HistoryPlayback(initial: HistoryTree,
         for (index in tree.depth(after) + 1 until path.size) {
             val node = tree.nodes.getValue(path[index])
             if (viewer != null && node.author != viewer && node.action is PlayAction.RevealContentsCard) return node.id
+            // I-D41 (STK-037): the point where the other player's device passed for the viewer, who held priority there
+            if (viewer != null && index > tree.depth(after) + 1 && passedFor(node, viewer)) return node.parentId
             if (node.action is PlayAction.SuggestResult && index > tree.depth(after) + 1) return node.parentId
         }
         return null
@@ -297,11 +306,40 @@ class HistoryPlayback(initial: HistoryTree,
     /** Called after the face-up endpoint's animation and the configured history group pause. */
     fun finishPanelReveal() {
         if (!foreground || !livePanelReveal || position.mode != HistoryMode.LIVE) return
+        if (livePause == position.cursorId) return
         val reveal = nextPanelReveal(position.cursorId)
         livePanelReveal = reveal != null
         val target = reveal ?: tree.sharedHeadId
         position = HistoryPosition(target, displayVersion = tree.version(target))
     }
+    /** I-D41 (STK-037): the shown live board [cursor] is the viewer's pause: it stays shown while the game goes on, until
+     * [releasePause] (the pause's own time, not the playback pause). */
+    fun holdPause(cursor: String) {
+        if (!foreground || position.mode != HistoryMode.LIVE || position.cursorId != cursor) return
+        livePause = cursor
+    }
+    /** The viewer's pause is over (or was answered): the live table moves on as after a held reveal. */
+    fun releasePause() {
+        if (livePause == null) return
+        livePause = null
+        if (position.mode == HistoryMode.LIVE && livePanelReveal) finishPanelReveal()
+    }
+
+    /**
+     * I-D41 (HIS-093): playback reached [pause], the viewer's pause on the shown board: Auto stops there (no time limit)
+     * unless the next group is the viewer's own; once per point. Only forward along the live line, never in a rewind.
+     */
+    fun stopAtPause(viewer: String, pause: Boolean): Boolean {
+        if (!foreground || !position.playing || !pause || position.mode != HistoryMode.PLAYBACK) return false
+        val cursor = position.cursorId
+        if (cursor == tree.sharedHeadId || cursor == pauseStopCursor || !tree.isAncestor(cursor, tree.sharedHeadId)) return false
+        val next = tree.path(tree.sharedHeadId).getOrNull(tree.depth(cursor) + 1)?.let(tree.nodes::get)
+        if (next?.author == viewer) return false
+        pauseStopCursor = cursor
+        pause()
+        return true
+    }
+
     /** Present the final board before a result without enabling personal timeline mode. */
     fun holdLiveAt(id: String) {
         if (position.mode != HistoryMode.LIVE || !tree.contains(id)) return
@@ -314,7 +352,7 @@ class HistoryPlayback(initial: HistoryTree,
     fun background() {
         foreground = false
         if (position.mode != HistoryMode.LIVE) return
-        livePanelReveal = false; finalAnimationCursor = null; autoPauseCursor = null
+        livePanelReveal = false; livePause = null; finalAnimationCursor = null; autoPauseCursor = null
         position = position.copy(mode = HistoryMode.PLAYBACK, playing = false)
         resumeHold = true
     }
@@ -353,7 +391,7 @@ class HistoryPlayback(initial: HistoryTree,
         if (jump) onJump()
         // A queued UI/review callback can refer to a deleted or not-yet-indexed boundary.
         val cursor = resolveCursor(id)
-        livePanelReveal = false
+        livePanelReveal = false; livePause = null
         autoPauseCursor = null
         finalAnimationCursor = null
         resumeHold = false
@@ -441,7 +479,7 @@ class HistoryPlayback(initial: HistoryTree,
         position.cursorId == capturedId && tree.contains(capturedId)
     fun continuationApplied() {
         if (position.cursorId != tree.sharedHeadId) onJump()
-        livePanelReveal = false; finalAnimationCursor = null; autoPauseCursor = null
+        livePanelReveal = false; livePause = null; finalAnimationCursor = null; autoPauseCursor = null
         rollbackPlan = null; branched = false; resumeHold = false; lineAnchor = null
         position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
     }
@@ -726,4 +764,13 @@ class HistorySceneAnimation(initial: TableScene) {
         val pile = items.firstOrNull { (it.kind == TableItemKind.PILE || it.copies > 1) && source in it.cards } ?: return null
         return pile.bounds
     }
+}
+
+/** I-D41 (STK-037): [node] is the other player passing priority for [viewer], who held it: the first, shown event of a
+ * step another player's device made after the viewer's pause (or their "Pass for them"); passes folded into a step are
+ * the host's own (I-D22). */
+internal fun passedFor(node: GameplayMutation, viewer: String): Boolean {
+    if (node.author == viewer || node.tag?.folded == true) return false
+    val priority = ((node.action as? PlayAction.Mtg)?.action as? MtgAction.SetPriority) ?: return false
+    return priority.before?.holder == viewer && priority.after?.holder != viewer
 }

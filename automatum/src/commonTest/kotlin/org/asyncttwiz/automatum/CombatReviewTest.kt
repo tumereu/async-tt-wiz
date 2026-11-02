@@ -43,7 +43,7 @@ class CombatReviewTest {
     private val bob get() = table.bob
     private var manualRequests = 0
 
-    /** Alice's main phase of turn 3; Bob keeps Storm Spark and a Mountain, so the host never passes for him (I-D18). */
+    /** Alice's main phase of turn 3; Bob keeps Storm Spark and a Mountain, so the host never passes for him (I-D18, with Full control, I-D41). */
     private fun game(): RoundTrip {
         table.turn = TurnState(alice, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
         table.priority = MtgPriority(alice)
@@ -51,6 +51,8 @@ class CombatReviewTest {
         table.put(bob, PlayZone.BATTLEFIELD, "Mountain")
         table.put(bob, PlayZone.HAND, "Storm Spark")
         table.put(bob, PlayZone.LIBRARY, "Island", "Island", "Island")
+        // I-D41: with Full control Automatum stops in every step in which a player could act, as these tests walk it
+        table.fullControl += listOf(alice, bob)
         return RoundTrip(table.state(), table.definitions)
     }
 

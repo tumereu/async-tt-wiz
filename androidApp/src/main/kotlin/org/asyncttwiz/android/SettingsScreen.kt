@@ -52,6 +52,8 @@ internal fun SettingsContent(catalog: CatalogViewModel?, accountId: String, logo
             HorizontalDivider()
             SettingsSection("Timeline playback") { PlaybackSettings(preferences, accountId, heading = false, moveSpeed = false) }
             HorizontalDivider()
+            SettingsSection("Automatum") { AutomatumPauseSettings(accountId) }
+            HorizontalDivider()
             if (catalog != null) {
                 Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(bottom = 8.dp)) { CatalogControls(catalog) }
                 HorizontalDivider()

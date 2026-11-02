@@ -168,6 +168,10 @@ object HistoryGrouping {
     /** Search entry conveniences share its compact prefix; no invocation/history lookup is needed. */
     internal fun classify(action: PlayAction, board: BoardState, author: String, transition: GameplayTransition): HistorySemantic {
         val semantic = classify(action, board.containers, transition)
+        // I-D41: a pass made for another player (after their pause, or "Pass for them") starts a group of its own, so the
+        // point where they held priority ends a group: playback stops there and a branch can start from it
+        val passFor = ((action as? PlayAction.Mtg)?.action as? MtgAction.SetPriority)?.before?.holder
+        if (passFor != null && passFor != author) return semantic.copy(isolated = true)
         if (action !is PlayAction.ResetCorner && action !is PlayAction.ClearCardCounter && action !is PlayAction.SetTapped) return semantic
         val search = board.contentsDisplays.firstOrNull { it.author == author && it.search && it.panelVersion >= 2 }
         return if (search == null) semantic else semantic.copy(panelSession = search.id)
@@ -271,7 +275,7 @@ object HistoryGrouping {
             is MtgAction.SetStackItem -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.LAYERS)
             is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord, MtgAction.ClearRecords ->
                 HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.STICKY_NOTE_2)
-            is MtgAction.SetSkipWhenNoChoice -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
+            is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
                 "automatum", isolated = true)
         }
         is PlayAction.MoveCard -> {

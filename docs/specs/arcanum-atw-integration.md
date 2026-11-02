@@ -266,6 +266,24 @@ out of anything stuck.
   `triggered` and pre-answer records and sets passes in a row to 0 (`Automatum.turnScoped`), recorded in the sealed
   delta so Undo of the switch restores them. Catalog: TRN-004, TRN-057, TRN-061, SYS-055, SYS-070.
 
+- **Built (I-D41, pause points):** `PausePoints` (module `automatum/`) is the rule: a stop is the holder's own main phase on
+  an empty Stack; a pause is another player's spell or ability on top of the Stack, the defending player's priority in
+  the declare attackers step and both players' in the declare blockers step (once creatures attack); with
+  `PlayPlayer.fullControl` (`MtgAction.SetFullControl`, the player's own) every other step with priority and their own
+  spells too, and a cast keeps its caster's priority. `StepFlow.automatic` passes for a holder with neither (after
+  `Engine.shouldPassFor`), and stops yielding at a state it yielded in before. `PausePoints.at(board)` reads the same rule
+  from ATW's board alone. App: `AutomatumPauseDriver` on the live table — the viewer's pause (`PauseRole.Yours`) shows an
+  emptying bar for the device's response time and holds the live table on it (`HistoryPlayback.holdPause`, also when the
+  next step arrived with it: `passedFor`); the device whose step made it passes when it runs out (`PauseRole.Theirs`: at
+  once when the other player isn't online or "Proceed at once", `SharedFlowController.autoPass`). Hold / Respond arm a
+  continuation at the pause (`TableHistoryController.holdAt`), so a late reaction is a branch; Let it resolve there
+  returns to live when the game has gone on. A pass made for another player starts its own history group, so the pause
+  ends one; timeline Auto stops at the viewer's pauses (`HistoryPlayback.stopAtPause`). Settings → Automatum
+  (`PauseSettings`, device per account; Full control copied into each game). Choices: response time and wait are the
+  acting device's own (the reacting device shows its own time); "online" is the green presence dot; the opponent's end
+  step and beginning of combat are pauses only with Full control. Catalog: STK-026, STK-036–STK-039, TRN-057, SYS-071,
+  HIS-093, LOB-079, LOB-113.
+
 ## 4. Shared state ATW adds
 
 ### 4.1 MTG facts ATW models and shows
@@ -406,7 +424,5 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
 ## 7. Open (decide when the phase is built)
 
 - What happens to stored effect objects, Stack entries and counters when the switch is turned on or off.
-- Live play windows (§9 of `arcanum-automatum.md`): how long a "Respond" offer stays before the opponent's automatic
-  pass, with both players at the table.
 - Where the debug view lives; who may see it.
 - Secret choices (answers one player can't read) stay manual until ATW can store them.

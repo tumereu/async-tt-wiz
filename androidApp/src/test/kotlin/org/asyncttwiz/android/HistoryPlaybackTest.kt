@@ -171,6 +171,69 @@ class HistoryPlaybackTest {
         assertFalse(ordinary.livePanelReveal)
     }
 
+    /** The other player's (author 70) pass of priority for the viewer (71) that held it: the first event of their step. */
+    private fun passFor(n: Int, parent: Int, viewer: Int = 71, folded: Boolean = false) = node(n, parent).copy(
+        action = PlayAction.Mtg(MtgAction.SetPriority(MtgPriority(id(viewer), 1), MtgPriority(id(70)))),
+        tag = MtgTag(folded = folded).takeIf { folded })
+
+    // STK-037 (I-D41): the viewer's pause holds the live table while the other player's device goes on, until it is over
+    @Test fun aPauseHoldsTheLiveTableUntilItIsOver() {
+        val cast = node(1, 0); val pass = passFor(2, 1); val resolved = node(3, 2)
+        val player = HistoryPlayback(tree(listOf(cast)))
+        player.receive(tree(listOf(cast)), id(71))
+        player.holdPause(id(1))
+        player.receive(tree(listOf(cast, pass, resolved)), id(71))
+        assertEquals(id(1), player.position.cursorId, "still the paused board")
+        assertEquals(HistoryMode.LIVE, player.position.mode, "not timeline mode")
+        player.finishPanelReveal() // The playback pause doesn't end it
+        assertEquals(id(1), player.position.cursorId)
+        player.releasePause()
+        assertEquals(id(3), player.position.cursorId)
+        assertFalse(player.livePanelReveal)
+        assertNull(player.livePause)
+    }
+
+    // STK-037 (I-D41): arriving with the other player's step already past it, the table still stops on the viewer's
+    // pause (where the other player's device passed for them); the own player's passes and folded ones don't stop it
+    @Test fun aPauseArrivingWithWhatCameAfterItIsStillShown() {
+        val before = node(1, 0); val cast = node(2, 1); val pass = passFor(3, 2); val resolved = node(4, 3)
+        val player = HistoryPlayback(tree(listOf(before)))
+        player.receive(tree(listOf(before, cast, pass, resolved)), id(71))
+        assertEquals(id(2), player.position.cursorId)
+        assertTrue(player.livePanelReveal)
+        player.holdPause(id(2))
+        player.finishPanelReveal()
+        assertEquals(id(2), player.position.cursorId)
+        player.releasePause()
+        assertEquals(id(4), player.position.cursorId)
+        // Viewer 70 made those passes, and a folded pass is the host's own: no stop
+        for ((viewer, nodes) in listOf(id(70) to listOf(before, cast, pass, resolved),
+            id(71) to listOf(before, cast, passFor(3, 2, folded = true), resolved))) {
+            val other = HistoryPlayback(tree(listOf(before)))
+            other.receive(tree(nodes), viewer)
+            assertEquals(id(4), other.position.cursorId)
+        }
+    }
+
+    // HIS-093 (I-D41): Auto stops on the viewer's pause, once, unless the next group is their own; not at the live end
+    @Test fun playbackStopsAtThePausesOfTheViewer() {
+        val a = node(1, 0, key = "a1"); val b = node(2, 1, key = "b2"); val c = node(3, 2, key = "c3")
+        val own = node(4, 3, key = "d4", author = 71)
+        val player = HistoryPlayback(tree(listOf(a, b, c, own)))
+        player.openFrom(id(1)); player.play()
+        player.next(automatic = true)
+        assertEquals(id(2), player.position.cursorId)
+        assertTrue(player.stopAtPause(id(71), pause = true))
+        assertFalse(player.position.playing)
+        player.play()
+        assertFalse(player.stopAtPause(id(71), pause = true), "continuing from it doesn't stop again")
+        player.next(automatic = true)
+        assertEquals(id(3), player.position.cursorId)
+        assertFalse(player.stopAtPause(id(71), pause = true), "the next group is the viewer's own")
+        assertFalse(player.stopAtPause(id(71), pause = false))
+        assertTrue(player.position.playing)
+    }
+
     @Test fun ownConfirmationsDoNotManufactureCatchupAndHistoricalReviewSurvivesForeground() {
         val a = node(1,0)
         val playback = HistoryPlayback(tree(emptyList(), version = "predicted-a"))

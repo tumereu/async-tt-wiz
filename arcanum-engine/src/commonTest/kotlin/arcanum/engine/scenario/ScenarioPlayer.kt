@@ -84,7 +84,23 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     // ---- Moves
 
     /** Plays the land [name] (CR 305.1), with [face] up (a modal double-faced card's back, CR 712.11). */
-    fun plays(name: String, face: Int = 0): Outcome = scenario.perform(Input.PlayLand(id, scenario.card(name), face))
+    fun plays(name: String, face: Int = 0): Outcome = scenario.perform(Input.PlayLand(id, toCast(name), face))
+
+    /** The card named [name] this player would cast or play: their own in hand, else their own elsewhere off the
+     * battlefield and the Stack, else anyone's there (a permission to cast another player's card). */
+    private fun toCast(name: String): ObjectId = scenario.preferred(name, listOf(
+        { it.owner == id && it.zone == Zone.Hand },
+        { it.owner == id && it.zone != Zone.Battlefield && it.zone != Zone.Stack },
+        { it.zone != Zone.Battlefield && it.zone != Zone.Stack },
+    ))
+
+    /** The object named [name] whose ability this player activates: a permanent they control, else their own card
+     * elsewhere (channel, cycling, unearth), else any. */
+    private fun toActivate(name: String): ObjectId = scenario.preferred(name, listOf(
+        { it.zone == Zone.Battlefield && scenario.view()[it.id]?.controller == id },
+        { it.zone == Zone.Battlefield },
+        { it.owner == id },
+    ))
 
     /**
      * Casts [name] (CR 601.2) and answers the cast's decisions from what is given: targets by name (players by their
@@ -98,7 +114,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         modes: List<Int>? = null, paying: List<String>? = null, way: CastWay = CastWay(),
         kicked: Int? = null, option: String? = null, choosing: List<String> = emptyList(),
     ): Outcome {
-        val outcome = scenario.perform(Input.Cast(id, scenario.card(name), way))
+        val outcome = scenario.perform(Input.Cast(id, toCast(name), way))
         return answerAnnouncing(outcome, targets, x, modes, paying, kicked, option, choosing, null)
     }
 
@@ -108,7 +124,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         modes: List<Int>? = null, paying: List<String>? = null, option: String? = null, choosing: List<String> = emptyList(),
         color: arcanum.api.Color? = null,
     ): Outcome {
-        val source = scenario.card(name)
+        val source = toActivate(name)
         val abilities = scenario.view()[source]?.characteristics?.abilities.orEmpty().filter { it.ability is Ability.Activated }
         val chosen = abilities.getOrNull(ability) ?: fail("$name has no activated ability #$ability")
         val outcome = scenario.perform(Input.Activate(id, source, chosen.origin))
@@ -155,7 +171,7 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     fun activatesWithoutCosts(
         name: String, ability: Int = 0, target: String? = null, targets: List<String> = listOfNotNull(target), x: Int? = null,
     ): Outcome {
-        val source = scenario.card(name)
+        val source = toActivate(name)
         val abilities = scenario.view()[source]?.characteristics?.abilities.orEmpty().filter { it.ability is Ability.Activated }
         val chosenAbility = abilities.getOrNull(ability) ?: fail("$name has no activated ability #$ability")
         val activated = chosenAbility.ability as Ability.Activated
@@ -198,18 +214,27 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
     fun attacks(vararg attackers: String, defender: String? = null): Outcome {
         val target = defender?.let { scenario.target(it) }
             ?: TargetRef.Player(state.opponents(id).first())
-        return scenario.perform(Input.DeclareAttackers(id, attackers.map { Attack(scenario.card(it), target) }))
+        return scenario.perform(Input.DeclareAttackers(id, attackers.map { Attack(scenario.preferred(it, scenario.inPlay), target) }))
     }
 
     /** Declares blocks, blocker to attacker (CR 509.1). */
     fun blocks(vararg blocks: Pair<String, String>): Outcome =
-        scenario.perform(Input.DeclareBlockers(id, blocks.map { (blocker, attacker) -> Block(scenario.card(blocker), scenario.card(attacker)) }))
+        scenario.perform(Input.DeclareBlockers(id, blocks.map { (blocker, attacker) ->
+            Block(scenario.preferred(blocker, scenario.inPlay), scenario.preferred(attacker, scenario.inPlay))
+        }))
 
     /** Answers the open decision (any player may answer for another, P7). */
     fun answers(answer: Answer): Outcome = scenario.answer(answer)
 
-    /** Chooses objects by name for the open decision. */
-    fun chooses(vararg names: String): Outcome = scenario.answer(Answer.Objects(names.map { scenario.card(it) }))
+    /** Chooses objects by name for the open decision: among its options, a name given again meaning the next one. */
+    fun chooses(vararg names: String): Outcome {
+        val options = (scenario.pending as? Decision.ChooseObjects)?.options.orEmpty()
+        return scenario.answer(Answer.Objects(names.fold(emptyList()) { chosen, name -> chosen + among(name, options, chosen) }))
+    }
+
+    /** The object named [name] among a decision's [options] not [taken] yet; when none is, any card of that name. */
+    private fun among(name: String, options: List<ObjectId>, taken: List<ObjectId>): ObjectId =
+        scenario.preferred(name, listOf { it.id in options }, taken)
 
     private fun answerAnnouncing(
         first: Outcome, targets: List<String>, x: Int?, modes: List<Int>?, paying: List<String>?,
@@ -228,7 +253,8 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
                 is Decision.ChooseNumber -> kicked?.let { Answer.Number(it) }
                 is Decision.ChooseOption -> option?.let { o -> d.options.firstOrNull { it.startsWith(o) }?.let { Answer.Option(it) } }
                 is Decision.ChooseObjects -> if (objects.isEmpty()) null
-                    else Answer.Objects(List(minOf(objects.size, d.max ?: objects.size)) { scenario.card(objects.removeFirst()) })
+                    else Answer.Objects(List(minOf(objects.size, d.max ?: objects.size)) { objects.removeFirst() }
+                        .fold(emptyList()) { chosen, name -> chosen + among(name, d.options, chosen) })
                 is Decision.ChooseColor -> color?.let { Answer.ColorChoice(it) }
                 is Decision.ManaPayment -> if (paying != null) Answer.ManaPayment(paying.fold(emptyList()) { uses, name -> uses + manaUse(name, d, uses) })
                     else d.suggestion.takeIf { it.isNotEmpty() }?.let { Answer.ManaPayment(it) }

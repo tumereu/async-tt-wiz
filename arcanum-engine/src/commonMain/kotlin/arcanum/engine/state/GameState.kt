@@ -133,7 +133,8 @@ data class GameState(
     fun apply(change: Change) = Applier.apply(this, change)
 
     /** Takes [change] back exactly (D59): removes its logged event and restores its before-values. The timestamp
-     * counter stays where it is (D34). */
+     * counter stays where it is (D34). Changes are taken back last first; an event whose entry the host dropped
+     * ([forgetOlderTurns]) still reverts, the log then being empty. */
     fun revert(change: Change) = Applier.revert(this, change)
 
     // ---- History
@@ -141,7 +142,9 @@ data class GameState(
     /** Tagged events of turn [turnNumber] (D33). */
     fun eventsOf(turnNumber: Int): List<Change> = log.filter { it.turn == turnNumber }.map { it.change }
 
-    /** Drops logged events older than last turn: housekeeping for hosts, not a change (D33 keeps this and last turn). */
+    /** Drops logged events older than last turn: housekeeping for hosts, not a change (D33 keeps this and last turn).
+     * Undo still reaches the turns dropped ([revert]), but "this turn" questions there see none of their events: a host
+     * that lets players undo that far keeps the log. */
     fun forgetOlderTurns() {
         log = log.filter { it.turn >= turn.number - 1 }.toMutableList()
     }

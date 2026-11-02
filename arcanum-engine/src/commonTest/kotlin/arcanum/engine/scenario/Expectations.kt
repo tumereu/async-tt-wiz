@@ -33,7 +33,8 @@ import kotlin.test.fail
  * }
  * ```
  *
- * A card name means the first card of that name in setup order; `card("Mountain", 1)` the second.
+ * A card name means the permanent of that name (the first in setup order), else the spell; a card only elsewhere must be
+ * the only one of that name; `card("Mountain", 1)` the second in setup order.
  */
 class Expectations internal constructor(private val scenario: Scenario, val view: View) {
     val alice: ScenarioPlayer get() = scenario.alice
@@ -46,7 +47,8 @@ class Expectations internal constructor(private val scenario: Scenario, val view
     /** The [index]th card named [name] (from 0, in setup order): `card("Mountain", 1).tapped shouldBe true`. */
     fun card(name: String, index: Int = 0): CardRef = CardRef(scenario.card(name, index), "$name #$index")
 
-    private val String.ref: CardRef get() = CardRef(scenario.card(this), this)
+    /** A name means the permanent, else the spell, of that name; a name only elsewhere must be in one zone. */
+    private val String.ref: CardRef get() = CardRef(scenario.preferred(this, scenario.inPlay), this)
 
     private fun CardRef.objectView(): ObjectView = this@Expectations.view[id] ?: fail("$label isn't in the view")
 

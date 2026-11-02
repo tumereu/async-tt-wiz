@@ -104,9 +104,11 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     }
 
     /**
-     * An effect object made during setup, as if a spell had resolved earlier (CR 611.2): [mechanics] locked onto the
-     * cards [on] (CR 611.2c), or applied to [affects] when given; [names] are its frozen names (D37). It gets the next
-     * timestamp (CR 613.7b).
+     * An effect object made during setup, as if a spell had resolved earlier (CR 611.2), the way a resolution makes one
+     * ([arcanum.engine.resolution.Effects.applyMechanics]): [mechanics] applied to the cards [on] (permanents first), or
+     * to [affects] when given; layer mechanics lock their affected objects now (CR 611.2c), and so do mechanics on
+     * players; others on [affects] keep applying to whatever matches. [names] are its frozen names (D37). It gets the
+     * next timestamp (CR 613.7b).
      */
     fun effect(
         controller: ScenarioPlayer, vararg mechanics: Mechanic, on: List<String> = emptyList(),
@@ -116,10 +118,24 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         setup()
         val id = EffectId("E${state.effects.size + 1}")
         val timestamp = ++state.timestampCounter
+        var frozen = Bindings(names.mapValues { (_, name) -> NamedValue.Objects(listOf(preferred(name, inPlay))) })
+        val eval = arcanum.engine.casting.Snapshot(state).evaluator(controller.id, names = frozen)
+        val layered = mechanics.any { it.layer != null }
+        // As a resolution does: objects named by the effect itself are found by a frozen name by its other mechanics
+        var affected = affects
+        val locked: List<ObjectId>? = when {
+            affects == null -> on.map { preferred(it, inPlay) }.also { ids ->
+                frozen = frozen.with(LOCKED, NamedValue.Objects(ids))
+                affected = arcanum.api.Affected.Objects(arcanum.api.Objects.Bound(LOCKED))
+            }
+            layered && affects is arcanum.api.Affected.Objects -> eval.objects(affects.objects)
+            else -> null
+        }
         state.effects[id] = EffectObject(
-            id = id, mechanics = mechanics.toList(), affects = affects, locked = if (affects == null) on.map { card(it) } else null,
+            id = id, mechanics = mechanics.toList(), affects = affected, locked = locked,
+            lockedPlayers = (affects as? arcanum.api.Affected.Players)?.let { eval.players(it.players) },
             source = null, controller = controller.id, timestamp = timestamp, createdTurn = state.turn.number, duration = duration,
-            names = Bindings(names.mapValues { (_, name) -> NamedValue.Objects(listOf(card(name))) }),
+            names = frozen,
         )
         return id
     }
@@ -191,19 +207,45 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     // ---- Finding objects
 
-    /** The current id of the [index]th card (in setup order) whose name, or one of whose faces' names, is [name]. */
-    fun card(name: String, index: Int = 0, owner: ScenarioPlayer? = null): ObjectId {
-        val matches = state.objects.values
-            .filter { owner == null || it.owner == owner.id }
-            .filter { o -> nameOf(o) == name || definitionOf(o)?.faces?.any { it.name == name } == true }
-            // Setup cards in setup order, then tokens and other cards the engine made
-            .sortedWith(compareBy({ it.card.value.substringAfter('.').toIntOrNull() ?: Int.MAX_VALUE }, { it.timestamp }))
-        return matches.getOrNull(index)?.id ?: fail("No card \"$name\" (#$index) in the game")
+    /**
+     * The current id of the [index]th card (in setup order) whose name, or one of whose faces' names, is [name]; only
+     * [owner]'s and only those in [zone] when given. Without an [index], cards of that name in different zones are
+     * ambiguous and fail: a test that means one of them says which ([zone], [index]), so it can't pass by finding the
+     * wrong one. The moves ([ScenarioPlayer.casts], [ScenarioPlayer.plays], [ScenarioPlayer.activates]) look where the
+     * player would.
+     */
+    fun card(name: String, index: Int? = null, owner: ScenarioPlayer? = null, zone: Zone? = null): ObjectId {
+        val matches = cards(name, owner, zone)
+        if (index == null && matches.map { it.zone }.distinct().size > 1) {
+            fail("\"$name\" is ambiguous: in ${matches.map { it.zone }.distinct()}; name the zone or the index")
+        }
+        return matches.getOrNull(index ?: 0)?.id ?: fail("No card \"$name\" (#${index ?: 0}${zone?.let { " in $it" } ?: ""}) in the game")
     }
 
-    /** A player or an object by name, as a target. */
+    /** Every card named [name] (by name or a face's name), [owner]'s and in [zone] when given, in setup order, then
+     * tokens and other cards the engine made. */
+    internal fun cards(name: String, owner: ScenarioPlayer? = null, zone: Zone? = null): List<GameObject> = state.objects.values
+        .filter { owner == null || it.owner == owner.id }
+        .filter { zone == null || it.zone == zone }
+        .filter { o -> nameOf(o) == name || definitionOf(o)?.faces?.any { it.name == name } == true }
+        .sortedWith(compareBy({ it.card.value.substringAfter('.').toIntOrNull() ?: Int.MAX_VALUE }, { it.timestamp }))
+
+    /**
+     * The card named [name] where it is looked for: the first of [where] (in order) that has one, else [card] (which
+     * fails when the name is in several zones). [taken] are skipped: a name given twice means two cards.
+     */
+    internal fun preferred(name: String, where: List<(GameObject) -> Boolean>, taken: Collection<ObjectId> = emptyList()): ObjectId {
+        val all = cards(name).filter { it.id !in taken }
+        where.forEach { test -> all.firstOrNull(test)?.let { return it.id } }
+        return all.singleOrNull()?.id ?: card(name)
+    }
+
+    /** On the battlefield, else on the Stack: what targets, expectations and combat mean by a name. */
+    internal val inPlay: List<(GameObject) -> Boolean> = listOf({ it.zone == Zone.Battlefield }, { it.zone == Zone.Stack })
+
+    /** A player or an object by name, as a target: a permanent or a spell when there is one of that name. */
     fun target(name: String): TargetRef =
-        players.firstOrNull { it.id.value == name }?.let { TargetRef.Player(it.id) } ?: TargetRef.Object(card(name))
+        players.firstOrNull { it.id.value == name }?.let { TargetRef.Player(it.id) } ?: TargetRef.Object(preferred(name, inPlay))
 
     internal fun definitionOf(o: GameObject): CardDefinition? = o.definition ?: secrets[o.card]
 
@@ -382,5 +424,8 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
 
     companion object {
         val NAMES = listOf("alice", "bob", "carol", "dave", "erin", "frank")
+
+        /** The name an effect made by [effect] gives the objects it names (as [arcanum.engine.resolution.Effects]). */
+        private const val LOCKED = "\$affected"
     }
 }

@@ -27,9 +27,12 @@ internal object Applier {
         when (change) {
             is Change.Reverted -> apply(state, change.change)
             else -> {
-                if (change.isEvent) {
-                    val last = state.log.lastOrNull()
-                    check(last?.change == change) { "Reverting a change that isn't the last logged event: $change" }
+                // Changes are taken back last first, so an event's entry is the log's last. Once the host dropped its
+                // turn's entries (GameState.forgetOlderTurns), every later entry has been taken back before it and the
+                // log is empty: there is nothing to take off, and the change still reverts.
+                if (change.isEvent && state.log.isNotEmpty()) {
+                    val last = state.log.last()
+                    check(last.change == change) { "Reverting a change that isn't the last logged event: $change" }
                     state.log.removeAt(state.log.lastIndex)
                 }
                 applyState(state, change.inverse())

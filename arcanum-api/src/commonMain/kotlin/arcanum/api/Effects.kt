@@ -221,6 +221,8 @@ sealed interface Effect {
     @Serializable @SerialName("emblem") data class CreateEmblem(val abilities: List<Ability>, val players: Players) : Effect
     /** A keyword action; [bind] names what it acted on ("the beheld card", "the evidence collected"). */
     @Serializable @SerialName("keyword-action") data class Action(val action: KeywordAction, val bind: String? = null) : Effect
+    /** [objects]'s class level becomes [level] (CR 716.2a); a level is a designation any permanent can have (716.2b). */
+    @Serializable @SerialName("set-class-level") data class SetClassLevel(val objects: Objects, val level: Int) : Effect
     /** "Unlock a locked door of [objects]" (CR 709.5f): for each of [objects] with a locked half, [chooser] chooses one of
      * its locked halves (or [door] only, when given: the unlock special action of CR 709.5e) and it gets that half's
      * unlocked designation ([ObjectMark.Unlocked]); [bind] names the permanents unlocked. Unlocking triggers "when you

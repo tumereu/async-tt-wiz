@@ -170,7 +170,9 @@ internal object Options {
         is Decision.Modes -> {
             val available = d.options.filter { it.available }.map { it.index }
             val repeated = if (d.repeatable && available.isNotEmpty() && available.size < d.min) listOf(List(d.min) { available.first() }) else emptyList()
-            (some(available, d.min, d.max) + repeated).map { Answer.Modes(it) }
+            // blb: within the pawprint limit (CR 700.2i)
+            val worth = { modes: List<Int> -> d.pawprintLimit == null || modes.sumOf { i -> d.options.first { it.index == i }.pawprints } <= d.pawprintLimit }
+            (some(available, d.min, d.max) + repeated).filter(worth).map { Answer.Modes(it) }
         }
         is Decision.ChooseColor -> d.among.map { Answer.ColorChoice(it) }
         is Decision.ChooseOption -> d.options.map { Answer.Option(it) }

@@ -109,7 +109,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun objects(objects: Objects): List<ObjectId> = when (objects) {
         Objects.Self -> listOfNotNull(ctx.self)
-        is Objects.Target -> boundObjects(ctx.names[objects.slot])
+        // A spell's own static ability reads the spell's chosen targets ("costs {1} less if it targets a tapped creature",
+        // CR 601.2f: the total cost is determined after the targets are chosen)
+        is Objects.Target -> ctx.names[objects.slot]?.let { boundObjects(it) }
+            ?: ctx.self?.let { s -> state.stackItems[s]?.targets?.get(objects.slot)?.filterIsInstance<TargetRef.Object>()?.map { it.id } }.orEmpty()
         is Objects.Bound -> boundObjects(ctx.names[objects.name])
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
@@ -219,6 +222,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.Target -> boundPlayers(ctx.names[players.slot])
         is Players.Bound -> boundPlayers(ctx.names[players.name])
         is Players.Remembered -> boundPlayers(selfMemory(players.key))
+        // blb: the opponent chosen for a gift, kept by the permanent the spell became (CR 702.174a, 400.7d)
+        is Players.ChosenAsCost -> objects(players.of).mapNotNull { facts(it)?.chosenPlayer }.distinct()
         Players.EventPlayer -> ctx.event?.players.orEmpty()
         is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) }.distinct()
         is Players.OwnerOf -> objects(players.objects).mapNotNull { ownerOf(it) }.distinct()

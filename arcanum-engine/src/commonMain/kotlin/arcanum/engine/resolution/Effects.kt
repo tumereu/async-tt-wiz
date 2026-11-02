@@ -239,6 +239,16 @@ internal object Effects {
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)
             is Effect.Remember -> remember(scope, effect.key, scope.objects(effect.objects), effect.replace)
+            // blb: CR 716.2a, b: the level is a designation of the permanent, kept as its memory
+            is Effect.SetClassLevel -> onBattlefield(scope, effect.objects).forEach { id ->
+                val o = act.state.obj(id) ?: return@forEach
+                val before = o.memory[arcanum.engine.query.Evaluator.CLASS_LEVEL]
+                val after = arcanum.engine.state.NamedValue.Number(effect.level)
+                if (before != after) {
+                    act.record(Change.Memory(id, arcanum.engine.query.Evaluator.CLASS_LEVEL, before, after))
+                    act.record(Change.Happened(GameEvent.BecameLevel(id, effect.level)))
+                }
+            }
             is Effect.Forget -> forget(scope, effect.key, effect.objects?.let { scope.objects(it) })
             // CR 500.7: the most recently created extra turn is taken first
             is Effect.ExtraTurn -> scope.players(effect.players).forEach { p ->
@@ -1070,6 +1080,11 @@ internal object Effects {
             }
             // CR 701.39b: put a +1/+1 counter on each of up to N other target creatures
             is KeywordAction.Support -> act.manual(scope.actor, scope.self, "Support ${scope.value(action.count)}")
+            // blb: CR 701.61a: exile three cards from your graveyard or sacrifice a Food; nothing if neither can be done
+            KeywordAction.Forage -> if (Costs.canPay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))) {
+                Costs.pay(scope, scope.actor, arcanum.api.Cost(listOf(arcanum.engine.casting.Costs.forage)))
+                act.record(Change.Happened(GameEvent.Foraged(scope.actor)))
+            }
             is KeywordAction.ManifestDread -> scope.players(action.players).forEach { p -> manifestDread(scope, p, bind) }
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }

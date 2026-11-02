@@ -23,6 +23,10 @@ internal object AnswerCheck {
                 if (!decision.repeatable) distinct(chosen, "mode")
                 among(chosen, decision.options.filter { it.available }.map { it.index }, "an available mode")
                 count(chosen.size, decision.min, decision.max, "modes")
+                // blb: CR 700.2i
+                decision.pawprintLimit?.let { limit ->
+                    if (chosen.sumOf { i -> decision.options.first { it.index == i }.pawprints } > limit) refuse("More than $limit {P} worth of modes")
+                }
             }
             is Decision.Announce -> {
                 val v = expect<Answer.Number>(decision, answer).value

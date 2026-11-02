@@ -256,13 +256,17 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   damage that can't be prevented and in the affected player's order (CR 615.5, 615.12, 616.1); "repeat this
   process"; copies of cards created in their zone and cast, ceasing to exist elsewhere than the Stack and the
   battlefield (CR 707.12, 704.5e).
+- Done, Bloomburrow (scenarios in `commonTest/…/sets/blb/`): offspring, gift (the promised player, gift targets only
+  when promised, "whenever you give a gift"), forage as an effect and as a cost, Class levels, pawprint modes, valiant
+  and expend, counters put by your effects, leaving the battlefield without dying, a spell's static ability reading its
+  own targets for its cost (CR 601.2f).
 - Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
-  day and night (not tracked: its event never triggers), `CountersPut.causedBy`, `nthThisTurn`'s
+  day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`, repeated target slot names of repeated modes
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
-  other keyword actions as costs (forage, exert); no cube card has any of these. A spell cast by an effect while
+  other keyword actions as costs (exert); no cube card has any of these. A spell cast by an effect while
   another resolves can't use an alternative cost another object gives it. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only). Around the game:

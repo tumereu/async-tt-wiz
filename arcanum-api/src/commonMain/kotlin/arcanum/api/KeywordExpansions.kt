@@ -85,6 +85,36 @@ object KeywordExpansions {
         }
         is Keyword.Multikicker -> static(Mechanic.AdditionalCost(Keyword.Kicker.Kind,
             keyword.cost, optional = true, repeatable = true))
+        // blb: CR 702.174a, b, j: "As an additional cost to cast this spell, you may choose an opponent"; the chosen
+        // player's gift happens on an instant or sorcery before its other spell abilities (a spell ability, which works
+        // only for instants and sorceries, CR 113.3a), on a permanent when it enters (a triggered ability on the
+        // battlefield)
+        is Keyword.Gift -> {
+            val promised = Condition.Paid(Keyword.Gift.Kind, times = 1, of = Objects.Self)
+            val gift = giftSteps(keyword.gift, Players.ChosenAsCost(Objects.Self))
+            listOf(
+                Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Gift.Kind, Cost(listOf(CostPart.ChoosePlayer(PlayerFilter.Opponent))),
+                    optional = true)), affects = Affected.Objects(Objects.Self)),
+                Ability.Spell(Instructions(steps = listOf(Step.If(promised, gift)))),
+                Ability.Triggered(entersSelf, Instructions(steps = gift), interveningIf = promised),
+            )
+        }
+        // blb: CR 716.2a: "[Cost]: This Class's level becomes N. Activate only if this Class is level N-1 and only as a
+        // sorcery" and "As long as this Class is level N or greater, it has [abilities]"
+        is Keyword.ClassLevel -> listOf(
+            Ability.Activated(keyword.cost, steps(Effect.SetClassLevel(Objects.Self, keyword.level)), ActivationRules(timing = Timing.Sorcery,
+                activatedBy = PlayerFilter.You, condition = Condition.And(listOf(Condition.ClassLevelAtLeast(keyword.level - 1),
+                    Condition.Not(Condition.ClassLevelAtLeast(keyword.level)))))),
+            Ability.Static(listOf(Mechanic.GainAbilities(keyword.abilities)), affects = Affected.Objects(Objects.Self),
+                condition = Condition.ClassLevelAtLeast(keyword.level)),
+        )
+        // blb: CR 702.175a: "You may pay an additional [cost] as you cast this spell" and "When this permanent enters, if
+        // its offspring cost was paid, create a token that's a copy of it, except it's 1/1."
+        is Keyword.Offspring -> listOf(
+            Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Offspring.Kind, keyword.cost, optional = true)), affects = Affected.Objects(Objects.Self)),
+            Ability.Triggered(entersSelf, steps(Effect.CreateToken(TokenSpec.CopyOf(Objects.Self, except = listOf(CopyException.PowerToughness(1, 1))),
+                count = Value.Fixed(1), controller = Players.You)), interveningIf = Condition.Paid(Keyword.Offspring.Kind, times = 1, of = Objects.Self)),
+        )
         // CR 702.63a: enters with N time counters; upkeep: remove one; when the last is removed, sacrifice it
         is Keyword.Vanishing -> {
             val time = CounterKind.Time
@@ -466,6 +496,21 @@ object KeywordExpansions {
                 Step.Do(Effect.PutCounters(Objects.Bound("bolstered"), CounterKind.PowerToughness(1, 1), action.count)))
         }
         else -> null
+    }
+
+    /** blb: what the chosen [player] gets from a gift (CR 702.174d–i). */
+    private fun giftSteps(gift: Gifted, player: Players): List<Step> {
+        fun token(subtype: String, power: Int) = TokenSpec.Defined(FaceDefinition("$subtype Token", colorIndicator = listOf(Color.Blue),
+            types = listOf(CardType.Creature), subtypes = listOf(Subtype(subtype)), power = PrintedNumber.Fixed(power), toughness = PrintedNumber.Fixed(power)))
+        val effect = when (gift) {
+            Gifted.Food -> Effect.CreateToken(TokenSpec.Predefined("Food"), count = Value.Fixed(1), controller = player)
+            Gifted.Card -> Effect.Draw(player, count = Value.Fixed(1))
+            Gifted.TappedFish -> Effect.CreateToken(token("Fish", 1), count = Value.Fixed(1), controller = player, tapped = true)
+            Gifted.ExtraTurn -> Effect.ExtraTurn(player)
+            Gifted.Treasure -> Effect.CreateToken(TokenSpec.Predefined("Treasure"), count = Value.Fixed(1), controller = player)
+            Gifted.Octopus -> Effect.CreateToken(token("Octopus", 8), count = Value.Fixed(1), controller = player)
+        }
+        return listOf(Step.Do(effect))
     }
 
     private val FADE = CounterKind.Named("fade")

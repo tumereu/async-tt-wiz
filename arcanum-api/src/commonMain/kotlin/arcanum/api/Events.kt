@@ -20,6 +20,8 @@ sealed interface EventPattern {
         val objects: ObjectFilter, val from: Zone? = null, val to: Zone? = null,
         /** Only the move of a spell as it finishes resolving ("as it resolves", CR 608.2n), not a countered spell. */
         val resolving: Boolean = false,
+        /** Only a move to any zone but this one ("leaves the battlefield without dying": not to a graveyard, CR 700.4). */
+        val notTo: Zone? = null,
     ) : EventPattern
     /** A spell matching [spell] is cast by a player matching [by], from [from] when given ("whenever you cast a spell
      * from exile"). Role object = the spell. */
@@ -55,7 +57,11 @@ sealed interface EventPattern {
     @Serializable @SerialName("counters-removed") data class CountersRemoved(
         val objects: ObjectFilter, val kind: CounterKind? = null, val last: Boolean = false,
     ) : EventPattern
-    @Serializable @SerialName("player-counters") data class PlayerCountersPut(val players: PlayerFilter, val kind: CounterKind? = null) : EventPattern
+    /** Counters of [kind] are put on a player matching [players], by an effect of a spell or ability matching [causedBy]
+     * when given (blb: "If you would put one or more counters on a permanent or player"). */
+    @Serializable @SerialName("player-counters") data class PlayerCountersPut(
+        val players: PlayerFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
+    ) : EventPattern
     @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter, val forMana: Boolean? = null) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),
@@ -105,6 +111,13 @@ sealed interface EventPattern {
     @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter) : EventPattern
     /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
     @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter) : EventPattern
+    /** A player gives a gift: an instant or sorcery spell they control whose gift was promised resolves, or the gift
+     * trigger of a permanent they control resolves (CR 702.174c). */
+    @Serializable @SerialName("give-gift") data class GiveGift(val players: PlayerFilter) : EventPattern
+    /** A Class matching [objects] becomes level [level] (CR 716.2a, "When this Class becomes level 2"). */
+    @Serializable @SerialName("class-level") data class BecomesLevel(val objects: ObjectFilter, val level: Int) : EventPattern
+    /** A player forages (CR 701.61a, "Whenever you forage"). */
+    @Serializable @SerialName("forage") data class Forage(val players: PlayerFilter) : EventPattern
     /** A permanent matching [objects] is given an unlocked designation (CR 709.5h), as it enters or later; [thisDoor]:
      * only the half the triggered ability is printed on ("When you unlock this door"); [fully]: only when it then has
      * both ("whenever you fully unlock a Room", CR 709.5i). Role object (the permanent); [Players.EventPlayer] is its

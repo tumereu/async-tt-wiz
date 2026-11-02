@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 13
+    const val VERSION: Int = 14
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -87,6 +87,17 @@ object OracleParser {
         while (i < lines.size) {
             val raw = lines[i++]
             val line = REMINDER.replace(raw, "").trim()
+            // blb chunk 05: a class level bar "[cost]: Level N" with the abilities of its section, up to the next bar (CR 716.2a).
+            // A section with an unread line stays printed text as a whole.
+            val classLevel = CLASS_LEVEL.matchEntire(line)
+            if (classLevel != null) {
+                val section = mutableListOf<String>()
+                while (i < lines.size && !CLASS_LEVEL.matches(REMINDER.replace(lines[i], "").trim())) section += lines[i++].trim()
+                val printed = (listOf(raw.trim()) + section).joinToString("\n")
+                result += classLevel(classLevel, section, sentences) ?: Ability.Unparsed(printed)
+                raws += printed
+                continue
+            }
             // chunk 55: a leveler band (CR 711.2a, b): "LEVEL N1-N2" or "LEVEL N3+", its P/T box and the abilities printed
             // with it, up to the next band. A band with an unread line stays printed text as a whole.
             if (LEVEL_BAND.matches(line)) {
@@ -94,6 +105,24 @@ object OracleParser {
                 while (i < lines.size && !LEVEL_BAND.matches(REMINDER.replace(lines[i], "").trim())) band += lines[i++].trim()
                 val printed = band.joinToString("\n")
                 result += levelBand(line, band.drop(1), sentences) ?: Ability.Unparsed(printed)
+                raws += printed
+                continue
+            }
+            // blb chunk 06: "Choose up to five {P} worth of modes. You may choose the same mode more than once." and its
+            // "{P} — " modes: any modes whose pawprints add up to at most five (CR 700.2i)
+            val pawprints = PAWPRINT_CHOOSE.matchEntire(line)
+            if (pawprints != null && isSpell) {
+                val modeLines = mutableListOf<String>()
+                while (i < lines.size && PAWPRINT_MODE.matches(REMINDER.replace(lines[i], "").trim())) modeLines += REMINDER.replace(lines[i++], "").trim()
+                val printed = (listOf(raw.trim()) + modeLines).joinToString("\n")
+                val limit = Numbers.count(pawprints.groupValues[1])
+                val options = modeLines.map { modeLine ->
+                    val m = PAWPRINT_MODE.matchEntire(modeLine)!!
+                    sentences.instructions(m.groupValues[2])?.let { arcanum.api.Mode(it, text = modeLine, pawprints = m.groupValues[1].length / 3) }
+                }
+                result += if (limit != null && options.isNotEmpty() && options.all { it != null }) Ability.Spell(arcanum.api.Instructions(modes = arcanum.api.Modes(
+                    options.filterNotNull(), min = 1, max = limit, repeatable = true, pawprintLimit = limit, chooser = arcanum.api.Players.You)))
+                    else Ability.Unparsed(printed)
                 raws += printed
                 continue
             }
@@ -212,6 +241,19 @@ object OracleParser {
         return Ability.Static(mechanics, condition = condition, affects = Affected.Objects(Objects.Self))
     }
 
+    /** blb chunk 05: a class level bar and its section's abilities (CR 716.2a), each with its printed line; null when the
+     * cost or a line can't be read. */
+    private fun classLevel(m: MatchResult, section: List<String>, sentences: Sentences): Ability? {
+        val cost = sentences.cost(m.groupValues[1]) ?: return null
+        val abilities = section.flatMap { raw ->
+            val line = REMINDER.replace(raw, "").trim()
+            val parsed = keywordLine(line) ?: sentences.multi(line) ?: listOf(sentences.line(line) ?: return null)
+            if (parsed.any { it is Ability.Unparsed }) return null
+            parsed.map { it.withText(raw) }
+        }
+        return Keyword.ClassLevel(cost, m.groupValues[2].toInt(), abilities)
+    }
+
     /**
      * A keyword line is a list of keywords separated by ", " (or "; " when a keyword's own text has commas). It is
      * recognised by its first part being a known keyword and by not being a sentence: it has no final period, except
@@ -258,6 +300,18 @@ object OracleParser {
         // chunk 45: "Companion — Each permanent card in your starting deck has mana value 2 or less." (CR 702.139a)
         COMPANION.matchEntire(part)?.let { m ->
             return Keyword.CompanionAbility(m.groupValues[1], eachCard = companionCards(m.groupValues[1]))
+        }
+        // blb chunk 02: "Gift a card", "Gift a tapped Fish" (CR 702.174d–i)
+        GIFT.matchEntire(part)?.let { m ->
+            return Keyword.Gift(when (m.groupValues[1]) {
+                "a Food" -> arcanum.api.Gifted.Food
+                "a card" -> arcanum.api.Gifted.Card
+                "a tapped Fish" -> arcanum.api.Gifted.TappedFish
+                "an extra turn" -> arcanum.api.Gifted.ExtraTurn
+                "a Treasure" -> arcanum.api.Gifted.Treasure
+                "an Octopus" -> arcanum.api.Gifted.Octopus
+                else -> return null
+            })
         }
         // chunk 25: "Enchant creature or Vehicle", "Enchant player" (CR 702.5a)
         ENCHANT.matchEntire(part)?.let { m ->
@@ -356,6 +410,13 @@ object OracleParser {
     private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
+    // blb chunk 06
+    private val PAWPRINT_CHOOSE = Regex("""Choose up to (\w+) \{P\} worth of modes\. You may choose the same mode more than once\.""")
+    private val PAWPRINT_MODE = Regex("""((?:\{P\})+) — (.+)""")
+    // blb chunk 05
+    private val CLASS_LEVEL = Regex("""((?:\{[^}]+\})+): Level (\d+)""")
+    // blb chunk 02
+    private val GIFT =Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

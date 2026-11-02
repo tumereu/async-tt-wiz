@@ -279,6 +279,9 @@ sealed interface Players {
     @Serializable @SerialName("affected") data object Affected : Players
     /** Every player matching [filter] ("each opponent"). */
     @Serializable @SerialName("each") data class Each(val filter: PlayerFilter) : Players
+    /** The player chosen by a [CostPart.ChoosePlayer] cost of [of] ("the chosen player" of a gift, CR 702.174d), kept by
+     * the permanent a spell becomes (CR 400.7d); none when it wasn't paid. */
+    @Serializable @SerialName("chosen-as-cost") data class ChosenAsCost(val of: Objects) : Players
 }
 
 /** A test a player passes or not, relative to the ability's controller ("you", "an opponent"). */

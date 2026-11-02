@@ -9,7 +9,9 @@ class KeywordSyntaxCompletenessTest {
     /** Keyword types written with values the parser can't read yet (a quality, an object, a non-mana cost); each is
      * removed from here when its wording group is built. */
     private val notReadYet = setOf("CompanionAbility", "Enchant", "Protection", "HexproofFrom", "Landwalk", "Affinity", "Typecycling",
-        "Splice", "PartnerWith", "Prototype")
+        "Splice", "PartnerWith", "Prototype",
+        // blb: read by their own rules (a gift's kind, a Class's level section)
+        "Gift", "ClassLevel")
 
     @Test
     fun parserReadsEveryKeywordTypeExactlyOnce() {

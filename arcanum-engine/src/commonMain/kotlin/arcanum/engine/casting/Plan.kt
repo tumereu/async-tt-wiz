@@ -58,6 +58,8 @@ internal sealed interface Question {
     data class OneOf(val key: String, val part: CostPart.OneOf, val labels: List<String>) : Question { override val stage get() = AnnounceStage.Costs }
     data class Objects(val key: String, val choice: Costs.ObjectChoice) : Question { override val stage get() = AnnounceStage.Costs }
     data class ManaColor(val key: String, val among: List<Color>) : Question { override val stage get() = AnnounceStage.Costs }
+    /** blb: a player chosen as a cost ("you may choose an opponent", gift, CR 702.174a). */
+    data class Player(val key: String, val among: List<PlayerId>) : Question { override val stage get() = AnnounceStage.Costs }
     data class Pay(val cost: ManaCost) : Question { override val stage get() = AnnounceStage.Mana }
 }
 
@@ -192,8 +194,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     // ---- Instructions
 
-    private fun spellAbilities(): List<AbilityInstance> =
-        snap0Abilities().filter { it.ability is Ability.Spell }
+    /** CR 113.3a: spell abilities are followed only as an instant or sorcery resolves (a gift's "if the gift cost was
+     * paid" ability of a permanent card does nothing, 702.174b). */
+    private fun spellAbilities(): List<AbilityInstance> {
+        val types = plain.view[itemId]?.characteristics?.types.orEmpty()
+        if (types.none { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }) return emptyList()
+        return snap0Abilities().filter { it.ability is Ability.Spell }
+    }
 
     private fun snap0Abilities(): List<AbilityInstance> = plain.view[itemId]?.characteristics?.abilities.orEmpty()
 
@@ -243,6 +250,21 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         }
 
     fun optionalKey(inst: AbilityInstance) = "opt:${inst.origin.key}"
+
+    /** blb: the target slots, without those whose [arcanum.api.TargetSlot.onlyIf] doesn't hold as the targets are chosen,
+     * after the optional costs are (CR 601.2b, c; a gift's targets only if it was promised, 702.174m). */
+    private fun targetSlots(): List<SlotOf> = Targets.slots(instructions, choices.modes).filter { s -> s.slot.onlyIf?.let { holdsAsCast(it) } ?: true }
+
+    /** A condition about the spell being cast, read from the choices so far: its optional costs paid (an unpaid or
+     * unasked one counts as not paid); other conditions as the game is. */
+    private fun holdsAsCast(condition: arcanum.api.Condition): Boolean = when (condition) {
+        is arcanum.api.Condition.Paid -> condition.of == arcanum.api.Objects.Self && additionalCosts
+            .filter { (_, m) -> m.keyword == condition.keyword }.sumOf { (inst, _) -> optionalTimes(inst) ?: 0 } >= condition.times
+        is arcanum.api.Condition.Not -> !holdsAsCast(condition.condition)
+        is arcanum.api.Condition.And -> condition.all.all { holdsAsCast(it) }
+        is arcanum.api.Condition.Or -> condition.any.any { holdsAsCast(it) }
+        else -> eval.holds(condition)
+    }
 
     /** How often the optional cost of [inst] was chosen; null while not asked. */
     fun optionalTimes(inst: AbilityInstance): Int? = (choices.costs[optionalKey(inst)] as? NamedValue.Number)?.value
@@ -365,7 +387,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         val announce = (instructions.announced + (if (Costs.mentionsX(contributions)) listOf("X") else emptyList())).distinct()
         announce.forEach { name -> if (name !in choices.announced) return Question.Announce(name, if (name == "X") xMinimum() else 0) }
         // CR 601.2c: targets
-        Targets.slots(instructions, choices.modes).forEach { slot ->
+        targetSlots().forEach { slot ->
             val forPlayers = slot.slot.perPlayer?.let { f -> snap.state.playersFrom(player).filter { eval.matches(f, it) } }
             if (forPlayers == null) {
                 if (slot.key !in choices.targets) targetQuestion(slot, null)?.let { return it }
@@ -374,7 +396,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             }
         }
         // CR 601.2d: division
-        Targets.slots(instructions, choices.modes).forEach { slot ->
+        targetSlots().forEach { slot ->
             val divided = slot.slot.divided ?: return@forEach
             val chosen = choices.targets[slot.key].orEmpty()
             if (chosen.size >= 2 && choices.divided.none { it.slot == slot.key }) {
@@ -385,6 +407,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         total.parts.forEach { kp ->
             val part = kp.part
             if (part is CostPart.OneOf) return Question.OneOf(kp.key, part, labels(part))
+            if (part is CostPart.ChoosePlayer) {
+                if (choices.names[PLAYER + kp.key] == null) return Question.Player(kp.key, snap.state.playersFrom(player).filter { eval.matches(part.filter, it) })
+                return@forEach
+            }
             val choice = Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval) ?: return@forEach
             if (choices.names[OBJECTS + kp.key] == null) return Question.Objects(kp.key, choice)
         }
@@ -439,7 +465,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     }
 
     /** CR 601.2d: a divided amount with a single target in its slot goes all to that target, without asking. */
-    fun wholeShares(): List<arcanum.engine.state.DividedShare> = Targets.slots(instructions, choices.modes).mapNotNull { slot ->
+    fun wholeShares(): List<arcanum.engine.state.DividedShare> = targetSlots().mapNotNull { slot ->
         val divided = slot.slot.divided ?: return@mapNotNull null
         val chosen = choices.targets[slot.key].orEmpty().singleOrNull() ?: return@mapNotNull null
         if (choices.divided.any { it.slot == slot.key }) null else arcanum.engine.state.DividedShare(slot.key, chosen, eval.value(divided))
@@ -498,8 +524,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val chosenBefore = snap.state.obj(sourceId)?.facts?.modesChosen.orEmpty()
             val max = if (q.modes.maxIf != null && eval.holds(q.modes.maxIf!!)) q.modes.maxIfCount ?: q.modes.max else q.modes.max
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
-                ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore))
-            }, q.modes.min, max, q.modes.repeatable)
+                ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
+            }, q.modes.min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
         }
         is Question.OptionalCost -> if (q.mechanic.repeatable) Decision.ChooseNumber(id, player, sourceId, 0, null)
             else Decision.May(id, player, sourceId, "Pay the ${q.mechanic.keyword?.text ?: "optional"} cost?", q.mechanic.cost)
@@ -510,6 +536,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.OneOf -> Decision.ChooseOption(id, player, sourceId, q.labels)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
+        is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
         is Question.Pay -> if (cantSpendMana) {
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
@@ -526,6 +553,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         const val FROM = "\$from"
         const val MODES_ASKED = "\$modes"
         const val ONE_OF = "\$oneof:"
+        /** blb: the player chosen for a [CostPart.ChoosePlayer] cost, by its key. */
+        const val PLAYER = "\$player:"
         const val OBJECTS = "\$objects:"
         const val PER_PLAYER = "\$per-player:"
         const val COLOR = "\$color:"

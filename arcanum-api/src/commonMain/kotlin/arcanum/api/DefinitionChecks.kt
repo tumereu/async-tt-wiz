@@ -149,7 +149,11 @@ object DefinitionChecks {
                     found += "\"shares a colour with\" is ObjectFilter.Shares; ColorRef.Of is for mana and colour-setting"
                 if (type == "for-each" && element.typeOf("each") == "players") {
                     val body = (element["steps"] as? JsonArray).orEmpty()
-                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do")
+                    // blb chunk 11: a loop whose one effect also uses that player elsewhere (an amount counted per player,
+                    // "equal to the number of nonbasic lands that player controls") stays a loop
+                    val bind = (element["bind"] as? JsonPrimitive)?.content
+                    val uses = bind?.let { b -> Regex(""""name":"${Regex.escape(b)}"""").findAll(body.toString()).count() } ?: 0
+                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1)
                         found += "a single effect for each player: give the effect the players (one event); loops are for several steps"
                 }
                 if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")

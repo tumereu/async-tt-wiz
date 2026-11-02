@@ -46,6 +46,8 @@ sealed interface Decision {
     data class Modes(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val options: List<ModeOption>, val min: Int, val max: Int, val repeatable: Boolean = false,
+        /** blb: the chosen modes' pawprints add up to at most this (CR 700.2i). */
+        val pawprintLimit: Int? = null,
     ) : Decision
 
     /** Announce the value of [name] ("X", CR 107.3a, 601.2b): at least [min], at most [max] when known. */
@@ -212,7 +214,7 @@ sealed interface Decision {
 
 /** One mode of a modal spell or ability (CR 700.2), with its printed [text] when known. */
 @Serializable
-data class ModeOption(val index: Int, val text: String?, val available: Boolean = true)
+data class ModeOption(val index: Int, val text: String?, val available: Boolean = true, val pawprints: Int = 0)
 
 /** [amount] for [target], in a division. */
 @Serializable

@@ -44,6 +44,11 @@ The definition model (overview in `Definitions.kt`):
   effect's additional effect (`Mechanic.Prevention.additional`, CR 615.5), what a permanent is as it enters
   (`Destination.entersAs`, CR 611.2e), "repeat this process" (`Step.RepeatWhile`) and copies of cards
   (`Effect.CopyCard`, CR 707.12).
+- Bloomburrow (set `blb`): gift (`Keyword.Gift`, `Gifted`, `CostPart.ChoosePlayer`, `Players.ChosenAsCost`,
+  `EventPattern.GiveGift`, `TargetSlot.onlyIf`), Classes (`Keyword.ClassLevel`, `Effect.SetClassLevel`,
+  `EventPattern.BecomesLevel`), forage (`EventPattern.Forage`), pawprint modes (`Modes.pawprintLimit`,
+  `Mode.pawprints`), and smaller pieces (`MayPlay.spellGets`, `CountersPut.causedBy`/`PlayerCountersPut.causedBy`,
+  `ZoneChange.notTo` for leaving the battlefield without dying).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

@@ -719,7 +719,9 @@ internal class Sentences(
         // chunk 20: "that creature" is the event's object
         val about = (interveningIf as? arcanum.api.Condition.ObjectMatches)
         triggerIt = itOf(trigger.events)
-        var instructions = instructions(conditional?.groupValues?.get(2) ?: rest, event = trigger.events.first(),
+        // blb chunk 04: with an event that has no object ("whenever you expend 4"), "it" is this permanent
+        val event = trigger.events.firstOrNull { it is EventPattern.Expend } ?: trigger.events.first()
+        var instructions = instructions(conditional?.groupValues?.get(2) ?: rest, event = event,
             them = about?.objects?.takeIf { it != Objects.Self }, that = that(trigger))
         triggerIt = null
         // chunk 33: X in this permanent's enters trigger is the X chosen for the spell it was (CR 107.3m)
@@ -946,7 +948,7 @@ internal class Sentences(
         context.event = event
         context.it = event?.let { if (it is EventPattern.ZoneChange) Objects.EventObject(arcanum.api.EventRole.After) else Objects.EventObject(role = EventRole.Object) }
         // chunk 30: a step has no object, so "it" is this object ("return it to your hand")
-        if (event is EventPattern.StepBegins) context.it = Objects.Self
+        if (event is EventPattern.StepBegins || event is EventPattern.Expend) context.it = Objects.Self
         // chunk 36: "Whenever this creature attacks, put a +1/+1 counter on it": it is this creature
         if (event is EventPattern.Attack && event.attacker == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
@@ -3056,6 +3058,69 @@ internal class Sentences(
 
     /** The Bloomburrow effect wordings; null when none reads [sentence]. */
     private fun blbEffect(sentence: String, context: Context): List<Step>? {
+        // blb chunk 04: "It gets +0/+2 until end of turn.", "it gets +1/+0 and gains first strike until end of turn."
+        Blb.IT_GETS.matchEntire(sentence)?.let { m ->
+            val objects = when {
+                isSelf(m.groupValues[1]) -> Objects.Self
+                m.groupValues[1] == "It" -> context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+                else -> return null
+            }
+            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+            val mechanics = listOf<Mechanic>(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)) +
+                listOfNotNull(keywords?.let { Mechanic.GainAbilities(it) })
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 04: "Target creature you control gets +1/+1 and gains trample until end of turn."
+        Blb.TARGET_GETS_AND_GAINS.matchEntire(sentence)?.let { m ->
+            val keywords = m.groupValues[4].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null,
+                ptChange(m.groupValues[3]) ?: return null), Mechanic.GainAbilities(keywords)), Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 04: "You may reveal a creature card with mana value 3 or less from among them." ("it" is then that card)
+        Blb.MAY_REVEAL_FROM_AMONG.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            context.picked = "chosen"
+            context.it = Objects.Bound("chosen")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("chosen"))))
+        }
+        // blb chunk 04: "You may put it onto the battlefield if it's your turn. If you don't put it onto the battlefield, put it
+        // into your hand." (CR 118.12: putting it there is a choice, only on your turn)
+        if (sentence == "You may put it onto the battlefield if it's your turn.") {
+            val card = context.it ?: return null
+            return listOf(Step.If(arcanum.api.Condition.YourTurn, then = listOf(Step.Pay(steps = listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield)))),
+                payer = Players.You, bind = "put"))))
+        }
+        if (sentence == "If you don't put it onto the battlefield, put it into your hand.") {
+            val card = context.it ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("put")), then = listOf(Step.Do(Effect.Move(card, Destination(Zone.Hand))))))
+        }
+        // blb chunk 04: "Add {R} or {G} for each Raccoon you control." (each mana of either colour, CR 106.1)
+        Blb.ADD_EITHER_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val colors = listOf(m.groupValues[1], m.groupValues[2]).map { arcanum.api.ColorRef.Literal(arcanum.api.Color.of(it.single()) ?: return null) }
+            val count = Value.Count(Objects.Each(Filters.noun(m.groupValues[3]) ?: return null))
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(count, colors, combination = true)), Players.You)))
+        }
+        // blb chunk 04: "Exile the top two cards of your library. Until the end of your next turn, you may play those cards."
+        // (chunk 56's rule exiles the top N as "them")
+        Blb.MAY_PLAY_THOSE.matchEntire(sentence)?.let { m ->
+            val cards = context.them ?: context.it ?: return null
+            val duration = when (m.groupValues[1]) {
+                "Until end of turn" -> arcanum.api.Duration.EndOfTurn
+                "Until the end of your next turn" -> arcanum.api.Duration.UntilEndOfYourNextTurn
+                else -> return null
+            }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
+                Affected.Objects(cards), duration)))
+        }
+        // blb chunk 04: "Draw cards equal to the number of stash counters on this enchantment."
+        Blb.DRAW_EQUAL_TO_COUNTERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single))))
+        }
         // blb chunk 03: "Forage." (CR 701.61a), as in "You may forage."
         if (sentence == "Forage.") return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Forage)))
         // blb chunk 03: "Until end of turn, you may cast creature spells from your graveyard by foraging in addition to paying
@@ -3290,6 +3355,13 @@ internal class Sentences(
         val RETURN_COUNTED_FROM_GRAVEYARD = Regex("""[Rr]eturn (up to )?(two|three|four|five) target (.+?) from your graveyard to (your hand|the battlefield)\.""")
         val DESTROY_N_TARGETS = Regex("""[Dd]estroy (two|three) target (.+)\.""")
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // blb chunk 04
+        val TARGET_GETS_AND_GAINS = Regex("""Target (.+) gets ([+-]\d+)/([+-]\d+) and gains ([a-z ,]+) until end of turn\.""")
+        val IT_GETS = Regex("""(It|This [a-z]+) gets ([+-]\d+)/([+-]\d+)(?: and gains ([a-z ,]+?))? until end of turn\.""")
+        val MAY_REVEAL_FROM_AMONG = Regex("""You may reveal an? (.+) from among them\.""")
+        val ADD_EITHER_FOR_EACH = Regex("""Add \{([WUBRG])\} or \{([WUBRG])\} for each (.+)\.""")
+        val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (?:those cards|that card|them)\.""")
+        val DRAW_EQUAL_TO_COUNTERS = Regex("""Draw cards equal to the number of (\S+) counters on (.+)\.""")
         // blb chunk 03
         val YOU_SACRIFICE_ONE_OR_MORE = Regex("""you sacrifice one or more (.+)""")
         val CAST_THIS_WAY_ENTERS_WITH = Regex("""If you cast a spell this way, that creature enters with (a|an|one|two) (\S+) counters? on it\.""")

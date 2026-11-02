@@ -213,7 +213,9 @@ internal object Filters {
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
     /** Plural creature types as printed ("Elves you control"); regular plurals are only read where the text needs them. */
     private val IRREGULAR_PLURALS = mapOf("Elves" to "Elf", "Dwarves" to "Dwarf", "Wolves" to "Wolf", "Goblins" to "Goblin",
-        "Zombies" to "Zombie", "Humans" to "Human", "Spirits" to "Spirit", "Merfolk" to "Merfolk", "Soldiers" to "Soldier")
+        "Zombies" to "Zombie", "Humans" to "Human", "Spirits" to "Spirit", "Merfolk" to "Merfolk", "Soldiers" to "Soldier",
+        // blb chunk 04
+        "Mice" to "Mouse")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
@@ -253,6 +255,11 @@ internal object Events {
         ENTERS_AND_WHEN_YOU_SACRIFICE_IT.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Sacrifice(subject))
+        }
+        // blb chunk 04: "this enchantment enters and whenever you expend 4"
+        ENTERS_AND_WHENEVER.matchEntire(text)?.let { m ->
+            val subject = subject(m.groupValues[1], self) ?: return null
+            return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), event(m.groupValues[2], self) ?: return null)
         }
         ENTERS_OR_LEAVES.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
@@ -355,6 +362,8 @@ internal object Events {
         if (text == "you give a gift") return EventPattern.GiveGift(PlayerFilter.You)
         // blb chunk 03: CR 701.61a
         if (text == "you forage") return EventPattern.Forage(PlayerFilter.You)
+        // blb chunk 04: "you expend 4" (CR 700.14)
+        YOU_EXPEND.matchEntire(text)?.let { m -> return EventPattern.Expend(m.groupValues[1].toInt(), PlayerFilter.You) }
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
             val by = when (m.groupValues[2]) {
@@ -426,8 +435,10 @@ internal object Events {
     }
 
     private val ENTERS = Regex("""(.+) enters?""")
-    private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step)""")
-    private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
+    // blb chunk 04: "your first main phase", "your second main phase" (CR 505.1a)
+    private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step|first main phase|second main phase)""")
+    private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
+        "first main phase" to arcanum.api.TurnStep.PrecombatMain, "second main phase" to arcanum.api.TurnStep.PostcombatMain)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
@@ -477,6 +488,9 @@ internal object Events {
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
     // blb chunk 01
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
+    // blb chunk 04
+    private val YOU_EXPEND = Regex("""you expend (\d+)""")
+    private val ENTERS_AND_WHENEVER = Regex("""(.+) enters and whenever (.+)""")
     // blb chunk 03
     private val ENTERS_AND_WHEN_YOU_SACRIFICE_IT = Regex("""(.+) enters and when you sacrifice it""")
 }

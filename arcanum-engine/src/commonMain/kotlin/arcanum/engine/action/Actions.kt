@@ -143,6 +143,8 @@ internal object Actions {
                     move.copy(counters = move.counters + (mod.kind to e.value(mod.amount))) else move
                 is Modification.EntersUnderControlOf -> move.copy(controller = e.players(mod.players).firstOrNull() ?: move.controller)
                 is Modification.EntersWithAbilities -> move.copy(abilities = move.abilities + mod.abilities)
+                // gtc chunk 12: "enters … as a Mutant in addition to its other types" (CR 614.12)
+                is Modification.EntersAs -> if (move.to == Zone.Battlefield) move.copy(entersAs = move.entersAs + mod.mechanics) else move
                 is Modification.EntersAsCopy -> {
                     val options = e.each(mod.of).filter { it != move.id }
                     val chooser = r.controller

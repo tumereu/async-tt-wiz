@@ -85,7 +85,10 @@ internal object Targets {
         }
         val sourceObject = source ?: item
         // CR 702.11b: "as though they didn't have hexproof": the restriction of their hexproof keywords doesn't apply
-        val ignoringHexproof = mechanics.any { it.mechanic == Mechanic.TargetableDespiteHexproof }
+        val ignoringHexproof = mechanics.any { applied ->
+            val m = applied.mechanic as? Mechanic.TargetableDespiteHexproof ?: return@any false
+            m.by == null || snap.evaluator(applied.controller, self = applied.source, names = applied.names).matches(m.by!!, item)
+        }
         return mechanics.any { applied ->
             if (ignoringHexproof && fromHexproof(snap.view, applied)) return@any false
             val e = snap.evaluator(applied.controller, self = applied.source ?: (ref as? TargetRef.Object)?.id, names = applied.names)

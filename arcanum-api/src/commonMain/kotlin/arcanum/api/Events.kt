@@ -66,7 +66,13 @@ sealed interface EventPattern {
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),
      * defender (a planeswalker or battle attacked); [Players.EventPlayer] is the player attacked. */
-    @Serializable @SerialName("attack") data class Attack(val attacker: ObjectFilter, val alone: Boolean = false, val target: RecipientFilter? = null) : EventPattern
+    @Serializable @SerialName("attack") data class Attack(
+        val attacker: ObjectFilter, val alone: Boolean = false, val target: RecipientFilter? = null,
+        // gtc chunk 01
+        /** Only when at least this many other creatures are declared as attackers with it ("Whenever this creature and at
+         * least two other creatures attack", battalion, an ability word, CR 207.2c); 0: any number. */
+        val withOthers: Int = 0,
+    ) : EventPattern
     /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
      * once per attacker blocked (CR 509.3a, b). Roles object (the blocker), other combatant (the attacker). */
     @Serializable @SerialName("block") data class Block(

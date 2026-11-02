@@ -25,6 +25,7 @@ import arcanum.api.PlayKind
 import arcanum.api.PlayerFilter
 import arcanum.api.Players
 import arcanum.api.RecipientFilter
+import arcanum.api.Recipients
 import arcanum.api.Step
 import arcanum.api.Subtype
 import arcanum.api.Supertype
@@ -250,6 +251,7 @@ internal class Sentences(
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        gtcStatic(line)?.let { return it } // gtc
         blbStatic(line)?.let { return it }
         blbGapsStatic(line)?.let { return it } // blb gaps
         blbGaps2Static(line)?.let { return it } // blb gaps 2
@@ -297,7 +299,7 @@ internal class Sentences(
         // hexproof. Ward abilities of those creatures don't trigger." (CR 702.11b, 702.21a)
         TARGETABLE_DESPITE_HEXPROOF.matchEntire(line)?.let { m ->
             val affected = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
-            val mechanics = listOf<Mechanic>(Mechanic.TargetableDespiteHexproof) + listOfNotNull(Mechanic.WardDoesntTrigger.takeIf { m.groupValues[2].isNotEmpty() })
+            val mechanics = listOf<Mechanic>(Mechanic.TargetableDespiteHexproof()) + listOfNotNull(Mechanic.WardDoesntTrigger.takeIf { m.groupValues[2].isNotEmpty() })
             return Ability.Static(mechanics, affects = Affected.Objects(Objects.Each(affected)))
         }
         // dsk chunk 10: "If a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead."
@@ -2578,6 +2580,8 @@ internal class Sentences(
     private fun effect(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        // gtc: the Gatecrash and Dragon's Maze wordings, tried first; each falls through when it can't read the sentence
+        gtcEffect(sentence, context)?.let { return it }
         // blb: the Bloomburrow wordings (blbEffect), tried first; each is specific and falls through when it can't read
         blbEffect(sentence, context)?.let { return it }
         blbGapsEffect(sentence, context)?.let { return it } // blb gaps
@@ -4029,6 +4033,462 @@ internal class Sentences(
             }
         }
         return null
+    }
+
+    // ---- gtc: Gatecrash and Dragon's Maze wordings (their regular expressions in [Gtc])
+
+    /** gtc: the Gatecrash and Dragon's Maze static abilities, tried after the others: null when none reads [line]. */
+    private fun gtcStatic(line: String): Ability? {
+        val self = Affected.Objects(Objects.Self)
+        // gtc chunk 03: "Artifacts and creatures your opponents control enter tapped." (CR 614.1c; the permanent as it would
+        // exist on the battlefield, CR 614.12)
+        Gtc.OTHERS_ENTER_TAPPED.matchEntire(line)?.takeIf { !isSelf(it.groupValues[1]) }?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(filter, to = Zone.Battlefield),
+                modify = listOf(Modification.EntersTapped))), affects = self)
+        }
+        // gtc chunk 06: 'Enchanted land has "{T}: Tap target creature."' (CR 113.10: the land's controller activates it)
+        Gtc.ENCHANTED_HAS_QUOTED.matchEntire(line)?.let { m ->
+            val granted = Sentences(setOf("this ${m.groupValues[1]}", "this permanent")).line(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // gtc chunk 06: "This creature can block any number of creatures." (CR 509.1a)
+        Gtc.CAN_BLOCK_ANY_NUMBER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.CanBlockAnyNumber), affects = self)
+        }
+        // gtc chunk 07: "Lands you control are the chosen type in addition to their other types." (CR 305.7: they keep their
+        // other types and abilities)
+        Gtc.ARE_THE_CHOSEN_TYPE.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Remembered(CHOSEN_TYPE)))),
+                affects = Affected.Objects(Objects.Each(filter)))
+        }
+        // gtc chunk 07: "As this creature enters, choose a basic land type." (CR 614.12, 607.2d)
+        Gtc.AS_ENTERS_CHOOSE_BASIC_LAND_TYPE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.AsEnters(listOf(Step.Choose(arcanum.api.Choice.BasicLandType, bind = CHOSEN_TYPE, remember = true,
+                    chooser = Players.You)))))), affects = self)
+        }
+        // gtc chunk 04: "Each creature you control with a +1/+1 counter on it has flying." / "Multicolored creatures you control
+        // have vigilance." / "Creatures you control have haste and attack each combat if able."
+        Gtc.HAS_PREDICATES.matchEntire(line)?.let { m ->
+            val subject = m.groupValues[1].removePrefix("Each ").removePrefix("each ")
+            val objects = when {
+                isSelf(subject) -> Objects.Self
+                attachedSubject(subject) != null -> attachedSubject(subject)!!
+                else -> Objects.Each(Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: Filters.noun(subject) ?: return@let)
+            }
+            val mechanics = gtcStaticPredicates(m.groupValues[2]) ?: return@let
+            return Ability.Static(mechanics, affects = Affected.Objects(objects))
+        }
+        // gtc chunk 08: "Enchanted creature gets -X/-X, where X is the number of creature cards in its controller's graveyard."
+        Gtc.GETS_MINUS_X_CONTROLLERS_GRAVEYARD.matchEntire(line)?.let { m ->
+            val subject = attachedSubject(m.groupValues[1]) ?: return null
+            val owner = ObjectFilter.OwnedBy(PlayerFilter.Is(Players.ControllerOf(subject)))
+            val count = Value.Count(Objects.Each(Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), owner)))
+            val minus = Value.Times(count, -1)
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(minus, minus)), affects = Affected.Objects(subject))
+        }
+        // gtc chunk 08: "This creature gets +1/+1 for each creature card in your opponents' graveyards."
+        Gtc.GETS_FOR_EACH.matchEntire(line)?.let { m ->
+            val objects = if (isSelf(m.groupValues[1])) Objects.Self else attachedSubject(m.groupValues[1]) ?: return null
+            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[4]) ?: return null))
+            fun times(n: Int) = when (n) { 0 -> Value.Fixed(0); 1 -> per; else -> Value.Times(per, n) }
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(times(m.groupValues[2].toInt()), times(m.groupValues[3].toInt()))),
+                affects = Affected.Objects(objects))
+        }
+        // gtc chunk 07: "Prevent all combat damage that would be dealt to this creature by creatures blocking it."
+        Gtc.PREVENT_DAMAGE_TO_SELF_BY_BLOCKERS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature),
+                ObjectFilter.Blocking(Objects.Self)),
+                arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), combat = true))), affects = self)
+        }
+        // gtc chunk 12: "Creatures blocking or blocked by this creature have lifelink."
+        Gtc.BLOCKING_OR_BLOCKED_BY_HAVE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Each(Filters.all(
+                ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.Or(listOf(ObjectFilter.Blocking(Objects.Self), ObjectFilter.BlockedBy(Objects.Self)))))))
+        }
+        // gtc chunk 13: "Creatures your opponents control with hexproof can be the targets of spells and abilities you control as
+        // though they didn't have hexproof." (CR 702.11b)
+        Gtc.TARGETABLE_DESPITE_HEXPROOF.matchEntire(line)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null,
+                ObjectFilter.HasKeyword(arcanum.api.Keyword.Hexproof))
+            return Ability.Static(listOf(Mechanic.TargetableDespiteHexproof(by = ObjectFilter.ControlledBy(PlayerFilter.You))),
+                affects = Affected.Objects(Objects.Each(filter)))
+        }
+        // gtc chunk 11: "You may look at cards exiled with this creature." (CR 607.2a: the cards its linked ability exiled)
+        Gtc.MAY_LOOK_AT_EXILED_WITH.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.MayLookAt(Objects.Affected)), affects = Affected.Objects(Objects.Remembered(EXILED_WITH)))
+        }
+        // gtc chunk 12: "You may play lands and cast spells from among cards exiled with this creature." (CR 607.2a)
+        Gtc.MAY_PLAY_EXILED_WITH.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
+                affects = Affected.Objects(Objects.Remembered(EXILED_WITH)))
+        }
+        // gtc chunk 12: "Prime Speaker Zegana enters with X +1/+1 counters on it, where X is the greatest power among other
+        // creatures you control." (CR 614.1c, counted as it enters)
+        Gtc.ENTERS_WITH_X_COUNTERS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val x = Values.value(m.groupValues[3]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(kind, x)))), affects = self)
+        }
+        // gtc chunk 12: "Each other creature you control enters with a number of additional +1/+1 counters on it equal to this
+        // creature's power and as a Mutant in addition to its other types." (CR 614.1c, 614.12)
+        Gtc.OTHERS_ENTER_WITH_COUNTERS_EQUAL_AND_AS.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].removePrefix("Each ").replaceFirstChar { it.lowercase() }) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val amount = selfNumber(m.groupValues[3]) ?: return null
+            if (m.groupValues[4] !in RulesWords.subtypes) return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(filter, to = Zone.Battlefield), modify = listOf(
+                Modification.EntersWithCounters(kind, amount),
+                Modification.EntersAs(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(m.groupValues[4])))))))) ),
+                affects = self)
+        }
+        return null
+    }
+
+    /** gtc: the rules of a static ability's "has …"/"gets …"/"can't …" ("has flying", "have haste and attack each combat if
+     * able", "has hexproof and can't be blocked by more than one creature"). */
+    private fun gtcStaticPredicates(text: String): List<Mechanic>? = text.split(Gtc.STATIC_PREDICATE_AND).flatMap { part ->
+        Gtc.HAVE_KEYWORDS.matchEntire(part)?.let { m ->
+            listOf(Mechanic.GainAbilities(m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }))
+        } ?: Gtc.GET_PT.matchEntire(part)?.let { m ->
+            listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[1]) ?: return null, ptChange(m.groupValues[2]) ?: return null))
+        } ?: Gtc.CANT_BE_BLOCKED_BY.matchEntire(part)?.let { m -> listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[1]) ?: return null)) }
+        ?: when (part) {
+            "attack each combat if able", "attacks each combat if able" -> listOf(Mechanic.MustAttack())
+            "can't be blocked by more than one creature" -> listOf(Mechanic.MaximumBlockers(1))
+            "can't attack or block" -> listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any))
+            "its activated abilities can't be activated" -> listOf(Mechanic.CantBeActivated(manaAbilities = true))
+            "can't block" -> listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any))
+            else -> return null
+        }
+    }
+
+    /** gtc: the Gatecrash and Dragon's Maze sentence rules, tried near the end of [effect]: null when none reads [sentence]. */
+    private fun gtcEffect(sentence: String, context: Context): List<Step>? {
+        // gtc chunk 01: "creatures you control gain first strike and trample until end of turn and can't be blocked by
+        // creature tokens this turn": one continuous effect with each rule, all ending with the turn (CR 611.2a)
+        Gtc.TIMED_PREDICATES.matchEntire(sentence)?.let { m ->
+            val parts = m.groupValues[2].split(Gtc.PREDICATE_AND)
+            val mechanics = mutableListOf<Mechanic>()
+            for (part in parts) mechanics += gtcPredicate(Gtc.TIMING.matchEntire(part)?.groupValues?.get(1) ?: part) ?: return@let
+            val targets = context.targets.size
+            val objects = gtcSubject(m.groupValues[1], context)
+            if (objects == null) { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics, arcanum.api.Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
+        }
+        return gtcEffect2(sentence, context)
+    }
+
+    /** gtc: the Gatecrash one-shot wordings (white, blue, black). */
+    private fun gtcEffect2(sentence: String, context: Context): List<Step>? {
+        val eot = arcanum.api.Duration.EndOfTurn
+        fun apply(mechanics: List<Mechanic>, objects: Objects?, duration: arcanum.api.Duration = eot) =
+            Step.Do(Effect.ApplyMechanics(mechanics, objects?.let { arcanum.api.Affected.Objects(it) }, duration))
+        // gtc chunk 04: "Regenerate this creature." / "Regenerate it." / "Regenerate target creature." (CR 701.19a)
+        Gtc.REGENERATE.matchEntire(sentence)?.let { m ->
+            val objects = gtcSubject(m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Regenerate(objects))))
+        }
+        // gtc chunk 06: "Prevent all damage that would be dealt to target creature this turn." / "… to you this turn." (CR 615)
+        Gtc.PREVENT_ALL_DAMAGE_TO.matchEntire(sentence)?.let { m ->
+            val combat = if (m.groupValues[1].isEmpty()) null else true
+            val to = when (val who = m.groupValues[2]) {
+                "you" -> arcanum.api.RecipientFilter(players = PlayerFilter.You)
+                "him", "her", "it" -> arcanum.api.RecipientFilter(objects = ObjectFilter.Is(Objects.Self))
+                else -> arcanum.api.RecipientFilter(objects = ObjectFilter.Is(gtcSubject(who, context) ?: return null))
+            }
+            return listOf(apply(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, to, combat = combat))), null))
+        }
+        // gtc chunk 10: "Prevent all combat damage that would be dealt this turn by creatures with no +1/+1 counters on them."
+        Gtc.PREVENT_ALL_COMBAT_DAMAGE_BY.matchEntire(sentence)?.let { m ->
+            val sources = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(apply(listOf(Mechanic.Prevention(EventPattern.Damage(sources, arcanum.api.RecipientFilter(), combat = true))), null))
+        }
+        // gtc chunk 07: "Return all attacking creatures to their owner's hand."
+        Gtc.RETURN_ALL_TO_HAND.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null), Destination(Zone.Hand))))
+        }
+        // gtc chunk 06: "Exile all other permanents.", "Exile all artifacts."
+        Gtc.EXILE_ALL.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null), Destination(Zone.Exile))))
+        }
+        // gtc chunk 07: "Draw cards equal to the number of cards in your library"
+        Gtc.DRAW_CARDS_EQUAL_TO.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Draw(Players.You, gtcValue(m.groupValues[1], context) ?: return null)))
+        }
+        // gtc chunk 07: "Put a card from your hand on top of your library."
+        if (sentence == "Put a card from your hand on top of your library.") return listOf(
+            Step.Choose(arcanum.api.Choice.Objects(handOf(Players.You), Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+            Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Library, libraryPosition = 0))))
+        // gtc chunk 07: "You have no maximum hand size until your next turn." (CR 402.2)
+        if (sentence == "You have no maximum hand size until your next turn.")
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.NoMaximumHandSize), arcanum.api.Affected.Players(Players.You),
+                arcanum.api.Duration.UntilYourNextTurn)))
+        // gtc chunk 07: "Tap X target nonland permanents." (exactly X targets, CR 601.2c)
+        Gtc.TAP_X_TARGETS.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val name = Filters.slotName(noun.removeSuffix("s"))
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Announced("X"), max = Value.Announced("X"))
+            return listOf(Step.Do(Effect.Tap(Objects.Target(name))))
+        }
+        // gtc chunk 05: "That creature doesn't untap during its controller's next untap step." (CR 502.3)
+        Gtc.DOESNT_UNTAP_NEXT.matchEntire(sentence)?.let { m ->
+            val objects = gtcSubject(m.groupValues[1], context) ?: return null
+            return listOf(apply(listOf(Mechanic.DoesntUntap), objects,
+                arcanum.api.Duration.ThroughNextStep(arcanum.api.TurnStep.Untap, Players.ControllerOf(objects))))
+        }
+        // gtc chunk 07: "That creature's controller creates a 3/3 green Frog Lizard creature token." (CR 111.2)
+        Gtc.CONTROLLER_CREATES.matchEntire(sentence)?.let { m ->
+            val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), controller = Players.ControllerOf(of))))
+        }
+        // gtc chunk 04: "Move a +1/+1 counter from this creature onto target creature."
+        Gtc.MOVE_COUNTER.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val from = gtcSubject(m.groupValues[3], context) ?: return null
+            val to = gtcSubject(m.groupValues[4], context) ?: return null
+            return listOf(Step.Do(Effect.MoveCounters(from, to, kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        // gtc chunk 07: "Put target nonland permanent on top of its owner's library."
+        Gtc.PUT_ON_TOP.matchEntire(sentence)?.let { m ->
+            val objects = gtcSubject(m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.Move(objects, Destination(Zone.Library, libraryPosition = 0))))
+        }
+        // gtc chunk 08: "target player reveals cards from the top of their library until they reveal a land card, then puts those
+        // cards into their graveyard." (the land card too, CR 701.20a)
+        Gtc.REVEAL_UNTIL_INTO_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val count = if (m.groupValues[2] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
+            fun reveal(library: Players) = listOf(
+                Step.Do(Effect.RevealUntil(filter, library, count, reveal = true, foundBind = "found", restBind = "rest")),
+                Step.Do(Effect.Move(Objects.Union(listOf(Objects.Bound("found"), Objects.Bound("rest"))), Destination(Zone.Graveyard))))
+            return when (val who = m.groupValues[1]) {
+                "Target player", "target player" -> reveal(context.targetPlayer())
+                "That player", "that player" -> reveal(Players.EventPlayer)
+                "Each opponent", "each opponent" -> listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), "opponent",
+                    reveal(Players.Bound("opponent"))))
+                else -> null
+            }
+        }
+        // gtc chunk 08: "its controller loses 2 life." (the event's object, or the last target)
+        Gtc.ITS_CONTROLLER_LOSES.matchEntire(sentence)?.let { m ->
+            val of = context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.LoseLife(Players.ControllerOf(of), Value.Fixed(m.groupValues[1].toInt()))))
+        }
+        // gtc chunk 03: "add an additional {B}." (a triggered mana ability, CR 605.1b)
+        Gtc.ADD_ADDITIONAL.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse(m.groupValues[1]) ?: return null)), Players.You)))
+        }
+        // gtc chunk 10: "its controller adds an additional one mana of any color."
+        if (sentence == "Its controller adds an additional one mana of any color.") {
+            val of = context.it ?: return null
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1))), Players.ControllerOf(of))))
+        }
+        // gtc chunk 08: "Target player sacrifices a creature of their choice, then gains life equal to that creature's toughness."
+        // / "Target player sacrifices an artifact and a land of their choice." (one sacrifice event, CR 701.21a)
+        Gtc.TARGET_PLAYER_SACRIFICES.matchEntire(sentence)?.let { m ->
+            val player = context.targetPlayer()
+            val nouns = m.groupValues[1].split(" and ").map { it.removeArticle() }
+            val binds = nouns.indices.map { if (it == 0) "sacrificed" else "sacrificed${it + 1}" }
+            val chooses = nouns.zip(binds).map { (noun, bind) ->
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(player))),
+                    Value.Fixed(1), Value.Fixed(1)), bind = bind, chooser = player)
+            }
+            val all = if (binds.size == 1) Objects.Bound(binds[0]) else Objects.Union(binds.map { Objects.Bound(it) })
+            val then = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { gain ->
+                if (gain != "toughness") return null
+                listOf(Step.Do(Effect.GainLife(player, Value.Of(arcanum.api.NumericProperty.Toughness, Objects.Bound("sacrificed"), arcanum.api.Combine.Single))))
+            }.orEmpty()
+            context.lastPlayer = player
+            return chooses + Step.Do(Effect.Sacrifice(all)) + then
+        }
+        // gtc chunk 08: "Its controller mills cards equal to that creature's power." (as it last existed, CR 608.2h)
+        Gtc.ITS_CONTROLLER_MILLS_EQUAL.matchEntire(sentence)?.let { m ->
+            val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
+            return listOf(Step.Do(Effect.Mill(Players.ControllerOf(of), Value.Of(property, of, arcanum.api.Combine.Single))))
+        }
+        // gtc chunk 08: "exile the top seven cards of that player's library, then put a creature card from among them onto the
+        // battlefield under your control."
+        Gtc.EXILE_TOP_THEN_PUT_ONTO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val player = when (m.groupValues[2]) { "that player's" -> Players.EventPlayer; "your" -> Players.You; else -> return null }
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
+            return listOf(
+                Step.Do(Effect.Move(Objects.LibraryCards(player, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), fromTop = true),
+                    Destination(Zone.Exile), postBind = "exiled")),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("exiled")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You))))
+        }
+        // gtc chunk 08: "defending player discards a card." (the player this creature attacks, CR 506.2)
+        if (sentence == "Defending player discards a card.")
+            return listOf(Step.Do(Effect.Discard(Players.DefendingPlayerOf(Objects.Self), Value.Fixed(1), filter = ObjectFilter.Any)))
+        // gtc chunk 03: "Remove a counter from target nonland permanent." (of any kind its controller chooses)
+        Gtc.REMOVE_A_COUNTER_FROM.matchEntire(sentence)?.let { m ->
+            val objects = gtcSubject(m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.RemoveCounters(objects, null, Value.Fixed(1))))
+        }
+        // gtc chunk 05: "Target player loses 1 life, discards a card, then sacrifices a permanent of their choice." (in order)
+        Gtc.PLAYER_ACTIONS.matchEntire(sentence)?.let { m ->
+            val actions = m.groupValues[2].removeSuffix(", ").split(", ") + m.groupValues[3]
+            if (actions.size < 2) return@let
+            val targets = context.targets.size
+            val steps = mutableListOf<Step>()
+            for ((i, action) in actions.withIndex()) {
+                val subject = if (i == 0) m.groupValues[1] else "That player"
+                steps += effect("$subject $action.", context) ?: run {
+                    while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let
+                }
+                if (i == 0) context.player = context.lastPlayer
+            }
+            return steps
+        }
+        // gtc chunk 09: "Untap that creature." / "Untap those creatures."
+        Gtc.UNTAP_THAT.matchEntire(sentence)?.let { m ->
+            val objects = gtcSubject(if (m.groupValues[1] == "those creatures") "it" else "That creature", context) ?: return null
+            return listOf(Step.Do(Effect.Untap(objects)))
+        }
+        return gtcEffect3(sentence, context)
+    }
+
+    /** gtc: the Gatecrash one-shot wordings (red, green, multicolour). */
+    private fun gtcEffect3(sentence: String, context: Context): List<Step>? {
+        val eot = arcanum.api.Duration.EndOfTurn
+        fun apply(mechanics: List<Mechanic>, objects: Objects?, duration: arcanum.api.Duration = eot) =
+            Step.Do(Effect.ApplyMechanics(mechanics, objects?.let { arcanum.api.Affected.Objects(it) }, duration))
+        // gtc chunk 09: "It deals 5 damage to any target." (in an activated ability: this object)
+        // gtc chunk 09: "[source] deals 3 damage to target player or planeswalker." and other recipients
+        Gtc.DEALS_N_DAMAGE.matchEntire(sentence)?.let { m ->
+            val source = gtcSource(m.groupValues[1], context) ?: return@let
+            val amount = if (m.groupValues[2] == "X") Value.Announced("X") else Value.Fixed(m.groupValues[2].toInt())
+            val targets = context.targets.size
+            val to = gtcRecipients(m.groupValues[3], context) ?: run { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
+            return listOf(Step.Do(Effect.DealDamage(to, amount, source = source)))
+        }
+        // gtc chunk 09: "Massive Raid deals damage to any target equal to the number of creatures you control."
+        Gtc.DEALS_DAMAGE_TO_EQUAL.matchEntire(sentence)?.let { m ->
+            val source = gtcSource(m.groupValues[1], context) ?: return@let
+            val amount = gtcValue(m.groupValues[3], context) ?: return@let
+            val targets = context.targets.size
+            val to = gtcRecipients(m.groupValues[2], context) ?: run { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
+            return listOf(Step.Do(Effect.DealDamage(to, amount, source = source)))
+        }
+        // gtc chunk 09: "Homing Lightning deals 4 damage to target creature and each other creature with the same name as that
+        // creature." (CR 201.2)
+        Gtc.DEALS_DAMAGE_SAME_NAME.matchEntire(sentence)?.let { m ->
+            val source = gtcSource(m.groupValues[1], context) ?: return null
+            val noun = m.groupValues[3]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            val others = Objects.Each(Filters.all(Filters.noun(m.groupValues[4]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(target)), ObjectFilter.SameNameAs(target)))
+            return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Union(listOf(target, others))), Value.Fixed(m.groupValues[2].toInt()), source = source)))
+        }
+        // gtc chunk 09: "gain control of all artifacts that player controls." (CR 613.1b)
+        Gtc.GAIN_CONTROL_OF_ALL.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(apply(listOf(Mechanic.ControlledBy(Players.You)), Objects.Each(filter), arcanum.api.Duration.Indefinitely))
+        }
+        // gtc chunk 09: "Target creature an opponent controls blocks this turn if able." (CR 509.1c)
+        Gtc.BLOCKS_IF_ABLE.matchEntire(sentence)?.let { m ->
+            val objects = gtcSubject(m.groupValues[1], context) ?: return null
+            return listOf(apply(listOf(Mechanic.MustBlock(ObjectFilter.Any)), objects))
+        }
+        // gtc chunk 09: "Other creatures that player controls can't block this turn." (the last target's controller)
+        if (sentence == "Other creatures that player controls can't block this turn.") {
+            val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(apply(listOf(Mechanic.CantBlock(ObjectFilter.Any)), Objects.Each(Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature),
+                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.ControllerOf(of))), ObjectFilter.Not(ObjectFilter.Is(of))))))
+        }
+        // gtc chunk 09: "Players can't gain life this turn." "Damage can't be prevented this turn." (CR 615.12)
+        if (sentence == "Players can't gain life this turn.")
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantGainLife), arcanum.api.Affected.Players(Players.Each(PlayerFilter.Any)), eot)))
+        if (sentence == "Damage can't be prevented this turn.")
+            return listOf(apply(listOf(Mechanic.DamageCantBePrevented(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()))), null))
+        // gtc chunk 10: "Put a +1/+1 counter on target creature and untap it."
+        Gtc.PUT_COUNTER_AND_UNTAP.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val objects = gtcSubject(m.groupValues[2], context) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(objects, kind, Value.Fixed(1))), Step.Do(Effect.Untap(objects)))
+        }
+        // gtc chunk 10: "put a +1/+1 counter on enchanted creature."
+        Gtc.PUT_COUNTER_ON_ATTACHED.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.PutCounters(Objects.AttachedTo(Objects.Self), Counters.kind(m.groupValues[1]) ?: return null, Value.Fixed(1))))
+        }
+        // gtc chunk 10: "Choose target creature you control. You gain life equal to that creature's power plus its toughness."
+        Gtc.GAIN_LIFE_POWER_PLUS_TOUGHNESS.matchEntire(sentence)?.let {
+            val of = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.GainLife(Players.You, Value.Sum(listOf(
+                Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single),
+                Value.Of(arcanum.api.NumericProperty.Toughness, of, arcanum.api.Combine.Single))))))
+        }
+        return null
+    }
+
+    /** gtc: the source a "deals damage" sentence names: this object ("It" in an activated ability or about this object). */
+    private fun gtcSource(text: String, @Suppress("UNUSED_PARAMETER") context: Context): Objects? = when {
+        isSelf(text) || text == "It" || text == "it" -> Objects.Self
+        else -> null
+    }
+
+    /** gtc: who is dealt damage: "any target", "target player or planeswalker", "target creature", "that player". */
+    private fun gtcRecipients(text: String, context: Context): Recipients? = when (text) {
+        "any target" -> { context.anyTarget(); Recipients(target = "any") }
+        "target player" -> Recipients(players = context.targetPlayer())
+        "target opponent" -> Recipients(players = context.targetOpponent())
+        "target player or planeswalker", "target opponent or planeswalker" -> {
+            val players = if (text.contains("opponent")) PlayerFilter.Opponent else PlayerFilter.Any
+            context.targets += TargetSlot("target", TargetKind.Either(ObjectFilter.Type(arcanum.api.CardType.Planeswalker), players),
+                min = Value.Fixed(1), max = Value.Fixed(1))
+            Recipients(target = "target")
+        }
+        "that player" -> Recipients(players = context.lastPlayer ?: return null)
+        "each opponent" -> Recipients(players = Players.Each(PlayerFilter.Opponent))
+        else -> gtcSubject(text, context)?.let { Recipients(objects = it) }
+    }
+
+    /** gtc: a number ("the number of cards in your library", "that creature's power"). */
+    private fun gtcValue(text: String, context: Context): Value? = Values.value(text) ?: when {
+        text == "that creature's power" || text == "its power" -> context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }
+            ?.let { Value.Of(arcanum.api.NumericProperty.Power, Objects.Target(it.name), arcanum.api.Combine.Single) }
+        else -> null
+    }
+
+    /** gtc chunk 01: the objects a sentence's subject names: this object, "it", "that creature", "target …", or each object
+     * a noun phrase names ("creatures you control"). */
+    private fun gtcSubject(text: String, context: Context): Objects? = when {
+        isSelf(text) -> Objects.Self
+        text == "It" || text == "it" -> context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: context.it
+            ?: Objects.Self
+        text == "That creature" -> context.that ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+        text.startsWith("Target ") || text.startsWith("target ") -> {
+            val noun = text.substringAfter(' ')
+            Filters.noun(noun)?.let { context.target(Filters.slotName(noun), it) }
+        }
+        else -> (Filters.noun(text.replaceFirstChar { it.lowercase() }) ?: Filters.noun(text))?.let { Objects.Each(it) }
+    }
+
+    /** gtc chunk 01: the rules a continuous effect gives ("gains flying", "gets +2/+0", "can't block", "can't be blocked
+     * by creature tokens"). */
+    private fun gtcPredicate(text: String): List<Mechanic>? {
+        Gtc.GAIN_KEYWORDS.matchEntire(text)?.let { m ->
+            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            return listOf(Mechanic.GainAbilities(keywords))
+        }
+        Gtc.GET_PT.matchEntire(text)?.let { m ->
+            return listOf(Mechanic.ModifyPowerToughness(xOrChange(m.groupValues[1]) ?: return null, xOrChange(m.groupValues[2]) ?: return null))
+        }
+        Gtc.CANT_BE_BLOCKED_BY.matchEntire(text)?.let { m -> return listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[1]) ?: return null)) }
+        return when (text) {
+            "can't block" -> listOf(Mechanic.CantBlock(attackers = ObjectFilter.Any))
+            "can't be blocked" -> listOf(Mechanic.CantBeBlocked)
+            "can't attack" -> listOf(Mechanic.CantAttack())
+            "can't attack or block" -> listOf(Mechanic.CantAttack(), Mechanic.CantBlock(attackers = ObjectFilter.Any))
+            "loses all abilities" -> listOf(Mechanic.LoseAbilities())
+            else -> null
+        }
     }
 
     /** chunk 47: "Exile that card from your graveyard" as a cost paid on resolution (the discarded card, CR 118.12); "that

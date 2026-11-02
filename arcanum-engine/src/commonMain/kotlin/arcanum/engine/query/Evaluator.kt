@@ -187,6 +187,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         ObjectFilter.Any, is ObjectFilter.Is, is ObjectFilter.Category, is ObjectFilter.ControlledBy, is ObjectFilter.OwnedBy,
         is ObjectFilter.InZone, is ObjectFilter.AbilityOf, is ObjectFilter.WasCast, is ObjectFilter.WasPaid,
         is ObjectFilter.HasStatus, ObjectFilter.SummoningSick, is ObjectFilter.HasCounter, is ObjectFilter.Targets,
+        is ObjectFilter.Blocking, is ObjectFilter.BlockedBy,
         is ObjectFilter.Attached, is ObjectFilter.ThisTurn -> matches(filter, id) == result
         else -> true
     }
@@ -312,6 +313,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             is ObjectFilter.WasPaid -> (facts(id)?.paid.orEmpty().filter { it.keyword == filter.keyword }.sumOf { it.times }) >= filter.times
             is ObjectFilter.HasStatus -> hasStatus(id, o, filter.status)
+            // gtc chunk 07: the blocking relation of this combat (CR 509.1a, 509.1h)
+            is ObjectFilter.Blocking -> objects(filter.objects).let { them -> state.combat?.blockers.orEmpty().any { b -> b.id == id && b.attackers.any { it in them } } }
+            is ObjectFilter.BlockedBy -> objects(filter.objects).let { them -> state.combat?.blockers.orEmpty().any { b -> b.id in them && id in b.attackers } }
             ObjectFilter.SummoningSick -> o != null && summoningSick(o, controllerOf(id))
             is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
                 (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
@@ -345,7 +349,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 } ?: true
                 toOk && attachmentsOk
             }
-            is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id)
+            is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id, role = filter.role)
             // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
@@ -759,8 +763,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 internal object History {
     fun happened(
         evaluator: Evaluator, event: arcanum.api.EventPattern, objectId: ObjectId? = null, player: PlayerId? = null,
+        role: arcanum.api.EventRole? = null,
     ): Boolean = instances(evaluator, event).any { e ->
-        (objectId == null || e.objects.any { objectId in it.ids }) && (player == null || player in e.players)
+        (objectId == null || e.objects.any { (role == null || it.role == role) && objectId in it.ids }) && (player == null || player in e.players)
     }
 
     fun count(evaluator: Evaluator, event: arcanum.api.EventPattern, measure: arcanum.api.Measure): Int {

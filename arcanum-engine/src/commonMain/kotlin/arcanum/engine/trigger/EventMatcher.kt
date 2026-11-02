@@ -269,6 +269,8 @@ internal object EventMatcher {
         val all = c.after?.attackers.orEmpty()
         val declared = all.filter { it.id !in before }
         if (pattern.alone && all.size != 1) return emptyList()
+        // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared together (CR 508.1a)
+        if (declared.size < 1 + pattern.withOthers) return emptyList()
         return declared.filter { a -> e.matches(pattern.attacker, a.id) && (pattern.target == null || recipient(e, pattern.target!!, a.target)) }
             .map { a ->
                 TriggerEvent(

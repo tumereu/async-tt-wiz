@@ -471,6 +471,24 @@ object KeywordExpansions {
                 Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.You)),
                     steps(Effect.RemoveCounters(Objects.Self, time, Value.Fixed(1))), interveningIf = waiting))
         }
+        // gtc chunk 03: CR 702.101a: "Whenever you cast a spell, you may pay {W/B}. If you do, each opponent loses 1 life and
+        // you gain life equal to the total life lost this way."
+        Keyword.Extort -> listOf(Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.You)), Instructions(steps = listOf(
+            Step.Pay(Cost.mana(ManaCost.parse("{W/B}")!!), payer = Players.You, bind = "extorted"),
+            Step.If(Condition.Did("extorted"), then = listOf(
+                Step.Do(Effect.LoseLife(Players.Each(PlayerFilter.Opponent), Value.Fixed(1), bind = "lost")),
+                Step.Do(Effect.GainLife(Players.You, Value.Bound("lost")))))))))
+        // gtc chunk 04: CR 702.100a: "Whenever a creature you control enters, if that creature's power is greater than this
+        // creature's power and/or that creature's toughness is greater than this creature's toughness, put a +1/+1 counter
+        // on this creature." (the entered creature as it last existed if it has left, CR 603.10a)
+        Keyword.Evolve -> {
+            val entered = Objects.EventObject(EventRole.After)
+            fun greater(p: NumericProperty) = Condition.Compare(Value.Of(p, entered, Combine.Single), Comparison.Greater, Value.Of(p, Objects.Self, Combine.Single))
+            listOf(Ability.Triggered(
+                Trigger.On(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))), to = Zone.Battlefield)),
+                steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
+                interveningIf = Condition.Or(listOf(greater(NumericProperty.Power), greater(NumericProperty.Toughness)))))
+        }
         else -> null
     }
 

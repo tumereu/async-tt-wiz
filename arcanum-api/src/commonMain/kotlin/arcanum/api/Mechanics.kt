@@ -139,8 +139,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter, val fromSource: ObjectFilter? = null) : Mechanic
     @Serializable @SerialName("phasing") data object Phasing : KeywordOnly
     /** The affected objects can be the targets of spells and abilities as though they didn't have hexproof (CR 702.11b): the
-     * targeting restriction of their hexproof keywords doesn't apply. */
-    @Serializable @SerialName("targetable-despite-hexproof") data object TargetableDespiteHexproof : Mechanic
+     * targeting restriction of their hexproof keywords doesn't apply; only for spells and abilities matching [by] when given
+     * ("spells and abilities you control", gtc chunk 13). */
+    @Serializable @SerialName("targetable-despite-hexproof") data class TargetableDespiteHexproof(val by: ObjectFilter? = null) : Mechanic
     /** The ward abilities of the affected objects don't trigger (CR 702.21a). */
     @Serializable @SerialName("ward-doesnt-trigger") data object WardDoesntTrigger : Mechanic
     /** What this Aura can target as a spell and be attached to (enchant, CR 702.5, 303.4). */
@@ -441,6 +442,10 @@ sealed interface Modification {
     @Serializable @SerialName("enters-under-control") data class EntersUnderControlOf(val players: Players) : Modification
     /** "Enters with [abilities]" ("If kicked, it enters with … and with trample"): part of the entering object. */
     @Serializable @SerialName("enters-with-abilities") data class EntersWithAbilities(val abilities: List<Ability>) : Modification
+    // gtc chunk 12
+    /** What the entering permanent is as it enters ("enters … as a Mutant in addition to its other types"): a continuous
+     * effect on it that applies as it enters, so its enters triggers see it (CR 614.1c, 614.12, 611.2e). */
+    @Serializable @SerialName("enters-as") data class EntersAs(val mechanics: List<Mechanic>) : Modification
     /** The event doesn't happen at all ("If you would draw a card, skip that draw instead"). Skipping a step is
      * [Mechanic.SkipStep]; preventing damage is [Mechanic.Prevention] or [Effect.PreventDamage] (CR 615, not 614). */
     @Serializable @SerialName("skip") data object Skip : Modification

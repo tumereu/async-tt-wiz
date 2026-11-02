@@ -114,33 +114,37 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         val copy = item.viewport == "combat"
         val real = !copy && item.zone == PlayZone.BATTLEFIELD && !item.projection
         if (!copy && !real) continue
-        val chips = mutableListOf<Triple<String, Color, Boolean>>() // text, colour, filled
-        if (copy && automatum) {
+        val chips = mutableListOf<Pair<String, Color>>()
+        val b = bounds(item)
+        val attackerCopy = copy && area?.pairs?.any { p -> p.attackers.any { it.id == item.cardId } } == true
+        if (attackerCopy && automatum) {
             val keywords = computed.cards[card]?.keywords.orEmpty()
-            COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }.forEach { chips += Triple(it.lowercase(), AutomatumViolet, true) }
+            COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }.forEach { chips += it.lowercase() to AutomatumViolet }
             toTargets[card]?.groupBy { it.target }?.forEach { (target, list) ->
-                chips += Triple("${list.sumOf { it.amount }} → ${label(target)!!.label.removePrefix("→ ")}", PreviewRed, true)
+                chips += "${list.sumOf { it.amount }} → ${label(target)!!.label.removePrefix("→ ")}" to PreviewRed
             }
         }
         if (real && automatum && card in inCombat) {
             val occurrence = CombatStackRules.occurrences(area).first { it.sourceId == card }
             val pair = area!!.pairs.first { p -> (p.attackers + p.blockers).any { it.id == occurrence.id } }
             val attacker = pair.attackers.any { it.id == occurrence.id }
-            chips += when {
-                staging && attacker -> Triple(scene.combatLabels.firstOrNull { it.cardId == pair.attackTarget }?.label
-                    ?.let { if (it.startsWith("→ ")) it else "→ $it" } ?: "→ attack", AutomatumViolet, true)
-                attacker -> Triple("attacking", ArrowColor, true)
-                else -> Triple("blocking", ArrowColor, true)
+            when {
+                staging && attacker -> chips += (scene.combatLabels.firstOrNull { it.cardId == pair.attackTarget }?.label
+                    ?.let { if (it.startsWith("→ ")) it else "→ $it" } ?: "→ attack") to AutomatumViolet
+                // Only where it fits: small cards show their combat by their copies alone
+                b.width >= 44f -> chips += (if (attacker) "attacking" else "blocking") to ArrowColor
             }
         }
         val dealt = if (copy || card !in inCombat) damage[card] else null
         val dying = (copy || card !in inCombat) && card in dies
         if (chips.isEmpty() && dealt == null && !dying) continue
-        val b = bounds(item)
+        // An attacker's badges sit on its side away from the arrows (below it in the attacker's view, above it mirrored)
+        val below = attackerCopy && port != null && b.center.y > port.center.y
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)) {
-            if (chips.isNotEmpty()) Row(Modifier.align(Alignment.TopCenter).offset(y = (-10).dp).wrapContentSize(unbounded = true),
+            if (chips.isNotEmpty()) Row(Modifier.align(if (below) Alignment.BottomCenter else Alignment.TopCenter)
+                .offset(y = if (below) 9.dp else (-9).dp).wrapContentSize(unbounded = true),
                 horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for ((text, color, _) in chips) PreviewChip(text, color, Modifier, text, filled = true)
+                for ((text, color) in chips) PreviewChip(text, color, Modifier, text, filled = true)
             }
             if (dealt != null) Badge("−$dealt", PreviewRed, Modifier.align(Alignment.TopEnd).offset(x = 7.dp, y = 4.dp),
                 "Would take $dealt damage${if (dying) " and die" else ""}")
@@ -148,7 +152,7 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
                 if (dealt == null) "Would die" else "Dies")
         }
     }
-    // The target's header: "16 → 11"
+    // The target's header: "16 → 11" over its value at the right end
     if (preview != null) for (lane in scene.combatLabels) {
         if (lane.value.isEmpty()) continue
         val now = lane.value.toIntOrNull() ?: continue
@@ -157,12 +161,12 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         if (change == 0) continue
         val b = lane.bounds
         val tint = if (lane.side == viewer) OwnTableColor else OpponentTableColor
-        Box(Modifier.offset { IntOffset((b.right - lane.inset).dp.roundToPx(), b.y.dp.roundToPx()) }.height(b.height.dp)
-            .wrapContentWidth(unbounded = true).semantics { contentDescription = "Header would go from $now to ${now + change}" }) {
-            Text("$now → ${now + change}", Modifier.offset(x = (-2).dp).align(Alignment.CenterEnd)
+        Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)
+            .semantics { contentDescription = "Header would go from $now to ${now + change}" }) {
+            Text("$now → ${now + change}", Modifier.align(Alignment.CenterEnd).padding(end = lane.inset.dp)
                 .background(androidx.compose.ui.graphics.lerp(Color.White, tint, .13f), RoundedCornerShape(50))
-                .padding(horizontal = 4.dp), color = PreviewRed, fontWeight = FontWeight.Bold, fontSize = (lane.fontSize * 1.05f).sp,
-                maxLines = 1, softWrap = false)
+                .padding(horizontal = 3.dp), color = PreviewRed, fontWeight = FontWeight.Bold, fontSize = lane.fontSize.sp,
+                lineHeight = (lane.fontSize * 1.2f).sp, maxLines = 1, softWrap = false)
         }
     }
     for ((player, change) in preview?.life.orEmpty()) {
@@ -185,7 +189,7 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
     // CMB-029: the eye at the area's top-right corner hides and shows the preview's numbers
     if (shown.preview != null && combat != null) {
         val right = scene.combatLabels.maxOf { it.bounds.right } + 3f
-        Box(Modifier.offset { IntOffset((right - 18f).dp.roundToPx(), (port.y - 18f).dp.roundToPx()) }.size(30.dp)
+        Box(Modifier.offset { IntOffset((right + 3f).dp.roundToPx(), port.y.dp.roundToPx()) }.size(30.dp)
             .background(Color.White, CircleShape).border(1.dp, AutomatumViolet, CircleShape), contentAlignment = Alignment.Center) {
             EyeButton(hidden = combat.numbersHidden, combat::toggleNumbers, "damage preview")
         }
@@ -214,8 +218,8 @@ internal fun PreviewChip(text: String, color: Color, modifier: Modifier, descrip
     Box(modifier.wrapContentSize(unbounded = true).semantics { contentDescription = description }
         .background(if (filled) color else Color.White, RoundedCornerShape(6.dp))
         .border(1.5.dp, color, RoundedCornerShape(6.dp))) {
-        Text(text, Modifier.padding(horizontal = 4.dp), color = if (filled) Color.White else color, fontSize = 10.sp,
-            fontWeight = FontWeight.Bold, lineHeight = 12.sp, maxLines = 1, softWrap = false)
+        Text(text, Modifier.padding(horizontal = 3.dp), color = if (filled) Color.White else color, fontSize = 9.sp,
+            fontWeight = FontWeight.Bold, lineHeight = 11.sp, maxLines = 1, softWrap = false)
     }
 }
 

@@ -7,8 +7,8 @@ data class TableActionScope(val gameId: String, val playId: String)
 data class TurnPlayerTargets(val accountId: String, val battlefieldId: String, val libraryId: String, val handId: String)
 enum class LibraryTool { CONTENTS, DRAW_N, VIEW, REVEAL, SHUFFLE, MULLIGAN_N, MULLIGAN_MINUS_ONE }
 enum class CombatTool { CREATE, CLOSE, DECLARE, DECLARE_AND_TAP, ADVANCE_AND_CLOSE, NO_ATTACK, ASSUME_NO_BLOCKS,
-    // Experimental combat-damage shortcuts.
-    DEAL_DAMAGE, FIRST_STRIKE_DAMAGE, REGULAR_DAMAGE, DAMAGE_CLOSE_AND_NEXT,
+    // Combat damage: close the area and go on to Main 2 (CMB-022).
+    DAMAGE_CLOSE_AND_NEXT,
     // Automatum on (I3): declare what the lanes hold through the engine; pass priority on to the combat damage.
     AUTOMATUM_DECLARE, AUTOMATUM_PASS,
     // Automatum on (CMB-028, CMB-034): stage the given creatures as attackers of the active target; clear the staging or

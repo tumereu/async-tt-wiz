@@ -964,7 +964,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 if (it) { selectionState.value = TableSelection(); combat.clearSelection() }
             }
         }
-        // Experimental damage shortcuts return their whole-batch success, not the void route receipt.
+        // Close + next returns its whole-batch success, not the void route receipt.
         if (intent is TableActionIntent.Combat && intent.tool in combatDamageTools) {
             if (!table.enabled(intent.scope)) return false
             return performCombatDamage(intent)
@@ -1017,7 +1017,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
             CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
             CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
-            CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE, CombatTool.REGULAR_DAMAGE,
             CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
             CombatTool.AUTOMATUM_DECLARE, CombatTool.AUTOMATUM_PASS -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
             CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR, CombatTool.AUTOMATUM_NO_BLOCKS -> automatumCombatTool(intent)
@@ -1043,46 +1042,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (!submit(PlayAction.ChooseStep(TurnPosition.DECLARE_BLOCKERS), null)) return false
         return submit(PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE), null)
     }
-    /** [CombatDamage.recentDamageEdits] for [play] along the displayed history tree (bounded walk, no replay). */
-    fun combatDamageEdits(play: PlayState): Int {
-        if (TurnPosition.of(play.board.turn) != TurnPosition.COMBAT_DAMAGE || play.board.combat == null) return 0
-        val nodes = playTree?.invoke()?.nodes ?: return 0
-        return CombatDamage.recentDamageEdits(play, nodes::get)
-    }
-    // Experimental combat damage: calculate once, publish existing edits in one batch.
-    private val combatDamageTools = setOf(CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE,
-        CombatTool.REGULAR_DAMAGE, CombatTool.DAMAGE_CLOSE_AND_NEXT)
+    private val combatDamageTools = setOf(CombatTool.DAMAGE_CLOSE_AND_NEXT)
+    /** CMB-022: "Close + next" at Combat damage. */
     private fun performCombatDamage(intent: TableActionIntent.Combat): Boolean {
-        val play = current()?.takeIf { enabled() && it.board.combat?.id == intent.areaId } ?: return false
+        current()?.takeIf { enabled() && it.board.combat?.id == intent.areaId } ?: return false
         // Rules v33: End of combat is recorded on the way. The close comes first: a close after a step change would
         // start a second history group.
-        if (intent.tool == CombatTool.DAMAGE_CLOSE_AND_NEXT) return batchResult {
+        return batchResult {
             (intent.areaId == null || submit(PlayAction.Combat(CombatAction.Close(intent.areaId)))) &&
                 StepRun.choose(current()!!.board, TurnPosition.POSTCOMBAT_MAIN).all { submit(it) }
         }
-        val step = when (intent.tool) {
-            CombatTool.FIRST_STRIKE_DAMAGE -> CombatDamageStep.FIRST_STRIKE
-            CombatTool.REGULAR_DAMAGE -> CombatDamageStep.REGULAR
-            else -> CombatDamageStep.ALL
-        }
-        val sent = dealCombatDamage(CombatStackRules.occurrences(play.board.combat).map { it.id },
-            step = step, areaId = intent.areaId)
-        if (sent) selectionState.value = TableSelection()
-        return sent
-    }
-    internal fun dealCombatDamage(ids: List<String>, targetOnly: Boolean = false,
-        step: CombatDamageStep = CombatDamageStep.ALL, areaId: String?): Boolean {
-        val play = current()?.takeIf { enabled() && it.board.combat?.id == areaId } ?: return false
-        // Automatum on (I3): a combat declared through Automatum gets its damage from Automatum; one declared by hand
-        // is dealt with the values Automatum works out (P/T and keywords, i12review #5), not the hand-set ones
-        if (play.board.automatum && org.asyncttwiz.automatum.CombatFlow.throughEngine(play.board)) {
-            error = CombatController.DAMAGE_BY_AUTOMATUM; return false
-        }
-        val computed = if (play.board.automatum) AutomatumBoards.compute(play, viewer).takeIf { it.unsupported.isEmpty() } else null
-        val assignment = CombatDamage.assign(play, ids, targetOnly, step, computed)
-        val sent = batchResult { assignment.actions.all { submit(it) } }
-        if (sent && assignment.notes.isNotEmpty()) error = assignment.notes.joinToString("\n")
-        return sent
     }
     fun declare(ids: List<String>, tap: Boolean): Boolean = batchResult {
         val play = current()?.takeIf { enabled() } ?: return@batchResult false

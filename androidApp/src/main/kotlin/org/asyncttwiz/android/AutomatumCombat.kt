@@ -221,7 +221,6 @@ internal class CombatController(
         const val NOT_DECLARING = "Creatures join combat as attackers in the Declare attackers step, as blockers in the Declare blockers step."
         const val DECLARED = "Attackers and blockers are already declared."
         const val DECLARED_ATTACKERS = "Attackers are already declared."
-        const val DAMAGE_BY_AUTOMATUM = "Automatum deals the combat damage itself."
     }
 }
 
@@ -239,7 +238,7 @@ internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: PlayStat
 }
 
 /**
- * The quick actions of combat with Automatum on (CMB-017–CMB-022 as I3 changes them), or null when the manual ones
+ * The quick actions of combat with Automatum on (CMB-028, CMB-029, CMB-034), or null when the manual ones
  * stay (Automatum off, outside these steps, or a board Automatum can't take over). Empty until what the engine allows
  * is worked out.
  */
@@ -257,7 +256,7 @@ internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext,
     if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
     val shown = context.automatumCombat ?: return emptyList()
     if (shown.choices.unsupported.isNotEmpty()) return null
-    // A combat declared by hand (not through Automatum) keeps its manual damage tools, with Automatum's values (CMB-024)
+    // A combat declared by hand (not through Automatum) keeps its manual quick actions (Close + next, CMB-022)
     if (position == TurnPosition.COMBAT_DAMAGE && !CombatFlow.throughEngine(play.board) && shown.passing == null) return null
     val viewer = context.viewer
     val area = context.combatAreaId

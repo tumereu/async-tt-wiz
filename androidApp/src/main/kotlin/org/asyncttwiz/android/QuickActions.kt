@@ -28,8 +28,6 @@ import org.asyncttwiz.protocol.*
 data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: List<String> = emptyList(),
     val combatAreaId: String? = null,
     val playable: Boolean = true, val viewer: String? = null,
-    /** [CombatDamage.recentDamageEdits] on the shown path; only read at Combat damage. */
-    val combatDamageEdits: Int = 0,
     /** Automatum on (I3): what the engine allows in combat now, once worked out ([automatumCombatQuickActions]). */
     val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null,
     /** CMB-028: the active attack target lane (null: the defending player) and its name, for "Rest → <target>". */
@@ -103,7 +101,8 @@ object QuickActions {
                 else add(ASSUME_NO_BLOCKS, "", TableActionIntent.Combat(scope, CombatTool.ASSUME_NO_BLOCKS, context.combatAreaId))
             }
             // Experimental damage aid; all offerings live in one removable helper.
-            TurnPosition.COMBAT_DAMAGE -> result.addAll(combatDamageQuickActions(play, context.combatDamageEdits))
+            // CMB-022 (I-D39): no damage maths by hand; players deal the damage themselves
+            TurnPosition.COMBAT_DAMAGE -> add("Close + next", "", TableActionIntent.Combat(scope, CombatTool.DAMAGE_CLOSE_AND_NEXT, context.combatAreaId))
             TurnPosition.END_COMBAT -> add("Advance + close combat", "▱",
                 TableActionIntent.Combat(scope, CombatTool.ADVANCE_AND_CLOSE, context.combatAreaId), "↦")
             TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))

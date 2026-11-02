@@ -192,6 +192,21 @@ class CombatAreaTest {
         assertEquals(mapOf(ref(rt, ogre) to 3, MtgRef.Player(bob) to 2), CombatFlow.division(rt.call())!!.suggested)
     }
 
+    // CMB-033, CR 509.1a, 510.1c: lethal damage counts the other damage being assigned in the step: the Bear's 2 to the
+    // Ogre leaves it 1 to die, so the Brute's 5 is enough for both of its blockers and the division is made by itself
+    @Test fun lethalDamageCountsTheOtherDamageAssigned() {
+        val (brute, bear) = table.put(alice, PlayZone.BATTLEFIELD, "Ironhide Brute", "Stout Bear")
+        val (ogre, second) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre", "Hill Ogre")
+        blocksTwo(ogre)
+        val rt = attack(brute, bear)
+        rt.run(bob) { CombatFlow.declareBlockers(it, listOf(LaneBlock(ogre, brute), LaneBlock(ogre, bear), LaneBlock(second, brute))) }
+        while (CombatFlow.division(rt.call()) == null) passBob(rt)
+        val open = CombatFlow.division(rt.call())!!
+        assertEquals(alice to brute, open.player to open.source)
+        assertEquals(1, open.lethal[ref(rt, ogre)])
+        assertTrue(CombatFlow.answeredByItself(rt.call()))
+    }
+
     // CMB-033, CR 510.1c
     @Test fun aDivisionWithAChoiceIsAsked() {
         val (brute) = table.put(alice, PlayZone.BATTLEFIELD, "Ironhide Brute")

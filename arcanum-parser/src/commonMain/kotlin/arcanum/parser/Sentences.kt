@@ -8086,7 +8086,9 @@ internal class Sentences(
             val inExile = arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(exiled, ObjectFilter.InZone(Zone.Exile)))
             return Ability.Activated(named, Instructions(targets = listOf(target), steps = listOf(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(granted))), Affected.Objects(Objects.Target(target.name)), inExile)),
-                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Cast, holder = PlayerFilter.You)), Affected.Objects(exiled), inExile)))),
+                // for as long as it remains exiled: the card in exile, a new object once it leaves (CR 400.7)
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Cast, holder = PlayerFilter.You)), Affected.Objects(exiled),
+                    arcanum.api.Duration.Indefinitely)))),
                 arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You))
         }
         // fra chunk 05: "When this creature dies, if it isn't a token, create a token that's a copy of it." (CR 707.2: its copiable values
@@ -8960,6 +8962,9 @@ internal class Sentences(
     /** fra: the objects a subject names: this object, "it", "target [noun]", "each [noun]". */
     private fun fraObjects(subject: String, context: Context): Objects? {
         if (isSelf(subject)) return Objects.Self
+        // "it" after a sentence about another object is that object ("tap enchanted creature. It becomes unprepared."); otherwise, in
+        // this object's enters trigger, this object
+        if ((subject == "It" || subject == "it") && context.it != Objects.EventObject(EventRole.After) && context.it != null) return context.it
         if ((subject == "It" || subject == "it") && (context.event as? EventPattern.ZoneChange)?.let { it.objects == ObjectFilter.Is(Objects.Self) && it.to == Zone.Battlefield } == true)
             return Objects.Self
         if (subject == "It" || subject == "it") return context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }

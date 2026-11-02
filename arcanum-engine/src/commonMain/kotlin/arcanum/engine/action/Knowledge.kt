@@ -21,11 +21,12 @@ internal object Knowledge {
     fun public(o: GameObject): Boolean = o.zone in PUBLIC_ZONES && !o.faceDown
 
     /** Whether [player] may see what [o] is where it is: a public card, a card in their own hand or outside the game
-     * (CR 402.3), a face-down card they control or, exiled, own (CR 708.5, 406.3); never a card in a library. */
+     * (CR 402.3), a face-down permanent or spell they control (CR 708.5); never a card in a library or exiled face down
+     * (CR 406.3: only where an ability lets them look, [lookable]). */
     fun mayKnow(o: GameObject, player: PlayerId): Boolean = when {
         public(o) -> true
         o.zone == Zone.Hand || o.zone == Zone.Outside -> o.owner == player
-        o.faceDown -> (o.controller ?: o.owner) == player
+        o.faceDown && (o.zone == Zone.Battlefield || o.zone == Zone.Stack) -> (o.controller ?: o.owner) == player
         else -> false
     }
 
@@ -86,14 +87,16 @@ internal object Knowledge {
     }
 
     /**
-     * Cards about to be seen by everyone as they move (D60): put into a public zone face up, or a face-down card
-     * leaving where it is (revealed, CR 708.9). Filled before replacements apply, so replacements and triggers see them
-     * (madness of a discarded card, "whenever a land card is put into your graveyard").
+     * Cards about to be seen by everyone as they move (D60): put into a public zone face up, or a face-down permanent
+     * leaving the battlefield or a face-down spell leaving the Stack other than onto the battlefield (revealed, CR
+     * 708.9). Filled before replacements apply, so replacements and triggers see them (madness of a discarded card,
+     * "whenever a land card is put into your graveyard").
      */
     fun fillRevealedByMoves(act: Act, moves: List<PlannedMove>) {
         val ids = moves.filter { m ->
             val o = act.obj(m.id) ?: return@filter false
-            o.unknown && (o.faceDown || (m.to in PUBLIC_ZONES && !m.faceDown))
+            val revealed = o.faceDown && (o.zone == Zone.Battlefield || (o.zone == Zone.Stack && m.to != Zone.Battlefield))
+            o.unknown && (revealed || (m.to in PUBLIC_ZONES && !m.faceDown))
         }.map { it.id }.distinct()
         if (ids.isNotEmpty()) act.fill(act.state.objOrThrow(ids.first()).owner, null, ids, "becomes public", public = true)
     }

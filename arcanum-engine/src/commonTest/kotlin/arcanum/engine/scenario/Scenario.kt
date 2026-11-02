@@ -285,13 +285,31 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         outcome.changes.forEach { apply(it) }
         val decision = state.pending?.decision
         return when {
-            decision is Decision.Random -> perform(Input.Answer(decision.id, randomAnswer(decision.what)))
+            decision is Decision.Random -> perform(Input.Answer(decision.id, randomAnswer(decision.what)).also { throughJson(it) })
             decision is Decision.HostFill -> perform(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
-                FilledObject(id, secrets[state.objOrThrow(id).card] ?: fail("The host knows nothing about $id"))
-            })))
+                FilledObject(id, hostKnows(id))
+            })).also { throughJson(it) })
             else -> outcome
         }
     }
+
+    /** With [jsonAtHostAnswers]: the state waiting for the host goes through JSON, and [answer] on it gives the same
+     * outcome (D58). */
+    private fun throughJson(answer: Input.Answer) {
+        if (!jsonAtHostAnswers) return
+        val json = kotlinx.serialization.json.Json
+        val restored = json.decodeFromString(GameState.serializer(), json.encodeToString(GameState.serializer(), state))
+        assertEquals(state, restored, "The state waiting for the host changed through JSON")
+        assertEquals(Engine.perform(state, answer), Engine.perform(restored, answer), "Another outcome after JSON (D58)")
+        hostAnswersThroughJson++
+    }
+
+    /** Set: every random result and host fill the harness answers is first checked through JSON ([throughJson]). */
+    var jsonAtHostAnswers = false
+
+    /** How many host answers were checked through JSON. */
+    var hostAnswersThroughJson = 0
+        private set
 
     /** Applies a change made by hand (a manual move, D42) as part of the scenario. */
     fun change(change: Change) {
@@ -359,7 +377,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         return when {
             decision is Decision.Random -> driveAnswer(Input.Answer(decision.id, randomAnswer(decision.what)))
             decision is Decision.HostFill -> driveAnswer(Input.Answer(decision.id, Answer.Filled(decision.objects.map { id ->
-                FilledObject(id, secrets[state.objOrThrow(id).card] ?: fail("The host knows nothing about $id"))
+                FilledObject(id, hostKnows(id))
             })))
             else -> outcome
         }
@@ -427,13 +445,20 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         }
     }
 
-    /** As the host: new card ids for [cards] in this order, whose identities only the host keeps (D60). */
+    /** As the host: new card ids for [cards] in this order, whose identities only the host keeps (D60). The ids may be
+     * of objects a step made before it waited (D29): the host goes by their cards. */
     fun newIds(cards: List<ObjectId>): Answer.RandomObjects = Answer.RandomObjects(cards.map { id ->
-        val o = state.objOrThrow(id)
-        val card = CardId("${o.owner.value}.${++nextCard}")
-        definitionOf(o)?.let { secrets[card] = it }
+        val old = (id as ObjectId.Card).card
+        val card = CardId("${old.value.substringBefore('.')}.${++nextCard}")
+        secrets[card] = hostKnows(id)
         ObjectId.Card(card, 0)
     })
+
+    /** What the host knows [id] is (D60), by its card. */
+    internal fun hostKnows(id: ObjectId): CardDefinition {
+        val card = (id as? ObjectId.Card)?.card ?: fail("$id is no card")
+        return secrets[card] ?: state.current(card)?.definition ?: fail("The host knows nothing about $id")
+    }
 
     // ---- Expectations
 

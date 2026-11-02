@@ -323,6 +323,22 @@ fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // t
   `Concede(player)` works at any time (CR 104.3a); the game ends when one player is left, or in a draw (CR 104.2a,
   104.4a), after which `options` are empty; a player leaving a game that goes on takes their objects with them
   (CR 800.4a).
+- **Hidden information** (refines D60): the state is one viewer's view (`GameState.viewer`; none: full information,
+  as a host knows the game). One rule: whenever an effect or rule makes a hidden card's identity matter or visible
+  (put into a graveyard, the Stack, exile or the battlefield face up; revealed; looked at; drawn by the viewer; picked
+  at random; a face-down card leaving or turning face up, CR 708.9; a card its controller may look at any time,
+  CR 401.5), the engine asks the host to fill exactly those cards (`HostFill`, public or for one player) before going
+  on, so replacements and triggers see them. When cards become hidden from the viewer (put into a hand the viewer
+  can't see, turned face down where the viewer can't look, shuffled or put in a random order), the engine forgets
+  them; a shuffle or random order in a viewer's state asks the host for new ids instead of an order, so their order
+  can't be tracked (CR 701.24a, D38). A card put into a library known stays known until it is shuffled. A face-down
+  permanent is a nameless 2/2 creature even unseen (CR 708.2a); "at random" is a host random pick (D25). Decisions
+  and changes name only what their player and the viewer may know: other players aren't offered answers naming cards
+  hidden from them, `Engine.visible(state, player)` says what a host may show a player, and a fill only one player
+  sees, asked in another player's view, is done in that player's view (D31).
+- **Answers** are checked on one path against what their decision asked (kind, allowed values, counts, uniqueness,
+  zones, exactly the filled objects, new ids): a wrong one is refused with `IllegalArgumentException` and changes
+  nothing, never a crash.
 
 ### 7.1 Derived view (layers)
 

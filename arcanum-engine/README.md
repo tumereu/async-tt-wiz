@@ -13,11 +13,13 @@ Engine.options(state, player): List<Input>       // what a player may do now: ex
 Engine.perform(state, input): Outcome            // Outcome(changes, pending); never writes `state`
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
+Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
 
 `options` is exact: `perform` accepts every input it lists, and an open decision lists an answer whenever one is found
-(random results and host fills are the host's, D25, D60). Answers are listed to every player (P7); for choices of several
+(random results and host fills are the host's, D25, D60). Answers are listed to every player (P7), except answers
+naming cards hidden from that player (D60); for choices of several
 objects, targets or modes a working sample is listed, not every combination. A cast or activation is listed when it can
 be begun, everything known at its start can be done (its first targets, the objects its costs use, a mode with what it
 needs) and mana is found for its cost as it stands then (X as 0); `OptionsFuzzTest` checks the contract on seeded random
@@ -69,6 +71,31 @@ input. In a game that goes on, a player who lost or conceded leaves it (CR 800.4
 they control is exiled, their abilities on the Stack and waiting triggers go, priority they held passes on, and their
 turn goes on without them (CR 800.4j).
 
+## Hidden information
+
+The state is one viewer's view (`GameState.viewer`, D60; null: full information, as a host knows the game, the way
+tests play). One rule, in the event pipeline and the effects that look:
+
+- **Filled when it matters or becomes visible:** a card put into a graveyard, the Stack, exile or the battlefield face
+  up, a face-down card leaving or turning face up (CR 708.9), a revealed card, one looked at or searched, one drawn
+  into the viewer's hand, one picked at random (a host `Random`, CR 701.20c), one its controller may look at any time
+  (CR 401.5, checked before priority): the engine asks `Decision.HostFill` for exactly those cards (`public`, or for
+  its `player` only) before going on, so replacements and triggers see them (madness, "whenever a land card is put
+  into your graveyard"). Reveal-until turns over one card at a time.
+- **Forgotten when hidden from the viewer:** a card put into a hand the viewer can't see or turned face down where the
+  viewer can't look (`Change.Forgotten`); a shuffle or a random order into a library asks the host for new ids
+  (`RandomKind.Objects.newIds`) instead of an order, and the cards become unknown under them, so their order can't be
+  tracked (CR 701.24a, D38). A card put into a library known stays known until it is shuffled. With full information
+  nothing is forgotten.
+- **What each player may see:** a face-down permanent is a nameless 2/2 creature even unseen (CR 708.2a); `options`
+  offers another player no answer naming cards hidden from them; `Engine.visible(state, player)` says what a host may
+  show each player. A pending decision over cards hidden from others (a search's matches) is shown only to its player,
+  and a fill that isn't public, asked in another player's view, is done in that player's view (D31).
+
+Every answer, a player's or the host's, is checked against its decision before anything happens (`AnswerCheck`: kind,
+allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a wrong one is refused with
+`IllegalArgumentException`.
+
 ## Status
 
 - Done: the API types, game state, reversible changes (apply/revert tested for every kind),
@@ -108,7 +135,7 @@ turn goes on without them (CR 800.4j).
   protection, prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
   deathtouch, lifelink, toxic and excess; life, counters, tapping, tokens (D35 ids), draws,
   mills, discards (cards put into one library position together in their owner's order, CR
-  401.4), host-ordered shuffles (D25) and host fills (D60); mana costs paid while resolving
+  401.4), host-ordered shuffles (D25) and host fills and forgetting (D60, see Hidden information); mana costs paid while resolving
   ("unless … pays", ward) with a payment decision, not asked when they can't be paid (CR
   118.3). Replacement effects
   (CR 614, 616): own replacements first, control, copy, transformed, then the affected player's
@@ -177,7 +204,8 @@ choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanc
 player's hand first; `activates`: their permanents; targets, attacks and expectations: the battlefield, then the Stack;
 choices: the decision's options, a name given twice meaning two cards); elsewhere a name in several zones fails unless
 `card(name, zone = …)` or an index says which. `effect(…)` locks its objects as a resolution does. Random results are scripted with
-`random(…)` or seeded; hidden cards are filled in by the harness. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
+`random(…)` or seeded; hidden cards (`hidden = true`, or everything a `viewer(player)` can't see) are filled in by the
+harness, which is the host and also gives new ids for shuffles in a viewer's game. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
 `activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
 run resolution, state-based actions and triggers without priority. Every scenario checks D59:
 reverting all its changes restores the state after setup.
@@ -186,9 +214,13 @@ reverting all its changes restores the state after setup.
 costs, abilities activated, triggers triggered) and check the outcome a Magic player expects.
 
 `review/Review2LongGames.kt` plays whole games from `Engine.newGame` with random 40-card cube decks by a seeded random
-policy over `Engine.options`, checking D56/D58/D59 and zone, id, counter and timestamp invariants after every input; two
-seeds run in the normal suite, more with `-Parcanum.longGames=N` (`-Parcanum.longGames.players=3`,
-`-Parcanum.longGames.from=S`) and `--tests '*Review2LongGamesJvmTest*'`. `review/Review*Test.kt` are the adversarial
+policy over `Engine.options`, checking D56/D58/D59 and zone, id, counter and timestamp invariants after every input; with
+a viewer it plays on that player's view, the driver being the host, and checks that public cards are known and hidden
+ones aren't (D60). Two seeds and one seed on each player's view run in the normal suite, more with
+`-Parcanum.longGames=N` (`-Parcanum.longGames.players=3`, `-Parcanum.longGames.from=S`,
+`-Parcanum.longGames.viewer=alice`, `-Parcanum.longGames.malformed=true` to also try odd answers of every kind at every
+decision) and `--tests '*Review2LongGamesJvmTest*'`. `hidden/ViewerKnowledgeTest` plays the hidden-information rule on
+both players' views with every host answer through JSON; `decision/AnswerCheckTest` the answer checks. `review/Review*Test.kt` are the adversarial
 reviews' scenarios; failing ones are `@Ignore`d with their finding number.
 
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into

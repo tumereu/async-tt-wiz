@@ -41,6 +41,11 @@ The definition model (overview in `Definitions.kt`):
   impending (a `KeywordExpansions` entry), Leylines (`Mechanic.MayBeginOnBattlefield`), and smaller pieces
   (`Triggered.once`, `TargetSlot.sameController`, `Choice.Objects.distinct`, `ObjectFilter.SingleTarget`,
   `Condition.Prime`, `AlternativeCost.perTurn`, combat and player mechanics such as `MustBeBlocked`).
+- Bloomburrow (set `blb`): gift (`Keyword.Gift`, `Gifted`, `CostPart.ChoosePlayer`, `Players.ChosenAsCost`,
+  `EventPattern.GiveGift`, `TargetSlot.onlyIf`), Classes (`Keyword.ClassLevel`, `Effect.SetClassLevel`,
+  `EventPattern.BecomesLevel`), forage (`EventPattern.Forage`), pawprint modes (`Modes.pawprintLimit`,
+  `Mode.pawprints`), and smaller pieces (`MayPlay.spellGets`, `CountersPut.causedBy`/`PlayerCountersPut.causedBy`,
+  `ZoneChange.notTo` for leaving the battlefield without dying).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

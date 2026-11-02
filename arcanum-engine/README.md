@@ -250,13 +250,17 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   turning a manifested card face up, impending, survival, delirium, eerie, behold as a cost, "must be blocked if
   able", "can't attack or block alone", untapping in other players' untap steps, no loss at 0 life, a set maximum
   hand size, hexproof and ward set aside, targets with one controller, choices "with different" qualities.
+- Done, Bloomburrow (scenarios in `commonTest/…/sets/blb/`): offspring, gift (the promised player, gift targets only
+  when promised, "whenever you give a gift"), forage as an effect and as a cost, Class levels, pawprint modes, valiant
+  and expend, counters put by your effects, leaving the battlefield without dying, a spell's static ability reading its
+  own targets for its cost (CR 601.2f).
 - Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
-  day and night (not tracked: its event never triggers), `CountersPut.causedBy`, `nthThisTurn`'s
+  day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`, "do this only once each turn", repeated target slot names of repeated modes
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
-  other keyword actions as costs (forage, exert); no cube card has any of these. An alternative cost another
+  other keyword actions as costs (exert); no cube card has any of these. An alternative cost another
   object grants ("once each turn, you may pay {0} rather than pay the mana cost for a spell you cast from exile") is
   not offered. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects

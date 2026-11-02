@@ -63,9 +63,11 @@ class AutomatumPauseTest {
     @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null }
 
     /** Alice's main phase with Automatum on: each player holds Storm Spark with untapped Mountains (Alice two, Bob one);
-     * every other hand card is out of the game. [fullControl]: players with Full control on (SYS-071). */
+     * every other hand card is out of the game; the libraries in an unknown order, as every game's start leaves them
+     * (pausereview #13: a branch reseeds them, HIS-042). [fullControl]: players with Full control on (SYS-071). */
     private fun board(fullControl: Set<String> = emptySet()): PlayState {
-        val initial = f.initial
+        val initial = f.initial.copy(board = f.initial.board.copy(containers = f.initial.board.containers.map {
+            if (it.zone == PlayZone.LIBRARY && it.cards.size >= 2) it.copy(layers = LibraryLayers.initial(f.id("layer/${it.id}"), it.cards)) else it }))
         val aLands = initial.board.cards.filter { it.containerId == aField }.take(2).map { it.id }
         val bLands = initial.board.cards.filter { it.containerId == bField }.take(1).map { it.id }
         val kept = setOf(aSpark, bSpark)
@@ -106,8 +108,10 @@ class AutomatumPauseTest {
 
     /** Ordinary (manual) actions a device sent. */
     private val submitted = mutableListOf<PlayAction>()
-    private fun device(play: PlayState, viewer: String) = TableToolkitController(viewer, { play }, { true },
-        { action, _ -> submitted += action; true }, automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree })
+    /** [viewer]'s device showing [play]; [from]: the point its next action continues from (held, as the app arms it). */
+    private fun device(play: PlayState, viewer: String, from: String? = null) = TableToolkitController(viewer, { play }, { true },
+        { action, _ -> submitted += action; true }, automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree },
+        continuation = { from?.let { Continuation(it, explicit = true) } })
 
     /** Alice casts her Storm Spark at Bob through Automatum, as the app sends it. */
     private fun aliceCasts(play: PlayState): PlayState {
@@ -241,7 +245,7 @@ class AutomatumPauseTest {
         val went = takeSent(cast, f.a)
         assertEquals(life(play, f.b) - 3, life(went, f.b))
         // Bob at his held pause (the board of that point), responding at Alice
-        val bob = device(cast, f.b)
+        val bob = device(cast, f.b, from = cast.currentNodeId)
         AutomatumBoards.compute(cast, f.b)
         assertTrue(bob.cast.start(bSpark), bob.error)
         val life = TablePresentation.scene(f.game, cast, f.b, 412f, 892f, false).items.first { it.id == "life/${f.a}" }

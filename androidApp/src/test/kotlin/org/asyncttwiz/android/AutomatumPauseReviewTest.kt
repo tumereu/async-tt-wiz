@@ -15,7 +15,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ParsedCard
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -30,8 +29,8 @@ import kotlin.test.assertTrue
 
 /**
  * Adversarial review of Automatum's pause points (integration spec I-D41, "pausereview"): two devices on one shared
- * history, each running [AutomatumPauseDriver] as the table does. Ignored tests are findings of the review
- * (~/projects/atw-cache/arcanum-pause-review.md), each failing until it is fixed. Invented cards parsed from their oracle
+ * history, each running [AutomatumPauseDriver] as the table does. Each "pausereview #N" test was a finding of the review
+ * (~/projects/atw-cache/arcanum-pause-review.md), now fixed. Invented cards parsed from their oracle
  * text: Storm Spark (instant, 3 damage to any target), Mind Prick (sorcery, target player discards a card), basic lands.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -69,8 +68,9 @@ class AutomatumPauseReviewTest {
     /** Alice's main phase with Automatum on: the first hand cards of each player become [aliceHand] / [bobHand], the
      * first lands [aliceLands] / [bobLands] (untapped); every other hand card is out of the game. */
     private fun board(aliceHand: List<Invented>, bobHand: List<Invented>, aliceLands: List<Invented>, bobLands: List<Invented>,
-        fullControl: Set<String> = emptySet(), shuffled: Boolean = false): PlayState {
-        // [shuffled]: libraries in an unknown order, as every game's start leaves them (one unordered layer each)
+        fullControl: Set<String> = emptySet(), shuffled: Boolean = true): PlayState {
+        // [shuffled]: libraries in an unknown order, as every game's start leaves them (one unordered layer each); on by
+        // default, so a branch's reseed (HIS-042) can't hide from these tests again (#13)
         val initial = if (!shuffled) f.initial else f.initial.copy(board = f.initial.board.copy(containers = f.initial.board.containers.map {
             if (it.zone == PlayZone.LIBRARY && it.cards.size >= 2) it.copy(layers = LibraryLayers.initial(f.id("layer/${it.id}"), it.cards)) else it }))
         val aCards = handCards(aHand).take(aliceHand.size).zip(aliceHand).toMap()
@@ -117,10 +117,12 @@ class AutomatumPauseReviewTest {
     }
 
     private val submitted = mutableListOf<Pair<String, PlayAction>>()
-    private fun device(state: () -> PlayState, viewer: String, tag: String = viewer) = TableToolkitController(viewer, state, { true },
-        { action, _ -> submitted += tag to action; true }, automatedBatch = { batch, request -> sent += batch to request; true },
-        playTree = { tree })
-    private fun device(play: PlayState, viewer: String) = device({ play }, viewer)
+    /** [viewer]'s device showing [state]; [from]: the point its next action continues from (held, as the app arms it). */
+    private fun device(state: () -> PlayState, viewer: String, tag: String = viewer, from: () -> String? = { null }) =
+        TableToolkitController(viewer, state, { true }, { action, _ -> submitted += tag to action; true },
+            automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree },
+            continuation = { from()?.let { Continuation(it, explicit = true) } })
+    private fun device(play: PlayState, viewer: String, from: String? = null) = device({ play }, viewer, from = { from })
 
     /** [viewer] casts their hand card [cardId] at [target]'s life square through Automatum, as the app does; sends it. */
     private fun castAt(play: PlayState, viewer: String, cardId: String, target: String, from: String? = null): PlayState {
@@ -182,10 +184,8 @@ class AutomatumPauseReviewTest {
     }
 
     // pausereview #1 (STK-039, I-D41: a reaction after the acting player moved on uses branching): Bob starts casting his
-    // Storm Spark from his hand during his pause (double-tap or the hand menu's Cast, not Respond). Nothing holds the
-    // pause, so when Alice's device passes for him his cast is worked out again on the moved-on board and dropped: the
-    // reaction is lost instead of becoming a branch. Expected: beginning a cast or ability at one's own pause holds it.
-    @Ignore("pausereview #1: a cast begun at your pause without Hold/Respond doesn't hold it; the reaction is lost")
+    // Storm Spark from his hand during his pause (double-tap or the hand menu's Cast, not Respond). Beginning a cast or
+    // ability at one's own pause holds it, so it continues from there instead of being dropped when Alice's device passes.
     @Test fun aCastBegunDuringYourPauseHoldsIt() {
         val cast = castAt(sparkBoard(), f.a, card(sparkBoard(), aHand), f.b)
         val routes = Routes()
@@ -198,10 +198,8 @@ class AutomatumPauseReviewTest {
     }
 
     // pausereview #2 (STK-037/STK-039): Bob's response time is 1 s, Alice's 3 s. His bar has run out but the game is still
-    // at his pause (Alice's device still waits); he taps Respond. It doesn't hold (only a running bar does), so Alice's
-    // device passes for him while he picks targets and his reaction is dropped. Expected: Respond at your own pause holds
-    // it whenever the game is still there.
-    @Ignore("pausereview #2: Respond after your own bar ran out (game still at the pause) doesn't hold; the reaction is lost")
+    // at his pause (Alice's device still waits); he taps Respond: it holds, the bar running or not, so Alice's device
+    // doesn't pass for him while he picks targets.
     @Test fun respondAfterYourBarRanOutStillHolds() {
         val cast = castAt(sparkBoard(), f.a, card(sparkBoard(), aHand), f.b)
         val routes = Routes()
@@ -214,10 +212,8 @@ class AutomatumPauseReviewTest {
     }
 
     // pausereview #3 (STK-037, SYS-071): with Full control Alice keeps priority after her Storm Spark (her own pause) and
-    // starts casting her second one. Her own device passes for her when the bar runs out although her cast panel is open:
-    // her spell resolves under the panel and the second cast is dropped. Expected: no automatic pass for the viewer while
-    // their own cast (or ability) is open.
-    @Ignore("pausereview #3: your own device passes for you at your pause while your cast panel is open")
+    // starts casting her second one. Her own device doesn't pass for her while her cast panel is open (the cast holds her
+    // pause, and no automatic pass runs under an open cast), so her first spell doesn't resolve under the panel.
     @Test fun yourDeviceDoesNotPassForYouWhileYouCast() {
         val start = board(listOf(spark, spark), listOf(spark), listOf(mountain, mountain), listOf(mountain), fullControl = setOf(f.a))
         val cast = castAt(start, f.a, card(start, aHand, 0), f.b)
@@ -231,10 +227,8 @@ class AutomatumPauseReviewTest {
     }
 
     // pausereview #4 (SYS-004, STK-038): Bob is offline, so Alice's device passed for him at once and Storm Spark resolved.
-    // Alice takes that back with Undo (her own step): the board is again Bob's pause made by her cast, and her device
-    // passes for him again at once. She can never undo back to before the resolution (each Undo is redone by itself).
-    // Expected: a pause the device already passed and that Undo brought back isn't passed again by itself.
-    @Ignore("pausereview #4: Undo of the automatic pass is immediately redone by the same device (opponent offline)")
+    // Alice takes that back with Undo (her own step): the board is again Bob's pause made by her cast. A pause the device
+    // already passed and that Undo brought back isn't passed again by itself, so she can undo back before the resolution.
     @Test fun undoOfTheAutomaticPassIsNotRedone() {
         val cast = castAt(sparkBoard(), f.a, card(sparkBoard(), aHand), f.b)
         show(cast, f.a, online = false)
@@ -253,10 +247,8 @@ class AutomatumPauseReviewTest {
     }
 
     // pausereview #5 (SYS-071, LOB-113): Alice uses two devices (Full control on in one, off in the other, the setting being
-    // per device). Each device, seeing the game's value differ from its own, sends its own: with both open they send
-    // SetFullControl back and forth without end, each an event in the history. Expected: at most one change per device
-    // and setting change (a device follows a value another device of the same player set).
-    @Ignore("pausereview #5: two devices of one player with different Full control flip it back and forth forever")
+    // per device). A device sends its value only after it was changed on it and otherwise follows the game's, so with both
+    // open SetFullControl isn't sent back and forth: at most once per device and setting change.
     @Test fun twoDevicesOfOnePlayerDoNotFightOverFullControl() {
         var game = sparkBoard()
         val state = mutableStateOf(game)
@@ -285,9 +277,8 @@ class AutomatumPauseReviewTest {
     }
 
     // pausereview #6 (HIS-093, HIS auto-pause): catching up, Auto pauses after Alice's cast (her Stack entry: the default
-    // "Added to Stack" auto-pause) and that point is also Bob's pause. Bob presses play and Auto stops again at the same
-    // point: two stops for one pause. Expected: a point Auto already paused at isn't a pause stop again.
-    @Ignore("pausereview #6: an auto-pause and a pause stop at the same point stop playback twice")
+    // "Added to Stack" auto-pause) and that point is also Bob's pause. Bob presses play: a point Auto already paused at
+    // isn't a pause stop again (one stop for one pause).
     @Test fun anAutoPauseAndAPauseStopStopOnce() {
         fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
         fun node(n: Int, parent: Int, key: String, author: Int = 70, action: PlayAction = PlayAction.SetLife(id(70), "$n")) =
@@ -308,12 +299,36 @@ class AutomatumPauseReviewTest {
         assertFalse(player.stopAtPause(id(71), pause = true), "already stopped at this point once")
     }
 
-    // pausereview #7 (STK-039 vs SYS-062/I-D23): Alice's Mind Prick at Bob is his pause; offline, Alice's device passes for
-    // him and the spell resolves: Bob must choose a card to discard (an open Automatum choice). Catching up, Bob holds his
-    // pause and casts Storm Spark there: the branch is refused because a flow is open on the live game ("Automatum is in
-    // the middle of something"), so the reaction I-D41 says becomes a branch can't be made until the live game's choice
-    // is answered (here Bob's own discard, which he'd have to make first on the line he wants to leave).
-    @Ignore("pausereview #7: a late reaction's branch is refused while the live game has an open Automatum choice")
+    // pausereview #6 (HIS-093): Auto stopped at Bob's pause; a ping right after it leaves the same pause shown, which is
+    // no second stop; the next pause is one again
+    @Test fun aPingAfterAPauseIsNoSecondStop() {
+        fun id(n: Int) = "00000000-0000-4000-8000-${n.toString().padStart(12, '0')}"
+        fun node(n: Int, parent: Int, author: Int = 70) = GameplayMutation(id(n), id(parent), id(50), id(n + 100), id(author), null,
+            PlayAction.SetLife(id(70), "$n"), GameplayTransition(),
+            grouping = HistorySemantic(HistorySignificance.CROSS_ZONE_MOVE, HistoryIcon.FLAG, "k$n"))
+        val player = HistoryPlayback(HistoryTree(id(0), listOf(node(1, 0), node(2, 1), node(3, 2), node(4, 3), node(5, 4)), id(5), "v5", emptyMap()))
+        player.openFrom(id(1)); player.play()
+        player.next(automatic = true, viewer = id(71), autoPause = emptySet())
+        assertTrue(player.stopAtPause(id(71), pause = true, key = "spark"), "Bob's pause")
+        player.play()
+        player.next(automatic = true, viewer = id(71), autoPause = emptySet())
+        assertFalse(player.stopAtPause(id(71), pause = true, key = "spark"), "the ping after it shows the same pause")
+        player.next(automatic = true, viewer = id(71), autoPause = emptySet())
+        assertTrue(player.stopAtPause(id(71), pause = true, key = "bolt"), "another pause")
+    }
+
+    // pausereview #12 (HIS-091): the pass Alice's device made for Bob after his pause reads with both names
+    @Test fun aPassForTheOtherPlayerNamesBoth() {
+        val pass = GameplayMutation(f.id("pass"), f.id("cast"), f.id("branch"), f.id("request"), f.a, null,
+            PlayAction.Mtg(MtgAction.SetPriority(MtgPriority(f.b, 1), MtgPriority(f.a))), GameplayTransition())
+        val names = mapOf(f.a to "alice", f.b to "bob")
+        assertEquals("alice passed for bob", historyText(pass, usernames = names).description)
+        assertEquals("Priority → alice", historyText(pass.copy(author = f.b), usernames = names).description, "his own pass")
+    }
+
+    // pausereview #7 (STK-039, SYS-062; I-D41 decision A): Alice's Mind Prick at Bob is his pause; offline, Alice's device
+    // passes for him and the spell resolves: Bob must choose a card to discard (an open Automatum choice). Catching up,
+    // Bob holds his pause and casts Storm Spark there: a branch, leaving the live line's open choice behind with it.
     @Test fun aLateReactionBranchesWhileTheLiveGameHasAnOpenChoice() {
         val start = board(listOf(prick), listOf(spark, mountain), listOf(swamp), listOf(mountain))
         val cast = castAt(start, f.a, card(start, aHand), f.b)
@@ -323,7 +338,7 @@ class AutomatumPauseReviewTest {
         val went = takeSent(cast, f.a)
         assertTrue(Automatum.flowOpen(went.board), "Bob's discard is open on the live game")
         // Bob at his held pause (its board), responding at Alice: a branch from there
-        val bob = device(cast, f.b)
+        val bob = device(cast, f.b, from = cast.currentNodeId)
         AutomatumBoards.compute(cast, f.b)
         assertTrue(bob.cast.start(card(cast, bHand, 0)), bob.error)
         targetLife(bob, cast, f.b, f.a)
@@ -331,13 +346,13 @@ class AutomatumPauseReviewTest {
         val (batch, request) = sent.single()
         val change = serve(cast, batch, request, f.b, from = cast.currentNodeId)
         assertNull(change.reason, "the late reaction is a branch")
+        val branched = assertNotNull(tree!!.stateAt(tree!!.currentNodeId))
+        assertFalse(Automatum.flowOpen(branched.board), "the discard stayed on the line Bob left")
     }
 
     // pausereview #11 (STK-037 "If you do nothing, the game goes on when the bar has emptied"): Alice cast Storm Spark at
     // Bob and left (her app closed, no green dot): her device can't pass for him. Bob, catching up live, sees his pause
-    // and its bar run out, and nothing happens: the game waits for a pass the bar said would come. Proposed: when the
-    // other player isn't online, the viewer's own device passes when the bar runs out.
-    @Ignore("pausereview #11: with the acting player away, nobody passes when the reacting player's bar runs out")
+    // and its bar run out: his own device passes for him, as the other player isn't online.
     @Test fun yourPauseGoesOnWhenTheOtherPlayerIsAway() {
         val cast = castAt(sparkBoard(), f.a, card(sparkBoard(), aHand), f.b)
         show(cast, f.b, online = false)
@@ -353,15 +368,18 @@ class AutomatumPauseReviewTest {
     // pausereview (STK-039): the same, with Alice playing a Mountain before End turn
     @Test fun aHeldReactionBranchesAfterALandAndTheTurnWentOn() = heldReactionAfterTheTurnWentOn(landFirst = true, shuffled = false)
 
-    // pausereview #10 (STK-039, I-D41; HIS-037 continuations; SYS-010 #4 "an automated batch only to the board it was
-    // planned on"): the same game with the libraries in an unknown order, as every real game has them. A branch reseeds
-    // the unknown library order (LibraryKnowledge.reseeds), so the board the server applies Bob's cast to is not the board
-    // his device planned it on: the automated batch's board digest (MtgTag.board) differs and the server refuses it
-    // ("inapplicable"). Every late reaction, and every Automatum action continued from a past point, is refused.
-    @Ignore("pausereview #10: an Automatum batch from a held point is refused: the fork's library reseed changes the board digest")
+    // pausereview #10 (STK-039, I-D41; HIS-037 continuations, HIS-042 reseed; SYS-010 #4 "an automated batch only to the
+    // board it was planned on"): the same game with the libraries in an unknown order, as every real game has them. A
+    // branch reseeds the unknown library order, so Bob's device plans his cast on the branch's start (the held board
+    // reseeded as the server will), and the server takes it
     @Test fun aHeldReactionBranchesWithShuffledLibraries() = heldReactionAfterTheTurnWentOn(landFirst = false, shuffled = true)
 
-    private fun heldReactionAfterTheTurnWentOn(landFirst: Boolean, shuffled: Boolean) {
+    // pausereview #10 (HIS-042, SYS-010 #4): a held reaction planned on the held board before its device learned the
+    // game had gone on (sent within the network's delay) still applies as the branch
+    @Test fun aHeldReactionPlannedBeforeTheBranchStillApplies() =
+        heldReactionAfterTheTurnWentOn(landFirst = false, shuffled = true, knowsBranch = false)
+
+    private fun heldReactionAfterTheTurnWentOn(landFirst: Boolean, shuffled: Boolean, knowsBranch: Boolean = true) {
         val start = board(listOf(spark, mountain), listOf(spark), listOf(mountain, mountain), listOf(mountain), shuffled = shuffled)
         val cast = castAt(start, f.a, card(start, aHand, 0), f.b)
         AutomatumBoards.compute(cast, f.a)
@@ -378,16 +396,26 @@ class AutomatumPauseReviewTest {
         }
         AutomatumBoards.compute(resolved, f.a)
         assertTrue(device(resolved, f.a).flows.step(StepFlow.Until.EndOfTurn))
-        val went = takeSent(resolved, f.a)
+        var went = takeSent(resolved, f.a)
+        // Bob's pause in Alice's end step (I-D41 decision B): her device passes for him, away
+        if (PausePoints.at(went.board) == PausePoints.At(f.b, PausePoints.Point.Pause)) {
+            AutomatumBoards.compute(went, f.a)
+            assertTrue(device(went, f.a).flows.autoPass(f.b, went.currentNodeId))
+            went = takeSent(went, f.a)
+        }
         assertEquals(f.b, went.board.turn.accountId, "Bob's turn (${went.board.turn})")
-        val bob = device(cast, f.b)
+        val bob = device(cast, f.b, from = cast.currentNodeId.takeIf { knowsBranch })
         AutomatumBoards.compute(cast, f.b)
         assertTrue(bob.cast.start(card(cast, bHand, 0)), bob.error)
         targetLife(bob, cast, f.b, f.a)
         assertTrue(bob.cast.cast(), bob.error)
         val (batch, request) = sent.single()
+        val planned = assertNotNull(tree).let { if (knowsBranch && shuffled) it.branchStart(cast, f.b)!! else cast }
+        if (shuffled) assertTrue(planned.board != cast.board == knowsBranch, "the branch's start reseeds the libraries")
+        assertEquals(MtgFacts.digest(planned.board), batch.tags.first()?.board, "planned on the branch's start")
         val change = serve(cast, batch, request, f.b, from = cast.currentNodeId)
         assertNull(change.reason, "the held reaction is a branch")
+        assertEquals(life(cast, f.a) - 3, life(tree!!.stateAt(tree!!.currentNodeId)!!, f.a), "Bob's Storm Spark resolved at Alice")
     }
 
 
@@ -411,7 +439,8 @@ class AutomatumPauseReviewTest {
         var view: PlayState = tree!!.stateAt(tree!!.currentNodeId)!!
         val queue = mutableListOf<Triple<GameAction.PlayBatch, String, String?>>()
         val toolkit = TableToolkitController(player, { view }, { true }, { _, _ -> true },
-            automatedBatch = { batch, request -> queue += Triple(batch, request, held); true }, playTree = { tree })
+            automatedBatch = { batch, request -> queue += Triple(batch, request, held); true }, playTree = { tree },
+            continuation = { held?.let { Continuation(it, explicit = true) } })
         val routes = object : PauseRoutes {
             override fun hold(node: String): Boolean { held = node; view = tree!!.stateAt(node)!!; return true }
             override fun holding(node: String) = held == node
@@ -599,7 +628,8 @@ class AutomatumPauseReviewTest {
                         }
                         is Plan.React -> if (there) {
                             val path = if (plan.respond) (if (running) "Respond during the bar" else "Respond after the bar") else "cast from the hand"
-                            if (plan.respond && running) d.toolkit.pause.hold(plan.node)
+                            // Respond holds the pause as the app's Respond does (#2); a cast begun from the hand too (#1)
+                            if (plan.respond) d.toolkit.flows.respond(d.view)
                             if (!beginSpark(d)) stats.reactions.merge("$path, nothing castable", 1, Int::plus)
                             else { stats.reactions.merge(path, 1, Int::plus); d.casting = Reaction(plan.node, path, now + random.nextLong(800, 3_000)) }
                         }
@@ -636,21 +666,19 @@ class AutomatumPauseReviewTest {
         return stats
     }
 
-    // pausereview (I-D41): seeded two-device games; what holds today: the games go on, no player's Next step at their own
-    // stop acts for the other player, nobody is left at a pause nobody passes, and the server refuses nothing but
-    // batches from a held point (#10)
+    // pausereview (I-D41): seeded two-device games: the games go on, no player's Next step at their own stop acts for the
+    // other player, nobody is left at a pause nobody passes, and the server refuses no batch from a held point (#10)
     @Test fun twoDeviceGamesHoldTogether() {
         val stats = simulate(7L, ticks = 3_000)
         println("SIM seed 7: $stats")
         assertTrue(stats.events > 20, "the game moved ($stats)")
         assertTrue(stats.confused.isEmpty(), "$stats")
         assertTrue(stats.stalls.isEmpty(), "$stats")
-        assertTrue(stats.refused.all { it.contains("(held)") }, "only held batches are refused (#10): $stats")
+        assertTrue(stats.refused.none { it.contains("(held)") }, "no held batch is refused (#10): $stats")
     }
 
     // pausereview #1/#2/#10 (I-D41: a reaction after the acting player moved on uses branching): in such games no reaction
     // is lost, however it was begun
-    @Ignore("pausereview #1/#2/#10: reactions are lost: begun without a running bar's Respond, or refused as a branch")
     @Test fun twoDeviceGamesLoseNoReaction() {
         val stats = simulate(8L, ticks = 3_000)
         println("SIM seed 8: $stats")

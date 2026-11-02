@@ -65,6 +65,8 @@ internal class CastController(
     private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
     private val work: AutomatumWork = AutomatumWork.Inline,
+    /** A cast or ability is being begun (#1: it holds the viewer's pause, [PauseController.holdForReaction]). */
+    private val beginning: () -> Unit = {},
 ) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
@@ -110,6 +112,7 @@ internal class CastController(
         // A shared flow waits for an answer (D32): nothing is cast meanwhile
         if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
         if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
+        beginning()
         val history = tags()
         val accept = acceptAutomatically
         starting = cardId
@@ -143,6 +146,7 @@ internal class CastController(
         if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }
         if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
+        beginning()
         val history = tags()
         val accept = acceptAutomatically
         starting = cardId

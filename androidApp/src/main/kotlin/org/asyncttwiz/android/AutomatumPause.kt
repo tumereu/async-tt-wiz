@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import org.asyncttwiz.automatum.PausePoints
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
@@ -28,8 +29,9 @@ internal sealed interface PauseRole {
     /** How long the pause runs on this device. */
     val millis: Long
 
-    /** The viewer holds priority at a pause: a progress bar over [millis]; [passes]: the step that made it was the
-     * viewer's own, so their device passes for them when it runs out (else the other player's device goes on). */
+    /** The viewer holds priority at a pause: a progress bar over [millis]; [passes]: their device passes for them when
+     * it runs out: the step that made it was the viewer's own, or the other player, whose device would go on, isn't
+     * online (#11). */
     data class Yours(override val millis: Long, val passes: Boolean) : PauseRole
 
     /** [holder], the other player, holds priority at a pause the viewer's step made: the viewer's device passes for them
@@ -42,12 +44,13 @@ internal object LivePause {
      * The viewer's part in the pause on [board] (the live table), when it has one: [author] made the board's latest
      * event; [opponentOnline]: the other player has the game open now (the green presence dot, TRN-042). The device of
      * whoever made the latest event goes on: after the pause for its own player, else at once when the other player
-     * isn't online or [PauseSettings.proceedAtOnce], and after the response time when "Wait".
+     * isn't online or [PauseSettings.proceedAtOnce], and after the response time when "Wait". When the other player
+     * isn't online their device can't go on, so the viewer's own passes for them when their pause runs out (#11).
      */
     fun role(board: BoardState, viewer: String, author: String?, opponentOnline: Boolean, settings: PauseSettings): PauseRole? {
         val at = PausePoints.at(board)?.takeIf { it.point == PausePoints.Point.Pause } ?: return null
         return when {
-            at.holder == viewer -> PauseRole.Yours(settings.responseMillis, passes = author == viewer)
+            at.holder == viewer -> PauseRole.Yours(settings.responseMillis, passes = author == viewer || !opponentOnline)
             author == viewer -> PauseRole.Theirs(at.holder, if (!opponentOnline || settings.proceedAtOnce) 0 else settings.responseMillis)
             else -> null
         }
@@ -100,8 +103,29 @@ internal class PauseController {
         shown = null
         return true
     }
+    /**
+     * #1, #2 (STK-039): a reaction [viewer] begins on [play] (a cast or ability, Respond) holds their pause there first,
+     * with its bar running or not, so it continues from that point (a branch once the game went on) and nothing passes
+     * for them meanwhile. Nothing when [play] isn't their pause or it is held (or continued from) already.
+     */
+    fun holdForReaction(play: PlayState, viewer: String) {
+        val node = play.currentNodeId
+        if (PausePoints.pauseFor(play.board, viewer) && !holding(node) && routes?.holding(node) != true) hold(node)
+    }
     /** Whether the viewer holds at [node]. */
     fun holding(node: String): Boolean = heldNode == node && routes?.holding(node) == true
+
+    /** #4 (SYS-004): the pauses this device has passed by itself, newest last (a few hundred at most). */
+    private val passed = LinkedHashSet<String>()
+    /** Whether this device passed by itself at [node] already: an Undo brought it back, and isn't redone by itself. */
+    fun passedAt(node: String): Boolean = node in passed
+    /** This device passed by itself at [node]. */
+    fun passed(node: String) {
+        passed += node
+        if (passed.size > MAX_PASSED) passed.remove(passed.first())
+    }
+
+    private companion object { const val MAX_PASSED = 256 }
     /** Whether the live game has gone on from [node]. */
     fun behind(node: String): Boolean = liveHead != null && liveHead != node
 
@@ -120,16 +144,23 @@ internal class PauseController {
 /**
  * Runs the pauses of the live table (I-D41): shows the viewer's own with its time running and holds the live table on it
  * meanwhile (STK-037); passes for the other player when the viewer's step made their pause (STK-038); copies the
- * viewer's Full control into the game (SYS-071). [play] is the board shown, [liveShown] whether it is the live game.
+ * viewer's Full control into the game after it was changed on this device (SYS-071, [sync]). [play] is the board shown,
+ * [liveShown] whether it is the live game.
  */
 @Composable
 internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: HistoryPlayback?, play: PlayState?,
-    liveHead: String?, liveShown: Boolean, opponentOnline: Boolean, settings: PauseSettings) {
+    liveHead: String?, liveShown: Boolean, opponentOnline: Boolean, settings: PauseSettings,
+    sync: FullControlSync = remember { FullControlSync.Memory() }) {
     val pause = toolkit.pause
     SideEffect { pause.liveHead = liveHead }
     val node = play?.currentNodeId
     val role = if (play != null && node != null && liveShown)
         LivePause.role(play.board, toolkit.viewer, toolkit.authorOf(node), opponentOnline, settings) else null
+    /** Passes for [holder] at [node], once per device (#4: a pause an Undo brought back isn't passed again by itself). */
+    fun autoPass(holder: String, node: String) {
+        if (pause.passedAt(node)) return
+        if (toolkit.flows.autoPass(holder, node)) pause.passed(node)
+    }
     LaunchedEffect(node, role) {
         if (node == null || role == null) {
             pause.clear()
@@ -143,23 +174,34 @@ internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: His
                 delay(role.millis)
                 pause.end(node)
                 if (pause.holding(node)) return@LaunchedEffect
-                if (role.passes) toolkit.flows.autoPass(toolkit.viewer, node)
+                if (role.passes) {
+                    // #3: never under the viewer's own open cast; it goes on once that is sent or dropped
+                    snapshotFlow { toolkit.cast.open }.first { !it }
+                    if (pause.holding(node)) return@LaunchedEffect
+                    autoPass(toolkit.viewer, node)
+                }
                 playback?.releasePause()
             }
             is PauseRole.Theirs -> {
                 if (role.millis > 0) delay(role.millis)
                 pause.end(node)
-                toolkit.flows.autoPass(role.holder, node)
+                autoPass(role.holder, node)
             }
         }
     }
-    // SYS-071: the device's Full control goes into each game Automatum plays, so the other player's device follows it
+    // SYS-071 (#5): the device's Full control goes into each game Automatum plays, so the other player's device follows
+    // it; only after it was changed on this device, so the game's value (another device of the player may have set it)
+    // otherwise wins
     val own = play?.board?.players?.firstOrNull { it.accountId == toolkit.viewer }?.fullControl
-    LaunchedEffect(liveShown, play?.board?.automatum, own, settings.fullControl, node) {
+    LaunchedEffect(liveShown, play?.board?.automatum, own, settings.fullControl, settings.fullControlChanged, node) {
         val board = play?.board ?: return@LaunchedEffect
-        if (liveShown && board.automatum && own != null && own != settings.fullControl && toolkit.enabled() &&
-            !toolkit.cast.open && !Automatum.flowOpen(board))
-            toolkit.submit(PlayAction.Mtg(MtgAction.SetFullControl(settings.fullControl)))
+        if (!liveShown || !board.automatum || own == null) return@LaunchedEffect
+        val game = play.gameId
+        val changed = settings.fullControlChanged
+        if (own == settings.fullControl) { if (sync.synced(game) < changed) sync.synced(game, changed); return@LaunchedEffect }
+        if (sync.synced(game) >= changed) return@LaunchedEffect
+        if (toolkit.enabled() && !toolkit.cast.open && !Automatum.flowOpen(board) &&
+            toolkit.submit(PlayAction.Mtg(MtgAction.SetFullControl(settings.fullControl)))) sync.synced(game, changed)
     }
 }
 

@@ -239,8 +239,9 @@ private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, f
         if (more > 0) Text("$more more below it on the Stack", fontSize = 11.sp, color = Color(0xff4b5a5f))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
             if (running != null) TextButton({ pause.hold(node) }) { Text("Hold") }
-            // Responding holds a running pause first, so the game waits for the response (or it becomes a branch, STK-039)
-            OutlinedButton({ if (running == null || pause.hold(node)) flows.respond(play) }) { Text("Respond") }
+            // Responding holds the pause first, its bar running or not (#2), so the game waits for the response or it
+            // becomes a branch (STK-039)
+            OutlinedButton({ flows.respond(play) }) { Text("Respond") }
             Button({ if (!pause.passBehind(node)) flows.pass(viewer) },
                 colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Let it resolve") }
         }

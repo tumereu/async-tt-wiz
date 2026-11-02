@@ -65,7 +65,10 @@ tasks.register("verifyModuleBoundaries") {
             ":automatum" to setOf(":protocol", ":arcanum-api", ":arcanum-engine"),
         )
         // Project dependencies allowed only in test configurations: these tests parse the invented cube cards.
-        val testOnly = mapOf(":arcanum-engine" to setOf(":arcanum-parser"), ":automatum" to setOf(":arcanum-parser"))
+        val testOnly = mapOf(
+            ":arcanum-engine" to setOf(":arcanum-parser"), ":automatum" to setOf(":arcanum-parser"),
+            ":androidApp" to setOf(":arcanum-parser"),
+        )
         subprojects.forEach { project ->
             val allowedInTests = testOnly[project.path].orEmpty()
             val actual = project.configurations.flatMap { configuration ->

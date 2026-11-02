@@ -16,6 +16,10 @@ by the owner before release.
 | I-D5 | **Players are chosen as targets from their life squares** (TRN-030); avatars aren't on the table. |
 | I-D6 | **One cast panel:** the panel that chooses modes, X and optional costs also shows the suggested mana tapping for the current choices, updated as they change; tapping a mana source in it changes the tapping. Targets are chosen on the table in between (CR 601.2b–h order: choices, targets, payment). |
 | I-D7 | **ATW keeps its own game state; the engine is a pure function over it.** ATW builds an engine state for each call, sends the engine's changes as ordinary actions, and stores the few engine fields of §4.3. The engine state is always rebuildable from ATW state (P3). |
+| I-D8 | **A flow** is everything from one player action (cast, activate, pass priority, change step, answer) until the engine returns with nothing left to decide; it is open exactly while there is a continuation, and may take several engine calls (one per decision). |
+| I-D9 | **Switching Automatum off during a flow undoes the flow:** the game goes back to the event before the flow began (its own batches only, which ATW's undo rule always allows since nothing else could change meanwhile), then Automatum is off; the player redoes it by hand. Undone random results are asked again on redo; seen information stays seen. |
+| I-D10 | **The game can be inspected during a flow:** an eye icon hides and shows the flow's overlays, and hold-to-inspect works on everything underneath. Only changes are blocked (D32), never viewing. |
+| I-D11 | **Private and shared flows:** casting a spell and activating an ability are private — the acting client applies the steps locally and keeps the continuation locally, sending nothing until the cast completes; then everything (card to the Stack, choices, mana, targets) goes as one batch, and cancel/undo before that only drops local steps. Everything else (resolution, triggers, combat, steps) is shared — each step is sent as its own batch as it happens, so both players follow it and either may answer (D11). Which kinds are private is a table playtesting adjusts; the engine is the same either way. Costs accepted: nobody answers a private flow for the caster; local progress is lost if the app closes mid-cast (could be saved on the device later). |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);
@@ -30,7 +34,8 @@ randomness and hidden cards are answered by the host (D25, D60).
    ATW's server-filled card data (the existing hidden-card fill of libraries and hands). A private look by the other
    player (`Decision.OtherView`) is handed to that player's client.
 4. The client maps the changes to `PlayAction`s and sends them, with the continuation update, as **one batch**
-   (SYS-010): one engine call is one batch and one Undo step (D59).
+   (SYS-010): in a shared flow one engine call is one batch and one Undo step (D59); a private flow (I-D11) keeps its
+   calls on the device and sends them all as one batch when it completes.
 5. If `pending` names a player decision, it is stored (the continuation, §4.3) and shown to the deciding player; the
    other player sees "Bob is choosing…" with "Choose for him" (D11).
 

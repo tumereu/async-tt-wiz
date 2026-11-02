@@ -16,6 +16,7 @@ import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.automatum.ComputedBoard
 import org.asyncttwiz.automatum.EngineLog
+import org.asyncttwiz.automatum.EngineState
 import org.asyncttwiz.automatum.HandPlays
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.protocol.GameplayTree
@@ -126,9 +127,14 @@ internal object AutomatumBoards {
         (org.asyncttwiz.protocol.Automatum.flowOpen(play.board) || play.board.stackEffects.any { it.item != null })
 
     /** Whether Automatum's open choice on [play]'s board is something to do by hand (I-D37): manual edits are allowed
-     * until it is answered. Known once the shared flow is worked out ([cachedFlow]). */
-    fun byHand(play: PlayState): Boolean = org.asyncttwiz.protocol.Automatum.flowOpen(play.board) &&
-        cachedFlow(play)?.decision is arcanum.engine.decision.Decision.Manual
+     * until it is answered. Read from the open choice's record, so it is known at once on every board (#5: a second
+     * quick edit in a row isn't refused while the new board's flow is worked out); kept for the last record. */
+    fun byHand(play: PlayState): Boolean {
+        val record = play.board.engineRecords.singleOrNull { it.id == org.asyncttwiz.protocol.Automatum.CONTINUATION_ID } ?: return false
+        lastByHand?.takeIf { it.first === record }?.let { return it.second }
+        return EngineState.byHand(play.board).also { lastByHand = record to it }
+    }
+    @Volatile private var lastByHand: Pair<Any, Boolean>? = null
 
     /** Whether manual controls work on [play]'s board: Automatum off, or its open choice is something to do by hand
      * (I-D28, I-D37). */

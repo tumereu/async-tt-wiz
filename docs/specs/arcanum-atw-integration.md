@@ -191,6 +191,17 @@ out of anything stuck.
   A combat declared by hand is dealt with the engine's P/T and keywords (i12review #5). A Stack entry below the top is
   picked as a target in Manage Stack. Catalog: ZON-077, TRN-031, CMB-017/018/020/022/025, CMB-028–CMB-030, STK-015,
   STK-023, STK-033, STK-034, TBL-051.
+- **Built (i3review fixes):** pre-events are keyed to their decision (`PreAnswer.Division` with its turn and damage step,
+  CR 510.4; only the open division's step is offered early) and kept by automated batches while that decision can still
+  open (`PreAnswers.kept`); the batch in which it opened (applied or refused, `EngineCall.preAnswered`) or the first after
+  the creature left combat or its step ended removes it. One that reaches the server just before the batch opening its
+  decision stays beside the open decision: `SharedFlow.decision` shows it as the suggestion and the client of whoever
+  made the latest event answers with it at once (`StepFlow.answerEarly`). Declared attackers get a pair each (the planner
+  splits drafted pairs). The combat record carries its turn and counts only while it is the board's combat
+  (`EngineCodec.currentCombat`: same turn, a combat step, the area open); passes in a row carry where they were counted
+  (`TurnExtras.passesAt`) and restart after a step changed by hand. "By hand" is read from the continuation record
+  (`EngineState.byHand`). Panels name objects in public zones only when visible to the viewer (a face-down spell, blocker
+  or source); combat drafts are checked against the last shown combat and engine reasons worked out off the main thread.
 
 ### I4 — Automatum-only controls
 

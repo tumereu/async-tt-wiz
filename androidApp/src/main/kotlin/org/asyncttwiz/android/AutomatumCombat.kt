@@ -48,13 +48,36 @@ internal class CombatController(
     private val current: () -> PlayState?,
     private val submit: (PlayAction) -> Boolean,
     private val tags: () -> List<MtgTag?>,
+    /** Where the engine's reasons for refused drafts are worked out (SYS-025): off the main thread in the app. */
+    private val work: AutomatumWork = AutomatumWork.Inline,
+    /** The message shown now, and showing another (an engine reason worked out after the refusal). */
+    private val error: () -> String? = { null },
+    private val fail: (String?) -> Unit = {},
 ) {
-    private var shownBoard: Any? = null
+    private var shownBoard: BoardState? = null
     /** What the table shows of combat on the board last worked out ([show]). */
     var view by mutableStateOf(CombatShown.NONE); private set
 
     /** [value] is what the table shows of combat on [play]'s board. */
     fun show(play: PlayState, value: CombatShown) { shownBoard = play.board; view = value }
+
+    /**
+     * What may be declared on [play]'s board, not worked out on the main thread when avoidable (#12, SYS-025): the
+     * board's own when worked out, else the last shown board's while it awaits the same declaration (drafting only moves
+     * cards in the lanes, which the engine doesn't read while a declaration is awaited); else worked out now (blocking).
+     */
+    fun choices(play: PlayState): CombatShown {
+        ready(play)?.let { return it }
+        val last = shownBoard
+        if (last != null && last.automatum && sameDeclaration(last, play.board)) return view
+        return shown(play)
+    }
+
+    /** Whether [a] and [b] differ only in what a draft of a declaration changes (the lanes, what is only shown). */
+    private fun sameDeclaration(a: BoardState, b: BoardState): Boolean =
+        a.turn == b.turn && a.priority == b.priority && a.engineRecords == b.engineRecords &&
+            a.cards.size == b.cards.size && a.cards.zip(b.cards).all { (x, y) -> x.id == y.id && x.containerId == y.containerId &&
+                x.tapped == y.tapped && x.zoneChanges == y.zoneChanges }
 
     /** What the table shows of combat on [play]'s board: worked out already, or now (blocking). */
     fun shown(play: PlayState): CombatShown =
@@ -94,7 +117,7 @@ internal class CombatController(
      * creatures that may attack that target; blockers while they are awaited, in the pair of attackers they may block.
      */
     fun draftRefusal(play: PlayState, sources: List<String>, role: CombatRole, pairId: String?, attackTarget: String?): String? {
-        val shown = shown(play)
+        val shown = choices(play)
         // A board Automatum can't take over keeps its manual combat
         if (shown.choices.unsupported.isNotEmpty()) return null
         val choices = shown.choices
@@ -106,8 +129,9 @@ internal class CombatController(
             val target = pair?.attackTarget ?: attackTarget
             for (source in sources) {
                 if (target in choices.attacks[source].orEmpty()) continue
-                return reason(play) { CombatFlow.attackRefusal(it, listOf(LaneAttack(source, target))) }
-                    ?: "${name(source)} can't attack ${if (target == null) "the player" else name(target)} now."
+                return refused(play, "${name(source)} can't attack ${if (target == null) "the player" else name(target)} now.") {
+                    CombatFlow.attackRefusal(it, listOf(LaneAttack(source, target)))
+                }
             }
             return null
         }
@@ -116,10 +140,22 @@ internal class CombatController(
         if (attackers.isEmpty()) return "Put a blocker into the pair of the attacker it blocks."
         for (source in sources) {
             if (attackers.all { it in choices.blocks[source].orEmpty() }) continue
-            return reason(play) { call -> CombatFlow.blockRefusal(call, attackers.map { LaneBlock(source, it) }) }
-                ?: "${name(source)} can't block ${attackers.joinToString(" and ") { name(it) }}."
+            return refused(play, "${name(source)} can't block ${attackers.joinToString(" and ") { name(it) }}.") { call ->
+                CombatFlow.blockRefusal(call, attackers.map { LaneBlock(source, it) })
+            }
         }
         return null
+    }
+
+    /**
+     * A refusal with the engine's reason ([refusal]) when it gives one, else [fallback]. The reason is worked out on [work]
+     * (#12, SYS-025): meanwhile [fallback] is shown, replaced by the reason once it is ready unless another message
+     * replaced it.
+     */
+    private fun refused(play: PlayState, fallback: String, refusal: (EngineCall) -> String?): String {
+        if (work === AutomatumWork.Inline) return reason(play, refusal) ?: fallback
+        work.run({ reason(play, refusal) }) { why -> if (why != null && error() == fallback) fail(why) }
+        return fallback
     }
 
     /** The engine's reason for a refusal on [play] (blocking: one engine call); null when it gives none. */

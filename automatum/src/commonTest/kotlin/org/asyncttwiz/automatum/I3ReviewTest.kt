@@ -24,6 +24,7 @@ import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -213,6 +214,10 @@ class I3ReviewTest {
         assertEquals(bob, open.player)
         // His early answer stays beside the open decision, and the next call answers the decision with it
         assertEquals(PreAnswers.of(rt.state.board).single(), PreAnswers.forOpen(rt.call()))
+        // The panel shows the open division pre-filled with it
+        val flow = SharedFlow(rt.state, rt.definitions, EngineLog.from(rt.tags, rt.state, rt.definitions)) { rt.seed() }
+        val shown = assertIs<arcanum.engine.decision.Decision.Divide>(flow.decision)
+        assertEquals(mapOf<MtgRef, Int>(ref(rt, bear) to 3, ref(rt, brute) to 0), shown.suggested.associate { flow.ref(it.target) to it.amount })
         rt.run(alice) { StepFlow.answerEarly(it) }
         assertNull(CombatFlow.division(rt.call()), "Bob's division was answered with his early answer")
         assertEquals("", rt.state.board.cards.single { it.id == brute }.damage, "the Brute got none of the Ogre's damage")

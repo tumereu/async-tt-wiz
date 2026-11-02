@@ -44,9 +44,10 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
         val ready = AutomatumBoards.cachedFlow(play)
         // SYS-025: the history's tags are walked and the flow worked out off the main thread (with the open decision and
         // its early answer, I-D33)
-        val next = withContext(Dispatchers.Default) {
-            (ready ?: AutomatumBoards.sharedFlow(play, toolkit.engineTags()))?.also { it.decision; it.early }
-        }
+        val next = if (ready != null && play.board.engineRecords.none { it.kind == EngineRecordKind.PreAnswer }) ready
+            else withContext(Dispatchers.Default) {
+                (ready ?: AutomatumBoards.sharedFlow(play, toolkit.engineTags()))?.also { it.decision; it.early }
+            }
         flows.show(next)
         // #8 (I-D33): a decision that opened with its early answer beside it (given while the batch opening it was on its
         // way) is answered with it by the client of whoever made the latest event, which is there to send it

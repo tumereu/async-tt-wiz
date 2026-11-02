@@ -202,6 +202,9 @@ class AutomatumI3ReviewTest {
         compose.onNodeWithContentDescription("Respond prompt").assertExists()
         compose.onAllNodesWithText("Veiled Thicket Stalker", substring = true, useUnmergedTree = true).assertCountEquals(0)
         compose.onAllNodesWithText("Morph", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        compose.onNodeWithText("a face-down spell", substring = true).assertExists()
+        captureShot("$SCREENSHOTS/automatum/respond-face-down.png",
+            "Alice cast a morph creature face down and Bob may respond: his prompt reads \"Alice cast a face-down spell\" without its name or text, with Respond and Let it resolve.")
     }
 
     // #5 (STK-032, I-D37): while Automatum waits for something done by hand, manual edits work until Done. After the first
@@ -222,5 +225,25 @@ class AutomatumI3ReviewTest {
             TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)), alice.error)
         AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
         assertTrue(alice.handle(TableIntent.PlayerDelta(f.b, null, -2)), alice.error)
+    }
+
+    // #12 (SYS-025): drafting attackers doesn't work combat out again on the main thread: the board after a drafted card
+    // is checked against what the last shown board allowed (the same declaration is awaited; the engine doesn't read the
+    // draft), so the next drag needs no engine work
+    @Test fun aDraftedAttackerIsCheckedAgainstTheLastShownCombat() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, basilisk), bobField = emptyList()))
+        val alice = toolkit(f.a)
+        val first = card(play, brute, aField)
+        val second = card(play, basilisk, aField)
+        val shown = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
+        alice.combat.show(play, shown)
+        assertEquals(f.a, shown.choices.declaring)
+        accept(f.a, GameAction.Play(PlayAction.Combat(CombatAction.Open)))
+        val area = play.board.combat!!.id
+        accept(f.a, GameAction.Play(PlayAction.Combat(CombatAction.Place(first, CombatDestination(area, CombatRole.ATTACKER, pairGap = IdentityGap())))))
+        assertNull(AutomatumBoards.cachedCombat(play))
+        assertTrue(alice.combat.choices(play) === shown, "the last shown board's choices")
+        assertNull(alice.combat.draftRefusal(play, listOf(second), CombatRole.ATTACKER, null, null))
+        assertNull(AutomatumBoards.cachedCombat(play), "nothing worked out for the drafted board")
     }
 }

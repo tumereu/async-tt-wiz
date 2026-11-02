@@ -40,7 +40,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         automatumWork)
     private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
-    internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags)
+    internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
+        { error }, { error = it })
     /** Bumped when hand plays worked out in the background are ready, so the hand menu shows them (SYS-025). */
     private var handPlaysReady by mutableStateOf(0)
 
@@ -208,7 +209,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             it is MtgAction.SetAutomatum || it is MtgAction.SetSkipWhenNoChoice || it is MtgAction.ClearRecords }
         if (own) return null
         // I-D37: while Automatum waits for something done by hand, manual edits are what it waits for (until Done)
-        val byHand = AutomatumBoards.cachedFlow(play)?.decision is arcanum.engine.decision.Decision.Manual
+        val byHand = AutomatumBoards.byHand(play)
         if (Automatum.flowOpen(board) && !byHand && !shownOnly(play, action)) return SharedFlowController.BUSY
         val step = action == PlayAction.NextStep || action == PlayAction.EndTurn || action is PlayAction.ChooseStep ||
             action is PlayAction.BeginTurn
@@ -254,8 +255,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val command = GameCommand(UUID.randomUUID().toString(), GameScope(play.gameId, playId = play.id), GameAction.Play(action),
             UUID.randomUUID().toString(), "1")
         val after = GameplayRules.preview(play, viewer, command).state ?: return true
-        return MtgFacts.digest(after.board) == MtgFacts.digest(play.board)
+        if (after.board === play.board) return true
+        // #12 (SYS-025): the shown board's digest once per board
+        val before = shownDigest?.takeIf { it.first === play.board }?.second
+            ?: MtgFacts.digest(play.board).also { shownDigest = play.board to it }
+        return MtgFacts.digest(after.board) == before
     }
+    private var shownDigest: Pair<BoardState, String>? = null
 
     /** Convenience members are lowered against the current draft, then sent together. */
     fun submit(action: PlayAction, invocationId: String? = invocation): Boolean {
@@ -954,7 +960,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return if (play.board.automatum && !AutomatumBoards.byHand(play)) leaveDraft(play, bound) else removeOccurrences(bound)
     }
     private fun leaveDraft(play: PlayState, bound: ToolkitCapture): Boolean {
-        val choices = combat.shown(play).choices
+        val choices = combat.choices(play).choices
         val blockers = bound.viewIds.all { id -> play.board.combat?.pairs?.any { p -> p.blockers.any { it.id == id } } == true }
         if (choices.declaring == null || (!choices.attackers && !blockers)) {
             error = if (choices.declaring == null) CombatController.DECLARED else CombatController.DECLARED_ATTACKERS

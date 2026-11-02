@@ -271,9 +271,12 @@ class AutomatumCombatScreenshotTest {
         val (bruteCard, ogreCard) = brutesAttackBlocked()
         assertTrue(toolkit(f.b).perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id), CombatTool.AUTOMATUM_DECLARE, play.board.combat?.id)))
         AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
+        // Worked out before showing, as the table's worker would have, so the preview marks are in the picture
+        AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
         val alice = toolkit(f.a)
         render(alice)
         compose.onNodeWithText("Divide 5").assertExists()
+        compose.onNodeWithContentDescription("Life would change by -2").assertExists()
         compose.onNodeWithText("Hill Ogre (lethal 3)").assertExists()
         captureShot("$SCREENSHOTS/automatum/combat-division.png",
             "Bob blocked Alice's Ironhide Brute (5/5, trample) with Hill Ogre: in the damage step Alice divides its 5 damage in the panel by the Stack, filled in with Automatum's suggestion, 3 to the Ogre (lethal 3) and 2 to Bob.")

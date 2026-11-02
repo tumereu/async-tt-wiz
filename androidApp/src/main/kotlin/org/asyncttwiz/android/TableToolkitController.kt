@@ -57,7 +57,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /** #1, #2 (STK-039): a reaction the viewer begins at their own pause (a cast or ability, Respond) holds the pause
      * first, so it continues from there (a branch once the game went on) instead of being dropped when the game moves. */
-    private fun holdForReaction() { current()?.let { pause.holdForReaction(it, viewer) } }
+    private fun holdForReaction() = pause.holdForReaction(current(), viewer)
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },

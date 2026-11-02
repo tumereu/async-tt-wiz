@@ -65,7 +65,8 @@ internal class CastController(
     private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
     private val work: AutomatumWork = AutomatumWork.Inline,
-    /** A cast or ability is being begun (#1: it holds the viewer's pause, [PauseController.holdForReaction]). */
+    /** A cast or ability is being begun, before the board it begins on is read (#1: it holds the viewer's pause shown,
+     * [PauseController.holdForReaction], so it begins on that point's board). */
     private val beginning: () -> Unit = {},
 ) : FlowQuestions {
     /** The open cast, null when none. */
@@ -106,13 +107,13 @@ internal class CastController(
      * about it is read or shown), or (once worked out) the engine doesn't allow it now (I-D28).
      */
     fun start(cardId: String): Boolean {
+        beginning()
         val play = current() ?: return false
         if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }
         // A shared flow waits for an answer (D32): nothing is cast meanwhile
         if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
         if (!ownHand(play, cardId, viewer)) { fail(NOT_YOURS); return false }
-        beginning()
         val history = tags()
         val accept = acceptAutomatically
         starting = cardId
@@ -142,11 +143,11 @@ internal class CastController(
      * [text] shown for an ability. False with a message when it can't be begun.
      */
     fun begin(cardId: String, input: Input, text: String? = null): Boolean {
+        beginning()
         val play = current() ?: return false
         if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }
         if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
-        beginning()
         val history = tags()
         val accept = acceptAutomatically
         starting = cardId

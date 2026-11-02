@@ -211,6 +211,45 @@ class AutomatumPauseReviewTest {
         assertEquals(cast.currentNodeId, routes.held)
     }
 
+    // pausereview #1/#2 (STK-037, STK-039): Alice's device went on at once (Proceed at once); Bob's table still shows his
+    // pause for his response time while his device acts on the live game. Respond holds the pause shown, not the live
+    // game, and his Storm Spark from there is a branch.
+    @Test fun respondOnTheTableHeldAtYourPauseBranches() {
+        val cast = castAt(sparkBoard(), f.a, card(sparkBoard(), aHand), f.b)
+        AutomatumBoards.compute(cast, f.a)
+        assertTrue(device(cast, f.a).flows.autoPass(f.b, cast.currentNodeId))
+        val went = takeSent(cast, f.a)
+        val routes = Routes()
+        // As the app's toolkit: the live game, or the held point's board once held (TableScreen's tableToolkit)
+        val bob = device({ if (routes.held != null) cast else went }, f.b, from = { routes.held }).also { it.pause.routes = routes }
+        AutomatumBoards.compute(cast, f.b)
+        AutomatumBoards.sharedFlow(cast, engineTags(tree, cast.currentNodeId))
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            MaterialTheme {
+                NoRipples {
+                    Box(Modifier.fillMaxSize()) {
+                        TableSurface(f.game, cast, f.b, false, Modifier.fillMaxSize(), connected = true,
+                            onIntent = bob::handle, toolkit = bob,
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                        AutomatumPauseDriver(bob, null, cast, went.currentNodeId, liveShown = true, opponentOnline = true,
+                            settings = PauseSettings())
+                    }
+                }
+            }
+        }
+        frames()
+        compose.mainClock.advanceTimeBy(500)
+        compose.onNodeWithText("Respond").performClick()
+        frames()
+        assertEquals(cast.currentNodeId, routes.held, "the pause shown is held")
+        assertTrue(bob.cast.start(card(cast, bHand)), bob.error)
+        targetLife(bob, cast, f.b, f.a)
+        assertTrue(bob.cast.cast(), bob.error)
+        takeSent(cast, f.b, from = cast.currentNodeId)
+        assertEquals(2, tree!!.nodes.values.count { it.parentId == cast.currentNodeId }, "a branch from Bob's pause")
+    }
+
     // pausereview #3 (STK-037, SYS-071): with Full control Alice keeps priority after her Storm Spark (her own pause) and
     // starts casting her second one. Her own device doesn't pass for her while her cast panel is open (the cast holds her
     // pause, and no automatic pass runs under an open cast), so her first spell doesn't resolve under the panel.
@@ -437,8 +476,11 @@ class AutomatumPauseReviewTest {
         var online = true
         var held: String? = null
         var view: PlayState = tree!!.stateAt(tree!!.currentNodeId)!!
+        /** The live game as this device last received it. */
+        var live: PlayState = view
         val queue = mutableListOf<Triple<GameAction.PlayBatch, String, String?>>()
-        val toolkit = TableToolkitController(player, { view }, { true }, { _, _ -> true },
+        // As the app's toolkit (TableScreen's tableToolkit): the live game, or the held point's board once held
+        val toolkit = TableToolkitController(player, { if (held != null) view else live }, { true }, { _, _ -> true },
             automatedBatch = { batch, request -> queue += Triple(batch, request, held); true }, playTree = { tree },
             continuation = { held?.let { Continuation(it, explicit = true) } })
         val routes = object : PauseRoutes {
@@ -517,6 +559,8 @@ class AutomatumPauseReviewTest {
         }
         var now = 0L
         var changedAt = 0L
+        // When a player last went online or offline: a pause their device was to pass waits for them meanwhile
+        var flippedAt = 0L
         val reactionRequests = mutableMapOf<String, String>()
         fun liveState() = tree!!.stateAt(tree!!.currentNodeId)!!
         fun refresh() {
@@ -524,6 +568,10 @@ class AutomatumPauseReviewTest {
             if (live.currentNodeId != head.value.currentNodeId) { changedAt = now; stats.events++ }
             head.value = live
             for (d in devices) {
+                if (d.live.currentNodeId != live.currentNodeId) {
+                    d.live = live
+                    if (d.held == null && d.toolkit.cast.open) d.toolkit.cast.follow()
+                }
                 val before = d.view
                 // The live table stays on the viewer's own pause while its bar runs (STK-037: HistoryPlayback.holdPause)
                 if (d.held == null) d.view = d.toolkit.pause.shown?.takeIf { it.running && it.role is PauseRole.Yours &&
@@ -598,7 +646,7 @@ class AutomatumPauseReviewTest {
             if (live.board.players.any { (it.life.toIntOrNull() ?: 1) <= 0 }) { stats.end = "a player lost"; return stats }
             if (Automatum.flowOpen(live.board)) { stats.end = "a choice opened"; return stats }
             for (d in devices) {
-                if (random.nextInt(150) == 0) { d.online = !d.online; tick.value++ }
+                if (random.nextInt(150) == 0) { d.online = !d.online; flippedAt = now; tick.value++ }
                 if (!d.online) continue
                 d.casting?.let { r -> if (now >= r.doneAt) { d.casting = null; finishCast(d, r.path) } }
                 if (d.casting != null) continue
@@ -654,9 +702,13 @@ class AutomatumPauseReviewTest {
                         val delay = random.nextLong(200, 4_000)
                         if (roll < 5) d.plan = Plan.React(now + delay, node, respond = random.nextBoolean())
                         else if (roll < 6) d.plan = Plan.Hold(now + delay, node)
-                    } else if (d.held == null && now - changedAt > 10_000) {
+                    } else if (d.held == null && now - maxOf(changedAt, flippedAt) > 10_000) {
                         // Left at a pause the game doesn't leave: the player lets it go by hand
-                        stats.stalls += "turn ${d.view.board.turn.number} ${TurnPosition.of(d.view.board.turn)} ${d.name}"
+                        stats.stalls += "turn ${d.view.board.turn.number} ${TurnPosition.of(d.view.board.turn)} ${d.name} (by " +
+                            "${if (tree!!.nodes[node]?.author == f.a) "alice" else "bob"}; live ${head.value.currentNodeId == node}; " +
+                            "now $now changed $changedAt clock ${compose.mainClock.currentTime}; " +
+                            devices.joinToString { "${it.name} online ${it.online} held ${it.held != null} shown ${it.toolkit.pause.shown?.let { s -> "${s.role} here ${s.node == node} running ${s.running} at ${s.startedAt}" }} " +
+                                "passed ${it.toolkit.pause.passedAt(node)} casting ${it.toolkit.cast.open}" } + ")"
                         if (!d.toolkit.pause.passBehind(node)) d.toolkit.flows.pass(d.player)
                         changedAt = now
                     }

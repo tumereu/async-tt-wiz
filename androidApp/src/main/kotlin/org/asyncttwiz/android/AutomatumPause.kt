@@ -104,13 +104,15 @@ internal class PauseController {
         return true
     }
     /**
-     * #1, #2 (STK-039): a reaction [viewer] begins on [play] (a cast or ability, Respond) holds their pause there first,
-     * with its bar running or not, so it continues from that point (a branch once the game went on) and nothing passes
-     * for them meanwhile. Nothing when [play] isn't their pause or it is held (or continued from) already.
+     * #1, #2 (STK-039): a reaction the viewer begins (a cast or ability, Respond) holds their pause first, with its bar
+     * running or not, so it continues from that point (a branch once the game went on) and nothing passes for them
+     * meanwhile: the pause shown on the live table (also while it is held there after the game went on), else [play]
+     * (the board acted on) when it is [viewer]'s pause. Nothing when it is held (or continued from) already.
      */
-    fun holdForReaction(play: PlayState, viewer: String) {
-        val node = play.currentNodeId
-        if (PausePoints.pauseFor(play.board, viewer) && !holding(node) && routes?.holding(node) != true) hold(node)
+    fun holdForReaction(play: PlayState?, viewer: String) {
+        val node = shown?.takeIf { it.role is PauseRole.Yours }?.node
+            ?: play?.takeIf { PausePoints.pauseFor(it.board, viewer) }?.currentNodeId ?: return
+        if (!holding(node) && routes?.holding(node) != true) hold(node)
     }
     /** Whether the viewer holds at [node]. */
     fun holding(node: String): Boolean = heldNode == node && routes?.holding(node) == true

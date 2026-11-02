@@ -333,7 +333,14 @@ internal object Payment {
             }
             // Reminder text the definition can't express: left to the players (P4)
             is CostPart.Manual -> Unit
-            is CostPart.Action -> refuse("Keyword actions as costs (${part.action::class.simpleName}) aren't supported yet")
+            is CostPart.Action -> {
+                if (part.action !is arcanum.api.KeywordAction.Behold) refuse("Keyword actions as costs (${part.action::class.simpleName}) aren't supported yet")
+                // CR 701.4a: a card from the hand is revealed; a permanent is only chosen
+                val ids = objects(CostObjects.Choose(ObjectFilter.Any, count = arcanum.api.Value.Fixed(1)))
+                val revealed = ids.filter { s.obj(it)?.zone == Zone.Hand }
+                if (revealed.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(player, revealed)))
+                part.bind?.let { bound[it] = NamedValue.Objects(ids) }
+            }
             is CostPart.OneOf -> refuse("Choose which cost to pay first")
             is CostPart.Mana, CostPart.ItsManaCost -> Unit
         }

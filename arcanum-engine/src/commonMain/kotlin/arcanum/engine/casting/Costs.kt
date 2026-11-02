@@ -149,6 +149,9 @@ internal object Costs {
             is CostPart.Exile -> part.what
             is CostPart.ReturnToHand -> part.what
             is CostPart.Reveal -> part.what
+            // CR 701.4a: beholding is revealing a card from the hand or choosing a permanent you control
+            is CostPart.Action -> (part.action as? arcanum.api.KeywordAction.Behold)?.let { CostObjects.Choose(it.filter, count = arcanum.api.Value.Fixed(1)) }
+                ?: return null
             is CostPart.RemoveCounters -> part.from
             is CostPart.PutCounters -> part.on
             else -> return null
@@ -160,6 +163,7 @@ internal object Costs {
             is CostPart.Sacrifice, is CostPart.ReturnToHand, is CostPart.TapObjects, is CostPart.RemoveCounters, is CostPart.PutCounters ->
                 s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Discard, is CostPart.Reveal -> s.player(player).hand
+            is CostPart.Action -> s.player(player).hand + s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Exile -> when (part.from) {
                 Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
                 Zone.Stack, Zone.Exile, Zone.Command -> emptyList()
@@ -189,6 +193,7 @@ internal object Costs {
         is CostPart.Exile -> "Exile from ${part.from}"
         is CostPart.ReturnToHand -> "Return to hand"
         is CostPart.Reveal -> "Reveal"
+        is CostPart.Action -> if (part.action is arcanum.api.KeywordAction.Behold) "Behold (reveal from your hand or choose one you control)" else "Do"
         is CostPart.RemoveCounters -> "Remove counters from"
         is CostPart.PutCounters -> "Put counters on"
         is CostPart.PayLife -> "Pay life"

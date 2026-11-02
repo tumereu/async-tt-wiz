@@ -420,7 +420,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     private fun GameObject.printedTypes(): List<CardType> = definition?.faces?.getOrNull(face)?.types.orEmpty()
 
-    private fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
+    /** [a] and [b] share [quality] ("share a color", "with the same power"). */
+    fun shares(quality: SharedQuality, a: ObjectId, b: ObjectId): Boolean {
         val ca = characteristics(a) ?: return false
         val cb = characteristics(b) ?: return false
         return when (quality) {

@@ -48,6 +48,10 @@ internal object Answers {
                 if (chosen.size < q.min || (q.max != null && chosen.size > q.max)) refuse("Choose ${q.min} to ${q.max ?: "any number of"} targets")
                 if (chosen.distinct().size != chosen.size) refuse("The same target twice in one slot")
                 if (chosen.any { it !in q.options }) refuse("Not a legal target: ${chosen.filter { it !in q.options }}")
+                // "target creatures controlled by the same opponent" (CR 601.2c)
+                if (q.slot.slot.sameController &&
+                    chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.board.controller(id) } }.distinct().size > 1)
+                    refuse("The targets must have the same controller")
                 val key = q.slot.key
                 if (q.forPlayer == null) c.copy(targets = c.targets + (key to chosen))
                 else c.copy(

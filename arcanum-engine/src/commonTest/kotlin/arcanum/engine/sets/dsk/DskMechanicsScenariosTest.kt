@@ -21,7 +21,9 @@ class DskMechanicsScenariosTest {
         Impending 4—{1}{G}{G} (If you cast this spell for its impending cost, it enters with four time counters and isn't a creature until the last is removed. At the beginning of your end step, remove a time counter from it.)
         Whenever this permanent enters or attacks, you gain 2 life.
     """, "6/6")
-    private val survivor = Cards.invent("Hallway Survivor", "{1}{W}", "Creature — Human Survivor",
+    private val onrush = Cards.invent("Dread Onslaught", "{X}{X}{G}", "Sorcery",
+        "Manifest dread X times, then put X +1/+1 counters on each of those creatures. (To manifest dread, look at the top two cards of your library, then put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)")
+    private val survivor =Cards.invent("Hallway Survivor", "{1}{W}", "Creature — Human Survivor",
         "Survival — At the beginning of your second main phase, if this creature is tapped, you gain 2 life.", "2/2")
     private val delirious = Cards.invent("Frenzied Lurker", "{1}{B}", "Creature — Horror",
         "Delirium — This creature gets +2/+1 as long as there are four or more card types among cards in your graveyard.", "1/1")
@@ -48,6 +50,24 @@ class DskMechanicsScenariosTest {
         }
         alice.takesSpecialAction("Elvish Seer", "manifested", paying = listOf("Forest#2"))
         expect { card("Elvish Seer").power shouldBe 1 }
+    }
+
+    // CR 701.40e: manifesting dread several times is one at a time; "those creatures" are all of them
+    @Test
+    fun manifestDreadXTimes() = scenario {
+        alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest")
+        alice.library("Elvish Seer", "Swamp", "Island", "Plains")
+        alice.hand(onrush)
+        alice.casts(onrush, x = 2)
+        allPass()
+        alice.chooses("Elvish Seer")
+        alice.chooses("Island")
+        expect {
+            card("Elvish Seer").power shouldBe 4
+            card("Island").power shouldBe 4
+            alice.graveyard has "Swamp"
+            alice.graveyard has "Plains"
+        }
     }
 
     // CR 702.176a: cast for its impending cost it enters with time counters and isn't a creature while it has one; at

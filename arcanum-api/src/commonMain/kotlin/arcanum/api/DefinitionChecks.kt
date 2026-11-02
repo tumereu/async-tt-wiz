@@ -61,6 +61,8 @@ object DefinitionChecks {
         "attack" to setOf("object", "defender"),
         "discard" to setOf("before", "after"),
         "unattach" to setOf("object", "from"),
+        // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
+        "manifest-dread" to setOf("object", "rest"),
     )
     private val selfAffected = json.encodeToJsonElement(Affected.serializer(), Affected.Objects(Objects.Self))
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")
@@ -147,7 +149,11 @@ object DefinitionChecks {
                     found += "\"shares a colour with\" is ObjectFilter.Shares; ColorRef.Of is for mana and colour-setting"
                 if (type == "for-each" && element.typeOf("each") == "players") {
                     val body = (element["steps"] as? JsonArray).orEmpty()
-                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do")
+                    // blb chunk 11: a loop whose one effect also uses that player elsewhere (an amount counted per player,
+                    // "equal to the number of nonbasic lands that player controls") stays a loop
+                    val bind = (element["bind"] as? JsonPrimitive)?.content
+                    val uses = bind?.let { b -> Regex(""""name":"${Regex.escape(b)}"""").findAll(body.toString()).count() } ?: 0
+                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1)
                         found += "a single effect for each player: give the effect the players (one event); loops are for several steps"
                 }
                 if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")
@@ -255,8 +261,10 @@ object DefinitionChecks {
         val spellSlots = mutableSetOf<String>()
         abilities.filter { it.typeName() == "spell" }.forEach { spell -> visitAll(spell) { o ->
             if (o.typeName() == null && "what" in o) o.string("name")?.let { spellSlots += it } } }
+        // A cost reduction of the spell is applied after its targets are chosen too ("costs {3} less if it targets a tapped
+        // creature", CR 601.2f).
         fun isCostStatic(a: JsonObject) = a.typeName() == "static" && (a["mechanics"] as? JsonArray).orEmpty()
-            .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost") }
+            .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost", "cost-change") }
         abilities.forEach { ability ->
             when {
                 ability.typeName() == "spell" -> check(ability, costNames)

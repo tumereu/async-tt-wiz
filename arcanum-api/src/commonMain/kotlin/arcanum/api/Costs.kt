@@ -67,6 +67,9 @@ sealed interface CostPart {
     /** A loyalty ability's cost: put or remove loyalty counters (CR 606); [amount] may be negative or announced (−X). */
     @Serializable @SerialName("loyalty") data class Loyalty(val amount: Value) : CostPart
     @Serializable @SerialName("mill") data class Mill(val count: Value) : CostPart
+    /** Choose a player matching [filter] ("you may choose an opponent", gift, CR 702.174a); kept with the spell and the
+     * permanent it becomes, read with [Players.ChosenAsCost]. */
+    @Serializable @SerialName("choose-player") data class ChoosePlayer(val filter: PlayerFilter) : CostPart
     /** Text the definition can't express as a cost part; shown as a reminder. */
     @Serializable @SerialName("manual") data class Manual(val text: String) : CostPart
 }

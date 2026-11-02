@@ -77,7 +77,11 @@ internal object Targeting {
             is TargetRef.Object -> view[ref.id]?.mechanics.orEmpty()
             is TargetRef.Player -> view.players[ref.id]?.mechanics.orEmpty()
         }
-        return mechanics.none { applied -> forbids(act, applied, controller, source) }
+        // CR 702.11b: "as though they didn't have hexproof"
+        val ignoringHexproof = mechanics.any { it.mechanic == Mechanic.TargetableDespiteHexproof }
+        return mechanics.none { applied ->
+            !(ignoringHexproof && arcanum.engine.casting.Targets.fromHexproof(view, applied)) && forbids(act, applied, controller, source)
+        }
     }
 
     private fun forbids(act: Act, applied: AppliedMechanic, controller: PlayerId, source: ObjectId?): Boolean {

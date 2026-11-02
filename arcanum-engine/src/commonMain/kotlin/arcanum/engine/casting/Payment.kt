@@ -89,6 +89,10 @@ internal object Payment {
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
         total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
+        // blb: each forage paid (its parts' keys carry it, Costs.total) is a forage (CR 701.61a)
+        total.parts.mapNotNull { kp -> kp.key.substringBefore(Costs.FORAGE, "").takeIf { it.isNotEmpty() } }.distinct().forEach {
+            recorder.record(Change.Happened(GameEvent.Foraged(plan.player)))
+        }
         val names = Bindings(bound)
         return when {
             plan.isManaAbility -> finishManaAbility(recorder, plan, names)
@@ -333,7 +337,16 @@ internal object Payment {
             }
             // Reminder text the definition can't express: left to the players (P4)
             is CostPart.Manual -> Unit
-            is CostPart.Action -> refuse("Keyword actions as costs (${part.action::class.simpleName}) aren't supported yet")
+            // blb: the chosen player is recorded with the spell's facts as it becomes cast (CR 702.174a)
+            is CostPart.ChoosePlayer -> Unit
+            is CostPart.Action -> {
+                if (part.action !is arcanum.api.KeywordAction.Behold) refuse("Keyword actions as costs (${part.action::class.simpleName}) aren't supported yet")
+                // CR 701.4a: a card from the hand is revealed; a permanent is only chosen
+                val ids = objects(CostObjects.Choose(ObjectFilter.Any, count = arcanum.api.Value.Fixed(1)))
+                val revealed = ids.filter { s.obj(it)?.zone == Zone.Hand }
+                if (revealed.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(player, revealed)))
+                part.bind?.let { bound[it] = NamedValue.Objects(ids) }
+            }
             is CostPart.OneOf -> refuse("Choose which cost to pay first")
             is CostPart.Mana, CostPart.ItsManaCost -> Unit
         }
@@ -358,6 +371,10 @@ internal object Payment {
             alternative = alternativePaid(plan),
             modesChosen = (o.facts.modesChosen + plan.choices.modes).distinct(),
             paidWith = Bindings(paidWith.map { (way, ids) -> way.toString() to NamedValue.Objects(ids) as NamedValue }.toMap()),
+            // blb: the opponent chosen for a gift (CR 702.174a)
+            chosenPlayer = plan.total.parts.firstNotNullOfOrNull { kp ->
+                (plan.choices.names[Plan.PLAYER + kp.key] as? NamedValue.Players)?.ids?.firstOrNull()?.takeIf { kp.part is CostPart.ChoosePlayer }
+            },
         )
         if (facts != o.facts) recorder.record(Change.Facts(id, o.facts, facts))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
@@ -371,6 +388,13 @@ internal object Payment {
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
+            // blb: what the permission gives a spell cast with it ("that creature enters with a finality counter", CR 400.7d)
+            if (permission.spellGets.isNotEmpty()) recorder.record(Changes.effect(recorder.state) { t ->
+                val next = (id as? ObjectId.Card)?.next()
+                EffectObject(EffectId("permission:$id"), permission.spellGets, affects = null, locked = listOfNotNull(id, next), source = null,
+                    controller = plan.player, timestamp = t, createdTurn = s.turn.number, duration = Duration.Indefinitely,
+                    names = Bindings(mapOf(arcanum.engine.resolution.Effects.FOLLOWS_SPELL to NamedValue.Objects(listOfNotNull(id, next)))))
+            })
         }
         // CR 106.6a: mana that gives the spell something
         spent.filter { it.spellGets.isNotEmpty() }.forEachIndexed { i, unit ->
@@ -528,6 +552,9 @@ internal object Payment {
                         Actions.putCounters(act, costCause(plan), TargetRef.Object(self), c.kind, plan.eval.value(c.amount))
                     }
                 }
+                // CR 709.5e: paying a locked door's unlock cost unlocks it
+                effect is Effect.UnlockDoor && effect.objects == Objects.Self && effect.door != null ->
+                    arcanum.engine.room.Rooms.unlock(act, self, effect.door!!, plan.player)
                 effect is Effect.Move && effect.objects == Objects.Self && effect.to.attacking == null -> {
                     val counters = effect.to.counters.map { it.kind to plan.eval.value(it.amount) }
                     val moved = Actions.move(act, costCause(plan), listOf(PlannedMove(self, effect.to.zone, faceDown = effect.to.faceDown, counters = counters)))

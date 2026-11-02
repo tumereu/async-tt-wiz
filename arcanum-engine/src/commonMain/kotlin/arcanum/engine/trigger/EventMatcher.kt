@@ -29,9 +29,10 @@ import arcanum.engine.state.TriggerEvent
  * event (a replacement deciding whether it applies, CR 614.12), objects are tested as they are before the event.
  */
 internal object EventMatcher {
-    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false): List<TriggerEvent> = when (pattern) {
+    fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> moves(change).filter { m ->
             (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
+                (pattern.notTo == null || m.to != pattern.notTo) &&
                 (!pattern.resolving || Meaning.Resolved in m.meanings) &&
                 e.matches(pattern.objects, tested(m, pattern.from, proposed))
         }.map { moveEvent(e, it, proposed, pattern.from) }
@@ -74,12 +75,12 @@ internal object EventMatcher {
         is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings && e.matches(pattern.lands, it.after.id) &&
             e.matches(pattern.players, it.after.controller ?: it.after.owner) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
-        is EventPattern.CountersPut -> counters(e, change, pattern.objects, pattern.kind, put = true, last = false)
+        is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy)) counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
         is EventPattern.CountersRemoved -> counters(e, change, pattern.objects, pattern.kind, put = false, last = pattern.last)
         is EventPattern.PlayerCountersPut -> (change as? Change.Counters)?.let { c ->
             val holder = c.holder as? TargetRef.Player ?: return@let null
             val delta = (c.after?.count ?: 0) - (c.before?.count ?: 0)
-            if (delta > 0 && (pattern.kind == null || pattern.kind == c.kind) && e.matches(pattern.players, holder.id))
+            if (delta > 0 && (pattern.kind == null || pattern.kind == c.kind) && e.matches(pattern.players, holder.id) && causedBy(e, change, pattern.causedBy))
                 listOf(TriggerEvent(players = listOf(holder.id), amount = delta)) else null
         }.orEmpty()
         is EventPattern.Tap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->
@@ -171,6 +172,23 @@ internal object EventMatcher {
             ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
         // Day and night aren't tracked yet.
         is EventPattern.DayNightChanges -> emptyList()
+        // blb: CR 702.174c, 701.61a, 716.2a
+        is EventPattern.GiveGift -> ((change as? Change.Happened)?.event as? GameEvent.GaveGift)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        is EventPattern.Forage -> ((change as? Change.Happened)?.event as? GameEvent.Foraged)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        is EventPattern.BecomesLevel -> ((change as? Change.Happened)?.event as? GameEvent.BecameLevel)
+            ?.takeIf { it.level == pattern.level && e.matches(pattern.objects, it.id) }
+            ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))))) }.orEmpty()
+        // CR 709.5h, i: given an unlocked designation; "this door" is the half the ability is printed on ([door])
+        is EventPattern.Unlock -> ((change as? Change.Happened)?.event as? GameEvent.Unlocked)
+            ?.takeIf { (!pattern.fully || it.fully) && (!pattern.thisDoor || door == null || it.door == door) && e.matches(pattern.objects, it.id) }
+            ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))), listOf(it.player))) }.orEmpty()
+        // CR 701.62b: once the whole action is done
+        is EventPattern.ManifestDread -> ((change as? Change.Happened)?.event as? GameEvent.ManifestedDread)
+            ?.takeIf { e.matches(pattern.players, it.player) }
+            ?.let { listOf(TriggerEvent(listOfNotNull(it.manifested?.let { m -> RoleObjects(EventRole.Object, listOf(m)) },
+                RoleObjects(EventRole.Rest, it.rest)), listOf(it.player))) }.orEmpty()
     }
 
     /** A spell's cast event (CR 601.2i): the Stack item of a cast spell put on the Stack, tagged [Meaning.Cast]. */
@@ -223,6 +241,15 @@ internal object EventMatcher {
         if (!e.matches(objects, holder.id)) return emptyList()
         return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(e.controllerOf(holder.id)),
             kotlin.math.abs(delta)))
+    }
+
+    /** blb: whether counters were put by an effect of a spell or ability matching [filter] (its Stack item; "you put": one
+     * you control). Counters with no cause (a cost, a rule) match no filter. */
+    private fun causedBy(e: Evaluator, change: Change, filter: arcanum.api.ObjectFilter?): Boolean {
+        if (filter == null) return true
+        val by = (change as? Change.Counters)?.by ?: return false
+        by.item?.let { item -> if (e.board.state.stackItems[item] != null || e.board.state.obj(item) != null) return e.matches(filter, item) }
+        return filter is arcanum.api.ObjectFilter.ControlledBy && e.matches(filter.players, by.controller)
     }
 
     private fun recipient(e: Evaluator, filter: RecipientFilter, ref: TargetRef): Boolean = when (ref) {

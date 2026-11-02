@@ -53,6 +53,23 @@ internal class Sentences(
 
     /** Lines that are more than one ability. */
     fun multi(line: String): List<Ability>? {
+        // dsk chunk 14: "This land enters tapped. As it enters, choose a color." (two replacement effects, CR 614.1c, 614.12)
+        ENTERS_TAPPED_AS_IT_ENTERS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val tapped = static("${m.groupValues[1]} enters tapped.") ?: return null
+            val choose = static("As ${m.groupValues[1].replaceFirstChar { it.lowercase() }} enters, ${m.groupValues[2]}") ?: return null
+            return listOf(tapped, choose)
+        }
+        // dsk chunk 13: a conditional permission to cast it from the graveyard and a counter when it was (CR 614.1c)
+        MAY_CAST_SELF_FROM_GRAVEYARD_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[3]) }?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            val kind = Counters.kind(m.groupValues[4]) ?: return null
+            return listOf(
+                Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, holder = PlayerFilter.You)), affects = Affected.Objects(Objects.Self), condition = condition),
+                Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                    modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(1))))), affects = Affected.Objects(Objects.Self),
+                    condition = arcanum.api.Condition.CastFrom(Zone.Graveyard, Objects.Self)),
+            )
+        }
         // chunk 25: "Any player may cast creature spells with mana value 3 or less without paying their mana costs and as
         // though they had flash." A permission to cast from hand for free (each player for their own cards) and
         // player-wide flash (CR 601.2a, 118.9, 702.8a).
@@ -70,14 +87,46 @@ internal class Sentences(
         // chunk 52: "This creature has all activated abilities of the chosen permanent except for loyalty abilities. You may
         // spend mana as though it were mana of any color to activate those abilities." (layer 6, CR 613.1f)
         HAS_ACTIVATED_ABILITIES_OF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
-            val of = chosenObjects(m.groupValues[2]) ?: return null
+            // dsk chunk 14: "creatures you control that don't have the same name as this creature"
+            val of = chosenObjects(m.groupValues[2]) ?: WITHOUT_SAME_NAME.matchEntire(m.groupValues[2])?.takeIf { isSelf(it.groupValues[2]) }?.let {
+                Objects.Each(Filters.all(Filters.noun(it.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Self))))
+            } ?: return null
             val gains = Ability.Static(listOf(Mechanic.GainAbilitiesOf(of, exceptLoyalty = m.groupValues[3].isNotEmpty())), affects = Affected.Objects(Objects.Self))
             if (m.groupValues[4].isEmpty()) return listOf(gains)
             return listOf(gains, Ability.Static(listOf(Mechanic.SpendManaAsAnyColor(onlyFor = ObjectFilter.AbilityOf(source = ObjectFilter.Is(Objects.Self)))),
                 affects = arcanum.api.Affected.Players(Players.You)))
         }
+        // blb chunk 12: "This land enters tapped. As it enters, choose a color." (two abilities on one line)
+        Blb.ENTERS_TAPPED_AS_IT_ENTERS.matchEntire(line)?.let { m ->
+            val tapped = line(m.groupValues[1] + " enters tapped.") ?: return null
+            val choose = line("As " + m.groupValues[1].replaceFirstChar { it.lowercase() } + " enters, " + m.groupValues[2]) ?: return null
+            return listOf(tapped, choose)
+        }
+        // blb chunk 12: "You may play lands and cast spells with mana value 4 or greater from the top of your library." (two
+        // permissions, CR 601.2a, 305.1)
+        Blb.MAY_PLAY_LANDS_AND_CAST_FROM_TOP.matchEntire(line)?.let { m ->
+            fun top(cards: ObjectFilter, how: PlayKind) = Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, how, topOnly = true, holder = PlayerFilter.You)),
+                affects = Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+            val comparison = if (m.groupValues[2] == "greater") arcanum.api.Comparison.AtLeast else arcanum.api.Comparison.AtMost
+            return listOf(top(ObjectFilter.Type(arcanum.api.CardType.Land), PlayKind.Play),
+                top(Filters.all(ObjectFilter.Not(ObjectFilter.Type(arcanum.api.CardType.Land)), ObjectFilter.ManaValue(comparison, Value.Fixed(m.groupValues[1].toInt()))), PlayKind.Cast))
+        }
         return null
     }
+
+    /** dsk chunk 13: what "that much"/"that many" means after an intervening if that counts something. */
+    private var conditionAmount: Value? = null
+
+    /** dsk chunk 13: the amount [condition] counts ("if you sacrificed one or more permanents this turn": how many). */
+    private fun amountOf(condition: arcanum.api.Condition): Value? = when (condition) {
+        is arcanum.api.Condition.HappenedThisTurn -> Value.EventsThisTurn(condition.event, condition.measure)
+        is arcanum.api.Condition.Prime -> condition.value
+        is arcanum.api.Condition.And -> condition.all.mapNotNull(::amountOf).lastOrNull()
+        else -> null
+    }
+
+    /** dsk chunk 11: the card refers to "the discarded card": a discard of its additional cost names it. */
+    var discardedCard = false
 
     /** chunk 33: what "the exiled card" means on this card (linked abilities, CR 607.2a); null when nothing links. */
     var exiledCard: Objects? = null
@@ -143,6 +192,49 @@ internal class Sentences(
         )
     }
 
+    /**
+     * dsk chunk 07: a later paragraph of an instant or sorcery that refers to the earlier paragraphs' targets ("that
+     * creature", "the creature you control"), read with them: one spell ability (CR 113.3a). Its ability word, if any, is
+     * dropped with the paragraph joined. Null when it can't be read that way.
+     */
+    fun continuation(line: String, previous: Instructions): Instructions? {
+        val text = ABILITY_WORD.matchEntire(line)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) }?.groupValues?.get(2) ?: line
+        val read = instructions(text, seedTargets = previous.targets) ?: return null
+        return previous.copy(targets = read.targets, steps = previous.steps + read.steps, replacements = previous.replacements + read.replacements,
+            announced = (previous.announced + read.announced).distinct())
+    }
+
+    /** dsk chunk 07: "Delirium — If [condition], instead [instructions].": the whole spell is replaced when it holds. */
+    fun insteadAll(line: String, spell: Ability.Spell): Ability.Spell? {
+        val m = IF_INSTEAD_ALL.matchEntire(line) ?: return null
+        if (m.groupValues[1].isNotEmpty() && !RulesWords.isAbilityOrFlavorWord(m.groupValues[1])) return null
+        val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+        val replacement = instructions(m.groupValues[3].replaceFirstChar { it.uppercase() })?.takeIf { it.targets.isEmpty() } ?: return null
+        return spell.copy(abilityWord = m.groupValues[1].ifEmpty { null }, instructions = spell.instructions.copy(
+            steps = listOf(Step.If(condition, then = replacement.steps, otherwise = spell.instructions.steps))))
+    }
+
+    /** dsk chunk 07: "Delirium — Choose one. If [condition], choose one or more instead." with its modes (CR 700.2). */
+    fun modesWithMaxIf(header: String, modeLines: List<String>): Ability.Spell? {
+        val m = CHOOSE_MAX_IF.matchEntire(header) ?: return null
+        if (m.groupValues[1].isNotEmpty() && !RulesWords.isAbilityOrFlavorWord(m.groupValues[1])) return null
+        val n = Numbers.count(m.groupValues[2]) ?: return null
+        val condition = Conditions.condition(m.groupValues[3], self) ?: return null
+        val options = modeLines.map { arcanum.api.Mode(instructions(it) ?: return null, text = it) }
+        if (options.isEmpty()) return null
+        val maxIf = when (m.groupValues[4]) { "one or more" -> options.size; "both" -> 2; else -> Numbers.count(m.groupValues[4]) ?: return null }
+        return Ability.Spell(Instructions(modes = arcanum.api.Modes(options, min = n, max = n, maxIf = condition, maxIfCount = maxIf, chooser = Players.You)),
+            abilityWord = m.groupValues[1].ifEmpty { null })
+    }
+
+    /** dsk chunk 12: "[cost]: Choose one —" with its modes: a modal activated ability (CR 700.2). */
+    fun modalActivated(costText: String, choose: MatchResult, modeLines: List<String>): Ability.Activated? {
+        val cost = cost(costText) ?: return null
+        val modes = modes(choose, modeLines) ?: return null
+        return Ability.Activated(cost, Instructions(modes = modes),
+            arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You))
+    }
+
     /** "Choose one —" with its modes; "Choose three. You may choose the same mode more than once." (CR 700.2) */
     fun modes(choose: MatchResult, modeLines: List<String>): arcanum.api.Modes? {
         val n = Numbers.count(choose.groupValues[1]) ?: return null
@@ -158,6 +250,204 @@ internal class Sentences(
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        blbStatic(line)?.let { return it }
+        // dsk chunk 02: "You have no maximum hand size[ and don't lose the game for having 0 or less life]." (CR 402.2, 704.5a)
+        NO_MAXIMUM_HAND_SIZE.matchEntire(line)?.let { m ->
+            val mechanics = listOf(Mechanic.NoMaximumHandSize) + listOfNotNull(Mechanic.NoLossForZeroLife.takeIf { m.groupValues[1].isNotEmpty() })
+            return Ability.Static(mechanics, affects = Affected.Players(Players.You))
+        }
+        // dsk chunk 02: "[Once each turn, ]you may pay {0} rather than pay the mana cost for a spell you cast from exile." An
+        // alternative cost (CR 118.9) for the cards its controller casts (from exile, or from anywhere)
+        ALTERNATIVE_COST_FOR_SPELLS.matchEntire(line)?.let { m ->
+            val cost = ManaCost.parse(m.groupValues[2]) ?: return null
+            val cards = if (m.groupValues[3].isEmpty()) ObjectFilter.Or(EVERY_ZONE.filter { it != Zone.Battlefield && it != Zone.Stack }.map { ObjectFilter.InZone(it) })
+                else ObjectFilter.InZone(Zone.Exile)
+            return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
+                affects = Affected.Objects(Objects.Each(cards)))
+        }
+        // dsk chunk 13: "This permanent is a 3/4 Ninja creature and has hexproof." (layers 4, 7b and 6)
+        SELF_IS_PT_CREATURE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val subtypes = m.groupValues[4].split(' ').filter { it.isNotEmpty() }.map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }
+            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+            return Ability.Static(listOfNotNull(
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
+                keywords?.let { Mechanic.GainAbilities(it) },
+            ), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 11: "This creature must be blocked if able." (CR 509.1c)
+        MUST_BE_BLOCKED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { return Ability.Static(listOf(Mechanic.MustBeBlocked), affects = Affected.Objects(Objects.Self)) }
+        // dsk chunk 11: "This creature has first strike during your turn."
+        HAS_KEYWORDS_DURING_YOUR_TURN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.GainAbilities(keywords(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.YourTurn)
+        }
+        // dsk chunk 11: "Equipped creature gets +X/+0, where X is the number of rev counters on this Equipment."
+        ATTACHED_GETS_X_COUNTERS.matchEntire(line)?.takeIf { isSelf(it.groupValues[4]) }?.let { m ->
+            val x = Value.Of(arcanum.api.NumericProperty.Counters(Counters.kind(m.groupValues[3]) ?: return null), Objects.Self, arcanum.api.Combine.Single)
+            fun part(text: String) = if (text == "+X") x else Value.Fixed(text.toInt())
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(part(m.groupValues[1]), part(m.groupValues[2]))),
+                affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        }
+        // dsk chunk 10: "Enchanted player can't gain life." (CR 303.4m)
+        if (line == "Enchanted player can't gain life.") return Ability.Static(listOf(Mechanic.CantGainLife), affects = Affected.Players(Players.AttachedTo(Objects.Self)))
+        // dsk chunk 10: "Creatures your opponents control can be the targets of spells and abilities as though they didn't have
+        // hexproof. Ward abilities of those creatures don't trigger." (CR 702.11b, 702.21a)
+        TARGETABLE_DESPITE_HEXPROOF.matchEntire(line)?.let { m ->
+            val affected = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val mechanics = listOf<Mechanic>(Mechanic.TargetableDespiteHexproof) + listOfNotNull(Mechanic.WardDoesntTrigger.takeIf { m.groupValues[2].isNotEmpty() })
+            return Ability.Static(mechanics, affects = Affected.Objects(Objects.Each(affected)))
+        }
+        // dsk chunk 10: "If a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead."
+        // The exiled cards stay linked to this object when another ability refers to them (CR 607.2a)
+        CARD_YOU_DIDNT_CONTROL_EXILE_INSTEAD.matchEntire(line)?.let {
+            val card = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.Not(ObjectFilter.ControlledBy(PlayerFilter.You)),
+                ObjectFilter.OwnedBy(PlayerFilter.Opponent))
+            val exile = Step.Do(Effect.Move(Objects.EventObject(EventRole.Before), Destination(Zone.Exile), postBind = "exiled"))
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(card, to = Zone.Graveyard),
+                instead = Instructions(steps = listOf(exile) + remembered(Objects.Bound("exiled"))))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 10: "During your turn, you may play cards exiled with Valgavoth. If you cast a spell this way, pay life equal to
+        // its mana value rather than pay its mana cost." (CR 118.9)
+        PLAY_EXILED_WITH_FOR_LIFE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You,
+                cost = Cost(listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Affected, arcanum.api.Combine.Single)))))),
+                affects = Affected.Objects(Objects.Remembered(EXILED_WITH)), condition = arcanum.api.Condition.YourTurn)
+        }
+        // dsk chunk 09: "You control enchanted creature." (layer 2, CR 613.1b)
+        if (line == "You control enchanted creature.") return Ability.Static(listOf(Mechanic.ControlledBy(Players.You)), affects = Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        // dsk chunk 09: "This spell costs {3} less to cast if it targets a tapped creature." (CR 601.2f: the spell's target slot,
+        // named as the spell names it)
+        SELF_COSTS_LESS_IF_IT_TARGETS.matchEntire(line)?.let { m ->
+            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[2]
+            val words = noun.split(' ')
+            val kind = Filters.noun(words.last()) ?: return null
+            val quality = Filters.noun(words.dropLast(1).joinToString(" ").ifEmpty { return null }) ?: return null
+            if (kind == quality) return null
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(mana, Value.Fixed(1)))),
+                affects = Affected.Objects(Objects.Self), condition = arcanum.api.Condition.ObjectMatches(Objects.Target(Filters.slotName(words.last())), quality))
+        }
+        // dsk chunk 09: "This token can't attack or block alone." (CR 506.5)
+        CANT_ATTACK_OR_BLOCK_ALONE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.CantAttackAlone, Mechanic.CantBlockAlone), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 09: "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that
+        // many cards.": the damage is replaced by milling (CR 614.1a)
+        if (line == "If a source you control would deal damage to an opponent, prevent that damage and each opponent mills that many cards.") {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You), RecipientFilter(players = PlayerFilter.Opponent)),
+                instead = Instructions(steps = listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), Value.EventAmount)))))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 08: "If this card is in your opening hand, you may begin the game with it on the battlefield." (CR 103.6a)
+        if (line == "If this card is in your opening hand, you may begin the game with it on the battlefield.")
+            return Ability.Static(listOf(Mechanic.MayBeginOnBattlefield), affects = Affected.Objects(Objects.Self), functionsIn = listOf(Zone.Hand))
+        // dsk chunk 08: "If you would gain life, you gain that much life plus 1 instead." (CR 614.1a)
+        GAIN_THAT_MUCH_PLUS.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.GainLife(PlayerFilter.You),
+                modify = listOf(Modification.AddAmount(Value.Fixed(m.groupValues[1].toInt()))))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 08: "If a card would be put into an opponent's graveyard from anywhere, exile it instead." (CR 614.1a)
+        WOULD_BE_PUT_INTO_GRAVEYARD_EXILE_INSTEAD.matchEntire(line)?.let { m ->
+            val owner = Filters.noun(m.groupValues[1]) ?: return null
+            val whose = if (m.groupValues[2] == "an opponent's") PlayerFilter.Opponent else PlayerFilter.You
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(Filters.all(owner, ObjectFilter.OwnedBy(whose)), to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 08: "Creatures you control are the chosen type in addition to their other types. The same is true for
+        // creature spells you control and creature cards you own that aren't on the battlefield." (CR 607.2d)
+        if (line == "Creatures you control are the chosen type in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.") {
+            val creature = ObjectFilter.Type(CardType.Creature)
+            val yours = ObjectFilter.ControlledBy(PlayerFilter.You)
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Remembered(CHOSEN_TYPE)))), affects = Affected.Objects(Objects.Union(listOf(
+                Objects.Each(Filters.all(creature, yours)),
+                Objects.Each(Filters.all(creature, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), yours)),
+                Objects.Each(Filters.all(creature, ObjectFilter.OwnedBy(PlayerFilter.You),
+                    ObjectFilter.Or(EVERY_ZONE.filter { it != Zone.Battlefield && it != Zone.Stack }.map { ObjectFilter.InZone(it) })))))))
+        }
+        // dsk chunk 07: "This spell costs {2} less to cast as long as …" (CR 601.2f)
+        SELF_COSTS_LESS_AS_LONG_AS.matchEntire(line)?.let { m ->
+            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(mana, Value.Fixed(1)))),
+                affects = Affected.Objects(Objects.Self), condition = Conditions.condition(m.groupValues[2], self) ?: return null)
+        }
+        // dsk chunk 07: "This creature can't attack or block unless …"
+        CANT_ATTACK_OR_BLOCK_UNLESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantAttack(), Mechanic.CantBlock(ObjectFilter.Any)), affects = Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.Not(Conditions.condition(m.groupValues[2], self) ?: return null))
+        }
+        // dsk chunk 07: "Each opponent's maximum hand size is equal to seven minus the number of those card types." (after a
+        // delirium condition: the card types among cards in your graveyard)
+        MAXIMUM_HAND_SIZE_MINUS_CARD_TYPES.matchEntire(line)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.MaximumHandSize(Value.Difference(Value.Fixed(n),
+                Values.value("the number of card types among cards in your graveyard")!!))), affects = Affected.Players(Players.Each(PlayerFilter.Opponent)))
+        }
+        // dsk chunk 07: "If a source you control would deal noncombat damage to a permanent or player while …, it deals double
+        // that damage instead." (CR 614.1a)
+        WOULD_DEAL_DOUBLE.matchEntire(line)?.let { m ->
+            val combat = when (m.groupValues[1]) { "noncombat " -> false; "combat " -> true; else -> null }
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(ObjectFilter.ControlledBy(PlayerFilter.You),
+                RecipientFilter(objects = ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), players = PlayerFilter.Any), combat = combat),
+                modify = listOf(Modification.MultiplyAmount(2)))), affects = Affected.Objects(Objects.Self),
+                condition = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Conditions.condition(it, self) ?: return null })
+        }
+        // dsk chunk 06: "You may look at face-down creatures your opponents control any time."
+        MAY_LOOK_AT_ANY_TIME.matchEntire(line)?.let { m ->
+            Filters.noun(m.groupValues[1])?.let { return Ability.Static(listOf(Mechanic.MayLookAt(Objects.Each(it))), affects = Affected.Players(Players.You)) }
+        }
+        // dsk chunk 05: "Enchanted creature loses all abilities and is a Toy artifact creature with base power and toughness 0/2 in
+        // addition to its other types." (layers 4, 6, 7b, CR 613.1d, f, 613.4b)
+        LOSES_ALL_AND_IS.matchEntire(line)?.let { m ->
+            val affected = attachedSubject(m.groupValues[1]) ?: return null
+            val add = mutableListOf<CardType>()
+            val subtypes = mutableListOf<arcanum.api.SubtypeRef>()
+            for (word in m.groupValues[2].split(' ')) {
+                val type = Filters.CARD_TYPES[word]
+                when {
+                    type != null -> add += type
+                    word in RulesWords.subtypes -> subtypes += arcanum.api.SubtypeRef.Literal(Subtype(word))
+                    else -> return null
+                }
+            }
+            return Ability.Static(listOf(Mechanic.LoseAbilities(), Mechanic.SetTypes(add = add, addSubtypes = subtypes),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))), affects = Affected.Objects(affected))
+        }
+        // dsk chunk 05: "As long as enchanted creature is face down, it can't be turned face up."
+        FACE_DOWN_CANT_BE_TURNED_FACE_UP.matchEntire(line)?.let { m ->
+            val affected = attachedSubject(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.CantBeTurnedFaceUp), affects = Affected.Objects(affected),
+                condition = arcanum.api.Condition.ObjectMatches(affected, ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)))
+        }
+        // dsk chunk 05: "Enchanted creature doesn't untap during its controller's untap step."
+        DOESNT_UNTAP_DURING_CONTROLLERS.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.DoesntUntap), affects = Affected.Objects(attachedSubject(m.groupValues[1]) ?: return null))
+        }
+        // dsk chunk 04: "This creature can't be blocked by Glimmers." (CR 509.1b)
+        CANT_BE_BLOCKED_BY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 03: "Unlock costs you pay cost {1} less." (the unlock special action, CR 709.5e)
+        UNLOCK_COSTS_LESS.matchEntire(line)?.let { m ->
+            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Unlock), ObjectFilter.ControlledBy(PlayerFilter.You)),
+                change = arcanum.api.CostChange.Less(mana, Value.Fixed(1)))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 01: "Untap each creature you control during each other player's untap step." (CR 502.3)
+        UNTAP_DURING_OTHER_UNTAP_STEPS.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.UntapsDuringOtherUntapSteps), affects = Affected.Objects(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null)))
+        }
+        // dsk chunk 01: "Creatures you control have base power and toughness each equal to the number of creatures you control."
+        // (layer 7b, CR 613.4b)
+        HAVE_BASE_PT_EQUAL_TO_NUMBER.matchEntire(line)?.let { m ->
+            val affected = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val count = Value.Count(Filters.objects(m.groupValues[2]) ?: return null)
+            return Ability.Static(listOf(Mechanic.SetPowerToughness(count, count)), affects = Affected.Objects(Objects.Each(affected)))
+        }
+        // dsk chunk 01: "If a triggered ability of a permanent you control triggers, that ability triggers an additional time."
+        // (CR 603.2d)
+        TRIGGERS_ADDITIONAL_TIME.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.TriggersAdditionalTime(null, Filters.noun(m.groupValues[1]) ?: return null)), affects = Affected.Objects(Objects.Self))
+        }
         // "[If …, ]you may [cost] rather than pay this spell's mana cost." (CR 118.9)
         ALTERNATIVE_COST.matchEntire(line)?.let { m ->
             val parts = m.groupValues[2].split(" and ").map { costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }.flatten()
@@ -186,7 +476,9 @@ internal class Sentences(
         }
         // "As an additional cost to cast this spell, [cost][ or cost]." (CR 601.2f)
         ADDITIONAL_COST.matchEntire(line)?.let { m ->
-            val options = m.groupValues[1].split(" or ").map { option ->
+            // dsk chunk 10: an "or" between nouns stays in its option ("sacrifice a creature or enchantment or pay {2}")
+            val options = (if (BEHOLD_COST.matches(m.groupValues[1].replaceFirstChar { it.uppercase() })) listOf(m.groupValues[1])
+                else m.groupValues[1].split(Regex(""" or (?=(?:sacrifice|pay|discard|exile|return|tap|reveal|choose) )"""))).map { option ->
                 Cost(option.split(" and ").map { costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }.flatten())
             }
             val cost = options.singleOrNull() ?: Cost(listOf(CostPart.OneOf(options)))
@@ -217,6 +509,12 @@ internal class Sentences(
                     Step.If(arcanum.api.Condition.Did("discarded"),
                         then = listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield)))),
                         otherwise = listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Graveyard))))))))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 14: "This land enters tapped unless a player has 13 or less life." (checked as it enters, CR 614.1c)
+        ENTERS_TAPPED_UNLESS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersTapped))), affects = Affected.Objects(Objects.Self), condition = arcanum.api.Condition.Not(condition))
         }
         ENTERS_TAPPED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
@@ -274,7 +572,8 @@ internal class Sentences(
             return Ability.Static(mechanics, affects = arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
         }
         // chunk 20: "Equipped creature gets +1/+0 for each artifact you control." (CR 301.5)
-        ATTACHED_GETS.matchEntire(line)?.let { m ->
+        // dsk chunk 09: falls through when "for each …" isn't all ("… and has first strike")
+        ATTACHED_GETS.matchEntire(line)?.takeIf { it.groupValues[3].isEmpty() || perEach(it.groupValues[3]) != null }?.let { m ->
             val per = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { perEach(it) ?: return null }
             fun amount(n: Int): Value = when {
                 per == null || n == 0 -> Value.Fixed(n)
@@ -312,8 +611,10 @@ internal class Sentences(
             val n = if (m.groupValues[3] == "X") Value.CastX(of = Objects.Self) else Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null)
             val kind = Counters.kind(m.groupValues[4]) ?: return null
             val modify = listOfNotNull(Modification.EntersTapped.takeIf { m.groupValues[2].isNotEmpty() }, Modification.EntersWithCounters(kind, n))
+            // dsk chunk 09: "… if you cast it from your hand", "… if a creature died this turn"
+            val condition = m.groupValues[5].takeIf { it.isNotEmpty() }?.let { Conditions.condition(it, self) ?: return null }
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
-                modify = modify)), affects = Affected.Objects(Objects.Self))
+                modify = modify)), affects = Affected.Objects(Objects.Self), condition = condition)
         }
         // chunk 40: "Green spells you control can't be countered."
         GROUP_CANT_BE_COUNTERED.matchEntire(line)?.let { m ->
@@ -393,11 +694,17 @@ internal class Sentences(
         CANT_BE_BLOCKED_EXCEPT_BY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             return Ability.Static(listOf(Mechanic.CanBeBlockedOnlyBy(Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
         }
+        // blb chunk 01: "This creature can't be blocked by creatures with power 2 or less." (CR 509.1b)
+        Blb.CANT_BE_BLOCKED_BY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
+        }
         // chunk 36: "During your turn, [static ability]."
         DURING_YOUR_TURN_STATIC.matchEntire(line)?.let { m ->
             val inner = static(m.groupValues[1].replaceFirstChar { it.uppercase() }) as? Ability.Static ?: return null
-            if (inner.condition != null) return null
-            return inner.copy(condition = arcanum.api.Condition.YourTurn)
+            // dsk chunk 13: "During your turn, as long as …, …": both
+            val condition = inner.condition?.let { arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn) +
+                ((it as? arcanum.api.Condition.And)?.all ?: listOf(it))) } ?: arcanum.api.Condition.YourTurn
+            return inner.copy(condition = condition)
         }
         // chunk 36: "Nonland permanent cards in your graveyard have retrace."
         IN_YOUR_GRAVEYARD_HAVE.matchEntire(line)?.let { m ->
@@ -411,7 +718,14 @@ internal class Sentences(
         (AS_LONG_AS_FIRST.matchEntire(line)?.let { it.groupValues[1] to it.groupValues[2].replaceFirstChar { c -> c.uppercase() } }
             ?: AS_LONG_AS_LAST.matchEntire(line)?.let { it.groupValues[2] to it.groupValues[1] + "." })?.let { (text, rest) ->
             val condition = conditionWithAnd(text)
-            val inner = condition?.let { static(rest) as? Ability.Static }
+            // dsk chunk 04: "As long as …, it gets +3/+3 and has hexproof.": "it" is this object
+            // dsk chunk 13: "he's a 3/4 Ninja creature": this object
+            val pronoun = Regex("""^(?:It|He|She)(?:'s| is) """).find(rest)
+            val inner = condition?.let { static(when {
+                pronoun != null -> "This permanent is " + rest.substring(pronoun.range.last + 1)
+                rest.startsWith("It ") -> "This permanent " + rest.removePrefix("It ")
+                else -> rest
+            }) as? Ability.Static }
             if (inner != null && inner.condition == null) return inner.copy(condition = condition, functionsIn = zoneOf(condition))
         }
         // chunk 46: "Each player who has cast a nonartifact spell this turn can't cast additional nonartifact spells."
@@ -428,7 +742,10 @@ internal class Sentences(
             val affects = when {
                 isSelf(subject) -> arcanum.api.Affected.Objects(Objects.Self)
                 subject == "Enchanted creature" -> arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self))
-                else -> Filters.noun(subject.replaceFirstChar { it.lowercase() })?.let { arcanum.api.Affected.Objects(Objects.Each(it)) }
+                // dsk chunk 05: "Equipped creature has menace."
+                subject == "Equipped creature" -> arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self))
+                // dsk chunk 07: subtypes keep their capitals ("Insects and Spiders you control")
+                else -> (Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: Filters.noun(subject))?.let { arcanum.api.Affected.Objects(Objects.Each(it)) }
             }
             val mechanics = predicates(m.groupValues[2])
             if (affects != null && mechanics != null) return Ability.Static(mechanics, affects = affects)
@@ -460,9 +777,10 @@ internal class Sentences(
         }
         // chunk 46: "Nonartifact spells cost {1} more to cast."
         SPELLS_COST.matchEntire(line)?.let { m ->
-            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() } + " spell") ?: return null
-            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
-            val change = if (m.groupValues[3] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
+            val kind = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() } + " spell") ?: return null
+            val spells = if (m.groupValues[2].isEmpty()) kind else Filters.all(kind, ObjectFilter.ControlledBy(PlayerFilter.You))
+            val mana = ManaCost.parse(m.groupValues[3]) ?: return null
+            val change = if (m.groupValues[4] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
             return Ability.Static(listOf(Mechanic.CostChange(spells, change = change)), affects = Affected.Objects(Objects.Self))
         }
         // chunk 46: "Prevent all combat damage that would be dealt to attacking artifact creatures you control." (CR 615)
@@ -506,6 +824,9 @@ internal class Sentences(
         AS_ENTERS_CHOOSE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val name = CARD_NAME.matchEntire(m.groupValues[3])
             val choose = when {
+                // dsk chunk 14: "choose a color" (kept on the permanent, CR 607.2d)
+                m.groupValues[3] == "a color" && m.groupValues[2].isEmpty() ->
+                    Step.Choose(arcanum.api.Choice.Color(), bind = CHOSEN_COLOR, remember = true, chooser = Players.You)
                 name != null && m.groupValues[2].isEmpty() -> Filters.noun(name.groupValues[1])?.let {
                     Step.Choose(arcanum.api.Choice.CardName(it), bind = CHOSEN_NAME, remember = true, chooser = Players.You) }
                 name == null -> Filters.noun(m.groupValues[3].removeArticle())?.let {
@@ -613,6 +934,7 @@ internal class Sentences(
             "attacks each combat if able" -> Mechanic.MustAttack()
             "can't block" -> Mechanic.CantBlock(attackers = ObjectFilter.Any)
             "can't be blocked" -> Mechanic.CantBeBlocked
+            "loses all abilities" -> Mechanic.LoseAbilities() // dsk chunk 09
             else -> return null
         }
     }
@@ -636,8 +958,17 @@ internal class Sentences(
         var timing: arcanum.api.Timing = arcanum.api.Timing.Any
         // chunk 40: "Activate only once each turn."
         var perTurn: Int? = null
+        // blb chunk 07: "Activate only if … and only once each turn.", "… and only once." (CR 602.5b)
+        var once = false
+        if (text.contains(" and only once each turn.")) { perTurn = 1; text = text.replace(" and only once each turn.", ".") }
+        if (text.contains(" and only once.")) { once = true; text = text.replace(" and only once.", ".") }
         ACTIVATE_ONLY_ONCE_EACH_TURN.find(text)?.let { m ->
             perTurn = 1
+            text = text.removeRange(m.range).trim()
+        }
+        // dsk chunk 09: "Activate only once." (for as long as its object exists)
+        ACTIVATE_ONLY_ONCE_EVER.find(text)?.let { m ->
+            once = true
             text = text.removeRange(m.range).trim()
         }
         // chunk 51: "Any player may activate this ability." (CR 602.2)
@@ -648,6 +979,12 @@ internal class Sentences(
         }
         ACTIVATE_ONLY_AS_INSTANT.find(text)?.let { m ->
             timing = arcanum.api.Timing.Instant
+            text = text.removeRange(m.range).trim()
+        }
+        // dsk chunk 07: "Activate only if … and only as a sorcery."
+        ACTIVATE_ONLY_IF_AND_AS_SORCERY.find(text)?.let { m ->
+            condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            timing = arcanum.api.Timing.Sorcery
             text = text.removeRange(m.range).trim()
         }
         ACTIVATE_ONLY_IF.find(text)?.let { m ->
@@ -683,15 +1020,24 @@ internal class Sentences(
         })
         // chunk 45: "Activate only if this card is suspended" states the zone it works in (CR 113.6b)
         return Ability.Activated(named, instructions, arcanum.api.ActivationRules(timing = timing, perTurn = perTurn, costChange = costChange, condition = condition,
-            activatedBy = activatedBy),
+            activatedBy = activatedBy, once = once),
             functionsIn = zoneOf(condition))
     }
 
     /** "Whenever [event], [if condition,] [effect]." (CR 603.1) */
     private fun triggered(line: String): Ability? {
         val m = WHENEVER.matchEntire(line) ?: return null
-        var (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
-        var rest = m.groupValues[3]
+        // blb chunk 05: a trigger whose own words hold a comma ("one or more noncreature, nonland permanents you control
+        // enter"): split at the first comma after which the trigger reads
+        var split = m.groupValues[2] to m.groupValues[3]
+        var read = trigger(split.first)
+        while (read == null) {
+            val next = split.second.indexOf(", ").takeIf { it >= 0 } ?: return null
+            split = (split.first + ", " + split.second.substring(0, next)) to split.second.substring(next + 2)
+            read = trigger(split.first)
+        }
+        var (trigger, onlyIf) = read
+        var rest = split.second
         // chunk 50: "Whenever you cast a spell, if it's the second creature spell you cast this turn, …": which creature spell
         // of the turn it is can't change after it is cast, so the condition (CR 603.4) is the trigger event itself.
         NTH_SPELL_IF.matchEntire(rest)?.let { n ->
@@ -708,14 +1054,42 @@ internal class Sentences(
             perTurn = 1
             rest = rest.removeRange(once.range).trim()
         }
+        // dsk chunk 11: "Do this only once each turn." (CR 603.2h)
+        var actionOnce = false
+        DO_THIS_ONLY_ONCE_EACH_TURN.find(rest)?.let { m ->
+            actionOnce = true
+            rest = rest.removeRange(m.range).trim()
+        }
+        // dsk chunk 04: "This ability triggers only once." (for as long as its object exists)
+        var once = false
+        TRIGGERS_ONLY_ONCE_EVER.find(rest)?.let { m ->
+            once = true
+            rest = rest.removeRange(m.range).trim()
+        }
         val conditional = INTERVENING_IF.matchEntire(rest)
-        val interveningIf = conditional?.let { Conditions.condition(it.groupValues[1], self) ?: return null }
+        // dsk chunk 04: "if it had counters on it": the object of the event as it last existed (CR 603.10a)
+        val interveningIf = conditional?.let {
+            if (it.groupValues[1] == "it had counters on it") arcanum.api.Condition.ObjectMatches(that(trigger), ObjectFilter.HasCounter(null, atLeast = 1))
+            else if (it.groupValues[1] == "it had no counters on it")
+                arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(that(trigger), ObjectFilter.HasCounter(null, atLeast = 1)))
+            // dsk chunk 08: "if it was a creature": the object of the event as it last existed (CR 603.10a)
+            else if (IT_WAS_A.matches(it.groupValues[1])) arcanum.api.Condition.ObjectMatches(that(trigger),
+                Filters.noun(IT_WAS_A.matchEntire(it.groupValues[1])!!.groupValues[1]) ?: return null)
+            // dsk chunk 13: "if a land entered … this turn and you control a prime number of lands"
+            else conditionWithAnd(it.groupValues[1]) ?: return null
+        }
         // chunk 25: "it"/"them" in the effect: the event's object, or the objects the condition is about;
         // chunk 20: "that creature" is the event's object
         val about = (interveningIf as? arcanum.api.Condition.ObjectMatches)
         triggerIt = itOf(trigger.events)
-        var instructions = instructions(conditional?.groupValues?.get(2) ?: rest, event = trigger.events.first(),
-            them = about?.objects?.takeIf { it != Objects.Self }, that = that(trigger))
+        // blb chunk 04: with an event that has no object ("whenever you expend 4"), "it" is this permanent
+        val event = trigger.events.firstOrNull { it is EventPattern.Expend } ?: trigger.events.first()
+        // dsk chunk 13: "that much"/"that many" after an intervening if: the amount the condition counts
+        conditionAmount = interveningIf?.let(::amountOf)
+        var instructions = try {
+            instructions(conditional?.groupValues?.get(2) ?: rest, event = event,
+                them = about?.objects?.takeIf { it != Objects.Self }, that = that(trigger))
+        } finally { conditionAmount = null }
         triggerIt = null
         // chunk 33: X in this permanent's enters trigger is the X chosen for the spell it was (CR 107.3m)
         if (trigger.events == listOf(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)) && !rest.contains("where X is"))
@@ -728,7 +1102,7 @@ internal class Sentences(
         val zone = (about?.takeIf { it.objects == Objects.Self }?.filter as? ObjectFilter.InZone)?.zone
             ?: Zone.Graveyard.takeIf { rest.contains("this card from your graveyard") }
         return Ability.Triggered(trigger.copy(oneOrMore = oneOrMore), instructions, interveningIf = interveningIf,
-            functionsIn = zone?.let { listOf(it) }, perTurn = perTurn, triggersOnlyIf = onlyIf)
+            functionsIn = zone?.let { listOf(it) }, perTurn = perTurn, triggersOnlyIf = onlyIf, once = once, actionOncePerTurn = actionOnce)
     }
 
     /** "Whenever [event], choose one that hasn't been chosen this turn —" with its "• " modes (CR 700.2). */
@@ -752,6 +1126,27 @@ internal class Sentences(
         val during = DURING_YOUR_TURN.matchEntire(text)
         val events = during?.groupValues?.get(1) ?: text
         val onlyIf = during?.let { arcanum.api.Condition.YourTurn }
+        // dsk chunk 07: "this creature attacks while there are four or more …": checked only as it would trigger
+        WHILE.matchEntire(events)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self)
+            val (inner, innerIf) = condition?.let { trigger(m.groupValues[1]) } ?: (null to null)
+            if (condition != null && inner != null && innerIf == null && onlyIf == null) return inner to condition
+        }
+        // dsk chunk 04: "the beginning of your second main phase": the first postcombat main phase of the turn (CR 505.1a, b)
+        if (events == "the beginning of your second main phase")
+            return arcanum.api.Trigger.On(listOf(EventPattern.StepBegins(arcanum.api.TurnStep.PostcombatMain, PlayerFilter.You)), nthThisTurn = 1) to onlyIf
+        // dsk chunk 01: "one or more non-Toy creatures you control attack a player", "one or more creatures you control deal
+        // combat damage to a player": one trigger per player (CR 603.2c by wording)
+        ONE_OR_MORE_ATTACK_A_PLAYER.matchEntire(events)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(listOf(EventPattern.Attack(filter, target = RecipientFilter(players = PlayerFilter.Any))),
+                oneOrMore = true, batchPerPlayer = true) to onlyIf
+        }
+        ONE_OR_MORE_DEAL_COMBAT_DAMAGE_TO_A_PLAYER.matchEntire(events)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(listOf(EventPattern.Damage(filter, RecipientFilter(players = PlayerFilter.Any), combat = true)),
+                oneOrMore = true, batchPerPlayer = true) to onlyIf
+        }
         ONE_OR_MORE_LEAVE.matchEntire(events)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return arcanum.api.Trigger.On(EventPattern.ZoneChange(filter, from = Zone.Battlefield), oneOrMore = true) to onlyIf
@@ -785,6 +1180,29 @@ internal class Sentences(
         if (events == "you attack")
             return arcanum.api.Trigger.On(EventPattern.Attack(ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true) to onlyIf
         // chunks 36, 47: "you discard one or more cards", "… nonland cards": once for the batch
+        // blb chunk 08: "this creature attacks while you control a token": checked only as it would trigger (CR 603.2)
+        Blb.WHILE.matchEntire(events)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return@let
+            val (inner, _) = trigger(m.groupValues[1]) ?: return@let
+            return inner to (if (onlyIf == null) condition else arcanum.api.Condition.And(listOf(onlyIf, condition)))
+        }
+        // blb chunk 11: "you put one or more +1/+1 counters on a creature you control": once for the batch, put by your spells
+        // and abilities
+        Blb.YOU_PUT_COUNTERS_ON.matchEntire(events)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2].removeArticle()) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.CountersPut(filter, kind, causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)), oneOrMore = true) to onlyIf
+        }
+        // blb chunk 07: "you attack with one or more Lizards": once per declaration of attackers with such creatures (CR 508.3d)
+        Blb.YOU_ATTACK_WITH_ONE_OR_MORE.matchEntire(events)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.Attack(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true) to onlyIf
+        }
+        // blb chunk 03: "you sacrifice one or more Foods": once for the batch (only a permanent's controller sacrifices it)
+        Blb.YOU_SACRIFICE_ONE_OR_MORE.matchEntire(events)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.Sacrifice(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))), oneOrMore = true) to onlyIf
+        }
         YOU_DISCARD_ONE_OR_MORE.matchEntire(events)?.let { m ->
             val cards = if (m.groupValues[1] == "cards") ObjectFilter.Any else Filters.noun(m.groupValues[1]) ?: return null
             return arcanum.api.Trigger.On(EventPattern.Discard(cards, PlayerFilter.You), oneOrMore = true) to onlyIf
@@ -841,6 +1259,22 @@ internal class Sentences(
         }
         ManaCost.parse(text)?.let { return listOf(CostPart.Mana(it)) }
         PAY_LIFE.matchEntire(text)?.let { return listOf(CostPart.PayLife(Value.Fixed(it.groupValues[1].toInt()))) }
+        // dsk chunk 14: "sacrifice a permanent other than that creature or this Equipment" (that creature: the event's)
+        SACRIFICE_OTHER_THAN_THAT_OR_SELF.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.EventObject(EventRole.Object))),
+                ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+            return listOf(CostPart.Sacrifice(CostObjects.Choose(filter, count = Value.Fixed(1))))
+        }
+        // dsk chunk 12: "choose a creature you control or reveal a creature card from your hand" is beholding (CR 701.4a)
+        BEHOLD_COST.matchEntire(text)?.takeIf { it.groupValues[1] == it.groupValues[2] }?.let { m ->
+            return listOf(CostPart.Action(arcanum.api.KeywordAction.Behold(Filters.noun(m.groupValues[1]) ?: return null), bind = "beheld"))
+        }
+        // dsk chunk 12: "Exile this card and two other cards named Utter Its Name from your graveyard"
+        EXILE_SELF_AND_OTHERS_NAMED.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val others = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Named(m.groupValues[3]))
+            return listOf(CostPart.Exile(CostObjects.Self, from = Zone.Graveyard),
+                CostPart.Exile(CostObjects.Choose(others, count = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)), from = Zone.Graveyard))
+        }
         // chunk 36: "pay {1}" (in "you may pay {1} and discard a card")
         PAY_MANA.matchEntire(text)?.let { m -> ManaCost.parse(m.groupValues[1])?.let { return listOf(CostPart.Mana(it)) } }
         // chunk 14: "Flashback—{R}{R}, Discard X cards.": X in a cost of the card's own keyword is the X chosen as the
@@ -848,8 +1282,14 @@ internal class Sentences(
         // activated ability's X stays unread here.
         if (text == DISCARD_X_CARDS && self == setOf("this card"))
             return listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), count = Value.CastX(of = Objects.Self))))
+        // dsk chunk 10: "Discard any number of cards" ("that many" afterwards: the discarded cards)
+        if (text == "Discard any number of cards")
+            return listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), count = null), preBind = "discarded"))
         DISCARD_COST.matchEntire(text)?.let { m ->
             if (isSelf(m.groupValues[1])) return listOf(CostPart.Discard(CostObjects.Self))
+            // dsk chunk 11: "the discarded card" afterwards
+            if (discardedCard && m.groupValues[1] == "a card")
+                return listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), count = Value.Fixed(1)), preBind = "discarded"))
             if (m.groupValues[1] == "your hand") return listOf(CostPart.Discard(CostObjects.These(Objects.Each(yourHand))))
             val (count, noun) = counted(m.groupValues[1]) ?: return null
             return listOf(CostPart.Discard(CostObjects.Choose(Filters.noun(noun) ?: return null, count = Value.Fixed(count))))
@@ -857,8 +1297,11 @@ internal class Sentences(
         // "Tap two untapped Elves you control": tapping as a cost can only tap untapped permanents you control
         // (CR 602.2b, 701.26a), so the canonical form names only the kind (as crew does).
         TAP_UNTAPPED.matchEntire(text)?.let { m ->
-            val count = Numbers.count(m.groupValues[1]) ?: return null
-            val filter = Filters.noun(m.groupValues[2].removeSuffix(" you control")) ?: return null
+            // dsk chunk 12: "Tap another untapped creature you control"
+            val another = m.groupValues[1] == "another"
+            val count = if (another) 1 else Numbers.count(m.groupValues[1]) ?: return null
+            val noun = Filters.noun(m.groupValues[2].removeSuffix(" you control")) ?: return null
+            val filter = if (another) Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun) else noun
             return listOf(CostPart.TapObjects(CostObjects.Choose(filter, count = Value.Fixed(count))))
         }
         PUT_COUNTER_ON_SELF.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
@@ -899,10 +1342,22 @@ internal class Sentences(
             val kind = Counters.kind(m.groupValues[2]) ?: return null
             return listOf(CostPart.RemoveCounters(kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), from = CostObjects.Self))
         }
+        // dsk chunk 09: "Exile a creature you control" (from the battlefield; kept with this card when an ability refers to the cards
+        // exiled with it, CR 607.2q)
+        EXILE_YOU_CONTROL_COST.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1] + " you control") ?: return null
+            return listOf(CostPart.Exile(CostObjects.Choose(filter, count = Value.Fixed(1)), from = Zone.Battlefield, remember = EXILED_WITH.takeIf { linkedExile }))
+        }
         // chunk 45: "Collect evidence 6" (CR 701.59a)
         COLLECT_EVIDENCE.matchEntire(text)?.let { m ->
             return listOf(CostPart.Action(arcanum.api.KeywordAction.CollectEvidence(Value.Fixed(m.groupValues[1].toInt()))))
         }
+        // blb chunk 07: "pay {W}{B} and 2 life"
+        Blb.PAY_MANA_AND_LIFE.matchEntire(text)?.let { m ->
+            return listOf(CostPart.Mana(ManaCost.parse(m.groupValues[1]) ?: return null), CostPart.PayLife(Value.Fixed(m.groupValues[2].toInt())))
+        }
+        // blb chunk 03: "Forage" (CR 701.61a)
+        if (text == "Forage") return listOf(CostPart.Action(arcanum.api.KeywordAction.Forage))
         return null
     }
 
@@ -934,18 +1389,34 @@ internal class Sentences(
         context.event = event
         context.it = event?.let { if (it is EventPattern.ZoneChange) Objects.EventObject(arcanum.api.EventRole.After) else Objects.EventObject(role = EventRole.Object) }
         // chunk 30: a step has no object, so "it" is this object ("return it to your hand")
-        if (event is EventPattern.StepBegins) context.it = Objects.Self
+        if (event is EventPattern.StepBegins || event is EventPattern.Expend) context.it = Objects.Self
+        // blb chunk 05: "Whenever a creature you control deals combat damage to a player, … exile it": the creature dealing it
+        if (event is EventPattern.Damage && event.source != ObjectFilter.Is(Objects.Self) && event.to.objects == null) context.it = Objects.EventObject(EventRole.Source)
         // chunk 36: "Whenever this creature attacks, put a +1/+1 counter on it": it is this creature
         if (event is EventPattern.Attack && event.attacker == ObjectFilter.Is(Objects.Self)) context.it = Objects.Self
         context.them = them
         // chunk 20
         context.that = that
         val steps = mutableListOf<Step>()
-        for (sentence in sentences(if (whereX == null) text else text.removeRange(whereX.range))) {
-            val modified = modify(sentence, steps, context)
-            if (modified != null) { steps.clear(); steps += modified; continue }
-            steps += effect(sentence, context) ?: return null
-        }
+        // dsk chunk 12: an X that "where X is" defines is read as that value, not as the X its permanent was cast with
+        val outerX = announcedX
+        if (whereX != null) announcedX = true
+        try {
+            for (sentence in sentences(if (whereX == null) text else text.removeRange(whereX.range))) {
+                // blb chunk 02: where the sentence's targets and steps begin ("If the gift was promised, instead …" replaces them)
+                val targetsFrom = context.targets.size
+                val stepsFrom = steps.size
+                val modified = modify(sentence, steps, context)
+                if (modified != null) { steps.clear(); steps += modified; continue }
+                val parsed = effect(sentence, context)
+                if (parsed == null) {
+                    // blb chunk 02: "that card", "this way" after a move or destruction: name what it moved (CR 400.7)
+                    val rebound = afterMove(sentence, steps, context) ?: return null
+                    steps.clear(); steps += rebound
+                } else steps += parsed
+                context.previous = targetsFrom to stepsFrom
+            }
+        } finally { announcedX = outerX }
         val result = Instructions(targets = context.targets, steps = steps, replacements = context.replacements)
         return if (x == null) result else result.withX(x)
     }
@@ -953,8 +1424,69 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
-        // chunk 26: "Untap those creatures." after an effect on them
-        if (sentence == "Untap those creatures.") {
+        blbModify(sentence, steps, context)?.let { return it }
+        // blb chunk 02: "If the gift was promised, instead [effect]." replaces the sentence before; each version's targets
+        // are chosen only when it is the one that happens (CR 702.174m)
+        Blb.GIFT_INSTEAD.matchEntire(sentence)?.let { m ->
+            val (targetsFrom, stepsFrom) = context.previous ?: return null
+            val promised = Blb.promised
+            val before = context.targets.size
+            context.promisedNames = true
+            val then = try { effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) } finally { context.promisedNames = false } ?: return null
+            for (i in targetsFrom until before) context.targets[i] = context.targets[i].copy(onlyIf = arcanum.api.Condition.Not(promised))
+            for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = promised)
+            return steps.take(stepsFrom) + Step.If(promised, then = then, otherwise = steps.drop(stepsFrom))
+        }
+        // dsk chunk 13: "Shards you control become copies of it until the next end step." after exiling a target (layer 1; the
+        // exiled card's copiable values, CR 707.2)
+        BECOME_COPIES_OF_IT_UNTIL_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
+            val move = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.takeIf { it.to.zone == Zone.Exile && it.postBind == null } ?: return null
+            val affected = Filters.noun(m.groupValues[1]) ?: return null
+            context.it = Objects.Bound("exiled")
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = "exiled")) + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(Objects.Bound("exiled"))),
+                arcanum.api.Affected.Objects(Objects.Each(affected)), arcanum.api.Duration.UntilStep(arcanum.api.TurnStep.End, PlayerFilter.Any)))
+        }
+        // dsk chunk 11: a sentence after "Until end of turn, whenever …, exile the top card of your library." continues that
+        // delayed trigger ("You may play it until the end of your next turn.")
+        if (sentence.startsWith("You may play it ")) {
+            val delayed = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateDelayedTrigger)?.takeIf { it.repeats } ?: return null
+            val inner = Context().also { it.it = Objects.Bound("exiled") }
+            val more = effect(sentence, inner) ?: return null
+            return steps.dropLast(1) + Step.Do(delayed.copy(instructions = delayed.instructions.copy(steps = delayed.instructions.steps + more)))
+        }
+        // dsk chunk 10: "If a creature card is put into a graveyard this way, return it to the battlefield under your control." after
+        // destroying (the destroyed card in a graveyard, CR 400.7)
+        IF_PUT_INTO_GRAVEYARD_THIS_WAY_RETURN.matchEntire(sentence)?.let { m ->
+            val destroy = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Destroy)?.takeIf { it.postBind == null } ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard))
+            return steps.dropLast(1) + Step.Do(destroy.copy(postBind = "destroyed")) + Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound("destroyed"), filter),
+                then = listOf(Step.Do(Effect.Move(Objects.Bound("destroyed"), Destination(Zone.Battlefield, controller = Players.You), postBind = "returned"))))
+        }
+        // dsk chunk 10: "Sacrifice it at the beginning of your next end step." (a delayed trigger, CR 603.7) inside that "if"
+        if (sentence == "Sacrifice it at the beginning of your next end step.") {
+            val iff = (steps.lastOrNull() as? Step.If)?.takeIf { s -> ((s.then.lastOrNull() as? Step.Do)?.effect as? Effect.Move)?.postBind == "returned" } ?: return null
+            val delayed = Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("returned")))))))
+            return steps.dropLast(1) + iff.copy(then = iff.then + delayed)
+        }
+        // dsk chunk 10: "If you discarded a card this way, draw a card." after each player discards
+        if (sentence == "If you discarded a card this way, draw a card.") {
+            val discard = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Discard)?.takeIf { it.postBind == null } ?: return null
+            return steps.dropLast(1) + Step.Do(discard.copy(postBind = "discarded")) + Step.If(
+                arcanum.api.Condition.ObjectMatches(Objects.Where(Objects.Bound("discarded"), ObjectFilter.OwnedBy(PlayerFilter.You)), ObjectFilter.Any),
+                then = listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1)))))
+        }
+        // dsk chunk 07: "Then this creature deals damage equal to its power to each opponent who didn't sacrifice a permanent or discard
+        // a card this way." inside the "each opponent may" loop, after every opponent has decided
+        DAMAGE_TO_EACH_WHO_DIDNT.matchEntire(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() })?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val loop = steps.lastOrNull() as? Step.ForEach ?: return null
+            if (loop.bind != "opponent" || (loop.steps.lastOrNull() as? Step.Pay)?.bind != "paid") return null
+            return steps.dropLast(1) + loop.copy(steps = loop.steps + Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("paid")), then = listOf(
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Bound("opponent")),
+                    Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single), source = Objects.Self)))))
+        }
+        // chunk 26: "Untap those creatures." after an effect on them; blb chunk 08: "Untap them."
+        if (sentence == "Untap those creatures." || sentence == "Untap them.") {
             val apply = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics) ?: return null
             val objects = (apply.affects as? arcanum.api.Affected.Objects)?.objects ?: return null
             return steps + Step.Do(Effect.Untap(objects))
@@ -966,7 +1498,9 @@ internal class Sentences(
             return bound + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)),
                 arcanum.api.Affected.Objects(Objects.Bound(TOKENS)), arcanum.api.Duration.Indefinitely))
         }
-        if (sentence == "Sacrifice them at the beginning of the next end step.") {
+        // dsk chunk 13: "Sacrifice it …" after creating one token
+        if (sentence == "Sacrifice them at the beginning of the next end step." || sentence == "Sacrifice it at the beginning of the next end step." &&
+            ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken)?.count == Value.Fixed(1)) {
             val bound = bindTokens(steps) ?: return null
             // CR 603.7: a delayed trigger, triggering once at the next end step
             return bound + Step.Do(Effect.CreateDelayedTrigger(
@@ -976,9 +1510,11 @@ internal class Sentences(
         // chunk 36: "You may put a land card from among them into your hand." after milling: zero or one of the milled cards
         MAY_PUT_FROM_AMONG_THEM_INTO_HAND.matchEntire(sentence)?.let { m ->
             val mill = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.Mill)?.takeIf { it.postBind == null } ?: return null
-            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            // dsk chunk 13: "any number of"
+            val max = if (m.groupValues[1] == "any number of") null else Value.Fixed(1)
             return steps.dropLast(1) + Step.Do(mill.copy(postBind = "milled")) +
-                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound("milled")), bind = "chosen", chooser = Players.You) +
+                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = max, from = Objects.Bound("milled")), bind = "chosen", chooser = Players.You) +
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand)))
         }
         // chunk 36: "If it entered under your control, …" after a delayed trigger that returns a card: part of that trigger
@@ -1106,6 +1642,12 @@ internal class Sentences(
 
     private class Context {
         var flip = false
+        // blb chunk 02: where the last sentence's targets and steps began; new target names get "promised " when taken
+        var previous: Pair<Int, Int>? = null
+        var promisedNames = false
+        /** "this way": what the last effect moved; the target slots by the phrase that named them ("the creature you control"). */
+        var thisWay: Objects? = null
+        val slotPhrases = mutableMapOf<String, String>()
         // chunk 25: the triggering event; what "it" and "them" refer to; the amount "that much" refers to
         var event: EventPattern? = null
         var it: Objects? = null
@@ -1113,6 +1655,13 @@ internal class Sentences(
         var thatMuch: Value? = null
         // chunk 20: the event's object in a trigger ("that creature")
         var that: Objects? = null
+        // dsk chunk 01: the creature manifested ("that creature" after "manifest dread")
+        var manifested: Objects? = null
+
+        /** dsk chunk 07: the target slot of "the creature you control" (the one whose filter that noun names). */
+        fun slotFor(noun: String): Objects? = Filters.noun(noun)?.let { filter ->
+            targets.firstOrNull { (it.what as? TargetKind.Objects)?.filter == filter }?.let { Objects.Target(it.name) }
+        }
         val replacements = mutableListOf<Mechanic.Replacement>()
         val targets = mutableListOf<TargetSlot>()
         /** "any target" (CR 115.4): creature, planeswalker or battle, or player. */
@@ -1125,13 +1674,17 @@ internal class Sentences(
         /** "target player" */
         fun targetPlayer(): Players {
             if (targets.none { it.name == "player" }) targets += TargetSlot("player", arcanum.api.TargetKind.Players(PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
-            return Players.Target("player")
+            return Players.Target("player").also { lastPlayer = it } // blb chunk 01: "they"
         }
 
         fun target(noun: String, filter: ObjectFilter): Objects {
-            targets += TargetSlot(noun, TargetKind.Objects(filter), min = Value.Fixed(1), max = Value.Fixed(1))
-            return Objects.Target(noun)
+            val name = name(noun)
+            targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(1), max = Value.Fixed(1))
+            return Objects.Target(name)
         }
+
+        /** blb chunk 02: a slot name not taken yet: [noun], "promised [noun]" for the promised version of a gift spell. */
+        fun name(noun: String): String = if (promisedNames && targets.any { it.name == noun }) "promised $noun" else noun
 
         // chunk 13
         /** The player whose hand was revealed ("that player"), the revealed hand ("from it"), the names of the cards
@@ -1173,14 +1726,802 @@ internal class Sentences(
         fun another(): ObjectFilter = ObjectFilter.Not(ObjectFilter.Is(if (selfDied()) Objects.SelfAfter else Objects.Self))
     }
 
+    /** Duskmourn (dsk) sentence rules, tried at the start of [effect]: null when none reads [sentence]. */
+    private fun setWordings(sentence: String, context: Context): List<Step>? {
+        // dsk chunk 01: "Tap up to one target creature." ("it" afterwards is that creature)
+        TAP_TARGET.matchEntire(sentence)?.takeIf { Filters.noun(it.groupValues[3]) != null }?.let { m ->
+            val noun = m.groupValues[3]
+            val filter = Filters.noun(noun)!!
+            val name = Filters.slotName(noun)
+            val max = if (m.groupValues[1].isEmpty()) 1 else Numbers.count(m.groupValues[1]) ?: return null
+            context.targets += TargetSlot(name, TargetKind.Objects(if (m.groupValues[2].isEmpty()) filter else Filters.all(context.another(), filter)),
+                min = Value.Fixed(if (m.groupValues[1].isEmpty()) 1 else 0), max = Value.Fixed(max))
+            context.it = Objects.Target(name)
+            return listOf(Step.Do(Effect.Tap(Objects.Target(name))))
+        }
+        // dsk chunk 01: "Put a +1/+1 counter on each of up to two target creatures."
+        PUT_COUNTERS_ON_UP_TO.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[4]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0),
+                max = Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null))
+            return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), Counters.kind(m.groupValues[2]) ?: return null,
+                Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        // dsk chunk 01: "Return up to one target creature to its owner's hand."
+        RETURN_UP_TO_TARGET_TO_HAND.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0),
+                max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // dsk chunk 01: "You win the game if there are eight or more …"
+        YOU_WIN_IF.matchEntire(sentence)?.let { m ->
+            return listOf(Step.If(Conditions.condition(m.groupValues[1], self) ?: return null, then = listOf(Step.Do(Effect.WinGame(Players.You)))))
+        }
+        // dsk chunk 01: "Manifest dread." ("that creature" afterwards is the manifested permanent, CR 701.62a)
+        if (sentence == "Manifest dread.") {
+            context.manifested = Objects.Bound(MANIFESTED)
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.ManifestDread(Players.You), bind = MANIFESTED)))
+        }
+        // dsk chunk 01: "Put a +1/+1 counter on that creature." after manifesting dread
+        PUT_COUNTERS.matchEntire(sentence)?.takeIf { it.groupValues[3] == "that creature" && context.manifested != null }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(context.manifested!!, kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        // dsk chunk 02: "It gets +1/+0 and gains deathtouch until end of turn." ("it": the event's object, or this object)
+        GETS_AND_GAINS_UNTIL_EOT.matchEntire(sentence)?.takeIf { m ->
+            // dsk chunk 09: a target subject only when its noun reads
+            !m.groupValues[1].contains("arget ") || Filters.noun(m.groupValues[1].substringAfter("arget ")) != null }?.let { m ->
+            val objects = when {
+                isSelf(m.groupValues[1]) -> Objects.Self
+                m.groupValues[1] == "It" -> context.it
+                m.groupValues[1] == "That creature" -> context.that
+                // dsk chunk 07: "Target creature gets +1/+0 and gains first strike until end of turn."
+                m.groupValues[1].startsWith("Target ") -> m.groupValues[1].removePrefix("Target ").let { noun ->
+                    Filters.noun(noun)?.let { context.target(Filters.slotName(noun), it) } }
+                // dsk chunk 09: "another target creature you control gets +1/+0 and gains indestructible"
+                m.groupValues[1].startsWith("Another target ") -> m.groupValues[1].removePrefix("Another target ").let { noun ->
+                    Filters.noun(noun)?.let { context.target(Filters.slotName(noun), Filters.all(context.another(), it)) } }
+                else -> null
+            }
+            val keywords = m.groupValues[5].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) }
+            // dsk chunk 09: "loses flying", "until your next turn"
+            val change = if (m.groupValues[4] == "loses") keywords.singleOrNull()?.let { Mechanic.LoseAbilities(it.kind) } else Mechanic.GainAbilities(keywords.filterNotNull())
+            val duration = if (m.groupValues[6] == "your next turn") arcanum.api.Duration.UntilYourNextTurn else arcanum.api.Duration.EndOfTurn
+            if (objects != null && keywords.all { it != null } && change != null) return listOf(Step.Do(Effect.ApplyMechanics(
+                listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null),
+                    change), arcanum.api.Affected.Objects(objects), duration)))
+        }
+        // dsk chunk 02: "[This Room] deals damage equal to the number of cards in your hand to target creature an opponent
+        // controls."
+        DEALS_DAMAGE_EQUAL_TO.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            Values.value(m.groupValues[2], exiledCard)?.let { amount ->
+                val what = m.groupValues[3]
+                val to = when {
+                    what == "any target" -> { context.anyTarget(); arcanum.api.Recipients(target = "any") }
+                    what.startsWith("target ") -> what.removePrefix("target ").let { noun ->
+                        arcanum.api.Recipients(objects = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)) }
+                    else -> arcanum.api.Recipients(players = Filters.players(what) ?: return null)
+                }
+                return listOf(Step.Do(Effect.DealDamage(to, amount, source = Objects.Self)))
+            }
+        }
+        // dsk chunk 02: "You may play it this turn." / "You may play them until the end of your next turn." (the exiled cards)
+        YOU_MAY_PLAY_EXILED.matchEntire(sentence)?.let { m ->
+            val exiled = (if (m.groupValues[1] == "them") context.them else context.it) as? Objects.Bound ?: return null
+            val duration = if (m.groupValues[2] == "this turn") arcanum.api.Duration.EndOfTurn else arcanum.api.Duration.UntilEndOfYourNextTurn
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Play, holder = PlayerFilter.You)),
+                arcanum.api.Affected.Objects(exiled), duration)))
+        }
+        // dsk chunk 02: "Mill four cards, then return up to two permanent cards from among them to your hand."
+        MILL_THEN_RETURN_FROM_AMONG_THEM.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val most = Numbers.count(m.groupValues[2]) ?: return null
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
+            return listOf(Step.Do(Effect.Mill(Players.You, Value.Fixed(n), postBind = "milled")),
+                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(most), from = Objects.Bound("milled")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // dsk chunk 02: "You may cast spells from your graveyard this turn, and if a card would be put into your graveyard from
+        // anywhere this turn, exile it instead." A permission and a replacement for the turn (CR 611.2c, 614.1a).
+        if (sentence == "You may cast spells from your graveyard this turn, and if a card would be put into your graveyard from anywhere this turn, exile it instead.") {
+            return listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Graveyard, arcanum.api.PlayKind.Cast, holder = PlayerFilter.You)),
+                    arcanum.api.Affected.Objects(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))),
+                    arcanum.api.Duration.EndOfTurn)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
+                    EventPattern.ZoneChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), ObjectFilter.OwnedBy(PlayerFilter.You)), to = Zone.Graveyard),
+                    modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), affects = null, duration = arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 02: "Add {R}{R}. Spend this mana only to cast Room spells and unlock doors." (CR 106.6)
+        ADD_MANA_SPEND_ONLY_TO.matchEntire(sentence)?.let { m ->
+            val kind = mana(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(kind, restriction = spendOnlyTo(m.groupValues[2]) ?: return null), players = Players.You)))
+        }
+        // dsk chunk 03: "Unlock a locked door of up to one target Room you control." / "… of a Room you control." (CR 709.5f)
+        UNLOCK_A_LOCKED_DOOR.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[3]
+            val filter = Filters.noun(noun) ?: return null
+            if (m.groupValues[1].isEmpty() && m.groupValues[2] != "target ") {
+                return listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, HAS_A_LOCKED_DOOR), Value.Fixed(1), Value.Fixed(1)), bind = "room", chooser = Players.You),
+                    Step.Do(Effect.UnlockDoor(Objects.Bound("room"), chooser = Players.You)))
+            }
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(if (m.groupValues[1].isEmpty()) 1 else 0),
+                max = Value.Fixed(m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Numbers.count(it) ?: return null } ?: 1))
+            return listOf(Step.Do(Effect.UnlockDoor(Objects.Target(name), chooser = Players.You)))
+        }
+        // dsk chunk 03: "Lock or unlock a door of target Room you control." (CR 709.5f, g; one of the two, chosen as it resolves)
+        LOCK_OR_UNLOCK.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf("lock", "unlock")), bind = "lockOrUnlock", chooser = Players.You),
+                Step.If(arcanum.api.Condition.Chose("lockOrUnlock", "lock"),
+                    then = listOf(Step.Do(Effect.LockDoor(target, chooser = Players.You))),
+                    otherwise = listOf(Step.Do(Effect.UnlockDoor(target, chooser = Players.You)))))
+        }
+        // dsk chunk 03: "Return an enchantment card from your graveyard to your hand or unlock a locked door of a Room you
+        // control.": one of the two, chosen as it resolves
+        RETURN_OR_UNLOCK.matchEntire(sentence)?.let { m ->
+            val card = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val unlock = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf("return", "unlock")), bind = "returnOrUnlock", chooser = Players.You),
+                Step.If(arcanum.api.Condition.Chose("returnOrUnlock", "return"),
+                    then = listOf(Step.Choose(arcanum.api.Choice.Objects(card, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                        Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand)))),
+                    otherwise = unlock))
+        }
+        // dsk chunk 03: "This creature can attack this turn as though it didn't have defender." (CR 702.3b)
+        CAN_ATTACK_AS_THOUGH_NO_DEFENDER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CanAttackDespiteDefender), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 03: "Surveil 2 if this is the first time this ability has resolved this turn."
+        EFFECT_IF.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self)
+            val then = condition?.let { effect(m.groupValues[1] + ".", context) }
+            if (condition != null && then != null) return listOf(Step.If(condition, then = then))
+        }
+        // dsk chunk 03: "Put a creature card from a graveyard onto the battlefield under your control." (chosen as it resolves)
+        PUT_CARD_FROM_A_GRAVEYARD_ONTO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You))))
+        }
+        // dsk chunk 03: "Put all enchantment cards from among them into your hand and the rest on the bottom of your library in a
+        // random order." (no choice)
+        PUT_ALL_FROM_AMONG_THEM_REST_BOTTOM.matchEntire(sentence)?.let { m ->
+            val them = Objects.Bound(context.seen ?: return null)
+            val chosen = Objects.Where(them, Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.Move(chosen, Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(them, chosen), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // dsk chunk 04: "Put a flying, lifelink, or +1/+1 counter on it.": the kind chosen as it resolves
+        PUT_ONE_OF_COUNTERS.matchEntire(sentence)?.let { m ->
+            val kinds = m.groupValues[1].split(Regex(""",? or |, """))
+            val objects = if (m.groupValues[2] == "it") context.it ?: return null else if (isSelf(m.groupValues[2])) Objects.Self else return null
+            return listOf(Step.Choose(arcanum.api.Choice.Option(kinds), bind = "counter", chooser = Players.You)) + kinds.map { k ->
+                Step.If(arcanum.api.Condition.Chose("counter", k), then = listOf(Step.Do(Effect.PutCounters(objects, Counters.kind(k) ?: return null, Value.Fixed(1)))))
+            }
+        }
+        // dsk chunk 04: "Put those counters on up to one target creature." (the counters the event's object had)
+        PUT_THOSE_COUNTERS_ON.matchEntire(sentence)?.let { m ->
+            val that = context.that ?: return null
+            val noun = m.groupValues[2]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null),
+                min = Value.Fixed(if (m.groupValues[1].isEmpty()) 1 else 0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.PutCountersOf(Objects.Target(name), of = that)))
+        }
+        // dsk chunk 04: "That land becomes a 0/0 Elemental creature in addition to its other types." (for good, CR 611.2a)
+        THAT_BECOMES_CREATURE.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.takeIf { it.name == Filters.slotName(m.groupValues[1]) }?.let { Objects.Target(it.name) } ?: return null
+            val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
+            context.it = target
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
+                arcanum.api.Affected.Objects(target), arcanum.api.Duration.Indefinitely)))
+        }
+        // dsk chunk 04: "It gains haste until your next turn."
+        IT_GAINS_UNTIL_YOUR_NEXT_TURN.matchEntire(sentence)?.let { m ->
+            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), arcanum.api.Affected.Objects(context.it ?: return null),
+                arcanum.api.Duration.UntilYourNextTurn)))
+        }
+        // dsk chunk 04: "Put any number of creature and/or Vehicle cards with different powers from among them into your hand."
+        PUT_ANY_NUMBER_WITH_DIFFERENT_FROM_AMONG.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val property = if (m.groupValues[2] == "powers") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.ManaValue
+            context.picked = "chosen"
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = null, from = Objects.Bound(seen),
+                    distinct = arcanum.api.SharedQuality.Number(property)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // dsk chunk 04: "Put the rest on the bottom of your library in a random order." (after picking from among them)
+        if (sentence == "Put the rest on the bottom of your library in a random order." && context.seen != null && context.picked != null) {
+            return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(context.seen!!), Objects.Bound(context.picked!!)),
+                Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // dsk chunk 14: "Have it get +4/+0 until end of turn." (in "you may have it …"; it: this creature)
+        HAVE_IT_GET.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[1].removePrefix("+").toInt()),
+                Value.Fixed(m.groupValues[2].removePrefix("+").toInt()))), arcanum.api.Affected.Objects(it), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 14: "Sacrifice it at the beginning of the next end step." (a delayed trigger, CR 603.7)
+        if (sentence == "Sacrifice it at the beginning of the next end step." && context.it != null) {
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Sacrifice(context.it!!)))))))
+        }
+        // dsk chunk 14: "Put target card from a graveyard on the bottom of its owner's library."
+        PUT_TARGET_ON_BOTTOM.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Library, libraryPosition = -1))))
+        }
+        // dsk chunk 14: "It becomes a 0/0 Spirit creature in addition to its other types." (in an activated ability: this object;
+        // for good, layers 4 and 7b)
+        IT_BECOMES_CREATURE.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: Objects.Self.takeIf { context.event == null } ?: return null
+            val subtype = m.groupValues[3].takeIf { s -> s in RulesWords.subtypes } ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))),
+                arcanum.api.Affected.Objects(it), arcanum.api.Duration.Indefinitely)))
+        }
+        // dsk chunk 14: "Put each creature card exiled with this artifact onto the battlefield under your control with a flying
+        // counter on it." (CR 607.2a; "each of them" afterwards)
+        PUT_EACH_EXILED_WITH_ONTO_BATTLEFIELD.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val cards = Objects.Where(Objects.Remembered(EXILED_WITH), Filters.noun(m.groupValues[1]) ?: return null)
+            val counters = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { listOf(arcanum.api.CountersToPut(Counters.kind(it) ?: return null, Value.Fixed(1))) }.orEmpty()
+            context.them = Objects.Bound("returned")
+            return listOf(Step.Do(Effect.Move(cards, Destination(Zone.Battlefield, controller = Players.You, counters = counters), postBind = "returned")))
+        }
+        // dsk chunk 14: "Each of them is a 1/1 Spirit in addition to its other types." (for good, layers 4 and 7b)
+        EACH_OF_THEM_IS_PT_SUBTYPE.matchEntire(sentence)?.let { m ->
+            val them = context.them ?: return null
+            val subtype = m.groupValues[3].takeIf { s -> s in RulesWords.subtypes } ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(
+                Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))),
+                arcanum.api.Affected.Objects(them), arcanum.api.Duration.Indefinitely)))
+        }
+        // dsk chunk 13: "It deals X damage to each opponent and you gain X life." (this object)
+        SELF_DEALS_AND_YOU_GAIN.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "It" && context.it == Objects.Self }?.let { m ->
+            val x = if (isSpell || announcedX) Value.Announced(name = "X") else Value.CastX(of = Objects.Self)
+            fun amount(text: String) = if (text == "X") x else Value.Fixed(text.toInt())
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Each(PlayerFilter.Opponent)), amount(m.groupValues[2]), source = Objects.Self)),
+                Step.Do(Effect.GainLife(Players.You, amount(m.groupValues[3]))))
+        }
+        // dsk chunk 13: "Draw a card for each opponent who lost life this turn."
+        if (sentence == "Draw a card for each opponent who lost life this turn.") {
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.CountPlayers(Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent,
+                PlayerFilter.ThisTurn(EventPattern.LoseLife(PlayerFilter.Any)))))))))
+        }
+        // dsk chunk 13: "You mill that many cards." (the event's amount)
+        if (sentence == "You mill that many cards.") return listOf(Step.Do(Effect.Mill(Players.You, Value.EventAmount)))
+        // dsk chunk 13: "If you put no cards into your hand this way, [effect]." (after choosing from among them)
+        IF_YOU_PUT_NO_CARDS_INTO_HAND.matchEntire(sentence)?.let { m ->
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Compare(Value.Count(Objects.Bound("chosen")), arcanum.api.Comparison.Equal, Value.Fixed(0)), then = then))
+        }
+        // dsk chunk 13: "Return it to the battlefield under its owner's control at the beginning of the next end step." (CR 603.7)
+        if (sentence == "Return it to the battlefield under its owner's control at the beginning of the next end step." && context.it is Objects.Bound) {
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Move(context.it!!, Destination(Zone.Battlefield, controller = Players.OwnerOf(context.it!!)))))))))
+        }
+        // dsk chunk 13: "This creature deals that much damage to any target." (what the intervening if counted)
+        if (conditionAmount != null) SELF_DEALS_THAT_MUCH_TO_ANY_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            context.anyTarget()
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"), conditionAmount!!, source = Objects.Self)))
+        }
+        // dsk chunk 13: "Create Prima, the Undivided, a legendary 0/0 green and blue Fractal creature token, then put that many
+        // +1/+1 counters on it." (a named token, CR 111.4; that many: what the intervening if counted)
+        if (conditionAmount != null) CREATE_NAMED_TOKEN_THEN_THAT_MANY_COUNTERS.matchEntire(sentence)?.let { m ->
+            val token = Tokens.defined("a " + m.groupValues[3]) ?: return null
+            val named = token.copy(face = token.face.copy(name = m.groupValues[1],
+                supertypes = if (m.groupValues[2].isEmpty()) emptyList() else listOf(arcanum.api.Supertype.Legendary)))
+            return listOf(Step.Do(Effect.CreateToken(named, count = Value.Fixed(1), controller = Players.You, bind = TOKENS)),
+                Step.Do(Effect.PutCounters(Objects.Bound(TOKENS), Counters.kind(m.groupValues[4]) ?: return null, conditionAmount!!)))
+        }
+        // dsk chunk 12: "The owner of target artifact or enchantment an opponent controls shuffles it into their library."
+        OWNER_OF_TARGET_SHUFFLES.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Library))), Step.Do(Effect.Shuffle(Players.OwnerOf(target))))
+        }
+        // dsk chunk 12: "You may shuffle up to four target cards from your graveyard into your library."
+        YOU_MAY_SHUFFLE_UP_TO_FROM_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You))), min = Value.Fixed(0), max = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+            return listOf(Step.May(listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Library))), Step.Do(Effect.Shuffle(Players.You))),
+                player = Players.You))
+        }
+        // dsk chunk 12: "Tap one or two target untapped creatures you control." ("they" afterwards)
+        TAP_N_OR_M_TARGETS.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[3]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null),
+                max = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
+            context.them = Objects.Target(name)
+            return listOf(Step.Do(Effect.Tap(Objects.Target(name))))
+        }
+        // dsk chunk 12: "They each deal damage equal to their power to target creature an opponent controls." (each is a source of
+        // its own damage, CR 120.1)
+        THEY_EACH_DEAL_POWER_TO_TARGET.matchEntire(sentence)?.let { m ->
+            val them = context.them ?: return null
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.ForEach(arcanum.api.Each.Objects(them), bind = "source", steps = listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = target),
+                Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound("source"), arcanum.api.Combine.Single), source = Objects.Bound("source"))))))
+        }
+        // dsk chunk 12: "Put them onto the battlefield tapped." (the batch's cards, now in the graveyard)
+        if (sentence == "Put them onto the battlefield tapped." && context.event is EventPattern.ZoneChange) {
+            return listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Battlefield, tapped = true))))
+        }
+        // dsk chunk 11: "Gain control of target creature until end of turn." ("it" afterwards)
+        GAIN_CONTROL_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            context.it = target
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        if (sentence == "Untap it.") return listOf(Step.Do(Effect.Untap(context.it ?: return null)))
+        // dsk chunk 11: "Exile it." (the event's object; "that card" afterwards)
+        if (sentence == "Exile it." && context.it != null) {
+            val it = context.it!!
+            context.it = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(it, Destination(Zone.Exile), postBind = "exiled")))
+        }
+        // dsk chunk 11: "You may play that card from exile this turn."
+        if (sentence == "You may play that card from exile this turn.") {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
+                arcanum.api.Affected.Objects(context.it as? Objects.Bound ?: return null), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 11: "This creature deals 1 damage to them." (the event's player)
+        SELF_DEALS_N_TO_THEM.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.EventPlayer), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)))
+        }
+        // dsk chunk 11: "It deals that much damage to any other target." ("this way" afterwards: the damage dealt)
+        if (sentence == "It deals that much damage to any other target.") {
+            context.targets += TargetSlot("any", TargetKind.Either(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Or(listOf(
+                ObjectFilter.Type(CardType.Creature), ObjectFilter.Type(CardType.Planeswalker), ObjectFilter.Type(CardType.Battle)))), PlayerFilter.Any),
+                min = Value.Fixed(1), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"), Value.EventAmount, source = Objects.Self, bind = "dealt")))
+        }
+        if (sentence == "If a player is dealt damage this way, they can't gain life for the rest of the game.") {
+            return listOf(Step.If(arcanum.api.Condition.Compare(Value.Bound("dealt"), arcanum.api.Comparison.AtLeast, Value.Fixed(1)), then = listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantGainLife), arcanum.api.Affected.Players(Players.Target("any")), arcanum.api.Duration.Indefinitely)))))
+        }
+        // dsk chunk 11: "Change the target of target spell or ability with a single target." (CR 115.7a)
+        if (sentence == "Change the target of target spell or ability with a single target.") {
+            val spell = context.target("spell", Filters.all(ObjectFilter.Or(listOf(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell),
+                ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility))), ObjectFilter.SingleTarget()))
+            return listOf(Step.Do(Effect.ChangeTargets(spell, optional = false, chooser = Players.You)))
+        }
+        // dsk chunk 11: "One or two target creatures can't block this turn."
+        N_OR_M_TARGETS_CANT_BLOCK.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[3]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null),
+                max = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)), arcanum.api.Affected.Objects(Objects.Target(name)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 11: "It deals 3 damage to up to one target creature." (this object)
+        SELF_DEALS_TO_UP_TO_ONE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || (it.groupValues[1] == "It" && context.targets.isEmpty()) }?.let { m ->
+            val noun = m.groupValues[3]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)))
+        }
+        // dsk chunk 11: "Target creature you control deals damage equal to its power to each other creature." (the target deals it)
+        TARGET_DEALS_POWER_TO_EACH_OTHER.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            val others = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(target)))
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Each(others)),
+                Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single), source = target)))
+        }
+        // dsk chunk 11: "If that creature would die this turn, exile it instead." (a replacement for the turn, CR 614.1a)
+        IF_THAT_WOULD_DIE_THIS_TURN.matchEntire(sentence)?.let {
+            val slot = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects } ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
+                EventPattern.ZoneChange(ObjectFilter.Is(Objects.Target(slot.name)), from = Zone.Battlefield, to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), affects = null, duration = arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 11: "Then if there are seven or more time counters on it, remove those counters and it deals 20 damage to you."
+        REMOVE_THOSE_COUNTERS_AND_DEALS.matchEntire(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() })?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(kind, atLeast = Numbers.count(m.groupValues[1]) ?: return null)),
+                then = listOf(
+                    Step.Do(Effect.RemoveCounters(Objects.Self, kind, Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single))),
+                    Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.You), Value.Fixed(m.groupValues[3].toInt()), source = Objects.Self)))))
+        }
+        // dsk chunk 11: "When you next cast an instant or sorcery spell this turn, copy that spell." (a delayed trigger, once,
+        // this turn, CR 603.7b)
+        WHEN_YOU_NEXT_CAST.matchEntire(sentence)?.let { m ->
+            val spell = Filters.noun(m.groupValues[1]) ?: return null
+            if (m.groupValues[2] != "copy that spell") return null
+            context.copied = true
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.Cast(spell, by = PlayerFilter.You)),
+                Instructions(steps = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = true)))),
+                duration = arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 11: "Choose two target creatures controlled by the same opponent." / "That player chooses one of those
+        // creatures." / "[This] deals 5 damage to that creature, and the other can't block this turn."
+        CHOOSE_TARGETS_SAME_OPPONENT.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[2]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Opponent))),
+                min = Value.Fixed(n), max = Value.Fixed(n), sameController = true)
+            return emptyList()
+        }
+        if (sentence == "That player chooses one of those creatures.") {
+            val slot = Objects.Target(context.targets.lastOrNull()?.name ?: return null)
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = slot), bind = "chosen", chooser = Players.ControllerOf(slot)))
+        }
+        DEALS_TO_THAT_CREATURE_OTHER_CANT_BLOCK.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val slot = Objects.Target(context.targets.lastOrNull()?.name ?: return null)
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Bound("chosen")), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)), arcanum.api.Affected.Objects(Objects.Except(slot, Objects.Bound("chosen"))),
+                    arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 10: "They lose half their life, rounded up." (the event's player, CR 107.1a)
+        if (sentence == "They lose half their life, rounded up.")
+            return listOf(Step.Do(Effect.LoseLife(Players.EventPlayer, Value.Half(Value.LifeOf(Players.EventPlayer), roundUp = true))))
+        // dsk chunk 10: "Destroy it." (the event's object), "Tap it." (in an activated ability: this object)
+        if (sentence == "Destroy it.") return listOf(Step.Do(Effect.Destroy(context.it ?: return null)))
+        if (sentence == "Tap it.") return listOf(Step.Do(Effect.Tap(context.it ?: Objects.Self.takeIf { context.event == null && context.targets.isEmpty() } ?: return null)))
+        // dsk chunk 10: "Each player exiles all but the bottom six cards of their library face down."
+        EACH_PLAYER_EXILES_ALL_BUT_BOTTOM.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            // one event for every player's cards (CR 101.4)
+            return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Each(ObjectFilter.InZone(Zone.Library)),
+                Objects.LibraryCards(Players.Each(PlayerFilter.Any), Value.Fixed(n), fromTop = false)), Destination(Zone.Exile, faceDown = m.groupValues[2].isNotEmpty()))))
+        }
+        // dsk chunk 10: "Up to that many target creatures each get -2/-2 until end of turn." (that many: the cards discarded)
+        UP_TO_THAT_MANY_TARGETS_GET.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = Value.Count(Objects.Bound("discarded")))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)),
+                arcanum.api.Affected.Objects(Objects.Target(name)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 10: "Look at the top four cards of your library. Put one of them into your hand and the rest into your
+        // graveyard."
+        LOOK_PUT_ONE_INTO_HAND_REST_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val seen = Numbers.count(m.groupValues[1]) ?: return null
+            return listOf(
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "seen", players = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("seen")), bind = "kept", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("kept"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")), Destination(Zone.Graveyard))))
+        }
+        // dsk chunk 10: "Return that card under your control with a finality counter on it." (the card that died)
+        RETURN_THAT_CARD_UNDER_CONTROL.matchEntire(sentence)?.let { m ->
+            val card = context.it ?: return null
+            val controller = if (m.groupValues[2] == "your") Players.You else Players.OwnerOf(card)
+            val counters = m.groupValues[5].takeIf { it.isNotEmpty() }?.let { c ->
+                listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(Numbers.count(m.groupValues[4]) ?: return null))) }.orEmpty()
+            return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty(), controller = controller, counters = counters))))
+        }
+        // dsk chunk 10: "They may pay 3 life." (the controller of the creature that died) then "If they don't, [effect]." (D52)
+        THEY_MAY_PAY.matchEntire(sentence)?.let { m ->
+            val payer = Players.ControllerOf(context.that ?: return null)
+            val parts = costPart(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Pay(Cost(parts), payer = payer, bind = "paid"))
+        }
+        IF_THEY_DONT.matchEntire(sentence)?.let { m ->
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("paid")), then = then))
+        }
+        // dsk chunk 10: "You may choose a nonland card from it.": a choice of zero or one (D49)
+        YOU_MAY_CHOOSE_FROM_IT.matchEntire(sentence)?.let { m ->
+            val from = context.revealed ?: return null
+            val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            if ("chosen" !in context.chosen) context.chosen += "chosen"
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = from), bind = "chosen", chooser = Players.You))
+        }
+        // dsk chunk 10: "Target player sacrifices a creature of their choice other than enchanted creature."
+        TARGET_PLAYER_SACRIFICES_OTHER_THAN.matchEntire(sentence)?.let { m ->
+            val player = context.targetPlayer()
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.AttachedTo(Objects.Self))),
+                ObjectFilter.ControlledBy(PlayerFilter.Is(player)))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "sacrificed", chooser = player),
+                Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))
+        }
+        // dsk chunk 10: "Each opponent sacrifices a nontoken enchantment of their choice, then sacrifices a nontoken creature of
+        // their choice." (one sacrifice event each time, CR 101.4)
+        EACH_SACRIFICES_THEN_SACRIFICES.matchEntire(sentence)?.let { m ->
+            val first = effect("Each ${m.groupValues[1]} sacrifices a ${m.groupValues[2]} of their choice.", context) ?: return null
+            val second = effect("Each ${m.groupValues[1]} sacrifices a ${m.groupValues[3]} of their choice.", context) ?: return null
+            return first + second
+        }
+        // dsk chunk 09: "Target creature can't be blocked this turn.", "Another target attacking creature can't be blocked this turn."
+        TARGET_CANT_BE_BLOCKED_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2]
+            val filter = Filters.noun(noun) ?: return null
+            val target = context.target(Filters.slotName(noun), if (m.groupValues[1] == "Another target") Filters.all(context.another(), filter) else filter)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeBlocked), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 09: "Draw that many cards.", "Discard that many cards." (the event's amount: damage, life)
+        THAT_MANY_CARDS.matchEntire(sentence)?.takeIf { context.event != null && context.event !is EventPattern.Discard }?.let { m ->
+            val step = if (m.groupValues[1] == "Draw") Effect.Draw(Players.You, Value.EventAmount) else Effect.Discard(Players.You, Value.EventAmount, filter = ObjectFilter.Any)
+            return listOf(Step.Do(step))
+        }
+        if (sentence == "You lose the game.") return listOf(Step.Do(Effect.LoseGame(Players.You)))
+        // dsk chunk 09: "If an opponent controls that creature, put a stun counter on it."
+        IF_OPPONENT_CONTROLS_THAT.matchEntire(sentence)?.let { m ->
+            val that = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(that, ObjectFilter.ControlledBy(PlayerFilter.Opponent)), then = then))
+        }
+        // dsk chunk 09: "Put each card exiled with it into its owner's hand." (CR 607.2a)
+        if (sentence == "Put each card exiled with it into its owner's hand.") return listOf(Step.Do(Effect.Move(Objects.Remembered(EXILED_WITH), Destination(Zone.Hand))))
+        // dsk chunk 09: "Tap any number of untapped creatures you control." ("tapped this way" afterwards)
+        TAP_ANY_NUMBER.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.noun(m.groupValues[1]) ?: return null, min = Value.Fixed(0), max = null),
+                bind = "tapped", chooser = Players.You), Step.Do(Effect.Tap(Objects.Bound("tapped"))))
+        }
+        // dsk chunk 09: "This creature gets +1/+1 until end of turn for each creature tapped this way."
+        SELF_GETS_FOR_EACH_TAPPED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val per = Value.Count(Objects.Bound("tapped"))
+            fun amount(n: Int): Value = when (n) { 0 -> Value.Fixed(0); 1 -> per; else -> Value.Times(per, n) }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(amount(m.groupValues[2].toInt()), amount(m.groupValues[3].toInt()))),
+                arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 09: "Return one or two target creatures and/or enchantments you own to your hand."
+        RETURN_N_OR_M_TARGETS_TO_HAND.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[3].replace(" and/or ", " or ")
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null),
+                max = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // dsk chunk 09: "It becomes a black Demon in addition to its other colors and types." (for good, layers 4 and 5)
+        IT_BECOMES_COLOR_SUBTYPE.matchEntire(sentence)?.let { m ->
+            val color = BECOME_COLORS[m.groupValues[1]] ?: return null
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val objects = context.it ?: Objects.Self
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+                Mechanic.SetColors(listOf(ColorRef.Literal(color)), add = true)), arcanum.api.Affected.Objects(objects), arcanum.api.Duration.Indefinitely)))
+        }
+        // dsk chunk 09: "Target nonland permanent's owner puts it on their choice of the top or bottom of their library."
+        OWNER_PUTS_ON_TOP_OR_BOTTOM.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Choose(arcanum.api.Choice.Option(listOf("top", "bottom")), bind = "position", chooser = Players.OwnerOf(target)),
+                Step.If(arcanum.api.Condition.Chose("position", "top"), then = listOf(Step.Do(Effect.Move(target, Destination(Zone.Library, libraryPosition = 0)))),
+                    otherwise = listOf(Step.Do(Effect.Move(target, Destination(Zone.Library, libraryPosition = -1))))))
+        }
+        // dsk chunk 09: "This creature becomes a copy of another target creature you control." (for good, layer 1)
+        SELF_BECOMES_COPY.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = m.groupValues[3]
+            val filter = Filters.noun(noun) ?: return null
+            val target = context.target(Filters.slotName(noun), if (m.groupValues[2].isEmpty()) filter else Filters.all(context.another(), filter))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CopyOf(target)), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely)))
+        }
+        // dsk chunk 09: "Until end of turn, target creature gets +2/+2, gains flying, and becomes a Horror enchantment creature in
+        // addition to its other types."
+        UNTIL_EOT_TARGET_GETS_GAINS_BECOMES.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val keywords = m.groupValues[4].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val add = mutableListOf<CardType>()
+            val subtypes = mutableListOf<arcanum.api.SubtypeRef>()
+            for (word in m.groupValues[5].split(' ')) {
+                val type = Filters.CARD_TYPES[word]
+                when {
+                    type != null -> add += type
+                    word in RulesWords.subtypes -> subtypes += arcanum.api.SubtypeRef.Literal(Subtype(word))
+                    else -> return null
+                }
+            }
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(
+                Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null),
+                Mechanic.GainAbilities(keywords), Mechanic.SetTypes(add = add, addSubtypes = subtypes)), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 09: "If they do, surveil 2." after "unless its controller pays": they paid
+        IF_THEY_DO.matchEntire(sentence)?.let { m ->
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Did("paid"), then = then))
+        }
+        // dsk chunk 09: "Shuffle this creature and target creature with a stun counter on it into their owners' libraries."
+        SHUFFLE_SELF_AND_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = m.groupValues[2]
+            val both = Objects.Union(listOf(Objects.Self, context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)))
+            return listOf(Step.Do(Effect.Move(both, Destination(Zone.Library))), Step.Do(Effect.Shuffle(Players.OwnerOf(both))))
+        }
+        // dsk chunk 08: "It's an enchantment." after returning it: it stops being a creature (layer 4, CR 613.1d)
+        if (sentence == "It's an enchantment." && context.it != null) {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))),
+                arcanum.api.Affected.Objects(Objects.Bound("returned")), arcanum.api.Duration.Indefinitely)))
+        }
+        // dsk chunk 08: "Target opponent loses that much life." (the event's amount)
+        TARGET_LOSES_THAT_MUCH.matchEntire(sentence)?.let { m ->
+            val player = if (m.groupValues[1] == "player") context.targetPlayer() else context.targetOpponent()
+            return listOf(Step.Do(Effect.LoseLife(player, Value.EventAmount)))
+        }
+        // dsk chunk 08: "Create a tapped colorless land token named Everywhere that is every basic land type." (CR 111.4)
+        CREATE_NAMED_LAND_TOKEN.matchEntire(sentence)?.let { m ->
+            val face = arcanum.api.FaceDefinition(name = m.groupValues[2], colorIndicator = emptyList(), types = listOf(CardType.Land),
+                subtypes = Filters.BASIC_LAND_TYPES.map { Subtype(it) })
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(face), count = Value.Fixed(1), controller = Players.You,
+                tapped = m.groupValues[1].isNotEmpty())))
+        }
+        // dsk chunk 07: "After this phase, there is an additional combat phase." (CR 500.8)
+        if (sentence == "After this phase, there is an additional combat phase.") return listOf(Step.Do(Effect.ExtraCombat()))
+        // dsk chunk 07: "Create a number of 1/1 … tokens with flying equal to the number of card types among cards in your
+        // graveyard."
+        CREATE_A_NUMBER_EQUAL_TO.matchEntire(sentence)?.let { m ->
+            val (_, token) = Tokens.spec("a " + m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(token, count = Values.value(m.groupValues[2], exiledCard) ?: return null, controller = Players.You)))
+        }
+        // dsk chunk 07: "This creature deals that amount of damage to target creature that player controls."
+        DEALS_THAT_AMOUNT_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = m.groupValues[2]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = target), Value.EventAmount, source = Objects.Self)))
+        }
+        // dsk chunk 07: "Look at the top card of your library." ("it", "the card" afterwards)
+        if (sentence == "Look at the top card of your library.") {
+            context.it = Objects.Bound("seen")
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true), players = Players.You, bind = "seen")))
+        }
+        // dsk chunk 07: "If it's a land card, you may put it onto the battlefield." (a "you may" a later "if you don't" reads)
+        IF_ITS_A_YOU_MAY_PUT_ONTO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(it, Filters.noun(m.groupValues[1]) ?: return null), then = listOf(
+                Step.Pay(steps = listOf(Step.Do(Effect.Move(it, Destination(Zone.Battlefield)))), payer = Players.You, bind = "put"))))
+        }
+        if (sentence == "If you don't put the card onto the battlefield, put it into your hand.") {
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("put")), then = listOf(Step.Do(Effect.Move(context.it ?: return null, Destination(Zone.Hand))))))
+        }
+        // dsk chunk 07: "Distribute two +1/+1 counters among one or two target creatures." (CR 601.2d: divided as it is put on
+        // the Stack)
+        DISTRIBUTE_COUNTERS_AMONG.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[5]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(Numbers.count(m.groupValues[3]) ?: return null),
+                max = Value.Fixed(Numbers.count(m.groupValues[4]) ?: return null), divided = Value.Fixed(n))
+            return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), Counters.kind(m.groupValues[2]) ?: return null, Value.DividedShare)))
+        }
+        // dsk chunk 07: "Double the number of +1/+1 counters on those creatures." (CR 701.10e)
+        DOUBLE_COUNTERS_ON_THOSE.matchEntire(sentence)?.let { m ->
+            val slot = context.targets.lastOrNull()?.name ?: return null
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(Objects.Target(slot), Counters.kind(m.groupValues[1]) ?: return null)))))
+        }
+        // dsk chunk 07: "Each opponent may sacrifice a nonland permanent of their choice or discard a card." Each decides in turn
+        // order (CR 101.4); "this way" afterwards reads whether they did
+        EACH_OPPONENT_MAY.matchEntire(sentence)?.let { m ->
+            val options = m.groupValues[1].split(" or ").map { option ->
+                Cost(costPart(option.removeSuffix(" of their choice").replaceFirstChar { it.uppercase() }) ?: return null)
+            }
+            val cost = Cost(listOf(options.singleOrNull()?.parts?.single() ?: CostPart.OneOf(options)))
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true, steps = listOf(
+                Step.Pay(cost, payer = Players.Bound("opponent"), bind = "paid"))))
+        }
+        // dsk chunk 07: "Choose target creature you control and target creature an opponent controls." (the second named apart)
+        CHOOSE_TWO_TARGETS.matchEntire(sentence)?.takeIf { Filters.noun(it.groupValues[1]) != null && Filters.noun(it.groupValues[2]) != null }?.let { m ->
+            val first = Filters.noun(m.groupValues[1])!!
+            val second = Filters.noun(m.groupValues[2])!!
+            val name = Filters.slotName(m.groupValues[1])
+            val other = Filters.slotName(m.groupValues[2]).let { if (it == name) "other $it" else it }
+            context.targets += TargetSlot(name, TargetKind.Objects(first), min = Value.Fixed(1), max = Value.Fixed(1))
+            context.targets += TargetSlot(other, TargetKind.Objects(second), min = Value.Fixed(1), max = Value.Fixed(1))
+            return emptyList()
+        }
+        // dsk chunk 07: "Put two +1/+1 counters on the creature you control." (a target named by its noun)
+        PUT_COUNTERS.matchEntire(sentence)?.takeIf { it.groupValues[3].startsWith("the ") }?.let { m ->
+            context.slotFor(m.groupValues[3].removePrefix("the "))?.let { slot ->
+                return listOf(Step.Do(Effect.PutCounters(slot, Counters.kind(m.groupValues[2]) ?: return null, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+            }
+        }
+        // dsk chunk 07: "The creature you control deals damage equal to its power to the creature an opponent controls."
+        THE_TARGET_DEALS_DAMAGE_EQUAL_TO_ITS_POWER.matchEntire(sentence)?.let { m ->
+            val source = context.slotFor(m.groupValues[1]) ?: return null
+            val to = context.slotFor(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = to),
+                Value.Of(arcanum.api.NumericProperty.Power, source, arcanum.api.Combine.Single), source = source)))
+        }
+        // dsk chunk 07: "It deals X damage to each of up to X target creatures." (X of the spell it was, CR 107.3m)
+        DEALS_X_TO_EACH_OF_UP_TO_X.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) || it.groupValues[1] == "It" }?.let { m ->
+            val x = Value.CastX(of = Objects.Self)
+            val noun = m.groupValues[2]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = x)
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)), x, source = Objects.Self)))
+        }
+        // dsk chunk 06: "Manifest dread X times, then put X +1/+1 counters on each of those creatures." (CR 701.40e: one at a time)
+        MANIFEST_DREAD_TIMES.matchEntire(sentence)?.let { m ->
+            val times = if (m.groupValues[1] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val n = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)
+            return listOf(Step.Repeat(times, listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.ManifestDread(Players.You), bind = MANIFESTED)))),
+                Step.Do(Effect.PutCounters(Objects.Bound(MANIFESTED), Counters.kind(m.groupValues[3]) ?: return null, n)))
+        }
+        // dsk chunk 06: "You may return a permanent card from your graveyard to your hand." (zero or one, not targeted)
+        MAY_RETURN_FROM_GRAVEYARD_TO_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // dsk chunk 06: "Reveal target face-down permanent." ("it" afterwards)
+        REVEAL_TARGET.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            context.it = target
+            return listOf(Step.Do(Effect.Reveal(target)))
+        }
+        // dsk chunk 06: "If it's a creature card, you may turn it face up.": the card's own types, not its face-down
+        // characteristics (CR 708.2a)
+        if (sentence == "If it's a creature card, you may turn it face up.") {
+            val it = context.it ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.Type(CardType.Creature, ignoringTypeChanges = true)),
+                then = listOf(Step.May(listOf(Step.Do(Effect.TurnFaceUp(it))), player = Players.You))))
+        }
+        // dsk chunk 05: "Its controller manifests dread." (the last target's), "The exiled card's owner manifests dread." (CR 701.62a)
+        PLAYER_MANIFESTS_DREAD.matchEntire(sentence)?.let { m ->
+            val player = when (m.groupValues[1]) {
+                "Its controller" -> context.lastTargetController()
+                "The exiled card's owner" -> exiledCard?.let { Players.OwnerOf(it) }
+                else -> null
+            } ?: return null
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.ManifestDread(player))))
+        }
+        // dsk chunk 05: "Attach this Equipment to that creature." after manifesting dread
+        ATTACH_SELF_TO_THAT_CREATURE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && context.manifested != null }?.let {
+            return listOf(Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = context.manifested!!))))
+        }
+        // dsk chunk 05: "When it dies this turn, [effect]." (a delayed trigger about the target, for the turn, CR 603.7b, c)
+        WHEN_IT_DIES_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val then = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(target), from = Zone.Battlefield, to = Zone.Graveyard)), then,
+                duration = arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 05: "Tap enchanted creature."
+        if (sentence == "Tap enchanted creature." || sentence == "Tap equipped creature.") return listOf(Step.Do(Effect.Tap(Objects.AttachedTo(Objects.Self))))
+        // dsk chunk 05: "Shuffle enchanted creature into its owner's library."
+        if (sentence == "Shuffle enchanted creature into its owner's library.") {
+            val enchanted = Objects.AttachedTo(Objects.Self)
+            return listOf(Step.Do(Effect.Move(enchanted, Destination(Zone.Library))), Step.Do(Effect.Shuffle(Players.OwnerOf(enchanted))))
+        }
+        // dsk chunk 05: "Put a card you put into your graveyard this way into your hand." (in a manifest-dread trigger, CR 701.62b)
+        if (sentence == "Put a card you put into your graveyard this way into your hand." && context.event is EventPattern.ManifestDread) {
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.EventObject(EventRole.Rest)),
+                bind = "chosen", chooser = Players.You), Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        return null
+    }
+
     private fun effect(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        // blb: the Bloomburrow wordings (blbEffect), tried first; each is specific and falls through when it can't read
+        blbEffect(sentence, context)?.let { return it }
+        // dsk: the Duskmourn wordings, tried first (their own function keeps this one under the JVM's method size limit)
+        setWordings(sentence, context)?.let { return it }
+        // dsk chunk 01: "Destroy all creatures with power 3 or greater."
+        DESTROY_ALL.matchEntire(sentence)?.let { m -> Filters.noun(m.groupValues[1])?.let { return listOf(Step.Do(Effect.Destroy(Objects.Each(it)))) } }
         // chunk 12
         SEARCH_LIBRARY_AND_OR_GRAVEYARD.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            val filter = Filters.noun(m.groupValues[2].removeArticle()) ?: return null
+            // dsk chunk 12: "your graveyard, hand, and/or library"
+            val zones = if (m.groupValues[1].startsWith("library")) listOf(Zone.Library, Zone.Graveyard) else listOf(Zone.Graveyard, Zone.Hand, Zone.Library)
             return listOf(
-                Step.Do(Effect.Search(Players.You, filter, zones = listOf(Zone.Library, Zone.Graveyard), bind = "found", max = Value.Fixed(1), searcher = Players.You)),
+                Step.Do(Effect.Search(Players.You, filter, zones = zones, bind = "found", max = Value.Fixed(1), searcher = Players.You)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield))))
         }
         IF_X_AT_LEAST.matchEntire(sentence)?.let { m ->
@@ -1384,7 +2725,9 @@ internal class Sentences(
             val another = if (m.groupValues[1].isEmpty()) emptyList() else listOf(context.another())
             val filter = Filters.all(*(another + listOf(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard),
                 ObjectFilter.OwnedBy(PlayerFilter.You))).toTypedArray())
-            return listOf(Step.Do(Effect.Move(context.target("card", filter), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty()))))
+            // dsk chunk 13: "with a finality counter on it"
+            val counters = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { listOf(arcanum.api.CountersToPut(Counters.kind(it) ?: return null, Value.Fixed(1))) }.orEmpty()
+            return listOf(Step.Do(Effect.Move(context.target("card", filter), Destination(Zone.Battlefield, tapped = m.groupValues[3].isNotEmpty(), counters = counters))))
         }
         if (sentence == "Shuffle your library.") return listOf(Step.Do(Effect.Shuffle(Players.You)))
         if (sentence == "Until end of turn, you may play that card without paying its mana cost.") {
@@ -1529,7 +2872,8 @@ internal class Sentences(
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Library, libraryPosition = 0))))
         }
         SEARCH_PUT_SHUFFLE.matchEntire(sentence)?.let { m ->
-            val filter = Filters.noun(m.groupValues[1].removeArticle().removeSuffix(" card")) ?: return null
+            // dsk chunk 07: "for any card" is "for a card"
+            val filter = Filters.noun(m.groupValues[1].let { if (it == "any card") "a card" else it }.removeArticle().removeSuffix(" card")) ?: return null
             // chunks 32, 42: "reveal it, ", "into your graveyard", "onto the battlefield tapped"
             val to = when (m.groupValues[3]) {
                 "into your hand" -> Destination(Zone.Hand)
@@ -1652,6 +2996,9 @@ internal class Sentences(
             val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
             val to = when (val what = m.groupValues[3]) {
                 "any target" -> { context.anyTarget(); arcanum.api.Recipients(target = "any") }
+                // blb chunk 01
+                "target player" -> arcanum.api.Recipients(players = context.targetPlayer())
+                "target opponent" -> arcanum.api.Recipients(players = context.targetOpponent())
                 else -> {
                     val noun = what.removePrefix("target ").takeIf { what.startsWith("target ") } ?: return null
                     arcanum.api.Recipients(objects = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null))
@@ -1807,7 +3154,8 @@ internal class Sentences(
         CREATE_FOR_EACH_COUNTER_ON_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
             val (count, token) = Tokens.spec(m.groupValues[1]) ?: return null
             if (count != 1) return null
-            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            // dsk chunk 12: "for each counter on this creature": every kind
+            val kind = if (m.groupValues[2].isEmpty()) null else Counters.kind(m.groupValues[2]) ?: return null
             return listOf(Step.Do(Effect.CreateToken(token, count = Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single), controller = Players.You)))
         }
         // chunk 35: "Draw a card for each +1/+1 counter on it." in an ability of this object
@@ -1850,9 +3198,13 @@ internal class Sentences(
         }
         CREATE_TOKEN.matchEntire(sentence)?.let { m ->
             // chunk 42: "a tapped 4/4 green Beast creature token"
-            val tokens = TAPPED_TOKENS.replaceFirst(m.groupValues[1], "$1 ")
+            // blb chunk 01: "… token that's tapped and attacking" (CR 508.4: its controller chooses what it attacks)
+            val attacking = Blb.TAPPED_AND_ATTACKING.find(m.groupValues[1])
+            val printed = attacking?.let { m.groupValues[1].removeRange(it.range) } ?: m.groupValues[1]
+            val tokens = TAPPED_TOKENS.replaceFirst(printed, "$1 ")
             val (count, token) = Tokens.spec(tokens) ?: return null
-            return listOf(Step.Do(Effect.CreateToken(token, count = Value.Fixed(count), tapped = tokens != m.groupValues[1], controller = Players.You)))
+            return listOf(Step.Do(Effect.CreateToken(token, count = Value.Fixed(count), tapped = tokens != printed || attacking != null, controller = Players.You,
+                attacking = attacking?.let { arcanum.api.AttackTarget.Chosen })))
         }
         THAT_PLAYER_MAY_SEARCH.matchEntire(sentence)?.let { m ->
             val player = context.lastTargetController() ?: return null
@@ -1915,7 +3267,7 @@ internal class Sentences(
         }
         // chunk 26: "Each opponent loses 1 life."
         PLAYERS_LOSE_LIFE.matchEntire(sentence)?.let { m ->
-            Filters.players(m.groupValues[1])?.let { return listOf(Step.Do(Effect.LoseLife(it, Value.Fixed(m.groupValues[2].toInt())))) }
+            playersIn(m.groupValues[1], context)?.let { return listOf(Step.Do(Effect.LoseLife(it, Value.Fixed(m.groupValues[2].toInt())))) }
         }
         // chunk 26: "This enchantment deals that much damage to each opponent."
         DEALS_THAT_MUCH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -1943,8 +3295,11 @@ internal class Sentences(
             val objects = when {
                 isSelf(subject) -> Objects.Self
                 // chunk 47: "It gains trample" after an effect on a target: that target
-                subject == "It" -> context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
-                else -> Filters.noun(subject.replaceFirstChar { it.lowercase() })?.let { Objects.Each(it) }
+                subject == "It" -> context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: context.it // dsk chunk 10
+                // dsk chunk 07: "that creature gains double strike" after a target
+                subject == "That creature" -> context.that ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+                // dsk chunk 13: "Gremlins you control" (a capitalised subtype)
+                else -> (Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: Filters.noun(subject))?.let { Objects.Each(it) }
             }
             val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) }
             if (objects != null && keywords.all { it != null })
@@ -2021,7 +3376,9 @@ internal class Sentences(
         // chunk 20: "It deals 2 damage to any target." before any target is named: "it" is the source itself.
         if (sentence.startsWith("It deals ") && context.targets.isEmpty()) effect("This card" + sentence.removePrefix("It"), context)?.let { return it }
         // chunk 20: "Attach this Equipment to target creature you control." (CR 701.3)
-        ATTACH_SELF_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+        // dsk chunk 13: "attach it to …" in this object's enters trigger
+        ATTACH_SELF_TO_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) ||
+            it.groupValues[1] == "it" && context.event == EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield) }?.let { m ->
             val noun = m.groupValues[2]
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
             return listOf(Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = target))))
@@ -2036,6 +3393,9 @@ internal class Sentences(
         SACRIFICE_THAT.matchEntire(sentence)?.let { context.that?.let { that -> return listOf(Step.Do(Effect.Sacrifice(that))) } }
         // chunk 20: "Return this card from your graveyard to the battlefield"
         RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            // dsk chunk 07: "… with a finality counter on it" (CR 122.6)
+            val counters = it.groupValues[3].takeIf { c -> c.isNotEmpty() }?.let { c -> listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(1))) }
+            if (counters != null) return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = it.groupValues[2].isNotEmpty(), counters = counters))))
             context.it = Objects.Bound("returned")
             return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = it.groupValues[2].isNotEmpty()), postBind = "returned")))
         }
@@ -2092,7 +3452,7 @@ internal class Sentences(
                 isSelf(on) -> Objects.Self
                 // chunk 36: "on it"
                 on == "it" -> context.it
-                on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), Filters.noun(it) ?: return null) }
+                on.startsWith("target ") -> on.removePrefix("target ").let { context.target(Filters.slotName(it), nounIn(it, context) ?: return null) }
                 // chunk 35: other wordings ("on Korvold and draw a card") are left to the rules below
                 else -> null
             }
@@ -2225,7 +3585,10 @@ internal class Sentences(
         }
         // chunks 31, 47: "You may exile it. When you do, [reflexive trigger]." (CR 603.12)
         YOU_MAY_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
-            costPart(m.groupValues[1].replaceFirstChar { it.uppercase() })?.let { parts ->
+            // dsk chunk 12: "You may discard a card or pay {2}. When you do, …": one of two costs
+            val options = m.groupValues[1].split(Regex(""" or (?=(?:sacrifice|pay|discard|exile|tap) )"""))
+            val either = if (options.size < 2) null else options.map { Cost(costPart(it.replaceFirstChar { c -> c.uppercase() }) ?: return@let) }
+            (either?.let { listOf(CostPart.OneOf(it)) } ?: costPart(m.groupValues[1].replaceFirstChar { it.uppercase() }))?.let { parts ->
                 val reflexive = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
                 return listOf(Step.Pay(Cost(parts), bind = "paid", payer = Players.You),
                     Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ReflexiveTrigger(reflexive)))))
@@ -2450,8 +3813,11 @@ internal class Sentences(
         // chunk 21: "You may [do something]." with nothing depending on it (CR 608.2d)
         // chunk 51: "Target creature you control gains shroud until end of turn."
         TARGET_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
-            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
-            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val keywords = m.groupValues[3].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val noun = Filters.noun(m.groupValues[2]) ?: return null
+            // dsk chunk 12: "another target creature you control"
+            val target = context.target(Filters.slotName(m.groupValues[2]),
+                if (m.groupValues[1] == "Target") noun else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun))
             return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
         }
         // chunk 50: "Sacrifice [this creature]."
@@ -2512,7 +3878,9 @@ internal class Sentences(
             val slot = Filters.slotName(noun)
             context.targets += TargetSlot(slot, TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(n))
             context.it = Objects.Bound("exiled")
-            return listOf(Step.Do(Effect.Move(Objects.Target(slot), Destination(Zone.Exile), postBind = "exiled")))
+            // dsk chunk 04: linked to "cards exiled with this creature" (CR 607.2a)
+            return listOf(Step.Do(Effect.Move(Objects.Target(slot), Destination(Zone.Exile), postBind = "exiled"))) +
+                (if (linkedExile || exiledCard == Objects.Remembered(EXILED_WITH)) remembered(Objects.Bound("exiled")) else emptyList())
         }
         // "At the beginning of the next end step, [effect].": a delayed trigger (CR 603.7), about the objects named now
         AT_BEGINNING_OF_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
@@ -2522,8 +3890,13 @@ internal class Sentences(
                 Instructions(steps = inner))))
         }
         // "Return that card to the battlefield under its owner's control."
-        RETURN_IT_UNDER_OWNERS_CONTROL.matchEntire(sentence)?.let {
+        RETURN_IT_UNDER_OWNERS_CONTROL.matchEntire(sentence)?.let { m ->
             val card = context.it ?: return null
+            // dsk chunk 10: "… tapped under its owner's control with two stun counters on it"
+            val counters = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { c ->
+                listOf(arcanum.api.CountersToPut(Counters.kind(c) ?: return null, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))) }.orEmpty()
+            if (m.groupValues[1].isNotEmpty() || counters.isNotEmpty())
+                return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty(), controller = Players.OwnerOf(card), counters = counters))))
             return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, controller = Players.OwnerOf(card)), postBind = "returned")))
         }
         MILL.matchEntire(sentence)?.let { m ->
@@ -2541,6 +3914,14 @@ internal class Sentences(
                 val then = effect(m.groupValues[1] + ".", context) ?: return null
                 return listOf(Step.If(arcanum.api.Condition.Not(condition), then = then))
             }
+        }
+        // dsk chunk 04: "Draw a card if you control a Glimmer creature." (checked as it resolves)
+        EFFECT_IF_CONDITION.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self)
+            val targets = context.targets.size
+            val then = condition?.let { effect(m.groupValues[1] + ".", context) }
+            if (condition != null && then != null) return listOf(Step.If(condition, then = then))
+            while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
         }
         // "[A], then [B].": tried last, after the wordings that contain ", then" themselves.
         THEN.matchEntire(sentence)?.let { m ->
@@ -2573,6 +3954,45 @@ internal class Sentences(
         return listOf(CostPart.Exile(CostObjects.These(that), from = Zone.Graveyard, postBind = "exiled"))
     }
 
+    /** dsk chunk 02: what mana may be spent on ("cast Room spells and unlock doors", "cast an enchantment spell, unlock a door,
+     * or turn a permanent face up"): spells, and the special actions of unlocking (CR 709.5e) and turning face up (116.2b). */
+    private fun spendOnlyTo(text: String): ObjectFilter? {
+        val uses = text.split(Regex(""",? or |,? and |, """)).map { use ->
+            when (use) {
+                "unlock doors", "unlock a door" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Unlock)
+                "turn permanents face up", "turn a permanent face up" -> ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.TurnFaceUp)
+                // as "Spend this mana only to cast artifact spells" reads (chunk 03)
+                else -> CAST_SPELLS.matchEntire(use)?.let { m -> Filters.noun(m.groupValues[1])?.let { Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), it) } } ?: return null
+            }
+        }
+        return uses.singleOrNull() ?: ObjectFilter.Or(uses)
+    }
+
+    /** dsk chunk 05: "Enchanted creature", "Equipped creature": the object this Aura or Equipment is attached to. */
+    private fun attachedSubject(text: String): Objects? =
+        if (text == "Enchanted creature" || text == "Equipped creature" || text == "enchanted creature") Objects.AttachedTo(Objects.Self) else null
+
+    /** dsk chunk 01: "it's a Reflection in addition to its other creature types" (CR 707.9b). */
+    private fun copyExceptions(text: String): List<arcanum.api.CopyException>? {
+        // dsk chunk 13: "it's a 1/1 red Balloon creature in addition to its other colors and types and it has flying and haste"
+        PT_COLOR_TYPE_IN_ADDITION.matchEntire(text)?.let { m ->
+            val color = Tokens.color(m.groupValues[3]) ?: return null
+            val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
+            val keywords = m.groupValues[5].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+            return listOfNotNull(
+                arcanum.api.CopyException.PowerToughness(m.groupValues[1].toInt(), m.groupValues[2].toInt()),
+                arcanum.api.CopyException.Colors(listOf(ColorRef.Literal(color)), add = true),
+                arcanum.api.CopyException.Types(add = listOf(CardType.Creature), addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))),
+                keywords?.let { arcanum.api.CopyException.AddAbilities(it) },
+            )
+        }
+        ADDITIONAL_CREATURE_TYPE.matchEntire(text)?.let { m ->
+            val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
+            return listOf(arcanum.api.CopyException.Types(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))))
+        }
+        return null
+    }
+
     /** "nonland permanent with mana value equal to the number of charge counters on this artifact" (read from the source,
      * its last known information once it has left, CR 608.2h). */
     // chunk 21
@@ -2585,6 +4005,15 @@ internal class Sentences(
 
     /** chunk 56: a condition about "it", the object an earlier sentence acted on ("it has no ice counters on it"). */
     private fun itCondition(text: String, context: Context): arcanum.api.Condition? {
+        // blb chunk 02: "that creature isn't legendary", "that creature is a Bird, Frog, Otter, or Rat"
+        Blb.IT_IS.matchEntire(text)?.let { m ->
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+            // blb chunk 13: "that creature" after a target names the target, not the trigger's event object
+            val event = context.it is Objects.EventObject
+            val it = (if (text.startsWith("that creature ") && event) target ?: context.it else context.it ?: target) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return arcanum.api.Condition.ObjectMatches(it, if (m.groupValues[1] == "is") filter else ObjectFilter.Not(filter))
+        }
         val it = context.it ?: return null
         val m = IT_HAS_NO_COUNTERS.matchEntire(text) ?: return null
         val kind = Counters.kind(m.groupValues[1]) ?: return null
@@ -2640,7 +4069,8 @@ internal class Sentences(
                     Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
         LOOK_OR_REVEAL_TOP.matchEntire(sentence)?.let { m ->
-            val n = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)
+            // dsk chunk 04: "the top X cards" with X defined by the ability ("where X is its power")
+            val n = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)
             context.seen = "seen"
             val cards = Objects.LibraryCards(Players.You, n, fromTop = true)
             return listOf(Step.Do(if (m.groupValues[1] == "Look at") Effect.LookAt(cards, bind = "seen", players = Players.You) else Effect.Reveal(cards, bind = "seen")))
@@ -2719,16 +4149,20 @@ internal class Sentences(
             val noun = m.groupValues[2]
             val filter = Filters.noun(noun) ?: return null
             val chosen = if (m.groupValues[1].isEmpty()) filter else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter)
-            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(context.target(Filters.slotName(noun), chosen)), count = Value.Fixed(1), controller = Players.You)))
+            // dsk chunk 01: ", except it's a Reflection in addition to its other creature types" (CR 707.9b)
+            val except = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { copyExceptions(it) ?: return null }.orEmpty()
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(context.target(Filters.slotName(noun), chosen), except), count = Value.Fixed(1), controller = Players.You)))
         }
 
         // chunk 33
         EACH_SACRIFICES.matchEntire(sentence)?.let { m ->
             val player = m.groupValues[1]
             val who = if (player == "player") PlayerFilter.Any else PlayerFilter.Opponent
-            val filter = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound(player))))
+            val filter = Filters.all(Filters.noun(m.groupValues[3]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound(player))))
+            // dsk chunk 10: "sacrifices X creatures of their choice"
+            val n = when (val c = m.groupValues[2]) { "a", "an" -> Value.Fixed(1); "X" -> Value.Announced(name = "X"); else -> Value.Fixed(Numbers.count(c) ?: return null) }
             return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(who)), bind = player, together = true, steps = listOf(
-                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(1), max = Value.Fixed(1)), bind = "sacrificed", chooser = Players.Bound(player)),
+                Step.Choose(arcanum.api.Choice.Objects(filter, min = n, max = n), bind = "sacrificed", chooser = Players.Bound(player)),
                 Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))))
         }
         // "gain control of": a control-changing effect with no end (CR 613.1b)
@@ -2845,13 +4279,20 @@ internal class Sentences(
 
     /** "{C}", "{B}{B}", "{R} or {G}", "one mana of any color", "three mana of any one color" (CR 106.1). */
     private fun mana(text: String): ManaKind? {
+        // dsk chunk 14: "one mana of the chosen color" (as this permanent entered)
+        if (text == "one mana of the chosen color") return ManaKind.Choose(Value.Fixed(1), listOf(ColorRef.Remembered(CHOSEN_COLOR)))
         ANY_COMBINATION.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), combination = true) }
         ANY_COLOR.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1].ifEmpty { m.groupValues[2] }) ?: return null)) }
+        // blb chunk 12: "one mana of the chosen color"
+        if (text == "one mana of the chosen color") return ManaKind.Choose(Value.Fixed(1), listOf(ColorRef.Remembered(CHOSEN_COLOR)))
         ManaCost.parse(text)?.let { return ManaKind.Fixed(it) }
         val colors = text.split(Regex(""",? or |, """)).map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
             ?.let { (it as? arcanum.api.ManaSymbol.Colored)?.color } ?: return null }
         return ManaKind.Choose(Value.Fixed(1), colors.map { ColorRef.Literal(it) })
     }
+
+    /** blb chunk 11: "+X" defined by the ability's own "where X is" (replaced as the instructions are read). */
+    private fun xOrChange(text: String): Value? = if (text == "+X") Value.Announced(name = "X") else ptChange(text)
 
     /** chunk 26: "+1", "-X" in "gets +1/+1": X of the spell, or of the permanent's spell (CR 107.3a, 107.3m). */
     private fun ptChange(text: String): Value? {
@@ -2886,6 +4327,1297 @@ internal class Sentences(
             else acc += sentence
             acc
         }
+    }
+
+    // ---- blb: Bloomburrow wordings (the set's parser tests, sets/blb/BlbChunk*Test.kt)
+
+    /** A noun phrase in a trigger's effect: "creature you control other than that creature" excludes the event's object. */
+    // blb chunk 01
+    private fun nounIn(phrase: String, context: Context): ObjectFilter? {
+        Blb.OTHER_THAN_THAT.matchEntire(phrase)?.let { m ->
+            val that = context.that ?: return null
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(that)))
+        }
+        return Filters.noun(phrase)
+    }
+
+    /** blb chunk 01: a player phrase that may name a target ("Target opponent", "target player") as well as "each opponent". */
+    private fun playersIn(phrase: String, context: Context): Players? = when (phrase.lowercase()) {
+        "target opponent" -> context.targetOpponent()
+        "target player" -> context.targetPlayer()
+        // blb chunk 05: "they", "that player": the player named before, or the event's player
+        "they", "that player" -> context.lastPlayer ?: Players.EventPlayer.takeIf { context.event != null }
+        // blb chunk 07: "defending player" in an attack trigger (CR 506.2)
+        "defending player" -> (context.event as? EventPattern.Attack)?.let { Players.DefendingPlayerOf(Objects.EventObject(EventRole.Object)) }
+        else -> Filters.players(phrase)
+    }
+
+    /** blb chunk 02: [sentence] about what the step before moved ("return that card", "put into your graveyard this way"),
+     * when the step before named nothing: the move names it ("exiled", "returned", "destroyed"), then the sentence is read
+     * with "it"/"this way" meaning it. Null when that doesn't read either. */
+    private fun afterMove(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        val last = (steps.lastOrNull() as? Step.Do)?.effect ?: return null
+        val (named, bound) = when (last) {
+            is Effect.Move -> if (last.postBind != null) return null else {
+                val name = when (last.to.zone) { Zone.Exile -> "exiled"; Zone.Battlefield -> "returned"; else -> return null }
+                last.copy(postBind = name) to name
+            }
+            is Effect.Destroy -> if (last.postBind != null) return null else last.copy(postBind = "destroyed") to "destroyed"
+            else -> return null
+        }
+        val (it, thisWay) = context.it to context.thisWay
+        context.it = Objects.Bound(bound)
+        context.thisWay = Objects.Bound(bound)
+        val parsed = effect(sentence, context)
+        if (parsed == null) { context.it = it; context.thisWay = thisWay; return null }
+        return steps.dropLast(1) + Step.Do(named) + parsed
+    }
+
+    /** The Bloomburrow sentences that change the steps before them; null when none reads [sentence]. */
+    private fun blbModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // blb chunk 12: "Then if you control four or more lands, untap that land." after searching for a land and putting it
+        // onto the battlefield
+        Blb.THEN_IF_UNTAP_THAT_LAND.matchEntire(sentence)?.let { m ->
+            val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Move)?.let { mv -> mv.objects == Objects.Bound("found") && mv.to.zone == Zone.Battlefield } == true }
+            if (index < 0) return null
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            val move = (steps[index] as Step.Do).effect as Effect.Move
+            return steps.toMutableList().also { it[index] = Step.Do(move.copy(postBind = "land")) } +
+                Step.If(condition, then = listOf(Step.Do(Effect.Untap(Objects.Bound("land")))))
+        }
+        // blb chunk 11: "Exile that token at the beginning of the next end step." after creating it (CR 603.7)
+        if (sentence == "Exile that token at the beginning of the next end step.") {
+            val bound = bindTokens(steps) ?: return null
+            return bound + Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Bound(TOKENS), Destination(Zone.Exile)))))))
+        }
+        // blb chunk 11: "Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order."
+        // after revealing until a card is found
+        if (sentence == "Put that card onto the battlefield tapped and the rest on the bottom of your library in a random order." &&
+            ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.RevealUntil)?.foundBind == FOUND) {
+            return steps + listOf(Step.Do(Effect.Move(Objects.Bound(FOUND), Destination(Zone.Battlefield, tapped = true))),
+                Step.Do(Effect.Move(Objects.Bound(REST), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // blb chunk 10: "If you control a Bird, counter that spell unless its controller pays {4} instead." after "Counter target
+        // spell unless its controller pays {2}.": the other cost instead (CR 118.12a)
+        Blb.COUNTER_UNLESS_INSTEAD.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            if (steps.size < 2) return null
+            val pay = steps[steps.size - 2] as? Step.Pay ?: return null
+            val instead = pay.copy(cost = Cost(listOf(CostPart.Mana(ManaCost.parse(m.groupValues[2]) ?: return null))))
+            return steps.dropLast(2) + Step.If(condition, then = listOf(instead, steps.last()), otherwise = steps.takeLast(2))
+        }
+        // blb chunk 09: "If this spell was cast from anywhere other than your hand, put a +1/+1 counter on that creature." after
+        // creating a token: "that creature" is the token (CR 400.7d: a copy wasn't cast)
+        Blb.IF_CAST_NOT_FROM_HAND_COUNTER_ON_THAT.matchEntire(sentence)?.let { m ->
+            val create = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken)?.takeIf { it.bind == null } ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return steps.dropLast(1) + Step.Do(create.copy(bind = "token")) + Step.If(arcanum.api.Condition.And(listOf(
+                arcanum.api.Condition.CastFrom(null, Objects.Self), arcanum.api.Condition.Not(arcanum.api.Condition.CastFrom(Zone.Hand, Objects.Self)))),
+                then = listOf(Step.Do(Effect.PutCounters(Objects.Bound("token"), kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)))))
+        }
+        // blb chunk 06: "If that creature would die this turn, exile it instead." after damage to a target: a replacement for the
+        // rest of the turn (CR 614.1a)
+        if (sentence == "If that creature would die this turn, exile it instead.") {
+            val creature = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(
+                EventPattern.ZoneChange(ObjectFilter.Is(creature), from = Zone.Battlefield, to = Zone.Graveyard),
+                modify = listOf(arcanum.api.Modification.ChangeDestination(Destination(Zone.Exile))))), null, arcanum.api.Duration.EndOfTurn))
+        }
+        // blb chunk 03: "If you cast a spell this way, that creature enters with a finality counter on it." after a
+        // permission: the spell cast with it gets that (CR 400.7d)
+        Blb.CAST_THIS_WAY_ENTERS_WITH.matchEntire(sentence)?.let { m ->
+            val apply = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics) ?: return null
+            val may = apply.mechanics.singleOrNull() as? Mechanic.MayPlay ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val gets = Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield),
+                modify = listOf(arcanum.api.Modification.EntersWithCounters(kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+            return steps.dropLast(1) + Step.Do(apply.copy(mechanics = listOf(may.copy(spellGets = may.spellGets + gets))))
+        }
+        return null
+    }
+
+    /** The Bloomburrow static wordings; null when none reads [line]. */
+    private fun blbStatic(line: String): Ability? {
+        // blb chunk 12: "As it enters, choose a color." (CR 614.12, 607.2d)
+        Blb.AS_ENTERS_CHOOSE_COLOR.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.AsEnters(listOf(Step.Choose(arcanum.api.Choice.Color(), bind = CHOSEN_COLOR, remember = true, chooser = Players.You)))))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 11: "Players can't gain life." (CR 119.7), "Damage can't be prevented." (CR 615.12)
+        if (line == "Players can't gain life.")
+            return Ability.Static(listOf(Mechanic.CantGainLife), affects = Affected.Players(Players.Each(PlayerFilter.Any)))
+        if (line == "Damage can't be prevented.")
+            return Ability.Static(listOf(Mechanic.DamageCantBePrevented(EventPattern.Damage(source = ObjectFilter.Any, to = RecipientFilter()))),
+                affects = Affected.Objects(Objects.Self))
+        // blb chunk 11: "Enchanted creature doesn't untap during its controller's untap step." (CR 502.3)
+        if (line == "Enchanted creature doesn't untap during its controller's untap step.")
+            return Ability.Static(listOf(Mechanic.DoesntUntap), affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
+        // blb chunk 11: "Creatures your opponents control have base toughness 1." (CR 613.4b)
+        Blb.HAVE_BASE_TOUGHNESS.matchEntire(line)?.let { m ->
+            val group = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.SetPowerToughness(null, Value.Fixed(m.groupValues[2].toInt()))), affects = Affected.Objects(Objects.Each(group)))
+        }
+        // blb chunk 10: "This spell costs {1} less to cast if you control an Otter." ("… if it targets …" is read by dsk chunk 09,
+        // CR 601.2f)
+        Blb.THIS_SPELL_COSTS_LESS_IF.matchEntire(line)?.let { m ->
+            if (m.groupValues[2].startsWith("it targets ")) return@let
+            val per = ManaCost.parse(m.groupValues[1]) ?: return null
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return@let
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(per, Value.Fixed(1)))),
+                affects = Affected.Objects(Objects.Self), condition = condition)
+        }
+        // blb chunk 09: "This spell costs {1} less to cast for each instant and sorcery card in your graveyard." (CR 601.2f)
+        Blb.THIS_SPELL_COSTS_LESS_FOR_EACH.matchEntire(line)?.let { m ->
+            val per = ManaCost.parse(m.groupValues[1]) ?: return null
+            val counted = Filters.noun(m.groupValues[2].replace(" and ", " or ").replace(" in exile or in ", " in exile and in ")) ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(per, Value.Count(Objects.Each(counted))))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 09: "If a card or token would be put into your graveyard from anywhere, exile it instead." (CR 614.1a)
+        Blb.WOULD_BE_PUT_INTO_YOUR_GRAVEYARD.matchEntire(line)?.let { m ->
+            val what = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(Filters.all(what, ObjectFilter.OwnedBy(PlayerFilter.You)), to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 09: "This creature enters tapped if it's not your turn." (CR 614.1c)
+        Blb.ENTERS_TAPPED_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersTapped))), affects = Affected.Objects(Objects.Self),
+                condition = Conditions.condition(m.groupValues[2], self) ?: return null)
+        }
+        // blb chunk 09: "As long as [condition], creatures your opponents control get -1/-0."
+        Blb.AS_LONG_AS_GROUP_GETS.matchEntire(line)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return@let
+            val group = Filters.noun(m.groupValues[2]) ?: return@let
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))),
+                affects = Affected.Objects(Objects.Each(group)), condition = condition)
+        }
+        // blb chunk 09: "As long as [condition], it gets +4/+4 and has trample."
+        Blb.AS_LONG_AS_IT_GETS_AND_HAS.matchEntire(line)?.let { m ->
+            if (m.groupValues[2] != "it" && !isSelf(m.groupValues[2])) return@let
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt())),
+                Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)), affects = Affected.Objects(Objects.Self), condition = condition)
+        }
+        // blb chunk 09: "You may cast instant and sorcery spells from your graveyard by paying 1 life in addition to their other
+        // costs." (CR 601.2a, 601.2f)
+        Blb.YOU_MAY_CAST_FROM_GRAVEYARD_BY.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replace(" spells", " cards").replace(" and ", " or ")) ?: return null
+            val extra = if (m.groupValues[2] == "foraging") CostPart.Action(arcanum.api.KeywordAction.Forage)
+                else costPart(m.groupValues[2].replace("paying", "pay").replaceFirstChar { it.uppercase() })?.singleOrNull() ?: return null
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, additionalCost = Cost(listOf(extra)), holder = PlayerFilter.You)),
+                affects = Affected.Objects(Objects.Each(Filters.all(spells, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+        }
+        // blb chunk 08: "You may cast noncreature spells as though they had flash." (a permission of the player, CR 601.3)
+        Blb.YOU_MAY_CAST_AS_THOUGH_FLASH.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.CastAsThoughFlash(spells)), affects = Affected.Players(Players.You))
+        }
+        // blb chunk 08: "If a Lizard, Mouse, Otter, or Raccoon you control would deal damage to a permanent or player, it deals that
+        // much damage plus 1 instead." (CR 614.1a)
+        Blb.DAMAGE_TO_ANY_PLUS.matchEntire(line)?.let { m ->
+            val source = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Damage(source, RecipientFilter()),
+                modify = listOf(Modification.AddAmount(Value.Fixed(m.groupValues[2].toInt()))))), affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 07: "As long as you've lost life this turn, this creature has flying and vigilance."
+        Blb.AS_LONG_AS_SELF_HAS.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(keywords(m.groupValues[3]) ?: return null)), affects = Affected.Objects(Objects.Self),
+                condition = condition)
+        }
+        // blb chunk 07: "This creature enters with a +1/+1 counter on it if an opponent lost life this turn." (CR 614.1c)
+        Blb.ENTERS_WITH_COUNTER_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            val condition = Conditions.condition(m.groupValues[4], self) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))),
+                affects = Affected.Objects(Objects.Self), condition = condition)
+        }
+        // blb chunk 07: "Other creatures you control enter with an additional +1/+1 counter on them for each opponent who lost life
+        // this turn."
+        Blb.OTHERS_ENTER_WITH_ADDITIONAL.matchEntire(line)?.let { m ->
+            val entering = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val per = when (m.groupValues[3]) {
+                "opponent who lost life this turn" -> Value.CountPlayers(Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent,
+                    PlayerFilter.ThisTurn(EventPattern.LoseLife(PlayerFilter.Any))))))
+                else -> return null
+            }
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(entering, to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(kind, per)))), affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 05: "Noncreature spells you cast cost {1} less to cast.", "Instant and sorcery spells you cast …" (CR 601.2f)
+        Blb.SPELLS_YOU_CAST_COST.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }.replace(" and ", " or ") + " spell") ?: return null
+            val mana = ManaCost.parse(m.groupValues[2]) ?: return null
+            val change = if (m.groupValues[3] == "more") arcanum.api.CostChange.More(mana, Value.Fixed(1)) else arcanum.api.CostChange.Less(mana, Value.Fixed(1))
+            return Ability.Static(listOf(Mechanic.CostChange(Filters.all(spells, ObjectFilter.ControlledBy(PlayerFilter.You)), change = change)),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 05: "Permanents you control with counters on them have ward {1}." (keywords with values, CR 613.1f)
+        Blb.HAVE_KEYWORDS_WITH_VALUES.matchEntire(line)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return@let
+            val keywords = m.groupValues[2].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return@let }
+            return Ability.Static(listOf(Mechanic.GainAbilities(keywords)), affects = Affected.Objects(Objects.Each(filter)))
+        }
+        // blb chunk 05: "If a source you control would deal noncombat damage to an opponent or a permanent an opponent controls, it
+        // deals that much damage plus 2 instead." (CR 614.1a)
+        Blb.DAMAGE_PLUS.matchEntire(line)?.let { m ->
+            // "a source you control": any object as a source, by its controller
+            val source = when (val s = m.groupValues[1].removeArticle()) {
+                "source you control" -> ObjectFilter.ControlledBy(PlayerFilter.You)
+                else -> Filters.noun(s) ?: return null
+            }
+            val combat = when (m.groupValues[2]) { "noncombat " -> false; "combat " -> true; else -> null }
+            return Ability.Static(listOf(Mechanic.Replacement(
+                EventPattern.Damage(source, RecipientFilter(objects = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+                    ObjectFilter.ControlledBy(PlayerFilter.Opponent)), players = PlayerFilter.Opponent), combat = combat),
+                modify = listOf(Modification.AddAmount(Value.Fixed(m.groupValues[3].toInt()))))), affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 05: "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds
+        // of counters on that permanent or player instead." (CR 614.1a: counters you put, by your effects and costs)
+        if (line == "If you would put one or more counters on a permanent or player, put twice that many of each of those kinds of counters on that permanent or player instead.") {
+            val yours = ObjectFilter.ControlledBy(PlayerFilter.You)
+            return Ability.Static(listOf(
+                Mechanic.Replacement(EventPattern.CountersPut(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), causedBy = yours),
+                    modify = listOf(Modification.MultiplyAmount(2))),
+                Mechanic.Replacement(EventPattern.PlayerCountersPut(PlayerFilter.Any, causedBy = yours), modify = listOf(Modification.MultiplyAmount(2))),
+            ), affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 03: "Other creatures are Food artifacts in addition to their other types and have "[ability]"." (CR
+        // 205.1b, 613.1d, f)
+        Blb.ARE_IN_ADDITION.matchEntire(line)?.let { m ->
+            val affected = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            val (types, subtypes) = typesAndSubtypes(m.groupValues[2]) ?: return null
+            val granted = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { Sentences(setOf("this permanent", "this creature")).line("$it.") ?: return null }
+            return Ability.Static(listOf<Mechanic>(Mechanic.SetTypes(add = types, addSubtypes = subtypes)) +
+                listOfNotNull(granted?.let { Mechanic.GainAbilities(listOf(it)) }), affects = Affected.Objects(Objects.Each(affected)))
+        }
+        // blb chunk 03: 'Enchanted permanent is a colorless Food artifact with "[ability]" and loses all other card types and
+        // abilities.' (CR 613.1d–f: the types and subtypes replaced, colourless, the granted ability kept)
+        Blb.ENCHANTED_IS_A_COLORLESS.matchEntire(line)?.let { m ->
+            val (types, subtypes) = typesAndSubtypes(m.groupValues[1]) ?: return null
+            val granted = Sentences(setOf("this artifact", "this permanent")).line(m.groupValues[2] + ".") ?: return null
+            return Ability.Static(listOf(Mechanic.SetTypes(add = types, addSubtypes = subtypes, replaceTypes = true, replaceSubtypes = true),
+                Mechanic.SetColors(emptyList()), Mechanic.LoseAbilities(), Mechanic.GainAbilities(listOf(granted))),
+                affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
+        }
+        // blb chunk 02: "Equipped creature gets +3/+3 and loses flying.", "… gets +2/+0 and has first strike, vigilance,
+        // trample, and haste." (CR 613.4c, 613.1f)
+        Blb.ATTACHED_GETS_HAS_LOSES.matchEntire(line)?.let { m ->
+            fun keywords(text: String) = text.split(Regex(""",? and |, """)).map { OracleParser.keyword(it) }
+            val has = m.groupValues[3].takeIf { it.isNotEmpty() }?.let { keywords(it) }
+            val loses = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { keywords(it) }
+            if (has == null && loses == null) return null
+            if (has?.contains(null) == true || loses?.contains(null) == true) return null
+            val mechanics = listOf<Mechanic>(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))) +
+                listOfNotNull(has?.let { Mechanic.GainAbilities(it.filterNotNull()) }) +
+                loses.orEmpty().filterNotNull().map { Mechanic.LoseAbilities(it.kind) }
+            return Ability.Static(mechanics, affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
+        }
+        // blb chunk 02: "You control enchanted creature." (layer 2, CR 613.1b)
+        if (line == "You control enchanted creature.")
+            return Ability.Static(listOf(Mechanic.ControlledBy(Players.You)), affects = Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
+        return null
+    }
+
+    /** blb chunk 03: "Food artifacts" → card types and subtypes (plurals singular). */
+    private fun typesAndSubtypes(words: String): Pair<List<arcanum.api.CardType>, List<arcanum.api.SubtypeRef>>? {
+        val types = mutableListOf<arcanum.api.CardType>()
+        val subtypes = mutableListOf<arcanum.api.SubtypeRef>()
+        for (word in words.split(' ')) {
+            val single = if (word.first().isLowerCase()) word.removeSuffix("s") else word.removeSuffix("s").takeIf { it in RulesWords.subtypes } ?: word
+            Filters.CARD_TYPES[single]?.let { types += it } ?: if (single in RulesWords.subtypes) subtypes += arcanum.api.SubtypeRef.Literal(Subtype(single)) else return null
+        }
+        return types to subtypes
+    }
+
+    /** The Bloomburrow effect wordings; null when none reads [sentence]. */
+    private fun blbEffect(sentence: String, context: Context): List<Step>? {
+        // blb chunk 12: "Choose a color. Add an amount of mana of that color equal to the number of creatures you control of the
+        // chosen type." (CR 106.1)
+        if (sentence == "Choose a color.") return listOf(Step.Choose(arcanum.api.Choice.Color(), bind = "color", chooser = Players.You))
+        Blb.ADD_AMOUNT_OF_THAT_COLOR.matchEntire(sentence)?.let { m ->
+            val amount = Values.value(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.AddMana(arcanum.api.ManaProduction(ManaKind.Choose(amount, listOf(ColorRef.Chosen("color")))), Players.You)))
+        }
+        // blb chunk 12: "This Vehicle becomes an artifact creature until end of turn." (CR 301.7b)
+        Blb.BECOMES_ARTIFACT_CREATURE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Artifact, arcanum.api.CardType.Creature))),
+                Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 12: "It gains trample until end of turn." in an activated ability without targets: this permanent
+        Blb.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.takeIf { context.it == null && context.event == null && context.targets.isEmpty() }?.let { m ->
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords(m.groupValues[1]) ?: return null)),
+                Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 12: "Then if creatures you control have total power 10 or greater, draw a card."
+        Blb.THEN_IF.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return@let
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            return listOf(Step.If(condition, then = then))
+        }
+        // blb chunk 11: "Put two +1/+1 counters on that creature." in an enters trigger: the creature that entered
+        Blb.COUNTERS_ON_THAT_CREATURE.matchEntire(sentence)?.let { m ->
+            if ((context.event as? EventPattern.ZoneChange)?.to != Zone.Battlefield) return@let
+            val it = context.that ?: return@let
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(it, kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        // blb chunk 11: "Look at the top card of your library." ("it" is then that card)
+        if (sentence == "Look at the top card of your library.") {
+            context.it = Objects.Bound("seen")
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(1), fromTop = true), bind = "seen", players = Players.You)))
+        }
+        // blb chunk 11: "Put it onto the battlefield tapped."
+        Blb.PUT_IT_ONTO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            return listOf(Step.Do(Effect.Move(it, Destination(Zone.Battlefield, tapped = m.groupValues[1].isNotEmpty()))))
+        }
+        // blb chunk 11: "Create a token that's a copy of this creature." (CR 707.2)
+        Blb.CREATE_COPY_OF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(Objects.Self), count = Value.Fixed(1), controller = Players.You)))
+        }
+        // blb chunk 11: "Return this creature to its owner's hand."
+        Blb.RETURN_TO_OWNERS_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand))))
+        }
+        // blb chunk 11: "Return up to one target creature you control with lesser mana value to its owner's hand." (lesser
+        // than the creature that entered)
+        Blb.RETURN_UP_TO_ONE_LESSER.matchEntire(sentence)?.let { m ->
+            val entered = context.it ?: return null
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(
+                arcanum.api.Comparison.Less, Value.Of(arcanum.api.NumericProperty.ManaValue, entered, arcanum.api.Combine.Single)))),
+                min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // blb chunk 11: "If that creature had power 2 or less, put a +1/+1 counter on this creature." (its last known
+        // information, CR 608.2h)
+        Blb.IF_THAT_HAD_POWER.matchEntire(sentence)?.let { m ->
+            val that = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() }, context) ?: return null
+            val comparison = if (m.groupValues[2] == "greater") arcanum.api.Comparison.AtLeast else arcanum.api.Comparison.AtMost
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(that, ObjectFilter.Power(comparison, Value.Fixed(m.groupValues[1].toInt()))), then = then))
+        }
+        // blb chunk 11: "Return another target creature you control to its owner's hand.", "… up to one other target permanent …"
+        Blb.RETURN_OTHER_TARGET_TO_HAND.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(context.another(), Filters.noun(noun) ?: return null)),
+                min = Value.Fixed(if (m.groupValues[1] == "another") 1 else 0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // blb chunk 11: "Return another creature you control to its owner's hand. If you do, …" (a choice, not a target)
+        Blb.RETURN_ANOTHER_IF_YOU_DO.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(context.another(), Filters.noun(m.groupValues[1]) ?: return null)
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(
+                Step.Pay(Cost(listOf(CostPart.ReturnToHand(arcanum.api.CostObjects.Choose(filter, Value.Fixed(1))))), payer = Players.You, mandatory = true, bind = "returned"),
+                Step.If(arcanum.api.Condition.Did("returned"), then = then))
+        }
+        // blb chunk 11: "It deals damage to each player equal to the number of nonbasic lands that player controls."
+        Blb.DEALS_DAMAGE_TO_EACH_PLAYER_EQUAL.matchEntire(sentence)?.takeIf { it.groupValues[1] == "It" || isSelf(it.groupValues[1]) }?.let { m ->
+            val counted = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.Is(Players.Bound("player"))))
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), bind = "player", together = true, steps = listOf(
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Bound("player")), Value.Count(Objects.Each(counted)), source = Objects.Self)))))
+        }
+        // blb chunk 11: "Target creature an opponent controls can't block this turn."
+        Blb.TARGET_CANT_BLOCK_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBlock(ObjectFilter.Any)), Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 11: "Put a +1/+1 counter on target creature and you gain 1 life."
+        Blb.AND_YOU_GAIN_LIFE.matchEntire(sentence)?.takeIf { !it.groupValues[1].startsWith("If ") }?.let { m ->
+            val first = effect(m.groupValues[1] + ".", context) ?: return@let
+            return first + Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[2].toInt())))
+        }
+        // blb chunk 11: "Until end of turn, target creature you control gains vigilance and gets +X/+X, where X is the number of
+        // creatures you control."
+        Blb.UNTIL_EOT_TARGET_GAINS_AND_GETS_X.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords(m.groupValues[2]) ?: return null),
+                Mechanic.ModifyPowerToughness(xOrChange(m.groupValues[3]) ?: return null, xOrChange(m.groupValues[4]) ?: return null)),
+                Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 11: "Put a +1/+1 counter on each of up to two target creatures."
+        Blb.COUNTER_ON_EACH_OF_UP_TO.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val name = Filters.slotName(m.groupValues[3])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[3]) ?: return null), min = Value.Fixed(0),
+                max = Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))
+            return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), kind, Value.Fixed(1))))
+        }
+        // blb chunk 11: "Double the number of +1/+1 counters on it." (CR 701.10e)
+        Blb.DOUBLE_COUNTERS_ON_IT.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: Objects.EventObject(EventRole.Object)
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Double(arcanum.api.Doubled.Counters(it, Counters.kind(m.groupValues[1]) ?: return null)))))
+        }
+        // blb chunk 11: "Tap up to one target creature and put three stun counters on it. If you control that creature, draw two
+        // cards." (CR 122.1d)
+        Blb.TAP_UP_TO_ONE_AND_COUNTERS.matchEntire(sentence)?.let { m ->
+            val name = Filters.slotName(m.groupValues[1])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            return listOf(Step.Do(Effect.Tap(Objects.Target(name))),
+                Step.Do(Effect.PutCounters(Objects.Target(name), kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null))))
+        }
+        Blb.IF_YOU_CONTROL_THAT.matchEntire(sentence)?.let { m ->
+            val that = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(that, ObjectFilter.ControlledBy(PlayerFilter.You)), then = then))
+        }
+        // blb chunk 11: "Exile another target creature you control, then return it to the battlefield under its owner's control
+        // with a +1/+1 counter on it." (CR 400.7: the returned card is a new object)
+        Blb.FLICKER_OTHER_WITH_COUNTER.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.all(context.another(), Filters.noun(noun) ?: return null))
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            return listOf(
+                Step.Do(Effect.Move(target, Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled")),
+                    counters = listOf(arcanum.api.CountersToPut(kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)))))))
+        }
+        // blb chunk 10: "Untap it." (the target named before)
+        if (sentence == "Untap it.") {
+            val it = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return@blbEffect null
+            return listOf(Step.Do(Effect.Untap(it)))
+        }
+        // blb chunk 10: "Create X tokens that are copies of target token you control."
+        Blb.CREATE_X_COPIES_OF_TARGET.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target), count = Value.Announced("X"), controller = Players.You)))
+        }
+        // blb chunk 10: "Tokens you control gain indestructible until your next turn."
+        Blb.GROUP_GAINS_UNTIL_YOUR_NEXT_TURN.matchEntire(sentence)?.let { m ->
+            val group = Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords(m.groupValues[2]) ?: return null)),
+                Affected.Objects(Objects.Each(group)), arcanum.api.Duration.UntilYourNextTurn)))
+        }
+        // blb chunk 10: "You gain 1 life for each token you control."
+        Blb.GAIN_LIFE_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[2]) ?: return null))
+            val n = m.groupValues[1].toInt()
+            return listOf(Step.Do(Effect.GainLife(Players.You, if (n == 1) per else Value.Times(per, n))))
+        }
+        // blb chunk 10: "Up to one other target creature gets +1/+1 until end of turn." (CR 115.3)
+        Blb.UP_TO_ONE_OTHER_TARGET_GETS.matchEntire(sentence)?.let { m ->
+            val first = context.targets.lastOrNull { it.what is TargetKind.Objects } ?: return null
+            val name = "other " + Filters.slotName(m.groupValues[1])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[1]) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1),
+                distinctFrom = listOf(first.name))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)),
+                Affected.Objects(Objects.Target(name)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 10: "Arc Conduction deals 6 damage to target creature and 2 damage to up to one target creature token."
+        Blb.DEALS_TO_TARGET_AND_UP_TO_ONE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val first = context.target(Filters.slotName(m.groupValues[3]), Filters.noun(m.groupValues[3]) ?: return null)
+            val name = Filters.slotName(m.groupValues[5])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[5]) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = first), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)),
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)), Value.Fixed(m.groupValues[4].toInt()), source = Objects.Self)))
+        }
+        // blb chunk 10: "It deals damage equal to its power to target creature you don't control." (the target named before)
+        Blb.IT_DEALS_POWER_TO_TARGET.matchEntire(sentence)?.let { m ->
+            val first = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val phrase = m.groupValues[1]
+            val name = Filters.slotName(phrase).let { if (context.targets.any { t -> t.name == it }) phrase else it }
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(phrase) ?: return null), min = Value.Fixed(1), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)),
+                Value.Of(arcanum.api.NumericProperty.Power, first, arcanum.api.Combine.Single), source = first)))
+        }
+        // blb chunk 10: "Target creature's owner puts it on their choice of the top or bottom of their library."
+        Blb.OWNER_PUTS_TOP_OR_BOTTOM.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf("top", "bottom")), bind = "position", chooser = Players.OwnerOf(target)),
+                Step.If(arcanum.api.Condition.Chose("position", "top"),
+                    then = listOf(Step.Do(Effect.Move(target, Destination(Zone.Library, libraryPosition = 0)))),
+                    otherwise = listOf(Step.Do(Effect.Move(target, Destination(Zone.Library, libraryPosition = -1))))))
+        }
+        // blb chunk 10: "Return up to two target creatures to their owners' hands."
+        Blb.RETURN_UP_TO_N_TO_HANDS.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val name = Filters.slotName(m.groupValues[2])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[2]) ?: return null), min = Value.Fixed(0), max = Value.Fixed(n))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // blb chunk 10: "Choose two target creatures controlled by different players." / "Return those creatures to their owners'
+        // hands." (CR 601.2c: the second target's controller isn't the first's)
+        Blb.TWO_TARGETS_DIFFERENT_PLAYERS.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1].removeSuffix("s")
+            val filter = Filters.noun(noun) ?: return null
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(1), max = Value.Fixed(1))
+            context.targets += TargetSlot("other $name", TargetKind.Objects(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.Not(PlayerFilter.Is(
+                Players.ControllerOf(Objects.Target(name))))))), min = Value.Fixed(1), max = Value.Fixed(1), distinctFrom = listOf(name))
+            return emptyList()
+        }
+        if (sentence == "Return those creatures to their owners' hands." && context.targets.size >= 2) {
+            val two = context.targets.takeLast(2).map { Objects.Target(it.name) }
+            return listOf(Step.Do(Effect.Move(Objects.Union(two), Destination(Zone.Hand))))
+        }
+        // blb chunk 09: "Look at twice X cards from the top of your library." / "Put X cards from among them into your hand and the
+        // rest into your graveyard."
+        if (sentence == "Look at twice X cards from the top of your library.") {
+            context.seen = "seen"
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Times(Value.Announced("X"), 2), fromTop = true), players = Players.You, bind = "seen")))
+        }
+        if (sentence == "Put X cards from among them into your hand and the rest into your graveyard.") {
+            val seen = Objects.Bound(context.seen ?: return null)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Announced("X"), Value.Announced("X"), from = seen), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(seen, Objects.Bound("chosen")), Destination(Zone.Graveyard))))
+        }
+        // blb chunk 09: "Return up to one target nonland permanent to its owner's hand."
+        Blb.RETURN_UP_TO_ONE_TO_HAND.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // blb chunk 09: "Mill three cards. When you do, [reflexive trigger]." after a mandatory action (CR 603.12)
+        Blb.DO_THEN_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
+            if (m.groupValues[1].startsWith("You may")) return@let
+            val first = effect(m.groupValues[1] + ".", context) ?: return@let
+            announcedX = true
+            val reflexive = try { instructions(m.groupValues[2]) } finally { announcedX = false } ?: return@let
+            return first + Step.Do(Effect.ReflexiveTrigger(reflexive))
+        }
+        // blb chunk 09: "you may cast target instant or sorcery card with mana value equal to the number of coin counters on this
+        // artifact from your graveyard without paying its mana cost" (CR 608.2g)
+        Blb.MAY_CAST_TARGET_WITH_COUNTERS_MANA_VALUE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal,
+                Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single)), ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You))
+            val card = context.target("card", filter)
+            return listOf(Step.May(listOf(Step.Do(Effect.Cast(card, withoutPaying = true, bind = "spell", how = PlayKind.Cast, caster = Players.You))), player = Players.You))
+        }
+        // blb chunk 09: "Return this card from your graveyard to the battlefield tapped and attacking." (CR 508.4)
+        Blb.RETURN_SELF_TAPPED_AND_ATTACKING.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = true, attacking = arcanum.api.AttackTarget.Chosen))))
+        }
+        // blb chunk 09: "Target opponent discards two cards."
+        Blb.TARGET_PLAYER_DISCARDS.matchEntire(sentence)?.let { m ->
+            val player = playersIn("target " + m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.Discard(player, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null), filter = ObjectFilter.Any)))
+        }
+        // blb chunk 09: "Target opponent exiles a card from their hand." (that player chooses which)
+        Blb.TARGET_PLAYER_EXILES_FROM_HAND.matchEntire(sentence)?.let { m ->
+            val player = playersIn("target " + m.groupValues[1], context) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(handOf(player), Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = player),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))))
+        }
+        // blb chunk 09: "Put target card from your graveyard on the bottom of your library."
+        Blb.PUT_TARGET_FROM_GRAVEYARD_ON_BOTTOM.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Do(Effect.Move(context.target("card", filter), Destination(Zone.Library, libraryPosition = -1))))
+        }
+        // blb chunk 08: "Draw a card if this is the second time this ability has resolved this turn.", "Create a 1/1 black Snail
+        // creature token if you don't control a Snail." (checked as it resolves)
+        Blb.TRAILING_IF.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[2], self) ?: return@let
+            val then = effect(m.groupValues[1] + ".", context) ?: return@let
+            return listOf(Step.If(condition, then = then))
+        }
+        // blb chunk 08: "Return another target creature card with lesser mana value from your graveyard to the battlefield." in a
+        // dies trigger: lesser than the dead creature's, and not that card (CR 603.10a)
+        Blb.RETURN_ANOTHER_WITH_LESSER_MANA_VALUE.matchEntire(sentence)?.let { m ->
+            if (context.event !is EventPattern.ZoneChange) return null
+            val filter = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.EventObject(EventRole.After))), Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.ManaValue(arcanum.api.Comparison.Less, Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.EventObject(EventRole.Before),
+                    arcanum.api.Combine.Single)), ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Do(Effect.Move(context.target("card", filter), Destination(Zone.Battlefield))))
+        }
+        // blb chunk 08: "Exile target creature you control, then return it to the battlefield under its owner's control." ("that
+        // creature" is then the returned one, CR 400.7)
+        Blb.EXILE_THEN_RETURN.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            context.it = Objects.Bound("exiled")
+            return listOf(
+                Step.Do(Effect.Move(target, Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled"))))))
+        }
+        // blb chunk 08: "Target creature you control gets +X/+0 until end of turn, where X is this creature's power."
+        Blb.TARGET_GETS_X_SELF_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[4]) }?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val x = Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)
+            fun part(text: String) = if (text == "+X") x else ptChange(text)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(part(m.groupValues[2]) ?: return null, part(m.groupValues[3]) ?: return null)),
+                Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 08: "If that creature is a Bird, Frog, Otter, or Rat, draw a card." (the list's commas aren't the clause's)
+        Blb.IF_THAT_CREATURE_IS.matchEntire(sentence)?.let { m ->
+            val condition = itCondition("that creature is " + m.groupValues[1], context) ?: return@let
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return@let
+            return listOf(Step.If(condition, then = then))
+        }
+        // blb chunk 08: "You gain X life." (X defined by "where X is")
+        Blb.GAINS_X_LIFE.matchEntire(sentence)?.let { m ->
+            val players = playersIn(m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.GainLife(players, Value.Announced(name = "X"))))
+        }
+        // blb chunk 08: "Fennick deals damage equal to the sacrificed creature's power to each opponent." / "Draw cards equal to the
+        // sacrificed creature's power." (as it last existed, CR 608.2h)
+        Blb.DEALS_SACRIFICED_POWER_TO_EACH_OPPONENT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound(SACRIFICED), arcanum.api.Combine.Single), source = Objects.Self)))
+        }
+        if (sentence == "Draw cards equal to the sacrificed creature's power.")
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Of(arcanum.api.NumericProperty.Power, Objects.Bound(SACRIFICED), arcanum.api.Combine.Single))))
+        // blb chunk 08: 'Create Cindercrag, a legendary colorless Equipment artifact token with "[ability]" and equip {2}.'
+        Blb.CREATE_NAMED_LEGENDARY_TOKEN.matchEntire(sentence)?.let { m ->
+            val (types, subtypes) = typesAndSubtypes(m.groupValues[4]) ?: return null
+            val colors = if (m.groupValues[3] == "colorless") emptyList<arcanum.api.Color>() else return null
+            val quoted = Sentences(setOf("this Equipment", "this artifact", "this token")).line(m.groupValues[5].let { if (it.endsWith(".")) it else "$it." }) ?: return null
+            val more = m.groupValues[6].takeIf { it.isNotEmpty() }?.let { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val face = arcanum.api.FaceDefinition(name = m.groupValues[1], colorIndicator = colors,
+                supertypes = if (m.groupValues[2].isNotEmpty()) listOf(arcanum.api.Supertype.Legendary) else emptyList(), types = types,
+                subtypes = subtypes.map { (it as arcanum.api.SubtypeRef.Literal).subtype }, abilities = listOfNotNull(quoted, more))
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(face), count = Value.Fixed(1), controller = Players.You)))
+        }
+        // blb chunk 07: "Put its counters on target creature you control." (a dead creature's counters as it last existed, CR 608.2h)
+        Blb.PUT_ITS_COUNTERS_ON_TARGET.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.MoveCounters(Objects.Self, target, kind = null,
+                amount = Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, arcanum.api.Combine.Single))))
+        }
+        // blb chunk 07: "Choose one of them." (one of the cards just exiled; "that card" is then it)
+        if (sentence == "Choose one of them.") {
+            val them = context.them ?: return null
+            context.it = Objects.Bound("chosen")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = them), bind = "chosen", chooser = Players.You))
+        }
+        // blb chunk 07: "Choose target opponent." ("they" is then that player)
+        Blb.CHOOSE_TARGET_PLAYER.matchEntire(sentence)?.let { m ->
+            playersIn("target " + m.groupValues[1], context) ?: return null
+            return emptyList()
+        }
+        // blb chunk 07: "If they lost life this turn, [effect]."
+        Blb.IF_THEY_LOST_LIFE.matchEntire(sentence)?.let { m ->
+            val player = context.lastPlayer ?: return null
+            val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.PlayerMatches(player, PlayerFilter.ThisTurn(EventPattern.LoseLife(PlayerFilter.Any))), then = then))
+        }
+        // blb chunk 07: "They reveal their hand, you choose a nonland card from it, and they discard that card."
+        Blb.THEY_REVEAL_YOU_CHOOSE_THEY_DISCARD.matchEntire(sentence)?.let { m ->
+            val player = context.lastPlayer ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(
+                Step.Do(Effect.Reveal(Objects.Each(handOf(player)), bind = "revealed")),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1), from = Objects.Bound("revealed")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Discard(player, Value.Fixed(1), filter = ObjectFilter.Any, objects = Objects.Bound("chosen"))))
+        }
+        // blb chunk 07: "They discard a card."
+        Blb.THEY_DISCARD.matchEntire(sentence)?.let { m ->
+            val player = context.lastPlayer ?: return null
+            return listOf(Step.Do(Effect.Discard(player, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), filter = ObjectFilter.Any)))
+        }
+        // blb chunk 06: "Its controller draws a card." (the last target's controller, as it last existed, CR 608.2h)
+        Blb.ITS_CONTROLLER_DRAWS.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.ControllerOf(target), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        // blb chunk 06: "Return target permanent card … from your graveyard to the battlefield with an indestructible counter on it."
+        Blb.RETURN_TARGET_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            val card = context.target("card", filter)
+            return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield,
+                counters = listOf(arcanum.api.CountersToPut(kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)))))))
+        }
+        // blb chunk 06: "Draw a card for each creature that died under your control this turn."
+        Blb.DRAW_A_CARD_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val n = Values.value("the number of " + m.groupValues[1], exiledCard) ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.You, n)))
+        }
+        // blb chunk 06: "Each opponent loses X life" (X defined by the ability's "where X is", CR 107.3c)
+        Blb.LOSES_X_LIFE.matchEntire(sentence)?.let { m ->
+            val players = playersIn(m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.LoseLife(players, Value.Announced(name = "X"))))
+        }
+        // blb chunk 06: "Put a +1/+1 counter on a creature you control." (chosen, not targeted; "it" is then that creature)
+        Blb.PUT_COUNTERS_ON_A.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[3]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            context.it = Objects.Bound("chosen")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.PutCounters(Objects.Bound("chosen"), kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        // blb chunk 06: "It gains vigilance and trample until end of turn." about an object chosen before
+        Blb.IT_GAINS.matchEntire(sentence)?.takeIf { context.it is Objects.Bound }?.let { m ->
+            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), Affected.Objects(context.it!!), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 06: "Choose artifact or enchantment." (a card type, CR 205.2a)
+        Blb.CHOOSE_CARD_TYPE.matchEntire(sentence)?.let { m ->
+            val types = listOf(m.groupValues[1], m.groupValues[2]).map { Filters.CARD_TYPES[it] ?: return null }
+            return listOf(Step.Choose(arcanum.api.Choice.CardType(types), bind = "type", chooser = Players.You))
+        }
+        Blb.DESTROY_ALL_OF_CHOSEN_TYPE.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Destroy(Objects.Each(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.Type(arcanum.api.CardTypeRef.Chosen("type")))))))
+        }
+        // blb chunk 06: "Draw cards equal to the greatest power among creatures you control."
+        Blb.DRAW_EQUAL_TO_GREATEST.matchEntire(sentence)?.let { m ->
+            val property = when (m.groupValues[1]) {
+                "power" -> arcanum.api.NumericProperty.Power
+                "toughness" -> arcanum.api.NumericProperty.Toughness
+                else -> arcanum.api.NumericProperty.ManaValue
+            }
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Of(property, Objects.Each(Filters.noun(m.groupValues[2]) ?: return null), arcanum.api.Combine.Greatest))))
+        }
+        // blb chunk 06: "This creature fights target creature token." (CR 701.14a)
+        Blb.SELF_FIGHTS_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.Fight(Objects.Self, target)))
+        }
+        // blb chunk 06: "Target opponent exiles an enchantment they control." (that player chooses which)
+        Blb.TARGET_PLAYER_EXILES.matchEntire(sentence)?.let { m ->
+            val player = playersIn("target " + m.groupValues[1], context) ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[3]) ?: return@let, ObjectFilter.ControlledBy(PlayerFilter.Is(player)))
+            val action = if (m.groupValues[2] == "exiles") Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile)) else Effect.Sacrifice(Objects.Bound("chosen"))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = player), Step.Do(action))
+        }
+        // blb chunk 06: "Choose an artifact or creature you control." ("it" is then that one)
+        Blb.CHOOSE_A.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return@let
+            context.it = Objects.Bound("chosen")
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You))
+        }
+        // blb chunk 06: "Create a token that's a copy of it." (CR 707.2)
+        if (sentence == "Create a token that's a copy of it." && context.it != null) {
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(context.it!!), count = Value.Fixed(1), controller = Players.You)))
+        }
+        // blb chunk 06: "Return each nonland, nontoken permanent to its owner's hand."
+        Blb.RETURN_EACH_TO_HAND.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null), Destination(Zone.Hand))))
+        }
+        // blb chunk 06: "Until the end of your next turn, whenever you cast a spell, [effect]." (a delayed trigger that triggers
+        // each time, CR 603.7b)
+        Blb.UNTIL_END_OF_NEXT_TURN_WHENEVER.matchEntire(sentence)?.let { m ->
+            val (trigger, _) = trigger(m.groupValues[1]) ?: return null
+            val inner = instructions(m.groupValues[2] + ".", event = trigger.events.first()) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(trigger, inner, duration = arcanum.api.Duration.UntilEndOfYourNextTurn, repeats = true)))
+        }
+        // blb chunk 06: "[This] deals 2 damage to up to one target creature."
+        Blb.DEALS_TO_UP_TO_ONE_TARGET.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val noun = m.groupValues[3]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)))
+        }
+        // blb chunk 05: "Exile it." (then "it" is the exiled card, CR 400.7)
+        if (sentence == "Exile it." && context.it != null && context.it !is Objects.Bound) {
+            val card = context.it!!
+            context.it = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(card, Destination(Zone.Exile), postBind = "exiled")))
+        }
+        // blb chunk 05: "Return a creature card from your graveyard to the battlefield with a finality counter on it."
+        Blb.RETURN_A_FROM_GRAVEYARD_WITH_COUNTER.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield,
+                    counters = listOf(arcanum.api.CountersToPut(kind, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)))))))
+        }
+        // blb chunk 05: "Target creature you control deals damage equal to its power to target creature you don't control." (not a
+        // fight: only the first deals damage, CR 120.3); "twice its power"
+        Blb.TARGET_DEALS_POWER_TO_TARGET.matchEntire(sentence)?.let { m ->
+            val first = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val phrase = m.groupValues[3]
+            val name = Filters.slotName(phrase).let { if (context.targets.any { t -> t.name == it }) phrase else it }
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(phrase) ?: return null), min = Value.Fixed(1), max = Value.Fixed(1))
+            val power = Value.Of(arcanum.api.NumericProperty.Power, first, arcanum.api.Combine.Single)
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Target(name)),
+                if (m.groupValues[2].isEmpty()) power else Value.Times(power, 2), source = first)))
+        }
+        // blb chunk 05: "Create a token that's a copy of target token you control." (CR 707.2)
+        Blb.COPY_OF_TARGET.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target), count = Value.Fixed(1), controller = Players.You)))
+        }
+        // blb chunk 05: "Target attacking creature with power 3 or less can't be blocked this turn." (CR 509.1b)
+        Blb.TARGET_CANT_BE_BLOCKED_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeBlocked), Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 05: "Each opponent discards two cards unless they discard a nonland card." (CR 118.12a, 101.4)
+        Blb.EACH_OPPONENT_DISCARDS_UNLESS.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val instead = Filters.noun(m.groupValues[2]) ?: return null
+            val opponent = Players.Bound("opponent")
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Opponent)), bind = "opponent", together = true,
+                steps = unlessPays(opponent, Cost(listOf(CostPart.Discard(CostObjects.Choose(instead, count = Value.Fixed(1))))),
+                    listOf(Step.Do(Effect.Discard(opponent, Value.Fixed(n), filter = ObjectFilter.Any))))))
+        }
+        // blb chunk 05: "Draw an additional card for each opponent who has one or fewer cards in hand."
+        Blb.DRAW_FOR_EACH_OPPONENT_WITH_HAND.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val players = Players.Each(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(arcanum.api.Condition.Compare(
+                Value.HandSize(Players.Tested), arcanum.api.Comparison.AtMost, Value.Fixed(n))))))
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.CountPlayers(players))))
+        }
+        // blb chunk 05: 'Create a colorless Equipment artifact token named Sword with "Equipped creature gets +1/+1" and equip {2}.'
+        // (CR 111.4: a token with a name)
+        Blb.CREATE_NAMED_TOKEN.matchEntire(sentence)?.let { m ->
+            val colors = if (m.groupValues[1] == "colorless") emptyList() else listOf(arcanum.api.Color.of(m.groupValues[1].first().uppercaseChar()) ?: return null)
+            val (types, subtypes) = typesAndSubtypes(m.groupValues[2]) ?: return null
+            val quoted = Sentences(setOf("this Equipment", "this artifact", "this token")).line(m.groupValues[4].let { if (it.endsWith(".")) it else "$it." }) ?: return null
+            val more = m.groupValues[5].takeIf { it.isNotEmpty() }?.let { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val face = arcanum.api.FaceDefinition(name = m.groupValues[3], colorIndicator = colors, types = types,
+                subtypes = subtypes.map { (it as arcanum.api.SubtypeRef.Literal).subtype }, abilities = listOfNotNull(quoted, more))
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(face), count = Value.Fixed(1), controller = Players.You)))
+        }
+        // blb chunk 05: "Attach target Equipment you control to up to one target creature you control." (CR 701.3)
+        Blb.ATTACH_TARGET_TO_TARGET.matchEntire(sentence)?.let { m ->
+            val equipment = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val n = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Numbers.count(it) ?: return null }
+            val name = Filters.slotName(m.groupValues[3])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[3]) ?: return null),
+                min = Value.Fixed(if (n == null) 1 else 0), max = Value.Fixed(n ?: 1))
+            return listOf(Step.Do(Effect.Attach(equipment, arcanum.api.Recipients(objects = Objects.Target(name)))))
+        }
+        // blb chunk 04: "It gets +0/+2 until end of turn.", "it gets +1/+0 and gains first strike until end of turn."
+        Blb.IT_GETS.matchEntire(sentence)?.let { m ->
+            val objects = when {
+                isSelf(m.groupValues[1]) -> Objects.Self
+                m.groupValues[1] == "It" -> context.it ?: context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+                else -> return null
+            }
+            val keywords = m.groupValues[4].takeIf { it.isNotEmpty() }?.split(Regex(""",? and |, """))?.map { OracleParser.keyword(it) ?: return null }
+            val mechanics = listOf<Mechanic>(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null, ptChange(m.groupValues[3]) ?: return null)) +
+                listOfNotNull(keywords?.let { Mechanic.GainAbilities(it) })
+            return listOf(Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 04: "Target creature you control gets +1/+1 and gains trample until end of turn."
+        Blb.TARGET_GETS_AND_GAINS.matchEntire(sentence)?.let { m ->
+            val keywords = m.groupValues[4].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return null }
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(ptChange(m.groupValues[2]) ?: return null,
+                ptChange(m.groupValues[3]) ?: return null), Mechanic.GainAbilities(keywords)), Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 04: "You may reveal a creature card with mana value 3 or less from among them." ("it" is then that card)
+        Blb.MAY_REVEAL_FROM_AMONG.matchEntire(sentence)?.let { m ->
+            val seen = context.seen ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            context.picked = "chosen"
+            context.it = Objects.Bound("chosen")
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, min = Value.Fixed(0), max = Value.Fixed(1), from = Objects.Bound(seen)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("chosen"))))
+        }
+        // blb chunk 04: "You may put it onto the battlefield if it's your turn. If you don't put it onto the battlefield, put it
+        // into your hand." (CR 118.12: putting it there is a choice, only on your turn)
+        if (sentence == "You may put it onto the battlefield if it's your turn.") {
+            val card = context.it ?: return null
+            return listOf(Step.If(arcanum.api.Condition.YourTurn, then = listOf(Step.Pay(steps = listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield)))),
+                payer = Players.You, bind = "put"))))
+        }
+        if (sentence == "If you don't put it onto the battlefield, put it into your hand.") {
+            val card = context.it ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.Did("put")), then = listOf(Step.Do(Effect.Move(card, Destination(Zone.Hand))))))
+        }
+        // blb chunk 04: "Add {R} or {G} for each Raccoon you control." (each mana of either colour, CR 106.1)
+        Blb.ADD_EITHER_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val colors = listOf(m.groupValues[1], m.groupValues[2]).map { arcanum.api.ColorRef.Literal(arcanum.api.Color.of(it.single()) ?: return null) }
+            val count = Value.Count(Objects.Each(Filters.noun(m.groupValues[3]) ?: return null))
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(count, colors, combination = true)), Players.You)))
+        }
+        // blb chunk 04: "Exile the top two cards of your library. Until the end of your next turn, you may play those cards."
+        // (chunk 56's rule exiles the top N as "them"); "that card" is one chosen from them
+        Blb.MAY_PLAY_THOSE.matchEntire(sentence)?.let { m ->
+            val cards = (if (m.groupValues[2] == "that card") context.it ?: context.them else context.them ?: context.it) ?: return null
+            val duration = when (m.groupValues[1]) {
+                "Until end of turn" -> arcanum.api.Duration.EndOfTurn
+                "Until the end of your next turn" -> arcanum.api.Duration.UntilEndOfYourNextTurn
+                else -> return null
+            }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, holder = PlayerFilter.You)),
+                Affected.Objects(cards), duration)))
+        }
+        // blb chunk 04: "Draw cards equal to the number of stash counters on this enchantment."
+        Blb.DRAW_EQUAL_TO_COUNTERS.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.Draw(Players.You, Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single))))
+        }
+        // blb chunk 03: "Forage." (CR 701.61a), as in "You may forage."
+        if (sentence == "Forage.") return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Forage)))
+        // blb chunk 03: "Until end of turn, you may cast creature spells from your graveyard by foraging in addition to paying
+        // their other costs." (CR 601.2a, 601.2f)
+        Blb.MAY_CAST_FROM_GRAVEYARD_BY.matchEntire(sentence)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replace(" spells", " cards").replace(" and ", " or ")) ?: return null
+            val extra = when (val by = m.groupValues[2]) {
+                "foraging" -> CostPart.Action(arcanum.api.KeywordAction.Forage)
+                else -> costPart(by.replaceFirstChar { it.uppercase() })?.singleOrNull() ?: return null
+            }
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, additionalCost = Cost(listOf(extra)),
+                holder = PlayerFilter.You)), Affected.Objects(Objects.Each(Filters.all(spells, ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You)))), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 03: "Put a +1/+1 counter on it for each other Squirrel and/or Food you control."
+        Blb.PUT_COUNTERS_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val on = when {
+                isSelf(m.groupValues[3]) -> Objects.Self
+                m.groupValues[3] == "it" -> context.it ?: return null
+                else -> return null
+            }
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[4]) ?: return null))
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(on, kind, if (n == 1) per else Value.Times(per, n))))
+        }
+        // blb chunk 03: "If you control a Squirrel or returned a Squirrel card to your hand this way, create a Food token."
+        Blb.IF_CONTROL_OR_RETURNED.matchEntire(sentence)?.let { m ->
+            val chosen = context.chosen.lastOrNull()?.let { Objects.Bound(it) } ?: Objects.Bound("chosen")
+            val control = Filters.noun(m.groupValues[1] + " you control") ?: return null
+            val returned = Filters.noun(m.groupValues[2]) ?: return null
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.Or(listOf(arcanum.api.Condition.Exists(control, atLeast = 1),
+                arcanum.api.Condition.ObjectMatches(chosen, returned))), then = then))
+        }
+        // blb chunk 02: "If the gift was promised, [effect]." Its targets are chosen only if the gift was promised (CR
+        // 702.174m); "… and that creature isn't legendary" is checked as it resolves.
+        Blb.GIFT_IF.matchEntire(sentence)?.let { m ->
+            val gift = if (m.groupValues[1] == "was") Blb.promised else arcanum.api.Condition.Not(Blb.promised)
+            val before = context.targets.size
+            val then = effect(m.groupValues[3].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            val more = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { itCondition(it, context) ?: return null }
+            for (i in before until context.targets.size) context.targets[i] = context.targets[i].copy(onlyIf = gift)
+            return listOf(Step.If(if (more == null) gift else arcanum.api.Condition.And(listOf(gift, more)), then = then))
+        }
+        // blb chunk 02: "[Effect] if the gift was promised."
+        Blb.IF_GIFT_AFTER.matchEntire(sentence)?.let { m -> return blbEffect("If the gift ${m.groupValues[2]} promised, " +
+            m.groupValues[1].replaceFirstChar { it.lowercase() } + ".", context) }
+        // blb chunk 02: "That creature also gains indestructible until end of turn.", "Blossom Burst also deals 3 damage …":
+        // "also" adds to what the sentence before did
+        Blb.ALSO.matchEntire(sentence)?.let { m -> effect(m.groupValues[1] + " " + m.groupValues[2], context)?.let { return it } }
+        // blb chunk 02: "You and permanents you control gain hexproof until end of turn." (CR 702.11b, c)
+        Blb.YOU_AND_GAIN.matchEntire(sentence)?.let { m ->
+            val objects = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeTargeted(by = ObjectFilter.ControlledBy(PlayerFilter.Opponent))),
+                    Affected.Players(Players.You), arcanum.api.Duration.EndOfTurn)),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Hexproof))),
+                    Affected.Objects(Objects.Each(objects)), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 02: "Return up to two target creature cards each with mana value 2 or less from your graveyard to the
+        // battlefield.", "return two target permanent cards from your graveyard to your hand"
+        Blb.RETURN_COUNTED_FROM_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val upTo = m.groupValues[1].isNotEmpty()
+            // chunk 11's rule reads "up to N … to your hand"
+            if (upTo && m.groupValues[4] == "your hand") return@let
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[3].replace(" each with ", " with ")) ?: return null,
+                ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val name = context.name("card")
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(if (upTo) 0 else n), max = Value.Fixed(n))
+            val to = if (m.groupValues[4] == "the battlefield") Zone.Battlefield else Zone.Hand
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(to))))
+        }
+        // blb chunk 02: "Destroy two target artifacts and/or enchantments."
+        Blb.DESTROY_N_TARGETS.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val noun = m.groupValues[2].replace(" and/or ", " or ")
+            val name = context.name(Filters.slotName(noun))
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(n), max = Value.Fixed(n))
+            return listOf(Step.Do(Effect.Destroy(Objects.Target(name))))
+        }
+        // blb chunk 02: "Destroy all creatures." (CR 701.8)
+        Blb.DESTROY_ALL.matchEntire(sentence)?.let { m -> return listOf(Step.Do(Effect.Destroy(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null)))) }
+        // blb chunk 02: "Tap enchanted creature." ("it" is then that creature)
+        if (sentence == "Tap enchanted creature.") {
+            context.it = Objects.AttachedTo(of = Objects.Self)
+            return listOf(Step.Do(Effect.Tap(Objects.AttachedTo(of = Objects.Self))))
+        }
+        // blb chunk 02: "Brushfire Wail deals 1 damage to any target and 2 damage to each creature."
+        Blb.DEALS_TO_ANY_AND_EACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val each = Filters.noun(m.groupValues[4]) ?: return null
+            context.anyTarget()
+            return listOf(
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(target = "any"), Value.Fixed(m.groupValues[2].toInt()), source = Objects.Self)),
+                Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Each(each)), Value.Fixed(m.groupValues[3].toInt()), source = Objects.Self)))
+        }
+        // blb chunk 02: "Blossom Burst deals 3 damage to that creature's controller."
+        Blb.DEALS_TO_THAT_CREATURES_CONTROLLER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val creature = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.ControllerOf(creature)), Value.Fixed(m.groupValues[2].toInt()),
+                source = Objects.Self)))
+        }
+        // blb chunk 02: "Create a token that's a copy of that creature, except it's 1/1." (CR 707.9b)
+        Blb.COPY_OF_THAT_EXCEPT_PT.matchEntire(sentence)?.let { m ->
+            val of = context.it ?: return null
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(of, except = listOf(
+                arcanum.api.CopyException.PowerToughness(m.groupValues[1].toInt(), m.groupValues[2].toInt()))), count = Value.Fixed(1), controller = Players.You)))
+        }
+        // blb chunk 02: "Return a creature card put into your graveyard this way to the battlefield under your control."
+        Blb.RETURN_PUT_INTO_GRAVEYARD_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val from = context.thisWay ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(1), Value.Fixed(1), from = from), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield, controller = Players.You))))
+        }
+        // blb chunk 02: "[Effect] at the beginning of the next end step." (a delayed trigger, CR 603.7)
+        Blb.AT_NEXT_END_STEP.matchEntire(sentence)?.takeIf { it.groupValues[1] != "Return it to the battlefield under its owner's control" }?.let { m ->
+            val targets = context.targets.size
+            val inner = effect(m.groupValues[1] + ".", context)?.takeIf { context.targets.size == targets } ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, whose = PlayerFilter.Any)),
+                Instructions(steps = inner))))
+        }
+        // blb chunk 02: "Return that card to the battlefield under its owner's control with a +1/+1 counter on it."
+        Blb.RETURN_UNDER_OWNERS_CONTROL_WITH_COUNTERS.matchEntire(sentence)?.let { m ->
+            val card = context.it ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.Move(card, Destination(Zone.Battlefield, controller = Players.OwnerOf(card),
+                counters = listOf(arcanum.api.CountersToPut(kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)))), postBind = "returned")))
+        }
+        // blb chunk 02: "Target opponent sacrifices a creature with the greatest power among creatures they control." (CR 701.21a)
+        Blb.TARGET_SACRIFICES_GREATEST.matchEntire(sentence)?.let { m ->
+            val player = playersIn("target " + m.groupValues[1], context) ?: return null
+            val theirs = ObjectFilter.ControlledBy(PlayerFilter.Is(player))
+            val power = m.groupValues[3] == "power"
+            val among = Filters.noun(m.groupValues[4]) ?: return null
+            val greatest = Value.Of(if (power) arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.ManaValue,
+                Objects.Each(Filters.all(among, theirs)), arcanum.api.Combine.Greatest)
+            val test = if (power) ObjectFilter.Power(arcanum.api.Comparison.Equal, greatest) else ObjectFilter.ManaValue(arcanum.api.Comparison.Equal, greatest)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(m.groupValues[2]) ?: return null, theirs, test), Value.Fixed(1), Value.Fixed(1)),
+                    bind = "sacrificed", chooser = player),
+                Step.Do(Effect.Sacrifice(Objects.Bound("sacrificed"))))
+        }
+        // blb chunk 02: "Choose target creature you control and target creature you don't control." (targets for later
+        // sentences: "the creature you control", "those creatures"); a second slot of the same noun is "other …" (as dsk chunk 07)
+        Blb.CHOOSE_TARGETS.matchEntire(sentence)?.let { m ->
+            listOf(m.groupValues[1], m.groupValues[2]).forEach { phrase ->
+                val name = Filters.slotName(phrase).let { if (context.targets.any { t -> t.name == it }) "other $it" else it }
+                context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(phrase) ?: return null), min = Value.Fixed(1), max = Value.Fixed(1))
+                context.slotPhrases[phrase] = name
+            }
+            return emptyList()
+        }
+        // blb chunk 02: "Put a +1/+1 counter on the creature you control." (a target chosen before)
+        Blb.PUT_COUNTERS_ON_THE.matchEntire(sentence)?.let { m ->
+            val name = context.slotPhrases[m.groupValues[3]] ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        // blb chunk 02: "Those creatures fight each other." (CR 701.14a)
+        if (sentence == "Those creatures fight each other.") {
+            val slots = context.targets.filter { it.what is TargetKind.Objects }.takeLast(2).takeIf { it.size == 2 } ?: return null
+            return listOf(Step.Do(Effect.Fight(Objects.Target(slots[0].name), Objects.Target(slots[1].name))))
+        }
+        // blb chunk 02: "Exile that card." (the card chosen from a revealed hand)
+        if (sentence == "Exile that card." && context.chosen.isNotEmpty()) {
+            context.it = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.Bound(context.chosen.last()), Destination(Zone.Exile), postBind = "exiled")))
+        }
+        // blb chunk 02: "You may cast that card for as long as it remains exiled, and mana of any type can be spent to cast
+        // it." (CR 601.2a; D49: "for as long as it remains there" lasts indefinitely)
+        if (sentence == "You may cast that card for as long as it remains exiled, and mana of any type can be spent to cast it.") {
+            val card = context.it ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, manaAsAnyColor = true, holder = PlayerFilter.You)),
+                Affected.Objects(card), arcanum.api.Duration.Indefinitely)))
+        }
+        // blb chunk 01: "Target Mouse you control gains your choice of double strike or trample until end of turn." (chosen as
+        // it resolves, CR 608.2d)
+        Blb.GAINS_YOUR_CHOICE.matchEntire(sentence)?.let { m ->
+            val keywords = listOf(m.groupValues[2], m.groupValues[3]).map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            fun gain(keyword: arcanum.api.Keyword) = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(keyword))),
+                Affected.Objects(target), arcanum.api.Duration.EndOfTurn))
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Option(listOf(m.groupValues[2], m.groupValues[3])), bind = "keyword", chooser = Players.You),
+                Step.If(arcanum.api.Condition.Chose("keyword", m.groupValues[2]), then = listOf(gain(keywords[0])), otherwise = listOf(gain(keywords[1]))))
+        }
+        // blb chunk 01: "Tap up to one target creature", "Tap target creature an opponent controls"; "it" is then the target
+        Blb.TAP_TARGET.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[2]
+            val slot = Filters.slotName(noun)
+            val upTo = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Numbers.count(it) ?: return null }
+            context.targets += TargetSlot(slot, TargetKind.Objects(Filters.noun(noun) ?: return null),
+                min = Value.Fixed(if (upTo == null) 1 else 0), max = Value.Fixed(upTo ?: 1))
+            context.it = Objects.Target(slot)
+            return listOf(Step.Do(Effect.Tap(Objects.Target(slot))))
+        }
+        // blb chunk 01: "Target opponent loses 3 life unless they sacrifice a nonland permanent of their choice or discard a
+        // card." (CR 118.12a: the player named before may pay one of the costs)
+        Blb.UNLESS_THEY.matchEntire(sentence)?.let { m ->
+            val options = m.groupValues[2].split(" or ").map { option ->
+                Cost(costPart(option.removeSuffix(" of their choice").replaceFirstChar { it.uppercase() }) ?: return null)
+            }
+            val steps = effect(m.groupValues[1] + ".", context) ?: return null
+            val payer = context.lastPlayer ?: return null
+            return unlessPays(payer, options.singleOrNull() ?: Cost(listOf(CostPart.OneOf(options))), steps)
+        }
+        return null
+    }
+
+    /** Regular expressions of the Bloomburrow wordings. */
+    private object Blb {
+        // blb chunk 01
+        val TAPPED_AND_ATTACKING = Regex(""" that(?:'s| are) tapped and attacking$""")
+        val CANT_BE_BLOCKED_BY = Regex("""(.+) can't be blocked by (.+)\.""")
+        val OTHER_THAN_THAT = Regex("""(.+) other than that creature""")
+        val GAINS_YOUR_CHOICE = Regex("""Target (.+) gains your choice of ([a-z ]+) or ([a-z ]+) until end of turn\.""")
+        val TAP_TARGET = Regex("""Tap (?:up to (\w+) )?target (.+)\.""")
+        val UNLESS_THEY = Regex("""(.+) unless (?:they|that player) (.+)\.""")
+        // blb chunk 02
+        /** "the gift was promised": its optional cost was paid (CR 702.174k). */
+        val promised: arcanum.api.Condition = arcanum.api.Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self)
+        val GIFT_INSTEAD = Regex("""If the gift was promised, instead (.+)\.""")
+        val GIFT_IF = Regex("""If the gift (was|wasn't) promised(?: and (.+?))?, (.+)\.""")
+        val IF_GIFT_AFTER = Regex("""(.+) if the gift (was|wasn't) promised\.""")
+        val ALSO = Regex("""(.+?) also (.+)""")
+        val YOU_AND_GAIN = Regex("""You and (.+) gain hexproof until end of turn\.""")
+        val IT_IS = Regex("""(?:that creature|it) (is|isn't) (?:an? )?(.+)""")
+        val ATTACHED_GETS_HAS_LOSES = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: and has ([a-z ,]+?))?(?: and loses ([a-z ,]+?))?\.""")
+        val RETURN_COUNTED_FROM_GRAVEYARD = Regex("""[Rr]eturn (up to )?(two|three|four|five) target (.+?) from your graveyard to (your hand|the battlefield)\.""")
+        val DESTROY_N_TARGETS = Regex("""[Dd]estroy (two|three) target (.+)\.""")
+        val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // blb chunk 12
+        val ENTERS_TAPPED_AS_IT_ENTERS = Regex("""(This \w+) enters tapped\. As it enters, (.+)""")
+        val MAY_PLAY_LANDS_AND_CAST_FROM_TOP = Regex("""You may play lands and cast spells with mana value (\d+) or (greater|less) from the top of your library\.""")
+        val AS_ENTERS_CHOOSE_COLOR = Regex("""As (.+) enters, choose a color\.""")
+        val ADD_AMOUNT_OF_THAT_COLOR = Regex("""Add an amount of mana of that color equal to (.+)\.""")
+        val BECOMES_ARTIFACT_CREATURE = Regex("""(.+) becomes an artifact creature until end of turn\.""")
+        val IT_GAINS_UNTIL_EOT = Regex("""It gains ([a-z ,]+) until end of turn\.""")
+        val THEN_IF = Regex("""Then if (.+?), (.+)""")
+        val THEN_IF_UNTAP_THAT_LAND = Regex("""Then if (.+), untap that land\.""")
+        // blb chunk 11
+        val HAVE_BASE_TOUGHNESS = Regex("""(.+) have base toughness (\d+)\.""")
+        val IF_THAT_HAD_POWER = Regex("""If that creature had power (\d+) or (less|greater), (.+)""")
+        val RETURN_OTHER_TARGET_TO_HAND = Regex("""[Rr]eturn (another|up to one other) target (.+) to its owner's hand\.""")
+        val RETURN_ANOTHER_IF_YOU_DO = Regex("""[Rr]eturn another (.+) to its owner's hand\. If you do, (.+)""")
+        val DEALS_DAMAGE_TO_EACH_PLAYER_EQUAL = Regex("""(.+) deals damage to each player equal to the number of (.+) that player controls\.""")
+        val TARGET_CANT_BLOCK_THIS_TURN = Regex("""Target (.+) can't block this turn\.""")
+        val AND_YOU_GAIN_LIFE = Regex("""(.+) and you gain (\d+) life\.""")
+        val UNTIL_EOT_TARGET_GAINS_AND_GETS_X = Regex("""Until end of turn, target (.+?) gains ([a-z ,]+) and gets ([+-]\w+)/([+-]\w+)\.""")
+        val COUNTERS_ON_THAT_CREATURE = Regex("""Put (a|an|one|two|three) (\S+) counters? on that creature\.""")
+        val PUT_IT_ONTO_BATTLEFIELD = Regex("""Put it onto the battlefield( tapped)?\.""")
+        val CREATE_COPY_OF = Regex("""Create a token that's a copy of (.+)\.""")
+        val RETURN_TO_OWNERS_HAND = Regex("""Return (.+) to its owner's hand\.""")
+        val RETURN_UP_TO_ONE_LESSER = Regex("""Return up to one target (.+) with lesser mana value to its owner's hand\.""")
+        val YOU_PUT_COUNTERS_ON = Regex("""you put one or more (\S+) counters on (.+)""")
+        val COUNTER_ON_EACH_OF_UP_TO = Regex("""Put an? (\S+) counter on each of up to (two|three) target (.+)\.""")
+        val DOUBLE_COUNTERS_ON_IT = Regex("""Double the number of (\S+) counters on it\.""")
+        val TAP_UP_TO_ONE_AND_COUNTERS = Regex("""Tap up to one target (.+?) and put (\w+) (\S+) counters on it\.""")
+        val IF_YOU_CONTROL_THAT = Regex("""If you control that creature, (.+)""")
+        val FLICKER_OTHER_WITH_COUNTER = Regex("""Exile another target (.+?), then return it to the battlefield under its owner's control with (a|an|two) (\S+) counters? on it\.""")
+        // blb chunk 10
+        val COUNTER_UNLESS_INSTEAD = Regex("""If (.+?), counter that spell unless its controller pays ((?:\{[^}]+\})+) instead\.""")
+        val THIS_SPELL_COSTS_LESS_IF = Regex("""This spell costs (\{[^}]+\}) less to cast if (.+)\.""")
+
+        val CREATE_X_COPIES_OF_TARGET = Regex("""Create X tokens that are copies of target (.+)\.""")
+        val GROUP_GAINS_UNTIL_YOUR_NEXT_TURN = Regex("""(.+) gain ([a-z ,]+) until your next turn\.""")
+        val GAIN_LIFE_FOR_EACH = Regex("""You gain (\d+) life for each (.+)\.""")
+        val UP_TO_ONE_OTHER_TARGET_GETS = Regex("""Up to one other target (.+) gets ([+-]\d+)/([+-]\d+) until end of turn\.""")
+        val DEALS_TO_TARGET_AND_UP_TO_ONE = Regex("""(.+) deals (\d+) damage to target (.+?) and (\d+) damage to up to one target (.+)\.""")
+        val IT_DEALS_POWER_TO_TARGET = Regex("""It deals damage equal to its power to target (.+)\.""")
+        val OWNER_PUTS_TOP_OR_BOTTOM = Regex("""Target (.+)'s owner puts it on their choice of the top or bottom of their library\.""")
+        val RETURN_UP_TO_N_TO_HANDS = Regex("""Return up to (two|three) target (.+) to their owners' hands\.""")
+        val TWO_TARGETS_DIFFERENT_PLAYERS = Regex("""Choose two target (.+) controlled by different players\.""")
+        // blb chunk 09
+        val WOULD_BE_PUT_INTO_YOUR_GRAVEYARD = Regex("""If (.+) would be put into your graveyard from anywhere, exile it instead\.""")
+        val ENTERS_TAPPED_IF = Regex("""(.+) enters tapped if (.+)\.""")
+        val IF_CAST_NOT_FROM_HAND_COUNTER_ON_THAT = Regex("""If this spell was cast from anywhere other than your hand, put (a|an|one|two) (\S+) counters? on that creature\.""")
+        val THIS_SPELL_COSTS_LESS_FOR_EACH = Regex("""This spell costs (\{[^}]+\}) less to cast for each (.+)\.""")
+        val AS_LONG_AS_GROUP_GETS = Regex("""As long as (.+?), ([a-z].+?) get ([+-]\d+)/([+-]\d+)\.""")
+        val AS_LONG_AS_IT_GETS_AND_HAS = Regex("""As long as (.+?), (it|this creature) gets ([+-]\d+)/([+-]\d+) and has ([a-z ,]+)\.""")
+        val YOU_MAY_CAST_FROM_GRAVEYARD_BY = Regex("""You may cast (.+?) from your graveyard by (foraging|paying \d+ life) in addition to (?:paying )?their other costs\.""")
+        val RETURN_UP_TO_ONE_TO_HAND = Regex("""[Rr]eturn up to one target (.+) to its owner's hand\.""")
+        val DO_THEN_WHEN_YOU_DO = Regex("""(.+?)\. When you do, (.+)""")
+        val MAY_CAST_TARGET_WITH_COUNTERS_MANA_VALUE = Regex("""You may cast target (.+?) with mana value equal to the number of (\S+) counters on (.+?) from your graveyard without paying its mana cost\.""")
+        val RETURN_SELF_TAPPED_AND_ATTACKING = Regex("""Return (.+) from your graveyard to the battlefield tapped and attacking\.""")
+        val TARGET_PLAYER_DISCARDS = Regex("""Target (opponent|player) discards (a|one|two|three) cards?\.""")
+        val TARGET_PLAYER_EXILES_FROM_HAND = Regex("""Target (opponent|player) exiles a card from their hand\.""")
+        val PUT_TARGET_FROM_GRAVEYARD_ON_BOTTOM = Regex("""Put target (.+) from your graveyard on the bottom of your library\.""")
+        // blb chunk 08
+        val IF_THAT_CREATURE_IS = Regex("""If that creature is (.+), ([a-z][^,]+)\.""")
+        val TARGET_GETS_X_SELF_POWER = Regex("""Target (.+) gets ([+-][\dX]+)/([+-][\dX]+) until end of turn, where X is (.+)'s power\.""")
+        val YOU_MAY_CAST_AS_THOUGH_FLASH = Regex("""You may cast (.+) as though they had flash\.""")
+        val DAMAGE_TO_ANY_PLUS = Regex("""If (.+?) would deal damage to a permanent or player, it deals that much damage plus (\d+) instead\.""")
+        val TRAILING_IF = Regex("""((?:Draw|Create|You gain|It gets) .+?) if (.+)\.""")
+        val RETURN_ANOTHER_WITH_LESSER_MANA_VALUE = Regex("""Return another target (.+?) with lesser mana value from your graveyard to the battlefield\.""")
+        val EXILE_THEN_RETURN = Regex("""Exile target (.+?), then return it to the battlefield under its owner's control\.""")
+        val GAINS_X_LIFE = Regex("""(.+) gains? X life\.""")
+        val DEALS_SACRIFICED_POWER_TO_EACH_OPPONENT = Regex("""(.+) deals damage equal to the sacrificed creature's power to each opponent\.""")
+        val CREATE_NAMED_LEGENDARY_TOKEN = Regex("""Create ([A-Z][A-Za-z]+), an? (legendary )?(colorless) ([A-Z][a-z]+ [a-z]+) token with "(.+?)"(?: and ([a-z]+ \{[^}]+\}))?\.""")
+        // blb chunk 07
+        val AS_LONG_AS_SELF_HAS = Regex("""As long as (.+?), (.+?) has ([a-z ,]+)\.""")
+        val ENTERS_WITH_COUNTER_IF = Regex("""(.+) enters with (a|an|one|two) (\S+) counters? on it if (.+)\.""")
+        val OTHERS_ENTER_WITH_ADDITIONAL = Regex("""(.+) enter with an additional (\S+) counter on them for each (.+)\.""")
+        val PUT_ITS_COUNTERS_ON_TARGET = Regex("""Put its counters on target (.+)\.""")
+        val CHOOSE_TARGET_PLAYER = Regex("""Choose target (opponent|player)\.""")
+        val IF_THEY_LOST_LIFE = Regex("""If they lost life this turn, (.+)\.""")
+        val THEY_REVEAL_YOU_CHOOSE_THEY_DISCARD = Regex("""They reveal their hand, you choose an? (.+) from it, and they discard that card\.""")
+        val THEY_DISCARD = Regex("""They discard (a|one|two) cards?\.""")
+        // blb chunk 06
+        val ITS_CONTROLLER_DRAWS = Regex("""Its controller draws (a|one|two) cards?\.""")
+        val RETURN_TARGET_FROM_GRAVEYARD_WITH_COUNTER = Regex("""Return target (.+?) from your graveyard to the battlefield with (a|an|one|two) (\S+) counters? on it\.""")
+        val DRAW_A_CARD_FOR_EACH = Regex("""Draw a card for each (.+)\.""")
+        val LOSES_X_LIFE = Regex("""(.+) loses? X life\.""")
+        val PUT_COUNTERS_ON_A = Regex("""Put (a|an|one|two) (\S+) counters? on an? (.+)\.""")
+        val IT_GAINS = Regex("""It gains ([a-z ,]+) until end of turn\.""")
+        val CHOOSE_CARD_TYPE = Regex("""Choose (\w+) or (\w+)\.""")
+        val DESTROY_ALL_OF_CHOSEN_TYPE = Regex("""Destroy all (.+) of the chosen type\.""")
+        val DRAW_EQUAL_TO_GREATEST = Regex("""Draw cards equal to the greatest (power|toughness|mana value) among (.+)\.""")
+        val SELF_FIGHTS_TARGET = Regex("""(.+) fights target (.+)\.""")
+        val TARGET_PLAYER_EXILES = Regex("""Target (opponent|player) (exiles|sacrifices) an? (.+?) they control\.""")
+        val CHOOSE_A = Regex("""Choose an? (.+)\.""")
+        val RETURN_EACH_TO_HAND = Regex("""Return each (.+) to its owner's hand\.""")
+        val UNTIL_END_OF_NEXT_TURN_WHENEVER = Regex("""Until the end of your next turn, whenever (.+?), (.+)\.""")
+        val DEALS_TO_UP_TO_ONE_TARGET = Regex("""(.+) deals (\d+) damage to up to one target (.+)\.""")
+        // blb chunk 05
+        val SPELLS_YOU_CAST_COST = Regex("""(.+) spells you cast cost ((?:\{[^}]+\})+) (more|less) to cast\.""")
+        val HAVE_KEYWORDS_WITH_VALUES = Regex("""(.+) have ([a-z ,]+\{[^}]+\}[a-z ,{}0-9]*)\.""")
+        val DAMAGE_PLUS = Regex("""If (.+?) would deal (noncombat |combat |)damage to an opponent or a permanent an opponent controls, it deals that much damage plus (\d+) instead\.""")
+        val RETURN_A_FROM_GRAVEYARD_WITH_COUNTER = Regex("""Return an? (.+) from your graveyard to the battlefield with (a|an|one|two) (\S+) counters? on it\.""")
+        val TARGET_DEALS_POWER_TO_TARGET = Regex("""Target (.+?) deals damage equal to (twice )?its power to target (.+)\.""")
+        val COPY_OF_TARGET = Regex("""[Cc]reate a token that's a copy of target (.+)\.""")
+        val TARGET_CANT_BE_BLOCKED_THIS_TURN = Regex("""Target (.+) can't be blocked this turn\.""")
+        val EACH_OPPONENT_DISCARDS_UNLESS = Regex("""Each opponent discards (\w+) cards unless they discard an? (.+)\.""")
+        val DRAW_FOR_EACH_OPPONENT_WITH_HAND = Regex("""Draw an additional card for each opponent who has (\w+) or fewer cards in hand\.""")
+        val CREATE_NAMED_TOKEN = Regex("""Create an? (colorless|white|blue|black|red|green) ([A-Z][a-z]+ [a-z]+) token named ([A-Z][A-Za-z ]+) with "(.+?)"(?: and ([a-z]+ \{[^}]+\}))?\.""")
+        val ATTACH_TARGET_TO_TARGET = Regex("""Attach target (.+?) to (?:up to (\w+) )?target (.+)\.""")
+        // blb chunk 04
+        val TARGET_GETS_AND_GAINS = Regex("""Target (.+) gets ([+-]\d+)/([+-]\d+) and gains ([a-z ,]+) until end of turn\.""")
+        val IT_GETS = Regex("""(It|This [a-z]+) gets ([+-]\d+)/([+-]\d+)(?: and gains ([a-z ,]+?))? until end of turn\.""")
+        val MAY_REVEAL_FROM_AMONG = Regex("""You may reveal an? (.+) from among them\.""")
+        val ADD_EITHER_FOR_EACH = Regex("""Add \{([WUBRG])\} or \{([WUBRG])\} for each (.+)\.""")
+        val MAY_PLAY_THOSE = Regex("""(Until end of turn|Until the end of your next turn), you may play (those cards|that card|them)\.""")
+        val DRAW_EQUAL_TO_COUNTERS = Regex("""Draw cards equal to the number of (\S+) counters on (.+)\.""")
+        // blb chunk 03
+        val YOU_SACRIFICE_ONE_OR_MORE = Regex("""you sacrifice one or more (.+)""")
+        // blb chunk 08
+        val WHILE = Regex("""(.+) while (.+)""")
+        // blb chunk 07
+        val PAY_MANA_AND_LIFE = Regex("""[Pp]ay ((?:\{[^}]+\})+) and (\d+) life""")
+        val YOU_ATTACK_WITH_ONE_OR_MORE = Regex("""you attack with one or more (.+)""")
+        val CAST_THIS_WAY_ENTERS_WITH = Regex("""If you cast a spell this way, that creature enters with (a|an|one|two) (\S+) counters? on it\.""")
+        val ARE_IN_ADDITION = Regex("""(.+) (?:are|is) (?:an? )?([A-Za-z ]+?) in addition to (?:their|its) other types(?: and (?:have|has) "(.+?)\.?")?\.?""")
+        val ENCHANTED_IS_A_COLORLESS = Regex("""Enchanted permanent is a colorless ([A-Za-z ]+?) with "(.+)" and loses all other card types and abilities\.""")
+        val MAY_CAST_FROM_GRAVEYARD_BY = Regex("""Until end of turn, you may cast (.+?) from your graveyard by (foraging|paying \d+ life) in addition to (?:paying )?their other costs\.""")
+        val PUT_COUNTERS_FOR_EACH = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+?) for each (.+)\.""")
+        val IF_CONTROL_OR_RETURNED = Regex("""If you control an? (\w+) or returned an? (.+?) to your hand this way, (.+)\.""")
+        val DEALS_TO_ANY_AND_EACH = Regex("""(.+) deals (\d+) damage to any target and (\d+) damage to each (.+)\.""")
+        val DEALS_TO_THAT_CREATURES_CONTROLLER = Regex("""(.+) deals (\d+) damage to that creature's controller\.""")
+        val COPY_OF_THAT_EXCEPT_PT = Regex("""[Cc]reate a token that's a copy of (?:that creature|it), except it's (\d+)/(\d+)\.""")
+        val RETURN_PUT_INTO_GRAVEYARD_THIS_WAY = Regex("""[Rr]eturn an? (.+) put into your graveyard this way to the battlefield under your control\.""")
+        val AT_NEXT_END_STEP = Regex("""(.+) at the beginning of the next end step\.""")
+        val RETURN_UNDER_OWNERS_CONTROL_WITH_COUNTERS = Regex("""[Rr]eturn (?:that card|it) to the battlefield under its owner's control with (a|an|one|two|three) (\S+) counters? on it\.""")
+        val TARGET_SACRIFICES_GREATEST = Regex("""Target (opponent|player) sacrifices an? (.+?) with the greatest (power|mana value) among (.+) they control\.""")
+        val CHOOSE_TARGETS = Regex("""Choose target (.+?) and target (.+)\.""")
+        val PUT_COUNTERS_ON_THE = Regex("""Put (a|an|one|two|three) (\S+) counters? on the (.+)\.""")
     }
 
     private companion object {
@@ -2928,7 +5660,7 @@ internal class Sentences(
         val UNTAP = Regex("""Untap (.+)\.""")
         val YOU_MAY_EXILE_FROM_HAND = Regex("""You may exile an? (.+) from your hand\.""")
         val ACTIVATE_ONLY_IF = Regex("""Activate only if (.+?)\.""")
-        val TAP_UNTAPPED = Regex("""Tap (an|two|three|four|five) untapped (.+)""")
+        val TAP_UNTAPPED = Regex("""Tap (an|another|two|three|four|five) untapped (.+)""")
         val PUT_COUNTER_ON_SELF = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+)""")
         val OTHERS_GET = Regex("""Other (.+) get ([+-]\d+)/([+-]\d+)\.""")
         val ANY_COLOR = Regex("""(one) mana of any color|(\w+) mana of any one color""")
@@ -2938,11 +5670,12 @@ internal class Sentences(
         val COSTS_LESS_FOR_EACH = Regex("""This ability costs ((?:\{[^}]+\})+) less to activate for each (.+?)\.""")
         val DISCARD_COST = Regex("""Discard (.+)""")
         val THEN = Regex("""(.+?), then (.+)""")
-        val ADD_MANA_RESTRICTED = Regex("""Add (.+)\. Spend this mana only to cast (.+) spells\.""")
+        // blb chunk 08: also "a creature spell"
+        val ADD_MANA_RESTRICTED = Regex("""Add (.+)\. Spend this mana only to cast (?:an? )?(.+) spells?\.""")
         val ADD_MANA_FOR_EACH = Regex("""Add (\{.\}) for each (.+)\.""")
         val DRAW = Regex("""Draw (a|one|two|three|four|five|six|seven) cards?\.""")
         val DISCARD = Regex("""[Dd]iscard (a|one|two|three|four|five|six|seven) cards?\.""")
-        val CREATE_TOKEN = Regex("""[Cc]reate (.+ tokens?(?: with .+)?)\.""")
+        val CREATE_TOKEN = Regex("""[Cc]reate (.+ tokens?(?: with .+)?(?: that(?:'s| are) tapped and attacking)?)\.""")
         val SELF_DEALS_DAMAGE_TO_EACH = Regex("""(.+?) deals (\d+) damage to (each .+)\.""")
         val EXILE_THEN_RETURN = Regex("""Exile (another )?target (.+), then return (?:it|that card) to the battlefield under its owner's control\.""")
         val TARGET_PLAYER_DRAWS = Regex("""Target player draws (\w+) cards?(?:, then discards (\w+) cards?)?\.""")
@@ -2974,10 +5707,163 @@ internal class Sentences(
         val RETURN_UP_TO_FROM_GRAVEYARD_TO_HAND = Regex("""Return up to (\w+) target (.+) from your graveyard to your hand\.""")
         val YOU_LOSE_LIFE = Regex("""You lose (\d+) life\.""")
         val ANY_COMBINATION = Regex("""(\w+) mana in any combination of colors""")
+        // dsk chunk 01
+        val ONE_OR_MORE_ATTACK_A_PLAYER = Regex("""one or more (.+) attack a player""")
+        val ONE_OR_MORE_DEAL_COMBAT_DAMAGE_TO_A_PLAYER = Regex("""one or more (.+) deal combat damage to a player""")
+        val UNTAP_DURING_OTHER_UNTAP_STEPS = Regex("""Untap each (.+) during each other player's untap step\.""")
+        val HAVE_BASE_PT_EQUAL_TO_NUMBER = Regex("""(.+) have base power and toughness each equal to the number of (.+)\.""")
+        val TRIGGERS_ADDITIONAL_TIME = Regex("""If a triggered ability of an? (.+) triggers, that ability triggers an additional time\.""")
+        val TAP_TARGET = Regex("""Tap (?:up to (\w+) )?(another )?target (.+)\.""")
+        val PUT_COUNTERS_ON_UP_TO = Regex("""Put (a|an|one|two|three) (\S+) counters? on (?:each of )?up to (\w+) target (.+)\.""")
+        val RETURN_UP_TO_TARGET_TO_HAND = Regex("""Return up to (\w+) target (.+) to (?:its|their) owners?'s? hands?\.""")
+        val YOU_WIN_IF = Regex("""You win the game if (.+)\.""")
+        val ADDITIONAL_CREATURE_TYPE = Regex("""it's an? (\w+) in addition to its other creature types""")
+        const val MANIFESTED = "manifested"
+        val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // dsk chunk 14
+        val ENTERS_TAPPED_UNLESS = Regex("""(.+) enters tapped unless (.+)\.""")
+        val WITHOUT_SAME_NAME = Regex("""(.+) that don't have the same name as (.+)""")
+        val ENTERS_TAPPED_AS_IT_ENTERS = Regex("""(.+) enters tapped\. As it enters, (.+)""")
+        val SACRIFICE_OTHER_THAN_THAT_OR_SELF = Regex("""Sacrifice an? (.+) other than that creature or (.+)""")
+        val HAVE_IT_GET = Regex("""Have it get ([+-]\d+)/([+-]\d+) until end of turn\.""")
+        val PUT_TARGET_ON_BOTTOM = Regex("""Put target (.+) on the bottom of its owner's library\.""")
+        val IT_BECOMES_CREATURE = Regex("""It becomes an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")
+        val PUT_EACH_EXILED_WITH_ONTO_BATTLEFIELD = Regex("""Put each (.+) exiled with (.+?) onto the battlefield under your control(?: with an? (\S+) counter on it)?\.""")
+        val EACH_OF_THEM_IS_PT_SUBTYPE = Regex("""Each of them is an? (\d+)/(\d+) (\w+) in addition to its other types\.""")
+        // dsk chunk 13
+        val SELF_IS_PT_CREATURE = Regex("""(.+) is an? (\d+)/(\d+) ((?:[A-Z]\w+ )*)creature(?: and has (.+))?\.""")
+        val MAY_CAST_SELF_FROM_GRAVEYARD_IF = Regex("""You may cast (.+) from your graveyard if (.+?)\. If you do, (.+) enters with an? (\S+) counter on it\.""")
+        val PT_COLOR_TYPE_IN_ADDITION = Regex("""it's an? (\d+)/(\d+) (\w+) (\w+) creature in addition to its other colors and types(?: and it has (.+))?""")
+        val BECOME_COPIES_OF_IT_UNTIL_NEXT_END_STEP = Regex("""(.+) become copies of it until the next end step\.""")
+        val SELF_DEALS_THAT_MUCH_TO_ANY_TARGET = Regex("""(.+) deals that much damage to any target\.""")
+        val SELF_DEALS_AND_YOU_GAIN = Regex("""(.+) deals (X|\d+) damage to each opponent and you gain (X|\d+) life\.""")
+        val IF_YOU_PUT_NO_CARDS_INTO_HAND = Regex("""If you put no cards into your hand this way, (.+)""")
+        val CREATE_NAMED_TOKEN_THEN_THAT_MANY_COUNTERS = Regex("""Create (.+?), an? (legendary )?((?:\d+/\d+) .+? creature token), then put that many (\S+) counters on it\.""")
+        // dsk chunk 12
+        val BEHOLD_COST = Regex("""[Cc]hoose an? (.+) you control or reveal an? (.+) card from your hand""")
+        val EXILE_SELF_AND_OTHERS_NAMED = Regex("""Exile (.+?) and (\w+) other cards named (.+) from your graveyard""")
+        val OWNER_OF_TARGET_SHUFFLES = Regex("""The owner of target (.+) shuffles it into their library\.""")
+        val YOU_MAY_SHUFFLE_UP_TO_FROM_GRAVEYARD = Regex("""You may shuffle up to (\w+) target (.+) from your graveyard into your library\.""")
+        val TAP_N_OR_M_TARGETS = Regex("""Tap (one|\w+) or (\w+) target (.+)\.""")
+        val THEY_EACH_DEAL_POWER_TO_TARGET = Regex("""They each deal damage equal to their power to target (.+)\.""")
+        // dsk chunk 11
+        val DO_THIS_ONLY_ONCE_EACH_TURN = Regex("""Do this only once each turn\.""")
+        val MUST_BE_BLOCKED = Regex("""(.+) must be blocked if able\.""")
+        val HAS_KEYWORDS_DURING_YOUR_TURN = Regex("""(.+) has ([a-z ,]+) during your turn\.""")
+        val ATTACHED_GETS_X_COUNTERS = Regex("""Equipped creature gets (\+X|[+-]\d+)/(\+X|[+-]\d+), where X is the number of (\S+) counters on (.+)\.""")
+        val GAIN_CONTROL_UNTIL_EOT = Regex("""Gain control of target (.+) until end of turn\.""")
+        val SELF_DEALS_N_TO_THEM = Regex("""(.+) deals (\d+) damage to them\.""")
+        val N_OR_M_TARGETS_CANT_BLOCK = Regex("""(One|Up to one|\w+) or (\w+) target (.+) can't block this turn\.""")
+        val SELF_DEALS_TO_UP_TO_ONE = Regex("""(.+?) deals (\d+) damage to up to one target (.+)\.""")
+        val TARGET_DEALS_POWER_TO_EACH_OTHER = Regex("""Target (.+) deals damage equal to its power to each other (.+)\.""")
+        val IF_THAT_WOULD_DIE_THIS_TURN = Regex("""If that (?:creature|creature or planeswalker) would die this turn, exile it instead\.""")
+        val REMOVE_THOSE_COUNTERS_AND_DEALS = Regex("""If there are (\w+) or more (\S+) counters on it, remove those counters and it deals (\d+) damage to you\.""")
+        val WHEN_YOU_NEXT_CAST = Regex("""When you next cast an? (.+?) this turn, (copy that spell)\.""")
+        val CHOOSE_TARGETS_SAME_OPPONENT = Regex("""Choose (\w+) target (.+) controlled by the same opponent\.""")
+        val DEALS_TO_THAT_CREATURE_OTHER_CANT_BLOCK = Regex("""(.+) deals (\d+) damage to that creature, and the other can't block this turn\.""")
+        // dsk chunk 10
+        val TARGETABLE_DESPITE_HEXPROOF = Regex("""(.+) can be the targets of spells and abilities as though they didn't have hexproof\.( Ward abilities of those creatures don't trigger\.)?""")
+        val CARD_YOU_DIDNT_CONTROL_EXILE_INSTEAD = Regex("""If a card you didn't control would be put into an opponent's graveyard from anywhere, exile it instead\.""")
+        val PLAY_EXILED_WITH_FOR_LIFE = Regex("""During your turn, you may play cards exiled with (.+)\. If you cast a spell this way, pay life equal to its mana value rather than pay its mana cost\.""")
+        val EACH_PLAYER_EXILES_ALL_BUT_BOTTOM = Regex("""Each player exiles all but the bottom (\w+) cards of their library( face down)?\.""")
+        val UP_TO_THAT_MANY_TARGETS_GET = Regex("""Up to that many target (.+?) each get ([+-]\d+)/([+-]\d+) until end of turn\.""")
+        val LOOK_PUT_ONE_INTO_HAND_REST_GRAVEYARD = Regex("""Look at the top (\w+) cards of your library\. Put one of them into your hand and the rest into your graveyard\.""")
+        val RETURN_THAT_CARD_UNDER_CONTROL = Regex("""Return (that card|it) under (your|its owner's) control( tapped)?(?: with (an?|two|three) (\S+) counters? on it)?\.""")
+        val THEY_MAY_PAY = Regex("""They may (pay \d+ life)\.""")
+        val IF_THEY_DONT = Regex("""If they don't, (.+)""")
+        val YOU_MAY_CHOOSE_FROM_IT = Regex("""You may choose (an? .+?) from it\.""")
+        val TARGET_PLAYER_SACRIFICES_OTHER_THAN = Regex("""Target player sacrifices an? (.+?) of their choice other than enchanted creature\.""")
+        val EACH_SACRIFICES_THEN_SACRIFICES = Regex("""Each (player|opponent) sacrifices an? (.+?) of their choice, then sacrifices an? (.+?) of their choice\.""")
+        val IF_PUT_INTO_GRAVEYARD_THIS_WAY_RETURN = Regex("""If an? (.+?) is put into a graveyard this way, return it to the battlefield under your control\.""")
+        // dsk chunk 09
+        val EXILE_YOU_CONTROL_COST = Regex("""Exile an? (.+) you control""")
+        val SELF_COSTS_LESS_IF_IT_TARGETS = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast if it targets an? (.+)\.""")
+        val CANT_ATTACK_OR_BLOCK_ALONE = Regex("""(.+) can't attack or block alone\.""")
+        val TARGET_CANT_BE_BLOCKED_THIS_TURN = Regex("""(Target|Another target) (.+) can't be blocked this turn\.""")
+        val THAT_MANY_CARDS = Regex("""(Draw|Discard) that many cards\.""")
+        val IF_OPPONENT_CONTROLS_THAT = Regex("""If an opponent controls that creature, (.+)""")
+        val TAP_ANY_NUMBER = Regex("""Tap any number of (.+)\.""")
+        val SELF_GETS_FOR_EACH_TAPPED = Regex("""(.+) gets \+(\d+)/\+(\d+) until end of turn for each creature tapped this way\.""")
+        val RETURN_N_OR_M_TARGETS_TO_HAND = Regex("""Return (\w+) or (\w+) target (.+?) to your hand\.""")
+        val IT_BECOMES_COLOR_SUBTYPE = Regex("""It becomes an? (\w+) (\w+) in addition to its other colors and types\.""")
+        val OWNER_PUTS_ON_TOP_OR_BOTTOM = Regex("""Target (.+)'s owner puts it on their choice of the top or bottom of their library\.""")
+        val SELF_BECOMES_COPY = Regex("""(.+) becomes a copy of (another )?target (.+)\.""")
+        val UNTIL_EOT_TARGET_GETS_GAINS_BECOMES = Regex("""Until end of turn, target (.+?) gets ([+-]\d+)/([+-]\d+), gains (.+?), and becomes an? (.+?) in addition to its other types\.""")
+        val IF_THEY_DO = Regex("""If they do, (.+)""")
+        val SHUFFLE_SELF_AND_TARGET = Regex("""Shuffle (.+?) and target (.+) into their owners' libraries\.""")
+        val ACTIVATE_ONLY_ONCE_EVER = Regex("""Activate only once\.""")
+        // dsk chunk 08
+        val IT_WAS_A = Regex("""it was an? (.+)""")
+        val GAIN_THAT_MUCH_PLUS = Regex("""If you would gain life, you gain that much life plus (\d+) instead\.""")
+        val WOULD_BE_PUT_INTO_GRAVEYARD_EXILE_INSTEAD = Regex("""If an? (.+?) would be put into (an opponent's|your) graveyard from anywhere, exile it instead\.""")
+        val TARGET_LOSES_THAT_MUCH = Regex("""Target (player|opponent) loses that much life\.""")
+        val CREATE_NAMED_LAND_TOKEN = Regex("""Create an? (tapped )?colorless land token named (.+?) that is every basic land type\.""")
+        // dsk chunk 07
+        val WHILE = Regex("""(.+?) while (.+)""")
+        val SELF_COSTS_LESS_AS_LONG_AS = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast as long as (.+)\.""")
+        val CANT_ATTACK_OR_BLOCK_UNLESS = Regex("""(.+) can't attack or block unless (.+)\.""")
+        val MAXIMUM_HAND_SIZE_MINUS_CARD_TYPES = Regex("""Each opponent's maximum hand size is equal to (\w+) minus the number of those card types\.""")
+        val WOULD_DEAL_DOUBLE = Regex("""If a source you control would deal (noncombat |combat )?damage to a permanent or player(?: while (.+?))?, it deals double that damage instead\.""")
+        val ACTIVATE_ONLY_IF_AND_AS_SORCERY = Regex("""Activate only if (.+?) and only as a sorcery\.""")
+        val CREATE_A_NUMBER_EQUAL_TO = Regex("""Create a number of (.+? tokens?(?: with .+?)?) equal to (the number of .+)\.""")
+        val DEALS_THAT_AMOUNT_TO_TARGET = Regex("""(.+?) deals that (?:amount of|much) damage to target (.+)\.""")
+        val IF_ITS_A_YOU_MAY_PUT_ONTO_BATTLEFIELD = Regex("""If it's an? (.+?), you may put it onto the battlefield\.""")
+        val DISTRIBUTE_COUNTERS_AMONG = Regex("""Distribute (\w+) (\S+) counters among (\w+) or (\w+) target (.+)\.""")
+        val DOUBLE_COUNTERS_ON_THOSE = Regex("""Double the number of (\S+) counters on those creatures\.""")
+        val EACH_OPPONENT_MAY = Regex("""Each opponent may (.+)\.""")
+        val DAMAGE_TO_EACH_WHO_DIDNT = Regex("""(.+?) deals damage equal to its power to each opponent who didn't sacrifice a permanent or discard a card this way\.""")
+        val CHOOSE_TWO_TARGETS = Regex("""Choose target (.+?) and target (.+)\.""")
+        val THE_TARGET_DEALS_DAMAGE_EQUAL_TO_ITS_POWER = Regex("""The (.+?) deals damage equal to its power to the (.+)\.""")
+        val DEALS_X_TO_EACH_OF_UP_TO_X = Regex("""(.+?) deals X damage to each of up to X target (.+)\.""")
+        val IF_INSTEAD_ALL = Regex("""(?:([A-Z][A-Za-z ]+) — )?If (.+?), instead (.+)""")
+        val CHOOSE_MAX_IF = Regex("""(?:([A-Z][A-Za-z ]+) — )?Choose (one|two)\. If (.+), choose (one or more|both|\w+) instead\.""")
+        // dsk chunk 06
+        val MAY_LOOK_AT_ANY_TIME = Regex("""You may look at (.+) any time\.""")
+        val MANIFEST_DREAD_TIMES = Regex("""Manifest dread (X|\w+) times, then put (X|\w+) (\S+) counters on each of those creatures\.""")
+        val MAY_RETURN_FROM_GRAVEYARD_TO_HAND = Regex("""You may return an? (.+?) from your graveyard to your hand\.""")
+        val REVEAL_TARGET = Regex("""Reveal target (.+)\.""")
+        // dsk chunk 05
+        val LOSES_ALL_AND_IS = Regex("""(Enchanted creature) loses all abilities and is an? (.+?) with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
+        val FACE_DOWN_CANT_BE_TURNED_FACE_UP = Regex("""As long as (enchanted creature) is face down, it can't be turned face up\.""")
+        val DOESNT_UNTAP_DURING_CONTROLLERS = Regex("""(Enchanted creature|Equipped creature) doesn't untap during its controller's untap step\.""")
+        val PLAYER_MANIFESTS_DREAD = Regex("""(Its controller|The exiled card's owner) manifests dread\.""")
+        val ATTACH_SELF_TO_THAT_CREATURE = Regex("""Attach (.+) to that creature\.""")
+        val WHEN_IT_DIES_THIS_TURN = Regex("""When it dies this turn, (.+)""")
+        // dsk chunk 04
+        val TRIGGERS_ONLY_ONCE_EVER = Regex("""This ability triggers only once\.""")
+        val CANT_BE_BLOCKED_BY = Regex("""(.+) can't be blocked by (.+)\.""")
+        val PUT_ONE_OF_COUNTERS = Regex("""Put an? ((?:[^ ,]+, )+or [^ ]+) counter on (.+)\.""")
+        val PUT_THOSE_COUNTERS_ON = Regex("""Put those counters on (up to one )?target (.+)\.""")
+        val THAT_BECOMES_CREATURE = Regex("""That (\w+) becomes an? (\d+)/(\d+) (\w+) creature in addition to its other types\.""")
+        val IT_GAINS_UNTIL_YOUR_NEXT_TURN = Regex("""It gains (.+) until your next turn\.""")
+        val PUT_ANY_NUMBER_WITH_DIFFERENT_FROM_AMONG = Regex("""Put any number of (.+?) with different (powers|mana values) from among them into your hand\.""")
+        val EFFECT_IF_CONDITION = Regex("""(.+?) if (.+)\.""")
+        // dsk chunk 03
+        val UNLOCK_COSTS_LESS = Regex("""Unlock costs you pay cost ((?:\{[^}]+\})+) less\.""")
+        val UNLOCK_A_LOCKED_DOOR = Regex("""Unlock a locked door of (?:up to (\w+) )?(target |an? )(.+)\.""")
+        /** A Room with at least one locked door (CR 709.5c). */
+        val HAS_A_LOCKED_DOOR = ObjectFilter.Not(ObjectFilter.And(listOf(
+            ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Unlocked(arcanum.api.Door.Left))),
+            ObjectFilter.HasStatus(arcanum.api.Status.Marked(arcanum.api.ObjectMark.Unlocked(arcanum.api.Door.Right))))))
+        val LOCK_OR_UNLOCK = Regex("""Lock or unlock a door of target (.+)\.""")
+        val RETURN_OR_UNLOCK = Regex("""Return an? (.+?) from your graveyard to your hand or (unlock .+)\.""")
+        val CAN_ATTACK_AS_THOUGH_NO_DEFENDER = Regex("""(.+) can attack this turn as though it didn't have defender\.""")
+        val EFFECT_IF = Regex("""(.+) if (this is the \w+ time this ability has resolved this turn)\.""")
+        val PUT_CARD_FROM_A_GRAVEYARD_ONTO_BATTLEFIELD = Regex("""Put an? (.+?) from a graveyard onto the battlefield under your control\.""")
+        val PUT_ALL_FROM_AMONG_THEM_REST_BOTTOM = Regex("""Put all (.+?) from among them into your hand and the rest on the bottom of your library in a random order\.""")
+        // dsk chunk 02
+        val NO_MAXIMUM_HAND_SIZE = Regex("""You have no maximum hand size( and don't lose the game for having 0 or less life)?\.""")
+        val ALTERNATIVE_COST_FOR_SPELLS = Regex("""(Once each turn, )?[Yy]ou may pay (\{[^ ]+\}) rather than pay the mana cost for (?:a spell|spells) you cast( from exile)?\.""")
+        val GETS_AND_GAINS_UNTIL_EOT = Regex("""(.+?) gets ([+-](?:\d+|X))/([+-](?:\d+|X)) and (gains|loses) (.+) until (end of turn|your next turn)\.""")
+        val DEALS_DAMAGE_EQUAL_TO = Regex("""(.+?) deals damage equal to (the number of .+?|the power of .+?) to (any target|target .+|each opponent)\.""")
+        val YOU_MAY_PLAY_EXILED = Regex("""You may play (it|them) (this turn|until the end of your next turn)\.""")
+        val MILL_THEN_RETURN_FROM_AMONG_THEM = Regex("""Mill (\w+) cards, then return up to (\w+) (.+) from among them to your hand\.""")
+        val ADD_MANA_SPEND_ONLY_TO = Regex("""Add (.+)\. Spend this mana only to (.+)\.""")
+        val CAST_SPELLS = Regex("""cast (?:an? )?(.+?) spells?""")
         // chunk 12
         const val DISCARDED = "discarded"
         const val RETURNED = "returned"
-        val SEARCH_LIBRARY_AND_OR_GRAVEYARD = Regex("""Search your library and/or graveyard for (.+?) and put it onto the battlefield\.""")
+        val SEARCH_LIBRARY_AND_OR_GRAVEYARD = Regex("""Search your (library and/or graveyard|graveyard, hand, and/or library) for (.+?) and put it onto the battlefield\.""")
         val IF_X_AT_LEAST = Regex("""If X is (\d+) or more, (.+)""")
         val GROUP_GETS_UNTIL_EOT = Regex("""(.+?) get ([+-](?:\d+|X))/([+-](?:\d+|X))(?: and gain (.+?))? until end of turn\.""")
         val SHUFFLE_INTO_OWNERS_LIBRARY = Regex("""Shuffle (.+) into its owner's library\.""")
@@ -3040,7 +5926,7 @@ internal class Sentences(
         val IF_CAST_FROM_GRAVEYARD = Regex("""If this spell was cast from a graveyard, (.+)""")
         val UNTIL_END_OF_TURN_WHENEVER = Regex("""Until end of turn, whenever (.+?), (.+)""")
         val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+)""")
-        val RETURN_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (another )?target (.+?) from your graveyard to the battlefield( tapped)?\.""")
+        val RETURN_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (another )?target (.+?) from your graveyard to the battlefield( tapped)?(?: with an? (\S+) counter on it)?\.""")
         val GAINS_FLASHBACK_OF_ITS_MANA_COST = Regex("""Each (.+?) card in your graveyard gains flashback until end of turn\. The flashback cost is equal to its mana cost\.""")
         val CAST_UP_TO_ONE_EACH_FROM_GRAVEYARD = Regex("""You may cast (.+?) from your graveyard each with mana value (X|\d+) or less without paying their mana costs\.""")
         val UP_TO_ONE_TARGET_CARD = Regex("""up to one target (\w+) card""")
@@ -3059,7 +5945,7 @@ internal class Sentences(
         val ATTACHED_GETS = Regex("""(?:Equipped|Enchanted) creature gets ([+-]\d+)/([+-]\d+)(?: for each (.+))?\.""")
         val ATTACH_SELF_TO_TARGET = Regex("""Attach (.+) to target (.+)\.""")
         val SACRIFICE_THAT = Regex("""Sacrifice that (\w+)\.""")
-        val RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (.+) from your graveyard to the battlefield( tapped)?\.""")
+        val RETURN_SELF_FROM_GRAVEYARD_TO_BATTLEFIELD = Regex("""Return (.+) from your graveyard to the battlefield( tapped)?(?: with an? (\S+) counter on it)?\.""")
         val TARGET_PLAYER_MILLS_SACRIFICED = Regex("""Target player mills cards equal to the sacrificed \w+'s (power|toughness)\.""")
         val PUT_UP_TO_TARGET_ON_BOTTOM = Regex("""Put up to (\w+) target (.+) from your graveyard on the bottom of your library\.""")
         val LOOK_TOP_OF_TARGET_LIBRARY = Regex("""Look at the top (card|(\w+) cards) of target player's library\.""")
@@ -3070,7 +5956,7 @@ internal class Sentences(
         val MAY_PLAY_FROM_GRAVEYARD = Regex("""You may (play|cast) (.+) from your graveyard\.""")
         val SPEND_AS_ANY_COLOR_TO_ACTIVATE = Regex("""You may spend mana as though it were mana of any color to activate abilities of (.+)\.""")
         val HAVE_ABILITIES_OF_EXILED = Regex("""(.+) have all activated abilities of all (.+) cards exiled with (.+)\.""")
-        val ENTERS_WITH_COUNTERS = Regex("""(.+) enters( tapped)? with (\w+) (\S+) counters? on it\.""")
+        val ENTERS_WITH_COUNTERS = Regex("""(.+) enters( tapped)? with (\w+) (\S+) counters? on it(?: if (.+))?\.""")
         val ACTIVATE_ONLY_AS_SORCERY = Regex("""Activate only as a sorcery\.""")
         val ACTIVATE_ONLY_DURING_YOUR_TURN = Regex("""Activate only during your turn\.""")
         val TRIGGERS_ONLY_ONCE = Regex("""This ability triggers only once each turn\.""")
@@ -3083,7 +5969,7 @@ internal class Sentences(
         val EXILE_TARGET_UNTIL_LEAVES = Regex("""Exile target (.+) until (.+) leaves the battlefield\.""")
         val EXILE_TARGET_FROM_A_GRAVEYARD = Regex("""Exile target (.+) from a graveyard\.""")
         val YOU_MAY_PUT_FROM_HAND = Regex("""You may put an? (.+) from your hand onto the battlefield\.""")
-        val PUT_COUNTERS = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+)\.""")
+        val PUT_COUNTERS = Regex("""Put (a|an|one|two|three|four|five|six|seven|eight|nine|ten) (\S+) counters? on (.+)\.""")
         val WHEN_EXILED_THIS_WAY = Regex("""When an? (.+) is exiled this way, (.+)""")
         val PUT_EXILED_WITH_INTO_GRAVEYARD = Regex("""Put an? (.+?) exiled with (.+) into its owner's graveyard\.""")
         val THAT_CONTROLLER_CREATES = Regex("""That \w+'s controller creates (.+ tokens?)\.""")
@@ -3118,9 +6004,9 @@ internal class Sentences(
         val TARGET_DEALS_DAMAGE_TO_ITSELF = Regex("""Target (.+) deals (\d+) damage to itself\.""")
         val UNTAP_ANOTHER_TARGET = Regex("""Untap (another )?target (.+)\.""")
         val GAIN_AND_GET = Regex("""(.+?) gains? (.+?) and gets? ([+-](?:\d+|X))/([+-](?:\d+|X)) until end of turn\.""")
-        val CREATE_COPY_OF_TARGET = Regex("""Create a token that's a copy of (another )?target (.+)\.""")
+        val CREATE_COPY_OF_TARGET = Regex("""Create a token that's a copy of (another )?target (.+?)(?:, except (.+))?\.""")
         // chunk 33
-        val EACH_SACRIFICES = Regex("""Each (player|opponent) sacrifices an? (.+?)(?: of their choice)?\.""")
+        val EACH_SACRIFICES = Regex("""Each (player|opponent) sacrifices (an?|X|two|three) (.+?)(?: of their choice)?\.""")
         val TARGET_REVEALS_HAND_YOU_CHOOSE = Regex("""Target opponent reveals their hand and you choose an? (.+) from it\.""")
         val MAY_EXILE_FROM_IT_UNTIL_LEAVES = Regex("""You may exile an? (.+) from it until (.+) leaves the battlefield\.""")
         val EXILED_TO_HAND = Regex("""(?:Return|Put) the exiled card (?:to|into) its owner's hand\.""")
@@ -3167,7 +6053,7 @@ internal class Sentences(
         val POWER_IS_EQUAL_TO = Regex("""(.+)'s power is equal to (.+)\.""")
         val DEVOTION_TO = Regex("""your devotion to (\w+(?: and \w+)?)""")
         val CANT_BLOCK = Regex("""(.+) can't block\.""")
-        val CREATE_FOR_EACH_COUNTER_ON_SELF = Regex("""Create (an? .+ token(?: with .+?)?) for each (\S+) counter on (.+)\.""")
+        val CREATE_FOR_EACH_COUNTER_ON_SELF = Regex("""Create (an? .+ token(?: with .+?)?) for each (?:(\S+) )?counter on (.+)\.""")
         val DRAW_FOR_EACH_COUNTER_ON = Regex("""Draw a card for each (\S+) counter on (.+)\.""")
         val CREATE_X_WHERE_SELF_POWER = Regex("""Create X (tapped )?(.+ tokens), where X is (.+)'s power\.""")
         val DEALS_DAMAGE_EQUAL_TO_ITS_POWER = Regex("""(.+?) deals damage equal to its power to (any target|each opponent)\.""")
@@ -3185,20 +6071,20 @@ internal class Sentences(
         val PAY_MANA = Regex("""Pay (\{.+\})""")
         val EXILE_TOP_CARD = Regex("""Exile the top card of your library( face down)?\.""")
         const val EXILE_ONE_OF_THEM_FROM_GRAVEYARD = "Exile one of them from your graveyard"
-        val MAY_PUT_FROM_AMONG_THEM_INTO_HAND = Regex("""You may put an? (.+?) from among them into your hand\.""")
+        val MAY_PUT_FROM_AMONG_THEM_INTO_HAND = Regex("""You may put (an?|any number of) (.+?) from among (?:them|the cards milled this way) into your hand\.""")
         val IF_IT_ENTERED_UNDER_YOUR_CONTROL = Regex("""If it entered under your control, (.+)""")
         val PUT_ALL_EXILED_WITH_INTO_HANDS = Regex("""Put all cards exiled with (.+) into their owners' hands\.""")
         val SACRIFICE_A = Regex("""Sacrifice (another|an?) (.+)\.""")
         val EXILE_UP_TO_TARGET = Regex("""Exile up to (\w+) (other )?target (.+)\.""")
         val AT_BEGINNING_OF_NEXT_END_STEP = Regex("""At the beginning of the next end step, (.+)""")
-        val RETURN_IT_UNDER_OWNERS_CONTROL = Regex("""Return (?:that card|it) to the battlefield under its owner's control\.""")
+        val RETURN_IT_UNDER_OWNERS_CONTROL = Regex("""Return (?:that card|it) to the battlefield( tapped)? under its owner's control(?: with (\w+) (\S+) counters? on it)?\.""")
         val LOSE_LIFE_EQUAL_TO_THAT_CARDS_MANA_VALUE = Regex("""(.+) loses? life equal to that card's mana value\.""")
         val UNLESS_CONDITION = Regex("""(.+) unless (.+)\.""")
         // chunk 45
         val AS_LONG_AS_FIRST = Regex("""As long as (.+?), (.+)""")
         val AS_LONG_AS_LAST = Regex("""(.+) as long as (.+)\.""")
-        val SUBJECT_PREDICATES = Regex("""(.+?) ((?:gets?|has|have|can't|attacks) .+)\.""")
-        val PREDICATE_SPLIT = Regex(""",? and (?=(?:gets?|has|have|can't|attacks) )|, (?=(?:gets?|has|have|can't|attacks) )""")
+        val SUBJECT_PREDICATES = Regex("""(.+?) ((?:gets?|has|have|can't|attacks|loses) .+)\.""")
+        val PREDICATE_SPLIT = Regex(""",? and (?=(?:gets?|has|have|can't|attacks|loses) )|, (?=(?:gets?|has|have|can't|attacks|loses) )""")
         val GETS_PT = Regex("""gets? ([+-]\d+)/([+-]\d+)(?: for each (.+))?""")
         val HAS_KEYWORDS = Regex("""(?:has|have) (.+)""")
         val MAY_PLAY_FROM_TOP = Regex("""[Yy]ou may (play|cast) (.+?) from the top of your library\.""")
@@ -3207,13 +6093,16 @@ internal class Sentences(
         val COLLECT_EVIDENCE = Regex("""Collect evidence (\d+)""")
         // chunk 46
         const val CHOSEN_TYPE = "type"
+        // dsk chunk 14
+        const val CHOSEN_COLOR = "color"
         val CANT_CAST_ADDITIONAL = Regex("""Each player who has cast an? (.+?) spell this turn can't cast additional (.+?) spells\.""")
         val EACH_OTHER_ENTERS_WITH = Regex("""Each other (.+?)( of the chosen type)? enters with (?:an additional (\S+) counter|a number of additional (\S+) counters) on it(?: equal to (.+))?\.""")
         val SELF_PROPERTY = Regex("""(.+)'s (power|toughness)""")
         val AS_ENTERS_CHOOSE_TYPE = Regex("""As (.+) enters, choose a creature type\.""")
         val IS_THE_CHOSEN_TYPE = Regex("""(.+) is the chosen type in addition to its other types\.""")
         val PT_EACH_EQUAL_TO_NUMBER = Regex("""(.+)'s power and toughness are each equal to the number of (.+)\.""")
-        val SPELLS_COST = Regex("""(.+) spells cost ((?:\{[^}]+\})+) (more|less) to cast\.""")
+        // dsk chunk 03: "Enchantment spells you cast cost {1} less to cast."
+        val SPELLS_COST = Regex("""(.+) spells( you cast)? cost ((?:\{[^}]+\})+) (more|less) to cast\.""")
         val PREVENT_ALL_COMBAT_DAMAGE_TO = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
         val BOLSTER = Regex("""Bolster (\d+)\.""")
         val UNTIL_YOUR_NEXT_TURN_CANT_CAST = Regex("""Until your next turn, target player(?: who was dealt combat damage by (.+?) this turn)? can't cast (.+?) spells\.""")
@@ -3236,7 +6125,7 @@ internal class Sentences(
         val GERUNDS = mapOf("paying" to "", "sacrificing" to "Sacrifice", "discarding" to "Discard", "exiling" to "Exile")
         // chunk 51
         val ANY_PLAYER_MAY_ACTIVATE = Regex("""Any player may activate this ability\.""")
-        val TARGET_GAINS_UNTIL_EOT = Regex("""Target (.+) gains (.+) until end of turn\.""")
+        val TARGET_GAINS_UNTIL_EOT = Regex("""(Another target|Target) (.+) gains (.+) until end of turn\.""")
         // chunk 52
         val HAS_ACTIVATED_ABILITIES_OF = Regex("""(.+) has all activated abilities of (.+?)( except for loyalty abilities)?\.( You may spend mana as though it were mana of any color to activate those abilities\.)?""")
         val COUNTERS_MINUS_ONE = Regex("""If one or more (\S+) counters would be put on (.+), that many (\S+) counters minus one are put on it instead\.""")

@@ -108,7 +108,19 @@ internal object Steps {
             }
             is Step.If -> run(scope, if (scope.holds(step.condition)) step.then else step.otherwise)
             is Step.ForEach -> forEach(scope, step)
-            is Step.Repeat -> repeat(scope.value(step.times).coerceAtLeast(0)) { run(scope, step.steps) }
+            is Step.Repeat -> {
+                // Objects named in each repetition gather ("manifest dread X times, then … each of those creatures",
+                // CR 701.40e: one at a time)
+                val gathered = linkedMapOf<String, List<ObjectId>>()
+                repeat(scope.value(step.times).coerceAtLeast(0)) {
+                    val before = scope.names.values
+                    run(scope, step.steps)
+                    scope.names.values.forEach { (name, value) ->
+                        if (value is NamedValue.Objects && before[name] != value) gathered[name] = (gathered[name].orEmpty() + value.ids).distinct()
+                    }
+                }
+                gathered.forEach { (name, ids) -> scope.bind(name, NamedValue.Objects(ids)) }
+            }
             is Step.Choose -> choose(scope, step)
             is Step.Manual -> act.manual(scope.actor, scope.self, step.text)
         }
@@ -232,8 +244,15 @@ internal object Steps {
                 val hidden = act.hiddenDecides(chooser, source, pool) { e.identityDecides(choice.filter, it) }
                 val e2 = scope.eval()
                 val options = pool.filter { act.state.obj(it) != null && e2.matches(choice.filter, it) }
-                NamedValue.Objects(act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },
-                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose"), hidden))
+                val chosen = act.chooseObjects(chooser, source, options, e2.value(choice.min), choice.max?.let { e2.value(it) },
+                    arcanum.engine.decision.Texts.sentence(scope.cause.item?.ability, "choose", "Choose"), hidden)
+                // "with different powers": no two chosen share the quality (D32: a rule-breaking answer is refused)
+                choice.distinct?.let { quality ->
+                    require(chosen.indices.none { i -> (0 until i).any { j -> e2.shares(quality, chosen[i], chosen[j]) } }) {
+                        "The chosen objects must differ in $quality"
+                    }
+                }
+                NamedValue.Objects(chosen)
             }
             is Choice.Option -> NamedValue.Option(act.chooseOption(chooser, source, choice.options))
         }

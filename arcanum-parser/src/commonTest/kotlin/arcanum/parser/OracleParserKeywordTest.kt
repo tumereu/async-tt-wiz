@@ -3,6 +3,11 @@ package arcanum.parser
 import arcanum.api.Ability
 import arcanum.api.Keyword
 import arcanum.api.Cost
+import arcanum.api.CostObjects
+import arcanum.api.CostPart
+import arcanum.api.ObjectCategory
+import arcanum.api.ObjectFilter
+import arcanum.api.Value
 import arcanum.api.ManaCost
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,13 +54,13 @@ class OracleParserKeywordTest {
         assertEquals(listOf(Keyword.Suspend(4, mana("{1}{R}"))), abilities("Suspend 4—{1}{R}"))
     }
 
-    // CR 702.21 Ward: only mana costs so far; other costs stay unparsed
+    // CR 702.21a Ward [cost]: any cost (dsk chunk 06: "Ward—Discard a card.", "Ward—Sacrifice three nonland permanents.")
     @Test
-    fun wardWithManaCostParsesButOtherCostsStayUnparsed() {
+    fun wardWithAnyCost() {
         assertEquals(listOf(Keyword.Ward(mana("{2}"))), abilities("Ward {2}"))
-        assertEquals(listOf(Ability.Unparsed("Ward—Pay 3 life.")), abilities("Ward—Pay 3 life."))
-        assertEquals(listOf(Keyword.Flying, Ability.Unparsed("ward—Discard a card.")),
-            abilities("Flying; ward—Discard a card."))
+        assertEquals(listOf(Keyword.Ward(Cost(listOf(CostPart.PayLife(Value.Fixed(3)))))), abilities("Ward—Pay 3 life."))
+        assertEquals(listOf(Keyword.Flying, Keyword.Ward(Cost(listOf(CostPart.Discard(CostObjects.Choose(
+            ObjectFilter.Category(ObjectCategory.Card), count = Value.Fixed(1))))))), abilities("Flying; ward—Discard a card."))
     }
 
     @Test
@@ -79,11 +84,12 @@ class OracleParserKeywordTest {
             .forEach { text -> assertTrue(abilities(text).none { it is Keyword }, text) }
     }
 
+    // dsk chunk 05: "Equipped creature has shroud." is read now, so the unread line is one the parser can't read
     @Test
     fun eachLineIsReadOnItsOwnAndUnparsedLinesKeepTheirReminderText() {
         assertEquals(listOf(Keyword.Vigilance, Keyword.Equip(mana("{3}")),
-            Ability.Unparsed("Equipped creature has shroud. (It can't be the target of spells or abilities.)")),
-            abilities("Vigilance\nEquip {3}\nEquipped creature has shroud. (It can't be the target of spells or abilities.)"))
+            Ability.Unparsed("Equipped creature has shroud unless an opponent named it. (It can't be the target of spells or abilities.)")),
+            abilities("Vigilance\nEquip {3}\nEquipped creature has shroud unless an opponent named it. (It can't be the target of spells or abilities.)"))
     }
 
     @Test

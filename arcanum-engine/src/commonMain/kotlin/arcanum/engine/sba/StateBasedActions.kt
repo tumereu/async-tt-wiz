@@ -67,7 +67,9 @@ internal object StateBasedActions {
         // CR 704.5a, b, c: a player with 0 or less life, who drew from an empty library, or with 10 or more poison
         // counters loses (unless they can't, CR 104.3b)
         val losers = state.players.filter { p ->
-            !p.lost && (p.life <= 0 || (p.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 || p.counters(CounterKind.Poison) >= 10) &&
+            // "You don't lose the game for having 0 or less life."
+            !p.lost && (p.life <= 0 && view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.NoLossForZeroLife } ||
+                (p.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 || p.counters(CounterKind.Poison) >= 10) &&
                 view.players[p.id]?.mechanics.orEmpty().none { it.mechanic == Mechanic.CantLoseGame }
         }.map { it.id }
         val emptyDraws = state.players.filter { (it.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 }

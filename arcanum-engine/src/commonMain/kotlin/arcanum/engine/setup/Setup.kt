@@ -86,6 +86,9 @@ sealed interface SetupStage {
     /** CR 103.5: then each of them, in turn order, puts cards on the bottom; [done] already did. */
     @Serializable @SerialName("bottom") data class Bottom(val mulligans: Mulligans, val done: List<PlayerId> = emptyList()) : SetupStage
 
+    /** CR 103.6: the next player in turn order not in [done] takes their opening-hand actions. */
+    @Serializable @SerialName("opening-hand") data class OpeningHand(val done: List<PlayerId> = emptyList()) : SetupStage
+
     /** CR 103.8: the starting player's first turn begins. */
     @Serializable @SerialName("first-turn") data object FirstTurn : SetupStage
 }
@@ -118,8 +121,9 @@ val GameState.started: Boolean get() = turn.number > 0
  *    everyone who chose a mulligan takes it at once: hand shuffled back, a new hand drawn, then as many cards as
  *    mulligans taken (the first one free in multiplayer, CR 103.5c) put on the bottom of the library, in the order chosen
  *    (the last chosen lowest). This repeats until all have kept; a player whose hand is down to zero cards keeps.
- * 5. Opening-hand actions (CR 103.6, "you may begin the game with it on the battlefield") would come here, starting
- *    player first; no card has one yet. Actions "any time you could mulligan" (CR 103.5b) are not offered either.
+ * 5. Opening-hand actions (CR 103.6): starting player first, each player may put cards with "if this card is in your
+ *    opening hand, you may begin the game with it on the battlefield" onto the battlefield (CR 103.6a). Actions "any
+ *    time you could mulligan" (CR 103.5b) are not offered.
  * 6. The first turn begins (CR 103.8): the starting player skips its draw when [GameState.skipFirstDraw] (CR 103.8a).
  */
 internal object Setup {
@@ -197,6 +201,7 @@ internal object Setup {
         is SetupStage.Declare -> stage.mulligans.let { "declare:${it.taken.values.sum()}:${it.kept.size}:${it.taking.size}" }
         is SetupStage.Mulligan -> "mulligan:${stage.mulligans.taken.values.sum()}"
         is SetupStage.Bottom -> "bottom:${stage.mulligans.taken.values.sum()}:${stage.done.size}"
+        is SetupStage.OpeningHand -> "opening-hand:${stage.done.size}"
         SetupStage.FirstTurn -> "first-turn"
     }
 
@@ -215,6 +220,7 @@ internal object Setup {
         is SetupStage.Declare -> declare(act, stage.mulligans, options)
         is SetupStage.Mulligan -> mulligan(act, stage.mulligans, options)
         is SetupStage.Bottom -> bottom(act, stage, options)
+        is SetupStage.OpeningHand -> openingHand(act, stage)
         SetupStage.FirstTurn -> {
             // CR 103.8, 800.4k: the starting player (or, if they left, the next player) takes the first turn
             val s = act.state
@@ -292,6 +298,23 @@ internal object Setup {
     private fun companionAbility(o: GameObject?): Keyword.CompanionAbility? =
         o?.definition?.faces?.flatMap { it.abilities }?.filterIsInstance<Keyword.CompanionAbility>()?.firstOrNull()
 
+    // ---- CR 103.6
+
+    /** CR 103.6a: the next player puts any of their opening-hand cards that may begin the game on the battlefield there. */
+    private fun openingHand(act: Act, stage: SetupStage.OpeningHand): SetupStage {
+        val s = act.state
+        val player = order(s).firstOrNull { it !in stage.done } ?: return SetupStage.FirstTurn
+        val cards = s.player(player).hand.filter { id ->
+            s.obj(id)?.definition?.faces?.firstOrNull()?.abilities.orEmpty()
+                .any { (it as? arcanum.api.Ability.Static)?.mechanics?.contains(arcanum.api.Mechanic.MayBeginOnBattlefield) == true }
+        }
+        if (cards.isNotEmpty()) {
+            val chosen = act.chooseObjects(player, null, cards, 0, cards.size, "Begin the game with any of these on the battlefield (CR 103.6a)")
+            if (chosen.isNotEmpty()) Actions.move(act, null, chosen.map { arcanum.engine.action.PlannedMove(it, Zone.Battlefield, controller = player) })
+        }
+        return stage.copy(done = stage.done + player)
+    }
+
     // ---- CR 103.5
 
     /** Mulligans that count towards cards put on the bottom and the limit (CR 103.5c: the first is free in multiplayer). */
@@ -302,8 +325,8 @@ internal object Setup {
     private fun declare(act: Act, m: Mulligans, options: StartOptions): SetupStage {
         val s = act.state
         val player = order(s).firstOrNull { it !in m.kept && it !in m.taking }
-            // CR 103.6: opening-hand actions would be taken here, once nobody takes a mulligan any more
-            ?: return if (order(s).none { it in m.taking }) SetupStage.FirstTurn else SetupStage.Mulligan(m)
+            // CR 103.6: opening-hand actions, once nobody takes a mulligan any more
+            ?: return if (order(s).none { it in m.taking }) SetupStage.OpeningHand() else SetupStage.Mulligan(m)
         // A hand already down to zero cards can't be mulliganed again (CR 103.5)
         val canMulligan = counted(m.taken[player] ?: 0, freeFirst(s, options)) < options.handSize
         val choice = if (canMulligan) act.chooseOption(player, null, listOf(KEEP, MULLIGAN)) else KEEP

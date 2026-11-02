@@ -54,8 +54,8 @@ out of anything stuck.
   fields of §4. Hidden cards are unknown objects (D60).
 - **Change mapping:** every engine `Change` to `PlayAction`s with the Magic tag (D33) and `CausedBy` for history
   text ("Storm Spark dealt 3 damage to Grizzly Cub").
-- **The Automatum switch** as a shared game event, and the engine version per game (D38): a client on another
-  version plays manually until it updates; the server refuses automated batches from another version.
+- **The Automatum switch** as a shared game event. No engine version per game (D62): one app/server version at a
+  time with forced updates; new event kinds bump the gameplay rules version (SYS-031).
 - **Tests:** replay engine scenarios (the cube scenarios and review scenarios) through ATW's mapping and actions;
   the state rebuilt from ATW must equal the engine's own `apply` after every call, and undo of each batch must give
   back the previous state.
@@ -154,7 +154,7 @@ Look and reveal panels are not zone changes; temp piles are a manual tool Automa
 
 ## 6. Catalog entries this will change (by phase)
 
-- I0: new entries for the switch, versions, timestamps, zone-change counts, tags (history texts).
+- I0: new entries for the switch, timestamps, zone-change counts, tags (history texts).
 - I1: TBL-021–023 (P/T corner), TBL-086 (keywords), Inspect entries.
 - I2: ZON-004/005/007 (hand double-tap and menu), STK-001–006 (spells move to the Stack, D35), SYS-010, SYS-036
   (refusals while on, D32).

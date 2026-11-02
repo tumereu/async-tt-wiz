@@ -22,6 +22,8 @@ internal object Answers {
                 if (chosen.size !in d.min..d.max) refuse("Choose ${d.min} to ${d.max} modes")
                 if (chosen.any { i -> d.options.getOrNull(i)?.available != true }) refuse("Not an available mode")
                 if (!d.repeatable && chosen.distinct().size != chosen.size) refuse("A mode can be chosen only once")
+                // blb: CR 700.2i: at most the limit's worth of pawprints
+                d.pawprintLimit?.let { limit -> if (chosen.sumOf { i -> d.options[i].pawprints } > limit) refuse("More than $limit {P} worth of modes") }
                 c.copy(modes = chosen, names = c.names.with(Plan.MODES_ASKED, NamedValue.Number(1)))
             }
             is Question.OptionalCost -> {

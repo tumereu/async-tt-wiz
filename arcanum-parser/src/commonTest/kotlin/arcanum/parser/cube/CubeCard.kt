@@ -109,7 +109,8 @@ private fun checkTexts(printed: OracleCard, abilities: List<Ability>) {
             ?: kotlin.test.fail("${printed.name}: \"$text\" isn't the card's lines in order: $lines")
         from = at
         instructions?.modes?.options?.forEach { mode ->
-            assertEquals(true, "• ${mode.text}" in own, "${printed.name}: mode text \"${mode.text}\" isn't one of the ability's lines")
+            // blb chunk 06: a pawprint mode keeps its whole line ("{P} — Draw a card.", CR 700.2i)
+            assertEquals(true, "• ${mode.text}" in own || mode.text in own, "${printed.name}: mode text \"${mode.text}\" isn't one of the ability's lines")
         }
     }
 }

@@ -521,8 +521,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val chosenBefore = snap.state.obj(sourceId)?.facts?.modesChosen.orEmpty()
             val max = if (q.modes.maxIf != null && eval.holds(q.modes.maxIf!!)) q.modes.maxIfCount ?: q.modes.max else q.modes.max
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
-                ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore))
-            }, q.modes.min, max, q.modes.repeatable)
+                ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
+            }, q.modes.min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
         }
         is Question.OptionalCost -> if (q.mechanic.repeatable) Decision.ChooseNumber(id, player, sourceId, 0, null)
             else Decision.May(id, player, sourceId, "Pay the ${q.mechanic.keyword?.text ?: "optional"} cost?", q.mechanic.cost)

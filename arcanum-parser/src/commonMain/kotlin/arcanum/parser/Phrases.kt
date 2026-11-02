@@ -58,6 +58,10 @@ internal object Filters {
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
+        // blb chunk 06: "creature an opponent controls that was dealt damage this turn"
+        DEALT_DAMAGE_THIS_TURN.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter())))
+        }
         // blb chunk 05: "equipped creatures you control" (plural: every creature with an Equipment; "equipped creature" is the
         // one this Equipment is attached to, CR 301.5)
         EQUIPPED_PLURAL.matchEntire(phrase)?.let { m ->
@@ -156,7 +160,8 @@ internal object Filters {
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
-        val core = phrase.substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        // blb chunk 06: "… that was dealt damage this turn" is not part of the name
+        val core = phrase.substringBefore(" that was ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
@@ -242,6 +247,8 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // blb chunk 06
+    private val DEALT_DAMAGE_THIS_TURN = Regex("""(.+) that was dealt damage this turn""")
     // blb chunk 05
     private val WITH_ANY_COUNTERS = Regex("""(.+) with counters on (?:it|them)""")
     private val EQUIPPED_PLURAL = Regex("""(equipped|enchanted) (creatures.*)""")
@@ -782,11 +789,16 @@ internal object Counters {
             "defense" -> arcanum.api.CounterKind.Defense
             "rad" -> arcanum.api.CounterKind.Rad
             "hone" -> arcanum.api.CounterKind.Hone
+            // blb chunk 06: keyword counters (CR 122.1b)
+            in KEYWORD_COUNTERS -> OracleParser.keyword(text.replaceFirstChar { it.uppercase() })?.let { arcanum.api.CounterKind.Keyword(it.kind) }
             else -> if (text.all { it.isLetter() }) arcanum.api.CounterKind.Named(text) else null
         }
     }
 
     private val PT = Regex("""([+-]\d+)/([+-]\d+)""")
+    // blb chunk 06: CR 122.1b
+    private val KEYWORD_COUNTERS = setOf("flying", "first strike", "double strike", "deathtouch", "decayed", "exalted", "haste", "hexproof",
+        "indestructible", "lifelink", "menace", "reach", "shadow", "trample", "vigilance")
 }
 
 /** chunk 26: card memory key for cards "exiled with" this object (CR 607.2a). */

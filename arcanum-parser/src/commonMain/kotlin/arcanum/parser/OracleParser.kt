@@ -103,6 +103,24 @@ object OracleParser {
                 raws += printed
                 continue
             }
+            // blb chunk 06: "Choose up to five {P} worth of modes. You may choose the same mode more than once." and its
+            // "{P} — " modes: any modes whose pawprints add up to at most five (CR 700.2i)
+            val pawprints = PAWPRINT_CHOOSE.matchEntire(line)
+            if (pawprints != null && isSpell) {
+                val modeLines = mutableListOf<String>()
+                while (i < lines.size && PAWPRINT_MODE.matches(REMINDER.replace(lines[i], "").trim())) modeLines += REMINDER.replace(lines[i++], "").trim()
+                val printed = (listOf(raw.trim()) + modeLines).joinToString("\n")
+                val limit = Numbers.count(pawprints.groupValues[1])
+                val options = modeLines.map { modeLine ->
+                    val m = PAWPRINT_MODE.matchEntire(modeLine)!!
+                    sentences.instructions(m.groupValues[2])?.let { arcanum.api.Mode(it, text = modeLine, pawprints = m.groupValues[1].length / 3) }
+                }
+                result += if (limit != null && options.isNotEmpty() && options.all { it != null }) Ability.Spell(arcanum.api.Instructions(modes = arcanum.api.Modes(
+                    options.filterNotNull(), min = 1, max = limit, repeatable = true, pawprintLimit = limit, chooser = arcanum.api.Players.You)))
+                    else Ability.Unparsed(printed)
+                raws += printed
+                continue
+            }
             // "Choose one —" and its "• " modes (CR 700.2)
             val choose = CHOOSE.matchEntire(line)
             if (choose != null && isSpell) {
@@ -344,6 +362,9 @@ object OracleParser {
     private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
+    // blb chunk 06
+    private val PAWPRINT_CHOOSE = Regex("""Choose up to (\w+) \{P\} worth of modes\. You may choose the same mode more than once\.""")
+    private val PAWPRINT_MODE = Regex("""((?:\{P\})+) — (.+)""")
     // blb chunk 05
     private val CLASS_LEVEL = Regex("""((?:\{[^}]+\})+): Level (\d+)""")
     // blb chunk 02

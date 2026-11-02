@@ -113,8 +113,14 @@ internal object Filters {
         }
         WITH_POWER_OR_TOUGHNESS_AT_MOST.matchEntire(phrase)?.let { m ->
             val n = Value.Fixed(m.groupValues[2].toInt())
-            return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(
-                ObjectFilter.Power(arcanum.api.Comparison.AtMost, n), ObjectFilter.Toughness(arcanum.api.Comparison.AtMost, n))))
+            // blb chunk 10: "… or greater"
+            val c = if (m.groupValues[3] == "greater") arcanum.api.Comparison.AtLeast else arcanum.api.Comparison.AtMost
+            return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(ObjectFilter.Power(c, n), ObjectFilter.Toughness(c, n))))
+        }
+        // blb chunk 10: "attacking, blocking, or tapped creature": statuses as alternatives, the noun for all of them
+        STATUS_ALTERNATIVES.matchEntire(phrase)?.let { m ->
+            val statuses = m.groupValues[1].split(Regex(""",? or |, """)).map { word(it) ?: return null }
+            return all(ObjectFilter.Or(statuses), noun(m.groupValues[2]) ?: return null)
         }
         CONTROLLED.matchEntire(phrase)?.let { m ->
             val who = when (m.groupValues[2]) {
@@ -181,8 +187,8 @@ internal object Filters {
     /** The name of a target slot: its noun ("nonbasic land" → "land"), "permanent" for a list of permanent types. */
     fun slotName(phrase: String): String {
         // chunk 21: "permanent an opponent controls with mana value 2 or less": drop the "with" part first
-        // blb chunk 06: "… that was dealt damage this turn" is not part of the name
-        val core = phrase.substringBefore(" that was ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
+        // blb chunk 06: "… that was dealt damage this turn" is not part of the name; blb chunk 10: nor statuses as alternatives
+        val core = (STATUS_ALTERNATIVES.matchEntire(phrase)?.groupValues?.get(2) ?: phrase).substringBefore(" that was ").substringBefore(" without ").substringBefore(" with ").let { CONTROLLED.matchEntire(it)?.groupValues?.get(1) ?: it }
             .substringBefore(" in your graveyard").substringBefore(" from a graveyard") // chunk 31
         // chunk 31: "instant or sorcery card" is a card, "instant or sorcery spell" a spell
         if ((core.contains(" or ") || core.contains(", ")) && core.split(' ').last() in setOf("card", "spell")) return core.split(' ').last()
@@ -215,6 +221,7 @@ internal object Filters {
             "ability" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility)
             // chunk 41: "a tapped land"
             "tapped" -> return ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
+            "blocking" -> return ObjectFilter.HasStatus(arcanum.api.Status.Blocking) // blb chunk 10
             "untapped" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
@@ -239,7 +246,9 @@ internal object Filters {
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
     private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
-    private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or less""")
+    private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or (less|greater)""")
+    // blb chunk 10
+    private val STATUS_ALTERNATIVES = Regex("""((?:attacking|blocking|tapped|untapped)(?:(?:, |,? or )(?:attacking|blocking|tapped|untapped))+) (.+)""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
     private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control)""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")

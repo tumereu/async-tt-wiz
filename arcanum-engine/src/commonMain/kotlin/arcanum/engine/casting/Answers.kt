@@ -54,6 +54,10 @@ internal object Answers {
                 if (q.slot.slot.sameController &&
                     chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.board.controller(id) } }.distinct().size > 1)
                     refuse("The targets must have the same controller")
+                // gtc chunk 10: "from a single graveyard": one owner (CR 601.2c)
+                if (q.slot.slot.sameOwner &&
+                    chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.state.obj(id)?.owner } }.distinct().size > 1)
+                    refuse("The targets must have the same owner")
                 val key = q.slot.key
                 if (q.forPlayer == null) c.copy(targets = c.targets + (key to chosen))
                 else c.copy(

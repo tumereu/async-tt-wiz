@@ -309,6 +309,9 @@ data class TargetSlot(
     val onlyIf: Condition? = null,
     /** The objects chosen must all have the same controller ("two target creatures controlled by the same opponent"). */
     val sameController: Boolean = false,
+    // gtc chunk 10
+    /** The objects chosen must all have the same owner ("up to three target cards from a single graveyard"). */
+    val sameOwner: Boolean = false,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */

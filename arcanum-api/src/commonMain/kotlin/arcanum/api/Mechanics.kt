@@ -395,6 +395,9 @@ sealed interface CopyException {
     @Serializable @SerialName("pt") data class PowerToughness(val power: Int, val toughness: Int) : CopyException
     @Serializable @SerialName("abilities") data class AddAbilities(val abilities: List<Ability>) : CopyException
     @Serializable @SerialName("mana-cost") data class ManaCostOf(val cost: ManaCost?) : CopyException
+    // gtc chunk 12
+    /** "… and it has this ability": the copy also has the ability whose effect made it a copy (CR 707.9a, b). */
+    @Serializable @SerialName("this-ability") data object ThisAbility : CopyException
 }
 
 /** Other ways to pay a spell's mana. */

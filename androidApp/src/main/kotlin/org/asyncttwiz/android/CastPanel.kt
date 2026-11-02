@@ -63,7 +63,8 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, sce
     val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == toolkit.viewer }?.bounds
     CastPanelPlacement(stack, if (cast.targeting) handRow?.center?.y else null) {
         when {
-            cast.targeting -> TargetBar(cast, flow, play)
+            // Picking a target in Manage Stack: its sheet stands in for the bar until it closes
+            cast.targeting -> if (!toolkit.stackTargeting) TargetBar(cast, flow, play)
             cast.hidden -> Surface(Modifier.size(44.dp), shape = CircleShape, color = Color.White, shadowElevation = 6.dp,
                 border = BorderStroke(2.dp, AutomatumViolet)) {
                 EyeButton(hidden = true, cast::toggleHidden)

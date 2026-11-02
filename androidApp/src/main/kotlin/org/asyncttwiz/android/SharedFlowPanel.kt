@@ -42,8 +42,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
         val ready = AutomatumBoards.cachedFlow(play)
-        val history = toolkit.engineTags()
-        flows.show(ready ?: withContext(Dispatchers.Default) { AutomatumBoards.sharedFlow(play, history) })
+        // SYS-025: the history's tags are walked and the flow worked out off the main thread
+        flows.show(ready ?: withContext(Dispatchers.Default) { AutomatumBoards.sharedFlow(play, toolkit.engineTags()) })
     }
     if (!shown) return
     val flow = flows.view?.takeIf { it.play.board === play.board } ?: return
@@ -58,7 +58,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     CastPanelPlacement(stack, if (bar) handRow?.center?.y else null) {
         when {
             decision != null && flows.answering != null -> when {
-                flows.targeting -> FlowTargetBar(flows, flow, play, decision as Decision.Targets)
+                flows.targeting -> if (!toolkit.stackTargeting) FlowTargetBar(flows, flow, play, decision as Decision.Targets)
                 flows.hidden -> HiddenEye(flows)
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))

@@ -144,7 +144,7 @@ internal object AutomatumBoards {
         return result
     }
 
-    private val COMBAT_STEPS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.COMBAT_DAMAGE)
+    private val COMBAT_STEPS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)
 
     /** The game's event log readers (one per play, for the card data read so far): each history tag is read once. */
     private val decoders = object : LinkedHashMap<String, Pair<Set<String>, EngineLog.Decoder>>(4, .75f, true) {

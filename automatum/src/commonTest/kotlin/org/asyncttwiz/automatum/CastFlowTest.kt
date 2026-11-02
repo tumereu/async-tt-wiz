@@ -111,7 +111,7 @@ class CastFlowTest {
     }
 
     // CR 117.3a: with nobody holding priority (Automatum just turned on, steps changed by hand) the active player holds
-    // it on an empty Stack; the batch says so first
+    // it on an empty Stack; the batch says so right after the cast's own first event (HIS-092, I-D35)
     @Test fun nobodyHoldingPriorityGivesItToTheActivePlayer() {
         table.priority = null
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
@@ -121,8 +121,9 @@ class CastFlowTest {
         flow = flow.answer(Answer.Targets(listOf(TargetRef.Player(PlayerId(bob)))))
         flow = flow.answer(Answer.ManaPayment((flow.pending as Decision.ManaPayment).suggestion))
         rt.apply(flow.call, alice)
-        val first = rt.lastPlan!!.actions.first()
-        assertEquals(PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(alice))), first)
+        val actions = rt.lastPlan!!.actions
+        assertIs<PlayAction.Stack>(actions.first())
+        assertTrue(PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(alice))) in actions.drop(1), "$actions")
         assertEquals(MtgPriority(alice), rt.state.board.priority)
     }
 

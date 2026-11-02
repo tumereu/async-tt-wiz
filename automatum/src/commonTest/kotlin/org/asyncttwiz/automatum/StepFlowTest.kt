@@ -96,6 +96,10 @@ class StepFlowTest {
         rt.run(alice) { StepFlow.pass(it, alice) }
         assertEquals(TurnPosition.UPKEEP, position(rt), "Bob could cast Storm Spark: he holds priority")
         assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
+        // TRN-058 (I-D34): the move follows who must act, folded into the step (HIS-092)
+        assertEquals(bob, rt.state.board.attentionHolder)
+        assertEquals(PlayAction.PassAttention, rt.lastPlan!!.actions.last())
+        assertEquals(true, rt.lastPlan!!.tags.last()?.folded)
         // The draw step: Alice draws, has nothing to do and is passed for; Bob could still cast
         rt.run(bob) { StepFlow.pass(it, bob) }
         assertEquals(TurnPosition.DRAW, position(rt))
@@ -161,6 +165,21 @@ class StepFlowTest {
         assertEquals(bob, rt.state.board.turn.accountId)
         assertTrue(rt.state.board.engineRecords.none { it.id.startsWith("effect:") }, "the pump ended in the cleanup step")
         assertEquals(PlayZone.BATTLEFIELD, zone(rt, lizard))
+    }
+
+    // TRN-057, TRN-009: a later step chosen in the phase dialog: the host passes for Alice through combat (attacking with
+    // nothing) and stops once the turn reaches it, where she holds priority though she could only pass
+    @Test fun aChosenLaterStepStopsThere() {
+        at(TurnPosition.PRECOMBAT_MAIN, 3)
+        table.put(alice, PlayZone.BATTLEFIELD, "Tinkered Mite")
+        table.put(alice, PlayZone.LIBRARY, "Island")
+        table.put(bob, PlayZone.LIBRARY, "Island")
+        val rt = game()
+        rt.run(alice) { StepFlow.pass(it, alice, StepFlow.Until.Step(TurnPosition.END_STEP)) }
+        assertEquals(TurnPosition.END_STEP, position(rt))
+        assertEquals(MtgPriority(alice), rt.state.board.priority)
+        assertEquals(alice, rt.state.board.attentionHolder)
+        assertTrue(rt.state.board.combat?.pairs.orEmpty().none { it.attackers.isNotEmpty() }, "nothing attacked")
     }
 
     // I-D28: only the player holding priority passes; a refused pass changes nothing

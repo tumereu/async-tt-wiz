@@ -38,29 +38,20 @@ import java.util.UUID
  *
  * - while the engine waits for attackers or blockers the lanes are a draft of the declaration: cards join it by dragging
  *   (CMB-009) or Declare (CMB-017), checked against what the engine allows ([draftRefusal], I-D36);
- * - Attack / No attack and Block / No blocks declare what the lanes hold through the engine ([declare]), with the
- *   engine's reason when it refuses;
- * - Deal damage passes priority once blockers are declared ([pass]): the engine deals the combat damage, asking for a
- *   division only where there is a choice (the shared flow's panel, I-D29);
+ * - Attack / No attack, Block / No blocks and Deal damage are the step button's pass (TRN-057): with a declaration
+ *   awaited it declares what the lanes hold, else the priority holder passes and the engine deals the combat damage,
+ *   asking for a division only where there is a choice (the shared flow's panel, I-D29);
  * - what the table shows ([shown]): the damage preview, "+N" on a blocker blocking several attackers, and divisions
  *   still to come, which their player may give early ([giveEarly], a pre-event, I-D33).
- *
- * Each engine call goes out as one automated batch, worked out on [work] (SYS-025).
  */
 internal class CombatController(
-    private val viewer: String,
     private val current: () -> PlayState?,
-    private val send: ((GameAction.PlayBatch, String) -> Boolean)?,
     private val submit: (PlayAction) -> Boolean,
     private val tags: () -> List<MtgTag?>,
-    private val fail: (String?) -> Unit,
-    private val work: AutomatumWork = AutomatumWork.Inline,
 ) {
     private var shownBoard: Any? = null
     /** What the table shows of combat on the board last worked out ([show]). */
     var view by mutableStateOf(CombatShown.NONE); private set
-    /** An engine call of a combat action is being worked out. */
-    var busy by mutableStateOf(false); private set
 
     /** [value] is what the table shows of combat on [play]'s board. */
     fun show(play: PlayState, value: CombatShown) { shownBoard = play.board; view = value }
@@ -71,28 +62,6 @@ internal class CombatController(
 
     /** What is shown of combat on [play]'s board when already worked out (never blocks); null until then. */
     fun ready(play: PlayState): CombatShown? = if (shownBoard === play.board) view else AutomatumBoards.cachedCombat(play)
-
-    /**
-     * Declares what the lanes hold through the engine (CR 508.1, 509.1): the attackers while they are awaited, else the
-     * blockers; lanes without any declare none ("No attack", "No blocks"). Refused with the engine's reason.
-     */
-    fun declare(): Boolean {
-        val play = current() ?: return false
-        val choices = shown(play).choices
-        if (choices.declaring == null) { fail(NOTHING_TO_DECLARE); return false }
-        val (attacks, blocks) = CombatFlow.lanes(play.board.combat)
-        return run(play) { call ->
-            if (choices.attackers) CombatFlow.declareAttackers(call, attacks) else CombatFlow.declareBlockers(call, blocks)
-        }
-    }
-
-    /** "Deal damage": the player holding priority in combat passes ([CombatShown.passing], I-D29: passing confirms the
-     * preview); the engine goes on to the combat damage. Anyone may pass for them (D11). */
-    fun pass(): Boolean {
-        val play = current() ?: return false
-        val holder = shown(play).passing ?: run { fail("Nobody can pass on to the combat damage now."); return false }
-        return run(play) { StepFlow.pass(it, holder) }
-    }
 
     /** The early answer (I-D33) to [division]: [shares] by target. One ordinary event, undoable. */
     fun giveEarly(division: DamageDivision, shares: Map<MtgRef, Int>): Boolean {
@@ -158,63 +127,10 @@ internal class CombatController(
             AutomatumBoards.engineLog(play, definitions, tags())) { error("No randomness") })
     } catch (problem: Exception) { null }
 
-    private sealed interface Outcome {
-        class Send(val action: GameAction.PlayBatch, val requestId: String, val empty: Boolean) : Outcome
-        class Refuse(val message: String) : Outcome
-    }
-
-    /** One engine call on [play] made by [perform], sent as one automated batch (I-D11, SYS-010). */
-    private fun run(play: PlayState, perform: (EngineCall) -> Unit): Boolean {
-        val route = send ?: run { fail("Automatum isn't available here."); return false }
-        if (busy) return false
-        val history = tags()
-        busy = true
-        var result = true
-        work.run({
-            try {
-                val definitions = AutomatumBoards.definitions(play)
-                val call = EngineCall(play, definitions, EngineState.flowViewer(play.board),
-                    AutomatumBoards.engineLog(play, definitions, history), ::seed)
-                perform(call)
-                val requestId = UUID.randomUUID().toString()
-                val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
-                    GameAction.PlayBatch(listOf(PlayAction.PassAttention)), UUID.randomUUID().toString(), "1")
-                val plan = EngineBatch.plan(call, viewer, command)
-                Outcome.Send(plan.action, requestId, plan.actions.isEmpty())
-            } catch (refused: CombatRefused) {
-                Outcome.Refuse(refused.reason)
-            } catch (problem: Unsupported) {
-                Outcome.Refuse("${CastController.TAKE_OVER} ${problem.reasons.firstOrNull().orEmpty()}")
-            } catch (problem: Unmappable) {
-                AppLog.warn("automatum", "Combat step couldn't be planned: ${problem.message?.take(200)}")
-                Outcome.Refuse("Automatum couldn't send that.")
-            } catch (problem: Exception) {
-                AppLog.warn("automatum", "Combat step failed: ${problem::class.java.simpleName}: ${problem.message?.take(200)}", problem)
-                Outcome.Refuse("Automatum doesn't allow that now.")
-            }
-        }) { outcome ->
-            busy = false
-            result = when (outcome) {
-                is Outcome.Refuse -> { fail(outcome.message); false }
-                is Outcome.Send -> when {
-                    current() == null -> { fail("You can't act right now (reviewing the timeline, or offline)."); false }
-                    outcome.empty -> true
-                    !route(outcome.action, outcome.requestId) -> { fail("Action could not be queued. Reconnect and try again."); false }
-                    else -> { fail(null); true }
-                }
-            }
-        }
-        return result
-    }
-
-    private val random = SecureRandom()
-    private fun seed(): String = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
-
     companion object {
         const val NOT_DECLARING = "Creatures join combat as attackers in the Declare attackers step, as blockers in the Declare blockers step."
         const val DECLARED = "Attackers and blockers are already declared."
         const val DECLARED_ATTACKERS = "Attackers are already declared."
-        const val NOTHING_TO_DECLARE = "Nothing is declared now."
         const val DAMAGE_BY_AUTOMATUM = "Automatum deals the combat damage itself."
     }
 }
@@ -240,7 +156,7 @@ internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: PlayStat
 internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext, scope: TableActionScope): List<QuickAction>? {
     if (!play.board.automatum) return null
     val position = TurnPosition.of(play.board.turn)
-    if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.COMBAT_DAMAGE)) return null
+    if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
     val shown = context.automatumCombat ?: return emptyList()
     if (shown.choices.unsupported.isNotEmpty()) return null
     // A combat declared by hand (not through Automatum) keeps its manual damage tools, with Automatum's values (CMB-024)
@@ -294,11 +210,13 @@ internal fun CombatPreviewMarks(play: PlayState, shown: CombatShown, scene: Tabl
         if (dealt == null && card !in dies && also == null) continue
         val b = bounds(item)
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)) {
-            if (dealt != null || card in dies) PreviewChip(listOfNotNull(dealt?.let { "−$it" }, "✝".takeIf { card in dies }).joinToString(" "),
-                Color(0xffb3261e), Modifier.align(Alignment.TopStart).offset(x = (-4).dp, y = (-9).dp),
-                "Would take ${dealt ?: 0} damage${if (card in dies) " and die" else ""}")
-            if (also != null) PreviewChip("+$also", AutomatumViolet, Modifier.align(Alignment.BottomEnd).offset(x = 9.dp, y = 4.dp),
-                "Also blocks $also more")
+            // One row over the card's top edge, so the marks of small cards in a column never cover each other
+            Row(Modifier.align(Alignment.TopCenter).offset(y = (-9).dp).wrapContentSize(unbounded = true),
+                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (dealt != null || card in dies) PreviewChip(listOfNotNull(dealt?.let { "−$it" }, "✝".takeIf { card in dies }).joinToString(" "),
+                    Color(0xffb3261e), Modifier, "Would take ${dealt ?: 0} damage${if (card in dies) " and die" else ""}")
+                if (also != null) PreviewChip("+$also", AutomatumViolet, Modifier, "Also blocks $also more")
+            }
         }
     }
     for ((player, change) in preview?.life.orEmpty()) {

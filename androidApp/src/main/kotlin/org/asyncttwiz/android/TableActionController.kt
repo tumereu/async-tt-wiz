@@ -23,6 +23,9 @@ interface TableActionRoutes {
     fun ending(intent: TableActionIntent.Ending)
     fun player(intent: TableActionIntent.Player)
     fun selectAttackers(intent: TableActionIntent.SelectAttackers) {}
+    /** Next step, End turn or a chosen step through Automatum while it is on (TRN-057): whether it was taken; null when
+     * the step changes by hand as usual (Automatum off). */
+    fun automatumStep(intent: TableActionIntent): Boolean? = null
 }
 
 sealed interface TableActionIntent {
@@ -118,10 +121,10 @@ class TableActionController(private val state: () -> PlayState?, private val can
                 return sent
             }
             is TableActionIntent.SelectAttackers -> routes.selectAttackers(intent)
-            is TableActionIntent.Next -> return submit(PlayAction.NextStep)
+            is TableActionIntent.Next -> return routes.automatumStep(intent) ?: submit(PlayAction.NextStep)
             // Every step passed on the way is its own event, all sent together (rules v33).
-            is TableActionIntent.End -> return run(StepRun.endTurn(play.board))
-            is TableActionIntent.Choose -> return run(if (intent.pass) StepRun.passTo(play.board, intent.position)
+            is TableActionIntent.End -> return routes.automatumStep(intent) ?: run(StepRun.endTurn(play.board))
+            is TableActionIntent.Choose -> return routes.automatumStep(intent) ?: run(if (intent.pass) StepRun.passTo(play.board, intent.position)
                 else StepRun.choose(play.board, intent.position))
             is TableActionIntent.Status -> return submit(PlayAction.SetStatus(intent.text))
             is TableActionIntent.Orient -> return send(intent.cardIds.distinct().filter { id ->

@@ -47,6 +47,7 @@ internal val TurnPosition.shortCode: String get() = when (this) {
     TurnPosition.BEGIN_COMBAT -> "BOC"
     TurnPosition.DECLARE_ATTACKERS -> "ATK"
     TurnPosition.DECLARE_BLOCKERS -> "BLK"
+    TurnPosition.FIRST_STRIKE_DAMAGE -> "FS"
     TurnPosition.COMBAT_DAMAGE -> "DMG"
     TurnPosition.END_COMBAT -> "EOC"
     TurnPosition.POSTCOMBAT_MAIN -> "M2"
@@ -67,15 +68,22 @@ internal fun stepLabel(position: TurnPosition): String = when (position) {
     TurnPosition.BEGIN_COMBAT -> "Begin"
     TurnPosition.DECLARE_ATTACKERS -> "Attackers"
     TurnPosition.DECLARE_BLOCKERS -> "Blockers"
+    TurnPosition.FIRST_STRIKE_DAMAGE -> "1st strike"
     TurnPosition.COMBAT_DAMAGE -> "Damage"
     TurnPosition.END_COMBAT, TurnPosition.END_STEP -> "End"
     TurnPosition.POSTCOMBAT_MAIN -> "Main 2"
     else -> position.label
 }
 
-internal fun nextStep(turn: TurnState): TurnPosition? = TurnPosition.of(turn)?.let {
-    TurnPosition.entries.getOrNull(it.ordinal + 1)
-}
+/** The step Next step goes to by hand (the first-strike damage step is Automatum's alone, TRN-056). */
+internal fun nextStep(turn: TurnState): TurnPosition? = TurnPosition.of(turn)?.let(TurnPosition::nextManual)
+
+/** The phase dialog's steps (TRN-008): the twelve, and the first-strike damage step while the turn is in it or its
+ * combat had one (TRN-056). */
+internal fun pickerSteps(board: BoardState): List<TurnPosition> =
+    if (TurnPosition.of(board.turn) == TurnPosition.FIRST_STRIKE_DAMAGE ||
+        board.automatum && org.asyncttwiz.automatum.CombatFlow.hadFirstStrikeStep(board)) TurnPosition.entries
+    else TurnPosition.MANUAL
 
 internal fun nextStepLabel(turn: TurnState, compact: Boolean = false): String =
     if (TurnPosition.of(turn) == TurnPosition.CLEANUP) "End turn"
@@ -120,7 +128,7 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
     TableMenuPanel(onDismiss, width = if (landscape) 484.dp else 400.dp, title = turnStepName(turn),
         border = endingPlayerColor, gap = if (landscape) 4.dp else 8.dp, contentPadding = if (landscape) 8.dp else 12.dp) {
         Text(player, style = MaterialTheme.typography.bodySmall)
-        for ((phase, steps) in TurnPosition.entries.groupBy { it.phase }) {
+        for ((phase, steps) in pickerSteps(play.board).groupBy { it.phase }) {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(phaseName(phase), style = MaterialTheme.typography.labelSmall, color = MenuInk.copy(alpha = .7f))
                 Row(Modifier.fillMaxWidth().background(phaseColor(phase), MaterialTheme.shapes.extraSmall)

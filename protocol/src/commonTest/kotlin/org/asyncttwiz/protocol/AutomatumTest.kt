@@ -256,15 +256,16 @@ class AutomatumTest {
         assertFalse("tag" in untagged)
     }
 
-    // HIS-092 (I-D22): history events are natural branching points, one per possible player action. A batch's engine bookkeeping
-    // tagged folded joins the visible event before it; the batch's first event, emblems and other events never fold.
+    // HIS-092 (I-D22, I-D35): history events are natural branching points, one per point where a player can act. Every
+    // member of an automated batch after its first that is tagged folded joins the visible event before it; the batch's
+    // first event and untagged events never fold.
     @Test fun foldedBookkeepingJoinsTheBatchsVisibleEvent() {
         val state = root().let { it.copy(board = it.board.copy(automatum = true)) }
         val batch = command(GameAction.PlayBatch(listOf(PlayAction.SetTapped(gameplayId(11), true),
             mtg(MtgAction.SetRecord("effect-1", null, effect)), mtg(MtgAction.SetPriority(null, MtgPriority(b))),
             mtg(MtgAction.SetRecord("emblem:1", null, EngineRecord("emblem:1", EngineRecordKind.Emblem, 9, "{}", a, "Flying"))),
             PlayAction.SetTapped(gameplayId(10), true)),
-            listOf(null, MtgTag(folded = true), MtgTag(folded = true), MtgTag(folded = true), MtgTag(folded = true))))
+            listOf(null, MtgTag(folded = true), MtgTag(folded = true), MtgTag(folded = true), null)))
         var next = state
         val recorded = (0 until 5).map { i ->
             val change = GameplayRules.change(next, a, PlayBatches.member(batch, i, (batch.action as GameAction.PlayBatch).actions[i]))
@@ -272,7 +273,7 @@ class AutomatumTest {
             next = change.state!!
             change.mutation!!
         }
-        assertEquals(listOf(false, true, true, false, false), recorded.map { it.grouping?.folded == true })
+        assertEquals(listOf(false, true, true, true, false), recorded.map { it.grouping?.folded == true })
         assertEquals(recorded[0].bookkeeping!!.toGroup!!.id, recorded[2].bookkeeping!!.toGroup!!.id)
         assertEquals(recorded[0].bookkeeping!!.toGroup!!.representative, recorded[2].bookkeeping!!.toGroup!!.representative,
             "never the group's representative")

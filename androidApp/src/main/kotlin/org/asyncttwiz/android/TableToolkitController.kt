@@ -34,12 +34,27 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         automatumWork)
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
-    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it })
+    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
+        automatumWork)
+    private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
-    internal val combat = CombatController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, { submit(it) }, ::engineTags,
-        { error = it }, automatumWork)
-    /** What the viewer may cast or play from their hand now (I-D28). */
-    fun handPlays(play: PlayState): org.asyncttwiz.automatum.HandPlays = AutomatumBoards.handPlays(play, viewer, ::engineTags)
+    internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags)
+    /** Bumped when hand plays worked out in the background are ready, so the hand menu shows them (SYS-025). */
+    private var handPlaysReady by mutableStateOf(0)
+
+    /** What the viewer may cast or play from their hand on [play] (I-D28), or null while it is being worked out off the
+     * main thread (SYS-025); the hand menu recomposes once it is ready. */
+    internal fun handPlays(play: PlayState): org.asyncttwiz.automatum.HandPlays? {
+        handPlaysReady
+        AutomatumBoards.cachedHandPlays(play, viewer)?.let { return it }
+        if (automatumWork === AutomatumWork.Inline) return AutomatumBoards.handPlays(play, viewer, ::engineTags)
+        if (handPlaysPending !== play.board) {
+            handPlaysPending = play.board
+            automatumWork.run({ AutomatumBoards.handPlays(play, viewer, ::engineTags) }) { handPlaysPending = null; handPlaysReady++ }
+        }
+        return null
+    }
+    private var handPlaysPending: Any? = null
     val manual = ManualActions()
     val layoutState = mutableStateOf(TableLayoutState())
     val selectionState = mutableStateOf(TableSelection())
@@ -152,8 +167,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /**
      * Why [action] can't be made now with Automatum (D32): a cast is open; a shared flow waits for an answer and the
      * action changes what Automatum reads (only Automatum's own controls and what is only shown, such as notes,
-     * statuses, marks, positions and whose move it is, go on); a step or turn change while the Stack holds something
-     * (Automatum resolves it now, and changes no step itself until I3). Null when it can.
+     * statuses, marks, positions and whose move it is, go on); a step or turn change made by hand (TRN-057, I-D28: the
+     * turn moves on only through Automatum, [automatumStep]). Null when it can.
      */
     private fun refusal(action: PlayAction): String? {
         if (cast.open) return CastController.BUSY
@@ -163,11 +178,39 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val own = (action as? PlayAction.Mtg)?.action.let {
             it is MtgAction.SetAutomatum || it is MtgAction.SetSkipWhenNoChoice || it is MtgAction.ClearRecords }
         if (own) return null
-        if (Automatum.flowOpen(board) && !shownOnly(play, action)) return SharedFlowController.BUSY
+        // I-D37: while Automatum waits for something done by hand, manual edits are what it waits for (until Done)
+        val byHand = AutomatumBoards.cachedFlow(play)?.decision is arcanum.engine.decision.Decision.Manual
+        if (Automatum.flowOpen(board) && !byHand && !shownOnly(play, action)) return SharedFlowController.BUSY
         val step = action == PlayAction.NextStep || action == PlayAction.EndTurn || action is PlayAction.ChooseStep ||
             action is PlayAction.BeginTurn
         if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
+        if (step) return SharedFlowController.STEPS_FORWARD
         return null
+    }
+
+    /**
+     * The step button, the step arrow and the phase dialog with Automatum on (TRN-057): Next step, End turn and a later
+     * step go through Automatum ([SharedFlowController.step]); an earlier step, the step it is in, and a step passed into
+     * for a quick action's own work are refused. Null with Automatum off (the manual step change goes on).
+     */
+    override fun automatumStep(intent: TableActionIntent): Boolean? {
+        val play = current() ?: return null
+        if (!play.board.automatum) return null
+        if (cast.open) { error = CastController.BUSY; return false }
+        val until = when (intent) {
+            is TableActionIntent.Next -> org.asyncttwiz.automatum.StepFlow.Until.Pass
+            is TableActionIntent.End -> org.asyncttwiz.automatum.StepFlow.Until.EndOfTurn
+            is TableActionIntent.Choose -> {
+                val now = TurnPosition.of(play.board.turn)
+                if (intent.pass || now == null || intent.position.ordinal <= now.ordinal) {
+                    error = SharedFlowController.STEPS_FORWARD; return false
+                }
+                org.asyncttwiz.automatum.StepFlow.Until.Step(intent.position)
+            }
+            else -> return null
+        }
+        error = null
+        return flows.step(until)
     }
 
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
@@ -728,7 +771,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (intent is TableActionIntent.Combat && (intent.tool == CombatTool.AUTOMATUM_DECLARE || intent.tool == CombatTool.AUTOMATUM_PASS)) {
             if (!table.enabled(intent.scope)) return false
             if (cast.open) { error = CastController.BUSY; return false }
-            return (if (intent.tool == CombatTool.AUTOMATUM_DECLARE) combat.declare() else combat.pass()).also {
+            // The same as Next step (TRN-057): a declaration awaited declares what the lanes hold, else the holder passes
+            error = null
+            return flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass).also {
                 if (it) selectionState.value = TableSelection()
             }
         }
@@ -787,8 +832,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
             CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE, CombatTool.REGULAR_DAMAGE,
             CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
-            CombatTool.AUTOMATUM_DECLARE -> combat.declare()
-            CombatTool.AUTOMATUM_PASS -> combat.pass()
+            CombatTool.AUTOMATUM_DECLARE, CombatTool.AUTOMATUM_PASS -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
         }
     }
     /** Declare blockers, then Combat damage, as two separate invocations (two undo steps, two events). */

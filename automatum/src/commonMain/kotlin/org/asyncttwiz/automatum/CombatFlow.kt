@@ -19,6 +19,7 @@ import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CombatArea
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.PlayState
@@ -281,11 +282,16 @@ object CombatFlow {
     }
 
     /**
-     * Whether the combat damage step now is the first-strike one, a second following (CR 510.4). ATW has one Combat
-     * damage position for both; the engine's combat record tells them apart.
+     * Whether the combat damage step now is the first-strike one, a second following (CR 510.4). ATW shows it as its
+     * own step, `TurnPosition.FIRST_STRIKE_DAMAGE` (I-D31).
      */
     fun firstStrikeStep(call: EngineCall): Boolean =
         call.working.turn.step == TurnStep.CombatDamage && call.working.combat?.firstStrikeStep == true
+
+    /** Whether [board]'s combat has had a first-strike combat damage step (CR 510.4, I-D31): the phase dialog shows that
+     * step while the combat lasts. Never throws; false without Automatum's combat record. */
+    fun hadFirstStrikeStep(board: BoardState): Boolean = board.engineRecords.singleOrNull { it.id == EngineCodec.COMBAT }
+        ?.let { runCatching { EngineCodec.decode(combatSerializer, it.data).firstStrikers != null }.getOrNull() } == true
 
     /** The open division of combat damage in [call]'s state, or null. */
     fun division(call: EngineCall): DamageDivision? = division(call.working, call.ids)
@@ -367,7 +373,7 @@ object CombatFlow {
     }
 
     private val COMBAT = setOf(TurnStep.DeclareAttackers, TurnStep.DeclareBlockers, TurnStep.CombatDamage)
-    private val COMBAT_POSITIONS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.COMBAT_DAMAGE)
+    private val COMBAT_POSITIONS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)
 
     // ---- Inputs from lanes
 

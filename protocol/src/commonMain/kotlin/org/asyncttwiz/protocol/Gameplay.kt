@@ -445,7 +445,7 @@ object GameplayRules {
             state.currentBranchId, command.requestId, actor, command.invocationId,
             command.action.action, relevant,
             grouping = HistoryGrouping.classify(command.action.action, state.board, actor, relevant).let {
-                if (rulesVersion >= Automatum.RULES_VERSION && MtgFacts.folds(command, command.action.action)) it.copy(folded = true) else it },
+                if (rulesVersion >= Automatum.RULES_VERSION && MtgFacts.folds(command)) it.copy(folded = true) else it },
             revealsInformation = relevant.disclosures.isNotEmpty() ||
                 command.action.action is PlayAction.ShowContents && relevant.contents?.to?.cardIds?.isNotEmpty() == true)
         val group = GameplayHistory.append(state.currentGroup, mutation, state.board.containers)
@@ -478,7 +478,7 @@ object GameplayRules {
         var transition = GameplayTransition()
         if (source.zone != target.zone) {
             val move = action.copy(removeStackEntryId = null)
-            val moved = move(state, actor, command.copy(action = GameAction.Play(move)), move, coverRulesVersion)
+            val moved = move(state, actor, command.copy(action = GameAction.Play(move, (command.action as? GameAction.Play)?.tag)), move, coverRulesVersion)
             if (moved.reason != null) return moved
             candidate = moved.state!!
             transition = moved.mutation?.transition ?: GameplayTransition()

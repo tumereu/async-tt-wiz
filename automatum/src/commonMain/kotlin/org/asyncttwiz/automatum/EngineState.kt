@@ -1,6 +1,7 @@
 package org.asyncttwiz.automatum
 
 import arcanum.api.CardDefinition
+import arcanum.api.Duration
 import arcanum.api.Zone
 import arcanum.engine.state.Attacker
 import arcanum.engine.state.Blocker
@@ -140,7 +141,11 @@ object EngineState {
             exile = byTimestamp(Zone.Exile).toMutableList(),
             command = byTimestamp(Zone.Command).toMutableList(),
             stackItems = LinkedHashMap(entries.reversed().mapNotNull { e -> items[e.id]?.let { it.id to it } }.toMap()),
-            effects = LinkedHashMap(board.engineRecords.filter(EngineCodec::isEffect).map(EngineCodec::effect).associateBy { it.id }),
+            // I-D28, i12review #4 (CR 514.2, 511.2): a turn that changed while Automatum was off ran no cleanup, so effects
+            // "until end of turn" or "until end of combat" of an earlier turn are taken as ended
+            effects = LinkedHashMap(board.engineRecords.filter(EngineCodec::isEffect).map(EngineCodec::effect)
+                .filterNot { it.createdTurn < board.turn.number.toInt() && (it.duration == Duration.EndOfTurn || it.duration == Duration.EndOfCombat) }
+                .associateBy { it.id }),
             delayedTriggers = LinkedHashMap(board.engineRecords.filter(EngineCodec::isDelayed).map(EngineCodec::delayed).associateBy { it.id }),
             turn = TurnState(board.turn.number.toInt(), PlayerId(board.turn.accountId), EngineCodec.step(position),
                 turnExtras.landsPlayed.takeIf { turnExtras.turn == null || turnExtras.turn == board.turn.number.toInt() } ?: emptyMap(), turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns),

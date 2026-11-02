@@ -40,7 +40,8 @@ private fun playControl(toolkit: TableToolkitController, play: PlayState, contex
     if (!play.board.automatum) return MenuControl("Play", enabled) { if (toolkit.playHand(ids)) toolkit.dismiss() }
     val own = CastController.ownHand(play, context, toolkit.viewer)
     val name = if (own) CastController.playLabel(play, context, toolkit.viewer) else "Cast"
-    val legal = enabled && own && !toolkit.cast.open && toolkit.handPlays(play).of(context).isNotEmpty()
+    // Greyed while Automatum still works it out off the main thread (SYS-025); the menu updates once it knows
+    val legal = enabled && own && !toolkit.cast.open && toolkit.handPlays(play)?.of(context)?.isNotEmpty() == true
     return MenuControl(name, legal) { if (toolkit.cast.start(context)) toolkit.dismiss() }
 }
 

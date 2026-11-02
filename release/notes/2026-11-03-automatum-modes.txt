@@ -1,0 +1,1 @@
+fix: With Automatum on, a mode chosen more than once can be taken back, pawprint costs are shown and counted, and a fused split card is named as both halves.

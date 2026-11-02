@@ -79,11 +79,16 @@ internal object GameplayConcerns {
         }
         if (!edit.sequence) return value ?: JsonNull
         val array = value as? JsonArray ?: return JsonNull
-        val count = ((if (after) edit.to else edit.from) as JsonArray).size
-        val start = if (edit.after == null) 0 else array.indexOf(edit.after).takeIf { it >= 0 }?.plus(1) ?: return JsonNull
-        if (start + count > array.size) return JsonNull
+        val members = (if (after) edit.to else edit.from) as JsonArray
+        val count = members.size
         val relaxed = knownTopDraw(mutation) && entity.kind == "container" &&
             entity.id == (mutation.action as PlayAction.MoveCard).source.containerId && edit.path == listOf("cards")
+        // As GameplayDeltas.patch finds the gap: entries without identity may repeat (a mana pool's equal mana), so the
+        // copy of the anchor where the recorded run fits is read; else its first copy, as always
+        val anchors = if (edit.after == null) listOf(-1) else array.indices.filter { array[it] == edit.after }
+        val start = (anchors.firstOrNull { i -> i + 1 + count <= array.size && array.subList(i + 1, i + 1 + count) == members &&
+            (relaxed || array.getOrNull(i + 1 + count) == edit.before) } ?: anchors.firstOrNull())?.plus(1) ?: return JsonNull
+        if (start + count > array.size) return JsonNull
         return buildJsonObject {
             put("members", JsonArray(array.subList(start, start + count)))
             put("after", array.getOrNull(start - 1) ?: JsonNull)

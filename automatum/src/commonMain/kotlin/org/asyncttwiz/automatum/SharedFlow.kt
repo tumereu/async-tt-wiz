@@ -137,16 +137,23 @@ class SharedFlow(
         return CombatFlow.division(view)
     }
 
-    /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0). */
-    fun listedAnswers(): List<Answer> {
-        val open = decision ?: return emptyList()
-        return Engine.options(state, open.player).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.map { it.answer }
+    /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0); card names
+     * and creature types only of objects the deciding player may see ([ShownAnswers], I-D27). Worked out once per flow
+     * (final cast review #9: a panel asks on every recomposition). */
+    fun listedAnswers(): List<Answer> = listed
+
+    private val listed: List<Answer> by lazy {
+        val open = decision ?: return@lazy emptyList()
+        ShownAnswers.of(state, open,
+            Engine.options(state, open.player).filterIsInstance<Input.Answer>().filter { it.decision == open.id }.map { it.answer })
     }
 
-    /** Whether paying the open [Decision.ManaPayment] with [uses] completes it. */
+    /** Whether paying the open [Decision.ManaPayment] with [uses] completes it; the latest answer is kept, so asking
+     * again for the same tapping costs no engine call (#9). */
     fun pays(uses: List<ManaUse>): Boolean {
+        lastPays?.takeIf { it.first == uses }?.let { return it.second }
         val open = decision as? Decision.ManaPayment ?: return false
-        return try {
+        val pays = try {
             Engine.perform(state, Input.Answer(open.id, Answer.ManaPayment(uses)))
             true
         } catch (_: IllegalArgumentException) {
@@ -154,6 +161,18 @@ class SharedFlow(
         } catch (_: IllegalStateException) {
             false
         }
+        lastPays = uses to pays
+        return pays
+    }
+
+    @kotlin.concurrent.Volatile private var lastPays: Pair<List<ManaUse>, Boolean>? = null
+
+    /** Works out what a panel showing this flow reads ([decision], [listedAnswers], whether the suggested mana pays), so
+     * it can be done off the main thread before the flow is shown (SYS-025). Returns this flow. */
+    fun prepared(): SharedFlow = also {
+        val open = decision
+        listedAnswers()
+        if (open is Decision.ManaPayment) pays(open.suggestion)
     }
 
     /** The objects whose identity [player] may be shown now (D60, I-D27): public cards and their own. */

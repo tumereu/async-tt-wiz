@@ -224,19 +224,32 @@ internal class SharedFlowController(
 
     override val engine: GameState get() = view!!.state
     override fun atwCard(id: ObjectId): String? = view?.atwCard(id)
+    /** Worked out with the flow, off the main thread ([SharedFlow.prepared], SYS-025). */
     override fun listedAnswers(): List<Answer> = view?.listedAnswers().orEmpty()
-    /** Worked out once per flow and tapping (one engine call each, never per recomposition, SYS-025). */
+    /** Worked out once per flow and tapping, off the main thread: the suggestion with the flow ([SharedFlow.prepared]),
+     * each tapping by [toggleMana] (SYS-025, final cast review #9). */
     private var paidFor: Triple<SharedFlow, List<ManaUse>, Boolean>? = null
     override val paid: Boolean get() {
         val flow = view ?: return false
         paidFor?.takeIf { it.first === flow && it.second === mana }?.let { return it.third }
         return flow.pays(mana).also { paidFor = Triple(flow, mana, it) }
     }
-    /** The tapped sources are a set: their colours are worked out together ([ManaPicks], as in a cast). */
+    /** The tapped sources are a set: their colours are worked out together ([ManaPicks], as in a cast), on [work]
+     * (SYS-025: up to a few dozen engine calls). */
     override fun toggleMana(group: List<ManaUse>) {
         val flow = view ?: return
         val decision = flow.decision as? Decision.ManaPayment ?: return
-        mana = ManaPicks.toggle(decision, mana, group, flow::pays)
+        if (busy) return
+        val current = mana
+        busy = true
+        work.run({
+            runCatching { ManaPicks.toggle(decision, current, group, flow::pays).let { it to flow.pays(it) } }
+                .onFailure { AppLog.warn("automatum", "Mana tapping couldn't be worked out: ${it::class.java.simpleName}") }.getOrNull()
+        }) { result ->
+            busy = false
+            val (uses, pays) = result ?: return@run
+            if (view === flow && mana === current) { mana = uses; paidFor = Triple(flow, uses, pays) }
+        }
     }
 
     /** I-D27: the viewer sees what the rules let them see; the deciding player also the cards their own choice offers in

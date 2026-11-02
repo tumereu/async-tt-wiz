@@ -283,6 +283,30 @@ out of anything stuck.
   acting device's own (the reacting device shows its own time); "online" is the green presence dot; the opponent's end
   step and beginning of combat are pauses only with Full control. Catalog: STK-026, STK-036–STK-039, TRN-057, SYS-071,
   HIS-093, LOB-079, LOB-113.
+- **Built (final cast review fixes, 2026-11-03; owner questions decided overnight, vision-aligned, to be confirmed):**
+  - **Card names and types (#1, decision A):** never built from the game's card data (it holds the other player's hidden
+    deck and hand, I-D27). "Choose a card name" is a text field (any name; the engine takes any non-blank name) with
+    suggestions from the device's card catalog (`CardNameSection`, `CatalogCardNames`); "choose a creature type" with no
+    given list offers every creature type of the pinned rules (`OracleParser.subtypes` through
+    `CardDefinitions.ruleSubtypes`, filtered by `Subtypes.kindOf`) with a field narrowing it (`CreatureTypeSection`). The
+    flows' listed answers keep only names and types of objects the deciding player may see (`ShownAnswers`).
+  - **Library top (#8, decision B):** the Library menu shows the engine's rows for the top card when the engine offers any
+    (`libraryTopRows` above "Manual…", ZON-078).
+  - **Mana pool undo (#4, decision C):** fixed without a rules-version change or game wipe: a sequence delta's gap is
+    found at the first copy of its anchor where the removed run and the following neighbour fit
+    (`GameplayDeltas.patch`), so a pool holding equal mana (no identity) undoes (D59).
+  - #2: a fused cast is labelled "Reel // Rend (fused)" (`CastFlow.wayLabel`, `fusedName`). #3 (CR 117.3c): the turn
+    record's `passesAt` also marks where the engine left priority with a player other than the active one, and
+    `HostPriority.kept` keeps it there (only a step changed by hand settles it to the active player). #5: repeatable and
+    pawprint modes (`ModesSection`: counts, "−", Clear, pawprint costs and total, OK only within the limit). #6:
+    `CastFlow.sent` passes on a land play, mana ability or special action whose trigger went on the Stack, as after a
+    cast. #7 root cause: the engine asks a shuffle's random order in the state before the step's staged changes, so the
+    host shuffled the library with the searched cards still in it while ATW's `ShuffleLibrary` shuffled it without them;
+    `RandomKind.Objects.library` (arcanum-engine) now names the library as it is shuffled and `EngineCall` orders by it.
+    Also a shuffle of at most one card (no random decision) is said with a fixed seed. #9: `SharedFlow.prepared` works
+    out the listed answers and the suggestion's payment on the worker, `listedAnswers` is cached per flow, `pays`
+    remembers its latest answer, and `SharedFlowController.toggleMana` runs on `work`. Catalog: ZON-004, ZON-078,
+    STK-023, STK-040, STK-041, TBL-115, SYS-067.
 
 ## 4. Shared state ATW adds
 

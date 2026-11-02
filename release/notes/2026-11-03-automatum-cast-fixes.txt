@@ -1,0 +1,1 @@
+fix: With Automatum on, tapping a land for mana in your opponent's turn keeps your priority, a land's own trigger resolves without waiting, every player searching and shuffling no longer gets stuck, and paying with two of the same mana can be undone.

@@ -209,6 +209,51 @@ class AutomatumControlsScreenshotTest {
         assertTrue(offered.single { it.name == "Skip combat" }.enabled, "moving the turn goes through Automatum")
     }
 
+    // ZON-078, CR 305.1, 401.5 (final cast review #8): with a Seer of Harvestide-like card, the Library menu offers the
+    // engine's land play of the top card above "Manual…", and playing it goes out as one batch the server takes
+    @Test fun libraryMenuPlaysTheTopCard() {
+        val seerText = "You may look at the top card of your library any time.\nYou may play lands from the top of your library."
+        val seer = Invented(DefinitionFace("seer", "Furrow Seer", typeLine = "Creature — Human Druid", manaCost = "{1}{G}{G}",
+            rulesText = seerText, power = "2", toughness = "3"),
+            OracleCard("Furrow Seer", "{1}{G}{G}", "Creature — Human Druid", seerText, "2", "3"))
+        val byDigest = (invented + seer).associate { it.submitted.digest to it.definition }
+        AutomatumBoards.definitionSource = { submitted -> submitted.mapNotNull { s ->
+            byDigest[s.digest]?.let { s.digest to ParsedCard.Read(it, 0) } }.toMap() }
+        val library = f.id("a/LIBRARY")
+        val base = board(lands = 0)
+        val top = base.board.containers.single { it.id == library }.cards.first()
+        val play = base.copy(definitions = base.definitions + seer.submitted, board = base.board.copy(cards = base.board.cards.map {
+            when (it.id) {
+                druidId -> it.copy(definition = seer.submitted.digest, faceId = "seer", corner = "2/3")
+                top -> it.copy(definition = forest.submitted.digest, faceId = "forest")
+                else -> it
+            }
+        }))
+        val toolkit = render(play)
+        val pile = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
+            .first { it.zone == PlayZone.LIBRARY && it.id == library }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile, TableSelection()) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Play · Forest").assertIsEnabled()
+        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        captureShot("$SCREENSHOTS/automatum/menu-library-top.png",
+            "With Automatum on and a Furrow Seer (\"You may play lands from the top of your library\") on Alice's battlefield, tapping her Library opens its menu with Automatum's \"Play · Forest\" row for the top card above a greyed \"Manual…\".")
+        compose.ringClick("Play · Forest")
+        compose.waitForIdle()
+        val (batch, request) = sent.single()
+        val after = accepted(play, batch, request)
+        assertEquals(field, after.board.cards.single { it.id == top }.containerId, "the Forest was played from the top")
+    }
+
+    // ZON-078: without anything the engine offers for the top card, the Library menu stays "Manual…" alone
+    @Test fun libraryMenuWithoutTopCardPlays() {
+        val toolkit = render(board(lands = 0))
+        compose.runOnIdle { toolkit.openLibrary(f.id("a/LIBRARY")) }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        compose.onAllNodes(hasContentDescription("Play", substring = true)).assertCountEquals(0)
+    }
+
     // TBL-116: with Automatum off the menus are exactly as before: no "Manual…", today's pages
     @Test fun automatumOffKeepsTodaysMenu() {
         val play = board(lands = 2, automatum = false)

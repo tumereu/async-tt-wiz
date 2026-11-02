@@ -240,18 +240,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
                 }
             }
         }
-        is Decision.Modes -> {
-            var chosen by remember(decision.id) { mutableStateOf(listOf<Int>()) }
-            Section(if (decision.max == 1) "Choose one" else "Choose ${decision.min}–${decision.max}") {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    for (mode in decision.options) FilterChip(mode.index in chosen, {
-                        if (decision.max == 1) cast.answer(Answer.Modes(listOf(mode.index)))
-                        else chosen = if (mode.index in chosen && !decision.repeatable) chosen - mode.index else chosen + mode.index
-                    }, enabled = mode.available, label = { Text(mode.text ?: "Mode ${mode.index + 1}", fontSize = 12.sp) })
-                }
-                if (decision.max != 1) Button({ cast.answer(Answer.Modes(chosen)) }, enabled = chosen.size in decision.min..decision.max) { Text("OK") }
-            }
-        }
+        is Decision.Modes -> ModesSection(cast, decision)
         is Decision.ChooseOption -> Section("Choose") {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 for (option in decision.options) OutlinedButton({ cast.answer(Answer.Option(option)) }) { Text(option, fontSize = 12.sp) }
@@ -325,16 +314,81 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
                 for (player in decision.options) OutlinedButton({ cast.answer(Answer.Player(player)) }) { Text(names[player.value] ?: "A player") }
             }
         }
-        else -> Section(sectionTitle(decision)) {
-            // Choices the panel has no control of its own for yet: the engine's listed answers
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                for (answer in flow.listedAnswers()) OutlinedButton({ cast.answer(answer) }) {
-                    Text(answerLabel(flow, play, names, decision, answer), fontSize = 12.sp)
-                }
+        // I-D27 (final cast review #1): any card name, suggested from the device's card catalog, and every creature type,
+        // never the game's own cards
+        is Decision.ChooseCardName -> CardNameSection(cast, decision)
+        is Decision.ChooseSubtype -> if (decision.among == null) CreatureTypeSection(cast, decision)
+            else ListedSection(cast, flow, play, names, decision)
+        else -> ListedSection(cast, flow, play, names, decision)
+    }
+}
+
+/** Choices the panel has no control of its own for: the engine's listed answers (a card type, a basic land type). */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ListedSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, names: Map<String, String>, decision: Decision) {
+    Section(sectionTitle(decision)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (answer in flow.listedAnswers()) OutlinedButton({ cast.answer(answer) }) {
+                Text(answerLabel(flow, play, names, decision, answer), fontSize = 12.sp)
             }
         }
     }
 }
+
+/**
+ * Choosing modes (CR 700.2): one taps to answer when one is chosen; otherwise taps choose and unchoose, and OK sends the
+ * choice. A mode that may be chosen more than once (CR 700.2d, a Season's pawprint modes, CR 700.2i) is added again by
+ * each tap, shows how often it is chosen and is taken back one at a time with "−"; "Clear" takes back all. Pawprint
+ * costs are on each mode, and OK waits while the pawprints chosen are over the limit (final cast review #5).
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun ModesSection(cast: FlowQuestions, decision: Decision.Modes) {
+    var chosen by remember(decision.id) { mutableStateOf(listOf<Int>()) }
+    val pawprints = chosen.sumOf { i -> decision.options.firstOrNull { it.index == i }?.pawprints ?: 0 }
+    val overLimit = decision.pawprintLimit?.let { pawprints > it } == true
+    Section(if (decision.max == 1) "Choose one" else "Choose ${decision.min}–${decision.max}") {
+        if (decision.repeatable) {
+            for (mode in decision.options) {
+                val count = chosen.count { it == mode.index }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FilterChip(count > 0, { if (chosen.size < decision.max) chosen = chosen + mode.index },
+                        modifier = Modifier.weight(1f), enabled = mode.available,
+                        label = { ModeLabel(mode, count) })
+                    if (count > 0) TextButton({ chosen = chosen.toMutableList().also { it.removeAt(it.lastIndexOf(mode.index)) } },
+                        Modifier.semantics { contentDescription = "Choose one fewer: ${modeText(mode)}" }) { Text("−") }
+                }
+            }
+        } else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            for (mode in decision.options) FilterChip(mode.index in chosen, {
+                if (decision.max == 1) cast.answer(Answer.Modes(listOf(mode.index)))
+                else chosen = if (mode.index in chosen) chosen - mode.index else chosen + mode.index
+            }, enabled = mode.available, label = { ModeLabel(mode, 0) })
+        }
+        decision.pawprintLimit?.let { limit ->
+            Text("Pawprints: $pawprints of $limit", fontSize = 11.sp, color = if (overLimit) Color(0xffb3261e) else Color(0xff4b5a5f))
+        }
+        if (decision.max != 1) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button({ cast.answer(Answer.Modes(chosen)) }, enabled = chosen.size in decision.min..decision.max && !overLimit) { Text("OK") }
+            if (decision.repeatable) OutlinedButton({ chosen = emptyList() }, enabled = chosen.isNotEmpty()) { Text("Clear") }
+        }
+    }
+}
+
+/** A mode's text with its pawprint cost in front ("{P}{P}") unless the text says it already, and how often it is chosen
+ * when more than once. */
+@Composable
+private fun ModeLabel(mode: arcanum.engine.decision.ModeOption, count: Int) {
+    val text = modeText(mode)
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (mode.pawprints > 0 && !text.startsWith("{P}")) Text("{P}".repeat(mode.pawprints), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(text, Modifier.weight(1f, fill = false), fontSize = 12.sp)
+        if (count > 1) Text("×$count", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun modeText(mode: arcanum.engine.decision.ModeOption) = mode.text ?: "Mode ${mode.index + 1}"
 
 /** The mana section: the engine's suggested tapping shown tapped, the other sources untapped; a tap toggles one. */
 @OptIn(ExperimentalLayoutApi::class)
@@ -404,6 +458,7 @@ private fun spellName(flow: CastFlow, play: PlayState): String {
     val cast = flow.begin as? Input.Cast
     val definition = cast?.let { flow.state.obj(it.card)?.definition ?: flow.state.objects.values.firstOrNull { o ->
         (o.id as? ObjectId.Card)?.card == (it.card as ObjectId.Card).card }?.definition }
+    if (cast?.way?.fused == true) CastFlow.fusedName(definition)?.let { return it }
     return definition?.faces?.getOrNull(cast.way.face)?.name ?: CastController.cardName(play, flow.cardId)
 }
 

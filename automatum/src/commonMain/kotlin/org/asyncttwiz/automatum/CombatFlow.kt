@@ -345,7 +345,7 @@ object CombatFlow {
         if (s.combat?.attackers.isNullOrEmpty()) return null
         val ids = call.ids
         fun card(o: ObjectId) = ids.atw((o as ObjectId.Card).card)
-        HostPriority.wanted(s)?.let { if (it != s.priority) s.apply(Change.Priority(s.priority, it)) }
+        HostPriority.wanted(s, HostPriority.kept(call.state.board))?.let { if (it != s.priority) s.apply(Change.Priority(s.priority, it)) }
         val dealt = mutableListOf<PreviewDamage>()
         val life = mutableMapOf<String, Int>()
         val dies = mutableListOf<String>()

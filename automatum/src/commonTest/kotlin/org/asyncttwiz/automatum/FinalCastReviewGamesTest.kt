@@ -10,7 +10,6 @@ import org.asyncttwiz.protocol.Automatum
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import kotlin.random.Random
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -128,7 +127,7 @@ class FinalCastReviewGamesTest {
             assertEquals(one.decision, two.decision, "$where: devices disagree on the decision")
             assertEquals(one.holder, two.holder, "$where: devices disagree on priority")
             // The board as Automatum left it needs no settling: the holder shown is the holder the engine works with
-            HostPriority.wanted(s)?.let { problem("priority resettled after an automated batch", "$where after $lastAction: board ${rt.state.board.priority} -> $it") }
+            HostPriority.wanted(s, HostPriority.kept(rt.state.board))?.let { problem("priority resettled after an automated batch", "$where after $lastAction: board ${rt.state.board.priority} -> $it") }
             // I-D27: the menus list nothing of the other player's library (a card in their hand gets one greyed Cast before the
             // plays are read, ZON-007; one the viewer saw leave the battlefield may be listed, greyed as not theirs)
             for (viewer in table.players) {
@@ -265,7 +264,6 @@ class FinalCastReviewGamesTest {
     // I-D28, I-D27, D11); problems found are collected and printed, and a game stops at its first failed round trip,
     // exception or stuck flow. Seeds 101 and 103: #3 (Next step refused after a mana ability in combat); #4 (undo
     // of mana added to {R}{R}) stops games that get past #3; 111: #7 (search and shuffle)
-    @Ignore("finalreview-cast #3, #4, #7: the seeded games stop on those findings")
     @Test fun longGamesThroughCardPlaysCastFlowAndSharedFlow() {
         for (seed in listOf(101L, 103L, 104L, 111L)) {
             val stats = play(seed, calls = 250)

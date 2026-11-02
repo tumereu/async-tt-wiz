@@ -27,6 +27,13 @@ object OracleParser {
      */
     const val VERSION: Int = 18
 
+    /**
+     * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
+     * offers when a player chooses a subtype from no given list (CR 205.3m: "choose a creature type" may name any creature
+     * type, whether or not an object in the game has it). Not a parse result: it doesn't change [VERSION].
+     */
+    val subtypes: Set<String> get() = RulesWords.subtypes
+
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
         val face = characteristics(card)

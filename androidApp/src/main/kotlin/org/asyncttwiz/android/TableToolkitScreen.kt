@@ -79,7 +79,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             MulliganDialog(library.controller, library.handIds, owner, toolkit::dismiss, toolkit::dismiss)
         }
         "library" -> toolkit.library?.let { library -> InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, height = 304.dp) {
-            AutomatumZoneMenu(play) {
+            AutomatumZoneMenu(play, rows = libraryTopRows(toolkit, play, library.controller.libraryId, names, enabled)) {
                 LibraryActions(library.controller, play.board, library.handIds,
                     onComplete = toolkit::dismiss, onShow = toolkit::showLibraryContents)
             }
@@ -167,13 +167,35 @@ internal fun automatumRows(toolkit: TableToolkitController, play: PlayState, bou
         return listOf(EngineRow(MenuControl("Cast", false, refused = CastController.NOT_YOURS) {}, PlayCardIcon))
     val plays = toolkit.cardPlays(play)
         ?: return listOf(EngineRow(MenuControl(WORKING_OUT, false) {}, Icons.Outlined.HourglassTop))
+    return engineRows(toolkit, play, cardId, plays.of(cardId), names, enabled)
+}
+
+/**
+ * Automatum on (ZON-078, final cast review #8): what the engine offers for the top card of the Library [libraryId] (cast
+ * or play it from the top, Seer of Harvestide-like), as rows above the Library menu's "Manual…"; none when it offers
+ * nothing, or for a top card the viewer may not see (CardPlays lists nothing of hidden cards, I-D27).
+ */
+internal fun libraryTopRows(toolkit: TableToolkitController, play: PlayState, libraryId: String, names: Map<String, String>,
+    enabled: Boolean): List<EngineRow> {
+    if (!play.board.automatum) return emptyList()
+    val top = play.board.containers.singleOrNull { it.id == libraryId && it.zone == PlayZone.LIBRARY }?.cards?.firstOrNull()
+        ?: return emptyList()
+    val offered = toolkit.cardPlays(play)?.of(top)?.filter { it.legal }.orEmpty()
+    if (offered.isEmpty()) return emptyList()
+    val name = CastController.cardName(play, top)
+    return engineRows(toolkit, play, top, offered, names, enabled).map { it.copy(control = it.control.copy(name = "${it.control.name} · $name")) }
+}
+
+/** The menu rows of [offered], what the engine offers for [cardId]. */
+private fun engineRows(toolkit: TableToolkitController, play: PlayState, cardId: String,
+    offered: List<org.asyncttwiz.automatum.CardPlay>, names: Map<String, String>, enabled: Boolean): List<EngineRow> {
     val name = CastController.cardName(play, cardId)
     val busy = when {
         toolkit.cast.open -> CastController.BUSY
         Automatum.flowOpen(play.board) -> SharedFlowController.BUSY
         else -> null
     }
-    return plays.of(cardId).map { offered ->
+    return offered.map { offered ->
         val label = when (offered.kind) {
             org.asyncttwiz.automatum.CardPlay.Kind.Cast -> if (offered.text == "Cast") "Cast" else "Cast · ${offered.text}"
             else -> offered.text
@@ -214,18 +236,23 @@ private fun engineIcon(kind: org.asyncttwiz.automatum.CardPlay.Kind) = when (kin
 }
 
 /**
- * A zone menu (Library, Graveyard, Exile, Temp pile) with Automatum on (§3 I4, I-D28): what has no game effect
- * ([kept], looking) and "Manual…", which opens today's menu ([manual]) only while Automatum waits for something done by
- * hand (I-D37), else greyed with the reason on tap. With Automatum off it is today's menu.
+ * A zone menu (Library, Graveyard, Exile, Temp pile) with Automatum on (§3 I4, I-D28): the engine's [rows] (the Library's
+ * top card cast or played from the top, ZON-078), what has no game effect ([kept], looking) and "Manual…", which opens
+ * today's menu ([manual]) only while Automatum waits for something done by hand (I-D37), else greyed with the reason on
+ * tap. With Automatum off it is today's menu.
  */
 @Composable
-internal fun AutomatumZoneMenu(play: PlayState, kept: @Composable () -> Unit = {}, manual: @Composable () -> Unit) {
+internal fun AutomatumZoneMenu(play: PlayState, kept: @Composable () -> Unit = {}, rows: List<EngineRow> = emptyList(),
+    manual: @Composable () -> Unit) {
     var open by remember(play.board.automatum) { mutableStateOf(false) }
     if (!play.board.automatum || open) { manual(); return }
-    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        kept()
-        InlinePopupCell(MenuControl(CardRingPages.MANUAL, AutomatumBoards.manualAllowed(play), refused = AutomatumDrags.MANUAL) { open = true },
-            CardRingPages.MANUAL)
+    Column(verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
+        for (row in rows) EngineActionRow(row, LocalInlinePopupColor.current)
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+            kept()
+            InlinePopupCell(MenuControl(CardRingPages.MANUAL, AutomatumBoards.manualAllowed(play), refused = AutomatumDrags.MANUAL) { open = true },
+                CardRingPages.MANUAL)
+        }
     }
 }
 

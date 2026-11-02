@@ -211,10 +211,15 @@ internal object GameplayDeltas {
         val array = value as? JsonArray ?: throw Mismatch()
         val removed = from as? JsonArray ?: throw Mismatch()
         val added = to as? JsonArray ?: throw Mismatch()
-        val start = if (edit.after == null) 0 else array.indexOf(edit.after).takeIf { it >= 0 }?.plus(1) ?: throw Mismatch()
-        val end = start + removed.size
-        if (end > array.size || array.subList(start, end) != removed || (!relaxedNext && array.getOrNull(end) != edit.before)) throw Mismatch()
-        return JsonArray(array.take(start) + added + array.drop(end))
+        fun fits(start: Int): Boolean {
+            val end = start + removed.size
+            return end <= array.size && array.subList(start, end) == removed && (relaxedNext || array.getOrNull(end) == edit.before)
+        }
+        // Entries without identity may repeat (a mana pool's two {R} of one source, D59): the gap is the first place
+        // after an equal anchor where the removed run and the following neighbour fit, not just the anchor's first copy
+        val start = if (edit.after == null) 0.takeIf(::fits) ?: throw Mismatch()
+            else array.indices.firstOrNull { array[it] == edit.after && fits(it + 1) }?.plus(1) ?: throw Mismatch()
+        return JsonArray(array.take(start) + added + array.drop(start + removed.size))
     }
 
     /** Forward: the card must open a known top layer; it leaves it (an emptied layer vanishes). Reverse: the card

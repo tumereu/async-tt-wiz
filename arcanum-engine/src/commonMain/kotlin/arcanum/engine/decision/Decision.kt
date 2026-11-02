@@ -241,8 +241,14 @@ sealed interface RandomKind {
      * (a shuffle or "in a random order" into a library in a viewer's state, D60): the answer is [count] new card
      * objects instead, ids no object in the state has, top first; the host keeps which card each one is, and the
      * engine knows them as unknown cards.
+     *
+     * [library]: for a shuffle, the whole library of the deciding player as it is when shuffled, top first ([among] and
+     * the cards the shuffle leaves out, CR 701.24b); empty for other random picks. It may differ from the library of
+     * the state the decision is asked in, because a step's changes are made once its decisions are answered: cards found
+     * by a search earlier in the same step have left it ("search …, put them onto the battlefield, then shuffle").
      */
-    @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int, val newIds: Boolean = false) : RandomKind
+    @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int, val newIds: Boolean = false,
+        val library: List<ObjectId> = emptyList()) : RandomKind
 }
 
 /**

@@ -18,9 +18,11 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.PriorityState
 import arcanum.engine.state.TargetRef
 import arcanum.engine.view.AbilityOrigin
+import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.GameCommand
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.PlayState
+import org.asyncttwiz.protocol.TurnPosition
 
 /**
  * Casting a spell, playing a land or activating an ability (a special action too) through the engine as a **private flow** (integration spec I-D11, §3 I2): the
@@ -122,11 +124,12 @@ class CastFlow private constructor(
         }
     }
 
-    /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0). */
+    /** The answers the engine lists for the open decision (a working sample for choices of several, §7.0); card names
+     * and creature types only of objects the player may see ([ShownAnswers], I-D27). */
     fun listedAnswers(): List<Answer> {
         val open = pending ?: return emptyList()
-        return Engine.options(call.working, open.player).filterIsInstance<Input.Answer>()
-            .filter { it.decision == open.id }.map { it.answer }
+        return ShownAnswers.of(call.working, open, Engine.options(call.working, open.player).filterIsInstance<Input.Answer>()
+            .filter { it.decision == open.id }.map { it.answer })
     }
 
     /**
@@ -134,13 +137,15 @@ class CastFlow private constructor(
      * their "Full control" the caster keeps priority instead, a pause of their own, I-D41) and the automatic passes after it ([StepFlow.automatic], I-D18), so with nothing
      * to respond with the spell resolves in the same batch and the game goes on to the next point where a player can act
      * (the steps too, I-D35), or to its first decision (a shared flow from there, I-D11).
-     * An activated ability on the Stack is passed on the same way (§3 I4); a land play, a mana ability and a special
-     * action keep priority with their player (CR 305.1, 605.3a, 116.3c). [call] stays the cast alone.
+     * An activated ability on the Stack is passed on the same way (§3 I4), and so is a land play, mana ability or special
+     * action that put a trigger on the Stack (a landfall trigger: their own thing on top, no pause without Full control);
+     * one that put nothing there keeps priority with its player (CR 305.1, 605.3a, 116.3c). [call] stays the cast alone.
      */
     fun sent(): EngineCall {
         check(complete) { "The cast isn't complete" }
         val done = replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true).call
-        val stacked = begin is Input.Cast || (begin is Input.Activate && done.working.stack.size > stackBefore)
+        // Final cast review #6: a land play, mana ability or special action whose trigger went on the Stack is passed on too
+        val stacked = begin is Input.Cast || done.working.stack.size > stackBefore
         if (stacked && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == player) {
             // I-D41: with "Full control" their own spell is a pause for the caster, who keeps priority (to cast again)
             if (StepFlow.fullControl(done, player)) return done
@@ -212,11 +217,13 @@ class CastFlow private constructor(
             return CastFlow(c.play, c.definitions, c.player, c.log, begin, given, c.seeds, call, steps, stackBefore)
         }
 
-        /** What [Input.Cast] [way] says beside the plain cast: its face when the card has several to cast, its
-         * alternative cost ("Flashback", "Evoke") and where it is cast from; null for the plain cast of the front face. */
+        /** What [Input.Cast] [way] says beside the plain cast: its face when the card has several to cast ("Reel // Rend
+         * (fused)" for both halves of a fuse card, CR 702.102a), its alternative cost ("Flashback", "Evoke") and where it
+         * is cast from; null for the plain cast of the front face. */
         fun wayLabel(definition: CardDefinition?, way: Input.Cast): String? {
             val parts = mutableListOf<String>()
-            if (way.way.face != 0 || (definition?.faces?.size ?: 1) > 1) definition?.faces?.getOrNull(way.way.face)?.name?.let { parts += it }
+            if (way.way.fused) fusedName(definition)?.let { parts += it }
+            else if (way.way.face != 0 || (definition?.faces?.size ?: 1) > 1) definition?.faces?.getOrNull(way.way.face)?.name?.let { parts += it }
             way.way.alternative?.let { parts += abilityText(definition, it) ?: "Alternative cost" }
             if (way.way.permission != null) parts += "With permission"
             return parts.joinToString(" · ").ifEmpty { null }
@@ -228,6 +235,10 @@ class CastFlow private constructor(
             is AbilityOrigin.Expansion -> abilityText(definition, origin.keyword)
             else -> null
         }
+
+        /** The name of a fused split spell (CR 702.102a): both halves' names, "Reel // Rend (fused)". */
+        fun fusedName(definition: CardDefinition?): String? =
+            definition?.faces?.takeIf { it.size > 1 }?.joinToString(" // ") { it.name }?.let { "$it (fused)" }
 
         /** The printed text players read for [ability] (a keyword's name for a keyword). */
         fun text(ability: Ability?): String? = when (ability) {
@@ -284,26 +295,39 @@ class HandPlays private constructor(val byCard: Map<String, List<Input>>, val un
  * a step changed by hand doesn't give priority (CR 117.3a), so before an engine call the host settles it as the rules
  * would have: nobody holding it, the active player gets it (no passes) — with spells or abilities on the Stack too; with
  * an empty Stack and no passes made, a priority holder other than the active player is left from a turn changed by hand
- * and the active player gets it. Otherwise (the steps the engine runs, StepFlow) priority is kept as it is: a player
- * other than the active one holds it on an empty Stack only after passes. In the untap and cleanup steps nobody gets
+ * and the active player gets it, unless the engine left it there in this step ([kept]: a mana ability or special action
+ * keeps priority with its player). Otherwise (the steps the engine runs, StepFlow) priority is kept as it is. In the untap and cleanup steps nobody gets
  * priority (CR 502.4, 514.3), nor while attackers or blockers are awaited (CR 508.1, 509.1). The change goes out with
  * the call's batch.
  */
 internal object HostPriority {
     fun settle(call: EngineCall) {
         val s = call.working
-        val wanted = wanted(s) ?: return
+        val wanted = wanted(s, kept(call.state.board)) ?: return
         if (s.priority != wanted) call.host(Change.Priority(s.priority, wanted, listOf(Meaning.PriorityGranted)))
     }
 
-    /** The priority [s] should have (null: leave it as it is). */
-    fun wanted(s: GameState): PriorityState? {
+    /**
+     * Whether an automated batch left [board]'s priority where it is in the step the board is in (the turn record's
+     * [TurnExtras.passesAt]): then a player other than the active one holding it on an empty Stack without passes is the
+     * engine's own (a player keeps priority after a mana ability or special action, CR 117.3c, final cast review #3), not
+     * left from a step changed by hand.
+     */
+    fun kept(board: BoardState): Boolean {
+        val position = TurnPosition.of(board.turn) ?: return false
+        val record = board.engineRecords.singleOrNull { it.id == EngineCodec.TURN } ?: return false
+        val extras = runCatching { EngineCodec.decode(TurnExtras.serializer(), record.data) }.getOrNull() ?: return false
+        return extras.passesAt == TurnExtras.at(board.turn.number, position)
+    }
+
+    /** The priority [s] should have (null: leave it as it is); [kept]: the board's priority is the engine's own ([kept]). */
+    fun wanted(s: GameState, kept: Boolean = false): PriorityState? {
         if (s.pending != null || s.turn.step == TurnStep.Untap || s.turn.step == TurnStep.Cleanup || awaitsDeclaration(s)) return null
         val active = s.turn.active
         val holder = s.priority.holder
         return when {
             holder == null -> PriorityState(active, 0)
-            s.stack.isEmpty() && s.priority.passes == 0 && holder != active -> PriorityState(active, 0)
+            s.stack.isEmpty() && s.priority.passes == 0 && holder != active && !kept -> PriorityState(active, 0)
             else -> null
         }
     }

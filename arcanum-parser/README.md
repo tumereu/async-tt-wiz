@@ -20,7 +20,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 - `OracleParser.VERSION`: the parser's output version. Hosts that store parsed definitions keep them per version
   and parse again when it changes. **Bump it in every change that changes the parser's output for any card.**
 - Subtypes and ability words are accepted only from the lists in the pinned
-  Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c). Exhaust, Boast, Max speed,
+  Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c; the subtypes are public as `OracleParser.subtypes`, for
+  hosts offering "choose a creature type"). Exhaust, Boast, Max speed,
   Power-up and Solved become ability labels.
 - Set tests (`commonTest/…/sets/<code>/`): every card of a set with invented names. Duskmourn (`dsk`): all 276
   cards parse.

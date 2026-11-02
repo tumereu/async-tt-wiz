@@ -52,6 +52,11 @@ The definition model (overview in `Definitions.kt`):
   of that type", `ObjectFilter.XInManaCost`, `ObjectFilter.NthSpellThisTurn` for "the first instant spell you've cast
   this turn", `ActivationRules.payManaBy` with `ManaPaymentWay.TapCreaturesForAnyMana` for tapping creatures rather than
   paying an activation's mana).
+- Return to Ravnica (set `rtr`): scavenge and unleash (`KeywordExpansions` entries, CR 702.97a, 702.98a), and smaller
+  pieces: `CostObjects.Choose.shared` ("two nonland cards with the same name"), `Choice.Colors` ("choose two colors") with
+  `Value.SharedColors` ("1 life for each of the chosen colors it is"), `EventPattern.Discard.causedBy` ("if a spell or
+  ability an opponent controls causes you to discard this card"), `ObjectFilter.ThisTurn.role` ("a creature that dealt
+  damage this turn": the source of a damage event).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

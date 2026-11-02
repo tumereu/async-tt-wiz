@@ -25,6 +25,7 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 - Set tests (`commonTest/…/sets/<code>/`): every card of a set with invented names. Duskmourn (`dsk`): all 276
   cards parse.
   Bloomburrow (`blb`): all 279 cards parse.
+  Return to Ravnica (`rtr`): all 254 cards parse.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

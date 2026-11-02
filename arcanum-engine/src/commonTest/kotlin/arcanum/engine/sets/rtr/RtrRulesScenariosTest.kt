@@ -61,7 +61,7 @@ class RtrRulesScenariosTest {
     """)
 
     private val bear = Cards.invent("Market Bear", "{1}{G}", "Creature — Bear", "", "2/2")
-    private val wolf = Cards.invent("Alley Wolf", "{1}{G}", "Creature — Wolf", "", "2/2")
+    private val wolf = Cards.invent("Alley Hound", "{1}{G}", "Creature — Dog", "", "2/2")
     private val shock = Cards.invent("Street Spark", "{R}", "Instant", "Street Spark deals 2 damage to any target.")
     private val insight = Cards.invent("Quick Insight", "{1}{U}", "Instant", "Draw a card.")
     private val azoriusSpell = Cards.invent("Senate Decree", "{W}{U}", "Sorcery", "You gain 1 life.")
@@ -264,7 +264,7 @@ class RtrRulesScenariosTest {
             alice.battlefield has wolf
             wolf.counters(CounterKind.PowerToughness(1, 1)) shouldBe 1
             wolf.colors.toSet() shouldBe setOf(Color.Green, Color.Black)
-            wolf.subtypes shouldBe listOf(Subtype("Wolf"), Subtype("Zombie"))
+            wolf.subtypes shouldBe listOf(Subtype("Dog"), Subtype("Zombie"))
         }
     }
 

@@ -5934,14 +5934,14 @@ internal class Sentences(
         // rtr chunk 05: "That player discards a card at random.", "That player loses 2 life.", "That player draws an additional card.",
         // "That player loses half their life, rounded up.", "That player loses the game." (the event's player)
         Rtr.THAT_PLAYER.matchEntire(sentence)?.takeIf { context.event != null }?.let { m ->
-            val player = Players.EventPlayer
+            // the player named before in the ability (a target), else the event's player
+            val player = context.lastPlayer ?: Players.EventPlayer
             Rtr.LOSES_LIFE.matchEntire(m.groupValues[1])?.let { l -> return listOf(Step.Do(Effect.LoseLife(player, Value.Fixed(l.groupValues[1].toInt())))) }
-            return when (m.groupValues[1]) {
-                "discards a card at random" -> listOf(Step.Do(Effect.Discard(player, Value.Fixed(1), ObjectFilter.Any, random = true)))
-                "draws an additional card" -> listOf(Step.Do(Effect.Draw(player, Value.Fixed(1))))
-                "loses half their life, rounded up" -> listOf(Step.Do(Effect.LoseLife(player, Value.Half(Value.LifeOf(player), roundUp = true))))
-                "loses the game" -> listOf(Step.Do(Effect.LoseGame(player)))
-                else -> null
+            when (m.groupValues[1]) {
+                "discards a card at random" -> return listOf(Step.Do(Effect.Discard(player, Value.Fixed(1), ObjectFilter.Any, random = true)))
+                "draws an additional card" -> return listOf(Step.Do(Effect.Draw(player, Value.Fixed(1))))
+                "loses half their life, rounded up" -> return listOf(Step.Do(Effect.LoseLife(player, Value.Half(Value.LifeOf(player), roundUp = true))))
+                "loses the game" -> return listOf(Step.Do(Effect.LoseGame(player)))
             }
         }
         // rtr chunk 05: "Put it on top of its owner's library." (in a dies trigger: the card in the graveyard, CR 400.7)

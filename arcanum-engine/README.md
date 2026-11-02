@@ -285,11 +285,18 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   conditions of static abilities read spells that have resolved as they last existed (CR 608.2h); finality counters (CR 122.1h), emblems' static abilities (CR 114.4), the nth
   spell of a kind cast this turn (the spell a permanent was judged as that permanent), spells with {X} in their mana
   costs, creatures tapped rather than paying an activated ability's mana.
+- Done, Return to Ravnica (scenarios in `commonTest/…/sets/rtr/`): all 254 cards play. Detain, populate, overload (the
+  "each" text, X announced for it too), scavenge, unleash; costs to attack ("can't attack you unless their controller pays
+  {X} for each", CR 508.1h: the mana is paid as attackers are declared, a declaration that can't be paid isn't made or
+  offered, CR 508.1d); costs of objects that share a quality (two cards with the same name); a spell exiled from the Stack
+  as a cost; a discard caused by an opponent's spell or ability (its cause is part of the proposed event, so replacements
+  see it); "a creature that dealt damage this turn" (the event role); two colours chosen and the spell's colours among
+  them counted.
 - Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`, repeated target slot names of repeated modes
-  (bound under the first); in the flow: attack costs and
+  (bound under the first); in the flow: costs to attack other than mana and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
   other keyword actions as costs (exert); no cube card has any of these. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects

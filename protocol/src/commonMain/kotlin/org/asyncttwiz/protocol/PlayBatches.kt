@@ -6,7 +6,7 @@ val GameAction.isPlay: Boolean get() = this is GameAction.Play || this is GameAc
 object PlayBatches {
     fun member(command: GameCommand, index: Int, action: PlayAction): GameCommand = command.copy(
         requestId = CommandIds.uuidV5(command.requestId, "member/$index"),
-        action = GameAction.Play(action), invocationId = command.requestId,
+        action = GameAction.Play(action, (command.action as? GameAction.PlayBatch)?.tags?.getOrNull(index)), invocationId = command.requestId,
         continuation = command.continuation.takeIf { index == 0 })
 
     fun change(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {

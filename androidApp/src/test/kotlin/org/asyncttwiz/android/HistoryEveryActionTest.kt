@@ -96,7 +96,17 @@ class HistoryEveryActionTest {
             PlayAction.Stack(StackAction.ToggleTextMark(id(62), 1)), PlayAction.Stack(StackAction.AddEffect(id(32), "digest")),
             PlayAction.Stack(StackAction.CopyEffect(id(62), "digest")), PlayAction.Stack(StackAction.SetController(id(62), b)),
             PlayAction.Stack(StackAction.RemoveEffect(id(62))),
-            PlayAction.Stack(StackAction.ReorderEffect(id(62), IdentityGap(), IdentityGap(afterId = id(64)))))
+            PlayAction.Stack(StackAction.ReorderEffect(id(62), IdentityGap(), IdentityGap(afterId = id(64)))),
+            PlayAction.Mtg(MtgAction.SetAutomatum(true)), PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(b))),
+            PlayAction.Mtg(MtgAction.SetManaPool(a, emptyList(), listOf(PoolMana("R")))),
+            PlayAction.Mtg(MtgAction.SetCounter(MtgRef.Card(id(32), 0), "+1/+1", null, TypedCounter("+1/+1", 1, 1))),
+            PlayAction.Mtg(MtgAction.SetCounter(MtgRef.Player(b), "poison", null, TypedCounter("poison", 1, 1))),
+            PlayAction.Mtg(MtgAction.Attach(MtgRef.Card(id(32), 0), null, MtgRef.Card(id(36), 0))),
+            PlayAction.Mtg(MtgAction.Attach(MtgRef.Card(id(32), 0), MtgRef.Player(b), null)),
+            PlayAction.Mtg(MtgAction.Restamp(id(32), MtgStamp(0, 0), MtgStamp(1, 2))),
+            PlayAction.Mtg(MtgAction.SetLedger(MtgRef.Card(id(32), 0), "", "{}")),
+            PlayAction.Mtg(MtgAction.SetStackItem(id(62), null, MtgStackItem(MtgRef.StackItem("s"), MtgStackKind.Triggered, a, timestamp = 1))),
+            PlayAction.Mtg(MtgAction.SetRecord("e", null, EngineRecord("e", EngineRecordKind.Effect, 1, "{}"))))
     }
 
     /** Exhaustive with no else branch: a new action type stops this test compiling until it has a sample above.
@@ -173,6 +183,17 @@ class HistoryEveryActionTest {
             is StackAction.RemoveEffect -> "removeEffect"
             is StackAction.ReorderEffect -> "reorderEffect"
         }
+        is PlayAction.Mtg -> "mtg/" + when (action.action) {
+            is MtgAction.SetAutomatum -> "setAutomatum"
+            is MtgAction.SetPriority -> "setPriority"
+            is MtgAction.SetManaPool -> "setManaPool"
+            is MtgAction.SetCounter -> "setCounter"
+            is MtgAction.Attach -> "attach"
+            is MtgAction.Restamp -> "restamp"
+            is MtgAction.SetLedger -> "setLedger"
+            is MtgAction.SetStackItem -> "setStackItem"
+            is MtgAction.SetRecord -> "setRecord"
+        }
     }
 
     private fun subtypes(descriptor: SerialDescriptor) = descriptor.getElementDescriptor(1).elementNames.toSet()
@@ -228,9 +249,10 @@ class HistoryEveryActionTest {
     }
 
     @Test fun samplesCoverEveryRecordedActionType() {
-        val expected = subtypes(PlayAction.serializer().descriptor) - setOf("combat", "stack") +
+        val expected = subtypes(PlayAction.serializer().descriptor) - setOf("combat", "stack", "mtg") +
             subtypes(CombatAction.serializer().descriptor).map { "combat/$it" } +
-            subtypes(StackAction.serializer().descriptor).map { "stack/$it" }
+            subtypes(StackAction.serializer().descriptor).map { "stack/$it" } +
+            subtypes(MtgAction.serializer().descriptor).map { "mtg/$it" }
         assertEquals(expected.sorted(), samples().map(::kind).toSet().sorted())
     }
 

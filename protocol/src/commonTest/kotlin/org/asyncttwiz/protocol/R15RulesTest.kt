@@ -114,6 +114,16 @@ class R15RulesTest {
             token.copy(to = token.to?.let { presence -> presence.copy(card = presence.card.copy(enteredTurn = "")) })
         })) })
 
+    /** Rules v36 counts zone changes, stamps timestamps and tags moves; these simulated v15 events predate that. */
+    private fun withoutMtgFacts(before: PlayState, change: GameplayChange): GameplayChange {
+        val old = before.board.cards.associateBy { it.id }
+        val facts = setOf(listOf("timestamp"), listOf("zoneChanges"))
+        return change.copy(state = change.state!!.let { it.copy(board = it.board.copy(cards = it.board.cards.map { card ->
+            old[card.id]?.let { was -> card.copy(zoneChanges = was.zoneChanges, timestamp = was.timestamp) } ?: card })) },
+            mutation = change.mutation!!.let { it.copy(tag = null, transition = it.transition.copy(delta = it.transition.delta!!.copy(
+                entities = it.transition.delta.entities.map { entity -> entity.copy(values = entity.values.filterNot { value -> value.path in facts }) }))) })
+    }
+
     private fun assertRetained(original: PlayState, next: PlayState, event: GameplayMutation) {
         val decoded = GameWire.json.decodeFromJsonElement<GameplayMutation>(
             jsonbOrder(GameWire.json.encodeToJsonElement(event)))
@@ -148,7 +158,7 @@ class R15RulesTest {
         val token = clone.board.cards.single { it.token }
         val move = PlayAction.MoveCard(token.id, MoveSource(fieldId, token.placement),
             MoveDestination(gameplayId(21), MoveInsertion.UNORDERED))
-        val change = gameplayChange(clone, move, 202)
+        val change = withoutMtgFacts(clone, gameplayChange(clone, move, 202))
         val next = change.state!!
         // Exact pre-fix serializer traversal: card fields first, counters in insertion order.
         val paths = listOf(listOf("containerId"), listOf("covered"), listOf("corner"),

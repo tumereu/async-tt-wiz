@@ -46,8 +46,10 @@ class CompleteCoreIntegrationTest {
         val sequence = GameplayRules.moveActions(state, move)
         val moved = step(move)
         assertEquals(listOf(move), sequence)
+        // Rules v36: leaving the Battlefield makes a new object with the next timestamp.
         assertEquals(real.copy(containerId = gameplayId(23), placement = null, covered = false, note = "", owner = actor,
-            corner = "3/5", counters = emptyMap(), enteredTurn = ""), state.board.cards.single { it.id == cardId })
+            corner = "3/5", counters = emptyMap(), enteredTurn = "", zoneChanges = real.zoneChanges + 1,
+            timestamp = MtgFacts.clock(beforeMove.board) + 1), state.board.cards.single { it.id == cardId })
         assertEquals(1, moved.transition.combatStack!!.occurrences.size)
         assertEquals(beforeMove.board.links, state.board.links)
         assertEquals(beforeMove.board.stackEffects, state.board.stackEffects)

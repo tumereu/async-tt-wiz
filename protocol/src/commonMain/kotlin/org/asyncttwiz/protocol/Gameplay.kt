@@ -130,6 +130,8 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("removeProjectionLink") data class RemoveProjectionLink(val linkId: String) : PlayAction
     @Serializable @SerialName("combat") data class Combat(val action: CombatAction) : PlayAction
     @Serializable @SerialName("stack") data class Stack(val action: StackAction) : PlayAction
+    /** Rules v36: the engine's shared state and the Automatum switch ([Automatum]). */
+    @Serializable @SerialName("mtg") data class Mtg(val action: MtgAction) : PlayAction
 }
 
 data class GameplayChange(val state: PlayState? = null, val mutation: GameplayMutation? = null,
@@ -213,6 +215,7 @@ object GameplayRules {
         is PlayAction.RemoveProjectionLink -> DeckValidation.uuid(action.linkId)
         is PlayAction.Combat -> CombatStackRules.valid(action.action)
         is PlayAction.Stack -> CombatStackRules.valid(action.action)
+        is PlayAction.Mtg -> MtgRules.valid(action.action)
     }
 
     fun change(state: PlayState, actor: String, command: GameCommand,
@@ -231,6 +234,9 @@ object GameplayRules {
             mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
                 display.cardIds.map { id -> GameplayRead(id, GameplayField.FACE, state.board.cards.single { it.id == id }.faceId) }))
         }
+        // Rules v36: the event's Magic meaning, given by the client or implied by a single-card move (D33).
+        if (mutation.transition.rulesVersion >= Automatum.RULES_VERSION)
+            MtgFacts.tag(state.board, next.board, mutation.action, (command.action as? GameAction.Play)?.tag)?.let { mutation = mutation.copy(tag = it) }
         val delta = GameplayDeltas.capture(state, next, mutation.id, (mutation.action as? PlayAction.SetProjectionNote)?.occurrenceId,
             orderedPiles = mutation.transition.rulesVersion >= PileOrder.RULES_VERSION)
         val recorded = GameplayHistory.recontextualize(state, mutation.copy(schemaVersion = 2,
@@ -352,6 +358,7 @@ object GameplayRules {
             is PlayAction.Link, is PlayAction.RemoveLink,
             is PlayAction.LinkProjections, is PlayAction.RemoveProjectionLink -> return TokenLinkRules.change(state, actor, command, action)
             is PlayAction.Combat, is PlayAction.Stack -> return CombatStackRules.change(state, actor, command)
+            is PlayAction.Mtg -> return MtgRules.change(state, actor, command, action.action)
         }
         return record(state, actor, command, next, transition)
     }
@@ -381,6 +388,7 @@ object GameplayRules {
         val cleanup = (if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved)
             .let { if (rulesVersion >= EnteredTurn.RULES_VERSION) EnteredTurn.stamp(state.board, it) else it }
         val closed = CombatStackRules.closeInvariants(state.board, cleanup, rulesVersion)
+            ?.let { if (rulesVersion >= Automatum.RULES_VERSION) MtgFacts.after(state.board, it, action) else it }
             ?: return GameplayChange(reason = "invalidStructure")
         // At most one newly exposed card per library, recorded in this transition, never a new event.
         val topDisclosures = closed.containers.filter { it.zone == PlayZone.LIBRARY && it.keepTopRevealed }.mapNotNull { library ->
@@ -397,7 +405,11 @@ object GameplayRules {
         // and printed loyalty/defense/lore defaults. Version 20 adds sticky blocking,
         // resolved player-target dependencies, owner-routed random moves and token tray cleanup.
         // Retained events keep their original sealed deltas; acceptance never rewrites old effects.
-        val relevant = transition.copy(rulesVersion = rulesVersion,
+        // Rules v36: a created token's recorded presence is the token as stamped (its exact inverse removes it).
+        val stamped = if (rulesVersion < Automatum.RULES_VERSION) transition.tokens else transition.tokens.map { token ->
+            token.to?.let { to -> token.copy(to = to.copy(card = closed.cards.singleOrNull { it.id == to.card.id } ?: to.card)) } ?: token
+        }
+        val relevant = transition.copy(rulesVersion = rulesVersion, tokens = stamped,
             fields = transition.fields + if (rulesVersion >= 17) TurnMarks.changes(resolved, cleanup) else emptyList(),
             combatStack = CombatStackRules.transition(state, closed, action),
             disclosures = transition.disclosures.filterNot { disclosure -> topDisclosures.any {

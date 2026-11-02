@@ -29,8 +29,10 @@ class GameplayMergeVerificationTest {
             }
         }
         val moved = changes[0].state!!.board.cards.first()
+        // Rules v36: the card left the Battlefield, so it is a new object with a new timestamp.
         assertEquals(card.copy(containerId = move.destination.containerId, placement = null, corner = "3/5",
-            counters = emptyMap(), covered = false, note = ""), moved)
+            counters = emptyMap(), covered = false, note = "", zoneChanges = card.zoneChanges + 1,
+            timestamp = MtgFacts.clock(changes[0].state!!.board)), moved)
         val reset = changes[0]
         assertTrue(GameplayFieldChange(card.id, GameplayField.FACE, face, gameplayId(30)) in reset.mutation!!.transition.fields)
         assertEquals("replayBlocked", GameplayHistory.replay(beforeEntry.copy(definitions = emptyList()), reset.mutation).reason)

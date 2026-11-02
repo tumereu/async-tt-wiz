@@ -405,6 +405,23 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             is StackAction.RemoveEffect -> text("${card(stack.occurrenceId)} effect removed from Stack", "Remove effect")
             is StackAction.ReorderEffect -> text("${card(stack.occurrenceId)} effect reordered on Stack", "Reorder effect")
         }
+        // Rules v36 (Arcanum integration I0): nothing sends these yet besides the switch; plain texts until the
+        // engine's own history lines (CausedBy, D33) are built.
+        is PlayAction.Mtg -> when (val mtg = action.action) {
+            is MtgAction.SetAutomatum -> text("Automatum turned ${if (mtg.on) "on" else "off"}", "Automatum")
+            is MtgAction.SetPriority -> text("Priority → ${mtg.after?.holder?.let { historyPlayerName(it, usernames) } ?: "nobody"}", "Priority")
+            is MtgAction.SetManaPool -> text("${playerPrefix(mtg.accountId)}${if (mtg.accountId == event.author) "Mana" else "mana"} → " +
+                mtg.after.joinToString("") { it.color }.ifEmpty { "empty" }, "Mana")
+            is MtgAction.SetCounter -> {
+                val holder = when (val h = mtg.holder) { is MtgRef.Card -> "${card(h.cardId)} "; is MtgRef.Player -> playerPrefix(h.accountId); else -> "" }
+                text("$holder${mtg.kind} counters ${mtg.before?.count ?: 0} → ${mtg.after?.count ?: 0}", "Counter")
+            }
+            is MtgAction.Attach -> text(mtg.after?.let { target -> "${card(mtg.card.cardId)} attached → ${when (target) {
+                is MtgRef.Card -> card(target.cardId); is MtgRef.Player -> historyPlayerName(target.accountId, usernames); else -> "an object" }}" }
+                ?: "${card(mtg.card.cardId)} unattached", "Attach")
+            is MtgAction.SetStackItem -> text("${card(mtg.entryId)} Stack choices recorded", "Stack choices")
+            is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord -> text("Automatum records updated", "Automatum")
+        }
         is PlayAction.DeclineResult -> text("Result declined", "Decline result")
         is PlayAction.WithdrawResult -> text("Result withdrawn", "Withdraw result")
         is PlayAction.SuggestResult -> text(when (action.outcome) {

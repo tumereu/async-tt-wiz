@@ -81,7 +81,10 @@ class LibraryActionsTest {
         }
         assertTrue(members(current).isEmpty())
         assertEquals(initial.board.cards.map { it.id }, current.board.cards.map { it.id })
-        assertEquals(initial.board.cards.map { it.copy(containerId = id(11), note = "") }, current.board.cards)
+        // Rules v36: each draw makes a new object with the next timestamp, in draw order.
+        val stamps = draw.withIndex().associate { (index, action) -> action.cardId to MtgFacts.clock(initial.board) + index + 1 }
+        assertEquals(initial.board.cards.map { it.copy(containerId = id(11), note = "", zoneChanges = 1, timestamp = stamps.getValue(it.id)) },
+            current.board.cards)
         assertTrue(LibraryActions.draw(current.board, id(10), id(11), 1).isEmpty())
     }
 
@@ -149,10 +152,13 @@ class LibraryActionsTest {
         assertEquals(listOf(GameplayFieldChange(id(24), GameplayField.COVERED, "true", "false"),
             GameplayFieldChange(id(24), GameplayField.NOTE, "keep", "")),
             changes.first().mutation!!.transition.fields)
-        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false, note = ""), changes.first().state!!.board.cards.last())
+        // Rules v36: a new object with the next timestamp.
+        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false, note = "", zoneChanges = 1,
+            timestamp = MtgFacts.clock(initial.board) + 1), changes.first().state!!.board.cards.last())
         val card = current.board.cards.single { it.id == id(24) }
         assertEquals("modified", card.corner); assertEquals(mapOf(CounterColor.RED to "3"), card.counters)
-        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false, note = ""), card)
+        assertEquals(initial.board.cards.last().copy(containerId = id(13), covered = false, note = "", zoneChanges = 1,
+            timestamp = MtgFacts.clock(initial.board) + 1), card)
         assertEquals(2, changes.sumOf { it.mutation!!.transition.fields.size })
         assertTrue(changes.last().mutation!!.transition.reads.isEmpty())
         val missing = apply(initial.copy(definitions = emptyList()), listOf(action))
@@ -173,7 +179,9 @@ class LibraryActionsTest {
         assertEquals(RandomV1.shuffle(members(arrival), seed), members(accepted.state!!))
         assertEquals(members(arrival).toSet(), members(accepted.state).toSet())
         assertEquals("replayBlocked", GameplayHistory.replay(arrival, prediction.mutation).reason)
-        assertEquals(arrival.board.cards, accepted.state.board.cards)
+        // Rules v36: a shuffle makes every card in the Library a new object (CR 701.20d); nothing else changes.
+        assertEquals(arrival.board.cards.map { if (it.containerId == id(10)) it.copy(zoneChanges = it.zoneChanges + 1) else it },
+            accepted.state.board.cards)
         assertFalse(GameplayRules.valid(action.copy(seed = "bad")))
         assertFalse(GameplayRules.valid(action.copy(algorithm = "shuffle-v2")))
         assertEquals("accepted", change(state(emptyList()), action).outcome)

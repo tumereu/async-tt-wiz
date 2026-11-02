@@ -52,6 +52,9 @@ internal object GameplayDeltas {
             "result" -> b.resultSuggestion?.let { json.encodeToJsonElement(it) }
             "attention" -> JsonPrimitive(b.attentionHolder)
             "marks" -> marks(b)
+            "automatum" -> JsonPrimitive(b.automatum)
+            "priority" -> b.priority?.let { json.encodeToJsonElement(it) }
+            "record" -> b.engineRecords.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
             "comment" -> state.annotations.commentsById[id]?.let { json.encodeToJsonElement(it) }
             "ping" -> state.annotations.pingsById[id]?.let { json.encodeToJsonElement(it) }
             "ping-ordinal" -> state.annotations.lastOrdinals[id]?.let(::JsonPrimitive)
@@ -68,6 +71,8 @@ internal object GameplayDeltas {
         // the recorded board effect. Reparenting and legacy grouping fallback must not invalidate it.
         put("transition", json.encodeToJsonElement(GameplayTransition.serializer(), mutation.transition.copy(delta = null)))
         put("delta", mutation.transition.delta?.let { json.encodeToJsonElement(GameplayDelta.serializer(), it.copy(seal = "")) } ?: JsonNull)
+        // Rules v36; absent on every older event, so their seals stay as they were.
+        mutation.tag?.let { put("tag", json.encodeToJsonElement(MtgTag.serializer(), it)) }
     }.let(DeckJson::canonicalElement))
 
     /** [orderedPiles] (rules v27): Graveyard/Exile card order is semantic, recorded as a sequence edit that
@@ -116,6 +121,10 @@ internal object GameplayDeltas {
         entity("result", "", 0, a.resultSuggestion, b.resultSuggestion, ResultSuggestion.serializer())
         entity("attention", "", 0, JsonPrimitive(a.attentionHolder), JsonPrimitive(b.attentionHolder), JsonElement.serializer())
         entity("marks", "", 0, marks(a), marks(b), JsonElement.serializer())
+        // Rules v36: each engine record is its own entity, so later events concern only the records they touch.
+        entity("automatum", "", 0, JsonPrimitive(a.automatum), JsonPrimitive(b.automatum), JsonElement.serializer())
+        entity("priority", "", 0, a.priority, b.priority, MtgPriority.serializer())
+        members("record", a.engineRecords, b.engineRecords, EngineRecord.serializer()) { it.id }
         if (from.annotations !== to.annotations) {
             entity("comment", nodeId, 0, from.annotations.commentsById[nodeId], to.annotations.commentsById[nodeId], RecordedEventComment.serializer())
             entity("ping", nodeId, 0, from.annotations.pingsById[nodeId], to.annotations.pingsById[nodeId], RecordedPingChange.serializer())
@@ -308,6 +317,10 @@ internal object GameplayDeltas {
                 "combat" -> result.copy(board = b.copy(combat = value(b.combat, CombatArea.serializer())))
                 "result" -> result.copy(board = b.copy(resultSuggestion = value(b.resultSuggestion, ResultSuggestion.serializer())))
                 "attention" -> result.copy(board = b.copy(attentionHolder = value(JsonPrimitive(b.attentionHolder), JsonElement.serializer())?.jsonPrimitive?.contentOrNull))
+                "automatum" -> result.copy(board = b.copy(automatum = value(JsonPrimitive(b.automatum), JsonElement.serializer())
+                    ?.jsonPrimitive?.booleanOrNull ?: throw Mismatch()))
+                "priority" -> result.copy(board = b.copy(priority = value(b.priority, MtgPriority.serializer())))
+                "record" -> result.copy(board = b.copy(engineRecords = members(b.engineRecords, EngineRecord.serializer()) { it.id }))
                 "marks" -> result.copy(board = b.copy(stackTextMarks = value(marks(b), JsonElement.serializer())!!.jsonObject
                     .mapValues { json.decodeFromJsonElement(StackTextMarksSerializer, it.value) }))
                 "comment" -> result.copy(annotations = result.annotations.comment(entity.id,

@@ -10,7 +10,13 @@ import kotlinx.serialization.Serializable
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class PlayPlayer(val accountId: String, val life: String = "20",
     val counters: Map<CounterColor, String> = emptyMap(),
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val status: String = "")
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val status: String = "",
+    /** Rules v36 ([Automatum]): mana added and not yet spent (CR 106.4). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val manaPool: List<PoolMana> = emptyList(),
+    /** Rules v36: typed player counters (poison, energy, …), sorted by kind. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val typedCounters: List<TypedCounter> = emptyList(),
+    /** Rules v36: the engine's opaque player ledger (D22). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val ledger: String = "")
 
 /** Rules v26: a player's own status shown in a bubble by their life total (up to 512 characters since rules v30;
  * the limit only ever grew, so every recorded status stays valid). */
@@ -38,7 +44,18 @@ object PlayerStatus {
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val eotNote: String = "",
     /** Rules v29: the turn number in which this card last entered a Battlefield, see [EnteredTurn];
      * empty off the Battlefield and in older games. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val enteredTurn: String = "") {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val enteredTurn: String = "",
+    /** Rules v36 ([Automatum], D21): how often this card changed zones; the engine's object id is the card plus it. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val zoneChanges: Int = 0,
+    /** Rules v36 (CR 613.7, D34): set as it enters a zone, is attached, turns face up or down or shows another face
+     * on the Battlefield; 0 when never stamped. See [MtgFacts]. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val timestamp: Long = 0,
+    /** Rules v36: typed counters (+1/+1, loyalty, …), sorted by kind, beside the manual colour [counters]. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val typedCounters: List<TypedCounter> = emptyList(),
+    /** Rules v36: the object or player this Aura, Equipment or Fortification is attached to (CR 301.5). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val attachedTo: MtgRef? = null,
+    /** Rules v36: the engine's opaque ledger of this object (D22): cast facts, activations, card memory. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val ledger: String = "") {
     val isFaceDown: Boolean get() = covered && explicitlyCovered
 }
 /** Library order is top first. Other empty zones already have stable identities for later commands. */
@@ -205,6 +222,7 @@ object CardVisibility {
 }
 @Serializable data class TurnState(val accountId: String, val number: String = "1",
     val phase: String = "BEGINNING", val step: String = "UNTAP")
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class BoardState(val players: List<PlayPlayer>, val cards: List<PlayCard>,
     val containers: List<PlayContainer>, val turn: TurnState, val schemaVersion: Int = 1,
     val contentsDisplays: List<ContentsDisplay> = emptyList(), val links: List<PlayLink> = emptyList(),
@@ -214,7 +232,13 @@ object CardVisibility {
     /** Entry metadata keyed by Stack card/occurrence ID, never a field on its real source. */
     val stackTextMarks: Map<String, StackTextMarks> = emptyMap(),
     /** Null retains the legacy meaning: attention follows the turn player. */
-    val attentionHolder: String? = null) {
+    val attentionHolder: String? = null,
+    /** Rules v36: the Automatum switch for this game (D20), off in every game until a player turns it on. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: Boolean = false,
+    /** Rules v36: who has priority and how many passed in a row (D57); null while nobody tracks it. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val priority: MtgPriority? = null,
+    /** Rules v36: the engine's own records (§4.3), sorted by id, each changed on its own. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val engineRecords: List<EngineRecord> = emptyList()) {
     val effectiveAttentionHolder: String get() = attentionHolder ?: turn.accountId
 }
 @Serializable data class InitialShuffle(val accountId: String, val seed: String, val order: List<String>,

@@ -51,7 +51,9 @@ class ManualEditsTest {
         val blank = accepted(set.state, PlayAction.SetCorner(id(9), "  \n"))
         assertEquals("", blank.state!!.board.cards.single().corner)
         val flipped = accepted(blank.state, PlayAction.SetFace(id(9), id(12)))
-        assertEquals(blank.state.board.cards.single().copy(faceId = id(12)), flipped.state!!.board.cards.single())
+        // Rules v36: showing another face on the Battlefield gives the card a new timestamp (CR 613.7).
+        assertEquals(blank.state.board.cards.single().copy(faceId = id(12), timestamp = MtgFacts.clock(blank.state.board) + 1),
+            flipped.state!!.board.cards.single())
         val reset = accepted(flipped.state, PlayAction.ResetCorner(id(9)))
         assertEquals("4/5", reset.state!!.board.cards.single().corner)
         assertEquals(listOf(GameplayRead(id(9), GameplayField.FACE, id(12))), reset.mutation!!.transition.reads)

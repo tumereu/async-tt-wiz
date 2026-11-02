@@ -26,7 +26,9 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "",
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val revealsLibrarySource: Boolean = false,
     /** STK-005: a face-down cast's entry. It never shows its hand source to anyone but the source's holder. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val faceDown: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val faceDown: Boolean = false,
+    /** Rules v36: the structured Stack item (D19) when the engine made this entry; null for a manual entry (STK-016). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val item: MtgStackItem? = null)
 /** D-120 projection-to-projection links, not the source relationship and not selection. */
 @Serializable data class ProjectionEndpoint(val occurrenceId: String)
 @Serializable data class ProjectionLink(val id: String, val first: String, val second: String)

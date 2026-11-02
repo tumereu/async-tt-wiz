@@ -96,12 +96,15 @@ class CoreCompositionRepairTest {
             state = changed.state!!
             if (index == 0) {
                 assertTrue(changed.mutation.transition.fields.isEmpty())
-                assertEquals(card.copy(containerId = gameplayId(20), note = ""), state.board.cards.first())
+                // Rules v36: a new object again (hand, then Library) with a new timestamp.
+                assertEquals(card.copy(containerId = gameplayId(20), note = "", zoneChanges = card.zoneChanges + 2,
+                    timestamp = MtgFacts.clock(before.board) + 1), state.board.cards.first())
             }
         }
         assertEquals(1, accepted.map { it.requestId }.distinct().size)
         assertEquals("inapplicable", gameplayChange(state, PlayAction.ResetCorner(card.id)).reason)
-        assertEquals(card.copy(note = ""), state.board.cards.first())
+        assertEquals(card.copy(note = "", zoneChanges = card.zoneChanges + 2, timestamp = MtgFacts.clock(inHand.board) + 1),
+            state.board.cards.first())
         val sameContainer = move.copy(source = MoveSource(gameplayId(20)), destination = MoveDestination(gameplayId(20), MoveInsertion.BOTTOM))
         assertEquals(listOf(sameContainer), GameplayRules.moveActions(state, sameContainer))
         val tokenState = inHand.copy(board = inHand.board.copy(cards = inHand.board.cards.map {

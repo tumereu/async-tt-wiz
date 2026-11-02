@@ -188,15 +188,21 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
 
 - `EngineState.from(playState, definitions, viewer, log)` builds the engine state; `EngineCall` performs and answers
   the host's decisions; `EngineBatch.plan` turns the call's changes into one batch, run through ATW's reducer while
-  planning. Tests: every engine call round-trips (rebuilt state = engine's own result; undo restores the board).
+  planning (without recording, `GameplayRules.preview`; the plan's state is the acting client's prediction), and
+  refuses a batch the server's checks or one game message wouldn't take. Engine data that can't be read (another app
+  version, P8) is reported as unsupported, never a crash. Tests: every engine call round-trips (rebuilt state =
+  engine's own result; undo restores the board).
 - **Spells:** as STK-001/003 say, the card stays where it was cast from; its entry's item is the spell (a spell
   being cast has an item without data until the engine makes it, CR 601.2a). Abilities are entries of their source.
-- **Tokens:** ATW makes its own token card; its ledger keeps the engine's token id and definition (D35).
+- **Tokens:** ATW makes its own token card, with the token's printed values and rules text (I-D2); its ledger keeps
+  the engine's token id and definition (D35).
 - **Ledgers** hold only what ATW's fields don't say (controller, face of a split card, phasing, marks, memory, facts,
   control start where ATW's entered turn doesn't say it, …). Records: `effect:<id>`, `delayed:<id>`, `ledger`,
   `turn` (lands played, extra turns), `combat` (the engine's combat; the lanes show it), `triggered`, `continuation`
   (the pending decision and the view it was made in: a shared flow goes on in that view).
-- **Event log** (D33): each automated event's tag carries its part of the engine's log; `EngineLog.from(tags)`.
+- **Event log** (D33): each automated event's tag carries its part of the engine's log; `EngineLog.from(tags, state,
+  definitions)`. A card's definition and its printed abilities are written as references to the game's card data of
+  that card (tokens' written out), so tags stay small and name no hidden card.
 - **Order:** the Battlefield and Exile are rebuilt in timestamp order; the timestamp counter is ATW's clock.
 
 ## 5. The Automatum switch

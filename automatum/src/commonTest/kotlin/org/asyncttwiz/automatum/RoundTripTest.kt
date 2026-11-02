@@ -63,7 +63,7 @@ class RoundTripTest {
         table.put(alice, PlayZone.LIBRARY, "Mountain")
         table.put(bob, PlayZone.LIBRARY, "Island")
         val rt = game()
-        val call = EngineCall(rt.state, rt.definitions, log = EngineLog.from(rt.tags), seeds = rt::seed)
+        val call = EngineCall(rt.state, rt.definitions, log = EngineLog.from(rt.tags, rt.state, rt.definitions), seeds = rt::seed)
         val spark = rt.obj("Storm Spark", Zone.Hand)
         call.perform(Engine.options(call.working, PlayerId(alice)).filterIsInstance<Input.Cast>().single { it.card == spark })
         val targets = call.pending!!.decision as Decision.Targets

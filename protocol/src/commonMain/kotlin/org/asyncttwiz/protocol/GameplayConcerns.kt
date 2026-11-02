@@ -441,7 +441,8 @@ internal object GameplayConcerns {
         }
         if (mutation.transition.rulesVersion >= 17) {
             // Zone entry resets assign all temporary fields, including absent/empty ones.
-            to.board.cards.forEach { c -> from.board.cards.singleOrNull { it.id == c.id }?.let { old ->
+            val previous = from.board.cards.associateBy { it.id }
+            to.board.cards.forEach { c -> previous[c.id]?.let { old ->
                 if (old.containerId != c.containerId &&
                     (from.board.containers.single { it.id == old.containerId }.zone != PlayZone.BATTLEFIELD ||
                         to.board.containers.single { it.id == c.containerId }.zone != PlayZone.BATTLEFIELD))

@@ -218,6 +218,16 @@ object GameplayRules {
         is PlayAction.Mtg -> MtgRules.valid(action.action)
     }
 
+    /**
+     * [change]'s outcome and next state, without recording the event (its delta, concerns and seal, which only the
+     * history needs): for a client planning a batch whose events the server records (Arcanum's `EngineBatch`).
+     */
+    fun preview(state: PlayState, actor: String, command: GameCommand): GameplayChange {
+        if (!GameWire.valid(command)) return GameplayChange(reason = "invalidInput")
+        val prepared = TempPiles.prepare(state, command)
+        return execute(prepared, actor, LibraryKnowledge.resolveEdge(prepared, command), EventReferenceResolver.UNAVAILABLE)
+    }
+
     fun change(state: PlayState, actor: String, command: GameCommand,
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
         if (!GameWire.valid(command)) return GameplayChange(reason = "invalidInput")

@@ -100,7 +100,7 @@ class ViewerRoundTripTest {
         assertEquals(PlayerId(bob), handed.player)
         assertEquals(alice, EngineState.flowViewer(rt.state.board), "the flow was made on Alice's board")
         // Bob's client: the flow's view, his cards filled in, his decision there
-        val call = EngineCall(rt.state, rt.definitions, alice, EngineLog.from(rt.tags), rt::seed)
+        val call = EngineCall(rt.state, rt.definitions, alice, EngineLog.from(rt.tags, rt.state, rt.definitions), rt::seed)
         val filled = call.otherView(handed)
         val scry = Engine.otherViewDecision(call.working, filled)
         assertIs<Decision.ChooseObjects>(scry)

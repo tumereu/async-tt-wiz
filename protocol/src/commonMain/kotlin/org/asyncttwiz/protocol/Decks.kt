@@ -131,7 +131,9 @@ object DeckValidation {
     const val FIELD_BYTES = 64 * 1024
     fun uuid(value: String): Boolean = runCatching { EntityId(value) }.isSuccess
     fun digest(value: String): Boolean = Regex("sha256:[0-9a-f]{64}").matches(value)
-    fun text(value: String): Boolean {
+    fun text(value: String): Boolean = text(value, FIELD_BYTES)
+    /** Text PostgreSQL can keep (no NUL, whole surrogate pairs) of at most [maxBytes] UTF-8 bytes. */
+    fun text(value: String, maxBytes: Int): Boolean {
         var index = 0
         while (index < value.length) {
             val char = value[index++]
@@ -140,7 +142,7 @@ object DeckValidation {
             } else if (char.isLowSurrogate()) return false
             if (char == '\u0000') return false // PostgreSQL text cannot retain NUL.
         }
-        return value.encodeToByteArray().size <= FIELD_BYTES
+        return value.encodeToByteArray().size <= maxBytes
     }
     fun definition(value: CardDefinition): Boolean {
         if (value.schemaVersion != 1 || value.name.isBlank() || value.faces.size !in 1..64) return false

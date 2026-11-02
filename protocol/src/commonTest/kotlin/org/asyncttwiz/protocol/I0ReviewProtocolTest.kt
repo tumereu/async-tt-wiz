@@ -60,7 +60,6 @@ class I0ReviewProtocolTest {
     // #2 Automatum.MAX_DATA_BYTES says engine data may be 256 KiB, but Automatum.data also requires DeckValidation.text,
     // which caps any text at 64 KiB (DeckValidation.FIELD_BYTES): records, ledgers, Stack items and tags between 64 and
     // 256 KiB are refused as invalidInput
-    @Ignore("i0review #2: Automatum.data caps at 64 KiB, not MAX_DATA_BYTES")
     @Test fun engineDataUpToTheDocumentedLimitIsAccepted() {
         val data = "\"" + "a".repeat(100 * 1024) + "\""
         assertTrue(data.encodeToByteArray().size <= Automatum.MAX_DATA_BYTES)

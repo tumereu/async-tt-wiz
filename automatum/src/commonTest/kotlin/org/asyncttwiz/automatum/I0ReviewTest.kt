@@ -74,7 +74,6 @@ class I0ReviewTest {
     // ---- #1 Multi-card moves into a library (CR 701.20, 401.4): Brainstorm-like, scry, "rest on the bottom"
 
     // CR 401.4: "put two cards from your hand on top of your library in any order" moves two cards into the library at once
-    @Ignore("i0review #1: a multi-card move into a library is unmappable (movementConflict)")
     @Test fun mindSquallPutsTwoCardsBackOnTop() {
         table.put(alice, PlayZone.BATTLEFIELD, "Island")
         table.put(alice, PlayZone.HAND, "Mind Squall", "Mountain", "Forest")
@@ -107,7 +106,6 @@ class I0ReviewTest {
     }
 
     // "Look at the top four … the rest on the bottom of your library in any order"
-    @Ignore("i0review #1: a multi-card move into a library is unmappable (movementConflict)")
     @Test fun fleetingWhimPutsTheRestOnTheBottom() {
         table.put(alice, PlayZone.BATTLEFIELD, "Island", "Island")
         table.put(alice, PlayZone.HAND, "Fleeting Whim")
@@ -123,7 +121,6 @@ class I0ReviewTest {
     }
 
     // "Each player shuffles their hand and graveyard into their library"
-    @Ignore("i0review #1: a multi-card move into a library is unmappable (movementConflict)")
     @Test fun hourspinnerShufflesHandsAndGraveyardsIn() {
         table.put(alice, PlayZone.BATTLEFIELD, "Island", "Island", "Island")
         table.put(alice, PlayZone.HAND, "Hourspinner", "Mountain")
@@ -453,7 +450,6 @@ class I0ReviewTest {
     // A wipe of a dozen real-sized cube creatures: the destroy event's log entry (one tag) carries every moved object twice
     // with its whole definition. MtgTag.data is documented as ≤ 256 KiB (Automatum.MAX_DATA_BYTES) but Automatum.data
     // also applies DeckValidation.text, which caps any text at 64 KiB: the server refuses the batch as invalidInput.
-    @Ignore("i0review #2: engine data is capped at 64 KiB; a wipe of 12 cube creatures makes a 90 KB tag")
     @Test fun wipeOfComplexCreaturesFitsTheTagAndSocketLimits() {
         fun size(name: String) = EngineCodec.encode(arcanum.api.CardDefinition.serializer(), Cards.definition(name)).length
         val creatures = Cards.cubeNames.filter { name ->
@@ -475,7 +471,7 @@ class I0ReviewTest {
         val failure = runCatching { drive(rt, 30) { stackEmpty(it) } }.exceptionOrNull()
         val plan = rt.lastPlan!!
         val largestTag = plan.tags.maxOf { it?.data?.encodeToByteArray()?.size ?: 0 }
-        println("complex wipe: largest tag $largestTag bytes, batch ${wireBytes(rt)} bytes on the wire; ${failure?.message?.takeLast(300)}")
+        println("complex wipe: largest tag $largestTag bytes (of any batch: ${rt.largestTag}, largest batch ${rt.largestBatch} members), batch ${wireBytes(rt)} bytes on the wire; ${failure?.message?.takeLast(300)}")
         val command = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "review/wipe"), GameScope(rt.state.gameId, playId = rt.state.id),
             plan.action, CommandIds.uuidV5(AtwTable.NAMESPACE, "stream"), "1")
         assertTrue(GameWire.valid(command), "the server refuses the wipe's batch (largest tag $largestTag bytes)")
@@ -496,7 +492,7 @@ class I0ReviewTest {
         cast(rt, alice, "Storm Spark"); rt.target(TargetRef.Player(PlayerId(bob))); rt.settle()
         rt.pass(alice)
         // Bob's pass resolves the spark: planned on the board as Bob's client has it
-        val call = EngineCall(rt.state, rt.definitions, log = EngineLog.from(rt.tags), seeds = rt::seed)
+        val call = EngineCall(rt.state, rt.definitions, log = EngineLog.from(rt.tags, rt.state, rt.definitions), seeds = rt::seed)
         call.perform(Input.PassPriority(PlayerId(bob)))
         val command = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "review/stale"), GameScope(rt.state.gameId, playId = rt.state.id),
             GameAction.PlayBatch(listOf(PlayAction.PassAttention)), CommandIds.uuidV5(AtwTable.NAMESPACE, "stream"), "1")
@@ -516,7 +512,6 @@ class I0ReviewTest {
     }
 
     // P8: the server checks only the JSON form of engine data; a record the engine can't read must not crash the mapping
-    @Ignore("i0review #9: an unreadable engine record throws from EngineState.from")
     @Test fun unreadableEngineRecordIsUnsupportedNotACrash() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         table.put(alice, PlayZone.LIBRARY, "Mountain")
@@ -536,14 +531,13 @@ class I0ReviewTest {
     // D60, D33 ("a snapshot of what everyone could see"), I-D17 (face-down cards stay unknown): a history tag is shared
     // with both players; it must not name a card only one of them may see. Alice casts a morph face down in her own view
     // (a private cast, I-D11): the cast's tag carries the spell object with its definition.
-    @Ignore("i0review #6: tags carry engine objects with definitions of hidden cards")
     @Test fun tagsDoNotNameHiddenCards() {
         table.put(alice, PlayZone.BATTLEFIELD, "Forest", "Forest", "Forest")
         table.put(alice, PlayZone.HAND, "Barkwood Pathfinders")
         table.put(alice, PlayZone.LIBRARY, "Forest", "Forest")
         table.put(bob, PlayZone.LIBRARY, "Island", "Island")
         val rt = game()
-        val call = EngineCall(rt.state, rt.definitions, viewer = alice, log = EngineLog.from(rt.tags), seeds = rt::seed)
+        val call = EngineCall(rt.state, rt.definitions, viewer = alice, log = EngineLog.from(rt.tags, rt.state, rt.definitions), seeds = rt::seed)
         call.perform(arcanum.engine.Engine.options(call.working, PlayerId(alice)).filterIsInstance<Input.Cast>().single { it.way.alternative != null })
         while (call.pending != null) {
             val d = call.pending!!.decision
@@ -580,7 +574,6 @@ class I0ReviewTest {
     // ATW's own card data, so players see what it does (and play it by hand with Automatum off), and a manual copy of it
     // (CloneToken, TOK-*) isn't a vanilla token: the engine's definition is only in the token's ledger, which a copy
     // doesn't get (MtgFacts gives new objects an empty ledger)
-    @Ignore("i0review #10: engine tokens have no rules text in ATW card data")
     @Test fun engineTokensCarryTheirRulesInAtwsCardData() {
         table.put(alice, PlayZone.BATTLEFIELD, "Plains", "Plains", "Plains")
         table.put(alice, PlayZone.HAND, "Lingering Shades")

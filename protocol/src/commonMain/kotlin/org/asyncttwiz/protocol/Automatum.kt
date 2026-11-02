@@ -43,8 +43,8 @@ object Automatum {
     const val CONTINUATION_ID = "continuation"
 
     /** Empty, or one JSON value of at most [MAX_DATA_BYTES] without NUL characters. */
-    fun data(value: String): Boolean = value.isEmpty() || DeckValidation.text(value) &&
-        value.encodeToByteArray().size <= MAX_DATA_BYTES && runCatching { Json.parseToJsonElement(value) }.isSuccess
+    fun data(value: String): Boolean = value.isEmpty() || DeckValidation.text(value, MAX_DATA_BYTES) &&
+        runCatching { Json.parseToJsonElement(value) }.isSuccess
 
     fun name(value: String): Boolean = value.isNotEmpty() && value.length <= MAX_NAME_LENGTH && DeckValidation.text(value) &&
         value.none { it.isISOControl() }

@@ -25,6 +25,7 @@ import org.asyncttwiz.protocol.EngineRecord
 import org.asyncttwiz.protocol.EngineRecordKind
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.GameCommand
+import org.asyncttwiz.protocol.GameWire
 import org.asyncttwiz.protocol.GameplayRules
 import org.asyncttwiz.protocol.IdentityGap
 import org.asyncttwiz.protocol.MoveDestination
@@ -75,8 +76,18 @@ data class BatchPlan(val actions: List<PlayAction>, val tags: List<MtgTag?>, val
  * log, [EngineLog]); an event with no action of its own (damage dealt, a coin flip) rides on the next one.
  */
 object EngineBatch {
-    /** The batch for [call]'s changes, sent by [actor] as [command] (its request id names the members). */
+    /**
+     * The batch for [call]'s changes, sent by [actor] as [command] (its request id names the members). The plan's
+     * [BatchPlan.state] is the board the server will make of it: the acting client shows it as its prediction without
+     * running the members through the reducer again.
+     *
+     * @throws Unmappable when a change can't be said with ATW's actions, or the batch wouldn't pass the server's checks
+     *   ([GameWire.valid]) or fit one game message.
+     */
     fun plan(call: EngineCall, actor: String, command: GameCommand): BatchPlan = Planner(call, actor, command).run()
+
+    /** The largest command one game message carries: the game socket's 1 MiB text message, less room for the envelope. */
+    const val MAX_COMMAND_BYTES = 1024 * 1024 - 4 * 1024
 }
 
 private class Planner(private val call: EngineCall, private val actor: String, command: GameCommand) {
@@ -96,6 +107,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     fun run(): BatchPlan {
         for (change in call.changes) {
             val logged = engine.log.size
+            val objectsBefore = HashMap(engine.objects)
+            val cardsBefore = board.cards
             engine.apply(change)
             when {
                 engine.log.size > logged -> pendingLog += LogOp.Add(engine.log.last())
@@ -103,22 +116,35 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             }
             val first = actions.size
             primary(change, first)
-            settle()
+            settle(changedObjects(objectsBefore) + changedCards(cardsBefore))
             if (actions.size > first) {
                 val tag = tags[first]
-                val data = if (pendingLog.isEmpty()) "" else EngineCodec.encode(TagData.serializer(), TagData(pendingLog.toList()))
+                val data = if (pendingLog.isEmpty()) "" else codec.encode(TagData(pendingLog.toList()))
                 tags[first] = tag(tag?.meanings ?: meanings(change), tag?.causedBy ?: cause(change) ?: pendingCause, data)
                 pendingLog.clear(); pendingCause = null
             } else if (pendingLog.isNotEmpty()) pendingCause = pendingCause ?: cause(change)
         }
+        // Each change settled the values it touched; one look over everything makes sure nothing was missed.
+        settle(null)
         if (pendingLog.isNotEmpty()) {
             if (actions.isEmpty()) throw Unmappable("engine events without any ATW action to carry them: ${call.changes}")
             val last = tags.last()
-            val earlier = last?.data?.takeIf { it.isNotEmpty() }?.let { EngineCodec.decode(TagData.serializer(), it).log }.orEmpty()
-            tags[tags.lastIndex] = tag(last?.meanings.orEmpty(), last?.causedBy ?: pendingCause,
-                EngineCodec.encode(TagData.serializer(), TagData(earlier + pendingLog)))
+            val earlier = last?.data?.takeIf { it.isNotEmpty() }?.let { codec.decode(it).log }.orEmpty()
+            tags[tags.lastIndex] = tag(last?.meanings.orEmpty(), last?.causedBy ?: pendingCause, codec.encode(TagData(earlier + pendingLog)))
         }
-        return BatchPlan(actions.toList(), tags.toList(), atw)
+        val plan = BatchPlan(actions.toList(), tags.toList(), atw)
+        if (plan.actions.isNotEmpty()) check(plan)
+        return plan
+    }
+
+    /** The batch passes the server's own checks ([GameWire.valid]) and fits one game message; else it can't be sent. */
+    private fun check(plan: BatchPlan) {
+        val command = template.copy(action = plan.action)
+        val largestTag = plan.tags.maxOfOrNull { it?.data?.encodeToByteArray()?.size ?: 0 } ?: 0
+        if (!GameWire.valid(command)) throw Unmappable("the server would refuse this batch: ${plan.actions.size} actions, " +
+            "largest tag $largestTag bytes")
+        val bytes = GameWire.json.encodeToString(GameCommand.serializer(), command).encodeToByteArray().size
+        if (bytes > EngineBatch.MAX_COMMAND_BYTES) throw Unmappable("the batch is $bytes bytes, more than one game message takes")
     }
 
     // ---- Playing one member through ATW's reducer
@@ -126,7 +152,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     /** Plays [action] as the next member; false when it changes nothing (then it isn't part of the batch). */
     private fun play(action: PlayAction, tag: MtgTag? = null): Boolean {
         val member = PlayBatches.member(template, actions.size, action)
-        val change = GameplayRules.change(atw, actor, member)
+        val change = GameplayRules.preview(atw, actor, member)
         if (change.reason != null) throw Unmappable("ATW refused $action (${change.reason})")
         if (change.mutation == null) return false
         atw = change.state!!
@@ -136,7 +162,27 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     }
 
     private val board get() = atw.board
-    private fun card(id: String): PlayCard? = board.cards.singleOrNull { it.id == id }
+    /** Tags name card definitions by reference (D33, D60: small, and no hidden card's identity). */
+    private val codec = TagCodec.of(call.state, call.definitions)
+
+    // Lookups by id, rebuilt when the board changes (planning looks up cards many times per member)
+    private var indexed: org.asyncttwiz.protocol.BoardState? = null
+    private var cardIndex: Map<String, PlayCard> = emptyMap()
+    private var containerIndex: Map<String, PlayContainer> = emptyMap()
+    private fun index() {
+        if (indexed === board) return
+        cardIndex = board.cards.associateBy { it.id }
+        containerIndex = board.containers.associateBy { it.id }
+        indexed = board
+    }
+    private fun card(id: String): PlayCard? { index(); return cardIndex[id] }
+    private fun containerOf(card: PlayCard): PlayContainer { index(); return containerIndex.getValue(card.containerId) }
+    private val facesByDigest = mutableMapOf<String, List<org.asyncttwiz.protocol.DefinitionFace>>()
+    /** [Derived.faces], by digest (a digest names the same card data for good). */
+    private fun faces(card: PlayCard) = facesByDigest[card.definition]
+        ?: Derived.faces(atw, card).also { if (it.isNotEmpty()) facesByDigest[card.definition] = it }
+    private val owners = mutableMapOf<String, String>()
+    private fun owner(card: PlayCard) = if (card.token) Derived.owner(atw, card) else owners.getOrPut(card.id) { Derived.owner(atw, card) }
     private fun atwId(card: CardId): String = call.hidden[card] ?: ids.atw(card)
     private fun atwCard(o: ObjectId): PlayCard = (o as? ObjectId.Card)?.let { card(atwId(it.card)) } ?: throw Unmappable("no ATW card for $o")
     private fun container(zone: PlayZone, player: String): PlayContainer =
@@ -150,10 +196,18 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     private fun primary(change: Change, first: Int) {
         when (change) {
-            is Change.ZoneChange -> change.moves.forEach { m ->
-                val at = actions.size
-                move(m)
-                if (actions.size > at) tags[at] = tag(m.meanings.map(::name), cause(change), "")
+            is Change.ZoneChange -> {
+                change.moves.forEach { m ->
+                    val at = actions.size
+                    move(m)
+                    if (actions.size > at) tags[at] = tag(m.meanings.map(::name), cause(change), "")
+                }
+                // Several cards into one library or hand: each went next to the cards already there; now the engine's order
+                change.moves.map { it.after }.filter { it.zone == Zone.Library || it.zone == Zone.Hand }
+                    .map { it.zone to it.owner }.distinct().forEach { (zone, owner) ->
+                        if (zone == Zone.Library) arrange(container(PlayZone.LIBRARY, owner.value), engine.player(owner).library)
+                        else arrange(container(PlayZone.HAND, owner.value), engine.player(owner).hand)
+                    }
             }
             is Change.Created -> change.objects.forEach { create(it.obj) }
             is Change.Removed -> change.objects.forEach { placed ->
@@ -192,28 +246,39 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         }
     }
 
-    /** Where [to] is in ATW: its owner's zone (its controller's Battlefield), at the place the engine put it. */
+    /**
+     * Where [to] is in ATW: its owner's zone (its controller's Battlefield), at the place the engine put it. In a library
+     * or hand it goes right after the nearest card above it in the engine's order that ATW already has there (on top
+     * when there is none): when one change moves several cards there, the others may not have arrived yet, and the
+     * change then puts them all in the engine's order ([arrange]).
+     */
     private fun destination(to: GameObject, card: PlayCard): MoveDestination {
         val owner = to.owner.value
-        fun neighbors(list: List<ObjectId>): Pair<String?, String?> {
-            val i = list.indexOf(to.id)
-            return list.getOrNull(i - 1)?.let { atwCard(it).id } to list.getOrNull(i + 1)?.let { atwCard(it).id }
+        /** The card to go after (null: the top) and the card now after that one (null: the bottom). */
+        fun place(container: PlayContainer, order: List<ObjectId>): Pair<String?, String?> {
+            val spells = spellCards().toSet()
+            val present = board.containers.single { it.id == container.id }.cards.filter { it != card.id && it !in spells }
+            val here = present.toSet()
+            val i = order.indexOf(to.id)
+            val after = order.subList(0, i.coerceAtLeast(0)).asReversed().map { atwCard(it).id }.firstOrNull { it in here }
+            val before = if (after == null) present.firstOrNull() else present.getOrNull(present.indexOf(after) + 1)
+            return after to before
         }
         return when (to.zone) {
             Zone.Library -> {
-                val (after, before) = neighbors(engine.player(to.owner).library)
-                val library = container(PlayZone.LIBRARY, owner).id
+                val library = container(PlayZone.LIBRARY, owner)
+                val (after, before) = place(library, engine.player(to.owner).library)
                 when {
-                    after == null -> MoveDestination(library, MoveInsertion.TOP)
-                    before == null -> MoveDestination(library, MoveInsertion.BOTTOM)
-                    else -> MoveDestination(library, MoveInsertion.GAP, afterId = after, beforeId = before, pendingIds = spellCards() - card.id)
+                    after == null -> MoveDestination(library.id, MoveInsertion.TOP)
+                    before == null -> MoveDestination(library.id, MoveInsertion.BOTTOM)
+                    else -> MoveDestination(library.id, MoveInsertion.GAP, afterId = after, beforeId = before, pendingIds = spellCards() - card.id)
                 }
             }
             Zone.Hand -> {
-                val (after, before) = neighbors(engine.player(to.owner).hand)
-                val hand = container(PlayZone.HAND, owner).id
-                if (before == null) MoveDestination(hand, MoveInsertion.UNORDERED)
-                else MoveDestination(hand, MoveInsertion.GAP, afterId = after, beforeId = before, pendingIds = spellCards() - card.id)
+                val hand = container(PlayZone.HAND, owner)
+                val (after, before) = place(hand, engine.player(to.owner).hand)
+                if (before == null) MoveDestination(hand.id, MoveInsertion.UNORDERED)
+                else MoveDestination(hand.id, MoveInsertion.GAP, afterId = after, beforeId = before, pendingIds = spellCards() - card.id)
             }
             Zone.Graveyard -> MoveDestination(container(PlayZone.GRAVEYARD, owner).id, MoveInsertion.UNORDERED)
             Zone.Exile -> MoveDestination(container(PlayZone.EXILE, owner).id, MoveInsertion.UNORDERED)
@@ -333,29 +398,61 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     // ---- Values: bring every engine value ATW keeps to the engine's
 
-    private fun settle() {
-        registerHidden()
-        repeat(4) { if (!values()) return }
+    /**
+     * Brings ATW's values to the engine's: those of the cards in [dirty] (ATW card ids; null: every card) and of the
+     * players, priority, Stack items and records. A card's values depend only on its engine object, its ATW card and its
+     * Stack item, so a card neither side touched needs no look; each further pass looks at what the last one changed.
+     */
+    private fun settle(dirty: Set<String>?) {
+        var cards = if (registerHidden()) null else dirty?.let { it + engine.stack.filterIsInstance<ObjectId.Card>().map { o -> atwId(o.card) } }
+        repeat(4) {
+            val before = board.cards
+            if (!values(cards)) return
+            cards = changedCards(before)
+        }
         throw Unmappable("ATW's values don't settle on the engine's")
     }
 
-    /** A viewer's new card ids (D60) name ATW's cards from the moment they appear, counting zone changes from there. */
-    private fun registerHidden() {
-        if (call.hidden.isEmpty()) return
+    /** The ATW cards whose engine objects entered, left or changed since [before]. */
+    private fun changedObjects(before: Map<ObjectId, GameObject>): Set<String> {
+        val changed = mutableSetOf<String>()
+        for ((id, o) in engine.objects) {
+            val old = before[id]
+            if (old == null || old !== o && old != o) changed += atwId((id as? ObjectId.Card ?: continue).card)
+        }
+        for (id in before.keys) if (id !in engine.objects) changed += atwId((id as? ObjectId.Card ?: continue).card)
+        return changed
+    }
+
+    /** The ATW cards that differ from [before] (new ones included). */
+    private fun changedCards(before: List<PlayCard>): Set<String> {
+        if (before === board.cards) return emptySet()
+        val old = before.associateBy { it.id }
+        return board.cards.filter { c -> old[c.id].let { it == null || it !== c && it != c } }.mapTo(mutableSetOf()) { it.id }
+    }
+
+    /** A viewer's new card ids (D60) name ATW's cards from the moment they appear, counting zone changes from there.
+     * True when it named a card anew (then every card's values get a look). */
+    private fun registerHidden(): Boolean {
+        if (call.hidden.isEmpty()) return false
+        var named = false
         val objects = engine.objects.values.associateBy { it.card }
         for ((hidden, real) in call.hidden) {
             if (ids.atw(hidden) == real) continue
             val o = objects[hidden] ?: continue
             val card = card(real) ?: continue
             ids.alias(real, hidden, card.zoneChanges - o.id.zoneChanges)
+            named = true
         }
+        return named
     }
 
-    /** One pass over every value; true when it changed something. */
-    private fun values(): Boolean {
+    /** One pass over the values of [cards] (null: every card) and the game's; true when it changed something. */
+    private fun values(cards: Set<String>?): Boolean {
         val start = actions.size
         val objects = engine.objects.values.associateBy { it.card }
-        for (id in board.cards.map { it.id }) {
+        for (id in cards ?: board.cards.map { it.id }) {
+            if (card(id) == null) continue
             val o = objects[ids.engine(id)] ?: continue
             cardValues(id, o)
         }
@@ -368,7 +465,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
                 ?: engine.obj(key)?.takeIf { it.zone == Zone.Stack }?.let { EngineCodec.casting(ids.ref(it.id), (it.controller ?: it.owner).value, it.timestamp) }
             if (entry.item != wanted) play(PlayAction.Mtg(MtgAction.SetStackItem(entry.id, entry.item, wanted)))
         }
-        val wanted = records(engine, board).associateBy { it.id }
+        val wanted = records().associateBy { it.id }
         val current = board.engineRecords.associateBy { it.id }
         for (id in (current.keys + wanted.keys).sorted()) if (current[id] != wanted[id])
             play(PlayAction.Mtg(MtgAction.SetRecord(id, current[id], wanted[id])))
@@ -377,12 +474,12 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     private fun cardValues(id: String, o: GameObject) {
         fun now() = card(id)!!
-        val zone = board.containers.single { it.id == now().containerId }.zone
+        val zone = containerOf(now()).zone
         val onField = zone == PlayZone.BATTLEFIELD
         if (onField && now().tapped != o.tapped) play(PlayAction.SetTapped(id, o.tapped))
         if (onField && (now().damage.toIntOrNull() ?: 0) != o.damage) play(PlayAction.SetDamage(id, if (o.damage == 0) "" else "${o.damage}"))
         if ((onField || zone == PlayZone.EXILE) && now().isFaceDown != o.faceDown) play(PlayAction.SetCovered(id, o.faceDown))
-        val faces = Derived.faces(atw, now())
+        val faces = faces(now())
         if (faces.size > 1 && o.face < faces.size && now().faceId != faces[o.face].faceId) play(PlayAction.SetFace(id, faces[o.face].faceId))
         fun ref() = MtgRef.Card(id, now().zoneChanges)
         val attached = o.attachedTo?.let(ids::ref)
@@ -400,16 +497,16 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     /** The ledger that makes [EngineState.from] give back [o] for [card]. */
     private fun ledger(card: PlayCard, o: GameObject): CardLedger {
-        val container = board.containers.single { it.id == card.containerId }
+        val container = containerOf(card)
         val derivedController = Derived.controller(o.zone, container.accountId, engine.stackItems[o.id]?.controller ?: (o.controller ?: o.owner))
-        val faces = Derived.faces(atw, card)
-        val derivedFace = if (faces.size > 1 && o.face < faces.size) o.face else Derived.face(atw, card)
+        val faces = faces(card)
+        val derivedFace = if (faces.size > 1 && o.face < faces.size) o.face else faces.indexOfFirst { it.faceId == card.faceId }.coerceAtLeast(0)
         return CardLedger(
             card = o.card.value.takeIf { o.token && it != card.id && !ids.transient(o.card) },
             definition = o.definition.takeIf { o.token },
             faceOverride = o.face.takeIf { it != derivedFace },
             controllerOverride = (o.controller?.value ?: "").takeIf { o.controller != derivedController },
-            ownerOverride = o.owner.value.takeIf { it != Derived.owner(atw, card) },
+            ownerOverride = o.owner.value.takeIf { it != owner(card) },
             phasedOut = o.phasedOut, marks = o.marks, deathtouchDamage = o.deathtouchDamage,
             controlSince = o.controlSince.takeIf { it != Derived.controlSince(o.zone, container.accountId, card) },
             noControlSince = o.controlSince == null && Derived.controlSince(o.zone, container.accountId, card) != null,
@@ -432,6 +529,16 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         if (now().manaPool != pool) play(PlayAction.Mtg(MtgAction.SetManaPool(account, now().manaPool, pool)))
         val ledger = PlayerLedger(p.startingLife, p.lost, p.designations, p.ledger, EngineCodec.counterOrder(p.counters)).text()
         if (now().ledger != ledger) play(PlayAction.Mtg(MtgAction.SetLedger(ref, now().ledger, ledger)))
+    }
+
+    /** [records] of the engine now, encoding again only the effect objects and delayed triggers that changed. */
+    private val recordMemo = mutableMapOf<Any, Pair<Any, EngineRecord>>()
+    private fun records(): List<EngineRecord> {
+        fun memo(key: Any, value: Any, encode: () -> EngineRecord): EngineRecord =
+            recordMemo[key]?.takeIf { it.first === value }?.second ?: encode().also { recordMemo[key] = value to it }
+        return records(engine, board,
+            effect = { memo(it.id, it) { EngineCodec.effectRecord(it) } },
+            delayed = { memo(it.id, it) { EngineCodec.delayedRecord(it) } })
     }
 
     // ---- Tags
@@ -481,9 +588,11 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
 /** The engine values ATW keeps as records (§4.3, [EngineCodec]): one per effect object and delayed trigger, the game
  * ledger, turn and combat facts, waiting triggers and the open flow. */
-internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState): List<EngineRecord> = buildList {
-    state.effects.values.forEach { add(EngineCodec.effectRecord(it)) }
-    state.delayedTriggers.values.forEach { add(EngineCodec.delayedRecord(it)) }
+internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState,
+    effect: (arcanum.engine.state.EffectObject) -> EngineRecord = EngineCodec::effectRecord,
+    delayed: (arcanum.engine.state.DelayedTrigger) -> EngineRecord = EngineCodec::delayedRecord): List<EngineRecord> = buildList {
+    state.effects.values.forEach { add(effect(it)) }
+    state.delayedTriggers.values.forEach { add(delayed(it)) }
     if (state.ledger.isNotEmpty()) add(EngineRecord(EngineCodec.LEDGER, EngineRecordKind.Ledger, data = EngineCodec.encode(ledgerSerializer, state.ledger)))
     val turn = TurnExtras(state.turn.landsPlayed, state.turn.turnStarted.takeIf { it != Derived.turnStarted(board) },
         state.turn.extraTurns, state.skipFirstDraw)

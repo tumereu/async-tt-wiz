@@ -728,6 +728,10 @@ internal object Events {
             return EventPattern.AttacksUnblocked(subject(m.groupValues[1], self) ?: return null, target = arcanum.api.RecipientFilter(players = PlayerFilter.Any))
         }
         if (Gtc.PLAYER_CASTS_FROM_HAND.matches(text)) return EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.Any, from = Zone.Hand)
+        Gtc.OPPONENT_CASTS.matchEntire(text)?.let { m ->
+            val kind = m.groupValues[1].takeIf { it.isNotEmpty() }?.let { Filters.noun(it.trim()) ?: return null } ?: ObjectFilter.Any
+            return EventPattern.Cast(kind, by = PlayerFilter.Opponent)
+        }
         Gtc.YOU_CAST_FROM_YOUR_LIBRARY.matchEntire(text)?.let { m ->
             return EventPattern.Cast(Filters.noun(m.groupValues[1] + " spell") ?: return null, by = PlayerFilter.You, from = Zone.Library)
         }

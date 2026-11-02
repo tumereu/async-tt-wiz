@@ -140,7 +140,7 @@ internal object Gtc {
     val TARGET_PLAYER_DRAWS_AND_LOSES = Regex("""Target player draws (\w+) cards and loses (\d+) life\.""")
     val DEALS_DAMAGE_TO_PLAYER_EQUAL_HAND = Regex("""(.+?) deals damage to target player equal to the number of cards in that player's hand\.""")
     val WIN_IF_DIFFERENT_NAMES = Regex("""If you control (\w+) or more (\w+)s with different names, you win the game\.""")
-    val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""Then they put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
+    val PUT_ALL_EXILED_WITH_ON_BOTTOM = Regex("""They put all cards exiled with (.+?) on the bottom of their library in a random order\.""")
     val WOULD_DRAW_WHILE_NO_CARDS = Regex("""If you would draw a card while you have no cards in hand, instead (.+)\.""")
     val AS_LONG_AS_LIFE = Regex("""As long as you have (\d+) or more life and an opponent has (\d+) or less life, (.+?) ((?:gets|has) .+)\.""")
     val CHOSEN_NAME_COSTS_LESS = Regex("""Spells with the chosen name you cast cost (\{\d+\}) less to cast\.""")
@@ -157,6 +157,16 @@ internal object Gtc {
     val RETURN_SELF_TO_HAND_COST = Regex("""Return (.+) to its owner's hand""")
     val EXILE_SELF_COST = Regex("""Exile (.+)""")
     val MILL_COST = Regex("""Mill (\w+) cards?""")
+
+    val MAY_REVEAL_UP_TO_FROM_AMONG = Regex("""You may reveal up to (\w+) (.+?) cards from among them and put the revealed cards into your hand\.""")
+    val MAY_PAY_MANA_IF_YOU_DO = Regex("""You may pay ((?:\{[^}]+\})+)\. If you do, (.+)""")
+    val DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM = Regex("""(.+?) deals (\d+) damage to any target chosen at random\.""")
+    val DETAIN_EACH = Regex("""Detain each (.+)\.""")
+    val FLIP_N_COINS = Regex("""Flip (\w+) coins\.""")
+    val CREATE_STAR_TOKEN_WITH_QUOTED = Regex("""Create an? ((?:white|blue|black|red|green)(?: and (?:white|blue|black|red|green))?) ([A-Z]\w+) creature token with "(.+)"\.?""")
+    val OPPONENT_CASTS = Regex("""an opponent casts an? ((?:[a-z]+ )*)spell""")
+
+    val RETURN_SELF_TO_YOUR_HAND = Regex("""Return (.+) to your hand\.""")
 
     // static abilities
     val OTHERS_ENTER_TAPPED = Regex("""(.+) enter tapped\.""")

@@ -1530,6 +1530,12 @@ internal class Sentences(
                 return steps.dropLast(1) + last.copy(then = listOf(Step.Do(delayed.copy(instructions = delayed.instructions.copy(steps = delayed.instructions.steps + haste)))))
             }
         }
+        // dgm: "Take an extra turn after this one for each coin that comes up heads." after flipping coins (CR 705.3, 500.7)
+        if (sentence == "Take an extra turn after this one for each coin that comes up heads.") {
+            val flips = steps.lastOrNull() as? Step.Repeat
+            if (flips != null && ((flips.steps.singleOrNull() as? Step.Do)?.effect as? Effect.FlipCoin)?.bind == "flip")
+                return steps.dropLast(1) + flips.copy(steps = flips.steps + Step.If(arcanum.api.Condition.WonFlip("flip"), then = listOf(Step.Do(Effect.ExtraTurn(Players.You)))))
+        }
         if (Gtc.STILL_A.matches(sentence)) {
             val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics
             if (apply != null && apply.mechanics.any { it is Mechanic.SetTypes && CardType.Creature in it.add && !it.replaceTypes }) return steps.toList()
@@ -4298,6 +4304,9 @@ internal class Sentences(
     private fun gtcEffect(sentence: String, context: Context): List<Step>? {
         // the specific wordings first, then the general "gains … until end of turn and … this turn"
         gtcEffect2(sentence, context)?.let { return it }
+        gtcEffect3(sentence, context)?.let { return it }
+        gtcEffect4(sentence, context)?.let { return it }
+        dgmEffect(sentence, context)?.let { return it }
         // gtc chunk 01: "creatures you control gain first strike and trample until end of turn and can't be blocked by
         // creature tokens this turn": one continuous effect with each rule, all ending with the turn (CR 611.2a)
         Gtc.TIMED_PREDICATES.matchEntire(sentence)?.let { m ->
@@ -4362,7 +4371,7 @@ internal class Sentences(
         }
         // gtc chunk 06: "Exile all other permanents.", "Exile all artifacts."
         Gtc.EXILE_ALL.matchEntire(sentence)?.let { m ->
-            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null), Destination(Zone.Exile))))
+            return listOf(Step.Do(Effect.Move(Objects.Each(Filters.noun(m.groupValues[1]) ?: return@let), Destination(Zone.Exile))))
         }
         // gtc chunk 07: "Draw cards equal to the number of cards in your library"
         Gtc.DRAW_CARDS_EQUAL_TO.matchEntire(sentence)?.let { m ->
@@ -4548,7 +4557,7 @@ internal class Sentences(
                     bind = "moved", chooser = Players.You),
                 Step.Do(Effect.MoveCounters(from, Objects.Target("other creature"), kind, Value.Bound("moved"))))
         }
-        return gtcEffect3(sentence, context)
+        return null
     }
 
     /** gtc: the Gatecrash one-shot wordings (red, green, multicolour). */
@@ -4624,7 +4633,7 @@ internal class Sentences(
                 Value.Of(arcanum.api.NumericProperty.Power, of, arcanum.api.Combine.Single),
                 Value.Of(arcanum.api.NumericProperty.Toughness, of, arcanum.api.Combine.Single))))))
         }
-        return gtcEffect4(sentence, context)
+        return null
     }
 
     /** gtc: cost parts ("Remove five blaze counters from this enchantment", "Remove one or more +1/+1 counters from among
@@ -4942,12 +4951,65 @@ internal class Sentences(
             return listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), controller = Players.You, newTargets = true)))
         }
         if (sentence == "You may choose new targets for the copy." && context.copied) return emptyList()
-        return dgmEffect(sentence, context)
+        return null
     }
 
     /** dgm: the Dragon's Maze one-shot wordings. */
     private fun dgmEffect(sentence: String, context: Context): List<Step>? {
         val eot = arcanum.api.Duration.EndOfTurn
+        // dgm: "You may reveal up to two instant and/or sorcery cards from among them and put the revealed cards into your hand." /
+        // "Put the rest on the bottom of your library in any order." (after looking at the top cards)
+        Gtc.MAY_REVEAL_UP_TO_FROM_AMONG.matchEntire(sentence)?.let { m ->
+            val seen = Objects.Bound(context.seen ?: return null)
+            context.picked = "revealed"
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(Filters.noun(m.groupValues[2]) ?: return null, Value.Fixed(0), Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null),
+                    from = seen), bind = "revealed", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("revealed"))),
+                Step.Do(Effect.Move(Objects.Bound("revealed"), Destination(Zone.Hand))))
+        }
+        if (sentence == "Put the rest on the bottom of your library in any order." && context.picked == "revealed") {
+            val seen = Objects.Bound(context.seen ?: return null)
+            return listOf(Step.Do(Effect.Move(Objects.Except(seen, Objects.Bound("revealed")), Destination(Zone.Library, libraryPosition = -1))))
+        }
+        // dgm: "you may pay {3}. If you do, return this card to your hand." (CR 118.12)
+        Gtc.MAY_PAY_MANA_IF_YOU_DO.matchEntire(sentence)?.let { m ->
+            val cost = ManaCost.parse(m.groupValues[1]) ?: return null
+            val targets = context.targets.size
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context)
+            if (then == null || context.targets.size != targets) { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
+            return listOf(Step.Pay(Cost.mana(cost), payer = Players.You, bind = "paid"), Step.If(arcanum.api.Condition.Did("paid"), then = then))
+        }
+        // dgm: "return this card to your hand" (from the graveyard its trigger works in)
+        Gtc.RETURN_SELF_TO_YOUR_HAND.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Hand)))) }
+        // dgm: "This creature deals 2 damage to any target chosen at random."
+        Gtc.DEALS_DAMAGE_TO_ANY_TARGET_AT_RANDOM.matchEntire(sentence)?.let { m ->
+            val source = gtcSource(m.groupValues[1], context) ?: return null
+            context.anyTarget()
+            context.targets[context.targets.lastIndex] = context.targets.last().copy(atRandom = true)
+            return listOf(Step.Do(Effect.DealDamage(Recipients(target = "any"), Value.Fixed(m.groupValues[2].toInt()), source = source)))
+        }
+        // dgm: "detain each nonland permanent your opponents control with mana value 4 or less." (CR 701.35)
+        Gtc.DETAIN_EACH.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Detain(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null)))))
+        }
+        // dgm: "Flip five coins." (CR 705); "Take an extra turn after this one for each coin that comes up heads." follows it
+        Gtc.FLIP_N_COINS.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Repeat(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), listOf(Step.Do(Effect.FlipCoin(Players.You, bind = "flip")))))
+        }
+        // dgm: "Each player discards their hand." (CR 101.4: at once)
+        if (sentence == "Each player discards their hand.")
+            return listOf(Step.Do(Effect.Discard(Players.Each(PlayerFilter.Any), Value.Fixed(1), filter = ObjectFilter.Any, objects = Objects.Each(ObjectFilter.InZone(Zone.Hand)))))
+        // dgm: 'Create a green and white Elemental creature token with "This token's power and toughness are each equal to the number
+        // of creatures you control."' (CR 111.4: its characteristic-defining ability)
+        Gtc.CREATE_STAR_TOKEN_WITH_QUOTED.matchEntire(sentence)?.let { m ->
+            val colors = m.groupValues[1].split(" and ").map { BECOME_COLORS[it] ?: return null }
+            val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
+            val granted = Sentences(setOf("this token", "This token")).line(m.groupValues[3]) ?: return null
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(arcanum.api.FaceDefinition("$subtype Token", colorIndicator = colors,
+                types = listOf(CardType.Creature), subtypes = listOf(Subtype(subtype)), power = arcanum.api.PrintedNumber.Star(), toughness = arcanum.api.PrintedNumber.Star(),
+                abilities = listOf(granted))), Value.Fixed(1), controller = Players.You)))
+        }
         fun lastTarget() = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
         fun apply(mechanics: List<Mechanic>, objects: Objects?, duration: arcanum.api.Duration = eot) =
             Step.Do(Effect.ApplyMechanics(mechanics, objects?.let { arcanum.api.Affected.Objects(it) }, duration))

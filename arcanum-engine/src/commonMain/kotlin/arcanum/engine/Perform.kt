@@ -33,10 +33,11 @@ internal sealed interface Progress {
  * mana payment), [Resolution], [Triggers], [StateBasedActions], [Combat] and [Priority] (steps and turns).
  */
 internal object Perform {
-    fun run(state: GameState, input: Input): Outcome {
+    /** [view], when given, is [state]'s view (worked out once by a caller that performs several inputs on it). */
+    fun run(state: GameState, input: Input, view: arcanum.engine.view.View? = null): Outcome {
         require(!GameEnd.over(state)) { "The game is over (CR 104.1)" }
         if (input is Input.Concede) return GameEnd.concede(state, input)
-        val recorder = Recorder(state.deepCopy())
+        val recorder = Recorder(state.deepCopy(), view)
         val open = recorder.state.pending
         val progress = if (open != null) {
             when (input) {

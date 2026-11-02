@@ -59,7 +59,9 @@ import arcanum.engine.state.StackItemKind
 internal object Layers {
     fun view(state: GameState): View {
         val cache = state.viewCache ?: return LayerRun(state).run()
-        return cache.view ?: LayerRun(state).run().also { cache.view = it }
+        cache.view?.let { return it }
+        val run = LayerRun(state)
+        return run.run().also { cache.set(it, readsLog = run.reads.log) }
     }
 
     /** The layer a mechanic applies in; a characteristic-defining P/T applies in 7a (CR 613.4a). */
@@ -117,7 +119,7 @@ internal data class Partial(
 )
 
 /** The board part-way through the layers: the evaluator reads characteristics as far as they are worked out. */
-internal class WorkBoard(override val state: GameState, val work: MutableMap<ObjectId, Partial>) : Board {
+internal class WorkBoard(override val state: GameState, val work: MutableMap<ObjectId, Partial>, val reads: ViewReads = ViewReads()) : Board {
     override fun characteristics(id: ObjectId): Characteristics? = work[id]?.chars
 
     override fun controller(id: ObjectId): PlayerId? {
@@ -133,7 +135,11 @@ internal class WorkBoard(override val state: GameState, val work: MutableMap<Obj
         powerToughnessRead = true
     }
 
-    fun copy(): WorkBoard = WorkBoard(state, LinkedHashMap(work))
+    override fun readingLog() {
+        reads.log = true
+    }
+
+    fun copy(): WorkBoard = WorkBoard(state, LinkedHashMap(work), reads)
 }
 
 /** A continuous effect (CR 611) while the layers are worked out. */
@@ -181,11 +187,13 @@ private sealed interface Op {
 private class Started(val effect: ContinuousEffect, val affected: Set<ObjectId>)
 
 internal class LayerRun(private val state: GameState) {
-    private val copiable = Copiable(state)
+    /** What this run read beyond objects and characteristics (kept with the view, [ViewCache]). */
+    val reads = ViewReads()
+    private val copiable = Copiable(state, reads)
     private val started = LinkedHashMap<String, Started>()
 
     fun run(): View {
-        val board = WorkBoard(state, initialWork())
+        val board = WorkBoard(state, initialWork(), reads)
         Layers.ORDER.forEach { layer ->
             runLayer(board, layer)
             if (layer == Layer.Type) afterTypes(board)
@@ -273,8 +281,8 @@ internal class LayerRun(private val state: GameState) {
     private fun pickNext(board: WorkBoard, layer: Layer, pool: List<ContinuousEffect>, resolved: Resolutions): ContinuousEffect {
         val byTimestamp = pool.sortedWith(compareBy({ it.timestamp }, { it.key }))
         if (pool.size == 1) return pool.single()
-        val changes = pool.filter { a -> changesBoard(board, resolved[a]) }
-        val beyondPowerToughness = changes.filterNot { a -> resolved[a].isPowerToughnessOnly() }
+        val beyondPowerToughness = pool.filterNot { a -> resolved[a].isPowerToughnessOnly() }.filter { a -> changesBoard(board, resolved[a]) }
+        val changes by lazy { pool.filter { a -> a in beyondPowerToughness || changesBoard(board, resolved[a]) } }
         val dependsOn = pool.associate { b ->
             val bAlone = resolved[b]
             b.key to (if (resolved.readsPowerToughness(b)) changes else beyondPowerToughness).filter { a ->

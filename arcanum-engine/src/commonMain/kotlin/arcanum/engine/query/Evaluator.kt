@@ -60,6 +60,10 @@ internal interface Board {
 
     /** Told before a power or toughness is read: the layer system tracks which effects read them (CR 613.8a). */
     fun readingPowerToughness() {}
+
+    /** Told before the tagged events (D33) are read, or last known information found in them: a view that read none
+     * stays the same while only events are added ([arcanum.engine.view.ViewCache]). */
+    fun readingLog() {}
 }
 
 /**
@@ -107,7 +111,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
         is Objects.AttachedTo -> objects(objects.of).mapNotNull { (state.obj(it)?.attachedTo as? TargetRef.Object)?.id }
         // The source's new object after a zone change: bound by a flow that knows the move, else found in the log
-        Objects.SelfAfter -> ctx.names[SELF_AFTER]?.let { boundObjects(it) } ?: listOfNotNull(ctx.self?.let { Lki.newObject(state, it) })
+        Objects.SelfAfter -> ctx.names[SELF_AFTER]?.let { boundObjects(it) } ?: listOfNotNull(ctx.self?.let { board.readingLog(); Lki.newObject(state, it) })
         Objects.Tested -> listOfNotNull(ctx.tested)
         is Objects.AttackedBy -> {
             val attackers = objects(objects.attackers).toSet()
@@ -175,7 +179,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     private fun selfMemory(key: String): NamedValue? = ctx.self?.let { self ->
         val o = state.obj(self)
         if (o != null) o.memory[key]
-        else (board.snapshot(self)?.memory?.takeIf { it.values.isNotEmpty() } ?: Lki.memory(state, self))?.get(key)
+        else {
+            board.readingLog()
+            (board.snapshot(self)?.memory?.takeIf { it.values.isNotEmpty() } ?: Lki.memory(state, self))?.get(key)
+        }
     }
 
     // ---- Players
@@ -364,7 +371,11 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     private fun zoneOf(id: ObjectId): Zone? = state.obj(id)?.zone ?: if (id in state.stackItems) Zone.Stack else board.proposedZone(id)
 
     /** Last known information of [id] when it has left its zone (CR 608.2h). */
-    private fun lki(id: ObjectId) = if (state.obj(id) == null) board.snapshot(id) else null
+    private fun lki(id: ObjectId): arcanum.engine.state.ObjectSnapshot? {
+        if (state.obj(id) != null) return null
+        board.readingLog()
+        return board.snapshot(id)
+    }
 
     private fun facts(id: ObjectId) = state.obj(id)?.facts ?: lki(id)?.facts
 
@@ -648,6 +659,7 @@ internal object History {
     }
 
     fun count(evaluator: Evaluator, event: arcanum.api.EventPattern, measure: arcanum.api.Measure): Int {
+        evaluator.board.readingLog()
         val state = evaluator.board.state
         return when (measure) {
             arcanum.api.Measure.Events -> state.eventsOf(state.turn.number).count { change ->
@@ -663,6 +675,7 @@ internal object History {
 
     /** Spells cast this turn before the cast of [of] (storm, CR 702.40a). */
     fun spellsCastBefore(evaluator: Evaluator, of: List<ObjectId>): Int {
+        evaluator.board.readingLog()
         val state = evaluator.board.state
         val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
         val index = casts.indexOfFirst { c -> arcanum.engine.trigger.EventMatcher.castObject(c) in of }
@@ -670,6 +683,7 @@ internal object History {
     }
 
     private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern): List<TriggerEvent> {
+        evaluator.board.readingLog()
         val state = evaluator.board.state
         return state.eventsOf(state.turn.number).flatMap { arcanum.engine.trigger.EventMatcher.instances(evaluator, event, it) }
     }

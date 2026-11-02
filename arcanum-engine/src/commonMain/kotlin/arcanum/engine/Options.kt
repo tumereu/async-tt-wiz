@@ -66,9 +66,9 @@ internal object Options {
         }
     }
 
-    /** Whether [Engine.perform] accepts [input] in [state]. */
-    private fun accepted(state: GameState, input: Input): Boolean = try {
-        Perform.run(state, input)
+    /** Whether [Engine.perform] accepts [input] in the snapshot's state (its view worked out once for every input tried). */
+    private fun accepted(snap: Snapshot, input: Input): Boolean = try {
+        Perform.run(snap.state, input, snap.view)
         true
     } catch (e: IllegalArgumentException) {
         false
@@ -79,7 +79,7 @@ internal object Options {
         // D60: another player isn't offered answers naming cards they can't see (which of a searched library match)
         val hidden = if (player == d.player) emptySet() else objectsOf(d) - arcanum.engine.action.Knowledge.visible(snap.state, snap.view, player)
         val inputs = candidates(snap, pending).distinct().filter { hidden.isEmpty() || objectsOf(it).none { id -> id in hidden } }
-            .map { Input.Answer(d.id, it) }.filter { accepted(snap.state, it) }
+            .map { Input.Answer(d.id, it) }.filter { accepted(snap, it) }
         val cancel = (pending.continuation as? Continuation.Announcing)?.takeIf { it.player == player }?.let { Input.Cancel(player) }
         return inputs + listOfNotNull(cancel)
     }
@@ -247,7 +247,7 @@ internal object Options {
             }
         }.filter { way -> Legality.cantCast(snap, player, card, way) == null }
             .map { Input.Cast(player, card, it) }
-            .filter { startable(snap.state, it) }
+            .filter { startable(snap, it) }
     }
 
     /**
@@ -255,13 +255,13 @@ internal object Options {
      * be done, CR 601.2c, 601.2h) and mana is found for its cost as it stands then (X as 0, §7.8). A spell with other
      * ways to pay (convoke, delve) or that can't be paid with mana is left to its payment decision.
      */
-    private fun startable(state: GameState, input: Input): Boolean {
-        val recorder = Recorder(state.deepCopy())
+    private fun startable(snap: Snapshot, input: Input): Boolean {
+        val recorder = Recorder(snap.state.deepCopy(), snap.view)
         val progress = try {
             when (input) {
                 is Input.Cast -> Casting.cast(recorder, input)
                 is Input.Activate -> Casting.activate(recorder, input)
-                else -> return accepted(state, input)
+                else -> return accepted(snap, input)
             }
         } catch (e: IllegalArgumentException) {
             return false
@@ -283,7 +283,7 @@ internal object Options {
                 .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }
                 .filter { Legality.cantActivate(snap, player, id, it) == null }
                 .map { Input.Activate(player, id, it.origin) }
-                .filter { startable(s, it) }
+                .filter { startable(snap, it) }
         }
     }
 }

@@ -40,6 +40,7 @@ import arcanum.engine.state.TargetRef
 import arcanum.engine.view.AbilityInstance
 import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.view.AppliedMechanic
+import arcanum.engine.view.Layers
 
 /** What a cast or activation asks next (CR 601.2b–h), in rules order. */
 internal sealed interface Question {
@@ -169,11 +170,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         timestamp = base.nextTimestamp(),
     )
 
-    /** The board with the provisional item on the Stack. */
-    val snap: Snapshot = Snapshot(base.deepCopy().also { s ->
+    /** The board with the provisional item on the Stack. Its view is worked out once while [base] stays as it is
+     * (plans made one after another for the same choices, [arcanum.engine.view.ViewCache.provisional]). */
+    val snap: Snapshot = base.deepCopy().also { s ->
         s.stackItems[itemId] = item
         if (!isSpell && itemId !in s.stack) s.stack.add(itemId)
-    })
+    }.let { s -> Snapshot(s) { base.viewCache?.provisional(item) { Layers.view(s) } ?: Layers.view(s) } }
 
     /** Names filters and values see: choices so far, announced values and targets by slot. */
     val names: Bindings = run {

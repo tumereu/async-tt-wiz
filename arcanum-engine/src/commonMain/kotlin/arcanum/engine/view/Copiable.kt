@@ -28,7 +28,7 @@ import arcanum.engine.state.StackItemKind
  * split card outside the Stack, CR 709.4), apply copy effects in timestamp order with their exceptions (layer 1a,
  * CR 707.2, 707.9), then the face-down values (layer 1b, CR 708.2a).
  */
-internal class Copiable(private val state: GameState) {
+internal class Copiable(private val state: GameState, val reads: ViewReads = ViewReads()) {
     private val memo = mutableMapOf<ObjectId, List<IndexedFace>?>()
 
     /** The faces whose characteristics an object has, with their face index (for ability origins). Null: unknown. */
@@ -183,6 +183,10 @@ internal class PrintedBoard(override val state: GameState, private val copiable:
 
     override fun controller(id: ObjectId): PlayerId? = state.obj(id)?.let { it.controller ?: it.owner }
         ?: state.stackItems[id]?.controller
+
+    override fun readingLog() {
+        copiable.reads.log = true
+    }
 }
 
 /** Whether the ability is an instant's or sorcery's (CR 113.6: they work on the Stack). */

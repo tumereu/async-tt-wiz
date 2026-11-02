@@ -34,8 +34,8 @@ internal class ViewBoard(override val state: GameState, val view: View) : Board 
 }
 
 /** A state and its view, worked out once for a step of a flow. */
-internal class Snapshot(val state: GameState) {
-    val view: View by lazy { Layers.view(state) }
+internal class Snapshot(val state: GameState, private val viewOf: () -> View = { Layers.view(state) }) {
+    val view: View by lazy { viewOf() }
     val board: ViewBoard by lazy { ViewBoard(state, view) }
 
     fun evaluator(

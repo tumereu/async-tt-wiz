@@ -165,14 +165,11 @@ class FinalSyncReviewTest {
             "the suggestion kills both blockers")
     }
 
-    // finalreview-sync #5 — HIS-037, SYS-057 #4, I-D41 (cf. pausereview #10): Bob starts a branch from an earlier acting
-    // point (a status, as Hold at a pause makes one) and then undoes that event. The live position is now the branch point,
-    // which has the old line after it, so the next event there starts a branch again, and a branch reseeds the libraries'
-    // unknown order (`LibraryKnowledge.reseeds`), changing the board the automated batch was planned on (`MtgTag.board`):
-    // every Automatum batch from the live position is refused ("inapplicable") — the step button, casts, answers, for
-    // both players — until someone makes an event by hand there, which Automatum refuses for everything but notes and
-    // statuses. Expected: the next Automatum action from the live position is accepted
-    @Ignore("finalreview-sync #5: after undoing a branch's first event every Automatum batch is refused")
+    // finalreview-sync #5 (fixed on master by the pausereview #10 fix, `plannedBefore`) — HIS-037, HIS-042, SYS-057 #4,
+    // I-D41: Bob starts a branch from an earlier acting point (a status, as Hold at a pause makes one) and then undoes that
+    // event. The live position is now the branch point, which has the old line after it, so the next event there starts a
+    // branch again, which reseeds the libraries' unknown order. A batch planned on the live position before the reseed is
+    // still taken (before the fix every Automatum batch from there was refused, "inapplicable")
     @Test fun automatumGoesOnAfterABranchsFirstEventIsUndone() {
         table.turn = TurnState(alice, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
         table.priority = MtgPriority(alice)
@@ -190,7 +187,8 @@ class FinalSyncReviewTest {
         game.control(bob, GameAction.Undo).let { assertNotNull(it.tree, "Bob undoes it: ${it.reason}") }
         assertEquals(point, game.head)
         val call = game.call().also { StepFlow.pass(it, bob) }
-        val sent = game.send(call, bob)
+        // The server's board differs from the plan only in the reseeded libraries' order
+        val sent = game.send(call, bob, check = false)
         assertNotNull(sent.tree, "Bob's pass from the live position: ${sent.reason}")
     }
 

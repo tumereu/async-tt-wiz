@@ -113,8 +113,9 @@ class FinalSyncGamesTest {
                     batches.removeAll { b -> b.head !in game.tree.nodes }
                     flowStart = null
                     try { game.engine() } catch (e: Exception) { problem("after the other player's undo the engine can't take the board: $e") }
-                    // #5 (its own test): an undone branch start leaves the live position at a branch point, where every
-                    // Automatum batch is refused; a player gets out with a status there (the only event by hand Automatum allows)
+                    // An undone branch start leaves the live position at a branch point, whose next event reseeds the libraries
+                    // (HIS-042; #5, fixed): the harness checks plans against the server's board exactly, so a status starts the
+                    // branch first
                     if (game.tree.nodes.values.any { it.parentId == game.head }) {
                         counts.known5++
                         game.manual(other, PlayAction.SetStatus("Again ${counts.known5}"))
@@ -247,7 +248,7 @@ class FinalSyncGamesTest {
         for (seed in listOf(61L, 62L, 63L, 64L, 65L, 66L)) {
             val counts = play(seed, steps = 220)
             println("finalreview-sync games seed $seed: ${counts.calls} calls, turn ${counts.turn}, undos ${counts.undos}, redos ${counts.redos}, " +
-                "reverts ${counts.reverts}, switches ${counts.switches}, branches ${counts.branches}, clears ${counts.clears}, known #3 ${counts.known3}, known #4 ${counts.known4}, known #5 ${counts.known5}, refused ${counts.refused}")
+                "reverts ${counts.reverts}, switches ${counts.switches}, branches ${counts.branches}, clears ${counts.clears}, known #3 ${counts.known3}, known #4 ${counts.known4}, branch points ${counts.known5}, refused ${counts.refused}")
         }
         problems.forEach { println("finalreview-sync PROBLEM $it") }
         assertTrue(problems.isEmpty(), "${problems.size} problems:\n" + problems.take(6).joinToString("\n"))

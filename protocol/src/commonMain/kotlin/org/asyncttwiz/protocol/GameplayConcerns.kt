@@ -389,7 +389,8 @@ internal object GameplayConcerns {
                 is MtgAction.Attach -> entity("card", mtg.card.cardId, "zoneChanges")
                 is MtgAction.SetStackItem -> fields += ConcernField.StackMember(mtg.entryId)
                 is MtgAction.SetAutomatum, is MtgAction.SetPriority, is MtgAction.SetManaPool, is MtgAction.Restamp,
-                is MtgAction.SetRecord, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice -> Unit
+                is MtgAction.SetRecord, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice,
+                is MtgAction.SetFullControl -> Unit
             }
             is PlayAction.SetFace -> {
                 definition(card(a.cardId).definition)

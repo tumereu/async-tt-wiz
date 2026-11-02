@@ -203,6 +203,8 @@ object Automatum {
     @Serializable @SerialName("clearRecords") data object ClearRecords : MtgAction
     /** The actor's own "Skip when I have no choice" (I-D18, [PlayPlayer.skipWhenNoChoice]); only its player changes it. */
     @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
+    /** The actor's own "Full control" (I-D41, [PlayPlayer.fullControl]); only its player changes it. */
+    @Serializable @SerialName("setFullControl") data class SetFullControl(val on: Boolean) : MtgAction
     @Serializable @SerialName("setPriority") data class SetPriority(val before: MtgPriority?, val after: MtgPriority?) : MtgAction
     @Serializable @SerialName("setManaPool") data class SetManaPool(val accountId: String, val before: List<PoolMana>,
         val after: List<PoolMana>) : MtgAction
@@ -263,7 +265,7 @@ object MtgRules {
         pool.all { it.color in PoolMana.COLORS && Automatum.data(it.data) }
 
     fun valid(action: MtgAction): Boolean = when (action) {
-        is MtgAction.SetAutomatum, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice -> true
+        is MtgAction.SetAutomatum, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
         is MtgAction.SetPriority -> valid(action.before) && valid(action.after)
         is MtgAction.SetManaPool -> DeckValidation.uuid(action.accountId) && valid(action.before) && valid(action.after)
         is MtgAction.SetCounter -> (action.holder is MtgRef.Card || action.holder is MtgRef.Player) && valid(action.holder) &&
@@ -307,6 +309,11 @@ object MtgRules {
                 val player = player(actor) ?: return reject("missingReference")
                 if (player.skipWhenNoChoice == action.on) return unchanged
                 players(actor) { it.copy(skipWhenNoChoice = action.on) }
+            }
+            is MtgAction.SetFullControl -> {
+                val player = player(actor) ?: return reject("missingReference")
+                if (player.fullControl == action.on) return unchanged
+                players(actor) { it.copy(fullControl = action.on) }
             }
             is MtgAction.SetPriority -> {
                 if (board.priority != action.before) return reject("inapplicable")

@@ -85,8 +85,10 @@ class StepFlowTest {
     }
 
     // CR 117.3d, 117.4: a player who can still act isn't passed for: the step button then moves one priority pass on
+    // (with "Full control", I-D41: otherwise the host passes for them where they have no pause, see PausePointsTest)
     @Test fun aPlayerWhoCanActKeepsPriority() {
         at(TurnPosition.UPKEEP, 3)
+        table.fullControl += bob
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         table.put(alice, PlayZone.LIBRARY, "Island", "Island")
         table.put(bob, PlayZone.BATTLEFIELD, "Mountain")

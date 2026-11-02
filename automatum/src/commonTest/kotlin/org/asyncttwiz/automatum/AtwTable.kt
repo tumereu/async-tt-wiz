@@ -38,6 +38,8 @@ internal class AtwTable(private val name: String = "table") {
     val names = mutableMapOf<String, String>()
     var turn = TurnState(alice, "1", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
     var priority: MtgPriority? = MtgPriority(alice)
+    /** Players with "Full control" on (I-D41): Automatum pauses for them in every step in which they could act. */
+    val fullControl = mutableSetOf<String>()
 
     fun container(player: String, zone: PlayZone) = id("container/$player/$zone")
 
@@ -67,7 +69,7 @@ internal class AtwTable(private val name: String = "table") {
             }
         } + PlayContainer(id("container/stack"), PlayZone.STACK)
         // Automatum on: its automated events apply only then (SYS-057)
-        val board = BoardState(players.map { PlayPlayer(it) }, cards.toList(), containers, turn, priority = priority, automatum = true)
+        val board = BoardState(players.map { PlayPlayer(it, fullControl = it in fullControl) }, cards.toList(), containers, turn, priority = priority, automatum = true)
         val definitionsList = submitted.values.sortedBy { it.digest }
         var state = PlayState(id("game"), id("play"), id("round"), id("start"), PlayRoot(id("root"), id("branch")), id("root"),
             board, definitionsList,

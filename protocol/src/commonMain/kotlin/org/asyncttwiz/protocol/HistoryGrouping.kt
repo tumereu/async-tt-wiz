@@ -271,7 +271,7 @@ object HistoryGrouping {
             is MtgAction.SetStackItem -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.LAYERS)
             is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord, MtgAction.ClearRecords ->
                 HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.STICKY_NOTE_2)
-            is MtgAction.SetSkipWhenNoChoice -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
+            is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
                 "automatum", isolated = true)
         }
         is PlayAction.MoveCard -> {

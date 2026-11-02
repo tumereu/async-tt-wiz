@@ -98,6 +98,20 @@ internal class SharedFlowController(
         }
     }
 
+    /**
+     * I-D41 (STK-037, STK-038): the pause on the board [node] is over: [holder] passes priority, then Automatum goes on, as
+     * one batch from this device (the one whose step made the pause, or the holder's own). Quiet: nothing is said when it
+     * can't be sent (the table moved on, another answer is being worked out).
+     */
+    fun autoPass(holder: String, node: String): Boolean {
+        val play = current()?.takeIf { it.currentNodeId == node } ?: return false
+        if (Automatum.flowOpen(play.board)) return false
+        return sendCall(play, quiet = true) { flow ->
+            if (flow.holder != holder) throw Refused(null)
+            flow.pass(holder)
+        }
+    }
+
     /** I-D40: a step the viewer asked for that would act for the other player, shown for confirmation ([confirmActing]);
      * null when none waits. */
     var acting by mutableStateOf<ActingFor?>(null); private set
@@ -259,7 +273,8 @@ internal class SharedFlowController(
      * SYS-010) planned on [play], unless the board moved on meanwhile. True when it was taken (with
      * [AutomatumWork.Inline]: what the result says).
      */
-    private fun sendCall(play: PlayState, perform: (SharedFlow) -> EngineCall): Boolean {
+    private fun sendCall(play: PlayState, quiet: Boolean = false, perform: (SharedFlow) -> EngineCall): Boolean {
+        val fail: (String?) -> Unit = if (quiet) { _ -> } else this.fail
         val route = send ?: run { fail("Automatum isn't available here."); return false }
         if (busy) return false
         busy = true

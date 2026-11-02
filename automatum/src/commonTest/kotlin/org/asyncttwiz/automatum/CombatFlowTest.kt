@@ -49,6 +49,8 @@ class CombatFlowTest {
         table.put(bob, PlayZone.BATTLEFIELD, "Mountain")
         table.put(bob, PlayZone.HAND, "Storm Spark")
         table.put(bob, PlayZone.LIBRARY, "Island", "Island")
+        // I-D41: these walk combat step by step, so Automatum stops in every step in which a player could act
+        table.fullControl += listOf(alice, bob)
         return RoundTrip(table.state(), table.definitions)
     }
 

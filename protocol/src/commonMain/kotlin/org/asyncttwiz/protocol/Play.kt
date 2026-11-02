@@ -19,7 +19,11 @@ import kotlinx.serialization.Serializable
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val ledger: String = "",
     /** Rules v36 (I-D18): this player's "Skip when I have no choice", on unless they turned it off
      * ([MtgAction.SetSkipWhenNoChoice]); the engine reads it whoever's client makes the call. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val skipWhenNoChoice: Boolean = true)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val skipWhenNoChoice: Boolean = true,
+    /** I-D41: this player's "Full control", off unless they turned it on ([MtgAction.SetFullControl]): Automatum also
+     * pauses for them where they usually wouldn't respond (their own spells, every step in which they could act); the
+     * host reads it whoever's client makes the call. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val fullControl: Boolean = false)
 
 /** Rules v26: a player's own status shown in a bubble by their life total (up to 512 characters since rules v30;
  * the limit only ever grew, so every recorded status stays valid). */

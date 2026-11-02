@@ -31,6 +31,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun engineTags(): List<MtgTag?> = current()?.let { engineTags(playTree?.invoke(), it.currentNodeId) }.orEmpty()
     /** Who made the shown board's latest event (null at the game's start or without the history). */
     fun latestAuthor(): String? = current()?.let { playTree?.invoke()?.nodes?.get(it.currentNodeId)?.author }
+    /** Who made the event [nodeId] (null at the game's start or without the history). */
+    fun authorOf(nodeId: String): String? = playTree?.invoke()?.nodes?.get(nodeId)?.author
+    /** Automatum's pauses on this table (I-D41): the one shown and the one the viewer holds. */
+    internal val pause = PauseController()
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
         automatumWork)
@@ -206,7 +210,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val board = play.board
         if (!board.automatum) return null
         val own = (action as? PlayAction.Mtg)?.action.let {
-            it is MtgAction.SetAutomatum || it is MtgAction.SetSkipWhenNoChoice || it is MtgAction.ClearRecords }
+            it is MtgAction.SetAutomatum || it is MtgAction.SetSkipWhenNoChoice || it is MtgAction.SetFullControl ||
+                it is MtgAction.ClearRecords }
         if (own) return null
         // I-D37: while Automatum waits for something done by hand, manual edits are what it waits for (until Done)
         val byHand = AutomatumBoards.byHand(play)

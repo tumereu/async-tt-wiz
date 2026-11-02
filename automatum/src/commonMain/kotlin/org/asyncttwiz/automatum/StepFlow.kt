@@ -72,6 +72,10 @@ object StepFlow {
         return automatic(call, keep)
     }
 
+    /** [player]'s "Full control" on the call's board (I-D41). */
+    internal fun fullControl(call: EngineCall, player: String): Boolean =
+        call.state.board.players.firstOrNull { it.accountId == player }?.fullControl == true
+
     /** The player the host goes on passing for in turn [turn] (I-D22), until the turn reaches [stop] (null: its end). */
     private class Keep(val player: String, val turn: Int, val stop: org.asyncttwiz.protocol.TurnPosition?) {
         /** Whether [s] is in this keep's turn and hasn't reached [stop] yet. */
@@ -111,8 +115,9 @@ object StepFlow {
     }
 
     /**
-     * The host's automatic passes after any input (I-D3, I-D18): while the priority holder can do nothing but pass
-     * (`Engine.shouldPassFor`, which follows each player's "Skip when I have no choice"), the host passes for them.
+     * The host's automatic passes after any input (I-D3, I-D18, I-D41): while the priority holder can do nothing but pass
+     * (`Engine.shouldPassFor`, which follows each player's "Skip when I have no choice"), or holds priority where they
+     * have neither a stop nor a pause ([PausePoints]), the host passes for them.
      * Stops at an open decision, a player with a choice, the end of the game, after [MAX_AUTOMATIC_PASSES], or once a
      * whole round of turns went by in this call (turn number two up from where the call is now). A loop of mandatory
      * actions (CR 104.4b, 732.4: the same state, `Engine.loopKey`, again with only forced passes since) stops it with
@@ -125,6 +130,7 @@ object StepFlow {
         // CR 104.4b, 732.4: the states passed in with only forced passes since (a loop needs the Stack: on an empty one
         // passing moves the step on)
         val seen = mutableSetOf<arcanum.engine.turn.LoopKey>()
+        val yielded = mutableSetOf<arcanum.engine.turn.LoopKey>()
         repeat(MAX_AUTOMATIC_PASSES) {
             val s = call.working
             s.pending?.let { return it }
@@ -144,7 +150,12 @@ object StepFlow {
             }
             val intent = going && holder.value == keep!!.player
             val forced = Engine.shouldPassFor(s, holder)
-            if (!intent && !forced) return null
+            // I-D41: where the holder has neither a stop nor a pause, the host passes for them too
+            val yields = !intent && !forced && PausePoints.of(s, holder, fullControl(call, holder.value)) == null
+            if (!intent && !forced && !yields) return null
+            // A pass the host made where the player could have acted, in a state it passed in before: the player decides
+            // (no endless yielding through a loop they could break)
+            if (yields && !yielded.add(Engine.loopKey(s))) return null
             // A pass the player chose ("End turn" while they could act) is no forced action: a loop through it isn't one
             if (!forced) seen.clear()
             // The same state again with only forced passes since: a loop of mandatory actions, the game is a draw; the

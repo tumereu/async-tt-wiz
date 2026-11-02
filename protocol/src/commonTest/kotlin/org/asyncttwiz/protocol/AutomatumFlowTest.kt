@@ -135,6 +135,18 @@ class AutomatumFlowTest {
         assertEquals("noOp", change(off, mtg(MtgAction.SetSkipWhenNoChoice(false)), b).outcome)
     }
 
+    // SYS-071 (I-D41): "Full control" is off by default, kept per player, and only its player changes it
+    @Test fun fullControlIsEachPlayersOwn() {
+        val state = base()
+        assertTrue(state.board.players.none { it.fullControl })
+        val on = accept(state, mtg(MtgAction.SetFullControl(true)), b)
+        assertEquals(listOf(false, true), on.board.players.map { it.fullControl })
+        assertEquals("""{"accountId":"$b","life":"20","counters":{},"fullControl":true}""",
+            GameWire.json.encodeToString(PlayPlayer.serializer(), on.board.players[1]))
+        assertFalse(GameWire.json.encodeToString(PlayPlayer.serializer(), state.board.players[1]).contains("full"), "off is left out")
+        assertEquals("noOp", change(on, mtg(MtgAction.SetFullControl(true)), b).outcome)
+    }
+
     // SYS-060 (I-D19, I-D24): reverting an open flow takes back every event since its opening batch, whoever made them,
     // and goes to nobody's redo; switching off then closes nothing more, and effect records made before the flow stay
     @Test fun revertingAFlowTakesBackEveryStepSinceItsStart() {

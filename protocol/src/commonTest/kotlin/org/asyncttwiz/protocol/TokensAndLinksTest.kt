@@ -214,4 +214,25 @@ class TokensAndLinksTest {
         val changedOutput = created.state.board.copy(cards = created.state.board.cards.map { if (it.token) it.copy(note = "edited") else it })
         assertNull(GameplayHistory.inverseTokenLinks(changedOutput, created.mutation.transition))
     }
+
+    // Automatum's copy of a card (CR 707.12): a token made face up in a named Exile, first there, without a cell; it
+    // replays, undoes and leaves like any token (TBL-103); only an Exile takes it
+    @Test fun tokenMadeInAnExile() {
+        val original = state()
+        val copy = definition.copy(token = true)
+        val action = PlayAction.CreateToken(SubmittedDefinition(DeckJson.digest(copy), copy), containerId = id(16))
+        assertTrue(GameWire.valid(command(action)))
+        val result = apply(original, action)
+        assertReplayAndInverse(original, result)
+        val token = result.state!!.board.cards.single { it.token }
+        assertEquals(id(16), token.containerId)
+        assertNull(token.placement)
+        assertFalse(token.covered)
+        assertEquals(listOf(token.id), result.state.board.containers.single { it.id == id(16) }.cards)
+        assertEquals(original.board, GameplayHistory.reverse(result.state, result.mutation!!))
+        val gone = apply(result.state, PlayAction.MoveCard(token.id, MoveSource(id(16), null), MoveDestination(id(15), MoveInsertion.UNORDERED)), 21)
+        assertTrue(gone.state!!.board.cards.none { it.id == token.id })
+        assertEquals("missingReference", apply(original, action.copy(containerId = id(15))).reason)
+        assertFalse(GameWire.valid(command(action.copy(containerId = "not-a-uuid"))))
+    }
 }

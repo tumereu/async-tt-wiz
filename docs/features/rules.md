@@ -69,6 +69,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-065** A spell Automatum casts face down (morph and the like) gets a face-down Stack entry as in STK-005 and becomes a face-down permanent; nothing Automatum sends or keeps in the game names it, so the opponent sees only its back. Manual face-down casts are unchanged. (r36)
 - **SYS-066** An emblem Automatum makes (CR 114) is kept in the game with whose it is and its text, for its chip by the life square (TRN-053). (r36)
 - **SYS-067** With Automatum on, priority follows the rules: each step gives it to the active player first; a player passes it with the step button (TRN-057) or Let it resolve (STK-027), so the other player may cast once the active player has passed; after a cast its caster passes it (STK-026); after something resolves the active player gets it again. Automatum sets that priority within its own steps. Lands played through Automatum count one per turn. A turn changed while Automatum was off starts with no lands played, and the "until end of turn" and "until end of combat" effects of earlier turns have ended. (r37)
+- **SYS-068** A copy of a card that Automatum makes (a Saga that copies cards in exile and lets you cast the copies) is a token card in its owner's Exile that looks like the copied card. Cast, it stays there with its Stack entry pointing at it; like every token (TBL-103) it stops existing when it goes anywhere but the Battlefield, and a copy that isn't cast stops existing at once. (r38)
 
 ### Player access policy
 

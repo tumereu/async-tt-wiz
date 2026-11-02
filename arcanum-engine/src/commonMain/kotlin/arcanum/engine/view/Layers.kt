@@ -122,6 +122,12 @@ internal object Layers {
         AbilityOrigin.LandType(landType),
     )
 
+    /** blb gaps 2: the replacement effect finality counters create (CR 122.1h). */
+    val FINALITY = Mechanic.Replacement(
+        arcanum.api.EventPattern.ZoneChange(arcanum.api.ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard),
+        modify = listOf(arcanum.api.Modification.ChangeDestination(arcanum.api.Destination(Zone.Exile))),
+    )
+
     val ORDER: List<Layer> = listOf(
         Layer.Control, Layer.Text, Layer.Type, Layer.Color, Layer.Ability,
         Layer.PowerToughnessDefining, Layer.PowerToughnessSet, Layer.PowerToughnessModify, Layer.PowerToughnessSwitch,
@@ -138,7 +144,10 @@ internal data class Partial(
 
 /** The board part-way through the layers: the evaluator reads characteristics as far as they are worked out. */
 internal class WorkBoard(override val state: GameState, val work: MutableMap<ObjectId, Partial>, val reads: ViewReads = ViewReads()) : Board {
+    // blb gaps: an object that has left its zone reads as it last existed (CR 608.2h), as in the finished view: "if you
+    // cast an instant or sorcery spell this turn" tests the spell after it resolved
     override fun characteristics(id: ObjectId): Characteristics? = work[id]?.chars
+        ?: if (state.obj(id) == null && id !in state.stackItems) { readingLog(); snapshot(id)?.characteristics } else null
 
     override fun controller(id: ObjectId): PlayerId? {
         val o = state.obj(id) ?: return work[id]?.controller ?: state.stackItems[id]?.controller
@@ -408,7 +417,8 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         val you = board.controller(id) ?: o.owner
         partial.chars.abilities.mapNotNull { instance ->
             val ability = instance.ability as? Ability.Static ?: return@mapNotNull null
-            if (o.zone !in Functioning.zones(ability, partial.chars.isInstantOrSorcery())) return@mapNotNull null
+            // blb gaps 2: emblems' abilities work in the command zone (CR 114.4), static ones too
+            if (o.zone != Zone.Command && o.zone !in Functioning.zones(ability, partial.chars.isInstantOrSorcery())) return@mapNotNull null
             ContinuousEffect(
                 key = "s:$id:${instance.origin.key}",
                 // CR 613.7a: the object's timestamp, or the grant's if later
@@ -469,7 +479,8 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         val instance = e.instance ?: return true
         if (partial.chars.abilities.none { it.origin == instance.origin && it.ability == instance.ability }) return false
         val o = state.obj(holder) ?: return false
-        if (o.zone !in Functioning.zones(instance.ability, partial.chars.isInstantOrSorcery())) return false
+        // blb gaps 2: emblems' abilities work in the command zone (CR 114.4)
+        if (o.zone != Zone.Command && o.zone !in Functioning.zones(instance.ability, partial.chars.isInstantOrSorcery())) return false
         return conditionHolds(board, e)
     }
 
@@ -631,6 +642,14 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         effectObjects(board).forEach { e ->
             val effect = state.effects.getValue(e.effect!!)
             effect.mechanics.filter { it.layer == null }.forEach { place(e, it, effect.lockedPlayers) }
+        }
+        // blb gaps 2: one or more finality counters on a permanent create one replacement effect, "If this permanent would
+        // be put into a graveyard from the battlefield, exile it instead" (CR 122.1h); it doesn't come from an ability, so
+        // losing all abilities doesn't stop it
+        state.battlefield.forEach { id ->
+            val o = state.obj(id) ?: return@forEach
+            if (o.phasedOut || o.counters(CounterKind.Finality) == 0) return@forEach
+            rules += AppliedMechanic(Layers.FINALITY, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
         }
 
         val evaluator = Evaluator(board, Context(you = state.turn.active))

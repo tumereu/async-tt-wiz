@@ -138,6 +138,11 @@ object Automatum {
     /** An emblem in a player's command zone (CR 114, I-D25): ATW shows its [EngineRecord.text] as a chip by its
      * [EngineRecord.player]'s life square. */
     @Serializable @SerialName("emblem") data object Emblem : EngineRecordKind
+    /** A pre-event (I-D33): an early answer to a decision that isn't open yet, by or for [EngineRecord.player], whose
+     * decision it is; Automatum applies it when that decision opens, and the next automated batch removes it either
+     * way. Not part of the board an automated batch is planned on ([MtgFacts.digest]): giving or withdrawing one never
+     * refuses the batch of the decision being answered meanwhile. */
+    @Serializable @SerialName("pre-answer") data object PreAnswer : EngineRecordKind
 }
 
 /** One engine record ATW stores and doesn't interpret (P2, §4.3); [timestamp] for effect objects, delayed triggers
@@ -235,6 +240,7 @@ object MtgRules {
         stamp(record.timestamp ?: 0) && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID) &&
         if (record.kind == EngineRecordKind.Emblem) record.player?.let(DeckValidation::uuid) == true &&
             DeckValidation.text(record.text, Automatum.MAX_TEXT_BYTES)
+        else if (record.kind == EngineRecordKind.PreAnswer) record.player?.let(DeckValidation::uuid) == true && record.text.isEmpty()
         else record.player == null && record.text.isEmpty()
 
     private fun valid(item: MtgStackItem?) = item == null || valid(item.id) && DeckValidation.uuid(item.controller) &&
@@ -436,7 +442,9 @@ object MtgFacts {
         val json = GameWire.json
         fun without(element: JsonElement, vararg keys: String) = JsonObject((element as JsonObject).filterKeys { it !in keys })
         val shown = board.copy(contentsDisplays = emptyList(), links = emptyList(), projectionLinks = emptyList(),
-            resultSuggestion = null, stackTextMarks = emptyMap(), attentionHolder = null)
+            resultSuggestion = null, stackTextMarks = emptyMap(), attentionHolder = null,
+            // I-D33: early answers wait beside the board; the batch that meets their decision reads them itself
+            engineRecords = board.engineRecords.filterNot { it.kind == EngineRecordKind.PreAnswer })
         val element = json.encodeToJsonElement(BoardState.serializer(), shown) as JsonObject
         val reduced = JsonObject(element + mapOf(
             "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters") }),

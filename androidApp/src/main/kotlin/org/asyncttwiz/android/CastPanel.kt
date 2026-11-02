@@ -63,7 +63,8 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, sce
     val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == toolkit.viewer }?.bounds
     CastPanelPlacement(stack, if (cast.targeting) handRow?.center?.y else null) {
         when {
-            cast.targeting -> TargetBar(cast, flow, play)
+            // Picking a target in Manage Stack: its sheet stands in for the bar until it closes
+            cast.targeting -> if (!toolkit.stackTargeting) TargetBar(cast, flow, play)
             cast.hidden -> Surface(Modifier.size(44.dp), shape = CircleShape, color = Color.White, shadowElevation = 6.dp,
                 border = BorderStroke(2.dp, AutomatumViolet)) {
                 EyeButton(hidden = true, cast::toggleHidden)
@@ -273,10 +274,14 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
             }
         }
         is Decision.Divide -> {
-            var shares by remember(decision.id) { mutableStateOf(decision.among.associateWith { decision.minEach }) }
+            // Pre-filled with the engine's suggestion when it has one (combat damage: lethal to each in turn, I-D29)
+            val suggested = decision.suggested.associate { it.target to it.amount }
+            var shares by remember(decision.id) { mutableStateOf(decision.among.associateWith { suggested[it] ?: decision.minEach }) }
+            val lethal = decision.lethal.associate { it.target to it.amount }
             Section("Divide ${decision.amount}") {
                 for (target in decision.among) Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(targetName(flow, play, names, target), Modifier.weight(1f), fontSize = 12.sp)
+                    Text(targetName(flow, play, names, target) + (lethal[target]?.let { " (lethal $it)" } ?: ""),
+                        Modifier.weight(1f), fontSize = 12.sp)
                     Stepper(shares.getValue(target), decision.minEach, decision.amount) { shares = shares + (target to it) }
                 }
                 Button({ cast.answer(Answer.Division(shares.map { arcanum.engine.decision.Share(it.key, it.value) })) },

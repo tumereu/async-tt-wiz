@@ -74,7 +74,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### Dragging and battlefield piles
 
-- **TBL-051** Dragging a card moves it; dragging a selected card moves the whole selection, which stays selected after the move; dragging an unselected card clears the selection and moves only that card. (r2)
+- **TBL-051** Dragging a card moves it; dragging a selected card moves the whole selection, which stays selected after the move; dragging an unselected card clears the selection and moves only that card. With Automatum on, drags follow ZON-077. (r38)
 - **TBL-052** A drag shows a lifted card and highlights where it will land; a cancelled or invalid drop puts everything back, selection included, and records nothing. (r2)
 - **TBL-053** Dropping a card onto another battlefield card puts it on top of that card's pile; a pile holds at most 3 cards, and a drop that would make 4 shows as invalid and does nothing. (r30)
 - **TBL-054** Cards in a pile peek out diagonally toward the top-left and keep their own tapped and face-down state; dragging a member onto its own pile brings it to the top, dragging it to empty space splits it off. (r2)

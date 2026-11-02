@@ -310,6 +310,10 @@ internal object Mana {
                     Payer((snap.view[id]?.characteristics?.colors.orEmpty() + listOf<Color?>()).toSet(), snow = false,
                         use = ManaUse.Special(way, listOf(id)))
                 }
+                // blb gaps 2: any one mana of the cost, whatever the creature's colour
+                ManaPaymentWay.TapCreaturesForAnyMana -> untapped(snap, player, CardType.Creature).filter { it !in exclude }.map { id ->
+                    Payer((Color.all + listOf<Color?>(null)).toSet(), snow = false, use = ManaUse.Special(way, listOf(id)))
+                }
                 ManaPaymentWay.TapArtifacts -> untapped(snap, player, CardType.Artifact).filter { it !in exclude }.map { id ->
                     Payer(emptySet(), snow = false, use = ManaUse.Special(way, listOf(id)))
                 }

@@ -10,6 +10,8 @@ import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -58,10 +60,13 @@ internal object StackMenuActions {
     }
 }
 
-/** Exceptional Stack edits stay in one compact, live shared-state view. */
+/** Exceptional Stack edits stay in one compact, live shared-state view. With [targets] (an Automatum cast or choice
+ * picking a target on the Stack, I-D6) it is a target picker instead: the legal entries glow and a tap picks one
+ * ([pickTarget]); the others are dimmed, and the editing controls are left out. */
 @Composable
 internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolean, dismiss: () -> Unit,
-    perform: (TableIntent) -> Unit, editNote: ((String) -> Unit)? = null) {
+    perform: (TableIntent) -> Unit, editNote: ((String) -> Unit)? = null,
+    targets: List<String>? = null, pickTarget: (String) -> Unit = {}) {
     val annotations = LocalTableMenuAnnotations.current
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
@@ -77,7 +82,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
     // Wide enough for one row of seven 48 dp entry buttons.
-    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
+    InlinePopupPanel(dismiss, title = if (targets != null) "Choose a target · ${targets.size}" else "Manage Stack · ${order.size}",
+        width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
@@ -85,8 +91,11 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                 val projection = state.board.stackEffects.any { it.id == id }
                 val controlled = CombatStackRules.controller(state.board, id) == viewer
                 val owner = if (controlled) OwnTableColor else OpponentTableColor
-                Column {
-                    Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = {}, double = null,
+                val target = targets?.contains(id)
+                Column(if (target == null) Modifier else Modifier.alpha(if (target) 1f else .4f)
+                    .then(if (target) Modifier.border(2.dp, AutomatumViolet, androidx.compose.foundation.shape.RoundedCornerShape(6.dp))
+                        .semantics { contentDescription = "Legal target" } else Modifier)) {
+                    Row(Modifier.contentsCardGestures(id, PlayZone.STACK, actions = { if (target == true) pickTarget(id) }, double = null,
                         inspect = { inspect(id, false) }, peek = { held -> if (held) inspect(id, true) else if (peeking) inspection = null }),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         val definition = state.definitions.find { it.digest == card?.definition }?.definition
@@ -103,7 +112,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             style = MaterialTheme.typography.bodyMedium, maxLines = 2)
                         StackMarkChips(state.board.stackTextMarks[id].orEmpty())
                     }
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (targets == null) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         val icons = listOf(Icons.Outlined.Close, Icons.Outlined.TableRows, Icons.Outlined.Inventory2,
                             Icons.Outlined.ContentCopy, Icons.Outlined.SwapHoriz, Icons.AutoMirrored.Outlined.StickyNote2,
                             Icons.Outlined.AdsClick)
@@ -115,7 +124,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             }
                         }
                     }
-                    stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
+                    if (targets == null) stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
                         FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
                             onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
                              enabled = enabled, modifier = Modifier.ringInputTarget().tableChangeFlash(LocalTableChanges.current,

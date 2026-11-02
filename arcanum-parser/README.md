@@ -24,9 +24,7 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Power-up and Solved become ability labels.
 - Set tests (`commonTest/…/sets/<code>/`): every card of a set with invented names. Duskmourn (`dsk`): all 276
   cards parse.
-  Bloomburrow (`blb`): 263 of 279 cards parse; left unparsed: Azure Beastbinder, Eluge, Long River Lurker,
-  Mockingbird, Portent of Calamity, Rottenmouth Viper, Dragonhawk, Reptilian Recruiter, Alania, Helga, Hugs,
-  The Infamous Cruelclaw, Kastral, Ral, Vren and Heirloom Epic (one line each that needs new API or engine work).
+  Bloomburrow (`blb`): all 279 cards parse.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

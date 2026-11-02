@@ -26,7 +26,8 @@ import org.asyncttwiz.protocol.RandomV1
  *   ATW's `ShuffleLibrary` gives for the same seed, so the batch can say it with that event;
  * - host fills from ATW's card data (every client has the game's cards and their definitions);
  * - a step another player decides in their own view ([Decision.OtherView], D31): its identities are filled in here;
- *   when that player has to decide something there, the call stops and the open flow is handed to them.
+ *   when that player has to decide something there, the call stops and the open flow is handed to them;
+ * - a player's decision answered early (a pre-event, I-D33, [PreAnswers]) with that answer, when the engine takes it.
  *
  * The call ends when the engine waits for a player ([pending]) or is done. [changes] are everything it did, in order,
  * for [EngineBatch.plan] to turn into one ATW batch.
@@ -78,7 +79,8 @@ class EngineCall(
                         else -> return working.pending
                     }
                 }
-                else -> return working.pending
+                // I-D33: a decision a player answered early is answered now, when the engine takes the early answer
+                else -> PreAnswers.answer(state.board, working, ids, decision) ?: return working.pending
             }
             run(Input.Answer(decision.id, answer))
         }

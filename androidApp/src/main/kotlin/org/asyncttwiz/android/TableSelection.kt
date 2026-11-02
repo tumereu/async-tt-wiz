@@ -67,7 +67,9 @@ sealed interface TableIntent {
         val toggle: Boolean = false) : TableIntent
     data class Move(val scope: TableScope, val destination: TableDestination,
         val sources: Map<String, TableMoveSource> = emptyMap(), val invocationId: String? = null,
-        val handDoubleTap: Boolean = false) : TableIntent
+        val handDoubleTap: Boolean = false,
+        /** Made by dragging (or its accessibility action): with Automatum on it means an engine action (I-D36). */
+        val drag: Boolean = false) : TableIntent
     data class Ping(val itemId: String?, val point: TablePoint) : TableIntent
     data class PlayerDelta(val accountId: String, val color: org.asyncttwiz.protocol.CounterColor?, val delta: Int) : TableIntent
     data class Submit(val action: org.asyncttwiz.protocol.PlayAction, val invocationId: String?) : TableIntent

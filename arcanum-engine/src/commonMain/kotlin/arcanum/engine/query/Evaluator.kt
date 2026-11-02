@@ -346,6 +346,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 toOk && attachmentsOk
             }
             is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id)
+            // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
+            ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
+            is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
             // CR 115.7: one target in all ("with a single target"), of [target] when given
             is ObjectFilter.SingleTarget -> {
                 val targets = state.stackItems[id]?.targets?.values?.flatten().orEmpty()
@@ -470,6 +473,29 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     }
 
     /** Its names: one, or each half's (CR 709.4a), or none (face down, CR 708.2a). */
+    /** blb gaps: whether each of [ids] can stand for a different value of [quality] that it has ("for each card type, … a
+     * card of that type": an artifact creature card is the artifact or the creature), found by matching each object to a
+     * value of its own, trying again with another for the objects already matched (CR 205.2a). An object with every
+     * creature type (changeling, CR 702.73a) can always stand for one more. */
+    fun eachStandsForOne(quality: SharedQuality, ids: List<ObjectId>): Boolean {
+        val values: List<List<Any>> = ids.mapIndexed { i, id ->
+            val c = characteristics(id) ?: return false
+            when (quality) {
+                SharedQuality.Color -> c.colors
+                SharedQuality.CardType -> c.types
+                SharedQuality.CreatureType -> if (c.allCreatureTypes) listOf("every creature type $i") else creatureTypes(c)
+                SharedQuality.Name -> names(c)
+                SharedQuality.BasicLandType -> c.subtypes.filter { it in Subtypes.basicLandTypes }
+                is SharedQuality.Number -> listOf(property(quality.property, id))
+            }
+        }
+        val holder = mutableMapOf<Any, Int>()
+        fun place(i: Int, tried: MutableSet<Any>): Boolean = values[i].any { v ->
+            tried.add(v) && (holder[v]?.let { other -> place(other, tried) } ?: true).also { placed -> if (placed) holder[v] = i }
+        }
+        return values.indices.all { place(it, mutableSetOf()) }
+    }
+
     private fun names(c: Characteristics?): List<String> = c?.name?.split(" // ").orEmpty()
 
     private fun creatureTypes(c: Characteristics) = c.subtypes.filter { Subtypes.kindOf(it) == SubtypeKind.Creature }
@@ -759,6 +785,26 @@ internal object History {
         val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
         val index = casts.indexOfFirst { c -> arcanum.engine.trigger.EventMatcher.castObject(c) in of }
         return if (index < 0) casts.size else index
+    }
+
+    /** blb gaps 2: whether [id] is the [ObjectFilter.NthSpellThisTurn.n]th spell matching its filter that its caster cast
+     * this turn. A cast spell that became the evaluator's own object (CR 400.7) is judged as that object ("the first Otter
+     * spell other than Alania"). */
+    fun isNthSpell(evaluator: Evaluator, filter: ObjectFilter.NthSpellThisTurn, id: ObjectId): Boolean {
+        evaluator.board.readingLog()
+        val state = evaluator.board.state
+        val casts = state.eventsOf(state.turn.number).filter { arcanum.engine.trigger.EventMatcher.isCast(it) }
+            .map { (it as arcanum.engine.change.Change.StackItemAdded).item }
+        val index = casts.indexOfFirst { it.id == id }
+        if (index < 0) return false
+        val self = evaluator.ctx.self
+        fun counts(spell: ObjectId): Boolean {
+            val judged = if (self != null && spell != self && Lki.newObject(state, spell) == self) self else spell
+            return evaluator.matches(filter.spells, judged)
+        }
+        if (!counts(id)) return false
+        val caster = casts[index].controller
+        return casts.take(index).count { it.controller == caster && counts(it.id) } + 1 == filter.n
     }
 
     private fun instances(evaluator: Evaluator, event: arcanum.api.EventPattern): List<TriggerEvent> {

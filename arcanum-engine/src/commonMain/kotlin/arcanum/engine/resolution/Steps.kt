@@ -263,6 +263,10 @@ internal object Steps {
                         "The chosen objects must differ in $quality"
                     }
                 }
+                // blb gaps: "for each card type, … a card of that type": each chosen object stands for a value of its own
+                choice.onePer?.let { quality ->
+                    require(e2.eachStandsForOne(quality, chosen)) { "Each chosen object must stand for a different $quality" }
+                }
                 NamedValue.Objects(chosen)
             }
             is Choice.Option -> NamedValue.Option(act.chooseOption(chooser, source, choice.options))

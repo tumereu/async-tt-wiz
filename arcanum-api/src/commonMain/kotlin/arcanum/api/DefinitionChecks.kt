@@ -30,7 +30,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * - canonical forms: `Exists` and `HappenedThisTurn` rather than comparing counts with a number; `withoutPaying` rather
  *   than an empty cost; keyword costs only from keywords; counters divided among targets on casting; "each player
  *   [does]" loops together; boast, exhaust and power-up labels only on activated abilities;
- * - a replacement that neither replaces nor modifies; target, mode and choice counts that can't be met;
+ * - a replacement that neither replaces nor modifies; target, mode and choice counts that can't be met; one object per
+ *   value ([Choice.Objects.onePer]) in a choice of at most one or with [Choice.Objects.distinct];
  * - a chapter trigger on a face that isn't a Saga; a characteristic-defining ability with a condition or other scope;
  * - event-scoped mechanics (replacement, prevention, cost change, extra triggers) given an `affects`, in static
  *   abilities and in effects;
@@ -189,6 +190,9 @@ object DefinitionChecks {
                 if (type == "objects" && "filter" in element && "min" in element) {
                     val min = element.fixed("min"); val max = element.fixed("max")
                     if (min != null && max != null) checkCounts("choice", min, max, found)
+                    // blb gaps: one object per value matters only when several may be chosen, and "distinct" is stricter
+                    if (element["onePer"] != null && (max == 1 || element["distinct"] != null))
+                        found += "one object per value needs a choice of several and no distinct (which already allows one of each)"
                 }
                 if (type == "replacement" && element["instead"] == null && element["modify"] == null)
                     found += "a replacement that neither replaces nor modifies the event"

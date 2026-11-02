@@ -58,13 +58,19 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     CastPanelPlacement(stack, if (bar) handRow?.center?.y else null) {
         when {
             decision != null && flows.answering != null -> when {
-                flows.targeting -> FlowTargetBar(flows, flow, play, decision as Decision.Targets)
+                flows.targeting -> if (!toolkit.stackTargeting) FlowTargetBar(flows, flow, play, decision as Decision.Targets)
                 flows.hidden -> HiddenEye(flows)
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
-            decision != null -> WaitingBar("${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing — " +
-                prompt(flows, flow, play, decision), "Choose for them") { confirm = true }
+            decision != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                WaitingBar("${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing — " +
+                    prompt(flows, flow, play, decision), "Choose for them") { confirm = true }
+                // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
+                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer }?.let { early ->
+                    EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
+                }
+            }
             holder == viewer -> when {
                 flows.responding == play.currentNodeId -> RespondBar(flows, viewer)
                 flows.hidden -> HiddenEye(flows)

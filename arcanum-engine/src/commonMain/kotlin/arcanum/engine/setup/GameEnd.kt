@@ -146,6 +146,11 @@ internal object GameEnd {
         s.stack.filter { it is ObjectId.StackItem && s.stackItems[it]?.controller == player }.reversed().forEach { id ->
             recorder.record(Change.StackItemRemoved(s.stackItems.getValue(id), s.stack.indexOf(id)))
         }
+        // CR 708.9: their face-down permanents and spells are revealed to all players (in a viewer's state, those the
+        // viewer doesn't know stay unknown: the game can't wait for the host here; they leave the game at once)
+        val faceDown = s.objects.values.filter { it.owner == player && it.faceDown && (it.zone == Zone.Battlefield || it.zone == Zone.Stack) }
+            .map { it.id }
+        if (faceDown.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(player, faceDown)))
         // Every object they own leaves the game
         val owned = s.objects.values.filter { it.owner == player && it.zone != Zone.Outside }.map { it.id }
         removeSpells(recorder, owned)

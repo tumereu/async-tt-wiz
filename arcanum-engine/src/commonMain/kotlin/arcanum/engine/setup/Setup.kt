@@ -254,6 +254,8 @@ internal object Setup {
         val candidates = companions(act, player)
         val chosen = act.chooseObjects(player, null, candidates, 0, 1, "Reveal a companion (CR 103.2b)")
         chosen.singleOrNull()?.let { id ->
+            // D60: a companion chosen in another player's view becomes public as it is revealed
+            act.fill(player, null, listOf(id), "Revealed companion (CR 103.2b)", public = true)
             act.record(Change.Memory(id, Evaluator.REVEALED_COMPANION, null, NamedValue.Number(1)))
             act.record(Change.Happened(GameEvent.Revealed(player, listOf(id))))
         }
@@ -261,9 +263,16 @@ internal object Setup {
     }
 
     /** The cards [player] owns outside the game with a companion ability whose condition their starting deck meets
-     * (CR 702.139a, b); a condition the engine can't read is left to the player. */
+     * (CR 702.139a, b); a condition the engine can't read is left to the player.
+     *
+     * D60: in another player's view their deck and sideboard are hidden, so the check is theirs, made in their own view
+     * (a host keeping one state per player forwards their choice): here every card of theirs outside the game that may
+     * be a companion is offered, and their library isn't looked at. */
     private fun companions(act: Act, player: PlayerId): List<ObjectId> {
-        val outside = act.state.player(player).outside.filter { companionAbility(act.state.obj(it)) != null }
+        val all = act.state.player(player).outside
+        val outside = all.filter { companionAbility(act.state.obj(it)) != null }
+        val viewer = act.state.viewer
+        if (viewer != null && viewer != player) return all.filter { it in outside || act.state.obj(it)?.unknown == true }
         if (outside.isEmpty()) return emptyList()
         if (outside.any { companionAbility(act.state.obj(it))?.eachCard != null }) {
             act.fill(player, null, act.state.player(player).library, "Check companion conditions against the starting deck (CR 702.139a)")

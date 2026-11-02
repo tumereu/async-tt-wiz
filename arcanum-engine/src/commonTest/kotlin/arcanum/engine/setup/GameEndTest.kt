@@ -264,4 +264,15 @@ class GameEndTest {
         assertEquals(bob.id, state.turn.active)
         expect { bob.hand.size shouldBe 6 }
     }
+
+    // CR 708.9: a leaving player's face-down permanents are revealed to all players
+    @Test
+    fun aLeavingPlayersFaceDownPermanentsAreRevealed() = scenario(players = 3) {
+        bob.battlefield("Undead Soothsayer", faceDown = true)
+        bob.battlefield("Elvish Seer")
+        val faceDown = card("Undead Soothsayer")
+        perform(Input.Concede(bob.id))
+        assertEquals(listOf(GameEvent.Revealed(bob.id, listOf(faceDown))), applied.filterIsInstance<Change.Happened>()
+            .map { it.event }.filterIsInstance<GameEvent.Revealed>())
+    }
 }

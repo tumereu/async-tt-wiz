@@ -124,7 +124,10 @@ internal object Triggers {
         val i = ability.instructions
         return i.targets.isEmpty() && i.modes == null && i.steps.isNotEmpty() &&
             on.events.all { it is arcanum.api.EventPattern.Tap && it.forMana == true } &&
-            i.steps.all { step -> ((step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana)?.mana?.kind is arcanum.api.ManaKind.Fixed }
+            i.steps.all { step -> ((step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana)?.mana?.kind.let {
+                // dgm: "adds one mana of any type that land produced" (CR 605.1b)
+                it is arcanum.api.ManaKind.Fixed || it is arcanum.api.ManaKind.SameAsProduced
+            } }
     }
 
     /** Puts [triggers] among those waiting to go on the Stack (CR 603.2, 603.3). */

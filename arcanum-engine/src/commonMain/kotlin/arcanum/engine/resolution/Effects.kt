@@ -763,7 +763,12 @@ internal object Effects {
             }
             is ManaKind.SameAsProduced, is ManaKind.AsCouldProduce -> {
                 val amount = e.value(if (kind is ManaKind.SameAsProduced) kind.amount else (kind as ManaKind.AsCouldProduce).amount)
-                act.chooseColor(player, scope.self, Color.all).let { c -> List(amount) { c } }
+                // dgm: "one mana of any type that land produced" (CR 106.7): the types the tapped permanent just added
+                val tapped = scope.event?.objects?.firstOrNull { it.role == arcanum.api.EventRole.Object }?.ids?.firstOrNull()
+                val produced = if (kind is ManaKind.SameAsProduced && tapped != null)
+                    act.state.player(player).manaPool.filter { it.source == tapped }.map { it.color }.distinct() else emptyList()
+                if (produced.size == 1) List(amount) { produced.single() }
+                else act.chooseColor(player, scope.self, produced.filterNotNull().ifEmpty { Color.all }).let { c -> List(amount) { c } }
             }
         }
         if (colors.isEmpty()) return
@@ -774,10 +779,6 @@ internal object Effects {
 
     // ---- Continuous effects (CR 611)
 
-    /**
-     * Creates an effect object (CR 611.2, D19): characteristic and control changes lock their affected objects now (CR
-     * 611.2c); numbers that don't depend on the affected object are fixed now (CR 608.2h); the names used are frozen (D37).
-     */
     // gtc
     /** "Becomes a copy of …, except it has this ability" (CR 707.9b): the ability resolving, as the effect is created. */
     private fun thisAbility(scope: Scope, m: Mechanic): Mechanic {
@@ -788,6 +789,10 @@ internal object Effects {
         })
     }
 
+    /**
+     * Creates an effect object (CR 611.2, D19): characteristic and control changes lock their affected objects now (CR
+     * 611.2c); numbers that don't depend on the affected object are fixed now (CR 608.2h); the names used are frozen (D37).
+     */
     fun applyMechanics(
         scope: Scope, mechanics: List<Mechanic>, affects: Affected?, duration: Duration, uses: Int?,
         locked: List<ObjectId>? = null, amountLeft: Int? = null, extra: Map<String, NamedValue> = emptyMap(),

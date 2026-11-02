@@ -30,7 +30,8 @@ public final class ServiceCommand {
                 service.close();
                 stopped.countDown();
             }, "service-shutdown"));
-            service.start();
+            // Port 0 binds any free port; these lines name the actual ports (fixed ports are printed as well).
+            service.start((listener, port) -> System.out.println("Listener bound: " + listener + " port=" + port));
             System.out.println("Service started; health is separate; readiness requires database writer ownership.");
             stopped.await();
         } catch (Exception failure) {

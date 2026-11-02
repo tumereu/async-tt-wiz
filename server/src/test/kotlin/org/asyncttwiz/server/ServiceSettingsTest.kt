@@ -24,6 +24,20 @@ class ServiceSettingsTest {
         assertEquals("ServiceSettings[redacted]", settings.toString())
     }
 
+    @Test fun `port 0 means any free port for either listener while equal fixed ports are refused`() {
+        val secret = temporary.resolve("private-file")
+        Files.writeString(secret, "synthetic")
+        val valid = mapOf("DB_URL" to "jdbc:postgresql://127.0.0.1:1/private_db", "DB_USER" to "private_username",
+            "DB_PASSWORD_FILE" to secret.toString(), "PUBLIC_BASE_URL" to "https://synthetic.invalid") +
+            org.asyncttwiz.server.accounts.SyntheticMailbox.environment(temporary)
+        val any = ServiceSettings.fromEnvironment(valid + mapOf("SERVER_PORT" to "0", "HEALTH_PORT" to "0"))
+        assertEquals(0, any.publicPort())
+        assertEquals(0, any.healthPort())
+        assertThrows(IllegalArgumentException::class.java) {
+            ServiceSettings.fromEnvironment(valid + mapOf("SERVER_PORT" to "9000", "HEALTH_PORT" to "9000"))
+        }
+    }
+
     @Test fun `oversized file secret is refused rather than loading unlimited bytes`() {
         val secret = temporary.resolve("too-large")
         Files.writeString(secret, "a".repeat(65537))

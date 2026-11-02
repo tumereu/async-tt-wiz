@@ -61,11 +61,17 @@ public final class SpringService implements AutoCloseable {
         activity = new ActivityDelivery(runtime, activityPush, java.time.Clock.systemUTC());
     }
 
-    public synchronized void start() {
+    public synchronized void start() { start((listener, port) -> {}); }
+
+    /** Starts the health listener, then the public one, telling {@code bound} each listener's actual port as soon
+     * as it is bound ("health", then "public"), so a port-0 listener is known even if a later step fails. */
+    public synchronized void start(java.util.function.ObjIntConsumer<String> bound) {
         if (closed || health != null) throw new IllegalStateException("Service already started or closed");
         try {
             health = context(settings.healthAddress(), settings.healthPort(), true);
+            bound.accept("health", healthPort());
             publicApi = context(settings.publicAddress(), settings.publicPort(), false);
+            bound.accept("public", publicPort());
             if (mail != null) mail.start();
             games.start();
             activity.start();

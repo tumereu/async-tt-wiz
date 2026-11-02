@@ -40,8 +40,8 @@ without automatic clean, repair or baseline. Add migrations; do not edit deploye
 
 | Input | Meaning |
 | --- | --- |
-| `SERVER_ADDRESS`, `SERVER_PORT` | Public listener; defaults `0.0.0.0:8080` |
-| `HEALTH_ADDRESS`, `HEALTH_PORT` | Separate health listener; defaults `127.0.0.1:8081` |
+| `SERVER_ADDRESS`, `SERVER_PORT` | Public listener; defaults `0.0.0.0:8080`; port `0` binds any free port |
+| `HEALTH_ADDRESS`, `HEALTH_PORT` | Separate health listener; defaults `127.0.0.1:8081`; port `0` binds any free port |
 | `PUBLIC_BASE_URL` | Absolute external HTTP(S) base URL; use HTTPS outside local development |
 | `RESET_BASE_URL` | HTTPS origin for `/reset-password` links |
 | `RESET_MAIL_KEY_FILE` | Canonical base64 of 32 random bytes; retain across restarts |

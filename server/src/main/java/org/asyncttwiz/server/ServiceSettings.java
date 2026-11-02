@@ -25,7 +25,8 @@ public record ServiceSettings(DatabaseSettings database, URI publicBaseUrl, Inet
         }
         int port = port(environment, "SERVER_PORT", 8080);
         int healthPort = port(environment, "HEALTH_PORT", 8081);
-        if (port == healthPort) throw new IllegalArgumentException("Public and health ports must differ");
+        // Port 0 binds any free port (serve prints the actual one); two zeros become two different ports.
+        if (port != 0 && port == healthPort) throw new IllegalArgumentException("Public and health ports must differ");
         return new ServiceSettings(database, base,
                 address(environment, "SERVER_ADDRESS", "0.0.0.0"), port,
                 address(environment, "HEALTH_ADDRESS", "127.0.0.1"), healthPort,
@@ -42,7 +43,7 @@ public record ServiceSettings(DatabaseSettings database, URI publicBaseUrl, Inet
         String value = values.getOrDefault(name, Integer.toString(fallback));
         if (!value.matches("[0-9]{1,5}")) throw new IllegalArgumentException("Invalid listener port");
         int port = Integer.parseInt(value);
-        if (port < 1 || port > 65535) throw new IllegalArgumentException("Invalid listener port");
+        if (port > 65535) throw new IllegalArgumentException("Invalid listener port");
         return port;
     }
 

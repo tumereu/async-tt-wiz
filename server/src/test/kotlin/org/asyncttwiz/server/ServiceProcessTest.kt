@@ -25,15 +25,15 @@ class ServiceProcessTest {
     @TempDir lateinit var temporary: Path
     private val http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(1)).build()
 
-    private fun port(address: String) = ServerSocket(0, 50, java.net.InetAddress.getByName(address)).use { it.localPort }
-
+    // Port 0: the service binds free ports itself and prints them ("Listener bound: ..."), so no other process
+    // can take a port between the test choosing it and the service binding it.
     private fun environment(db: OwnedPostgres): Map<String, String> {
         val secret = temporary.resolve("password-${UUID.randomUUID()}")
         Files.writeString(secret, db.container.password + "\r\n")
         return mapOf("DB_URL" to db.container.jdbcUrl, "DB_USER" to db.container.username,
             "DB_PASSWORD_FILE" to secret.toString(), "PUBLIC_BASE_URL" to "https://synthetic.invalid/base",
-            "SERVER_ADDRESS" to "127.0.0.1", "SERVER_PORT" to port("127.0.0.1").toString(),
-            "HEALTH_ADDRESS" to "127.0.0.1", "HEALTH_PORT" to port("127.0.0.1").toString(),
+            "SERVER_ADDRESS" to "127.0.0.1", "SERVER_PORT" to "0",
+            "HEALTH_ADDRESS" to "127.0.0.1", "HEALTH_PORT" to "0",
             // These are deliberately NOT an alternate configuration channel.
             "SPRING_APPLICATION_JSON" to """{"logging":{"level":{"root":"TRACE"}},"server":{"port":1}}""",
             "SPRING_CONFIG_LOCATION" to "file:/not-an-application-configuration") +
@@ -47,6 +47,22 @@ class ServiceProcessTest {
         builder.environment().clear()
         builder.environment().putAll(inherited + inputs)
         return builder.start()
+    }
+
+    /** The ports a `serve` process reports as bound so far, by listener ("health", "public"); complete lines only. */
+    private fun boundPorts(log: Path): Map<String, Int> =
+        Regex("(?m)^Listener bound: (health|public) port=([0-9]+)\\r?\\n").findAll(Files.readString(log))
+            .associate { it.groupValues[1] to it.groupValues[2].toInt() }
+
+    private fun addressKey(listener: String) = if (listener == "health") "HEALTH_ADDRESS" else "SERVER_ADDRESS"
+
+    /** Rebinding the exact local address/port proves the exited process's real listener is released
+     * (WSL's host loopback relay can still accept TCP after the owned JVM exits). */
+    private fun assertReleased(inputs: Map<String, String>, listener: String, port: Int) {
+        ServerSocket().use { socket ->
+            socket.reuseAddress = true
+            socket.bind(InetSocketAddress(inputs.getValue(addressKey(listener)), port))
+        }
     }
 
     private fun secrets(inputs: Map<String, String>): List<String> {
@@ -100,10 +116,25 @@ class ServiceProcessTest {
         val log = temporary.resolve("service-${UUID.randomUUID()}.log")
         val process = launch(inputs, "serve", log)
         private var closed = false
+        private var ports: Map<String, Int>? = null
+
+        /** The listener's actual port, waiting for the process to report it. */
+        fun port(listener: String): Int {
+            ports?.let { return it.getValue(listener) }
+            var reported = emptyMap<String, Int>()
+            await("service reports bound ports") {
+                reported = boundPorts(log)
+                assertTrue(reported.size == 2 || process.isAlive, "Service exited before binding its listeners")
+                reported.size == 2
+            }
+            ports = reported
+            return reported.getValue(listener)
+        }
 
         fun request(path: String, health: Boolean = true, method: String = "GET"): HttpResponse<String> {
-            val address = inputs.getValue(if (health) "HEALTH_ADDRESS" else "SERVER_ADDRESS")
-            val port = inputs.getValue(if (health) "HEALTH_PORT" else "SERVER_PORT")
+            val listener = if (health) "health" else "public"
+            val address = inputs.getValue(addressKey(listener))
+            val port = port(listener)
             return http.send(HttpRequest.newBuilder(URI("http://$address:$port$path"))
                 .timeout(Duration.ofSeconds(15)).method(method, HttpRequest.BodyPublishers.noBody()).build(),
                 HttpResponse.BodyHandlers.ofString())
@@ -144,15 +175,7 @@ class ServiceProcessTest {
                     assertEquals(143, process.exitValue(), "Expected JVM SIGTERM exit")
                 }
                 val elapsed = Duration.ofNanos(System.nanoTime() - start).toMillis()
-                listOf("SERVER", "HEALTH").forEach { prefix ->
-                    // WSL's host loopback relay can still accept TCP after the owned JVM exits.
-                    // Rebinding the exact local address/port proves its real listener is released.
-                    ServerSocket().use { socket ->
-                        socket.reuseAddress = true
-                        socket.bind(InetSocketAddress(inputs.getValue("${prefix}_ADDRESS"),
-                            inputs.getValue("${prefix}_PORT").toInt()))
-                    }
-                }
+                boundPorts(log).forEach { (listener, port) -> assertReleased(inputs, listener, port) }
                 redactedOutput(log, inputs)
                 println("CLEANUP service pid=${process.pid()} exited=${process.exitValue()} SIGTERM-ms=$elapsed listeners closed")
             } finally {
@@ -215,7 +238,7 @@ class ServiceProcessTest {
                 assertEquals(404, service.request("/health/live", method = "POST").statusCode())
                 assertEquals("", service.request("/health/live", method = "HEAD").body())
                 assertThrows(java.io.IOException::class.java) {
-                    Socket().use { it.connect(InetSocketAddress("127.0.0.2", inputs.getValue("HEALTH_PORT").toInt()), 500) }
+                    Socket().use { it.connect(InetSocketAddress("127.0.0.2", service.port("health")), 500) }
                 }
                 println("PASS health/public port and address isolation; detail-free unknown paths/methods")
             }
@@ -368,19 +391,19 @@ class ServiceProcessTest {
 
     @Test fun `occupied public port fails safely and closes already started health listener`() {
         OwnedPostgres().start().use { db ->
-            val inputs = environment(db)
             ServerSocket().use { occupied ->
-                occupied.bind(InetSocketAddress(inputs.getValue("SERVER_ADDRESS"), inputs.getValue("SERVER_PORT").toInt()))
+                // The test itself holds the public port, so nothing can race for it; health binds any free port.
+                occupied.bind(InetSocketAddress("127.0.0.1", 0))
+                val inputs = environment(db) + ("SERVER_PORT" to occupied.localPort.toString())
                 val log = temporary.resolve("occupied-public-port.log")
                 val process = launch(inputs, "serve", log)
                 try {
                     assertTrue(process.waitFor(20, TimeUnit.SECONDS))
                     assertEquals(1, process.exitValue())
                     redactedOutput(log, inputs)
-                    ServerSocket().use { health ->
-                        health.reuseAddress = true
-                        health.bind(InetSocketAddress(inputs.getValue("HEALTH_ADDRESS"), inputs.getValue("HEALTH_PORT").toInt()))
-                    }
+                    val bound = boundPorts(log)
+                    assertEquals(setOf("health"), bound.keys, "Health listener started first; public never bound")
+                    assertReleased(inputs, "health", bound.getValue("health"))
                     assertNoServiceConnections(db)
                     println("PASS public bind failure closes partially started health context and exits safely")
                 } finally { if (process.isAlive) process.destroyForcibly().waitFor() }

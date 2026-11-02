@@ -8,12 +8,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import arcanum.api.CardDefinition
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.withContext
 import arcanum.engine.state.LoggedChange
 import org.asyncttwiz.automatum.ComputedBoard
 import org.asyncttwiz.automatum.EngineLog
 import org.asyncttwiz.automatum.HandPlays
+import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.protocol.GameplayTree
 import org.asyncttwiz.protocol.MtgTag
 import org.asyncttwiz.protocol.PlayState
@@ -69,13 +70,17 @@ internal object AutomatumBoards {
     /** The game's card definitions the device could read, by digest (blocking: parses card data not read yet). */
     fun definitions(play: PlayState): Map<String, CardDefinition> = definitions(play.definitions)
 
+    /** What [viewer] may cast or play from their hand on [play]'s board, when already worked out. */
+    fun cachedHandPlays(play: PlayState, viewer: String): HandPlays? = synchronized(plays) { plays[PlaysKey(play.board, viewer)] }
+
     /** What [viewer] may cast or play from their hand on [play]'s board (I2, I-D28): kept for the latest boards; worked
-     * out now when not yet (blocking: one engine `options`). [tags]: the history's tags up to this board (D33). */
-    fun handPlays(play: PlayState, viewer: String, tags: List<MtgTag?>): HandPlays {
-        synchronized(plays) { plays[PlaysKey(play.board, viewer)] }?.let { return it }
+     * out now when not yet (blocking: one engine `options`). [tags]: the history's tags up to this board (D33), read
+     * only when it has to be worked out. */
+    fun handPlays(play: PlayState, viewer: String, tags: () -> List<MtgTag?>): HandPlays {
+        cachedHandPlays(play, viewer)?.let { return it }
         val result = try {
             val definitions = definitions(play.definitions)
-            HandPlays.of(play, definitions, viewer, engineLog(play, definitions, tags))
+            HandPlays.of(play, definitions, viewer, engineLog(play, definitions, tags()))
         } catch (problem: Exception) {
             AppLog.warn("automatum", "Couldn't list plays: ${problem::class.java.simpleName}")
             HandPlays.NONE
@@ -84,14 +89,55 @@ internal object AutomatumBoards {
         return result
     }
 
-    /** The engine's event log from the history's [tags] (D33); empty when it can't be read (a cast then misses "this
+    private val flows = object : LinkedHashMap<IdentityKey, SharedFlow?>(16, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<IdentityKey, SharedFlow?>?) = size > 8
+    }
+    private val random = java.security.SecureRandom()
+    private fun seed(): String = org.asyncttwiz.protocol.RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
+
+    /** Whether [play]'s board has a shared flow to show (I2): an open decision, or something on the Stack. */
+    fun sharedFlowShown(play: PlayState): Boolean = play.board.automatum &&
+        (org.asyncttwiz.protocol.Automatum.flowOpen(play.board) || play.board.stackEffects.any { it.item != null })
+
+    /** The shared flow of [play]'s board already worked out, if any. */
+    fun cachedFlow(play: PlayState): SharedFlow? = synchronized(flows) { flows[IdentityKey(play.board)] }
+
+    /** [play]'s board as a shared flow (priority, the open decision; I2): kept for the latest boards; worked out now when
+     * not yet (blocking: one engine state). Null when the board can't be taken over. [tags]: the history's tags (D33). */
+    fun sharedFlow(play: PlayState, tags: List<MtgTag?>): SharedFlow? {
+        synchronized(flows) { if (flows.containsKey(IdentityKey(play.board))) return flows[IdentityKey(play.board)] }
+        val result = try {
+            val definitions = definitions(play.definitions)
+            SharedFlow(play, definitions, engineLog(play, definitions, tags), ::seed)
+        } catch (problem: Exception) {
+            AppLog.warn("automatum", "Couldn't read the shared flow: ${problem::class.java.simpleName}")
+            null
+        }
+        synchronized(flows) { flows[IdentityKey(play.board)] = result }
+        return result
+    }
+
+    /** The game's event log readers (one per play, for the card data read so far): each history tag is read once. */
+    private val decoders = object : LinkedHashMap<String, Pair<Set<String>, EngineLog.Decoder>>(4, .75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Pair<Set<String>, EngineLog.Decoder>>?) = size > 4
+    }
+
+    /** The engine's event log from the history's [tags] (D33): this and last turn's events ([EngineLog.recent]), each tag
+     * read only once per game ([EngineLog.Decoder], SYS-025). Empty when it can't be read (a cast then misses "this
      * turn" facts rather than failing). */
-    fun engineLog(play: PlayState, definitions: Map<String, CardDefinition>, tags: List<MtgTag?>): List<LoggedChange> =
-        if (tags.all { it?.data.isNullOrEmpty() }) emptyList()
-        else try { EngineLog.from(tags, play, definitions) } catch (problem: Exception) {
+    fun engineLog(play: PlayState, definitions: Map<String, CardDefinition>, tags: List<MtgTag?>): List<LoggedChange> {
+        if (tags.all { it?.data.isNullOrEmpty() }) return emptyList()
+        val decoder = synchronized(decoders) {
+            decoders[play.id]?.takeIf { it.first == definitions.keys }?.second
+                ?: EngineLog.Decoder(definitions).also { decoders[play.id] = definitions.keys to it }
+        }
+        return try {
+            EngineLog.recent(synchronized(decoder) { decoder.log(tags, play) }, play.board.turn.number.toIntOrNull())
+        } catch (problem: Exception) {
             AppLog.warn("automatum", "Engine log unreadable: ${problem::class.java.simpleName}")
             emptyList()
         }
+    }
 
     private fun definitions(submitted: List<SubmittedDefinition>): Map<String, CardDefinition> {
         val missing = submitted.filter { !parsed.containsKey(it.digest) && it.digest !in unreadable }
@@ -115,7 +161,14 @@ internal object AutomatumBoards {
         parsed.clear(); unreadable.clear()
         synchronized(boards) { boards.clear() }
         synchronized(plays) { plays.clear() }
+        synchronized(flows) { flows.clear() }
+        synchronized(decoders) { decoders.clear() }
     }
+
+    /** One worker for the shown boards' engine views, so a board shown only in passing (catch-up playback) is skipped
+     * when a newer one replaced it before the worker got to it (SYS-025). */
+    internal val boardWorker = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "automatum-board").apply { isDaemon = true } }
+        .asCoroutineDispatcher()
 }
 
 /** The engine's view of the shown board while Automatum is on; [ComputedBoard.NONE] while it is off. */
@@ -133,12 +186,10 @@ internal fun rememberComputedBoard(play: PlayState, viewer: String, tags: (() ->
     val ready = if (on) AutomatumBoards.cached(play, viewer) else null
     LaunchedEffect(IdentityKey(play.board), viewer, on) {
         if (!on) { last = ComputedBoard.NONE; return@LaunchedEffect }
-        last = ready ?: withContext(Dispatchers.Default) { AutomatumBoards.compute(play, viewer) }
-        // I2: what the viewer may cast from their hand, ready before their hand menu or a double-tap asks
-        if (tags != null) {
-            val history = tags()
-            withContext(Dispatchers.Default) { AutomatumBoards.handPlays(play, viewer, history) }
-        }
+        last = ready ?: withContext(AutomatumBoards.boardWorker) { AutomatumBoards.compute(play, viewer) }
+        // I2: what the viewer may cast from their hand, ready before their hand menu or a double-tap asks (the history's
+        // tags read on the worker too)
+        if (tags != null) withContext(AutomatumBoards.boardWorker) { AutomatumBoards.handPlays(play, viewer, tags) }
     }
     return if (!on) ComputedBoard.NONE else ready ?: last
 }

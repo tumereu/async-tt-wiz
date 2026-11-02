@@ -106,8 +106,9 @@ internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height:
 
 /** Ten percent above/below every face, plus the +/-4dp offsets of a three-card pile. */
 internal fun battlefieldRowHeight(cardHeight: Float, scale: Float) = cardHeight * 1.2f + 8f * scale
+/** [localPileTargets]: the local pile is open to pick targets from (Automatum, I-D6): its cards one by one, not grouped. */
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
-    val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null)
+    val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null, val localPileTargets: Boolean = false)
 enum class TableItemKind { CARD, PILE, LIFE, COUNTER, HAND }
 data class TableItem(
     val id: String, val bounds: TableBounds, val label: String, val value: String,

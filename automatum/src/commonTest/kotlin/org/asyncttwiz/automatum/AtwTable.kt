@@ -66,7 +66,8 @@ internal class AtwTable(private val name: String = "table") {
                     layers = if (zone == PlayZone.LIBRARY && members.isNotEmpty()) LibraryLayers.initial(id("layer/$p"), members) else emptyList())
             }
         } + PlayContainer(id("container/stack"), PlayZone.STACK)
-        val board = BoardState(players.map { PlayPlayer(it) }, cards.toList(), containers, turn, priority = priority)
+        // Automatum on: its automated events apply only then (SYS-057)
+        val board = BoardState(players.map { PlayPlayer(it) }, cards.toList(), containers, turn, priority = priority, automatum = true)
         val definitionsList = submitted.values.sortedBy { it.digest }
         var state = PlayState(id("game"), id("play"), id("round"), id("start"), PlayRoot(id("root"), id("branch")), id("root"),
             board, definitionsList,

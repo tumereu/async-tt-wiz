@@ -120,7 +120,7 @@ class AutomatumCastScreenshotTest {
     }
 
     // ZON-004, STK-023, STK-024, I-D6, I-D11: a double-tap casts; the panel shrinks to a bar while Bob is picked by his
-    // life square, then shows the suggested tapping; "Cast" sends everything as one batch
+    // life square, then shows the suggested tapping; "Cast" sends everything as one batch, which resolves it (STK-026)
     @Test fun doubleTapCastsWithTargetBarAndManaSection() {
         val play = board()
         val toolkit = render(play)
@@ -147,23 +147,15 @@ class AutomatumCastScreenshotTest {
         val (batch, request) = sent.single()
         assertTrue(batch.tags.isNotEmpty(), "an automated batch")
         val after = accepted(play, batch, request)
-        // STK-001: the card stays in the hand; its entry carries the spell; the caster holds priority (D57)
-        assertTrue(sparkId in after.board.containers.single { it.id == f.id("a/HAND") }.cards)
-        val entry = after.board.stackEffects.single()
-        assertEquals(sparkId, entry.sourceId)
-        assertEquals(MtgStackKind.Spell, entry.item?.kind)
+        // STK-023, STK-026: the caster passes and Bob has nothing to respond with, so Storm Spark resolves in the cast's
+        // own batch (its spell entry, STK-001, is gone again); the active player holds priority after it (CR 117.3b)
+        assertTrue(sparkId in after.board.containers.single { it.id == f.id("a/GRAVEYARD") }.cards)
+        assertTrue(after.board.stackEffects.isEmpty())
+        assertEquals((play.board.players.single { it.accountId == f.b }.life.toInt() - 3).toString(),
+            after.board.players.single { it.accountId == f.b }.life)
         assertEquals(MtgPriority(f.a), after.board.priority)
         assertEquals(1, after.board.cards.count { it.tapped && it.definition == mountain.submitted.digest })
-        // Resolving it the existing way (Stack bubble "Put to graveyard") leaves a board Automatum takes over
-        var resolved = after
-        for (action in StackMenuActions.destination(after, entry.id, PlayZone.GRAVEYARD)) {
-            val change = GameplayRules.change(resolved, f.a, GameCommand(f.id("resolve/$action"), GameScope(play.gameId, playId = play.id),
-                GameAction.Play(action), f.id("client"), "1"))
-            assertNull(change.reason)
-            resolved = change.state ?: resolved
-        }
-        assertTrue(resolved.board.stackEffects.isEmpty())
-        assertTrue(EngineState.unsupported(resolved, AutomatumBoards.definitions(resolved)).isEmpty())
+        assertTrue(EngineState.unsupported(after, AutomatumBoards.definitions(after)).isEmpty())
     }
 
     // STK-023, I-D6: choices first (kicker with the card's text), then targets, then mana; the kicker stays a toggle and

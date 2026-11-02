@@ -124,6 +124,14 @@ out of anything stuck.
   automatically on the device), other actions refused while it is open. The card stays where it is with its Stack entry
   (D35 deferred to the owner's review); the spell doesn't resolve by itself (I2b). Catalog: ZON-004, ZON-005, ZON-007,
   STK-004, STK-023–STK-025, SYS-067.
+- **Built (I2b, priority and resolution):** `SharedFlow` (module `automatum/`) runs priority passes and answers as
+  shared flows on full information (I-D17, I-D27), each call one batch, the open decision in the continuation record;
+  `SharedFlow.autoPass` passes while `Engine.shouldPassFor` says so but never on an empty Stack (steps stay manual until
+  I3). A cast's batch carries the caster's automatic pass and what follows (`CastFlow.sent`); a decision after the cast
+  itself (trigger order, targets) ends the private flow and goes out as the shared one. App: the respond prompt, the
+  decision panel (cast panel sections shared), "… is choosing" / "Choose for them" and "Pass for them" with a
+  confirmation, hidden cards named only when the viewer may see them; game actions and casting refused while a decision
+  is open; step and turn changes refused while the Stack holds anything. Catalog: STK-023, STK-026–STK-032, SYS-067.
 
 ### I3 — Abilities, lands, combat, steps
 
@@ -133,6 +141,18 @@ out of anything stuck.
   to accept).
 - The step button (TRN-007) moves through steps with the engine: untap, draw, cleanup and "at the beginning of …"
   triggers happen by themselves.
+- **Built (I3 groundwork, module `automatum/`, no UI yet):** `StepFlow.pass(call, player, until)` is the step button: the
+  priority holder passes ("End turn": the host goes on passing for them this turn and declares no attackers, or only
+  what must attack), then the host's automatic passes (`StepFlow.automatic`, I-D18) run to the next point where a player
+  could act; steps passed on the way are `ChooseStep(through = true)`, the last one moves the move (I-D22, TRN-014).
+  `StepFlow.answer` answers a shared flow's decision (cleanup discard, triggers). `CombatFlow`: `choices` (who may
+  attack what and block whom, with the least declaration requirements make), `attackRefusal`/`blockRefusal` (the
+  engine's reason, cards by name), `declareAttackers`/`declareBlockers` from lane data (`LaneAttack`, `LaneBlock`;
+  `lanes(area)` reads them from a combat area), `division`/`divide` (I-D29, the suggestion when no shares are given),
+  `preview` (the damage, life changes and deaths if everyone passes with the suggested divisions, also for blocks still
+  being arranged) and `firstStrikeStep`. `HostPriority` keeps priority as the engine left it (a holder other than the
+  active player on an empty Stack without passes is taken as left from a turn changed by hand). `SharedFlow.autoPass`
+  (I2b) still stops on an empty Stack; the app moves to `StepFlow` when it runs the steps through the engine.
 
 ### I4 — Automatum-only controls
 

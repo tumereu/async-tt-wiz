@@ -259,7 +259,7 @@ class DskChunk13MulticolorTest {
                         Affected.Objects(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.Sub(Subtype("Shard")), youControl)))),
                         Duration.UntilStep(TurnStep.End, PlayerFilter.Any))),
                     Step.Do(Effect.CreateDelayedTrigger(atNextEndStep, Instructions(steps = listOf(
-                        Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield))))))),
+                        Step.Do(Effect.Move(Objects.Bound("exiled"), Destination(Zone.Battlefield, controller = Players.OwnerOf(Objects.Bound("exiled"))))))))),
                 ),
             ),
             rules = any,

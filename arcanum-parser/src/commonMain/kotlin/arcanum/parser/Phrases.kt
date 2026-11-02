@@ -577,6 +577,10 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // dsk chunk 14: "a player has 13 or less life"
+        A_PLAYER_HAS_LIFE_OR_LESS.matchEntire(text)?.let { m ->
+            return Condition.PlayerExists(PlayerFilter.Life(arcanum.api.Comparison.AtMost, Value.Fixed(m.groupValues[1].toInt())), atLeast = 1)
+        }
         // dsk chunk 13: "Kaiden has one or more loyalty counters on him" (this object)
         HAS_ONE_OR_MORE_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1))
@@ -782,6 +786,8 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    // dsk chunk 14
+    private val A_PLAYER_HAS_LIFE_OR_LESS = Regex("""a player has (\d+) or less life""")
     // dsk chunk 13
     private val HAS_ONE_OR_MORE_COUNTERS_ON = Regex("""(.+) has one or more (\S+) counters on (?:it|him|her)""")
     private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")

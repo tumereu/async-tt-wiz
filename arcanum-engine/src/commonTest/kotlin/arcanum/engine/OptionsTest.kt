@@ -3,6 +3,8 @@ package arcanum.engine
 import arcanum.api.CounterKind
 import arcanum.api.TurnStep
 import arcanum.engine.decision.Answer
+import arcanum.engine.decision.Decision
+import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
@@ -209,5 +211,112 @@ class OptionsTest {
         assertTrue(options(bob).none { it is Input.Cancel })
         perform(Input.Cancel(alice.id))
         expect { alice.hand has "Storm Spark" }
+    }
+
+    // ---- Every decision a listed cast or activation reaches has an answer listed (no dead end)
+
+    private fun Scenario.castOf(player: arcanum.engine.scenario.ScenarioPlayer, name: String) =
+        options(player).filterIsInstance<Input.Cast>().single { it.card == card(name) }
+
+    private fun Scenario.numbersListed(player: arcanum.engine.scenario.ScenarioPlayer) =
+        options(player).filterIsInstance<Input.Answer>().map { (it.answer as Answer.Number).value }
+
+    // CR 107.3, 601.2b–c: X is offered at the value a target needs, here larger than the least few
+    @Test
+    fun xIsOfferedAtTheValueATargetNeeds() = scenario {
+        alice.battlefield("Island", "Island", "Island", "Island", "Island", "Island")
+        alice.hand("Rescind")
+        bob.battlefield("Bull of the Pyre")
+        perform(castOf(alice, "Rescind"))
+        assertEquals(listOf(5), numbersListed(alice))
+        allAccepted(alice)
+    }
+
+    // CR 107.3, 601.2g–h: X is offered only as far as mana is found for the cost with it: {X}{U} with three Islands
+    @Test
+    fun xIsOfferedOnlyAsFarAsManaIsFound() = scenario {
+        alice.battlefield("Island", "Island", "Island")
+        alice.hand("Rescind")
+        bob.battlefield("Elvish Hierophant", "Wall of Portents")
+        perform(castOf(alice, "Rescind"))
+        assertEquals(listOf(2), numbersListed(alice))
+        allAccepted(alice)
+    }
+
+    // CR 601.2c, 601.2g–h: a spell no X works for (the only target needs a larger X than mana pays) isn't offered
+    @Test
+    fun spellNoXWorksForIsntListed() = scenario {
+        alice.battlefield("Island", "Island", "Island")
+        alice.hand("Rescind")
+        bob.battlefield("Elvish Hierophant")
+        assertTrue("Rescind" !in casts(alice))
+        allAccepted(alice)
+    }
+
+    // CR 118.3, 602.2b: removing a counter the source doesn't have can't be paid, so the ability isn't offered
+    @Test
+    fun counterCostWithoutTheCounterIsntListed() = scenario {
+        alice.battlefield("Wishfang Amulet")
+        alice.battlefield("Swamp", "Swamp")
+        assertTrue(options(alice).none { it is Input.Activate && it.source == card("Wishfang Amulet") })
+        assertFailsWith<IllegalArgumentException> { alice.activates("Wishfang Amulet") }
+        allAccepted(alice)
+    }
+
+    // CR 118.3, 602.2b: with the counter, it is
+    @Test
+    fun counterCostWithTheCounterIsListed() = scenario {
+        alice.battlefield("Wishfang Amulet", counters = listOf(CounterKind.Named("wish") to 1))
+        alice.battlefield("Swamp", "Swamp")
+        assertTrue(options(alice).any { it is Input.Activate && it.source == card("Wishfang Amulet") })
+        allAccepted(alice)
+    }
+
+    // CR 702.66a, 601.2g–h: cards to exile count when looking for a payment, and the suggested one exiles them
+    @Test
+    fun delveCountsWhenFindingAPayment() = scenario {
+        alice.battlefield("Island", "Island")
+        alice.hand("Delve Through Ages")
+        alice.graveyard("Mountain", "Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        alice.library("Forest", "Forest", "Forest", "Forest", "Forest", "Forest", "Forest")
+        perform(castOf(alice, "Delve Through Ages"))
+        val payment = pending as Decision.ManaPayment
+        assertEquals(6, payment.suggestion.count { it is ManaUse.Special })
+        assertTrue(options(alice).any { it is Input.Answer })
+        allAccepted(alice)
+    }
+
+    // CR 702.66a, 118.3: without cards to exile the cost isn't found, so the spell isn't offered
+    @Test
+    fun delveWithoutCardsIsntListed() = scenario {
+        alice.battlefield("Island", "Island")
+        alice.hand("Delve Through Ages")
+        assertTrue("Delve Through Ages" !in casts(alice))
+    }
+
+    // CR 702.51a, 702.66a: "You can't spend mana to cast this spell": convoke and delve alone pay it, and the suggested
+    // payment uses them
+    @Test
+    fun otherWaysAlonePayWhenManaCantBeSpent() = scenario {
+        alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest", "Forest", "Forest")
+        alice.battlefield("Elvish Seer", "Elvish Seer")
+        alice.hand("Grommak, Risen Charnelhost")
+        alice.graveyard("Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        perform(castOf(alice, "Grommak, Risen Charnelhost"))
+        val payment = pending as Decision.ManaPayment
+        assertEquals(7, payment.suggestion.size)
+        assertTrue(payment.suggestion.all { it is ManaUse.Special })
+        allAccepted(alice)
+    }
+
+    // CR 601.2c: a later target that depends on an earlier one is looked ahead: Goblin Solderer's second target is an
+    // artifact card in the graveyard of the first's controller
+    @Test
+    fun dependentTargetsAreLookedAhead() = scenario {
+        alice.battlefield("Goblin Solderer", "Tinkered Mite")
+        assertTrue(options(alice).none { it is Input.Activate && it.source == card("Goblin Solderer") })
+        alice.graveyard("Gearwing Glider")
+        assertTrue(options(alice).any { it is Input.Activate && it.source == card("Goblin Solderer") })
+        allAccepted(alice)
     }
 }

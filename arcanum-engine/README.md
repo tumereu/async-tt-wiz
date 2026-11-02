@@ -23,8 +23,11 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 naming cards hidden from that player (D60); for choices of several
 objects, targets or modes a working sample is listed, not every combination. A cast or activation is listed when it can
 be begun, everything known at its start can be done (its first targets, the objects its costs use, a mode with what it
-needs) and mana is found for its cost as it stands then (X as 0); `OptionsFuzzTest` checks the contract on seeded random
-games of cube cards. `revert` takes changes back last first; after a host drops older turns' events
+needs), a payment is found for its mana cost as it stands then (X as 0; convoke and delve counted) and its next decisions
+have answers that lead to its end (looked ahead within a bound: a target that depends on X or on an earlier target).
+Inside a cast or activation only answers after which it can still be finished are listed, so no decision it reaches is a
+dead end; X is listed at the least values that work, up to what can be paid. `OptionsFuzzTest` checks the contract on
+seeded random games of cube cards, failing on any open player decision without a listed answer. `revert` takes changes back last first; after a host drops older turns' events
 (`GameState.forgetOlderTurns`) undo still reaches those turns, but "this turn" questions there see none of their events.
 
 - `state/` — `GameState` (serializable, mutable): players in turn order with their zones,
@@ -144,7 +147,7 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   durations ending, mana emptying), N players and extra turns; playing lands (extra land plays,
   permissions, modal double-faced lands); casting (CR 601.2) and activating (CR 602, 606) as a
   continuation: modes, optional costs, X, targets with hexproof/shroud/protection, division,
-  "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8), cancel; the
+  "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8; convoke and delve when mana alone doesn't pay), cancel; the
   events of paying (sacrifice, discard, exile, return, mill, counters put, delve's exile) go through
   the event pipeline, so replacements apply (unearth, madness, counter replacements), and a
   replacement decision while paying waits (`Choices.paying`, D29);

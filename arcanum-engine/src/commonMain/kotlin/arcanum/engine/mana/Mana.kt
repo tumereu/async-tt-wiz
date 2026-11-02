@@ -209,6 +209,15 @@ internal object Mana {
     /** One requirement of a cost: one of [alternatives], each a list of single-mana needs, or 2 life when [life]. */
     data class Need(val symbolIndex: Int, val alternatives: List<List<(Payer) -> Boolean>>, val life: Boolean, val generic: Boolean)
 
+    /** The least mana that pays [cost], Phyrexian symbols paid with life (X symbols as replaced, [withX]). */
+    fun leastMana(cost: ManaCost): Long = cost.symbols.sumOf { s ->
+        when (s) {
+            is ManaSymbol.Generic -> s.amount.toLong()
+            is ManaSymbol.Variable, is ManaSymbol.Phyrexian, is ManaSymbol.PhyrexianHybrid -> 0L
+            else -> 1L
+        }
+    }
+
     /** The needs of [cost]: X symbols must have been replaced already ([withX]). */
     fun needs(cost: ManaCost, lifeFor: Set<Int> = emptySet()): List<Need> = cost.symbols.flatMapIndexed { i, s ->
         fun color(c: Color): (Payer) -> Boolean = { c in it.colors }
@@ -334,12 +343,27 @@ internal object Mana {
     /**
      * A payment of [cost] that keeps the most options open, or empty when none is found (§7.8): pool mana first, then
      * the cheapest sources (lands before creatures, single colours before many, nothing sacrificed when avoidable);
-     * Phyrexian symbols by mana when it can be found, else by life. Other ways (convoke, delve) are left to the player.
+     * Phyrexian symbols by mana when it can be found, else by life. The spell's other ways to pay [ways] (convoke, delve,
+     * improvise, CR 702.51, 702.66, 702.126) are used only when mana alone isn't found, or alone when mana can't be spent
+     * on it ([canSpendMana] false); a creature that is a mana source isn't also tapped for convoke.
      */
-    fun suggest(snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?): List<ManaUse> {
+    fun suggest(
+        snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
+        ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true,
+    ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
+        if (!canSpendMana) return suggestFrom(snap, player, cost, specialPayers(snap, player, ways), emptyList(), paysFor)
         val pool = poolPayers(snap, player, paysFor)
         val sources = sources(snap, player)
+        val byMana = suggestFrom(snap, player, cost, pool, sources, paysFor)
+        if (byMana.isNotEmpty() || ways.isEmpty()) return byMana
+        return suggestFrom(snap, player, cost, pool + specialPayers(snap, player, ways, sources.map { it.id }.toSet()), sources, paysFor)
+    }
+
+    /** [suggest] from [pool] (pool mana and other ways' payers, used as they are) and mana [sources]. */
+    private fun suggestFrom(snap: Snapshot, player: PlayerId, cost: ManaCost, pool: List<Payer>, sources: List<Source>, paysFor: ObjectId?): List<ManaUse> {
+        // More mana than every payer and source together makes isn't found (nor worked out symbol by symbol: a huge X)
+        if (leastMana(cost) > pool.size + sources.sumOf { s -> s.yields.sumOf { it.amount.toLong() } }) return emptyList()
         val phyrexian = cost.symbols.withIndex().filter { it.value is ManaSymbol.Phyrexian || it.value is ManaSymbol.PhyrexianHybrid }.map { it.index }
         // Try paying every Phyrexian symbol with mana first, then with life one by one from the last
         for (lifeCount in 0..phyrexian.size) {
@@ -368,7 +392,7 @@ internal object Mana {
             val payers = pool + payersOf(chosen)
             val used = assign(needs, payers)
             if (used != null) {
-                val poolUses = used.mapNotNull { it.use as? ManaUse.Pool }.distinct()
+                val poolUses = used.map { it.use }.filter { it is ManaUse.Pool || it is ManaUse.Special }.distinct()
                 return poolUses + chosen.map { (s, c) -> ManaUse.Ability(s.id, s.origin, if (s.yields.any { it.choice }) c else s.colors.singleOrNull()) }
             }
             if (chosen.size >= needs.size) return null

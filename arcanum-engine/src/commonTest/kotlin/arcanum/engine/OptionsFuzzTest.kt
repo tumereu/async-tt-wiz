@@ -15,8 +15,9 @@ import kotlin.test.fail
  * The contract of [Engine.options] tried on many games: seeded random games of cube cards (lands and permanents on the
  * battlefield, cards in hand and library), where at every state each input listed for any player is performed on the
  * state as it is and must be accepted (no refusal, no crash) with an outcome that reverts exactly (D59); then one of
- * them, at random, is played. A game whose open decision lists no answer is stuck and fails. Random results are the
- * host's (D25) and answered by the harness.
+ * them, at random, is played. A game with nothing listed is stuck and fails, and so does an open player decision that
+ * lists no answer (cancelling the cast doesn't count: every decision reached has an answer). Random results and host
+ * fills are the host's (D25, D60) and answered by the harness.
  */
 class OptionsFuzzTest {
     @Test
@@ -36,6 +37,11 @@ class OptionsFuzzTest {
             if (Engine.result(state) != null) return@scenario
             val listed = players.flatMap { p -> Engine.options(state, p.id) }.distinct()
             if (listed.isEmpty()) fail("Game $seed, step $step: stuck at ${pending ?: state.turn} with nothing listed")
+            val open = pending
+            if (open != null && open !is Decision.Random && open !is Decision.HostFill && open !is Decision.OtherView &&
+                listed.none { it is Input.Answer }) {
+                fail("Game $seed, step $step: no answer listed for $open (only $listed)")
+            }
             listed.forEach { tryOn(state, it, "Game $seed, step $step") }
             play(listed, rnd)
         }
@@ -64,7 +70,7 @@ class OptionsFuzzTest {
     }
 
     companion object {
-        private const val GAMES = 6
+        private const val GAMES = 60
         private const val STEPS = 50
         private const val SEED = 7_000L
         private val BASICS = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")

@@ -37,7 +37,14 @@ internal object Perform {
     fun run(state: GameState, input: Input, view: arcanum.engine.view.View? = null): Outcome {
         require(!GameEnd.over(state)) { "The game is over (CR 104.1)" }
         if (input is Input.Concede) return GameEnd.concede(state, input)
-        val recorder = Recorder(state.deepCopy(), view)
+        return runOn(Recorder(state.deepCopy(), view), input)
+    }
+
+    /** [run] on [recorder]'s working state, which is left as the input leaves it ([Options] looks at it). Not for
+     * [Input.Concede]. */
+    fun runOn(recorder: Recorder, input: Input): Outcome {
+        require(!GameEnd.over(recorder.state)) { "The game is over (CR 104.1)" }
+        require(input !is Input.Concede) { "Conceding works on its own copy" }
         val open = recorder.state.pending
         val progress = if (open != null) {
             when (input) {

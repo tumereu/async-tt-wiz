@@ -274,6 +274,8 @@ internal object Events {
             val subject = subject(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Sacrifice(subject))
         }
+        // blb chunk 07: "you gain or lose life" (one ability, two events)
+        if (text == "you gain or lose life") return listOf(EventPattern.GainLife(PlayerFilter.You), EventPattern.LoseLife(PlayerFilter.You))
         // blb chunk 04: "this enchantment enters and whenever you expend 4"
         ENTERS_AND_WHENEVER.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
@@ -644,6 +646,16 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // blb chunk 07: "you gained or lost life this turn", "you gained and lost life this turn", "you've lost life this turn",
+        // "an opponent lost life this turn" (CR 119.9, 119.10)
+        LIFE_THIS_TURN.matchEntire(text)?.let { m ->
+            val who = if (m.groupValues[1] == "an opponent") PlayerFilter.Opponent else PlayerFilter.You
+            fun happened(word: String) = Condition.HappenedThisTurn(if (word == "gained") EventPattern.GainLife(who) else EventPattern.LoseLife(who),
+                atLeast = 1, measure = Measure.Events)
+            val first = happened(m.groupValues[2])
+            val second = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { happened(it) } ?: return first
+            return if (m.groupValues[3] == "or") Condition.Or(listOf(first, second)) else Condition.And(listOf(first, second))
+        }
         // blb chunk 05: "that player has one or fewer cards in hand" (the event's player)
         THAT_PLAYER_HAS_CARDS.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
@@ -711,6 +723,8 @@ internal object Conditions {
     // chunk 36
     private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // blb chunk 07
+    private val LIFE_THIS_TURN = Regex("""(you|you've|an opponent) (gained|lost)(?: (or|and) (gained|lost))? life this turn""")
     // blb chunk 05
     private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (\w+) or fewer cards in hand""")
     private val CONTROL_A_PHRASE = Regex("""you control an? (.+)""")

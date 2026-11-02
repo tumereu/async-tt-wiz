@@ -107,6 +107,7 @@ internal fun menuIcon(name: String): ImageVector {
         "precombat" in n -> Icons.Outlined.LooksOne
         "postcombat" in n -> Icons.Outlined.LooksTwo
         "blockers" in n -> Icons.Outlined.Shield
+        "first-strike" in n -> Icons.Outlined.Bolt
         "damage" in n -> Icons.Outlined.LocalFireDepartment
         "end of combat" in n -> Icons.Outlined.OutlinedFlag
         "end step" in n -> Icons.Outlined.Nightlight

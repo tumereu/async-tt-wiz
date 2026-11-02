@@ -158,7 +158,7 @@ class AutomatumResolveScreenshotTest {
         compose.onNodeWithText("Alice cast Storm Spark").assertExists()
         compose.onNodeWithText("Target: You").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/respond-prompt.png",
-            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: by the Stack Bob sees \"Alice cast Storm Spark\" with its text, \"Target: You\", Respond and Let it resolve.")
+            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: by the Stack Bob sees \"Alice cast Storm Spark\" with its text, \"Target: You\", Respond and Let it resolve, and the move is his (\"Your move\", green bars) since he must act.")
         compose.runOnIdle { assertFalse(toolkit.submit(PlayAction.NextStep)); assertEquals(SharedFlowController.STACK_WAITING, toolkit.error) }
         compose.onNodeWithText("Respond").performClick()
         compose.waitForIdle()
@@ -169,7 +169,11 @@ class AutomatumResolveScreenshotTest {
         val after = accepted(cast, batch, request, f.b)
         assertEquals(life(cast, f.b) - 3, life(after, f.b))
         assertTrue(after.board.stackEffects.isEmpty())
-        assertEquals(MtgPriority(f.a), after.board.priority, "CR 117.3b: the active player gets priority after resolution")
+        // CR 117.3b: the active player gets priority after resolution; with nothing left to do she is passed for (TRN-057),
+        // and Bob, who could still cast his Storm Spark, holds it in her main phase with the move (TRN-058)
+        assertEquals(MtgPriority(f.b, 1), after.board.priority)
+        assertEquals(TurnPosition.PRECOMBAT_MAIN, TurnPosition.of(after.board.turn))
+        assertEquals(f.b, after.board.attentionHolder)
     }
 
     // STK-026, I-D3, I-D18: with nothing Bob could respond with, the spell resolves in the cast's own batch
@@ -211,7 +215,7 @@ class AutomatumResolveScreenshotTest {
         compose.onNodeWithContentDescription("Automatum choice").assertExists()
         compose.onNodeWithText("Fertile Passing").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/resolve-choice.png",
-            "Alice's Storm Spark killed Bob's Tinkered Mite under her Fertile Passing: by the Stack Bob is asked the trigger's sentence, \"that creature's controller may draw a card\", with Yes and No.")
+            "Alice's Storm Spark killed Bob's Tinkered Mite under her Fertile Passing: by the Stack Bob is asked the trigger's sentence, \"that creature's controller may draw a card\", with Yes and No; the move is his while he chooses.")
         // STK-032: life changes wait; passing the move only shows and goes on
         compose.runOnIdle {
             assertFalse(toolkit.submit(PlayAction.AdjustLife(f.b, "-1")))
@@ -232,7 +236,7 @@ class AutomatumResolveScreenshotTest {
         val toolkit = render(open, f.a)
         compose.onNodeWithText("Bob is choosing", substring = true).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/resolve-is-choosing.png",
-            "The same moment seen by Alice: a slim bar by the Stack says \"Bob is choosing — that creature's controller may draw a card.\" with Choose for them.")
+            "The same moment seen by Alice: a slim bar by the Stack says \"Bob is choosing — that creature's controller may draw a card.\" with Choose for them; the move is Bob's while he chooses (\"Waiting · Bob\").")
         compose.onNodeWithText("Choose for them").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Choose for Bob?").assertExists()

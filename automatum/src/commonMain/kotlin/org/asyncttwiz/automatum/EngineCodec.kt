@@ -54,14 +54,19 @@ internal object EngineCodec {
     fun <T> encode(serializer: KSerializer<T>, value: T): String = json.encodeToString(serializer, value)
     fun <T> decode(serializer: KSerializer<T>, value: String): T = json.decodeFromString(serializer, value)
 
-    // ---- Steps (the two lists name the same twelve steps in the same order, CR 500.1)
+    // ---- Steps (CR 500.1; ATW's twelve manual positions name the engine's twelve steps in the same order, and the
+    // first of two combat damage steps, CR 510.4, is ATW's own position, I-D31)
 
     private val steps = listOf(TurnStep.Untap, TurnStep.Upkeep, TurnStep.Draw, TurnStep.PrecombatMain,
         TurnStep.BeginningOfCombat, TurnStep.DeclareAttackers, TurnStep.DeclareBlockers, TurnStep.CombatDamage,
         TurnStep.EndOfCombat, TurnStep.PostcombatMain, TurnStep.End, TurnStep.Cleanup)
 
-    fun step(position: TurnPosition): TurnStep = steps[position.ordinal]
-    fun position(step: TurnStep): TurnPosition = TurnPosition.entries[steps.indexOf(step)]
+    fun step(position: TurnPosition): TurnStep =
+        if (position == TurnPosition.FIRST_STRIKE_DAMAGE) TurnStep.CombatDamage else steps[TurnPosition.MANUAL.indexOf(position)]
+
+    /** ATW's position of [step]; [firstStrike]: the combat damage step is the first-strike one (CR 510.4). */
+    fun position(step: TurnStep, firstStrike: Boolean = false): TurnPosition =
+        if (firstStrike && step == TurnStep.CombatDamage) TurnPosition.FIRST_STRIKE_DAMAGE else TurnPosition.MANUAL[steps.indexOf(step)]
 
     // ---- Counter kinds: "+1/+1", "loyalty", "charge", "keyword:{…}"
 

@@ -43,7 +43,8 @@ class TurnControlsLayoutTest {
     }
 
     private fun picker() {
-        val play = TableToolFixture.play()
+        // In the first-strike damage step (TRN-056) the dialog shows all thirteen squares
+        val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE)
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             PhaseStepPicker(play, play.board.turn.accountId, Color.Blue, controller, {})
@@ -56,7 +57,7 @@ class TurnControlsLayoutTest {
             assertTrue(text.left >= square.left && text.right <= square.right, step.label)
             assertTrue(text.top >= square.top && text.bottom <= square.bottom, step.label)
         }
-        assertEquals(listOf("Untap", "Upkeep", "Draw", "Main 1", "Begin", "Attackers", "Blockers", "Damage", "End", "Main 2", "End", "Cleanup"),
+        assertEquals(listOf("Untap", "Upkeep", "Draw", "Main 1", "Begin", "Attackers", "Blockers", "1st strike", "Damage", "End", "Main 2", "End", "Cleanup"),
             TurnPosition.entries.map(::stepLabel))
     }
 

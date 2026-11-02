@@ -560,21 +560,17 @@ object MtgFacts {
     }
 
     /**
-     * Whether [command]'s event is folded into its batch's visible event (I-D22: history events are natural branching
-     * points, one per possible player action): engine bookkeeping (zone-change counts and timestamps, ledgers, Stack
-     * item structure, engine records other than emblems) and priority passes the engine or the host made, tagged
-     * [MtgTag.folded] by the client that planned the batch. Never the batch's first member, so every automated batch
-     * keeps a visible event, and never anything else: manual history is unchanged.
+     * Whether [command]'s event is folded into its batch's visible event (I-D22, I-D35: history events are natural
+     * branching points, one per point where a player can act): any member of an automated batch after its first, tagged
+     * [MtgTag.folded] by the client that planned the batch. The batch's first member (the player's own action) is the
+     * visible event; what Automatum then did by itself, up to the next point where a player can act, is folded into
+     * it. Never the batch's first member, so every automated batch keeps a visible event, and never an untagged event:
+     * manual history is unchanged.
      */
-    fun folds(command: GameCommand, action: PlayAction): Boolean {
+    fun folds(command: GameCommand): Boolean {
         if ((command.action as? GameAction.Play)?.tag?.folded != true) return false
         val invocation = command.invocationId ?: return false
-        if (command.requestId == CommandIds.uuidV5(invocation, "member/0")) return false
-        return when (val mtg = (action as? PlayAction.Mtg)?.action) {
-            is MtgAction.SetPriority, is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetStackItem -> true
-            is MtgAction.SetRecord -> (mtg.before ?: mtg.after)?.kind != EngineRecordKind.Emblem
-            else -> false
-        }
+        return command.requestId != CommandIds.uuidV5(invocation, "member/0")
     }
 
     /** What a single-card move means by itself (D33, D42; the engine's `Meanings.implied`), from zone [from] to [to]. */

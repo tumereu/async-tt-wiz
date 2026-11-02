@@ -14,12 +14,17 @@ class TableActionsTest {
         GameAction.Play(action), id(13), "1")
     private fun change(state: PlayState, action: PlayAction, n: Int = 12) = GameplayRules.change(state, id(8), command(action, n))
 
-    // TRN-001, TRN-002
+    // TRN-001, TRN-002: twelve positions by hand; Automatum's first-strike damage step (TRN-056) is never passed by hand
     @Test fun everyManualPositionAndCleanupTurnBoundaryHasLiteralReplay() {
-        assertEquals(12, TurnPosition.entries.size)
+        assertEquals(12, TurnPosition.MANUAL.size)
+        assertEquals(TurnPosition.entries - TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.MANUAL)
+        assertEquals(TurnPosition.COMBAT_DAMAGE, TurnPosition.of(change(state(TurnState(id(7), "1",
+            TurnPosition.DECLARE_BLOCKERS.phase, TurnPosition.DECLARE_BLOCKERS.step)), PlayAction.NextStep).state!!.board.turn))
+        assertEquals(TurnPosition.COMBAT_DAMAGE, TurnPosition.of(change(state(TurnState(id(7), "1",
+            TurnPosition.FIRST_STRIKE_DAMAGE.phase, TurnPosition.FIRST_STRIKE_DAMAGE.step)), PlayAction.NextStep).state!!.board.turn))
         val initial = state()
         var current = initial
-        for ((index, position) in TurnPosition.entries.withIndex()) {
+        for ((index, position) in TurnPosition.MANUAL.withIndex()) {
             assertEquals(position, TurnPosition.of(current.board.turn))
             val before = current
             val result = change(before, PlayAction.NextStep, 20 + index)

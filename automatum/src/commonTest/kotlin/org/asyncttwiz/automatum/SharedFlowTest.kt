@@ -54,10 +54,12 @@ class SharedFlowTest {
     private fun player(id: String) = TargetRef.Player(PlayerId(id))
 
     // CR 117.3c, 117.4, 608.2, I-D3, I-D18: the caster passes, the opponent has nothing to respond with and passes too, so
-    // the spell resolves in the cast's own batch; afterwards the active player holds priority (CR 117.3b)
+    // the spell resolves in the cast's own batch; afterwards the active player holds priority (CR 117.3b): she can still
+    // play a land, so the host doesn't pass for her (TRN-057)
     @Test fun spellResolvesAtOnceWhenNobodyCanRespond() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         val (spark) = table.put(alice, PlayZone.HAND, "Storm Spark")
+        table.put(alice, PlayZone.HAND, "Mountain")
         val rt = RoundTrip(table.state(), table.definitions)
         cast(rt, alice, spark, player(bob))
         assertEquals(1, rt.batches.size, "one batch")

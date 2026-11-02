@@ -1,0 +1,1 @@
+add: With Automatum on, Next step and End turn move the turn through Automatum: untapping, drawing, cleanup and "at the beginning of" abilities happen by themselves, steps where nobody can act are skipped, first strike gets its own damage step, the move goes to whoever must act, and each of these is one event in the timeline.

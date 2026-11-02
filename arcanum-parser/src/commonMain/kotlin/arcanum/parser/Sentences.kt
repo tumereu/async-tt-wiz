@@ -5911,7 +5911,7 @@ internal class Sentences(
         // rtr chunk 01: "Sacrifice it unless you return another creature you control to its owner's hand.", "Sacrifice it unless
         // you pay {1}." (CR 118.12a)
         Rtr.SACRIFICE_IT_UNLESS_YOU.matchEntire(sentence)?.let { m ->
-            val it = if (m.groupValues[1] == "it") context.it ?: return null else if (isSelf(m.groupValues[1])) Objects.Self else return null
+            val it = if (m.groupValues[1] == "it") triggerIt?.first ?: context.it ?: return null else if (isSelf(m.groupValues[1])) Objects.Self else return null
             val parts = costPart(m.groupValues[2].replaceFirstChar { c -> c.uppercase() }) ?: costPart(m.groupValues[2]) ?: return null
             return unlessPays(Players.You, Cost(parts), listOf(Step.Do(Effect.Sacrifice(it))))
         }
@@ -6501,10 +6501,13 @@ internal class Sentences(
             val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
             return listOf(Step.Do(Effect.PutCounters(target, Counters.kind(m.groupValues[2]) ?: return null, count)))
         }
-        // rtr chunk 08: "Exile the top X cards of your library." (named for "from among them")
-        Rtr.EXILE_TOP_CARDS.matchEntire(sentence)?.let { m ->
+        // rtr chunk 08: "Exile the top X cards of your library." (named for "from among them"); rtr chunk 07: "exile the top five
+        // cards of your library" kept as linked when another ability refers to "the exiled cards" (CR 607.2a)
+        Rtr.EXILE_TOP_CARDS.matchEntire(sentence)?.takeIf { it.groupValues[1] == "X" || exiledCard == Objects.Remembered(EXILED_WITH) }?.let { m ->
             val count = if (m.groupValues[1] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
-            return listOf(Step.Do(Effect.Move(Objects.LibraryCards(Players.You, count, fromTop = true), Destination(Zone.Exile), postBind = "exiled")))
+            val cards = Objects.LibraryCards(Players.You, count, fromTop = true)
+            return if (exiledCard == Objects.Remembered(EXILED_WITH)) exile(cards)
+                else listOf(Step.Do(Effect.Move(cards, Destination(Zone.Exile), postBind = "exiled")))
         }
         // rtr chunk 05: "Rakdos's Return deals X damage to target opponent or planeswalker."
         Rtr.SELF_DEALS_DAMAGE_TO_TARGET_PLAYER_OR_PLANESWALKER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
@@ -6646,7 +6649,7 @@ internal class Sentences(
         val MILLS = Regex("""mills (\w+) cards?""")
         val TAP_SELF = Regex("""Tap (.+)\.""")
         val PUT_COUNTERS_ON_TARGET = Regex("""Put (X|\w+) (\S+) counters? on target (.+)\.""")
-        val EXILE_TOP_CARDS = Regex("""Exile the top (X) cards of your library\.""")
+        val EXILE_TOP_CARDS = Regex("""Exile the top (X|\w+) cards of your library\.""")
         val SELF_DEALS_DAMAGE_TO_TARGET_PLAYER_OR_PLANESWALKER = Regex("""(.+) deals (X|\d+) damage to target ((?:player|opponent) or planeswalker)\.""")
         val THAT_CREATURE_IS_IN_ADDITION = Regex("""That creature is an? (\w+) ([A-Z]\w*) in addition to its other colors and types\.""")
         val ENTERS_WITH_X_COUNTERS = Regex("""(.+) enters with X (\S+) counters on it, where X is (.+)\.""")

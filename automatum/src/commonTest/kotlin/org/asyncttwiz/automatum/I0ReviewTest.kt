@@ -141,7 +141,7 @@ class I0ReviewTest {
     }
 
     // ---- #12 Extra turns: Time Stride ("Take an extra turn after this one", CR 500.7)
-    @Ignore("i0review #12: extra turns are unmappable")
+    @Ignore("i0review #12: extra turns are unmappable (I-D12 decided, not built)")
     @Test fun timeStrideTakesAnExtraTurn() {
         table.put(alice, PlayZone.BATTLEFIELD, "Island", "Island")
         table.put(alice, PlayZone.HAND, "Time Stride")
@@ -533,22 +533,28 @@ class I0ReviewTest {
         }
     }
 
-    // D60, D33 ("a snapshot of what everyone could see"): a history tag is shared with both players; it must not name a
-    // card only one of them may see. Here Alice's spell makes Bob draw; it resolves on Bob's pass, so in Bob's own view.
+    // D60, D33 ("a snapshot of what everyone could see"), I-D17 (face-down cards stay unknown): a history tag is shared
+    // with both players; it must not name a card only one of them may see. Alice casts a morph face down in her own view
+    // (a private cast, I-D11): the cast's tag carries the spell object with its definition.
     @Ignore("i0review #6: tags carry engine objects with definitions of hidden cards")
     @Test fun tagsDoNotNameHiddenCards() {
-        Cards.invent("Review Gift", "{U}", "Sorcery", "Target player draws two cards.")
-        table.put(alice, PlayZone.BATTLEFIELD, "Island")
-        table.put(alice, PlayZone.HAND, "Review Gift")
-        table.put(alice, PlayZone.LIBRARY, "Mountain", "Mountain")
-        table.put(bob, PlayZone.LIBRARY, "Storm Spark", "Island", "Island")
+        table.put(alice, PlayZone.BATTLEFIELD, "Forest", "Forest", "Forest")
+        table.put(alice, PlayZone.HAND, "Barkwood Pathfinders")
+        table.put(alice, PlayZone.LIBRARY, "Forest", "Forest")
+        table.put(bob, PlayZone.LIBRARY, "Island", "Island")
         val rt = game()
-        cast(rt, alice, "Review Gift"); rt.target(TargetRef.Player(PlayerId(bob))); rt.settle()
-        rt.pass(alice, viewer = alice)
-        rt.pass(bob, viewer = bob)
-        assertEquals(PlayZone.HAND, zone(rt, rt.state.board.cards.single { table.names[it.id] == "Storm Spark" }.id))
-        val leaking = rt.tags.filterNotNull().filter { "Storm Spark" in it.data }
-        assertTrue(leaking.isEmpty(), "${leaking.size} shared history tags name Bob's drawn card")
+        val call = EngineCall(rt.state, rt.definitions, viewer = alice, log = EngineLog.from(rt.tags), seeds = rt::seed)
+        call.perform(arcanum.engine.Engine.options(call.working, PlayerId(alice)).filterIsInstance<Input.Cast>().single { it.way.alternative != null })
+        while (call.pending != null) {
+            val d = call.pending!!.decision
+            call.perform(if (d is Decision.ManaPayment) Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
+                else arcanum.engine.Engine.options(call.working, d.player).filterIsInstance<Input.Answer>().first())
+        }
+        val command = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "review/morph"), GameScope(rt.state.gameId, playId = rt.state.id),
+            GameAction.PlayBatch(listOf(PlayAction.PassAttention)), CommandIds.uuidV5(AtwTable.NAMESPACE, "stream"), "1")
+        val plan = EngineBatch.plan(call, alice, command)
+        val leaking = plan.tags.filterNotNull().filter { "Barkwood Pathfinders" in it.data }
+        assertTrue(leaking.isEmpty(), "${leaking.size} shared history tags name Alice's face-down spell")
     }
 
     // CR 114 (emblems live in the command zone): a planeswalker's ultimate, "You get an emblem with …"

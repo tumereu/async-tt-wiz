@@ -1839,6 +1839,17 @@ internal class Sentences(
             // gtc chunk 13: a second "target creature" in the same instructions is another target (CR 115.3): its own name
             val base = name(noun)
             val name = if (targets.none { it.name == base }) base else nextTargetName(base, targets.map { it.name })
+            // dgm chunk 04: "another target permanent" after a "target permanent" is a different object from that target
+            // (CR 115.3), not one other than this object
+            val parts = (filter as? ObjectFilter.And)?.all
+            if (parts != null && parts.size >= 2 && parts.first() == ObjectFilter.Not(ObjectFilter.Is(Objects.Self))) {
+                val rest = parts.drop(1).let { if (it.size == 1) it.single() else ObjectFilter.And(it) }
+                val earlier = targets.lastOrNull { (it.what as? TargetKind.Objects)?.filter == rest }
+                if (earlier != null) {
+                    targets += TargetSlot(name, TargetKind.Objects(rest), min = Value.Fixed(1), max = Value.Fixed(1), distinctFrom = listOf(earlier.name))
+                    return Objects.Target(name)
+                }
+            }
             targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(1), max = Value.Fixed(1))
             return Objects.Target(name)
         }

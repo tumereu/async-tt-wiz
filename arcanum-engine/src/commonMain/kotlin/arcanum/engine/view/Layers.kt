@@ -99,6 +99,14 @@ internal object Layers {
         is Duration.AsLongAs -> Evaluator(board, Context(effect.controller, effect.source, followed(state, effect))).holds(d.condition)
         is Duration.UntilLeaves -> Evaluator(board, Context(effect.controller, effect.source, effect.names)).objects(d.objects)
             .any { state.obj(it)?.zone == Zone.Battlefield }
+        // fra: while the card is where it was, or on the Stack being cast but not cast yet (CR 601.2a, 601.2i)
+        is Duration.UntilCast -> ((d.objects as? arcanum.api.Objects.Bound)?.let { (effect.names[it.name] as? arcanum.engine.state.NamedValue.Objects)?.ids }
+            ?: Evaluator(board, Context(effect.controller, effect.source, effect.names)).objects(d.objects)).any { id ->
+            // being cast: on the Stack, not yet become cast (the provisional Stack item a cast's plan reads isn't that, CR 601.2i)
+            state.obj(id) != null || (id as? ObjectId.Card)?.next()?.let { n -> state.obj(n)?.zone == Zone.Stack && state.log.none { entry ->
+                (entry.change as? arcanum.engine.change.Change.StackItemAdded)?.let { it.item.id == n && arcanum.engine.change.Meaning.Cast in it.meanings } == true
+            } } == true
+        }
         else -> true
     }
 
@@ -637,6 +645,10 @@ internal class LayerRun(private val state: GameState, private val traced: Object
                 effect = e.effect, names = e.names)
             val affects = e.affects
             when {
+                // fra: an effect on a spell and the permanent it becomes ("the next spell you cast this turn can't be countered",
+                // CR 400.7d) applies to the objects it locked
+                !Layers.isRule(mechanic) && affects == null && e.locked != null -> e.locked!!.filter { it in board.work }
+                    .forEach { objectMechanics.getOrPut(it) { mutableListOf() } += applied }
                 Layers.isRule(mechanic) || affects == null || affects is Affected.NextSpells -> rules += applied
                 affects is Affected.Players -> (lockedPlayers ?: evaluator(board, e).players(affects.players))
                     .forEach { playerMechanics.getOrPut(it) { mutableListOf() } += applied }

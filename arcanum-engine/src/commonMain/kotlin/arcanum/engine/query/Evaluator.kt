@@ -403,7 +403,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Status.Transformed -> o?.transformed == true
         Status.Flipped -> o?.flipped == true
         Status.PhasedOut -> o?.phasedOut == true
-        Status.Attacking -> state.combat?.attackers.orEmpty().any { it.id == id }
+        // fra: one that left is read as it last existed (CR 608.2h)
+        Status.Attacking -> state.combat?.attackers.orEmpty().any { it.id == id } || (o == null && lki(id)?.attacking == true)
         Status.Blocking -> state.combat?.blockers.orEmpty().any { it.id == id }
         Status.Blocked -> state.combat?.attackers.orEmpty().any { it.id == id && it.blocked }
         // CR 509.1h, 508.4d: unblocked once blockers are declared

@@ -53,7 +53,8 @@ internal object Triggers {
     /** Events whose triggers are checked on the game as it was just before (CR 603.10a). */
     fun looksBack(change: Change): Boolean = when (change) {
         // Leaving the battlefield, and an object all players can see put into a hand or library
-        is Change.ZoneChange -> change.moves.any { looksBack(it) }
+        // fra: a discard too, so the card's own "when you discard this card" is found where it works, the hand (CR 113.6k)
+        is Change.ZoneChange -> change.moves.any { looksBack(it) || (it.from == Zone.Hand && Meaning.Discarded in it.meanings) }
         is Change.Removed -> true
         is Change.Attached -> change.before != null && change.after != change.before
         is Change.Status -> change.flag == StatusFlag.PhasedOut
@@ -206,7 +207,7 @@ internal object Triggers {
         val o = board.state.obj(id) ?: return board.snapshot(id)
         val v = board.view[id]
         return ObjectSnapshot(id, o.owner, v?.controller ?: o.controller, o.zone, v?.characteristics, o.counters, o.damage,
-            o.tapped, o.token, o.attachedTo, o.facts, o.memory)
+            o.tapped, o.token, o.attachedTo, o.facts, o.memory, attacking = board.state.combat?.attackers.orEmpty().any { it.id == id })
     }
 
     /** "Triggers only once each turn" (CR 603.2): counted on the source object per turn number (D41) once put on the

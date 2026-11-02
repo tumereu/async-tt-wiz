@@ -32,6 +32,15 @@ internal object NextSpells {
             val next = o.affects as Affected.NextSpells
             val e = board.evaluator(o.controller, self = o.source, names = o.names)
             if (!e.matches(next.spells, spell)) return@forEach
+            // fra: what the effect does to the spell beyond its cost ("can't be countered") now applies to it and the permanent
+            // it becomes (CR 611.2f, 400.7d)
+            val gets = o.mechanics.filter { it !is arcanum.api.Mechanic.CostChange }
+            if (gets.isNotEmpty()) recorder.record(arcanum.engine.change.Changes.effect(state) { t ->
+                val after = (spell as? ObjectId.Card)?.next()
+                arcanum.engine.state.EffectObject(EffectId("next:${o.id.value}:$spell"), gets, affects = null, locked = listOfNotNull(spell, after),
+                    source = o.source, controller = o.controller, timestamp = t, createdTurn = state.turn.number, duration = arcanum.api.Duration.Indefinitely,
+                    names = arcanum.engine.state.Bindings(mapOf(arcanum.engine.resolution.Effects.FOLLOWS_SPELL to arcanum.engine.state.NamedValue.Objects(listOfNotNull(spell, after)))))
+            })
             val left = (o.usesLeft ?: next.count) - 1
             if (left <= 0) recorder.record(Change.EffectRemoved(o))
             else recorder.record(Change.EffectUpdated(o, o.copy(usesLeft = left)))

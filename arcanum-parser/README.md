@@ -27,7 +27,9 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Bloomburrow (`blb`): all 279 cards parse.
   Return to Ravnica (`rtr`): all 254 cards parse.
   Gatecrash (`gtc`): all 249 cards parse. Dragon's Maze (`dgm`): all 156 cards parse (split cards with fuse as their
-  halves).
+  halves). Reality Fracture (`fra`): all 285 cards parse (preparation cards as two faces, the prepare spell second); its
+  rules are in `FraWordings.kt` and the `fra*` functions of `Sentences.kt`, most of them tried only after the other rules
+  find nothing.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

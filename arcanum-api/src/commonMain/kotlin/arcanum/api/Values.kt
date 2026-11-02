@@ -214,4 +214,8 @@ sealed interface Duration {
     @Serializable @SerialName("until-leaves") data class UntilLeaves(val objects: Objects) : Duration
     /** No end ("gains control of target creature"). */
     @Serializable @SerialName("indefinitely") data object Indefinitely : Duration
+    // fra
+    /** "until this card is cast from exile": while the card stays where it is and while it is being cast, ending as it
+     * becomes cast (CR 601.2i), so mana it helps make can pay for it. */
+    @Serializable @SerialName("until-cast") data class UntilCast(val objects: Objects) : Duration
 }

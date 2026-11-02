@@ -8096,7 +8096,7 @@ internal class Sentences(
             val noun = m.groupValues[2]
             val target = TargetSlot(Filters.slotName(noun), TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(1), max = Value.Fixed(1))
             val exiled = Objects.Bound("exiled")
-            val inExile = arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(exiled, ObjectFilter.InZone(Zone.Exile)))
+            val inExile = arcanum.api.Duration.UntilCast(exiled)
             return Ability.Activated(named, Instructions(targets = listOf(target), steps = listOf(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(granted))), Affected.Objects(Objects.Target(target.name)), inExile)),
                 // for as long as it remains exiled: the card in exile, a new object once it leaves (CR 400.7)

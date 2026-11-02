@@ -77,7 +77,7 @@ class FraChunk06WhiteTest {
             activated(cost(mana("{3}"), CostPart.Exile(CostObjects.Self, from = Zone.Hand, postBind = "exiled")),
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(activated(cost(tap),
                     Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}{C}")!!)), Players.You)))))),
-                    Affected.Objects(target("land")), Duration.AsLongAs(Condition.ObjectMatches(Objects.Bound("exiled"), ObjectFilter.InZone(Zone.Exile))))),
+                    Affected.Objects(target("land")), Duration.UntilCast(Objects.Bound("exiled")))),
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, holder = PlayerFilter.You)), Affected.Objects(Objects.Bound("exiled")),
                     Duration.Indefinitely)),
                 targets = listOf(slot("land", land))),

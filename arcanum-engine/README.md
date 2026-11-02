@@ -302,6 +302,15 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   attack alone"; "attacks a player and isn't blocked"; draws replaced except the draw step's first; "a counter is put"
   triggering once per counter; counters removed from among several creatures; "enters as a Mutant" for tokens too;
   "except it has this ability"; a triggered mana ability adding a type the land produced.
+- Done, Reality Fracture (scenarios in `commonTest/…/sets/fra/`): all 285 cards play. Preparation cards (`prepare/`, CR
+  722: becoming prepared makes the prepare spell's copy in exile, which its controller may cast while the permanent stays
+  prepared, and casting it unprepares the permanent; the copy goes as the permanent stops being prepared), empower Jace,
+  beholding as a cost paid on resolution, split second, loyalty abilities at instant speed, planeswalkers kept at 0 loyalty,
+  "the legend rule doesn't apply", entering that doesn't trigger, negative power assigning damage, hexproof until combat damage,
+  "last turn" questions, "the next spell can't be countered" applied to that spell, one target for each opponent in triggered
+  abilities too, a token replacement, an effect lasting until a card is cast (through its casting), copies of cards cast as
+  permanent spells becoming tokens (CR 111.13), the game ending when a player wins (CR 104.2b), "if it wasn't attacking" as
+  it last existed, and counters put naming who put them.
 - Not yet: skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and

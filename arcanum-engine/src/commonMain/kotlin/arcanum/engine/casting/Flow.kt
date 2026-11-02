@@ -51,6 +51,7 @@ internal class Snapshot(val state: GameState, private val viewOf: () -> View = {
             id = id, owner = o.owner, controller = board.controller(id), zone = o.zone,
             characteristics = view[id]?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
             token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
+            attacking = state.combat?.attackers.orEmpty().any { it.id == id },
         )
     }
 }

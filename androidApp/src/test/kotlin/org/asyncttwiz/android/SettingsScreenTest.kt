@@ -92,7 +92,7 @@ class SettingsScreenTest {
         captureShot(File(directory, "$name-top.png").path,
             "Settings screen $view for a signed-in player with the card catalog installed, at the top of the page.")
         for ((tag, part) in listOf("cards-settings" to "card size settings", "playback-settings" to "timeline playback settings",
-                "catalog-controls" to "card catalog controls", "logout" to "Log out button")) {
+                "automatum-settings" to "Automatum settings", "catalog-controls" to "card catalog controls", "logout" to "Log out button")) {
             compose.onNodeWithTag(tag).performScrollTo()
             compose.waitForIdle()
             captureShot(File(directory, "$name-$tag.png").path,
@@ -100,7 +100,23 @@ class SettingsScreenTest {
         }
     }
 
-    // LOB-079
+    // LOB-113, SYS-071 (I-D41): Automatum's pause settings start at 2 s, Wait and Full control off, and are kept on the
+    // device per account
+    @Test fun automatumPauseSettings() {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        compose.setContent { ScreenTheme { AutomatumPauseSettings("pauses") } }
+        compose.onNodeWithText("2.0 s to react when the other player does something").assertExists()
+        compose.onNodeWithTag("proceed-wait").assertIsSelected()
+        compose.onNodeWithTag("full-control").assertIsOff()
+        compose.onNodeWithTag("proceed-at-once").performClick()
+        compose.onNodeWithTag("full-control").performClick()
+        compose.waitForIdle()
+        assertEquals(PauseSettings(proceedAtOnce = true, fullControl = true), PausePreferences(context, "pauses").settings)
+        assertEquals(PauseSettings(), PausePreferences(context, "someone else").settings)
+        compose.onNodeWithTag("full-control").assertIsOn()
+    }
+
+    // LOB-079, LOB-113
     @Test @Config(qualifiers = "w412dp-h2600dp-port-xhdpi")
     fun fullPagePortraitScreenshot() = capture("settings-portrait-full", "on a very tall portrait screen")
 

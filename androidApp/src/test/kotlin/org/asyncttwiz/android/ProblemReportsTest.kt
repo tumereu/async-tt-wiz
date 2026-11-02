@@ -96,4 +96,30 @@ class ProblemReportsTest {
         assertEquals(BuildConfig.VERSION_CODE, report.versionCode)
         assertTrue(report.log.contains("Attempt ended at 10 / 20 bytes"))
     }
+
+    // LOB-089, I-D43: a report carries the latest game's Automatum log and reproduction bundle, compressed and bounded
+    @Test fun `reports carry the Automatum bundle within its bound`() = runBlocking {
+        org.asyncttwiz.automatum.AutomatumLog.clear()
+        assertEquals("", AutomatumReports.text(), "nothing recorded, nothing sent")
+        repeat(300) { org.asyncttwiz.automatum.AutomatumLog.refusal("game-1", "cast step", "refusal $it " + List(4) { java.util.UUID.randomUUID() }) }
+        val text = AutomatumReports.text()
+        assertTrue(text.startsWith(org.asyncttwiz.automatum.ReproBundle.REPORT_HEADER + "\n"))
+        fun decode(report: String) = org.asyncttwiz.automatum.ReproBundle.decode(java.util.zip.GZIPInputStream(
+            java.util.Base64.getDecoder().decode(report.substringAfter("\n")).inputStream()).use { it.readBytes() }.decodeToString())
+        val bundle = decode(text)
+        assertEquals("game-1", bundle.game)
+        assertEquals(300, bundle.entries.size)
+        // Too big for the bound: older entries go first
+        val small = AutomatumReports.fit(bundle, 3_000)
+        assertTrue(small.length <= 3_000)
+        val kept = decode(small)
+        assertTrue(kept.entries.size < 300 && kept.entries.last() == bundle.entries.last())
+
+        val sent = mutableListOf<ProblemReport>()
+        val sender = ProblemReportSender(this, automatum = { text }) { report, _ -> sent += report; "ABC234" }
+        sender.send("Odd")
+        while (sender.state == ProblemReportState.Sending) delay(10)
+        assertEquals(text, sent.single().automatum)
+        org.asyncttwiz.automatum.AutomatumLog.clear()
+    }
 }

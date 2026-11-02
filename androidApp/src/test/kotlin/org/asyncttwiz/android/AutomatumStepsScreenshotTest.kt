@@ -69,8 +69,9 @@ class AutomatumStepsScreenshotTest {
     @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null }
 
     /** Alice's main phase (turn 4) with Automatum on: Alice holds Storm Spark and has two Mountains; Bob holds Storm Spark
-     * ([bobSpark], else nothing) and has one Mountain; every other hand card is out of the game. */
-    private fun board(bobSpark: Boolean = true): PlayState {
+     * ([bobSpark], else nothing) and has one Mountain; every other hand card is out of the game. [fullControl]: the players
+     * with Full control on (SYS-071), stopped for in every step in which they could act. */
+    private fun board(bobSpark: Boolean = true, fullControl: Set<String> = emptySet()): PlayState {
         val initial = f.initial
         val aLands = initial.board.cards.filter { it.containerId == aField }.take(2).map { it.id }
         val bLands = initial.board.cards.filter { it.containerId == bField }.take(1).map { it.id }
@@ -79,6 +80,7 @@ class AutomatumStepsScreenshotTest {
         fun as_(card: PlayCard, what: Invented) = card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = "", tapped = false)
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
             board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+                players = initial.board.players.map { it.copy(fullControl = it.accountId in fullControl) },
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> when (card.id) {
                     aSpark, bSpark -> as_(card, spark)
                     in aLands, in bLands -> as_(card, mountain)
@@ -133,17 +135,17 @@ class AutomatumStepsScreenshotTest {
 
     private fun position(play: PlayState) = TurnPosition.of(play.board.turn)
 
-    // TRN-057, TRN-058, SYS-067, CR 117.3d: Next step is Alice's priority pass; Bob could answer with Storm Spark, so
-    // Automatum stops there: he holds priority in her main phase, and the move with it
+    // TRN-057, TRN-058, SYS-067, CR 117.3d: Next step is Alice's priority pass; Bob could answer with Storm Spark and has
+    // Full control (SYS-071), so Automatum stops there: he holds priority in her main phase, and the move with it
     @Test fun nextStepPassesAndTheMoveFollowsPriority() {
-        val after = press(board(), f.a) { TableActionIntent.Next(it) }
+        val after = press(board(fullControl = setOf(f.a, f.b)), f.a) { TableActionIntent.Next(it) }
         assertEquals(TurnPosition.PRECOMBAT_MAIN, position(after))
         assertEquals(MtgPriority(f.b, 1), after.board.priority)
         assertEquals(f.b, after.board.attentionHolder)
         render(after, f.b)
         compose.onNodeWithText("Your move").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/step-move-follows-priority.png",
-            "Alice pressed Next step in her main phase with Automatum on; Bob holds a Storm Spark he could cast, so Automatum stopped with Bob holding priority still in Main 1, and the move followed: Bob sees \"Your move\" and his colour on the bars.")
+            "Alice pressed Next step in her main phase with Automatum on; Bob holds a Storm Spark he could cast and has Full control, so Automatum stopped with Bob holding priority still in Main 1, and the move followed: Bob sees \"Your move\" and his colour on the bars.")
         // Bob passes too: the main phase ends and Alice, who could still cast her Storm Spark, acts at Beginning of combat
         val next = press(after, f.b) { TableActionIntent.Next(it) }
         assertEquals(TurnPosition.BEGIN_COMBAT, position(next))
@@ -250,7 +252,7 @@ class AutomatumStepsScreenshotTest {
     // TRN-061, TRN-004, I-D40: Bob presses Next step while Alice holds priority in her main phase: he is asked first and
     // nothing is sent until he confirms; Cancel sends nothing; confirmed, it is Alice's pass as if she had pressed it
     @Test fun steppingForTheOtherPlayerAsksFirst() {
-        val play = board()
+        val play = board(fullControl = setOf(f.b))
         val scope = TableActionScope(play.gameId, play.id)
         sent.clear()
         val bob = toolkit(play, f.b)
@@ -274,7 +276,7 @@ class AutomatumStepsScreenshotTest {
         val (batch, request) = sent.single()
         val after = accepted(play, batch, request, f.b)
         assertEquals(TurnPosition.PRECOMBAT_MAIN, position(after))
-        assertEquals(MtgPriority(f.b, 1), after.board.priority, "Alice passed; Bob, who could cast Storm Spark, holds priority")
+        assertEquals(MtgPriority(f.b, 1), after.board.priority, "Alice passed; Bob, who could cast Storm Spark with Full control, holds priority")
     }
 
     // TRN-061, I-D40: End turn and a later step for the other player say what they do for them, as do declarations; a

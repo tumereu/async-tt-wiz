@@ -38,7 +38,8 @@ class ProblemReportHttpTest {
             try {
                 val client = HttpClient.newHttpClient()
                 val report = ProblemReport(now.minusSeconds(5).toString(), "0.1.3", 4, "release", "Google Pixel 8",
-                    "Android 15 (API 35)", "Update stops at 40%", "The download was interrupted.", "line 1\nline 2", "logcat")
+                    "Android 15 (API 35)", "Update stops at 40%", "The download was interrupted.", "line 1\nline 2", "logcat",
+                    automatum = "atw-automatum-bundle/1 gzip+base64\nH4sI")
                 fun post(body: String = AccountJson.format.encodeToString(report), token: String? = null,
                     method: String = "POST"): HttpResponse<String> {
                     val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${server.port}/app/problem-reports"))
@@ -56,7 +57,8 @@ class ProblemReportHttpTest {
                 assertTrue(code.matches(Regex("[A-HJ-NP-Z2-9]{6}")), code)
                 assertEquals(1L, f.number("""SELECT count(*) FROM problem_report WHERE code='$code' AND account_id IS NULL
                     AND app_version='0.1.3' AND version_code=4 AND build_type='release' AND device='Google Pixel 8'
-                    AND description='Update stops at 40%' AND log='line 1' || chr(10) || 'line 2' AND logcat='logcat'"""))
+                    AND description='Update stops at 40%' AND log='line 1' || chr(10) || 'line 2' AND logcat='logcat'
+                    AND automatum='atw-automatum-bundle/1 gzip+base64' || chr(10) || 'H4sI'"""))
 
                 assertEquals(201, post(token = f.tokenA).statusCode())
                 assertEquals(1L, f.number("SELECT count(*) FROM problem_report WHERE account_id='${f.a.account.accountId}'"))
@@ -66,6 +68,7 @@ class ProblemReportHttpTest {
                 assertEquals(405, post(method = "GET").statusCode())
                 assertEquals(413, post(AccountJson.format.encodeToString(report.copy(log = "x".repeat(ProblemReport.MAX_BYTES)))).statusCode())
                 assertEquals(400, post(AccountJson.format.encodeToString(report.copy(description = "x".repeat(2_001)))).statusCode())
+                assertEquals(400, post(AccountJson.format.encodeToString(report.copy(automatum = "x".repeat(ProblemReport.MAX_AUTOMATUM + 1)))).statusCode())
                 assertEquals(400, post(AccountJson.format.encodeToString(report.copy(reportedAt = "yesterday"))).statusCode())
                 assertEquals(400, post("{}").statusCode())
 

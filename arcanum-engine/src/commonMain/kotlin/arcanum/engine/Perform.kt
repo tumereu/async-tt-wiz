@@ -17,6 +17,7 @@ import arcanum.engine.turn.Steps
 import arcanum.engine.decision.TurnAction
 import arcanum.engine.setup.GameEnd
 import arcanum.engine.setup.Setup
+import kotlin.time.TimeSource
 
 /** How far a flow got: finished, or waiting for a decision (D58). */
 internal sealed interface Progress {
@@ -35,12 +36,34 @@ internal sealed interface Progress {
  * mana payment), [Resolution], [Triggers], [StateBasedActions], [Combat] and [Priority] (steps and turns).
  */
 internal object Perform {
-    /** [view], when given, is [state]'s view (worked out once by a caller that performs several inputs on it). */
-    fun run(state: GameState, input: Input, view: arcanum.engine.view.View? = null): Outcome {
+    /** [view], when given, is [state]'s view (worked out once by a caller that performs several inputs on it). [trace]
+     * gets one entry for the call ([EngineTrace]); with [EngineTrace.None] nothing is timed or made. */
+    fun run(state: GameState, input: Input, view: arcanum.engine.view.View? = null, trace: EngineTrace = EngineTrace.None): Outcome {
+        if (trace === EngineTrace.None) return untraced(state, input, view) { }
+        val mark = TimeSource.Monotonic.markNow()
+        var recorder: Recorder? = null
+        val outcome = try {
+            untraced(state, input, view) { recorder = it }
+        } catch (refused: Throwable) {
+            trace.record(TraceEntry.Refused(input, refused.message.orEmpty().take(MAX_REASON), refused::class.simpleName ?: "Throwable",
+                mark.elapsedNow().inWholeMicroseconds))
+            throw refused
+        }
+        val micros = mark.elapsedNow().inWholeMicroseconds
+        val pending = outcome.pending
+        trace.record(TraceEntry.Performed(input, outcome.changes.size, recorder?.rounds ?: 0, pending?.let(PendingShape::of),
+            (pending?.continuation as? Continuation.Loop)?.stop, recorder?.state?.let(GameEnd::over) ?: false, micros))
+        return outcome
+    }
+
+    private inline fun untraced(state: GameState, input: Input, view: arcanum.engine.view.View?, made: (Recorder) -> Unit): Outcome {
         require(!GameEnd.over(state)) { "The game is over (CR 104.1)" }
         if (input is Input.Concede) return GameEnd.concede(state, input)
-        return runOn(Recorder(state.deepCopy(), view), input)
+        return runOn(Recorder(state.deepCopy(), view).also(made), input)
     }
+
+    /** The longest refusal reason a trace keeps. */
+    private const val MAX_REASON = 500
 
     /** [run] on [recorder]'s working state, which is left as the input leaves it ([Options] looks at it). Not for
      * [Input.Concede]. */

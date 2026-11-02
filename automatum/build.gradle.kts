@@ -12,7 +12,11 @@ kotlin {
     jvmToolchain(21)
     jvm {
         compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
-        testRuns["test"].executionTask.configure { useJUnitPlatform() }
+        testRuns["test"].executionTask.configure {
+            useJUnitPlatform()
+            // -Pautomatum.bundle=<file> replays a report's Automatum bundle (ReproFromFileTest, I-D43)
+            providers.gradleProperty("automatum.bundle").orNull?.let { systemProperty("automatum.bundle", it) }
+        }
     }
     android {
         namespace = "org.asyncttwiz.automatum"

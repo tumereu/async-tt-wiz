@@ -13,6 +13,7 @@ import arcanum.engine.input.Input
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.BatchPlan
 import org.asyncttwiz.automatum.CastFlow
 import org.asyncttwiz.automatum.ManaPicks
@@ -221,7 +222,7 @@ internal class CastController(
         val f = flow ?: return false
         if (busy) return false
         val play = current() ?: run { fail(CANT_ACT); return false }
-        if (!play.board.automatum) { cancel(); fail(SWITCHED_OFF); return false }
+        if (!play.board.automatum) { cancel("dropped: switched off"); fail(SWITCHED_OFF); return false }
         if (f.pending is Decision.ManaPayment) { val uses = mana; return update { it.answer(Answer.ManaPayment(uses)) } }
         if (!f.complete) return false
         return step { plan(f) }
@@ -229,7 +230,11 @@ internal class CastController(
 
     /** "Cancel" or Back: the whole cast is dropped; nothing was sent (I-D11). A step still being worked out is dropped
      * with it. */
-    fun cancel() {
+    fun cancel(how: String = "cancelled") {
+        // I-D43: how each cast flow ended
+        if (flow != null || starting != null) (flow?.play?.gameId ?: current()?.gameId)?.let {
+            AutomatumLog.flow(it, "cast", how, flow?.cardId ?: starting.orEmpty())
+        }
         generation++
         busy = false; starting = null
         flow = null; ways = emptyList(); mana = emptyList(); paid = false; picked = emptyList(); hidden = false; abilityText = null
@@ -266,7 +271,7 @@ internal class CastController(
         if (busy) return
         val play = current() ?: return
         if (f.play.id != play.id) return
-        if (!play.board.automatum) { cancel(); fail(SWITCHED_OFF); return }
+        if (!play.board.automatum) { cancel("dropped: switched off"); fail(SWITCHED_OFF); return }
         if (f.play.board === play.board) return
         val history = tags()
         val keep = mana
@@ -303,6 +308,7 @@ internal class CastController(
         this.work.run({
             try { work() } catch (problem: Exception) {
                 AppLog.warn("automatum", "Cast step failed: ${problem::class.java.simpleName}: ${problem.message?.take(200)}", problem)
+                current()?.gameId?.let { AutomatumLog.refusal(it, "cast", "${problem::class.java.simpleName}: ${problem.message}") }
                 Step.Drop(FAILED)
             }
         }) { outcome ->
@@ -317,6 +323,7 @@ internal class CastController(
         is Step.Show -> {
             starting = null
             outcome.ways?.let { ways = it }
+            if (outcome.ways != null) AutomatumLog.flow(outcome.flow.play.gameId, "cast", "started", outcome.flow.cardId)
             listed = outcome.listed; visible = outcome.visible
             flow = outcome.flow; mana = outcome.mana; paid = outcome.paid; picked = emptyList()
             if (outcome.clear) fail(null)
@@ -329,7 +336,7 @@ internal class CastController(
             true
         }
         is Step.Send -> sendPlanned(outcome)
-        is Step.Drop -> { cancel(); fail(outcome.message); false }
+        is Step.Drop -> { cancel("dropped: ${outcome.message}"); fail(outcome.message); false }
         is Step.Refuse -> { fail(outcome.message); follow(); false }
     }
 
@@ -338,7 +345,7 @@ internal class CastController(
     private fun sendPlanned(planned: Step.Send): Boolean {
         val play = current()
         if (play == null) { showReady(planned.flow); fail(CANT_ACT); return false }
-        if (!play.board.automatum) { cancel(); fail(SWITCHED_OFF); return false }
+        if (!play.board.automatum) { cancel("dropped: switched off"); fail(SWITCHED_OFF); return false }
         if (play.board !== planned.board) {
             val history = tags()
             starting = null
@@ -349,8 +356,8 @@ internal class CastController(
                 plan(ready)
             }
         }
-        val route = send ?: run { cancel(); fail("Casting isn't available here."); return false }
-        cancel()
+        val route = send ?: run { cancel("dropped: no route"); fail("Casting isn't available here."); return false }
+        cancel("sent")
         if (planned.plan.actions.isEmpty()) return true
         if (!route(planned.plan.action, planned.requestId)) { fail("Action could not be queued. Reconnect and try again."); return false }
         return true
@@ -370,6 +377,7 @@ internal class CastController(
         return step {
             val next = try { change(f) } catch (problem: IllegalArgumentException) {
                 AppLog.info("automatum", "Cast step refused: ${problem.message?.take(200)}")
+                AutomatumLog.refusal(f.play.gameId, "cast step", problem.message.orEmpty())
                 return@step Step.Refuse(NOT_ALLOWED)
             }
             settle(next, auto = true, accept, keep = null)

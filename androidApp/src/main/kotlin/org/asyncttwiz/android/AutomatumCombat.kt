@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.CombatShown
@@ -151,6 +152,7 @@ internal class CombatController(
         // Keyed to that division: this turn's, in its damage step (#3, CR 510.4)
         val answer = PreAnswer.Division(division.player, MtgRef.Card(card.id, card.zoneChanges),
             shares.map { (target, amount) -> PreShare(target, amount) }, play.board.turn.number.toIntOrNull(), division.firstStrike)
+        AutomatumLog.preEvent(play.gameId, "given", answer.toString())
         return submit(PreAnswers.set(play.board, answer))
     }
 
@@ -158,6 +160,7 @@ internal class CombatController(
     fun withdrawEarly(division: DamageDivision): Boolean {
         val play = current() ?: return false
         val card = play.board.cards.singleOrNull { it.id == division.source } ?: return false
+        AutomatumLog.preEvent(play.gameId, "withdrawn", "division of ${card.id}")
         return submit(PreAnswers.withdraw(play.board, PreAnswer.divisionKey(MtgRef.Card(card.id, card.zoneChanges), division.firstStrike))
             ?: return false)
     }

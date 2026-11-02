@@ -1,0 +1,1 @@
+add: With Automatum on, the game now stops only where you could react: the other player's spells and abilities, their attack and blocks. You get a short pause with a bar to respond (Hold to think longer), and everything else goes on by itself. Settings has a new Automatum section with your response time, whether to wait for the other player, and Full control.

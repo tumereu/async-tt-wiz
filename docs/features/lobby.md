@@ -121,10 +121,11 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Settings
 
-- **LOB-079** Settings (main menu and side menu) is grouped into Profile, Games, Table, Timeline playback, Card records and About & account, with dividers and compact rows. (r31)
+- **LOB-079** Settings (main menu and side menu) is grouped into Profile, Games, Table, Timeline playback, Automatum, Card records and About & account, with dividers and compact rows. (r41)
 - **LOB-080** Games → "Deck visibility": Visible, Hidden or "Show after first game" (default), saved on your account and used as the start value of "Show deck name & art" in new games. (r31)
 - **LOB-081** Table → Card move speed (0.25–3×, default 1×), the Event text switch (on by default), and Card size and Card text size (0.5–3×) with "Customize per area"/"Customize per text", tap-to-type values and a live sample; these are stored on the device. (r29)
 - **LOB-082** Timeline playback → the auto-pause switches, History playback pause (default 1 s, 0.1–10 s), Rewind pause (default 0.1 s), and "Rewind automatically when the opponent branched" with "During live play" and "When opening a game" (both off by default). (r33)
+- **LOB-113** Automatum → "Response time" (1–3 s in 0.5 s steps, default 2 s), "When the opponent can react" (Wait, the default, or Proceed at once) and "Full control" (off by default, SYS-071); stored on the device per account (STK-037, STK-038). (r41)
 - **LOB-083** About & account → What's new, Report a problem, Send error reports (LOB-104), the version line "Version <name> (<code>) <type> · commit <hash>" (selectable), and Log out. (r35)
 
 ### App updates
@@ -140,8 +141,8 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 
 ### Problem and crash reports
 
-- **LOB-089** "Report a problem" (Settings, or the update screen) sends an optional description with the app's recent log and the device model, but no passwords or email addresses, and shows "Report sent — code N". The server keeps the newest 20 per account and 200 in total (`PROBLEM_REPORT_LIMIT_PER_ACCOUNT`, `PROBLEM_REPORT_LIMIT`). (r35)
-- **LOB-090** Test builds always, and production builds when reports are on (LOB-104), capture crashes and upload them at the next start, and also upload slow actions, stutters and reconnect episodes, with no passwords or email addresses. The server keeps per account the newest 20 crash, 60 slow-action/reconnect and 20 stutter reports, 500 reports in total and nothing older than 30 days, deleting older ones (each settable from the environment). (r35)
+- **LOB-089** "Report a problem" (Settings, or the update screen) sends an optional description with the app's recent log, the last game's Automatum log (with what is needed to replay it: that game's card rules, its latest board and Automatum's latest steps, which may include hidden cards) and the device model, but no passwords or email addresses, and shows "Report sent — code N". The server keeps the newest 20 per account and 200 in total (`PROBLEM_REPORT_LIMIT_PER_ACCOUNT`, `PROBLEM_REPORT_LIMIT`). (r40)
+- **LOB-090** Test builds always, and production builds when reports are on (LOB-104), capture crashes, with the last game's Automatum log as in LOB-089, and upload them at the next start, and also upload slow actions, stutters and reconnect episodes, with no passwords or email addresses. The server keeps per account the newest 20 crash, 60 slow-action/reconnect and 20 stutter reports, 500 reports in total and nothing older than 30 days, deleting older ones (each settable from the environment). (r40)
 - **LOB-104** Production asks once per device, after sign-in on the main menu or Games list (never over a game, What's new or another prompt), "Send error reports?" with No thanks / Send reports; closing it means No. Settings → About & account → "Send error reports" changes it at any time; turning it off deletes reports not yet sent. Test builds show the switch on and locked, "Always on in test builds". (r35)
 
 ### Card records

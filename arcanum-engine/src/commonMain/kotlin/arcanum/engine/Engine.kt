@@ -41,8 +41,11 @@ object Engine {
      * [GameState.pending] is set, only its [Input.Answer] (or [Input.Cancel] for a cast) is accepted. A call that goes
      * round too often (an endless chain of mandatory triggers) stops with a [Decision.Manual] "possible loop"
      * ([arcanum.engine.decision.LoopStop.Cap]) instead of hanging; once it is answered the game goes on.
+     *
+     * [trace] gets one [TraceEntry] for the call (the input, what it did or why it was refused, how long it took) for a
+     * host's logs and bug reports; the default records nothing and costs nothing.
      */
-    fun perform(state: GameState, input: Input): Outcome = Perform.run(state, input)
+    fun perform(state: GameState, input: Input, trace: EngineTrace = EngineTrace.None): Outcome = Perform.run(state, input, trace = trace)
 
     /**
      * A game before it begins (CR 103): [seats] in seat order with their decks as libraries in the order given and their

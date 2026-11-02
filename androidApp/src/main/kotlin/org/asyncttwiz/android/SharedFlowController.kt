@@ -10,6 +10,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.EngineBatch
@@ -95,6 +96,20 @@ internal class SharedFlowController(
         return sendCall(play) { flow ->
             if (flow.priority != player) throw Refused("${if (player == viewer) "You don't" else "They don't"} hold priority now.")
             flow.pass(player)
+        }
+    }
+
+    /**
+     * I-D41 (STK-037, STK-038): the pause on the board [node] is over: [holder] passes priority, then Automatum goes on, as
+     * one batch from this device (the one whose step made the pause, or the holder's own). Quiet: nothing is said when it
+     * can't be sent (the table moved on, another answer is being worked out).
+     */
+    fun autoPass(holder: String, node: String): Boolean {
+        val play = current()?.takeIf { it.currentNodeId == node } ?: return false
+        if (Automatum.flowOpen(play.board)) return false
+        return sendCall(play, quiet = true) { flow ->
+            if (flow.holder != holder) throw Refused(null)
+            flow.pass(holder)
         }
     }
 
@@ -259,7 +274,8 @@ internal class SharedFlowController(
      * SYS-010) planned on [play], unless the board moved on meanwhile. True when it was taken (with
      * [AutomatumWork.Inline]: what the result says).
      */
-    private fun sendCall(play: PlayState, perform: (SharedFlow) -> EngineCall): Boolean {
+    private fun sendCall(play: PlayState, quiet: Boolean = false, perform: (SharedFlow) -> EngineCall): Boolean {
+        val fail: (String?) -> Unit = if (quiet) { _ -> } else this.fail
         val route = send ?: run { fail("Automatum isn't available here."); return false }
         if (busy) return false
         busy = true
@@ -275,17 +291,20 @@ internal class SharedFlowController(
             } catch (ask: Ask) {
                 Outcome.Confirm(ask.acting)
             } catch (refused: Refused) {
-                Outcome.Fail(refused.message)
+                Outcome.Fail(refused.message).also { refused.message?.let { AutomatumLog.refusal(play.gameId, "shared flow", it) } }
             } catch (refused: CombatRefused) {
+                AutomatumLog.refusal(play.gameId, "combat", refused.reason)
                 Outcome.Fail(refused.reason)
             } catch (problem: IllegalArgumentException) {
                 AppLog.info("automatum", "Answer refused: ${problem.message?.take(200)}")
+                AutomatumLog.refusal(play.gameId, "shared flow", problem.message.orEmpty())
                 Outcome.Fail(CastController.NOT_ALLOWED)
             } catch (problem: Unmappable) {
                 AppLog.warn("automatum", "Shared flow step couldn't be planned: ${problem.message?.take(200)}")
                 Outcome.Fail("Automatum couldn't send that.")
             } catch (problem: Exception) {
                 AppLog.warn("automatum", "Shared flow couldn't go on: ${problem::class.java.simpleName}: ${problem.message?.take(200)}")
+                AutomatumLog.refusal(play.gameId, "shared flow", "${problem::class.java.simpleName}: ${problem.message}")
                 Outcome.Fail("Automatum couldn't go on from here.")
             }
         }) { outcome ->

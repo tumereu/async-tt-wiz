@@ -67,6 +67,15 @@ class CrashReportsTest {
         assertTrue(store.pending().isEmpty())
     }
 
+    // LOB-090, I-D43: a crash keeps the latest game's Automatum log and bundle with it
+    @Test fun handlerKeepsTheAutomatumBundle() {
+        val store = CrashReportStore(temporary.newFolder())
+        CrashExceptionHandler(store, null, "debug", "device", automatum = { "atw-automatum-bundle/1 gzip+base64\nH4sI" })
+            .uncaughtException(Thread.currentThread(), IllegalStateException("boom"))
+        val saved = AccountJson.format.decodeFromString<CrashReport>(store.pending().single().readText())
+        assertEquals("atw-automatum-bundle/1 gzip+base64\nH4sI", saved.automatum)
+    }
+
     @Test fun handlerIncludesCausesSuppressedAndMetadataThenChainsEvenIfStorageFails() {
         val store = CrashReportStore(temporary.newFolder())
         val thread = Thread.currentThread()

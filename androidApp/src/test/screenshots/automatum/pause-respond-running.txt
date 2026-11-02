@@ -1,0 +1,1 @@
+Alice cast Storm Spark at Bob with Automatum on and Bob could answer with his own: it is his pause, so his respond panel shows a violet bar emptying over his 2 s response time, with Hold beside Respond and Let it resolve.

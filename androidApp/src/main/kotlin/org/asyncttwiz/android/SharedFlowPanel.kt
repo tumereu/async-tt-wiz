@@ -23,7 +23,9 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.asyncttwiz.automatum.Divisions
 import org.asyncttwiz.automatum.SharedFlow
+import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
 
 /**
@@ -52,6 +54,15 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
         // #8 (I-D33): a decision that opened with its early answer beside it (given while the batch opening it was on its
         // way) is answered with it by the client of whoever made the latest event, which is there to send it
         if (next?.early != null && toolkit.latestAuthor() == toolkit.viewer) flows.answerEarly()
+        // CMB-033: a division of combat damage whose order can't change anything is made with the suggestion at once, by
+        // the client that opened it or the dividing player's
+        else if (next != null && toolkit.enabled()) {
+            val division = next.division
+            val open = next.decision as? Decision.Divide
+            if (division != null && open != null && Divisions.orderFree(division) &&
+                (toolkit.latestAuthor() == toolkit.viewer || division.player == toolkit.viewer))
+                flows.answer(Answer.Division(open.suggested))
+        }
     }
     if (!shown) return
     val flow = flows.view?.takeIf { it.play.board === play.board } ?: return
@@ -63,10 +74,18 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     val decision = flow.decision
     val holder = flow.priority
     val bar = flows.targeting || (decision == null && holder == viewer && flows.responding == play.currentNodeId)
+    // CMB-033: a division of combat damage is a dialog of its own; one made by itself shows nothing meanwhile
+    val dialog = decision is Decision.Divide && flow.division != null
+    if (dialog && flows.answering != null && !flows.hidden && dividingInDialog(flow)) {
+        val division = flow.division!!
+        CombatDivisionDialog(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
+        return
+    }
     CastPanelPlacement(stack, if (bar) handRow?.center?.y else null) {
         when {
             decision != null && flows.answering != null -> when {
                 flows.targeting -> if (!toolkit.stackTargeting) FlowTargetBar(flows, flow, play, decision as Decision.Targets)
+                dialog -> if (dividingInDialog(flow)) DivisionHidden(flows)
                 flows.hidden -> HiddenEye(flows)
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
@@ -75,7 +94,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 WaitingBar("${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing — " +
                     prompt(flows, flow, play, decision), "Choose for them") { confirm = true }
                 // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
-                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer }?.let { early ->
+                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && !Divisions.orderFree(it) }?.let { early ->
                     EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
                 }
             }
@@ -101,6 +120,63 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 if (decision != null) flows.chooseFor(decision) else flows.pass(other)
             }) { Text(if (decision != null) "Choose for them" else "Pass for them") } },
             dismissButton = { TextButton({ confirm = false }) { Text("Cancel") } })
+    }
+}
+
+/**
+ * I-D40: a step that would act for the other player (the step button, the step arrow, the phase dialog, the combat quick
+ * actions: anything that goes through [SharedFlowController.step]) asks first, as "Pass for them" does (STK-028); nothing
+ * is sent until it is confirmed.
+ */
+@Composable
+internal fun ActingForDialog(flows: SharedFlowController, names: Map<String, String>) {
+    val asked = flows.acting ?: return
+    val text = actingForText(asked, names[asked.player])
+    AlertDialog(onDismissRequest = flows::cancelActing,
+        title = { Text(text.title) },
+        text = { Text(text.text) },
+        confirmButton = { TextButton({ flows.confirmActing() }) { Text(text.button) } },
+        dismissButton = { TextButton(flows::cancelActing) { Text("Cancel") } })
+}
+
+/** What the confirmation of [asked] says (I-D40); [name] is the other player's name, when known. */
+internal data class ActingForText(val title: String, val text: String, val button: String)
+
+internal fun actingForText(asked: ActingFor, name: String?): ActingForText {
+    val who = name ?: "the other player"
+    val subject = name ?: "The other player"
+    val board = asked.board
+    return when (val kind = asked.kind) {
+        is ActingFor.Kind.DeclareAttackers -> ActingForText("Declare attackers for $who?",
+            "$subject declares attackers now. This declares for them what the combat lanes hold: " +
+                (if (kind.count == 0) "no attack." else "${kind.count} ${if (kind.count == 1) "attacker" else "attackers"}."),
+            "Declare for them")
+        is ActingFor.Kind.DeclareBlockers -> ActingForText("Declare blockers for $who?",
+            "$subject declares blockers now. This declares for them what the combat lanes hold: " +
+                (if (kind.count == 0) "no blocks." else "${kind.count} ${if (kind.count == 1) "blocker" else "blockers"}."),
+            "Declare for them")
+        ActingFor.Kind.NoBlocks -> ActingForText("Declare no blocks for $who?",
+            "$subject declares blockers now. This clears the blocks in the combat lanes and declares no blocks for them.",
+            "Declare for them")
+        is ActingFor.Kind.Pass -> {
+            val first = if (kind.priority) "$subject has priority and may still want to act." else "$subject declares attackers now."
+            // In their own turn, passing on past combat declares no attack for them (TRN-057)
+            val now = TurnPosition.of(board.turn)
+            val beforeAttack = now != null && (now < TurnPosition.DECLARE_ATTACKERS || now == TurnPosition.DECLARE_ATTACKERS && !kind.priority)
+            val pastCombat = when (val until = asked.until) {
+                StepFlow.Until.Pass -> false
+                StepFlow.Until.EndOfTurn -> true
+                is StepFlow.Until.Step -> until.position > TurnPosition.DECLARE_ATTACKERS
+            }
+            val nothing = if (asked.player == board.turn.accountId && beforeAttack && pastCombat) ", attacking with nothing" else ""
+            when (val until = asked.until) {
+                StepFlow.Until.Pass -> ActingForText("Pass for $who?", "$first Passing for them lets the game go on.", "Pass for them")
+                StepFlow.Until.EndOfTurn -> ActingForText("End the turn for $who?",
+                    "$first Automatum passes for them until the turn ends$nothing.", "End turn for them")
+                is StepFlow.Until.Step -> ActingForText("Pass for $who?",
+                    "$first Automatum passes for them on to ${until.position.label}$nothing.", "Pass for them")
+            }
+        }
     }
 }
 

@@ -55,6 +55,11 @@ object Automatum {
     fun recorded(board: BoardState): Boolean = board.engineRecords.isNotEmpty() || board.priority != null ||
         board.cards.any { it.ledger.isNotEmpty() } || board.players.any { it.ledger.isNotEmpty() }
 
+    /** I-D42: engine data that belongs to the combat, step or turn it was recorded in, dropped when Automatum is turned on
+     * ([MtgAction.SetAutomatum]): the combat record, triggered abilities waiting for the Stack and early answers. */
+    fun turnScoped(record: EngineRecord): Boolean = record.kind == EngineRecordKind.Combat ||
+        record.kind == EngineRecordKind.Triggered || record.kind == EngineRecordKind.PreAnswer
+
     /** I-D15: why Automatum can't be turned on now (a [RuleRefusals] code), or null when it can: the Stack holds a
      * manual entry (one without a structured item, STK-016) or a Temp pile holds cards (D38). */
     fun turnOnRefusal(board: BoardState): String? {
@@ -187,8 +192,10 @@ object Automatum {
     /** The Automatum switch for the whole game, both players (D20, I-D4). Turning it on is refused while the Stack holds
      * a manual entry or a Temp pile holds cards (I-D15, [Automatum.turnOnRefusal]), and gives the Battlefield's and
      * Exile's cards that have no timestamp yet (games begun before rules v36) stamps in a stated order
-     * ([MtgFacts.stampUnstamped]). Turning it off always applies and closes an open flow's continuation; effect records
-     * stay (I-D24). */
+     * ([MtgFacts.stampUnstamped]). Turning it on also drops the turn-scoped engine data recorded before it
+     * ([Automatum.turnScoped]: the combat record, waiting triggers, early answers, passes in a row, I-D42), since play by
+     * hand may have ended that combat, step or turn; undoing the switch brings them back. Turning it off always applies
+     * and closes an open flow's continuation; effect records stay (I-D24). */
     @Serializable @SerialName("setAutomatum") data class SetAutomatum(val on: Boolean) : MtgAction
     /** "Clear Automatum data" (I-D24): removes every engine record (effects, delayed triggers, the open continuation, …),
      * the priority holder and the card and player ledgers ([Automatum.recorded]); typed counters and mana pools stay.
@@ -284,7 +291,10 @@ object MtgRules {
                 board.automatum == action.on && (action.on || !Automatum.flowOpen(board)) -> return unchanged
                 action.on -> {
                     Automatum.turnOnRefusal(board)?.let { return reject(it) }
-                    MtgFacts.stampUnstamped(board)?.copy(automatum = true) ?: return reject("invalidStructure")
+                    // I-D42: turn-scoped engine data from before the switch is dropped (best effort)
+                    MtgFacts.stampUnstamped(board)?.copy(automatum = true,
+                        engineRecords = board.engineRecords.filterNot(Automatum::turnScoped),
+                        priority = board.priority?.copy(passes = 0)) ?: return reject("invalidStructure")
                 }
                 // I-D24: switching off closes the open flow; every other record stays.
                 else -> board.copy(automatum = false, engineRecords = board.engineRecords.filterNot { it.id == Automatum.CONTINUATION_ID })

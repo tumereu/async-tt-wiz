@@ -407,6 +407,8 @@ sealed interface GameEvent {
     @Serializable @SerialName("spent-on-spells") data class SpentOnSpells(val player: PlayerId, val before: Int, val after: Int) : GameEvent
     /** [player] conceded the game (CR 104.3a). */
     @Serializable @SerialName("conceded") data class Conceded(val player: PlayerId) : GameEvent
+    /** The game was in a loop of mandatory actions: it is a draw (CR 104.4b, 732.4). */
+    @Serializable @SerialName("mandatory-loop") data object MandatoryLoop : GameEvent
     /** [player] foraged (CR 701.61a). */
     @Serializable @SerialName("foraged") data class Foraged(val player: PlayerId) : GameEvent
     /** [player] gave a gift (CR 702.174c). */

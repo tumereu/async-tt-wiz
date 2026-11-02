@@ -341,6 +341,7 @@ internal object GameplayConcerns {
                 val source = when (val combat = a.action) {
                     is CombatAction.Declare -> combat.sourceId
                     is CombatAction.Place -> combat.sourceId
+                    is CombatAction.SetBlocks -> combat.sourceId
                     is CombatAction.Remove, is CombatAction.Close, CombatAction.Open, is CombatAction.SetAttackTarget -> null
                 }
                 source?.let { entity("card", it, "containerId"); fields += ConcernField.Incident(it) }

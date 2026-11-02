@@ -21,6 +21,7 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CombatArea
+import org.asyncttwiz.protocol.CombatStackRules
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.TurnPosition
@@ -52,6 +53,9 @@ data class CombatChoices(
     val requiredAttacks: List<LaneAttack> = emptyList(),
     val blocks: Map<String, List<String>> = emptyMap(),
     val requiredBlocks: List<LaneBlock> = emptyList(),
+    /** How many attackers each creature that may block can block at once (CR 509.1a, "can block an additional
+     * creature"): only those that can block more than one, null for any number. */
+    val capacity: Map<String, Int?> = emptyMap(),
     /** Why the engine can't take this board (then nothing is offered). */
     val unsupported: List<String> = emptyList(),
 ) {
@@ -116,8 +120,8 @@ data class DamagePreview(
  * - [preview]: the damage if every player passed from now on (I-D29, [CombatFlow.preview]), with the blocks the lanes
  *   hold while blockers are still declared and each early division given ([PreAnswers]); worked out in the declare
  *   blockers step, the first-strike damage step and while a division of combat damage is open, else null;
- * - [alsoBlocks]: each blocker that blocks more than one attacker (CR 509.1a) and how many more: the lanes show it only
- *   in the pair of the first;
+ * - [draftRefusal]: while a declaration is awaited, why the engine refuses what the lanes hold as that declaration (null:
+ *   it takes it); [noneRefusal] why it refuses declaring nothing (CR 508.1d, 509.1c requirements; null: it takes it);
  * - [early]: the divisions of combat damage still to come in this step after the open one (CR 510.1c–d): their players
  *   may answer them early (I-D33, [PreAnswers]);
  * - [passing]: who holds priority with an empty Stack in combat once blockers are declared (the declare blockers step,
@@ -127,7 +131,8 @@ data class DamagePreview(
 data class CombatShown(
     val choices: CombatChoices,
     val preview: DamagePreview? = null,
-    val alsoBlocks: Map<String, Int> = emptyMap(),
+    val draftRefusal: String? = null,
+    val noneRefusal: String? = null,
     val early: List<DamageDivision> = emptyList(),
     val passing: String? = null,
     val firstStrikeStep: Boolean = false,
@@ -193,14 +198,18 @@ object CombatFlow {
         // #3 (CR 510.4): only divisions of the open one's damage step; the regular step's come with that step
         val coming = if (open == null) emptyList() else preview?.divisions.orEmpty().map { it.first }
             .filter { it.source != open.source && it.firstStrike == open.firstStrike }.distinctBy { it.source }
-        val also = s.combat?.blockers.orEmpty().filter { it.attackers.size > 1 }
-            .associate { call.ids.atw((it.id as ObjectId.Card).card) to it.attackers.size - 1 }
+        // CMB-028: the quick actions say why a declaration can't be made yet
+        val drafted = if (choices.declaring == null) null else lanes(call.state.board.combat)
+        fun refusals(attacks: List<LaneAttack>, blocks: List<LaneBlock>) =
+            if (choices.attackers) attackRefusal(call, attacks) else blockRefusal(call, blocks)
+        val draftRefusal = drafted?.let { (attacks, blocks) -> refusals(attacks, blocks) }
+        val noneRefusal = drafted?.let { refusals(emptyList(), emptyList()) }
         val combat = s.combat
         val passing = s.priority.holder?.value?.takeIf {
             s.pending == null && s.stack.isEmpty() && combat != null && combat.attackers.isNotEmpty() &&
                 ((s.turn.step == TurnStep.DeclareBlockers && combat.blocksDecided) || firstStrike)
         }
-        return CombatShown(choices, preview, also, coming, passing, firstStrike)
+        return CombatShown(choices, preview, draftRefusal, noneRefusal, coming, passing, firstStrike)
     }
 
     /** What may be declared in [call]'s state now. */
@@ -234,20 +243,29 @@ object CombatFlow {
             }
             val blocks = LinkedHashMap<String, MutableList<String>>()
             pairs.forEach { b -> blocks.getOrPut(card(b.blocker)) { mutableListOf() } += card(b.attacker) }
+            // CR 509.1a: one creature blocks one attacker, more with "can block an additional creature" or any number
+            val capacity = pairs.map { it.blocker }.distinct().mapNotNull { b ->
+                val ms = view[b]?.mechanics.orEmpty().map { it.mechanic }
+                if (ms.any { it == Mechanic.CanBlockAnyNumber }) card(b) to null else {
+                    val n = 1 + ms.filterIsInstance<Mechanic.CanBlockAdditional>().sumOf { it.count }
+                    if (n > 1) card(b) to n else null
+                }
+            }.toMap()
             return CombatChoices(p.id.value, attackers = false, blocks = blocks,
-                requiredBlocks = listed.first().blocks.map { LaneBlock(card(it.blocker), card(it.attacker)) })
+                requiredBlocks = listed.first().blocks.map { LaneBlock(card(it.blocker), card(it.attacker)) }, capacity = capacity)
         }
         return CombatChoices.NONE
     }
 
     /**
      * The attacks and blocks ATW's lanes [area] hold (a client's draft of a declaration, or a combat declared by hand):
-     * each attacker of a pair attacks the pair's target, each blocker blocks every attacker of its pair.
+     * each attacker of a pair attacks the pair's target, each blocker blocks every attacker of its pair and of the pairs
+     * it also blocks (CMB-031, its arrows).
      */
     fun lanes(area: CombatArea?): Pair<List<LaneAttack>, List<LaneBlock>> {
         val pairs = area?.pairs.orEmpty()
         return pairs.flatMap { p -> p.attackers.map { LaneAttack(it.sourceId, p.attackTarget) } } to
-            pairs.flatMap { p -> p.blockers.flatMap { b -> p.attackers.map { LaneBlock(b.sourceId, it.sourceId) } } }
+            CombatStackRules.blocks(area).map { (b, a) -> LaneBlock(b.sourceId, a.sourceId) }
     }
 
     /** Why the engine refuses [attacks] as the attackers declared in [call]'s state (for people), or null. */
@@ -436,5 +454,65 @@ object CombatFlow {
         val trample = d.among.firstOrNull { t -> d.lethal.none { it.target == t } }
         return DamageDivision(d.player.value, ids.atw(source.card), d.amount, d.among.map(ids::ref), lethal,
             d.suggested.associate { ids.ref(it.target) to it.amount }, trample?.let(ids::ref), s.combat?.firstStrikeStep == true)
+    }
+
+    /**
+     * Whether the open decision in [call]'s state is a division of combat damage whose "In order" result can't depend on
+     * the order ([Divisions.orderFree], CMB-033): the table answers it with the suggestion at once, without asking.
+     */
+    fun answeredByItself(call: EngineCall): Boolean = answeredByItself(call.working, call.ids)
+
+    private fun answeredByItself(s: GameState, ids: CardIds): Boolean {
+        val d = s.pending?.decision as? Decision.Divide ?: return false
+        val combat = s.combat ?: return false
+        if (s.turn.step != TurnStep.CombatDamage || d.lethal.isEmpty()) return false
+        if (combat.attackers.none { it.id == d.source } && combat.blockers.none { it.id == d.source }) return false
+        return Divisions.orderFree(division(s, ids) ?: return false)
+    }
+}
+
+/**
+ * Dividing combat damage as the division dialog offers it (CMB-033; CR 510.1c–d, 702.19b): "In order" gives each
+ * creature lethal damage in turn, "Free" any division that obeys the rules.
+ */
+object Divisions {
+    /** The creatures among [d]'s recipients (blockers, or the attackers a blocker blocks), in its order. */
+    fun creatures(d: DamageDivision): List<MtgRef> = d.among.filter { it != d.trampleTo }
+
+    /**
+     * "In order": each creature of [order] gets lethal damage in turn ([DamageDivision.lethal]) while damage is left; what
+     * is left once each has lethal damage goes to the attacked player or planeswalker with trample (CR 702.19b), else to
+     * the first creature (as the engine's suggestion has it).
+     */
+    fun inOrder(d: DamageDivision, order: List<MtgRef>): Map<MtgRef, Int> {
+        var left = d.amount
+        val shares = LinkedHashMap<MtgRef, Int>()
+        for (r in order) { val n = minOf(left, d.lethal[r] ?: 0); shares[r] = n; left -= n }
+        val trample = d.trampleTo
+        if (trample != null) shares[trample] = left
+        else if (order.isNotEmpty()) shares[order.first()] = shares.getValue(order.first()) + left
+        return d.among.associateWith { shares[it] ?: 0 }
+    }
+
+    /** The creatures of [d] in the order its suggestion gives them lethal damage (its own order). */
+    fun suggestedOrder(d: DamageDivision): List<MtgRef> = creatures(d)
+
+    /** Why [shares] can't be [d]'s division (for people), or null: all of the damage is divided (CR 510.1c), and with
+     * trample the player or planeswalker gets some only once every creature has lethal damage (CR 702.19b). */
+    fun refusal(d: DamageDivision, shares: Map<MtgRef, Int>): String? {
+        val total = shares.values.sum()
+        if (shares.values.any { it < 0 }) return "Damage can't be negative."
+        if (total != d.amount) return "Divide all ${d.amount} damage ($total divided now)."
+        val trample = d.trampleTo
+        if (trample != null && (shares[trample] ?: 0) > 0 && creatures(d).any { (shares[it] ?: 0) < (d.lethal[it] ?: 0) })
+            return "With trample every blocker needs lethal damage before any goes past it."
+        return null
+    }
+
+    /** Whether "In order" gives the same result in every order (CMB-033): one creature, or damage enough for lethal damage
+     * to all of them. The division is then made with the suggestion without asking. */
+    fun orderFree(d: DamageDivision): Boolean {
+        val creatures = creatures(d)
+        return creatures.size <= 1 || d.amount >= creatures.sumOf { d.lethal[it] ?: 0 }
     }
 }

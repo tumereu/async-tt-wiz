@@ -6271,6 +6271,9 @@ internal class Sentences(
     /** rtr: sentences that read the steps before them; null when none reads [sentence]. */
     private fun rtrModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
         val last = (steps.lastOrNull() as? Step.Do)?.effect
+        // rtr chunk 11: "This creature gets +1/+1 until end of turn. Untap it.": "it" is the object of the sentence before
+        if (sentence == Rtr.UNTAP_IT && last is Effect.ApplyMechanics && last.affects == Affected.Objects(Objects.Self))
+            return steps + Step.Do(Effect.Untap(Objects.Self))
         // rtr chunk 06: "If a creature dealt damage this way would die this turn, exile it instead." after damage to a target (a
         // replacement for the rest of the turn, CR 614.1a)
         if (sentence == "If a creature dealt damage this way would die this turn, exile it instead." && last is Effect.DealDamage) {
@@ -6546,6 +6549,11 @@ internal class Sentences(
             val (count, noun) = counted(m.groupValues[1]) ?: return null
             return listOf(CostPart.Discard(CostObjects.Choose(Filters.noun(noun) ?: return null, count = Value.Fixed(count), shared = arcanum.api.SharedQuality.Name)))
         }
+        // rtr chunk 11: "Exile an instant or sorcery spell you control": a spell on the Stack (CR 405.1), so it won't resolve
+        Rtr.EXILE_SPELL_YOU_CONTROL.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1] + " you control") ?: return null
+            return listOf(CostPart.Exile(CostObjects.Choose(filter, count = Value.Fixed(1)), from = Zone.Stack))
+        }
         // rtr chunk 06: "Sacrifice a Swamp and a Forest" (two objects, each its own part)
         Rtr.SACRIFICE_A_AND_A.matchEntire(text)?.let { m ->
             return listOf(m.groupValues[1], m.groupValues[2]).map { CostPart.Sacrifice(costChoice(it) ?: return null) }
@@ -6627,6 +6635,8 @@ internal class Sentences(
         val IF_CONDITION_THEN = Regex("""If (.+?), (.+)\.""")
         val SELF_HAS_N_OR_MORE_COUNTERS = Regex("""(.+) has (\w+) or more (\S+) counters on it""")
         val DISCARD_WITH_THE_SAME_NAME = Regex("""Discard (\w+ .+?) with the same name""")
+        val EXILE_SPELL_YOU_CONTROL = Regex("""Exile an? (.+ spell) you control""")
+        val UNTAP_IT = "Untap it."
         val SACRIFICE_A_AND_A = Regex("""Sacrifice (an? \w+) and (an? \w+)""")
         // rtr chunk 01
         val CANT_ATTACK_OR_BLOCK_OR_ACTIVATE = Regex("""(.+) can't attack or block, and its activated abilities can't be activated\.""")

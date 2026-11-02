@@ -182,7 +182,9 @@ internal object Costs {
             is CostPart.Action -> s.player(player).hand + s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Exile -> when (part.from) {
                 Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
-                Zone.Stack, Zone.Exile, Zone.Command -> emptyList()
+                // rtr chunk 11: spells the payer controls ("Exile an instant or sorcery spell you control")
+                Zone.Stack -> s.stack.filter { s.stackItems[it]?.controller == player }
+                Zone.Exile, Zone.Command -> emptyList()
                 else -> s.zone(part.from, player)
             }
             else -> emptyList()

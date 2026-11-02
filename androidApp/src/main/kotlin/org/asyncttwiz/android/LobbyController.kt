@@ -15,7 +15,9 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     private val activityTarget: (suspend (String, ActivityRoute) -> ActivityTarget)? = null,
     treeCache: ((String, String, String) -> org.asyncttwiz.storage.GameplayTreeStore?)? = null,
     private val basicLandDefinitions: (() -> List<SubmittedDefinition>)? = null,
-    clock: () -> Long = ::monotonicMillis) : AutoCloseable {
+    clock: () -> Long = ::monotonicMillis,
+    /** Runs the session's personal history reviews; null gives them their own background thread. Tests pass a worker they drain. */
+    historyReviewWorker: ExecutorService? = null) : AutoCloseable {
     private val holder = LobbyStateHolder()
     var state by holder
         private set
@@ -35,7 +37,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
             refresh(background = true)
         }, statusChanged = ::connectionState, installationId = installationId, accountId = accountId, treeCache = treeCache,
         tableChanges = { gameId, batch -> if (state.selected == gameId) tableActions.historyOwner?.liveChanges(batch) }, personalChat = personalChat,
-        openedGame = { state.selected }) }
+        openedGame = { state.selected },
+        reviewWorker = historyReviewWorker ?: DebugJank.treeExecutor(java.util.concurrent.Executors.newSingleThreadExecutor())) }
     private fun sessionAvailable(id: String) = session?.available(id) != false
     private val scope = object : LobbyScope {
         override var state: LobbyState

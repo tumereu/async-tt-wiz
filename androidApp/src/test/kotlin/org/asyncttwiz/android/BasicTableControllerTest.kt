@@ -54,7 +54,9 @@ internal class BasicTableFixture {
         override suspend fun create(token: String, input: CreateInvitation): GameSummary = error("not used")
         override fun close() = Unit
     }
-    val lobby = LobbyController(api, { "A".repeat(43) }, worker, { it() }, gameConnection = wire, accountId = { actor })
+    // History reviews (timeline points, held result reveals) run on [worker] too, so drain() completes them. On a
+    // background thread they could land after a test advanced the Compose clock, which made reveal checks flaky.
+    val lobby = LobbyController(api, { "A".repeat(43) }, worker, { it() }, gameConnection = wire, accountId = { actor }, historyReviewWorker = worker)
     val basic = BasicTableController({ lobby.state.play }, { game.id in lobby.state.connectedGames }, lobby::gameplay)
     val play get() = requireNotNull(lobby.state.play)
     fun card(n: Int) = play.board.cards.single { it.id == id(n) }

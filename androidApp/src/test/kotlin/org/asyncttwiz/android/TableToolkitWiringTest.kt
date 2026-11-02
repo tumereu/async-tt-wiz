@@ -483,9 +483,8 @@ class TableToolkitWiringTest {
                 f.game.copy(revision = "2"), treeDelta = TreeSync.delta(root, accepted)))
             val personal = f.lobby.history
             personal.update(f.lobby.retainedTree()!!, "2"); f.worker.drain()
-            personal.select(root.initial.root.id); personal.displayPosition()
-            val end = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(5)
-            while (personal.view == null) { assertTrue(System.nanoTime() < end); Thread.sleep(5) }
+            personal.select(root.initial.root.id); personal.displayPosition(); f.worker.drain()
+            assertNotNull(personal.view)
             assertTrue(personal.arm(root.initial.root.id)); assertTrue(f.commands().isEmpty())
             val ui = TableToolkitController(f.actor, {
                 if (personal.provisional) f.lobby.state.play else personal.view?.state

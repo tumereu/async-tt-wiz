@@ -591,10 +591,13 @@ internal object Actions {
      * Creates [count] tokens of [face] under [controller]'s control as one event (CR 111.2), after replacements on
      * creating tokens ("twice that many", "those tokens plus …", CR 614.1) and on entering. Their card ids are
      * name-based from [cause] (D35). Returns the new ids.
+     *
+     * [fromSpellCopy]: a copy of a permanent spell becoming a token as it resolves (CR 111.13, 608.3f, 707.10f), with
+     * the copy's facts; it isn't "created", so replacements and triggers on creating tokens don't see it.
      */
     fun createTokens(
         act: Act, cause: Cause, face: FaceDefinition, count: Int, controller: PlayerId, tapped: Boolean = false,
-        attachTo: TargetRef? = null,
+        attachTo: TargetRef? = null, fromSpellCopy: arcanum.engine.state.ObjectFacts? = null,
     ): List<ObjectId> {
         if (count <= 0) return emptyList()
         val linked = mutableListOf<WaitingTrigger>()
@@ -608,10 +611,10 @@ internal object Actions {
                     id = ObjectId.Card(TokenIds.token(creator, i), 0), owner = controller, controller = controller,
                     zone = Zone.Battlefield, definition = CardDefinition(Layout.Normal, listOf(f)), token = true, tapped = tapped,
                     timestamp = first + i, controlSince = ControlSince(controller, act.state.turn.number), attachedTo = attachTo,
-                )
+                ).let { o -> if (fromSpellCopy != null) o.copy(facts = fromSpellCopy) else o }
             }
         }
-        val specs = Replacements.apply(act, cause, listOf(face to count), controller, null,
+        val specs = if (fromSpellCopy != null) listOf(face to count) else Replacements.apply(act, cause, listOf(face to count), controller, null,
             proposed = { s -> Change.Created(planned(s).mapIndexed { i, o -> Placed(o, act.state.battlefield.size + i) }) },
             modify = { s, r, _ ->
                 var result: List<Pair<FaceDefinition, Int>>? = s
@@ -659,7 +662,8 @@ internal object Actions {
         }
         if (tokens.isEmpty()) return emptyList()
         val start = act.state.battlefield.size
-        act.record(Change.Created(tokens.mapIndexed { i, o -> Placed(o, start + i) }, listOf(Meaning.TokenCreated, Meaning.Entered)))
+        act.record(Change.Created(tokens.mapIndexed { i, o -> Placed(o, start + i) },
+            if (fromSpellCopy != null) listOf(Meaning.Resolved, Meaning.Entered) else listOf(Meaning.TokenCreated, Meaning.Entered)))
         Replacements.addLinked(act, linked)
         return tokens.map { it.id }
     }

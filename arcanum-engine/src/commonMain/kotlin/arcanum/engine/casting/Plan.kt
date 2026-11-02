@@ -292,6 +292,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val names = if (applied.source == itemId) applied.names.with(chosen) else applied.names
             val e = snap.evaluator(applied.controller, self = applied.source, names = names)
             if (!e.matches(m.what, itemId)) return@forEach
+            // "The next spell …" (CR 611.2f): only a spell it is still waiting for
+            if (!NextSpells.appliesTo(snap.state, applied.effect, e, itemId)) return@forEach
             val mana = Costs.expand(m.change, e)
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
         }

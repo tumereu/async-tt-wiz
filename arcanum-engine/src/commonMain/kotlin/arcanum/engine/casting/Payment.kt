@@ -363,6 +363,7 @@ internal object Payment {
         if (plan.spliced.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(plan.player, plan.spliced.map { it.card })))
         // CR 601.2i: the spell becomes cast
         recorder.record(Change.StackItemAdded(item, null, listOf(Meaning.Cast)))
+        NextSpells.useUp(recorder, id)
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)

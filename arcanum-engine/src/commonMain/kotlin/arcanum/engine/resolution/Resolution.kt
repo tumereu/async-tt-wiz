@@ -172,6 +172,18 @@ internal object Resolution {
     internal fun finish(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
         val card = act.state.obj(item.id)
+        if (item.kind is StackItemKind.SpellCopy && !fizzled && card == null) {
+            // CR 707.10f, 608.3f: a copy of a permanent spell becomes a token permanent as it resolves
+            val c = act.view()[item.id]?.characteristics
+            val face = arcanum.engine.view.Copiable(act.state).faces(item.id)?.firstOrNull()?.face
+            if (c != null && face != null && PERMANENT_TYPES.any { c.isType(it) }) {
+                val attachTo = if (c.subtypes.any { it.name == "Aura" }) item.targets.values.flatten().firstOrNull() else null
+                act.record(Change.StackItemRemoved(item, act.state.stack.indexOf(item.id), listOf(meaning)))
+                Actions.createTokens(act, causeOf(item), face, 1, item.controller, attachTo = attachTo,
+                    fromSpellCopy = item.facts ?: arcanum.engine.state.ObjectFacts())
+                return
+            }
+        }
         if (item.kind != StackItemKind.Spell || card == null) {
             act.record(Change.StackItemRemoved(item, act.state.stack.indexOf(item.id).takeIf { it >= 0 && card == null }, listOf(meaning)))
             return

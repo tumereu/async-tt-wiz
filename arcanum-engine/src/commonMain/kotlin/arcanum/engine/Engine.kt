@@ -43,6 +43,16 @@ object Engine {
     fun newGame(seats: List<Seat>, startingLife: Int = 20, skipFirstDraw: Boolean = seats.size == 2): GameState =
         Setup.newGame(seats, startingLife, skipFirstDraw)
 
+    /**
+     * The objects whose identity [player] may know now (D60, spec §7.0 "Hidden information"): public cards, their own
+     * hand and cards outside the game, face-down cards they control, and cards an ability lets them look at any time
+     * ("you may look at the top card of your library any time", CR 401.5). A host shows a player what [state] knows
+     * of these and nothing of the rest: of the others' cards, of [GameState.pending] decisions of other players over
+     * cards not among these, and of [arcanum.engine.change.Change.Filled]s that aren't public.
+     */
+    fun visible(state: GameState, player: PlayerId): Set<arcanum.engine.state.ObjectId> =
+        arcanum.engine.action.Knowledge.visible(state, view(state), player)
+
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result
 }

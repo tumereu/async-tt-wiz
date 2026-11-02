@@ -49,6 +49,9 @@ internal class Copiable(private val state: GameState) {
             }
         }
         val o = state.obj(id) ?: return null
+        // CR 613.2b, 708.2a: face down, its copiable values are the face-down values whatever it is, so a face-down
+        // permanent the caller can't see (D60) is a 2/2 too
+        if (o.faceDown) return listOf(IndexedFace(0, FACE_DOWN))
         val definition = o.definition ?: return null
         var faces: List<IndexedFace> = when {
             // CR 709.4: a split card outside the Stack has both halves' characteristics
@@ -62,8 +65,6 @@ internal class Copiable(private val state: GameState) {
         }
         // CR 702.103b: a bestowed spell or permanent is an Aura enchantment with enchant creature
         if (o.bestowed) faces = faces.map { IndexedFace(it.index, bestowed(it.face)) }
-        // CR 613.2b, 708.2a: face down
-        if (o.faceDown) faces = listOf(IndexedFace(0, FACE_DOWN))
         return faces
     }
 

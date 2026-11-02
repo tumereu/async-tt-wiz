@@ -48,7 +48,13 @@ internal class Scope(
         dividedShare = dividedShare,
     ))
 
-    fun objects(o: arcanum.api.Objects): List<ObjectId> = eval().objects(o)
+    /** The objects [o] means now; "[n] of them at random" is a random pick the host answers (CR 701.20c, D25). */
+    fun objects(o: arcanum.api.Objects): List<ObjectId> {
+        if (o !is arcanum.api.Objects.Random) return eval().objects(o)
+        val among = objects(o.of)
+        val n = value(o.count).coerceAtLeast(0)
+        return if (among.size <= n) among else act.randomObjects(actor, self, among, n)
+    }
     fun players(p: arcanum.api.Players): List<PlayerId> = eval().players(p)
     fun value(v: arcanum.api.Value): Int = eval().value(v)
     fun holds(c: arcanum.api.Condition): Boolean = eval().holds(c)

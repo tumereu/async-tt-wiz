@@ -76,9 +76,28 @@ internal object Options {
 
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {
         val d = pending.decision
-        val inputs = candidates(snap, pending).distinct().map { Input.Answer(d.id, it) }.filter { accepted(snap.state, it) }
+        // D60: another player isn't offered answers naming cards they can't see (which of a searched library match)
+        val hidden = if (player == d.player) emptySet() else objectsOf(d) - arcanum.engine.action.Knowledge.visible(snap.state, snap.view, player)
+        val inputs = candidates(snap, pending).distinct().filter { hidden.isEmpty() || objectsOf(it).none { id -> id in hidden } }
+            .map { Input.Answer(d.id, it) }.filter { accepted(snap.state, it) }
         val cancel = (pending.continuation as? Continuation.Announcing)?.takeIf { it.player == player }?.let { Input.Cancel(player) }
         return inputs + listOfNotNull(cancel)
+    }
+
+    /** The objects a decision offers. */
+    private fun objectsOf(d: Decision): Set<ObjectId> = when (d) {
+        is Decision.ChooseObjects -> d.options.toSet()
+        is Decision.Targets -> d.options.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }.toSet()
+        is Decision.LegendRule -> d.among.toSet()
+        else -> emptySet()
+    }
+
+    /** The objects an answer names. */
+    private fun objectsOf(a: Answer): List<ObjectId> = when (a) {
+        is Answer.Objects -> a.chosen
+        is Answer.Targets -> a.chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
+        is Answer.Keep -> listOf(a.kept)
+        else -> emptyList()
     }
 
     /** Answers worth trying for the open decision; [answers] keeps those [Engine.perform] accepts. */

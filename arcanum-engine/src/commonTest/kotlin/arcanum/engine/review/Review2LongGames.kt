@@ -4,11 +4,18 @@ import arcanum.api.CardType
 import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.Outcome
+import arcanum.engine.action.Knowledge
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.FilledObject
+import arcanum.engine.decision.ManaUse
+import arcanum.engine.decision.Share
+import arcanum.engine.view.AbilityOrigin
+import arcanum.engine.state.TargetRef
+import arcanum.api.Color
+import arcanum.api.Subtype
 import arcanum.engine.decision.RandomKind
 import arcanum.engine.input.Input
 import arcanum.engine.setup.DeckCard
@@ -34,6 +41,11 @@ import kotlin.random.Random
  * - the timestamp counter never goes back and no object or effect has a timestamp above it (D34);
  * - the game ends within [maxTurns]; at the end, reverting every change gives back the game before it began (D59).
  *
+ * With a [viewer], the game is played on that player's view (D60, [GameState.viewer]): the driver is the host, knows
+ * every card and answers the fills and new ids; the other players' hands are unknown to the view, so they play only
+ * what is public. Then also: every card face up in a public zone is known, and no card in another player's hand or
+ * face down where the viewer can't look is.
+ *
  * A broken invariant throws [LongGameFailure] with the seed, the step and the last inputs, so it can be reproduced.
  */
 internal class LongGame(
@@ -48,13 +60,28 @@ internal class LongGame(
     private val forgetOldTurns: Boolean = true,
     /** Invariant checks to leave out (known findings), by name: "orphanStackItem" (none open now). */
     private val skip: Set<String> = emptySet(),
+    /** Play on this player's view (D60) instead of with full information. */
+    private val viewer: PlayerId? = null,
+    /** At every decision, also try answers of every kind with odd contents: each must be accepted or refused with
+     * [IllegalArgumentException], never crash (the one answer-validation path). */
+    private val malformed: Boolean = false,
 ) {
     private val rnd = Random(seed)
     private val json = Json
     private val ids = listOf("alice", "bob", "carol", "dave", "erin", "frank").take(players).map { PlayerId(it) }
 
-    val state: GameState = Engine.newGame(ids.map { Seat(it, deck(it)) })
+    private val truths = mutableMapOf<CardId, arcanum.api.CardDefinition>()
+    val state: GameState = Engine.newGame(ids.map { Seat(it, deck(it)) }).also { game ->
+        if (viewer != null) {
+            game.viewer = viewer
+            game.objects.values.toList().forEach { o ->
+                truths[o.card] = o.definition!!
+                if (!Knowledge.mayKnow(o, viewer)) game.objects[o.id] = o.copy(definition = null)
+            }
+        }
+    }
     private val start = state.deepCopy()
+    private var newCards = 0
     private val applied = mutableListOf<Change>()
     private val recent = ArrayDeque<String>()
     var inputs = 0
@@ -82,8 +109,39 @@ internal class LongGame(
     }
 
     private fun step() {
+        if (malformed) state.pending?.decision?.let { d -> malformedAnswers().forEach { tryOnly(Input.Answer(d.id, it)) } }
         val input = choose()
         perform(input)
+    }
+
+    /** [input] is accepted or refused with [IllegalArgumentException]; nothing else. */
+    private fun tryOnly(input: Input) {
+        try {
+            Engine.perform(state, input)
+        } catch (e: IllegalArgumentException) {
+            // refused: fine
+        } catch (e: Throwable) {
+            fail("$input crashed with ${e::class.simpleName}: ${e.message}", e)
+        }
+    }
+
+    /** One answer of every kind with odd contents: unknown and repeated objects and players, out-of-range numbers. */
+    private fun malformedAnswers(): List<Answer> {
+        val nobody = ObjectId.Card(CardId("nobody"), 0)
+        val obj = state.objects.keys.toList().ifEmpty { listOf(nobody) }.random(rnd)
+        val noPlayer = PlayerId("nobody")
+        return listOf(
+            Answer.Targets(emptyList()), Answer.Targets(listOf(TargetRef.Object(obj), TargetRef.Object(obj))),
+            Answer.Targets(listOf(TargetRef.Player(noPlayer))), Answer.Modes(listOf(-1)), Answer.Modes(listOf(0, 0, 0, 0)),
+            Answer.Number(-1), Answer.Number(Int.MAX_VALUE), Answer.ManaPayment(listOf(ManaUse.Pool(99))),
+            Answer.ManaPayment(listOf(ManaUse.Ability(obj, AbilityOrigin.Printed(9, 9)))), Answer.ManaPayment(listOf(ManaUse.Life(-1))),
+            Answer.YesNo(true), Answer.Objects(listOf(obj, obj)), Answer.Objects(listOf(nobody)), Answer.Option("nonsense"),
+            Answer.ColorChoice(Color.White), Answer.SubtypeChoice(Subtype("")), Answer.CardTypeChoice(CardType.Battle),
+            Answer.CardName(""), Answer.Player(noPlayer), Answer.Division(listOf(Share(TargetRef.Object(obj), -3))),
+            Answer.Order(listOf(5, 5)), Answer.Replacement(-1), Answer.Keep(nobody), Answer.CoinFlip(true),
+            Answer.DieRolls(listOf(0, 99)), Answer.RandomObjects(listOf(obj, obj)), Answer.RandomObjects(listOf(nobody)),
+            Answer.Filled(listOf(FilledObject(obj, Cards.definition("Forest")))), Answer.Done,
+        )
     }
 
     private fun choose(): Input {
@@ -104,14 +162,19 @@ internal class LongGame(
         else listed.filter { it !in doing || it is Input.DeclareAttackers || it is Input.DeclareBlockers }.ifEmpty { listed }.random(rnd)
     }
 
-    private val truths = mutableMapOf<CardId, arcanum.api.CardDefinition>()
     private fun truth(id: ObjectId): arcanum.api.CardDefinition =
         truths[(id as ObjectId.Card).card] ?: fail("The host knows nothing about $id")
 
     private fun random(kind: RandomKind): Answer = when (kind) {
         RandomKind.CoinFlip -> Answer.CoinFlip(rnd.nextBoolean())
         is RandomKind.Die -> Answer.DieRolls(List(kind.count) { rnd.nextInt(1, kind.sides + 1) })
-        is RandomKind.Objects -> Answer.RandomObjects(kind.among.shuffled(rnd).take(kind.count))
+        is RandomKind.Objects -> if (!kind.newIds) Answer.RandomObjects(kind.among.shuffled(rnd).take(kind.count))
+            // As the host: new ids for the cards in their new order, whose identities only the host keeps (D60)
+            else Answer.RandomObjects(kind.among.shuffled(rnd).take(kind.count).map { id ->
+                val card = CardId("new.${++newCards}")
+                truths[card] = truth(id)
+                ObjectId.Card(card, 0)
+            })
     }
 
     fun perform(input: Input) {
@@ -143,6 +206,15 @@ internal class LongGame(
         copy.timestampCounter = state.timestampCounter
         if (copy != state) fail("Reverting the outcome of $input didn't restore the state (D59)")
         outcome.changes.forEach { state.apply(it); applied += it }
+        // D60: a card that becomes hidden from the viewer (put into another player's hand, face down where the viewer
+        // can't look, shuffled) arrives unknown
+        if (viewer != null) outcome.changes.forEach { c ->
+            val arrived = (c as? Change.ZoneChange)?.moves.orEmpty().map { it.after }
+            arrived.filter { !it.unknown && it.zone != Zone.Library && !Knowledge.mayKnow(it, viewer) }
+                .forEach { fail("${it.id} (${it.definition?.faces?.first()?.name}) arrived in ${it.owner}'s ${it.zone} known to $viewer") }
+            if (c is Change.Shuffle && c.after.size > 1) c.after.filter { a -> c.before.none { it.id == a.id } && !a.unknown }
+                .forEach { fail("${it.id} (${it.definition?.faces?.first()?.name}) is known after a shuffle") }
+        }
         inputs++
         inputsThisTurn++
         if (state.turn.number != lastTurn) {
@@ -190,6 +262,10 @@ internal class LongGame(
         s.effects.values.forEach { if (it.timestamp > s.timestampCounter) fail("Effect ${it.id} stamped above the counter") }
         if (s.timestampCounter < lastTimestamp) fail("The timestamp counter went back")
         lastTimestamp = s.timestampCounter
+        // D60: the viewer's state knows every public card
+        if (viewer != null) s.objects.values.forEach { o ->
+            if (Knowledge.public(o) && o.unknown) fail("${o.id} is face up in ${o.zone} but unknown")
+        }
         // The view can be worked out; battlefield objects are permanents
         val view = try { Engine.view(s) } catch (e: Throwable) { fail("The view failed: ${e.message}", e) }
         s.battlefield.forEach { id ->

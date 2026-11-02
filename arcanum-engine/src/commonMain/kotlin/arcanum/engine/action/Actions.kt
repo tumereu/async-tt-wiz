@@ -63,6 +63,9 @@ internal data class PlannedMove(
     val memory: Bindings = Bindings.EMPTY,
     val copyOf: Pair<ObjectId, List<CopyException>>? = null,
     val abilities: List<arcanum.api.Ability> = emptyList(),
+    /** Put into a library in a random order hidden from the viewer (D60): the new id the host gave it; it arrives
+     * unknown under that id ([arcanum.engine.decision.RandomKind.Objects.newIds]). */
+    val newId: ObjectId.Card? = null,
 )
 
 /**
@@ -81,6 +84,8 @@ internal object Actions {
      */
     fun move(act: Act, cause: Cause?, planned: List<PlannedMove>, noRegeneration: Boolean = false): Map<ObjectId, ObjectId> {
         val linked = mutableListOf<WaitingTrigger>()
+        // D60: cards everyone is about to see are filled in first, so replacements and triggers see what they are
+        Knowledge.fillRevealedByMoves(act, planned)
         val final = planned.mapNotNull { pm ->
             val o = act.obj(pm.id) ?: return@mapNotNull null
             Replacements.apply(
@@ -93,6 +98,7 @@ internal object Actions {
                 skip = { r, _ -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) },
             )
         }
+        Knowledge.fillSeenAfterMoves(act, final)
         val result = commitMoves(act, cause, final, linked)
         // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
         final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
@@ -192,6 +198,9 @@ internal object Actions {
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
                 if (toBattlefield && m.transformed && before.definition?.layout == Layout.Transform) after = after.copy(face = 1)
                 if (!toBattlefield && m.to != Zone.Stack) after = after.copy(controller = null)
+                // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
+                if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
+                if (m.newId != null && m.to == Zone.Library) after = Knowledge.forgotten(after).copy(id = m.newId)
                 mv.copy(after = after, seen = snapshots[m.id])
             }
             scratch.apply(Change.ZoneChange(listOf(moved)))
@@ -697,17 +706,19 @@ internal object Actions {
 
     /**
      * Shuffles [player]'s library (CR 701.24): the host decides the order (D25); the cards become new objects (D38),
-     * except [kept], which stay on top as they were (CR 701.24b, D45).
+     * except [kept], which stay on top as they were (CR 701.24b, D45). In a viewer's state (D60) nobody knows the new
+     * order: the host gives new ids instead ([RandomKind.Objects.newIds]) and the shuffled cards become unknown.
      */
     fun shuffle(act: Act, player: PlayerId, kept: List<ObjectId> = emptyList(), source: ObjectId? = null) {
         val library = act.state.player(player).library
         val shuffled = library.filter { it !in kept }
-        val order = if (shuffled.size <= 1) shuffled else
-            (act.random(player, source, RandomKind.Objects(shuffled, shuffled.size)) as Answer.RandomObjects).chosen
-        require(order.toSet() == shuffled.toSet()) { "A shuffle must keep the library's cards" }
+        val hidden = act.state.viewer != null && shuffled.size > 1
+        val order = if (shuffled.size <= 1) shuffled else act.randomObjects(player, source, shuffled, shuffled.size, newIds = hidden)
         val before = library.map { act.state.objOrThrow(it) }
-        val after = library.filter { it in kept }.map { act.state.objOrThrow(it) } +
-            order.map { act.state.objOrThrow(it).let { o -> o.copy(id = o.id.next()) } }
+        val after = library.filter { it in kept }.map { act.state.objOrThrow(it) } + if (hidden) {
+            // Each new id takes a place in the library; which card is where only the host knows
+            order.mapIndexed { i, id -> Knowledge.forgotten(act.state.objOrThrow(shuffled[i])).copy(id = id as ObjectId.Card) }
+        } else order.map { act.state.objOrThrow(it).let { o -> o.copy(id = o.id.next()) } }
         act.record(Change.Shuffle(player, before, after))
     }
 

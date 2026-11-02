@@ -498,7 +498,8 @@ internal object Payment {
             val effect = (step as? Step.Do)?.effect
             when {
                 effect is Effect.TurnFaceUp && effect.objects == Objects.Self -> {
-                    // CR 708.8, 702.37e: turning face up; it gets a new timestamp (CR 613.7f)
+                    // CR 708.8, 702.37e: turning face up; it gets a new timestamp (CR 613.7f); everyone sees it (D60)
+                    act.fill(plan.player, self, listOf(self), "turned face up", public = true)
                     recorder.record(Change.Status(self, arcanum.engine.state.StatusFlag.FaceDown, true, false, listOf(Meaning.TurnedFaceUp)))
                     val o = recorder.state.objOrThrow(self)
                     recorder.record(Change.Restamped(self, o.timestamp, recorder.state.nextTimestamp()))

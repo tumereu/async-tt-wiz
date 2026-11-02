@@ -112,7 +112,7 @@ internal object Costs {
             }
             is CostPart.Reveal -> {
                 val chosen = choose(scope, payer, part.what, Zone.Hand, "reveal")
-                act.fill(payer, scope.self, chosen, "revealed")
+                act.fill(payer, scope.self, chosen, "revealed", public = true)
                 act.record(Change.Happened(GameEvent.Revealed(payer, chosen)))
                 scope.bind(part.bind, NamedValue.Objects(chosen))
             }

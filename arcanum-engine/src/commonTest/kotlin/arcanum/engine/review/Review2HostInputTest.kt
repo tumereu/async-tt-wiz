@@ -15,7 +15,6 @@ import arcanum.engine.setup.StartOptions
 import arcanum.engine.setup.table
 import arcanum.engine.setup.cards
 import arcanum.engine.state.GameState
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.fail
@@ -58,7 +57,6 @@ class Review2HostInputTest {
 
     /** A shuffle answered with a card twice (and so another missing) is refused. */
     // CR 701.24a, D25
-    @Ignore("review2 #9: a shuffle answer with a card twice is accepted: the library holds the same id twice")
     @Test
     fun aShuffleWithACardTwiceIsRefused() = scenario {
         alice.battlefield("Swamp", "Swamp")
@@ -74,7 +72,6 @@ class Review2HostInputTest {
 
     /** A random discard answered with an object outside the hand is refused. */
     // CR 701.9b, D25
-    @Ignore("review2 #9: a random pick outside the set offered is accepted: a permanent is \"discarded\"")
     @Test
     fun aRandomDiscardOutsideTheHandIsRefused() = scenario {
         alice.battlefield("Mountain", "Elvish Seer")
@@ -89,7 +86,6 @@ class Review2HostInputTest {
 
     /** A die roll beyond the die's sides is refused (the starting player's roll). */
     // CR 706.1a, 103.1, D25
-    @Ignore("review2 #9: a die roll beyond the die's sides crashes (index out of bounds) or is accepted")
     @Test
     fun aDieRollBeyondItsSidesIsRefused() = scenario(start = table(
         cards(emptyList(), "Forest", "Elvish Seer"), cards(emptyList(), "Island", "Storm Spark"),
@@ -102,7 +98,6 @@ class Review2HostInputTest {
 
     /** A host fill naming other objects than the ones asked is refused. */
     // D60
-    @Ignore("review2 #9: a host fill of objects that weren't asked is accepted")
     @Test
     fun aFillOfOtherObjectsIsRefused() = scenario {
         alice.battlefield("Swamp", "Swamp")
@@ -138,7 +133,6 @@ class Review2HostInputTest {
 
     /** An option that isn't offered is refused (Bestower of Sigils: "colorless" or "a color"). */
     // CR 608.2d
-    @Ignore("review2 #9: an option, card type or other choice that wasn't offered is accepted")
     @Test
     fun anOptionNotOfferedIsRefused() = scenario {
         alice.battlefield("Bestower of Sigils", "Elvish Seer")
@@ -193,7 +187,6 @@ class Review2HostInputTest {
 
     /** Answers to a choice of a card type among the offered (Tidecall Reversal) — another type is refused. */
     // CR 608.2d
-    @Ignore("review2 #9: an option, card type or other choice that wasn't offered is accepted")
     @Test
     fun aCardTypeNotOfferedIsRefused() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island")

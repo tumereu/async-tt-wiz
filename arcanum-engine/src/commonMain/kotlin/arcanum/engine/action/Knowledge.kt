@@ -1,0 +1,116 @@
+package arcanum.engine.action
+
+import arcanum.api.Mechanic
+import arcanum.api.Zone
+import arcanum.engine.state.GameObject
+import arcanum.engine.state.GameState
+import arcanum.engine.state.ObjectId
+import arcanum.engine.state.PlayerId
+import arcanum.engine.view.View
+
+/**
+ * The viewer-knowledge rule (D60, spec §7.0 "Hidden information"): the state is one viewer's view
+ * ([GameState.viewer]; null: full information). Whenever a hidden card's identity matters or becomes visible to the
+ * viewer, the host fills exactly those cards in ([Act.fill]); whenever cards become hidden from the viewer again, the
+ * engine forgets them ([forgets]; a shuffle or a random order also gives them new ids from the host, CR 701.24a, D38).
+ */
+internal object Knowledge {
+    private val PUBLIC_ZONES = setOf(Zone.Battlefield, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)
+
+    /** Everyone may see [o] where it is (CR 400.2): face up in a public zone. */
+    fun public(o: GameObject): Boolean = o.zone in PUBLIC_ZONES && !o.faceDown
+
+    /** Whether [player] may see what [o] is where it is: a public card, a card in their own hand or outside the game
+     * (CR 402.3), a face-down permanent or spell they control (CR 708.5); never a card in a library or exiled face down
+     * (CR 406.3: only where an ability lets them look, [lookable]). */
+    fun mayKnow(o: GameObject, player: PlayerId): Boolean = when {
+        public(o) -> true
+        o.zone == Zone.Hand || o.zone == Zone.Outside -> o.owner == player
+        o.faceDown && (o.zone == Zone.Battlefield || o.zone == Zone.Stack) -> (o.controller ?: o.owner) == player
+        else -> false
+    }
+
+    /** Whether the state's viewer sees [o] where it is: a public card, or one the viewer may see. With full information
+     * only public cards count: the host knows the rest and fills them only when their identity matters. */
+    fun viewerSees(state: GameState, o: GameObject): Boolean = public(o) || state.viewer?.let { mayKnow(o, it) } == true
+
+    /** Whether the viewer must forget the known [o] where it now is (D60): put into a hand the viewer can't see, or face
+     * down where the viewer can't look. A card put into a library stays known until the library is shuffled. */
+    fun forgets(state: GameState, o: GameObject): Boolean {
+        val viewer = state.viewer ?: return false
+        if (o.unknown) return false
+        return (o.zone == Zone.Hand && o.owner != viewer) || (o.faceDown && !mayKnow(o, viewer))
+    }
+
+    /** [o] with its identity forgotten. */
+    fun forgotten(o: GameObject): GameObject = o.copy(definition = null)
+
+    /** Objects [player] may see the identity of now: public ones, their own hand and cards outside the game, face-down
+     * cards they may look at, and cards a "you may look at" ability lets them look at (CR 401.5 cards such as "look at
+     * the top card of your library any time"); revealed ones ("play with the top card revealed") for everyone. */
+    fun visible(state: GameState, view: View, player: PlayerId): Set<ObjectId> =
+        state.objects.values.filter { mayKnow(it, player) }.map { it.id }.toSet() +
+            lookable(state, view).filter { (_, looker) -> looker == null || looker == player }.map { it.first }
+
+    /** Cards a "you may look at … any time" ability lets a player look at (CR 401.5), with who may look (null: revealed
+     * to everyone): applied to a player ("the top card of your library") or to the cards themselves. */
+    fun lookable(state: GameState, view: View): List<Pair<ObjectId, PlayerId?>> {
+        val board = arcanum.engine.query.ViewBoard(state, view)
+        val toPlayers = view.players.values.flatMap { p ->
+            p.mechanics.flatMap { applied ->
+                val m = applied.mechanic as? Mechanic.MayLookAt ?: return@flatMap emptyList()
+                val e = arcanum.engine.query.Evaluator(board, arcanum.engine.query.Context(applied.controller, applied.source, applied.names, affectedPlayer = p.id))
+                e.objects(m.objects).map { it to (if (m.reveal) null else p.id) }
+            }
+        }
+        val toObjects = view.objects.values.flatMap { o ->
+            o.mechanics.mapNotNull { applied ->
+                val m = applied.mechanic as? Mechanic.MayLookAt ?: return@mapNotNull null
+                o.id to (if (m.reveal) null else applied.controller)
+            }
+        }
+        return (toPlayers + toObjects).filter { state.obj(it.first) != null }.distinct()
+    }
+
+    /**
+     * Before priority (with the state-based actions, CR 117.5): the cards the viewer may look at any time ("you may look
+     * at the top card of your library any time", CR 401.5) or that are revealed to everyone are filled in, so the
+     * viewer's options see them; with full information, those any player may look at.
+     */
+    fun fillLookable(act: Act) {
+        val state = act.state
+        lookable(state, act.view()).filter { (id, looker) -> state.obj(id)?.unknown == true && (looker == null || state.viewer == null || looker == state.viewer) }
+            .groupBy { it.second }.forEach { (looker, cards) ->
+                val ids = cards.map { it.first }.distinct()
+                act.fill(looker ?: state.objOrThrow(ids.first()).owner, null, ids, "may look at any time", public = looker == null)
+            }
+    }
+
+    /**
+     * Cards about to be seen by everyone as they move (D60): put into a public zone face up, or a face-down permanent
+     * leaving the battlefield or a face-down spell leaving the Stack other than onto the battlefield (revealed, CR
+     * 708.9). Filled before replacements apply, so replacements and triggers see them (madness of a discarded card,
+     * "whenever a land card is put into your graveyard").
+     */
+    fun fillRevealedByMoves(act: Act, moves: List<PlannedMove>) {
+        val ids = moves.filter { m ->
+            val o = act.obj(m.id) ?: return@filter false
+            val revealed = o.faceDown && (o.zone == Zone.Battlefield || (o.zone == Zone.Stack && m.to != Zone.Battlefield))
+            o.unknown && (revealed || (m.to in PUBLIC_ZONES && !m.faceDown))
+        }.map { it.id }.distinct()
+        if (ids.isNotEmpty()) act.fill(act.state.objOrThrow(ids.first()).owner, null, ids, "becomes public", public = true)
+    }
+
+    /** After replacements: cards the viewer will see where they go (their own hand, face down under their control) or
+     * still to be seen by everyone, filled in before the zone change (D60). */
+    fun fillSeenAfterMoves(act: Act, moves: List<PlannedMove>) {
+        fillRevealedByMoves(act, moves)
+        val viewer = act.state.viewer ?: return
+        val ids = moves.filter { m ->
+            val o = act.obj(m.id) ?: return@filter false
+            val after = o.copy(zone = m.to, faceDown = m.faceDown, controller = if (m.to == Zone.Battlefield || m.to == Zone.Stack) m.controller ?: o.owner else null)
+            o.unknown && mayKnow(after, viewer)
+        }.map { it.id }.distinct()
+        if (ids.isNotEmpty()) act.fill(viewer, null, ids, "seen")
+    }
+}

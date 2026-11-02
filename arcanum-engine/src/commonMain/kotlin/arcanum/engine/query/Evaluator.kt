@@ -129,8 +129,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.PaidWith -> objects(objects.of).flatMap { id ->
             boundObjects(state.obj(id)?.facts?.paidWith?.get(objects.way.toString()))
         }
-        // Random picks are asked from the host (D25) by the flow that needs them.
-        is Objects.Random -> emptyList()
+        // Random picks are asked from the host (D25) by the resolution that needs them (Scope.objects)
+        is Objects.Random -> error("\"At random\" objects are picked by the resolution that uses them (D25), not evaluated")
         is Objects.Where -> objects(objects.objects).filter { matches(objects.filter, it) }
         is Objects.Except -> {
             val minus = objects(objects.minus).toSet()

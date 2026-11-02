@@ -8,7 +8,7 @@ import arcanum.engine.change.Change
 import kotlinx.serialization.Serializable
 
 /**
- * One game in MTG terms, as one caller sees it (D56, D60): players in turn order, every object by id, the shared
+ * One game in MTG terms, as one viewer sees it ([viewer], D56, D60): players in turn order, every object by id, the shared
  * zones, the Stack with its items, effect objects, delayed triggers, turn and priority, ledgers, this and last turn's
  * tagged events, and the open continuation.
  *
@@ -50,6 +50,13 @@ data class GameState(
     /** The starting player skips the draw step of turn 1 (CR 103.8a, two players); the host sets false where nobody
      * skips it (CR 103.8c). A setting of the game, not changed by play. */
     var skipFirstDraw: Boolean = true,
+    /**
+     * Whose view of the game this state is (D60, spec §7.0 "Hidden information"): null for full information (a host or
+     * referee that knows every card); else that player's view, where cards they can't see are unknown and stay so.
+     * The engine fills cards in as they become public or visible to the viewer, and forgets them as they become hidden
+     * from the viewer ([arcanum.engine.Engine.visible]). A setting of the game, not changed by play.
+     */
+    var viewer: PlayerId? = null,
 ) {
     // ---- Players
 

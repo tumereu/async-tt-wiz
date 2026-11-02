@@ -42,6 +42,8 @@ internal object Perform {
             when (input) {
                 is Input.Answer -> {
                     require(input.decision == open.decision.id) { "The open decision is ${open.decision.id}, not ${input.decision}" }
+                    // The one answer-validation path: refused unless it answers what was asked
+                    arcanum.engine.decision.AnswerCheck.check(recorder.state, open.decision, input.answer)
                     recorder.record(Changes.pending(recorder.state, null))
                     resume(recorder, open.continuation, input.answer)
                 }

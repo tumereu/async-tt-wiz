@@ -166,12 +166,18 @@ sealed interface Decision {
         val what: RandomKind,
     ) : Decision
 
-    /** The identities of unknown [objects] the effect needs (D60): a search, look, reveal, "if it's a land", a random
-     * discard. The host fills them in; a plain draw needs none. */
+    /**
+     * The identities of unknown [objects], exactly the cards whose identity now matters or becomes visible (D60, spec
+     * §7.0 "Hidden information"): searched, looked at, revealed, put into a public zone, a face-down card leaving or
+     * turning face up, a card the viewer may look at. The host answers [Answer.Filled] for exactly these objects.
+     * [public]: everyone sees them now (revealed, put into a graveyard, exile or the battlefield face up, CR 708.9);
+     * else only [player] looks at them, and a host whose viewer ([arcanum.engine.state.GameState.viewer]) is another
+     * player doesn't answer it in that view but has the step done in [player]'s view (D31).
+     */
     @Serializable @SerialName("host-fill")
     data class HostFill(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
-        val objects: List<ObjectId>, val reason: String,
+        val objects: List<ObjectId>, val reason: String, val public: Boolean = false,
     ) : Decision
 
     /** Something to do by hand (D61): [text] is shown; answered [Answer.Done]. */
@@ -204,8 +210,14 @@ sealed interface RandomKind {
     @Serializable @SerialName("coin") data object CoinFlip : RandomKind
     /** [count] rolls of a [sides]-sided die (CR 706). */
     @Serializable @SerialName("die") data class Die(val sides: Int, val count: Int) : RandomKind
-    /** [count] of [among] at random, in random order; a shuffle asks for all of a library's cards this way (D25). */
-    @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int) : RandomKind
+    /**
+     * [count] of [among] at random, in random order, answered [Answer.RandomObjects] with distinct objects of [among]; a
+     * shuffle asks for all of a library's cards this way (D25). [newIds]: the order is hidden from the state's viewer
+     * (a shuffle or "in a random order" into a library in a viewer's state, D60): the answer is [count] new card
+     * objects instead, ids no object in the state has, top first; the host keeps which card each one is, and the
+     * engine knows them as unknown cards.
+     */
+    @Serializable @SerialName("objects") data class Objects(val among: List<ObjectId>, val count: Int, val newIds: Boolean = false) : RandomKind
 }
 
 /**

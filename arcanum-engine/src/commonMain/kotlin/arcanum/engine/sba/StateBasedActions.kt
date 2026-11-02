@@ -52,6 +52,9 @@ internal object StateBasedActions {
     }
 
     private fun once(act: Act) {
+        // Not a state-based action, but checked with them before a player gets priority (CR 117.5): cards a player may
+        // look at any time are filled in for the viewer (D60)
+        arcanum.engine.action.Knowledge.fillLookable(act)
         val state = act.state
         val view = act.view()
         val toGraveyard = mutableListOf<ObjectId>()

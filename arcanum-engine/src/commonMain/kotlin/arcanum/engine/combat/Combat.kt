@@ -32,10 +32,12 @@ import arcanum.engine.state.TargetRef
 /**
  * Combat (CR 506–511): declaring attackers and blockers ([CombatRules]), and the combat damage steps: first and double
  * strike (CR 510.4), trample (CR 702.19), deathtouch (CR 702.2c), lifelink (CR 702.15), infect and wither (CR 120.3),
- * dividing an attacker's damage among its blockers when there is a real choice (CR 510.1c–d,
- * [TurnAction.CombatDamage]). Declarations are inputs ([Input.DeclareAttackers], [Input.DeclareBlockers]); while one is
- * awaited nobody has priority. The changes carry [Meaning.AttackersDeclared] and [Meaning.BlockersDeclared] for
- * triggers (CR 508.1m, 509.1i).
+ * dividing damage among several creatures (and the defender with trample) as its controller chooses whenever more than
+ * one division is legal (CR 510.1c–d, 702.19b, [TurnAction.CombatDamage]). Declarations are inputs
+ * ([Input.DeclareAttackers], [Input.DeclareBlockers]); while one is awaited nobody has priority. The changes carry
+ * [Meaning.AttackersDeclared] and [Meaning.BlockersDeclared] for triggers (CR 508.1m, 509.1i); the last blockers
+ * declaration also makes attackers blocked or unblocked (CR 509.1h). What leaves combat is removed after every event
+ * ([removeWhatLeft], CR 506.4).
  */
 internal object Combat {
     /** Whether the game waits for attackers or blockers to be declared (CR 508.1, 509.1). */
@@ -77,13 +79,11 @@ internal object Combat {
 
     /** As the declare blockers step begins: defending players who can't block anything declare no blockers (P5). */
     fun beginDeclareBlockers(recorder: Recorder) {
+        val combat = recorder.state.combat ?: return
         val snap = Snapshot(recorder.state)
         val idle = pendingDefenders(snap).filterNot { CombatRules.anyBlocker(snap, it) }
-        if (idle.isNotEmpty()) {
-            val combat = recorder.state.combat!!
-            recorder.record(Change.Combat(combat, combat.copy(blockersDeclaredBy = combat.blockersDeclaredBy + idle), listOf(Meaning.BlockersDeclared)))
-        }
-        markBlocked(recorder)
+        val after = decided(snap, combat.copy(blockersDeclaredBy = combat.blockersDeclaredBy + idle))
+        if (after != combat) recorder.record(Change.Combat(combat, after, listOf(Meaning.BlockersDeclared)))
     }
 
     fun declareBlockers(recorder: Recorder, input: Input.DeclareBlockers): Progress {
@@ -94,21 +94,47 @@ internal object Combat {
         }
         CombatRules.illegalBlock(snap, input.player, input.blocks)?.let { throw IllegalArgumentException("Illegal block: $it") }
         val combat = s.combat!!
-        val blockers = input.blocks.groupBy { it.blocker }.map { (b, bs) -> Blocker(b, bs.map { it.attacker }) }
-        // CR 509.1g: they become blocking creatures
-        recorder.record(Change.Combat(combat, combat.copy(blockers = combat.blockers + blockers,
-            blockersDeclaredBy = combat.blockersDeclaredBy + input.player), listOf(Meaning.BlockersDeclared)))
-        markBlocked(recorder)
+        val blockers = input.blocks.groupBy { it.blocker }.map { (b, bs) -> Blocker(b, bs.map { it.attacker }, input.player) }
+        // CR 509.1g: they become blocking creatures; CR 509.1h: with the last declaration, attackers become blocked or
+        // unblocked in the same event, so triggers on it see the final state (CR 509.3c, 509.3g)
+        recorder.record(Change.Combat(combat, decided(snap, combat.copy(blockers = combat.blockers + blockers,
+            blockersDeclaredBy = combat.blockersDeclaredBy + input.player)), listOf(Meaning.BlockersDeclared)))
         return Progress.Done
     }
 
-    /** CR 509.1h: once all blockers are declared, an attacker with blockers is blocked, one without is unblocked. */
-    private fun markBlocked(recorder: Recorder) {
-        val combat = recorder.state.combat ?: return
-        if (pendingDefenders(Snapshot(recorder.state)).isNotEmpty()) return
+    /** CR 509.1h: once every defending player has declared blockers, an attacker with blockers is blocked, one without
+     * is unblocked; [combat] as it is until then. */
+    private fun decided(snap: Snapshot, combat: CombatState): CombatState {
+        if (combat.blocksDecided || CombatRules.defendingPlayers(snap).any { it !in combat.blockersDeclaredBy }) return combat
         val blocked = combat.blockers.flatMap { it.attackers }.toSet()
-        val attackers = combat.attackers.map { it.copy(blocked = it.blocked || it.id in blocked) }
-        if (attackers != combat.attackers) recorder.record(Change.Combat(combat, combat.copy(attackers = attackers)))
+        return combat.copy(attackers = combat.attackers.map { it.copy(blocked = it.blocked || it.id in blocked) }, blocksDecided = true)
+    }
+
+    /**
+     * CR 506.4: removes from combat what no longer belongs in it: an attacker or blocker that left the battlefield,
+     * phased out, stopped being a creature or became a battle, or whose controller changed (an attacker not controlled
+     * by the attacking player, CR 506.3b; a blocker not controlled by the player who declared it, CR 509.1g). Run after
+     * every event ([Recorder.record]), so the removal is its own change ([Meaning.RemovedFromCombat]) right after the
+     * event that caused it, and nothing later sees a stale combat. An attacker stays blocked when its blockers go
+     * (CR 509.1h); a blocker whose attackers went stays blocking (CR 510.1d).
+     */
+    fun removeWhatLeft(recorder: Recorder) {
+        val s = recorder.state
+        val combat = s.combat ?: return
+        if (combat.attackers.isEmpty() && combat.blockers.isEmpty()) return
+        val snap = Snapshot(s)
+        fun stays(id: ObjectId, controller: PlayerId?): Boolean {
+            if (!onBattlefield(s, id)) return false
+            val c = snap.view[id]?.characteristics ?: return false
+            if (!c.isType(CardType.Creature) || c.isType(CardType.Battle)) return false
+            return controller == null || snap.board.controller(id) == controller
+        }
+        val attackers = combat.attackers.filter { stays(it.id, s.turn.active) }
+        val gone = combat.attackers.map { it.id }.toSet() - attackers.map { it.id }.toSet()
+        val blockers = combat.blockers.filter { stays(it.id, it.player) }
+            .map { b -> if (b.attackers.any { it in gone }) b.copy(attackers = b.attackers.filter { it !in gone }) else b }
+        if (gone.isEmpty() && blockers == combat.blockers) return
+        recorder.record(Change.Combat(combat, combat.copy(attackers = attackers, blockers = blockers), listOf(Meaning.RemovedFromCombat)))
     }
 
     // ---- Combat damage (CR 510)
@@ -146,7 +172,7 @@ internal object Combat {
         val assigned = mutableListOf<Assignment>()
         val toDecide = mutableListOf<ObjectId>()
         ordered.forEach { id ->
-            when (val plan = assignmentOf(snap, id)) {
+            when (val plan = assignmentOf(snap, id, assigned)) {
                 is Plan.Fixed -> assigned += plan.assignments
                 is Plan.Choice -> toDecide += id
             }
@@ -164,7 +190,9 @@ internal object Combat {
     /** How a creature's combat damage is assigned: fixed, or a choice among [Plan.Choice.among]. */
     private sealed interface Plan {
         data class Fixed(val assignments: List<Assignment>) : Plan
-        data class Choice(val amount: Int, val among: List<TargetRef>, val lethal: List<Share>, val trampleTo: TargetRef?) : Plan
+        data class Choice(
+            val amount: Int, val among: List<TargetRef>, val lethal: List<Share>, val trampleTo: TargetRef?, val suggested: List<Share>,
+        ) : Plan
     }
 
     /** CR 510.1a: power (or toughness) of damage; 0 or less assigns none. */
@@ -174,14 +202,16 @@ internal object Combat {
         return (if (has(snap, id, Mechanic.AssignsDamageByToughness)) c.toughness else c.power)?.coerceAtLeast(0) ?: 0
     }
 
-    /** Lethal damage for [target] from [source] (CR 120.4a, 702.19b): toughness less damage already marked; any damage
-     * from a deathtouch source is lethal (CR 702.2c). */
-    private fun lethal(snap: Snapshot, source: ObjectId, target: ObjectId): Int {
-        val remaining = ((snap.view[target]?.characteristics?.toughness ?: 0) - (snap.state.obj(target)?.damage ?: 0)).coerceAtLeast(0)
+    /** Lethal damage for [target] from [source] (CR 120.4a, 702.19b): toughness less damage already marked and damage
+     * other creatures assign to it in this step ([assigned]); any damage from a deathtouch source is lethal (CR 702.2c). */
+    private fun lethal(snap: Snapshot, source: ObjectId, target: ObjectId, assigned: List<Assignment>): Int {
+        val other = assigned.filter { it.source != source && it.target == TargetRef.Object(target) }.sumOf { it.amount }
+        val remaining = ((snap.view[target]?.characteristics?.toughness ?: 0) - (snap.state.obj(target)?.damage ?: 0) - other).coerceAtLeast(0)
         return if (remaining > 0 && has(snap, source, Mechanic.Deathtouch)) 1 else remaining
     }
 
-    private fun assignmentOf(snap: Snapshot, id: ObjectId): Plan {
+    /** How [id] assigns its combat damage, given what others have assigned in this step so far ([assigned]). */
+    private fun assignmentOf(snap: Snapshot, id: ObjectId, assigned: List<Assignment>): Plan {
         val s = snap.state
         val combat = s.combat!!
         val n = amount(snap, id)
@@ -197,7 +227,7 @@ internal object Combat {
                 // CR 510.1c, 702.19d: blocked with no blockers left: no damage, unless it has trample
                 blockers.isEmpty() -> Plan.Fixed(if (tramples && target != null) listOf(Assignment(id, target, n)) else emptyList())
                 blockers.size == 1 && !tramples -> Plan.Fixed(listOf(Assignment(id, TargetRef.Object(blockers.single()), n)))
-                else -> divide(snap, id, n, blockers, if (tramples) target else null)
+                else -> divide(snap, id, n, blockers, if (tramples) target else null, assigned)
             }
         }
         // CR 510.1d: a blocker's damage goes to what it blocks
@@ -205,27 +235,27 @@ internal object Combat {
         return when (blocks.size) {
             0 -> Plan.Fixed(emptyList())
             1 -> Plan.Fixed(listOf(Assignment(id, TargetRef.Object(blocks.single()), n)))
-            else -> divide(snap, id, n, blocks, null)
+            else -> divide(snap, id, n, blocks, null, assigned)
         }
     }
 
-    /** Damage among several creatures (and the attacked player or planeswalker with trample): fixed when there is
-     * enough for lethal damage to each (the excess to the defender with trample, else to the first), else a choice. */
-    private fun divide(snap: Snapshot, source: ObjectId, n: Int, creatures: List<ObjectId>, trampleTo: TargetRef?): Plan {
-        val lethal = creatures.map { Share(TargetRef.Object(it), lethal(snap, source, it)) }
-        val needed = lethal.sumOf { it.amount }
-        if (n >= needed) {
-            val rest = n - needed
-            val base = lethal.filter { it.amount > 0 }.map { Assignment(source, it.target, it.amount) }
-            val extra = when {
-                rest == 0 -> emptyList()
-                trampleTo != null -> listOf(Assignment(source, trampleTo, rest))
-                else -> listOf(Assignment(source, lethal.first().target, rest))
-            }
-            return Plan.Fixed(merge(base + extra))
+    /** Damage among several creatures, or among a blocker and the attacked player or planeswalker with trample: divided
+     * as its controller chooses (CR 510.1c–d, 702.19b), even when there is enough for lethal damage to each; fixed only
+     * when one division is legal (one blocker and no more than lethal damage for it). The suggestion gives lethal damage
+     * to each in turn, then the rest to the defender with trample, else to the first; short of that, the rest to the
+     * next. */
+    private fun divide(snap: Snapshot, source: ObjectId, n: Int, creatures: List<ObjectId>, trampleTo: TargetRef?, assigned: List<Assignment>): Plan {
+        val lethal = creatures.map { Share(TargetRef.Object(it), lethal(snap, source, it, assigned)) }
+        if (creatures.size == 1 && (trampleTo == null || n <= lethal.single().amount)) {
+            return Plan.Fixed(listOf(Assignment(source, TargetRef.Object(creatures.single()), n)))
         }
-        if (creatures.size == 1) return Plan.Fixed(listOf(Assignment(source, TargetRef.Object(creatures.single()), n)))
-        return Plan.Choice(n, lethal.map { it.target } + listOfNotNull(trampleTo), lethal, trampleTo)
+        var left = n
+        val suggested = lethal.map { l -> Share(l.target, minOf(left, l.amount).also { left -= it }) }.toMutableList()
+        if (left > 0) {
+            if (trampleTo != null) suggested += Share(trampleTo, left)
+            else suggested[0] = suggested[0].copy(amount = suggested[0].amount + left)
+        }
+        return Plan.Choice(n, lethal.map { it.target } + listOfNotNull(trampleTo), lethal, trampleTo, suggested)
     }
 
     private fun merge(list: List<Assignment>): List<Assignment> =
@@ -242,12 +272,13 @@ internal object Combat {
     private fun continueAssigning(recorder: Recorder, action: TurnAction.CombatDamage): Progress {
         val next = action.attackers.firstOrNull() ?: return deal(recorder, action)
         val snap = Snapshot(recorder.state)
-        val plan = assignmentOf(snap, next) as? Plan.Choice
-            ?: return continueAssigning(recorder, action.copy(assigned = action.assigned + (assignmentOf(snap, next) as Plan.Fixed).assignments,
-                attackers = action.attackers.drop(1)))
+        val plan = when (val p = assignmentOf(snap, next, action.assigned)) {
+            is Plan.Choice -> p
+            is Plan.Fixed -> return continueAssigning(recorder, action.copy(assigned = action.assigned + p.assignments, attackers = action.attackers.drop(1)))
+        }
         val player = snap.board.controller(next) ?: recorder.state.turn.active
         val decision = Decision.Divide(decisionId(recorder.state, "combat-damage:$next"), player, next, plan.amount, plan.among,
-            minEach = 0, lethal = plan.lethal)
+            minEach = 0, lethal = plan.lethal, suggested = plan.suggested)
         return Progress.Waiting(Pending(decision, Continuation.TurnBased(action)))
     }
 
@@ -257,7 +288,7 @@ internal object Combat {
         val action = continuation.action as TurnAction.CombatDamage
         val source = action.attackers.first()
         val snap = Snapshot(recorder.state)
-        val plan = assignmentOf(snap, source) as? Plan.Choice ?: throw IllegalStateException("No choice for $source")
+        val plan = assignmentOf(snap, source, action.assigned) as? Plan.Choice ?: throw IllegalStateException("No choice for $source")
         val shares = (answer as? Answer.Division)?.shares ?: throw IllegalArgumentException("Expected a division of damage")
         require(shares.all { it.target in plan.among && it.amount >= 0 }) { "Damage goes only to ${plan.among}" }
         require(shares.map { it.target }.distinct().size == shares.size) { "Each one once" }

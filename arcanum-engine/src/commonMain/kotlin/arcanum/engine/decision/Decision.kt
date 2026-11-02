@@ -129,11 +129,13 @@ sealed interface Decision {
 
     /** Divide [amount] among [among], at least [minEach] each (CR 601.2d); also assigning an attacker's combat damage
      * among its blockers (CR 510.1c–d), where [lethal] says what each needs before the next can get damage beyond it
-     * and the defending player or planeswalker may be among [among] for trample. */
+     * and the defending player or planeswalker may be among [among] for trample; [suggested] is a legal division to
+     * offer first (combat: lethal damage to each in turn, the rest to the defender with trample, else to the first). */
     @Serializable @SerialName("divide")
     data class Divide(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val amount: Int, val among: List<TargetRef>, val minEach: Int, val lethal: List<Share> = emptyList(),
+        val suggested: List<Share> = emptyList(),
     ) : Decision
 
     /** Order triggered abilities that triggered at once (CR 603.3b): the first in [Answer.Order] goes on the Stack first. */

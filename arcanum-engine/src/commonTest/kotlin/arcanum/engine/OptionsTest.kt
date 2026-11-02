@@ -8,6 +8,7 @@ import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /** [Engine.options]: what a player may do now (CR 116, 117.1). */
@@ -158,5 +159,55 @@ class OptionsTest {
         assertEquals(1, casts.size)
         assertTrue(casts.single().way.permission != null)
         allAccepted(alice)
+    }
+
+    // CR 601.2h, 118.3: an additional cost that can't be paid ("sacrifice a creature or discard a card", with neither)
+    @Test
+    fun spellWithAnUnpayableCostIsntListed() = scenario {
+        alice.battlefield("Swamp")
+        alice.hand("Bone Splinters")
+        bob.battlefield("Thicketwood Elves")
+        assertTrue("Bone Splinters" !in casts(alice))
+        assertFailsWith<IllegalArgumentException> { perform(Input.Cast(alice.id, card("Bone Splinters"))) }
+        allAccepted(alice)
+    }
+
+    // CR 601.2c, 700.2: a modal spell none of whose modes has a legal target isn't listed
+    @Test
+    fun modalSpellWithNoPossibleModeIsntListed() = scenario {
+        alice.battlefield("Mountain", "Mountain")
+        alice.hand("Grindstone Rasp")
+        assertTrue("Grindstone Rasp" !in casts(alice))
+        assertFailsWith<IllegalArgumentException> { perform(Input.Cast(alice.id, card("Grindstone Rasp"))) }
+    }
+
+    // CR 702.122a: crew without creatures to tap isn't offered
+    @Test
+    fun crewWithoutCreaturesIsntListed() = scenario {
+        alice.battlefield("Runner's Skiff")
+        assertTrue(options(alice).none { it is Input.Activate && it.source == card("Runner's Skiff") })
+        allAccepted(alice)
+    }
+
+    // CR 702.122a: crewing lists a group of creatures whose total power is enough
+    @Test
+    fun crewListsCreaturesWithEnoughPower() = scenario {
+        alice.battlefield("Runner's Skiff", "Elvish Seer")
+        perform(options(alice).filterIsInstance<Input.Activate>().first { it.source == card("Runner's Skiff") })
+        val answers = options(alice).filterIsInstance<Input.Answer>()
+        assertTrue(answers.isNotEmpty(), "No answer listed for ${state.pending?.decision}")
+        allAccepted(alice)
+    }
+
+    // CR 601.2, P7: anyone may answer a cast's decisions, but only the caster cancels it
+    @Test
+    fun onlyTheCasterCancels() = scenario {
+        alice.battlefield("Mountain")
+        alice.hand("Storm Spark")
+        perform(Input.Cast(alice.id, card("Storm Spark")))
+        assertFailsWith<IllegalArgumentException> { perform(Input.Cancel(bob.id)) }
+        assertTrue(options(bob).none { it is Input.Cancel })
+        perform(Input.Cancel(alice.id))
+        expect { alice.hand has "Storm Spark" }
     }
 }

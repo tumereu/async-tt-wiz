@@ -63,7 +63,7 @@ internal sealed interface Question {
  * Stack item as chosen so far (put on a copy of the state, so filters that ask about "this spell" see it), its total
  * cost, and the next question. Recomputed on every call, so answers are read against the same question that was asked.
  */
-internal class Plan(base: GameState, val c: Continuation.Announcing) {
+internal class Plan(private val base: GameState, val c: Continuation.Announcing) {
     val player: PlayerId = c.player
     val choices = c.choices
     val isSpell = c.what is Announced.Spell
@@ -353,6 +353,7 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
         if (next is Question.Target && next.options.size < next.min) {
             return "Not enough legal targets for ${next.slot.key}: ${next.options.size} of ${next.min}"
         }
+        if (next is Question.Modes && !someModeWorks(next)) return "No mode can be chosen with what it needs (CR 700.2, 601.2c)"
         total.parts.forEach { kp ->
             val part = kp.part
             if (part is CostPart.OneOf) {
@@ -373,6 +374,16 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             if (!Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
         }
         return null
+    }
+
+    /** For modes of which one may be chosen: whether some available mode leaves the next question answerable. */
+    private fun someModeWorks(q: Question.Modes): Boolean {
+        val d = decision(q, DecisionId("check")) as Decision.Modes
+        if (d.min != 1) return true
+        return d.options.filter { it.available }.any { m ->
+            val after = Plan(base, c.copy(choices = Answers.apply(this, q, arcanum.engine.decision.Answer.Modes(listOf(m.index)))))
+            after.blocker() == null
+        }
     }
 
     /** CR 601.2d: a divided amount with a single target in its slot goes all to that target, without asking. */

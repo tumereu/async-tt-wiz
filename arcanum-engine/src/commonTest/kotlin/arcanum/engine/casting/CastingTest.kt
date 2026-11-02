@@ -257,6 +257,8 @@ class CastingTest {
     fun modeWithoutTargetsRefused() = scenario {
         alice.battlefield("Mountain", "Mountain")
         alice.hand("Grindstone Rasp")
+        // A creature for its first mode: with no mode possible it couldn't be cast at all (CR 601.2c)
+        bob.battlefield("Thicketwood Elves")
         alice.casts("Grindstone Rasp")
         assertFailsWith<IllegalArgumentException> { answer(Answer.Modes(listOf(1))) }
         assertIs<Decision.Modes>(pending)
@@ -325,6 +327,8 @@ class CastingTest {
     fun tooManyModesRefused() = scenario {
         alice.battlefield("Mountain", "Mountain")
         alice.hand("Grindstone Rasp")
+        // A creature for its first mode: with no mode possible it couldn't be cast at all (CR 601.2c)
+        bob.battlefield("Thicketwood Elves")
         alice.casts("Grindstone Rasp")
         assertFailsWith<IllegalArgumentException> { answer(Answer.Modes(listOf(0, 1))) }
     }

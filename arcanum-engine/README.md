@@ -9,12 +9,20 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 
 ```kotlin
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
-Engine.options(state, player): List<Input>       // what a player may do now
+Engine.options(state, player): List<Input>       // what a player may do now: exact (every input listed is accepted)
 Engine.perform(state, input): Outcome            // Outcome(changes, pending); never writes `state`
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
+
+`options` is exact: `perform` accepts every input it lists, and an open decision lists an answer whenever one is found
+(random results and host fills are the host's, D25, D60). Answers are listed to every player (P7); for choices of several
+objects, targets or modes a working sample is listed, not every combination. A cast or activation is listed when it can
+be begun, everything known at its start can be done (its first targets, the objects its costs use, a mode with what it
+needs) and mana is found for its cost as it stands then (X as 0); `OptionsFuzzTest` checks the contract on seeded random
+games of cube cards. `revert` takes changes back last first; after a host drops older turns' events
+(`GameState.forgetOlderTurns`) undo still reaches those turns, but "this turn" questions there see none of their events.
 
 - `state/` — `GameState` (serializable, mutable): players in turn order with their zones,
   life, counters, mana pool; every card/token object by `ObjectId` (`Card(card, zoneChanges)`
@@ -28,8 +36,8 @@ state.apply(change); state.revert(change)        // the only mutators (D56, D59)
   `Change.Reverted` takes a change back inside a batch (cancelling a cast). `Changes` builds
   changes from the state they apply to (a zone change makes new ids and timestamps).
 - `input/` — `Input`: `PlayLand`, `Cast(card, way)`, `Activate`, `PassPriority`,
-  `DeclareAttackers`, `DeclareBlockers`, `Answer`, `Cancel`, `StartGame(options)`, `Concede`. Each names the acting
-  player.
+  `DeclareAttackers`, `DeclareBlockers`, `Answer`, `Cancel(player)`, `StartGame(options)`, `Concede`. Each names the
+  acting player (answers excepted: anyone may answer, P7); only the player casting or activating may cancel.
 - `decision/` — `Decision` (data only, with id and deciding player) and its `Answer`;
   `Continuation`, the open flow the host stores opaquely (D58).
 - `view/` — `View`/`ObjectView`/`Characteristics`, `AbilityOrigin` (an ability's path, D42/D44);
@@ -70,7 +78,7 @@ turn goes on without them (CR 800.4j).
   timestamps and dependencies (CR 613.6–613.8); static abilities where they function,
   their conditions; effect objects; rules that are not characteristics per object, player
   and game.
-- Done, the game flow: `options` (with every listed input accepted by `perform`); priority
+- Done, the game flow: `options` (exact, see above); priority
   (CR 117) and steps with their turn-based actions (untap with phasing and stun, the draw and
   the first-turn skip flag `GameState.skipFirstDraw`, cleanup discard and damage removal,
   durations ending, mana emptying), N players and extra turns; playing lands (extra land plays,
@@ -100,8 +108,9 @@ turn goes on without them (CR 800.4j).
   "when applied" triggers, one-use shields and regeneration (D26). Resolution (CR 608): target
   re-check and fizzling, partial legality, every `Step` and every `Effect` (keyword actions
   without a table entry are done directly or by hand), effect objects with locked sets (CR
-  611.2c), delayed and reflexive triggers, copies of spells, casting without paying from an
-  effect or for a mana cost (madness), the card going to the graveyard/exile/battlefield (an
+  611.2c), delayed and reflexive triggers, copies of spells, casting from an effect (CR 608.2g) with the casting
+  flow's own plan (face, modes, optional costs, X, targets, cost objects, mana; without paying its mana cost with X 0,
+  for another cost such as madness, or for its own; not cast without legal targets), the card going to the graveyard/exile/battlefield (an
   Adventure to exile, castable from there as the creature, CR 715.4); mana paid on resolution as a
   `ManaPayment` decision (by hand when no payment is found). Permanents enter with their printed
   loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
@@ -117,7 +126,7 @@ turn goes on without them (CR 800.4j).
   `Events.run` and wait with `Continuation.Event`.
 - Done, the game around it (`setup/`): starting a game (CR 103) with companions and London mulligans, conceding,
   the end of the game (CR 104) and players leaving a multiplayer game (CR 800.4a, j, k).
-- Not yet: casting from an effect for a cost other than mana, replacement effects on the zone
+- Not yet: replacement effects on the zone
   changes of costs (a creature sacrificed or a card discarded as a cost), counter replacements on
   the counters a permanent enters with (CR 122.6), additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
@@ -155,7 +164,10 @@ Setup (`alice.battlefield/hand/library/graveyard/exile`, `life`, `counters`, `tu
 `attach`, `effect`, N players), moves (`alice.casts(…, target = …, x, modes, kicked, option,
 choosing, paying)`, `activates`, `plays`, `passPriority()`, `allPass()`, `advanceTo(step)`
 (declaring no attackers or blockers on the way), `answers`, `attacks`, `blocks`, hand-made
-`change`/`move`), expectations (`expect { … }`). Random results are scripted with
+`change`/`move`), expectations (`expect { … }`). A card name means the card where the move looks for it (`casts`: the
+player's hand first; `activates`: their permanents; targets, attacks and expectations: the battlefield, then the Stack;
+choices: the decision's options, a name given twice meaning two cards); elsewhere a name in several zones fails unless
+`card(name, zone = …)` or an index says which. `effect(…)` locks its objects as a resolution does. Random results are scripted with
 `random(…)` or seeded; hidden cards are filled in by the harness. Scenarios about resolution can skip casting: `alice.castsWithoutCosts(…)`,
 `activatesWithoutCosts(…)`, then `resolve()` / `resolveStack()` / `settle()` / `beginStep(…)`
 run resolution, state-based actions and triggers without priority. Every scenario checks D59:

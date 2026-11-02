@@ -170,12 +170,14 @@ internal object Casting {
         if (face != now.face) act.record(Change.Face(onStack, now.face, face))
         val terms = arcanum.api.Mechanic.MayPlay(o.zone, PlayKind.Cast, cost = cost, withoutPaying = withoutPaying && cost == null,
             holder = arcanum.api.PlayerFilter.You)
+        var asked = false
         var c = Continuation.Announcing(player, Announced.Spell(onStack, CastWay(face), terms, byEffect = true), AnnounceStage.Modes,
             Choices(names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))))
         while (true) {
             val plan = Plan(act.state, c)
             val q = plan.next()
-            if (plan.blocker(q) != null) return cannot()
+            // Blocked from the start, it can't be cast; blocked by an answer, that answer is refused (CR 601.2, 727)
+            plan.blocker(q)?.let { why -> if (asked) throw IllegalArgumentException(why) else return cannot() }
             if (q == null) break
             if (q is Question.Pay) {
                 // CR 118.3: a cost that can't be paid isn't; the spell then can't be cast
@@ -186,7 +188,7 @@ internal object Casting {
                 Payment.finish(act.recorder, c, uses, mark)
                 return onStack
             }
-            val answer = Answers.automatic(plan, q) ?: forcedByEffect(plan, q) ?: act.asker.ask { plan.decision(q, it) }
+            val answer = Answers.automatic(plan, q) ?: forcedByEffect(plan, q) ?: act.asker.ask { plan.decision(q, it) }.also { asked = true }
             c = c.copy(choices = Answers.apply(plan, q, answer))
         }
         Payment.finish(act.recorder, c, emptyList(), mark)

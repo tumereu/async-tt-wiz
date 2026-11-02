@@ -54,8 +54,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         if (o.faceDown) return listOf(IndexedFace(0, FACE_DOWN))
         val definition = o.definition ?: return null
         var faces: List<IndexedFace> = when {
-            // CR 709.4: a split card outside the Stack has both halves' characteristics
-            definition.layout == Layout.Split && o.zone != Zone.Stack -> definition.faces.mapIndexed { i, f -> IndexedFace(i, f) }
+            // CR 709.4: a split card outside the Stack has both halves' characteristics; a fused split spell too (709.4d)
+            definition.layout == Layout.Split && (o.zone != Zone.Stack || o.facts.fused) -> definition.faces.mapIndexed { i, f -> IndexedFace(i, f) }
             else -> listOfNotNull(definition.faces.getOrNull(o.face)?.let { IndexedFace(o.face, it) })
         }
         // CR 613.2a, 707.2: copy effects in timestamp order
@@ -111,6 +111,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                 is CopyException.PowerToughness -> f.copy(power = PrintedNumber.Fixed(e.power), toughness = PrintedNumber.Fixed(e.toughness))
                 is CopyException.AddAbilities -> f.copy(abilities = f.abilities + e.abilities)
                 is CopyException.ManaCostOf -> f.copy(manaCost = e.cost)
+                // gtc chunk 12: replaced by the ability itself as the copy effect is created (CR 707.9b)
+                CopyException.ThisAbility -> f
             }
         }
 

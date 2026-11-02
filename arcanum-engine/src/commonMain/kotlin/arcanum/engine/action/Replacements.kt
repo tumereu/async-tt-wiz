@@ -185,7 +185,7 @@ internal object Replacements {
 
     private fun commutes(r: Replacement): Boolean = r.prevention == null && r.mechanic.instead == null && r.mechanic.modify.all {
         it is Modification.EntersTapped || it is Modification.EntersWithCounters || it is Modification.EntersWithAbilities ||
-            it is Modification.AsEnters
+            it is Modification.AsEnters || it is Modification.EntersAs
     }
 
     /** What a player reads for [r]: its ability's printed text, else plain words (API review 3). */

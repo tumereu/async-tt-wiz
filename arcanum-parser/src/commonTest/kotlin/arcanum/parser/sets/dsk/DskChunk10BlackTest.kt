@@ -340,7 +340,7 @@ class DskChunk10BlackTest {
                 Affected.Objects(Objects.Target("creature")), Duration.EndOfTurn))),
         )),
         Ability.Static(
-            mechanics = listOf(Mechanic.TargetableDespiteHexproof, Mechanic.WardDoesntTrigger),
+            mechanics = listOf(Mechanic.TargetableDespiteHexproof(), Mechanic.WardDoesntTrigger),
             affects = Affected.Objects(Objects.Each(ObjectFilter.And(listOf(creature, ObjectFilter.ControlledBy(PlayerFilter.Opponent))))),
         ),
     )

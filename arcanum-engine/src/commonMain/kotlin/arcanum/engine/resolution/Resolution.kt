@@ -87,6 +87,30 @@ internal object Resolution {
 
     fun causeOf(item: StackItem) = Cause(item.controller, selfOf(item), item, item.id.toString())
 
+    // gtc
+    /**
+     * The names the step at [step] of [item] starts with: as a chosen mode's steps begin, each of its slots kept as
+     * "name@position" (casting's targetKey: a name an earlier chosen mode used, CR 700.2d) is bound under its name, so
+     * the mode's steps read its own targets (a fused split spell's right half, CR 702.102d).
+     */
+    private fun modeNames(item: StackItem, step: Int, names: Bindings): Bindings {
+        val instructions = Replacements.instructionsOf(item.ability) ?: return names
+        val options = instructions.modes?.options ?: return names
+        var start = 0
+        item.modes.forEachIndexed { position, index ->
+            val mode = options.getOrNull(index) ?: return names
+            if (step == start && mode.instructions.steps.isNotEmpty()) {
+                return mode.instructions.targets.fold(names) { n, slot ->
+                    val key = arcanum.engine.casting.targetKey(instructions, item.modes, position, slot.name)
+                    val value = names[key]
+                    if (key != slot.name && value != null) n.with(slot.name, value) else n
+                }
+            }
+            start += mode.instructions.steps.size
+        }
+        return names
+    }
+
     /** What "this" is while [item] resolves: a copy of a spell is its own object (CR 707.10), not the card it copies;
      * an ability's is its source (a copy of an ability has the original's source, CR 707.10b). */
     fun selfOf(item: StackItem): arcanum.engine.state.ObjectId =
@@ -107,7 +131,7 @@ internal object Resolution {
                     continue
                 }
                 if (c.step < steps.size) {
-                    val scope = Scope(act, causeOf(item), c.names, item.event)
+                    val scope = Scope(act, causeOf(item), modeNames(item, c.step, c.names), item.event)
                     Steps.run(scope, steps[c.step])
                     if (once && c.step == actionStep(steps) && actionDone(steps[c.step], scope, recorder.changes.size > mark)) {
                         actionTakenBy(act, item)
@@ -168,12 +192,14 @@ internal object Resolution {
         var anyLegal = false
         // A slot's filter may name another slot's target ("artifact card in that player's graveyard")
         val chosenNames = item.targets.entries.fold(item.names) { n, (k, v) -> n.with(k, NamedValue.Targets(v)) }
+        // gtc: a mode's slot kept as "name@position" is checked against that mode's slot (a fused spell's halves, CR 702.102d)
+        val keyed = arcanum.engine.casting.Targets.slots(instructions, item.modes).associate { it.key to it.slot }
         item.targets.forEach { (slotName, chosen) ->
             if (chosen.isEmpty()) return@forEach
             anyTargets = true
             // Repeated modes keep their slots as "name@position" (casting's targetKey): bound under the name too
             val baseName = slotName.substringBefore('@')
-            val slot = slots.firstOrNull { it.name == baseName }
+            val slot = keyed[slotName] ?: slots.firstOrNull { it.name == baseName }
             val legal = chosen.filter { ref ->
                 if (slot == null) when (ref) {
                     is TargetRef.Object -> act.state.obj(ref.id) != null || ref.id in act.state.stackItems

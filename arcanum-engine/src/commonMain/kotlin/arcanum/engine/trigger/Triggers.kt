@@ -124,7 +124,10 @@ internal object Triggers {
         val i = ability.instructions
         return i.targets.isEmpty() && i.modes == null && i.steps.isNotEmpty() &&
             on.events.all { it is arcanum.api.EventPattern.Tap && it.forMana == true } &&
-            i.steps.all { step -> ((step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana)?.mana?.kind is arcanum.api.ManaKind.Fixed }
+            i.steps.all { step -> ((step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.AddMana)?.mana?.kind.let {
+                // dgm: "adds one mana of any type that land produced" (CR 605.1b)
+                it is arcanum.api.ManaKind.Fixed || it is arcanum.api.ManaKind.SameAsProduced
+            } }
     }
 
     /** Puts [triggers] among those waiting to go on the Stack (CR 603.2, 603.3). */
@@ -187,9 +190,15 @@ internal object Triggers {
             val check = Evaluator(nowBoard, Context(s.controller, s.id, event = instance))
             (s.ability.triggersOnlyIf?.let { check.holds(it) } ?: true) && (s.ability.interveningIf?.let { check.holds(it) } ?: true)
         }.let { limited(state, s, it) }.map { instance ->
-            WaitingTrigger(s.controller, s.ability, s.origin, s.id, sourceSeen ?: snapshot(nowBoard, s.id), instance)
+            WaitingTrigger(s.controller, s.ability, s.origin, s.id, sourceSeen ?: snapshot(nowBoard, s.id), instance, names = grantedNames(state, s.origin))
         }
     }
+
+    // gtc
+    /** The names of the effect that granted a triggered ability ("the encoded card" of cipher, CR 702.99c): the granted
+     * ability refers to what the effect bound as it was created. */
+    private fun grantedNames(state: GameState, origin: AbilityOrigin): arcanum.engine.state.Bindings =
+        (origin as? AbilityOrigin.FromEffect)?.let { state.effects[it.effect]?.names } ?: arcanum.engine.state.Bindings.EMPTY
 
     private fun snapshot(board: ViewBoard, id: ObjectId): ObjectSnapshot? {
         val o = board.state.obj(id) ?: return board.snapshot(id)
@@ -233,7 +242,12 @@ internal object Triggers {
     fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change, whole: Change = change, door: Int? = null): List<TriggerEvent> = when (trigger) {
         is Trigger.On -> {
             fun units(c: Change): List<TriggerEvent> {
-                val all = trigger.events.flatMap { EventMatcher.instances(e, it, c, door = door) }
+                val all = trigger.events.flatMap { p ->
+                    val found = EventMatcher.instances(e, p, c, door = door)
+                    // gtc: "whenever a +1/+1 counter is put on …" triggers once per counter put (CR 603.2c)
+                    if (p is arcanum.api.EventPattern.CountersPut && !trigger.oneOrMore) found.flatMap { t -> List(t.amount ?: 1) { t.copy(amount = 1) } }
+                    else found
+                }
                 return when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()
@@ -243,7 +257,10 @@ internal object Triggers {
             }
             val now = units(change)
             val counted = if (now.isEmpty()) now else trigger.nthThisTurn?.let { n ->
-                val earlier = state.eventsOf(state.turn.number).takeWhile { it !== whole && it != whole }.flatMap { units(it) }
+                // gtc: the events before this one (the last equal one: two combats can make equal changes)
+                val events = state.eventsOf(state.turn.number)
+                val at = events.indexOfLast { it === whole }.takeIf { it >= 0 } ?: events.indexOfLast { it == whole }
+                val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
                 if (!trigger.oneOrMore) now.filterIndexed { i, _ -> earlier.size + i + 1 == n }
                 else now.filter { unit ->
                     earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n

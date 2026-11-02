@@ -38,8 +38,14 @@ sealed interface EventPattern {
     ) : EventPattern
     @Serializable @SerialName("gain-life") data class GainLife(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("lose-life") data class LoseLife(val players: PlayerFilter) : EventPattern
-    /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]). */
-    @Serializable @SerialName("draw") data class Draw(val players: PlayerFilter) : EventPattern
+    /** A player draws a card ("your second card each turn" is [Trigger.On.nthThisTurn]); [exceptFirstIn]: not the first card
+     * that player draws in each of their own [exceptFirstIn] steps ("except the first one they draw in each of their draw
+     * steps", dgm). */
+    @Serializable @SerialName("draw") data class Draw(
+        val players: PlayerFilter,
+        // dgm
+        val exceptFirstIn: TurnStep? = null,
+    ) : EventPattern
     /** A player discards a card. Roles before (the card in hand, last known information) and after (the card in the
      * graveyard, or wherever a replacement put it). */
     @Serializable @SerialName("discard") data class Discard(
@@ -72,7 +78,13 @@ sealed interface EventPattern {
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),
      * defender (a planeswalker or battle attacked); [Players.EventPlayer] is the player attacked. */
-    @Serializable @SerialName("attack") data class Attack(val attacker: ObjectFilter, val alone: Boolean = false, val target: RecipientFilter? = null) : EventPattern
+    @Serializable @SerialName("attack") data class Attack(
+        val attacker: ObjectFilter, val alone: Boolean = false, val target: RecipientFilter? = null,
+        // gtc chunk 01
+        /** Only when at least this many other creatures are declared as attackers with it ("Whenever this creature and at
+         * least two other creatures attack", battalion, an ability word, CR 207.2c); 0: any number. */
+        val withOthers: Int = 0,
+    ) : EventPattern
     /** "Whenever [blocker] blocks": once per combat even if it blocks several; [perAttacker] for "blocks a creature",
      * once per attacker blocked (CR 509.3a, b). Roles object (the blocker), other combatant (the attacker). */
     @Serializable @SerialName("block") data class Block(
@@ -83,7 +95,13 @@ sealed interface EventPattern {
     @Serializable @SerialName("becomes-blocked") data class BecomesBlocked(
         val attacker: ObjectFilter, val blocker: ObjectFilter, val perBlocker: Boolean = false,
     ) : EventPattern
-    @Serializable @SerialName("unblocked") data class AttacksUnblocked(val attacker: ObjectFilter) : EventPattern
+    /** An attacker matching [attacker] isn't blocked (CR 509.1h); [target] narrows what it attacks ("attacks a player and isn't
+     * blocked"). Role object (the attacker); [Players.EventPlayer] is the player attacked. */
+    @Serializable @SerialName("unblocked") data class AttacksUnblocked(
+        val attacker: ObjectFilter,
+        // dgm
+        val target: RecipientFilter? = null,
+    ) : EventPattern
     /** An object or player becomes the target of a spell or ability matching [by] (heroic, ward). Roles object,
      * source (the spell or ability). */
     @Serializable @SerialName("becomes-target") data class BecomesTarget(val objects: ObjectFilter, val by: ObjectFilter) : EventPattern

@@ -78,7 +78,10 @@ internal object Targeting {
             is TargetRef.Player -> view.players[ref.id]?.mechanics.orEmpty()
         }
         // CR 702.11b: "as though they didn't have hexproof"
-        val ignoringHexproof = mechanics.any { it.mechanic == Mechanic.TargetableDespiteHexproof }
+        val ignoringHexproof = mechanics.any { applied ->
+            val m = applied.mechanic as? Mechanic.TargetableDespiteHexproof ?: return@any false
+            m.by == null || spellMatches(act.evaluator(Context(you = applied.controller, self = applied.source, names = applied.names)), m.by!!, controller, source)
+        }
         return mechanics.none { applied ->
             !(ignoringHexproof && arcanum.engine.casting.Targets.fromHexproof(view, applied)) && forbids(act, applied, controller, source)
         }

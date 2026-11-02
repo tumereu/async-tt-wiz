@@ -45,7 +45,10 @@ internal object Answers {
                 c.copy(announced = c.announced + (q.name to v))
             }
             is Question.Target -> {
-                val chosen = (answer as? Answer.Targets)?.chosen ?: refuse("Expected targets")
+                // dgm: a target chosen at random: the die result picks it (CR 115: still targeted)
+                val rolled = (answer as? Answer.DieRolls)?.takeIf { q.slot.slot.atRandom }?.results?.singleOrNull()
+                    ?.let { r -> listOfNotNull(q.options.getOrNull(r - 1)) }
+                val chosen = rolled ?: (answer as? Answer.Targets)?.chosen ?: refuse("Expected targets")
                 // CR 601.2c, 115.3: legal targets, the right number, each object or player once per slot
                 if (chosen.size < q.min || (q.max != null && chosen.size > q.max)) refuse("Choose ${q.min} to ${q.max ?: "any number of"} targets")
                 if (chosen.distinct().size != chosen.size) refuse("The same target twice in one slot")
@@ -54,6 +57,10 @@ internal object Answers {
                 if (q.slot.slot.sameController &&
                     chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.board.controller(id) } }.distinct().size > 1)
                     refuse("The targets must have the same controller")
+                // gtc chunk 10: "from a single graveyard": one owner (CR 601.2c)
+                if (q.slot.slot.sameOwner &&
+                    chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.state.obj(id)?.owner } }.distinct().size > 1)
+                    refuse("The targets must have the same owner")
                 val key = q.slot.key
                 if (q.forPlayer == null) c.copy(targets = c.targets + (key to chosen))
                 else c.copy(

@@ -62,7 +62,11 @@ sealed interface CostPart {
     @Serializable @SerialName("reveal") data class Reveal(val what: CostObjects, val bind: String? = null) : CostPart
     @Serializable @SerialName("pay-life") data class PayLife(val amount: Value) : CostPart
     @Serializable @SerialName("pay-energy") data class PayEnergy(val amount: Value) : CostPart
-    @Serializable @SerialName("remove-counters") data class RemoveCounters(val kind: CounterKind?, val amount: Value, val from: CostObjects) : CostPart
+    /** Remove [amount] counters of [kind] from each of [from]'s objects, or ([distributed]) [amount] in total from among
+     * them as the payer chooses ("Remove one or more +1/+1 counters from among creatures you control", gtc chunk 04). */
+    @Serializable @SerialName("remove-counters") data class RemoveCounters(
+        val kind: CounterKind?, val amount: Value, val from: CostObjects, val distributed: Boolean = false,
+    ) : CostPart
     @Serializable @SerialName("put-counters") data class PutCounters(val kind: CounterKind, val amount: Value, val on: CostObjects) : CostPart
     /** A loyalty ability's cost: put or remove loyalty counters (CR 606); [amount] may be negative or announced (−X). */
     @Serializable @SerialName("loyalty") data class Loyalty(val amount: Value) : CostPart

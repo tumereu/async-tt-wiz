@@ -60,7 +60,7 @@ internal object Steps {
         var again = afterPriority && recorder.state.turn.step == TurnStep.Cleanup
         while (true) {
             leave(recorder)
-            val next = if (again) TurnStep.Cleanup else nextStep(recorder.state)
+            val next = if (again) TurnStep.Cleanup else afterPhase(recorder) ?: nextStep(recorder.state)
             again = false
             if (next == null) beginTurn(recorder) else begin(recorder, next)
             when (val n = turnBasedActions(recorder)) {
@@ -69,6 +69,26 @@ internal object Steps {
                 Next.GoOn -> Unit
             }
         }
+    }
+
+    // gtc
+    /**
+     * CR 500.8: as a phase ends (the end of combat step, a main phase), an additional phase begins: the first still to
+     * come; once they are all over, the turn's own order goes on where it was left. Null: no additional phase now.
+     */
+    private fun afterPhase(recorder: Recorder): TurnStep? {
+        val s = recorder.state
+        val step = s.turn.step
+        if (step != TurnStep.EndOfCombat && step != TurnStep.PrecombatMain && step != TurnStep.PostcombatMain) return null
+        val extra = s.turn.extraPhases.firstOrNull()
+        if (extra != null) {
+            val resume = s.turn.resumeAt ?: nextStep(s)
+            recorder.record(Changes.step(s, s.turn.copy(extraPhases = s.turn.extraPhases.drop(1), resumeAt = resume)))
+            return extra
+        }
+        val resume = s.turn.resumeAt ?: return null
+        recorder.record(Changes.step(s, s.turn.copy(resumeAt = null)))
+        return resume
     }
 
     /** The step after this one (null: the next turn), skipping the declare blockers and combat damage steps without

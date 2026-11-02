@@ -26,6 +26,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   cards parse.
   Bloomburrow (`blb`): all 279 cards parse.
   Return to Ravnica (`rtr`): all 254 cards parse.
+  Gatecrash (`gtc`): all 249 cards parse. Dragon's Maze (`dgm`): all 156 cards parse (split cards with fuse as their
+  halves).
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

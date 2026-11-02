@@ -145,6 +145,8 @@ internal object Actions {
                     move.copy(counters = move.counters + (mod.kind to e.value(mod.amount))) else move
                 is Modification.EntersUnderControlOf -> move.copy(controller = e.players(mod.players).firstOrNull() ?: move.controller)
                 is Modification.EntersWithAbilities -> move.copy(abilities = move.abilities + mod.abilities)
+                // gtc chunk 12: "enters … as a Mutant in addition to its other types" (CR 614.12)
+                is Modification.EntersAs -> if (move.to == Zone.Battlefield) move.copy(entersAs = move.entersAs + mod.mechanics) else move
                 is Modification.EntersAsCopy -> {
                     val options = e.each(mod.of).filter { it != move.id }
                     val chooser = r.controller
@@ -680,18 +682,22 @@ internal object Actions {
         var tokens = planned(specs)
         // Replacements on entering (CR 614.12): "enters tapped", "with counters", tested on the tokens as they would be
         val proposedBoard = { ProposedBoard(act.board(), tokens.associateBy { it.id }) }
+        // gtc: "enters … as a Mutant in addition to its other types" (CR 614.1c): an effect from as it enters
+        val entersAs = LinkedHashMap<ObjectId, List<Mechanic>>()
         tokens = tokens.mapNotNull { t ->
             val enters = Replacements.candidates(act, cause).filter { r ->
                 Replacements.matches(act, r, Change.Created(listOf(Placed(t, 0))), proposedBoard()).isNotEmpty()
             }
             var o = t
             enters.forEach { r ->
-                val e = Evaluator(proposedBoard(), Context(you = r.controller, self = t.id, names = r.names))
+                // gtc: "this creature" of another permanent's replacement is that permanent (Master Biomancer's power)
+                val e = Evaluator(proposedBoard(), Context(you = r.controller, self = r.source ?: t.id, names = r.names))
                 r.mechanic.modify.forEach { mod ->
                     o = when (mod) {
                         Modification.EntersTapped -> o.copy(tapped = true)
                         is Modification.EntersWithCounters -> o.copy(counters = o.counters + CounterEntry(mod.kind, e.value(mod.amount), o.timestamp))
                         Modification.Skip -> return@mapNotNull null
+                        is Modification.EntersAs -> o.also { entersAs[t.id] = entersAs[t.id].orEmpty() + mod.mechanics }
                         else -> o
                     }
                 }
@@ -704,6 +710,10 @@ internal object Actions {
         val start = act.state.battlefield.size
         act.record(Change.Created(tokens.mapIndexed { i, o -> Placed(o, start + i) },
             if (fromSpellCopy != null) listOf(Meaning.Resolved, Meaning.Entered) else listOf(Meaning.TokenCreated, Meaning.Entered)))
+        tokens.forEach { t ->
+            val mechanics = entersAs[t.id] ?: return@forEach
+            act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", mechanics, t.id, t.controller ?: t.owner, ts, act) })
+        }
         Replacements.addLinked(act, linked)
         return tokens.map { it.id }
     }

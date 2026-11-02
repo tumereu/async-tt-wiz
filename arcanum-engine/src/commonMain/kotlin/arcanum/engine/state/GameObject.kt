@@ -120,6 +120,9 @@ data class ObjectFacts(
     val triggers: List<TurnCount> = emptyList(),
     /** Modes chosen by turn ("choose one that hasn't been chosen this turn"); key is the mode's index. */
     val modeTurns: List<TurnCount> = emptyList(),
+    // gtc
+    /** Cast as a fused split spell (CR 702.102): on the Stack it has both halves' characteristics (CR 709.4d). */
+    val fused: Boolean = false,
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

@@ -49,6 +49,13 @@ sealed interface Mechanic {
     sealed interface KeywordOnly : Mechanic
 
     // ---- Layer 1–7: characteristics (CR 613) ----
+    // dgm
+    /** A text-changing effect (CR 612): every instance of the word [from] in the affected objects' rules text becomes [to]
+     * (layer 3, CR 613.1c); a basic land type also in their type line (CR 612.2). Mana symbols aren't words (CR 612.2). */
+    @Serializable @SerialName("change-text") data class ChangeText(val from: TextWord, val to: TextWord) : Mechanic {
+        override val layer: Layer get() = Layer.Text
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** Becomes a copy of [objects] (CR 707), with [except] as part of the copy (CR 707.9b). */
     @Serializable @SerialName("copy-of") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : Mechanic {
         override val layer: Layer get() = Layer.Copy
@@ -139,8 +146,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter, val fromSource: ObjectFilter? = null) : Mechanic
     @Serializable @SerialName("phasing") data object Phasing : KeywordOnly
     /** The affected objects can be the targets of spells and abilities as though they didn't have hexproof (CR 702.11b): the
-     * targeting restriction of their hexproof keywords doesn't apply. */
-    @Serializable @SerialName("targetable-despite-hexproof") data object TargetableDespiteHexproof : Mechanic
+     * targeting restriction of their hexproof keywords doesn't apply; only for spells and abilities matching [by] when given
+     * ("spells and abilities you control", gtc chunk 13). */
+    @Serializable @SerialName("targetable-despite-hexproof") data class TargetableDespiteHexproof(val by: ObjectFilter? = null) : Mechanic
     /** The ward abilities of the affected objects don't trigger (CR 702.21a). */
     @Serializable @SerialName("ward-doesnt-trigger") data object WardDoesntTrigger : Mechanic
     /** What this Aura can target as a spell and be attached to (enchant, CR 702.5, 303.4). */
@@ -184,6 +192,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("can-block-any-number") data object CanBlockAnyNumber : Mechanic
     /** Can't attack alone: it can be declared as an attacker only with another attacker (CR 506.5, 508.1c). */
     @Serializable @SerialName("cant-attack-alone") data object CantAttackAlone : Mechanic
+    // dgm
+    /** Can only attack alone: it can't be declared as an attacker together with another attacker (CR 506.5, 508.1c). */
+    @Serializable @SerialName("can-only-attack-alone") data object CanOnlyAttackAlone : Mechanic
     /** Can't block alone: it can be declared as a blocker only with another blocker (CR 506.5, 509.1b). */
     @Serializable @SerialName("cant-block-alone") data object CantBlockAlone : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
@@ -394,6 +405,9 @@ sealed interface CopyException {
     @Serializable @SerialName("pt") data class PowerToughness(val power: Int, val toughness: Int) : CopyException
     @Serializable @SerialName("abilities") data class AddAbilities(val abilities: List<Ability>) : CopyException
     @Serializable @SerialName("mana-cost") data class ManaCostOf(val cost: ManaCost?) : CopyException
+    // gtc chunk 12
+    /** "… and it has this ability": the copy also has the ability whose effect made it a copy (CR 707.9a, b). */
+    @Serializable @SerialName("this-ability") data object ThisAbility : CopyException
 }
 
 /** Other ways to pay a spell's mana. */
@@ -420,6 +434,13 @@ sealed interface PlayKind {
     @Serializable @SerialName("cast") data object Cast : PlayKind
 }
 
+/** A word a text-changing effect replaces (CR 612.2): a colour word or a basic land type. */
+@Serializable
+sealed interface TextWord {
+    @Serializable @SerialName("color") data class ColorWord(val color: ColorRef) : TextWord
+    @Serializable @SerialName("land-type") data class LandType(val subtype: SubtypeRef) : TextWord
+}
+
 /** How a replacement effect changes an event (CR 614.1). */
 @Serializable
 sealed interface Modification {
@@ -441,6 +462,10 @@ sealed interface Modification {
     @Serializable @SerialName("enters-under-control") data class EntersUnderControlOf(val players: Players) : Modification
     /** "Enters with [abilities]" ("If kicked, it enters with … and with trample"): part of the entering object. */
     @Serializable @SerialName("enters-with-abilities") data class EntersWithAbilities(val abilities: List<Ability>) : Modification
+    // gtc chunk 12
+    /** What the entering permanent is as it enters ("enters … as a Mutant in addition to its other types"): a continuous
+     * effect on it that applies as it enters, so its enters triggers see it (CR 614.1c, 614.12, 611.2e). */
+    @Serializable @SerialName("enters-as") data class EntersAs(val mechanics: List<Mechanic>) : Modification
     /** The event doesn't happen at all ("If you would draw a card, skip that draw instead"). Skipping a step is
      * [Mechanic.SkipStep]; preventing damage is [Mechanic.Prevention] or [Effect.PreventDamage] (CR 615, not 614). */
     @Serializable @SerialName("skip") data object Skip : Modification

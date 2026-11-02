@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 17
+    const val VERSION: Int = 18
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -273,7 +273,11 @@ object OracleParser {
             else -> line.split(", ")
         }
         val first = keyword(parts.first()) ?: return null
-        return listOf(first) + parts.drop(1).map { keyword(it) ?: Ability.Unparsed(it) }
+        // dgm: "protection from white and from black" is two protection abilities (CR 702.16g)
+        val split = parts.drop(1).flatMap { p ->
+            PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
+        }
+        return listOf(first) + split.map { keyword(it) ?: Ability.Unparsed(it) }
     }
 
     /** chunk 33: "Kicker {X}. X can't be 0.": a keyword line, then a sentence about it on the same line. */
@@ -442,6 +446,9 @@ object OracleRenderer {
         (part as? CostPart.Mana)?.cost?.toString() ?: error("Rendering cost part $part is not written yet")
     }
 }
+
+// dgm
+private val PROTECTION_FROM_AND_FROM = Regex("""[Pp]rotection from (\w+) and from (\w+)""")
 
 private fun arcanum.api.Instructions.join(next: arcanum.api.Instructions): arcanum.api.Instructions {
     // rtr chunk 08: a later line's target named as an earlier one is a target of its own (CR 115.3): "second creature"

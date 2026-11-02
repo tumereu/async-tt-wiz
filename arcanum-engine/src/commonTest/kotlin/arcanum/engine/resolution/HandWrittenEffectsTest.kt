@@ -391,19 +391,26 @@ class HandWrittenEffectsTest {
         assertEquals(null, state.objOrThrow(card(rememberIt)).memory["kept"])
     }
 
-    // D61: what the engine can't do yet stops with a manual decision
+    // CR 500.8: the added phases come directly after this one, then the turn goes on where it was
     @Test
-    fun extraCombatIsManual() = scenario {
+    fun extraCombatAndMainAfterThisPhase() = scenario {
         /** "After this main phase, there is an additional combat phase followed by an additional main phase." */
         val card = spell("Test Onslaught", Effect.ExtraCombat(followedByMain = true).step())
         alice.hand(card)
 
         alice.castsWithoutCosts(card)
         resolve()
-        assertTrue(decision<Decision.Manual>().text.contains("additional combat"))
-        answer(Answer.Done)
-
         expect { alice.graveyard has card }
+        val phases = mutableListOf<arcanum.api.TurnStep>()
+        var guard = 100
+        while (state.turn.step != arcanum.api.TurnStep.End && guard-- > 0) {
+            val before = state.turn.step
+            if (state.priority.holder == null) declareNone() else passPriority()
+            val step = state.turn.step
+            if (step != before && (step == arcanum.api.TurnStep.BeginningOfCombat || step == arcanum.api.TurnStep.PostcombatMain)) phases += step
+        }
+        assertEquals(listOf(arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.PostcombatMain,
+            arcanum.api.TurnStep.BeginningOfCombat, arcanum.api.TurnStep.PostcombatMain), phases)
     }
 
     // CR 119.5: exchanging life totals

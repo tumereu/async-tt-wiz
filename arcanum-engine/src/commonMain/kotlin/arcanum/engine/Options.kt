@@ -326,11 +326,11 @@ internal object Options {
         val granted = Legality.permissions(snap, player, card, arcanum.api.PlayKind.Cast).map { it.first }
         val permissions = if (fromHand) listOf(null) + granted else granted
         val alternatives = listOf(null) + Legality.alternativeCosts(snap, card, player).map { it.first.origin }
-        Legality.castableFaces(o).flatMap { face ->
+        (Legality.castableFaces(o).flatMap { face ->
             permissions.flatMap { permission ->
                 alternatives.map { alt -> CastWay(face, alt, permission) }
             }
-        }.filter { way -> Legality.cantCast(snap, player, card, way) == null }
+        } + listOfNotNull(CastWay(fused = true).takeIf { fromHand })).filter { way -> Legality.cantCast(snap, player, card, way) == null }
             .map { Input.Cast(player, card, it) }
             .filter { startable(snap, it) }
     }

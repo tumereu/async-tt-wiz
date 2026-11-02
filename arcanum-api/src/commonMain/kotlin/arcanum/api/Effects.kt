@@ -82,7 +82,13 @@ sealed interface Effect {
     @Serializable @SerialName("put-counters") data class PutCounters(
         val objects: Objects, val kind: CounterKind, val amount: Value, val distributed: Boolean = false,
     ) : Effect
-    @Serializable @SerialName("remove-counters") data class RemoveCounters(val objects: Objects, val kind: CounterKind?, val amount: Value) : Effect
+    /** Remove [amount] counters of [kind] (any kind when null) from each of [objects]; [bind] names the number removed ("Draw
+     * that many cards", dgm). */
+    @Serializable @SerialName("remove-counters") data class RemoveCounters(
+        val objects: Objects, val kind: CounterKind?, val amount: Value,
+        // dgm
+        val bind: String? = null,
+    ) : Effect
     @Serializable @SerialName("player-counters") data class GivePlayerCounters(val players: Players, val kind: CounterKind, val amount: Value) : Effect
 
     @Serializable @SerialName("tap") data class Tap(val objects: Objects) : Effect

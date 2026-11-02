@@ -176,6 +176,11 @@ sealed interface ObjectFilter {
     /** A spell or ability with exactly one target, which matches [target] when given ("target spell or ability with a
      * single target", "a spell that targets only a single creature you control", CR 115.7). */
     @Serializable @SerialName("single-target") data class SingleTarget(val target: ObjectFilter? = null) : ObjectFilter
+    // gtc chunk 07
+    /** A blocking creature that blocks one of [objects] ("creatures blocking it", CR 509.1a). */
+    @Serializable @SerialName("blocking") data class Blocking(val objects: Objects) : ObjectFilter
+    /** An attacking creature blocked by one of [objects] ("creatures blocked by this creature", CR 509.1h). */
+    @Serializable @SerialName("blocked-by") data class BlockedBy(val objects: Objects) : ObjectFilter
     // blb gaps 2
     /** Its mana cost has an {X} in it ("creature spells with {X} in their mana costs", CR 107.3, 202.1). */
     @Serializable @SerialName("x-in-mana-cost") data object XInManaCost : ObjectFilter

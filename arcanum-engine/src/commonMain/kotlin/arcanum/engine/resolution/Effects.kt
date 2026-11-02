@@ -146,11 +146,16 @@ internal object Effects {
             }
             is Effect.PutCounters -> putCounters(scope, effect)
             // CR 122.1, 702.62a: counters come off objects in any zone (time counters on a suspended card in exile)
-            is Effect.RemoveCounters -> scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
-                val n = scope.value(effect.amount)
-                val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
-                var left = n
-                kinds.forEach { k -> if (left > 0) left -= Actions.removeCounters(act, TargetRef.Object(id), k, left) }
+            is Effect.RemoveCounters -> {
+                var removed = 0
+                scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
+                    val n = scope.value(effect.amount)
+                    val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
+                    var left = n
+                    kinds.forEach { k -> if (left > 0) Actions.removeCounters(act, TargetRef.Object(id), k, left).let { left -= it; removed += it } }
+                }
+                // gtc: "Draw that many cards": the number actually removed
+                effect.bind?.let { scope.bind(it, NamedValue.Number(removed)) }
             }
             is Effect.GivePlayerCounters -> scope.players(effect.players).forEach { p ->
                 Actions.putCounters(act, cause, TargetRef.Player(p), effect.kind, scope.value(effect.amount))
@@ -254,8 +259,15 @@ internal object Effects {
             is Effect.ExtraTurn -> scope.players(effect.players).forEach { p ->
                 act.record(Changes.step(act.state, act.state.turn.copy(extraTurns = listOf(p) + act.state.turn.extraTurns)))
             }
-            is Effect.ExtraCombat -> act.manual(scope.actor, scope.self, "Take an additional combat phase" +
-                if (effect.followedByMain) " followed by an additional main phase" else "")
+            // gtc: CR 500.8: added directly after this phase, before phases added earlier
+            is Effect.ExtraCombat -> {
+                if (effect.untapAttackers) {
+                    val attacked = scope.eval().each(arcanum.api.ObjectFilter.ThisTurn(arcanum.api.EventPattern.Attack(arcanum.api.ObjectFilter.Any)))
+                    Actions.tap(act, attacked.filter { act.state.obj(it)?.zone == Zone.Battlefield }, false)
+                }
+                val added = listOf(arcanum.api.TurnStep.BeginningOfCombat) + if (effect.followedByMain) listOf(arcanum.api.TurnStep.PostcombatMain) else emptyList()
+                act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = added + act.state.turn.extraPhases)))
+            }
             is Effect.SkipNextTurn -> scope.players(effect.players).forEach { act.manual(it, scope.self, "Skip your next turn") }
             // CR 701.10f… exchanging life totals: each gains or loses the difference (CR 119.5)
             is Effect.ExchangeLife -> {
@@ -758,7 +770,12 @@ internal object Effects {
             }
             is ManaKind.SameAsProduced, is ManaKind.AsCouldProduce -> {
                 val amount = e.value(if (kind is ManaKind.SameAsProduced) kind.amount else (kind as ManaKind.AsCouldProduce).amount)
-                act.chooseColor(player, scope.self, Color.all).let { c -> List(amount) { c } }
+                // dgm: "one mana of any type that land produced" (CR 106.7): the types the tapped permanent just added
+                val tapped = scope.event?.objects?.firstOrNull { it.role == arcanum.api.EventRole.Object }?.ids?.firstOrNull()
+                val produced = if (kind is ManaKind.SameAsProduced && tapped != null)
+                    act.state.player(player).manaPool.filter { it.source == tapped }.map { it.color }.distinct() else emptyList()
+                if (produced.size == 1) List(amount) { produced.single() }
+                else act.chooseColor(player, scope.self, produced.filterNotNull().ifEmpty { Color.all }).let { c -> List(amount) { c } }
             }
         }
         if (colors.isEmpty()) return
@@ -768,6 +785,16 @@ internal object Effects {
     }
 
     // ---- Continuous effects (CR 611)
+
+    // gtc
+    /** "Becomes a copy of …, except it has this ability" (CR 707.9b): the ability resolving, as the effect is created. */
+    private fun thisAbility(scope: Scope, m: Mechanic): Mechanic {
+        if (m !is Mechanic.CopyOf || arcanum.api.CopyException.ThisAbility !in m.except) return m
+        val ability = scope.cause.item?.ability?.takeIf { it !is arcanum.api.Ability.Spell }
+        return m.copy(except = m.except.mapNotNull { x ->
+            if (x == arcanum.api.CopyException.ThisAbility) ability?.let { arcanum.api.CopyException.AddAbilities(listOf(it)) } else x
+        })
+    }
 
     /**
      * Creates an effect object (CR 611.2, D19): characteristic and control changes lock their affected objects now (CR
@@ -779,7 +806,7 @@ internal object Effects {
     ) {
         val act = scope.act
         val e = scope.eval()
-        val fixed = mechanics.map { fix(e, it) }
+        val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }
         val layered = fixed.any { it.layer != null }
         var names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
         // Objects named by the effect itself: its rules that aren't layer effects find them through a frozen name

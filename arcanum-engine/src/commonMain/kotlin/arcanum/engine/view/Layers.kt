@@ -209,6 +209,9 @@ private sealed interface Op {
     data class SetPT(val power: Int?, val toughness: Int?) : Op
     data class ModifyPT(val power: Int, val toughness: Int) : Op
     data object Switch : Op
+    // dgm
+    /** CR 612: a colour word or basic land type word in its rules text (and a land type in its type line) becomes another. */
+    data class Text(val from: TextChange.Word, val to: TextChange.Word) : Op
 }
 
 private class Started(val effect: ContinuousEffect, val affected: Set<ObjectId>)
@@ -525,7 +528,17 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             is Mechanic.SetPowerToughness -> Op.SetPT(mechanic.power?.let { ev.value(it) }, mechanic.toughness?.let { ev.value(it) })
             is Mechanic.ModifyPowerToughness -> Op.ModifyPT(ev.value(mechanic.power), ev.value(mechanic.toughness))
             Mechanic.SwitchPowerToughness -> Op.Switch
-            // Layer 1 (copy) is worked out by Copiable; text-changing effects (layer 3) have no mechanics yet.
+            // dgm: layer 3, text-changing effects (CR 612)
+            is Mechanic.ChangeText -> {
+                fun word(w: arcanum.api.TextWord): TextChange.Word? = when (w) {
+                    is arcanum.api.TextWord.ColorWord -> ev.colors(w.color).firstOrNull()?.let { TextChange.Word.ColorWord(it) }
+                    is arcanum.api.TextWord.LandType -> ev.subtypes(w.subtype).firstOrNull()?.let { TextChange.Word.LandType(it) }
+                }
+                val from = word(mechanic.from)
+                val to = word(mechanic.to)
+                if (from == null || to == null || from == to) null else Op.Text(from, to)
+            }
+            // Layer 1 (copy) is worked out by Copiable.
             else -> null
         }
     }
@@ -572,6 +585,12 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             is Op.SetPT -> p.copy(chars = c.copy(power = op.power ?: c.power, toughness = op.toughness ?: c.toughness))
             is Op.ModifyPT -> p.copy(chars = c.copy(power = (c.power ?: 0) + op.power, toughness = (c.toughness ?: 0) + op.toughness))
             Op.Switch -> p.copy(chars = c.copy(power = c.toughness, toughness = c.power))
+            is Op.Text -> {
+                // dgm: CR 612.2: a basic land type word in the type line too
+                val subtypes = if (op.from is TextChange.Word.LandType && op.to is TextChange.Word.LandType)
+                    c.subtypes.map { if (it == op.from.subtype) op.to.subtype else it }.distinct() else c.subtypes
+                p.copy(chars = c.copy(subtypes = subtypes, abilities = c.abilities.map { it.copy(ability = TextChange.ability(it.ability, op.from, op.to)) }))
+            }
         }
     }
 

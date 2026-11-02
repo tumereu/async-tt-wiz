@@ -309,6 +309,19 @@ internal object Payment {
             }
             is CostPart.RemoveCounters -> {
                 val n = eval.value(part.amount)
+                // gtc: "remove N counters from among …": taken from the chosen objects in the order chosen
+                if (part.distributed) {
+                    var left = n
+                    objects(part.from).forEach { id ->
+                        val o = recorder.state.obj(id) ?: refuse("$id is gone")
+                        val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: return@forEach
+                        val taken = minOf(left, o.counters(kind))
+                        if (taken > 0) recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -taken, listOf(Meaning.Paid)))
+                        left -= taken
+                    }
+                    if (left > 0) refuse("Not enough counters among them")
+                    return
+                }
                 objects(part.from).forEach { id ->
                     val o = recorder.state.obj(id) ?: refuse("$id is gone")
                     val kind = part.kind ?: o.counters.firstOrNull()?.kind ?: refuse("No counters on $id")

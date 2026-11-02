@@ -187,6 +187,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         ObjectFilter.Any, is ObjectFilter.Is, is ObjectFilter.Category, is ObjectFilter.ControlledBy, is ObjectFilter.OwnedBy,
         is ObjectFilter.InZone, is ObjectFilter.AbilityOf, is ObjectFilter.WasCast, is ObjectFilter.WasPaid,
         is ObjectFilter.HasStatus, ObjectFilter.SummoningSick, is ObjectFilter.HasCounter, is ObjectFilter.Targets,
+        is ObjectFilter.Blocking, is ObjectFilter.BlockedBy,
         is ObjectFilter.Attached, is ObjectFilter.ThisTurn -> matches(filter, id) == result
         else -> true
     }
@@ -312,6 +313,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.WasCast -> (facts(id)?.castFrom ?: prospectiveCastFrom(id))?.let { filter.from == null || it == filter.from } ?: false
             is ObjectFilter.WasPaid -> (facts(id)?.paid.orEmpty().filter { it.keyword == filter.keyword }.sumOf { it.times }) >= filter.times
             is ObjectFilter.HasStatus -> hasStatus(id, o, filter.status)
+            // gtc chunk 07: the blocking relation of this combat (CR 509.1a, 509.1h)
+            is ObjectFilter.Blocking -> objects(filter.objects).let { them -> state.combat?.blockers.orEmpty().any { b -> b.id == id && b.attackers.any { it in them } } }
+            is ObjectFilter.BlockedBy -> objects(filter.objects).let { them -> state.combat?.blockers.orEmpty().any { b -> b.id in them && id in b.attackers } }
             ObjectFilter.SummoningSick -> o != null && summoningSick(o, controllerOf(id))
             is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
                 (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
@@ -576,6 +580,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             objects(value.objects).flatMap { characteristics(it)?.colors.orEmpty() }.distinct().count { it in among }
         }
         is Value.Min -> value.parts.minOfOrNull { value(it) } ?: 0
+        // gtc chunk 05: the greatest of a value for each player ("the greatest number of cards a player discarded this way")
+        is Value.GreatestFor -> players(value.players).maxOfOrNull { p -> with(ctx.copy(testedPlayer = p)).value(value.value) } ?: 0
     }
 
     private fun boundNumber(value: NamedValue?): Int = when (value) {

@@ -122,7 +122,10 @@ import kotlinx.serialization.json.*
         val containerId: String) : Manual
     /** Entry conveniences can be batch members; projection pulls are a single mutation. */
     @Serializable @SerialName("clearCardCounter") data class ClearCardCounter(val cardId: String, val color: CounterColor) : PlayAction
-    @Serializable @SerialName("createToken") data class CreateToken(val definition: SubmittedDefinition) : PlayAction
+    /** A new token on the actor's Battlefield; with [containerId], in that Exile instead (Automatum: a copy of a card,
+     * made where the card is, CR 707.12; ATW's own controls never send it). */
+    @Serializable @SerialName("createToken") data class CreateToken(val definition: SubmittedDefinition,
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val containerId: String? = null) : PlayAction
     @Serializable @SerialName("cloneToken") data class CloneToken(val cardId: String) : PlayAction
     @Serializable @SerialName("removeToken") data class RemoveToken(val cardId: String) : PlayAction
     @Serializable @SerialName("link") data class Link(val first: LinkEndpoint, val second: LinkEndpoint) : PlayAction
@@ -216,7 +219,8 @@ object GameplayRules {
             action.text.isNotBlank() && action.text.length <= 16384 && '\u0000' !in action.text
         is PlayAction.Ping -> EventAnnotations.valid(action.reference) && EventAnnotations.valid(action.target)
         is PlayAction.Unping -> EventAnnotations.valid(action.reference) && EventAnnotations.valid(action.target)
-        is PlayAction.CreateToken -> TokenLinkRules.validDefinition(action.definition)
+        is PlayAction.CreateToken -> TokenLinkRules.validDefinition(action.definition) &&
+            (action.containerId == null || DeckValidation.uuid(action.containerId))
         is PlayAction.CloneToken -> DeckValidation.uuid(action.cardId)
         is PlayAction.RemoveToken -> DeckValidation.uuid(action.cardId)
         is PlayAction.Link -> DeckValidation.uuid(action.first.id) && DeckValidation.uuid(action.second.id)

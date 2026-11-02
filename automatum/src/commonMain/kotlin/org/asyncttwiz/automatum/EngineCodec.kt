@@ -196,10 +196,13 @@ internal object EngineCodec {
  */
 @Serializable
 internal data class CardLedger(
-    /** The engine's card id when it isn't ATW's: a token's (D35), which ATW names by its own id. */
+    /** The engine's card id when it isn't ATW's: a token's or a copy's of a card (D35), which ATW names by its own id. */
     val card: String? = null,
-    /** A token's definition as the engine made it (ATW's token card data only shows it). */
+    /** A token's or a copy's definition as the engine made it (ATW's token card data only shows it). */
     val definition: CardDefinition? = null,
+    /** ATW's token card is the engine's copy of a card (CR 707.12), not a token: it ceases to exist outside the Stack and
+     * the Battlefield (CR 704.5e), which ATW's tokens do too (TBL-103). */
+    val copyOfCard: Boolean = false,
     val faceOverride: Int? = null,
     /** The engine's controller field where ATW's container doesn't say it ("": none). */
     val controllerOverride: String? = null,

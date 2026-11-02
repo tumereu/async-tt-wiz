@@ -134,7 +134,7 @@ object EngineState {
             )
         }
         val position = TurnPosition.of(board.turn)!!
-        return GameState(
+        val built = GameState(
             players = players.toMutableList(),
             objects = objects,
             battlefield = byTimestamp(Zone.Battlefield).toMutableList(),
@@ -168,6 +168,22 @@ object EngineState {
             skipFirstDraw = turnExtras.skipFirstDraw,
             viewer = viewer?.let(::PlayerId),
         )
+        return built.also { firstStrikeFromLanes(it, position) }
+    }
+
+    /**
+     * Combat review #4 (CR 510.4, I-D31, I-D42): a combat taken over from the lanes in ATW's first-strike damage step (its
+     * record dropped by switching Automatum on) is in the first of two combat damage steps, and the creatures with first
+     * or double strike dealt their damage in it: the regular step follows, in which they don't strike again (double
+     * strike aside).
+     */
+    private fun firstStrikeFromLanes(state: GameState, position: TurnPosition) {
+        val combat = state.combat ?: return
+        if (position != TurnPosition.FIRST_STRIKE_DAMAGE || combat.firstStrikeStep || combat.firstStrikers != null) return
+        val view = arcanum.engine.Engine.view(state)
+        fun strikesFirst(id: ObjectId) = view[id]?.has { it == arcanum.api.Mechanic.FirstStrike || it == arcanum.api.Mechanic.DoubleStrike } == true
+        val inCombat = (combat.attackers.map { it.id } + combat.blockers.map { it.id }).distinct().filter { it in state.battlefield }
+        state.combat = combat.copy(firstStrikeStep = true, firstStrikers = inCombat.filter(::strikesFirst))
     }
 
     /** Whose view an open shared flow was made in (D60): it is resumed in that view. Null when no flow is open or it was
@@ -316,10 +332,14 @@ object EngineState {
         val area = board.combat?.takeIf { it.pairs.isNotEmpty() } ?: return null
         val defender = CombatStackRules.defendingPlayer(board)
         fun obj(cardId: String) = ObjectId.Card(ids.engine(cardId), board.cards.single { it.id == cardId }.zoneChanges)
+        val battlefield = board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.map { it.id }.toSet()
         val attackers = area.pairs.flatMap { pair ->
-            val target = pair.attackTarget?.let { TargetRef.Object(obj(it)) } ?: TargetRef.Player(PlayerId(defender!!))
+            // Combat review #3 (CR 506.4c): a target that left the battlefield was removed from combat; its attackers
+            // attack nothing
+            val gone = pair.attackTarget != null && board.cards.none { it.id == pair.attackTarget && it.containerId in battlefield }
+            val target = pair.attackTarget?.takeUnless { gone }?.let { TargetRef.Object(obj(it)) } ?: TargetRef.Player(PlayerId(defender!!))
             pair.attackers.map { Attacker(obj(it.sourceId), target, blocked = pair.blocked || pair.blockers.isNotEmpty() ||
-                CombatStackRules.blockedFromElsewhere(area, pair.id)) }
+                CombatStackRules.blockedFromElsewhere(area, pair.id), targetRemoved = gone) }
         }
         // CMB-031: a blocker blocks the attackers of its pair and of the pairs it also blocks
         val blockers = CombatStackRules.blocks(area).groupBy({ it.first.sourceId }, { it.second.sourceId }).map { (b, attackers) ->

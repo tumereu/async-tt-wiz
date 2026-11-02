@@ -429,10 +429,11 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
         val overlay = scene.stackRegion?.takeIf { it.copy(y = it.y - 6f, height = it.height + 12f).intersection(field.bounds) != null }
         // Also avoid the fixed quick-action square to the left of the narrowed Stack area.
         val start = minOf(field.bounds.right - 8, overlay?.x?.minus(36) ?: Float.MAX_VALUE).toInt()
+        // The combat area floats over the battlefields (CMB-007): the column passes beside it
         val x = (start downTo field.bounds.x.toInt() + 2).first { x -> scene.items.none { item ->
             item.kind != TableItemKind.HAND && (item.visible + listOfNotNull(item.countBadge)).any { part ->
                 x >= part.x - 4 && x <= part.right + 4 && part.intersection(field.bounds) != null }
-        } }
+        } && scene.combatPanel?.let { x >= it.x - 8 && x <= it.right + 40 } != true }
         for (y in kotlin.math.ceil(field.bounds.y.toDouble()).toInt() until minOf(field.bounds.bottom.toInt(), overlayTop)) {
             // Avoid fractional, anti-aliased Canvas edges.
             if (y - field.bounds.y < 1 || field.bounds.bottom - y <= 1) continue

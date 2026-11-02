@@ -54,14 +54,17 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
         // #8 (I-D33): a decision that opened with its early answer beside it (given while the batch opening it was on its
         // way) is answered with it by the client of whoever made the latest event, which is there to send it
         if (next?.early != null && toolkit.latestAuthor() == toolkit.viewer) flows.answerEarly()
-        // CMB-033: a division of combat damage whose order can't change anything is made with the suggestion at once, by
-        // the client that opened it or the dividing player's
+        // CMB-033: a division of combat damage whose order can't change anything is made with the suggestion at once by
+        // one client (combat review #8): the one that opened it (whoever made the latest event); the dividing player's
+        // only when that one hasn't after a while (it went offline), so two clients never send the same answer
         else if (next != null && toolkit.enabled()) {
             val division = next.division
             val open = next.decision as? Decision.Divide
-            if (division != null && open != null && Divisions.orderFree(division) &&
-                (toolkit.latestAuthor() == toolkit.viewer || division.player == toolkit.viewer))
+            val latest = toolkit.latestAuthor() == toolkit.viewer
+            if (division != null && open != null && !askedInDialog(play, division) && (latest || division.player == toolkit.viewer)) {
+                if (!latest) kotlinx.coroutines.delay(ORDER_FREE_FALLBACK_MILLIS)
                 flows.answer(Answer.Division(open.suggested))
+            }
         }
     }
     if (!shown) return
@@ -94,7 +97,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 WaitingBar("${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing — " +
                     prompt(flows, flow, play, decision), "Choose for them") { confirm = true }
                 // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
-                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && !Divisions.orderFree(it) }?.let { early ->
+                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play, it) }?.let { early ->
                     EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
                 }
             }
@@ -122,6 +125,10 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
             dismissButton = { TextButton({ confirm = false }) { Text("Cancel") } })
     }
 }
+
+/** Combat review #8: how long the dividing player's client waits for the client that opened an order-free division to
+ * answer it before answering it itself. */
+internal const val ORDER_FREE_FALLBACK_MILLIS = 4000L
 
 /**
  * I-D40: a step that would act for the other player (the step button, the step arrow, the phase dialog, the combat quick

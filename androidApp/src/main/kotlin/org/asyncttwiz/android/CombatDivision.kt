@@ -34,9 +34,12 @@ import org.asyncttwiz.protocol.*
  * or "Free" (any [free] shares), starting from [start] (Automatum's suggestion or an early answer given). A start no order
  * gives opens in Free.
  */
-internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, Int>) {
+internal class DivisionDraft(val division: DamageDivision, start: Map<MtgRef, Int>,
+    /** Opens in Free whatever the start: a division whose order can't matter, asked only because its player wants to be
+     * asked (combat review B). */
+    free: Boolean = false) {
     private val creatures = Divisions.creatures(division)
-    var inOrder by mutableStateOf(Divisions.inOrder(division, creatures) == division.among.associateWith { start[it] ?: 0 })
+    var inOrder by mutableStateOf(!free && Divisions.inOrder(division, creatures) == division.among.associateWith { start[it] ?: 0 })
         private set
     var order by mutableStateOf(creatures); private set
     var free by mutableStateOf(division.among.associateWith { start[it] ?: 0 }); private set
@@ -128,7 +131,7 @@ internal fun CombatDivisionDialog(flows: SharedFlowController, play: PlayState, 
     // The decision's suggestion: Automatum's, or an early answer given just as it opened (I-D33)
     val start = division.among.zip(decision.among).associate { (ref, target) ->
         ref to (decision.suggested.firstOrNull { it.target == target }?.amount ?: 0) }
-    val draft = remember(decision.id) { DivisionDraft(division, start) }
+    val draft = remember(decision.id) { DivisionDraft(division, start, free = Divisions.orderFree(division)) }
     Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .32f)).pointerInput(Unit) { detectTapGestures { } },
         contentAlignment = Alignment.Center) {
         Surface(Modifier.padding(20.dp).widthIn(max = 380.dp).semantics { contentDescription = "Division of combat damage" },
@@ -172,15 +175,25 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, divis
     enabled: Boolean) {
     val given = combat.early(play, division)
     val start = given?.shares?.associate { it.target to it.amount } ?: division.suggested
-    val draft = remember(division.source, given) { DivisionDraft(division, start) }
+    val draft = remember(division.source, given) { DivisionDraft(division, start, free = Divisions.orderFree(division)) }
+    // Combat review #9: Inspect folds the panel away to look at the combat area, as the division dialog's does
+    var hidden by remember(division.source, division.firstStrike) { mutableStateOf(false) }
+    if (hidden) {
+        Surface(shape = RoundedCornerShape(22.dp), color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
+            TextButton({ hidden = false }) { Text("Divide early", color = AutomatumViolet, fontWeight = FontWeight.Bold) }
+        }
+        return
+    }
     Surface(Modifier.widthIn(max = 380.dp).semantics { contentDescription = "Early division" }, shape = RoundedCornerShape(8.dp),
         color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text("${CastController.cardName(play, division.source)} — divide ${division.amount} damage", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            Text("${combatName(play, division.source)} — divide ${division.amount} damage", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             Text(if (given != null) "Ready: applied when your division comes up." else "You may divide now; it is applied when your division comes up.",
                 fontSize = 11.sp, color = Color(0xff4b5a5f))
             DivisionRows(draft, play, names)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
+                TextButton({ hidden = true }, Modifier.semantics { contentDescription = "Inspect the table" }) { Text("Inspect") }
+                Spacer(Modifier.weight(1f))
                 if (given != null) TextButton({ combat.withdrawEarly(division) }, enabled = enabled) { Text("Withdraw") }
                 Button({ combat.giveEarly(division, draft.shares) }, enabled = enabled && draft.refusal == null &&
                     draft.shares != given?.shares?.associate { it.target to it.amount },
@@ -193,4 +206,12 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, divis
 /** Whether the shared [flow]'s open decision is a division of combat damage shown in the dialog (not one Automatum's
  * table makes by itself, CMB-033). */
 internal fun dividingInDialog(flow: SharedFlow): Boolean = flow.decision is Decision.Divide &&
-    flow.division?.let { !Divisions.orderFree(it) } == true
+    flow.division?.let { askedInDialog(flow.play, it) } == true
+
+/**
+ * Whether [division] on [play]'s board is asked in the dialog (CMB-033): when its order can change something, and also
+ * when it can't but its player has "Skip when I have no choice" off (combat review B: then it opens in Free, where the
+ * player still has choices). Else the table makes it with the suggestion by itself.
+ */
+internal fun askedInDialog(play: PlayState, division: DamageDivision): Boolean = !Divisions.orderFree(division) ||
+    play.board.players.firstOrNull { it.accountId == division.player }?.skipWhenNoChoice == false

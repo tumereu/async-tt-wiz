@@ -7,6 +7,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import arcanum.api.Ability
 import arcanum.api.Affected
 import arcanum.api.Layout
@@ -22,7 +25,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ParsedCard
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -174,34 +176,44 @@ class AutomatumCombatReviewTest {
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(play.board.turn))
     }
 
-    // combatreview #1 — CMB-007, I-D38 (owner feedback on the wireframes: "the combat overlay sits on top of the
-    // battlefield, sized to its content; the battlefield shows around it, no empty band"): the area is still a band
-    // between the battlefields, as high as the area, painted in the battlefields' colours. Opening it pushes the two
-    // battlefields apart, and the coloured space beside the white panel isn't battlefield: a card dropped there (it looks
-    // like the player's own battlefield) joins combat (the area's end drop regions span the band) or lands nowhere
-    @Ignore("combatreview #1: the combat area is a band between the battlefields, not an overlay on them")
+    // combatreview #1 (fixed) — CMB-007, I-D38 (owner feedback on the wireframes: "the combat overlay sits on top of the
+    // battlefield, sized to its content; the battlefield shows around it, no empty band"; owner decision A): opening the
+    // area moves no battlefield; it is a panel over the middle of the table that covers the battlefield cards under it,
+    // and only the panel takes combat drops: beside it is battlefield
     @Test fun theCombatAreaSitsOnTheBattlefield() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre)))
         val before = scene(f.a)
         val alice = toolkit(f.a)
         tapCard(alice, card(play, brute))
         val after = scene(f.a)
-        assertEquals(before.fields.last().gridBounds.y, after.fields.last().gridBounds.y, "Alice's battlefield doesn't move down")
-        val port = after.viewports.single { it.id == "combat" }.bounds
-        val panelLeft = after.combatLabels.minOf { it.bounds.x }
-        assertTrue(panelLeft - port.x > 20f, "there is room beside the panel")
-        // Just beside the panel, level with its attacker row (Alice's half of the band)
-        val point = TablePoint(port.x + (panelLeft - port.x) / 2, port.bottom - 8f)
+        assertEquals(before.fields.map { it.gridBounds }, after.fields.map { it.gridBounds }, "the battlefields don't move")
+        val panel = assertNotNull(after.combatPanel)
+        assertEquals(panel, after.viewports.single { it.id == "combat" }.bounds, "the combat viewport is the panel")
+        val field = after.fields.last().bounds
+        assertTrue(panel.x - field.x > 20f, "there is room beside the panel")
+        assertTrue(panel.y < after.fields.first().bounds.bottom && panel.bottom > field.y, "it lies over both battlefields")
+        // Just beside the panel, level with its attacker row
+        val point = TablePoint(field.x + (panel.x - field.x) / 2, panel.bottom - 8f)
         assertTrue(after.fields.any { it.bounds.contains(point) }, "beside the panel is battlefield")
         assertEquals(null, after.combatDestination(point, TableScope(card(play, bear), listOf(card(play, bear)))),
             "a drop beside the panel doesn't join combat")
+        assertNotNull(after.combatDestination(TablePoint(panel.x + 6f, point.y), TableScope(card(play, bear), listOf(card(play, bear)))),
+            "a drop on the panel's edge does")
+        // The panel covers the battlefield cards under it
+        for (item in after.items.filter { it.zone == PlayZone.BATTLEFIELD && it.viewport != "combat" })
+            assertTrue(item.visible.none { it.intersection(panel)?.let { part -> part.width > .01f && part.height > .01f } == true }, item.id)
+        // Folded away, the battlefield under it shows and nothing takes combat drops
+        alice.layoutState.value = alice.layoutState.value.copy(combatHidden = play.board.combat!!.id)
+        val folded = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false, alice.layoutState.value)
+        assertEquals(null, folded.combatPanel)
+        assertNotNull(folded.combatFolded)
+        assertTrue(folded.combatDrops.isEmpty())
     }
 
-    // combatreview #2 — CMB-029, CMB-035 (screenshot combat-preview.png): the chips of attackers side by side overlap at the
+    // combatreview #2 (fixed) — CMB-029, CMB-035 (screenshot combat-preview.png): the chips of attackers side by side overlap at the
     // default card size: the Brute's "trample" and "2 → Bob" and the Bear's "2 → Bob" are each centred over their own
     // small card but wider than it, so they run into each other (the pictures read "2 · 2 → Bob": combat-blocking.png,
     // combat-preview.png, combat-blocking-landscape.png, where they also run into the eye)
-    @Ignore("combatreview #2: preview and keyword chips of neighbouring attackers overlap")
     @Test fun chipsOfNeighbouringAttackersDoNotOverlap() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre)))
         val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
@@ -219,10 +231,9 @@ class AutomatumCombatReviewTest {
             assertFalse(chips[i].overlaps(chips[j]), "chips overlap: ${chips[i]} and ${chips[j]}")
     }
 
-    // combatreview #5 — CMB-013, CMB-029, SYS-055: with Automatum on a planeswalker's loyalty is its loyalty counters
+    // combatreview #5 (fixed) — CMB-013, CMB-029, SYS-055: with Automatum on a planeswalker's loyalty is its loyalty counters
     // (typed counters, what Automatum changes when it is dealt damage); the target header reads the card's corner, the
     // printed or hand-set loyalty, so it shows 4 (and the preview "4 → 1") for a planeswalker with 2 loyalty left
-    @Ignore("combatreview #5: a planeswalker's header shows its corner, not its loyalty counters")
     @Test fun aPlaneswalkerHeaderShowsItsLoyalty() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(walker, ogre)))
         val seer = card(play, walker)
@@ -231,10 +242,9 @@ class AutomatumCombatReviewTest {
         assertEquals("2", scene(f.a).combatLabels.single { it.cardId == seer }.value)
     }
 
-    // combatreview #6 — I-D27: a tap that stages the other player's face-down creature, which can't attack yet, is
+    // combatreview #6 (fixed) — I-D27: a tap that stages the other player's face-down creature, which can't attack yet, is
     // refused at once with a fallback naming the card ("Hill Ogre can't attack the player now."), shown until the
     // engine's reason (which hides it) is worked out off the main thread, as the app does
-    @Ignore("combatreview #6: a staging refusal names a face-down creature until the engine's reason arrives")
     @Test fun aStagingRefusalDoesNotNameAFaceDownCreature() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, ogre), bobField = listOf(warden)))
         val hidden = card(play, ogre)
@@ -246,9 +256,8 @@ class AutomatumCombatReviewTest {
         assertTrue("Hill Ogre" !in bobsDevice.error!!, "shown to Bob: ${bobsDevice.error}")
     }
 
-    // combatreview #6 — I-D27: while Bob declares blockers, Alice (all actions are open to both players) taps Bob's
+    // combatreview #6 (fixed) — I-D27: while Bob declares blockers, Alice (all actions are open to both players) taps Bob's
     // face-down creature, which is tapped and can't block: "Hill Ogre can't block now." names it
-    @Ignore("combatreview #6: a blocking refusal names a face-down creature to the other player")
     @Test fun aBlockingRefusalDoesNotNameAFaceDownCreature() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(ogre, warden)))
         val hidden = card(play, ogre)
@@ -260,11 +269,10 @@ class AutomatumCombatReviewTest {
         assertTrue("Hill Ogre" !in alice.error!!, "shown to Alice: ${alice.error}")
     }
 
-    // combatreview #7 — CMB-032, CMB-034: the selection is the viewer's own and is never dropped when the table moves on.
+    // combatreview #7 (fixed) — CMB-032, CMB-034: the selection is the viewer's own and is never dropped when the table moves on.
     // Bob selects his Gate Warden (can block two) and blocks the Stout Bear with it, so it stays selected; Alice declares
     // his blocks for him (confirmed, I-D40). In Alice's next combat Bob's first tap on her attacker's copy, meant to select
     // it (CMB-032), blocks it with the Warden selected two turns earlier
-    @Ignore("combatreview #7: a blocker selection survives its declaration and blocks in a later combat")
     @Test fun aSelectionDoesNotOutliveItsCombat() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(warden)))
         val bruteCard = card(play, brute)
@@ -313,6 +321,38 @@ class AutomatumCombatReviewTest {
         assertFalse(alice.flows.confirmActing())
         assertEquals("The table changed: try again.", alice.error)
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(play.board.turn))
+    }
+
+    // combatreview B (owner decision) — CMB-033: a division whose order can't matter is made without asking while its
+    // player skips choices they don't have; with "Skip when I have no choice" off it is asked, opening in Free
+    @Test fun anOrderFreeDivisionIsAskedWhenItsPlayerDoesNotSkip() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(ogre)))
+        val ogreCard = card(play, ogre)
+        val one = org.asyncttwiz.automatum.DamageDivision(f.a, card(play, brute), 5, listOf(MtgRef.Card(ogreCard, 0)),
+            mapOf(MtgRef.Card(ogreCard, 0) to 3), mapOf(MtgRef.Card(ogreCard, 0) to 5), null)
+        assertTrue(org.asyncttwiz.automatum.Divisions.orderFree(one))
+        assertFalse(askedInDialog(play, one))
+        edit { b -> b.copy(players = b.players.map { if (it.accountId == f.a) it.copy(skipWhenNoChoice = false) else it }) }
+        assertTrue(askedInDialog(play, one))
+        assertFalse(DivisionDraft(one, mapOf(MtgRef.Card(ogreCard, 0) to 5), free = true).inOrder)
+        assertTrue(DivisionDraft(one, mapOf(MtgRef.Card(ogreCard, 0) to 5)).inOrder)
+    }
+
+    // combatreview #9 (fixed) — STK-034: the early division's rows fold away with Inspect, so the combat area under them
+    // shows; "Divide early" brings them back
+    @Test fun theEarlyDivisionFoldsAwayToInspectTheTable() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(ogre, warden)))
+        val (ogreCard, wardenCard) = listOf(card(play, ogre), card(play, warden))
+        val division = org.asyncttwiz.automatum.DamageDivision(f.b, ogreCard, 3, listOf(MtgRef.Card(card(play, brute), 0),
+            MtgRef.Card(wardenCard, 0)), mapOf(MtgRef.Card(card(play, brute), 0) to 5, MtgRef.Card(wardenCard, 0) to 3),
+            mapOf(MtgRef.Card(card(play, brute), 0) to 3), null)
+        val combat = CombatController({ play }, { true }, { emptyList() })
+        compose.setContent { MaterialTheme { EarlyDivisionPanel(combat, play, division, mapOf(f.a to "Alice", f.b to "Bob"), true) } }
+        compose.onNodeWithContentDescription("Early division").assertExists()
+        compose.onNodeWithContentDescription("Inspect the table").performClick()
+        compose.onNodeWithContentDescription("Early division").assertDoesNotExist()
+        compose.onNodeWithText("Divide early").performClick()
+        compose.onNodeWithContentDescription("Early division").assertExists()
     }
 
     // ---- Long seeded games through the app's controllers

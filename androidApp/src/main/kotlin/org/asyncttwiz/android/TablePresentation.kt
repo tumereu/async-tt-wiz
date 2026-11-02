@@ -108,7 +108,9 @@ internal fun battlefieldCardBounds(footprint: TableBounds, width: Float, height:
 internal fun battlefieldRowHeight(cardHeight: Float, scale: Float) = cardHeight * 1.2f + 8f * scale
 /** [localPileTargets]: the local pile is open to pick targets from (Automatum, I-D6): its cards one by one, not grouped. */
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
-    val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null, val localPileTargets: Boolean = false)
+    val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null, val localPileTargets: Boolean = false,
+    /** CMB-007: the combat area (by its id) the viewer folded away to see the battlefield under it; the viewer's own. */
+    val combatHidden: String? = null)
 enum class TableItemKind { CARD, PILE, LIFE, COUNTER, HAND }
 data class TableItem(
     val id: String, val bounds: TableBounds, val label: String, val value: String,
@@ -193,6 +195,15 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val appearance: CardAppearance = CardAppearance(),
     val combatLabels: List<CombatLaneLabel> = emptyList(),
     val combatLaneDividers: List<Pair<TablePoint, TablePoint>> = emptyList(),
+    /** CMB-007: the combat area's panel on the screen (not clipped to the table), floating over the battlefields; null
+     * without one shown. Only it takes combat drops, and it covers the battlefield cards under it. */
+    val combatPanel: TableBounds? = null,
+    /** CMB-007: where the folded-away combat area's "Combat ▴" button sits (the middle of the table), when the viewer
+     * folded it away. */
+    val combatFolded: TablePoint? = null,
+    /** The size of the combat area's cards on the screen: the battlefield's, but never below
+     * [TablePresentation.COMBAT_MIN_CARD] (combat review #12). */
+    val combatCardWidth: Float = cardWidth, val combatCardHeight: Float = cardHeight,
     /** Owner -> deterministic Temp pile IDs for piles 1..4 in order, including piles not created yet
      * (drag owner redirects keep the pile number). */
     val tempPiles: Map<String, List<String>> = emptyMap(),
@@ -246,6 +257,10 @@ internal val TableItem.visibleAnchor get() = if (visible.any { it.contains(bound
 object TablePresentation {
     const val GRID = 56f
     const val COLUMN_PITCH = 42f
+    /** Combat review #12: the smallest card width in the combat area (dp at zoom 1), whatever the card size. */
+    const val COMBAT_MIN_CARD = 44f
+    /** The combat panel's margin around its lanes. */
+    const val COMBAT_PANEL_PAD = 3f
     const val MIN_ZOOM = .65f
     const val MAX_ZOOM = 2f
     const val HEADER = 48f
@@ -291,7 +306,7 @@ object TablePresentation {
 
     fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,
         ui: TableLayoutState = TableLayoutState(), placements: Map<String, TablePlacement> = emptyMap(),
-        toolbarWidth: Float = TOOLBAR, reviewing: Boolean = false, combatBandHeight: Float? = null,
+        toolbarWidth: Float = TOOLBAR, reviewing: Boolean = false,
         appearance: CardAppearance = CardAppearance(),
         logicalPositions: Map<String, TablePlacement> = logicalPlacements(play),
         computed: org.asyncttwiz.automatum.ComputedBoard = org.asyncttwiz.automatum.ComputedBoard.NONE): TableScene {
@@ -328,8 +343,12 @@ object TablePresentation {
         val logicalRight = play.board.containers.filter { it.zone == PlayZone.BATTLEFIELD }.maxOfOrNull { c ->
             c.cards.mapIndexed { n, id -> (positions[id]?.column ?: n.toFloat()) + 1f }.maxOrNull() ?: 4f
         } ?: 4f
-        val combat = CombatStackPresentation.combat(play.board, hudWidth * battlefieldScale, hudHeight * battlefieldScale,
-            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
+        // CMB-007: the combat area is a panel floating over the battlefields, folded away by the viewer on request
+        val folded = play.board.combat?.id?.let { it == ui.combatHidden } == true
+        // Combat review #12: its cards are never smaller than COMBAT_MIN_CARD, so names and badges stay readable
+        val combatCard = maxOf(hudWidth * battlefieldScale, COMBAT_MIN_CARD)
+        val combat = CombatStackPresentation.combat(if (folded) play.board.copy(combat = null) else play.board, combatCard,
+            combatCard * hudHeight / hudWidth, play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), viewer,
             appearance.text(CardTextScalePart.TITLE), avatars = listOf(game.inviter, game.recipient)
                 .mapNotNull { player -> player.avatar?.let { player.accountId to it } }.toMap())
         val railHeight = (if (landscape) 48f else 52f) + handHeight - hudHeight
@@ -355,7 +374,7 @@ object TablePresentation {
         val counterHeights = players.indices.map { if (landscape) counterHeight else if (countersOwnRow[it]) dockRow / 2 else 0f }
         val landscapeExtra = players.indices.map { if (landscape && countersOwnRow[it]) counterHeight else 0f }
         // Include clearance for the Stack's protruding count badge and minimum pile targets.
-        val middleHeight = max(combat.height, stackHeight + if (landscape) 28f else 24f)
+        val middleHeight = stackHeight + if (landscape) 28f else 24f
         val boardTop = HEADER + 4f + if (landscape) (handHeight - hudHeight).coerceAtLeast(0f) else 0f
         val boardBottom = height - controlsHeight - if (landscape) railHeight + 8f else 4f
         val ownDockY = height - controlsHeight - dockRow - counterHeights[1]
@@ -371,7 +390,8 @@ object TablePresentation {
             val rows = container(player.accountId, PlayZone.BATTLEFIELD).cards.maxOfOrNull { positions[it]?.row ?: 0f } ?: 0f
             max(3f, rows + 1f) * rowHeight
         }
-        val bandHeight = combatBandHeight ?: max(12f, combat.height + 4f)
+        // CMB-007: opening combat never moves the battlefields; the area floats over them
+        val bandHeight = 12f
         val bandY = worldViewport.height / 2 - bandHeight / 2
         val logicalFields = listOf(TableBounds(0f, bandY - fieldHeights[0], worldViewport.width, fieldHeights[0]),
             TableBounds(0f, bandY + bandHeight, worldViewport.width, fieldHeights[1]))
@@ -610,18 +630,22 @@ object TablePresentation {
                 projection = effect != null, frozen = effect?.frozen != null, draw = false).copy(id = "stackDrawing/$entryId")
         }
         val combatY = worldViewport.height / 2 - combat.height / 2
-        val combatBounds = world.screen(TableBounds(world.bounds.x, maxOf(combatY, bandY), world.bounds.width, minOf(combat.height, bandHeight)), camera)
-        val cp = port("combat", combatBounds.intersection(worldViewport) ?: combatBounds.copy(height = 0f), combat.width * zoom)
+        // The panel: the area with a small margin around it, sized to its content, over the middle of the table
+        val combatPanel = if (combat.lanes.isEmpty()) null else world.screen(TableBounds(combatX - COMBAT_PANEL_PAD,
+            combatY - COMBAT_PANEL_PAD, combat.width + 2 * COMBAT_PANEL_PAD, combat.height + 2 * COMBAT_PANEL_PAD), camera)
+        val combatFolded = if (!folded) null else world.screen(TablePoint(worldViewport.width / 2, worldViewport.height / 2), camera)
+        val combatBounds = combatPanel ?: world.screen(TableBounds(combatX, combatY, 0f, 0f), camera)
+        val cp = port("combat", combatBounds.intersection(worldViewport) ?: combatBounds.copy(height = 0f), combatBounds.width)
         fun translated(b: TableBounds) = world.screen(b.copy(x = b.x + combatX, y = b.y + combatY), camera)
         for (drawing in combat.cards) card(drawing.card, translated(drawing.bounds), translated(drawing.bounds), null,
             PlayZone.BATTLEFIELD, cp.id, drawing.viewId, projection = true)
         val drops = combat.destinations.map { region ->
             val bounds = translated(region.bounds)
-            val top = world.screen(TablePoint(0f, bandY), camera).y
-            val bottom = top + bandHeight * zoom
-            // The two card rows fill the band except the lane label row (on top, or at the bottom when mirrored).
-            val rowTop = if (combat.mirrored) top else maxOf(top, world.screen(TablePoint(0f, combatY + combat.rowsTop), camera).y)
-            val rowBottom = if (combat.mirrored) minOf(bottom, world.screen(TablePoint(0f, combatY + combat.rowsBottom), camera).y) else bottom
+            val top = combatPanel!!.y
+            val bottom = combatPanel.bottom
+            // The two card rows fill the panel except the lane label row (on top, or at the bottom when mirrored).
+            val rowTop = if (combat.mirrored) top else world.screen(TablePoint(0f, combatY + combat.rowsTop), camera).y
+            val rowBottom = if (combat.mirrored) world.screen(TablePoint(0f, combatY + combat.rowsBottom), camera).y else bottom
             val half = ((rowBottom - rowTop) / 2).coerceAtLeast(0f)
             val upper = if (combat.mirrored) CombatRole.ATTACKER else CombatRole.BLOCKER
             val row = bounds.copy(y = rowTop + if (region.destination.role == upper) 0f else half, height = half)
@@ -629,8 +653,12 @@ object TablePresentation {
             val neighbors = listOfNotNull(region.destination.pairGap.afterId, region.destination.pairGap.beforeId)
             val tolerance = minOf(12f, combat.destinations.filter { it.destination.pairId in neighbors &&
                 it.destination.insertion == CombatInsertion.APPEND }.minOfOrNull { it.bounds.width * zoom / 2 - .01f } ?: 12f)
-            region.copy(bounds = if (region.destination.pairId == null && !region.exact)
-                row.copy(x = row.center.x - tolerance, width = 2 * tolerance) else row,
+            val placed = if (region.destination.pairId == null && !region.exact) row.copy(x = row.center.x - tolerance, width = 2 * tolerance) else row
+            // Only the panel takes combat drops: the outermost ones reach its edges, no further (a drop beside it lands on
+            // the battlefield under it)
+            val left = if (region.extendLeft) combatPanel.x else maxOf(placed.x, combatPanel.x)
+            val right = if (region.extendRight) combatPanel.right else minOf(placed.right, combatPanel.right)
+            region.copy(bounds = placed.copy(x = left, width = (right - left).coerceAtLeast(0f)), extendLeft = false, extendRight = false,
                 landing = world.screen(TablePoint(region.landing.x + combatX, region.landing.y + combatY), camera))
         }
         // Card-slot separators span only the card rows; lane separators cross the whole area, label row included.
@@ -652,7 +680,8 @@ object TablePresentation {
             item.cardId!! to realSources.getValue(item.sourceId!!).copy(sourceId = item.sourceId) }
         return clip(cardPanels(TableScene(items, fields, clippedPorts, cw, ch, envelope, camera, sources, drops, dividers,
              stackRegion = if (landscape) stackRegion.intersection(sidebarBounds) else stackRegion, world = world, appearance = appearance,
-            combatLabels = labels, combatLaneDividers = laneDividers,
+            combatLabels = labels, combatLaneDividers = laneDividers, combatPanel = combatPanel, combatFolded = combatFolded,
+            combatCardWidth = combatCard * zoom, combatCardHeight = combatCard * hudHeight / hudWidth * zoom,
             tempPiles = if (!DeckValidation.uuid(play.id)) emptyMap() else play.board.players.associate { p ->
                 p.accountId to TempPiles.NUMBERS.map { TempPiles.containerId(play.id, p.accountId, it) } },
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
@@ -673,11 +702,16 @@ object TablePresentation {
         val ordered = scene.items.filter { it.zone == PlayZone.BATTLEFIELD && !it.viewport.startsWith("cardPanel/") } +
             scene.items.filter { it.zone != PlayZone.BATTLEFIELD && !it.viewport.startsWith("cardPanel/") } + scene.items.filter { it.viewport.startsWith("cardPanel/") }
         val viewports = scene.viewports.associateBy { it.id }
+        val panel = scene.combatPanel
         val clipped = ordered.map { i ->
             val viewport = viewports[i.viewport]
-            val regions = listOfNotNull((if (i.inTransit) {
+            val clippedRegions = listOfNotNull((if (i.inTransit) {
                 if (i.zone == PlayZone.BATTLEFIELD) scene.world?.visibleViewport ?: screen else screen
             } else viewport?.bounds)?.let(i.bounds::intersection)?.intersection(screen))
+            // CMB-007: the combat area's panel covers the battlefield cards under it
+            val regions = if (panel == null || i.inTransit || i.zone != PlayZone.BATTLEFIELD || i.viewport == "combat" ||
+                i.viewport.startsWith("cardPanel/") || i.bounds.intersection(panel) == null) clippedRegions
+                else clippedRegions.flatMap { it.subtract(panel) }
             val panelClipped = if (i.viewport.startsWith("cardPanel/") || i.inTransit) regions else
                 scene.cardPanels.fold(regions) { parts, panel -> parts.flatMap { it.subtract(panel.bounds) } }
             i.copy(visible = if (i.zone == PlayZone.BATTLEFIELD && scene.stackRegion != null)

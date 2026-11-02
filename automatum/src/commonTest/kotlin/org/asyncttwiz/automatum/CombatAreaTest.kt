@@ -142,14 +142,15 @@ class CombatAreaTest {
     }
 
     // CMB-033, CR 510.1c: "In order" gives each creature lethal damage in turn, short of that the rest to the next; with
-    // more than enough the first gets the excess, as the engine's suggestion does
+    // more than enough the last gets the excess, as the engine's suggestion does (combat review #10)
     @Test fun inOrderGivesLethalInTurn() {
         val d = division(5, listOf(2, 4), trample = false)
         val (a, b) = Divisions.creatures(d)
         assertEquals(mapOf<MtgRef, Int>(a to 2, b to 3), Divisions.inOrder(d, listOf(a, b)))
         assertEquals(mapOf<MtgRef, Int>(a to 1, b to 4), Divisions.inOrder(d, listOf(b, a)))
         val more = division(8, listOf(2, 4), trample = false)
-        assertEquals(mapOf<MtgRef, Int>(a to 4, b to 4), Divisions.inOrder(more, listOf(a, b)))
+        assertEquals(mapOf<MtgRef, Int>(a to 2, b to 6), Divisions.inOrder(more, listOf(a, b)))
+        assertEquals(mapOf<MtgRef, Int>(a to 4, b to 4), Divisions.inOrder(more, listOf(b, a)))
     }
 
     // CMB-033, CR 702.19b: with trample the attacked player gets what is left once each blocker has lethal damage

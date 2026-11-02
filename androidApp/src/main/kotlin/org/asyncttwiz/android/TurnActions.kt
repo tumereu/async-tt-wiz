@@ -82,7 +82,7 @@ internal fun nextStep(turn: TurnState): TurnPosition? = TurnPosition.of(turn)?.l
  * combat had one (TRN-056). */
 internal fun pickerSteps(board: BoardState): List<TurnPosition> =
     if (TurnPosition.of(board.turn) == TurnPosition.FIRST_STRIKE_DAMAGE ||
-        board.automatum && org.asyncttwiz.automatum.CombatFlow.hadFirstStrikeStep(board)) TurnPosition.entries
+        board.automatum && AutomatumBoards.hadFirstStrikeStep(board)) TurnPosition.entries
     else TurnPosition.MANUAL
 
 internal fun nextStepLabel(turn: TurnState, compact: Boolean = false): String =

@@ -39,7 +39,8 @@ class AttackTargetPresentationTest {
             val scene = TablePresentation.scene(TableFixture.game, state, "a",
                 if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape, appearance = appearance)
             val lane = scene.combatLabels.single { it.cardId == "b/BATTLEFIELD/0" }
-            assertEquals(7f * cardScale * textScale, lane.fontSize, .001f) // the card title size
+            // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
+            assertEquals(7f * maxOf(cardScale, TablePresentation.COMBAT_MIN_CARD / 28f) * textScale, lane.fontSize, .001f)
             assertEquals(lane.lineHeight, lane.artworkHeight)
             assertEquals(listOf(lane.label), lane.lines)
             assertTrue(lane.bounds.height >= lane.lineHeight)

@@ -20,7 +20,6 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
 import org.asyncttwiz.protocol.TypedCounter
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -194,14 +193,13 @@ class CombatReviewTest {
         assertEquals(mapOf(bob to -5), preview.life)
     }
 
-    // combatreview #4 — CR 510.4, I-D31, I-D42, SYS-070: Alice's Dawnlance Squire (first strike 2/1) is blocked by Bob's
+    // combatreview #4 (fixed) — CR 510.4, I-D31, I-D42, SYS-070: Alice's Dawnlance Squire (first strike 2/1) is blocked by Bob's
     // Hill Ogre (3/3); in the first-strike damage step it dealt its 2. Switched off and on there (nothing done by hand),
     // the combat record (which knows this is the first-strike step and who dealt damage in it) is dropped: rebuilt from
     // the lanes the engine takes the step as the regular combat damage step, so the next pass's batch counts passes at
     // COMBAT_DAMAGE while ATW is still at FIRST_STRIKE_DAMAGE and the rebuilt state no longer matches the engine's
     // (the round trip fails); the Squire would also be free to strike again. Expected: the regular step follows with
     // only the Ogre dealing damage
-    @Ignore("combatreview #4: switching on in the first-strike damage step loses the step (round trip differs)")
     @Test fun switchingOffAndOnInTheFirstStrikeStepDoesNotStrikeTwice() {
         val (squire) = table.put(alice, PlayZone.BATTLEFIELD, "Dawnlance Squire")
         val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
@@ -234,10 +232,9 @@ class CombatReviewTest {
         assertTrue(preview.life.values.all { it == 0 }, "${preview.life}")
     }
 
-    // combatreview #3 — CR 506.4c, 510.1b, 702.19f, I-D42: as above, then Automatum is switched off and on. When the
+    // combatreview #3 (fixed) — CR 506.4c, 510.1b, 702.19f, I-D42: as above, then Automatum is switched off and on. When the
     // planeswalker left, the planner moved the Bear's pair into Bob's own lane (attackTarget null), so the table shows the
     // Bear attacking Bob, and read back from the lanes it is attacking Bob: it deals 2 to Bob. Expected: no damage
-    @Ignore("combatreview #3: an attacker of a planeswalker that left moves to the player's lane and, after switching on, hits the player")
     @Test fun switchingOffAndOnAfterTheAttackedPlaneswalkerLeft() {
         val (aliceBear) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear")
         val (seer) = table.put(bob, PlayZone.BATTLEFIELD, "Oath Seer")
@@ -253,5 +250,16 @@ class CombatReviewTest {
         val preview = assertNotNull(CombatFlow.preview(rt.call()), "the combat can be taken over")
         assertTrue(preview.dealt.isEmpty(), "${preview.dealt}")
         assertTrue(preview.life.values.all { it == 0 }, "${preview.life}")
+    }
+
+    // combatreview #11 (fixed) — SYS-070, I-D42, CR 117.3d: Alice passed in her main phase, so Bob holds priority; switching
+    // Automatum off and on (nothing done by hand) keeps him holding it, with Alice's pass counted
+    @Test fun switchingOffAndOnKeepsThePriorityHolder() {
+        val rt = game()
+        rt.run(alice) { StepFlow.pass(it, alice) }
+        assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
+        offAndOn(rt)
+        assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
+        assertEquals(null, HostPriority.wanted(rt.call().working), "the host leaves priority with Bob")
     }
 }

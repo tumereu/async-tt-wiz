@@ -61,7 +61,12 @@ internal object Resolution {
         return item.modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.steps.orEmpty() } + instructions.steps
     }
 
-    fun causeOf(item: StackItem) = Cause(item.controller, item.source ?: item.id, item, item.id.toString())
+    fun causeOf(item: StackItem) = Cause(item.controller, selfOf(item), item, item.id.toString())
+
+    /** What "this" is while [item] resolves: a copy of a spell is its own object (CR 707.10), not the card it copies;
+     * an ability's is its source (a copy of an ability has the original's source, CR 707.10b). */
+    fun selfOf(item: StackItem): arcanum.engine.state.ObjectId =
+        if (item.kind is StackItemKind.SpellCopy) item.id else item.source ?: item.id
 
     private fun run(recorder: Recorder, start: Continuation.Resolving): Progress {
         var c = start
@@ -96,7 +101,7 @@ internal object Resolution {
     private fun start(act: Act, item: StackItem): Bindings? {
         val instructions = Replacements.instructionsOf(item.ability) ?: Instructions()
         val slots = instructions.targets + item.modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
-        val source = item.source ?: item.id
+        val source = selfOf(item)
         var names = item.names
         item.announced.forEach { (name, value) -> names = names.with(name, NamedValue.Number(value)) }
         var anyTargets = false

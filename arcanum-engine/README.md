@@ -149,7 +149,10 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   re-check and fizzling, partial legality, every `Step` and every `Effect` (keyword actions
   without a table entry are done directly or by hand), effect objects with locked sets (CR
   611.2c), delayed and reflexive triggers (snapshots of objects that already left, CR 608.2h), "until"
-  returns as a one-shot effect right after the event without the Stack (CR 610.3), copies of spells, casting from an
+  returns as a one-shot effect right after the event without the Stack (CR 610.3), copies of spells (a spell of its own:
+  "this spell" is the copy, with its own facts — X, modes, costs paid copied; not cast, no mana spent; moved, it ceases
+  to exist, CR 707.10, 707.10a), redirection only to a permanent still a creature, planeswalker or battle (CR
+  614.9), casting from an
   effect (CR 608.2g) with the casting flow's own plan (face, modes, optional costs, X, targets, cost objects, mana;
   without paying its mana cost with X 0, for another cost such as madness, or for its own; not cast without legal
   targets), the card going to the graveyard/exile/battlefield (an
@@ -158,7 +161,8 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
   draw step (CR 714.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
-  Triggers: detection as each event is recorded, looking back for CR 603.10a events, batches,
+  Triggers: detection as each event is recorded, looking back for CR 603.10a events (objects new with such an event
+  see only its parts that don't look back, and "from anywhere" abilities the others' moves, CR 603.6c), batches,
   "nth this turn" (counting batches for "one or more"), per-turn limits (counting waiting triggers),
   intervening and trigger-only conditions (an object that left is in no zone, CR 400.7), state triggers,
   chapters, "triggers an additional time"; waiting triggers in `GameState.triggered`, put on

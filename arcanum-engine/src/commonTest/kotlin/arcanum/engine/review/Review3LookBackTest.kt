@@ -6,7 +6,6 @@ import arcanum.api.TurnStep
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.scenario.scenario
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -23,7 +22,6 @@ class Review3LookBackTest {
     /** Netherbound Turncoat dies at the same time as another of alice's creatures: its graveyard ability didn't exist
      * immediately before the event, so it doesn't trigger. */
     // CR 603.10a, 113.6
-    @Ignore("review3 #2: a graveyard ability sees the event that put its card there (new objects skip the look-back)")
     @Test
     fun aGraveyardAbilityDoesntSeeItsOwnCardsDeath() = scenario {
         alice.battlefield("Netherbound Turncoat", "Tinkered Mite", "Swamp")

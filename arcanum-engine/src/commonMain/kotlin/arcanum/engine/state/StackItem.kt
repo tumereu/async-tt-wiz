@@ -46,6 +46,10 @@ data class StackItem(
     val delayedTrigger: EffectId? = null,
     /** CR 613.7d: when it was put on the Stack. */
     val timestamp: Long,
+    /** For a copy of a spell (CR 707.10): its own facts, as a spell card's are on its object. It copies X, the modes
+     * and the additional and alternative costs paid (and the objects that paid them); it wasn't cast and no mana was
+     * spent to cast it. Null for a spell (its card holds them) and for abilities. */
+    val facts: ObjectFacts? = null,
 )
 
 /** What kind of Stack object a [StackItem] is (CR 112, 113.7, 707.10). */
@@ -53,7 +57,8 @@ data class StackItem(
 sealed interface StackItemKind {
     /** A spell from a cast card (CR 112.1). */
     @Serializable @SerialName("spell") data object Spell : StackItemKind
-    /** A copy of a spell (CR 707.10): not a card; ceases to exist when it leaves the Stack (CR 704.5e). */
+    /** A copy of a spell (CR 707.10): not a card, a spell of its own (it is "this spell" when it resolves, with its
+     * own [StackItem.facts]); ceases to exist when it leaves the Stack (CR 707.10a, 704.5e). */
     @Serializable @SerialName("spell-copy") data class SpellCopy(val copied: ObjectId) : StackItemKind
     /** An activated ability (CR 602). */
     @Serializable @SerialName("activated") data object Activated : StackItemKind

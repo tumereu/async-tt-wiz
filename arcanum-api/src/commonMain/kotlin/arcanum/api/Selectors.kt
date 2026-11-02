@@ -189,6 +189,13 @@ sealed interface ObjectFilter {
      * cast (CR 707.10). A spell that became this object (CR 400.7) is judged as this object, so "the first Otter spell other
      * than [this]" doesn't count the spell this permanent was. Which spell of the turn it is can't change once it is cast. */
     @Serializable @SerialName("nth-spell-this-turn") data class NthSpellThisTurn(val spells: ObjectFilter, val n: Int) : ObjectFilter
+    // fra
+    /** A prepare spell: the copy of a prepared permanent's prepare spell cast from exile, or a copy of such a spell
+     * ("Whenever you cast a prepared spell", CR 722.3c, d). */
+    @Serializable @SerialName("prepare-spell") data object PrepareSpell : ObjectFilter
+    /** It has dealt combat damage since it became this object (CR 400.7): "as long as they haven't dealt combat damage
+     * yet". */
+    @Serializable @SerialName("has-dealt-combat-damage") data object HasDealtCombatDamage : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,
@@ -259,6 +266,9 @@ sealed interface SharedQuality {
     @Serializable @SerialName("name") data object Name : SharedQuality
     /** Basic land types (domain: "the number of basic land types among lands you control"). */
     @Serializable @SerialName("basic-land-type") data object BasicLandType : SharedQuality
+    // fra
+    /** Planeswalker types (CR 205.3j: "the number of planeswalker types among planeswalkers you control"). */
+    @Serializable @SerialName("planeswalker-type") data object PlaneswalkerType : SharedQuality
     /** The value of [property] ("creatures with different powers"). */
     @Serializable @SerialName("number") data class Number(val property: NumericProperty) : SharedQuality
 }

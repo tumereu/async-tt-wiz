@@ -70,6 +70,9 @@ internal data class PlannedMove(
     // dsk gaps
     /** What the instruction says it is as it enters the battlefield (CR 611.2e): applied as it enters. */
     val entersAs: List<Mechanic> = emptyList(),
+    // fra
+    /** Marks it enters with ("enters prepared", CR 722.3a). */
+    val marks: List<arcanum.api.ObjectMark> = emptyList(),
 )
 
 /**
@@ -154,6 +157,8 @@ internal object Actions {
                     chosen.firstOrNull()?.let { move.copy(copyOf = it to mod.except) } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
+                // fra: "enters prepared" (CR 722.3a)
+                is Modification.EntersMarked -> if (move.to == Zone.Battlefield) move.copy(marks = move.marks + mod.mark) else move
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
                 is Modification.AlsoCreate -> move
@@ -237,6 +242,14 @@ internal object Actions {
         }
         act.record(Change.ZoneChange(all))
         arcanum.engine.room.Rooms.enteredUnlocked(act, all.filter { it.before.zone == Zone.Stack && it.after.zone == Zone.Battlefield }.map { it.after.id })
+        // fra: marks it enters with; becoming prepared makes its prepare spell's copy (CR 722.3a, c)
+        moves.filter { it.marks.isNotEmpty() && it.to == Zone.Battlefield }.forEach { m ->
+            val after = all.first { it.before.id == m.id }.after.id
+            m.marks.distinct().forEach { mark ->
+                if (mark == arcanum.api.ObjectMark.Prepared) arcanum.engine.prepare.Prepare.becomePrepared(act, after)
+                else tapStatus(act, after, StatusFlag.Marked(mark), true)
+            }
+        }
         // CR 400.7: a spell whose card left the Stack is no longer a spell (one resolving keeps its item in its
         // continuation, Continuation.Resolving.left)
         all.filter { it.before.zone == Zone.Stack && it.after.zone != Zone.Stack }.forEach { mv ->
@@ -371,6 +384,11 @@ internal object Actions {
         val board = act.board()
         val dealt = after.map { it.copy(sourceSeen = it.sourceSeen ?: act.snapshot(it.source)) }
         act.record(Change.Damage(dealt))
+        // fra: what has dealt combat damage remembers it ("as long as they haven't dealt combat damage yet")
+        dealt.filter { it.combat }.map { it.source }.distinct().forEach { source ->
+            val o = act.obj(source) ?: return@forEach
+            if (!o.facts.dealtCombatDamage) act.record(Change.ObjectUpdated(o, o.copy(facts = o.facts.copy(dealtCombatDamage = true))))
+        }
         var excess = 0
         val lifelink = mutableMapOf<PlayerId, Int>()
         dealt.forEach { d ->

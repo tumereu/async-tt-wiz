@@ -62,10 +62,12 @@ internal object Triggers {
 
     /** Finds what [change] triggers (CR 603.2) and records it as waiting. [before] is the game just before it, for
      * look-back events. */
-    fun detect(recorder: Recorder, change: Change, before: GameState?, viewBefore: View? = null) {
-        if (change is Change.TriggersWaiting || change is Change.DelayedTriggerRemoved || change is Change.DelayedTriggerAdded) return
+    fun detect(recorder: Recorder, whole: Change, before: GameState?, viewBefore: View? = null) {
+        if (whole is Change.TriggersWaiting || whole is Change.DelayedTriggerRemoved || whole is Change.DelayedTriggerAdded) return
         val state = recorder.state
         val now = Engine.view(state)
+        // fra: objects whose entering doesn't cause abilities to trigger (CR 603.2): the event without them
+        val change = withoutMuted(state, now, whole) ?: return
         val found = mutableListOf<WaitingTrigger>()
         val seen = mutableSetOf<String>()
         // CR 603.10a: look back for leaving the battlefield and the other look-back events
@@ -282,6 +284,24 @@ internal object Triggers {
     private fun batch(instances: List<TriggerEvent>): TriggerEvent {
         val roles = instances.flatMap { it.objects }.groupBy { it.role }.map { (role, list) -> RoleObjects(role, list.flatMap { it.ids }.distinct()) }
         return TriggerEvent(roles, instances.flatMap { it.players }.distinct(), instances.mapNotNull { it.amount }.takeIf { it.isNotEmpty() }?.sum())
+    }
+
+    /** fra: [change] without the parts [Mechanic.EventDoesntTrigger] mutes ("Artifacts and creatures entering the battlefield
+     * don't cause abilities to trigger"); null when nothing of it is left. */
+    private fun withoutMuted(state: GameState, view: View, change: Change): Change? {
+        val muting = view.rules.filter { it.mechanic is Mechanic.EventDoesntTrigger }
+        if (muting.isEmpty() || change !is Change.ZoneChange) return change
+        val kept = change.moves.filter { mv ->
+            muting.none { applied ->
+                val e = Evaluator(ViewBoard(state, view), Context(applied.controller, applied.source, applied.names))
+                EventMatcher.instances(e, (applied.mechanic as Mechanic.EventDoesntTrigger).event, Change.ZoneChange(listOf(mv))).isNotEmpty()
+            }
+        }
+        return when {
+            kept.size == change.moves.size -> change
+            kept.isEmpty() -> null
+            else -> change.copy(moves = kept)
+        }
     }
 
     /** "Triggers an additional time" (CR 603.2d). */

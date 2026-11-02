@@ -78,8 +78,29 @@ internal object Mana {
         if (!eval.matches(ability.rules.activatedBy, player)) return false
         if (ability.rules.condition?.let { eval.holds(it) } == false) return false
         if (ov.has { it is Mechanic.CantBeActivated && (it.manaAbilities || !ability.isManaAbility()) }) return false
+        // fra: a player who can't activate such abilities (split second, CR 702.61a)
+        if (snap.view.players[player]?.mechanics.orEmpty().any { applied ->
+                val m = applied.mechanic as? Mechanic.CantActivate ?: return@any false
+                abilityMatches(snap.evaluator(applied.controller, self = applied.source, names = applied.names), m.abilities, ability, id)
+            }) return false
         return ability.cost.parts.all { part -> costPartPossible(snap, player, id, part) }
     }
+
+    /** fra: whether [ability] of [source], being activated, matches [filter] (an ability filter: kind, source, label). */
+    private fun abilityMatches(e: arcanum.engine.query.Evaluator, filter: arcanum.api.ObjectFilter, ability: Ability.Activated, source: ObjectId): Boolean =
+        when (filter) {
+            arcanum.api.ObjectFilter.Any -> true
+            is arcanum.api.ObjectFilter.Not -> !abilityMatches(e, filter.filter, ability, source)
+            is arcanum.api.ObjectFilter.And -> filter.all.all { abilityMatches(e, it, ability, source) }
+            is arcanum.api.ObjectFilter.Or -> filter.any.any { abilityMatches(e, it, ability, source) }
+            is arcanum.api.ObjectFilter.AbilityOf -> (filter.kind == null || when (filter.kind) {
+                arcanum.api.AbilityKind.Mana -> ability.isManaAbility()
+                arcanum.api.AbilityKind.Activated -> true
+                arcanum.api.AbilityKind.Loyalty -> ability.cost.parts.any { it is CostPart.Loyalty }
+                else -> false
+            }) && (filter.source == null || e.matches(filter.source!!, source)) && (filter.label == null || ability.label == filter.label)
+            else -> false
+        }
 
     /** Parts of a mana ability's cost that need no choice: can they be paid now? Other parts are possible when there is
      * something to choose (checked by the casting flow). */

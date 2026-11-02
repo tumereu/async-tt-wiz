@@ -432,17 +432,22 @@ class Review2KeywordsTest {
         expect { stack.isEmpty() }
     }
 
-    /** Split second comes up as the spell is cast. */
-    // CR 702.61a, D61
+    /** Split second (automated since the Reality Fracture work, by hand before): while the spell is on the Stack, no
+     * other spell can be cast; mana abilities can still be activated. */
+    // CR 702.61a
     @Test
-    fun splitSecondIsDoneByHandAsItIsCast() = scenario {
+    fun splitSecondStopsOtherSpellsWhileOnTheStack() = scenario {
         val sudden = Cards.invent("Review Sudden Spark", "{R}", "Instant", "Split second\nReview Sudden Spark deals 2 damage to any target.")
+        val shock = Cards.invent("Review Quick Shock", "{R}", "Instant", "Review Quick Shock deals 2 damage to any target.")
         alice.battlefield("Mountain")
+        bob.battlefield("Mountain")
         alice.hand(sudden)
+        bob.hand(shock)
         alice.casts(sudden, target = "bob")
-        allPass()
-        assertTrue(decision<Decision.Manual>().text.startsWith("Split second"))
-        alice.answers(Answer.Done)
+        passPriority()
+        assertTrue(Engine.options(state, bob.id).none { it is Input.Cast })
+        assertTrue(Engine.options(state, bob.id).any { it is Input.Activate })
+        assertFailsWith<IllegalArgumentException> { bob.casts(shock, target = "alice") }
         allPass()
         expect { bob.life shouldBe 18 }
     }

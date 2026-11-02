@@ -202,7 +202,10 @@ internal object Effects {
                 Actions.tapStatus(act, it, StatusFlag.PhasedOut, true, listOf(Meaning.PhasedOut))
             }
             is Effect.Mark -> onBattlefield(scope, effect.objects).forEach {
-                Actions.tapStatus(act, it, StatusFlag.Marked(effect.mark), !effect.remove)
+                // fra: becoming prepared or unprepared (CR 722.3a–c)
+                if (effect.mark == arcanum.api.ObjectMark.Prepared) {
+                    if (effect.remove) arcanum.engine.prepare.Prepare.unprepare(act, it) else arcanum.engine.prepare.Prepare.becomePrepared(act, it)
+                } else Actions.tapStatus(act, it, StatusFlag.Marked(effect.mark), !effect.remove)
             }
             is Effect.GiveDesignation -> scope.players(effect.players).firstOrNull()?.let { p -> designate(scope, p, effect.designation) }
             is Effect.CreateToken -> createToken(scope, effect)

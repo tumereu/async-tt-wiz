@@ -90,7 +90,8 @@ internal object Layers {
 
     /** Mechanics with a scope of their own: game rules (CR 613.11), not applied to the static ability's object. */
     fun isRule(mechanic: Mechanic): Boolean = mechanic is Mechanic.Replacement || mechanic is Mechanic.Prevention ||
-        mechanic is Mechanic.CostChange || mechanic is Mechanic.TriggersAdditionalTime || mechanic is Mechanic.DamageCantBePrevented
+        mechanic is Mechanic.CostChange || mechanic is Mechanic.TriggersAdditionalTime || mechanic is Mechanic.DamageCantBePrevented ||
+        mechanic is Mechanic.EventDoesntTrigger // fra
 
     /** Whether an effect object still applies: its "for as long as" condition holds and what it lasts until is still
      * there (CR 611.2b, 610.3). Ending it is a change made by the flow that notices; the view doesn't wait for that. */
@@ -669,6 +670,10 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             val o = state.obj(id) ?: return@forEach
             if (o.phasedOut || o.counters(CounterKind.Finality) == 0) return@forEach
             rules += AppliedMechanic(Layers.FINALITY, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
+        }
+        // fra: a prepared permanent's controller may cast the copy of its prepare spell (CR 722.3c)
+        arcanum.engine.prepare.Prepare.permissions(state) { board.work[it]?.controller }.forEach { (id, applied) ->
+            if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
         }
 
         val evaluator = Evaluator(board, Context(you = state.turn.active))

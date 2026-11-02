@@ -137,6 +137,12 @@ sealed interface ObjectMark {
      * controller may turn it face up for its mana cost if it's a creature card (701.40b). Set by the engine as it
      * manifests. */
     @Serializable @SerialName("manifested") data object Manifested : ObjectMark
+    // fra
+    /** The prepared designation (CR 722.3a): only a permanent with a prepare spell ([Layout.Prepare]) can have it, and not
+     * twice. As it gains it, its controller gets a copy of the prepare spell in exile that they may cast for as long as the
+     * permanent stays prepared; casting it unprepares the permanent (722.3b, c). Set and removed with [Effect.Mark]
+     * ("becomes prepared", "becomes unprepared"); "enters prepared" marks it as it enters. */
+    @Serializable @SerialName("prepared") data object Prepared : ObjectMark
     /** Any other mark by name. */
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }

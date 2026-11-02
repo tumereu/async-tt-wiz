@@ -397,6 +397,7 @@ internal object Payment {
         // CR 601.2i: the spell becomes cast
         recorder.record(Change.StackItemAdded(item, null, listOf(Meaning.Cast)))
         NextSpells.useUp(recorder, id)
+        arcanum.engine.prepare.Prepare.onCast(recorder, id) // fra: CR 722.3c
         spentOnSpells(recorder, plan.player, spent.size)
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
@@ -495,7 +496,11 @@ internal object Payment {
     private fun finishAbility(recorder: Recorder, plan: Plan, names: Bindings, snapshots: List<ObjectSnapshot>): Progress {
         val s = recorder.state
         val origin = plan.origin!!
-        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false)))
+        // fra: a loyalty ability's cost, for "if you removed two or more loyalty counters to activate it"
+        val loyaltyCost = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.Loyalty>().firstOrNull()?.let { part ->
+            plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
+        }
+        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost)))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))

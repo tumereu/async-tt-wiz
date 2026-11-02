@@ -62,6 +62,7 @@ object Changes {
                 face = if (to == Zone.Battlefield || to == Zone.Stack) before.face else 0,
                 token = before.token,
                 copyOfCard = before.copyOfCard,
+                prepareSpellOf = before.prepareSpellOf,
                 tapped = tapped,
                 faceDown = faceDown,
                 // One entry per kind: counters of one kind it enters with add up (CR 122.6)

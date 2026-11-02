@@ -273,6 +273,10 @@ internal object Steps {
                 choice.onePer?.let { quality ->
                     require(e2.eachStandsForOne(quality, chosen)) { "Each chosen object must stand for a different $quality" }
                 }
+                // fra: "with total mana value 6 or less"
+                choice.totalAtMost?.let { limit ->
+                    require(chosen.sumOf { e2.property(limit.property, it) } <= e2.value(limit.atMost)) { "The chosen objects' total is more than allowed" }
+                }
                 NamedValue.Objects(chosen)
             }
             is Choice.Option -> NamedValue.Option(act.chooseOption(chooser, source, choice.options))

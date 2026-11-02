@@ -363,4 +363,9 @@ sealed interface KeywordAction {
      * taps it. If it's an attacking or blocking creature, remove it from combat" (CR 701.19a): a one-use shield effect
      * object. */
     @Serializable @SerialName("regenerate") data class Regenerate(val objects: Objects) : KeywordAction
+    // fra
+    /** "Empower Jace N" (CR 701.71a): if you don't control a Jace planeswalker token, create a blue Jace planeswalker token
+     * with 0 loyalty, "[−1]: Surveil 1" and "[−3]: Draw a card"; then choose a Jace planeswalker token you control and put
+     * [count] loyalty counters on it. [KeywordExpansions.expand] writes it out. */
+    @Serializable @SerialName("empower-jace") data class EmpowerJace(val count: Value) : KeywordAction
 }

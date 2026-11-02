@@ -78,6 +78,10 @@ sealed interface Value {
      * a [ColorRef] that stands for several colours (a [Choice.Colors]) counts each of them. */
     @Serializable @SerialName("shared-colors") data class SharedColors(val objects: Objects, val colors: List<ColorRef>) : Value
     @Serializable @SerialName("min") data class Min(val parts: List<Value>) : Value
+    // fra
+    /** How many whole times [divisor] fits in [value] ("for every seven cards in your graveyard": the count divided by
+     * seven, rounded down). */
+    @Serializable @SerialName("quotient") data class Quotient(val value: Value, val divisor: Int) : Value
 }
 
 /**
@@ -160,6 +164,12 @@ sealed interface Condition {
     /** [event] happened this turn, at least [atLeast] times by [measure] ("if a creature died this turn", "if you gained
      * 3 or more life this turn"). */
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(
+        val event: EventPattern, val atLeast: Int, val measure: Measure,
+    ) : Condition
+    // fra
+    /** [event] happened during the previous turn, at least [atLeast] times by [measure] ("if an opponent was dealt noncombat
+     * damage last turn"). */
+    @Serializable @SerialName("last-turn") data class HappenedLastTurn(
         val event: EventPattern, val atLeast: Int, val measure: Measure,
     ) : Condition
     /** The objects named [name] by an effect are not empty ("if a creature died this way"). */

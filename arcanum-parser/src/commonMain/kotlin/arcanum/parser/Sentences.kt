@@ -6055,6 +6055,21 @@ internal class Sentences(
 
     /** rtr: effect sentences, second part (kept apart for the JVM's method size limit). */
     private fun rtrEffect2(sentence: String, context: Context): List<Step>? {
+        // rtr chunk 03: "[This] deals X damage to each creature without flying you don't control." (an overloaded spell)
+        Rtr.SELF_DEALS_DAMAGE_TO_EACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            Filters.noun(m.groupValues[3])?.let { filter ->
+                val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(m.groupValues[2].toInt())
+                return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(objects = Objects.Each(filter)), amount, Objects.Self)))
+            }
+        }
+        // rtr chunk 03: "Counter each spell you don't control." (an overloaded spell)
+        Rtr.COUNTER_EACH.matchEntire(sentence)?.let { m ->
+            Filters.noun(m.groupValues[1])?.let { return listOf(Step.Do(Effect.Counter(Objects.Each(it)))) }
+        }
+        // rtr chunk 03: "Tap each creature you don't control." (an overloaded spell)
+        Rtr.TAP_EACH.matchEntire(sentence)?.let { m ->
+            Filters.noun(m.groupValues[1])?.let { return listOf(Step.Do(Effect.Tap(Objects.Each(it)))) }
+        }
         // rtr chunk 08: "Counter target creature spell. [This] deals damage equal to that spell's power to its controller."
         Rtr.DEALS_DAMAGE_EQUAL_TO_THAT_SPELLS_POWER.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
             val spell = context.targets.lastOrNull { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
@@ -6197,6 +6212,7 @@ internal class Sentences(
         var tail = m.groupValues[4]
         if (!leading && !tail.contains("until end of turn")) return null
         val special = leading || m.groupValues[1].startsWith("Another target ") || m.groupValues[1].startsWith("another target ") ||
+            m.groupValues[1].startsWith("Each ") ||
             tail.contains(" can't be blocked this turn") || tail.contains(" attacks this turn if able") || (tail.contains(" for each ") && tail.contains(" and gains "))
         if (!special) return null
         var per: Value? = null
@@ -6245,6 +6261,8 @@ internal class Sentences(
                 }
             }
             subject == "it" || subject == "It" -> context.it ?: return null
+            // rtr chunk 03: "Each creature you control gets …" (an overloaded spell, CR 702.96b)
+            subject.startsWith("Each ") -> Objects.Each(Filters.noun(subject.removePrefix("Each ")) ?: return null)
             else -> return null
         }
         return listOf(Step.Do(Effect.ApplyMechanics(mechanics, Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
@@ -6591,6 +6609,9 @@ internal class Sentences(
         val DEALS_DAMAGE_EQUAL_TO_THAT_SPELLS_POWER = Regex("""(.+) deals damage equal to that spell's power to its controller\.""")
         val DEALS_TO_TARGET_AND_SAME_NAME = Regex("""(.+) deals (\d+) damage to target (\w+) and each other (\w+) with the same name as that \w+\.""")
         val MAY_CAST_SPELLS_FROM_AMONG_THEM = Regex("""You may cast (.+ spells with mana value X or less) from among them without paying their mana costs\.""")
+        val SELF_DEALS_DAMAGE_TO_EACH = Regex("""(.+) deals (X|\d+) damage to each (.+)\.""")
+        val COUNTER_EACH = Regex("""Counter each (.+)\.""")
+        val TAP_EACH = Regex("""Tap each (.+)\.""")
         val SPELLS_OF_TYPES = Regex("""^(\w+) and (\w+) spells""")
         val REPEAT_THIS_PROCESS_FOR = Regex("""Then repeat this process for (.+) cards with mana values (.+)\.""")
         val SEARCH_REVEAL_AND_PUT_INTO_HAND = Regex("""Search your library for an? (.+), reveal it, and put it into your hand\.""")

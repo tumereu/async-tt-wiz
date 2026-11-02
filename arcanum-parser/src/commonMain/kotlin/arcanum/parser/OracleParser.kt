@@ -37,10 +37,14 @@ object OracleParser {
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
-            val spellText = card.text.split('\n').map { REMINDER.replace(it, "").trim() }
-                .filter { it.isNotEmpty() && keywordLine(it) == null }.joinToString(" ")
+            // rtr chunk 03: the spell ability's own text, not its static lines ("This spell can't be countered.")
+            val spellText = abilities.filterIsInstance<Ability.Spell>().singleOrNull()?.text?.replace("\n", " ")
+                ?: card.text.split('\n').map { REMINDER.replace(it, "").trim() }
+                    .filter { it.isNotEmpty() && keywordLine(it) == null }.joinToString(" ")
             // rtr chunk 08: a sentence starting with "Target" becomes "Each"
             val overloaded = Sentences(self, isSpell).instructions(spellText.replace("target ", "each ").replace("Target ", "Each "))
+                // rtr chunk 03: X announced for the overloaded spell as for the spell (CR 107.3a)
+                ?.let { if (hasX) it.copy(announced = listOf("X")) else it }
             abilities = abilities.map { if (it is Keyword.Overload && overloaded != null) it.copy(instructions = overloaded) else it }
         }
         return face.copy(abilities = abilities)

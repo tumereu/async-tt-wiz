@@ -119,6 +119,16 @@ object EngineState {
         }
         // Emblems live only in their records (I-D25): ATW has no command zone
         board.engineRecords.filter(EngineCodec::isEmblem).map(EngineCodec::emblem).forEach { objects[it.id] = it }
+        // An open flow's tokens that left the Battlefield, gone from ATW at once (TBL-103), until the engine's next
+        // state-based check (CR 704.5d)
+        val flow = records[Automatum.CONTINUATION_ID]?.let { TagCodec.of(state, definitions).decode(FlowRecord.serializer(), it.data) }
+        val lingering = flow?.lingering.orEmpty()
+        lingering.forEach { objects[it.obj.id] = it.obj }
+        fun withLingering(zone: Zone, owner: String, cards: List<ObjectId>): List<ObjectId> {
+            val here = lingering.filter { it.obj.zone == zone && it.obj.owner.value == owner }.sortedBy { it.index }
+            if (here.isEmpty()) return cards
+            return cards.toMutableList().also { list -> here.forEach { list.add((it.index ?: list.size).coerceIn(0, list.size), it.obj.id) } }
+        }
         fun byTimestamp(zone: Zone) = objects.values.filter { it.zone == zone }.sortedWith(Derived.order).map { it.id }
 
         val turnExtras = records[EngineCodec.TURN]?.let { EngineCodec.decode(TurnExtras.serializer(), it.data) } ?: TurnExtras()
@@ -128,8 +138,9 @@ object EngineState {
                 id = PlayerId(p.accountId), life = p.life.toInt(), startingLife = ledger.startingLife,
                 counters = EngineCodec.ordered(p.typedCounters, ledger.counterOrder), manaPool = p.manaPool.map(EngineCodec::mana),
                 lost = ledger.lost, designations = ledger.designations,
-                library = ordered(PlayZone.LIBRARY, p.accountId), hand = ordered(PlayZone.HAND, p.accountId),
-                graveyard = ordered(PlayZone.GRAVEYARD, p.accountId), ledger = ledger.ledger,
+                library = withLingering(Zone.Library, p.accountId, ordered(PlayZone.LIBRARY, p.accountId)),
+                hand = withLingering(Zone.Hand, p.accountId, ordered(PlayZone.HAND, p.accountId)),
+                graveyard = withLingering(Zone.Graveyard, p.accountId, ordered(PlayZone.GRAVEYARD, p.accountId)), ledger = ledger.ledger,
                 skipWhenNoChoice = p.skipWhenNoChoice,
             )
         }
@@ -162,8 +173,8 @@ object EngineState {
                 ?: lanes(board, ids).takeUnless { position == TurnPosition.DECLARE_ATTACKERS },
             ledger = records[EngineCodec.LEDGER]?.let { EngineCodec.decode(ledgerSerializer, it.data).toMutableMap() } ?: mutableMapOf(),
             log = log.toMutableList(),
-            pending = records[Automatum.CONTINUATION_ID]?.let { TagCodec.of(state, definitions).decode(FlowRecord.serializer(), it.data).pending },
-            timestampCounter = MtgFacts.clock(board),
+            pending = flow?.pending,
+            timestampCounter = maxOf(MtgFacts.clock(board), lingering.maxOfOrNull { it.obj.timestamp } ?: 0L),
             triggered = records[EngineCodec.TRIGGERED]?.let { EngineCodec.decode(triggeredSerializer, it.data).toMutableList() } ?: mutableListOf(),
             skipFirstDraw = turnExtras.skipFirstDraw,
             viewer = viewer?.let(::PlayerId),

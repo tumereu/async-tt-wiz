@@ -149,6 +149,10 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         // Each change settled the values it touched; one look over everything makes sure nothing was missed.
         current = call.changes.lastIndex
         settle(null)
+        // A token gone from ATW but not yet from the engine is kept only in an open flow's record ([Lingering]); without
+        // one the engine checked state-based actions (CR 704.3) and it ceased to exist (CR 704.5d)
+        if (engine.pending == null) lingering(engine) { card(atwId(it)) != null }.takeIf { it.isNotEmpty() }
+            ?.let { throw Unmappable("a token outside the battlefield without an open decision: ${it.map { l -> l.obj.id }}") }
         // I-D34: with Automatum on the move follows who must act (folded into the batch's event, I-D35)
         if (actions.isNotEmpty()) acting(engine)?.let { who -> if (board.effectiveAttentionHolder != who) play(PlayAction.PassAttention) }
         if (pendingLog.isNotEmpty()) {
@@ -685,7 +689,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             effect = { memo(it.id, it) { EngineCodec.effectRecord(it) } },
             delayed = { memo(it.id, it) { EngineCodec.delayedRecord(it) } },
             emblemText = { o -> board.engineRecords.firstOrNull { it.id == EngineCodec.emblemId(o) }?.text
-                ?: emblemTexts[o.id] ?: EngineCodec.emblemText(o) })
+                ?: emblemTexts[o.id] ?: EngineCodec.emblemText(o) },
+            held = { card(atwId(it)) != null })
     }
 
     /** The texts of emblems this call made (I-D25), when their abilities carry none: the quoted ability of what made them. */
@@ -751,7 +756,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState, codec: TagCodec,
     effect: (arcanum.engine.state.EffectObject) -> EngineRecord = EngineCodec::effectRecord,
     delayed: (arcanum.engine.state.DelayedTrigger) -> EngineRecord = EngineCodec::delayedRecord,
-    emblemText: (GameObject) -> String = EngineCodec::emblemText): List<EngineRecord> = buildList {
+    emblemText: (GameObject) -> String = EngineCodec::emblemText,
+    held: (arcanum.engine.state.CardId) -> Boolean = { true }): List<EngineRecord> = buildList {
     state.effects.values.forEach { add(effect(it)) }
     state.delayedTriggers.values.forEach { add(delayed(it)) }
     state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, emblemText(it))) }
@@ -766,5 +772,24 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     if (state.triggered.isNotEmpty())
         add(EngineRecord(EngineCodec.TRIGGERED, EngineRecordKind.Triggered, data = EngineCodec.encode(triggeredSerializer, state.triggered)))
     state.pending?.let { add(EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation,
-        data = codec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it)))) }
+        data = codec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it, lingering(state, held))))) }
 }.sortedBy { it.id }
+
+/**
+ * The tokens and copies of cards [state] still has outside the Battlefield and the Stack whose ATW card is gone
+ * ([held]: whether ATW holds the card of an engine card id): ATW's token stopped existing when it left (TBL-103), the
+ * engine's ceases to exist at the next state-based check (CR 704.5d, 704.5e). Kept in the flow's record ([Lingering]).
+ */
+internal fun lingering(state: GameState, held: (arcanum.engine.state.CardId) -> Boolean): List<Lingering> =
+    state.objects.values.filter { o ->
+        (o.token || o.copyOfCard) && o.zone != Zone.Battlefield && o.zone != Zone.Stack && o.zone != Zone.Command &&
+            (o.id as? ObjectId.Card)?.let { !held(it.card) } == true
+    }.map { o ->
+        val player = state.player(o.owner)
+        Lingering(o, when (o.zone) {
+            Zone.Library -> player.library.indexOf(o.id)
+            Zone.Hand -> player.hand.indexOf(o.id)
+            Zone.Graveyard -> player.graveyard.indexOf(o.id)
+            else -> null
+        })
+    }

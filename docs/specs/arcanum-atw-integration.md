@@ -420,7 +420,11 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
 - **Spells:** as STK-001/003 say, the card stays where it was cast from; its entry's item is the spell (a spell
   being cast has an item without data until the engine makes it, CR 601.2a). Abilities are entries of their source.
 - **Tokens:** ATW makes its own token card, with the token's printed values and rules text (I-D2); its ledger keeps
-  the engine's token id and definition (D35).
+  the engine's token id and definition (D35). A token (or copy of a card) that leaves the Battlefield or the Stack stops
+  existing in ATW at once (TBL-103); the engine keeps it in its new zone until state-based actions are next checked (CR
+  704.5d), so while a flow waits for a decision mid-resolution (a destroyed token's "its controller may search") the
+  continuation record keeps those objects and their place (`FlowRecord.lingering`), never shown to players; without an
+  open decision such an object is unmappable.
 - **Copies of cards** (CR 707.12, made where the card is): an ATW token card made in its owner's Exile
   (`CreateToken(definition, containerId)`), showing the copied card's own card data marked as a token's (as ATW's
   manual copy, `CloneToken`); its ledger keeps the engine's id, definition and `copyOfCard`. Cast, it stays in Exile

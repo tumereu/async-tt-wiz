@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 5
+    const val VERSION: Int = 6
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -92,6 +92,18 @@ object OracleParser {
                 raws += printed
                 continue
             }
+            // dsk chunk 07: "Delirium — Choose one. If …, choose one or more instead." and its "• " modes (CR 700.2)
+            if (isSpell && i < lines.size && lines[i].startsWith("• ") && line.contains(" instead.")) {
+                val modeLines = mutableListOf<String>()
+                var j = i
+                while (j < lines.size && lines[j].startsWith("• ")) modeLines += REMINDER.replace(lines[j++].removePrefix("• "), "").trim()
+                sentences.modesWithMaxIf(line, modeLines)?.let { spell ->
+                    i = j
+                    result += spell
+                    raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                    continue
+                }
+            }
             // "Choose one —" and its "• " modes (CR 700.2)
             val choose = CHOOSE.matchEntire(line)
             if (choose != null && isSpell) {
@@ -113,8 +125,17 @@ object OracleParser {
                 continue
             }
             val previous = result.lastOrNull()
-            val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) else null
-            val parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            // dsk chunk 07: "If …, instead …" replaces the whole spell
+            val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) ?: sentences.insteadAll(line, previous) else null
+            var parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            // dsk chunk 07: a later paragraph of a spell that refers to its earlier targets is read with them (CR 113.3a)
+            if (instead == null && parsed == null && isSpell && previous is Ability.Spell) {
+                sentences.continuation(line, previous.instructions)?.let { joined ->
+                    result[result.size - 1] = previous.copy(instructions = joined)
+                    raws[raws.size - 1] += "\n" + raw.trim()
+                    continue
+                }
+            }
             when {
                 instead != null -> { result[result.size - 1] = instead; raws[raws.size - 1] += "\n" + raw.trim() }
                 // An instant's or sorcery's text is one spell ability (CR 113.3a): join its lines.

@@ -42,6 +42,13 @@ internal object Filters {
         NOT_SAME_NAME_AS.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
         }
+        // dsk chunk 07: "Insects and Spiders": either of two plural subtypes
+        PLURAL_SUBTYPES_AND.matchEntire(phrase)?.let { m ->
+            val a = noun(m.groupValues[1]); val b = noun(m.groupValues[2])
+            if (a != null && b != null) return ObjectFilter.Or(listOf(a, b))
+        }
+        // dsk chunk 07: "any card" (CR 701.23a: a search for any card)
+        if (phrase == "any card") return ObjectFilter.Category(arcanum.api.ObjectCategory.Card)
         // dsk chunk 01: "creature spells you cast": spells a player cast are spells they control (CR 112.2)
         SPELLS_YOU_CAST.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)) }
         // dsk chunk 01: "creatures with power 3 or greater"
@@ -105,6 +112,7 @@ internal object Filters {
                 "an opponent controls" -> PlayerFilter.Opponent
                 "you don't control" -> PlayerFilter.Not(PlayerFilter.You) // chunk 33
                 "your opponents control" -> PlayerFilter.Opponent // dsk chunk 06
+                "that player controls" -> PlayerFilter.Is(Players.EventPlayer) // dsk chunk 07: in a trigger, the event's player
                 else -> return null
             }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -215,6 +223,8 @@ internal object Filters {
     }
 
     private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
+    // dsk chunk 07
+    private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
     private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
     private val SPELLS_YOU_CAST = Regex("""(\w+) spells you cast""")
@@ -224,7 +234,7 @@ internal object Filters {
     private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
     private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or less""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
-    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control)""")
+    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls)""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
@@ -299,6 +309,18 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 07: "a source you control deals noncombat damage to an opponent"
+        SOURCE_DEALS_DAMAGE_TO.matchEntire(text)?.let { m ->
+            val source = if (m.groupValues[1] == "a source you control") ObjectFilter.ControlledBy(PlayerFilter.You) else subject(m.groupValues[1], self) ?: return null
+            val combat = when (m.groupValues[2]) { "noncombat " -> false; "combat " -> true; else -> null }
+            val to = when (m.groupValues[3]) {
+                "an opponent" -> arcanum.api.RecipientFilter(players = PlayerFilter.Opponent)
+                "a player" -> arcanum.api.RecipientFilter(players = PlayerFilter.Any)
+                "you" -> arcanum.api.RecipientFilter(players = PlayerFilter.You)
+                else -> return null
+            }
+            return EventPattern.Damage(source, to, combat = combat)
+        }
         // dsk chunk 06: "this creature or another permanent you control is turned face up", "you turn a permanent face up"
         // (CR 708.8: its controller turns it), "you sacrifice this enchantment"
         IS_TURNED_FACE_UP.matchEntire(text)?.let { m -> return EventPattern.TurnedFaceUp(subject(m.groupValues[1], self) ?: return null) }
@@ -444,6 +466,8 @@ internal object Events {
     private val ENTERS = Regex("""(.+) enters?""")
     // dsk chunk 01
     private val YOU_FULLY_UNLOCK = Regex("""you fully unlock an? (\w+)""")
+    // dsk chunk 07
+    private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you)""")
     // dsk chunk 06
     private val IS_TURNED_FACE_UP = Regex("""(.+) is turned face up""")
     private val YOU_TURN_FACE_UP = Regex("""you turn an? (.+) face up""")
@@ -770,6 +794,14 @@ internal object Counters {
             "level" -> arcanum.api.CounterKind.Level
             "stun" -> arcanum.api.CounterKind.Stun
             "shield" -> arcanum.api.CounterKind.Shield
+            // dsk chunk 07: counters with rules meaning are their own kinds (CR 122.1)
+            "finality" -> arcanum.api.CounterKind.Finality
+            "rad" -> arcanum.api.CounterKind.Rad
+            "hone" -> arcanum.api.CounterKind.Hone
+            "lore" -> arcanum.api.CounterKind.Lore
+            "defense" -> arcanum.api.CounterKind.Defense
+            "poison" -> arcanum.api.CounterKind.Poison
+            "energy" -> arcanum.api.CounterKind.Energy
             // dsk chunk 04: "a flying counter" is a keyword counter (CR 122.1b)
             else -> OracleParser.keyword(text.replaceFirstChar { it.uppercase() })?.let { arcanum.api.CounterKind.Keyword(it.kind) } ?: if (text.all { it.isLetter() }) arcanum.api.CounterKind.Named(text) else null
         }
@@ -784,6 +816,9 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        // dsk chunk 07: "the number of card types among cards in your graveyard"
+        if (text == "the number of card types among cards in your graveyard")
+            return Value.CountDistinct(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))), SharedQuality.CardType)
         // dsk chunk 04: "where X is its power" (this object's)
         if (text == "its power") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, Combine.Single)
         // dsk chunk 03: "the number of counters on this creature" (every kind; as it last existed once it has left, CR 608.2h)

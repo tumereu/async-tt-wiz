@@ -5798,25 +5798,11 @@ internal class Sentences(
         for (i in from until context.targets.size) {
             val slot = context.targets[i]
             if (context.targets.take(i).none { it.name == slot.name }) continue
-            val renamed = (2..9).map { "${Rtr.ORDINAL_WORDS[it]} ${slot.name}" }.first { n -> context.targets.none { it.name == n } }
+            val renamed = nextTargetName(slot.name, context.targets.map { it.name })
             context.targets[i] = slot.copy(name = renamed)
-            result = result.map { renameTarget(it, slot.name, renamed) }
+            result = result.map { renameTargetSlot(it, slot.name, renamed) }
         }
         return result
-    }
-
-    /** [step] with every reference to target slot [from] made to [to]. */
-    private fun renameTarget(step: Step, from: String, to: String): Step {
-        val json = kotlinx.serialization.json.Json
-        fun walk(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
-            is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.mapValues { (k, v) ->
-                if ((k == "slot" && e["type"]?.toString() == "\"target\"" || k == "target") && v == kotlinx.serialization.json.JsonPrimitive(from))
-                    kotlinx.serialization.json.JsonPrimitive(to) else walk(v)
-            })
-            is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { walk(it) })
-            else -> e
-        }
-        return json.decodeFromJsonElement(Step.serializer(), walk(json.encodeToJsonElement(Step.serializer(), step)))
     }
 
     /** rtr: the subject of a static ability ("Enchanted creature", "Enchanted land", "Equipped creature", this object). */
@@ -6447,7 +6433,7 @@ internal class Sentences(
         Rtr.FOR_EACH_PLAYER_SEARCH_AND_EXILE.matchEntire(sentence)?.let { m ->
             val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
             val player = Players.Bound("player")
-            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), bind = "player", steps = listOf(
+            return listOf(Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), bind = "player", together = true, steps = listOf(
                 Step.Do(Effect.Search(player, filter, max = Value.Fixed(1), zones = listOf(Zone.Library), bind = "found", searcher = Players.You)),
                 Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Exile), postBind = "exiled")),
                 Step.Do(Effect.Shuffle(player)))))
@@ -6546,7 +6532,6 @@ internal class Sentences(
     }
 
     private object Rtr {
-        val ORDINAL_WORDS = listOf("", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth")
         // rtr chunk 09
         val AS_ENTERS_CHOOSE_A_CARD_NAME = Regex("""As (.+) enters, choose a card name\.""")
         val CANT_BE_ACTIVATED_UNLESS_MANA = Regex("""Activated abilities of (.+) can't be activated unless they're mana abilities\.""")
@@ -7628,6 +7613,24 @@ internal class Sentences(
         val FOR_EACH_QUALITY_MAY_FROM_AMONG = Regex("""For each (card type|color), you may (exile|put into your hand) a card of that (?:type|color) from among them\.""")
         val MAY_CAST_FROM_AMONG_EXILED_IF = Regex("""You may cast a spell from among the exiled cards without paying its mana cost if you exiled (\w+) or more cards this way\.""")
     }
+}
+
+/** rtr chunk 08: "second [name]" ("third …"), the first such name not in [taken] (CR 115.3: another instance of "target"). */
+internal fun nextTargetName(name: String, taken: List<String>): String =
+    listOf("second", "third", "fourth", "fifth", "sixth").map { "$it $name" }.first { it !in taken }
+
+/** rtr chunk 08: [step] with every reference to target slot [from] made to [to]. */
+internal fun renameTargetSlot(step: Step, from: String, to: String): Step {
+    val json = kotlinx.serialization.json.Json
+    fun walk(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
+        is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.mapValues { (k, v) ->
+            if ((k == "slot" && e["type"]?.toString() == "\"target\"" || k == "target") && v == kotlinx.serialization.json.JsonPrimitive(from))
+                kotlinx.serialization.json.JsonPrimitive(to) else walk(v)
+        })
+        is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { walk(it) })
+        else -> e
+    }
+    return json.decodeFromJsonElement(Step.serializer(), walk(json.encodeToJsonElement(Step.serializer(), step)))
 }
 
 /** chunk 30: [x] in place of every announced X: a number the text defines (CR 107.3c). Walks the JSON form, as

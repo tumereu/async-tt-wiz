@@ -439,10 +439,19 @@ object OracleRenderer {
     }
 }
 
-private fun arcanum.api.Instructions.join(next: arcanum.api.Instructions) = copy(
-    targets = targets + next.targets, steps = steps + next.steps, replacements = replacements + next.replacements,
-    announced = (announced + next.announced).distinct(),
-)
+private fun arcanum.api.Instructions.join(next: arcanum.api.Instructions): arcanum.api.Instructions {
+    // rtr chunk 08: a later line's target named as an earlier one is a target of its own (CR 115.3): "second creature"
+    var steps2 = next.steps
+    val targets2 = next.targets.map { slot ->
+        if (targets.none { it.name == slot.name }) slot else {
+            val renamed = nextTargetName(slot.name, (targets + next.targets).map { it.name })
+            steps2 = steps2.map { renameTargetSlot(it, slot.name, renamed) }
+            slot.copy(name = renamed)
+        }
+    }
+    return copy(targets = targets + targets2, steps = steps + steps2, replacements = replacements + next.replacements,
+        announced = (announced + next.announced).distinct())
+}
 
 private fun Ability.isCastingCost() = this is Ability.Static &&
     mechanics.any { it is arcanum.api.Mechanic.AdditionalCost || it is arcanum.api.Mechanic.AlternativeCost }

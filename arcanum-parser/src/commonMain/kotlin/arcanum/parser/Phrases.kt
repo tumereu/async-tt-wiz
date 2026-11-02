@@ -577,6 +577,22 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // dsk chunk 13: "Kaiden has one or more loyalty counters on him" (this object)
+        HAS_ONE_OR_MORE_COUNTERS_ON.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let { m ->
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1))
+        }
+        // dsk chunk 13: "you sacrificed one or more permanents this turn" (a sacrificed permanent is its controller's, CR 701.21a)
+        if (text == "you sacrificed one or more permanents this turn")
+            return Condition.HappenedThisTurn(EventPattern.Sacrifice(ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = 1, measure = arcanum.api.Measure.Objects)
+        // dsk chunk 13: "a land entered the battlefield under your control this turn"
+        ENTERED_UNDER_YOUR_CONTROL_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield), atLeast = 1, measure = arcanum.api.Measure.Events)
+        }
+        // dsk chunk 13: "you control a prime number of lands"
+        YOU_CONTROL_PRIME_NUMBER_OF.matchEntire(text)?.let { m ->
+            return Condition.Prime(Value.Count(Filters.objects(m.groupValues[1] + " you control") ?: return null))
+        }
         // dsk chunk 11: "there are seven or more time counters on it" (this object), "the discarded card wasn't a land card"
         COUNTERS_ON_IT_AT_LEAST.matchEntire(text)?.let { m ->
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null))
@@ -766,6 +782,10 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    // dsk chunk 13
+    private val HAS_ONE_OR_MORE_COUNTERS_ON = Regex("""(.+) has one or more (\S+) counters on (?:it|him|her)""")
+    private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
+    private val YOU_CONTROL_PRIME_NUMBER_OF = Regex("""you control a prime number of (.+)""")
     // dsk chunk 11
     private val COUNTERS_ON_IT_AT_LEAST = Regex("""there are (\w+) or more (\S+) counters on it""")
     private val THE_DISCARDED_CARD_WAS = Regex("""the discarded card (was|wasn't) an? (.+)""")
@@ -869,6 +889,9 @@ internal object Tokens {
     private val QUOTED = Regex(""""(.+)"""")
     private val TOKEN = Regex("""an? (\d+/\d+|X/X) (\w+(?: and \w+)?) ([A-Z][A-Za-z ]+? creature) token""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
+
+    /** dsk chunk 13: a colour word ("red"). */
+    fun color(word: String): Color? = COLORS[word]
 }
 
 /** Counter kinds as printed ("-1/-1", "+1/+1", "time", "charge"; CR 122). */

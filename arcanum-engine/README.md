@@ -42,7 +42,9 @@ games of cube cards. `revert` takes changes back last first; after a host drops 
   `Continuation`, the open flow the host stores opaquely (D58).
 - `view/` — `View`/`ObjectView`/`Characteristics`, `AbilityOrigin` (an ability's path, D42/D44);
   the layer system (`Layers`, `Copiable`), where abilities function (`Functioning`, CR 113.6),
-  subtype lists (CR 205.3).
+  subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
+  yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
+  keyword's cost is paid by the engine and only its effect is by hand), so no keyword is silently ignored (D61).
 - `query/` — `Evaluator`: what objects, players, filters, values and conditions of a definition
   mean in a game; `History` answers "this turn" questions from the log.
 - `setup/` — starting and ending a game: `Seat` (player, deck, sideboard), `StartOptions`, the setup stages

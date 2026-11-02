@@ -12,7 +12,6 @@ import arcanum.engine.input.CastWay
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.TargetRef
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -271,7 +270,6 @@ class Review2ProtectionTest {
     /** Umbra armor: instead of being destroyed, the creature loses all damage and the Aura is destroyed; "can't be
      * regenerated" doesn't stop it. */
     // CR 702.89a
-    @Ignore("review2 #10: umbra armor (like 100+ other keywords without an expansion) silently does nothing")
     @Test
     fun umbraArmorSavesFromCurseWord() = scenario {
         alice.battlefield("Swamp", "Swamp")
@@ -288,7 +286,6 @@ class Review2ProtectionTest {
 
     /** Umbra armor against lethal damage: the state-based action's destruction is replaced, damage is removed. */
     // CR 702.89a, 704.5g
-    @Ignore("review2 #10: umbra armor (like 100+ other keywords without an expansion) silently does nothing")
     @Test
     fun umbraArmorSavesFromLethalDamage() = scenario {
         alice.battlefield("Mountain")

@@ -301,7 +301,7 @@ internal object Legality {
             val printed = AbilityOrigin.Printed(0, i)
             when (ability) {
                 is Ability.SpecialAction -> listOf(AbilityInstance(ability, printed))
-                is Keyword -> arcanum.api.KeywordExpansions.expand(ability).orEmpty().mapIndexedNotNull { j, a ->
+                is Keyword -> arcanum.engine.view.KeywordMeanings.expand(ability).mapIndexedNotNull { j, a ->
                     (a as? Ability.SpecialAction)?.let { AbilityInstance(it, AbilityOrigin.Expansion(printed, j)) }
                 }
                 else -> emptyList()

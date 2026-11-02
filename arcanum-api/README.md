@@ -21,7 +21,8 @@ The definition model (overview in `Definitions.kt`):
 - `Keyword`: one sealed type per keyword with exactly its values; `KeywordKind`
   names a keyword without values for filters ("creatures with flying").
   `KeywordExpansions` is the shared table mapping keywords to abilities built from
-  mechanics (flying → `CanBeBlockedOnlyBy`, deathtouch → `Deathtouch`); ability labels (exhaust, boast, …)
+  mechanics (flying → `CanBeBlockedOnlyBy`, deathtouch → `Deathtouch`); a keyword without an entry is
+  null there (the engine then has it done by hand); ability labels (exhaust, boast, …)
   add their rules through `withLabelRules`; keyword actions expand through
   `KeywordExpansions.expand(action)`; `PredefinedTokens` defines Treasure, Food, Clue,
   Blood and the other tokens of CR 111.10.

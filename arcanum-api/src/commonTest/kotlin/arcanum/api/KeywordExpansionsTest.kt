@@ -24,6 +24,12 @@ class KeywordExpansionsTest {
         Keyword.Reconfigure(cost), Keyword.Fabricate(1), Keyword.Hideaway(4), Keyword.Buyback(cost), Keyword.Escape(cost),
         Keyword.Overload(cost), Keyword.Bestow(cost), Keyword.Splice(ObjectFilter.Sub(Subtype("Arcane")), cost),
         Keyword.CompanionAbility("Each permanent card in your starting deck has mana value 2 or less."),
+        // CR 702.25, 702.31, 702.32, 702.45, 702.64, 702.67, 702.68, 702.70, 702.77, 702.86, 702.89, 702.93, 702.107, 702.110,
+        // 702.112, 702.114, 702.118, 702.126, 702.130, 702.133, 702.134, 702.135, 702.161, 702.163, 702.182
+        Keyword.Flanking, Keyword.Horsemanship, Keyword.Fading(2), Keyword.Bushido(1), Keyword.Absorb(1), Keyword.Fortify(cost),
+        Keyword.Frenzy(1), Keyword.Poisonous(1), Keyword.Reinforce(1, cost), Keyword.Annihilator(1), Keyword.UmbraArmor, Keyword.Undying,
+        Keyword.Outlast(cost), Keyword.Exploit, Keyword.Renown(1), Keyword.Devoid, Keyword.Skulk, Keyword.Improvise, Keyword.Afflict(1),
+        Keyword.JumpStart, Keyword.Mentor, Keyword.Afterlife(1), Keyword.LivingMetal, Keyword.ForMirrodin, Keyword.JobSelect,
     )
 
     private fun card(abilities: List<Ability>) = CardDefinition(Layout.Normal, listOf(FaceDefinition("Test Subject",

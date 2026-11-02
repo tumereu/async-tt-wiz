@@ -141,14 +141,14 @@ internal class Copiable(private val state: GameState) {
 
         /**
          * Each ability with its keyword's expansion after it (D18, D38: keywords expand while the view is derived) and
-         * the rules of its label ([KeywordExpansions.withLabelRules]). A keyword without an expansion stays as text to
-         * handle by hand.
+         * the rules of its label ([KeywordExpansions.withLabelRules]). A keyword without an expansion gets abilities that
+         * stop with a manual step at its natural moment ([KeywordMeanings]).
          */
         fun expand(instances: List<AbilityInstance>, depth: Int = 0): List<AbilityInstance> = instances.flatMap { inst ->
             val ability = KeywordExpansions.withLabelRules(inst.ability)
             val head = if (ability == inst.ability) inst else inst.copy(ability = ability)
             if (ability is Keyword && depth < 3) {
-                val expansion = KeywordExpansions.expand(ability).orEmpty()
+                val expansion = KeywordMeanings.expand(ability)
                     .mapIndexed { i, a -> AbilityInstance(a, AbilityOrigin.Expansion(inst.origin, i), inst.timestamp) }
                 listOf(head) + expand(expansion, depth + 1)
             } else listOf(head)

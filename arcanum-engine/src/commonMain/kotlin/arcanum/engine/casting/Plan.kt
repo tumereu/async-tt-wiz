@@ -503,7 +503,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val from = expansion.keyword as? AbilityOrigin.FromEffect ?: return null
             val gain = snap.state.effects[from.effect]?.mechanics?.getOrNull(from.mechanic) as? Mechanic.GainAbilities ?: return null
             val keyword = gain.abilities.getOrNull(from.index) as? Keyword ?: return null
-            return arcanum.api.KeywordExpansions.expand(keyword)?.getOrNull(expansion.index)
+            return arcanum.engine.view.KeywordMeanings.expand(keyword).getOrNull(expansion.index)
         }
     }
 }

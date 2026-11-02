@@ -318,6 +318,114 @@ object KeywordExpansions {
         is Keyword.CompanionAbility -> listOf(Ability.SpecialAction(Cost.mana(ManaCost.parse("{3}")!!),
             steps(Effect.Move(Objects.Self, Destination(Zone.Hand))), timing = Timing.Sorcery, functionsIn = listOf(Zone.Outside),
             oncePerGame = true, condition = Condition.RevealedCompanion))
+        // CR 702.93a: "When this permanent is put into a graveyard from the battlefield, if it had no +1/+1 counters on
+        // it, return it to the battlefield under its owner's control with a +1/+1 counter on it."
+        Keyword.Undying -> listOf(returnFromGraveyard(CounterKind.PowerToughness(1, 1)))
+        // CR 702.114a: characteristic-defining, "This object is colorless."
+        Keyword.Devoid -> listOf(Ability.Static(listOf(Mechanic.SetColors(emptyList())), characteristicDefining = true, affects = Affected.Objects(Objects.Self)))
+        // CR 702.31b: can't be blocked by creatures without horsemanship
+        Keyword.Horsemanship -> static(Mechanic.CanBeBlockedOnlyBy(has(Keyword.Horsemanship)))
+        // CR 702.118b: can't be blocked by creatures with greater power
+        Keyword.Skulk -> static(Mechanic.CantBeBlockedBy(ObjectFilter.Power(Comparison.Greater, Value.Of(NumericProperty.Power, Objects.Self, Combine.Single))))
+        // CR 702.89a: "If enchanted permanent would be destroyed, instead remove all damage marked on it and destroy this
+        // Aura."
+        Keyword.UmbraArmor -> listOf(Ability.Static(listOf(Mechanic.Replacement(EventPattern.Destroyed(ObjectFilter.Is(Objects.AttachedTo(Objects.Self))),
+            instead = Instructions(steps = listOf(
+                Step.Do(Effect.RemoveAllDamage(Objects.EventObject(EventRole.Object))),
+                Step.Do(Effect.Destroy(Objects.Self)))))), affects = Affected.Objects(Objects.Self)))
+        // CR 702.110a: "When this creature enters, you may sacrifice a creature."
+        Keyword.Exploit -> listOf(Ability.Triggered(entersSelf, Instructions(steps = listOf(
+            Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))),
+                Value.Fixed(0), Value.Fixed(1)), bind = "exploited", chooser = Players.You),
+            Step.Do(Effect.Sacrifice(Objects.Bound("exploited")))))))
+        // CR 702.126a: tap an untapped artifact you control rather than pay a generic mana
+        Keyword.Improvise -> static(Mechanic.PayManaBy(ManaPaymentWay.TapArtifacts))
+        // CR 702.134a: "Whenever this creature attacks, put a +1/+1 counter on target attacking creature with power less
+        // than this creature's power."
+        Keyword.Mentor -> listOf(Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), Instructions(
+            targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
+                ObjectFilter.HasStatus(Status.Attacking), ObjectFilter.Power(Comparison.Less, Value.Of(NumericProperty.Power, Objects.Self, Combine.Single))))),
+                min = Value.Fixed(1), max = Value.Fixed(1))),
+            steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(1)))))))
+        // CR 702.133a: cast from your graveyard by discarding a card in addition to its other costs; exiled when it
+        // leaves the Stack
+        Keyword.JumpStart -> static(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast,
+            resultingSpell = or(ObjectFilter.Type(CardType.Instant), ObjectFilter.Type(CardType.Sorcery)),
+            additionalCost = Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, count = Value.Fixed(1))))),
+            then = Destination(Zone.Exile), holder = PlayerFilter.You))
+        // CR 702.161a: "During your turn, this permanent is an artifact creature in addition to its other types."
+        Keyword.LivingMetal -> listOf(Ability.Static(listOf(Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature))),
+            condition = Condition.YourTurn, affects = Affected.Objects(Objects.Self)))
+        // CR 702.163a: "When this Equipment enters, create a 2/2 red Rebel creature token, then attach this Equipment to it."
+        Keyword.ForMirrodin -> listOf(createAndAttach(FaceDefinition("Rebel Token", colorIndicator = listOf(Color.Red), types = listOf(CardType.Creature),
+            subtypes = listOf(Subtype("Rebel")), power = PrintedNumber.Fixed(2), toughness = PrintedNumber.Fixed(2))))
+        // CR 702.182a: "When this Equipment enters, create a 1/1 colorless Hero creature token, then attach this Equipment
+        // to it."
+        Keyword.JobSelect -> listOf(createAndAttach(FaceDefinition("Hero Token", colorIndicator = emptyList(), types = listOf(CardType.Creature),
+            subtypes = listOf(Subtype("Hero")), power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1))))
+        // CR 702.25a: "Whenever this creature becomes blocked by a creature without flanking, the blocking creature gets
+        // -1/-1 until end of turn."
+        Keyword.Flanking -> listOf(Ability.Triggered(Trigger.On(EventPattern.BecomesBlocked(ObjectFilter.Is(Objects.Self),
+            ObjectFilter.Not(has(Keyword.Flanking)), perBlocker = true)),
+            steps(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(-1), Value.Fixed(-1))),
+                Affected.Objects(Objects.EventObject(EventRole.OtherCombatant)), Duration.EndOfTurn))))
+        // CR 702.32a: enters with N fade counters; "At the beginning of your upkeep, remove a fade counter from this
+        // permanent. If you can't, sacrifice the permanent."
+        is Keyword.Fading -> listOf(
+            Ability.Static(listOf(entersWith(FADE, Value.Fixed(keyword.amount))), affects = Affected.Objects(Objects.Self)),
+            Ability.Triggered(Trigger.On(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)), Instructions(steps = listOf(
+                Step.If(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(FADE, atLeast = 1)),
+                    then = listOf(Step.Do(Effect.RemoveCounters(Objects.Self, FADE, Value.Fixed(1)))),
+                    otherwise = listOf(Step.Do(Effect.Sacrifice(Objects.Self))))))))
+        // CR 702.45a: "Whenever this creature blocks or becomes blocked, it gets +N/+N until end of turn."
+        is Keyword.Bushido -> listOf(Ability.Triggered(Trigger.On(listOf(EventPattern.Block(ObjectFilter.Is(Objects.Self), ObjectFilter.Any),
+            EventPattern.BecomesBlocked(ObjectFilter.Is(Objects.Self), ObjectFilter.Any))), pump(keyword.amount, keyword.amount)))
+        // CR 702.64a: "If a source would deal damage to this creature, prevent N of that damage."
+        is Keyword.Absorb -> static(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self))),
+            each = Value.Fixed(keyword.amount)))
+        // CR 702.68a: "Whenever this creature attacks and isn't blocked, it gets +N/+0 until end of turn."
+        is Keyword.Frenzy -> listOf(Ability.Triggered(Trigger.On(EventPattern.AttacksUnblocked(ObjectFilter.Is(Objects.Self))), pump(keyword.amount, 0)))
+        // CR 702.70a: "Whenever this creature deals combat damage to a player, that player gets N poison counters."
+        is Keyword.Poisonous -> listOf(Ability.Triggered(Trigger.On(combatDamageToPlayer),
+            steps(Effect.GivePlayerCounters(Players.EventPlayer, CounterKind.Poison, Value.Fixed(keyword.amount)))))
+        // CR 702.86a: "Whenever this creature attacks, defending player sacrifices N permanents."
+        is Keyword.Annihilator -> {
+            val defending = Players.DefendingPlayerOf(Objects.Self)
+            listOf(Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(
+                Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Battlefield), ObjectFilter.ControlledBy(PlayerFilter.Is(defending)))),
+                    Value.Fixed(keyword.amount), Value.Fixed(keyword.amount)), bind = "annihilated", chooser = defending),
+                Step.Do(Effect.Sacrifice(Objects.Bound("annihilated")))))))
+        }
+        // CR 702.112a: "When this creature deals combat damage to a player, if it isn't renowned, put N +1/+1 counters on
+        // it and it becomes renowned."
+        is Keyword.Renown -> listOf(Ability.Triggered(Trigger.On(combatDamageToPlayer),
+            steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount)), Effect.Mark(Objects.Self, ObjectMark.Renowned)),
+            interveningIf = Condition.Not(Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Renowned))))))
+        // CR 702.130a: "Whenever this creature becomes blocked, defending player loses N life."
+        is Keyword.Afflict -> listOf(Ability.Triggered(Trigger.On(EventPattern.BecomesBlocked(ObjectFilter.Is(Objects.Self), ObjectFilter.Any)),
+            steps(Effect.LoseLife(Players.DefendingPlayerOf(Objects.Self), Value.Fixed(keyword.amount)))))
+        // CR 702.135a: "When this permanent is put into a graveyard from the battlefield, create N 1/1 white and black
+        // Spirit creature tokens with flying."
+        is Keyword.Afterlife -> listOf(Ability.Triggered(diesSelf, steps(Effect.CreateToken(TokenSpec.Defined(FaceDefinition("Spirit Token",
+            colorIndicator = listOf(Color.White, Color.Black), types = listOf(CardType.Creature), subtypes = listOf(Subtype("Spirit")),
+            power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1), abilities = listOf(Keyword.Flying))),
+            count = Value.Fixed(keyword.amount), controller = Players.You))))
+        // CR 702.67a: "[Cost]: Attach this Fortification to target land you control. Activate only as a sorcery."
+        is Keyword.Fortify -> listOf(Ability.Activated(keyword.cost,
+            Instructions(
+                targets = listOf(TargetSlot("land", TargetKind.Objects(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Land),
+                    ObjectFilter.ControlledBy(PlayerFilter.You)))), min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Target("land")))))),
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+        // CR 702.107a: "[Cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
+        is Keyword.Outlast -> listOf(Ability.Activated(Cost(keyword.cost.parts + CostPart.TapSelf),
+            steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+        // CR 702.77a: from the hand, "[Cost], Discard this card: Put N +1/+1 counters on target creature."
+        is Keyword.Reinforce -> listOf(Ability.Activated(Cost(keyword.cost.parts + CostPart.Discard(CostObjects.Self)), Instructions(
+            targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
+            steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))))),
+            rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
         else -> null
     }
 
@@ -344,6 +452,18 @@ object KeywordExpansions {
         }
         else -> null
     }
+
+    private val FADE = CounterKind.Named("fade")
+    private val combatDamageToPlayer = EventPattern.Damage(ObjectFilter.Is(Objects.Self), RecipientFilter(players = PlayerFilter.Any), combat = true)
+
+    /** "It gets +[power]/+[toughness] until end of turn." */
+    private fun pump(power: Int, toughness: Int) = steps(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(power), Value.Fixed(toughness))),
+        Affected.Objects(Objects.Self), Duration.EndOfTurn))
+
+    /** "When this Equipment enters, create [token], then attach this Equipment to it." (for Mirrodin!, job select) */
+    private fun createAndAttach(token: FaceDefinition) = Ability.Triggered(entersSelf, Instructions(steps = listOf(
+        Step.Do(Effect.CreateToken(TokenSpec.Defined(token), bind = "token", count = Value.Fixed(1), controller = Players.You)),
+        Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Bound("token")))))))
 
     private val entersSelf = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield))
     private val diesSelf = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard))

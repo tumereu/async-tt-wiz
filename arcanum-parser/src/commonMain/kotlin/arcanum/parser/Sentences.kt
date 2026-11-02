@@ -172,6 +172,33 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
+        // dsk chunk 05: "Enchanted creature loses all abilities and is a Toy artifact creature with base power and toughness 0/2 in
+        // addition to its other types." (layers 4, 6, 7b, CR 613.1d, f, 613.4b)
+        LOSES_ALL_AND_IS.matchEntire(line)?.let { m ->
+            val affected = attachedSubject(m.groupValues[1]) ?: return null
+            val add = mutableListOf<CardType>()
+            val subtypes = mutableListOf<arcanum.api.SubtypeRef>()
+            for (word in m.groupValues[2].split(' ')) {
+                val type = Filters.CARD_TYPES[word]
+                when {
+                    type != null -> add += type
+                    word in RulesWords.subtypes -> subtypes += arcanum.api.SubtypeRef.Literal(Subtype(word))
+                    else -> return null
+                }
+            }
+            return Ability.Static(listOf(Mechanic.LoseAbilities(), Mechanic.SetTypes(add = add, addSubtypes = subtypes),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))), affects = Affected.Objects(affected))
+        }
+        // dsk chunk 05: "As long as enchanted creature is face down, it can't be turned face up."
+        FACE_DOWN_CANT_BE_TURNED_FACE_UP.matchEntire(line)?.let { m ->
+            val affected = attachedSubject(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.CantBeTurnedFaceUp), affects = Affected.Objects(affected),
+                condition = arcanum.api.Condition.ObjectMatches(affected, ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)))
+        }
+        // dsk chunk 05: "Enchanted creature doesn't untap during its controller's untap step."
+        DOESNT_UNTAP_DURING_CONTROLLERS.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.DoesntUntap), affects = Affected.Objects(attachedSubject(m.groupValues[1]) ?: return null))
+        }
         // dsk chunk 04: "This creature can't be blocked by Glimmers." (CR 509.1b)
         CANT_BE_BLOCKED_BY.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             return Ability.Static(listOf(Mechanic.CantBeBlockedBy(Filters.noun(m.groupValues[2]) ?: return null)), affects = Affected.Objects(Objects.Self))
@@ -469,6 +496,8 @@ internal class Sentences(
             val affects = when {
                 isSelf(subject) -> arcanum.api.Affected.Objects(Objects.Self)
                 subject == "Enchanted creature" -> arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self))
+                // dsk chunk 05: "Equipped creature has menace."
+                subject == "Equipped creature" -> arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self))
                 else -> Filters.noun(subject.replaceFirstChar { it.lowercase() })?.let { arcanum.api.Affected.Objects(Objects.Each(it)) }
             }
             val mechanics = predicates(m.groupValues[2])
@@ -1454,6 +1483,39 @@ internal class Sentences(
         if (sentence == "Put the rest on the bottom of your library in a random order." && context.seen != null && context.picked != null) {
             return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(context.seen!!), Objects.Bound(context.picked!!)),
                 Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // dsk chunk 05: "Its controller manifests dread." (the last target's), "The exiled card's owner manifests dread." (CR 701.62a)
+        PLAYER_MANIFESTS_DREAD.matchEntire(sentence)?.let { m ->
+            val player = when (m.groupValues[1]) {
+                "Its controller" -> context.lastTargetController()
+                "The exiled card's owner" -> exiledCard?.let { Players.OwnerOf(it) }
+                else -> null
+            } ?: return null
+            return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.ManifestDread(player))))
+        }
+        // dsk chunk 05: "Attach this Equipment to that creature." after manifesting dread
+        ATTACH_SELF_TO_THAT_CREATURE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && context.manifested != null }?.let {
+            return listOf(Step.Do(Effect.Attach(Objects.Self, arcanum.api.Recipients(objects = context.manifested!!))))
+        }
+        // dsk chunk 05: "When it dies this turn, [effect]." (a delayed trigger about the target, for the turn, CR 603.7b, c)
+        WHEN_IT_DIES_THIS_TURN.matchEntire(sentence)?.let { m ->
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) } ?: return null
+            val then = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(
+                arcanum.api.Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(target), from = Zone.Battlefield, to = Zone.Graveyard)), then,
+                duration = arcanum.api.Duration.EndOfTurn)))
+        }
+        // dsk chunk 05: "Tap enchanted creature."
+        if (sentence == "Tap enchanted creature." || sentence == "Tap equipped creature.") return listOf(Step.Do(Effect.Tap(Objects.AttachedTo(Objects.Self))))
+        // dsk chunk 05: "Shuffle enchanted creature into its owner's library."
+        if (sentence == "Shuffle enchanted creature into its owner's library.") {
+            val enchanted = Objects.AttachedTo(Objects.Self)
+            return listOf(Step.Do(Effect.Move(enchanted, Destination(Zone.Library))), Step.Do(Effect.Shuffle(Players.OwnerOf(enchanted))))
+        }
+        // dsk chunk 05: "Put a card you put into your graveyard this way into your hand." (in a manifest-dread trigger, CR 701.62b)
+        if (sentence == "Put a card you put into your graveyard this way into your hand." && context.event is EventPattern.ManifestDread) {
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.EventObject(EventRole.Rest)),
+                bind = "chosen", chooser = Players.You), Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
         }
         // dsk chunk 01: "Destroy all creatures with power 3 or greater."
         DESTROY_ALL.matchEntire(sentence)?.let { m -> Filters.noun(m.groupValues[1])?.let { return listOf(Step.Do(Effect.Destroy(Objects.Each(it)))) } }
@@ -2795,7 +2857,7 @@ internal class Sentences(
             context.it = Objects.Bound("exiled")
             // dsk chunk 04: linked to "cards exiled with this creature" (CR 607.2a)
             return listOf(Step.Do(Effect.Move(Objects.Target(slot), Destination(Zone.Exile), postBind = "exiled"))) +
-                (if (linkedExile) remembered(Objects.Bound("exiled")) else emptyList())
+                (if (linkedExile || exiledCard == Objects.Remembered(EXILED_WITH)) remembered(Objects.Bound("exiled")) else emptyList())
         }
         // "At the beginning of the next end step, [effect].": a delayed trigger (CR 603.7), about the objects named now
         AT_BEGINNING_OF_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
@@ -2877,6 +2939,10 @@ internal class Sentences(
         }
         return uses.singleOrNull() ?: ObjectFilter.Or(uses)
     }
+
+    /** dsk chunk 05: "Enchanted creature", "Equipped creature": the object this Aura or Equipment is attached to. */
+    private fun attachedSubject(text: String): Objects? =
+        if (text == "Enchanted creature" || text == "Equipped creature" || text == "enchanted creature") Objects.AttachedTo(Objects.Self) else null
 
     /** dsk chunk 01: "it's a Reflection in addition to its other creature types" (CR 707.9b). */
     private fun copyExceptions(text: String): List<arcanum.api.CopyException>? {
@@ -3304,6 +3370,13 @@ internal class Sentences(
         val ADDITIONAL_CREATURE_TYPE = Regex("""it's an? (\w+) in addition to its other creature types""")
         const val MANIFESTED = "manifested"
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // dsk chunk 05
+        val LOSES_ALL_AND_IS = Regex("""(Enchanted creature) loses all abilities and is an? (.+?) with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
+        val FACE_DOWN_CANT_BE_TURNED_FACE_UP = Regex("""As long as (enchanted creature) is face down, it can't be turned face up\.""")
+        val DOESNT_UNTAP_DURING_CONTROLLERS = Regex("""(Enchanted creature|Equipped creature) doesn't untap during its controller's untap step\.""")
+        val PLAYER_MANIFESTS_DREAD = Regex("""(Its controller|The exiled card's owner) manifests dread\.""")
+        val ATTACH_SELF_TO_THAT_CREATURE = Regex("""Attach (.+) to that creature\.""")
+        val WHEN_IT_DIES_THIS_TURN = Regex("""When it dies this turn, (.+)""")
         // dsk chunk 04
         val TRIGGERS_ONLY_ONCE_EVER = Regex("""This ability triggers only once\.""")
         val CANT_BE_BLOCKED_BY = Regex("""(.+) can't be blocked by (.+)\.""")

@@ -61,6 +61,8 @@ object DefinitionChecks {
         "attack" to setOf("object", "defender"),
         "discard" to setOf("before", "after"),
         "unattach" to setOf("object", "from"),
+        // CR 701.62a, b: the manifested permanent and the cards put into the graveyard
+        "manifest-dread" to setOf("object", "rest"),
     )
     private val selfAffected = json.encodeToJsonElement(Affected.serializer(), Affected.Objects(Objects.Self))
     private val eventScoped =setOf("replacement", "prevention", "cost-change", "triggers-additional-time", "damage-cant-be-prevented")

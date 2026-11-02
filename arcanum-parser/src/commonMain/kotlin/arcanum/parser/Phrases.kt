@@ -296,6 +296,9 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 05: "you manifest dread" (CR 701.62b); "the beginning of each opponent's upkeep"
+        if (text == "you manifest dread") return EventPattern.ManifestDread(PlayerFilter.You)
+        if (text == "the beginning of each opponent's upkeep") return EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.Opponent)
         // dsk chunk 01: unlocking a door of a Room (CR 709.5h, i); only its controller unlocks it
         if (text == "you unlock this door") return EventPattern.Unlock(ObjectFilter.Is(Objects.Self), thisDoor = true)
         YOU_FULLY_UNLOCK.matchEntire(text)?.let { m ->

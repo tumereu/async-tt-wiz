@@ -79,11 +79,12 @@ class OracleParserKeywordTest {
             .forEach { text -> assertTrue(abilities(text).none { it is Keyword }, text) }
     }
 
+    // dsk chunk 05: "Equipped creature has shroud." is read now, so the unread line is one the parser can't read
     @Test
     fun eachLineIsReadOnItsOwnAndUnparsedLinesKeepTheirReminderText() {
         assertEquals(listOf(Keyword.Vigilance, Keyword.Equip(mana("{3}")),
-            Ability.Unparsed("Equipped creature has shroud. (It can't be the target of spells or abilities.)")),
-            abilities("Vigilance\nEquip {3}\nEquipped creature has shroud. (It can't be the target of spells or abilities.)"))
+            Ability.Unparsed("Equipped creature has shroud unless an opponent named it. (It can't be the target of spells or abilities.)")),
+            abilities("Vigilance\nEquip {3}\nEquipped creature has shroud unless an opponent named it. (It can't be the target of spells or abilities.)"))
     }
 
     @Test

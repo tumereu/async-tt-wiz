@@ -257,8 +257,10 @@ object DefinitionChecks {
         val spellSlots = mutableSetOf<String>()
         abilities.filter { it.typeName() == "spell" }.forEach { spell -> visitAll(spell) { o ->
             if (o.typeName() == null && "what" in o) o.string("name")?.let { spellSlots += it } } }
+        // A cost reduction of the spell is applied after its targets are chosen too ("costs {3} less if it targets a tapped
+        // creature", CR 601.2f).
         fun isCostStatic(a: JsonObject) = a.typeName() == "static" && (a["mechanics"] as? JsonArray).orEmpty()
-            .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost") }
+            .any { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost", "cost-change") }
         abilities.forEach { ability ->
             when {
                 ability.typeName() == "spell" -> check(ability, costNames)

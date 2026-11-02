@@ -110,6 +110,8 @@ internal object Filters {
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(
                 ObjectFilter.Power(arcanum.api.Comparison.AtMost, n), ObjectFilter.Toughness(arcanum.api.Comparison.AtMost, n))))
         }
+        // dsk chunk 09: "creatures and/or enchantments you own"
+        OWNED.matchEntire(phrase)?.let { m -> noun(m.groupValues[1].replace(" and/or ", " or "))?.let { return and(it, ObjectFilter.OwnedBy(PlayerFilter.You)) } }
         CONTROLLED.matchEntire(phrase)?.let { m ->
             val who = when (m.groupValues[2]) {
                 "you control" -> PlayerFilter.You
@@ -117,6 +119,8 @@ internal object Filters {
                 "you don't control" -> PlayerFilter.Not(PlayerFilter.You) // chunk 33
                 "your opponents control" -> PlayerFilter.Opponent // dsk chunk 06
                 "that player controls" -> PlayerFilter.Is(Players.EventPlayer) // dsk chunk 07: in a trigger, the event's player
+                // dsk chunk 09: in an attack trigger of this creature (CR 506.2)
+                "defending player controls" -> PlayerFilter.Is(Players.DefendingPlayerOf(Objects.Self))
                 else -> return null
             }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -240,7 +244,9 @@ internal object Filters {
     private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
     private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or less""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
-    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls)""")
+    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control|that player controls|defending player controls)""")
+    // dsk chunk 09
+    private val OWNED = Regex("""(.+) you own""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
@@ -675,6 +681,13 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // dsk chunk 09: "you cast it", "you cast it from your hand" (CR 601.2a), "you have no cards in hand"
+        CAST_IT.matchEntire(text)?.let { m ->
+            val zone = when (m.groupValues[1]) { "" -> null; " from your hand" -> Zone.Hand; else -> Zone.Graveyard }
+            return Condition.CastFrom(zone, Objects.Self)
+        }
+        if (text == "you have no cards in hand")
+            return Condition.Not(Condition.Exists(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1))
         // dsk chunk 08: "you have at least 7 life more than your starting life total" (CR 103.4)
         LIFE_MORE_THAN_STARTING.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.LifeOf(Players.You), Comparison.AtLeast, Value.Sum(listOf(Value.StartingLife(Players.You), Value.Fixed(m.groupValues[1].toInt()))))
@@ -689,7 +702,9 @@ internal object Conditions {
                 ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
         // dsk chunk 04: "you control a Glimmer creature", "you don't control a Glimmer creature"
         CONTROL_A_PHRASE.matchEntire(text)?.let { m ->
-            val exists = Condition.Exists(Filters.noun(m.groupValues[2] + " you control") ?: return null, atLeast = 1)
+            val filter = Filters.noun(m.groupValues[3] + " you control") ?: return null
+            // dsk chunk 09: "you control another creature with power 2 or less"
+            val exists = Condition.Exists(if (m.groupValues[2] == "another") Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), filter) else filter, atLeast = 1)
             return if (m.groupValues[1].isEmpty()) exists else Condition.Not(exists)
         }
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
@@ -706,10 +721,12 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    // dsk chunk 09
+    private val CAST_IT = Regex("""you cast it( from your hand| from your graveyard)?""")
     // dsk chunk 08
     private val LIFE_MORE_THAN_STARTING = Regex("""you have at least (\d+) life more than your starting life total""")
     // dsk chunk 04
-    private val CONTROL_A_PHRASE = Regex("""you (don't )?control an? (.+)""")
+    private val CONTROL_A_PHRASE = Regex("""you (don't )?control (an?|another) (.+)""")
     private val EXILED_WITH_AT_LEAST = Regex("""there are (\w+) or more cards exiled with (.+)""")
     private val UNLOCKED_DOORS_AT_LEAST = Regex("""there are (\w+) or more unlocked doors among (.+)""")
     private val NAMES_AMONG_UNLOCKED_DOORS = Regex("""there are (\w+) or more different names among unlocked doors of Rooms you control""")

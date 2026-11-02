@@ -371,7 +371,8 @@ class TriggerTest {
         expect { stack.names shouldBe listOf("ability of Elvish Drillmaster") }
     }
 
-    // CR 603.7c: a delayed trigger made by "until … leaves the battlefield" returns the exiled card
+    // CR 610.3, 610.3c: "until … leaves the battlefield": the exiled card returns under its owner's control by a one-shot
+    // effect right after it leaves, without the Stack
     @Test
     fun exiledUntilItLeaves() = scenario {
         alice.hand("Pocket Rift")
@@ -385,8 +386,10 @@ class TriggerTest {
 
         bob.castsWithoutCosts("Old Enmity", target = "Pocket Rift")
         resolve()
-        resolve()
-        expect { bob.battlefield has "Umbral Elves" }
+        expect {
+            bob.battlefield has "Umbral Elves"
+            stack.isEmpty()
+        }
     }
 
     @Suppress("unused")

@@ -54,11 +54,14 @@ internal object Steps {
     }
 
     /** All players passed with an empty Stack: the step ends and the game goes on to the next step in which players
-     * get priority, or to a decision a turn-based action needs (CR 500.2). */
-    fun endStep(recorder: Recorder): Progress {
+     * get priority, or to a decision a turn-based action needs (CR 500.2). [afterPriority]: players had priority in this
+     * step, so a cleanup step is followed by another one (CR 514.3a). */
+    fun endStep(recorder: Recorder, afterPriority: Boolean = true): Progress {
+        var again = afterPriority && recorder.state.turn.step == TurnStep.Cleanup
         while (true) {
             leave(recorder)
-            val next = nextStep(recorder.state)
+            val next = if (again) TurnStep.Cleanup else nextStep(recorder.state)
+            again = false
             if (next == null) beginTurn(recorder) else begin(recorder, next)
             when (val n = turnBasedActions(recorder)) {
                 Next.Priority -> return Progress.Done
@@ -206,16 +209,33 @@ internal object Steps {
     // ---- Cleanup (CR 514)
 
     /** CR 514.1: the active player discards down to their maximum hand size, then the rest of the cleanup step. */
-    private fun cleanup(recorder: Recorder): Next {
+    private fun cleanup(recorder: Recorder): Next = when (val p = cleanupDiscard(recorder, emptyList())) {
+        is Progress.Waiting -> Next.Wait(p)
+        Progress.Done -> finishCleanup(recorder)
+    }
+
+    /**
+     * CR 514.1: the active player chooses the cards over their maximum hand size and discards them as one event through
+     * the event pipeline, so replacements apply (madness, CR 702.35a); a decision stops it, and it is redone from its
+     * start with the [answers] so far (D29).
+     */
+    private fun cleanupDiscard(recorder: Recorder, answers: List<Answer>): Progress {
         val s = recorder.state
         val active = s.turn.active
         val excess = s.player(active).hand.size - maxHandSize(s, active)
-        if (excess > 0) {
-            val decision = Decision.ChooseObjects(decisionId(s, "cleanup-discard"), active, null, s.player(active).hand,
-                excess, excess, "Discard down to ${maxHandSize(s, active)} cards (CR 514.1)")
-            return Next.Wait(Progress.Waiting(Pending(decision, Continuation.TurnBased(TurnAction.CleanupDiscard))))
+        if (excess <= 0) return Progress.Done
+        val mark = recorder.changes.size
+        val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker(answers, decisionId(s, "cleanup-discard").value))
+        return try {
+            val hand = s.player(active).hand
+            val chosen = act.chooseObjects(active, null, hand, excess, excess, "Discard down to ${maxHandSize(s, active)} cards (CR 514.1)")
+            require(chosen.size == excess && chosen.distinct().size == excess) { "Discard exactly $excess cards from ${active}'s hand" }
+            arcanum.engine.action.Actions.discard(act, arcanum.engine.action.Cause(active, null, key = "cleanup:${s.turn.number}"), chosen)
+            Progress.Done
+        } catch (n: arcanum.engine.action.NeedDecision) {
+            recorder.rollback(mark)
+            Progress.Waiting(Pending(n.decision, Continuation.TurnBased(TurnAction.CleanupDiscard(answers))))
         }
-        return finishCleanup(recorder)
     }
 
     /** CR 402.2: seven, changed by effects; no maximum with [Mechanic.NoMaximumHandSize]. */
@@ -225,19 +245,14 @@ internal object Steps {
         return 7 + mechanics.filterIsInstance<Mechanic.MaximumHandSizeChange>().sumOf { it.change }
     }
 
-    /** The answer to the cleanup discard: discard those cards, then the rest of the cleanup step. */
-    fun resumeCleanup(recorder: Recorder, answer: Answer): Progress {
-        val s = recorder.state
-        val active = s.turn.active
-        val chosen = (answer as? Answer.Objects)?.chosen ?: throw IllegalArgumentException("Choose the cards to discard")
-        val excess = s.player(active).hand.size - maxHandSize(s, active)
-        require(chosen.size == excess && chosen.distinct().size == excess && chosen.all { it in s.player(active).hand }) {
-            "Discard exactly $excess cards from ${active}'s hand"
-        }
-        recorder.record(Changes.move(s, chosen, Zone.Graveyard, meanings = listOf(Meaning.Discarded)))
-        return when (finishCleanup(recorder)) {
-            Next.GoOn -> endStep(recorder)
-            else -> Progress.Done
+    /** An answer to the cleanup discard's decisions: the discard is redone with it, then the rest of the cleanup step. */
+    fun resumeCleanup(recorder: Recorder, action: TurnAction.CleanupDiscard, answer: Answer): Progress {
+        if (action.answers.isEmpty()) require(answer is Answer.Objects) { "Choose the cards to discard" }
+        (cleanupDiscard(recorder, action.answers + answer) as? Progress.Waiting)?.let { return it }
+        return when (val next = finishCleanup(recorder)) {
+            Next.GoOn -> endStep(recorder, afterPriority = false)
+            is Next.Wait -> next.progress
+            Next.Priority -> Progress.Done
         }
     }
 

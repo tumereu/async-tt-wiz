@@ -90,15 +90,17 @@ internal object Actions {
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
-                skip = { r -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) },
+                skip = { r, _ -> isRegeneration(r) && (noRegeneration || act.view()[pm.id]?.has { it == Mechanic.CantBeRegenerated } == true) },
             )
         }
-        val result = commitMoves(act, final)
+        val result = commitMoves(act, cause, final, linked)
         // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
         final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
             .filter { act.state.obj(it)?.zone == Zone.Battlefield && act.view()[it]?.characteristics?.subtypes?.any { s -> s.name == "Saga" } == true }
             .forEach { putCounters(act, cause, TargetRef.Object(it), CounterKind.Lore, 1) }
         Replacements.addLinked(act, linked)
+        // CR 610.3: "until" returns happen right after the event, without the Stack
+        if (result.isNotEmpty()) arcanum.engine.trigger.Triggers.runOneShots(act)
         return result
     }
 
@@ -158,8 +160,10 @@ internal object Actions {
     }
 
     /** Makes one zone-change event of [moves] (stamped in order, D34), with what everyone saw of each object. */
-    private fun commitMoves(act: Act, moves: List<PlannedMove>): Map<ObjectId, ObjectId> {
-        if (moves.isEmpty()) return emptyMap()
+    private fun commitMoves(act: Act, cause: Cause?, planned: List<PlannedMove>, linked: MutableList<WaitingTrigger>): Map<ObjectId, ObjectId> {
+        if (planned.isEmpty()) return emptyMap()
+        // The counters each permanent enters with, after the replacements on counters being put (CR 122.6)
+        val moves = planned.map { m -> if (m.to == Zone.Battlefield) m.copy(counters = enteringCounters(act, cause, m, linked)) else m }
         val scratch = act.state.deepCopy()
         val all = mutableListOf<Move>()
         // Copy effects and extra abilities exist as the object enters (CR 614.12, 707.4), so its own enters triggers see them.
@@ -180,8 +184,7 @@ internal object Actions {
             val zc = Changes.move(
                 scratch, listOf(m.id), m.to, position = m.position ?: if (m.to == Zone.Library) Changes.Position.Top else Changes.Position.Bottom,
                 controller = m.controller, tapped = m.tapped && toBattlefield, faceDown = m.faceDown, meanings = m.meanings,
-                counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } + printedCounters(act, before, m)
-                    else emptyList(),
+                counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } else emptyList(),
             )
             val moved = zc.moves.single().let { mv ->
                 var after = mv.after
@@ -206,6 +209,36 @@ internal object Actions {
     }
 
     private const val COPIED = "\$copied"
+
+    /**
+     * CR 122.6, 614.1c: the counters a permanent enters with (its own "enters with", printed loyalty or defense, an effect's
+     * "with a counter on it") are put on it as it enters, so replacements of counters being put apply, one event per
+     * kind (CR 614.16), tested on the permanent as it would exist on the battlefield (CR 614.12).
+     */
+    private fun enteringCounters(act: Act, cause: Cause?, m: PlannedMove, linked: MutableList<WaitingTrigger>): List<Pair<CounterKind, Int>> {
+        val o = act.state.objOrThrow(m.id)
+        val all = m.counters.filter { it.second > 0 } + printedCounters(act, o, m)
+        if (all.isEmpty()) return emptyList()
+        val controller = m.controller ?: o.owner
+        val entering = o.copy(id = (m.id as ObjectId.Card).next(), zone = Zone.Battlefield, controller = controller,
+            counters = emptyList(), tapped = m.tapped, faceDown = m.faceDown)
+        return countersAsPut(act, cause, entering, all, linked)
+    }
+
+    /** The [counters] (several of one kind add up) put on [entering] as it enters, after replacements (CR 122.6). */
+    private fun countersAsPut(
+        act: Act, cause: Cause?, entering: GameObject, counters: List<Pair<CounterKind, Int>>, linked: MutableList<WaitingTrigger>,
+    ): List<Pair<CounterKind, Int>> {
+        val board = ProposedBoard(act.board(), mapOf(entering.id to entering))
+        val holder = TargetRef.Object(entering.id)
+        return counters.groupBy({ it.first }, { it.second }).mapNotNull { (kind, amounts) ->
+            val final = Replacements.apply(act, cause, amounts.sum(), entering.controller ?: entering.owner, entering.id,
+                proposed = { n -> if (n > 0) Change.Counters(holder, kind, null, CounterEntry(kind, n, act.state.nextTimestamp())) else null },
+                modify = { n, r, _ -> modifyAmount(act, n, r) },
+                instead = { r, instance -> runInstead(act, r, instance) }, linked = linked, board = { board })
+            final?.takeIf { it > 0 }?.let { kind to it }
+        }
+    }
 
     /** CR 306.5b, 310.4b: a planeswalker enters with loyalty counters equal to its printed loyalty, a battle with defense
      * counters equal to its printed defense (the face that enters, or what it enters as a copy of; X counts as 0). */
@@ -262,8 +295,9 @@ internal object Actions {
     }
 
     /**
-     * Deals [parts] as one damage event (CR 120, D44): replacements first (redirection, doubling, CR 614.9), then
-     * prevention (protection CR 702.16e, prevention effects and shields CR 615) unless it can't be prevented (CR 615.12).
+     * Deals [parts] as one damage event (CR 120, D44): replacement and prevention effects (redirection, doubling, CR
+     * 614.9; protection CR 702.16e, prevention effects and shields CR 615) in the order the affected player chooses when
+     * it matters (CR 616.1), prevention not when it can't be prevented (CR 615.12).
      * Results (CR 120.3): life loss or poison (infect, CR 702.90b) for players; damage or −1/−1 counters (wither, infect)
      * for creatures; loyalty and defense counters removed from planeswalkers and battles; lifelink life gain (CR 702.15b);
      * toxic poison counters (CR 702.164c).
@@ -278,12 +312,13 @@ internal object Actions {
             Replacements.apply(
                 act, cause, part, affected, part.source,
                 proposed = { d -> Change.Damage(listOf(d)) },
-                modify = { d, r, _ -> modifyDamage(act, d, r) },
+                modify = { d, r, _ -> if (r.prevention != null) prevent(act, d, r, r.prevention) else modifyDamage(act, d, r) },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
+                skip = { r, d -> r.prevention != null && unpreventable(act, d) },
+                extra = if (cantBePrevented) emptyList() else preventions(act),
             )
-        }.filter { recipientExists(act, it.recipient) }
-            .map { prevent(act, it, cantBePrevented) }.filter { it.amount > 0 }
+        }.filter { recipientExists(act, it.recipient) && it.amount > 0 }
         if (after.isEmpty()) return DamageResult(emptyList(), 0)
         val view = act.view()
         val board = act.board()
@@ -369,45 +404,60 @@ internal object Actions {
         }.orEmpty() + recipients.objects?.let { e.objects(it).map { id -> TargetRef.Object(id) } }.orEmpty() +
             recipients.players?.let { e.players(it).map { p -> TargetRef.Player(p) } }.orEmpty()
 
-    /** CR 615: protection, prevention effects, then shields with an amount, each reducing what is left. */
-    private fun prevent(act: Act, d: DamageDealt, cantBePrevented: Boolean): DamageDealt {
-        if (cantBePrevented) return d
-        val view = act.view()
+    /** CR 615.12: damage an effect says can't be prevented. */
+    private fun unpreventable(act: Act, d: DamageDealt): Boolean {
         val board = act.board()
         val proposed = Change.Damage(listOf(d))
-        val unpreventable = view.rules.any { applied ->
+        return act.view().rules.any { applied ->
             val m = applied.mechanic as? Mechanic.DamageCantBePrevented ?: return@any false
             arcanum.engine.trigger.EventMatcher.instances(Evaluator(board, Context(applied.controller, applied.source, applied.names)),
                 m.event, proposed, proposed = true).isNotEmpty()
         }
-        if (unpreventable) return d
-        // CR 702.16e: damage from a source with the quality protection is from is prevented
-        (d.recipient as? TargetRef.Object)?.let { r ->
-            val protections = view[r.id]?.mechanics.orEmpty().mapNotNull { a -> (a.mechanic as? Mechanic.Protection)?.let { it to a } }
-            if (protections.any { (p, a) -> Evaluator(board, Context(a.controller, r.id)).matches(p.from, d.source) }) return d.copy(amount = 0)
+    }
+
+    /** The prevention effects in force (CR 615), as candidates among the replacements of a damage event (CR 616.1):
+     * protection of each permanent (CR 702.16e), prevention effects, and shields with an amount, oldest first (D26). */
+    private fun preventions(act: Act): List<Replacement> {
+        val view = act.view()
+        val anyDamage = arcanum.api.EventPattern.Damage(arcanum.api.ObjectFilter.Any, arcanum.api.RecipientFilter())
+        val protection = view.objects.values.flatMap { o ->
+            o.mechanics.mapIndexedNotNull { i, a ->
+                val p = a.mechanic as? Mechanic.Protection ?: return@mapIndexedNotNull null
+                Replacement(Mechanic.Replacement(anyDamage), a.controller, o.id, Bindings.EMPTY, null, own = false,
+                    key = "protection:${o.id}:$i", prevention = Prevention.Protection(p.from, o.id))
+            }
         }
-        var amount = d.amount
-        view.rules.forEach { applied ->
-            if (amount <= 0) return@forEach
-            val m = applied.mechanic as? Mechanic.Prevention ?: return@forEach
-            if (applied.effect != null && act.state.effects[applied.effect]?.amountLeft != null) return@forEach
-            val e = Evaluator(board, Context(applied.controller, applied.source, applied.names))
-            if (arcanum.engine.trigger.EventMatcher.instances(e, m.event, Change.Damage(listOf(d.copy(amount = amount))), proposed = true).isEmpty()) return@forEach
-            amount = if (m.each == null) 0 else (amount - e.value(m.each!!)).coerceAtLeast(0)
+        val effects = view.rules.mapIndexedNotNull { i, applied ->
+            val m = applied.mechanic as? Mechanic.Prevention ?: return@mapIndexedNotNull null
+            if (applied.effect != null && act.state.effects[applied.effect]?.amountLeft != null) return@mapIndexedNotNull null
+            Replacement(Mechanic.Replacement(m.event), applied.controller, applied.source, applied.names, applied.effect, own = false,
+                key = "prevent:${applied.effect?.value ?: applied.source}:${applied.origin?.key}:$i", prevention = Prevention.Amount(m.each))
         }
-        // Shields (CR 615.7, D26), oldest first
-        act.state.effects.values.filter { it.amountLeft != null }.sortedBy { it.timestamp }.forEach { shield ->
-            if (amount <= 0) return@forEach
-            val m = shield.mechanics.filterIsInstance<Mechanic.Prevention>().firstOrNull() ?: return@forEach
-            val e = Evaluator(board, Context(shield.controller, shield.source, shield.names))
-            if (arcanum.engine.trigger.EventMatcher.instances(e, m.event, Change.Damage(listOf(d.copy(amount = amount))), proposed = true).isEmpty()) return@forEach
-            val left = shield.amountLeft!!
-            val prevented = minOf(left, amount)
-            amount -= prevented
-            if (left - prevented <= 0) act.record(Change.EffectRemoved(shield, listOf(Meaning.ShieldUsed)))
-            else act.record(Change.EffectUpdated(shield, shield.copy(amountLeft = left - prevented)))
+        val shields = act.state.effects.values.filter { it.amountLeft != null }.sortedBy { it.timestamp }.mapNotNull { shield ->
+            val m = shield.mechanics.filterIsInstance<Mechanic.Prevention>().firstOrNull() ?: return@mapNotNull null
+            Replacement(Mechanic.Replacement(m.event), shield.controller, shield.source, shield.names, null, own = false,
+                key = "shield:${shield.id.value}", prevention = Prevention.Shield(shield.id))
         }
-        return d.copy(amount = amount)
+        return protection + effects + shields
+    }
+
+    /** Applies prevention effect [r] to [d] (CR 615): what is left of the damage, or null when none is. */
+    private fun prevent(act: Act, d: DamageDealt, r: Replacement, p: Prevention): DamageDealt? {
+        val left = when (p) {
+            is Prevention.Protection -> 0
+            is Prevention.Amount -> p.each?.let { each ->
+                d.amount - Evaluator(act.board(), Context(r.controller, r.source, r.names)).value(each)
+            } ?: 0
+            is Prevention.Shield -> {
+                val shield = act.state.effects[p.effect] ?: return d
+                val has = shield.amountLeft ?: return d
+                val prevented = minOf(has, d.amount)
+                if (has - prevented <= 0) act.record(Change.EffectRemoved(shield, listOf(Meaning.ShieldUsed)))
+                else act.record(Change.EffectUpdated(shield, shield.copy(amountLeft = has - prevented)))
+                d.amount - prevented
+            }
+        }
+        return if (left > 0) d.copy(amount = left) else null
     }
 
     // ---- Life (CR 119)
@@ -457,7 +507,7 @@ internal object Actions {
 
     /** Puts [amount] counters of [kind] on [holder] (CR 122.6), after replacements ("one more", "twice that many");
      * returns how many were put. */
-    fun putCounters(act: Act, cause: Cause?, holder: TargetRef, kind: CounterKind, amount: Int): Int {
+    fun putCounters(act: Act, cause: Cause?, holder: TargetRef, kind: CounterKind, amount: Int, meanings: List<Meaning> = emptyList()): Int {
         if (amount <= 0) return 0
         if (holder is TargetRef.Object && act.obj(holder.id) == null) return 0
         val affected = when (holder) {
@@ -469,7 +519,7 @@ internal object Actions {
             proposed = { n -> Changes.counters(act.state, holder, kind, n) },
             modify = { n, r, _ -> modifyAmount(act, n, r) },
             instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0
-        if (final > 0) act.record(Changes.counters(act.state, holder, kind, final))
+        if (final > 0) act.record(Changes.counters(act.state, holder, kind, final, meanings))
         Replacements.addLinked(act, linked)
         return final.coerceAtLeast(0)
     }
@@ -566,7 +616,9 @@ internal object Actions {
                     }
                 }
             }
-            o
+            // CR 122.6: the counters it enters with are put on it (several of one kind add up)
+            if (o.counters.isEmpty()) o else o.copy(counters = countersAsPut(act, cause, o.copy(counters = emptyList()),
+                o.counters.map { it.kind to it.count }, linked).map { (kind, n) -> CounterEntry(kind, n, o.timestamp) })
         }
         if (tokens.isEmpty()) return emptyList()
         val start = act.state.battlefield.size

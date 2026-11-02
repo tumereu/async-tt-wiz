@@ -20,6 +20,14 @@ import arcanum.api.Step
 import arcanum.api.Zone
 import arcanum.engine.Pending
 import arcanum.engine.Progress
+import arcanum.engine.action.Act
+import arcanum.engine.action.Actions
+import arcanum.engine.action.Asker
+import arcanum.engine.action.Cause
+import arcanum.engine.action.NeedDecision
+import arcanum.engine.action.PlannedMove
+import arcanum.engine.decision.Answer
+import arcanum.engine.decision.Paying
 import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
 import arcanum.engine.change.GameEvent
@@ -47,11 +55,28 @@ import arcanum.engine.view.AbilityOrigin
  * cast or activation (CR 601.2i, 602.2): the spell's cast facts (D22), its Stack item, the "becomes cast" event, the
  * effects that ride along (flashback's exile, mana riders), and priority back to the caster (CR 117.3c). A mana
  * ability adds its mana at once instead (CR 605.3b).
+ *
+ * The events of paying (objects sacrificed, discarded, exiled or returned, counters put) go through the event pipeline
+ * ([Actions]), so replacement effects apply to them (CR 614: unearth's exile, madness); a replacement that needs a
+ * decision stops the payment, which is redone from its start with the answers so far ([Paying], D29).
  */
 internal object Payment {
     private fun refuse(why: String): Nothing = throw IllegalArgumentException(why)
 
-    fun finish(recorder: Recorder, c: Continuation.Announcing, uses: List<ManaUse>, from: Int): Progress {
+    fun finish(recorder: Recorder, c: Continuation.Announcing, uses: List<ManaUse>, from: Int, answers: List<Answer> = emptyList()): Progress {
+        val mark = recorder.changes.size
+        val act = Act(recorder, Asker(answers, "pay@${recorder.state.nextTimestamp()}"))
+        return try {
+            pay(act, c, uses)
+        } catch (n: NeedDecision) {
+            recorder.rollback(mark)
+            Progress.Waiting(Pending(n.decision, c.copy(choices = c.choices.copy(paying = Paying(uses, answers)),
+                made = c.made + recorder.madeSince(from))))
+        }
+    }
+
+    private fun pay(act: Act, c: Continuation.Announcing, uses: List<ManaUse>): Progress {
+        val recorder = act.recorder
         val plan = Plan(recorder.state, c)
         val total = plan.total
         val bound = mutableMapOf<String, NamedValue>()
@@ -59,15 +84,15 @@ internal object Payment {
         var spent: List<ManaUnit> = emptyList()
         var paidWith: Map<ManaPaymentWay, List<ObjectId>> = emptyMap()
         if (total.hasMana) {
-            val paid = payMana(recorder, plan, total.mana, uses)
+            val paid = payMana(act, plan, total.mana, uses)
             spent = paid.first
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
-        total.parts.forEach { payPart(recorder, plan, it, bound, snapshots) }
+        total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
         val names = Bindings(bound)
         return when {
             plan.isManaAbility -> finishManaAbility(recorder, plan, names)
-            plan.isSpecialAction -> finishSpecialAction(recorder, plan, from)
+            plan.isSpecialAction -> finishSpecialAction(act, plan)
             plan.isSpell -> finishSpell(recorder, plan, names, snapshots, spent, paidWith)
             else -> finishAbility(recorder, plan, names, snapshots)
         }
@@ -75,14 +100,15 @@ internal object Payment {
 
     // ---- Mana (CR 601.2g–h, 605.3)
 
-    private fun payMana(recorder: Recorder, plan: Plan, cost: ManaCost, uses: List<ManaUse>): Pair<List<ManaUnit>, Map<ManaPaymentWay, List<ObjectId>>> {
+    private fun payMana(act: Act, plan: Plan, cost: ManaCost, uses: List<ManaUse>): Pair<List<ManaUnit>, Map<ManaPaymentWay, List<ObjectId>>> {
+        val recorder = act.recorder
         val player = plan.player
         val poolBefore = recorder.state.player(player).manaPool
         if (plan.cantSpendMana && uses.any { it is ManaUse.Pool || it is ManaUse.Ability }) refuse("Mana can't be spent to cast this spell")
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
         // CR 601.2g: mana abilities are activated before costs are paid
-        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(recorder, player, it) }
+        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(act, player, it) }
         val poolNow = recorder.state.player(player).manaPool
         val added = (poolBefore.size until poolNow.size).toList()
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
@@ -117,7 +143,7 @@ internal object Payment {
                 // CR 702.51a, 702.126a: tap them
                 ManaPaymentWay.TapCreatures, ManaPaymentWay.TapArtifacts -> ids.forEach { recorder.record(Changes.tap(recorder.state, it)) }
                 // CR 702.66a: exile them from the graveyard
-                ManaPaymentWay.ExileFromGraveyard -> recorder.record(Changes.move(recorder.state, ids, Zone.Exile))
+                ManaPaymentWay.ExileFromGraveyard -> Actions.move(act, costCause(plan), ids.map { PlannedMove(it, Zone.Exile) })
             }
         }
         return spent to byWay
@@ -128,12 +154,13 @@ internal object Payment {
      * mana [uses] names, life for Phyrexian symbols (CR 107.4f); refused unless it pays the whole cost (CR 118.3). The
      * mana pays for no spell, so restricted mana can't be spent.
      */
-    fun payOnResolution(recorder: Recorder, player: PlayerId, cost: ManaCost, uses: List<ManaUse>) {
+    fun payOnResolution(act: Act, player: PlayerId, cost: ManaCost, uses: List<ManaUse>) {
+        val recorder = act.recorder
         if (uses.any { it is ManaUse.Special }) refuse("Only mana and life pay a cost while resolving")
         val poolBefore = recorder.state.player(player).manaPool
         val chosenPool = uses.filterIsInstance<ManaUse.Pool>().map { it.index }.distinct()
         if (chosenPool.any { it !in poolBefore.indices }) refuse("No such mana in the pool")
-        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(recorder, player, it) }
+        uses.filterIsInstance<ManaUse.Ability>().forEach { activateForMana(act, player, it) }
         val poolNow = recorder.state.player(player).manaPool
         val added = (poolBefore.size until poolNow.size).toList()
         val lifeFor = uses.filterIsInstance<ManaUse.Life>().map { it.symbol }.toSet()
@@ -154,7 +181,8 @@ internal object Payment {
     }
 
     /** Activates a simple mana ability while paying (CR 605.3a): pays its cost and adds its mana. */
-    private fun activateForMana(recorder: Recorder, player: PlayerId, use: ManaUse.Ability) {
+    private fun activateForMana(act: Act, player: PlayerId, use: ManaUse.Ability) {
+        val recorder = act.recorder
         val snap = recorder.snapshot()
         val inst = Legality.instance(snap, use.source, use.ability) ?: refuse("${use.source} has no ability ${use.ability.key}")
         val ability = inst.ability as? Ability.Activated ?: refuse("Not an activated ability")
@@ -166,7 +194,8 @@ internal object Payment {
             when (part) {
                 CostPart.TapSelf -> recorder.record(Changes.tap(recorder.state, use.source, meanings = listOf(Meaning.ManaAdded)))
                 CostPart.UntapSelf -> recorder.record(Changes.tap(recorder.state, use.source, tapped = false))
-                is CostPart.Sacrifice -> recorder.record(Changes.move(recorder.state, listOf(use.source), Zone.Graveyard, meanings = listOf(Meaning.Sacrificed)))
+                is CostPart.Sacrifice -> Actions.move(act, Cause(player, use.source, key = "cost:${use.source}"),
+                    listOf(PlannedMove(use.source, Zone.Graveyard, meanings = listOf(Meaning.Sacrificed))))
                 is CostPart.PayLife -> recorder.record(Changes.life(recorder.state, player,
                     -snap.evaluator(player, self = use.source).value(part.amount), listOf(Meaning.LifePaid)))
                 else -> refuse("Not a simple mana ability")
@@ -186,7 +215,12 @@ internal object Payment {
 
     // ---- Other cost parts (CR 601.2h, 118)
 
-    private fun payPart(recorder: Recorder, plan: Plan, kp: KeyedPart, bound: MutableMap<String, NamedValue>, snapshots: MutableList<ObjectSnapshot>) {
+    /** Who pays a cost (D19): the player, with the spell's or ability's source; no Stack item, so no own replacements. */
+    private fun costCause(plan: Plan) = Cause(plan.player, plan.sourceId, key = "cost:${plan.itemId}")
+
+    private fun payPart(act: Act, plan: Plan, kp: KeyedPart, bound: MutableMap<String, NamedValue>, snapshots: MutableList<ObjectSnapshot>) {
+        val recorder = act.recorder
+        val cause = costCause(plan)
         val player = plan.player
         val s = recorder.state
         val snap = recorder.snapshot()
@@ -201,13 +235,15 @@ internal object Payment {
             val o = s.obj(id) ?: refuse("$id is gone")
             if (zone != null && o.zone != zone) refuse("$id isn't in $zone")
         }
-        fun move(ids: List<ObjectId>, to: Zone, meanings: List<Meaning>, preBind: String?, postBind: String?) {
+        fun move(ids: List<ObjectId>, to: Zone, meanings: List<Meaning>, preBind: String?, postBind: String?): List<ObjectId> {
             ids.forEach { snap.snapshot(it)?.let { lki -> snapshots += lki } }
-            // With what was seen of each as it left (CR 608.2h): its last known power, not its printed one
-            val zc = Changes.move(recorder.state, ids, to, meanings = meanings)
-            recorder.record(zc.copy(moves = zc.moves.map { m -> m.copy(seen = snap.snapshot(m.before.id)) }))
+            // One event through the pipeline (CR 614): where each goes may be replaced (unearth's exile, madness); each
+            // keeps what was seen of it as it left (CR 608.2h)
+            val moved = Actions.move(act, cause, ids.map { PlannedMove(it, to, meanings = meanings) })
             preBind?.let { bound[it] = NamedValue.Objects(ids) }
-            postBind?.let { bound[it] = NamedValue.Objects(ids.map { id -> (id as ObjectId.Card).next() }) }
+            val after = ids.mapNotNull { moved[it] }
+            postBind?.let { bound[it] = NamedValue.Objects(after) }
+            return after
         }
         when (val part = kp.part) {
             // CR 302.6, 602.5a: checked when activating; {T} taps the source
@@ -240,8 +276,8 @@ internal object Payment {
             is CostPart.Exile -> {
                 val ids = objects(part.what)
                 check(ids, part.from)
-                move(ids, Zone.Exile, emptyList(), part.preBind, part.postBind)
-                part.remember?.let { bound[it] = NamedValue.Objects(ids.map { id -> (id as ObjectId.Card).next() }) }
+                val after = move(ids, Zone.Exile, emptyList(), part.preBind, part.postBind)
+                part.remember?.let { bound[it] = NamedValue.Objects(after) }
             }
             is CostPart.ReturnToHand -> {
                 val ids = objects(part.what)
@@ -275,14 +311,16 @@ internal object Payment {
             }
             is CostPart.PutCounters -> {
                 val n = eval.value(part.amount)
-                objects(part.on).forEach { id -> recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), part.kind, n, listOf(Meaning.Paid))) }
+                // CR 122.6, 614.1a: counters put as a cost are put on it: replacements that change counters being put apply
+                objects(part.on).forEach { id -> Actions.putCounters(act, cause, TargetRef.Object(id), part.kind, n, listOf(Meaning.Paid)) }
             }
             is CostPart.Loyalty -> {
                 // CR 606.4, 606.6: put or remove loyalty counters; a negative cost needs that many
                 val n = eval.value(part.amount)
                 val o = s.obj(plan.sourceId) ?: refuse("It's gone")
                 if (n < 0 && o.counters(CounterKind.Loyalty) < -n) refuse("Not enough loyalty")
-                if (n != 0) recorder.record(Changes.counters(s, TargetRef.Object(plan.sourceId), CounterKind.Loyalty, n, listOf(Meaning.Paid)))
+                if (n > 0) Actions.putCounters(act, cause, TargetRef.Object(plan.sourceId), CounterKind.Loyalty, n, listOf(Meaning.Paid))
+                else if (n < 0) recorder.record(Changes.counters(s, TargetRef.Object(plan.sourceId), CounterKind.Loyalty, n, listOf(Meaning.Paid)))
             }
             is CostPart.Mill -> {
                 val n = eval.value(part.count)
@@ -448,7 +486,8 @@ internal object Payment {
     }
 
     /** CR 116.2: a special action happens at once; turning face up and moving itself are done here, the rest by hand. */
-    private fun finishSpecialAction(recorder: Recorder, plan: Plan, from: Int): Progress {
+    private fun finishSpecialAction(act: Act, plan: Plan): Progress {
+        val recorder = act.recorder
         val action = plan.ability as Ability.SpecialAction
         val leftover = mutableListOf<Step>()
         var self = plan.sourceId
@@ -462,14 +501,13 @@ internal object Payment {
                     val o = recorder.state.objOrThrow(self)
                     recorder.record(Change.Restamped(self, o.timestamp, recorder.state.nextTimestamp()))
                     effect.counters.forEach { c ->
-                        val n = plan.eval.value(c.amount)
-                        recorder.record(Changes.counters(recorder.state, TargetRef.Object(self), c.kind, n))
+                        Actions.putCounters(act, costCause(plan), TargetRef.Object(self), c.kind, plan.eval.value(c.amount))
                     }
                 }
                 effect is Effect.Move && effect.objects == Objects.Self && effect.to.attacking == null -> {
                     val counters = effect.to.counters.map { it.kind to plan.eval.value(it.amount) }
-                    recorder.record(Changes.move(recorder.state, listOf(self), effect.to.zone, counters = counters, faceDown = effect.to.faceDown))
-                    self = (self as ObjectId.Card).next()
+                    val moved = Actions.move(act, costCause(plan), listOf(PlannedMove(self, effect.to.zone, faceDown = effect.to.faceDown, counters = counters)))
+                    self = moved[self] ?: (self as ObjectId.Card).next()
                 }
                 else -> leftover += step
             }

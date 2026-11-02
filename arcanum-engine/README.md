@@ -80,44 +80,56 @@ turn goes on without them (CR 800.4j).
   and game.
 - Done, the game flow: `options` (exact, see above); priority
   (CR 117) and steps with their turn-based actions (untap with phasing and stun, the draw and
-  the first-turn skip flag `GameState.skipFirstDraw`, cleanup discard and damage removal,
+  the first-turn skip flag `GameState.skipFirstDraw`, cleanup discard (through the event pipeline, so madness
+  applies) and damage removal, another cleanup step after priority in one (CR 514.3a),
   durations ending, mana emptying), N players and extra turns; playing lands (extra land plays,
   permissions, modal double-faced lands); casting (CR 601.2) and activating (CR 602, 606) as a
   continuation: modes, optional costs, X, targets with hexproof/shroud/protection, division,
-  "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8), cancel;
+  "A or B" costs, objects for costs, mana payment with a suggested tapping (§7.8), cancel; the
+  events of paying (sacrifice, discard, exile, return, mill, counters put, delve's exile) go through
+  the event pipeline, so replacements apply (unearth, madness, counter replacements), and a
+  replacement decision while paying waits (`Choices.paying`, D29);
   alternative costs and permissions (evoke, flashback, escape, overload, retrace, morph, "rather
   than pay"), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
   mana abilities without the Stack (their other effects at once, a part needing a decision
   by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
   once (CR 605.4a); special actions (suspend, turning face up); combat:
-  declarations with their restrictions, first/double strike steps, trample, deathtouch,
-  lifelink, infect, wither, toxic, dividing damage. A spell becomes cast with the
+  declarations with their restrictions and as many requirements as they allow (CR 508.1d, 509.1c),
+  the last blockers declaration making attackers blocked or unblocked in the same change (CR 509.1h),
+  removal from combat checked after every event (CR 506.4), first/double strike steps, trample,
+  deathtouch, lifelink, infect, wither, toxic, dividing damage as its controller chooses whenever
+  more than one division is legal (CR 510.1c–d, 702.19b; `Decision.Divide.suggested` gives one). A spell becomes cast with the
   `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
   under `name@position` (`targetKey`).
 - Done, what happens (`action/`, `resolution/`, `trigger/`, `sba/`): the event pipeline
   (`Actions`; every game action of effects, state-based and turn-based actions): zone changes
-  with new ids, last known information and "as enters" steps, damage with protection,
-  prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
+  with new ids, last known information and "as enters" steps, counters a permanent or token enters
+  with put on it through counter replacements (CR 122.6, one entry per kind), damage with
+  protection, prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
   deathtouch, lifelink, toxic and excess; life, counters, tapping, tokens (D35 ids), draws,
   mills, discards (cards put into one library position together in their owner's order, CR
   401.4), host-ordered shuffles (D25) and host fills (D60); mana costs paid while resolving
   ("unless … pays", ward) with a payment decision, not asked when they can't be paid (CR
   118.3). Replacement effects
   (CR 614, 616): own replacements first, control, copy, transformed, then the affected player's
-  order when it matters; each once per event; "instead", modifications, optional ones, linked
+  order when it matters, prevention effects among them (CR 616.1: not asked when one prevents all
+  and the others only change the amount, or when only prevention is left: shields last); each once per event; "instead", modifications, optional ones, linked
   "when applied" triggers, one-use shields and regeneration (D26). Resolution (CR 608): target
   re-check and fizzling, partial legality, every `Step` and every `Effect` (keyword actions
   without a table entry are done directly or by hand), effect objects with locked sets (CR
-  611.2c), delayed and reflexive triggers, copies of spells, casting from an effect (CR 608.2g) with the casting
-  flow's own plan (face, modes, optional costs, X, targets, cost objects, mana; without paying its mana cost with X 0,
-  for another cost such as madness, or for its own; not cast without legal targets), the card going to the graveyard/exile/battlefield (an
+  611.2c), delayed and reflexive triggers (snapshots of objects that already left, CR 608.2h), "until"
+  returns as a one-shot effect right after the event without the Stack (CR 610.3), copies of spells, casting from an
+  effect (CR 608.2g) with the casting flow's own plan (face, modes, optional costs, X, targets, cost objects, mana;
+  without paying its mana cost with X 0, for another cost such as madness, or for its own; not cast without legal
+  targets), the card going to the graveyard/exile/battlefield (an
   Adventure to exile, castable from there as the creature, CR 715.4); mana paid on resolution as a
   `ManaPayment` decision (by hand when no payment is found). Permanents enter with their printed
   loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
   draw step (CR 714.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
   Triggers: detection as each event is recorded, looking back for CR 603.10a events, batches,
-  "nth this turn", per-turn limits, intervening and trigger-only conditions, state triggers,
+  "nth this turn" (counting batches for "one or more"), per-turn limits (counting waiting triggers),
+  intervening and trigger-only conditions (an object that left is in no zone, CR 400.7), state triggers,
   chapters, "triggers an additional time"; waiting triggers in `GameState.triggered`, put on
   the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
   State-based actions (CR 704.5a–q,
@@ -126,17 +138,14 @@ turn goes on without them (CR 800.4j).
   `Events.run` and wait with `Continuation.Event`.
 - Done, the game around it (`setup/`): starting a game (CR 103) with companions and London mulligans, conceding,
   the end of the game (CR 104) and players leaving a multiplayer game (CR 800.4a, j, k).
-- Not yet: replacement effects on the zone
-  changes of costs (a creature sacrificed or a card discarded as a cost), counter replacements on
-  the counters a permanent enters with (CR 122.6), additional combat
+- Not yet: paying life through life-loss replacements, additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   cycling/crewing/saddling/expending/day-night events, `CountersPut.causedBy`, `nthThisTurn`'s
   `during`, "do this only once each turn", repeated target slot names of repeated modes
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs, battles as attack targets,
   splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
-  up; a card exiled "until" an event comes back by a delayed trigger on the Stack, not at once
-  (CR 610.3; kept as TriggerTest has it until the owner decides). Also missing: text-changing
+  up. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only), the Inspect breakdown of where a value comes from. Around the game: opening-hand actions (CR 103.6) and
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant

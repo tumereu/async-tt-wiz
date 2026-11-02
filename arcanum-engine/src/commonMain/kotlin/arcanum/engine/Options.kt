@@ -39,8 +39,9 @@ import arcanum.engine.view.Subtypes
  *   allowed, and any allowed answer is accepted. Random results and host fills (D25, D60) are the host's to answer and
  *   aren't listed. Any player may answer (P7), so answers are offered to everyone; [Input.Cancel] for a cast or an
  *   activation only to the player casting or activating it.
- * - While attackers or blockers are awaited: declaring none, and each single legal attack or block; the declaration
- *   inputs accept any legal combination.
+ * - While attackers or blockers are awaited: the least declaration that obeys the requirements (none when there are
+ *   none, CR 508.1d, 509.1c), and it with each one more legal attack or block (or an attacker's other target); the
+ *   declaration inputs accept any legal combination.
  * - With priority: passing, each land they may play, each spell they may begin to cast (every castable face, from the
  *   hand or with a permission, a permission for the hand too, and each alternative cost that applies) and each ability
  *   they may activate, mana abilities included. A cast or activation is listed when it can be begun, everything known at
@@ -97,7 +98,10 @@ internal object Options {
         is Decision.Announce -> (d.min..(d.max ?: Int.MAX_VALUE).coerceAtMost(d.min + 3)).map { Answer.Number(it) }
         is Decision.ChooseNumber -> listOfNotNull(d.min, d.max).map { Answer.Number(it) }
         is Decision.ManaPayment -> if (d.suggestion.isNotEmpty()) listOf(Answer.ManaPayment(d.suggestion)) else emptyList()
-        is Decision.Divide -> if (d.among.isNotEmpty()) listOf(Answer.Division(evenly(d.amount, d)), Answer.Division(toFirst(d))) else emptyList()
+        is Decision.Divide -> if (d.among.isNotEmpty()) {
+            listOfNotNull(d.suggested.takeIf { it.isNotEmpty() }?.let { Answer.Division(it) },
+                Answer.Division(evenly(d.amount, d)), Answer.Division(toFirst(d)))
+        } else emptyList()
         is Decision.OrderTriggers -> listOf(Answer.Order(d.triggers.map { it.index }))
         is Decision.ChooseReplacement -> d.options.map { Answer.Replacement(it.index) }
         is Decision.LegendRule -> d.among.map { Answer.Keep(it) }
@@ -167,14 +171,30 @@ internal object Options {
             s.combat == null -> {
                 if (player != s.turn.active) return emptyList()
                 val targets = CombatRules.attackTargets(snap, player)
-                listOf(Input.DeclareAttackers(player, emptyList())) + s.battlefield.flatMap { id ->
-                    targets.filter { CombatRules.canAttack(snap, player, id, it) }.map { Input.DeclareAttackers(player, listOf(Attack(id, it))) }
-                }.filter { CombatRules.illegalAttack(snap, player, it.attacks) == null }
+                // CR 508.1d: from the least that obeys the requirements (none without any), one more attacker, another
+                // target, or another attacker in place of one
+                val base = CombatRules.requiredAttack(snap, player)
+                val retargeted = base.flatMap { a ->
+                    targets.filter { it != a.target && CombatRules.canAttack(snap, player, a.attacker, it) }
+                        .map { t -> base.map { if (it.attacker == a.attacker) Attack(a.attacker, t) else it } }
+                }
+                val others = s.battlefield.filter { id -> base.none { it.attacker == id } }.flatMap { id ->
+                    targets.filter { CombatRules.canAttack(snap, player, id, it) }.map { Attack(id, it) }
+                }
+                // Another creature instead of one that must attack (when a restriction lets only some of them)
+                val swapped = base.flatMap { a -> others.map { o -> base - a + o } }
+                (listOf(base) + retargeted + others.map { base + it } + swapped).distinct().filter { CombatRules.illegalAttack(snap, player, it) == null }
+                    .map { Input.DeclareAttackers(player, it) }
             }
-            player in Combat.pendingDefenders(snap) -> listOf(Input.DeclareBlockers(player, emptyList())) +
-                s.battlefield.flatMap { b ->
-                    s.combat!!.attackers.filter { CombatRules.canBlock(snap, player, b, it.id) }.map { a -> Input.DeclareBlockers(player, listOf(Block(b, a.id))) }
-                }.filter { CombatRules.illegalBlock(snap, player, it.blocks) == null }
+            player in Combat.pendingDefenders(snap) -> {
+                // CR 509.1c: from the least that obeys the requirements (none without any), one more block
+                val base = CombatRules.requiredBlock(snap, player)
+                val more = s.battlefield.flatMap { b ->
+                    s.combat!!.attackers.filter { CombatRules.canBlock(snap, player, b, it.id) }.map { a -> base + Block(b, a.id) }
+                }
+                (listOf(base) + more).distinct().filter { CombatRules.illegalBlock(snap, player, it) == null }
+                    .map { Input.DeclareBlockers(player, it) }
+            }
             else -> emptyList()
         }
     }

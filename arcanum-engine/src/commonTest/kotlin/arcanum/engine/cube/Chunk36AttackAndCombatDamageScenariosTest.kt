@@ -79,7 +79,6 @@ class Chunk36AttackAndCombatDamageScenariosTest {
 
     /** Discarded to pay a cost, it is exiled for madness too. */
     // CR 702.35a, 614.1: a discard to pay a cost is a discard
-    @Ignore("engine: zone changes paying a cost (discard, sacrifice, exile) skip replacement effects, so madness misses a discard cost")
     @Test
     fun kaelsMarauderMadnessFromACost() = scenario {
         alice.battlefield("Tombcracker", "Swamp", "Swamp", "Mountain", "Mountain")

@@ -66,4 +66,7 @@ data class DelayedTrigger(
     val names: Bindings = Bindings.EMPTY,
     /** Snapshots of the objects it refers to (D21). */
     val snapshots: List<ObjectSnapshot> = emptyList(),
+    /** Not a triggered ability: the second one-shot effect of an "until" (CR 610.3), done right after its event without
+     * the Stack. */
+    val oneShot: Boolean = false,
 )

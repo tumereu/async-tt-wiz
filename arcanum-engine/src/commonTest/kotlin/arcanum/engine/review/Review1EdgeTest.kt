@@ -96,7 +96,6 @@ class Review1EdgeTest {
 
     /** A prevention effect and a replacement effect on the same damage: the affected player chooses the order. */
     // CR 616.1, 616.1e, 615.1
-    @Ignore("review1 #15: prevention always applies after replacement effects; the affected player doesn't choose the order")
     @Test
     fun affectedPlayerOrdersPreventionAndReplacement() = scenario {
         alice.battlefield(doubler, "Mountain")
@@ -110,7 +109,6 @@ class Review1EdgeTest {
 
     /** A discard in the cleanup step that triggers (madness) gives priority there and another cleanup step follows. */
     // CR 514.3a, 702.35a
-    @Ignore("review1 #16: the cleanup discard bypasses replacement effects (madness, exile-instead)")
     @Test
     fun madnessInTheCleanupStep() = scenario {
         turn(number = 3, step = TurnStep.End)
@@ -151,7 +149,6 @@ class Review1EdgeTest {
 
     /** A creature that must attack: "declare no attackers" isn't offered. */
     // CR 508.1d
-    @Ignore("review1 #14: options always offer declaring no attackers, also when a creature must attack")
     @Test
     fun noEmptyAttackOfferedWhenACreatureMustAttack() = scenario {
         alice.battlefield("Kael's Marauder")

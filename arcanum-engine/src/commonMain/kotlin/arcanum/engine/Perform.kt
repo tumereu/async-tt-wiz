@@ -85,7 +85,7 @@ internal object Perform {
             is Continuation.StateBased -> StateBasedActions.resume(recorder, continuation, answer)
             is Continuation.TurnBased -> when (continuation.action) {
                 is TurnAction.CombatDamage -> Combat.resume(recorder, continuation, answer)
-                TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, answer)
+                is TurnAction.CleanupDiscard -> Steps.resumeCleanup(recorder, continuation.action, answer)
             }
             is Continuation.Setup -> Setup.resume(recorder, continuation, answer)
         }
@@ -104,6 +104,8 @@ internal object Perform {
     fun checks(recorder: Recorder): Progress {
         while (true) {
             val before = recorder.changes.size
+            // CR 506.4: also after changes made by hand (D42), which don't pass through the engine's events
+            Combat.removeWhatLeft(recorder)
             (StateBasedActions.check(recorder) as? Progress.Waiting)?.let { return it }
             // CR 104.2a: one player left wins at once; CR 800.4a: in a game that goes on, players who lost leave it
             if (GameEnd.over(recorder.state)) return Progress.Done

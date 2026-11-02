@@ -27,6 +27,7 @@ import arcanum.engine.view.Characteristics
  * One replacement effect that could apply (CR 614): its [mechanic], whose "you" is [controller], from [source] (a static
  * ability) or [effect] (an effect object, a shield), with the [names] it uses. [own] marks a spell's or ability's own
  * replacement (CR 614.15), applied first (CR 616.1a). [key] tells it apart, so each applies once per event (CR 614.5).
+ * A [prevention] effect (CR 615) takes part in the same choice of order (CR 616.1): [mechanic] then holds only its event.
  */
 internal data class Replacement(
     val mechanic: Mechanic.Replacement,
@@ -36,7 +37,23 @@ internal data class Replacement(
     val effect: EffectId?,
     val own: Boolean,
     val key: String,
+    val prevention: Prevention? = null,
 )
+
+/** What a prevention effect among the replacements of a damage event prevents (CR 615, 616.1). */
+internal sealed interface Prevention {
+    /** All damage to [recipient] from sources [from] matches (protection, CR 702.16e). */
+    data class Protection(val from: arcanum.api.ObjectFilter, val recipient: ObjectId) : Prevention
+
+    /** All of the damage, or [each] of each such damage event. */
+    data class Amount(val each: arcanum.api.Value?) : Prevention
+
+    /** Up to the amount left on a shield (CR 615.7, D26), used up as it prevents. */
+    data class Shield(val effect: EffectId) : Prevention
+
+    /** Prevents all of the damage, whatever the amount. */
+    val all: Boolean get() = this is Protection || (this is Amount && each == null)
+}
 
 /**
  * Finding and applying replacement effects to one event (CR 614, 616). The event is proposed as the change it would be;
@@ -75,6 +92,15 @@ internal object Replacements {
     /** The instances of the proposed [change] that [r] applies to (empty: it doesn't apply). */
     fun matches(act: Act, r: Replacement, change: Change, board: Board = act.board()): List<TriggerEvent> {
         val e = Evaluator(board, Context(you = r.controller, self = r.source, names = r.names))
+        val protection = r.prevention as? Prevention.Protection
+        if (protection != null) {
+            // CR 702.16e: damage to the protected permanent from a source with the quality
+            val hit = (change as? Change.Damage)?.dealt.orEmpty().any { d ->
+                d.recipient == arcanum.engine.state.TargetRef.Object(protection.recipient) &&
+                    e.with(Context(r.controller, protection.recipient)).matches(protection.from, d.source)
+            }
+            return if (hit) listOf(TriggerEvent()) else emptyList()
+        }
         return EventMatcher.instances(e, r.mechanic.event, change, proposed = true)
     }
 
@@ -83,7 +109,8 @@ internal object Replacements {
      * nothing left to replace); [modify] applies one replacement's modifications, returning the changed event or null
      * when it no longer happens ([Modification.Skip]). An "instead" replacement runs its instructions in place of the
      * event ([instead]) and the event doesn't happen: the result is null. [affected] chooses among replacements whose
-     * order matters (CR 616.1e). Linked "when applied" triggers (CR 603.11) are returned in [linked].
+     * order matters (CR 616.1e). Linked "when applied" triggers (CR 603.11) are returned in [linked]. [extra] are
+     * candidates of this event only (prevention effects, CR 616.1); [skip] leaves out candidates for the event as it is now.
      */
     fun <T> apply(
         act: Act, cause: Cause?, initial: T, affected: PlayerId, about: ObjectId?,
@@ -92,15 +119,16 @@ internal object Replacements {
         instead: (Replacement, TriggerEvent) -> Unit,
         linked: MutableList<WaitingTrigger>,
         board: (T) -> Board = { act.board() },
-        skip: (Replacement) -> Boolean = { false },
+        skip: (Replacement, T) -> Boolean = { _, _ -> false },
+        extra: List<Replacement> = emptyList(),
     ): T? {
-        val all = candidates(act, cause)
+        val all = candidates(act, cause) + extra
         if (all.isEmpty()) return initial
         val used = mutableSetOf<String>()
         var current = initial
         while (true) {
             val change = proposed(current) ?: return current
-            val matching = all.filter { it.key !in used && it.key !in act.replacing && !skip(it) }.mapNotNull { r ->
+            val matching = all.filter { it.key !in used && it.key !in act.replacing && !skip(it, current) }.mapNotNull { r ->
                 matches(act, r, change, board(current)).firstOrNull()?.let { r to it }
             }
             if (matching.isEmpty()) return current
@@ -125,17 +153,30 @@ internal object Replacements {
         matching.firstOrNull { (r, _) -> r.mechanic.modify.any { it is Modification.ChangeDestination && it.to.transformed } }?.let { return it }
         // Only ask when the order can matter: modifications that just add to how something enters commute.
         if (matching.size < 2 || matching.all { (r, _) -> commutes(r) }) return matching.first()
+        // CR 616.1e with prevention effects: the order can't matter when one prevents all of the damage and the others
+        // only prevent or change the amount (none is left either way); among prevention effects only, those that aren't
+        // used up go first, then shields oldest first, so no shield is used up for nothing (P5)
+        val preventions = matching.filter { it.first.prevention != null }
+        if (preventions.isNotEmpty()) {
+            val all = preventions.firstOrNull { it.first.prevention!!.all }
+            if (all != null && matching.all { (r, _) -> r.prevention != null || onlyAmount(r) }) return all
+            if (preventions.size == matching.size) return preventions.sortedBy { if (it.first.prevention is Prevention.Shield) 1 else 0 }.first()
+        }
         val options = matching.mapIndexed { i, (r, _) -> ReplacementOption(i, r.source, describe(r)) }
         val chosen = (act.asker.ask { Decision.ChooseReplacement(it, affected, about, options) } as Answer.Replacement).index
         return matching.getOrNull(chosen) ?: throw IllegalArgumentException("No replacement $chosen")
     }
 
-    private fun commutes(r: Replacement): Boolean = r.mechanic.instead == null && r.mechanic.modify.all {
+    /** Only changes the amount: doubling, "that much plus one". */
+    private fun onlyAmount(r: Replacement): Boolean = r.prevention == null && r.mechanic.instead == null && r.mechanic.whenApplied == null &&
+        !r.mechanic.optional && r.mechanic.modify.isNotEmpty() && r.mechanic.modify.all { it is Modification.MultiplyAmount || it is Modification.AddAmount }
+
+    private fun commutes(r: Replacement): Boolean = r.prevention == null && r.mechanic.instead == null && r.mechanic.modify.all {
         it is Modification.EntersTapped || it is Modification.EntersWithCounters || it is Modification.EntersWithAbilities ||
             it is Modification.AsEnters
     }
 
-    private fun describe(r: Replacement): String = r.mechanic.toString().take(120)
+    private fun describe(r: Replacement): String = (r.prevention?.let { "Prevent: $it" } ?: r.mechanic.toString()).take(120)
 
     /** A shield with a count ("the next time …", regeneration) is used once more (D26). */
     private fun useUp(act: Act, r: Replacement) {
@@ -172,4 +213,6 @@ internal class ProposedBoard(private val base: Board, private val extra: Map<Obj
     override fun snapshot(id: ObjectId): ObjectSnapshot? = extra[id]?.let {
         ObjectSnapshot(it.id, it.owner, it.controller, it.zone, arcanum.engine.query.Lki.printed(it), it.counters, token = it.token)
     } ?: base.snapshot(id)
+
+    override fun proposedZone(id: ObjectId): arcanum.api.Zone? = extra[id]?.zone ?: base.proposedZone(id)
 }

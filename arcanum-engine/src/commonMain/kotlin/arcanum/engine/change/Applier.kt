@@ -218,6 +218,8 @@ internal object Applier {
 
     private fun insert(state: GameState, obj: GameObject, index: Int) {
         check(obj.id !in state.objects) { "Object ${obj.id} exists already" }
+        // One entry per counter kind (CR 122.1): counters of a kind add up
+        check(obj.counters.distinctBy { it.kind }.size == obj.counters.size) { "Object ${obj.id} has two entries of one counter kind: ${obj.counters}" }
         val zone = state.zone(obj.zone, obj.owner)
         check(index in 0..zone.size) { "Position $index is outside ${obj.zone} (size ${zone.size})" }
         state.objects[obj.id] = obj

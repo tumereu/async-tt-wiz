@@ -87,12 +87,15 @@ data class CombatState(
     /** The creatures that assigned combat damage in a first-strike step (CR 510.4, 702.4c–d); null when there was
      * none this combat. */
     val firstStrikers: List<ObjectId>? = null,
+    /** CR 509.1h: every defending player has declared blockers, so each attacker is now blocked or unblocked
+     * ([Attacker.blocked]); an attacker put onto the battlefield after that is unblocked (CR 508.4d). */
+    val blocksDecided: Boolean = false,
 )
 
 /** [id] attacks [target] (a player, planeswalker or battle); [blocked] once blockers are declared (CR 509.1h). */
 @Serializable
 data class Attacker(val id: ObjectId, val target: TargetRef, val blocked: Boolean = false)
 
-/** [id] blocks [attackers]. */
+/** [id] blocks [attackers]; [player] is the defending player who declared it (CR 509.1g), null when unknown. */
 @Serializable
-data class Blocker(val id: ObjectId, val attackers: List<ObjectId>)
+data class Blocker(val id: ObjectId, val attackers: List<ObjectId>, val player: PlayerId? = null)

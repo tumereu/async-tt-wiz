@@ -88,6 +88,11 @@ internal object Casting {
             require(answer == Answer.Done) { "Answer the manual step with Done" }
             return Progress.Done
         }
+        // A payment that waited for a decision is redone with the answers so far (D29)
+        continuation.choices.paying?.let { paying ->
+            return Payment.finish(recorder, continuation.copy(choices = continuation.choices.copy(paying = null)), paying.uses, start,
+                paying.answers + answer)
+        }
         val plan = Plan(recorder.state, continuation)
         val q = plan.next() ?: throw IllegalStateException("Nothing was asked")
         if (q is Question.Pay) {

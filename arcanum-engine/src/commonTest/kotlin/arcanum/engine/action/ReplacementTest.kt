@@ -93,9 +93,8 @@ class ReplacementTest {
         expect { bob.life shouldBe 14 }
     }
 
-    // CR 615.7, 616.1: doubled first (the affected player's order here: replacements, then shields), then the shield
-    @Test
-    fun doubledDamageThenAShield() = scenario {
+    /** Bob's shield against alice's doubled Storm Spark: bob orders the doubling and the shield; [doubleFirst] picks. */
+    private fun doubledDamageAndAShield(doubleFirst: Boolean) = scenario {
         alice.battlefield(doubler)
         alice.hand("Storm Spark")
         /** "Prevent the next 2 damage that would be dealt to you this turn." */
@@ -108,8 +107,22 @@ class ReplacementTest {
         alice.castsWithoutCosts("Storm Spark", target = "bob")
         resolve()
 
-        expect { bob.life shouldBe 16 }
+        val d = decision<Decision.ChooseReplacement>()
+        assertEquals(bob.id, d.player)
+        val doubling = d.options.single { it.source == card("Test Fire Within") }
+        answer(Answer.Replacement(if (doubleFirst) doubling.index else d.options.single { it != doubling }.index))
+        // Doubled first: 6, 2 prevented; prevented first: 1 left, doubled to 2
+        expect { bob.life shouldBe if (doubleFirst) 16 else 18 }
     }
+
+    // CR 615.7, 616.1, 616.1e: the affected player chooses the order of a replacement and a prevention effect: doubled
+    // first, then the shield
+    @Test
+    fun doubledDamageThenAShield() = doubledDamageAndAShield(doubleFirst = true)
+
+    // CR 615.7, 616.1, 616.1e: the shield first, then what is left doubled
+    @Test
+    fun shieldThenDoubledDamage() = doubledDamageAndAShield(doubleFirst = false)
 
     // CR 615.1: "Prevent all damage that would be dealt to you"
     @Test

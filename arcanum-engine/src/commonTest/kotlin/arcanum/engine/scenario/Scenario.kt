@@ -384,6 +384,9 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     /** The open decision as a [T], for expectations. */
     inline fun <reified T : Decision> decision(): T = (pending as? T) ?: fail("Expected a ${T::class.simpleName}, not $pending")
 
+    /** Answers the open division (combat damage, CR 510.1c–d) with the engine's suggestion. */
+    fun divideAsSuggested(): Outcome = answer(Answer.Division(decision<Decision.Divide>().suggested))
+
     /** Declares no attackers or no blockers for every player the game waits for (CR 508.1, 509.1). */
     fun declareNone() {
         val inputs = players.flatMap { p -> Engine.options(state, p.id) }.filter {

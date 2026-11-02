@@ -63,7 +63,9 @@ object Changes {
                 token = before.token,
                 tapped = tapped,
                 faceDown = faceDown,
-                counters = counters.map { (kind, n) -> CounterEntry(kind, n, stamp) },
+                // One entry per kind: counters of one kind it enters with add up (CR 122.6)
+                counters = counters.groupBy({ it.first }, { it.second }).map { (kind, n) -> CounterEntry(kind, n.sum(), stamp) }
+                    .filter { it.count > 0 },
                 timestamp = stamp,
                 controlSince = if (to == Zone.Battlefield) ControlSince(newController!!, state.turn.number) else null,
                 facts = if (keepsCastFacts) before.facts.copy(activations = emptyList(), resolutions = emptyList(), triggers = emptyList())
@@ -145,7 +147,8 @@ object Meanings {
 
 /** Applies changes to a working state as they are made and keeps them, in order: one engine call's result (D58).
  * After each event change, the triggered abilities it triggers are found ([arcanum.engine.trigger.Triggers.detect],
- * CR 603.2), looking back in time where CR 603.10 says, and recorded as waiting. */
+ * CR 603.2), looking back in time where CR 603.10 says, and recorded as waiting; then what the event took out of combat
+ * is removed from it ([arcanum.engine.combat.Combat.removeWhatLeft], CR 506.4). */
 internal class Recorder(val state: GameState) {
     val changes = mutableListOf<Change>()
 
@@ -154,6 +157,8 @@ internal class Recorder(val state: GameState) {
         state.apply(change)
         changes += change
         if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before)
+        // CR 506.4: what an event takes out of combat leaves it at once (combat changes set combat as they mean it)
+        if (change.isEvent && change !is Change.Combat) arcanum.engine.combat.Combat.removeWhatLeft(this)
     }
 
     /** Takes back every change after the first [size] (a step that stopped for a decision is redone from its start

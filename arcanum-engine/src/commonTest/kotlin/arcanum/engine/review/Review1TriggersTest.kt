@@ -34,7 +34,6 @@ class Review1TriggersTest {
 
     /** "This ability triggers only once each turn": two leave events before anyone gets priority trigger it once. */
     // CR 603.2, 603.3
-    @Ignore("review1 #8: a once-each-turn trigger triggers again for a second event before the first is put on the Stack")
     @Test
     fun onceEachTurnWithTwoEventsBeforePriority() = scenario {
         alice.battlefield("Demon-Cult Forge", "Sun Band", "Tinkered Mite", "Swamp", "Mountain", "Mountain")
@@ -50,7 +49,6 @@ class Review1TriggersTest {
 
     /** An intervening "if" is checked again on resolution: the card that left the graveyard makes no token. */
     // CR 603.4
-    @Ignore("review1 #9: the intervening if is rechecked on the source as it last existed, not the game now")
     @Test
     fun interveningIfCheckedAgainOnResolution() = scenario {
         alice.graveyard("Stairway from the Depths")
@@ -192,7 +190,6 @@ class Review1TriggersTest {
     /** "Whenever you discard one or more cards for the first time each turn, draw that many": a discard of two draws
      * two. */
     // CR 603.2c
-    @Ignore("review1 #11: first-time-each-turn batches keep only one card of the batch: that-many is 1")
     @Test
     fun oneOrMoreDiscardsAreOneBatch() = scenario {
         alice.battlefield("Ysolde, the Unbound Scholar", "Mountain")

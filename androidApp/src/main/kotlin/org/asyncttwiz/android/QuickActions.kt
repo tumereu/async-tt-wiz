@@ -31,7 +31,10 @@ data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: 
     /** [CombatDamage.recentDamageEdits] on the shown path; only read at Combat damage. */
     val combatDamageEdits: Int = 0,
     /** Automatum on (I3): what the engine allows in combat now, once worked out ([automatumCombatQuickActions]). */
-    val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null)
+    val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null,
+    /** CMB-028: the active attack target lane (null: the defending player) and its name, for "Rest → <target>". */
+    val combatTarget: String? = null, val combatTargetName: String = "")
+
 /** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
     val enabled: Boolean = true, val refused: String? = null)
@@ -82,7 +85,9 @@ object QuickActions {
                 add("Draw one + next", "↓", controller.draw(play, true), "↦")
             }
             TurnPosition.PRECOMBAT_MAIN -> {
-                add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = true))
+                // CMB-028: with Automatum on "Attack" goes on to the declare attackers step, where taps stage attackers
+                if (play.board.automatum) add("Attack", "", choose(TurnPosition.DECLARE_ATTACKERS))
+                else add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = true))
                 add("Skip combat", "", choose(TurnPosition.END_STEP))
             }
             TurnPosition.DECLARE_ATTACKERS -> if (context.selectedSourceIds.isNotEmpty()) {
@@ -126,8 +131,8 @@ object QuickActions {
         is TableActionIntent.Bundle -> intent.actions.any(::manualIntent)
         is TableActionIntent.Untap, is TableActionIntent.Draw, is TableActionIntent.Library, is TableActionIntent.Orient,
         is TableActionIntent.Token -> true
-        is TableActionIntent.Combat -> intent.tool != CombatTool.AUTOMATUM_DECLARE && intent.tool != CombatTool.AUTOMATUM_PASS &&
-            intent.tool != CombatTool.DECLARE
+        is TableActionIntent.Combat -> intent.tool !in setOf(CombatTool.AUTOMATUM_DECLARE, CombatTool.AUTOMATUM_PASS,
+            CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR, CombatTool.AUTOMATUM_NO_BLOCKS, CombatTool.DECLARE)
         else -> false
     }
 }

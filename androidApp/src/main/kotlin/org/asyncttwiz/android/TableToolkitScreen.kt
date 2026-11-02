@@ -35,6 +35,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
     val context = toolkitQuickContext(play, selection, toolkit.viewer).copy(automatumCombat = toolkit.combat.ready(play))
+        .withCombatTarget(toolkit.combat, play, CombatStackRules.defendingPlayer(play.board)?.let { names[it] })
     val bound = toolkit.capture
     val popup = toolkit.popupItem
     fun editProjectionNote(id: String) {

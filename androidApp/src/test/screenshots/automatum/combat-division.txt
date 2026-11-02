@@ -1,1 +1,1 @@
-Bob blocked Alice's Ironhide Brute (5/5, trample) with Hill Ogre: in the damage step Alice divides its 5 damage in the panel by the Stack, filled in with Automatum's suggestion, 3 to the Ogre (lethal 3) and 2 to Bob.
+Bob blocked Alice's Ironhide Brute (5/5 trample) with Hill Ogre and Gate Warden: in the damage step Alice's division dialog, In order, after dragging the Warden first: 3 to the Warden (lethal ☠), 2 to the Ogre, 0 to Bob.

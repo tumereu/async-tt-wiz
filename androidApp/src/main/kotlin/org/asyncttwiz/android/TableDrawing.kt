@@ -49,14 +49,42 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     scene.world?.let { world -> world.horizontalBand(TableBounds(0f, scene.fields.first().gridBounds.bottom,
         0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)) }?.let { b ->
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
-            drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height))
-            for ((from, to) in scene.combatDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.SLOT_DIVIDER_ALPHA),
-                xy(from.x, from.y), xy(to.x, to.y), CombatStackPresentation.slotDividerStroke(scene.cardWidth) * density)
+            // CMB-007: the battlefields' own colours reach into the band between them; the combat area is a panel on it,
+            // sized to its content
+            val upper = scene.fields.first(); val lower = scene.fields.last()
+            drawRect(battlefieldColor(upper.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y), size(b.width, b.height / 2))
+            drawRect(battlefieldColor(lower.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y + b.height / 2), size(b.width, b.height / 2))
+            val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
+            if (port != null && scene.combatLabels.isNotEmpty()) {
+                val pad = 3f
+                val left = scene.combatLabels.minOf { it.bounds.x } - pad
+                val right = scene.combatLabels.maxOf { it.bounds.right } + pad
+                val top = port.y
+                val height = port.height
+                for (spread in 6 downTo 1) drawRoundRect(Color.Black.copy(alpha = .025f), xy(left - spread / 2f, top - pad + 1.5f - spread / 2f),
+                    size(right - left + spread, height + 2 * pad + spread), CornerRadius(8 * density))
+                drawRoundRect(Color(0xfffbfcfb), xy(left, top - pad), size(right - left, height + 2 * pad), CornerRadius(8 * density))
+                drawRoundRect(Color(0xffc9d2d0), xy(left, top - pad), size(right - left, height + 2 * pad), CornerRadius(8 * density),
+                    style = Stroke(density))
+            }
             for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA),
                 xy(from.x, from.y), xy(to.x, to.y), CombatStackPresentation.laneDividerStroke(scene.cardWidth) * density)
             for (label in scene.combatLabels) {
                 val bounds = label.bounds
                 val font = label.fontSize
+                // CMB-013: the header is a pill tinted with the target's side, its value at the right end
+                val tint = if (label.side == viewer) OwnTableColor else OpponentTableColor
+                val inset = label.inset
+                drawRoundRect(tint.copy(alpha = .13f), xy(bounds.x + inset, bounds.y + label.padding / 2),
+                    size((bounds.width - 2 * inset).coerceAtLeast(0f), bounds.height - label.padding), CornerRadius(bounds.height * density / 2))
+                if (label.value.isNotEmpty()) {
+                    paint.textSize = font * density; paint.isFakeBoldText = true
+                    val ink = paint.color
+                    paint.color = android.graphics.Color.rgb(0xb3, 0x26, 0x1e)
+                    fittedText(label.value, bounds.right - inset - label.padding, bounds.y + label.padding + font,
+                        bounds.width / 2, right = true)
+                    paint.color = ink
+                }
                 val thumb = TableBounds(bounds.x + label.inset, bounds.y + label.padding, label.artworkWidth, label.artworkHeight)
                 if (label.cardId != null) {
                     val image = label.artwork?.key?.let(artwork::get)

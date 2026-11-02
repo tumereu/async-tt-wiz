@@ -51,7 +51,11 @@ data class CombatGeometry(val width: Float, val height: Float, val cards: List<O
  * space kept free at each lane edge, so the icon and name never touch a lane separator. */
 data class CombatLaneLabel(val cardId: String?, val label: String, val lines: List<String>, val bounds: TableBounds,
     val artwork: org.asyncttwiz.storage.ArtworkReference? = null, val fontSize: Float = 11.5f,
-    val padding: Float = 2f, val accountId: String? = null, val inset: Float = padding) {
+    val padding: Float = 2f, val accountId: String? = null, val inset: Float = padding,
+    /** CMB-013: the target's life, loyalty or defense, at the header's right end (empty for a hidden target). */
+    val value: String = "",
+    /** Whose side the target is on (the defending player, or the card's controller), for the header's tint. */
+    val side: String? = null) {
     val lineHeight get() = fontSize * 1.25f
     val artworkHeight get() = lineHeight
     val artworkWidth get() = if (accountId != null) artworkHeight else artworkHeight / 1.4f
@@ -94,7 +98,12 @@ object CombatStackPresentation {
         }
     }.toFloat() * fontSize * 1.06f
 
-    fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.inset
+    /** Room for the name and, when the target has one, its value with the preview's "16 → 11" (CMB-013, CMB-029). */
+    fun laneWidth(lane: CombatLaneLabel) = lane.textInset + laneTextWidth(lane.label, lane.fontSize) + lane.inset +
+        if (lane.value.isEmpty()) 0f else laneTextWidth("  ${lane.value} → ${lane.value}", lane.fontSize)
+
+    /** CMB-031: the gap between the blocker and attacker rows, where the arrows are drawn. */
+    fun arrowGap(cardHeight: Float) = cardHeight * .5f
 
     /** Rules v28: face-up planeswalkers on the defending player's battlefield, then face-up battles (Sieges)
      * on the attacking player's own battlefield, each in battlefield order. */
@@ -146,9 +155,15 @@ object CombatStackPresentation {
                 else -> definitions.find { it.digest == targetCard?.definition }?.definition?.faces
                     ?.find { it.faceId == targetCard?.faceId }?.name ?: "Card"
             }
+            val value = when {
+                target == null -> board.players.firstOrNull { it.accountId == defender }?.life.orEmpty()
+                hidden -> ""
+                else -> targetCard?.corner.orEmpty()
+            }
+            val side = if (target == null) defender else board.containers.firstOrNull { it.id == targetCard?.containerId }?.accountId
             val lane = CombatLaneLabel(target, label, listOf(label), TableBounds(laneX, 0f, cardSpan, 0f), fontSize = font,
                 artwork = avatar?.let { org.asyncttwiz.storage.ArtworkReference(it.scryfallId, it.face, "avatar-v1", "art_crop") },
-                accountId = defender.takeIf { avatar != null }, inset = laneLabelInset(cardWidth))
+                accountId = defender.takeIf { avatar != null }, inset = laneLabelInset(cardWidth), value = value, side = side)
             // Icon and full name always fit on one row, empty lanes included; wide lanes widen the area, which then pans.
             val width = maxOf(cardSpan, laneWidth(lane))
             for (pair in members) pairWidths[pair.id] = slotWidth(pair.blockers.size, pair.attackers.size, cardWidth) +
@@ -160,8 +175,9 @@ object CombatStackPresentation {
         val labelHeight = maxOf(cardWidth * .5f, lanes.maxOf { it.lineHeight + 2 * it.padding })
         // The defender's view mirrors the attacker's: attackers on top, blockers below, labels at the bottom.
         val mirrored = viewer.isNotEmpty() && CombatStackRules.defendingPlayer(board) == viewer
-        fun rowY(role: CombatRole) = if (mirrored) { if (role == CombatRole.ATTACKER) 0f else rowHeight }
-            else labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight
+        val gap = arrowGap(cardHeight)
+        fun rowY(role: CombatRole) = if (mirrored) { if (role == CombatRole.ATTACKER) 0f else rowHeight + gap }
+            else labelHeight + if (role == CombatRole.BLOCKER) 0f else rowHeight + gap
         var x = 0f
         // [left]/[right]: a margin-wide gap just inside the pair starting/ending at [at], never narrowed;
         // [extend]: it also catches drops beyond that end of the area (only when nothing lies further out).
@@ -237,8 +253,8 @@ object CombatStackPresentation {
             insertion(null, pairs.first().id, edges.first().first, left = true, extend = edges.first().first < .01f)
             insertion(pairs.last().id, null, edges.last().second, right = true, extend = edges.last().second > x - .01f)
         }
-        return CombatGeometry(x, labelHeight + rowHeight * 2, cards, dividers, targets,
-            lanes.map { it.copy(bounds = it.bounds.copy(y = if (mirrored) rowHeight * 2 else 0f, height = labelHeight)) },
+        return CombatGeometry(x, labelHeight + rowHeight * 2 + gap, cards, dividers, targets,
+            lanes.map { it.copy(bounds = it.bounds.copy(y = if (mirrored) rowHeight * 2 + gap else 0f, height = labelHeight)) },
             laneDividers, labelHeight, mirrored)
     }
 

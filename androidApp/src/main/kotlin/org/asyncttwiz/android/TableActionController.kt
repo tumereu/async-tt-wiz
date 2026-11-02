@@ -10,7 +10,10 @@ enum class CombatTool { CREATE, CLOSE, DECLARE, DECLARE_AND_TAP, ADVANCE_AND_CLO
     // Experimental combat-damage shortcuts.
     DEAL_DAMAGE, FIRST_STRIKE_DAMAGE, REGULAR_DAMAGE, DAMAGE_CLOSE_AND_NEXT,
     // Automatum on (I3): declare what the lanes hold through the engine; pass priority on to the combat damage.
-    AUTOMATUM_DECLARE, AUTOMATUM_PASS }
+    AUTOMATUM_DECLARE, AUTOMATUM_PASS,
+    // Automatum on (CMB-028, CMB-034): stage the given creatures as attackers of the active target; clear the staging or
+    // the blocks; declare no blocks (clearing any first).
+    AUTOMATUM_STAGE, AUTOMATUM_CLEAR, AUTOMATUM_NO_BLOCKS }
 enum class EndingTool { SUGGEST_WIN, SUGGEST_LOSS, SUGGEST_DRAW, ACCEPT }
 
 /** Required semantic routes into the corresponding capability, never dummy menu buttons.

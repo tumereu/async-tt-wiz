@@ -23,6 +23,7 @@ import arcanum.engine.state.ObjectId
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.asyncttwiz.automatum.Divisions
 import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.protocol.*
 
@@ -52,6 +53,15 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
         // #8 (I-D33): a decision that opened with its early answer beside it (given while the batch opening it was on its
         // way) is answered with it by the client of whoever made the latest event, which is there to send it
         if (next?.early != null && toolkit.latestAuthor() == toolkit.viewer) flows.answerEarly()
+        // CMB-033: a division of combat damage whose order can't change anything is made with the suggestion at once, by
+        // the client that opened it or the dividing player's
+        else if (next != null && toolkit.enabled()) {
+            val division = next.division
+            val open = next.decision as? Decision.Divide
+            if (division != null && open != null && Divisions.orderFree(division) &&
+                (toolkit.latestAuthor() == toolkit.viewer || division.player == toolkit.viewer))
+                flows.answer(Answer.Division(open.suggested))
+        }
     }
     if (!shown) return
     val flow = flows.view?.takeIf { it.play.board === play.board } ?: return
@@ -63,10 +73,18 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     val decision = flow.decision
     val holder = flow.priority
     val bar = flows.targeting || (decision == null && holder == viewer && flows.responding == play.currentNodeId)
+    // CMB-033: a division of combat damage is a dialog of its own; one made by itself shows nothing meanwhile
+    val dialog = decision is Decision.Divide && flow.division != null
+    if (dialog && flows.answering != null && !flows.hidden && dividingInDialog(flow)) {
+        val division = flow.division!!
+        CombatDivisionDialog(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
+        return
+    }
     CastPanelPlacement(stack, if (bar) handRow?.center?.y else null) {
         when {
             decision != null && flows.answering != null -> when {
                 flows.targeting -> if (!toolkit.stackTargeting) FlowTargetBar(flows, flow, play, decision as Decision.Targets)
+                dialog -> if (dividingInDialog(flow)) DivisionHidden(flows)
                 flows.hidden -> HiddenEye(flows)
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
@@ -75,7 +93,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 WaitingBar("${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing — " +
                     prompt(flows, flow, play, decision), "Choose for them") { confirm = true }
                 // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
-                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer }?.let { early ->
+                toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && !Divisions.orderFree(it) }?.let { early ->
                     EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
                 }
             }

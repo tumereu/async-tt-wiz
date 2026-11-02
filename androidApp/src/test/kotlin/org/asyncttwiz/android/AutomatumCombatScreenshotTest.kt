@@ -37,9 +37,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Automatum I3b (integration spec I-D29, I-D32 interim, I-D33, I-D36): drags as Automatum actions, combat declared
- * through the engine on today's lanes with the damage preview, divisions pre-filled with the suggestion, a blocker
- * blocking two attackers ("+1"), the defender's division given early, and a Stack entry below the top picked as a target.
+ * Automatum I3b and the combat area redesign (integration spec I-D29, I-D32, I-D33, I-D36): drags as Automatum actions;
+ * attackers staged by taps, blockers assigned by taps (a blocker of two with two arrows), the damage preview with no
+ * separate prompt, the division dialog In order and Free, the defender's division given early, manual blocks by arrows
+ * with Automatum off, and a Stack entry below the top picked as a target.
  * Invented cards parsed from their oracle text as on a device.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -69,7 +70,10 @@ class AutomatumCombatScreenshotTest {
     private val spark = invented("spark", "Storm Spark", "{R}", "Instant", "Storm Spark deals 3 damage to any target.")
     private val quash = invented("quash", "Quash", "{R}", "Instant", "Counter target spell.")
     private val mountain = invented("mountain", "Mountain", null, "Basic Land — Mountain", "")
-    private val all = listOf(brute, bear, ogre, warden, spark, quash, mountain)
+    private val hound = invented("hound", "Dusk Hound", "{1}{B}", "Creature — Dog", "Menace", "2/2")
+    private val walker = Invented(DefinitionFace("walker", "Oath Seer", typeLine = "Legendary Planeswalker — Seer", manaCost = "{2}{U}{U}",
+        corner = "4"), OracleCard("Oath Seer", "{2}{U}{U}", "Legendary Planeswalker — Seer", loyalty = "4"))
+    private val all = listOf(brute, bear, ogre, warden, spark, quash, mountain, hound, walker)
 
     private val aHand = f.id("a/HAND")
     private val bHand = f.id("b/HAND")
@@ -194,27 +198,66 @@ class AutomatumCombatScreenshotTest {
             "With Automatum on Alice dragged a Mountain from her hand onto the Battlefield (played through Automatum) and then Storm Spark onto the Stack: its cast opens with the target bar over her hand while legal targets glow.")
     }
 
-    // ---- Combat through the engine (I3 interim lanes)
+    // ---- The combat area with Automatum (I-D32)
 
-    /** Alice's declare attackers step: Ironhide Brute and Stout Bear against Bob's [blocker]. */
-    private fun attackers(blocker: Invented = ogre) {
-        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(blocker)))
+    private fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
+    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
+    /** Taps [card] on its Battlefield as [toolkit]'s player sees it. */
+    private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
+        scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
+    /** Taps [card]'s combat copy as [toolkit]'s player sees it. */
+    private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
+        scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, TableSelection(), toolkit.viewer)
+        .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
+        .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
+    private fun perform(toolkit: TableToolkitController, name: String) = quick(toolkit).single { it.name == name }.let { action ->
+        assertTrue(action.enabled, "$name: ${action.refused}")
+        toolkit.perform(action.intent)
+    }
+    private fun blocks() = CombatStackRules.blocks(play.board.combat).map { (b, a) -> b.sourceId to a.sourceId }
+
+    /** Alice's declare attackers step: Ironhide Brute and Stout Bear against Bob's [blockers]. */
+    private fun attackers(vararg blockers: Invented = arrayOf(ogre), aliceHand: List<Invented> = emptyList(),
+        aliceField: List<Invented> = listOf(brute, bear)) {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = aliceField, bobField = blockers.toList(), aliceHand = aliceHand))
     }
 
-    // CMB-017, CMB-028, CR 508.1, 508.1f: Declare puts the creatures into the lanes as a draft; Attack declares them
-    // through Automatum, which taps them and runs on to Bob's declaration of blockers
-    @Test fun attackersAreDraftedThenDeclared() {
+    /** Alice stages [cards] by tapping them and commits the attack; Bob's declare blockers step follows. */
+    private fun attackWith(vararg cards: String) {
+        val alice = toolkit(f.a)
+        cards.forEach { tapCard(alice, it) }
+        assertTrue(perform(alice, "Commit attack (${cards.size})"), alice.error)
+        assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(play.board.turn))
+    }
+
+    private fun stagingFlow(shot: String) {
         attackers()
+        // The Bear entered this turn: it can't attack yet (CR 302.6)
+        live.value = play.copy(board = play.board.copy(cards = play.board.cards.map { if (it.id == card(play, bear)) it.copy(enteredTurn = "3") else it }))
+        tree = GameplayTree(play)
         val alice = toolkit(f.a)
         val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
-        assertTrue(alice.declare(listOf(bruteCard, bearCard), tap = false), alice.error)
-        assertFalse(play.board.cards.single { it.id == bruteCard }.tapped, "a draft taps nothing")
-        assertEquals(f.a, AutomatumBoards.combat(play) { emptyList() }.choices.declaring, "still a draft")
-        val quick = automatumCombatQuickActions(play, toolkitQuickContext(play, TableSelection(), f.a)
-            .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }), TableActionScope(play.gameId, play.id))
-        assertEquals(listOf("Select more attackers", "Attack"), quick?.map { it.name })
-        assertTrue(alice.perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id), CombatTool.AUTOMATUM_DECLARE, play.board.combat?.id)), alice.error)
-        assertTrue(play.board.cards.filter { it.id in setOf(bruteCard, bearCard) }.all { it.tapped }, "attacking taps them (CR 508.1f)")
+        tapCard(alice, bruteCard)
+        assertEquals(listOf<String?>(null), play.board.combat!!.pairs.map { it.attackTarget }, "staged to the defending player's lane")
+        assertEquals(listOf("Rest → Bob", "Clear", "Commit attack (1)"), quick(alice).map { it.name })
+        assertFalse(quick(alice).first().enabled, "nothing else may attack")
+        tapCard(alice, bruteCard)
+        assertNull(play.board.combat?.pairs?.firstOrNull { p -> p.attackers.isNotEmpty() }, "tapped again: unstaged")
+        assertEquals(listOf("Rest → Bob", "Clear", "No attack"), quick(alice).map { it.name })
+        tapCard(alice, bearCard)
+        assertNotNull(alice.error, "the summoning-sick Bear says why")
+        assertTrue(alice.error!!.contains("Stout Bear"), alice.error)
+        assertTrue(perform(alice, "Rest → Bob"), alice.error)
+        assertEquals(listOf(bruteCard), play.board.combat!!.pairs.flatMap { it.attackers }.map { it.sourceId })
+        alice.dismissError()
+        render(alice)
+        compose.onNodeWithContentDescription("Commit attack (1)").assertExists()
+        captureShot("$SCREENSHOTS/automatum/$shot.png",
+            "With Automatum on Alice reached Declare attackers and tapped Ironhide Brute: it is staged in Bob's lane, framed in violet as the active target, with a violet → Bob chip over the real card; the summoning-sick Stout Bear stays out, and the quick actions read Rest → Bob, Clear and Commit attack (1).")
+        compose.onNodeWithContentDescription("Commit attack (1)").performClick()
+        compose.waitForIdle()
+        assertTrue(play.board.cards.single { it.id == bruteCard }.tapped, "attacking taps it (CR 508.1f)")
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(play.board.turn))
         assertTrue(CombatFlow.throughEngine(play.board))
         // CMB-022: the damage is Automatum's now
@@ -222,108 +265,198 @@ class AutomatumCombatScreenshotTest {
         assertEquals(CombatController.DAMAGE_BY_AUTOMATUM, alice.error)
     }
 
-    /** Attack with the Brute alone; Bob drags his blocker into its pair (the draft of his blocks). */
-    private fun brutesAttackBlocked(): Pair<String, String> {
-        attackers()
+    // CMB-028, CMB-035, CR 508.1, 508.1f, 302.6: tapping creatures stages them to the active target, again unstages;
+    // one that can't attack says why; Commit declares through Automatum, which taps the attackers
+    @Test fun attackersAreStagedByTapsThenCommitted() = stagingFlow("combat-staging")
+
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun attackersAreStagedByTapsThenCommittedLandscape() = stagingFlow("combat-staging-landscape") // CMB-028
+
+    // CMB-028, TRN-020: with Automatum on, Main 1 offers Attack, which goes on to Declare attackers through Automatum
+    @Test fun mainPhaseAttackGoesToDeclareAttackers() {
+        start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(brute), bobField = listOf(ogre)))
         val alice = toolkit(f.a)
-        val bruteCard = card(play, brute)
-        assertTrue(alice.declare(listOf(bruteCard), tap = false), alice.error)
-        assertTrue(alice.perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id), CombatTool.AUTOMATUM_DECLARE, play.board.combat?.id)))
+        val attack = QuickActions.contextual(play, toolkitQuickContext(play, TableSelection(), f.a), alice.table)
+            .single { it.name == "Attack" }
+        assertTrue(alice.perform(attack.intent), alice.error)
+        assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(play.board.turn))
+        assertEquals(TableMode.NORMAL, alice.selectionState.value.mode, "taps stage; no selection mode")
+    }
+
+    // CMB-028: a tap on another target's header makes its lane the active one; taps then stage there
+    @Test fun aTargetsHeaderMakesItsLaneActive() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(walker)))
+        val alice = toolkit(f.a)
+        val target = card(play, walker)
+        alice.combat.chooseTarget(play, target)
+        assertEquals(target, alice.combat.activeTarget(play))
+        assertEquals("Rest → Oath Seer", quick(alice).first().name)
+        tapCard(alice, card(play, brute))
+        assertEquals(listOf<String?>(target), play.board.combat!!.pairs.map { it.attackTarget })
+    }
+
+    private fun blockingFlow(shot: String) {
+        attackers(warden, ogre)
+        val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
+        attackWith(bruteCard, bearCard)
+        val bob = toolkit(f.b)
+        val (wardenCard, ogreCard) = listOf(card(play, warden), card(play, ogre))
+        assertEquals(listOf("No blocks", "Clear", "Commit blocks"), quick(bob).map { it.name })
+        assertFalse(quick(bob).last().enabled, "nothing blocks yet")
+        tapCard(bob, wardenCard)
+        assertEquals(wardenCard, bob.combat.selected)
+        tapCopy(bob, bruteCard)
+        assertEquals(listOf(wardenCard to bruteCard), blocks())
+        assertEquals(wardenCard, bob.combat.selected, "it can block one more: still selected")
+        render(bob)
+        compose.onNodeWithContentDescription("Commit blocks").assertExists()
+        captureShot("$SCREENSHOTS/automatum/$shot.png",
+            "Bob's view, mirrored, in Declare blockers: Gate Warden (can block an additional creature) blocks Ironhide Brute by an arrow and stays selected in violet, the Brute it fights framed in amber and the Stout Bear it may still block glowing violet; the attackers show their keyword badges.")
+        compose.runOnIdle { tapCopy(bob, bearCard) }
+        compose.waitForIdle()
+        assertEquals(listOf(wardenCard to bruteCard, wardenCard to bearCard), blocks())
+        assertNull(bob.combat.selected, "blocking as many as it can deselects it")
+    }
+
+    // CMB-034, CMB-031, CMB-032, CR 509.1a: tap a blocker, then the attackers it blocks; a blocker of two stays selected
+    // until its second block, each block an arrow; tapping an attacker it blocks again removes that block
+    @Test fun blockersAreAssignedByTaps() {
+        blockingFlow("combat-blocking")
+        val bob = toolkit(f.b)
+        val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
+        val (wardenCard, ogreCard) = listOf(card(play, warden), card(play, ogre))
+        // A normal blocker is deselected once it blocks
+        tapCard(bob, ogreCard)
+        tapCopy(bob, bruteCard)
+        assertNull(bob.combat.selected)
+        assertEquals(setOf(wardenCard to bruteCard, wardenCard to bearCard, ogreCard to bruteCard), blocks().toSet())
+        // The Warden's block of the Bear goes again
+        tapCard(bob, wardenCard)
+        tapCopy(bob, bearCard)
+        assertEquals(setOf(wardenCard to bruteCard, ogreCard to bruteCard), blocks().toSet())
+        // CMB-032: with nothing picked, a tap selects a combatant; the selected one's tap opens its menu
+        bob.combat.clearSelection()
+        tapCopy(bob, bruteCard)
+        assertEquals(bruteCard, bob.combat.selected)
+        assertTrue(perform(bob, "Commit blocks"), bob.error)
+        assertEquals(setOf(wardenCard to bruteCard, ogreCard to bruteCard), blocks().toSet(), "declared as drafted")
+    }
+
+    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
+    fun blockersAreAssignedByTapsLandscape() = blockingFlow("combat-blocking-landscape") // CMB-034
+
+    // CMB-034, CR 702.111b: one blocker isn't enough for menace: Commit blocks is greyed with Automatum's reason
+    @Test fun menaceGreysCommitBlocksWithTheReason() {
+        attackers(ogre, aliceField = listOf(hound))
+        val houndCard = card(play, hound)
+        attackWith(houndCard)
+        val bob = toolkit(f.b)
+        tapCard(bob, card(play, ogre))
+        tapCopy(bob, houndCard)
+        val commit = quick(bob).single { it.name == "Commit blocks" }
+        assertFalse(commit.enabled)
+        assertNotNull(commit.refused)
+        assertTrue(quick(bob).single { it.name == "No blocks" }.enabled)
+        assertTrue(perform(bob, "No blocks"), bob.error)
+        assertTrue(blocks().isEmpty(), "No blocks clears the draft and declares none")
+    }
+
+    // CMB-029, CMB-033, I-D29, CR 702.19b: after blocks the preview stays on the area with no separate prompt (Pass in the
+    // quick actions); the eye hides the numbers; a trampler blocked by one creature divides by itself
+    @Test fun previewAfterBlocksAndPass() {
+        attackers(ogre, aliceHand = listOf(spark), aliceField = listOf(brute, bear, mountain))
+        val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
+        attackWith(bruteCard, bearCard)
         val bob = toolkit(f.b)
         val ogreCard = card(play, ogre)
-        val pair = pairOf(bruteCard)
-        // An attacker can't be dragged anywhere now: attackers are declared
-        assertFalse(bob.handle(TableIntent.Move(TableScope(ogreCard, listOf(ogreCard)),
-            TableDestination.Combat(CombatDestination(play.board.combat!!.id, CombatRole.ATTACKER)), drag = true)))
-        assertEquals(CombatController.DECLARED_ATTACKERS, bob.error)
-        // A declared attacker's copy doesn't leave the lanes by a drag either
-        val copy = pair.attackers.single().id
-        assertFalse(bob.handle(TableIntent.Move(TableScope(copy, listOf(copy)), TableDestination.Grid(aField, 4, 1), drag = true)))
-        assertEquals(CombatController.DECLARED_ATTACKERS, bob.error)
-        assertTrue(bob.handle(TableIntent.Move(TableScope(ogreCard, listOf(ogreCard)),
-            TableDestination.Combat(CombatDestination(play.board.combat!!.id, CombatRole.BLOCKER, pairId = pair.id)), drag = true)), bob.error)
-        return bruteCard to ogreCard
-    }
-
-    // CMB-020, CMB-029, I-D29, CR 509.1, 510.1c, 702.19b: Bob's drafted block shows the damage it would lead to on the lanes
-    // and life squares; Block declares it
-    @Test fun previewOfTheBlocksBeingArranged() {
-        val (bruteCard, ogreCard) = brutesAttackBlocked()
-        val shown = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
-        assertEquals(f.b, shown.choices.declaring, "a draft: blockers are still awaited")
-        assertEquals(mapOf(ogreCard to 3, bruteCard to 3, f.b to 2), assertNotNull(shown.preview).damage)
-        assertEquals(listOf(ogreCard), shown.preview!!.dies)
-        val bob = toolkit(f.b)
-        render(bob)
-        compose.onNodeWithContentDescription("Block").assertExists()
+        tapCard(bob, ogreCard)
+        tapCopy(bob, bruteCard)
+        assertTrue(perform(bob, "Commit blocks"), bob.error)
+        val alice = toolkit(f.a)
+        assertEquals(listOf("Pass"), quick(alice).map { it.name }, "Alice holds priority: an instant in hand")
+        AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
+        render(alice)
         compose.onNodeWithContentDescription("Would take 3 damage and die").assertExists()
-        compose.onNodeWithContentDescription("Life would change by -2").assertExists()
+        compose.onNodeWithContentDescription("Header would go from 20 to 16").assertExists()
         captureShot("$SCREENSHOTS/automatum/combat-preview.png",
-            "Alice attacks with Ironhide Brute (5/5, trample) and Bob dragged Hill Ogre into its pair: before declaring, the lanes show the damage it would lead to, −3 ✝ on the Ogre, −3 on the Brute and −2 by Bob's life square, with Block in the quick actions.")
-        compose.onNodeWithContentDescription("Block").performClick()
+            "Alice's view after Bob blocked her Ironhide Brute (5/5 trample) with Hill Ogre and left Stout Bear unblocked: the arrow, −3 ☠ on the Ogre, −3 on the Brute, 2 → Bob tags over both attackers and 20 → 16 in Bob's header; Alice holds priority with Pass in the quick actions.")
+        compose.onNodeWithContentDescription("Hide damage preview").performClick()
         compose.waitForIdle()
-        assertIs<Decision.Divide>(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))?.decision,
-            "Alice divides the trampler's damage (CR 510.1c)")
+        compose.onNodeWithContentDescription("Would take 3 damage and die").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Pass").performClick()
+        compose.waitForIdle()
+        assertEquals(16, life(f.b), "the trampler's division was made by itself: 3 to the Ogre, 2 to Bob, and 2 from the Bear")
+        assertEquals(PlayZone.GRAVEYARD, zone(ogreCard))
     }
 
-    // STK-033, I-D29, CR 510.1c, 702.19b: the attacker's division is asked with the suggestion filled in; OK deals it
-    @Test fun divisionPanelStartsFromTheSuggestion() {
-        val (bruteCard, ogreCard) = brutesAttackBlocked()
-        assertTrue(toolkit(f.b).perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id), CombatTool.AUTOMATUM_DECLARE, play.board.combat?.id)))
-        AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
-        // Worked out before showing, as the table's worker would have, so the preview marks are in the picture
+    // CMB-033, CR 510.1c, 702.19b: the division dialog opens filled in with the suggestion; In order follows the rows'
+    // order; Free takes any division but nothing past the blockers before each has lethal damage
+    @Test fun divisionDialogInOrderAndFree() {
+        attackers(ogre, warden, aliceField = listOf(brute))
+        val bruteCard = card(play, brute)
+        attackWith(bruteCard)
+        val bob = toolkit(f.b)
+        val (ogreCard, wardenCard) = listOf(card(play, ogre), card(play, warden))
+        tapCard(bob, ogreCard); tapCopy(bob, bruteCard)
+        tapCard(bob, wardenCard); tapCopy(bob, bruteCard)
+        bob.combat.clearSelection()
+        assertTrue(perform(bob, "Commit blocks"), bob.error)
+        assertIs<Decision.Divide>(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))?.decision)
         AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
         val alice = toolkit(f.a)
         render(alice)
-        compose.onNodeWithText("Divide 5").assertExists()
-        compose.onNodeWithContentDescription("Life would change by -2").assertExists()
-        compose.onNodeWithText("Hill Ogre (lethal 3)").assertExists()
+        compose.onNodeWithContentDescription("Division of combat damage").assertExists()
+        compose.onNodeWithContentDescription("Hill Ogre: 3").assertExists()
+        compose.onNodeWithContentDescription("Gate Warden: 2").assertExists()
+        compose.onNodeWithContentDescription("Bob (trample): 0").assertExists()
+        // The Ogre's row dragged below the Warden's: the Warden gets lethal damage first
+        val row = compose.onNodeWithContentDescription("Hill Ogre: 3").fetchSemanticsNode()
+        compose.runOnIdle { row.config[androidx.compose.ui.semantics.SemanticsActions.CustomActions].first { it.label == "Move down" }.action() }
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Gate Warden: 3").assertExists()
         captureShot("$SCREENSHOTS/automatum/combat-division.png",
-            "Bob blocked Alice's Ironhide Brute (5/5, trample) with Hill Ogre: in the damage step Alice divides its 5 damage in the panel by the Stack, filled in with Automatum's suggestion, 3 to the Ogre (lethal 3) and 2 to Bob.")
+            "Bob blocked Alice's Ironhide Brute (5/5 trample) with Hill Ogre and Gate Warden: in the damage step Alice's division dialog, In order, after dragging the Warden first: 3 to the Warden (lethal ☠), 2 to the Ogre, 0 to Bob.")
+        compose.onNodeWithContentDescription("Free").performClick()
+        compose.waitForIdle()
+        // 1 past the blockers while the Ogre lacks lethal damage: refused
+        compose.onAllNodesWithText("−")[1].performClick()
+        compose.onAllNodesWithText("+")[2].performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("With trample every blocker needs lethal damage before any goes past it.").assertExists()
+        compose.onNodeWithText("OK").assertIsNotEnabled()
+        captureShot("$SCREENSHOTS/automatum/combat-division-free.png",
+            "The same division switched to Free: Alice took 1 from the Ogre and gave it to Bob, so OK is greyed and the line under the rows says every blocker needs lethal damage before any goes past it (trample).")
+        compose.onAllNodesWithText("+")[1].performClick()
+        compose.onAllNodesWithText("−")[2].performClick()
+        compose.waitForIdle()
         val life = life(f.b)
         compose.onNodeWithText("OK").performClick()
         compose.waitForIdle()
-        assertEquals(life - 2, life(f.b))
-        assertEquals(PlayZone.GRAVEYARD, zone(ogreCard))
-        assertEquals(PlayZone.BATTLEFIELD, zone(bruteCard))
+        assertEquals(life, life(f.b), "nothing past the blockers")
+        assertEquals(PlayZone.GRAVEYARD, zone(wardenCard))
+        assertEquals("2", play.board.cards.single { it.id == ogreCard }.damage)
     }
 
-    /** Alice attacks with the Brute and the Bear; Bob's Gate Warden blocks both. Alice's division of the Brute's damage is
-     * open. Returns the Brute, the Bear and the Warden. */
+    /** Alice attacks with the Brute and the Bear; Bob's Gate Warden blocks both and his Hill Ogre the Brute. Alice's division
+     * of the Brute's damage is open. */
     private fun wardenBlocksBoth(): Triple<String, String, String> {
-        attackers(blocker = warden)
+        attackers(warden, ogre)
         val (bruteCard, bearCard) = listOf(card(play, brute), card(play, bear))
-        val wardenCard = card(play, warden)
-        val alice = toolkit(f.a)
-        assertTrue(alice.declare(listOf(bruteCard, bearCard), tap = false))
-        assertTrue(alice.perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id), CombatTool.AUTOMATUM_DECLARE, play.board.combat?.id)))
-        // The lanes can't hold one blocker in two pairs (I-D32 comes later): Bob's block is declared as the engine has it
-        engine(f.b) { CombatFlow.declareBlockers(it, listOf(LaneBlock(wardenCard, bruteCard), LaneBlock(wardenCard, bearCard))) }
+        attackWith(bruteCard, bearCard)
+        val bob = toolkit(f.b)
+        val (wardenCard, ogreCard) = listOf(card(play, warden), card(play, ogre))
+        tapCard(bob, wardenCard); tapCopy(bob, bruteCard); tapCopy(bob, bearCard)
+        tapCard(bob, ogreCard); tapCopy(bob, bruteCard)
+        assertTrue(perform(bob, "Commit blocks"), bob.error)
         return Triple(bruteCard, bearCard, wardenCard)
     }
 
-    // CMB-031, CMB-029, CR 509.1a: the blocker of two sits in the pair of the first with "+1"; with her division panel
-    // hidden (the eye) Alice sees it and the preview of her suggested division
-    @Test fun blockerOfTwoShowsPlusOne() {
-        val (_, _, wardenCard) = wardenBlocksBoth()
-        assertEquals(mapOf(wardenCard to 1), AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }.alsoBlocks)
-        val alice = toolkit(f.a)
-        val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)))
-        alice.flows.show(flow)
-        alice.flows.toggleHidden()
-        render(alice)
-        compose.onNodeWithContentDescription("Also blocks 1 more").assertExists()
-        captureShot("$SCREENSHOTS/automatum/combat-blocks-two.png",
-            "Bob's Gate Warden blocks both of Alice's attackers: its copy sits in the Ironhide Brute's pair with a violet +1, and with her division panel hidden by the eye Alice sees the preview of the suggested damage on the lanes and by Bob's life square.")
-    }
-
-    // STK-034, I-D33, CR 509.1a, 510.1c–d: while Alice divides her trampler's damage, Bob gives his Gate Warden's division
-    // early; it is applied when Alice's is done
+    // STK-034, CMB-033, I-D33, CR 509.1a, 510.1c–d: while Alice divides her trampler's damage ("1 of 2"), Bob gives his
+    // Gate Warden's division early in the same rows; it is applied when Alice's is done
     @Test fun blockerOfTwoAndTheDefendersEarlyDivision() {
         val (bruteCard, bearCard, wardenCard) = wardenBlocksBoth()
         val alice = toolkit(f.a)
         val shown = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
-        assertEquals(mapOf(wardenCard to 1), shown.alsoBlocks)
         val early = shown.early.single()
         assertEquals(f.b to wardenCard, early.player to early.source)
         AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
@@ -332,25 +465,51 @@ class AutomatumCombatScreenshotTest {
         compose.onNodeWithText("Alice is choosing", substring = true).assertExists()
         compose.onNodeWithContentDescription("Early division").assertExists()
         captureShot("$SCREENSHOTS/automatum/combat-early-division.png",
-            "Bob's Gate Warden blocks both of Alice's attackers: while Alice divides her Ironhide Brute's damage, Bob's own division of the Warden's 3 damage waits below her bar, filled in with the suggestion, to be given early with Ready.")
-        compose.onNodeWithText("Ready").assertExists()
-        // All 3 to the Stout Bear, given early
+            "Bob's Gate Warden blocks both of Alice's attackers and his Hill Ogre the Brute: while Alice divides her Ironhide Brute's damage, Bob's own division of the Warden's 3 damage waits below her bar in the dialog's rows, In order and filled in with the suggestion, to be given early with Ready.")
         val refs = early.among.associateBy { (it as MtgRef.Card).cardId }
         compose.runOnIdle { assertTrue(bob.combat.giveEarly(early, mapOf(refs.getValue(bearCard) to 3, refs.getValue(bruteCard) to 0)), bob.error) }
         compose.waitForIdle()
         assertEquals(f.b, PreAnswers.of(play.board).single().player)
-        // Alice takes her suggestion: Bob's division is applied in the same step
         compose.runOnIdle {
             val flow = AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))!!
             alice.flows.show(flow)
+            alice.combat.show(play, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
+            assertEquals(1 to 2, alice.combat.divisionCount(play, flow.division!!), "Alice's comes first of the two")
             assertTrue(alice.flows.answer(arcanum.engine.decision.Answer.Division((flow.decision as Decision.Divide).suggested)), alice.error)
         }
         assertTrue(PreAnswers.of(play.board).isEmpty(), "applied and used up")
         assertEquals(PlayZone.GRAVEYARD, zone(bearCard), "the Warden's 3 damage went to the Stout Bear")
         assertEquals(PlayZone.BATTLEFIELD, zone(bruteCard))
-        assertNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))?.decision, "nothing more to divide")
     }
 
+    // CMB-031, CMB-024: with Automatum off, a defender's card dropped on an attacker blocks it; dropped on a second attacker
+    // it gets one more arrow, and again there the arrow goes; the damage buttons deal by the arrows
+    @Test fun manualBlocksByArrows() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre)).let {
+            it.copy(board = it.board.copy(automatum = false, priority = null)) })
+        val alice = toolkit(f.a)
+        val (bruteCard, bearCard, ogreCard) = listOf(card(play, brute), card(play, bear), card(play, ogre))
+        assertTrue(alice.declare(listOf(bruteCard, bearCard), tap = true), alice.error)
+        val bob = toolkit(f.b)
+        fun drop(card: String, attacker: String) = bob.handle(TableIntent.Move(TableScope(card, listOf(card)),
+            TableDestination.Combat(CombatDestination(play.board.combat!!.id, CombatRole.ATTACKER, pairId = pairOf(attacker).id)), drag = true))
+        assertTrue(drop(ogreCard, bruteCard), bob.error)
+        assertTrue(drop(ogreCard, bearCard), bob.error)
+        assertEquals(listOf(ogreCard to bruteCard, ogreCard to bearCard), blocks())
+        assertEquals(1, CombatStackRules.occurrences(play.board.combat).count { it.sourceId == ogreCard }, "one copy, two arrows")
+        render(bob)
+        captureShot("$SCREENSHOTS/automatum/combat-manual.png",
+            "Automatum off, Bob's mirrored view: he dropped Hill Ogre on Ironhide Brute and then on Stout Bear, so one blocker copy sits under the Brute with an arrow to each attacker; no glows, numbers or badges.")
+        compose.runOnIdle { assertTrue(drop(ogreCard, bearCard)) }
+        compose.waitForIdle()
+        assertEquals(listOf(ogreCard to bruteCard), blocks(), "dropped there again: that arrow goes")
+        compose.runOnIdle { assertTrue(drop(ogreCard, bearCard)) }
+        // CMB-024: the Ogre's 3 go to the Brute first (lethal 5); the Bear, blocked by an arrow, deals its 2 to the Ogre;
+        // the Brute's 5 give the Ogre lethal 3 and trample 2 over
+        val damage = CombatDamage.assign(play, CombatStackRules.occurrences(play.board.combat).map { it.id })
+        assertEquals(listOf(PlayAction.AdjustDamage(ogreCard, "5"), PlayAction.AdjustDamage(bruteCard, "3"),
+            PlayAction.AdjustLife(f.b, "-2")).toSet(), damage.actions.toSet())
+    }
     // ---- A Stack entry below the top as a target (STK-023)
 
     // STK-023, I-D6, CR 115.1: Alice's Quash may counter either spell on the Stack; the one below the top is picked in

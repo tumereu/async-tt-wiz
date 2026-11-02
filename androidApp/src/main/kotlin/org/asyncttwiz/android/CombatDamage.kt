@@ -101,8 +101,15 @@ internal object CombatDamage {
                     manual(); continue
                 }
                 if (power <= zero) continue
-                val recipients = if (targetOnly) emptyList() else pair.side(
-                    if (role == CombatRole.ATTACKER) CombatRole.BLOCKER else CombatRole.ATTACKER)
+                // CMB-031: by the arrows: an attacker's own blockers, then those blocking it from other pairs; a blocker's
+                // own pair's attackers, then those of the pairs it also blocks
+                val blocks = CombatStackRules.blocks(board.combat)
+                val recipients = when {
+                    targetOnly -> emptyList()
+                    role == CombatRole.ATTACKER -> blocks.filter { it.second.id == occurrence.id }.map { it.first }
+                        .sortedBy { if (it in pair.blockers) 0 else 1 }
+                    else -> blocks.filter { it.first.id == occurrence.id }.map { it.second }
+                }
                 val assigned = linkedMapOf<String, BigInteger>()
                 var remaining = power
                 var valid = true
@@ -119,7 +126,7 @@ internal object CombatDamage {
                     if (amount > zero) assigned[card.id] = (assigned[card.id] ?: zero) + amount
                     remaining -= amount
                 }
-                val blocked = pair.blocked || pair.blockers.isNotEmpty()
+                val blocked = pair.blocked || pair.blockers.isNotEmpty() || CombatStackRules.blockedFromElsewhere(board.combat, pair.id)
                 val toTarget = role == CombatRole.ATTACKER && (targetOnly || !blocked ||
                     hasKeyword(play, source, "Trample"))
                 var targetCard: PlayCard? = null

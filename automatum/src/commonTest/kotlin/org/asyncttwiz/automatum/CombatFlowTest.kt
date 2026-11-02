@@ -140,8 +140,9 @@ class CombatFlowTest {
         assertEquals(setOf(aliceBear, acolyte), preview.dies.toSet())
         rt.run(bob) { CombatFlow.declareBlockers(it, blocks) }
         passBob(rt)
-        // The first-strike damage step
-        assertEquals(TurnPosition.COMBAT_DAMAGE, position(rt))
+        // The first-strike damage step: its own step in ATW (I-D31, TRN-056)
+        assertEquals(TurnPosition.FIRST_STRIKE_DAMAGE, position(rt))
+        assertTrue(CombatFlow.hadFirstStrikeStep(rt.state.board))
         assertEquals("18", life(rt, bob))
         assertEquals(PlayZone.GRAVEYARD, zone(rt, aliceBear))
         // CR 506.4, 510.1d, CMB-006: the dead attacker leaves the lanes; its blocker stays blocking
@@ -150,8 +151,9 @@ class CombatFlowTest {
         assertTrue(CombatFlow.firstStrikeStep(rt.call()), "the combat record knows the first-strike step")
         passBob(rt)
         assertTrue(!CombatFlow.firstStrikeStep(rt.call()))
-        // The regular damage step: ATW shows the same step
+        // The regular damage step follows it
         assertEquals(TurnPosition.COMBAT_DAMAGE, position(rt))
+        assertTrue(CombatFlow.hadFirstStrikeStep(rt.state.board))
         assertEquals("16", life(rt, bob))
         assertEquals("22", life(rt, alice))
         assertEquals(PlayZone.GRAVEYARD, zone(rt, acolyte))

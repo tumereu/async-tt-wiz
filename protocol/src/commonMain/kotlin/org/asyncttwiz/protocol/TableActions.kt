@@ -2,7 +2,9 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** Fixed manual positions. Main phases have one position, not an invented additional step. */
+/** Fixed positions. Main phases have one position, not an invented additional step. [FIRST_STRIKE_DAMAGE] is the
+ * first of two combat damage steps (CR 510.4) Automatum adds when a creature with first or double strike is in combat
+ * (I-D31); playing by hand never passes through it ([MANUAL]). */
 @Serializable enum class TurnPosition(val phase: String, val step: String, val label: String, val glyph: String) {
     UNTAP("BEGINNING", "UNTAP", "Untap", "↶"),
     UPKEEP("BEGINNING", "UPKEEP", "Upkeep", "⌛"),
@@ -11,6 +13,7 @@ import kotlinx.serialization.Serializable
     BEGIN_COMBAT("COMBAT", "BEGIN_COMBAT", "Beginning of combat", "⚑"),
     DECLARE_ATTACKERS("COMBAT", "DECLARE_ATTACKERS", "Declare attackers", "⚔"),
     DECLARE_BLOCKERS("COMBAT", "DECLARE_BLOCKERS", "Declare blockers", "⛨"),
+    FIRST_STRIKE_DAMAGE("COMBAT", "FIRST_STRIKE_DAMAGE", "First-strike damage", "⚡"),
     COMBAT_DAMAGE("COMBAT", "COMBAT_DAMAGE", "Combat damage", "♨"),
     END_COMBAT("COMBAT", "END_COMBAT", "End of combat", "⚐"),
     POSTCOMBAT_MAIN("POSTCOMBAT_MAIN", "MAIN", "Postcombat main", "②"),
@@ -19,6 +22,12 @@ import kotlinx.serialization.Serializable
 
     companion object {
         fun of(turn: TurnState) = entries.singleOrNull { it.phase == turn.phase && it.step == turn.step }
+
+        /** The twelve positions a turn passes when played by hand (TRN-001): every one but [FIRST_STRIKE_DAMAGE]. */
+        val MANUAL: List<TurnPosition> = entries.filter { it != FIRST_STRIKE_DAMAGE }
+
+        /** The position Next step goes to by hand from [position] (null after Cleanup: the next turn). */
+        fun nextManual(position: TurnPosition): TurnPosition? = MANUAL.firstOrNull { it.ordinal > position.ordinal }
     }
 }
 
@@ -91,7 +100,7 @@ object TableActions {
             TurnState(next, number)
         } else {
             val chosen = when (action) {
-                PlayAction.NextStep -> TurnPosition.entries[position.ordinal + 1]
+                PlayAction.NextStep -> TurnPosition.nextManual(position)!!
                 is PlayAction.ChooseStep -> action.position
                 else -> return reject("invalidInput")
             }
@@ -135,6 +144,7 @@ object StepRun {
         if (end <= from.ordinal) return emptyList()
         val attackers = board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true
         return TurnPosition.entries.subList(from.ordinal + 1, end).filterNot { position ->
+            position == TurnPosition.FIRST_STRIKE_DAMAGE ||
             position == TurnPosition.DRAW && board.turn.number == "1" ||
                 !attackers && (position == TurnPosition.DECLARE_BLOCKERS || position == TurnPosition.COMBAT_DAMAGE)
         }

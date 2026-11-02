@@ -23,7 +23,7 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Comprehensive Rules (`RulesWords.kt`, CR 205.3 and 207.2c). Exhaust, Boast, Max speed,
   Power-up and Solved become ability labels.
 - Set tests (`commonTest/…/sets/<code>/`): every card of a set with invented names. Duskmourn (`dsk`): all 276
-  cards parse except The Tale of Tamiyo (a repeated mill-and-compare process and casting copies from exile).
+  cards parse.
   Bloomburrow (`blb`): 271 of 279 cards parse; left unparsed: Azure Beastbinder, Eluge, Long River Lurker,
   Mockingbird, Portent of Calamity, Rottenmouth Viper, Dragonhawk and Reptilian Recruiter (one line each that needs new
   API or engine work).

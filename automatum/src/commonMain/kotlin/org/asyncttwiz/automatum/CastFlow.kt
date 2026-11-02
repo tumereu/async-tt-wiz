@@ -121,8 +121,9 @@ class CastFlow private constructor(
 
     /**
      * The engine call that goes out once the flow is [complete]: the cast, then the caster's automatic pass (I-D3: "cast
-     * and keep priority" isn't offered) and the automatic passes after it ([SharedFlow.autoPass], I-D18), so with nothing
-     * to respond with the spell resolves in the same batch, up to its first decision (a shared flow from there, I-D11).
+     * and keep priority" isn't offered) and the automatic passes after it ([StepFlow.automatic], I-D18), so with nothing
+     * to respond with the spell resolves in the same batch and the game goes on to the next point where a player can act
+     * (the steps too, I-D35), or to its first decision (a shared flow from there, I-D11).
      * A land play keeps priority with its player (CR 305.1, 116.3c). [call] stays the cast alone.
      */
     fun sent(): EngineCall {
@@ -130,7 +131,7 @@ class CastFlow private constructor(
         val done = replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true).call
         if (begin is Input.Cast && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == player) {
             done.perform(Input.PassPriority(PlayerId(player)), automatic = true)
-            SharedFlow.autoPass(done)
+            StepFlow.automatic(done)
         }
         return done
     }

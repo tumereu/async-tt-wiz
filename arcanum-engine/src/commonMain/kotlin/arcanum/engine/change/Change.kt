@@ -453,6 +453,8 @@ sealed interface Meaning {
     @Serializable @SerialName("left-battlefield") data object LeftBattlefield : Meaning
     @Serializable @SerialName("played-land") data object PlayedLand : Meaning
     @Serializable @SerialName("token-created") data object TokenCreated : Meaning
+    /** A copy of a card was created in the card's zone (CR 707.12). */
+    @Serializable @SerialName("card-copied") data object CardCopied : Meaning
     @Serializable @SerialName("ceased-to-exist") data object CeasedToExist : Meaning
     @Serializable @SerialName("turned-face-up") data object TurnedFaceUp : Meaning
     @Serializable @SerialName("turned-face-down") data object TurnedFaceDown : Meaning

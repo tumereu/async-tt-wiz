@@ -1,1 +1,1 @@
-Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: by the Stack Bob sees "Alice cast Storm Spark" with its text, "Target: You", Respond and Let it resolve.
+Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: by the Stack Bob sees "Alice cast Storm Spark" with its text, "Target: You", Respond and Let it resolve, and the move is his ("Your move", green bars) since he must act.

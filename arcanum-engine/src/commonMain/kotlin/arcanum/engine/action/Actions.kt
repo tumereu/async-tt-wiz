@@ -67,6 +67,9 @@ internal data class PlannedMove(
     /** Put into a library in a random order hidden from the viewer (D60): the new id the host gave it; it arrives
      * unknown under that id ([arcanum.engine.decision.RandomKind.Objects.newIds]). */
     val newId: ObjectId.Card? = null,
+    // dsk gaps
+    /** What the instruction says it is as it enters the battlefield (CR 611.2e): applied as it enters. */
+    val entersAs: List<Mechanic> = emptyList(),
 )
 
 /**
@@ -189,6 +192,10 @@ internal object Actions {
             }
             if (m.abilities.isNotEmpty()) act.record(Changes.effect(act.state) { ts ->
                 lockedEffect("E$ts", listOf(Mechanic.GainAbilities(m.abilities)), next, m.controller, ts, act)
+            })
+            // dsk gaps: "It's an enchantment." of the instruction that puts it there applies as it enters (CR 611.2e)
+            if (m.entersAs.isNotEmpty() && m.to == Zone.Battlefield) act.record(Changes.effect(act.state) { ts ->
+                lockedEffect("E$ts", m.entersAs, next, m.controller, ts, act)
             })
         }
         val snapshots = moves.associate { it.id to act.snapshot(it.id) }
@@ -330,6 +337,8 @@ internal object Actions {
      */
     fun damage(act: Act, cause: Cause?, parts: List<DamageDealt>, cantBePrevented: Boolean = false): DamageResult {
         val linked = mutableListOf<WaitingTrigger>()
+        // dsk gaps: prevention effects' additional effects, done immediately after the damage event (CR 615.5)
+        val afterwards = mutableListOf<() -> Unit>()
         val after = parts.filter { it.amount > 0 }.mapNotNull { part ->
             val affected = when (val r = part.recipient) {
                 is TargetRef.Player -> r.id
@@ -338,14 +347,22 @@ internal object Actions {
             Replacements.apply(
                 act, cause, part, affected, part.source,
                 proposed = { d -> Change.Damage(listOf(d)) },
-                modify = { d, r, _ -> if (r.prevention != null) prevent(act, d, r, r.prevention) else modifyDamage(act, d, r) },
+                modify = { d, r, instance ->
+                    if (r.prevention == null) modifyDamage(act, d, r)
+                    else prevent(act, d, r, r.prevention, cantBePrevented || unpreventable(act, d), instance, afterwards)
+                },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
-                skip = { r, d -> r.prevention != null && unpreventable(act, d) },
-                extra = if (cantBePrevented) emptyList() else preventions(act),
+                // CR 615.12: damage that can't be prevented isn't, but a prevention effect's additional effect still
+                // applies to it, once (615.12a)
+                skip = { r, d -> r.prevention != null && !r.prevention.hasAdditional && (cantBePrevented || unpreventable(act, d)) },
+                extra = preventions(act),
             )
         }.filter { recipientExists(act, it.recipient) && it.amount > 0 }
-        if (after.isEmpty()) return DamageResult(emptyList(), 0)
+        if (after.isEmpty()) {
+            afterwards.forEach { it() }
+            return DamageResult(emptyList(), 0)
+        }
         val view = act.view()
         val board = act.board()
         val dealt = after.map { it.copy(sourceSeen = it.sourceSeen ?: act.snapshot(it.source)) }
@@ -395,6 +412,7 @@ internal object Actions {
         }
         lifelink.forEach { (player, amount) -> gainLife(act, cause, player, amount) }
         Replacements.addLinked(act, linked)
+        afterwards.forEach { it() }
         return DamageResult(dealt, excess)
     }
 
@@ -468,7 +486,8 @@ internal object Actions {
             val m = applied.mechanic as? Mechanic.Prevention ?: return@mapIndexedNotNull null
             if (applied.effect != null && act.state.effects[applied.effect]?.amountLeft != null) return@mapIndexedNotNull null
             Replacement(Mechanic.Replacement(m.event), applied.controller, applied.source, applied.names, applied.effect, own = false,
-                key = "prevent:${applied.effect?.value ?: applied.source}:${applied.origin?.key}:$i", prevention = Prevention.Amount(m.each))
+                key = "prevent:${applied.effect?.value ?: applied.source}:${applied.origin?.key}:$i", prevention = Prevention.Amount(m.each, m.additional),
+                text = arcanum.engine.decision.Texts.of(null, applied.origin, applied.source?.let { view[it]?.characteristics }))
         }
         val shields = act.state.effects.values.filter { it.amountLeft != null }.sortedBy { it.timestamp }.mapNotNull { shield ->
             val m = shield.mechanics.filterIsInstance<Mechanic.Prevention>().firstOrNull() ?: return@mapNotNull null
@@ -478,8 +497,20 @@ internal object Actions {
         return protection + effects + shields
     }
 
-    /** Applies prevention effect [r] to [d] (CR 615): what is left of the damage, or null when none is. */
-    private fun prevent(act: Act, d: DamageDealt, r: Replacement, p: Prevention): DamageDealt? {
+    /** Applies prevention effect [r] to [d] (CR 615): what is left of the damage, or null when none is. Damage that
+     * [cantBePrevented] is left as it is (CR 615.12). An additional effect is queued in [afterwards] (CR 615.5). */
+    private fun prevent(
+        act: Act, d: DamageDealt, r: Replacement, p: Prevention, cantBePrevented: Boolean, instance: TriggerEvent,
+        afterwards: MutableList<() -> Unit>,
+    ): DamageDealt? {
+        if (p is Prevention.Amount && p.additional != null) {
+            val steps = p.additional.steps
+            afterwards += {
+                val c = Cause(r.controller, r.source, key = "prevented:${act.state.nextTimestamp()}")
+                arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, c, r.names, instance.copy(amount = d.amount)), steps)
+            }
+        }
+        if (cantBePrevented) return d
         val left = when (p) {
             is Prevention.Protection -> 0
             is Prevention.Amount -> p.each?.let { each ->

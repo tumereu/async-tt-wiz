@@ -161,6 +161,23 @@ out of anything stuck.
   being arranged) and `firstStrikeStep`. `HostPriority` keeps priority as the engine left it (a holder other than the
   active player on an empty Stack without passes is taken as left from a turn changed by hand). `SharedFlow.autoPass`
   (I2b) still stops on an empty Stack; the app moves to `StepFlow` when it runs the steps through the engine.
+- **Built (I3a, steps and turns):** the step arrow and the phase dialog with Automatum on call `SharedFlow.step`
+  (`StepFlow.pass` with `Until.Pass`, `EndOfTurn`, or `Step(position)` for a later step chosen in the dialog; the holder
+  passes whoever pressed it, D11); with a declaration awaited Next step declares what the lanes hold
+  (`SharedFlow.declare`), End turn and a step after combat attack with nothing. `SharedFlow.autoPass` is gone: every
+  shared flow and a cast's batch end with `StepFlow.automatic`, so the steps run on to the next acting point. Manual
+  step and turn changes are refused while on (I-D28, TRN-057; STK-029 while the Stack holds anything). First-strike
+  damage is ATW's `TurnPosition.FIRST_STRIKE_DAMAGE` (I-D31): the planner names it from the engine's combat record
+  right after the step begins; manual play never passes it (`TurnPosition.MANUAL`, `nextManual`); the phase dialog
+  shows it while that combat had one (`CombatFlow.hadFirstStrikeStep`). I-D34: the planner ends each batch with a
+  `PassAttention` when the move isn't with who must act. I-D35: every member of an automated batch after its first is
+  folded (`MtgFacts.folds` honours any tagged member but the first; the tag now survives the reducer's own rewrites of
+  a move), and priority the host gives before the input waits for the input's first member (#11). #4: a turn changed
+  while off ends earlier turns' "until end of turn/combat" effects in `EngineState.from`. Engine work for shared flows
+  and uncached hand plays runs on the Automatum worker. I-D37: while the open decision is `Manual`, the table's manual
+  edits aren't refused (casting and step changes are). The acting-point event reads as its first member ("Priority →
+  bob" for a pass) until the engine's history lines exist. Catalog: TRN-001, TRN-008, TRN-014, TRN-056–TRN-058,
+  STK-026, STK-029, STK-032, SYS-067, HIS-092.
 
 ### I4 — Automatum-only controls
 

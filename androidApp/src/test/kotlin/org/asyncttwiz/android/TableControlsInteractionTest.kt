@@ -230,9 +230,9 @@ class TableControlsInteractionTest {
         assertFalse(peeks.last())
     }
 
-    // TRN-008
+    // TRN-008, TRN-056: the twelve steps; the first-strike damage step only while the turn is in it (or its combat had it)
     @Test fun pickerIsDialogWithPhaseLanesAndCurrentStepAndPlayer() {
-        val play = TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS, "42")
+        var play by mutableStateOf(TableToolFixture.play(TurnPosition.DECLARE_ATTACKERS, "42"))
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             PhaseStepPicker(play, play.board.turn.accountId, OwnTableColor, controller, {},
@@ -242,14 +242,18 @@ class TableControlsInteractionTest {
         compose.onNodeWithText("Alice's turn").assertIsDisplayed()
         for (phase in TurnPosition.entries.map { it.phase }.distinct()) compose.onNodeWithText(phaseName(phase)).assertIsDisplayed()
         compose.onNodeWithContentDescription("Declare attackers").assertIsSelected()
-        for (step in TurnPosition.entries) compose.onNodeWithContentDescription(step.label).assertIsDisplayed()
+        for (step in TurnPosition.MANUAL) compose.onNodeWithContentDescription(step.label).assertIsDisplayed()
+        compose.onNodeWithContentDescription(TurnPosition.FIRST_STRIKE_DAMAGE.label).assertDoesNotExist()
         compose.onNodeWithContentDescription("Close").assertIsDisplayed()
         compose.onAllNodes(isDialog()).assertCountEquals(1)
         compose.onNodeWithText("Turn 42").assertDoesNotExist()
+        compose.runOnIdle { play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE, "42") }
+        compose.onNodeWithText("Combat · First-strike damage").assertIsDisplayed()
+        compose.onNodeWithContentDescription(TurnPosition.FIRST_STRIKE_DAMAGE.label).assertIsSelected()
     }
 
     @Test fun stepCodesFollowActualProtocolPositionsAndMainNamesDoNotRepeat() {
-        assertEquals(listOf("UNT", "UPK", "DRW", "M1", "BOC", "ATK", "BLK", "DMG", "EOC", "M2", "END", "CLN"),
+        assertEquals(listOf("UNT", "UPK", "DRW", "M1", "BOC", "ATK", "BLK", "FS", "DMG", "EOC", "M2", "END", "CLN"),
             TurnPosition.entries.map { it.shortCode })
         assertEquals("Precombat main", turnStepName(TableToolFixture.play(TurnPosition.PRECOMBAT_MAIN).board.turn))
         assertEquals("Ending · Cleanup", turnStepName(TableToolFixture.play(TurnPosition.CLEANUP).board.turn))
@@ -270,7 +274,7 @@ class TableControlsInteractionTest {
             compose.onNodeWithText(stepLabel(step), useUnmergedTree = true).assertExists()
         }
         compose.runOnIdle { picker = true }
-        for (step in TurnPosition.entries) {
+        for (step in TurnPosition.MANUAL) {
             val label = hasText(stepLabel(step)) and hasAnyAncestor(hasContentDescription(step.label))
             compose.onNode(label, useUnmergedTree = true).assertExists()
         }

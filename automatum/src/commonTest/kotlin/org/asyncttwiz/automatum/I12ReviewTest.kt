@@ -23,7 +23,6 @@ import org.asyncttwiz.protocol.StackEffect
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
 import kotlin.random.Random
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -40,7 +39,6 @@ class I12ReviewTest {
 
     // i12review #4 (CR 514.2, TBL-112): while turns still change by hand (I1–I3) nothing ends an until-end-of-turn
     // effect: the computed view keeps showing a pump from two turns ago, with its ⌛
-    @Ignore("i12review #4: until-end-of-turn effects never end while the turn changes by hand")
     @Test fun untilEndOfTurnEffectEndsWhenTheTurnChangesByHand() {
         val (gremlin) = table.put(alice, PlayZone.BATTLEFIELD, "Festering Gremlin")
         val base = table.state()
@@ -62,7 +60,6 @@ class I12ReviewTest {
 
     // i12review #11 (I-D22, HIS-092): the host's priority grant (HostPriority) leads a cast's batch, so the batch's first
     // visible event (its history line and the timeline's stop) is "Priority → alice" instead of the cast
-    @Ignore("i12review #11: a cast batch shows the host's priority grant and mana pool steps as events")
     @Test fun aCastsFirstVisibleEventIsTheSpellNotThePriorityGrant() {
         // After a turn changed by hand Bob, the previous turn's player, still holds priority on the empty Stack
         table.priority = MtgPriority(bob)

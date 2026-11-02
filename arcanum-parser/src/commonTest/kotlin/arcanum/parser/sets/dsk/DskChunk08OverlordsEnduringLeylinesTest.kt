@@ -74,10 +74,10 @@ class DskChunk08OverlordsEnduringLeylinesTest {
     private fun enduringReturn() = Ability.Triggered(
         trigger = Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Battlefield, to = Zone.Graveyard)),
         instructions = Instructions(steps = listOf(
+            // "It's an enchantment." applies as it enters (CR 611.2e)
             Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Battlefield,
-                controller = Players.OwnerOf(Objects.EventObject(EventRole.After))), postBind = "returned")),
-            Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))), Affected.Objects(Objects.Bound("returned")),
-                Duration.Indefinitely)),
+                controller = Players.OwnerOf(Objects.EventObject(EventRole.After)),
+                entersAs = listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature)))), postBind = "returned")),
         )),
         interveningIf = Condition.ObjectMatches(Objects.EventObject(EventRole.Before), ObjectFilter.Type(CardType.Creature)),
     )
@@ -437,8 +437,7 @@ class DskChunk08OverlordsEnduringLeylinesTest {
         beginOnBattlefield,
         Ability.Static(
             mechanics = listOf(Mechanic.AlternativeCost(cost = Cost.mana(ManaCost.parse("{W}{U}{B}{R}{G}")!!))),
-            affects = Affected.Objects(Objects.Each(ObjectFilter.Or(listOf(Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Command)
-                .map { ObjectFilter.InZone(it) }))),
+            affects = Affected.Objects(Objects.Each(ObjectFilter.WasCast())),
         ),
     )
 }

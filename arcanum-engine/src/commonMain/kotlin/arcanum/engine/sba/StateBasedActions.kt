@@ -75,7 +75,9 @@ internal object StateBasedActions {
         val emptyDraws = state.players.filter { (it.ledger[Actions.EMPTY_DRAW] ?: 0) > 0 }
 
         // CR 704.5d: a token in a zone other than the battlefield ceases to exist
-        val strayTokens = state.objects.values.filter { it.token && it.zone != Zone.Battlefield }
+        val strayTokens = state.objects.values.filter { it.token && it.zone != Zone.Battlefield } +
+            // dsk gaps: CR 704.5e: a copy of a card in a zone other than the Stack or the battlefield ceases to exist
+            state.objects.values.filter { it.copyOfCard && it.zone != Zone.Battlefield && it.zone != Zone.Stack }
 
         val battlefield = state.battlefield.filter { state.obj(it)?.phasedOut == false }
         battlefield.forEach { id ->

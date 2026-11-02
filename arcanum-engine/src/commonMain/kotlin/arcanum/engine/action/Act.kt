@@ -136,13 +136,21 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** What everyone can see of [id] now (D33): its characteristics after layers, for last known information. */
     fun snapshot(id: ObjectId): ObjectSnapshot? {
-        val o = state.obj(id) ?: return null
+        val o = state.obj(id) ?: return copySnapshot(id)
         val v = view()[id]
         return ObjectSnapshot(
             id = id, owner = o.owner, controller = v?.controller ?: o.controller, zone = o.zone,
             characteristics = v?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
             token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
         )
+    }
+
+    /** A copy of a spell on the Stack as everyone sees it (CR 707.10: a spell without a card). */
+    private fun copySnapshot(id: ObjectId): ObjectSnapshot? {
+        val item = state.stackItems[id]?.takeIf { it.kind is arcanum.engine.state.StackItemKind.SpellCopy } ?: return null
+        val v = view()[id]
+        return ObjectSnapshot(id = id, owner = item.controller, controller = v?.controller ?: item.controller, zone = arcanum.api.Zone.Stack,
+            characteristics = v?.characteristics, facts = item.facts ?: arcanum.engine.state.ObjectFacts())
     }
 
     // ---- Decisions (each asked only when there is a choice, P5)

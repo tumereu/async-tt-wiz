@@ -4,7 +4,6 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -29,7 +28,6 @@ class Review3CopiesTest {
      * of Dawnglow Infusion). The copy of Spectral Finale aimed at a mana value 1 permanent exiles nothing; the original
      * (three colours) exiles the mana value 3 one. */
     // CR 707.10, 702.119a
-    @Ignore("review3 #1: a copy of a spell resolves as its original card (cast facts, self-references)")
     @Test
     fun aCopyOfAConvergeSpellSpentNoColours() = scenario {
         alice.battlefield("Plains", "Island", "Mountain", "Mountain", "Mountain", "Mountain")
@@ -49,7 +47,6 @@ class Review3CopiesTest {
     /** A copy isn't cast, so it wasn't "cast from a graveyard": the copy of a flashed-back Warden's Reclamation returns
      * its card but offers no further copy; the original does. */
     // CR 707.10, 702.34a
-    @Ignore("review3 #1: a copy of a spell resolves as its original card (cast facts, self-references)")
     @Test
     fun aCopyOfAFlashedBackSpellWasntCastFromAGraveyard() = scenario {
         alice.graveyard("Warden's Reclamation", "Tinkered Mite", "Gearwing Glider")
@@ -71,7 +68,6 @@ class Review3CopiesTest {
     /** Mounting Retribution cast with flashback copies twice; a copy of it wasn't cast from a graveyard and copies once.
      * Storm Spark: the original, one copy from the copied Retribution, two from the original: 12 damage. */
     // CR 707.10, 702.34a
-    @Ignore("review3 #1: a copy of a spell resolves as its original card (cast facts, self-references)")
     @Test
     fun aCopyOfAFlashedBackMountingRetributionCopiesOnce() = scenario {
         alice.hand("Storm Spark", "Flash of Mirroring")
@@ -86,7 +82,6 @@ class Review3CopiesTest {
     /** "Exile Muster the Forebears" in a copy means the copy (CR 707.10: the copy is a spell of its own; a copy that
      * leaves the Stack ceases to exist): the original card stays on the Stack and resolves later. */
     // CR 707.10, 707.10a, 608.2n
-    @Ignore("review3 #1: a copy of a spell resolves as its original card (cast facts, self-references)")
     @Test
     fun aCopysSelfReferenceIsntTheOriginalCard() = scenario {
         alice.hand("Muster the Forebears", "Flash of Mirroring")

@@ -24,7 +24,6 @@ import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.scenario.scenario
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -182,7 +181,6 @@ class Review3CostsTest {
     /** A redirection to a permanent that is no longer a creature does nothing (CR 614.9): with Rapid Retrofit, Shield
      * Bearer is a noncreature Vehicle, so alice is dealt the damage. */
     // CR 614.9
-    @Ignore("review3 #3: redirection to a permanent that left or is no longer a creature still redirects (CR 614.9)")
     @Test
     fun redirectionToANoncreatureDoesNothing() = scenario {
         alice.battlefield(shieldBearer, "Rapid Retrofit")
@@ -197,7 +195,6 @@ class Review3CostsTest {
     /** A redirection effect fixed on one creature (an effect from a resolved spell) does nothing once that creature has
      * left the battlefield (CR 614.9): alice is dealt the damage, it isn't lost. */
     // CR 614.9, 400.7
-    @Ignore("review3 #3: redirection to a permanent that left or is no longer a creature still redirects (CR 614.9)")
     @Test
     fun redirectionToAPermanentThatLeftDoesNothing() = scenario {
         alice.battlefield("Wall of Portents")

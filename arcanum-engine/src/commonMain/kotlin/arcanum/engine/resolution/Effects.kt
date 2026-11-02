@@ -603,13 +603,22 @@ internal object Effects {
             val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) StackItemKind.SpellCopy(
                 (original.kind as? StackItemKind.SpellCopy)?.copied ?: id) else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
-            val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts)
+            val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
+                facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)
             act.record(Change.StackItemAdded(copy, act.state.stack.size))
             act.record(Change.Happened(GameEvent.Copied(controller, copyId)))
             copies += copyId
         }
         scope.bind(effect.bind, NamedValue.Objects(copies))
     }
+
+    /** CR 707.10: a copy of a spell copies X, the modes chosen and the additional and alternative costs paid (and the
+     * objects used to pay them); it isn't cast, so it wasn't cast from anywhere and no mana was spent to cast it (the
+     * Dawnglow Infusion example). */
+    private fun copiedFacts(of: arcanum.engine.state.ObjectFacts?) = arcanum.engine.state.ObjectFacts(
+        x = of?.x, paid = of?.paid.orEmpty(), alternative = of?.alternative, modesChosen = of?.modesChosen.orEmpty(),
+        paidWith = of?.paidWith ?: arcanum.engine.state.Bindings.EMPTY,
+    )
 
     /** CR 701.6: a countered spell goes to its owner's graveyard; an ability or copy just leaves the Stack. Spells that
      * can't be countered aren't (CR 701.6b). */

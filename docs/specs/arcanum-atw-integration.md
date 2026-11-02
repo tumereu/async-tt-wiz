@@ -124,6 +124,14 @@ out of anything stuck.
   automatically on the device), other actions refused while it is open. The card stays where it is with its Stack entry
   (D35 deferred to the owner's review); the spell doesn't resolve by itself (I2b). Catalog: ZON-004, ZON-005, ZON-007,
   STK-004, STK-023–STK-025, SYS-067.
+- **Built (I2b, priority and resolution):** `SharedFlow` (module `automatum/`) runs priority passes and answers as
+  shared flows on full information (I-D17, I-D27), each call one batch, the open decision in the continuation record;
+  `SharedFlow.autoPass` passes while `Engine.shouldPassFor` says so but never on an empty Stack (steps stay manual until
+  I3). A cast's batch carries the caster's automatic pass and what follows (`CastFlow.sent`); a decision after the cast
+  itself (trigger order, targets) ends the private flow and goes out as the shared one. App: the respond prompt, the
+  decision panel (cast panel sections shared), "… is choosing" / "Choose for them" and "Pass for them" with a
+  confirmation, hidden cards named only when the viewer may see them; game actions and casting refused while a decision
+  is open; step and turn changes refused while the Stack holds anything. Catalog: STK-023, STK-026–STK-032, SYS-067.
 
 ### I3 — Abilities, lands, combat, steps
 

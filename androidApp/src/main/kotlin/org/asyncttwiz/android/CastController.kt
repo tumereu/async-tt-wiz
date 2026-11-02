@@ -32,13 +32,13 @@ internal class CastController(
     private val send: ((GameAction.PlayBatch, String) -> Boolean)?,
     private val tags: () -> List<MtgTag?>,
     private val fail: (String?) -> Unit,
-) {
+) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
     /** The plays the engine offers for the card being cast (its ways: faces, alternative costs). */
     var ways by mutableStateOf<List<Input>>(emptyList()); private set
     /** The mana uses picked in the mana section (starting from the engine's suggestion). */
-    var mana by mutableStateOf<List<ManaUse>>(emptyList()); private set
+    override var mana by mutableStateOf<List<ManaUse>>(emptyList()); private set
     /** Targets picked so far for a slot that takes several. */
     var picked by mutableStateOf<List<TargetRef>>(emptyList()); private set
     /** The eye icon (I-D10): the panel is hidden so the board can be looked at. */
@@ -51,7 +51,7 @@ internal class CastController(
     /** The open question is targets, chosen on the table: the panel is a slim bar. */
     val targeting: Boolean get() = flow?.pending is Decision.Targets
     /** Whether the picked mana pays the open payment. */
-    val paid: Boolean get() = flow?.let { f -> f.pending is Decision.ManaPayment && f.pays(mana) } == true
+    override val paid: Boolean get() = flow?.let { f -> f.pending is Decision.ManaPayment && f.pays(mana) } == true
 
     /**
      * Casts (or plays, a land) the hand card [cardId] the first way the engine offers (ZON-004, ZON-007). False with a
@@ -61,6 +61,8 @@ internal class CastController(
         val play = current() ?: return false
         if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }
+        // A shared flow waits for an answer (D32): nothing is cast meanwhile
+        if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
         val definitions = AutomatumBoards.definitions(play)
         val history = tags()
         val plays = AutomatumBoards.handPlays(play, viewer, history)
@@ -85,7 +87,18 @@ internal class CastController(
     }
 
     /** Answers the open question. */
-    fun answer(answer: Answer): Boolean = update { it.answer(answer) }
+    override fun answer(answer: Answer): Boolean = update { it.answer(answer) }
+    override val engine get() = flow!!.state
+    override fun atwCard(id: ObjectId): String? = flow?.atwCard(id)
+    override fun listedAnswers(): List<Answer> = flow?.listedAnswers().orEmpty()
+    private var visible: Pair<CastFlow, Set<ObjectId>>? = null
+    /** I-D27: the cast runs on full information; the panel names only what the caster may see. */
+    override fun shown(id: ObjectId): Boolean {
+        val f = flow ?: return false
+        val known = visible?.takeIf { it.first === f }?.second
+            ?: arcanum.engine.Engine.visible(f.state, PlayerId(viewer)).also { visible = f to it }
+        return id is ObjectId.StackItem || id in known
+    }
 
     /** Changes the answer of an earlier section (a toggle above the current one). */
     fun change(index: Int, answer: Answer): Boolean = update { it.change(index, answer) }
@@ -118,7 +131,7 @@ internal class CastController(
     }
 
     /** Taps or untaps a mana source in the mana section: untapped, the first of its uses that pays (else its first). */
-    fun toggleMana(group: List<ManaUse>) {
+    override fun toggleMana(group: List<ManaUse>) {
         val f = flow ?: return
         if (mana.any { it in group }) { mana = mana.filterNot { it in group }; return }
         mana = group.firstOrNull { f.pays(mana + it) }?.let { mana + it } ?: (mana + group.first())

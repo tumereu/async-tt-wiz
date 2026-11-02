@@ -336,8 +336,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
             val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
-            // A cast choosing targets (I-D6): its legal targets glow
-            val castGlow = toolkit?.cast?.glow(play).orEmpty()
+            // A cast or an Automatum decision choosing targets (I-D6): its legal targets glow
+            val castGlow = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
                 .background(barColor))

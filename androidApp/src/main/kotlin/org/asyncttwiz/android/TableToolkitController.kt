@@ -663,7 +663,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
             AutomatumDrags.Route.LeaveDraft -> {
                 val bound = bind(intent.scope, intent.sources) ?: return false
-                if (combat.shown(play).choices.declaring == null) { error = AutomatumDrags.MANUAL_MOVE; return false }
+                val choices = combat.shown(play).choices
+                // Only what is still a draft leaves: any copy while attackers are awaited, blockers while blockers are
+                val blockers = bound.viewIds.all { id -> play.board.combat?.pairs?.any { p -> p.blockers.any { it.id == id } } == true }
+                if (choices.declaring == null || (!choices.attackers && !blockers)) {
+                    error = if (choices.declaring == null) CombatController.DECLARED else CombatController.DECLARED_ATTACKERS
+                    return false
+                }
                 return removeOccurrences(bound)
             }
             is AutomatumDrags.Route.Refused -> { error = route.reason; return false }

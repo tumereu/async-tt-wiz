@@ -236,6 +236,10 @@ class AutomatumCombatScreenshotTest {
         assertFalse(bob.handle(TableIntent.Move(TableScope(ogreCard, listOf(ogreCard)),
             TableDestination.Combat(CombatDestination(play.board.combat!!.id, CombatRole.ATTACKER)), drag = true)))
         assertEquals(CombatController.DECLARED_ATTACKERS, bob.error)
+        // A declared attacker's copy doesn't leave the lanes by a drag either
+        val copy = pair.attackers.single().id
+        assertFalse(bob.handle(TableIntent.Move(TableScope(copy, listOf(copy)), TableDestination.Grid(aField, 4, 1), drag = true)))
+        assertEquals(CombatController.DECLARED_ATTACKERS, bob.error)
         assertTrue(bob.handle(TableIntent.Move(TableScope(ogreCard, listOf(ogreCard)),
             TableDestination.Combat(CombatDestination(play.board.combat!!.id, CombatRole.BLOCKER, pairId = pair.id)), drag = true)), bob.error)
         return bruteCard to ogreCard

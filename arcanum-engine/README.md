@@ -221,8 +221,9 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   copy's facts, CR 707.10f, 608.3f, 111.13), redirection only to a permanent still a creature, planeswalker or battle (CR
   614.9), casting from an
   effect (CR 608.2g) with the casting flow's own plan (face, modes, optional costs, X, targets, cost objects, mana;
-  without paying its mana cost with X 0, for another cost such as madness, or for its own; not cast without legal
-  targets), the card going to the graveyard/exile/battlefield (an
+  without paying its mana cost with X 0, for another cost such as madness, or for its own or an alternative cost the
+  card has or another object gives it, within its limit each turn, the player choosing which (CR 601.2b, 118.9; none
+  when the effect's terms are one, CR 118.9a, and none face down); not cast without legal targets), the card going to the graveyard/exile/battlefield (an
   Adventure to exile, castable from there as the creature, CR 715.4); mana paid on resolution as a
   `ManaPayment` decision, asked only when a payment is found (CR 118.3), by hand when its amount isn't known there ("its
   mana cost", an unannounced X). Permanents enter with their printed
@@ -272,8 +273,7 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   `during`, repeated target slot names of repeated modes
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
-  other keyword actions as costs (exert); no cube card has any of these. A spell cast by an effect while
-  another resolves can't use an alternative cost another object gives it. Also missing: text-changing
+  other keyword actions as costs (exert); no cube card has any of these. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only). Around the game:
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant

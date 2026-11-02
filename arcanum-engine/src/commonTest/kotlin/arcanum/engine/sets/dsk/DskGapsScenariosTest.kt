@@ -346,4 +346,90 @@ class DskGapsScenariosTest {
             stack.names shouldBe emptyList()
         }
     }
+
+    // ---- Spells cast while another resolves, for an alternative cost another permanent gives
+
+    /** The ways to pay for a spell an effect casts, as offered. */
+    private fun Scenario.payOptions(): List<String> = (pending as Decision.ChooseOption).options
+
+    /** Answers the open way-to-pay choice with the option that mentions [text]. */
+    private fun Scenario.payWith(text: String) {
+        answer(Answer.Option(payOptions().single { text in it }))
+    }
+
+    // CR 608.2g, 601.2b, 118.9: a copy cast while chapter IV resolves is a spell cast from exile, so the alternative cost
+    // another permanent gives such spells may be announced, as for a cast with priority; "once each turn" leaves the
+    // second copy only its mana cost
+    @Test
+    fun copiesCastByAnEffectUseAGrantedAlternativeCostOnceEachTurn() = scenario {
+        alice.battlefield(ledger, counters = listOf(CounterKind.Lore to 3))
+        alice.battlefield(gallery, "Mountain", "Mountain", "Mountain")
+        alice.graveyard(lash, gust)
+        alice.library("Island")
+        turn(number = 1, active = alice, step = TurnStep.Draw)
+
+        advanceTo(TurnStep.PrecombatMain)
+        answer(Answer.Targets(listOf(target(lash), target(gust))))
+        allPass()
+        answer(Answer.YesNo(true))
+        expect { payOptions() shouldBe listOf("Pay its mana cost {2}{R}", "Pay {0} rather than its mana cost (Smoldering Gallery)") }
+        payWith("{0}")
+        // The second copy: the {0} was used this turn, so its mana cost is paid without a choice
+        answer(Answer.YesNo(true))
+        answer(Answer.ManaPayment((pending as Decision.ManaPayment).suggestion))
+        allPass()
+        allPass()
+
+        expect {
+            bob.life shouldBe 16
+            alice.battlefield.names.filter { it == "Mountain" }.size shouldBe 3
+            stack.names shouldBe emptyList()
+        }
+        assertEquals(3, state.battlefield.count { state.obj(it)?.tapped == true }, "only one copy's mana cost was paid")
+    }
+
+    // CR 601.2b, 118.9: the alternative cost is the player's choice; paying the mana cost of the first copy leaves the
+    // once-each-turn {0} for the second
+    @Test
+    fun aSpellCastByAnEffectMayStillPayItsManaCost() = scenario {
+        alice.battlefield(ledger, counters = listOf(CounterKind.Lore to 3))
+        alice.battlefield(gallery, "Mountain", "Mountain", "Mountain")
+        alice.graveyard(lash, gust)
+        alice.library("Island")
+        turn(number = 1, active = alice, step = TurnStep.Draw)
+
+        advanceTo(TurnStep.PrecombatMain)
+        answer(Answer.Targets(listOf(target(lash), target(gust))))
+        allPass()
+        answer(Answer.YesNo(true))
+        payWith("mana cost {2}{R}")
+        answer(Answer.ManaPayment((pending as Decision.ManaPayment).suggestion))
+        answer(Answer.YesNo(true))
+        payWith("{0}")
+        allPass()
+        allPass()
+
+        expect { bob.life shouldBe 16 }
+    }
+
+    private val flick = Cards.invent("Ember Flick", "{R}", "Sorcery", "Ember Flick deals 1 damage to each opponent.")
+
+    // CR 118.9a, 702.85a: cascade casts the card from exile without paying its mana cost, itself an alternative cost, so
+    // no other alternative cost is offered
+    @Test
+    fun noOtherAlternativeCostWhenCastWithoutPaying() = scenario {
+        alice.battlefield(gallery, "Forest", "Island", "Island")
+        alice.hand("Splintered Envoy")
+        alice.library("Forest", flick, "Island")
+
+        alice.casts("Splintered Envoy")
+        allPass()
+        answer(Answer.YesNo(true))
+        expect {
+            assertTrue(pending !is Decision.ChooseOption, "no way-to-pay choice: $pending")
+            stack.names shouldBe listOf("Splintered Envoy", flick)
+        }
+        allPass()
+        expect { bob.life shouldBe 19 }
+    }
 }

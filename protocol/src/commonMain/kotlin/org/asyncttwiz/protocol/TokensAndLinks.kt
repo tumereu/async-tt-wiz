@@ -98,9 +98,23 @@ object TokenLinkRules {
                 val definition = read?.definition ?: (action as PlayAction.CreateToken).definition
                 val retained = state.definitions.singleOrNull { it.digest == definition.digest }
                 if (retained != null && retained != definition) return reject("invalidInput")
+                val tokenId = CommandIds.uuidV5(command.requestId, "token/0")
+                // Automatum's copy of a card (CR 707.12): made face up in an Exile, first like a card moved there
+                (action as? PlayAction.CreateToken)?.containerId?.let { into ->
+                    val exile = board.containers.singleOrNull { it.id == into && it.zone == PlayZone.EXILE && !it.temp }
+                        ?: return reject("missingReference")
+                    if (occupied(board, tokenId)) return reject("inapplicable")
+                    val face = definition.definition.faces.first()
+                    val token = PlayCard(tokenId, definition.digest, actor, exile.id, face.faceId, covered = false,
+                        corner = face.defaultCorner(), token = true)
+                    val next = board.copy(cards = (board.cards + token).sortedBy { it.id },
+                        containers = board.containers.map { if (it.id != exile.id) it else it.copy(cards = listOf(token.id) + it.cards) })
+                    return GameplayRules.record(state.copy(definitions = (state.definitions + definition).distinctBy { it.digest }.sortedBy { it.digest }),
+                        actor, command, next, GameplayTransition(tokens = listOf(TokenChange(null, TokenPresence(token, CardLocation(exile.id, null))))),
+                        rulesVersion = rulesVersion)
+                }
                 val container = board.containers.singleOrNull { it.zone == PlayZone.BATTLEFIELD && it.accountId == actor }
                     ?: return reject("missingReference")
-                val tokenId = CommandIds.uuidV5(command.requestId, "token/0")
                 val pileId = CommandIds.uuidV5(command.requestId, "pile/0")
                 if (occupied(board, tokenId) || occupied(board, pileId)) return reject("inapplicable")
                 // A fresh free-standing logical cell. Never displace cards (rules v30 may join a non-full token pile, below).

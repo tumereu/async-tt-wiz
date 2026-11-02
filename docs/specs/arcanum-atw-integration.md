@@ -292,6 +292,11 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   being cast has an item without data until the engine makes it, CR 601.2a). Abilities are entries of their source.
 - **Tokens:** ATW makes its own token card, with the token's printed values and rules text (I-D2); its ledger keeps
   the engine's token id and definition (D35).
+- **Copies of cards** (CR 707.12, made where the card is): an ATW token card made in its owner's Exile
+  (`CreateToken(definition, containerId)`), showing the copied card's own card data marked as a token's (as ATW's
+  manual copy, `CloneToken`); its ledger keeps the engine's id, definition and `copyOfCard`. Cast, it stays in Exile
+  with its entry pointing at it (STK-001); like ATW's tokens it stops existing outside the Battlefield and the Stack
+  (CR 704.5e, TBL-103). A copy made in another zone is unmappable.
 - **Ledgers** hold only what ATW's fields don't say (controller, face of a split card, phasing, marks, memory, facts,
   control start where ATW's entered turn doesn't say it, …). Records: `effect:<id>`, `delayed:<id>`, `ledger`,
   `turn` (lands played, extra turns), `combat` (the engine's combat; the lanes show it), `triggered`, `continuation`

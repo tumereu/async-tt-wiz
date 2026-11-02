@@ -235,8 +235,9 @@ internal object GameplayConcerns {
             is PlayAction.CreateToken, is PlayAction.CloneToken -> {
                 val token = mutation.transition.tokens.single().to!!.card
                 definition(token.definition)
-                fields += ConcernField.Cell(token.containerId, token.placement!!.position)
-                fields += ConcernField.Occupied(token.id); fields += ConcernField.Occupied(token.placement.pileId)
+                // A copy of a card made in an Exile (Automatum) has no cell
+                token.placement?.let { fields += ConcernField.Cell(token.containerId, it.position) }
+                fields += ConcernField.Occupied(token.id); token.placement?.let { fields += ConcernField.Occupied(it.pileId) }
             }
             is PlayAction.RemoveToken -> fields += ConcernField.Incident(a.cardId)
             is PlayAction.Link -> {

@@ -342,6 +342,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     private fun create(o: GameObject, by: arcanum.engine.change.CausedBy?) {
         // An emblem is only its record (I-D25), which the values bring in
         if (o.zone == Zone.Command && !o.token) { emblemTexts[o.id] = emblemText(o, by); return }
+        if (o.copyOfCard) { createCopy(o); return }
         if (o.zone != Zone.Battlefield) throw Unmappable("a token created in ${o.zone}")
         val definition = o.definition ?: throw Unmappable("a token without a definition")
         val before = board.cards.map { it.id }.toSet()
@@ -352,6 +353,28 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         val field = container(PlayZone.BATTLEFIELD, controller)
         if (token.containerId != field.id) play(PlayAction.MoveCard(token.id, source(token),
             MoveDestination(field.id, MoveInsertion.EMPTY, BattlefieldPlacement.cell(atw, field.id, token))))
+    }
+
+    /**
+     * A copy of a card (CR 707.12), made in its owner's Exile where the card is: an ATW token card (it ceases to exist
+     * where ATW's tokens do, CR 704.5e, TBL-103) showing the copied card's own card data, as ATW's manual copies do
+     * (`CloneToken`); the engine's id, definition and copy flag are in its ledger. Copies made elsewhere can't be said.
+     */
+    private fun createCopy(o: GameObject) {
+        if (o.zone != Zone.Exile) throw Unmappable("a copy of a card made in ${o.zone}")
+        val definition = o.definition ?: throw Unmappable("a copy of a card without a definition")
+        val before = board.cards.map { it.id }.toSet()
+        play(PlayAction.CreateToken(copyData(definition), containerId = container(PlayZone.EXILE, o.owner.value).id))
+        ids.alias(board.cards.single { it.id !in before }.id, o.card)
+    }
+
+    /** The copied card's own ATW card data as a token's ([definition] is a card of the game's), else what ATW shows of a
+     * token with [definition] ([AtwTokens]). */
+    private fun copyData(definition: arcanum.api.CardDefinition): org.asyncttwiz.protocol.SubmittedDefinition {
+        val digest = call.definitions.entries.firstOrNull { it.value == definition }?.key
+        val card = atw.definitions.firstOrNull { it.digest == digest }?.definition?.copy(token = true)
+            ?: return AtwTokens.submitted(definition)
+        return org.asyncttwiz.protocol.SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
     }
 
     private fun shuffle(change: Change.Shuffle) {
@@ -575,8 +598,9 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         val faces = faces(card)
         val derivedFace = if (faces.size > 1 && o.face < faces.size) o.face else faces.indexOfFirst { it.faceId == card.faceId }.coerceAtLeast(0)
         return CardLedger(
-            card = o.card.value.takeIf { o.token && it != card.id && !ids.transient(o.card) },
-            definition = o.definition.takeIf { o.token },
+            card = o.card.value.takeIf { (o.token || o.copyOfCard) && it != card.id && !ids.transient(o.card) },
+            definition = o.definition.takeIf { o.token || o.copyOfCard },
+            copyOfCard = o.copyOfCard,
             faceOverride = o.face.takeIf { it != derivedFace },
             controllerOverride = (o.controller?.value ?: "").takeIf { o.controller != derivedController },
             ownerOverride = o.owner.value.takeIf { it != owner(card) },

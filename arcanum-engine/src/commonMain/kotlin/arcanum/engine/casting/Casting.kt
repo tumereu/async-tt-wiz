@@ -195,10 +195,10 @@ internal object Casting {
     /**
      * [player] casts [card] while a spell or ability resolves (CR 608.2g): the steps of CR 601.2a–i on the same [Plan] as
      * [cast], on the effect's terms: without paying its mana cost ([withoutPaying], an alternative cost, CR 118.9; X is
-     * then 0, CR 107.3b), for [cost] instead of its mana cost (madness, CR 702.35a), or else for its own mana cost. Its
-     * face is chosen when it has several to cast (CR 709.3, 715.3, 712.11); modes, optional and additional costs, X,
-     * targets, objects for costs and mana are asked with [act]'s decisions, redone with their answers (D29); a target
-     * slot with only as many legal targets as it needs takes them without asking (P5). Nobody gets priority afterwards.
+     * then 0, CR 107.3b), for [cost] instead of its mana cost (madness, CR 702.35a), or else for its own mana cost or an
+     * alternative cost the player announces ([chooseAlternative], CR 601.2b). Its face is chosen when it has several to
+     * cast (CR 709.3, 715.3, 712.11); modes, optional and additional costs, X, targets, objects for costs and mana are
+     * asked with [act]'s decisions, redone with their answers (D29); a target slot with only as many legal targets as it needs takes them without asking (P5). Nobody gets priority afterwards.
      * Returns the spell, or null when it can't be cast (a prohibition, too few legal targets or objects for its costs, no
      * mana to pay with; CR 101.2, 601.2c, 601.2h, 118.3): then nothing about it happened and the card stays where it is.
      */
@@ -214,6 +214,7 @@ internal object Casting {
             require(chosen >= 0) { "Not a face of ${o.definition?.faces?.firstOrNull()?.name}" }
             faces[chosen]
         }
+        val alternative = chooseAlternative(act, snap, player, card, face, withoutPaying || cost != null)
         val mark = act.recorder.changes.size
         fun cannot(): ObjectId? {
             act.recorder.rollback(mark)
@@ -224,10 +225,13 @@ internal object Casting {
         val onStack = (card as ObjectId.Card).next()
         val now = act.state.objOrThrow(onStack)
         if (face != now.face) act.record(Change.Face(onStack, now.face, face))
+        // As for a cast with priority: from here on it is a spell cast from where its card was (CR 601.2a), so an
+        // alternative cost for "a spell you cast from exile" still applies as its costs are determined (CR 601.2b, f)
+        act.record(Change.Facts(onStack, now.facts, now.facts.copy(castFrom = o.zone)))
         val terms = arcanum.api.Mechanic.MayPlay(o.zone, PlayKind.Cast, cost = cost, withoutPaying = withoutPaying && cost == null,
             holder = arcanum.api.PlayerFilter.You)
         var asked = false
-        var c = Continuation.Announcing(player, Announced.Spell(onStack, CastWay(face), terms, byEffect = true), AnnounceStage.Modes,
+        var c = Continuation.Announcing(player, Announced.Spell(onStack, CastWay(face, alternative = alternative), terms, byEffect = true), AnnounceStage.Modes,
             Choices(names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))))
         while (true) {
             val plan = Plan(act.state, c)
@@ -248,6 +252,31 @@ internal object Casting {
         }
         Payment.finish(act.recorder, c, emptyList(), mark)
         return onStack
+    }
+
+    /**
+     * The alternative cost [player] announces for a spell cast by an effect (CR 601.2b, 118.9), as for a cast with
+     * priority ([Legality.alternativeCosts]: the card's own and those another object gives the spells its controller
+     * casts, each within its limit each turn), or null for its mana cost. None when the effect's terms already are an
+     * alternative cost ([effectsCost]: without paying its mana cost, madness; only one may be used, CR 118.9a), and no
+     * face-down one (a card cast by an effect is cast face up). Asked only when there is one to choose.
+     */
+    private fun chooseAlternative(act: arcanum.engine.action.Act, snap: Snapshot, player: arcanum.engine.state.PlayerId,
+                                  card: ObjectId, face: Int, effectsCost: Boolean): arcanum.engine.view.AbilityOrigin? {
+        if (effectsCost) return null
+        val alternatives = Legality.alternativeCosts(snap, card, player).filter { !it.second.faceDown }
+        if (alternatives.isEmpty()) return null
+        val manaCost = snap.state.obj(card)?.definition?.faces?.getOrNull(face)?.manaCost
+        val labels = listOf(if (manaCost != null) "Pay its mana cost $manaCost" else "Pay no mana cost") + alternatives.map { (inst, m) ->
+            val by = (inst.origin as? arcanum.engine.view.AbilityOrigin.FromAbility)?.source?.let { snap.view[it]?.characteristics?.name }
+            val what = m.keyword?.let { "${it.id.replace('-', ' ').replaceFirstChar { c -> c.uppercase() }} " +
+                arcanum.engine.resolution.Costs.describe(m.cost) }
+                ?: "Pay ${arcanum.engine.resolution.Costs.describe(m.cost)} rather than its mana cost"
+            if (by != null) "$what ($by)" else what
+        }
+        val chosen = labels.indexOf(act.chooseOption(player, card, labels))
+        require(chosen >= 0) { "Not a way to pay for it: $labels" }
+        return if (chosen == 0) null else alternatives[chosen - 1].first.origin
     }
 
     /** Answers a spell cast by an effect takes without asking: X is 0 when no cost paid includes it (CR 107.3b); a target

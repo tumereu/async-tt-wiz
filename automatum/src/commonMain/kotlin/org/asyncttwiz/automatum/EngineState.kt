@@ -91,7 +91,8 @@ object EngineState {
                 zone = zone,
                 definition = ledger.definition ?: definition(card),
                 face = ledger.faceOverride ?: Derived.face(state, card),
-                token = card.token,
+                token = card.token && !ledger.copyOfCard,
+                copyOfCard = ledger.copyOfCard,
                 tapped = card.tapped,
                 // A spell's card stays in its ATW zone (STK-001): a spell cast face down is face down by its entry (STK-005)
                 faceDown = spell?.faceDown ?: card.isFaceDown,

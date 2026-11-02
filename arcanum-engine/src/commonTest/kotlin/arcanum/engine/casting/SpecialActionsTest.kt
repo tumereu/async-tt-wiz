@@ -111,7 +111,8 @@ class SpecialActionsTest {
         alice.hand("Grommak, Risen Charnelhost")
         perform(Input.Cast(alice.id, card("Grommak, Risen Charnelhost")))
         val d = assertIs<Decision.ManaPayment>(pending)
-        assertTrue(d.suggestion.isEmpty())
+        // The suggested payment uses only the other ways (convoke, delve), never mana
+        assertTrue(d.suggestion.isNotEmpty() && d.suggestion.all { it is ManaUse.Special })
         assertTrue(d.options.none { it is ManaUse.Ability || it is ManaUse.Pool })
         val uses = listOf("Canopy Browser", "Persistence", "Storm Spark", "Denial", "Mountain", "Swamp", "Plains").map { name ->
             d.options.filterIsInstance<ManaUse.Special>().first { it.objects == listOf(card(name)) }

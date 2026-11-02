@@ -509,9 +509,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Pay -> if (cantSpendMana) {
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays)
-                .filter { it is ManaUse.Special || it is ManaUse.Life }, emptyList())
+                .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays), Mana.suggest(snap, player, q.cost, itemId))
+            Mana.options(snap, player, q.cost, itemId, manaWays), Mana.suggest(snap, player, q.cost, itemId, manaWays))
     }
 
     companion object {

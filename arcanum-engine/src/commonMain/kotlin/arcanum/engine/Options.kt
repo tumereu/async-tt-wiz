@@ -34,19 +34,21 @@ import arcanum.engine.view.Subtypes
  *
  * - With a decision open: answers to it, each checked by performing it on a copy: yes/no; each target, object, mode,
  *   colour, option, player, card type, replacement or legend to keep; the triggers in the order they are; a number at
- *   its least (and most); the suggested mana payment; a division; card names and creature types found in the game; for
- *   choices of several, the first ones that work together. Not every combination is listed: the decision says what is
- *   allowed, and any allowed answer is accepted. Random results and host fills (D25, D60) are the host's to answer and
- *   aren't listed. Any player may answer (P7), so answers are offered to everyone; [Input.Cancel] for a cast or an
- *   activation only to the player casting or activating it.
+ *   its least (and most); an announced X at the least values that work, up to what can be paid; the suggested mana
+ *   payment; a division; card names and creature types found in the game; for choices of several, the first ones that
+ *   work together. In a cast or activation, only answers after which it can still be finished (CR 601.2c, 601.2g–h).
+ *   Not every combination is listed: the decision says what is allowed, and any allowed answer is accepted. Random
+ *   results and host fills (D25, D60) are the host's to answer and aren't listed. Any player may answer (P7), so answers
+ *   are offered to everyone; [Input.Cancel] for a cast or an activation only to the player casting or activating it.
  * - While attackers or blockers are awaited: the least declaration that obeys the requirements (none when there are
  *   none, CR 508.1d, 509.1c), and it with each one more legal attack or block (or an attacker's other target); the
  *   declaration inputs accept any legal combination.
  * - With priority: passing, each land they may play, each spell they may begin to cast (every castable face, from the
  *   hand or with a permission, a permission for the hand too, and each alternative cost that applies) and each ability
  *   they may activate, mana abilities included. A cast or activation is listed when it can be begun, everything known at
- *   its start can be done (targets, objects for costs, CR 601.2c, 601.2h), and mana is found for its cost as it stands
- *   then (X as 0, cost changes applied, restricted mana that may pay for it counted; convoke and delve not checked).
+ *   its start can be done (targets, objects for costs, CR 601.2c, 601.2h), a payment is found for its mana cost as it
+ *   stands then (X as 0, cost changes applied, restricted mana that may pay for it, convoke and delve counted), and its
+ *   decisions have answers that lead to its end (looked ahead within a bound).
  */
 internal object Options {
     fun of(state: GameState, player: PlayerId): List<Input> {
@@ -67,21 +69,81 @@ internal object Options {
     }
 
     /** Whether [Engine.perform] accepts [input] in the snapshot's state (its view worked out once for every input tried). */
-    private fun accepted(snap: Snapshot, input: Input): Boolean = try {
-        Perform.run(snap.state, input, snap.view)
-        true
+    private fun accepted(snap: Snapshot, input: Input): Boolean = performed(snap, input) != null
+
+    /** [Engine.perform] of [input] on a working copy of the snapshot's state: the copy as it leaves it and the decision
+     * it waits for, or null when refused. */
+    private fun performed(snap: Snapshot, input: Input): Pair<GameState, Pending?>? = try {
+        val recorder = Recorder(snap.state.deepCopy(), snap.view)
+        recorder.state to Perform.runOn(recorder, input).pending
     } catch (e: IllegalArgumentException) {
-        false
+        null
+    }
+
+    /** How many more answers a look-ahead ([goesOn]) may try; once spent, what is accepted is taken to go on. */
+    private class Budget(var left: Int = LOOKAHEAD)
+
+    /**
+     * Whether a cast or activation that waits for [pending] in [state] can still be finished (anything else goes on): a
+     * payment is found for its mana cost as it stands (CR 601.2g–h, 605.3a; values not announced yet as 0), and its open
+     * decision has an answer after which it goes on in turn (a later target that depends on an earlier one or on X,
+     * CR 601.2c; a cost the payment can't make, CR 118.3), looking ahead within [budget].
+     */
+    private fun goesOn(state: GameState, pending: Pending?, budget: Budget = Budget()): Boolean {
+        val c = pending?.continuation as? Continuation.Announcing ?: return true
+        if (c.choices.names[Plan.MANUAL] != null || c.choices.paying != null) return true
+        if (!manaFound(Plan(state, c))) return false
+        val d = pending.decision
+        if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) return true
+        val snap = Snapshot(state)
+        if (d is Decision.Announce) return announced(snap, pending, 1, budget).isNotEmpty()
+        return candidates(snap, pending).distinct().any { goesOnAfter(snap, pending, it, budget) }
+    }
+
+    /** Whether [answer] to the open decision of a cast or activation is accepted and it [goesOn] after it. */
+    private fun goesOnAfter(snap: Snapshot, pending: Pending, answer: Answer, budget: Budget = Budget()): Boolean {
+        val (after, next) = performed(snap, Input.Answer(pending.decision.id, answer)) ?: return false
+        return budget.left-- <= 0 || goesOn(after, next, budget)
+    }
+
+    /** Whether a payment is found for the plan's total mana cost as it stands (§7.8), with its other ways to pay too
+     * (convoke, delve, CR 702.51, 702.66) when mana alone doesn't. */
+    private fun manaFound(plan: Plan): Boolean =
+        !plan.total.hasMana || Mana.suggest(plan.snap, plan.player, plan.total.mana, plan.itemId, plan.manaWays, !plan.cantSpendMana).isNotEmpty()
+
+    /**
+     * Answers to an X (or another value) announced for a cost (CR 107.3, 601.2b): the least [count] values from the
+     * decision's least after which the cast can go on ([goesOnAfter]; targets may need a larger X, CR 601.2c). Values are
+     * tried up to the most a payment is found for (CR 601.2g–h), [MAX_TRIED] more than the least at most. Each value
+     * has its own look-ahead unless [budget] is shared.
+     */
+    private fun announced(snap: Snapshot, pending: Pending, count: Int, budget: Budget? = null): List<Answer> {
+        val d = pending.decision as Decision.Announce
+        val c = pending.continuation as Continuation.Announcing
+        val found = mutableListOf<Answer>()
+        val most = minOf(d.max ?: Int.MAX_VALUE, d.min + MAX_TRIED)
+        var n = d.min
+        while (n <= most && found.size < count) {
+            // A larger value costs no less mana
+            if (!manaFound(Plan(snap.state, c.copy(choices = c.choices.copy(announced = c.choices.announced + (d.name to n)))))) break
+            val answer = Answer.Number(n)
+            if (goesOnAfter(snap, pending, answer, budget ?: Budget())) found += answer
+            n++
+        }
+        return found
     }
 
     private fun answers(snap: Snapshot, pending: Pending, player: PlayerId): List<Input> {
         val d = pending.decision
+        val announcing = pending.continuation is Continuation.Announcing
         // D60: another player isn't offered answers naming cards they can't see (which of a searched library match)
         val hidden = if (player == d.player) emptySet() else objectsOf(d) - arcanum.engine.action.Knowledge.visible(snap.state, snap.view, player)
-        val inputs = candidates(snap, pending).distinct().filter { hidden.isEmpty() || objectsOf(it).none { id -> id in hidden } }
-            .map { Input.Answer(d.id, it) }.filter { accepted(snap, it) }
+        // In a cast or activation, only answers after which it can still be finished (no dead end, CR 601.2c, 601.2g–h)
+        val found = if (d is Decision.Announce && announcing) announced(snap, pending, NUMBERS)
+            else candidates(snap, pending).distinct().filter { hidden.isEmpty() || objectsOf(it).none { id -> id in hidden } }
+                .filter { if (announcing) goesOnAfter(snap, pending, it) else accepted(snap, Input.Answer(d.id, it)) }
         val cancel = (pending.continuation as? Continuation.Announcing)?.takeIf { it.player == player }?.let { Input.Cancel(player) }
-        return inputs + listOfNotNull(cancel)
+        return found.map { Input.Answer(d.id, it) } + listOfNotNull(cancel)
     }
 
     /** The objects a decision offers. */
@@ -113,8 +175,8 @@ internal object Options {
         is Decision.ChooseColor -> d.among.map { Answer.ColorChoice(it) }
         is Decision.ChooseOption -> d.options.map { Answer.Option(it) }
         is Decision.ChoosePlayer -> d.options.map { Answer.Player(it) }
-        // The least, and a few more: a target may need a larger X (CR 601.2b–c)
-        is Decision.Announce -> (d.min..(d.max ?: Int.MAX_VALUE).coerceAtMost(d.min + 3)).map { Answer.Number(it) }
+        // The least, and a few more ([announced] picks those that work in a cast or activation)
+        is Decision.Announce -> (d.min..(d.max ?: Int.MAX_VALUE).coerceAtMost(d.min + NUMBERS - 1)).map { Answer.Number(it) }
         is Decision.ChooseNumber -> listOfNotNull(d.min, d.max).map { Answer.Number(it) }
         is Decision.ManaPayment -> if (d.suggestion.isNotEmpty()) listOf(Answer.ManaPayment(d.suggestion)) else emptyList()
         is Decision.Divide -> if (d.among.isNotEmpty()) {
@@ -184,6 +246,13 @@ internal object Options {
 
     private const val MAX_NAMES = 8
 
+    /** How many announced values are listed, and how many more than the least are tried. */
+    private const val NUMBERS = 4
+    private const val MAX_TRIED = 20
+
+    /** How many answers a look-ahead tries at most. */
+    private const val LOOKAHEAD = 40
+
     private fun declarations(snap: Snapshot, player: PlayerId): List<Input> {
         val s = snap.state
         return when {
@@ -252,8 +321,8 @@ internal object Options {
 
     /**
      * Whether the cast or activation [input] can be begun ([Engine.perform] accepts it: everything known at its start can
-     * be done, CR 601.2c, 601.2h) and mana is found for its cost as it stands then (X as 0, §7.8). A spell with other
-     * ways to pay (convoke, delve) or that can't be paid with mana is left to its payment decision.
+     * be done, CR 601.2c, 601.2h) and can be finished ([goesOn]): a payment is found for its mana cost as it stands then
+     * (X as 0, §7.8; convoke and delve counted), and its decisions have answers that lead to the end.
      */
     private fun startable(snap: Snapshot, input: Input): Boolean {
         val recorder = Recorder(snap.state.deepCopy(), snap.view)
@@ -266,11 +335,10 @@ internal object Options {
         } catch (e: IllegalArgumentException) {
             return false
         }
-        val c = (progress as? Progress.Waiting)?.pending?.continuation as? Continuation.Announcing ?: return true
-        if (c.choices.names[Plan.MANUAL] != null) return true
-        val plan = Plan(recorder.state, c)
-        if (plan.cantSpendMana || plan.manaWays.isNotEmpty() || !plan.total.hasMana) return true
-        return Mana.suggest(plan.snap, c.player, plan.total.mana, plan.itemId).isNotEmpty()
+        val pending = (progress as? Progress.Waiting)?.pending ?: return true
+        // As [Engine.perform] leaves it: waiting for the decision, so its answers can be tried
+        recorder.record(arcanum.engine.change.Changes.pending(recorder.state, pending))
+        return goesOn(recorder.state, pending)
     }
 
     private fun abilities(snap: Snapshot, player: PlayerId): List<Input> {

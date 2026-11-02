@@ -26,9 +26,8 @@ class I0ReviewProtocolTest {
     private fun head(tree: GameplayTree) = tree.stateAt(tree.currentNodeId)!!
 
     // #7 §4.5 / D34 ("later stamps are always higher, so stamp order is event order"): Alice undoes her move, Bob stamps
-    // another card, Alice redoes. The redo restores her recorded stamp, now equal to Bob's, and her event is put back
-    // before Bob's in history. CR 613.7 needs every timestamp distinct and in event order.
-    @Ignore("i0review #7: redo after the other player's event gives two objects one timestamp")
+    // another card, Alice redoes. Her event goes back before Bob's in history; I-D26 (SYS-058): the redo gives it a fresh
+    // stamp, so it stays distinct from Bob's and follows the real order (CR 613.7).
     @Test fun redoAfterTheOtherPlayersEventKeepsTimestampsDistinctAndInOrder() {
         val start = base()
         val moved = play(GameplayTree(start), a, move(start, 12, MoveDestination(hand, MoveInsertion.UNORDERED)))
@@ -39,14 +38,18 @@ class I0ReviewProtocolTest {
         val redone = SelectiveUndo.change(covered, a, command(GameAction.Redo))
         assertNotNull(redone.tree, "redo is allowed: ${redone.reason}")
         val after = head(redone.tree!!)
-        assertEquals(aliceStamp, card(after, 12).timestamp, "redo restores the recorded stamp")
+        assertEquals(aliceStamp, bobStamp, "both were stamped from the same clock")
         assertNotEquals(card(after, 12).timestamp, card(after, 11).timestamp,
             "two objects share timestamp ${card(after, 11).timestamp} (Alice's redone move, Bob's later face-down: $bobStamp)")
+        assertTrue(card(after, 12).timestamp > card(after, 11).timestamp, "the redone move is the newer object")
+        // The redone event undoes exactly again.
+        val again = assertNotNull(SelectiveUndo.change(redone.tree!!, a, command(GameAction.Undo)).tree)
+        assertEquals(card(head(covered), 12), card(head(again), 12))
     }
 
     // #8 P8: one Restamp to the clock's end; every later stamp of the game overflows into negative timestamps, which every
     // later engine event about that card then fails MtgRules.valid on (timestamps must be ≥ 0)
-    @Ignore("i0review #8: a Restamp to Long.MAX_VALUE overflows the clock")
+    // SYS-057
     @Test fun aRestampCantPushTheClockPastItsEnd() {
         var state = base()
         val restamp = PlayAction.Mtg(MtgAction.Restamp(gameplayId(10), MtgStamp(0, 0), MtgStamp(0, Long.MAX_VALUE)))
@@ -67,28 +70,26 @@ class I0ReviewProtocolTest {
         assertTrue(MtgTag.valid(MtgTag(listOf("destroyed"), data = data)))
     }
 
-    // Owner decision A, I-D9: "switching Automatum off during a flow undoes the flow (its own batches only, which ATW's undo rule always
-    // allows)". A shared flow's steps are sent by whoever answers (D11, §2): Bob answered Alice's trigger. Undo takes back
-    // only the actor's own events (SelectiveUndo), so neither player can take the flow back to where it began.
-    @Ignore("i0review owner decision A: I-D9 needs undo of the other player's flow steps")
+    // Owner decision A → I-D19 (SYS-060): a shared flow's steps are sent by whoever answers (D11, §2): Bob answered Alice's
+    // trigger. Undo takes back only the actor's own events, so switching off reverts the flow on the server instead, every
+    // step whoever made it.
     @Test fun aSharedFlowAnsweredByBothPlayersCanBeTakenBack() {
         val start = base()
         val open = EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation, data = """{"step":1}""")
         val answered = open.copy(data = """{"step":2}""")
         val step1 = play(GameplayTree(start), a, PlayAction.Mtg(MtgAction.SetRecord(open.id, null, open)))
         val step2 = play(step1, b, PlayAction.Mtg(MtgAction.SetRecord(open.id, open, answered)))
-        // Alice switches off: her undo must reach the start of the flow
-        val first = SelectiveUndo.change(step2, a, command(GameAction.Undo))
-        val second = first.tree?.let { SelectiveUndo.change(it, a, command(GameAction.Undo)) }
-        val back = second?.tree ?: first.tree
-        assertTrue(back != null && head(back).board.engineRecords.isEmpty(),
-            "Alice can't take the flow back: ${first.reason ?: second?.reason}")
+        // Alice switches off: the server reverts the flow to where it began
+        val reverted = HistoryContinuation.change(step2, a, command(GameAction.RevertFlow))
+        val back = reverted.tree
+        assertTrue(back != null && head(back).board.engineRecords.isEmpty(), "Alice can't take the flow back: ${reverted.reason}")
+        assertEquals(GameplayTree(start).currentNodeId, back.currentNodeId)
     }
 
     // Owner decision B: SYS-026 counts the undo window in events (50 later events, 51 back to the actor's own). One engine call is one
     // batch of up to 100 events (a turn change on a busy board is ~50): after one such step by Bob, Alice can't undo her
     // own last action although nothing in Bob's batch touches it (the undo rule would allow it).
-    @Ignore("i0review owner decision B: the undo window counts events, one engine call is up to 100")
+    @Ignore("i0review owner decision B → I-D20: the undo window keeps counting events; raised later if playtesting needs it")
     @Test fun oneBigAutomatedStepDoesntPutTheOtherPlayersLastActionOutOfUndoReach() {
         val start = base()
         val edited = play(GameplayTree(start), a, PlayAction.SetLife(a, "17"))
@@ -101,7 +102,7 @@ class I0ReviewProtocolTest {
 
     // #11 SYS-031, SYS-056: in a game started before rules v36 every permanent has timestamp 0; Automatum switched on
     // there orders them (CR 613.7, layers) by card id. The switch should stamp what it takes over.
-    @Ignore("i0review #11: permanents of pre-v36 games all have timestamp 0")
+    // SYS-059
     @Test fun switchingAutomatumOnInAnOlderGameGivesItsPermanentsTimestamps() {
         val state = base()
         assertTrue(state.board.cards.all { it.timestamp == 0L })

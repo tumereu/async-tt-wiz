@@ -33,6 +33,7 @@ import org.asyncttwiz.protocol.MoveInsertion
 import org.asyncttwiz.protocol.MoveSource
 import org.asyncttwiz.protocol.MtgAction
 import org.asyncttwiz.protocol.MtgCause
+import org.asyncttwiz.protocol.MtgFacts
 import org.asyncttwiz.protocol.MtgPriority
 import org.asyncttwiz.protocol.MtgRef
 import org.asyncttwiz.protocol.MtgStamp
@@ -67,7 +68,7 @@ data class BatchPlan(val actions: List<PlayAction>, val tags: List<MtgTag?>, val
  * - its structure with ATW's own actions: moves (`MoveCard`), a spell going on the Stack as an entry pointing at its card
  *   (`AddEffect`, STK-001) and leaving it by pulling the entry, abilities as entries of their source, tokens
  *   (`CreateToken`/`RemoveToken`), shuffles (`ShuffleLibrary` with the seed the host answered with), library order,
- *   steps and turns (`ChooseStep`, `EndTurn`), combat lanes;
+ *   steps and turns (`ChooseStep`, `EndTurn`, `BeginTurn` for an extra turn), combat lanes;
  * - then every engine value ATW keeps is brought to the engine's: tapped, damage, face, face down, life with ATW's own
  *   actions; zone-change counts and timestamps (`Restamp`), typed counters, attachments, ledgers, mana pools, priority,
  *   Stack items and engine records with [MtgAction]s.
@@ -86,8 +87,9 @@ object EngineBatch {
      */
     fun plan(call: EngineCall, actor: String, command: GameCommand): BatchPlan = Planner(call, actor, command).run()
 
-    /** The largest command one game message carries: the game socket's 1 MiB text message, less room for the envelope. */
-    const val MAX_COMMAND_BYTES = 1024 * 1024 - 4 * 1024
+    /** The largest command one game message carries: a quarter of the game socket's text message (I-D14), so the
+     * revision answering it (each member recorded with its delta) fits one message too. */
+    const val MAX_COMMAND_BYTES = GameWire.MAX_MESSAGE_BYTES / 4
 }
 
 private class Planner(private val call: EngineCall, private val actor: String, command: GameCommand) {
@@ -132,6 +134,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             val earlier = last?.data?.takeIf { it.isNotEmpty() }?.let { codec.decode(it).log }.orEmpty()
             tags[tags.lastIndex] = tag(last?.meanings.orEmpty(), last?.causedBy ?: pendingCause, codec.encode(TagData(earlier + pendingLog)))
         }
+        // #4 (SYS-057): the batch applies only to the board it was planned on; the first member names it.
+        if (actions.isNotEmpty()) tags[0] = (tags[0] ?: MtgTag()).copy(board = MtgFacts.digest(call.state.board))
         val plan = BatchPlan(actions.toList(), tags.toList(), atw)
         if (plan.actions.isNotEmpty()) check(plan)
         return plan
@@ -343,9 +347,10 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     private fun step(before: TurnState, after: TurnState) {
         if (after.number != before.number || after.active != before.active) {
+            if (after.number != before.number + 1) throw Unmappable("turn ${after.number} of ${after.active}")
+            // I-D12: the turn change names whose turn begins (CR 500.7: an extra turn is the same player's again).
             val other = board.players.singleOrNull { it.accountId != before.active.value }?.accountId
-            if (after.number != before.number + 1 || after.active.value != other) throw Unmappable("turn ${after.number} of ${after.active}")
-            play(PlayAction.EndTurn)
+            play(if (after.active.value == other) PlayAction.EndTurn else PlayAction.BeginTurn(after.active.value))
         }
         val target = EngineCodec.position(after.step)
         if (TurnPosition.of(board.turn) != target) play(PlayAction.ChooseStep(target))
@@ -389,8 +394,10 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             }
             else -> {
                 val source = item.source?.let { s -> (s as? ObjectId.Card)?.let { card(atwId(it.card)) } }
-                    ?: throw Unmappable("an ability without a source card: ${item.source}")
-                play(PlayAction.Stack(StackAction.AddEffect(source.id, digest())))
+                if (source != null) play(PlayAction.Stack(StackAction.AddEffect(source.id, digest())))
+                // I-D13: an ability whose source isn't a card on the table is an entry of its own, showing its text.
+                else play(PlayAction.Stack(StackAction.AddAbility(AtwTokens.ability(item.snapshots.firstOrNull { it.id == item.source }
+                    ?.characteristics?.name, item.ability), item.controller.value, digest())))
             }
         }
         entries[item.id] = board.stackEffects.single { it.id !in before }.id
@@ -529,6 +536,11 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         if (now().manaPool != pool) play(PlayAction.Mtg(MtgAction.SetManaPool(account, now().manaPool, pool)))
         val ledger = PlayerLedger(p.startingLife, p.lost, p.designations, p.ledger, EngineCodec.counterOrder(p.counters)).text()
         if (now().ledger != ledger) play(PlayAction.Mtg(MtgAction.SetLedger(ref, now().ledger, ledger)))
+        // I-D18: only its own player changes the setting.
+        if (now().skipWhenNoChoice != p.skipWhenNoChoice) {
+            if (account != actor) throw Unmappable("$actor can't change $account's Skip when I have no choice")
+            play(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(p.skipWhenNoChoice)))
+        }
     }
 
     /** [records] of the engine now, encoding again only the effect objects and delayed triggers that changed. */

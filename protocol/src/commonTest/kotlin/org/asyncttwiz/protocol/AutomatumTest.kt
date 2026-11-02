@@ -62,7 +62,6 @@ class AutomatumTest {
             values = mapOf("X" to 3), timestamp = 5, data = """{"snapshots":[]}""")
         val counter = TypedCounter("+1/+1", 2, 4)
         val actions = listOf(
-            MtgAction.SetAutomatum(true),
             MtgAction.SetPriority(null, MtgPriority(a)),
             MtgAction.SetPriority(MtgPriority(a), MtgPriority(b, 1)),
             MtgAction.SetManaPool(a, emptyList(), listOf(PoolMana("R"), PoolMana("C", """{"source":"x"}"""))),
@@ -73,6 +72,8 @@ class AutomatumTest {
             MtgAction.SetLedger(ref(state, 10), "", """{"kicked":1}"""),
             MtgAction.SetLedger(MtgRef.Player(a), "", """{"spells":2}"""),
             MtgAction.SetStackItem(entryId, null, item),
+            // SYS-059: with no manual entry left on the Stack
+            MtgAction.SetAutomatum(true),
             MtgAction.SetStackItem(entryId, item, item.copy(modes = listOf(0))),
             MtgAction.SetRecord(effect.id, null, effect),
             MtgAction.SetRecord(trigger.id, null, trigger),
@@ -96,7 +97,8 @@ class AutomatumTest {
         assertEquals("""{"kicked":1}""", card(state, 10).ledger)
         assertEquals("""{"spells":2}""", board.players.single { it.accountId == a }.ledger)
         assertEquals(item.copy(modes = listOf(0)), board.stackEffects.single().item)
-        assertEquals(listOf(Automatum.CONTINUATION_ID, effect.id), board.engineRecords.map { it.id })
+        // SYS-060: switching off closed the flow; the effect stays
+        assertEquals(listOf(effect.id), board.engineRecords.map { it.id })
         assertEquals(MtgStamp(1, 9), card(state, 12).let { MtgStamp(it.zoneChanges, it.timestamp) })
     }
 

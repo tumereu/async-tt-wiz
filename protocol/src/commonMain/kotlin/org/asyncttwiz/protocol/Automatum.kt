@@ -143,15 +143,20 @@ object Automatum {
     @EncodeDefault(EncodeDefault.Mode.NEVER) val item: MtgRef? = null)
 
 /** An event's Magic meaning (D33): the engine's meaning names ("died", "cast", …), what made it ([causedBy]), and
- * [data], the engine's opaque event with its last known information. */
+ * [data], the engine's opaque event with its last known information. [board] (#4, SYS-057), on the first member of an
+ * automated batch: the board the batch was planned on ([MtgFacts.digest]); the member is refused, and with it the whole
+ * batch (SYS-010), when the board is another one, so ordinary actions in the batch never apply to values they weren't
+ * planned from. */
 @Serializable data class MtgTag(val meanings: List<String> = emptyList(),
     @EncodeDefault(EncodeDefault.Mode.NEVER) val causedBy: MtgCause? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val data: String = "") {
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val data: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val board: String? = null) {
     companion object {
         private val meaning = Regex("[a-z][a-z0-9-]{0,39}")
         fun valid(tag: MtgTag): Boolean = tag.meanings.size <= 16 && tag.meanings.all { meaning.matches(it) } &&
             tag.meanings.distinct().size == tag.meanings.size && Automatum.data(tag.data) &&
-            (tag.meanings.isNotEmpty() || tag.causedBy != null || tag.data.isNotEmpty()) &&
+            (tag.board?.let(DeckValidation::digest) ?: true) &&
+            (tag.meanings.isNotEmpty() || tag.causedBy != null || tag.data.isNotEmpty() || tag.board != null) &&
             tag.causedBy?.let { cause -> DeckValidation.uuid(cause.controller) && (cause.source?.let(MtgRules::valid) ?: true) &&
                 (cause.item?.let(MtgRules::valid) ?: true) && (cause.name?.let(Automatum::name) ?: true) } ?: true
     }
@@ -171,10 +176,6 @@ object Automatum {
     @Serializable @SerialName("clearRecords") data object ClearRecords : MtgAction
     /** The actor's own "Skip when I have no choice" (I-D18, [PlayPlayer.skipWhenNoChoice]); only its player changes it. */
     @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
-    /** #4 (SYS-010, SYS-057): the first member of an automated batch names the board it was planned on
-     * ([MtgFacts.digest]). It changes nothing and records no event when the board is that one; otherwise it is refused,
-     * and with it the whole batch, so a batch planned on another board is never applied. */
-    @Serializable @SerialName("expect") data class Expect(val board: String) : MtgAction
     @Serializable @SerialName("setPriority") data class SetPriority(val before: MtgPriority?, val after: MtgPriority?) : MtgAction
     @Serializable @SerialName("setManaPool") data class SetManaPool(val accountId: String, val before: List<PoolMana>,
         val after: List<PoolMana>) : MtgAction
@@ -232,7 +233,6 @@ object MtgRules {
 
     fun valid(action: MtgAction): Boolean = when (action) {
         is MtgAction.SetAutomatum, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice -> true
-        is MtgAction.Expect -> DeckValidation.digest(action.board)
         is MtgAction.SetPriority -> valid(action.before) && valid(action.after)
         is MtgAction.SetManaPool -> DeckValidation.uuid(action.accountId) && valid(action.before) && valid(action.after)
         is MtgAction.SetCounter -> (action.holder is MtgRef.Card || action.holder is MtgRef.Player) && valid(action.holder) &&
@@ -257,7 +257,7 @@ object MtgRules {
             board.copy(players = board.players.map { if (it.accountId == id) change(it) else it })
         val next: BoardState = when (action) {
             is MtgAction.SetAutomatum -> when {
-                board.automatum == action.on -> return unchanged
+                board.automatum == action.on && (action.on || !Automatum.flowOpen(board)) -> return unchanged
                 action.on -> {
                     Automatum.turnOnRefusal(board)?.let { return reject(it) }
                     MtgFacts.stampUnstamped(board)?.copy(automatum = true) ?: return reject("invalidStructure")
@@ -272,7 +272,6 @@ object MtgRules {
                 if (player.skipWhenNoChoice == action.on) return unchanged
                 players(actor) { it.copy(skipWhenNoChoice = action.on) }
             }
-            is MtgAction.Expect -> return if (MtgFacts.digest(board) == action.board) unchanged else reject("inapplicable")
             is MtgAction.SetPriority -> {
                 if (board.priority != action.before) return reject("inapplicable")
                 if (action.after?.holder != null && player(action.after.holder) == null) return reject("missingReference")
@@ -410,7 +409,7 @@ object MtgFacts {
         return board.copy(cards = board.cards.map { card -> stamps[card.id]?.let { card.copy(timestamp = it) } ?: card })
     }
 
-    /** #4: what an automated batch was planned on ([MtgAction.Expect]): the board without what is only shown (piles
+    /** #4: what an automated batch was planned on ([MtgTag.board]): the board without what is only shown (piles
      * and positions, notes, the six colour counters, marks, statuses, panels, links, the move holder, the result
      * suggestion, library layers). */
     fun digest(board: BoardState): String {
@@ -430,7 +429,7 @@ object MtgFacts {
     /**
      * I-D26 (#7): [mutation] (a recorded rules v36 event being redone) with fresh timestamps: every stamp the event gave
      * (a timestamp its delta sets that its delta didn't hold before: moved and stamped cards, new tokens, counters,
-     * Stack items, records) becomes one more than [above], in the order the event gave them, so stamp order follows the
+     * Stack items, records) moves above [above] (when it isn't already), in the order the event gave them, so stamp order follows the
      * real order of events although a redo puts the event back at its old place in history. The event's action and
      * opaque engine data keep the values they were recorded with; only its recorded transition (what replay applies
      * and checks) changes, and it is sealed again.
@@ -456,11 +455,17 @@ object MtgFacts {
             given += new - old
         }
         if (given.isEmpty()) return mutation
-        if (above > Automatum.MAX_TIMESTAMP - given.size) return mutation
-        var next = above
-        val fresh = given.associateWith { ++next }
+        // Shifted as a block (the gaps between them kept), and only when some other stamp reached them meanwhile: a redo
+        // right after its undo gives back exactly the recorded event.
+        val shift = above + 1 - given.first()
+        if (shift <= 0 || given.last() > Automatum.MAX_TIMESTAMP - shift) return mutation
+        val fresh = given.associateWith { it + shift }
         fun rewrite(element: JsonElement?, key: String? = null): JsonElement? = when (element) {
-            is JsonObject -> JsonObject(element.mapValues { (k, v) -> rewrite(v, k)!! })
+            is JsonObject -> {
+                // A delta edit of one timestamp field: {"path": [..., "timestamp"], "from": …, "to": …}
+                val leaf = ((element["path"] as? JsonArray)?.lastOrNull() as? JsonPrimitive)?.contentOrNull == "timestamp"
+                JsonObject(element.mapValues { (k, v) -> rewrite(v, if (leaf && k == "to") "timestamp" else k)!! })
+            }
             is JsonArray -> JsonArray(element.map { rewrite(it, key)!! })
             is JsonPrimitive -> if (key == "timestamp") element.longOrNull?.let { fresh[it] }?.let(::JsonPrimitive) ?: element else element
             else -> element
@@ -468,8 +473,15 @@ object MtgFacts {
         // A given stamp is above every stamp the board held before the event, so it appears only where the event's
         // results are recorded: the delta's new values, the concerns' after values, the created tokens.
         val json = GameWire.json
-        val transition = json.decodeFromJsonElement(GameplayTransition.serializer(),
+        val rewritten = json.decodeFromJsonElement(GameplayTransition.serializer(),
             rewrite(json.encodeToJsonElement(GameplayTransition.serializer(), mutation.transition))!!)
+        // A concern on a written timestamp field witnesses the new value itself.
+        val entities = rewritten.delta?.entities.orEmpty()
+        val transition = rewritten.copy(concerns = rewritten.concerns?.let { set -> set.copy(fields = set.fields.map { tuple ->
+            val field = tuple.field as? ConcernField.Written ?: return@map tuple
+            if (entities.getOrNull(field.entity)?.values?.getOrNull(field.value)?.path?.lastOrNull() != "timestamp") tuple
+            else tuple.copy(after = rewrite(tuple.after, "timestamp")!!)
+        }) })
         val restamped = mutation.copy(transition = transition)
         return restamped.copy(transition = restamped.transition.copy(delta = restamped.transition.delta!!.copy(
             seal = GameplayDeltas.seal(restamped))))

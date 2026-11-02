@@ -427,8 +427,6 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord -> text("Automatum records updated", "Automatum")
             MtgAction.ClearRecords -> text("Automatum data cleared", "Automatum")
             is MtgAction.SetSkipWhenNoChoice -> text("${playerPrefix(event.author)}Skip when no choice ${if (mtg.on) "on" else "off"}", "Automatum")
-            // Never recorded: it changes nothing when it applies.
-            is MtgAction.Expect -> text("Automatum board checked", "Automatum")
         }
         is PlayAction.DeclineResult -> text("Result declined", "Decline result")
         is PlayAction.WithdrawResult -> text("Result withdrawn", "Withdraw result")

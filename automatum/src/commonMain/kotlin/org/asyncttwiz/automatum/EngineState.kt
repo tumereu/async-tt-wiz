@@ -118,6 +118,7 @@ object EngineState {
                 lost = ledger.lost, designations = ledger.designations,
                 library = ordered(PlayZone.LIBRARY, p.accountId), hand = ordered(PlayZone.HAND, p.accountId),
                 graveyard = ordered(PlayZone.GRAVEYARD, p.accountId), ledger = ledger.ledger,
+                skipWhenNoChoice = p.skipWhenNoChoice,
             )
         }
         val position = TurnPosition.of(board.turn)!!

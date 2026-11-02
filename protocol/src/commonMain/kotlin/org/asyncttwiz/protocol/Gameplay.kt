@@ -241,6 +241,8 @@ object GameplayRules {
     fun change(state: PlayState, actor: String, command: GameCommand,
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE): GameplayChange {
         if (!GameWire.valid(command)) return GameplayChange(reason = "invalidInput")
+        // Rules v36 (#4, SYS-057): an automated batch applies only to the board it was planned on.
+        (command.action as? GameAction.Play)?.tag?.board?.let { if (MtgFacts.digest(state.board) != it) return GameplayChange(reason = "inapplicable") }
         // A first move into a Temp pile creates it inside this same mutation (rules v23).
         val prepared = TempPiles.prepare(state, command)
         val resolved = LibraryKnowledge.resolveEdge(prepared, command)

@@ -6,6 +6,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 
 - **TRN-001** A turn has 12 positions: Untap, Upkeep, Draw, Main 1, Beginning of combat, Declare attackers, Declare blockers, Combat damage, End of combat, Main 2, End step, Cleanup. Players move through them by hand; nothing advances by itself. (r2)
 - **TRN-002** Turn numbers count both players' turns, so turn 1 is only the starting player's first turn. Next step from Cleanup, or End turn, passes the turn to the other player's Untap. (r33)
+- **TRN-052** A turn change Automatum makes names whose turn begins, so an extra turn goes to the same player again (turn number up by one, at Untap); history reads "Turn N → name". (r36)
 - **TRN-003** Passing the turn clears every card's damage, until-end-of-turn P/T and until-end-of-turn note at once. (r16)
 - **TRN-004** Either player may change the step or end the turn, also on the opponent's turn; the opponent's version reads "End opponent's turn". (r30)
 
@@ -155,3 +156,4 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **STK-019** Each entry has square icon buttons: Remove, Battlefield, Graveyard (same as the bubbles), Copy (a new entry for the same card on top of the Stack), Change controller (of the entry only; the real card's owner is unchanged), Note and Ping (both on that entry only, not its real card). Battlefield and Graveyard are greyed on copies; Note is greyed on a real card lying on the Stack. (r35)
 - **STK-020** Each entry lists its text options as toggle chips, so one entry can hold several marks. (r7)
 - **STK-021** The Stack order can't be changed: there is no reordering. Holding an entry inspects it above the Manage Stack view. (r11)
+- **STK-022** Automatum puts an ability whose source isn't on the table (a delayed trigger of a spell copy, an emblem's ability, an ability of a token that's gone) on the Stack as an entry of its own: a card showing the source's name and the ability's text, like an entry whose card has left; history reads "<name> ability → Stack". (r36)

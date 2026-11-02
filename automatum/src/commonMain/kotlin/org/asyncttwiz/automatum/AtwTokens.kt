@@ -32,6 +32,16 @@ internal object AtwTokens {
     /** A fixed namespace for these face ids. */
     private const val NAMESPACE = "2e9b7c41-6d0a-4f3e-8b52-91c7a4d0e6f8"
 
+    /** I-D13: the card data an ability-only Stack entry shows (`StackAction.AddAbility`): one face named after its
+     * source ([source], "Ability" when unknown) with the ability's own text as its rules text. */
+    fun ability(source: String?, ability: Ability?): SubmittedDefinition {
+        val name = source?.takeIf { it.isNotBlank() } ?: "Ability"
+        val text = ability?.let(::text).orEmpty()
+        val face = DefinitionFace(CommandIds.uuidV5(NAMESPACE, "ability/$name/$text"), name, typeLine = "Ability", rulesText = text)
+        val card = AtwCard(name, listOf(face), token = true)
+        return SubmittedDefinition(DeckJson.digest(card), card)
+    }
+
     fun submitted(definition: CardDefinition, token: Boolean = true): SubmittedDefinition {
         val separate = definition.layout == Layout.Transform || definition.layout == Layout.ModalDoubleFaced
         val shown = if (separate || definition.faces.size == 1) definition.faces

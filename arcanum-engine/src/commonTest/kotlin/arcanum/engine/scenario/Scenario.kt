@@ -7,6 +7,7 @@ import arcanum.api.TurnStep
 import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.Outcome
+import arcanum.engine.action.Knowledge
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
@@ -140,6 +141,19 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         return id
     }
 
+    /**
+     * Makes the game [player]'s view (D60, [GameState.viewer]): the cards they can't see, set up before or after, are
+     * unknown in the state; the harness, as the host, knows them and fills them in when asked.
+     */
+    fun viewer(player: ScenarioPlayer) {
+        setup()
+        state.viewer = player.id
+        state.objects.values.toList().filter { !it.unknown && !Knowledge.mayKnow(it, player.id) }.forEach { o ->
+            secrets[o.card] = o.definition!!
+            state.objects[o.id] = o.copy(definition = null)
+        }
+    }
+
     /** Attaches the Aura or Equipment [attachment] to [to] during setup (CR 301.5, 303.4); it gets a new timestamp
      * (CR 613.7e). */
     fun attach(attachment: String, to: String) {
@@ -161,7 +175,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             val timestamp = ++state.timestampCounter
             if (hidden) secrets[card] = definition
             val onBattlefield = zone == Zone.Battlefield
-            val o = GameObject(
+            var o = GameObject(
                 id = id, owner = owner.id, controller = if (onBattlefield || zone == Zone.Stack) owner.id else null,
                 zone = zone, definition = if (hidden) null else definition, tapped = tapped, faceDown = faceDown,
                 counters = counters.map { (kind, n) -> CounterEntry(kind, n, timestamp) }
@@ -170,6 +184,12 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
                 // Set up on the battlefield: controlled since before the game began, unless [sick] (CR 302.6)
                 controlSince = if (onBattlefield) ControlSince(owner.id, if (sick) state.turn.number else -1) else null,
             )
+            // In a viewer's game, what the viewer can't see is unknown (D60)
+            val viewer = state.viewer
+            if (viewer != null && !o.unknown && !Knowledge.mayKnow(o, viewer)) {
+                secrets[card] = definition
+                o = o.copy(definition = null)
+            }
             state.objects[id] = o
             val list = state.zone(zone, owner.id).toMutableList()
             if (top) list.add(0, id) else list.add(id)
@@ -348,6 +368,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     private fun driveAnswer(input: Input.Answer): Outcome = drive { r ->
         val open = r.state.pending ?: fail("No decision is open")
         assertEquals(open.decision.id, input.decision, "Answering another decision")
+        arcanum.engine.decision.AnswerCheck.check(r.state, open.decision, input.answer)
         r.record(Changes.pending(r.state, null))
         arcanum.engine.Perform.resume(r, open.continuation, input.answer)
     }
@@ -401,9 +422,18 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
         return when (kind) {
             RandomKind.CoinFlip -> Answer.CoinFlip(random.nextBoolean())
             is RandomKind.Die -> Answer.DieRolls(List(kind.count) { random.nextInt(1, kind.sides + 1) })
-            is RandomKind.Objects -> Answer.RandomObjects(kind.among.shuffled(random).take(kind.count))
+            is RandomKind.Objects -> if (kind.newIds) newIds(kind.among.shuffled(random).take(kind.count))
+                else Answer.RandomObjects(kind.among.shuffled(random).take(kind.count))
         }
     }
+
+    /** As the host: new card ids for [cards] in this order, whose identities only the host keeps (D60). */
+    fun newIds(cards: List<ObjectId>): Answer.RandomObjects = Answer.RandomObjects(cards.map { id ->
+        val o = state.objOrThrow(id)
+        val card = CardId("${o.owner.value}.${++nextCard}")
+        definitionOf(o)?.let { secrets[card] = it }
+        ObjectId.Card(card, 0)
+    })
 
     // ---- Expectations
 

@@ -9,7 +9,6 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.scenario
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -27,7 +26,6 @@ class Review2HiddenInfoTest {
     /** Cards milled from a hidden library go to a public zone: the host fills them in, so "whenever a land card is put
      * into your graveyard" sees the lands among them. */
     // CR 701.17a, 400.2, 603.2
-    @Ignore("review2 #1: milled hidden cards stay unknown in the graveyard; land-to-graveyard triggers miss them")
     @Test
     fun milledHiddenCardsAreFilledIn() = scenario {
         alice.battlefield("Mirebloat, the Undermuck", "Island", "Island")
@@ -35,8 +33,8 @@ class Review2HiddenInfoTest {
         alice.library("Forest", "Storm Spark", "Island", "Swamp", hidden = true)
 
         alice.casts("Mind Chill", target = "alice")
-        // Storm's trigger, then the spell
-        repeat(2) { allPass() }
+        // Storm's trigger, then the spell, then Mirebloat's two triggers
+        repeat(4) { allPass() }
 
         assertFalse(unknownIn("Forest", Zone.Graveyard), "a milled card is public")
         assertFalse(unknownIn("Storm Spark", Zone.Graveyard))
@@ -48,7 +46,6 @@ class Review2HiddenInfoTest {
     /** "Discards three cards at random" from a hand the viewer can't see: the discarded cards become known, and only
      * they are asked for, not the cards left in hand. */
     // CR 701.9b, 400.2
-    @Ignore("review2 #1: randomly discarded hidden cards stay unknown in the graveyard")
     @Test
     fun randomDiscardFillsOnlyTheDiscardedCards() = scenario {
         alice.battlefield("Mountain")
@@ -72,7 +69,6 @@ class Review2HiddenInfoTest {
 
     /** A card discarded in the cleanup step from a hand the viewer can't see becomes known in the graveyard. */
     // CR 514.1, 400.2
-    @Ignore("review2 #1: a hidden card discarded in cleanup stays unknown in the graveyard")
     @Test
     fun cleanupDiscardOfAHiddenCardIsFilledIn() = scenario {
         turn(number = 2, active = bob, step = TurnStep.End)
@@ -86,7 +82,6 @@ class Review2HiddenInfoTest {
 
     /** A face-down creature the viewer can't see is a 2/2 colourless nameless creature in the view. */
     // CR 708.2a
-    @Ignore("review2 #4: an unknown face-down permanent has no characteristics in the view")
     @Test
     fun anUnknownFaceDownCreatureIsATwoTwo() = scenario {
         hiddenBattlefield(bob, "Barkwood Pathfinders")
@@ -99,7 +94,6 @@ class Review2HiddenInfoTest {
 
     /** An unknown face-down creature can be targeted and dealt lethal damage like any 2/2. */
     // CR 708.2a, 704.5g
-    @Ignore("review2 #4: an unknown face-down creature isn't a legal target (no characteristics)")
     @Test
     fun anUnknownFaceDownCreatureDies() = scenario {
         alice.battlefield("Mountain")
@@ -113,7 +107,6 @@ class Review2HiddenInfoTest {
     /** A face-down permanent that leaves the battlefield is revealed (CR 708.9): the host fills it in, and the card in
      * the graveyard is known. */
     // CR 708.9
-    @Ignore("review2 #1: a face-down permanent that leaves isn't revealed (blocked by #4 first: it can't be targeted)")
     @Test
     fun aFaceDownPermanentLeavingIsRevealed() = scenario {
         alice.battlefield("Mountain")
@@ -126,7 +119,6 @@ class Review2HiddenInfoTest {
 
     /** Cascade from a hidden library asks for the cards it exiles, not for the whole library. */
     // CR 702.85a, D60
-    @Ignore("review2 #2: reveal-until (cascade) asks the host to fill the whole library")
     @Test
     fun cascadeAsksOnlyForTheCardsItExiles() = scenario {
         alice.battlefield("Forest", "Island", "Island")
@@ -142,9 +134,10 @@ class Review2HiddenInfoTest {
 
     /** Search, then shuffle: once shuffled, nobody knows the library's order, so its cards are unknown again. */
     // CR 701.24a, 701.23a, D60
-    @Ignore("review2 #3: a shuffled library keeps its cards' identities (and card ids): the searcher knows its order")
     @Test
     fun aShuffleForgetsTheLibrary() = scenario {
+        // alice's view: forgetting is the viewer's (with full information the host knows the order)
+        viewer(alice)
         alice.battlefield("Swamp", "Swamp")
         alice.hand("Fiendish Mentor")
         alice.library("Forest", "Storm Spark", "Island", hidden = true)
@@ -191,7 +184,6 @@ class Review2HiddenInfoTest {
 
     /** Spy's Trinket looks at one card at random: the random pick comes first, then only that card is asked for. */
     // CR 701.20c, D25, D60
-    @Ignore("review2 #5: Objects.Random evaluates to no object: Spy's Trinket looks at nothing")
     @Test
     fun lookingAtARandomCardAsksForThatCardOnly() = scenario {
         alice.battlefield("Spy's Trinket")
@@ -259,7 +251,6 @@ class Review2HiddenInfoTest {
     /** While alice searches her library, the decision lists which of her hidden cards match ("a creature card"): bob
      * isn't offered answers that name them, which would tell him what those cards are. */
     // D60, CR 701.23a
-    @Ignore("review2 #7: options offer the opponent answers to a search over hidden cards, naming the matching ones")
     @Test
     fun theOpponentIsntShownTheSearchChoices() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", "Forest")
@@ -286,7 +277,6 @@ class Review2HiddenInfoTest {
     /** Seer of Harvestide: alice may look at her top card any time, so in her view a hidden top card should be filled
      * in; the engine never asks, so the land on top isn't offered. */
     // CR 401.5, D60
-    @Ignore("review2 #8: nothing asks the host to fill cards a player may look at any time (top card under Seer of Harvestide)")
     @Test
     fun aHiddenTopLandUnderAlwaysLookIsOffered() = scenario {
         alice.battlefield("Seer of Harvestide")

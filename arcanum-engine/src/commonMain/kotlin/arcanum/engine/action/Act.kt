@@ -179,14 +179,21 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         asker.ask { Decision.Manual(it, player, source, text) }
     }
 
-    /** Makes sure the identities of [ids] are known, asking the host for the unknown ones (D60). */
-    fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String) {
-        val unknown = ids.filter { state.obj(it)?.unknown == true }
+    /** Makes sure the identities of [ids] are known, asking the host for exactly the unknown ones (D60): [player] looks
+     * at them, or everyone sees them when [public] ([Decision.HostFill]). */
+    fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false) {
+        val unknown = ids.distinct().filter { state.obj(it)?.unknown == true }
         if (unknown.isEmpty()) return
-        val filled = (asker.ask { Decision.HostFill(it, player, source, unknown, reason) } as Answer.Filled).objects
-        filled.forEach { f ->
-            val before = state.objOrThrow(f.id)
-            if (before.unknown) record(Change.Filled(before, before.copy(definition = f.definition)))
+        val filled = (asker.ask { Decision.HostFill(it, player, source, unknown, reason, public) } as Answer.Filled).objects
+        // Checked against the decision when answered (AnswerCheck): exactly the asked objects, each once
+        unknown.forEach { id ->
+            val before = state.objOrThrow(id)
+            record(Change.Filled(before, before.copy(definition = filled.first { it.id == id }.definition)))
         }
     }
+
+    /** Ids for "[count] of [among] at random", or new ids for [among] put in a random order hidden from the viewer
+     * ([RandomKind.Objects.newIds], D60). */
+    fun randomObjects(player: PlayerId, source: ObjectId?, among: List<ObjectId>, count: Int, newIds: Boolean = false): List<ObjectId> =
+        (random(player, source, RandomKind.Objects(among, count, newIds)) as Answer.RandomObjects).chosen
 }

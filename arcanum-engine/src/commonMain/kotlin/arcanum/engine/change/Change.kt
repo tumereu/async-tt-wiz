@@ -271,6 +271,14 @@ sealed interface Change {
         override val isEvent: Boolean get() = false
     }
 
+    /** The viewer forgets a known object's identity as it becomes hidden from them (D60): turned face down where they
+     * can't look. Inverse of [Filled]. */
+    @Serializable @SerialName("forgotten")
+    data class Forgotten(val before: GameObject, val after: GameObject) : Change {
+        override fun inverse() = Filled(after, before)
+        override val isEvent: Boolean get() = false
+    }
+
     /** Something happened that changes no state but can trigger and be counted (D33): an ability was activated, a coin
      * flipped, cards revealed. */
     @Serializable @SerialName("happened")

@@ -2,7 +2,6 @@ package org.asyncttwiz.storage
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import arcanum.api.Ability
-import arcanum.api.CardDefinition
 import arcanum.api.Color
 import arcanum.api.Keyword
 import arcanum.api.Layout
@@ -10,6 +9,11 @@ import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
+import org.asyncttwiz.protocol.DeckJson
+import org.asyncttwiz.protocol.DeckValidation
+import org.asyncttwiz.protocol.PhysicalCardFaces
+import org.asyncttwiz.protocol.PrintedPart
+import org.asyncttwiz.protocol.SubmittedDefinition
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -19,17 +23,16 @@ import java.sql.DriverManager
 import java.util.Properties
 import java.util.UUID
 
-/** Arcanum definitions of catalog cards parsed on the device and cached (docs/specs/arcanum-atw-integration.md I-D2).
- * Every card is invented, with wordings from oracle templates. */
+/** Arcanum definitions of a game's cards, parsed on the device from the game's card data and cached
+ * (docs/specs/arcanum-atw-integration.md I-D2). The card data is built from an invented catalog the way deck import
+ * builds it; every card is invented, with wordings from oracle templates. */
 class CardDefinitionsTest {
     @TempDir lateinit var temporary: Path
-    private val catalogDirectory get() = temporary.resolve("catalog").toFile()
     private val storageFile get() = temporary.resolve("replica.db")
     private val opened = mutableListOf<ClientStorage>()
 
     @AfterEach fun close() = opened.forEach { it.close() }
 
-    private fun catalog() = CatalogRepository(catalogDirectory) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
     private fun storage(): ClientStorage = (ClientStorage.open {
         JdbcSqliteDriver("jdbc:sqlite:${storageFile.toAbsolutePath()}", Properties().apply { setProperty("foreign_keys", "true") })
     } as StorageOpenResult.Opened).storage.also { opened += it }
@@ -37,26 +40,25 @@ class CardDefinitionsTest {
     /** Counts parses, so tests see which cards were read from the cache. */
     private val parsed = mutableListOf<String>()
     private fun definitions(storage: ClientStorage = storage(), parserVersion: Int = OracleParser.VERSION) =
-        CardDefinitions(catalog(), storage, parserVersion) { layout, faces ->
+        CardDefinitions(storage, parserVersion) { layout, faces ->
             parsed += faces.first().name
             OracleParser.parseCard(layout, faces)
         }
 
-    // ---- An invented MTGJSON-shaped catalog
+    // ---- An invented MTGJSON-shaped catalog, and game card data built from it as deck import does
 
     private fun id(vararg parts: Any) = UUID.nameUUIDFromBytes(parts.joinToString("|").toByteArray()).toString()
     private fun array(values: List<String>) = JsonArray().apply { values.forEach(::add) }
 
     private fun card(number: String, name: String, type: String, cost: String = "", colors: String = "", text: String = "",
-        layout: String = "normal", power: String? = null, toughness: String? = null, loyalty: String? = null,
-        side: String? = null, faceName: String? = null, others: List<String> = emptyList(),
-        uuid: String = id(number, side ?: "")) = JsonObject().apply {
+        layout: String = "normal", power: String? = null, toughness: String? = null, side: String? = null,
+        faceName: String? = null, others: List<String> = emptyList(), uuid: String = id(number, side ?: "")) = JsonObject().apply {
         addProperty("uuid", uuid); addProperty("name", name); addProperty("setCode", "INV"); addProperty("number", number)
         addProperty("type", type); if (cost.isNotEmpty()) addProperty("manaCost", cost); addProperty("text", text)
-        addProperty("layout", layout); addProperty("language", "English"); addProperty("rarity", "common")
+        addProperty("layout", layout); addProperty("language", "English")
         add("colors", array(colors.map(Char::toString)))
         add("identifiers", JsonObject().apply { addProperty("scryfallId", id("scryfall", uuid)) })
-        power?.let { addProperty("power", it) }; toughness?.let { addProperty("toughness", it) }; loyalty?.let { addProperty("loyalty", it) }
+        power?.let { addProperty("power", it) }; toughness?.let { addProperty("toughness", it) }
         side?.let { addProperty("side", it) }; faceName?.let { addProperty("faceName", it) }
         if (others.isNotEmpty()) add("otherFaceIds", array(others))
     }
@@ -64,13 +66,12 @@ class CardDefinitionsTest {
     /** Two linked faces sharing one card name, as MTGJSON stores split, adventurer and double-faced cards. */
     private fun twoFaces(number: String, layout: String, front: JsonObject.() -> Unit, back: JsonObject.() -> Unit): List<JsonObject> {
         val a = id(number, "a"); val b = id(number, "b")
-        return listOf(
+        val faces = listOf(
             card(number, "", "", layout = layout, side = "a", others = listOf(b), uuid = a).apply(front),
             card(number, "", "", layout = layout, side = "b", others = listOf(a), uuid = b).apply(back),
-        ).also { faces ->
-            val name = faces.joinToString(" // ") { it.get("faceName").asString }
-            faces.forEach { it.addProperty("name", name) }
-        }
+        )
+        val name = faces.joinToString(" // ") { it.get("faceName").asString }
+        return faces.onEach { it.addProperty("name", name) }
     }
 
     private fun JsonObject.face(name: String, type: String, cost: String, colors: String, text: String,
@@ -97,41 +98,55 @@ class CardDefinitionsTest {
     private val modal = twoFaces("13", "modal_dfc",
         { face("Tidecaller's Call", "Instant", "{1}{U}", "U", "Draw two cards.") },
         { face("Tidecaller Grotto", "Land", "", "", "{T}: Add {U}.") })
-    private val meld = run {
-        val ridge = id("20", "a"); val colossus = id("20", "b"); val vale = id("21", "c")
-        listOf(
-            card("20", "Ridge Twin // Twin Colossus", "Creature — Giant", "{3}{R}", "R", "Haste", "meld", "3", "3",
-                side = "a", faceName = "Ridge Twin", others = listOf(colossus), uuid = ridge),
-            card("20", "Ridge Twin // Twin Colossus", "Creature — Giant", colors = "RG", text = "Trample", layout = "meld",
-                power = "9", toughness = "9", side = "b", faceName = "Twin Colossus", others = listOf(ridge, vale), uuid = colossus),
-            card("21", "Vale Twin // Twin Colossus", "Creature — Giant", "{3}{G}", "G", "Reach", "meld", "3", "3",
-                side = "c", faceName = "Vale Twin", others = listOf(colossus), uuid = vale),
-        )
-    }
     private val token = card("T1", "Spirit", "Token Creature — Spirit", colors = "W", text = "Flying", layout = "token",
         power = "1", toughness = "1")
 
-    private fun install(cards: List<JsonObject> = listOf(sentry, moth, expanse) + split + adventure + transform + modal + meld) {
+    /** Game card data, by card: built from the installed catalog and normalized to physical sides, as a deck is saved. */
+    private val cards: Map<String, SubmittedDefinition> by lazy {
+        val catalog = CatalogRepository(temporary.resolve("catalog").toFile()) { JdbcSqliteDriver("jdbc:sqlite:${it.absolutePath}") }
         val set = JsonObject().apply {
             addProperty("code", "INV"); addProperty("name", "Invented"); addProperty("type", "expansion")
             addProperty("releaseDate", "2026-01-01")
-            add("cards", JsonArray().apply { cards.forEach(::add) }); add("tokens", JsonArray().apply { add(token) })
+            add("cards", JsonArray().apply { (listOf(sentry, moth, expanse) + split + adventure + transform + modal).forEach(::add) })
+            add("tokens", JsonArray().apply { add(token) })
         }
         val root = JsonObject().apply {
             add("meta", JsonObject().apply { addProperty("date", "2026-10-31"); addProperty("version", "5.3.0") })
             add("data", JsonObject().apply { add("INV", set) })
         }
-        catalog().stage { index -> MtgJsonCatalog().import(root.toString().byteInputStream(), index, CatalogMetadata("2026-10-31", "5.3.0")) }
+        val meta = catalog.stage { index -> MtgJsonCatalog().import(root.toString().byteInputStream(), index, CatalogMetadata("2026-10-31", "5.3.0")) }
+        listOf(sentry, moth, expanse, split[0], adventure[0], transform[0], modal[0], token).associate { record ->
+            val printing = checkNotNull(catalog.printing(record.get("uuid").asString))
+            val faces = (printing.otherFaces + printing.id)
+                .map { checkNotNull(catalog.printing(it)) }.sortedWith(compareBy<CatalogPrinting> { it.side }.thenBy { it.id })
+            val definition = PhysicalCardFaces.normalize(ResolvedDeckEntry(DeckSection.MAINBOARD, 1, faces, emptyList()).definition(meta))
+            assertTrue(DeckValidation.definition(definition), definition.name)
+            printing.name to SubmittedDefinition(DeckJson.digest(definition), definition)
+        }
     }
-
-    private fun uuid(card: JsonObject) = card.get("uuid").asString
+    private fun of(name: String) = cards.getValue(name)
+    private fun parse(name: String): ParsedCard? = definitions().forDefinitions(listOf(of(name)))[of(name).digest]
     private fun read(result: ParsedCard?) = assertInstanceOf(ParsedCard.Read::class.java, result)
 
-    // ---- Mapping catalog records to the parser's printed faces
+    // ---- Card data built from the catalog keeps the printed values the parser needs
+
+    @Test fun builtCardDataKeepsBackFaceColourIndicatorAndThePrintedPartsOfSharedFaces() {
+        val herder = of("Moonlit Herder // Howling Herder").definition
+        assertEquals(listOf(null, "G"), herder.faces.map { it.colorIndicator })
+        assertEquals(listOf(null), of("Thornback Sentry").definition.faces.map { it.colorIndicator })
+        assertEquals(listOf(null, null), of("Tidecaller's Call // Tidecaller Grotto").definition.faces.map { it.colorIndicator })
+        val split = of("Kindle // Rime").definition.faces.single()
+        assertEquals(listOf(
+            PrintedPart("Kindle", "Instant", "{1}{R}", "Kindle deals 2 damage to any target."),
+            PrintedPart("Rime", "Instant", "{1}{U}", "Tap target creature.\nDraw a card."),
+        ), split.parts)
+        assertEquals(2, of("Hedge Ogre // Trample Down").definition.faces.single().parts.size)
+    }
+
+    // ---- Mapping card data to the parser's printed faces
 
     @Test fun singleFaceCardIsParsedFromItsPrintedValues() {
-        install()
-        val result = read(definitions().forCards(listOf(uuid(sentry)))[uuid(sentry)])
+        val result = read(parse("Thornback Sentry"))
         assertEquals(OracleParser.parseCard(Layout.Normal, listOf(OracleCard("Thornback Sentry", "{1}{G}", "Creature — Elf Warrior",
             "Flying\nVigilance", power = "2", toughness = "3"))), result.definition)
         assertTrue(result.fullyParsed)
@@ -139,141 +154,122 @@ class CardDefinitionsTest {
     }
 
     @Test fun splitAdventureTransformAndModalCardsKeepTheirLayoutAndEveryFaceInPrintedOrder() {
-        install()
-        val ids = listOf(split, adventure, transform, modal).map { uuid(it.first()) }
-        val result = definitions().forCards(ids)
-        fun definition(faces: List<JsonObject>) = read(result[uuid(faces.first())]).definition
+        val names = listOf("Kindle // Rime", "Hedge Ogre // Trample Down", "Moonlit Herder // Howling Herder",
+            "Tidecaller's Call // Tidecaller Grotto")
+        val result = definitions().forDefinitions(names.map(::of))
+        fun definition(name: String) = read(result[of(name).digest]).definition
         assertEquals(OracleParser.parseCard(Layout.Split, listOf(
             OracleCard("Kindle", "{1}{R}", "Instant", "Kindle deals 2 damage to any target."),
             OracleCard("Rime", "{1}{U}", "Instant", "Tap target creature.\nDraw a card."),
-        )), definition(split))
+        )), definition(names[0]))
         assertEquals(OracleParser.parseCard(Layout.Adventure, listOf(
             OracleCard("Hedge Ogre", "{2}{G}", "Creature — Ogre", "Trample", power = "4", toughness = "3"),
             OracleCard("Trample Down", "{1}{G}", "Sorcery — Adventure", "Destroy target artifact."),
-        )), definition(adventure))
+        )), definition(names[1]))
         // The back face has no mana cost: its colour comes from its colour indicator (CR 204).
         assertEquals(OracleParser.parseCard(Layout.Transform, listOf(
             OracleCard("Moonlit Herder", "{1}{G}", "Creature — Human Werewolf", "Reach", power = "2", toughness = "2"),
             OracleCard("Howling Herder", null, "Creature — Werewolf", "Trample", power = "4", toughness = "4", colorIndicator = "G"),
-        )), definition(transform))
-        assertEquals(listOf(Color.Green), definition(transform).faces[1].colorIndicator)
+        )), definition(names[2]))
+        assertEquals(listOf(Color.Green), definition(names[2]).faces[1].colorIndicator)
         assertEquals(OracleParser.parseCard(Layout.ModalDoubleFaced, listOf(
             OracleCard("Tidecaller's Call", "{1}{U}", "Instant", "Draw two cards."),
             OracleCard("Tidecaller Grotto", null, "Land", "{T}: Add {U}."),
-        )), definition(modal))
-        assertNull(definition(modal).faces[1].colorIndicator)
-    }
-
-    @Test fun anyFaceIdGivesTheWholeCardFrontFirst() {
-        install()
-        val back = uuid(transform[1])
-        assertEquals(listOf("Moonlit Herder", "Howling Herder"), read(definitions().forCards(listOf(back))[back]).definition.faces.map { it.name })
-    }
-
-    @Test fun meldCardIsItsFrontAndTheMeldedFaceWithThePartnerNamed() {
-        install()
-        val ridge = uuid(meld[0])
-        val definition = read(definitions().forCards(listOf(ridge))[ridge]).definition
-        assertEquals(Layout.Meld("Vale Twin"), definition.layout)
-        assertEquals(listOf("Ridge Twin", "Twin Colossus"), definition.faces.map { it.name })
-        assertInstanceOf(ParsedCard.Unreadable::class.java, definitions().forCards(listOf(uuid(meld[1])))[uuid(meld[1])])
+        )), definition(names[3]))
     }
 
     @Test fun tokenTypeLineIsReadWithoutTheTokenWord() {
-        install()
-        val spirit = read(definitions().forCards(listOf(uuid(token)))[uuid(token)]).definition.faces.single()
+        val spirit = read(parse("Spirit")).definition.faces.single()
         assertEquals(OracleParser.parse(OracleCard("Spirit", null, "Creature — Spirit", "Flying", power = "1", toughness = "1",
             colorIndicator = "W")), spirit)
     }
 
+    @Test fun cardDataMadeBeforeThePrintedValuesExistedIsReadWhereItCanBe() {
+        // A back face without the colour indicator field: read from the catalog record kept with the face.
+        val herder = of("Moonlit Herder // Howling Herder").definition
+        val old = herder.copy(faces = herder.faces.map { it.copy(colorIndicator = null) })
+        val parsedOld = definitions().forDefinitions(listOf(SubmittedDefinition(DeckJson.digest(old), old)))
+        assertEquals(listOf(Color.Green), read(parsedOld.values.single()).definition.faces[1].colorIndicator)
+        // A split card flattened without its parts: only the combined text is left.
+        val split = of("Kindle // Rime").definition
+        val flattened = split.copy(faces = split.faces.map { it.copy(parts = emptyList()) })
+        assertInstanceOf(ParsedCard.Unreadable::class.java,
+            definitions().forDefinitions(listOf(SubmittedDefinition(DeckJson.digest(flattened), flattened))).values.single())
+    }
+
     @Test fun cardTheParserCantFullyReadKeepsItsUnparsedAbilitiesForPlayByHand() {
-        install()
-        val result = read(definitions().forCards(listOf(uuid(moth)))[uuid(moth)])
+        val result = read(parse("Riddle Moth"))
         assertFalse(result.fullyParsed)
         assertEquals(1, result.manualAbilities)
         assertEquals(listOf(Keyword.Flying, Ability.Unparsed("Whenever the moon sings, this creature hums a tune.")),
             result.definition.faces.single().abilities)
         // Read back from the cache, the count and the unparsed text are the same.
-        assertEquals(result, definitions().forCards(listOf(uuid(moth)))[uuid(moth)])
+        assertEquals(result, parse("Riddle Moth"))
     }
 
-    @Test fun cardWithUnreadablePrintedValuesIsUnreadableAndMissingCardsAreAbsent() {
-        val definitions = definitions()
-        assertEquals(emptyMap<String, ParsedCard>(), definitions.forCards(listOf(uuid(sentry))), "no catalog installed")
-        install()
-        val result = definitions.forCards(listOf(uuid(expanse), id("not in the catalog")))
-        assertEquals(setOf(uuid(expanse)), result.keys)
-        assertTrue(assertInstanceOf(ParsedCard.Unreadable::class.java, result[uuid(expanse)]).problem.contains("Plane — Nowhere"))
-        assertEquals(result, definitions().forCards(listOf(uuid(expanse))), "cached")
+    @Test fun cardWithUnreadablePrintedValuesIsUnreadable() {
+        assertTrue(assertInstanceOf(ParsedCard.Unreadable::class.java, parse("Hollow Expanse")).problem.contains("Plane — Nowhere"))
+        assertEquals(parse("Hollow Expanse"), parse("Hollow Expanse"), "cached")
     }
 
     // ---- The cache
 
-    private fun rows(where: String = "1"): List<String> = DriverManager.getConnection("jdbc:sqlite:${storageFile.toAbsolutePath()}").use { connection ->
+    private fun rows(): List<String> = DriverManager.getConnection("jdbc:sqlite:${storageFile.toAbsolutePath()}").use { connection ->
         connection.createStatement().use { statement ->
-            statement.executeQuery("SELECT card_id || '@' || parser_version FROM card_definition WHERE $where ORDER BY 1").use { rows ->
+            statement.executeQuery("SELECT definition_digest || '@' || parser_version FROM card_definition_cache ORDER BY 1").use { rows ->
                 buildList { while (rows.next()) add(rows.getString(1)) }
             }
         }
     }
 
     @Test fun cachedDefinitionsAreReadInOneBatchWithoutParsingAgainAlsoAfterReopening() {
-        install()
-        val ids = listOf(uuid(sentry), uuid(moth), uuid(split[0]), uuid(transform[0]))
-        val first = definitions().forCards(ids)
+        val game = listOf("Thornback Sentry", "Riddle Moth", "Kindle // Rime", "Moonlit Herder // Howling Herder").map(::of)
+        val first = definitions().forDefinitions(game)
         assertEquals(listOf("Thornback Sentry", "Riddle Moth", "Kindle", "Moonlit Herder"), parsed)
         parsed.clear()
         val storage = storage()
-        assertEquals(first, definitions(storage).forCards(ids))
+        assertEquals(first, definitions(storage).forDefinitions(game))
         storage.close()
-        assertEquals(first, definitions().forCards(ids.reversed()))
+        assertEquals(first, definitions().forDefinitions(game.reversed()))
         assertEquals(emptyList<String>(), parsed)
-        assertEquals(ids.map { "$it@${OracleParser.VERSION}" }.sorted(), rows())
+        assertEquals(game.map { "${it.digest}@${OracleParser.VERSION}" }.sorted(), rows())
         // Only the new card is parsed when a game needs one more.
-        definitions().forCards(ids + uuid(modal[0]))
+        definitions().forDefinitions(game + of("Tidecaller's Call // Tidecaller Grotto"))
         assertEquals(listOf("Tidecaller's Call"), parsed)
     }
 
     @Test fun newParserVersionParsesAgainAndDropsDefinitionsOfOtherVersions() {
-        install()
-        val ids = listOf(uuid(sentry), uuid(moth))
-        val old = definitions().forCards(ids)
+        val game = listOf(of("Thornback Sentry"), of("Riddle Moth"))
+        val old = definitions().forDefinitions(game)
         parsed.clear()
-        assertEquals(old, definitions(parserVersion = OracleParser.VERSION + 1).forCards(ids))
+        assertEquals(old, definitions(parserVersion = OracleParser.VERSION + 1).forDefinitions(game))
         assertEquals(listOf("Thornback Sentry", "Riddle Moth"), parsed)
-        assertEquals(ids.map { "$it@${OracleParser.VERSION + 1}" }.sorted(), rows())
+        assertEquals(game.map { "${it.digest}@${OracleParser.VERSION + 1}" }.sorted(), rows())
     }
 
-    @Test fun changedCatalogRecordIsParsedAgainOthersStayCached() {
-        install()
-        val ids = listOf(uuid(sentry), uuid(moth))
-        definitions().forCards(ids)
+    @Test fun differentCardDataIsADifferentDigestAndParsedOnItsOwn() {
+        val sentry = of("Thornback Sentry")
+        definitions().forDefinitions(listOf(sentry))
         parsed.clear()
-        // A newer catalog with an oracle errata to one card.
-        val erratum = sentry.deepCopy().apply { addProperty("text", "Flying\nReach") }
-        install(listOf(erratum, moth))
-        val result = definitions().forCards(ids)
+        val face = sentry.definition.faces.single()
+        val erratum = sentry.definition.copy(faces = listOf(face.copy(rulesText = "Flying\nReach")))
+        val result = definitions().forDefinitions(listOf(sentry, SubmittedDefinition(DeckJson.digest(erratum), erratum)))
         assertEquals(listOf("Thornback Sentry"), parsed)
-        assertEquals(listOf(Keyword.Flying, Keyword.Reach), read(result[uuid(sentry)]).definition.faces.single().abilities)
+        assertEquals(listOf(Keyword.Flying, Keyword.Reach), read(result[DeckJson.digest(erratum)]).definition.faces.single().abilities)
+        assertEquals(listOf(Keyword.Flying, Keyword.Vigilance), read(result[sentry.digest]).definition.faces.single().abilities)
     }
 
     @Test fun cachedDefinitionTheModelCanNoLongerReadIsParsedAgain() {
-        install()
-        val expected = definitions().forCards(listOf(uuid(sentry)))
+        val expected = parse("Thornback Sentry")
         parsed.clear()
         DriverManager.getConnection("jdbc:sqlite:${storageFile.toAbsolutePath()}").use { connection ->
-            connection.createStatement().use { it.execute("UPDATE card_definition SET definition_json = '{\"layout\":\"unknown\"}'") }
+            connection.createStatement().use { it.execute("UPDATE card_definition_cache SET definition_json = '{\"layout\":\"unknown\"}'") }
         }
-        assertEquals(expected, definitions().forCards(listOf(uuid(sentry))))
+        assertEquals(expected, parse("Thornback Sentry"))
         assertEquals(listOf("Thornback Sentry"), parsed)
     }
 
-    @Test fun definitionJsonRoundTrips() {
-        install()
-        val all = (listOf(sentry, moth) + split + adventure + transform + modal).map(::uuid)
-        definitions().forCards(all).values.filterIsInstance<ParsedCard.Read>().forEach { card ->
-            val json = kotlinx.serialization.json.Json.encodeToString(CardDefinition.serializer(), card.definition)
-            assertEquals(card.definition, kotlinx.serialization.json.Json.decodeFromString(CardDefinition.serializer(), json))
-        }
+    @Test fun noCardsNeedNoStorageWork() {
+        assertEquals(emptyMap<String, ParsedCard>(), definitions().forDefinitions(emptyList()))
     }
 }

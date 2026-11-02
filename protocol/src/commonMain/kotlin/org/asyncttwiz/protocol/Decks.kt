@@ -5,7 +5,10 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.*
 import org.asyncttwiz.core.EntityId
 
-/** Plain immutable metadata, never executable rules. Face order is semantic; links are explicit. */
+/** Plain immutable metadata, never executable rules. Face order is semantic; links are explicit.
+ * [colorIndicator] and [parts] are printed values a rules engine reads; absent ones are left out of the JSON, so
+ * definitions made before they existed keep their bytes and digests. */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable
 data class DefinitionFace(
     val faceId: String,
@@ -22,6 +25,25 @@ data class DefinitionFace(
     val scryfallId: String? = null,
     val imageUri: String? = null,
     val sourceData: String? = null,
+    /** The face's colour indicator as colour letters in WUBRG order ("G", "WB"), on faces that have one (CR 204). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val colorIndicator: String? = null,
+    /** The printed parts of one physical face that holds several: a split card's halves, an adventurer card's creature
+     * and Adventure, a flip card's two halves (PhysicalCardFaces), in printed order. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val parts: List<PrintedPart> = emptyList(),
+)
+
+/** One printed part of a [DefinitionFace] that holds several, with its own printed values. */
+@Serializable
+data class PrintedPart(
+    val name: String,
+    val typeLine: String = "",
+    val manaCost: String = "",
+    val rulesText: String = "",
+    val power: String = "",
+    val toughness: String = "",
+    val loyalty: String = "",
+    val defense: String = "",
+    val colorIndicator: String? = null,
 )
 
 @Serializable
@@ -124,8 +146,12 @@ object DeckValidation {
         if (value.schemaVersion != 1 || value.name.isBlank() || value.faces.size !in 1..64) return false
         val strings = listOfNotNull(value.name, value.provider, value.sourceVersion, value.printingId, value.layout) +
             value.faces.flatMap { listOfNotNull(it.faceId, it.name, it.typeLine, it.manaCost, it.rulesText,
-                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.imageUri, it.sourceData) }
+                it.power, it.toughness, it.loyalty, it.defense, it.corner, it.scryfallId, it.imageUri, it.sourceData) +
+                it.parts.flatMap { part -> listOf(part.name, part.typeLine, part.manaCost, part.rulesText, part.power,
+                    part.toughness, part.loyalty, part.defense) } }
         if (!strings.all(::text) || DeckJson.definitionBytes(value).size > RECORD_BYTES) return false
+        val indicators = value.faces.flatMap { face -> listOf(face.colorIndicator) + face.parts.map { it.colorIndicator } }
+        if (!indicators.all { it == null || (it.isNotEmpty() && COLOR_INDICATOR.matches(it)) } || value.faces.any { it.parts.size > 64 }) return false
         val ids = value.faces.map { it.faceId }.toSet()
         if (ids.size != value.faces.size || !ids.all(::uuid)) return false
         return value.faces.all { face -> face.name.isNotBlank() &&
@@ -143,6 +169,7 @@ object DeckValidation {
         return !host.endsWith(".localhost") && !host.endsWith(".local") && !host.endsWith(".internal") &&
             host.any { it in 'a'..'z' }
     }
+    private val COLOR_INDICATOR = Regex("W?U?B?R?G?")
     fun quantity(value: Int): Boolean = value in 1..MAX_CARDS
     fun cardCount(value: Long): Boolean = value in 1..MAX_CARDS.toLong()
     fun quantities(value: List<Int>): Boolean = value.all(::quantity) && cardCount(value.sumOf { it.toLong() })

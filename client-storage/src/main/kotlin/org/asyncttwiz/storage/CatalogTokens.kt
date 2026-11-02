@@ -32,7 +32,8 @@ fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition {
         val loyalty = field("loyalty"); val defense = field("defense")
         DefinitionFace(face.id, field("faceName").ifBlank { face.name }, face.otherFaces,
             field("type"), field("manaCost"), field("text"), power, toughness, loyalty, defense,
-             scryfallId = face.scryfallId, sourceData = face.json).let { it.copy(corner = it.defaultCorner()) }
+             scryfallId = face.scryfallId, sourceData = face.json, colorIndicator = catalogColorIndicator(raw))
+            .let { it.copy(corner = it.defaultCorner()) }
     }
     val raw = DeckJson.format.parseToJsonElement(printing.json).jsonObject
     val definition = CardDefinition(printing.name, definitions, provider = "mtgjson",
@@ -42,6 +43,17 @@ fun ResolvedDeckEntry.definition(catalog: CatalogMetadata?): CardDefinition {
     // double_faced_token or token. Do not flatten them like split/adventure spell parts.
     return if (printing.token && definition.layout !in setOf("adventure", "split", "flip", "aftermath")) definition
         else PhysicalCardFaces.normalize(definition)
+}
+
+/**
+ * A catalog face's colour indicator (CR 204) as WUBRG letters. The catalog keeps a face's colours, not its indicator:
+ * a coloured face without a mana cost has its colour from an indicator (CR 202.2), as a double-faced card's back face.
+ */
+internal fun catalogColorIndicator(record: JsonObject): String? {
+    if ((record["manaCost"] as? JsonPrimitive)?.contentOrNull?.isNotBlank() == true) return null
+    return (record["colors"] as? JsonArray)?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
+        ?.filter { it.length == 1 && it in "WUBRG" }?.distinct()?.sortedBy { "WUBRG".indexOf(it) }
+        ?.joinToString("")?.takeIf { it.isNotEmpty() }
 }
 
 /** Owner's gameplay identity, deliberately excluding printing metadata and redundant keyword tags. */

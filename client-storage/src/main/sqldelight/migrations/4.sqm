@@ -1,0 +1,12 @@
+-- Card definitions are now parsed from a game's card data and keyed by its digest (CardDefinitionCache.sq). The
+-- catalog-keyed cache of 3.sqm held only derived data: drop it.
+DROP TABLE IF EXISTS card_definition;
+CREATE TABLE IF NOT EXISTS card_definition_cache (
+  definition_digest TEXT NOT NULL,
+  parser_version INTEGER NOT NULL,
+  definition_json TEXT,
+  manual_abilities INTEGER NOT NULL CHECK (manual_abilities >= 0),
+  problem TEXT,
+  PRIMARY KEY (definition_digest, parser_version),
+  CHECK ((definition_json IS NULL) != (problem IS NULL))
+);

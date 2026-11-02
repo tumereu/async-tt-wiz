@@ -52,7 +52,7 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(Long.MAX_VALUE, listOf(first.copy(payload = StoredPayload(3, "{}")))), storage.accepted("replica-a"))
             assertNull(storage.accepted("replica-b"))
         }
-        assertEquals("4", scalar("PRAGMA user_version"))
+        assertEquals("5", scalar("PRAGMA user_version"))
         assertEquals("ok", scalar("PRAGMA integrity_check"))
         println("PASS actual SQLite ${scalar("SELECT sqlite_version()")} file-backed create/commit/reopen, exact signed-64-bit cursor")
     }
@@ -75,7 +75,26 @@ class ClientStorageTest {
             assertEquals(AcceptedSnapshot(2, listOf(second)), storage.accepted("account:profile"))
             assertEquals(StoredPayload(1, "keep"), storage.publicCache("catalog"))
         }
-        assertEquals("4", scalar("PRAGMA user_version"))
+        assertEquals("5", scalar("PRAGMA user_version"))
+    }
+
+    @Test fun catalogKeyedCardDefinitionCacheOfVersion4IsDroppedAndOtherDataKept() {
+        open().use { storage ->
+            storage.commitAccepted("account:profile", null, 2, listOf(second))
+            storage.cachePublic("catalog", StoredPayload(1, "keep"))
+        }
+        execute("DROP TABLE card_definition_cache")
+        execute("CREATE TABLE card_definition (card_id TEXT NOT NULL, parser_version INTEGER NOT NULL, source_digest TEXT NOT NULL, " +
+            "definition_json TEXT, manual_abilities INTEGER NOT NULL, problem TEXT, PRIMARY KEY (card_id, parser_version))")
+        execute("INSERT INTO card_definition VALUES ('card', 1, 'digest', '{}', 0, NULL)")
+        execute("PRAGMA user_version = 4")
+        open().use { storage ->
+            assertEquals(AcceptedSnapshot(2, listOf(second)), storage.accepted("account:profile"))
+            assertEquals(StoredPayload(1, "keep"), storage.publicCache("catalog"))
+        }
+        assertEquals("5", scalar("PRAGMA user_version"))
+        assertEquals("0", scalar("SELECT count(*) FROM sqlite_master WHERE name = 'card_definition'"))
+        assertEquals("0", scalar("SELECT count(*) FROM card_definition_cache"))
     }
 
     // LOB-007
@@ -166,7 +185,7 @@ class ClientStorageTest {
             assertNull(storage.personal("replica-a", "draft"))
             assertEquals(AcceptedSnapshot(7, listOf(first)), storage.accepted("replica-a"))
         }
-        assertEquals("accepted_cursor,accepted_record,card_definition,personal_state,public_cache", scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)"))
+        assertEquals("accepted_cursor,accepted_record,card_definition_cache,personal_state,public_cache", scalar("SELECT group_concat(name, ',') FROM (SELECT name FROM sqlite_master WHERE type='table' ORDER BY name)"))
         println("PASS separate accepted/personal/public-cache tables; no outgoing/prediction/exposure journal")
     }
 
@@ -182,7 +201,7 @@ class ClientStorageTest {
                 assertNull(storage.publicCache("missing"))
             }
         }
-        assertEquals("4", scalar("PRAGMA user_version"))
+        assertEquals("5", scalar("PRAGMA user_version"))
         open().use { storage ->
             storage.commitAccepted("replica-a", 9007199254740993, 9007199254740994, listOf(second))
             storage.cachePublic("new", StoredPayload(2, "{}"))

@@ -618,6 +618,18 @@ class GameSession(private val connection: GameConnection, private val credential
         changed(summary(game))
         inspections.notifyInspections()
     }
+    /** I-D43: an Automatum batch the server refused was planned on a board the server no longer had (or failed its
+     * checks): the client and the server disagree. A flow revert's outcome is logged too. */
+    private fun automatumResult(original: GameCommand, result: GameResult) {
+        val game = original.scope.gameId
+        val batch = original.action as? GameAction.PlayBatch
+        if (batch != null && batch.tags.isNotEmpty() && result.outcome != "accepted")
+            org.asyncttwiz.automatum.AutomatumLog.mismatch(game, "server refused a batch",
+                "${result.outcome}: ${result.reason} (${batch.actions.size} actions, request ${original.requestId})")
+        if (original.action == GameAction.RevertFlow)
+            org.asyncttwiz.automatum.AutomatumLog.flow(game, "shared", "revert ${result.outcome}", result.reason.orEmpty())
+    }
+
     private fun result(result: GameResult) {
         if (Diagnostics.enabled) DebugLatency.result(result.requestId)
         val original = pending[result.requestId] ?: return
@@ -633,6 +645,7 @@ class GameSession(private val connection: GameConnection, private val credential
             retireSelections(original.scope.gameId)
         }
         error = if (result.outcome in setOf("accepted", "noOp")) null else historyControlFailure(original.action, result.reason) ?: refusalText(result.reason)
+        automatumResult(original, result)
         if (result.outcome != "accepted") inspections.notAccepted(result.requestId) { request ->
             InspectionEvent.NotAccepted(request, result = result) }
         inspections.notifyInspections()

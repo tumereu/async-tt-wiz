@@ -344,8 +344,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      */
     fun setAutomatum(on: Boolean, revertFlow: (() -> Boolean)?): Boolean {
         val play = current() ?: return false
+        org.asyncttwiz.automatum.AutomatumLog.switch(play.gameId, on)
         // The player's own open cast was never sent (I-D11): switching off simply drops it (i12review #2)
-        if (!on) cast.cancel()
+        if (!on) cast.cancel("dropped: switched off")
         if (!on && Automatum.flowOpen(play.board)) revertFlow?.invoke()
         return submit(PlayAction.Mtg(MtgAction.SetAutomatum(on)))
     }

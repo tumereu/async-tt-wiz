@@ -166,8 +166,8 @@ internal fun ProblemReportDialog(token: () -> String?, dismiss: () -> Unit) {
                 enabled = state != ProblemReportState.Sending)
         }
     }) {
-        Text("Describe what went wrong, if you like. The report includes the app's recent log and your device model, " +
-            "but no passwords or email addresses.", style = MaterialTheme.typography.bodySmall)
+        Text("Describe what went wrong, if you like. The report includes the app's recent log, your last game's Automatum " +
+            "log and your device model, but no passwords or email addresses.", style = MaterialTheme.typography.bodySmall)
         ScreenTextField(description, { description = it.take(org.asyncttwiz.protocol.ProblemReport.MAX_DESCRIPTION) },
             Modifier.fillMaxWidth().heightIn(min = 120.dp).testTag("report-description"), singleLine = false,
             enabled = state == ProblemReportState.Idle || state is ProblemReportState.Failed, placeholder = "What happened?")

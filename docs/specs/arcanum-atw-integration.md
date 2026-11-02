@@ -400,6 +400,12 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   planner tags bookkeeping and priority changes other than a player's own pass (`EngineCall.perform(input,
   automatic)`, `ownPasses`) folded (I-D22). Saved decks' and cubes' old card data is rebuilt from the catalog once per
   account (`CardDataRefresh`, `CardDataRefreshRun`, I-D21).
+- **Logging for reproduction (built, I-D43):** `Engine.perform(state, input, trace)` reports each call to an
+  `EngineTrace`; `AutomatumLog` keeps per game the latest entries (engine calls, batch plans, flows, early answers, the
+  switch, refusals, server refusals of automated batches, replica rebuilds) and the latest engine calls (start state and
+  inputs); problem and crash reports carry it as a `ReproBundle` (card definitions, latest board and its engine state,
+  calls, entries; gzip+base64 in the reports' `automatum` field). The automatum tests' `ReproBundles` loads and replays
+  one (`-Pautomatum.bundle=<file>` with `ReproFromFileTest`).
 
 ## 5. The Automatum switch
 

@@ -50,6 +50,9 @@ class CrashReportHttp @JvmOverloads constructor(private val runtime: ServiceRunt
             }
             if (input.appVersion.length > 512 || input.device.length > 512) { response.status = 400; return true }
             if (input.kind !in setOf("crash", "latency", "jank")) { response.status = 400; return true }
+            // I-D43: only a crash carries the Automatum log and bundle
+            if (input.automatum.length > CrashReport.MAX_AUTOMATUM || (input.kind != "crash" && input.automatum.isNotEmpty())) {
+                response.status = 400; return true }
             if (input.kind == "jank") {
                 if (input.body.toByteArray(Charsets.UTF_8).size > 65_536) { response.status = 413; return true }
                 val batch = AccountJson.format.decodeFromString<JankBatch>(input.body)
@@ -107,8 +110,8 @@ class CrashReportHttp @JvmOverloads constructor(private val runtime: ServiceRunt
             it.executeQuery().use { rows -> rows.next() }
         }
         if (accepted) connection.prepareStatement("""
-            INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO debug_crash_report(id, account_id, received_at, reported_at, app_version, device, body, kind, automatum)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """.trimIndent()).use {
             it.setObject(1, UUID.randomUUID()); it.setObject(2, account); it.setObject(3, now)
             it.setObject(4, OffsetDateTime.ofInstant(reported, ZoneOffset.UTC))
@@ -116,7 +119,7 @@ class CrashReportHttp @JvmOverloads constructor(private val runtime: ServiceRunt
             val bytes = input.body.toByteArray(Charsets.UTF_8)
             val body = Charsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.IGNORE)
                 .decode(ByteBuffer.wrap(bytes, 0, minOf(bytes.size, 65_536))).toString().replace("\u0000", "")
-            it.setString(7, body); it.setString(8, input.kind); it.executeUpdate()
+            it.setString(7, body); it.setString(8, input.kind); it.setString(9, input.automatum.replace("\u0000", "")); it.executeUpdate()
         }
         // Only the sender's rows grow, so only its kind is trimmed per account.
         connection.prepareStatement("""

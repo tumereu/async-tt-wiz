@@ -86,7 +86,19 @@ object EngineBatch {
      * @throws Unmappable when a change can't be said with ATW's actions, or the batch wouldn't pass the server's checks
      *   ([GameWire.valid]) or fit one game message.
      */
-    fun plan(call: EngineCall, actor: String, command: GameCommand): BatchPlan = Planner(call, actor, command).run()
+    fun plan(call: EngineCall, actor: String, command: GameCommand): BatchPlan {
+        val game = call.state.gameId
+        val plan = try {
+            Planner(call, actor, command).run()
+        } catch (problem: Unmappable) {
+            // I-D43: a batch that can't be said in ATW is a mapping problem worth a report
+            AutomatumLog.refusal(game, "plan of call ${call.logNumber ?: "-"}", problem.message.orEmpty())
+            throw problem
+        }
+        AutomatumLog.add(AutomatumEntry.Batch(AutomatumLog.now(), game, call.logNumber, call.changes.size, plan.actions.size,
+            Automatum.flowOpen(call.state.board), Automatum.flowOpen(plan.state.board)))
+        return plan
+    }
 
     /** The largest command one game message carries: a quarter of the game socket's text message (I-D14), so the
      * revision answering it (each member recorded with its delta) fits one message too. */

@@ -31,6 +31,8 @@ internal object Fra {
     // fra chunk 01: "Create a 2/2 colorless Wizard Soldier creature token named Cadet." (CR 111.4)
     val CREATE_NAMED_TOKENS = Regex("""Create (a|an|one|two|three|four|five|X) ((?:\d+/\d+) \w+(?: and \w+)? [A-Z][A-Za-z ]+? creature) tokens? named ([A-Z][A-Za-z' ]+?)(?: with (".+"|[a-z ,]+?))?(, then .+)?\.""")
 
+    val THEN_COUNTER_ON_EACH_OTHER = Regex(""", then put an? (\S+) counter on each other (.+)""")
+
     // whole lines
     val ACTIVATE_LOYALTY_IF_REMOVED = Regex("""Whenever you activate a loyalty ability, if you removed (\w+) or more loyalty counters to activate it, (.+)""")
     val ENTERS_GETS_X_THAT_CREATURES_POWER = Regex("""Whenever (another creature you control enters), (.+?) gets \+X/\+0 until end of turn, where X is that creature's power\.""")

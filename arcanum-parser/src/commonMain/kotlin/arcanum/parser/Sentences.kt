@@ -179,7 +179,7 @@ internal class Sentences(
                 else -> null
             }
         }
-        return static(line) ?: triggered(line) ?: activated(line) ?: spell(line)
+        return static(line) ?: triggered(line) ?: activated(line) ?: spell(line) ?: fraStaticLate(line) // fra
     }
 
     /**
@@ -7012,7 +7012,9 @@ internal class Sentences(
         // blb chunk 02: "Exile that card." (the card chosen from a revealed hand)
         if (sentence == "Exile that card." && context.chosen.isNotEmpty()) {
             context.it = Objects.Bound("exiled")
-            return listOf(Step.Do(Effect.Move(Objects.Bound(context.chosen.last()), Destination(Zone.Exile), postBind = "exiled")))
+            // fra chunk 11: kept for "the exiled card" of another ability (CR 607.2a)
+            return listOf(Step.Do(Effect.Move(Objects.Bound(context.chosen.last()), Destination(Zone.Exile), postBind = "exiled"))) +
+                (if (exiledCard == Objects.Remembered(EXILED_WITH)) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList())
         }
         // blb chunk 02: "You may cast that card for as long as it remains exiled, and mana of any type can be spent to cast
         // it." (CR 601.2a; D49: "for as long as it remains there" lasts indefinitely)
@@ -8155,6 +8157,11 @@ internal class Sentences(
     /** Reality Fracture sentences that change the steps before them; null when none reads [sentence]. */
     private fun fraModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
         val last = steps.lastOrNull()
+        // fra chunk 09: "Create a … token named Cadet, then put a +1/+1 counter on each other Wizard token you control.": other than the
+        // token just created (read before the general "then" rule, which would read "other" as other than this spell)
+        Fra.CREATE_NAMED_TOKENS.matchEntire(sentence)?.takeIf { Fra.THEN_COUNTER_ON_EACH_OTHER.matches(it.groupValues[5]) }?.let {
+            return steps + (fraEffect(sentence, context) ?: return null)
+        }
         // fra chunk 04: "Surveil 1. If you put a [card] into your graveyard this way, put that card into your hand." (CR 701.25)
         Fra.IF_PUT_INTO_GRAVEYARD_THIS_WAY.matchEntire(sentence)?.let { m ->
             val surveil = ((last as? Step.Do)?.effect as? Effect.Surveil) ?: return@let
@@ -8168,6 +8175,13 @@ internal class Sentences(
             if (last == null) return@let
             val condition = Conditions.condition(m.groupValues[1], self) ?: return@let
             val targets = context.targets.size
+            // "that creature": the target the step before acted on
+            val target = context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { Objects.Target(it.name) }
+            Fra.PUT_COUNTERS_ON_IT.matchEntire(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".")?.takeIf { target != null }?.let { c ->
+                val kind = Counters.kind(c.groupValues[2]) ?: return null
+                val count = Value.Fixed(Numbers.count(c.groupValues[1]) ?: return null)
+                return steps.dropLast(1) + Step.If(condition, then = listOf(Step.Do(Effect.PutCounters(target!!, kind, count))), otherwise = listOf(last))
+            }
             val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context)
             if (then == null || context.targets.size != targets) { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
             return steps.dropLast(1) + Step.If(condition, then = then, otherwise = listOf(last))
@@ -8324,6 +8338,13 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.EntersMarked(arcanum.api.ObjectMark.Prepared)))), affects = selfOnly)
         }
+        return null
+    }
+
+    /** Reality Fracture static wordings no other rule reads, tried last in [line]; null when none reads [line]. */
+    private fun fraStaticLate(line: String): Ability? {
+        val selfOnly = Affected.Objects(Objects.Self)
+        val attached = Affected.Objects(Objects.AttachedTo(Objects.Self))
         // fra chunk 06: "As this land enters, you may behold a Jace. If you don't, this land enters tapped." (CR 614.12, 701.4)
         Fra.AS_ENTERS_MAY_BEHOLD.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[3]) }?.let { m ->
             val behold = CostPart.Action(arcanum.api.KeywordAction.Behold(Filters.noun(m.groupValues[2]) ?: return null), bind = "beheld")
@@ -8509,7 +8530,14 @@ internal class Sentences(
             }
             val token = defined.copy(face = defined.face.copy(name = m.groupValues[3], abilities = abilities))
             val create = Step.Do(Effect.CreateToken(token, count, controller = Players.You, bind = "created"))
+            context.it = Objects.Bound("created") // "It gains haste until end of turn."
             if (m.groupValues[5].isEmpty()) return listOf(create)
+            // fra chunk 09: ", then put a +1/+1 counter on each other Wizard token you control": other than the token just created
+            Fra.THEN_COUNTER_ON_EACH_OTHER.matchEntire(m.groupValues[5])?.let { t ->
+                val kind = Counters.kind(t.groupValues[1]) ?: return null
+                val others = Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Bound("created"))), Filters.noun(t.groupValues[2]) ?: return null)
+                return listOf(create, Step.Do(Effect.PutCounters(Objects.Each(others), kind, Value.Fixed(1))))
+            }
             val then = effect(m.groupValues[5].removePrefix(", then ").replaceFirstChar { it.uppercase() } + ".", context) ?: return null
             return listOf(create) + then
         }
@@ -8689,10 +8717,12 @@ internal class Sentences(
             val objects = fraObjects(m.groupValues[1], context) ?: return@let
             val options = m.groupValues[2].split(Regex(""",? or |, """))
             val keywords = options.map { OracleParser.keyword(it.replaceFirstChar { c -> c.uppercase() }) ?: return null }
-            return listOf(Step.Choose(arcanum.api.Choice.Option(options), bind = "keyword", chooser = Players.You)) + options.zip(keywords).map { (option, keyword) ->
-                Step.If(arcanum.api.Condition.Chose("keyword", option), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(keyword))),
-                    Affected.Objects(objects), eot))))
+            // one choice, each keyword in its branch: If(first, otherwise = If(second, otherwise = third))
+            fun gain(keyword: Ability) = Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(keyword))), Affected.Objects(objects), eot))
+            val branches = options.zip(keywords).reversed().fold(emptyList<Step>()) { rest, (option, keyword) ->
+                if (rest.isEmpty()) listOf(gain(keyword)) else listOf(Step.If(arcanum.api.Condition.Chose("keyword", option), then = listOf(gain(keyword)), otherwise = rest))
             }
+            return listOf(Step.Choose(arcanum.api.Choice.Option(options), bind = "keyword", chooser = Players.You)) + branches
         }
         // fra chunk 06: "that creature deals 1 damage to each opponent" in an attack trigger (the attacking creature)
         Fra.THAT_CREATURE_DEALS_EACH_OPPONENT.matchEntire(sentence)?.let { m ->

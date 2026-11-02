@@ -276,6 +276,8 @@ object DefinitionChecks {
             when {
                 ability.typeName() == "spell" -> check(ability, costNames)
                 isCostStatic(ability) -> check(ability, costNames, spellSlots)
+                // fra: an equip ability's cost change reads the creature it targets, the slot its expansion declares (CR 702.6a)
+                ability.typeName() == "equip" -> check(ability, costNames, setOf("creature"))
                 // The Stack item holds the cost names: a cost reduction can read them ("for each card exiled this way").
                 else -> check(ability, costNames)
             }

@@ -34,6 +34,7 @@ internal object Fra {
     val THEN_COUNTER_ON_EACH_OTHER = Regex(""", then put an? (\S+) counter on each other (.+)""")
 
     // whole lines
+    val ENTERS_IF_AT_LEAST_OTHER = Regex("""Whenever an? (.+?) you control enters, if you control at least (\w+) other (.+?), (.+)""")
     val ACTIVATE_LOYALTY_IF_REMOVED = Regex("""Whenever you activate a loyalty ability, if you removed (\w+) or more loyalty counters to activate it, (.+)""")
     val ENTERS_GETS_X_THAT_CREATURES_POWER = Regex("""Whenever (another creature you control enters), (.+?) gets \+X/\+0 until end of turn, where X is that creature's power\.""")
     val CLASH = Regex("""Choose target (.+?)\. Its owner may put it on top of their library\. If they do, (.+?) deals (\d+) damage to them\. If they didn't put the card on top of their library, they put it on the bottom\.""")

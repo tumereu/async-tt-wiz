@@ -8066,6 +8066,17 @@ internal class Sentences(
             return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.Activate(ObjectFilter.Any, PlayerFilter.You, kind = arcanum.api.AbilityKind.Loyalty,
                 removedLoyaltyAtLeast = n)), instructions)
         }
+        // fra chunk 13: "Whenever a Forest you control enters, if you control at least five other Forests, [effect]": other than the one
+        // that entered (CR 603.4)
+        Fra.ENTERS_IF_AT_LEAST_OTHER.matchEntire(line)?.let { m ->
+            val entering = Filters.noun(m.groupValues[1]) ?: return null
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            val others = Filters.noun(m.groupValues[3]) ?: Filters.noun(m.groupValues[3].removeSuffix("s")) ?: return null
+            val instructions = instructions(m.groupValues[4].replaceFirstChar { it.uppercase() }, event = EventPattern.ZoneChange(Filters.all(entering, ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield)) ?: return null
+            return Ability.Triggered(arcanum.api.Trigger.On(EventPattern.ZoneChange(Filters.all(entering, ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield)),
+                instructions, interveningIf = arcanum.api.Condition.Exists(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.EventObject(EventRole.After))), others,
+                    ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = n))
+        }
         // fra chunk 08: "Whenever another creature you control enters, Arni gets +X/+0 until end of turn, where X is that creature's
         // power." (the entering creature, CR 603.6a)
         Fra.ENTERS_GETS_X_THAT_CREATURES_POWER.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->

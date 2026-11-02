@@ -3027,6 +3027,15 @@ internal class Sentences(
 
     /** The Bloomburrow sentences that change the steps before them; null when none reads [sentence]. */
     private fun blbModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // blb chunk 09: "If this spell was cast from anywhere other than your hand, put a +1/+1 counter on that creature." after
+        // creating a token: "that creature" is the token (CR 400.7d: a copy wasn't cast)
+        Blb.IF_CAST_NOT_FROM_HAND_COUNTER_ON_THAT.matchEntire(sentence)?.let { m ->
+            val create = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken)?.takeIf { it.bind == null } ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            return steps.dropLast(1) + Step.Do(create.copy(bind = "token")) + Step.If(arcanum.api.Condition.And(listOf(
+                arcanum.api.Condition.CastFrom(null, Objects.Self), arcanum.api.Condition.Not(arcanum.api.Condition.CastFrom(Zone.Hand, Objects.Self)))),
+                then = listOf(Step.Do(Effect.PutCounters(Objects.Bound("token"), kind, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)))))
+        }
         // blb chunk 06: "If that creature would die this turn, exile it instead." after damage to a target: a replacement for the
         // rest of the turn (CR 614.1a)
         if (sentence == "If that creature would die this turn, exile it instead.") {
@@ -3050,6 +3059,48 @@ internal class Sentences(
 
     /** The Bloomburrow static wordings; null when none reads [line]. */
     private fun blbStatic(line: String): Ability? {
+        // blb chunk 09: "This spell costs {1} less to cast for each instant and sorcery card in your graveyard." (CR 601.2f)
+        Blb.THIS_SPELL_COSTS_LESS_FOR_EACH.matchEntire(line)?.let { m ->
+            val per = ManaCost.parse(m.groupValues[1]) ?: return null
+            val counted = Filters.noun(m.groupValues[2].replace(" and ", " or ").replace(" in exile or in ", " in exile and in ")) ?: return null
+            return Ability.Static(listOf(Mechanic.CostChange(ObjectFilter.Is(Objects.Self), arcanum.api.CostChange.Less(per, Value.Count(Objects.Each(counted))))),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 09: "If a card or token would be put into your graveyard from anywhere, exile it instead." (CR 614.1a)
+        Blb.WOULD_BE_PUT_INTO_YOUR_GRAVEYARD.matchEntire(line)?.let { m ->
+            val what = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(Filters.all(what, ObjectFilter.OwnedBy(PlayerFilter.You)), to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), affects = Affected.Objects(Objects.Self))
+        }
+        // blb chunk 09: "This creature enters tapped if it's not your turn." (CR 614.1c)
+        Blb.ENTERS_TAPPED_IF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersTapped))), affects = Affected.Objects(Objects.Self),
+                condition = Conditions.condition(m.groupValues[2], self) ?: return null)
+        }
+        // blb chunk 09: "As long as [condition], creatures your opponents control get -1/-0."
+        Blb.AS_LONG_AS_GROUP_GETS.matchEntire(line)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return@let
+            val group = Filters.noun(m.groupValues[2]) ?: return@let
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))),
+                affects = Affected.Objects(Objects.Each(group)), condition = condition)
+        }
+        // blb chunk 09: "As long as [condition], it gets +4/+4 and has trample."
+        Blb.AS_LONG_AS_IT_GETS_AND_HAS.matchEntire(line)?.let { m ->
+            if (m.groupValues[2] != "it" && !isSelf(m.groupValues[2])) return@let
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt())),
+                Mechanic.GainAbilities(keywords(m.groupValues[5]) ?: return null)), affects = Affected.Objects(Objects.Self), condition = condition)
+        }
+        // blb chunk 09: "You may cast instant and sorcery spells from your graveyard by paying 1 life in addition to their other
+        // costs." (CR 601.2a, 601.2f)
+        Blb.YOU_MAY_CAST_FROM_GRAVEYARD_BY.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1].replace(" spells", " cards").replace(" and ", " or ")) ?: return null
+            val extra = if (m.groupValues[2] == "foraging") CostPart.Action(arcanum.api.KeywordAction.Forage)
+                else costPart(m.groupValues[2].replace("paying", "pay").replaceFirstChar { it.uppercase() })?.singleOrNull() ?: return null
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, additionalCost = Cost(listOf(extra)), holder = PlayerFilter.You)),
+                affects = Affected.Objects(Objects.Each(Filters.all(spells, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+        }
         // blb chunk 08: "You may cast noncreature spells as though they had flash." (a permission of the player, CR 601.3)
         Blb.YOU_MAY_CAST_AS_THOUGH_FLASH.matchEntire(line)?.let { m ->
             val spells = Filters.noun(m.groupValues[1]) ?: return null
@@ -3177,6 +3228,64 @@ internal class Sentences(
 
     /** The Bloomburrow effect wordings; null when none reads [sentence]. */
     private fun blbEffect(sentence: String, context: Context): List<Step>? {
+        // blb chunk 09: "Look at twice X cards from the top of your library." / "Put X cards from among them into your hand and the
+        // rest into your graveyard."
+        if (sentence == "Look at twice X cards from the top of your library.") {
+            context.seen = "seen"
+            return listOf(Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Times(Value.Announced("X"), 2), fromTop = true), players = Players.You, bind = "seen")))
+        }
+        if (sentence == "Put X cards from among them into your hand and the rest into your graveyard.") {
+            val seen = Objects.Bound(context.seen ?: return null)
+            return listOf(
+                Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Announced("X"), Value.Announced("X"), from = seen), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
+                Step.Do(Effect.Move(Objects.Except(seen, Objects.Bound("chosen")), Destination(Zone.Graveyard))))
+        }
+        // blb chunk 09: "Return up to one target nonland permanent to its owner's hand."
+        Blb.RETURN_UP_TO_ONE_TO_HAND.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(noun) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Hand))))
+        }
+        // blb chunk 09: "Mill three cards. When you do, [reflexive trigger]." after a mandatory action (CR 603.12)
+        Blb.DO_THEN_WHEN_YOU_DO.matchEntire(sentence)?.let { m ->
+            if (m.groupValues[1].startsWith("You may")) return@let
+            val first = effect(m.groupValues[1] + ".", context) ?: return@let
+            announcedX = true
+            val reflexive = try { instructions(m.groupValues[2]) } finally { announcedX = false } ?: return@let
+            return first + Step.Do(Effect.ReflexiveTrigger(reflexive))
+        }
+        // blb chunk 09: "you may cast target instant or sorcery card with mana value equal to the number of coin counters on this
+        // artifact from your graveyard without paying its mana cost" (CR 608.2g)
+        Blb.MAY_CAST_TARGET_WITH_COUNTERS_MANA_VALUE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[3]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ManaValue(arcanum.api.Comparison.Equal,
+                Value.Of(arcanum.api.NumericProperty.Counters(kind), Objects.Self, arcanum.api.Combine.Single)), ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You))
+            val card = context.target("card", filter)
+            return listOf(Step.May(listOf(Step.Do(Effect.Cast(card, withoutPaying = true, bind = "spell", how = PlayKind.Cast, caster = Players.You))), player = Players.You))
+        }
+        // blb chunk 09: "Return this card from your graveyard to the battlefield tapped and attacking." (CR 508.4)
+        Blb.RETURN_SELF_TAPPED_AND_ATTACKING.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, tapped = true, attacking = arcanum.api.AttackTarget.Chosen))))
+        }
+        // blb chunk 09: "Target opponent discards two cards."
+        Blb.TARGET_PLAYER_DISCARDS.matchEntire(sentence)?.let { m ->
+            val player = playersIn("target " + m.groupValues[1], context) ?: return null
+            return listOf(Step.Do(Effect.Discard(player, Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null), filter = ObjectFilter.Any)))
+        }
+        // blb chunk 09: "Target opponent exiles a card from their hand." (that player chooses which)
+        Blb.TARGET_PLAYER_EXILES_FROM_HAND.matchEntire(sentence)?.let { m ->
+            val player = playersIn("target " + m.groupValues[1], context) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(handOf(player), Value.Fixed(1), Value.Fixed(1)), bind = "chosen", chooser = player),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Exile))))
+        }
+        // blb chunk 09: "Put target card from your graveyard on the bottom of your library."
+        Blb.PUT_TARGET_FROM_GRAVEYARD_ON_BOTTOM.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Do(Effect.Move(context.target("card", filter), Destination(Zone.Library, libraryPosition = -1))))
+        }
         // blb chunk 08: "Draw a card if this is the second time this ability has resolved this turn.", "Create a 1/1 black Snail
         // creature token if you don't control a Snail." (checked as it resolves)
         Blb.TRAILING_IF.matchEntire(sentence)?.let { m ->
@@ -3741,6 +3850,21 @@ internal class Sentences(
         val RETURN_COUNTED_FROM_GRAVEYARD = Regex("""[Rr]eturn (up to )?(two|three|four|five) target (.+?) from your graveyard to (your hand|the battlefield)\.""")
         val DESTROY_N_TARGETS = Regex("""[Dd]estroy (two|three) target (.+)\.""")
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // blb chunk 09
+        val WOULD_BE_PUT_INTO_YOUR_GRAVEYARD = Regex("""If (.+) would be put into your graveyard from anywhere, exile it instead\.""")
+        val ENTERS_TAPPED_IF = Regex("""(.+) enters tapped if (.+)\.""")
+        val IF_CAST_NOT_FROM_HAND_COUNTER_ON_THAT = Regex("""If this spell was cast from anywhere other than your hand, put (a|an|one|two) (\S+) counters? on that creature\.""")
+        val THIS_SPELL_COSTS_LESS_FOR_EACH = Regex("""This spell costs (\{[^}]+\}) less to cast for each (.+)\.""")
+        val AS_LONG_AS_GROUP_GETS = Regex("""As long as (.+?), ([a-z].+?) get ([+-]\d+)/([+-]\d+)\.""")
+        val AS_LONG_AS_IT_GETS_AND_HAS = Regex("""As long as (.+?), (it|this creature) gets ([+-]\d+)/([+-]\d+) and has ([a-z ,]+)\.""")
+        val YOU_MAY_CAST_FROM_GRAVEYARD_BY = Regex("""You may cast (.+?) from your graveyard by (foraging|paying \d+ life) in addition to (?:paying )?their other costs\.""")
+        val RETURN_UP_TO_ONE_TO_HAND = Regex("""[Rr]eturn up to one target (.+) to its owner's hand\.""")
+        val DO_THEN_WHEN_YOU_DO = Regex("""(.+?)\. When you do, (.+)""")
+        val MAY_CAST_TARGET_WITH_COUNTERS_MANA_VALUE = Regex("""You may cast target (.+?) with mana value equal to the number of (\S+) counters on (.+?) from your graveyard without paying its mana cost\.""")
+        val RETURN_SELF_TAPPED_AND_ATTACKING = Regex("""Return (.+) from your graveyard to the battlefield tapped and attacking\.""")
+        val TARGET_PLAYER_DISCARDS = Regex("""Target (opponent|player) discards (a|one|two|three) cards?\.""")
+        val TARGET_PLAYER_EXILES_FROM_HAND = Regex("""Target (opponent|player) exiles a card from their hand\.""")
+        val PUT_TARGET_FROM_GRAVEYARD_ON_BOTTOM = Regex("""Put target (.+) from your graveyard on the bottom of your library\.""")
         // blb chunk 08
         val IF_THAT_CREATURE_IS = Regex("""If that creature is (.+), ([a-z][^,]+)\.""")
         val TARGET_GETS_X_SELF_POWER = Regex("""Target (.+) gets ([+-][\dX]+)/([+-][\dX]+) until end of turn, where X is (.+)'s power\.""")
@@ -3806,7 +3930,7 @@ internal class Sentences(
         val CAST_THIS_WAY_ENTERS_WITH = Regex("""If you cast a spell this way, that creature enters with (a|an|one|two) (\S+) counters? on it\.""")
         val ARE_IN_ADDITION = Regex("""(.+) (?:are|is) (?:an? )?([A-Za-z ]+?) in addition to (?:their|its) other types(?: and (?:have|has) "(.+?)\.?")?\.?""")
         val ENCHANTED_IS_A_COLORLESS = Regex("""Enchanted permanent is a colorless ([A-Za-z ]+?) with "(.+)" and loses all other card types and abilities\.""")
-        val MAY_CAST_FROM_GRAVEYARD_BY = Regex("""Until end of turn, you may cast (.+?) from your graveyard by (foraging|paying \d+ life) in addition to paying their other costs\.""")
+        val MAY_CAST_FROM_GRAVEYARD_BY = Regex("""Until end of turn, you may cast (.+?) from your graveyard by (foraging|paying \d+ life) in addition to (?:paying )?their other costs\.""")
         val PUT_COUNTERS_FOR_EACH = Regex("""Put (a|an|one|two|three) (\S+) counters? on (.+?) for each (.+)\.""")
         val IF_CONTROL_OR_RETURNED = Regex("""If you control an? (\w+) or returned an? (.+?) to your hand this way, (.+)\.""")
         val DEALS_TO_ANY_AND_EACH = Regex("""(.+) deals (\d+) damage to any target and (\d+) damage to each (.+)\.""")

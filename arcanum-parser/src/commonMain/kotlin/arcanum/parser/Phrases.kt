@@ -38,6 +38,11 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // blb chunk 09: "creature card you own in exile and in your graveyard"
+        OWN_IN_EXILE_AND_GRAVEYARD.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.OwnedBy(PlayerFilter.You),
+                ObjectFilter.Or(listOf(ObjectFilter.InZone(Zone.Exile), ObjectFilter.InZone(Zone.Graveyard))))
+        }
         // chunk 40: "another creature", "other Elves you control": any but this object
         OTHER.matchEntire(phrase)?.let { m -> return all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun(m.groupValues[1]) ?: return null) }
         // chunks 31, 42: "creature card in your graveyard", "instant or sorcery card in your graveyard"
@@ -58,6 +63,7 @@ internal object Filters {
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
+
         // blb chunk 08: "creature you control without flying", "… that entered the battlefield this turn"
         WITHOUT_KEYWORD.matchEntire(phrase)?.let { m ->
             OracleParser.keyword(m.groupValues[2].replaceFirstChar { it.uppercase() })?.let { k ->
@@ -115,6 +121,7 @@ internal object Filters {
                 "you control" -> PlayerFilter.You
                 "an opponent controls" -> PlayerFilter.Opponent
                 "you don't control" -> PlayerFilter.Not(PlayerFilter.You) // chunk 33
+                "your opponents control" -> PlayerFilter.Opponent // blb chunk 09
                 else -> return null
             }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -234,7 +241,7 @@ internal object Filters {
     private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
     private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or less""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
-    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control)""")
+    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control)""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
@@ -261,6 +268,8 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // blb chunk 09
+    private val OWN_IN_EXILE_AND_GRAVEYARD = Regex("""(.+) you own in exile and in your graveyard""")
     // blb chunk 08
     private val WITHOUT_KEYWORD = Regex("""(.+) without ([a-z ]+)""")
     private val ENTERED_THIS_TURN = Regex("""(.+) that entered the battlefield this turn""")
@@ -547,6 +556,13 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // blb chunk 09: "there are four or more card types among cards exiled with this creature" (CR 607.2a)
+        CARD_TYPES_EXILED_WITH.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
+            return Condition.Compare(Value.CountDistinct(Objects.Remembered(EXILED_WITH), SharedQuality.CardType), Comparison.AtLeast,
+                Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        }
+        // blb chunk 09: "it's not your turn"
+        if (text == "it's not your turn") return Condition.Not(Condition.YourTurn)
         CONTROL_A.matchEntire(text)?.let { m -> return Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null, atLeast = 1) }
         // chunk 30: "you control at least three other snow permanents"
         CONTROL_AT_LEAST.matchEntire(text)?.let { m ->
@@ -663,6 +679,9 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // blb chunk 09: "this spell was cast from a graveyard"
+        if (text == "this spell was cast from a graveyard") return Condition.CastFrom(Zone.Graveyard, Objects.Self)
+
         // blb chunk 08: "you don't control a Snail"
         DONT_CONTROL_A.matchEntire(text)?.let { m ->
             return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null, atLeast = 1))
@@ -749,6 +768,8 @@ internal object Conditions {
     // chunk 36
     private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // blb chunk 09
+    private val CARD_TYPES_EXILED_WITH = Regex("""there are (\w+) or more card types among cards exiled with (.+)""")
     // blb chunk 08
     private val DONT_CONTROL_A = Regex("""you don't control an? (.+)""")
     private val ENTERED_UNDER_YOUR_CONTROL_THIS_TURN = Regex("""an? (.+) entered the battlefield under your control this turn""")
@@ -864,6 +885,13 @@ internal object Values {
         if (text == "the mana value of the exiled card")
             return Value.Of(arcanum.api.NumericProperty.ManaValue, exiled ?: return null, Combine.Total)
         NUMBER_OF.matchEntire(text)?.let { m -> return Value.Count(Filters.objects(m.groupValues[1]) ?: return null) }
+        // blb chunk 09: "the greatest mana value among cards in your graveyard"
+        GREATEST_AMONG.matchEntire(text)?.let { m ->
+            val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.ManaValue
+            val among = if (m.groupValues[2] == "cards in your graveyard") Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard),
+                ObjectFilter.OwnedBy(PlayerFilter.You))) else Filters.objects(m.groupValues[2]) ?: return null
+            return Value.Of(property, among, Combine.Greatest)
+        }
 
         return null
     }
@@ -872,6 +900,8 @@ internal object Values {
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")
     private val DEVOTION = Regex("""your devotion to (white|blue|black|red|green)""")
     private val NUMBER_OF = Regex("""the number of (.+)""")
+    // blb chunk 09
+    private val GREATEST_AMONG = Regex("""the greatest (mana value|power) among (.+)""")
 
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
 }

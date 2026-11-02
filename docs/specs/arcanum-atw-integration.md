@@ -35,6 +35,7 @@ by the owner before release.
 | I-D24 | **Switching off clears the open flow** (reverted per I-D19) and keeps effect records, so their durations still apply when Automatum is switched on again; a manual "Clear Automatum data" action sits in the switch's hold panel (owner, 2026-11-02). |
 | I-D25 | **Emblems** show as a chip by the player's life square with the emblem's text; playtesting decides whether other UI is needed (owner, 2026-11-02). |
 | I-D26 | **Redo assigns fresh timestamps** when it re-applies an event, so stamp order follows real event order (owner, 2026-11-02; a starting point — undo/redo's final shape is decided by playtesting once Automatum is complete). |
+| I-D27 | **Hidden information is about what is shown, not what the client receives** (owner, 2026-11-02): ATW clients may hold hidden identities (opponent's hand, face-down cards) in their data; what matters is that the UI never shows them to a player who shouldn't see them. Wherever the engine or the integration could either keep data from the client or just not show it, choose the path that is easiest to implement and maintain. |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);

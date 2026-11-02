@@ -86,7 +86,12 @@ class AutomatumCombatScreenshotTest {
         AutomatumBoards.definitionSource = { submitted -> submitted.mapNotNull { s ->
             byDigest[s.digest]?.let { s.digest to ParsedCard.Read(it, 0) } }.toMap() }
     }
-    @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null }
+    @After fun forget() {
+        // The table's engine work still queued on the shared worker finishes before the caches are cleared, so none of
+        // it lands in the next test's caches or competes with it
+        kotlinx.coroutines.runBlocking(AutomatumBoards.boardWorker) {}
+        AutomatumBoards.reset(); AutomatumBoards.definitionSource = null
+    }
 
     /**
      * Automatum on, turn 3 of Alice at [position] with [priority]: the first cards of each Battlefield and hand become
@@ -419,7 +424,15 @@ class AutomatumCombatScreenshotTest {
         compose.onNodeWithContentDescription("Hide damage preview").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Would take 3 damage and die").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Pass").performClick()
+        // Pass, and the next board's shared flow worked out in the same UI-thread turn, as the table's worker would have
+        // before showing it: the order-free division is then answered by Alice's device as soon as the table shows it.
+        // Left to the table, that flow is worked out on Dispatchers.Default, which waitForIdle doesn't wait for: the
+        // answer came only after the asserts when the JVM was busy (a full suite run)
+        val pass = compose.onNodeWithContentDescription("Pass").fetchSemanticsNode()
+        compose.runOnIdle {
+            assertTrue(pass.config[androidx.compose.ui.semantics.SemanticsActions.OnClick].action!!())
+            assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))?.division, "the trampler's division is open")
+        }
         compose.waitForIdle()
         assertEquals(lifeBefore - 4, life(f.b), "the trampler's division was made by itself: 3 to the Ogre, 2 to Bob, and 2 from the Bear")
         assertEquals(PlayZone.GRAVEYARD, zone(ogreCard))

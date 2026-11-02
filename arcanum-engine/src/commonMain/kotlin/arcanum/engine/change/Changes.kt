@@ -157,6 +157,9 @@ object Meanings {
 internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = null) {
     val changes = mutableListOf<Change>()
 
+    /** The rounds of state-based actions and triggers made in this call so far ([arcanum.engine.turn.Loops.capped]). */
+    var rounds = 0
+
     init {
         // The recorder's state is its own (D56): its view is kept until a change can make it differ. [view], when given,
         // is the view of [state] as it is.

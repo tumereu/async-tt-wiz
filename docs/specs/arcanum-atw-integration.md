@@ -218,6 +218,10 @@ out of anything stuck.
   combat damage tools are gone (I-D39). Catalog: CMB-003, CMB-007–CMB-009, CMB-013, CMB-014, CMB-020, CMB-022,
   CMB-027–CMB-029, CMB-031–CMB-035, TRN-020, TRN-024, TRN-059, TBL-082, STK-033, STK-034; CMB-023–CMB-026, CMB-030
   removed.
+- **Built (loops):** `StepFlow.automatic` keeps `Engine.loopKey` of each state it passes in with something on the Stack;
+  the same key again with only forced passes since (CR 104.4b, 732.4) stops the batch with `Input.MandatoryLoop`, whose
+  `Decision.Manual` the shared-flow panel shows ("The game is a draw: …"); answering it makes the engine's game a draw.
+  A call that goes round too often inside the engine stops with a "Possible loop" `Decision.Manual` (engine safety cap).
 
 ### I4 — Automatum-only controls
 

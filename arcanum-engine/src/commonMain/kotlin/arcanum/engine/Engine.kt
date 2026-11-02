@@ -38,7 +38,9 @@ object Engine {
     /**
      * Performs [input] on a copy of [state] and returns what changed, up to the next decision (D58): after every input
      * the engine applies state-based actions, puts triggered abilities on the Stack and gives priority (P5). While
-     * [GameState.pending] is set, only its [Input.Answer] (or [Input.Cancel] for a cast) is accepted.
+     * [GameState.pending] is set, only its [Input.Answer] (or [Input.Cancel] for a cast) is accepted. A call that goes
+     * round too often (an endless chain of mandatory triggers) stops with a [Decision.Manual] "possible loop"
+     * ([arcanum.engine.decision.LoopStop.Cap]) instead of hanging; once it is answered the game goes on.
      */
     fun perform(state: GameState, input: Input): Outcome = Perform.run(state, input)
 
@@ -80,6 +82,15 @@ object Engine {
      * passes for anyone by itself; a host performs [Input.PassPriority] for each player this says, one at a time.
      */
     fun shouldPassFor(state: GameState, player: PlayerId): Boolean = arcanum.engine.turn.AutoPass.shouldPass(state, player)
+
+    /**
+     * A key for finding loops of mandatory actions (CR 104.4b, 732.4): equal for two states that differ only in object
+     * ids, timestamps and what is recorded about the past (the event log, ledgers, "this turn" counts of uses), so the
+     * same position reached again in a loop has the same key though its objects are new ones. A host that passes for
+     * players ([shouldPassFor]) keeps the keys of the states it passed in; meeting one again with only such passes in
+     * between, it performs [Input.MandatoryLoop]. Serialises the state once (about a [view]'s cost on a large board).
+     */
+    fun loopKey(state: GameState): arcanum.engine.turn.LoopKey = arcanum.engine.turn.Loops.key(state)
 
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result

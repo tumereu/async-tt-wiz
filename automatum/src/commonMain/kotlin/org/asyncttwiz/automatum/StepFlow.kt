@@ -114,12 +114,17 @@ object StepFlow {
      * The host's automatic passes after any input (I-D3, I-D18): while the priority holder can do nothing but pass
      * (`Engine.shouldPassFor`, which follows each player's "Skip when I have no choice"), the host passes for them.
      * Stops at an open decision, a player with a choice, the end of the game, after [MAX_AUTOMATIC_PASSES], or once a
-     * whole round of turns went by in this call (turn number two up from where the call is now).
+     * whole round of turns went by in this call (turn number two up from where the call is now). A loop of mandatory
+     * actions (CR 104.4b, 732.4: the same state, `Engine.loopKey`, again with only forced passes since) stops it with
+     * `Input.MandatoryLoop`: the engine's decision done by hand (I-D37) says the game is a draw, and answering it makes it one.
      */
     fun automatic(call: EngineCall): Pending? = automatic(call, null)
 
     private fun automatic(call: EngineCall, keep: Keep?): Pending? {
         val start = call.working.turn.number
+        // CR 104.4b, 732.4: the states passed in with only forced passes since (a loop needs the Stack: on an empty one
+        // passing moves the step on)
+        val seen = mutableSetOf<arcanum.engine.turn.LoopKey>()
         repeat(MAX_AUTOMATIC_PASSES) {
             val s = call.working
             s.pending?.let { return it }
@@ -133,11 +138,18 @@ object StepFlow {
                 val declaration = if (!going || s.turn.active.value != keep!!.player || !keep.declaresNone(s)) null
                     else Engine.options(s, s.turn.active).filterIsInstance<Input.DeclareAttackers>().firstOrNull()
                 declaration ?: return null
+                seen.clear()
                 call.perform(declaration)?.let { return it }
                 return@repeat
             }
             val intent = going && holder.value == keep!!.player
-            if (!intent && !Engine.shouldPassFor(s, holder)) return null
+            val forced = Engine.shouldPassFor(s, holder)
+            if (!intent && !forced) return null
+            // A pass the player chose ("End turn" while they could act) is no forced action: a loop through it isn't one
+            if (!forced) seen.clear()
+            // The same state again with only forced passes since: a loop of mandatory actions, the game is a draw; the
+            // engine says so with a decision done by hand (I-D37)
+            else if (s.stack.isNotEmpty() && !seen.add(Engine.loopKey(s))) return call.perform(Input.MandatoryLoop)
             call.perform(Input.PassPriority(holder), automatic = true)?.let { return it }
         }
         return call.pending

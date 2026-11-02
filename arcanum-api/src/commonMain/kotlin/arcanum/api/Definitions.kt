@@ -263,6 +263,9 @@ data class Modes(
     val onlyUnchosenThisTurn: Boolean = false,
     /** The same mode may be chosen more than once. */
     val repeatable: Boolean = false,
+    /** "Choose up to five {P} worth of modes" (CR 700.2i): any modes whose pawprints ([Mode.pawprints]) add up to at
+     * most this many. */
+    val pawprintLimit: Int? = null,
     /** Who chooses ("target opponent chooses one —"). */
     val chooser: Players,
 )
@@ -270,7 +273,11 @@ data class Modes(
 /** One mode. [extraCost] is paid for choosing it (spree, CR 702.172). A target slot of a mode not chosen is empty: the
  * spell is treated as though it doesn't have that target (CR 700.2c). */
 @Serializable
-data class Mode(val instructions: Instructions, val extraCost: Cost? = null, val text: String? = null)
+data class Mode(
+    val instructions: Instructions, val extraCost: Cost? = null, val text: String? = null,
+    /** The pawprint symbols ({P}) listed for it (CR 107.18, 700.2i). */
+    val pawprints: Int = 0,
+)
 
 /** A named target (CR 115): what can be chosen and how many ([max] null: any number; "X target creatures": a value).
  * [divided] splits an amount among the chosen targets (CR 601.2d), read with [Value.DividedShare]. [distinctFrom]
@@ -286,6 +293,10 @@ data class TargetSlot(
     /** One such choice for each player matching it ("for each opponent, up to one target creature that player
      * controls"); [Players.SlotPlayer] in [what] is that player. Chosen on casting (CR 601.2c). */
     val perPlayer: PlayerFilter? = null,
+    /** The slot exists only if this holds as the targets are chosen, after the optional costs are (CR 601.2b, c): a part
+     * that has its effect only if the gift was promised has its targets only then (CR 702.174m). Otherwise the spell is
+     * treated as though it doesn't have that target. */
+    val onlyIf: Condition? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */

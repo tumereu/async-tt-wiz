@@ -333,6 +333,8 @@ internal object Payment {
             }
             // Reminder text the definition can't express: left to the players (P4)
             is CostPart.Manual -> Unit
+            // blb: the chosen player is recorded with the spell's facts as it becomes cast (CR 702.174a)
+            is CostPart.ChoosePlayer -> Unit
             is CostPart.Action -> refuse("Keyword actions as costs (${part.action::class.simpleName}) aren't supported yet")
             is CostPart.OneOf -> refuse("Choose which cost to pay first")
             is CostPart.Mana, CostPart.ItsManaCost -> Unit

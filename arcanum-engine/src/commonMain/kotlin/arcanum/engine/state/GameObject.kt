@@ -104,6 +104,8 @@ data class ObjectFacts(
     val alternative: PaidCost? = null,
     /** Mode indices ever chosen for it ("choose one that hasn't been chosen"). */
     val modesChosen: List<Int> = emptyList(),
+    /** The player chosen by a "choose a player" cost (gift's opponent, CR 702.174a). */
+    val chosenPlayer: PlayerId? = null,
     /** Objects used to pay its costs a special way (convoke, delve; CR 702.51c), by the way's name. */
     val paidWith: Bindings = Bindings.EMPTY,
     /** Activations of its abilities by turn (CR 602.5b, 606.3); key is the ability's origin key. */

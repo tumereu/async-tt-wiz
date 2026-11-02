@@ -223,6 +223,18 @@ object OracleParser {
         COMPANION.matchEntire(part)?.let { m ->
             return Keyword.CompanionAbility(m.groupValues[1], eachCard = companionCards(m.groupValues[1]))
         }
+        // blb chunk 02: "Gift a card", "Gift a tapped Fish" (CR 702.174d–i)
+        GIFT.matchEntire(part)?.let { m ->
+            return Keyword.Gift(when (m.groupValues[1]) {
+                "a Food" -> arcanum.api.Gifted.Food
+                "a card" -> arcanum.api.Gifted.Card
+                "a tapped Fish" -> arcanum.api.Gifted.TappedFish
+                "an extra turn" -> arcanum.api.Gifted.ExtraTurn
+                "a Treasure" -> arcanum.api.Gifted.Treasure
+                "an Octopus" -> arcanum.api.Gifted.Octopus
+                else -> return null
+            })
+        }
         // chunk 25: "Enchant creature or Vehicle", "Enchant player" (CR 702.5a)
         ENCHANT.matchEntire(part)?.let { m ->
             return Keyword.Enchant(when (m.groupValues[1]) {
@@ -303,6 +315,8 @@ object OracleParser {
     private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
+    // blb chunk 02
+    private val GIFT = Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

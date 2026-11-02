@@ -92,6 +92,7 @@ internal object Costs {
             is CostPart.Mill -> state.player(payer).library.size >= scope.value(part.count)
             is CostPart.OneOf -> part.options.any { canPay(scope, payer, it) }
             is CostPart.Action -> true
+            is CostPart.ChoosePlayer -> state.players.any { scope.eval().matches(part.filter, it.id) }
         }
     }
 
@@ -165,6 +166,8 @@ internal object Costs {
                 payable.firstOrNull { describe(it) == chosen }?.let { pay(scope, payer, it) }
             }
             is CostPart.Action -> Effects.perform(scope, arcanum.api.Effect.Action(part.action, part.bind))
+            // Only a casting cost (gift, CR 702.174a)
+            is CostPart.ChoosePlayer -> Unit
         }
     }
 

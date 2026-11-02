@@ -171,6 +171,14 @@ internal object EventMatcher {
             ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
         // Day and night aren't tracked yet.
         is EventPattern.DayNightChanges -> emptyList()
+        // blb: CR 702.174c, 701.61a, 716.2a
+        is EventPattern.GiveGift -> ((change as? Change.Happened)?.event as? GameEvent.GaveGift)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        is EventPattern.Forage -> ((change as? Change.Happened)?.event as? GameEvent.Foraged)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        is EventPattern.BecomesLevel -> ((change as? Change.Happened)?.event as? GameEvent.BecameLevel)
+            ?.takeIf { it.level == pattern.level && e.matches(pattern.objects, it.id) }
+            ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))))) }.orEmpty()
     }
 
     /** A spell's cast event (CR 601.2i): the Stack item of a cast spell put on the Stack, tagged [Meaning.Cast]. */

@@ -407,6 +407,12 @@ sealed interface GameEvent {
     @Serializable @SerialName("spent-on-spells") data class SpentOnSpells(val player: PlayerId, val before: Int, val after: Int) : GameEvent
     /** [player] conceded the game (CR 104.3a). */
     @Serializable @SerialName("conceded") data class Conceded(val player: PlayerId) : GameEvent
+    /** [player] foraged (CR 701.61a). */
+    @Serializable @SerialName("foraged") data class Foraged(val player: PlayerId) : GameEvent
+    /** [player] gave a gift (CR 702.174c). */
+    @Serializable @SerialName("gave-gift") data class GaveGift(val player: PlayerId) : GameEvent
+    /** The Class [id] became level [level] (CR 716.2a). */
+    @Serializable @SerialName("became-level") data class BecameLevel(val id: ObjectId, val level: Int) : GameEvent
 }
 
 /**

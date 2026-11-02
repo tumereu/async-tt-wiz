@@ -105,6 +105,13 @@ sealed interface EventPattern {
     @Serializable @SerialName("saddled") data class Saddled(val objects: ObjectFilter) : EventPattern
     /** A player expends [amount]: reaches [amount] total mana spent to cast spells this turn (CR 700.14, "Whenever you expend 4"). */
     @Serializable @SerialName("expend") data class Expend(val amount: Int, val players: PlayerFilter) : EventPattern
+    /** A player gives a gift: an instant or sorcery spell they control whose gift was promised resolves, or the gift
+     * trigger of a permanent they control resolves (CR 702.174c). */
+    @Serializable @SerialName("give-gift") data class GiveGift(val players: PlayerFilter) : EventPattern
+    /** A Class matching [objects] becomes level [level] (CR 716.2a, "When this Class becomes level 2"). */
+    @Serializable @SerialName("class-level") data class BecomesLevel(val objects: ObjectFilter, val level: Int) : EventPattern
+    /** A player forages (CR 701.61a, "Whenever you forage"). */
+    @Serializable @SerialName("forage") data class Forage(val players: PlayerFilter) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */

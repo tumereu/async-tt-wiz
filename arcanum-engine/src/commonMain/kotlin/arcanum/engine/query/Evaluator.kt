@@ -215,6 +215,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Players.Target -> boundPlayers(ctx.names[players.slot])
         is Players.Bound -> boundPlayers(ctx.names[players.name])
         is Players.Remembered -> boundPlayers(selfMemory(players.key))
+        // blb: the opponent chosen for a gift, kept by the permanent the spell became (CR 702.174a, 400.7d)
+        is Players.ChosenAsCost -> objects(players.of).mapNotNull { facts(it)?.chosenPlayer }.distinct()
         Players.EventPlayer -> ctx.event?.players.orEmpty()
         is Players.ControllerOf -> objects(players.objects).mapNotNull { controllerOf(it) }.distinct()
         is Players.OwnerOf -> objects(players.objects).mapNotNull { ownerOf(it) }.distinct()

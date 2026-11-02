@@ -346,6 +346,8 @@ internal object Events {
         if (text == "an opponent gains life") return EventPattern.GainLife(PlayerFilter.Opponent)
         // blb chunk 01
         if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
+        // blb chunk 02: CR 702.174c
+        if (text == "you give a gift") return EventPattern.GiveGift(PlayerFilter.You)
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
         BECOMES_TARGET.matchEntire(text)?.let { m ->
             val by = when (m.groupValues[2]) {
@@ -589,6 +591,9 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // blb chunk 02: "the gift was promised" (CR 702.174k)
+        if (text == "the gift was promised") return Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self)
+        if (text == "the gift wasn't promised") return Condition.Not(Condition.Paid(arcanum.api.Keyword.Gift.Kind, times = 1, of = Objects.Self))
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
         NTH_RESOLUTION.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.AbilityUsesThisTurn(resolved = true), Comparison.Equal, Value.Fixed(Numbers.ordinal(m.groupValues[1]) ?: return null))

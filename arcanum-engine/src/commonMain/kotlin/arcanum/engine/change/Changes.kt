@@ -126,6 +126,10 @@ object Changes {
     fun priority(state: GameState, after: PriorityState, meanings: List<Meaning>): Change.Priority =
         Change.Priority(state.priority, after, meanings)
 
+    /** Sets [player]'s "Skip when I have no choice" setting (I-D18); a host makes this change. */
+    fun skipWhenNoChoice(state: GameState, player: PlayerId, on: Boolean): Change.SkipWhenNoChoice =
+        Change.SkipWhenNoChoice(player, state.player(player).skipWhenNoChoice, on)
+
     fun pending(state: GameState, after: Pending?): Change.PendingSet = Change.PendingSet(state.pending, after)
 
     /** A new effect object stamped now (CR 613.7b). */

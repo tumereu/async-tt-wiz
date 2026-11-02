@@ -164,7 +164,7 @@ internal object Options {
 
     /** Answers worth trying for the open decision; [answers] keeps those [Engine.perform] accepts. */
     private fun candidates(snap: Snapshot, pending: Pending): List<Answer> = when (val d = pending.decision) {
-        is Decision.May -> listOf(Answer.YesNo(true), Answer.YesNo(false))
+        is Decision.May -> listOfNotNull(Answer.YesNo(true).takeIf { d.payable }, Answer.YesNo(false))
         is Decision.Targets -> some(d.options, d.min, d.max).map { Answer.Targets(it) }
         is Decision.ChooseObjects -> (some(d.options, d.min, d.max) + listOfNotNull(reachingTotal(snap, pending))).map { Answer.Objects(it) }
         is Decision.Modes -> {

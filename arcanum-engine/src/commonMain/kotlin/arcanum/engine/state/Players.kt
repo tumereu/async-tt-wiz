@@ -34,6 +34,14 @@ data class PlayerState(
     val outside: List<ObjectId> = emptyList(),
     /** Player-scoped ledger entries (D22), by key. */
     val ledger: Map<String, Int> = emptyMap(),
+    /**
+     * "Skip when I have no choice" (I-D18), on by default: the engine skips this player's questions that leave nothing
+     * to choose, and [arcanum.engine.Engine.shouldPassFor] says to pass priority for them when they can do nothing.
+     * Off: a skip or a pass that depends on cards only this player may see (their hand, face-down cards) is asked
+     * instead, so how fast the game goes on tells the other players nothing about those cards. Skips that depend on
+     * nothing hidden stay automatic either way (P5). A host changes it with [arcanum.engine.change.Change.SkipWhenNoChoice].
+     */
+    val skipWhenNoChoice: Boolean = true,
 ) {
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 }

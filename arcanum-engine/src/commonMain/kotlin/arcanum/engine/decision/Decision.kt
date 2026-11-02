@@ -63,11 +63,13 @@ sealed interface Decision {
         val cost: ManaCost, val options: List<ManaUse>, val suggestion: List<ManaUse>,
     ) : Decision
 
-    /** Yes or no: "you may …" (CR 608.2d), or pay [cost] on resolution (CR 118.12, D40) when given. */
+    /** Yes or no: "you may …" (CR 608.2d), or pay [cost] on resolution (CR 118.12, D40) when given. Not [payable]: the
+     * cost can't be paid and only "no" is accepted; asked rather than skipped because the player's "Skip when I have no
+     * choice" is off and the skip would depend on cards only they may see (I-D18). */
     @Serializable @SerialName("may")
     data class May(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
-        val text: String, val cost: Cost? = null,
+        val text: String, val cost: Cost? = null, val payable: Boolean = true,
     ) : Decision
 
     /** Choose [min] to [max] (null: any number) of [options], not targeting (CR 608.2d, 701.x): a card to discard, a

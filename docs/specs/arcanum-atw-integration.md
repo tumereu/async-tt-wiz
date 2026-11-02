@@ -10,7 +10,7 @@ by the owner before release.
 | # | Decision |
 |---|---|
 | I-D1 | **Phases in order** I0 plumbing → I1 view → I2 casting and resolving → I3 abilities, lands, combat, steps → I4 Automatum-only controls (§3). I1 is the first thing players get. |
-| I-D2 | **Card definitions are parsed on the device** from the client catalog's oracle text, cached by card and parser version. Server-delivered definitions and hand-written overrides come later. |
+| I-D2 | **Card definitions are parsed on the device from the game's own card data** (the `CardDefinition` each game holds for its cards, which the server shares with both players), cached by that data's digest and the parser version. Every card in a game is covered and both players parse the same text; the catalog isn't involved. Everything meaningful about a card travels with the game, so fields the engine needs (oracle text, colour indicator, …) are part of that data (owner, 2026-11-02; replaces "from the client catalog"). Server-delivered definitions and hand-written overrides come later. |
 | I-D3 | **Automatic passing is a setting, on by default:** when `Engine.options` shows a player can't respond to anything, the engine passes priority for them at once. |
 | I-D4 | **The Automatum switch** sits in the table's top bar (§5); playtesting decides whether it moves into Table actions. |
 | I-D5 | **Players are chosen as targets from their life squares** (TRN-030); avatars aren't on the table. |
@@ -47,8 +47,9 @@ out of anything stuck.
 
 ### I0 — Plumbing (invisible)
 
-- **Definitions on the device (I-D2):** parse each catalog card's faces with `OracleParser.parseCard` when a game
-  needs it; cache the `CardDefinition` JSON by catalog card id and parser version. Unparsed abilities stay manual.
+- **Definitions on the device (I-D2):** parse each game card's faces (the game's own card data) with
+  `OracleParser.parseCard` when a game needs it; cache the result by the card data's digest and the parser version.
+  Unparsed abilities stay manual.
 - **State mapping** `EngineState.from(playState, viewer)`: players, zones and order, cards (owner, controller,
   face, face down, tapped, counters (typed, §4.2), damage, attachments), turn and step, combat lanes, plus the new
   fields of §4. Hidden cards are unknown objects (D60).

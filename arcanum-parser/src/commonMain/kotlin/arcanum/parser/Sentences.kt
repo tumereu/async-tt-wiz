@@ -76,6 +76,21 @@ internal class Sentences(
             return listOf(gains, Ability.Static(listOf(Mechanic.SpendManaAsAnyColor(onlyFor = ObjectFilter.AbilityOf(source = ObjectFilter.Is(Objects.Self)))),
                 affects = arcanum.api.Affected.Players(Players.You)))
         }
+        // blb chunk 12: "This land enters tapped. As it enters, choose a color." (two abilities on one line)
+        Blb.ENTERS_TAPPED_AS_IT_ENTERS.matchEntire(line)?.let { m ->
+            val tapped = line(m.groupValues[1] + " enters tapped.") ?: return null
+            val choose = line("As " + m.groupValues[1].replaceFirstChar { it.lowercase() } + " enters, " + m.groupValues[2]) ?: return null
+            return listOf(tapped, choose)
+        }
+        // blb chunk 12: "You may play lands and cast spells with mana value 4 or greater from the top of your library." (two
+        // permissions, CR 601.2a, 305.1)
+        Blb.MAY_PLAY_LANDS_AND_CAST_FROM_TOP.matchEntire(line)?.let { m ->
+            fun top(cards: ObjectFilter, how: PlayKind) = Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, how, topOnly = true, holder = PlayerFilter.You)),
+                affects = Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+            val comparison = if (m.groupValues[2] == "greater") arcanum.api.Comparison.AtLeast else arcanum.api.Comparison.AtMost
+            return listOf(top(ObjectFilter.Type(arcanum.api.CardType.Land), PlayKind.Play),
+                top(Filters.all(ObjectFilter.Not(ObjectFilter.Type(arcanum.api.CardType.Land)), ObjectFilter.ManaValue(comparison, Value.Fixed(m.groupValues[1].toInt()))), PlayKind.Cast))
+        }
         return null
     }
 
@@ -2947,6 +2962,8 @@ internal class Sentences(
     private fun mana(text: String): ManaKind? {
         ANY_COMBINATION.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null), combination = true) }
         ANY_COLOR.matchEntire(text)?.let { m -> return ManaKind.Choose(Value.Fixed(Numbers.count(m.groupValues[1].ifEmpty { m.groupValues[2] }) ?: return null)) }
+        // blb chunk 12: "one mana of the chosen color"
+        if (text == "one mana of the chosen color") return ManaKind.Choose(Value.Fixed(1), listOf(ColorRef.Remembered(CHOSEN_COLOR)))
         ManaCost.parse(text)?.let { return ManaKind.Fixed(it) }
         val colors = text.split(Regex(""",? or |, """)).map { symbol -> ManaCost.parse(symbol)?.symbols?.singleOrNull()
             ?.let { (it as? arcanum.api.ManaSymbol.Colored)?.color } ?: return null }
@@ -3037,6 +3054,16 @@ internal class Sentences(
 
     /** The Bloomburrow sentences that change the steps before them; null when none reads [sentence]. */
     private fun blbModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // blb chunk 12: "Then if you control four or more lands, untap that land." after searching for a land and putting it
+        // onto the battlefield
+        Blb.THEN_IF_UNTAP_THAT_LAND.matchEntire(sentence)?.let { m ->
+            val index = steps.indexOfLast { ((it as? Step.Do)?.effect as? Effect.Move)?.let { mv -> mv.objects == Objects.Bound("found") && mv.to.zone == Zone.Battlefield } == true }
+            if (index < 0) return null
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return null
+            val move = (steps[index] as Step.Do).effect as Effect.Move
+            return steps.toMutableList().also { it[index] = Step.Do(move.copy(postBind = "land")) } +
+                Step.If(condition, then = listOf(Step.Do(Effect.Untap(Objects.Bound("land")))))
+        }
         // blb chunk 11: "Exile that token at the beginning of the next end step." after creating it (CR 603.7)
         if (sentence == "Exile that token at the beginning of the next end step.") {
             val bound = bindTokens(steps) ?: return null
@@ -3092,6 +3119,12 @@ internal class Sentences(
 
     /** The Bloomburrow static wordings; null when none reads [line]. */
     private fun blbStatic(line: String): Ability? {
+        // blb chunk 12: "As it enters, choose a color." (CR 614.12, 607.2d)
+        Blb.AS_ENTERS_CHOOSE_COLOR.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.AsEnters(listOf(Step.Choose(arcanum.api.Choice.Color(), bind = CHOSEN_COLOR, remember = true, chooser = Players.You)))))),
+                affects = Affected.Objects(Objects.Self))
+        }
         // blb chunk 11: "Players can't gain life." (CR 119.7), "Damage can't be prevented." (CR 615.12)
         if (line == "Players can't gain life.")
             return Ability.Static(listOf(Mechanic.CantGainLife), affects = Affected.Players(Players.Each(PlayerFilter.Any)))
@@ -3285,6 +3318,29 @@ internal class Sentences(
 
     /** The Bloomburrow effect wordings; null when none reads [sentence]. */
     private fun blbEffect(sentence: String, context: Context): List<Step>? {
+        // blb chunk 12: "Choose a color. Add an amount of mana of that color equal to the number of creatures you control of the
+        // chosen type." (CR 106.1)
+        if (sentence == "Choose a color.") return listOf(Step.Choose(arcanum.api.Choice.Color(), bind = "color", chooser = Players.You))
+        Blb.ADD_AMOUNT_OF_THAT_COLOR.matchEntire(sentence)?.let { m ->
+            val amount = Values.value(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.AddMana(arcanum.api.ManaProduction(ManaKind.Choose(amount, listOf(ColorRef.Chosen("color")))), Players.You)))
+        }
+        // blb chunk 12: "This Vehicle becomes an artifact creature until end of turn." (CR 301.7b)
+        Blb.BECOMES_ARTIFACT_CREATURE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Artifact, arcanum.api.CardType.Creature))),
+                Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 12: "It gains trample until end of turn." in an activated ability without targets: this permanent
+        Blb.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.takeIf { context.it == null && context.event == null && context.targets.isEmpty() }?.let { m ->
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords(m.groupValues[1]) ?: return null)),
+                Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // blb chunk 12: "Then if creatures you control have total power 10 or greater, draw a card."
+        Blb.THEN_IF.matchEntire(sentence)?.let { m ->
+            val condition = Conditions.condition(m.groupValues[1], self) ?: return@let
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return@let
+            return listOf(Step.If(condition, then = then))
+        }
         // blb chunk 11: "Put two +1/+1 counters on that creature." in an enters trigger: the creature that entered
         Blb.COUNTERS_ON_THAT_CREATURE.matchEntire(sentence)?.let { m ->
             if ((context.event as? EventPattern.ZoneChange)?.to != Zone.Battlefield) return@let
@@ -4108,6 +4164,15 @@ internal class Sentences(
         val RETURN_COUNTED_FROM_GRAVEYARD = Regex("""[Rr]eturn (up to )?(two|three|four|five) target (.+?) from your graveyard to (your hand|the battlefield)\.""")
         val DESTROY_N_TARGETS = Regex("""[Dd]estroy (two|three) target (.+)\.""")
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // blb chunk 12
+        val ENTERS_TAPPED_AS_IT_ENTERS = Regex("""(This \w+) enters tapped\. As it enters, (.+)""")
+        val MAY_PLAY_LANDS_AND_CAST_FROM_TOP = Regex("""You may play lands and cast spells with mana value (\d+) or (greater|less) from the top of your library\.""")
+        val AS_ENTERS_CHOOSE_COLOR = Regex("""As (.+) enters, choose a color\.""")
+        val ADD_AMOUNT_OF_THAT_COLOR = Regex("""Add an amount of mana of that color equal to (.+)\.""")
+        val BECOMES_ARTIFACT_CREATURE = Regex("""(.+) becomes an artifact creature until end of turn\.""")
+        val IT_GAINS_UNTIL_EOT = Regex("""It gains ([a-z ,]+) until end of turn\.""")
+        val THEN_IF = Regex("""Then if (.+?), (.+)""")
+        val THEN_IF_UNTAP_THAT_LAND = Regex("""Then if (.+), untap that land\.""")
         // blb chunk 11
         val HAVE_BASE_TOUGHNESS = Regex("""(.+) have base toughness (\d+)\.""")
         val IF_THAT_HAD_POWER = Regex("""If that creature had power (\d+) or (less|greater), (.+)""")
@@ -4591,6 +4656,8 @@ internal class Sentences(
         val AS_ENTERS_CHOOSE = Regex("""As (.+) enters, (you may )?choose (.+)\.""")
         val CARD_NAME = Regex("""an? (.+) card name""")
         const val CHOSEN_NAME = "name"
+        // blb chunk 12
+        const val CHOSEN_COLOR = "color"
         const val CHOSEN = "chosen"
         val CANT_BE_ACTIVATED = Regex("""Activated abilities of (.+) can't be activated\.""")
         val EVERY_ZONE = listOf(Zone.Battlefield, Zone.Hand, Zone.Library, Zone.Graveyard, Zone.Exile, Zone.Stack, Zone.Command)

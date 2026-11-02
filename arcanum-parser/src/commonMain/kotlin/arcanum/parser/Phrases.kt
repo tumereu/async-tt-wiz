@@ -38,6 +38,14 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // blb chunk 12: "creatures you control of the chosen type" (the creature type chosen as this permanent entered)
+        OF_CHOSEN_TYPE.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")))
+        }
+        // blb chunk 12: "other creature you control that's a token or a Rabbit"
+        THATS_A_OR_A.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Or(listOf(noun(m.groupValues[2]) ?: return null, noun(m.groupValues[3]) ?: return null)))
+        }
         // blb chunk 11: "creature you control with toughness greater than its power"
         TOUGHNESS_GREATER_THAN_POWER.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Toughness(Comparison.Greater,
@@ -282,6 +290,9 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // blb chunk 12
+    private val OF_CHOSEN_TYPE = Regex("""(.+) of the chosen type""")
+    private val THATS_A_OR_A = Regex("""(.+) that's an? (\w+) or an? (\w+)""")
     // blb chunk 11
     private val TOUGHNESS_GREATER_THAN_POWER = Regex("""(.+) with toughness greater than its power""")
     // blb chunk 09
@@ -584,6 +595,28 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // blb chunk 12: "an opponent controls more lands than you", "an opponent has more life than you", "… more cards in hand
+        // than you": some opponent compared with you (CR 102.3)
+        OPPONENT_CONTROLS_MORE.matchEntire(text)?.let { m ->
+            val noun = Filters.noun(m.groupValues[1]) ?: return null
+            fun count(of: PlayerFilter) = Value.Count(Objects.Each(Filters.all(noun, ObjectFilter.ControlledBy(of))))
+            return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(Condition.Compare(
+                count(PlayerFilter.Is(Players.Tested)), Comparison.Greater, count(PlayerFilter.You))))), atLeast = 1)
+        }
+        if (text == "an opponent has more life than you")
+            return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Life(Comparison.Greater, Value.LifeOf(Players.You)))), atLeast = 1)
+        if (text == "an opponent has more cards in hand than you")
+            return Condition.PlayerExists(PlayerFilter.And(listOf(PlayerFilter.Opponent, PlayerFilter.Where(Condition.Compare(
+                Value.HandSize(Players.Tested), Comparison.Greater, Value.HandSize(Players.You))))), atLeast = 1)
+        // blb chunk 12: "creatures you control have total power 10 or greater"
+        TOTAL_POWER.matchEntire(text)?.let { m ->
+            return Condition.Compare(Value.Of(arcanum.api.NumericProperty.Power, Filters.objects(m.groupValues[1]) ?: return null, Combine.Total),
+                Comparison.AtLeast, Value.Fixed(m.groupValues[2].toInt()))
+        }
+        // blb chunk 12: "Kitsa's power is 3 or greater"
+        SELF_POWER_AT_LEAST.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let { m ->
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.Power(Comparison.AtLeast, Value.Fixed(m.groupValues[2].toInt())))
+        }
         // blb chunk 11: "another creature entered the battlefield under your control this turn" (looks back over the turn)
         if (text == "another creature entered the battlefield under your control this turn")
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
@@ -800,6 +833,10 @@ internal object Conditions {
     // chunk 36
     private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // blb chunk 12
+    private val OPPONENT_CONTROLS_MORE = Regex("""an opponent controls more (.+) than you""")
+    private val TOTAL_POWER = Regex("""(.+) have total power (\d+) or greater""")
+    private val SELF_POWER_AT_LEAST = Regex("""(.+)'s power is (\d+) or greater""")
     // blb chunk 09
     private val CARD_TYPES_EXILED_WITH = Regex("""there are (\w+) or more card types among cards exiled with (.+)""")
     // blb chunk 08

@@ -94,7 +94,12 @@ data class CombatState(
 
 /** [id] attacks [target] (a player, planeswalker or battle); [blocked] once blockers are declared (CR 509.1h). */
 @Serializable
-data class Attacker(val id: ObjectId, val target: TargetRef, val blocked: Boolean = false)
+data class Attacker(
+    val id: ObjectId, val target: TargetRef, val blocked: Boolean = false,
+    /** CR 506.4, 506.4c: the planeswalker or battle it attacked was removed from combat (it left the battlefield or
+     * stopped being a planeswalker or battle): it still attacks, but nothing, and deals no combat damage unblocked. */
+    val targetRemoved: Boolean = false,
+)
 
 /** [id] blocks [attackers]; [player] is the defending player who declared it (CR 509.1g), null when unknown. */
 @Serializable

@@ -45,8 +45,26 @@ internal object Resolution {
         val top = recorder.state.topOfStack() ?: return Progress.Done
         val item = recorder.state.stackItems[top] ?: return Progress.Done
         val act = Act(recorder, Asker.NONE)
-        val names = start(act, item) ?: return Progress.Done
+        var fizzles = false
+        val names = start(act, item) { fizzles = true } ?: return if (fizzles) fizzle(recorder, item) else Progress.Done
         return run(recorder, Continuation.Resolving(top, 0, names))
+    }
+
+    /**
+     * CR 608.2b: a spell or ability that doesn't resolve leaves the Stack; a spell's card goes to its owner's graveyard
+     * (or where its permission says) as an event outside resolution ([Events.run]), so a replacement's order or a host
+     * fill (CR 708.9) waits for its answer.
+     */
+    private fun fizzle(recorder: Recorder, item: StackItem): Progress {
+        val act = Act(recorder, Asker.NONE)
+        if (item.kind != StackItemKind.Spell || recorder.state.obj(item.id) == null) {
+            finish(act, item, fizzled = true)
+            return Progress.Done
+        }
+        val to = leavesTo(act, item)
+        recorder.record(Change.StackItemRemoved(item, null, listOf(Meaning.Fizzled)))
+        return Events.run(recorder, arcanum.engine.action.PlannedEvent.Move(listOf(item.id), to, listOf(Meaning.Fizzled),
+            controller = item.controller, source = item.id))
     }
 
     fun resume(recorder: Recorder, continuation: Continuation.Resolving, answer: Answer): Progress {
@@ -108,7 +126,7 @@ internal object Resolution {
      * are illegal doesn't resolve; a triggered ability's intervening "if" is checked again (CR 603.4). Returns the names
      * the steps start with, or null when it was removed instead.
      */
-    private fun start(act: Act, item: StackItem): Bindings? {
+    private fun start(act: Act, item: StackItem, fizzles: () -> Unit): Bindings? {
         val instructions = Replacements.instructionsOf(item.ability) ?: Instructions()
         val slots = instructions.targets + item.modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
         val source = selfOf(item)
@@ -139,7 +157,7 @@ internal object Resolution {
             arcanum.engine.sba.StateBasedActions.Bestow.cease(act, item.id)
         } else if (anyTargets && !anyLegal) {
             // CR 608.2b: it doesn't resolve; a spell goes to its owner's graveyard
-            finish(act, item, fizzled = true)
+            fizzles()
             return null
         }
         val e = act.evaluator(Context(item.controller, source, names, event = item.event, stackItem = item))

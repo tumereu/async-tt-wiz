@@ -135,8 +135,13 @@ internal object Steps {
         recorder.record(Changes.step(s, turn, listOf(Meaning.TurnBegan, Meaning.StepBegan)))
         // Their effects lasting until their next turn, or until a point in it, end as that turn would have begun
         passedOver.forEach { left -> endEffects(recorder, onlyController = left) { d, _ -> keyedToYourNextTurn(d) } }
-        // "Until your next turn" ends as that player's next turn begins (CR 611.2b)
+        // "Until your next turn" ends as that player's next turn begins (CR 611.2b); so does their goading (CR 701.15a)
         endEffects(recorder, onlyController = next) { d, _ -> d == Duration.UntilYourNextTurn }
+        (passedOver + next).forEach { goader ->
+            recorder.state.objects.values.filter { goader in it.goadedBy }.forEach { o ->
+                recorder.record(Change.ObjectUpdated(o, o.copy(goadedBy = o.goadedBy - goader)))
+            }
+        }
         endEffects(recorder) { d, you -> d is Duration.UntilStep && d.step == TurnStep.Untap && untilStepMatches(recorder.state, d, you) }
     }
 

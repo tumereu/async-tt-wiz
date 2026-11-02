@@ -129,11 +129,16 @@ internal object Combat {
             if (!c.isType(CardType.Creature) || c.isType(CardType.Battle)) return false
             return controller == null || snap.board.controller(id) == controller
         }
+        // CR 506.4, 506.4c: a planeswalker or battle being attacked that leaves the battlefield or stops being one is
+        // removed from combat; its attackers go on attacking nothing
+        fun attacked(t: TargetRef): Boolean = t !is TargetRef.Object || (onBattlefield(s, t.id) &&
+            snap.view[t.id]?.characteristics?.let { it.isType(CardType.Planeswalker) || it.isType(CardType.Battle) } == true)
         val attackers = combat.attackers.filter { stays(it.id, s.turn.active) }
+            .map { a -> if (!a.targetRemoved && !attacked(a.target)) a.copy(targetRemoved = true) else a }
         val gone = combat.attackers.map { it.id }.toSet() - attackers.map { it.id }.toSet()
         val blockers = combat.blockers.filter { stays(it.id, it.player) }
             .map { b -> if (b.attackers.any { it in gone }) b.copy(attackers = b.attackers.filter { it !in gone }) else b }
-        if (gone.isEmpty() && blockers == combat.blockers) return
+        if (gone.isEmpty() && blockers == combat.blockers && attackers == combat.attackers) return
         recorder.record(Change.Combat(combat, combat.copy(attackers = attackers, blockers = blockers), listOf(Meaning.RemovedFromCombat)))
     }
 
@@ -218,7 +223,7 @@ internal object Combat {
         if (n <= 0) return Plan.Fixed(emptyList())
         val attack = combat.attackers.firstOrNull { it.id == id }
         if (attack != null) {
-            val target = attack.target.takeIf { stillAttackable(snap, it) }
+            val target = attack.target.takeIf { !attack.targetRemoved && stillAttackable(snap, it) }
             // CR 510.1b: unblocked, to what it attacks
             if (!attack.blocked) return Plan.Fixed(listOfNotNull(target?.let { Assignment(id, it, n) }))
             val blockers = combat.blockers.filter { id in it.attackers && onBattlefield(s, it.id) }.map { it.id }

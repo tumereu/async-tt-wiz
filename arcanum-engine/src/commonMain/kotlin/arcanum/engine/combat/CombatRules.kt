@@ -102,15 +102,21 @@ internal object CombatRules {
         fun obeyedBy(attacks: List<Attack>) = attacks.any { it.attacker == creature && obeyedBy(it.target) }
     }
 
-    /** Each "attacks (…) each combat if able" on a creature [player] controls that could attack. */
+    /** Each "attacks (…) each combat if able" on a creature [player] controls that could attack, and each goad on it:
+     * it attacks, and attacks a player other than the goading player (CR 701.15b, c). */
     private fun attackRequirements(snap: Snapshot, player: PlayerId): List<AttackRequirement> =
-        snap.state.battlefield.filter { id -> mechanics(snap, id).any { it.mechanic is Mechanic.MustAttack } && canAttack(snap, player, id, null) }
-            .flatMap { id ->
-                mechanics(snap, id).mapNotNull { applied ->
-                    val m = applied.mechanic as? Mechanic.MustAttack ?: return@mapNotNull null
-                    AttackRequirement(id, m.target?.let { recipients(snap, applied, id, it) })
-                }
+        snap.state.battlefield.filter { id ->
+            (mechanics(snap, id).any { it.mechanic is Mechanic.MustAttack } || snap.state.obj(id)?.goadedBy?.isNotEmpty() == true) &&
+                canAttack(snap, player, id, null)
+        }.flatMap { id ->
+            mechanics(snap, id).mapNotNull { applied ->
+                val m = applied.mechanic as? Mechanic.MustAttack ?: return@mapNotNull null
+                AttackRequirement(id, m.target?.let { recipients(snap, applied, id, it) })
+            } + snap.state.obj(id)!!.goadedBy.flatMap { goader ->
+                val others = snap.state.players.filter { !it.lost && it.id != goader && it.id != player }.map { TargetRef.Player(it.id) }
+                listOf(AttackRequirement(id, null), AttackRequirement(id, others))
             }
+        }
 
     private fun mostObeyedAttack(snap: Snapshot, player: PlayerId, requirements: List<AttackRequirement>): Pair<Int, List<Attack>> {
         val targets = attackTargets(snap, player)

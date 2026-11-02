@@ -36,7 +36,7 @@ class SyntheticMailbox(private val directory: Path) : AutoCloseable {
             directory.resolve("admin-token").toString(), "--http-port", "0", "--admin-port", "0", "--smtp-port", "0",
             "--ports-file", ports.toString())
             .redirectErrorStream(true).redirectOutput(directory.resolve("adapter.log").toFile()).start()
-        val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
+        val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(120) // hang guard only; 15 s flaked under parallel builds
         fun failStart(): Nothing {
             process.destroy(); process.waitFor(10, TimeUnit.SECONDS)
             fail<Nothing>("Synthetic mailbox failed to start: " + Files.readString(directory.resolve("adapter.log")))
@@ -72,7 +72,7 @@ class SyntheticMailbox(private val directory: Path) : AutoCloseable {
             .find(message.content as String)?.value ?: fail("Missing configured reset link")
     }
     fun awaitLinks(count: Int): List<String> {
-        val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
+        val until = System.nanoTime() + TimeUnit.SECONDS.toNanos(120) // hang guard only; 15 s flaked under parallel builds
         while (System.nanoTime() < until) {
             val links = links()
             if (links.size == count) return links

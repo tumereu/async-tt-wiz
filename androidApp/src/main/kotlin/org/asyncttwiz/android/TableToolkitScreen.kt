@@ -35,6 +35,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
     val context = toolkitQuickContext(play, selection, toolkit.viewer).copy(automatumCombat = toolkit.combat.ready(play))
+        .withCombatTarget(toolkit.combat, play, CombatStackRules.defendingPlayer(play.board)?.let { names[it] })
     val bound = toolkit.capture
     val popup = toolkit.popupItem
     fun editProjectionNote(id: String) {
@@ -289,8 +290,7 @@ internal fun projectionMenuTools(toolkit: TableToolkitController, play: PlayStat
         },
         move("Exile"), move("Hand"),
         MenuControl("Link", enabled && linking && toolkit.tokens.canLink()) { if (toolkit.tokens.linkSelected()) toolkit.dismiss() },
-        MenuControl("Links", linking) { toolkit.tokens.links(); toolkit.dismiss() }) +
-        combatDamageMenuTools(toolkit, play, bound, enabled)
+        MenuControl("Links", linking) { toolkit.tokens.links(); toolkit.dismiss() })
 }
 
 /** Battlefield/Stack and panel cards. Every cell is supplied, disabled when it does not apply. */
@@ -309,7 +309,6 @@ private fun cardExtraTools(toolkit: TableToolkitController, play: PlayState, bou
     // A declared attacker retargets its attacker copies, exactly like the copy's own "Attack →".
     val attackers = play.board.combat?.pairs.orEmpty().flatMap { it.attackers }.filter { it.sourceId in bound.sourceIds }.map { it.id }
     add(MenuControl("Attack →", enabled && attackers.isNotEmpty()) { toolkit.openAttackTargets(attackers) })
-    addAll(combatDamageMenuTools(toolkit, play, bound, enabled))
     if (bound.sourceIds.isNotEmpty()) addAll(basicMoveTools(play, names, enabled, TableScope(bound.sourceIds.first(), bound.sourceIds),
         bound.sources, toolkit::handle, toolkit::dismiss))
     // Moving a token into a library destroys it.

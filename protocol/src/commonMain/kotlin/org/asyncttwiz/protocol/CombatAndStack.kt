@@ -7,7 +7,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable enum class CombatRole { ATTACKER, BLOCKER }
 @Serializable data class CombatOccurrence(val id: String, val sourceId: String,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "")
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val note: String = "",
+    /** CMB-031 (I-D32): a blocker's further blocks, the ids of the other pairs whose attackers it also blocks (CR
+     * 509.1a), in the order they were added; its own pair comes first. Always empty on an attacker. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val alsoBlocks: List<String> = emptyList())
 @Serializable data class CombatPair(val id: String, val attackers: List<CombatOccurrence> = emptyList(),
     val blockers: List<CombatOccurrence> = emptyList(),
     /** Absent/null targets the defending player, including all retained pre-v18 pairs. */
@@ -51,6 +54,14 @@ import kotlinx.serialization.Serializable
     @Serializable @SerialName("remove") data class Remove(val areaId: String, val occurrenceId: String) : CombatAction
     @Serializable @SerialName("setAttackTarget") data class SetAttackTarget(val areaId: String, val pairId: String,
         val cardId: String? = null) : CombatAction
+    /**
+     * CMB-031 (I-D32): the card [sourceId] blocks exactly the attackers of [pairIds] (CR 509.1a): its blocker copy sits in
+     * the first pair (made there, or moved there from another pair, appended) and also blocks the others (arrows); an
+     * empty list removes its blocker copy. [expected] is the list it blocks now (empty when it has no blocker copy):
+     * another list refuses the event ("sourceChanged"). Refused for a card whose copy is an attacker.
+     */
+    @Serializable @SerialName("setBlocks") data class SetBlocks(val areaId: String, val sourceId: String,
+        val pairIds: List<String>, val expected: List<String> = emptyList()) : CombatAction
 }
 @Serializable sealed interface StackAction {
     @Serializable @SerialName("markText") data class MarkText(val entryId: String, val optionIndex: Int?) : StackAction
@@ -141,6 +152,22 @@ object CombatStackRules {
     fun projectionNote(board: BoardState, id: String): String? = board.stackEffects.singleOrNull { it.id == id }?.note
         ?: occurrences(board.combat).singleOrNull { it.id == id }?.note
     fun occurrences(area: CombatArea?): List<CombatOccurrence> = area?.pairs.orEmpty().flatMap { it.blockers + it.attackers }
+    /** CMB-031: the pairs whose attackers the blocker copy [occurrenceId] blocks, its own pair first; empty when it isn't
+     * a blocker in [area]. */
+    fun blockedPairs(area: CombatArea?, occurrenceId: String): List<String> {
+        val own = area?.pairs?.firstOrNull { p -> p.blockers.any { it.id == occurrenceId } } ?: return emptyList()
+        return listOf(own.id) + own.blockers.single { it.id == occurrenceId }.alsoBlocks
+    }
+    /** CMB-031: whether a blocker of another pair also blocks the attackers of [pairId]. */
+    fun blockedFromElsewhere(area: CombatArea?, pairId: String): Boolean =
+        area?.pairs.orEmpty().any { p -> p.id != pairId && p.blockers.any { pairId in it.alsoBlocks } }
+    /** CMB-031: every block in [area] as (blocker copy, attacker copy): by the blockers in pair order, each with the
+     * attackers of its own pair, then those of the pairs it also blocks. */
+    fun blocks(area: CombatArea?): List<Pair<CombatOccurrence, CombatOccurrence>> = area?.pairs.orEmpty().flatMap { pair ->
+        pair.blockers.flatMap { b ->
+            blockedPairs(area, b.id).flatMap { id -> area!!.pairs.firstOrNull { it.id == id }?.attackers.orEmpty() }.map { b to it }
+        }
+    }
     fun projectionIds(board: BoardState): Set<String> =
         (occurrences(board.combat).map { it.id } + board.stackEffects.map { it.id }).toSet()
     fun exists(board: BoardState, endpoint: ProjectionEndpoint) = endpoint.occurrenceId in projectionIds(board)
@@ -196,6 +223,8 @@ object CombatStackRules {
         is CombatAction.Remove -> DeckValidation.uuid(action.areaId) && DeckValidation.uuid(action.occurrenceId)
         is CombatAction.SetAttackTarget -> DeckValidation.uuid(action.areaId) && DeckValidation.uuid(action.pairId) &&
             (action.cardId == null || DeckValidation.uuid(action.cardId))
+        is CombatAction.SetBlocks -> DeckValidation.uuid(action.areaId) && DeckValidation.uuid(action.sourceId) &&
+            listOf(action.pairIds, action.expected).all { ids -> ids.distinct().size == ids.size && ids.all(DeckValidation::uuid) }
         is CombatAction.Place -> with(action.destination) {
             DeckValidation.uuid(action.sourceId) && DeckValidation.uuid(areaId) &&
                 (pairId == null || DeckValidation.uuid(pairId)) && valid(pairGap) && valid(cardGap) &&
@@ -248,6 +277,33 @@ object CombatStackRules {
                         board.copy(combat = area.copy(pairs = area.pairs.map {
                             if (it.id == action.pairId) it.copy(attackTarget = action.cardId) else it
                         }))
+                    }
+                    is CombatAction.SetBlocks -> {
+                        if (area?.id != action.areaId) return reject("missingReference")
+                        if (action.pairIds.any { id -> area.pairs.none { it.id == id } }) return reject("missingReference")
+                        val existing = occurrences(area).singleOrNull { it.sourceId == action.sourceId }
+                        if (existing != null && area.pairs.any { p -> p.attackers.any { it.id == existing.id } }) return reject("inapplicable")
+                        if ((existing?.let { blockedPairs(area, it.id) } ?: emptyList()) != action.expected) return reject("sourceChanged")
+                        if (action.pairIds.isEmpty()) {
+                            if (existing == null) board else board.copy(combat = without(area, existing.id))
+                        } else {
+                            val source = board.cards.singleOrNull { it.id == action.sourceId } ?: return reject("missingReference")
+                            if (board.containers.singleOrNull { it.id == source.containerId }?.zone != PlayZone.BATTLEFIELD)
+                                return reject("inapplicable")
+                            val first = action.pairIds.first()
+                            val occurrence = (existing ?: CombatOccurrence(CommandIds.uuidV5(command.requestId, "combat-occurrence/0"),
+                                action.sourceId)).copy(alsoBlocks = action.pairIds.drop(1))
+                            val stays = existing != null && area.pairs.single { it.id == first }.blockers.any { it.id == existing.id }
+                            val base = if (existing == null || stays) area else without(area, existing.id, removeEmpty = false)
+                            val pairs = base.pairs.map { pair ->
+                                when {
+                                    pair.id != first -> pair
+                                    stays -> pair.copy(blockers = pair.blockers.map { if (it.id == occurrence.id) occurrence else it })
+                                    else -> pair.copy(blockers = pair.blockers + occurrence)
+                                }
+                            }
+                            board.copy(combat = area.copy(pairs = pairs.filterNot(::empty)))
+                        }
                     }
                     is CombatAction.Declare, is CombatAction.Place -> {
                         val sourceId = when (action) {
@@ -409,9 +465,16 @@ object CombatStackRules {
         val live = candidate.cards.associateBy { it.id }
         val combat = candidate.combat?.let { area -> area.copy(pairs = area.pairs.map { pair ->
             fun keep(cards: List<CombatOccurrence>) = cards.filter { live[it.sourceId]?.containerId in battlefield }
-            pair.copy(attackers = keep(pair.attackers), blockers = keep(pair.blockers),
-                blocked = pair.blocked || rulesVersion >= 20 && (pair.blockers.isNotEmpty() ||
-                    before.combat?.takeIf { it.id == area.id }?.pairs?.any { it.id == pair.id && it.blockers.isNotEmpty() } == true),
+            // CMB-031: an attacker blocks nothing; a blocker's further blocks name other pairs that still hold attackers
+            val attacked = area.pairs.filter { p -> keep(p.attackers).isNotEmpty() }.map { it.id }.toSet()
+            pair.copy(attackers = keep(pair.attackers).map { if (it.alsoBlocks.isEmpty()) it else it.copy(alsoBlocks = emptyList()) },
+                blockers = keep(pair.blockers).map { b ->
+                    val also = b.alsoBlocks.filter { it != pair.id && it in attacked }.distinct()
+                    if (also == b.alsoBlocks) b else b.copy(alsoBlocks = also)
+                },
+                blocked = pair.blocked || rulesVersion >= 20 && (pair.blockers.isNotEmpty() || blockedFromElsewhere(area, pair.id) ||
+                    before.combat?.takeIf { it.id == area.id }?.let { old ->
+                        old.pairs.any { it.id == pair.id && it.blockers.isNotEmpty() } || blockedFromElsewhere(old, pair.id) } == true),
                 attackTarget = if (rulesVersion >= 18 && pair.attackTarget != null &&
                     live[pair.attackTarget]?.containerId !in battlefield) null else pair.attackTarget)
         }.filterNot(::empty)) }

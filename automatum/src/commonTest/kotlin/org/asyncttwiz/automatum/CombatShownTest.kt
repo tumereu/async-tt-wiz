@@ -107,20 +107,21 @@ class CombatShownTest {
         assertEquals(listOf(LaneAttack(bear)) to listOf(LaneBlock(ogre, bear)), CombatFlow.lanes(rt.state.board.combat))
     }
 
-    // CR 509.1a, 510.1c–d, I-D29, I-D33: a blocker blocking two attackers shows "+1" in the pair of the first; while the
-    // attacker divides the trampler's damage, the defender divides the blocker's early; it is applied when its decision
-    // opens, and the batch that applies it removes it
+    // CMB-031, CR 509.1a, 510.1c–d, I-D29, I-D33: a blocker blocking two attackers is in the lanes with both blocks; while
+    // the attacker divides the trampler's damage (two blockers, not enough for lethal to both), the defender divides the
+    // blocker's early; it is applied when its decision opens, and the batch that applies it removes it
     @Test fun theDefendersDivisionGivenEarlyIsAppliedWhenItOpens() {
         val (brute, bear) = table.put(alice, PlayZone.BATTLEFIELD, "Ironhide Brute", "Stout Bear")
-        val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
+        val (ogre, second) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre", "Hill Ogre")
         blocksTwo(ogre)
         val rt = game()
         rt.run(alice) { StepFlow.pass(it, alice) }
         while (position(rt) != TurnPosition.DECLARE_ATTACKERS) passBob(rt)
         rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(brute), LaneAttack(bear))) }
         while (position(rt) == TurnPosition.DECLARE_ATTACKERS) passBob(rt)
-        rt.run(bob) { CombatFlow.declareBlockers(it, listOf(LaneBlock(ogre, brute), LaneBlock(ogre, bear))) }
-        assertEquals(mapOf(ogre to 1), shown(rt).alsoBlocks, "the lanes show the blocker in its first pair only")
+        rt.run(bob) { CombatFlow.declareBlockers(it, listOf(LaneBlock(ogre, brute), LaneBlock(ogre, bear), LaneBlock(second, brute))) }
+        assertEquals(setOf(LaneBlock(ogre, brute), LaneBlock(ogre, bear), LaneBlock(second, brute)),
+            CombatFlow.lanes(rt.state.board.combat).second.toSet(), "the lanes hold both of the Ogre's blocks (CMB-031)")
         while (CombatFlow.division(rt.call()) == null) passBob(rt)
         val open = assertNotNull(CombatFlow.division(rt.call()))
         assertEquals(alice to brute, open.player to open.source)
@@ -137,21 +138,21 @@ class CombatShownTest {
         rt.run(alice) { CombatFlow.divide(it) }
         assertNull(CombatFlow.division(rt.call()), "nothing is left to divide")
         assertEquals(PlayZone.GRAVEYARD, zone(rt, bear))
-        assertEquals("", rt.state.board.cards.single { it.id == brute }.damage, "the Brute got none of the Ogre's damage")
+        assertEquals("3", rt.state.board.cards.single { it.id == brute }.damage, "the Brute got only the second Ogre's damage")
         assertTrue(rt.state.board.engineRecords.none { it.kind == EngineRecordKind.PreAnswer }, "used up")
     }
 
     // I-D33: an early answer that no longer fits when its decision opens is skipped: the decision is asked as usual
     @Test fun anEarlyAnswerTheEngineRefusesLeavesTheDecisionOpen() {
         val (brute, bear) = table.put(alice, PlayZone.BATTLEFIELD, "Ironhide Brute", "Stout Bear")
-        val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
+        val (ogre, second) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre", "Hill Ogre")
         blocksTwo(ogre)
         val rt = game()
         rt.run(alice) { StepFlow.pass(it, alice) }
         while (position(rt) != TurnPosition.DECLARE_ATTACKERS) passBob(rt)
         rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(brute), LaneAttack(bear))) }
         while (position(rt) == TurnPosition.DECLARE_ATTACKERS) passBob(rt)
-        rt.run(bob) { CombatFlow.declareBlockers(it, listOf(LaneBlock(ogre, brute), LaneBlock(ogre, bear))) }
+        rt.run(bob) { CombatFlow.declareBlockers(it, listOf(LaneBlock(ogre, brute), LaneBlock(ogre, bear), LaneBlock(second, brute))) }
         while (CombatFlow.division(rt.call()) == null) passBob(rt)
         // 5 is more than the Ogre's 3
         manual(rt, bob, PreAnswers.set(rt.state.board, PreAnswer.Division(bob, ref(rt, ogre), listOf(PreShare(ref(rt, bear), 5)))))

@@ -425,7 +425,8 @@ internal fun assertRenderedLandsBands(image: java.awt.image.BufferedImage, scene
         // Card-driven rows can exceed the viewport; geometry tests verify the pan bounds.
         // Check the exact background colors of every currently visible part of either field.
         // Portrait Stack is a screen-fixed overlay on the world's right edge.
-        val overlay = scene.stackRegion?.takeIf { it.intersection(field.bounds) != null }
+        // Its soft shadow reaches a few dp beyond it (the taller combat band can put that just inside a field).
+        val overlay = scene.stackRegion?.takeIf { it.copy(y = it.y - 6f, height = it.height + 12f).intersection(field.bounds) != null }
         // Also avoid the fixed quick-action square to the left of the narrowed Stack area.
         val start = minOf(field.bounds.right - 8, overlay?.x?.minus(36) ?: Float.MAX_VALUE).toInt()
         val x = (start downTo field.bounds.x.toInt() + 2).first { x -> scene.items.none { item ->

@@ -82,8 +82,7 @@ class I3ReviewTest {
 
     // #1 (I-D24, I-D28, SYS-067; CR 511.3): a combat Automatum declared, then played out by hand with Automatum off
     // (closed, the turn ended), is still the engine's combat once Automatum is switched on again in a later turn: the
-    // engine's combat record outlives its combat, so the engine sees Alice's creature attacking in Bob's turn and the
-    // table refuses manual combat damage there ("Automatum deals the combat damage itself", CMB-022)
+    // engine's combat record outlives its combat, so the engine sees Alice's creature attacking in Bob's turn
     @Test fun aCombatFinishedByHandWhileOffIsNotTheEnginesCombatLater() {
         val (bear) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear")
         val rt = game()

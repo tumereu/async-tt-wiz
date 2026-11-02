@@ -60,6 +60,18 @@ sealed interface Input {
     /** [player] concedes (CR 104.3a): accepted at any time, also while a decision is open; they leave the game and lose. */
     @Serializable @SerialName("concede")
     data class Concede(val player: PlayerId) : Input
+
+    /**
+     * The host found a loop of mandatory actions (CR 104.4b, 732.4): where a player has priority, the game is in a state
+     * with the same [arcanum.engine.Engine.loopKey] as earlier, with only forced actions in between (priority passes
+     * [arcanum.engine.Engine.shouldPassFor] said, no decision answered). The engine can't see what happened in between:
+     * the host vouches for it. The engine then waits on a [arcanum.engine.decision.Decision.Manual] saying the game is a
+     * draw; once it is answered the game is a draw ([arcanum.engine.setup.GameResult.Draw]), unless the state was
+     * changed by hand meanwhile so that its key differs, when the game goes on. Never offered by
+     * [arcanum.engine.Engine.options].
+     */
+    @Serializable @SerialName("mandatory-loop")
+    data object MandatoryLoop : Input
 }
 
 /**

@@ -74,7 +74,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                is TableIntent.Selection -> if (!currentRuntime.reviewing) { beforeSelection = selection; selection = intent.selection }
+                is TableIntent.Selection -> if (!currentRuntime.reviewing) {
+                    beforeSelection = selection; selection = intent.selection
+                    // CMB-032, CMB-034: a tap on the empty table clears the combat selection (a blocker finishes early)
+                    if (intent.selection.ids.isEmpty()) toolkit?.combat?.clearSelection()
+                }
                 is TableIntent.Actions -> {
                     val captured = owner.capturedActions ?: intent
                     if (toolkit != null) {
@@ -372,7 +376,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 }
             }
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
-            toolkit?.combat?.ready(play)?.let { shown -> CombatPreviewMarks(play, shown, scene) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds } }
+            // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
+            if (play.board.combat != null || play.board.automatum)
+                CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
             if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, { preview }, writable) { intent ->
                 if (intent is TableIntent.StackDestination) toolkit?.showStackBubbles(null)
                 callback?.invoke(intent)

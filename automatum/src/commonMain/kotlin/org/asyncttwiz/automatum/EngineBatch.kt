@@ -446,7 +446,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     }
 
     /** The combat lanes show the engine's combat (CMB-*): a pair per attacker with its target, blockers in the pair of
-     * the first attacker they block. The engine reads the combat from its record, the lanes only show it. */
+     * the first attacker they block, also blocking the pairs of the others (CMB-031). The engine reads the combat from
+     * its record, the lanes only show it. */
     private fun combat(after: CombatState?) {
         if (after == null) {
             board.combat?.let { play(PlayAction.Combat(CombatAction.Close(it.id))) }
@@ -481,10 +482,16 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         }
         for (blocker in after.blockers) {
             val card = atwCard(blocker.id)
-            if (CombatStackRules.occurrences(board.combat).any { it.sourceId == card.id }) continue
-            val attacker = blocker.attackers.firstOrNull()?.let { atwCard(it).id } ?: continue
-            val pair = board.combat!!.pairs.firstOrNull { p -> p.attackers.any { it.sourceId == attacker } } ?: continue
-            play(PlayAction.Combat(CombatAction.Place(card.id, CombatDestination(areaId, CombatRole.BLOCKER, pairId = pair.id))))
+            val pairs = blocker.attackers.mapNotNull { a -> atwCard(a).id.let { id ->
+                board.combat!!.pairs.firstOrNull { p -> p.attackers.any { it.sourceId == id } }?.id } }.distinct()
+            if (pairs.isEmpty()) continue
+            val existing = CombatStackRules.occurrences(board.combat).firstOrNull { it.sourceId == card.id }
+            val now = existing?.let { CombatStackRules.blockedPairs(board.combat, it.id) }.orEmpty()
+            // A drafted block stays where it was drafted while it blocks the same attackers
+            if (existing != null && now.toSet() == pairs.toSet()) continue
+            if (existing != null && now.isEmpty()) continue
+            val ordered = if (now.firstOrNull() in pairs) listOf(now.first()) + (pairs - now.first()) else pairs
+            play(PlayAction.Combat(CombatAction.SetBlocks(areaId, card.id, ordered, now)))
         }
     }
 

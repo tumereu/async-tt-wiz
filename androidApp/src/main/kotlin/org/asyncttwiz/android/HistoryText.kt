@@ -384,6 +384,13 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             is CombatAction.Declare -> text("${card(combat.sourceId)} → Attacker", "Attack")
             is CombatAction.Place -> text("${card(combat.sourceId)} → ${if (combat.destination.role == CombatRole.ATTACKER) "Attacker" else "Blocker"}", if (combat.destination.role == CombatRole.ATTACKER) "Attack" else "Block")
             is CombatAction.Remove -> text("${card(combat.occurrenceId)} removed from combat", "Remove combat")
+            // CMB-031: the attackers a blocker blocks now, by name
+            is CombatAction.SetBlocks -> {
+                val attackers = combat.pairIds.flatMap { id -> before?.board?.combat?.pairs?.firstOrNull { it.id == id }?.attackers.orEmpty() }
+                    .map { card(it.sourceId) }
+                if (combat.pairIds.isEmpty()) text("${card(combat.sourceId)} no longer blocks", "Unblock")
+                else text("${card(combat.sourceId)} blocks ${attackers.joinToString(" and ").ifEmpty { "an attacker" }}", "Block")
+            }
         }
         is PlayAction.Stack -> when (val stack = action.action) {
             is StackAction.MarkText -> {

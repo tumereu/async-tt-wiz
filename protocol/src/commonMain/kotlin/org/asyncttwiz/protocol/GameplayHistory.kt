@@ -253,6 +253,7 @@ object GameplayHistory {
                 val sourceId = when (val combat = action.action) {
                     is CombatAction.Declare -> combat.sourceId
                     is CombatAction.Place -> combat.sourceId
+                    is CombatAction.SetBlocks -> combat.sourceId.takeIf { combat.pairIds.isNotEmpty() }
                     else -> null
                 }
                 if (sourceId != null) {

@@ -247,6 +247,7 @@ object HistoryGrouping {
             is CombatAction.Declare -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, HistoryIcon.SWORDS)
             is CombatAction.Remove -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, HistoryIcon.REMOVE_CIRCLE_OUTLINE)
             is CombatAction.SetAttackTarget -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, HistoryIcon.SWORDS)
+            is CombatAction.SetBlocks -> HistorySemantic(HistorySignificance.COMBAT_MEMBERSHIP, HistoryIcon.OPEN_WITH)
             is CombatAction.Place -> HistorySemantic(if (combat.expectedOccurrence == null ||
                 combat.expectedOccurrence.role != combat.destination.role) HistorySignificance.COMBAT_MEMBERSHIP
                 else HistorySignificance.COMBAT_LAYOUT, HistoryIcon.OPEN_WITH)

@@ -75,7 +75,7 @@ class QuickActionsTest {
             TurnPosition.DRAW to listOf("Go to main"),
             TurnPosition.PRECOMBAT_MAIN to listOf("Select attackers", "Skip combat"),
             TurnPosition.DECLARE_ATTACKERS to listOf("Select attackers", "No attack"),
-            TurnPosition.COMBAT_DAMAGE to listOf("Deal combat damage", "Close + next"),
+            TurnPosition.COMBAT_DAMAGE to listOf("Close + next"),
             TurnPosition.END_COMBAT to listOf("Advance + close combat"),
             TurnPosition.POSTCOMBAT_MAIN to listOf("End turn"),
             TurnPosition.END_STEP to listOf("End turn"))

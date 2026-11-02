@@ -107,6 +107,22 @@ sealed interface Continuation {
         /** The event to redo: what was about to happen before replacements (D29). */
         val planned: PlannedEvent? = null,
     ) : Continuation
+
+    /** The game stopped for a loop ([stop]), waiting on a [Decision.Manual] that says why (CR 104.4b). */
+    @Serializable @SerialName("loop")
+    data class Loop(val stop: LoopStop, override val then: Continuation? = null) : Continuation
+}
+
+/** Why a [Continuation.Loop] stopped the game. */
+@Serializable
+sealed interface LoopStop {
+    /** The safety cap of one [arcanum.engine.Engine.perform] call: too many rounds of state-based actions and triggers,
+     * or too many changes (a possible loop no player can stop). Once answered, the game goes on. */
+    @Serializable @SerialName("cap") data object Cap : LoopStop
+
+    /** A loop of mandatory actions the host found (CR 104.4b, 732.4) at a state with [key]. Once answered, the game is a
+     * draw while the state still has that key; changed by hand to break the loop, it goes on. */
+    @Serializable @SerialName("mandatory") data class Mandatory(val key: arcanum.engine.turn.LoopKey) : LoopStop
 }
 
 /** A resolution worked out as in [player]'s view ([Decision.OtherView]): [source] and [reason] are those of the look that

@@ -123,7 +123,7 @@ The battlefield, how cards look on it, how you touch them, their menus, multi-se
 
 ### More page
 
-- **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Face down/up, Switch face, Temp 1, Deal to target, Deal to target or creatures, and Set damage last. (r36)
+- **TBL-082** More holds: Owner, Other side, Link, Unlink, single P/T step buttons, Reset P/T, until-end-of-turn P/T step buttons, Face down/up, Switch face, Temp 1 and Set damage last. (r40)
 - **TBL-114** With Automatum on, a card whose P/T Automatum works out (TBL-112) can't have its P/T set by hand: P/T (which shows the computed value), EOT P/T, the P/T and until-end-of-turn P/T step buttons and Reset P/T are greyed out for it, and with several cards selected they change only the others, also in the usual menu opened by "Manual…" (TBL-116). (r39)
 - **TBL-083** P/T step buttons read "+/·", "−/·", "·/+", "·/−" (· = side unchanged); the until-end-of-turn ones show the same icon with a small hourglass in its top-right corner, not touching the symbols or the label; all stay visible, greyed out on cards without P/T. (r36)
 - **TBL-084** Owner shows the owner's colour and is enabled only for battlefield tokens; tapping it gives the token to the other player. (r28)

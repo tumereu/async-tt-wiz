@@ -18,6 +18,7 @@ import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.CombatShown
 import org.asyncttwiz.automatum.DamageDivision
+import org.asyncttwiz.automatum.Divisions
 import org.asyncttwiz.automatum.EngineBatch
 import org.asyncttwiz.automatum.EngineCall
 import org.asyncttwiz.automatum.EngineState
@@ -59,7 +60,58 @@ internal class CombatController(
     var view by mutableStateOf(CombatShown.NONE); private set
 
     /** [value] is what the table shows of combat on [play]'s board. */
-    fun show(play: PlayState, value: CombatShown) { shownBoard = play.board; view = value }
+    fun show(play: PlayState, value: CombatShown) {
+        shownBoard = play.board; view = value
+        noteDivisions(play, value)
+    }
+
+    // ---- The viewer's own state of the combat area (I-D32): nothing of it is shared
+
+    /** CMB-032, CMB-034: the combatant the viewer selected, by its real card's id; null when none. */
+    var selected by mutableStateOf<String?>(null); private set
+    /** CMB-028: the attack target the viewer's taps stage to, with the turn it was chosen in (null target: the defending
+     * player). */
+    private var lane by mutableStateOf<Pair<String, String?>?>(null)
+    /** CMB-029: the eye hid the preview's numbers. */
+    var numbersHidden by mutableStateOf(false); private set
+
+    fun select(card: String?) { selected = card }
+    fun clearSelection() { selected = null }
+    fun toggleNumbers() { numbersHidden = !numbersHidden }
+
+    /** CMB-028: the active target lane on [play]'s board: chosen this turn and still a target, else the defending player. */
+    fun activeTarget(play: PlayState): String? {
+        val chosen = lane?.takeIf { it.first == play.board.turn.number }?.second ?: return null
+        return chosen.takeIf { id -> play.board.cards.any { it.id == id } &&
+            id in CombatStackPresentation.attackTargets(play.board, play.definitions, play.board.turn.accountId) }
+    }
+    fun chooseTarget(play: PlayState, target: String?) { lane = play.board.turn.number to target }
+
+    /** CMB-033: the divisions with a choice asked in a damage step, as first seen (turn, first-strike step) → sources,
+     * so the dialog can say "2 of 3" after the first ones were answered. */
+    private var stepDivisions: Pair<Pair<String, Boolean>, List<String>>? = null
+
+    private fun noteDivisions(play: PlayState, value: CombatShown) {
+        val asked = value.preview?.divisions.orEmpty().map { it.first }.filterNot(Divisions::orderFree)
+        for (step in listOf(true, false)) {
+            val sources = asked.filter { it.firstStrike == step }.map { it.source }.distinct()
+            if (sources.isEmpty()) continue
+            val key = play.board.turn.number to step
+            val known = stepDivisions?.takeIf { it.first == key }?.second.orEmpty()
+            // A list from before any answer holds every one; a later look holds only those still to come
+            if (known.isEmpty() || !known.containsAll(sources)) stepDivisions = key to (known.filterNot { it in sources } + sources).distinct()
+            break
+        }
+    }
+
+    /** CMB-033: "n of m" for the open [division] on [play]'s board, or null when it is the only one of its step. */
+    fun divisionCount(play: PlayState, division: DamageDivision): Pair<Int, Int>? {
+        val known = stepDivisions?.takeIf { it.first == (play.board.turn.number to division.firstStrike) }?.second.orEmpty()
+        val index = known.indexOf(division.source)
+        val coming = view.early.filterNot(Divisions::orderFree).map { it.source }.distinct()
+        val (n, m) = if (index >= 0) index + 1 to maxOf(known.size, index + 1 + coming.size) else 1 to 1 + coming.size
+        return (n to m).takeIf { m > 1 }
+    }
 
     /**
      * What may be declared on [play]'s board, not worked out on the main thread when avoidable (#12, SYS-025): the
@@ -169,7 +221,6 @@ internal class CombatController(
         const val NOT_DECLARING = "Creatures join combat as attackers in the Declare attackers step, as blockers in the Declare blockers step."
         const val DECLARED = "Attackers and blockers are already declared."
         const val DECLARED_ATTACKERS = "Attackers are already declared."
-        const val DAMAGE_BY_AUTOMATUM = "Automatum deals the combat damage itself."
     }
 }
 
@@ -187,17 +238,25 @@ internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: PlayStat
 }
 
 /**
- * The quick actions of combat with Automatum on (CMB-017–CMB-022 as I3 changes them), or null when the manual ones
+ * The quick actions of combat with Automatum on (CMB-028, CMB-029, CMB-034), or null when the manual ones
  * stay (Automatum off, outside these steps, or a board Automatum can't take over). Empty until what the engine allows
  * is worked out.
  */
+/** CMB-028: [this] context with the viewer's active attack target lane and its name ([playerName]: the defending
+ * player's). */
+internal fun QuickContext.withCombatTarget(combat: CombatController, play: PlayState, playerName: String?): QuickContext {
+    if (!play.board.automatum || play.board.combat == null && TurnPosition.of(play.board.turn) != TurnPosition.DECLARE_ATTACKERS) return this
+    val target = combat.activeTarget(play)
+    return copy(combatTarget = target, combatTargetName = if (target == null) playerName ?: "the player" else CastController.cardName(play, target))
+}
+
 internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext, scope: TableActionScope): List<QuickAction>? {
     if (!play.board.automatum) return null
     val position = TurnPosition.of(play.board.turn)
     if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
     val shown = context.automatumCombat ?: return emptyList()
     if (shown.choices.unsupported.isNotEmpty()) return null
-    // A combat declared by hand (not through Automatum) keeps its manual damage tools, with Automatum's values (CMB-024)
+    // A combat declared by hand (not through Automatum) keeps its manual quick actions (Close + next, CMB-022)
     if (position == TurnPosition.COMBAT_DAMAGE && !CombatFlow.throughEngine(play.board) && shown.passing == null) return null
     val viewer = context.viewer
     val area = context.combatAreaId
@@ -205,111 +264,36 @@ internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext,
         QuickAction(name, "", TableActionIntent.Combat(scope, tool, area, ids))
     val choices = shown.choices
     val pairs = play.board.combat?.pairs.orEmpty()
+    fun greyed(name: String, tool: CombatTool, reason: String?, ids: List<String> = emptyList()) =
+        QuickAction(name, "", TableActionIntent.Combat(scope, tool, area, ids), enabled = reason == null, refused = reason)
     return buildList {
         when {
+            // CMB-028: the attacker's staging
             choices.declaring != null && choices.attackers -> if (viewer == play.board.turn.accountId) {
-                if (context.selectedSourceIds.isNotEmpty()) add(QuickAction("Declare without tapping", "⚔",
-                    TableActionIntent.Combat(scope, CombatTool.DECLARE, area, context.selectedSourceIds.distinct())))
-                else {
-                    val drafted = pairs.any { it.attackers.isNotEmpty() }
-                    add(QuickAction(if (drafted) "Select more attackers" else "Select attackers", "",
-                        TableActionIntent.SelectAttackers(scope, advance = false)))
-                    add(action(if (drafted) "Attack" else "No attack", CombatTool.AUTOMATUM_DECLARE))
-                }
+                val staged = pairs.flatMap { it.attackers }.map { it.sourceId }
+                val target = context.combatTarget
+                val name = context.combatTargetName.ifEmpty { "target" }
+                val rest = choices.attacks.filter { (card, targets) -> target in targets && card !in staged }.keys.toList()
+                add(greyed("Rest → $name", CombatTool.AUTOMATUM_STAGE,
+                    if (rest.isEmpty()) "No other creature can attack $name now." else null, rest))
+                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (staged.isEmpty()) "Nothing is staged." else null))
+                add(greyed(if (staged.isEmpty()) "No attack" else "Commit attack (${staged.size})", CombatTool.AUTOMATUM_DECLARE,
+                    if (staged.isEmpty()) shown.noneRefusal else shown.draftRefusal))
             }
-            choices.declaring != null -> if (viewer == choices.declaring)
-                add(action(if (pairs.any { it.blockers.isNotEmpty() }) "Block" else "No blocks", CombatTool.AUTOMATUM_DECLARE))
-            shown.passing != null && shown.passing == viewer ->
-                add(action(if (shown.firstStrikeStep) "Regular damage" else "Deal damage", CombatTool.AUTOMATUM_PASS))
+            // CMB-034: the defender's blocks
+            choices.declaring != null -> if (viewer == choices.declaring) {
+                val blocks = CombatStackRules.blocks(play.board.combat)
+                add(greyed("No blocks", CombatTool.AUTOMATUM_NO_BLOCKS, shown.noneRefusal))
+                add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (blocks.isEmpty()) "Nothing blocks yet." else null))
+                add(greyed("Commit blocks", CombatTool.AUTOMATUM_DECLARE,
+                    if (blocks.isEmpty()) "Nothing blocks yet: tap your creature, then the attacker it blocks." else shown.draftRefusal))
+            }
+            // CMB-029: no separate prompt; passing priority goes on to the damage
+            shown.passing != null && shown.passing == viewer -> add(action("Pass", CombatTool.AUTOMATUM_PASS))
         }
     }
 }
 
-/**
- * The damage preview on the table (I-D29) and the "+N" of a blocker blocking several attackers (interim lanes): over
- * each combat copy (or a Battlefield card without one, an attacked planeswalker) the damage it would take, with ✝ when
- * it would die; by each life square the life change. Public information, shown to both players.
- */
-@Composable
-internal fun CombatPreviewMarks(play: PlayState, shown: CombatShown, scene: TableScene, bounds: (TableItem) -> TableBounds) {
-    if (!play.board.automatum) return
-    val preview = shown.preview
-    val damage = preview?.damage.orEmpty()
-    val dies = preview?.dies.orEmpty().toSet()
-    val copies = scene.items.filter { it.viewport == "combat" && it.sourceId != null }
-    val inCombat = copies.mapNotNull { it.sourceId }.toSet()
-    for (item in scene.items) {
-        if (item.kind != TableItemKind.CARD || item.visible.isEmpty()) continue
-        val card = item.sourceId ?: continue
-        val copy = item.viewport == "combat"
-        if (!copy && (card in inCombat || item.zone != PlayZone.BATTLEFIELD || item.projection)) continue
-        val dealt = damage[card]
-        val also = if (copy) shown.alsoBlocks[card] else null
-        if (dealt == null && card !in dies && also == null) continue
-        val b = bounds(item)
-        Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)) {
-            // One row over the card's top edge, so the marks of small cards in a column never cover each other
-            Row(Modifier.align(Alignment.TopCenter).offset(y = (-9).dp).wrapContentSize(unbounded = true),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (dealt != null || card in dies) PreviewChip(listOfNotNull(dealt?.let { "−$it" }, "✝".takeIf { card in dies }).joinToString(" "),
-                    Color(0xffb3261e), Modifier, "Would take ${dealt ?: 0} damage${if (card in dies) " and die" else ""}")
-                if (also != null) PreviewChip("+$also", AutomatumViolet, Modifier, "Also blocks $also more")
-            }
-        }
-    }
-    for ((player, change) in preview?.life.orEmpty()) {
-        if (change == 0) continue
-        val item = scene.items.firstOrNull { it.id == "life/$player" } ?: continue
-        val b = bounds(item)
-        Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)) {
-            PreviewChip(if (change < 0) "−${-change}" else "+$change", if (change < 0) Color(0xffb3261e) else Color(0xff237d68),
-                Modifier.align(Alignment.BottomEnd).offset(x = 10.dp, y = 6.dp), "Life would change by $change")
-        }
-    }
-}
-
-@Composable
-private fun PreviewChip(text: String, color: Color, modifier: Modifier, description: String) {
-    // Wider than a small card when it has to be: one line, never wrapped
-    Surface(modifier.wrapContentSize(unbounded = true).semantics { contentDescription = description }, shape = RoundedCornerShape(6.dp),
-        color = Color.White, border = BorderStroke(1.5.dp, color), shadowElevation = 2.dp) {
-        Text(text, Modifier.padding(horizontal = 4.dp), color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold, lineHeight = 13.sp,
-            maxLines = 1, softWrap = false)
-    }
-}
-
-/**
- * The viewer's divisions still to come in this damage step (I-D29, I-D33): while another division is open, they may give
- * theirs early, applied when it opens. Pre-filled with the suggestion (or the early answer given), changeable; Ready
- * gives it, Withdraw takes it back.
- */
-@Composable
-internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, division: DamageDivision, names: Map<String, String>,
-    enabled: Boolean) {
-    val given = combat.early(play, division)
-    val start = given?.shares?.associate { it.target to it.amount } ?: division.suggested
-    var shares by remember(division.source, given) { mutableStateOf(division.among.associateWith { start[it] ?: 0 }) }
-    val total = shares.values.sum()
-    Surface(Modifier.semantics { contentDescription = "Early division" }, shape = RoundedCornerShape(8.dp), color = Color.White,
-        shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("${CastController.cardName(play, division.source)} — divide ${division.amount} damage", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            Text(if (given != null) "Ready: applied when your division comes up." else "You may divide now; it is applied when your division comes up.",
-                fontSize = 11.sp, color = Color(0xff4b5a5f))
-            for (target in division.among) Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(refName(play, names, target) + (division.lethal[target]?.let { " (lethal $it)" } ?: ""),
-                    Modifier.weight(1f), fontSize = 12.sp)
-                Stepper(shares.getValue(target), 0, division.amount) { shares = shares + (target to it) }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-                if (given != null) TextButton({ combat.withdrawEarly(division) }, enabled = enabled) { Text("Withdraw") }
-                Button({ combat.giveEarly(division, shares) }, enabled = enabled && total == division.amount &&
-                    shares != given?.shares?.associate { it.target to it.amount },
-                    colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Ready") }
-            }
-        }
-    }
-}
 
 /** A card or player as the viewer may see it named (I-D27: a face-down card stays hidden). */
 internal fun refName(play: PlayState, names: Map<String, String>, ref: MtgRef): String = when (ref) {

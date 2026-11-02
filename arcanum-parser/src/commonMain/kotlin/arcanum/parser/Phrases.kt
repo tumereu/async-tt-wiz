@@ -489,6 +489,11 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // dsk chunk 04: "there are three or more cards exiled with this creature": its card memory still in exile (CR 607.2a)
+        EXILED_WITH_AT_LEAST.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
+            return Condition.Compare(Value.Count(Objects.Where(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))), Comparison.AtLeast,
+                Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        }
         // dsk chunk 03: "there are two or more unlocked doors among Rooms you control" (CR 709.5c)
         UNLOCKED_DOORS_AT_LEAST.matchEntire(text)?.let { m ->
             return Condition.Compare(Values.value("the number of unlocked doors among " + m.groupValues[2]) ?: return null, Comparison.AtLeast,
@@ -616,6 +621,11 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // dsk chunk 04: "you control a Glimmer creature", "you don't control a Glimmer creature"
+        CONTROL_A_PHRASE.matchEntire(text)?.let { m ->
+            val exists = Condition.Exists(Filters.noun(m.groupValues[2] + " you control") ?: return null, atLeast = 1)
+            return if (m.groupValues[1].isEmpty()) exists else Condition.Not(exists)
+        }
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
         NTH_RESOLUTION.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.AbilityUsesThisTurn(resolved = true), Comparison.Equal, Value.Fixed(Numbers.ordinal(m.groupValues[1]) ?: return null))
@@ -625,6 +635,9 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    // dsk chunk 04
+    private val CONTROL_A_PHRASE = Regex("""you (don't )?control an? (.+)""")
+    private val EXILED_WITH_AT_LEAST = Regex("""there are (\w+) or more cards exiled with (.+)""")
     private val UNLOCKED_DOORS_AT_LEAST = Regex("""there are (\w+) or more unlocked doors among (.+)""")
     private val NAMES_AMONG_UNLOCKED_DOORS = Regex("""there are (\w+) or more different names among unlocked doors of Rooms you control""")
     // chunk 30
@@ -727,7 +740,8 @@ internal object Counters {
             "level" -> arcanum.api.CounterKind.Level
             "stun" -> arcanum.api.CounterKind.Stun
             "shield" -> arcanum.api.CounterKind.Shield
-            else -> if (text.all { it.isLetter() }) arcanum.api.CounterKind.Named(text) else null
+            // dsk chunk 04: "a flying counter" is a keyword counter (CR 122.1b)
+            else -> OracleParser.keyword(text.replaceFirstChar { it.uppercase() })?.let { arcanum.api.CounterKind.Keyword(it.kind) } ?: if (text.all { it.isLetter() }) arcanum.api.CounterKind.Named(text) else null
         }
     }
 
@@ -740,6 +754,8 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        // dsk chunk 04: "where X is its power" (this object's)
+        if (text == "its power") return Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, Combine.Single)
         // dsk chunk 03: "the number of counters on this creature" (every kind; as it last existed once it has left, CR 608.2h)
         if (text == "the number of counters on this creature") return Value.Of(arcanum.api.NumericProperty.Counters(null), Objects.Self, Combine.Single)
         // dsk chunk 02: "the number of unlocked doors among Rooms you control" (CR 709.5c)

@@ -138,6 +138,11 @@ sealed interface Mechanic {
      * fromSource = that quality (702.11d); shroud: by = any (702.18a). */
     @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter, val fromSource: ObjectFilter? = null) : Mechanic
     @Serializable @SerialName("phasing") data object Phasing : KeywordOnly
+    /** The affected objects can be the targets of spells and abilities as though they didn't have hexproof (CR 702.11b): the
+     * targeting restriction of their hexproof keywords doesn't apply. */
+    @Serializable @SerialName("targetable-despite-hexproof") data object TargetableDespiteHexproof : Mechanic
+    /** The ward abilities of the affected objects don't trigger (CR 702.21a). */
+    @Serializable @SerialName("ward-doesnt-trigger") data object WardDoesntTrigger : Mechanic
     /** What this Aura can target as a spell and be attached to (enchant, CR 702.5, 303.4). */
     @Serializable @SerialName("can-enchant") data class CanEnchant(val what: TargetKind) : KeywordOnly
     /** What this Equipment or Fortification can be attached to besides the default (CR 301.5). */

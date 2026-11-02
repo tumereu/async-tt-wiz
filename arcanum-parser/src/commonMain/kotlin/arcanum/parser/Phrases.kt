@@ -321,6 +321,12 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 10: "enchanted creature is dealt damage", "enchanted player is dealt damage", "this creature is dealt damage"
+        IS_DEALT_DAMAGE.matchEntire(text)?.let { m ->
+            if (m.groupValues[1] == "enchanted player")
+                return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(players = PlayerFilter.Is(Players.AttachedTo(Objects.Self))))
+            return EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter(objects = subject(m.groupValues[1], self) ?: return null))
+        }
         // dsk chunk 08: "you cast an instant or sorcery spell that targets only a single creature you control", "you gain life",
         // "you lose life"
         YOU_CAST_SPELL_THAT.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You) }
@@ -483,6 +489,8 @@ internal object Events {
     private val ENTERS = Regex("""(.+) enters?""")
     // dsk chunk 01
     private val YOU_FULLY_UNLOCK = Regex("""you fully unlock an? (\w+)""")
+    // dsk chunk 10
+    private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
     private val YOU_CAST_SPELL_THAT = Regex("""you cast an? (.+ spell that .+)""")
     // dsk chunk 07
@@ -681,6 +689,15 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // dsk chunk 10: "a creature died this turn" (CR 700.4), "it was cast", "defending player controls no Glimmer creatures"
+        A_DIED_THIS_TURN.matchEntire(text)?.let { m ->
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.noun(m.groupValues[1]) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard),
+                atLeast = 1, measure = Measure.Events)
+        }
+        if (text == "it was cast") return Condition.CastFrom(null, Objects.Self)
+        DEFENDING_PLAYER_CONTROLS_NO.matchEntire(text)?.let { m ->
+            return Condition.Not(Condition.Exists(Filters.noun(m.groupValues[1] + " defending player controls") ?: return null, atLeast = 1))
+        }
         // dsk chunk 09: "you cast it", "you cast it from your hand" (CR 601.2a), "you have no cards in hand"
         CAST_IT.matchEntire(text)?.let { m ->
             val zone = when (m.groupValues[1]) { "" -> null; " from your hand" -> Zone.Hand; else -> Zone.Graveyard }
@@ -721,6 +738,9 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    // dsk chunk 10
+    private val A_DIED_THIS_TURN = Regex("""an? ([\w-]+(?: [\w-]+)?) died this turn""")
+    private val DEFENDING_PLAYER_CONTROLS_NO = Regex("""defending player controls no (.+)""")
     // dsk chunk 09
     private val CAST_IT = Regex("""you cast it( from your hand| from your graveyard)?""")
     // dsk chunk 08

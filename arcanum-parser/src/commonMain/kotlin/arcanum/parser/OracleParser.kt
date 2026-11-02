@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 9
+    const val VERSION: Int = 10
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -71,6 +71,8 @@ object OracleParser {
         val sentences = Sentences(self, isSpell, linkedExile = self.any { text.contains("exiled with $it") } || text.contains("exiled with it "))
         // chunk 33: "the exiled card" in a later ability refers to the cards an earlier ability exiled (linked
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
+        // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost
+        sentences.discardedCard = text.contains("the discarded card")
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)

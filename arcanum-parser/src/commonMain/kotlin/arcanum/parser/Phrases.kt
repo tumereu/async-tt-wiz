@@ -321,6 +321,11 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 11: "a creature you control becomes blocked" (once per combat each, CR 509.3c)
+        BECOMES_BLOCKED.matchEntire(text)?.let { m -> return EventPattern.BecomesBlocked(subject(m.groupValues[1], self) ?: return null, ObjectFilter.Any) }
+        // dsk chunk 11: "one or more creatures die" (a batch), "an opponent draws a card"
+        DIE_PLURAL.matchEntire(text)?.let { m -> return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard) }
+        if (text == "an opponent draws a card") return EventPattern.Draw(PlayerFilter.Opponent)
         // dsk chunk 10: "enchanted creature is dealt damage", "enchanted player is dealt damage", "this creature is dealt damage"
         IS_DEALT_DAMAGE.matchEntire(text)?.let { m ->
             if (m.groupValues[1] == "enchanted player")
@@ -489,6 +494,9 @@ internal object Events {
     private val ENTERS = Regex("""(.+) enters?""")
     // dsk chunk 01
     private val YOU_FULLY_UNLOCK = Regex("""you fully unlock an? (\w+)""")
+    // dsk chunk 11
+    private val DIE_PLURAL = Regex("""(one or more .+) die""")
+    private val BECOMES_BLOCKED = Regex("""(.+) becomes blocked""")
     // dsk chunk 10
     private val IS_DEALT_DAMAGE = Regex("""(.+) is dealt damage""")
     // dsk chunk 08
@@ -557,6 +565,14 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // dsk chunk 11: "there are seven or more time counters on it" (this object), "the discarded card wasn't a land card"
+        COUNTERS_ON_IT_AT_LEAST.matchEntire(text)?.let { m ->
+            return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = Numbers.count(m.groupValues[1]) ?: return null))
+        }
+        THE_DISCARDED_CARD_WAS.matchEntire(text)?.let { m ->
+            val matches = Condition.ObjectMatches(Objects.Bound("discarded"), Filters.noun(m.groupValues[2]) ?: return null)
+            return if (m.groupValues[1] == "was") matches else Condition.Not(matches)
+        }
         // dsk chunk 04: "there are three or more cards exiled with this creature": its card memory still in exile (CR 607.2a)
         EXILED_WITH_AT_LEAST.matchEntire(text)?.takeIf { it.groupValues[2] in self }?.let { m ->
             return Condition.Compare(Value.Count(Objects.Where(Objects.Remembered(EXILED_WITH), ObjectFilter.InZone(Zone.Exile))), Comparison.AtLeast,
@@ -738,6 +754,9 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    // dsk chunk 11
+    private val COUNTERS_ON_IT_AT_LEAST = Regex("""there are (\w+) or more (\S+) counters on it""")
+    private val THE_DISCARDED_CARD_WAS = Regex("""the discarded card (was|wasn't) an? (.+)""")
     // dsk chunk 10
     private val A_DIED_THIS_TURN = Regex("""an? ([\w-]+(?: [\w-]+)?) died this turn""")
     private val DEFENDING_PLAYER_CONTROLS_NO = Regex("""defending player controls no (.+)""")

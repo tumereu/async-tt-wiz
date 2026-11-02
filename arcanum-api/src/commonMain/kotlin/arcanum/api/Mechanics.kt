@@ -188,6 +188,8 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-block-alone") data object CantBlockAlone : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
     @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter) : Mechanic
+    /** "Must be blocked if able": a requirement that at least one creature blocks it, when one can (CR 509.1c). */
+    @Serializable @SerialName("must-be-blocked") data object MustBeBlocked : Mechanic
     /** Assigns combat damage equal to its toughness rather than its power (CR 510.1). */
     @Serializable @SerialName("damage-by-toughness") data object AssignsDamageByToughness : Mechanic
     /** May assign its combat damage as though it weren't blocked (card text; no general rule). */

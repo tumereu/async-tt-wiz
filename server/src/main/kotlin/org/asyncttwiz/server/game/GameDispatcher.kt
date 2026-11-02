@@ -1,5 +1,6 @@
 package org.asyncttwiz.server.game
 
+import org.asyncttwiz.protocol.GameWire
 import java.util.ArrayDeque
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
@@ -15,7 +16,7 @@ class GameDispatcher : AutoCloseable {
     @Synchronized fun <T> submit(gameId: String, bytes: Int = 0, action: () -> T): CompletableFuture<T> {
         val result = CompletableFuture<T>()
         val lane = lanes[gameId]
-        if (executor.isShutdown || count >= 4096 || (lane?.queue?.size ?: 0) >= 1024 || (lane?.bytes ?: 0) + bytes > 8 * 1024 * 1024) {
+        if (executor.isShutdown || count >= 4096 || (lane?.queue?.size ?: 0) >= 1024 || (lane?.bytes ?: 0) + bytes > 2 * GameWire.MAX_MESSAGE_BYTES) {
             result.completeExceptionally(GameProtocolFailure("busy", true)); return result
         }
         val selected = lane ?: Lane().also { lanes[gameId] = it }

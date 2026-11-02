@@ -58,6 +58,12 @@ import kotlinx.serialization.Serializable
     /** [faceDown] (STK-005) adds a face-down entry; only a hand card may be cast face down. */
     @Serializable @SerialName("addEffect") data class AddEffect(val sourceId: String, val expectedStackDigest: String,
         @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val faceDown: Boolean? = null) : StackAction
+    /** Rules v36 (I-D13): an ability-only entry, for an ability whose source isn't a card on the table (a delayed
+     * trigger of a spell copy, an emblem's trigger, an ability of a token that ceased to exist). The entry shows
+     * [definition] (one token face: the source's name and the ability's text as its rules text) as a card that
+     * already left (`StackEffect.frozen`), controlled by [controller]. */
+    @Serializable @SerialName("addAbility") data class AddAbility(val definition: SubmittedDefinition, val controller: String,
+        val expectedStackDigest: String) : StackAction
     @Serializable @SerialName("copyEffect") data class CopyEffect(val entryId: String, val expectedStackDigest: String) : StackAction
     @Serializable @SerialName("setController") data class SetController(val occurrenceId: String, val accountId: String) : StackAction
     @Serializable @SerialName("removeEffect") data class RemoveEffect(val occurrenceId: String) : StackAction
@@ -203,6 +209,8 @@ object CombatStackRules {
         is StackAction.ToggleTextMark -> DeckValidation.uuid(action.entryId) && action.optionIndex >= 0
         is StackAction.AddEffect -> DeckValidation.uuid(action.sourceId) && DeckValidation.digest(action.expectedStackDigest) &&
             action.faceDown != false
+        is StackAction.AddAbility -> TokenLinkRules.validDefinition(action.definition) && action.definition.definition.faces.size == 1 &&
+            DeckValidation.uuid(action.controller) && DeckValidation.digest(action.expectedStackDigest)
         is StackAction.CopyEffect -> DeckValidation.uuid(action.entryId) && DeckValidation.digest(action.expectedStackDigest)
         is StackAction.SetController -> DeckValidation.uuid(action.occurrenceId) && DeckValidation.uuid(action.accountId)
         is StackAction.RemoveEffect -> DeckValidation.uuid(action.occurrenceId)
@@ -310,6 +318,24 @@ object CombatStackRules {
                     if (effect.id in stack(board).cards || board.cards.any { it.id == effect.id }) return reject("invalidStructure")
                     board.copy(stackEffects = board.stackEffects + effect,
                         containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
+                }
+                is StackAction.AddAbility -> {
+                    if (stackDigest(state) != action.expectedStackDigest) return reject("stackChanged")
+                    if (board.players.none { it.accountId == action.controller }) return reject("missingReference")
+                    val retained = state.definitions.singleOrNull { it.digest == action.definition.digest }
+                    if (retained != null && retained != action.definition) return reject("invalidInput")
+                    val stack = stack(board)
+                    // The ability's own shown card: a token that already left, so nothing can move or point at it.
+                    val shown = PlayCard(CommandIds.uuidV5(command.requestId, "stack-ability/0"), action.definition.digest,
+                        action.controller, stack.id, action.definition.definition.faces.single().faceId, covered = false, token = true)
+                    val effect = StackEffect(CommandIds.uuidV5(command.requestId, "stack-effect/0"), shown.id, frozen = shown,
+                        controller = action.controller)
+                    if (listOf(effect.id, shown.id).any { id -> id in stack.cards || board.cards.any { it.id == id } ||
+                            board.stackEffects.any { it.id == id || it.sourceId == id } }) return reject("invalidStructure")
+                    val next = board.copy(stackEffects = board.stackEffects + effect,
+                        containers = board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(effect.id) + it.cards) else it })
+                    return GameplayRules.record(state.copy(definitions = (state.definitions + action.definition).distinctBy { it.digest }
+                        .sortedBy { it.digest }), actor, command, next, GameplayTransition(), rulesVersion = rulesVersion)
                 }
                 is StackAction.RemoveEffect -> {
                     if (board.stackEffects.none { it.id == action.occurrenceId }) return reject("missingReference")
@@ -469,7 +495,8 @@ object CombatStackRules {
             val to = next.combat?.pairs?.find { it.id == id }?.blocked ?: false
             if (from == to) null else CombatBlockedChange(id, from, to)
         }
-        val guard = if ((action as? PlayAction.Stack)?.action.let { it is StackAction.AddEffect || it is StackAction.CopyEffect })
+        val guard = if ((action as? PlayAction.Stack)?.action.let { it is StackAction.AddEffect || it is StackAction.CopyEffect ||
+                it is StackAction.AddAbility })
             StackGuardChange(stackDigest(state), stackDigest(state.id, next)) else null
         return if (area == null && occurrenceChanges.isEmpty() && pairChanges.isEmpty() && effectChanges.isEmpty() &&
             orderChanges.isEmpty() && links.isEmpty() && addedLinks.isEmpty() && marks.isEmpty() && attackTargets.isEmpty() && blocked.isEmpty() && guard == null) null else

@@ -19,7 +19,7 @@ object SelectiveUndo {
                 if (target.invocationId != null) {
                     var previous = tree.nodes[target.parentId]
                     while (previous != null && previous.author == actor && previous.invocationId == target.invocationId && previous.branchId == target.branchId) {
-                        if (members.size >= if (atomic) 100 else 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+                        if (members.size >= if (atomic) PlayBatches.MAX_AUTOMATED else 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
                         members += previous; previous = tree.nodes[previous.parentId]
                     }
                 }
@@ -41,8 +41,8 @@ object SelectiveUndo {
                     ?: return@run GameplayTreeChange(reason = "noCandidate")
                 val atomic = PlayBatches.isMember(target)
                 val members = if (target.invocationId == null) 1 else queue.asReversed()
-                    .take(if (atomic) 101 else 52).takeWhile { it.mutation.invocationId == target.invocationId && it.mutation.branchId == target.branchId }.size
-                if (members > if (atomic) 100 else 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+                    .take(if (atomic) PlayBatches.MAX_AUTOMATED + 1 else 52).takeWhile { it.mutation.invocationId == target.invocationId && it.mutation.branchId == target.branchId }.size
+                if (members > if (atomic) PlayBatches.MAX_AUTOMATED else 51) return@run GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
                 if (atomic) budget.remaining = members * 51
                 var candidate = tree
                 val keys = mutableSetOf<GameplayTreeKey>()
@@ -175,10 +175,14 @@ object SelectiveUndo {
         val later = suffix(tree, successor, children)
             ?: return GameplayTreeChange(reason = "suffixUnavailable", targetId = target.id)
         if (later.size > 50 || !budget.spend(later.size + 1)) return GameplayTreeChange(reason = "tooFarBack", targetId = target.id)
+        // I-D26: the clock as the game stands now, before the redone event goes back to its old place.
+        val head = tree.stateAt(later.lastOrNull()?.id ?: target.parentId) ?: return GameplayTreeChange(reason = "historyUnavailable")
         var state = beforeSuffix(tree, later, target.parentId) ?: return GameplayTreeChange(reason = "historyUnavailable")
         if (!tree.referencesMatch(target)) return GameplayTreeChange(reason = "referenceBlocked", targetId = target.id)
-        // Exact target transition FIRST, even if there is no suffix. No fresh arithmetic/defaults/targets.
-        val restored = GameplayHistory.recontextualize(state, target)
+        // Exact target transition FIRST, even if there is no suffix. No fresh arithmetic/defaults/targets, except
+        // (rules v36, I-D26) fresh timestamps, so stamp order follows the real order of events.
+        val restored = MtgFacts.freshStamps(GameplayHistory.recontextualize(state, target),
+            maxOf(MtgFacts.clock(head.board), MtgFacts.clock(state.board)))
         state = tree.replay(state, restored) ?: return GameplayTreeChange(reason = "targetTransitionBlocked", targetId = target.id)
         var nodes = tree.nodes.putShared(target.id, restored)
         if (successor != null) nodes = nodes.putShared(successor.id, successor.copy(parentId = target.id))

@@ -48,7 +48,7 @@ internal class MoveArrivalTracker(private val viewer: String) {
             before.currentNodeId != play.currentNodeId && before.board.effectiveAttentionHolder != viewer &&
             play.board.effectiveAttentionHolder == viewer && event?.id == play.currentNodeId &&
             (event.author != viewer || event.action == PlayAction.NextStep || event.action == PlayAction.EndTurn ||
-                event.action is PlayAction.ChooseStep)
+                event.action is PlayAction.ChooseStep || event.action is PlayAction.BeginTurn)
         previous = play
         wasLive = live
         return arrived

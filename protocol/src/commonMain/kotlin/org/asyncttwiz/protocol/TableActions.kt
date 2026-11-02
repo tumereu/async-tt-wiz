@@ -78,13 +78,17 @@ object TableActions {
         }
         val from = board.turn
         val position = TurnPosition.of(from) ?: return reject("inapplicable")
-        val nextTurn = action == PlayAction.EndTurn || (action == PlayAction.NextStep && position == TurnPosition.CLEANUP)
+        val nextTurn = action == PlayAction.EndTurn || action is PlayAction.BeginTurn ||
+            (action == PlayAction.NextStep && position == TurnPosition.CLEANUP)
         val to = if (nextTurn) {
             val other = board.players.singleOrNull { it.accountId != from.accountId } ?: return reject("inapplicable")
             if (board.players.none { it.accountId == from.accountId }) return reject("inapplicable")
             if (!from.number.matches(Regex("[1-9][0-9]*"))) return reject("inapplicable")
             val number = addNumber(from.number, "1") ?: return reject("invalidInput")
-            TurnState(other.accountId, number)
+            // I-D12: the turn change names whose turn begins (an extra turn names the same player).
+            val next = (action as? PlayAction.BeginTurn)?.accountId ?: other.accountId
+            if (board.players.none { it.accountId == next }) return reject("missingReference")
+            TurnState(next, number)
         } else {
             val chosen = when (action) {
                 PlayAction.NextStep -> TurnPosition.entries[position.ordinal + 1]

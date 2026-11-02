@@ -243,6 +243,7 @@ object GameplayHistory {
                 }
                 is StackAction.CopyEffect -> if (stack.entryId !in CombatStackRules.stack(board).cards ||
                     GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false
+                is StackAction.AddAbility -> if (GameplayRules.stackDigest(state) != stack.expectedStackDigest) return false
                 is StackAction.SetController -> if (board.players.none { it.accountId == stack.accountId }) return false
                 is StackAction.MarkText -> if (stack.entryId !in CombatStackRules.stack(board).cards) return false
                 is StackAction.ToggleTextMark -> if (stack.entryId !in CombatStackRules.stack(board).cards) return false

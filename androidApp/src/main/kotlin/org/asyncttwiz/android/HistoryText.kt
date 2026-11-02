@@ -281,6 +281,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         is PlayAction.SetStatus -> text(if (action.text.isEmpty()) "Status cleared" else "Status → ${historyStatusText(action.text)}", "Status")
         PlayAction.NextStep -> turn("Next step")
         PlayAction.EndTurn -> turn("End turn")
+        // Rules v36 (I-D12): "Turn N → name" as for End turn; an extra turn names the same player again.
+        is PlayAction.BeginTurn -> turn("Begin turn")
         is PlayAction.ChooseStep -> turn("Choose step", action.position)
         is PlayAction.RollDie -> text("d${historyPlainText(action.sides)} → ${action.value}", "Roll d${historyPlainText(action.sides)}")
         is PlayAction.FlipCoin -> text(coinResultText(action.value), "Flip coin")
@@ -397,6 +399,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 text("Cast ${card(stack.sourceId).let { if (it == "A card") "a card" else it }} face down", "Cast")
                 else text("${card(stack.sourceId)} effect → Stack", "Add effect")
             is StackAction.CopyEffect -> text("${card(stack.entryId)} copied → Stack top", "Copy effect")
+            // Rules v36 (I-D13): an ability whose source isn't on the table, named as its shown card.
+            is StackAction.AddAbility -> text("${historyPlainText(stack.definition.definition.name).ifBlank { "An ability" }} ability → Stack", "Add ability")
             is StackAction.SetController -> text("${card(stack.occurrenceId)} Stack controller → ${historyPlayerName(stack.accountId, usernames)}", "Controller")
             is StackAction.ToggleTextMark -> {
                 val removing = stack.optionIndex in before?.board?.stackTextMarks?.get(stack.entryId).orEmpty()
@@ -421,6 +425,10 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 ?: "${card(mtg.card.cardId)} unattached", "Attach")
             is MtgAction.SetStackItem -> text("${card(mtg.entryId)} Stack choices recorded", "Stack choices")
             is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord -> text("Automatum records updated", "Automatum")
+            MtgAction.ClearRecords -> text("Automatum data cleared", "Automatum")
+            is MtgAction.SetSkipWhenNoChoice -> text("${playerPrefix(event.author)}Skip when no choice ${if (mtg.on) "on" else "off"}", "Automatum")
+            // Never recorded: it changes nothing when it applies.
+            is MtgAction.Expect -> text("Automatum board checked", "Automatum")
         }
         is PlayAction.DeclineResult -> text("Result declined", "Decline result")
         is PlayAction.WithdrawResult -> text("Result withdrawn", "Withdraw result")

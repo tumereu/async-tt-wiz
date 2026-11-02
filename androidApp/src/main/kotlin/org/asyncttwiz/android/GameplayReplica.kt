@@ -178,7 +178,7 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
     }
     /** The same bounded inverse/forward traversal as authoritative processing, including selective controls. */
     private fun predictChange(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
-        if (!command.action.isPlay && command.action != GameAction.Undo && command.action != GameAction.Redo)
+        if (!command.action.isGameplay)
             return GameplayTreeChange(reason = "predictionUnavailable")
         return HistoryContinuation.change(tree, actor, command)
     }

@@ -34,5 +34,10 @@ internal fun refusalText(reason: String?): String = when (reason) {
     // SYS-053
     RuleRefusals.REAL_CARD_ON_STACK -> "A card can't go into the Stack itself. Put it on the Stack as an entry instead; the card stays where it is."
     RuleRefusals.OFF_BATTLEFIELD -> "That card isn't on the battlefield. Damage, notes and until-end-of-turn marks go only on battlefield cards."
+    // SYS-059
+    RuleRefusals.AUTOMATUM_MANUAL_STACK -> "Automatum can't take over a Stack with hand-made entries. Resolve or remove them first."
+    RuleRefusals.AUTOMATUM_TEMP_PILES -> "Automatum can't take over Temp piles. Empty them first."
+    // SYS-062
+    RuleRefusals.FLOW_OPEN -> "Automatum is in the middle of something. Finish it or switch Automatum off before going back."
     else -> "This game has changed. Refresh and try again."
 }

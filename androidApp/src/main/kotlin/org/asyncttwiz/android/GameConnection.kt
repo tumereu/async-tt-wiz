@@ -73,7 +73,7 @@ class SocketGameConnection(private val origin: String) : GameConnection {
             override fun onOpen(webSocket: WebSocket, response: Response) = listener.opened()
             override fun onMessage(webSocket: WebSocket, text: String) {
                 val message = runCatching {
-                    require(text.toByteArray().size <= 1048576)
+                    require(text.toByteArray().size <= GameWire.MAX_MESSAGE_BYTES)
                     GameWire.json.decodeFromString<GameServerMessage>(text)
                 }.getOrNull()
                 if (message == null) { webSocket.cancel(); listener.disconnected(false, "invalidServerMessage") } else listener.message(message)

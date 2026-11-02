@@ -81,7 +81,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         @Volatile private var lastTraffic = System.nanoTime()
         override fun onOpen(session: Session, config: EndpointConfig) {
             this.session = session
-            session.maxTextMessageBufferSize = 1048576
+            session.maxTextMessageBufferSize = GameWire.MAX_MESSAGE_BYTES
             session.maxIdleTimeout = 90000
             session.asyncRemote.sendTimeout = 5000
             sockets.add(this)
@@ -207,7 +207,7 @@ class GameHub @JvmOverloads constructor(private val runtime: ServiceRuntime,
         @Synchronized private fun sendText(text: String) {
             if (stopped) return
             val size = text.encodeToByteArray().size
-            if (outgoing.size >= 256 || bytes + size > 4 * 1024 * 1024) { stop(); return }
+            if (outgoing.size >= 256 || bytes + size > 2 * GameWire.MAX_MESSAGE_BYTES) { stop(); return }
             outgoing.addLast(text); bytes += size
             if (!sending) { sending = true; sendNext() }
         }

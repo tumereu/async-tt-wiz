@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 2
+const val GAME_PROTOCOL_MINOR = 3
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -24,6 +24,9 @@ const val GAME_PROTOCOL_MINOR = 2
 @Serializable sealed interface GameAction {
     @Serializable @SerialName("undo") data object Undo : GameAction
     @Serializable @SerialName("redo") data object Redo : GameAction
+    /** Rules v36 (I-D19): takes the open Automatum flow back to where it began, every event since its start in order
+     * whoever made it, as one server process ([FlowRevert]); sent when Automatum is switched off during a flow. */
+    @Serializable @SerialName("revertFlow") data object RevertFlow : GameAction
     @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
     /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent for manual play. */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -79,7 +82,7 @@ const val GAME_PROTOCOL_MINOR = 2
 @Serializable sealed interface GameServerMessage
 @Serializable @SerialName("welcome") data class GameWelcome(val protocolMajor: Int = 1, val minor: Int = GAME_PROTOCOL_MINOR,
     val engineVersion: Int = 1, val readFormat: Int = 1, val heartbeatSeconds: Int = 30,
-    val commandBytes: Int = 1048576, val pendingRequests: Int = 1024,
+    val commandBytes: Int = GameWire.MAX_MESSAGE_BYTES, val pendingRequests: Int = 1024,
     val gameplayRulesVersion: Int = 1) : GameServerMessage
 @Serializable @SerialName("upgradeRequired") data class GameUpgradeRequired(val protocolMajor: Int = 1) : GameServerMessage
 @Serializable data class GameRequestStatus(val requestId: String, val status: String, val result: GameResult? = null)
@@ -119,9 +122,12 @@ const val GAME_PROTOCOL_MINOR = 2
 
 /** Future actions extend this same typed envelope, not a second lifecycle/gameplay queue. */
 object GameWire {
+    /** The largest game socket message either way (I-D14): an automated batch of [PlayBatches.MAX_AUTOMATED] members
+     * and the revision that answers it, at a few KB per member. */
+    const val MAX_MESSAGE_BYTES = 8 * 1024 * 1024
     val json = DeckJson.format
     fun decodeClient(text: String): GameClientMessage {
-        require(text.encodeToByteArray().size <= 1048576)
+        require(text.encodeToByteArray().size <= MAX_MESSAGE_BYTES)
         StrictGameJson.check(text)
         return json.decodeFromString(text)
     }
@@ -141,11 +147,12 @@ object GameWire {
         } else if (command.action is GameAction.AcceptResult) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             require(DeckValidation.uuid(command.action.suggestionId))
-        } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo) {
+        } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo ||
+            command.action == GameAction.RevertFlow) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action) &&
                 command.action.tag?.let(MtgTag::valid) != false)
-            if (command.action is GameAction.PlayBatch) require(command.action.actions.size in 1..100 &&
+            if (command.action is GameAction.PlayBatch) require(command.action.actions.size in 1..PlayBatches.limit(command.action) &&
                 command.action.actions.all(GameplayRules::valid) && command.action.tags.size <= command.action.actions.size &&
                 command.action.tags.all { it?.let(MtgTag::valid) != false })
         } else {

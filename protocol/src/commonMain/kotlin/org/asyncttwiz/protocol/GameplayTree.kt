@@ -250,6 +250,9 @@ import kotlin.concurrent.Volatile
         // A retained future also exists beyond an explicitly activated internal current pointer.
         // Merely viewing/arming never reaches this code. Allocate metadata only after real success.
         val forks = target != currentNodeId || index().children[target].orEmpty().isNotEmpty()
+        // Rules v36 (I-D23): no branch starts while an Automatum flow is open, live or at the branch point.
+        if (forks && (Automatum.flowOpen(state.board) || stateAt(currentNodeId)?.board?.let(Automatum::flowOpen) == true))
+            return GameplayTreeChange(reason = RuleRefusals.FLOW_OPEN)
         val branchId = if (forks) CommandIds.uuidV5(command.requestId, "history-branch") else currentBranchId
         val reseeds = if (forks) LibraryKnowledge.reseeds(state, actor) else emptyList()
         val reseeded = LibraryKnowledge.applyReseeds(state, reseeds, false) ?: return GameplayTreeChange(reason = "historyUnavailable")

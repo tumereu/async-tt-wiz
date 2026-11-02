@@ -16,7 +16,10 @@ import kotlinx.serialization.Serializable
     /** Rules v36: typed player counters (poison, energy, …), sorted by kind. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val typedCounters: List<TypedCounter> = emptyList(),
     /** Rules v36: the engine's opaque player ledger (D22). */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val ledger: String = "")
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val ledger: String = "",
+    /** Rules v36 (I-D18): this player's "Skip when I have no choice", on unless they turned it off
+     * ([MtgAction.SetSkipWhenNoChoice]); the engine reads it whoever's client makes the call. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val skipWhenNoChoice: Boolean = true)
 
 /** Rules v26: a player's own status shown in a bubble by their life total (up to 512 characters since rules v30;
  * the limit only ever grew, so every recorded status stays valid). */

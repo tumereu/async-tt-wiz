@@ -50,6 +50,9 @@ import kotlinx.serialization.json.*
     @Serializable @SerialName("nextStep") data object NextStep : PlayAction
     @Serializable @SerialName("passAttention") data object PassAttention : PlayAction
     @Serializable @SerialName("endTurn") data object EndTurn : PlayAction
+    /** Rules v36 (I-D12): ends this turn and begins [accountId]'s, which may be the same player's again (an extra turn,
+     * CR 500.7): the turn number goes up by one and the turn starts at Untap, as [EndTurn] does for the other player. */
+    @Serializable @SerialName("beginTurn") data class BeginTurn(val accountId: String) : PlayAction
     /** [through] (rules v33, [StepRun]): a later step of this turn passed on the way inside one multi-step
      * advance. It never changes attention and never ends a history group; it only records that step. */
     @Serializable @SerialName("chooseStep") data class ChooseStep(val position: TurnPosition,
@@ -145,7 +148,13 @@ object RuleRefusals {
     const val REAL_CARD_ON_STACK = "realCardOnStack"
     /** Damage or an until-end-of-turn mark (or a note) on a card that isn't on the Battlefield. */
     const val OFF_BATTLEFIELD = "offBattlefield"
-    val ALL = setOf(REAL_CARD_ON_STACK, OFF_BATTLEFIELD)
+    /** I-D15: Automatum can't be turned on while the Stack holds a manual entry. */
+    const val AUTOMATUM_MANUAL_STACK = "automatumManualStack"
+    /** I-D15: Automatum can't be turned on while a Temp pile holds cards. */
+    const val AUTOMATUM_TEMP_PILES = "automatumTempPiles"
+    /** I-D23: no branch starts while an Automatum flow is open. */
+    const val FLOW_OPEN = "flowOpen"
+    val ALL = setOf(REAL_CARD_ON_STACK, OFF_BATTLEFIELD, AUTOMATUM_MANUAL_STACK, AUTOMATUM_TEMP_PILES, FLOW_OPEN)
 }
 
 /** The sole gameplay processor, used for volatile prediction and authoritative execution alike. */
@@ -164,6 +173,7 @@ object GameplayRules {
         is PlayAction.SetStatus -> PlayerStatus.valid(action.text)
         is PlayAction.SetTempPile -> DeckValidation.uuid(action.accountId) && action.number in 2..TempPiles.COUNT
         PlayAction.PassAttention, PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.FlipCoin -> true
+        is PlayAction.BeginTurn -> DeckValidation.uuid(action.accountId)
         is PlayAction.RollDie -> action.sides.matches(Regex("[1-9][0-9]*")) &&
             action.sides.toIntOrNull()?.let { action.value in 1..it } == true
         is PlayAction.Manual -> ManualEditRules.valid(action)
@@ -227,7 +237,8 @@ object GameplayRules {
         val change = execute(prepared, actor, resolved, references)
         var mutation = change.mutation ?: return change
         val next = change.state ?: return change
-        if (mutation.action == PlayAction.NextStep || mutation.action == PlayAction.EndTurn || mutation.action is PlayAction.ChooseStep)
+        if (mutation.action == PlayAction.NextStep || mutation.action == PlayAction.EndTurn || mutation.action is PlayAction.ChooseStep ||
+            mutation.action is PlayAction.BeginTurn)
             mutation = mutation.copy(transition = mutation.transition.copy(reads = mutation.transition.reads +
                 GameplayRead(state.id, GameplayField.TURN_PLAYER, state.board.turn.accountId)))
         mutation.transition.contents?.to?.takeIf { mutation.action is PlayAction.ShowContents }?.let { display ->
@@ -347,7 +358,7 @@ object GameplayRules {
             is PlayAction.SetKeepTopRevealed, is PlayAction.Mulligan, is PlayAction.ShuffleLibrary, is PlayAction.ShowContents, is PlayAction.DismissContents,
             is PlayAction.RevealContentsCard, is PlayAction.ReorderContents ->
                 return LibraryRules.change(state, actor, command, action)
-            PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep,
+            PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.BeginTurn,
             is PlayAction.RollDie, is PlayAction.FlipCoin,
             is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter ->
                 return TableActions.change(state, actor, command, action)
@@ -388,8 +399,7 @@ object GameplayRules {
         val cleanup = (if (rulesVersion >= 17) TurnMarks.clear(state.board, resolved) else resolved)
             .let { if (rulesVersion >= EnteredTurn.RULES_VERSION) EnteredTurn.stamp(state.board, it) else it }
         val closed = CombatStackRules.closeInvariants(state.board, cleanup, rulesVersion)
-            ?.let { if (rulesVersion >= Automatum.RULES_VERSION) MtgFacts.after(state.board, it, action) else it }
-            ?: return GameplayChange(reason = "invalidStructure")
+            ?.let { if (rulesVersion >= Automatum.RULES_VERSION) MtgFacts.after(state.board, it, action) else it }            ?: return GameplayChange(reason = "invalidStructure")
         // At most one newly exposed card per library, recorded in this transition, never a new event.
         val topDisclosures = closed.containers.filter { it.zone == PlayZone.LIBRARY && it.keepTopRevealed }.mapNotNull { library ->
             val id = library.cards.firstOrNull() ?: return@mapNotNull null

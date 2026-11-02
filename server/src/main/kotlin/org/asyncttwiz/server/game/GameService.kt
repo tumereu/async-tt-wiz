@@ -270,7 +270,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         var saved = processingStarted
         try {
         val before = game.revision!!
-        val isGameplay = command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo
+        val isGameplay = command.action.isGameplay
         var treeDelta: GameplayTreeDelta? = null
         var createdMutation: GameplayMutation? = null
         var batchMutations: List<GameplayMutation> = emptyList()

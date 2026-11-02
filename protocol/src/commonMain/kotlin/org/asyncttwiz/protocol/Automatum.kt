@@ -5,7 +5,7 @@ package org.asyncttwiz.protocol
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.*
 
 /**
  * Rules v36 (Arcanum integration spec §4, phase I0): the shared game state and events ATW keeps for the Arcanum rules
@@ -41,6 +41,22 @@ object Automatum {
     const val MAX_LIST = 1000
     /** The id of the one open continuation of a shared flow (D58, I-D11); private flows stay on the device. */
     const val CONTINUATION_ID = "continuation"
+    /** The highest timestamp an event may give or name (2^53 − 1, exact in JSON numbers everywhere): a stamp beyond it
+     * is refused, so no event can push the clock ([MtgFacts.clock]) to overflow. */
+    const val MAX_TIMESTAMP = 9_007_199_254_740_991L
+
+    /** Whether a shared flow is open: the board holds the continuation (I-D8). */
+    fun flowOpen(board: BoardState): Boolean = board.engineRecords.any { it.id == CONTINUATION_ID }
+
+    /** I-D15: why Automatum can't be turned on now (a [RuleRefusals] code), or null when it can: the Stack holds a
+     * manual entry (one without a structured item, STK-016) or a Temp pile holds cards (D38). */
+    fun turnOnRefusal(board: BoardState): String? {
+        val stack = board.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
+        val entries = board.stackEffects.associateBy { it.id }
+        if (stack.any { entries[it]?.item == null }) return RuleRefusals.AUTOMATUM_MANUAL_STACK
+        if (board.containers.any { it.temp && it.cards.isNotEmpty() }) return RuleRefusals.AUTOMATUM_TEMP_PILES
+        return null
+    }
 
     /** Empty, or one JSON value of at most [MAX_DATA_BYTES] without NUL characters. */
     fun data(value: String): Boolean = value.isEmpty() || DeckValidation.text(value) &&
@@ -144,8 +160,21 @@ object Automatum {
 /** Rules v36 events of the engine's state. Each `Set…` names the value it expects ([before]) and the one it sets
  * ([after]); it is refused ("inapplicable") when the current value differs, and does nothing when they are equal. */
 @Serializable sealed interface MtgAction {
-    /** The Automatum switch for the whole game, both players (D20, I-D4); always applies. */
+    /** The Automatum switch for the whole game, both players (D20, I-D4). Turning it on is refused while the Stack holds
+     * a manual entry or a Temp pile holds cards (I-D15, [Automatum.turnOnRefusal]), and gives the Battlefield's and
+     * Exile's cards that have no timestamp yet (games begun before rules v36) stamps in a stated order
+     * ([MtgFacts.stampUnstamped]). Turning it off always applies and closes an open flow's continuation; effect records
+     * stay (I-D24). */
     @Serializable @SerialName("setAutomatum") data class SetAutomatum(val on: Boolean) : MtgAction
+    /** "Clear Automatum data" (I-D24): removes every engine record (effects, delayed triggers, the open continuation, …)
+     * and the priority holder. Always applies; changes nothing when there is nothing to clear. */
+    @Serializable @SerialName("clearRecords") data object ClearRecords : MtgAction
+    /** The actor's own "Skip when I have no choice" (I-D18, [PlayPlayer.skipWhenNoChoice]); only its player changes it. */
+    @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
+    /** #4 (SYS-010, SYS-057): the first member of an automated batch names the board it was planned on
+     * ([MtgFacts.digest]). It changes nothing and records no event when the board is that one; otherwise it is refused,
+     * and with it the whole batch, so a batch planned on another board is never applied. */
+    @Serializable @SerialName("expect") data class Expect(val board: String) : MtgAction
     @Serializable @SerialName("setPriority") data class SetPriority(val before: MtgPriority?, val after: MtgPriority?) : MtgAction
     @Serializable @SerialName("setManaPool") data class SetManaPool(val accountId: String, val before: List<PoolMana>,
         val after: List<PoolMana>) : MtgAction
@@ -180,17 +209,20 @@ object MtgRules {
         is MtgRef.StackItem -> Automatum.name(ref.id)
     }
 
+    /** #8 (P8): a stamp lies within 0..[Automatum.MAX_TIMESTAMP]. */
+    fun stamp(value: Long): Boolean = value in 0..Automatum.MAX_TIMESTAMP
+
     private fun valid(counter: TypedCounter?, kind: String) = counter == null ||
-        counter.kind == kind && counter.count > 0 && counter.timestamp >= 0
+        counter.kind == kind && counter.count > 0 && stamp(counter.timestamp)
 
     private fun valid(record: EngineRecord?, id: String) = record == null || record.id == id && Automatum.data(record.data) &&
-        (record.timestamp ?: 0) >= 0 && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID)
+        stamp(record.timestamp ?: 0) && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID)
 
     private fun valid(item: MtgStackItem?) = item == null || valid(item.id) && DeckValidation.uuid(item.controller) &&
         (item.ability?.let(Automatum::name) ?: true) && (item.source?.let(::valid) ?: true) &&
         item.targets.size <= Automatum.MAX_LIST && item.targets.all { (slot, refs) -> Automatum.name(slot) && refs.all(::valid) } &&
         item.modes.size <= Automatum.MAX_LIST && item.modes.all { it >= 0 } &&
-        item.values.size <= Automatum.MAX_LIST && item.values.keys.all(Automatum::name) && item.timestamp >= 0 && Automatum.data(item.data)
+        item.values.size <= Automatum.MAX_LIST && item.values.keys.all(Automatum::name) && stamp(item.timestamp) && Automatum.data(item.data)
 
     private fun valid(priority: MtgPriority?) = priority == null || priority.passes >= 0 &&
         (priority.holder?.let(DeckValidation::uuid) ?: true)
@@ -199,14 +231,15 @@ object MtgRules {
         pool.all { it.color in PoolMana.COLORS && Automatum.data(it.data) }
 
     fun valid(action: MtgAction): Boolean = when (action) {
-        is MtgAction.SetAutomatum -> true
+        is MtgAction.SetAutomatum, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice -> true
+        is MtgAction.Expect -> DeckValidation.digest(action.board)
         is MtgAction.SetPriority -> valid(action.before) && valid(action.after)
         is MtgAction.SetManaPool -> DeckValidation.uuid(action.accountId) && valid(action.before) && valid(action.after)
         is MtgAction.SetCounter -> (action.holder is MtgRef.Card || action.holder is MtgRef.Player) && valid(action.holder) &&
             Automatum.name(action.kind) && valid(action.before, action.kind) && valid(action.after, action.kind)
         is MtgAction.Attach -> valid(action.card) && (action.before?.let(::valid) ?: true) && (action.after?.let(::valid) ?: true)
         is MtgAction.Restamp -> DeckValidation.uuid(action.cardId) &&
-            listOf(action.before, action.after).all { it.zoneChanges >= 0 && it.timestamp >= 0 }
+            listOf(action.before, action.after).all { it.zoneChanges >= 0 && stamp(it.timestamp) }
         is MtgAction.SetLedger -> (action.holder is MtgRef.Card || action.holder is MtgRef.Player) && valid(action.holder) &&
             Automatum.data(action.before) && Automatum.data(action.after)
         is MtgAction.SetStackItem -> DeckValidation.uuid(action.entryId) && valid(action.before) && valid(action.after)
@@ -223,7 +256,23 @@ object MtgRules {
         fun players(id: String, change: (PlayPlayer) -> PlayPlayer) =
             board.copy(players = board.players.map { if (it.accountId == id) change(it) else it })
         val next: BoardState = when (action) {
-            is MtgAction.SetAutomatum -> if (board.automatum == action.on) return unchanged else board.copy(automatum = action.on)
+            is MtgAction.SetAutomatum -> when {
+                board.automatum == action.on -> return unchanged
+                action.on -> {
+                    Automatum.turnOnRefusal(board)?.let { return reject(it) }
+                    MtgFacts.stampUnstamped(board)?.copy(automatum = true) ?: return reject("invalidStructure")
+                }
+                // I-D24: switching off closes the open flow; every other record stays.
+                else -> board.copy(automatum = false, engineRecords = board.engineRecords.filterNot { it.id == Automatum.CONTINUATION_ID })
+            }
+            MtgAction.ClearRecords -> if (board.engineRecords.isEmpty() && board.priority == null) return unchanged
+                else board.copy(engineRecords = emptyList(), priority = null)
+            is MtgAction.SetSkipWhenNoChoice -> {
+                val player = player(actor) ?: return reject("missingReference")
+                if (player.skipWhenNoChoice == action.on) return unchanged
+                players(actor) { it.copy(skipWhenNoChoice = action.on) }
+            }
+            is MtgAction.Expect -> return if (MtgFacts.digest(board) == action.board) unchanged else reject("inapplicable")
             is MtgAction.SetPriority -> {
                 if (board.priority != action.before) return reject("inapplicable")
                 if (action.after?.holder != null && player(action.after.holder) == null) return reject("missingReference")
@@ -342,9 +391,93 @@ object MtgFacts {
         else -> emptySet()
     }
 
+    /** #11: [board] with a timestamp for every Battlefield and Exile card that has none (0: games begun before rules
+     * v36, cards that never moved since), above the clock, in this order: the turn it entered the Battlefield
+     * ([PlayCard.enteredTurn], unknown first), then its order in its container, Battlefield before Exile, players in
+     * account order. Null when the stamps would pass [Automatum.MAX_TIMESTAMP]. */
+    internal fun stampUnstamped(board: BoardState): BoardState? {
+        var clock = clock(board)
+        val byId = board.cards.associateBy { it.id }
+        val order = listOf(PlayZone.BATTLEFIELD, PlayZone.EXILE).flatMap { zone ->
+            board.containers.filter { it.zone == zone }.sortedBy { it.accountId }.flatMap { container ->
+                container.cards.mapNotNull(byId::get).filter { it.timestamp == 0L }
+                    .sortedBy { if (zone == PlayZone.BATTLEFIELD) it.enteredTurn.toLongOrNull() ?: 0 else 0 }
+            }
+        }
+        if (order.isEmpty()) return board
+        if (clock > Automatum.MAX_TIMESTAMP - order.size) return null
+        val stamps = order.associate { it.id to ++clock }
+        return board.copy(cards = board.cards.map { card -> stamps[card.id]?.let { card.copy(timestamp = it) } ?: card })
+    }
+
+    /** #4: what an automated batch was planned on ([MtgAction.Expect]): the board without what is only shown (piles
+     * and positions, notes, the six colour counters, marks, statuses, panels, links, the move holder, the result
+     * suggestion, library layers). */
+    fun digest(board: BoardState): String {
+        val json = GameWire.json
+        fun without(element: JsonElement, vararg keys: String) = JsonObject((element as JsonObject).filterKeys { it !in keys })
+        val shown = board.copy(contentsDisplays = emptyList(), links = emptyList(), projectionLinks = emptyList(),
+            resultSuggestion = null, stackTextMarks = emptyMap(), attentionHolder = null)
+        val element = json.encodeToJsonElement(BoardState.serializer(), shown) as JsonObject
+        val reduced = JsonObject(element + mapOf(
+            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters") }),
+            "cards" to JsonArray(element.getValue("cards").jsonArray.map { without(it, "placement", "note", "eotNote", "counters", "knownToAll") }),
+            "containers" to JsonArray(element.getValue("containers").jsonArray.map { without(it, "layers", "keepTopRevealed") }),
+            "stackEffects" to JsonArray(element.getValue("stackEffects").jsonArray.map { without(it, "note") })))
+        return "sha256:" + DeckJson.intent("mtg-board", DeckJson.canonicalElement(reduced))
+    }
+
+    /**
+     * I-D26 (#7): [mutation] (a recorded rules v36 event being redone) with fresh timestamps: every stamp the event gave
+     * (a timestamp its delta sets that its delta didn't hold before: moved and stamped cards, new tokens, counters,
+     * Stack items, records) becomes one more than [above], in the order the event gave them, so stamp order follows the
+     * real order of events although a redo puts the event back at its old place in history. The event's action and
+     * opaque engine data keep the values they were recorded with; only its recorded transition (what replay applies
+     * and checks) changes, and it is sealed again.
+     */
+    internal fun freshStamps(mutation: GameplayMutation, above: Long): GameplayMutation {
+        val delta = mutation.transition.delta ?: return mutation
+        if (mutation.transition.rulesVersion < Automatum.RULES_VERSION) return mutation
+        val kinds = setOf("card", "player", "effect", "record")
+        fun stamps(element: JsonElement?, out: MutableSet<Long>, key: String? = null) {
+            when (element) {
+                is JsonObject -> element.forEach { (k, v) -> stamps(v, out, k) }
+                is JsonArray -> element.forEach { stamps(it, out, key) }
+                is JsonPrimitive -> if (key == "timestamp") element.longOrNull?.let(out::add)
+                else -> Unit
+            }
+        }
+        val given = sortedSetOf<Long>()
+        for (entity in delta.entities) if (entity.kind in kinds) for (value in entity.values) {
+            val leaf = value.path.lastOrNull()
+            val old = mutableSetOf<Long>(); val new = mutableSetOf<Long>()
+            if (leaf == "timestamp") { (value.from as? JsonPrimitive)?.longOrNull?.let(old::add); (value.to as? JsonPrimitive)?.longOrNull?.let(new::add) }
+            else { stamps(value.from, old); stamps(value.to, new) }
+            given += new - old
+        }
+        if (given.isEmpty()) return mutation
+        if (above > Automatum.MAX_TIMESTAMP - given.size) return mutation
+        var next = above
+        val fresh = given.associateWith { ++next }
+        fun rewrite(element: JsonElement?, key: String? = null): JsonElement? = when (element) {
+            is JsonObject -> JsonObject(element.mapValues { (k, v) -> rewrite(v, k)!! })
+            is JsonArray -> JsonArray(element.map { rewrite(it, key)!! })
+            is JsonPrimitive -> if (key == "timestamp") element.longOrNull?.let { fresh[it] }?.let(::JsonPrimitive) ?: element else element
+            else -> element
+        }
+        // A given stamp is above every stamp the board held before the event, so it appears only where the event's
+        // results are recorded: the delta's new values, the concerns' after values, the created tokens.
+        val json = GameWire.json
+        val transition = json.decodeFromJsonElement(GameplayTransition.serializer(),
+            rewrite(json.encodeToJsonElement(GameplayTransition.serializer(), mutation.transition))!!)
+        val restamped = mutation.copy(transition = transition)
+        return restamped.copy(transition = restamped.transition.copy(delta = restamped.transition.delta!!.copy(
+            seal = GameplayDeltas.seal(restamped))))
+    }
+
     /** [to] (the board after [action]) with zone-change counts, timestamps, the fresh facts of new objects and
-     * emptied mana pools. */
-    internal fun after(from: BoardState, to: BoardState, action: PlayAction): BoardState {
+     * emptied mana pools; null when a stamp would pass [Automatum.MAX_TIMESTAMP] (#8). */
+    internal fun after(from: BoardState, to: BoardState, action: PlayAction): BoardState? {
         val old = from.cards.associateBy { it.id }
         val zones = (from.containers + to.containers).associate { it.id to it.zone }
         val shuffled = shuffled(from, action)
@@ -389,6 +522,8 @@ object MtgFacts {
         }
         val turnChanged = from.turn != to.turn
         val players = if (!turnChanged) to.players else to.players.map { if (it.manaPool.isEmpty()) it else it.copy(manaPool = emptyList()) }
+        // #8: the clock can't run past its end (a stamp above it would never be valid again).
+        if (clock > Automatum.MAX_TIMESTAMP) return null
         return to.copy(cards = cards, players = players)
     }
 

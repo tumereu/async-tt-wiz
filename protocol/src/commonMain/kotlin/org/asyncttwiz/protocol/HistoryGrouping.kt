@@ -120,7 +120,7 @@ object HistoryGrouping {
             is PlayAction.SetCorner, is PlayAction.AdjustCorner, is PlayAction.SetEotCorner, is PlayAction.AdjustEotCorner ->
                 pick(HistoryIcon.TRENDING_UP, HistoryIcon.TRENDING_DOWN)
             is PlayAction.SetDamage, is PlayAction.AdjustDamage -> pick(HistoryIcon.LOCAL_FIRE_DEPARTMENT, HistoryIcon.HEALING)
-            PlayAction.EndTurn -> HistoryIcon.SKIP_NEXT
+            PlayAction.EndTurn, is PlayAction.BeginTurn -> HistoryIcon.SKIP_NEXT
             PlayAction.NextStep, is PlayAction.ChooseStep -> if (turnChanged) HistoryIcon.SKIP_NEXT else HistoryIcon.ARROW_FORWARD
             is PlayAction.DismissContents -> HistoryIcon.VISIBILITY_OFF
             is PlayAction.Combat -> when (action.action) {
@@ -184,7 +184,7 @@ object HistoryGrouping {
         is PlayAction.SetLife, is PlayAction.AdjustLife -> HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.FAVORITE)
         is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter ->
             HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
-        PlayAction.EndTurn -> HistorySemantic(HistorySignificance.TURN_TRANSITION, HistoryIcon.OUTLINED_FLAG)
+        PlayAction.EndTurn, is PlayAction.BeginTurn -> HistorySemantic(HistorySignificance.TURN_TRANSITION, HistoryIcon.OUTLINED_FLAG)
         PlayAction.NextStep -> HistorySemantic(if (transition?.fields?.any { it.field == GameplayField.TURN_PLAYER } == true)
             HistorySignificance.TURN_TRANSITION else HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG)
         is PlayAction.ChooseStep -> HistorySemantic(if (action.through && stepRun) HistorySignificance.STEP_PASSED
@@ -250,7 +250,7 @@ object HistoryGrouping {
         }
         is PlayAction.Stack -> when (action.action) {
             is StackAction.MarkText, is StackAction.ToggleTextMark -> HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.FORMAT_INK_HIGHLIGHTER)
-            is StackAction.AddEffect, is StackAction.CopyEffect -> HistorySemantic(HistorySignificance.STACK_ENTRY, HistoryIcon.LAYERS)
+            is StackAction.AddEffect, is StackAction.CopyEffect, is StackAction.AddAbility -> HistorySemantic(HistorySignificance.STACK_ENTRY, HistoryIcon.LAYERS)
             is StackAction.SetController -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.SWAP_HORIZ)
             is StackAction.RemoveEffect -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS_CLEAR)
             is StackAction.ReorderEffect -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.OPEN_WITH)
@@ -265,8 +265,10 @@ object HistoryGrouping {
                 else HistorySignificance.CARD_CORNER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
             is MtgAction.Attach -> HistorySemantic(HistorySignificance.LINK_EDIT, if (mtg.after == null) HistoryIcon.LINK_OFF else HistoryIcon.LINK)
             is MtgAction.SetStackItem -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.LAYERS)
-            is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord ->
+            is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord, MtgAction.ClearRecords, is MtgAction.Expect ->
                 HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.STICKY_NOTE_2)
+            is MtgAction.SetSkipWhenNoChoice -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
+                "automatum", isolated = true)
         }
         is PlayAction.MoveCard -> {
             val fromContainer = containers.single { it.id == action.source.containerId }
@@ -306,7 +308,7 @@ object HistoryGrouping {
                 is PlayAction.Stack -> when (val stack = action.action) {
                     is StackAction.MarkText -> stack.entryId
                     is StackAction.ToggleTextMark -> stack.entryId
-                    is StackAction.AddEffect, is StackAction.CopyEffect -> transition.combatStack?.effects
+                    is StackAction.AddEffect, is StackAction.CopyEffect, is StackAction.AddAbility -> transition.combatStack?.effects
                         ?.firstOrNull { it.from == null && it.to != null }?.id
                     else -> null
                 }

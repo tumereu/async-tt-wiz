@@ -325,7 +325,7 @@ internal object GameplayConcerns {
             }
             is PlayAction.RevealContentsCard -> { entity("contents", a.displayId); entity("card", a.cardId, "faceId") }
             is PlayAction.ReorderContents -> entity("contents", a.displayId)
-            PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep -> {
+            PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.ChooseStep, is PlayAction.BeginTurn -> {
                 // A passed step (rules v33) leaves the move where it is.
                 if ((a as? PlayAction.ChooseStep)?.through != true) fields += ConcernField.Attention
                 entity("turn", "")
@@ -375,6 +375,8 @@ internal object GameplayConcerns {
                 is StackAction.MarkText -> { fields += ConcernField.Options(stack.entryId); fields += ConcernField.StackMember(stack.entryId) }
                 is StackAction.ToggleTextMark -> { fields += ConcernField.Options(stack.entryId); fields += ConcernField.StackMember(stack.entryId) }
                 is StackAction.RemoveEffect -> projection(stack.occurrenceId)
+                // Rules v36 (I-D13): the Stack guard and the sealed delta witness everything it reads.
+                is StackAction.AddAbility -> Unit
                 is StackAction.ReorderEffect -> projection(stack.occurrenceId)
             }
             // Rules v36: the sealed delta witnesses each value set; an object named by its id also concerns that the
@@ -385,7 +387,7 @@ internal object GameplayConcerns {
                 is MtgAction.Attach -> entity("card", mtg.card.cardId, "zoneChanges")
                 is MtgAction.SetStackItem -> fields += ConcernField.StackMember(mtg.entryId)
                 is MtgAction.SetAutomatum, is MtgAction.SetPriority, is MtgAction.SetManaPool, is MtgAction.Restamp,
-                is MtgAction.SetRecord -> Unit
+                is MtgAction.SetRecord, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice, is MtgAction.Expect -> Unit
             }
             is PlayAction.SetFace -> {
                 definition(card(a.cardId).definition)

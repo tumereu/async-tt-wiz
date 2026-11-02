@@ -162,7 +162,6 @@ class Review1EdgeTest {
     /** An ability whose cost needs an object the player doesn't have isn't offered: ninjutsu without an unblocked
      * attacker. */
     // CR 702.49a, 602.2b
-    @Ignore("review1 #1: options list spells and abilities whose targets or cost objects are missing; perform refuses them")
     @Test
     fun ninjutsuWithoutAnAttackerIsntOffered() = scenario {
         alice.battlefield("Island", "Island", "Thicketwood Elves")
@@ -172,7 +171,6 @@ class Review1EdgeTest {
 
     /** A card type choice during resolution lists answers in the options. */
     // D58
-    @Ignore("review1 #12: options list no answer for some open decisions (trigger order, legend rule, card type, card name, discarding two, …)")
     @Test
     fun optionsListAnAnswerForACardTypeChoice() = scenario {
         alice.battlefield("Island", "Island", "Island", "Island")
@@ -185,7 +183,6 @@ class Review1EdgeTest {
 
     /** A card name choice lists answers in the options. */
     // D58
-    @Ignore("review1 #12: options list no answer for some open decisions (trigger order, legend rule, card type, card name, discarding two, …)")
     @Test
     fun optionsListAnAnswerForACardNameChoice() = scenario {
         alice.battlefield("Swamp")

@@ -129,7 +129,6 @@ class Review1PriorityTest {
 
     /** With nothing to counter, a counterspell isn't offered (or is accepted). */
     // CR 601.2c, 115.1
-    @Ignore("review1 #1: options list spells without legal targets; perform refuses them")
     @Test
     fun counterspellWithNothingToCounterIsntListed() = scenario {
         alice.battlefield("Island", "Island")

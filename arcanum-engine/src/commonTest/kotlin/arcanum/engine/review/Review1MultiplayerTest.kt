@@ -36,7 +36,6 @@ class Review1MultiplayerTest {
 
     /** When the active player leaves the game during their turn, the next player in turn order gets priority. */
     // CR 800.4j
-    @Ignore("review1 #17: after the active player leaves, priority and APNAP order start from the first seat, not the next player in turn order")
     @Test
     fun activePlayerLeavesPriorityGoesToTheNext() = scenario(players = 3) {
         turn(number = 2, active = bob)

@@ -100,10 +100,13 @@ internal object Answers {
         else -> null
     }
 
-    /** Whether cost [parts] could be paid: enough objects to choose, enough life. */
+    /** Whether cost [parts] could be paid: enough objects to choose, enough life (CR 119.4), energy, cards to mill. */
     fun payable(plan: Plan, parts: List<CostPart>): Boolean = parts.all { part ->
+        val you = plan.snap.state.player(plan.player)
         when (part) {
-            is CostPart.PayLife -> plan.snap.state.player(plan.player).life >= plan.eval.value(part.amount)
+            is CostPart.PayLife -> you.life >= plan.eval.value(part.amount)
+            is CostPart.PayEnergy -> you.counters(arcanum.api.CounterKind.Energy) >= plan.eval.value(part.amount)
+            is CostPart.Mill -> you.library.size >= plan.eval.value(part.count)
             else -> {
                 val choice = Costs.objectChoice(plan.snap, plan.player, if (plan.isSpell) plan.itemId else null, part, plan.eval)
                 choice == null || choice.options.size >= choice.min

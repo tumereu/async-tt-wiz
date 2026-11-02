@@ -82,7 +82,7 @@ internal object GameEnd {
             recorder.record(Changes.pending(s, null))
             val c = open.continuation
             if (c is Continuation.Announcing && c.player == player) {
-                Casting.cancel(recorder, c)
+                Casting.cancel(recorder, c, player)
                 keep = null
             }
         }

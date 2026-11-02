@@ -229,7 +229,7 @@ class ActivationTest {
         bob.battlefield("Forest")
         alice.activates("Quarry Gouge", ability = 1)
         assertIs<Decision.Targets>(pending)
-        perform(arcanum.engine.input.Input.Cancel)
+        perform(arcanum.engine.input.Input.Cancel(alice.id))
         expect {
             alice.battlefield has "Quarry Gouge"
             "Quarry Gouge".tapped shouldBe false

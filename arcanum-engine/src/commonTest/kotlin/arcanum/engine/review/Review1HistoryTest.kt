@@ -82,7 +82,6 @@ class Review1HistoryTest {
 
     /** A player who already cast a nonartifact spell this turn can't cast another once the restriction arrives. */
     // CR 101.2, 601.3
-    @Ignore("review1 #19: Aetherbound Lawkeeper's restriction never stops a second nonartifact spell (its cube scenario passes only by recasting a card from the graveyard)")
     @Test
     fun castBeforeTheRestrictionCounts() = scenario {
         alice.battlefield("Mountain", "Mountain")
@@ -116,7 +115,6 @@ class Review1HistoryTest {
 
     /** The opponent's Lawkeeper stops a second nonartifact spell cast the same turn. */
     // CR 101.2, 601.3
-    @Ignore("review1 #19: Aetherbound Lawkeeper's restriction never stops a second nonartifact spell (its cube scenario passes only by recasting a card from the graveyard)")
     @Test
     fun lawkeeperStopsTheSecondSpell() = scenario {
         alice.battlefield("Mountain", "Mountain")

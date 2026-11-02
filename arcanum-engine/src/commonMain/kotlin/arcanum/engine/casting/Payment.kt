@@ -334,7 +334,8 @@ internal object Payment {
                     controller = plan.player, timestamp = t, createdTurn = s.turn.number, duration = Duration.Indefinitely)
             })
         }
-        Casting.keepPriority(recorder, plan.player)
+        // CR 608.2g: no player receives priority after a spell cast while another resolves
+        if (!plan.byEffect) Casting.keepPriority(recorder, plan.player)
         return Progress.Done
     }
 

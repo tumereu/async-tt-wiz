@@ -305,7 +305,6 @@ class Chunk26TriggeredEnchantmentsAndPlaneswalkersScenariosTest {
     }
 
     /** [−2]: cast an instant or sorcery with mana value 3 or less from your graveyard; it's exiled afterwards. */
-    @Ignore("engine: casting a card for its costs from an effect (CR 608.2g) is left as a Manual step")
     @Test
     fun igniaRecastsFromTheGraveyard() = scenario {
         alice.battlefield("Mountain", "Ignia, Acolyte of Embers", counters = listOf(CounterKind.Loyalty to 4))

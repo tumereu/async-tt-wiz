@@ -93,7 +93,7 @@ class OptionsTest {
         assertEquals(0, options(alice).count { it is Input.Activate })
     }
 
-    // D58: with a decision open, its answers and (for a cast) Cancel
+    // D58: with a decision open, its answers and (for a cast) Cancel by the caster
     @Test
     fun openDecisionOptions() = scenario {
         alice.battlefield("Mountain")
@@ -101,11 +101,12 @@ class OptionsTest {
         alice.hand("Storm Spark")
         perform(Input.Cast(alice.id, card("Storm Spark")))
         val options = options(alice)
-        assertTrue(Input.Cancel in options)
+        assertTrue(Input.Cancel(alice.id) in options)
         assertEquals(3, options.count { it is Input.Answer })
-        // P7: anyone may answer
-        assertEquals(options, options(bob))
+        // P7: anyone may answer; only the caster cancels their cast
+        assertEquals(options - Input.Cancel(alice.id), options(bob))
         allAccepted(alice)
+        allAccepted(bob)
     }
 
     // §7.8: the mana payment's listed answer is the suggestion

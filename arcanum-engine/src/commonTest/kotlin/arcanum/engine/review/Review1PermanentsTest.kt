@@ -174,7 +174,6 @@ class Review1PermanentsTest {
 
     /** A spell only restricted mana can pay for is offered; one it can't pay for isn't. */
     // CR 106.6, 117.1
-    @Ignore("review1 #18: options leave out spells that only restricted mana (\"spend only on artifact spells\") can pay for")
     @Test
     fun restrictedManaSpellIsOffered() = scenario {
         alice.battlefield("Tinker's Atelier")
@@ -191,7 +190,7 @@ class Review1PermanentsTest {
         alice.battlefield("Stitchwork Porter", "Sinister Rootwork")
         alice.graveyard("Tombscuttler")
         perform(Input.Cast(alice.id, card("Tombscuttler")))
-        performReverting(Input.Cancel)
+        performReverting(Input.Cancel(alice.id))
     }
 
     /** Kicker {X}: Pilfering Skydiver kicked for 2 takes an artifact of mana value 2 or less and wears it if it is

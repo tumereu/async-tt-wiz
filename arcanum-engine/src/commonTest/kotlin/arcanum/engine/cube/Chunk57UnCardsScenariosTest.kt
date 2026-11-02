@@ -126,6 +126,9 @@ class Chunk57UnCardsScenariosTest {
         }
         allPass()
         alice.answers(Answer.YesNo(true))
+        // CR 601.2b: cast by madness its optional costs may still be paid: neither kicker nor buyback
+        alice.answers(Answer.YesNo(false))
+        alice.answers(Answer.YesNo(false))
         alice.answers(Answer.Targets(listOf(target("bob"))))
         alice.answers(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
         expect {

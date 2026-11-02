@@ -392,7 +392,7 @@ class CostsTest {
         perform(Input.Cast(alice.id, card("Storm Spark")))
         answer(Answer.Targets(listOf(target("bob"))))
         assertEquals("{1}{R}", assertIs<Decision.ManaPayment>(pending).cost.toString())
-        perform(Input.Cancel)
+        perform(Input.Cancel(alice.id))
         perform(Input.Cast(alice.id, card("Elvish Seer")))
         assertEquals("{G}", assertIs<Decision.ManaPayment>(pending).cost.toString())
     }

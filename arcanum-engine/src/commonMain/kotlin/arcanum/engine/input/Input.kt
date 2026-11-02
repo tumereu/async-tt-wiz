@@ -11,8 +11,8 @@ import kotlinx.serialization.Serializable
 
 /**
  * What a caller asks the engine to do ([arcanum.engine.Engine.perform], D56). Actions name the player acting; any
- * player may act for another (P7, D11), so the engine never checks who sent it. While a continuation is open only its
- * [Answer] (or [Cancel] for a cast) is accepted.
+ * player may act for another (P7, D11), so the engine never checks who sent it, only that the player named may do it.
+ * While a continuation is open only its [Answer] (or [Cancel] for a cast) is accepted.
  */
 @Serializable
 sealed interface Input {
@@ -46,9 +46,11 @@ sealed interface Input {
     @Serializable @SerialName("answer")
     data class Answer(val decision: DecisionId, val answer: arcanum.engine.decision.Answer) : Input
 
-    /** Cancels the open cast or activation, rewinding everything it did (CR 601.2, D58). */
+    /** [player] cancels their open cast or activation, rewinding everything it did (CR 601.2, D58): only the player
+     * casting or activating may (the input names them, as every action names its player; who sends it is the host's
+     * business, P7). Answers to its decisions may still come from anyone. */
     @Serializable @SerialName("cancel")
-    data object Cancel : Input
+    data class Cancel(val player: PlayerId) : Input
 
     /** Starts a game made by [arcanum.engine.Engine.newGame] (CR 103): starting player, companions, shuffles, opening
      * hands and mulligans, then the first turn ([arcanum.engine.setup.Setup]). */

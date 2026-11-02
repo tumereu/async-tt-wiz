@@ -237,7 +237,6 @@ class Review1ContinuationTest {
     /** Every decision type the engine leaves open lists at least one answer in the options, so a host driving the game
      * by options never gets stuck: ordering triggers. */
     // D58, CR 603.3b
-    @Ignore("review1 #12: options list no answer for some open decisions (trigger order, legend rule, discarding two, …)")
     @Test
     fun optionsListAnAnswerForATriggerOrder() = scenario {
         Cards.invent("Review Bear", "{1}{G}", "Creature — Bear", "", "2/2")
@@ -250,7 +249,6 @@ class Review1ContinuationTest {
 
     /** The same for the legend rule. */
     // D58, CR 704.5j
-    @Ignore("review1 #12: options list no answer for some open decisions (trigger order, legend rule, discarding two, …)")
     @Test
     fun optionsListAnAnswerForTheLegendRule() = scenario {
         alice.battlefield("Velo, Master of Ceremonies", "Velo, Master of Ceremonies")
@@ -261,7 +259,6 @@ class Review1ContinuationTest {
 
     /** The same for "discard two cards". */
     // D58, CR 701.9
-    @Ignore("review1 #12: options list no answer for some open decisions (trigger order, legend rule, discarding two, …)")
     @Test
     fun optionsListAnAnswerForDiscardingTwo() = scenario {
         alice.battlefield("Mountain")

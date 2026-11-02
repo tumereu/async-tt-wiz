@@ -473,8 +473,18 @@ internal class LayerRun(private val state: GameState) {
             }
         }
 
-        staticEffects(board).filter { conditionHolds(board, it) }.forEach { e ->
-            e.mechanics.filter { Layers.layerOf(it, e.cda) == null }.forEach { place(e, it, null) }
+        staticEffects(board).forEach { e ->
+            val mechanics = e.mechanics.filter { Layers.layerOf(it, e.cda) == null }
+            if (mechanics.isEmpty()) return@forEach
+            val affects = e.affects
+            if (affects is Affected.Players && e.condition != null) {
+                // A condition about the affected player ("each player who has cast a nonartifact spell this turn can't
+                // cast …"): checked for each player it would apply to
+                val players = evaluator(board, e).players(affects.players).filter { p ->
+                    Evaluator(board, Context(you = e.you, self = e.self, names = e.names, affectedPlayer = p)).holds(e.condition)
+                }
+                mechanics.forEach { place(e, it, players) }
+            } else if (conditionHolds(board, e)) mechanics.forEach { place(e, it, null) }
         }
         effectObjects(board).forEach { e ->
             val effect = state.effects.getValue(e.effect!!)

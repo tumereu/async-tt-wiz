@@ -137,6 +137,21 @@ internal object Legality {
         return null
     }
 
+    /**
+     * Why [player] can't cast [card] as its [face] while a spell or ability resolves and tells them to (CR 608.2g, 601.3):
+     * the effect allows it, so timing and permissions don't matter, but lands aren't cast (CR 305.9), and an effect
+     * that says they can't (CR 101.2) or the card's own casting condition (CR 601.3e) still stops it.
+     */
+    fun cantCastByEffect(snap: Snapshot, player: PlayerId, card: ObjectId, face: Int): String? {
+        val o = snap.state.obj(card) ?: return "no such card"
+        if (o.unknown) return "unknown card"
+        val f = o.definition?.faces?.getOrNull(face) ?: return "no face $face"
+        if (CardType.Land in f.types) return "lands are played, not cast (CR 305.9)"
+        restriction(snap, player, card, timing = false)?.let { return it }
+        if (cantCastBy(snap, player, card)) return "$player can't cast it"
+        return null
+    }
+
     /** Whether the printed [face] matches a type filter, or null when the filter asks more than types and subtypes. */
     private fun faceMatches(filter: ObjectFilter, face: arcanum.api.FaceDefinition): Boolean? = when (filter) {
         is ObjectFilter.Not -> faceMatches(filter.filter, face)?.not()
@@ -151,15 +166,16 @@ internal object Legality {
             snap.evaluator(applied.controller, self = applied.source, holder = player).matches(m.spells, card)
         }
 
-    /** "Cast this spell only …" (CR 601.3e): the card's own [Mechanic.CastRestriction]s. */
-    private fun restriction(snap: Snapshot, player: PlayerId, card: ObjectId): String? {
+    /** "Cast this spell only …" (CR 601.3e): the card's own [Mechanic.CastRestriction]s; [timing] too unless an effect
+     * has it cast while resolving (CR 608.2g). */
+    private fun restriction(snap: Snapshot, player: PlayerId, card: ObjectId, timing: Boolean = true): String? {
         val abilities = snap.view[card]?.characteristics?.abilities.orEmpty()
         abilities.forEach { inst ->
             val static = inst.ability as? Ability.Static ?: return@forEach
             static.mechanics.filterIsInstance<Mechanic.CastRestriction>().forEach { r ->
                 val eval = snap.evaluator(player, self = card)
                 if (r.condition != null && !eval.holds(r.condition!!)) return "its casting condition isn't met"
-                if (r.timing == Timing.Sorcery && !sorceryTiming(snap, player)) return "only as a sorcery"
+                if (timing && r.timing == Timing.Sorcery && !sorceryTiming(snap, player)) return "only as a sorcery"
             }
         }
         return null

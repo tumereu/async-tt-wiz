@@ -99,7 +99,6 @@ class Review1BlockTriggersTest {
     /** A spell cast by an effect (cascade) needs legal targets like any other: with none, it isn't cast and goes to
      * the bottom with the other exiled cards. */
     // CR 601.2c, 702.85a
-    @Ignore("review1 #22: a spell cast by an effect without paying is put on the Stack even with no legal target (TriggerTest.cascade encodes it)")
     @Test
     fun cascadeIntoASpellWithoutTargets() = scenario {
         alice.battlefield("Forest", "Island", "Forest")

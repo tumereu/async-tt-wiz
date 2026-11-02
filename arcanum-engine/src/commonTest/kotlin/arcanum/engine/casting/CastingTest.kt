@@ -285,7 +285,7 @@ class CastingTest {
         assertIs<Decision.Targets>(pending)
         answer(Answer.Targets(listOf(TargetRef.Player(bob.id))))
         assertIs<Decision.ManaPayment>(pending)
-        perform(Input.Cancel)
+        perform(Input.Cancel(alice.id))
         assertNull(pending)
         expect {
             alice.hand has "Storm Spark"

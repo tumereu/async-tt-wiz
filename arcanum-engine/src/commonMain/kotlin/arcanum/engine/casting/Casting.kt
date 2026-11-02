@@ -14,6 +14,7 @@ import arcanum.engine.decision.Announced
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Choices
 import arcanum.engine.decision.Continuation
+import arcanum.engine.input.CastWay
 import arcanum.engine.input.Input
 import arcanum.engine.state.Bindings
 import arcanum.engine.state.NamedValue
@@ -97,10 +98,12 @@ internal object Casting {
         return advance(recorder, continuation.copy(choices = choices), start)
     }
 
-    /** [Input.Cancel]: takes back an open cast or activation, everything it did, last first (CR 601.2, D58). */
-    fun cancel(recorder: Recorder, continuation: Continuation): Progress {
+    /** [Input.Cancel]: [player] takes back their open cast or activation, everything it did, last first (CR 601.2,
+     * D58). Only the player casting or activating it may. */
+    fun cancel(recorder: Recorder, continuation: Continuation, player: arcanum.engine.state.PlayerId): Progress {
         val open = continuation as? Continuation.Announcing
             ?: throw IllegalArgumentException("Only a cast or an activation can be cancelled")
+        require(open.player == player) { "Only ${open.player} can cancel what they are casting or activating, not $player" }
         open.made.asReversed().forEach { recorder.record(Change.Reverted(it)) }
         return Progress.Done
     }
@@ -112,7 +115,9 @@ internal object Casting {
             val plan = Plan(recorder.state, c)
             val q = plan.next() ?: return Payment.finish(recorder, c, emptyList(), from)
             // CR 601.2c, 601.2h: without enough legal targets or objects to pay with, it can't be cast or activated:
-            // the input (or answer) is refused; an open cast can still be cancelled
+            // the input (or answer) is refused; an open cast can still be cancelled. Everything known so far is checked,
+            // not only the next question, so a cast isn't begun that can't be finished.
+            plan.blocker(q)?.let { throw IllegalArgumentException(it) }
             when {
                 q is Question.Target && q.options.size < q.min ->
                     throw IllegalArgumentException("Not enough legal targets for ${q.slot.key}: ${q.options.size} of ${q.min}")
@@ -129,6 +134,71 @@ internal object Casting {
             val decision = plan.decision(q, decisionId(recorder.state, "cast:${q.stage}:${q::class.simpleName}"))
             return Progress.Waiting(Pending(decision, c.copy(stage = q.stage, made = c.made + recorder.madeSince(from))))
         }
+    }
+
+    /**
+     * [player] casts [card] while a spell or ability resolves (CR 608.2g): the steps of CR 601.2a–i on the same [Plan] as
+     * [cast], on the effect's terms: without paying its mana cost ([withoutPaying], an alternative cost, CR 118.9; X is
+     * then 0, CR 107.3b), for [cost] instead of its mana cost (madness, CR 702.35a), or else for its own mana cost. Its
+     * face is chosen when it has several to cast (CR 709.3, 715.3, 712.11); modes, optional and additional costs, X,
+     * targets, objects for costs and mana are asked with [act]'s decisions, redone with their answers (D29); a target
+     * slot with only as many legal targets as it needs takes them without asking (P5). Nobody gets priority afterwards.
+     * Returns the spell, or null when it can't be cast (a prohibition, too few legal targets or objects for its costs, no
+     * mana to pay with; CR 101.2, 601.2c, 601.2h, 118.3): then nothing about it happened and the card stays where it is.
+     */
+    fun castByEffect(act: arcanum.engine.action.Act, player: arcanum.engine.state.PlayerId, card: ObjectId,
+                     withoutPaying: Boolean, cost: arcanum.api.Cost?): ObjectId? {
+        val o = act.state.obj(card) ?: return null
+        val snap = Snapshot(act.state)
+        val faces = Legality.castableFaces(o).filter { Legality.cantCastByEffect(snap, player, card, it) == null }
+        if (faces.isEmpty()) return null
+        val face = if (faces.size == 1) faces.single() else {
+            val names = faces.map { o.definition!!.faces[it].name }
+            val chosen = names.indexOf(act.chooseOption(player, card, names))
+            require(chosen >= 0) { "Not a face of ${o.definition?.faces?.firstOrNull()?.name}" }
+            faces[chosen]
+        }
+        val mark = act.recorder.changes.size
+        fun cannot(): ObjectId? {
+            act.recorder.rollback(mark)
+            return null
+        }
+        // CR 601.2a: the card moves to the Stack with the face cast up
+        act.record(Changes.move(act.state, listOf(card), Zone.Stack, controller = player))
+        val onStack = (card as ObjectId.Card).next()
+        val now = act.state.objOrThrow(onStack)
+        if (face != now.face) act.record(Change.Face(onStack, now.face, face))
+        val terms = arcanum.api.Mechanic.MayPlay(o.zone, PlayKind.Cast, cost = cost, withoutPaying = withoutPaying && cost == null,
+            holder = arcanum.api.PlayerFilter.You)
+        var c = Continuation.Announcing(player, Announced.Spell(onStack, CastWay(face), terms, byEffect = true), AnnounceStage.Modes,
+            Choices(names = Bindings.EMPTY.with(Plan.FROM, NamedValue.Option(Plan.zoneName(o.zone)))))
+        while (true) {
+            val plan = Plan(act.state, c)
+            val q = plan.next()
+            if (plan.blocker(q) != null) return cannot()
+            if (q == null) break
+            if (q is Question.Pay) {
+                // CR 118.3: a cost that can't be paid isn't; the spell then can't be cast
+                if (!plan.cantSpendMana && plan.manaWays.isEmpty() &&
+                    arcanum.engine.mana.Mana.suggest(plan.snap, player, q.cost, plan.itemId).isEmpty()) return cannot()
+                val uses = (act.asker.ask { plan.decision(q, it) } as? Answer.ManaPayment)?.uses
+                    ?: throw IllegalArgumentException("Expected a mana payment")
+                Payment.finish(act.recorder, c, uses, mark)
+                return onStack
+            }
+            val answer = Answers.automatic(plan, q) ?: forcedByEffect(plan, q) ?: act.asker.ask { plan.decision(q, it) }
+            c = c.copy(choices = Answers.apply(plan, q, answer))
+        }
+        Payment.finish(act.recorder, c, emptyList(), mark)
+        return onStack
+    }
+
+    /** Answers a spell cast by an effect takes without asking: X is 0 when no cost paid includes it (CR 107.3b); a target
+     * slot with no more legal targets than it needs takes them all (P5, as a trigger's does). */
+    private fun forcedByEffect(plan: Plan, q: Question): Answer? = when {
+        q is Question.Announce && q.name == "X" && !Costs.mentionsX(plan.contributions) -> Answer.Number(0)
+        q is Question.Target && q.options.isNotEmpty() && q.options.size <= q.min -> Answer.Targets(q.options)
+        else -> null
     }
 
     /** CR 117.3c: a player who casts, activates or takes a special action receives priority afterwards. */

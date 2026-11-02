@@ -94,10 +94,13 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
             (inst.ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.AlternativeCost>()?.firstOrNull()?.let { inst to it }
         }
 
-    /** The permission used to cast it from elsewhere than the hand (D41): found by where it was granted. */
-    val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = way.permission?.let { p ->
-        (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p)
-    }
+    /** Cast while another spell or ability resolves (CR 608.2g). */
+    val byEffect: Boolean = (c.what as? Announced.Spell)?.byEffect == true
+
+    /** The permission used to cast it from elsewhere than the hand (D41): found by where it was granted; for a spell
+     * cast by an effect, the effect's terms. */
+    val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = if (byEffect) (c.what as Announced.Spell).permitted?.let { it to null }
+        else way.permission?.let { p -> (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p) }
 
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
     val bestowed = alternative?.second?.keyword == Keyword.Bestow.Kind
@@ -335,6 +338,40 @@ internal class Plan(base: GameState, val c: Continuation.Announcing) {
         }
         if (isManaAbility) colorQuestion()?.let { return it }
         if (total.hasMana) return Question.Pay(total.mana)
+        return null
+    }
+
+    /**
+     * Why the cast or activation can't be finished whatever is chosen from here (CR 601.2c, 601.2h, 119.4), or null:
+     * the [next] question is a target slot without enough legal targets (later slots may depend on earlier targets or
+     * on X, so they are checked as they come), or a cost part of the total known so far has too few objects to use (or
+     * objects that can't reach the total it asks), an "A or B" cost has no payable option, or it asks more life, energy
+     * or cards to mill than there are (values not announced yet count as 0). Mana is paid with a decision and isn't
+     * checked here.
+     */
+    fun blocker(next: Question? = next()): String? {
+        if (next is Question.Target && next.options.size < next.min) {
+            return "Not enough legal targets for ${next.slot.key}: ${next.options.size} of ${next.min}"
+        }
+        total.parts.forEach { kp ->
+            val part = kp.part
+            if (part is CostPart.OneOf) {
+                if (part.options.none { option -> Answers.payable(this, option.parts) }) return "None of ${labels(part)} can be paid"
+                return@forEach
+            }
+            if (choices.names[OBJECTS + kp.key] == null) {
+                Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { choice ->
+                    if (choice.options.size < choice.min) {
+                        return "Not enough to ${choice.text.lowercase()}: ${choice.options.size} of ${choice.min}"
+                    }
+                    choice.total?.let { t ->
+                        val most = choice.options.sumOf { eval.property(t.property, it).coerceAtLeast(0) }
+                        if (most < eval.value(t.atLeast)) return "Their total ${t.property} can't reach ${eval.value(t.atLeast)}"
+                    }
+                }
+            }
+            if (!Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
+        }
         return null
     }
 

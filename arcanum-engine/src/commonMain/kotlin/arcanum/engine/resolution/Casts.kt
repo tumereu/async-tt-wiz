@@ -26,11 +26,11 @@ import arcanum.engine.state.TurnCount
 import arcanum.engine.view.AbilityOrigin
 
 /**
- * Casting from an effect ([Effect.Cast]: cascade, rebound, suspend, "you may cast it without paying its mana cost",
- * CR 608.2g): a spell cast without paying its mana cost is put on the Stack here with its modes and targets (CR 601.2,
- * 118.9; X is 0, CR 107.3b). Casting for a mana cost (madness) announces the spell, then pays the mana; casting for
- * other costs, or for its mana cost, is done by hand until the casting flow ([arcanum.engine.casting.Casting]) offers an
- * entry point for effects.
+ * Casting from an effect ([Effect.Cast]: cascade, rebound, suspend, madness, "you may cast it", CR 608.2g): each card
+ * is cast with the casting flow's own plan ([arcanum.engine.casting.Casting.castByEffect]) on the effect's terms; one
+ * that can't be cast (no legal targets, a cost it can't pay) isn't, and is left out of [Effect.Cast.bind] so the
+ * effect's "if you don't" part applies to it. A land is played instead when the effect says play (CR 305.1).
+ * [announceOrNull] chooses a triggered ability's modes and targets as it is put on the Stack (CR 603.3d).
  */
 internal object Casts {
     fun castByEffect(scope: Scope, effect: Effect.Cast) {
@@ -48,55 +48,15 @@ internal object Casts {
                     meanings = listOf(Meaning.PlayedLand))))
                 continue
             }
-            // A mana cost instead of its mana cost (madness, CR 702.35a): announced, then paid as when casting (CR 601.2g–h)
-            val cost = effect.cost
-            if (cost != null && cost.parts.all { it is arcanum.api.CostPart.Mana }) {
-                putOnStack(act, scope.cause.key, caster, id)?.let { spell ->
-                    Costs.pay(scope, caster, cost)
-                    cast += spell
-                }
-                continue
-            }
-            if (!effect.withoutPaying || effect.cost != null) {
-                act.manual(caster, id, "Cast ${c.name ?: "it"}" + (effect.cost?.let { " for ${Costs.describe(it)}" } ?: ""))
-                continue
-            }
-            putOnStack(act, scope.cause.key, caster, id)?.let { cast += it }
+            arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost)?.let { cast += it }
         }
         scope.bind(effect.bind, NamedValue.Objects(cast))
     }
 
-    /** Puts the card [id] on the Stack as a spell cast by [caster] without paying its mana cost (CR 601.2, 118.9),
-     * choosing its modes and targets; returns the spell's id. */
-    fun putOnStack(act: Act, key: String, caster: PlayerId, id: ObjectId): ObjectId? {
-        val from = act.state.obj(id)?.zone ?: return null
-        val face = act.state.obj(id)?.definition?.faces?.firstOrNull() ?: return null
-        val spellIndex = face.abilities.indexOfFirst { it is Ability.Spell }
-        val ability = face.abilities.getOrNull(spellIndex) as? Ability.Spell
-        val instructions = ability?.instructions ?: Instructions()
-        val choices = announce(act, caster, id, instructions)
-        val moved = Actions.move(act, null, listOf(PlannedMove(id, Zone.Stack, controller = caster)))
-        val spell = moved[id] ?: return null
-        val o = act.state.objOrThrow(spell)
-        act.record(Change.Facts(spell, o.facts, o.facts.copy(castFrom = from, x = 0, modesChosen = choices.first)))
-        val item = StackItem(
-            id = spell, kind = StackItemKind.Spell, controller = caster, source = spell, ability = ability,
-            origin = if (spellIndex >= 0) AbilityOrigin.Printed(0, spellIndex) else null,
-            targets = choices.second, modes = choices.first, announced = mapOf("X" to 0), timestamp = act.state.nextTimestamp(),
-        )
-        act.record(Change.StackItemAdded(item, null, listOf(Meaning.Cast)))
-        return spell
-    }
-
-    /** Modes (CR 700.2) and targets (CR 601.2c) for [instructions] of a spell or ability controlled by [controller]. */
-    fun announce(
-        act: Act, controller: PlayerId, source: ObjectId?, instructions: Instructions, names: Bindings = Bindings.EMPTY,
-        self: ObjectId? = null,
-    ): Pair<List<Int>, Map<String, List<TargetRef>>> = announceOrNull(act, controller, source, instructions, names, self, required = false)!!
-
     /**
-     * Like [announce]; with [required], null when a target slot that needs a target has none (a triggered ability is then
-     * removed from the Stack, CR 603.3d).
+     * Modes (CR 700.2) and targets (CR 601.2c) for [instructions] of a triggered ability controlled by [controller];
+     * with [required], null when a target slot that needs a target has none (it is then removed from the Stack,
+     * CR 603.3d).
      */
     fun announceOrNull(
         act: Act, controller: PlayerId, source: ObjectId?, instructions: Instructions, names: Bindings, self: ObjectId?, required: Boolean,

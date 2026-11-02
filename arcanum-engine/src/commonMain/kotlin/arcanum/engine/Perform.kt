@@ -45,9 +45,9 @@ internal object Perform {
                     recorder.record(Changes.pending(recorder.state, null))
                     resume(recorder, open.continuation, input.answer)
                 }
-                Input.Cancel -> {
+                is Input.Cancel -> {
                     recorder.record(Changes.pending(recorder.state, null))
-                    Casting.cancel(recorder, open.continuation)
+                    Casting.cancel(recorder, open.continuation, input.player)
                 }
                 else -> throw IllegalArgumentException("Waiting for ${open.decision::class.simpleName}: only its answer is accepted (D58)")
             }
@@ -62,7 +62,7 @@ internal object Perform {
                 is Input.StartGame -> Setup.start(recorder, input)
                 is Input.Concede -> error("Conceding is handled above")
                 is Input.Answer -> throw IllegalArgumentException("No decision is open")
-                Input.Cancel -> throw IllegalArgumentException("Nothing to cancel")
+                is Input.Cancel -> throw IllegalArgumentException("Nothing to cancel")
             }
         }
         val final = if (progress is Progress.Done) afterAction(recorder) else progress

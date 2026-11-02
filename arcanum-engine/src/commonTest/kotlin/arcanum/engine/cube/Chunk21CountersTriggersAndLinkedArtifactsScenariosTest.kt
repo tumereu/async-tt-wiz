@@ -192,7 +192,8 @@ class Chunk21CountersTriggersAndLinkedArtifactsScenariosTest {
      * Samurai and exiles another as it leaves. */
     @Test
     fun prototypeReplicator() = scenario {
-        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain")
+        // A fifth Mountain to pay for the card it exiles (options list a cast only when its mana can be found)
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
         alice.hand("Prototype Replicator")
         alice.library("Forest", "Storm Spark")
 

@@ -187,16 +187,20 @@ class TriggerTest {
     }
 
     // CR 702.85a: cascade exiles until a cheaper nonland card, which may be cast without paying; the rest go to the bottom
+    // CR 601.2c: cast like any spell, it needs a legal target (Review1BlockTriggersTest.cascadeIntoASpellWithoutTargets)
     @Test
     fun cascade() = scenario {
         alice.hand("Splintered Envoy")
         alice.library("Forest", "Sudden Rot", "Storm Spark", "Island")
+        bob.battlefield("Thicketwood Elves")
 
         alice.castsWithoutCosts("Splintered Envoy")
         resolve()
         // Sudden Rot (mana value 2) is the first nonland card with lower mana value: cast it?
         answer(Answer.YesNo(true))
+        // Its only legal target is chosen without asking (P5)
         expect { stack.names shouldBe listOf("Splintered Envoy", "Sudden Rot") }
+        assertEquals(listOf(target("Thicketwood Elves")), state.stackItems.getValue(card("Sudden Rot")).targets.values.single())
         expect {
             alice.library.names shouldBe listOf("Storm Spark", "Island", "Forest")
         }

@@ -219,7 +219,7 @@ class Review1CastingTest {
         val before = state.deepCopy()
         perform(Input.Cast(alice.id, card("Tombscuttler")))
         assertTrue(pending is Decision.ManaPayment)
-        perform(Input.Cancel)
+        perform(Input.Cancel(alice.id))
         assertSameAs(before)
     }
 
@@ -238,7 +238,7 @@ class Review1CastingTest {
             is Decision.ChooseObjects -> answer(Answer.Objects(listOf(card("Island"))))
             else -> fail("Unexpected $d")
         }
-        perform(Input.Cancel)
+        perform(Input.Cancel(alice.id))
         assertSameAs(before)
     }
 

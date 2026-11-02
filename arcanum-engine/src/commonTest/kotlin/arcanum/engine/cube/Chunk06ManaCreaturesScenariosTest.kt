@@ -171,7 +171,7 @@ class Chunk06ManaCreaturesScenariosTest {
             val inst = view()[card(exarch)]!!.characteristics!!.abilities.first { it.ability is arcanum.api.Ability.Activated }
             perform(Input.Activate(alice.id, card(exarch), inst.origin))
             assertEquals(colors, decision<Decision.ChooseColor>().among)
-            perform(Input.Cancel)
+            perform(Input.Cancel(alice.id))
         }
         alice.activates(exarch, color = colors.last())
         assertEquals(listOf<Color?>(colors.last()), alice.pool.map { it.color })

@@ -64,7 +64,7 @@ internal object Triggers {
 
     /** Finds what [change] triggers (CR 603.2) and records it as waiting. [before] is the game just before it, for
      * look-back events. */
-    fun detect(recorder: Recorder, change: Change, before: GameState?) {
+    fun detect(recorder: Recorder, change: Change, before: GameState?, viewBefore: View? = null) {
         if (change is Change.TriggersWaiting || change is Change.DelayedTriggerRemoved || change is Change.DelayedTriggerAdded) return
         val state = recorder.state
         val now = Engine.view(state)
@@ -72,7 +72,7 @@ internal object Triggers {
         val seen = mutableSetOf<String>()
         // CR 603.10a: look back for leaving the battlefield and the other look-back events
         if (before != null) {
-            val then = Engine.view(before)
+            val then = viewBefore ?: Engine.view(before)
             sources(before, then).forEach { s ->
                 seen += "${s.id}/${s.origin.key}"
                 found += check(state, ViewBoard(before, then), now, change, s, lookBack = true)

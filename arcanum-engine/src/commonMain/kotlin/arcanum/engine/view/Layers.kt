@@ -57,7 +57,10 @@ import arcanum.engine.state.StackItemKind
  * the other would change whether it exists, what it applies to, or what it does to them.
  */
 internal object Layers {
-    fun view(state: GameState): View = LayerRun(state).run()
+    fun view(state: GameState): View {
+        val cache = state.viewCache ?: return LayerRun(state).run()
+        return cache.view ?: LayerRun(state).run().also { cache.view = it }
+    }
 
     /** The layer a mechanic applies in; a characteristic-defining P/T applies in 7a (CR 613.4a). */
     fun layerOf(mechanic: Mechanic, characteristicDefining: Boolean): Layer? = when {
@@ -271,10 +274,11 @@ internal class LayerRun(private val state: GameState) {
         val byTimestamp = pool.sortedWith(compareBy({ it.timestamp }, { it.key }))
         if (pool.size == 1) return pool.single()
         val changes = pool.filter { a -> changesBoard(board, resolved[a]) }
+        val beyondPowerToughness = changes.filterNot { a -> resolved[a].isPowerToughnessOnly() }
         val dependsOn = pool.associate { b ->
             val bAlone = resolved[b]
-            b.key to changes.filter { a ->
-                a !== b && (!resolved[a].isPowerToughnessOnly() || resolved.readsPowerToughness(b)) && run {
+            b.key to (if (resolved.readsPowerToughness(b)) changes else beyondPowerToughness).filter { a ->
+                a !== b && run {
                     val after = board.copy()
                     apply(after, resolved[a])
                     resolve(after, b, layer) != bAlone

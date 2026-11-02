@@ -149,14 +149,22 @@ object Meanings {
  * After each event change, the triggered abilities it triggers are found ([arcanum.engine.trigger.Triggers.detect],
  * CR 603.2), looking back in time where CR 603.10 says, and recorded as waiting; then what the event took out of combat
  * is removed from it ([arcanum.engine.combat.Combat.removeWhatLeft], CR 506.4). */
-internal class Recorder(val state: GameState) {
+internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = null) {
     val changes = mutableListOf<Change>()
 
+    init {
+        // The recorder's state is its own (D56): its view is kept until a change can make it differ. [view], when given,
+        // is the view of [state] as it is.
+        state.viewCache = arcanum.engine.view.ViewCache(view)
+    }
+
     fun record(change: Change) {
-        val before = if (change.isEvent && arcanum.engine.trigger.Triggers.looksBack(change)) state.deepCopy() else null
+        val lookBack = change.isEvent && arcanum.engine.trigger.Triggers.looksBack(change)
+        val before = if (lookBack) state.deepCopy() else null
+        val viewBefore = if (lookBack) state.viewCache?.view else null
         state.apply(change)
         changes += change
-        if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before)
+        if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before, viewBefore)
         // CR 506.4: what an event takes out of combat leaves it at once (combat changes set combat as they mean it)
         if (change.isEvent && change !is Change.Combat) arcanum.engine.combat.Combat.removeWhatLeft(this)
     }

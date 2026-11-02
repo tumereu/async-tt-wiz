@@ -14,6 +14,7 @@ import arcanum.engine.state.TargetRef
  */
 internal object Applier {
     fun apply(state: GameState, change: Change) {
+        state.viewCache?.changed(change)
         when (change) {
             is Change.Reverted -> revert(state, change.change)
             else -> {
@@ -24,6 +25,7 @@ internal object Applier {
     }
 
     fun revert(state: GameState, change: Change) {
+        state.viewCache?.changed(change)
         when (change) {
             is Change.Reverted -> apply(state, change.change)
             else -> {

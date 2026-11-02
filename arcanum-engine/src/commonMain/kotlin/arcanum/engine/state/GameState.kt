@@ -58,6 +58,10 @@ data class GameState(
      */
     var viewer: PlayerId? = null,
 ) {
+    /** The engine's cached view of its own working copy (never set on a host's state). */
+    @kotlinx.serialization.Transient
+    internal var viewCache: arcanum.engine.view.ViewCache? = null
+
     // ---- Players
 
     fun player(id: PlayerId): PlayerState = players.firstOrNull { it.id == id } ?: error("No player $id")

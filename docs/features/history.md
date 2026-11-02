@@ -82,6 +82,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-058** Ending the turn or skipping ahead records every step passed on the way as events (rules-accurate: the starting player's first draw step and blockers/damage without attackers are skipped). They stay in one group and one undo, and never pause playback, stop, pass the move or notify. (r33)
 - **HIS-059** A group of only passed steps waits for the same player's next real action in the reached step (e.g. the draw), which leads it; "Untap, draw → main" stays two groups. (r33)
 - **HIS-060** The keep-top-revealed toggle and result suggestions/answers are groups of their own. (r13)
+- **HIS-092** History events are natural branching points: at least one each time a player could act. With Automatum, an automated step's engine bookkeeping (object stamps, engine ledgers and records, Stack choices) and the priority changes nobody made themselves (passes the app made for a player, priority given after a resolution or a step) are folded into the step's visible event before them: the strip shows that event once, the cursor, Previous/Next and playback never stop inside it, and a group never reads as its bookkeeping. A step's first event and a pass a player made themselves are always shown. Manual history is unchanged. (r36)
 
 ### Event texts
 
@@ -93,7 +94,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-066** Random moves read e.g. "Discarded X at random", "Exiled X from hand at random", "Put … on top of library in random order"; moves made during a search add "(after search)". (r33)
 - **HIS-067** A group of card moves merges same-kind moves into one text, joined with "; " ("Drew Shock, Opt, 2 cards; Discarded a card"), listing every card the viewer saw; longer than 180 characters ends in "…". Other groups read as their most important event. (r33)
 - **HIS-068** Other texts include "Moved to <step>", "Turn N → <player>", "Move passed → <player>", "d20 → 14", "Heads / win" / "Tails / loss", "Mulligan to N", "Status → <first 48 characters>…", "Library searched → N cards" and "Search closed → Library shuffled". (r34)
-- **HIS-091** The Automatum switch reads "Automatum turned on" / "Automatum turned off"; other Automatum events read plainly ("Priority → bob", "Mana → RG", "X +1/+1 counters 1 → 2", "Automatum records updated") until the engine's own history lines are built. (r36)
+- **HIS-091** The Automatum switch reads "Automatum turned on" / "Automatum turned off"; other Automatum events read plainly ("Priority → bob", "Mana → RG", "X +1/+1 counters 1 → 2", "Automatum records updated") until the engine's own history lines are built. An emblem reads like a status: "Emblem → " and the first 48 characters of its text, "alice's Emblem → …" when someone else made it, and "Emblem removed". (r36)
 - **HIS-069** Texts are made when the event is applied and also exist for older moves; when the app lacks the board context it says only "X moved", never a guessed zone. (r30)
 
 ### Event icons

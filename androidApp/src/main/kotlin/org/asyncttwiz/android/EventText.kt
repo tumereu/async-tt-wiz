@@ -59,7 +59,7 @@ internal fun eventGroupText(nodes: Map<String, GameplayMutation>, shown: PlaySta
         after = before
     }
     ids.reverse()
-    return historyGroupText(ids, last.id, texts)
+    return historyGroupText(ids, last.id, texts) { nodes[it]?.grouping?.folded == true }
 }
 
 /** Personal presentation only: what the shown board's latest group was. Timeline mode shows every

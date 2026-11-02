@@ -65,6 +65,9 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-061** One automated batch (one Automatum step) may hold up to 1000 actions and is still all-or-nothing and one Undo; a batch a player's own action makes holds up to 100. (r36)
 - **SYS-062** No branch can start while an Automatum flow is open, whether from the live game or from a point inside the flow: "Automatum is in the middle of something. Finish it or switch Automatum off before going back." (r36)
 - **SYS-063** Each player has their own "Skip when I have no choice" setting, kept in the game and on unless they turn it off; only that player changes it, and whoever's device runs Automatum follows it. The app has no control for it yet. (r36)
+- **SYS-064** A card whose card data Automatum can't read plays with its printed values (name, cost, colour indicator, the types it knows, P/T, loyalty, defense) and its whole rules text as one ability carried out by hand, instead of keeping Automatum from running. (r36)
+- **SYS-065** A spell Automatum casts face down (morph and the like) gets a face-down Stack entry as in STK-005 and becomes a face-down permanent; nothing Automatum sends or keeps in the game names it, so the opponent sees only its back. Manual face-down casts are unchanged. (r36)
+- **SYS-066** An emblem Automatum makes (CR 114) is kept in the game with whose it is and its text, for its chip by the life square (TRN-053). (r36)
 
 ### Player access policy
 

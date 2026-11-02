@@ -200,7 +200,10 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   closing the continuation (I-D15, I-D24, #11); `PlayPlayer.skipWhenNoChoice` with `MtgAction.SetSkipWhenNoChoice`
   for the actor (I-D18); `GameAction.RevertFlow` (`FlowRevert`, I-D19); `MtgAction.ClearRecords` (I-D24); forks
   refused while a continuation is open (I-D23); `MtgTag.board`, the planned board's digest on a batch's first member
-  (#4).
+  (#4); `MtgTag.folded`, honoured on a batch's later bookkeeping members (`MtgFacts.folds`: SetPriority, Restamp,
+  SetLedger, SetStackItem, SetRecord but emblems) as `HistorySemantic.folded`, which joins the group before it and
+  which the timeline never shows or stops at (I-D22); `EngineRecordKind.Emblem` with `EngineRecord.player` and
+  `text` (I-D25).
 
 ### 4.6 The mapping (built in I0, module `automatum/`)
 
@@ -222,6 +225,14 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   definitions)`. A card's definition and its printed abilities are written as references to the game's card data of
   that card (tokens' written out), so tags stay small and name no hidden card.
 - **Order:** the Battlefield and Exile are rebuilt in timestamp order; the timestamp counter is ATW's clock.
+- **I0 review decisions (built, lane 2b):** a card without an engine definition (the device couldn't read it) gets
+  `PrintedCards.definition`, its printed values and its rules text as one `Ability.Unparsed` (I-D21); a face-down cast
+  has a face-down entry (`AddEffect(faceDown)`, STK-005) and the spell's object reads `faceDown` from it, and the
+  continuation names cards' definitions by reference like tags (#5); an emblem is the record `emblem:<id>` holding
+  its object, shown by its text (the quoted ability of what made it when its abilities carry no text, I-D25); the
+  planner tags bookkeeping and priority changes other than a player's own pass (`EngineCall.perform(input,
+  automatic)`, `ownPasses`) folded (I-D22). Saved decks' and cubes' old card data is rebuilt from the catalog once per
+  account (`CardDataRefresh`, `CardDataRefreshRun`, I-D21).
 
 ## 5. The Automatum switch
 

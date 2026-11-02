@@ -16,6 +16,9 @@ import arcanum.engine.state.PriorityState
 import arcanum.engine.state.StackItem
 import arcanum.engine.state.TargetRef
 import arcanum.engine.state.TurnState
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
 import org.asyncttwiz.protocol.Automatum
 import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.CardVisibility
@@ -69,6 +72,10 @@ object EngineState {
 
         val objects = LinkedHashMap<ObjectId, GameObject>()
         val byId = board.cards.associateBy { it.id }
+        // I-D21: a card the device couldn't read plays with its printed values and manual abilities
+        val printed = mutableMapOf<String, CardDefinition?>()
+        fun definition(card: PlayCard): CardDefinition? = definitions[card.definition]
+            ?: printed.getOrPut(card.definition) { PrintedCards.definition(state, card) }
         for (card in board.cards) {
             val container = containers.getValue(card.containerId)
             val ledger = CardLedger.of(card.ledger)
@@ -81,11 +88,12 @@ object EngineState {
                 owner = PlayerId(ledger.ownerOverride ?: Derived.owner(state, card)),
                 controller = when (val c = ledger.controllerOverride) { null -> derivedController; "" -> null; else -> PlayerId(c) },
                 zone = zone,
-                definition = ledger.definition ?: definitions[card.definition],
+                definition = ledger.definition ?: definition(card),
                 face = ledger.faceOverride ?: Derived.face(state, card),
                 token = card.token,
                 tapped = card.tapped,
-                faceDown = card.isFaceDown,
+                // A spell's card stays in its ATW zone (STK-001): a spell cast face down is face down by its entry (STK-005)
+                faceDown = spell?.faceDown ?: card.isFaceDown,
                 phasedOut = ledger.phasedOut,
                 marks = ledger.marks,
                 counters = EngineCodec.ordered(card.typedCounters, ledger.counterOrder),
@@ -107,6 +115,8 @@ object EngineState {
             val cards = container.cards.filter { it !in spells }.map { id -> ObjectId.Card(ids.engine(id), byId.getValue(id).zoneChanges) }
             return if (zone == PlayZone.GRAVEYARD) cards.reversed() else cards
         }
+        // Emblems live only in their records (I-D25): ATW has no command zone
+        board.engineRecords.filter(EngineCodec::isEmblem).map(EngineCodec::emblem).forEach { objects[it.id] = it }
         fun byTimestamp(zone: Zone) = objects.values.filter { it.zone == zone }.sortedWith(Derived.order).map { it.id }
 
         val turnExtras = records[EngineCodec.TURN]?.let { EngineCodec.decode(TurnExtras.serializer(), it.data) } ?: TurnExtras()
@@ -128,6 +138,7 @@ object EngineState {
             battlefield = byTimestamp(Zone.Battlefield).toMutableList(),
             stack = entries.reversed().map(::stackId).toMutableList(),
             exile = byTimestamp(Zone.Exile).toMutableList(),
+            command = byTimestamp(Zone.Command).toMutableList(),
             stackItems = LinkedHashMap(entries.reversed().mapNotNull { e -> items[e.id]?.let { it.id to it } }.toMap()),
             effects = LinkedHashMap(board.engineRecords.filter(EngineCodec::isEffect).map(EngineCodec::effect).associateBy { it.id }),
             delayedTriggers = LinkedHashMap(board.engineRecords.filter(EngineCodec::isDelayed).map(EngineCodec::delayed).associateBy { it.id }),
@@ -137,7 +148,7 @@ object EngineState {
             combat = records[EngineCodec.COMBAT]?.let { EngineCodec.decode(combatSerializer, it.data) } ?: lanes(board, ids),
             ledger = records[EngineCodec.LEDGER]?.let { EngineCodec.decode(ledgerSerializer, it.data).toMutableMap() } ?: mutableMapOf(),
             log = log.toMutableList(),
-            pending = records[Automatum.CONTINUATION_ID]?.let { EngineCodec.decode(FlowRecord.serializer(), it.data).pending },
+            pending = records[Automatum.CONTINUATION_ID]?.let { TagCodec.of(state, definitions).decode(FlowRecord.serializer(), it.data).pending },
             timestampCounter = MtgFacts.clock(board),
             triggered = records[EngineCodec.TRIGGERED]?.let { EngineCodec.decode(triggeredSerializer, it.data).toMutableList() } ?: mutableListOf(),
             skipFirstDraw = turnExtras.skipFirstDraw,
@@ -148,40 +159,33 @@ object EngineState {
     /** Whose view an open shared flow was made in (D60): it is resumed in that view. Null when no flow is open or it was
      * made with full information. */
     fun flowViewer(board: BoardState): String? = board.engineRecords.singleOrNull { it.id == Automatum.CONTINUATION_ID }
-        ?.let { runCatching { EngineCodec.decode(FlowRecord.serializer(), it.data).viewer }.getOrNull() }
+        ?.let { runCatching { (EngineCodec.json.parseToJsonElement(it.data).jsonObject["viewer"] as? JsonPrimitive)?.contentOrNull }.getOrNull() }
 
     /**
      * What on [state]'s board the engine can't take over (§5), each as a sentence; empty when [from] can build it:
-     * manual Stack entries (STK-016, no structured item), cards in Temp piles (D38: a manual tool), cards whose card
-     * data the parser couldn't read (unless hidden from [viewer]), and life totals, damage or turn numbers that aren't
-     * plain numbers.
+     * manual Stack entries (STK-016, no structured item), cards in Temp piles (D38: a manual tool), engine data this
+     * version can't read, and life totals, damage or turn numbers that aren't plain numbers. A card whose card data the
+     * parser couldn't read isn't one of them: it plays with its printed values and manual abilities ([PrintedCards],
+     * I-D21). [definitions] and [viewer] are as for [from].
      */
+    @Suppress("UNUSED_PARAMETER")
     fun unsupported(state: PlayState, definitions: Map<String, CardDefinition>, viewer: String? = null): List<String> {
         val board = state.board
         val problems = mutableListOf<String>()
         val entries = entries(board)
         entries.filter { it.item == null }.forEach { problems += "Stack entry ${it.id} is a manual entry" }
         board.containers.filter { it.temp && it.cards.isNotEmpty() }.forEach { problems += "Temp pile ${it.id} holds cards" }
-        val spells = spellCards(board)
         entries.mapNotNull { it.item }.filter { it.kind == MtgStackKind.Spell }.forEach { item ->
             val ref = item.id as? MtgRef.Card
             if (ref == null || board.cards.none { it.id == ref.cardId && it.zoneChanges == ref.zoneChanges })
                 problems += "the spell ${item.id} isn't a card on the board"
         }
         for (card in board.cards) {
-            val ledgerDefinition = runCatching { CardLedger.of(card.ledger).definition }.getOrNull()
-            if (ledgerDefinition == null && card.definition !in definitions) {
-                val zone = if (card.id in spells) Zone.Stack else board.containers.singleOrNull { it.id == card.containerId }?.zone?.let(::zone)
-                val hidden = viewer != null && zone != null && zone != Zone.Battlefield && zone != Zone.Graveyard &&
-                    zone != Zone.Stack && !(zone == Zone.Exile && !card.isFaceDown) &&
-                    !(zone == Zone.Hand && card.owner == viewer) && !CardVisibility.isVisibleFaceUp(board, card, viewer)
-                if (!hidden) problems += "card ${card.id} has no rules definition"
-            }
             if (card.damage.isNotEmpty() && card.damage.toIntOrNull() == null) problems += "card ${card.id} has damage \"${card.damage}\""
         }
         board.players.filter { it.life.toIntOrNull() == null }.forEach { problems += "player ${it.accountId} has life \"${it.life}\"" }
         if (TurnPosition.of(board.turn) == null || board.turn.number.toIntOrNull() == null) problems += "the turn isn't a known step"
-        problems += unreadable(board)
+        problems += unreadable(board, TagCodec.of(state, definitions))
         return problems
     }
 
@@ -189,7 +193,7 @@ object EngineState {
      * The engine data on [board] the engine can't read back (P8: the server checks only that it is JSON; an app update
      * may change its shape, D62): records, Stack items, ledgers, typed counter kinds and mana. Each as a sentence.
      */
-    private fun unreadable(board: BoardState): List<String> {
+    private fun unreadable(board: BoardState, codec: TagCodec): List<String> {
         val problems = mutableListOf<String>()
         fun check(what: String, read: () -> Unit) {
             runCatching(read).onFailure { problems += "$what can't be read by this version of the rules engine (${it.message?.take(120)})" }
@@ -202,7 +206,8 @@ object EngineState {
                 EngineRecordKind.Turn -> EngineCodec.decode(TurnExtras.serializer(), record.data)
                 EngineRecordKind.Combat -> EngineCodec.decode(combatSerializer, record.data)
                 EngineRecordKind.Triggered -> EngineCodec.decode(triggeredSerializer, record.data)
-                EngineRecordKind.Continuation -> EngineCodec.decode(FlowRecord.serializer(), record.data)
+                EngineRecordKind.Continuation -> codec.decode(FlowRecord.serializer(), record.data)
+                EngineRecordKind.Emblem -> EngineCodec.emblem(record)
             }
         }
         for (entry in board.stackEffects) {

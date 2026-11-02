@@ -254,4 +254,42 @@ class AutomatumTest {
         val untagged = GameWire.json.encodeToString(GameAction.serializer(), GameAction.Play(PlayAction.NextStep))
         assertFalse("tag" in untagged)
     }
+
+    // HIS-092 (I-D22): history events are natural branching points, one per possible player action. A batch's engine bookkeeping
+    // tagged folded joins the visible event before it; the batch's first event, emblems and other events never fold.
+    @Test fun foldedBookkeepingJoinsTheBatchsVisibleEvent() {
+        val state = root()
+        val batch = command(GameAction.PlayBatch(listOf(PlayAction.SetTapped(gameplayId(11), true),
+            mtg(MtgAction.SetRecord("effect-1", null, effect)), mtg(MtgAction.SetPriority(null, MtgPriority(b))),
+            mtg(MtgAction.SetRecord("emblem:1", null, EngineRecord("emblem:1", EngineRecordKind.Emblem, 9, "{}", a, "Flying"))),
+            PlayAction.SetTapped(gameplayId(10), true)),
+            listOf(null, MtgTag(folded = true), MtgTag(folded = true), MtgTag(folded = true), MtgTag(folded = true))))
+        var next = state
+        val recorded = (0 until 5).map { i ->
+            val change = GameplayRules.change(next, a, PlayBatches.member(batch, i, (batch.action as GameAction.PlayBatch).actions[i]))
+            assertEquals("accepted", change.outcome, "$i: ${change.reason}")
+            next = change.state!!
+            change.mutation!!
+        }
+        assertEquals(listOf(false, true, true, false, false), recorded.map { it.grouping?.folded == true })
+        assertEquals(recorded[0].bookkeeping!!.toGroup!!.id, recorded[2].bookkeeping!!.toGroup!!.id)
+        assertEquals(recorded[0].bookkeeping!!.toGroup!!.representative, recorded[2].bookkeeping!!.toGroup!!.representative,
+            "never the group's representative")
+        // A folded tag on the batch's first member, or on a single play, is shown as usual
+        val first = command(GameAction.PlayBatch(listOf(mtg(MtgAction.SetPriority(null, MtgPriority(b)))), listOf(MtgTag(folded = true))))
+        assertNotEquals(true, GameplayRules.change(state, a, PlayBatches.member(first, 0,
+            (first.action as GameAction.PlayBatch).actions[0])).mutation!!.grouping?.folded)
+        assertNotEquals(true, change(state, mtg(MtgAction.SetPriority(null, MtgPriority(b))), MtgTag(folded = true)).mutation!!.grouping?.folded)
+        assertTrue(MtgTag.valid(MtgTag(folded = true)))
+    }
+
+    // SYS-066 (I-D25): an emblem record says whose it is and its text; other records say neither
+    @Test fun emblemRecordsCarryTheirPlayerAndText() {
+        val state = root()
+        val emblem = EngineRecord("emblem:1", EngineRecordKind.Emblem, 9, "{}", a, "Creatures you control have flying.")
+        val with = accept(state, mtg(MtgAction.SetRecord("emblem:1", null, emblem))).state!!
+        assertEquals(emblem, with.board.engineRecords.single())
+        for (bad in listOf(emblem.copy(player = null), emblem.copy(player = "nobody"), effect.copy(player = a), effect.copy(text = "x")))
+            assertFalse(MtgRules.valid(MtgAction.SetRecord(bad.id, null, bad)), "$bad")
+    }
 }

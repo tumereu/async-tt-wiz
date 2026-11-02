@@ -106,8 +106,12 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     private val entries: MutableMap<ObjectId, String> = EngineState.entries(atw.board)
         .mapNotNull { e -> e.item?.let { (if (it.data.isEmpty()) ids.obj(it.id)!! else EngineCodec.stackItem(it).id) to e.id } }.toMap().toMutableMap()
 
+    /** The index in [EngineCall.changes] of the change being said. */
+    private var current = 0
+
     fun run(): BatchPlan {
-        for (change in call.changes) {
+        for ((index, change) in call.changes.withIndex()) {
+            current = index
             val logged = engine.log.size
             val objectsBefore = HashMap(engine.objects)
             val cardsBefore = board.cards
@@ -122,7 +126,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             if (actions.size > first) {
                 val tag = tags[first]
                 val data = if (pendingLog.isEmpty()) "" else codec.encode(TagData(pendingLog.toList()))
-                tags[first] = tag(tag?.meanings ?: meanings(change), tag?.causedBy ?: cause(change) ?: pendingCause, data)
+                tags[first] = tag(tag?.meanings ?: meanings(change), tag?.causedBy ?: cause(change) ?: pendingCause, data, tag?.folded == true)
                 pendingLog.clear(); pendingCause = null
             } else if (pendingLog.isNotEmpty()) pendingCause = pendingCause ?: cause(change)
         }
@@ -132,7 +136,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             if (actions.isEmpty()) throw Unmappable("engine events without any ATW action to carry them: ${call.changes}")
             val last = tags.last()
             val earlier = last?.data?.takeIf { it.isNotEmpty() }?.let { codec.decode(it).log }.orEmpty()
-            tags[tags.lastIndex] = tag(last?.meanings.orEmpty(), last?.causedBy ?: pendingCause, codec.encode(TagData(earlier + pendingLog)))
+            tags[tags.lastIndex] = tag(last?.meanings.orEmpty(), last?.causedBy ?: pendingCause, codec.encode(TagData(earlier + pendingLog)),
+                last?.folded == true)
         }
         // #4 (SYS-057): the batch applies only to the board it was planned on; the first member names it.
         if (actions.isNotEmpty()) tags[0] = (tags[0] ?: MtgTag()).copy(board = MtgFacts.digest(call.state.board))
@@ -153,16 +158,30 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     // ---- Playing one member through ATW's reducer
 
-    /** Plays [action] as the next member; false when it changes nothing (then it isn't part of the batch). */
+    /** Plays [action] as the next member; false when it changes nothing (then it isn't part of the batch). Engine
+     * bookkeeping is tagged to be folded into the visible event before it ([folds]). */
     private fun play(action: PlayAction, tag: MtgTag? = null): Boolean {
-        val member = PlayBatches.member(template, actions.size, action)
+        val sent = if (actions.isNotEmpty() && folds(action)) (tag ?: MtgTag()).copy(folded = true) else tag
+        val member = PlayBatches.member(template, actions.size, action).let { if (sent == null) it else it.copy(action = GameAction.Play(action, sent)) }
         val change = GameplayRules.preview(atw, actor, member)
         if (change.reason != null) throw Unmappable("ATW refused $action (${change.reason})")
         if (change.mutation == null) return false
         atw = change.state!!
         actions += action
-        tags += tag
+        tags += sent
         return true
+    }
+
+    /**
+     * Whether [action] is shown inside the visible event before it (I-D22: history events are natural branching points,
+     * one per possible player action; [org.asyncttwiz.protocol.MtgFacts.folds]): engine bookkeeping, and a priority
+     * change that isn't a player's own pass (automatic passes, priority given after a resolution or a step).
+     */
+    private fun folds(action: PlayAction): Boolean = when (val mtg = (action as? PlayAction.Mtg)?.action) {
+        is MtgAction.SetPriority -> current !in call.ownPasses
+        is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetStackItem -> true
+        is MtgAction.SetRecord -> (mtg.before ?: mtg.after)?.kind != EngineRecordKind.Emblem
+        else -> false
     }
 
     private val board get() = atw.board
@@ -204,7 +223,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
                 change.moves.forEach { m ->
                     val at = actions.size
                     move(m)
-                    if (actions.size > at) tags[at] = tag(m.meanings.map(::name), cause(change), "")
+                    if (actions.size > at) tags[at] = tag(m.meanings.map(::name), cause(change), "", tags[at]?.folded == true)
                 }
                 // Several cards into one library or hand: each went next to the cards already there; now the engine's order
                 change.moves.map { it.after }.filter { it.zone == Zone.Library || it.zone == Zone.Hand }
@@ -213,7 +232,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
                         else arrange(container(PlayZone.HAND, owner.value), engine.player(owner).hand)
                     }
             }
-            is Change.Created -> change.objects.forEach { create(it.obj) }
+            is Change.Created -> change.objects.forEach { create(it.obj, change.by) }
             is Change.Removed -> change.objects.forEach { placed ->
                 card(atwId(placed.obj.card))?.takeIf { it.token }?.let { play(PlayAction.RemoveToken(it.id)) }
             }
@@ -234,16 +253,20 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         val card = atwCard(m.before.id)
         when {
             m.to == Zone.Stack -> {
-                // D35 in ATW's terms (STK-001, STK-003): a Stack entry points at the spell's card, which stays put
+                // D35 in ATW's terms (STK-001, STK-003): a Stack entry points at the spell's card, which stays put; a spell
+                // cast face down (CR 702.37c, 708.4) has a face-down entry (STK-005), so nobody else sees what it is
                 val before = board.stackEffects.map { it.id }.toSet()
-                play(PlayAction.Stack(StackAction.AddEffect(card.id, digest())))
+                play(PlayAction.Stack(StackAction.AddEffect(card.id, digest(), faceDown = true.takeIf { m.after.faceDown })))
                 entries[m.after.id] = board.stackEffects.single { it.id !in before }.id
             }
             m.from == Zone.Stack -> {
                 val entry = entries.remove(m.before.id) ?: throw Unmappable("no Stack entry for ${m.before.id}")
                 val destination = destination(m.after, card)
-                if (board.stackEffects.any { it.id == entry }) play(PlayAction.MoveCard(card.id, source(card), destination, removeStackEntryId = entry))
-                else play(PlayAction.MoveCard(card.id, source(card), destination))
+                // A face-down spell becomes a face-down permanent (CR 708.4)
+                val faceDown = true.takeIf { m.after.zone == Zone.Battlefield && m.after.faceDown }
+                if (board.stackEffects.any { it.id == entry }) play(PlayAction.MoveCard(card.id, source(card), destination,
+                    removeStackEntryId = entry, faceDown = faceDown))
+                else play(PlayAction.MoveCard(card.id, source(card), destination, faceDown = faceDown))
             }
             else -> play(PlayAction.MoveCard(card.id, source(card), destination(m.after, card),
                 faceDown = true.takeIf { m.after.zone == Zone.Battlefield && m.after.faceDown }))
@@ -294,7 +317,9 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         }
     }
 
-    private fun create(o: GameObject) {
+    private fun create(o: GameObject, by: arcanum.engine.change.CausedBy?) {
+        // An emblem is only its record (I-D25), which the values bring in
+        if (o.zone == Zone.Command && !o.token) { emblemTexts[o.id] = emblemText(o, by); return }
         if (o.zone != Zone.Battlefield) throw Unmappable("a token created in ${o.zone}")
         val definition = o.definition ?: throw Unmappable("a token without a definition")
         val before = board.cards.map { it.id }.toSet()
@@ -548,15 +573,30 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     private fun records(): List<EngineRecord> {
         fun memo(key: Any, value: Any, encode: () -> EngineRecord): EngineRecord =
             recordMemo[key]?.takeIf { it.first === value }?.second ?: encode().also { recordMemo[key] = value to it }
-        return records(engine, board,
+        return records(engine, board, codec,
             effect = { memo(it.id, it) { EngineCodec.effectRecord(it) } },
-            delayed = { memo(it.id, it) { EngineCodec.delayedRecord(it) } })
+            delayed = { memo(it.id, it) { EngineCodec.delayedRecord(it) } },
+            emblemText = { o -> board.engineRecords.firstOrNull { it.id == EngineCodec.emblemId(o) }?.text
+                ?: emblemTexts[o.id] ?: EngineCodec.emblemText(o) })
+    }
+
+    /** The texts of emblems this call made (I-D25), when their abilities carry none: the quoted ability of what made them. */
+    private val emblemTexts = mutableMapOf<ObjectId, String>()
+
+    private fun emblemText(o: GameObject, by: arcanum.engine.change.CausedBy?): String {
+        EngineCodec.emblemText(o).takeIf { it.isNotEmpty() }?.let { return it }
+        val ability = by?.item?.let { engine.stackItems[it] ?: call.working.stackItems[it] }?.ability
+        val made = ability?.let(AtwTokens::text)
+        // "You get an emblem with "…"." (CR 114.2): the emblem's ability is the quoted text
+        return made?.let { Regex("emblem with \"(.+)\"", RegexOption.DOT_MATCHES_ALL).find(it)?.groupValues?.get(1) ?: it }
+            ?: by?.name?.let { "Emblem of $it" } ?: "Emblem"
     }
 
     // ---- Tags
 
-    private fun tag(meanings: List<String>, cause: MtgCause?, data: String): MtgTag? =
-        MtgTag(meanings.distinct().take(16), cause, data).takeIf { it.meanings.isNotEmpty() || cause != null || data.isNotEmpty() }
+    private fun tag(meanings: List<String>, cause: MtgCause?, data: String, folded: Boolean = false): MtgTag? =
+        MtgTag(meanings.distinct().take(16), cause, data, folded = folded)
+            .takeIf { it.meanings.isNotEmpty() || cause != null || data.isNotEmpty() || folded }
 
     private fun name(meaning: Meaning): String =
         EngineCodec.json.encodeToJsonElement(Meaning.serializer(), meaning).jsonObject["type"]!!.jsonPrimitive.content
@@ -600,11 +640,13 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
 /** The engine values ATW keeps as records (§4.3, [EngineCodec]): one per effect object and delayed trigger, the game
  * ledger, turn and combat facts, waiting triggers and the open flow. */
-internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState,
+internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState, codec: TagCodec,
     effect: (arcanum.engine.state.EffectObject) -> EngineRecord = EngineCodec::effectRecord,
-    delayed: (arcanum.engine.state.DelayedTrigger) -> EngineRecord = EngineCodec::delayedRecord): List<EngineRecord> = buildList {
+    delayed: (arcanum.engine.state.DelayedTrigger) -> EngineRecord = EngineCodec::delayedRecord,
+    emblemText: (GameObject) -> String = EngineCodec::emblemText): List<EngineRecord> = buildList {
     state.effects.values.forEach { add(effect(it)) }
     state.delayedTriggers.values.forEach { add(delayed(it)) }
+    state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, emblemText(it))) }
     if (state.ledger.isNotEmpty()) add(EngineRecord(EngineCodec.LEDGER, EngineRecordKind.Ledger, data = EngineCodec.encode(ledgerSerializer, state.ledger)))
     val turn = TurnExtras(state.turn.landsPlayed, state.turn.turnStarted.takeIf { it != Derived.turnStarted(board) },
         state.turn.extraTurns, state.skipFirstDraw)
@@ -613,5 +655,5 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     if (state.triggered.isNotEmpty())
         add(EngineRecord(EngineCodec.TRIGGERED, EngineRecordKind.Triggered, data = EngineCodec.encode(triggeredSerializer, state.triggered)))
     state.pending?.let { add(EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation,
-        data = EngineCodec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it)))) }
+        data = codec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it)))) }
 }.sortedBy { it.id }

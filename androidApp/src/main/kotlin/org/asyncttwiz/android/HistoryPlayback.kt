@@ -57,6 +57,8 @@ class HistoryTree(val rootId: String, mutations: List<GameplayMutation>, val sha
         return path(endpoint).getOrNull(depth(ancestor)) == ancestor
     }
     internal fun ends(id: String): List<String> { navigationReads++; return index.boundaries.getValue(id).groupEnds }
+    /** The timeline's events on the line ending at [id], each by its visible event (I-D22, [HistoryBoundary.units]). */
+    internal fun units(id: String): List<String> { navigationReads++; return index.boundaries.getValue(id).units }
     fun groups(path: List<String>): Map<String, GameplayGroup> {
         return path.drop(1).associateWith { id -> group(id)!! }
     }

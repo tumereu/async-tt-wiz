@@ -45,20 +45,24 @@ object HistoryTimelineLayout {
     fun events(tree: HistoryTree, endpoint: String): List<HistoryTimelineEvent> {
         return IndexedHistoryEvents(tree, endpoint)
     }
-    internal class IndexedHistoryEvents(private val tree: HistoryTree, endpoint: String) : AbstractList<HistoryTimelineEvent>() {
+    /** The line ending at [endpoint] as the timeline shows it: one event per visible event, the engine bookkeeping
+     * folded into it never shown or stopped at (I-D22). Each event's [HistoryTimelineEvent.id] is where the cursor goes:
+     * its last folded event, so stepping skips what is folded. */
+    internal class IndexedHistoryEvents(private val tree: HistoryTree, private val endpoint: String) : AbstractList<HistoryTimelineEvent>() {
         var projectedEvents = 0; private set
-        private val path = tree.path(endpoint)
-        override val size get() = path.size
-        fun positionOf(id: String): Int = if (tree.contains(id) && path.getOrNull(tree.depth(id)) == id) tree.depth(id) else -1
+        private val units = tree.units(endpoint)
+        override val size get() = units.size
+        fun positionOf(id: String): Int = if (tree.contains(id) && tree.isAncestor(id, endpoint)) tree.units(id).lastIndex else -1
         override fun get(index: Int): HistoryTimelineEvent {
             projectedEvents++
-            val id = path[index]
-            val mutation = tree.nodes[id]
-            val text = tree.texts[id] ?: historyText(mutation)
+            val shown = units[index]
+            val id = if (index == units.lastIndex) endpoint else tree.nodes.getValue(units[index + 1]).parentId
+            val mutation = tree.nodes[shown]
+            val text = tree.texts[shown] ?: historyText(mutation)
             return HistoryTimelineEvent(id, mutation?.grouping?.icon ?: if (mutation == null) HistoryIcon.FLAG else
                 org.asyncttwiz.protocol.HistoryGrouping.classify(mutation.action, tree.containers, mutation.transition).icon,
                 text.description,
-                mutation?.author, tree.group(id)?.id, tree.alternatives(id), text.label)
+                mutation?.author, tree.group(shown)?.id, tree.alternatives(id), text.label)
         }
     }
     fun x(index: Int, selected: Int, width: Float, pitch: Float) =

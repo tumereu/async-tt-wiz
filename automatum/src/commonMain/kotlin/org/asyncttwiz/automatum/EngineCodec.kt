@@ -19,6 +19,7 @@ import arcanum.engine.state.EffectObject
 import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ManaUnit
 import arcanum.engine.state.ObjectFacts
+import arcanum.engine.state.GameObject
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.StackItem
@@ -133,6 +134,22 @@ internal object EngineCodec {
 
     fun delayedRecord(trigger: DelayedTrigger) = EngineRecord(DELAYED + trigger.id.value, EngineRecordKind.DelayedTrigger,
         trigger.timestamp, encode(DelayedTrigger.serializer(), trigger))
+
+    private const val EMBLEM = "emblem:"
+
+    /** An emblem (CR 114, I-D25): the engine's command-zone object in [EngineRecord.data], and what ATW shows of it:
+     * whose it is and its rules [text]. */
+    fun emblemRecord(emblem: GameObject, text: String) = EngineRecord(emblemId(emblem), EngineRecordKind.Emblem,
+        emblem.timestamp, encode(GameObject.serializer(), emblem), player = emblem.owner.value, text = text)
+
+    fun emblemId(emblem: GameObject) = EMBLEM + (emblem.id as ObjectId.Card).card.value
+
+    /** The emblem's rules text as its abilities write it ([AtwTokens.rulesText]); empty when they carry no text. */
+    fun emblemText(emblem: GameObject): String =
+        emblem.definition?.faces.orEmpty().joinToString("\n") { AtwTokens.rulesText(it) }.trim()
+
+    fun isEmblem(record: EngineRecord) = record.kind == EngineRecordKind.Emblem
+    fun emblem(record: EngineRecord): GameObject = decode(GameObject.serializer(), record.data)
 
     fun isEffect(record: EngineRecord) = record.kind == EngineRecordKind.Effect
     fun isDelayed(record: EngineRecord) = record.kind == EngineRecordKind.DelayedTrigger
@@ -260,11 +277,19 @@ internal class TagCodec(private val definition: (CardId) -> CardDefinition?) {
     private fun definitionJson(card: CardId): JsonElement? =
         definitions.getOrPut(card) { definition(card)?.let { EngineCodec.json.encodeToJsonElement(CardDefinition.serializer(), it) } }
 
-    fun encode(data: TagData): String = rewrite(EngineCodec.json.encodeToJsonElement(TagData.serializer(), data), compact = true).toString()
+    fun encode(data: TagData): String = encode(TagData.serializer(), data)
+
+    /** [value] with its cards' definitions by reference: engine data shared with both players (a shared flow's
+     * continuation) names no hidden card either. */
+    fun <T> encode(serializer: KSerializer<T>, value: T): String =
+        rewrite(EngineCodec.json.encodeToJsonElement(serializer, value), compact = true).toString()
+
+    /** What [encode] wrote. @throws IllegalArgumentException when it can't be read. */
+    fun <T> decode(serializer: KSerializer<T>, text: String): T =
+        EngineCodec.json.decodeFromJsonElement(serializer, rewrite(EngineCodec.json.parseToJsonElement(text), compact = false))
 
     /** @throws IllegalArgumentException when the tag can't be read (another shape, or a card the board doesn't have). */
-    fun decode(text: String): TagData =
-        EngineCodec.json.decodeFromJsonElement(TagData.serializer(), rewrite(EngineCodec.json.parseToJsonElement(text), compact = false))
+    fun decode(text: String): TagData = decode(TagData.serializer(), text)
 
     /** The card object named by [obj]'s [key] ("c:<card>#<count>"). */
     private fun cardOf(obj: JsonObject, key: String): CardId? {
@@ -320,7 +345,10 @@ internal class TagCodec(private val definition: (CardId) -> CardDefinition?) {
          * token, by its id. The same function writes and reads a tag, so it reads back exactly what was written. */
         fun of(state: org.asyncttwiz.protocol.PlayState, definitions: Map<String, CardDefinition>): TagCodec {
             val cards = state.board.cards.associateBy { it.id }
-            return TagCodec { id -> cards[id.value]?.takeIf { !it.token }?.let { definitions[it.definition] } }
+            // A card the device couldn't read has its printed values' definition (I-D21), as EngineState.from gives it
+            val printed = mutableMapOf<String, CardDefinition?>()
+            return TagCodec { id -> cards[id.value]?.takeIf { !it.token }?.let { card -> definitions[card.definition]
+                ?: printed.getOrPut(card.definition) { PrintedCards.definition(state, card) } } }
         }
     }
 }

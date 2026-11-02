@@ -602,4 +602,46 @@ class HistoryTextTest {
         assertEquals("Automatum records updated", format(PlayAction.Mtg(MtgAction.SetRecord("e", null,
             EngineRecord("e", EngineRecordKind.Effect, data = "{}")))).description)
     }
+
+    // HIS-092 (I-D22): history events are natural branching points, one per possible player action. An automated batch's
+    // engine bookkeeping is folded into its visible event: the strip shows that event once, the cursor goes to the
+    // batch's end, and a group never reads as its bookkeeping.
+    @Test fun foldedBookkeepingIsNeitherShownNorStoppedAt() {
+        var (tree, _) = drawTree()
+        val scope = GameScope(tree.initial.gameId, playId = tree.initial.id)
+        val record = EngineRecord("effect-1", EngineRecordKind.Effect, 1, "{}")
+        val batch = GameCommand(id(720), scope, GameAction.PlayBatch(listOf(PlayAction.SetLife(f.a, "17"),
+            PlayAction.Mtg(MtgAction.SetRecord(record.id, null, record)), PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(f.b)))),
+            listOf(null, MtgTag(folded = true), MtgTag(folded = true))), id(14), "1")
+        tree = PlayBatches.change(tree, f.a, batch).let { assertNotNull(it.tree, "${it.reason}") }
+        val batchEnd = tree.currentNodeId
+        val folded = tree.nodes.getValue(batchEnd).parentId
+        tree = assertNotNull(tree.play(f.b, GameCommand(id(721), scope, GameAction.Play(PlayAction.SetLife(f.b, "18")), id(14), "1")).tree)
+        val history = HistoryTree(tree.initial.root.id, tree.nodes.values.toList(), tree.currentNodeId, "v1")
+        val strip = HistoryTimelineLayout.events(history, tree.currentNodeId)
+        assertEquals(7, strip.size, strip.map { it.description }.toString())
+        assertEquals(batchEnd, strip[5].id, "the batch's event takes the cursor past its bookkeeping")
+        assertEquals(tree.nodes.getValue(folded).parentId, tree.nodes.values.single { it.action == PlayAction.SetLife(f.a, "17") }.id)
+        assertTrue(strip.none { "Automatum" in it.description || "Priority" in it.description }, strip.map { it.description }.toString())
+        val indexed = strip as HistoryTimelineLayout.IndexedHistoryEvents
+        assertEquals(5, indexed.positionOf(folded)); assertEquals(5, indexed.positionOf(batchEnd))
+        // The group reads as its visible event, also when its last event is folded
+        val ids = listOf(id(1), id(2), id(3))
+        val texts = mapOf(id(1) to HistoryText("Life 20 → 17", "Life"), id(2) to HistoryText("Automatum records updated", "Automatum"),
+            id(3) to HistoryText("Priority → bob", "Priority"))
+        assertEquals("Life 20 → 17", historyGroupText(ids, id(3), texts) { it != id(1) }.description)
+    }
+
+    // HIS-091 (I-D25): an emblem reads like a status, with its owner when that isn't the author
+    @Test fun emblemsReadAsTheirText() {
+        val emblem = EngineRecord("emblem:1", EngineRecordKind.Emblem, 3, "{}", f.a, "Creatures you control get +1/+1.")
+        val made = format(PlayAction.Mtg(MtgAction.SetRecord(emblem.id, null, emblem)))
+        assertEquals("Emblem → Creatures you control get +1/+1.", made.description); assertEquals("Emblem", made.label)
+        assertEquals("alice's Emblem → Creatures you control get +1/+1.",
+            format(PlayAction.Mtg(MtgAction.SetRecord(emblem.id, null, emblem)), author = f.b).description)
+        val long = emblem.copy(text = "Whenever a creature you control deals combat damage to a player, search your library.")
+        assertEquals("Emblem → Whenever a creature you control deals combat dam…",
+            format(PlayAction.Mtg(MtgAction.SetRecord(emblem.id, null, long))).description)
+        assertEquals("Emblem removed", format(PlayAction.Mtg(MtgAction.SetRecord(emblem.id, emblem, null))).description)
+    }
 }

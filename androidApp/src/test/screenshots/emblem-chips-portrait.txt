@@ -1,0 +1,1 @@
+Portrait table where you have the status "OK?" and two emblems and the opponent one long emblem: each emblem is a violet chip with its text by the life square, yours above your status bubble, the opponent's below their square, a long text cut after two lines.

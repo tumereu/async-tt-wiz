@@ -442,7 +442,8 @@ object GameplayRules {
         val mutation = GameplayMutation(CommandIds.uuidV5(command.requestId, "board-node"), state.currentNodeId,
             state.currentBranchId, command.requestId, actor, command.invocationId,
             command.action.action, relevant,
-            grouping = HistoryGrouping.classify(command.action.action, state.board, actor, relevant),
+            grouping = HistoryGrouping.classify(command.action.action, state.board, actor, relevant).let {
+                if (rulesVersion >= Automatum.RULES_VERSION && MtgFacts.folds(command, command.action.action)) it.copy(folded = true) else it },
             revealsInformation = relevant.disclosures.isNotEmpty() ||
                 command.action.action is PlayAction.ShowContents && relevant.contents?.to?.cardIds?.isNotEmpty() == true)
         val group = GameplayHistory.append(state.currentGroup, mutation, state.board.containers)

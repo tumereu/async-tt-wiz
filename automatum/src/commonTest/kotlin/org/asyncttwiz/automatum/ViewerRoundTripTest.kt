@@ -124,8 +124,8 @@ class ViewerRoundTripTest {
         assertTrue(problems.single().contains("manual entry"), "$problems")
         assertFailsWith<Unsupported> { EngineState.from(manual, table.definitions) }
         assertTrue(EngineState.unsupported(state, table.definitions).isEmpty())
-        assertTrue(EngineState.unsupported(state, emptyMap()).isNotEmpty(), "cards without definitions")
-        assertTrue(EngineState.unsupported(state, emptyMap(), viewer = bob).isEmpty(), "unless hidden from the viewer")
+        // I-D21: a card the device couldn't read plays with its printed values and manual abilities
+        assertTrue(EngineState.unsupported(state, emptyMap()).isEmpty(), "cards without definitions")
         assertTrue(rt(state).engine(bob).objects.values.all { it.unknown })
     }
 

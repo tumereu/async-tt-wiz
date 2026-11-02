@@ -279,15 +279,37 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             }
         }
     }
-    // Status bubbles are drawn only: taps and drags reach whatever lies beneath them.
-    for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.status.isNotEmpty() && it.visible.isNotEmpty() }) {
+    // Status bubbles and emblem chips are drawn only: taps and drags reach whatever lies beneath them.
+    for (i in scene.items.filter { it.kind == TableItemKind.LIFE && (it.status.isNotEmpty() || it.emblems.isNotEmpty()) && it.visible.isNotEmpty() }) {
         val color = if (i.owner == viewer) OwnTableColor else OpponentTableColor
-        val mode = statusModes[i.owner] ?: StatusBubbleMode.BUBBLE
-        if (mode == StatusBubbleMode.NONE) continue
+        val mode = if (i.status.isEmpty()) StatusBubbleMode.NONE else statusModes[i.owner] ?: StatusBubbleMode.BUBBLE
+        val below = i.valueDragSide == ValueDragSide.TOP
+        val maxChipText = (minOf(StatusBubble.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * StatusBubble.PADDING).coerceAtLeast(12f)
+        /** I-D25: each emblem as a chip after [previous] (the status bubble, or the life square), away from the square. */
+        fun emblems(previous: TableBounds?) {
+            var last = previous
+            val previousSize = paint.textSize
+            paint.textSize = StatusBubble.TEXT * density; paint.isFakeBoldText = false
+            for (text in i.emblems) {
+                val lines = StatusBubble.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density }
+                val chip = EmblemChips.bounds(last, i.bounds, below, lines.maxOf { cache.measure(it) } / density, lines.size)
+                drawRoundRect(Color(0xfff3effb), xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density))
+                drawRoundRect(EmblemChipColor, xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density), style = Stroke(density))
+                paint.color = android.graphics.Color.rgb(48, 30, 82)
+                lines.forEachIndexed { n, line ->
+                    text(line, chip.x + StatusBubble.PADDING, chip.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
+                        cache.centerOffset() / density, line.length)
+                }
+                last = chip
+            }
+            paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
+        }
+        if (mode == StatusBubbleMode.NONE) { emblems(null); continue }
         if (mode == StatusBubbleMode.DOT) {
-            val dot = StatusBubble.dot(i.bounds, below = i.valueDragSide == ValueDragSide.TOP)
+            val dot = StatusBubble.dot(i.bounds, below = below)
             drawCircle(Color.White, (StatusBubble.DOT / 2 + 1f) * density, xy(dot.center.x, dot.center.y))
             drawCircle(color, StatusBubble.DOT / 2 * density, xy(dot.center.x, dot.center.y))
+            emblems(null)
             continue
         }
         val previousSize = paint.textSize
@@ -317,6 +339,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                 cache.centerOffset() / density, line.length)
         }
         paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
+        emblems(bubble)
     }
     for (ping in pings) {
         val p = annotations.endpoint(ping.target) ?: continue

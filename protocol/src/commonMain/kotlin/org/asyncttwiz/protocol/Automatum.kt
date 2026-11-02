@@ -39,6 +39,8 @@ object Automatum {
     const val MAX_DATA_BYTES = 256 * 1024
     const val MAX_NAME_LENGTH = 256
     const val MAX_LIST = 1000
+    /** An emblem's rules text ([EngineRecord.text]), at most this many UTF-8 bytes. */
+    const val MAX_TEXT_BYTES = 8 * 1024
     /** The id of the one open continuation of a shared flow (D58, I-D11); private flows stay on the device. */
     const val CONTINUATION_ID = "continuation"
     /** The highest timestamp an event may give or name (2^53 − 1, exact in JSON numbers everywhere): a stamp beyond it
@@ -128,12 +130,18 @@ object Automatum {
     @Serializable @SerialName("triggered") data object Triggered : EngineRecordKind
     /** The open decision and continuation of a shared flow (D58, I-D8, I-D11), id [Automatum.CONTINUATION_ID]. */
     @Serializable @SerialName("continuation") data object Continuation : EngineRecordKind
+    /** An emblem in a player's command zone (CR 114, I-D25): ATW shows its [EngineRecord.text] as a chip by its
+     * [EngineRecord.player]'s life square. */
+    @Serializable @SerialName("emblem") data object Emblem : EngineRecordKind
 }
 
-/** One engine record ATW stores and doesn't interpret (P2, §4.3); [timestamp] for effect objects and delayed
- * triggers (CR 613.7b), so ATW's timestamp clock ([MtgFacts.clock]) sees every stamp. */
+/** One engine record ATW stores and doesn't interpret (P2, §4.3); [timestamp] for effect objects, delayed triggers
+ * and emblems (CR 613.7b), so ATW's timestamp clock ([MtgFacts.clock]) sees every stamp. An [EngineRecordKind.Emblem]
+ * also says what ATW shows of it: whose it is ([player]) and its rules [text] (I-D25); other records have neither. */
 @Serializable data class EngineRecord(val id: String, val kind: EngineRecordKind,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val timestamp: Long? = null, val data: String)
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val timestamp: Long? = null, val data: String,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val player: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val text: String = "")
 
 /** What made a change, for history lines ("Storm Spark dealt 3 damage to Grizzly Cub"): the spell's or ability's
  * [source], by the [name] it had then, its [controller], and the Stack [item] resolving. */
@@ -146,17 +154,18 @@ object Automatum {
  * [data], the engine's opaque event with its last known information. [board] (#4, SYS-057), on the first member of an
  * automated batch: the board the batch was planned on ([MtgFacts.digest]); the member is refused, and with it the whole
  * batch (SYS-010), when the board is another one, so ordinary actions in the batch never apply to values they weren't
- * planned from. */
+ * planned from. [folded]: the event is shown inside its batch's visible event (I-D22, [MtgFacts.folds]). */
 @Serializable data class MtgTag(val meanings: List<String> = emptyList(),
     @EncodeDefault(EncodeDefault.Mode.NEVER) val causedBy: MtgCause? = null,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val data: String = "",
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val board: String? = null) {
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val board: String? = null,
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val folded: Boolean = false) {
     companion object {
         private val meaning = Regex("[a-z][a-z0-9-]{0,39}")
         fun valid(tag: MtgTag): Boolean = tag.meanings.size <= 16 && tag.meanings.all { meaning.matches(it) } &&
             tag.meanings.distinct().size == tag.meanings.size && Automatum.data(tag.data) &&
             (tag.board?.let(DeckValidation::digest) ?: true) &&
-            (tag.meanings.isNotEmpty() || tag.causedBy != null || tag.data.isNotEmpty() || tag.board != null) &&
+            (tag.meanings.isNotEmpty() || tag.causedBy != null || tag.data.isNotEmpty() || tag.board != null || tag.folded) &&
             tag.causedBy?.let { cause -> DeckValidation.uuid(cause.controller) && (cause.source?.let(MtgRules::valid) ?: true) &&
                 (cause.item?.let(MtgRules::valid) ?: true) && (cause.name?.let(Automatum::name) ?: true) } ?: true
     }
@@ -217,7 +226,10 @@ object MtgRules {
         counter.kind == kind && counter.count > 0 && stamp(counter.timestamp)
 
     private fun valid(record: EngineRecord?, id: String) = record == null || record.id == id && Automatum.data(record.data) &&
-        stamp(record.timestamp ?: 0) && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID)
+        stamp(record.timestamp ?: 0) && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID) &&
+        if (record.kind == EngineRecordKind.Emblem) record.player?.let(DeckValidation::uuid) == true &&
+            DeckValidation.text(record.text, Automatum.MAX_TEXT_BYTES)
+        else record.player == null && record.text.isEmpty()
 
     private fun valid(item: MtgStackItem?) = item == null || valid(item.id) && DeckValidation.uuid(item.controller) &&
         (item.ability?.let(Automatum::name) ?: true) && (item.source?.let(::valid) ?: true) &&
@@ -537,6 +549,24 @@ object MtgFacts {
         // #8: the clock can't run past its end (a stamp above it would never be valid again).
         if (clock > Automatum.MAX_TIMESTAMP) return null
         return to.copy(cards = cards, players = players)
+    }
+
+    /**
+     * Whether [command]'s event is folded into its batch's visible event (I-D22: history events are natural branching
+     * points, one per possible player action): engine bookkeeping (zone-change counts and timestamps, ledgers, Stack
+     * item structure, engine records other than emblems) and priority passes the engine or the host made, tagged
+     * [MtgTag.folded] by the client that planned the batch. Never the batch's first member, so every automated batch
+     * keeps a visible event, and never anything else: manual history is unchanged.
+     */
+    fun folds(command: GameCommand, action: PlayAction): Boolean {
+        if ((command.action as? GameAction.Play)?.tag?.folded != true) return false
+        val invocation = command.invocationId ?: return false
+        if (command.requestId == CommandIds.uuidV5(invocation, "member/0")) return false
+        return when (val mtg = (action as? PlayAction.Mtg)?.action) {
+            is MtgAction.SetPriority, is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetStackItem -> true
+            is MtgAction.SetRecord -> (mtg.before ?: mtg.after)?.kind != EngineRecordKind.Emblem
+            else -> false
+        }
     }
 
     /** What a single-card move means by itself (D33, D42; the engine's `Meanings.implied`), from zone [from] to [to]. */

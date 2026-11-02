@@ -424,7 +424,13 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 is MtgRef.Card -> card(target.cardId); is MtgRef.Player -> historyPlayerName(target.accountId, usernames); else -> "an object" }}" }
                 ?: "${card(mtg.card.cardId)} unattached", "Attach")
             is MtgAction.SetStackItem -> text("${card(mtg.entryId)} Stack choices recorded", "Stack choices")
-            is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord -> text("Automatum records updated", "Automatum")
+            // I-D25: an emblem reads like a status (TRN-039): its owner, then the start of its text
+            is MtgAction.SetRecord -> (mtg.after ?: mtg.before)?.takeIf { it.kind == EngineRecordKind.Emblem }?.let { emblem ->
+                val owner = emblem.player?.let(::playerPrefix).orEmpty()
+                if (mtg.after == null) text("${owner}Emblem removed", "Emblem")
+                else text("${owner}Emblem → " + emblem.text.replace('\n', ' ').let { if (it.length > 48) it.take(48).trimEnd() + "…" else it }, "Emblem")
+            } ?: text("Automatum records updated", "Automatum")
+            is MtgAction.Restamp, is MtgAction.SetLedger -> text("Automatum records updated", "Automatum")
             MtgAction.ClearRecords -> text("Automatum data cleared", "Automatum")
             is MtgAction.SetSkipWhenNoChoice -> text("${playerPrefix(event.author)}Skip when no choice ${if (mtg.on) "on" else "off"}", "Automatum")
         }
@@ -497,14 +503,16 @@ internal const val HISTORY_RANGE_TEXT_MAX = 180
  * ("Drew Shock, Opt, 2 cards; Discarded a card"); unseen cards collapse into "N cards". Any other group reads
  * as its representative event. */
 internal fun historyRangeText(range: HistoryRange, texts: Map<String, HistoryText>,
-    fallback: (String) -> HistoryText? = { null }): HistoryText =
-    historyGroupText(range.nodeIds, range.representativeId ?: range.targetId, texts, fallback)
+    fallback: (String) -> HistoryText? = { null }, folded: (String) -> Boolean = { false }): HistoryText =
+    historyGroupText(range.nodeIds, range.representativeId ?: range.targetId, texts, fallback, folded)
 
 /** [historyRangeText] for a group given as its event ids (oldest first) and representative event. */
-internal fun historyGroupText(nodeIds: List<String>, representativeId: String, texts: Map<String, HistoryText>,
-    fallback: (String) -> HistoryText? = { null }): HistoryText {
+internal fun historyGroupText(allNodeIds: List<String>, representativeId: String, texts: Map<String, HistoryText>,
+    fallback: (String) -> HistoryText? = { null }, folded: (String) -> Boolean = { false }): HistoryText {
     fun text(id: String) = texts[id] ?: fallback(id)
-    val representative = text(representativeId) ?: HistoryText("Table changed", "Change")
+    // I-D22: engine bookkeeping folded into its visible event is never what a group reads as
+    val nodeIds = allNodeIds.filterNot(folded).ifEmpty { allNodeIds }
+    val representative = text(representativeId.takeUnless(folded) ?: nodeIds.last()) ?: HistoryText("Table changed", "Change")
     if (nodeIds.size < 2) return representative
     val moves = ArrayList<HistoryText>(nodeIds.size)
     for (id in nodeIds) moves += text(id)?.takeIf { it.move != null } ?: return representative

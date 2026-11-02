@@ -135,7 +135,9 @@ data class TableItem(
     /** A face-up Battlefield card (or its combat copy) that entered the Battlefield this turn (rules v29). */
     val enteredThisTurn: Boolean = false,
     /** A public face-down Battlefield card's title stand-in ("?"): the same for every viewer, never its front. */
-    val coveredTitle: String = ""
+    val coveredTitle: String = "",
+    /** LIFE only: the player's emblems' texts (I-D25), oldest first, drawn as chips beside the square. */
+    val emblems: List<String> = emptyList()
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -503,7 +505,8 @@ object TablePresentation {
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
                 "${name(player.accountId)}, life ${player.life}" + player.status.takeIf { it.isNotEmpty() }?.let { ", status $it" }.orEmpty(),
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
-                valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP, status = player.status)
+                valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP, status = player.status,
+                emblems = EmblemChips.texts(play.board, player.accountId))
             val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
             val landscapeTempHeight = minOf(pileHeight, counterHeight - 4f)
             val landscapeTempWidth = pileWidth * landscapeTempHeight / pileHeight

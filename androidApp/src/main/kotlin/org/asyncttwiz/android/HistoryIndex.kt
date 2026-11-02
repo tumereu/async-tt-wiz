@@ -3,9 +3,11 @@ package org.asyncttwiz.android
 import kotlinx.collections.immutable.*
 import org.asyncttwiz.protocol.*
 
-/** Immutable, shared topology pages. A path is an index of IDs, never a list of replayed boards. */
+/** Immutable, shared topology pages. A path is an index of IDs, never a list of replayed boards. [units] are the
+ * path's events as the timeline shows them (I-D22): each visible event, with the engine bookkeeping folded into it
+ * ([HistorySemantic.folded]) after it in the same batch; the last unit holds this node. */
 internal data class HistoryBoundary(val path: PersistentList<String>, val group: GameplayGroup?,
-    val groupEnds: PersistentList<String>)
+    val groupEnds: PersistentList<String>, val units: PersistentList<String> = path)
 
 internal class HistoryIndex(val boundaries: PersistentMap<String, HistoryBoundary>,
     val children: PersistentMap<String, PersistentSet<String>>, val visited: Int, val affected: Set<String>,
@@ -45,7 +47,11 @@ internal class HistoryIndex(val boundaries: PersistentMap<String, HistoryBoundar
                     val parent = boundaries.getValue(node.parentId)
                     val group = GameplayHistory.append(parent.group, node, containers)
                     val ends = if (parent.group?.id == group.id) parent.groupEnds.removeAt(parent.groupEnds.lastIndex) else parent.groupEnds
-                    boundaries = boundaries.put(next, HistoryBoundary(parent.path.add(next), group, ends.add(next)))
+                    // I-D22: a folded event belongs to the visible event before it in its batch
+                    val folded = node.grouping?.folded == true && node.invocationId != null &&
+                        nodes[node.parentId]?.invocationId == node.invocationId
+                    boundaries = boundaries.put(next, HistoryBoundary(parent.path.add(next), group, ends.add(next),
+                        if (folded) parent.units else parent.units.add(next)))
                     layout = layout.append(node, group.id)
                     visited++
                 }

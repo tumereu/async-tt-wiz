@@ -63,6 +63,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, pl
 - **TRN-039** A status shows as a speech bubble by the life square (under the opponent's, above your own), wrapping over up to four lines and never narrower than the life square, so its tail always meets a straight edge. The Life panel shows the full status, scrolling after four lines. Statuses stay until cleared. (r36)
 - **TRN-040** Setting and clearing a status are game events (in history, undoable) and never change whose move it is. (r25)
 - **TRN-041** Each viewer can Hide a player's status bubble (until that player sets a new status) or Mute it for this game (it becomes a small dot, the full text stays in the Life panel). Show and Unmute replace them. These choices are local to the device; they don't silence notifications. (r25)
+- **TRN-053** With Automatum, a player's emblems (a planeswalker's ultimate, say) show as violet chips by their life square, each "Emblem: " and the emblem's text, cut after two lines: under the opponent's square, above your own, the oldest nearest, beyond the status bubble or its dot when there is one. Like status bubbles they are drawn only, so taps reach the table beneath. (r36)
 
 ### Opponent presence
 

@@ -55,7 +55,10 @@ internal object HistorySignificanceSerializer : KSerializer<HistorySignificance>
     /** Entry created by this event, or the exact projection receiving a text mark/note. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val stackEntryId: String? = null,
     /** Rules v29 step into Declare blockers: joins only the author's attacker declaration and closes the group. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val endsGroup: Boolean = false) {
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val endsGroup: Boolean = false,
+    /** Rules v36 (I-D22): engine bookkeeping shown inside its batch's visible event ([MtgFacts.folds]). It joins the
+     * group before it whatever that is, never represents it, and the timeline never stops on it. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val folded: Boolean = false) {
     init {
         // An unknown (newer) significance may carry a key this build cannot judge; decoding it must not fail.
         require(significance == HistorySignificance.UNKNOWN ||
@@ -332,6 +335,9 @@ object HistoryGrouping {
 
     /** Compact prefix fold shared by authoritative append and provisional prediction. Never accepts client group IDs. */
     fun append(previous: GameplayGroup?, nodeId: String, requestId: String, author: String, semantic: HistorySemantic): GameplayGroup {
+        // I-D22: folded into the visible event before it, which is in this group
+        if (semantic.folded && previous != null)
+            return previous.copy(lastNodeId = nodeId, count = (previous.count.toLong() + 1).toString())
         val incoming = semantic.category
         // A category key this build does not know (a newer server) continues like a group led by a comment or ping.
         val context = previous?.let { group -> HistoryCategory.entries.firstOrNull { it.key == group.category } ?: HistoryCategory.O }

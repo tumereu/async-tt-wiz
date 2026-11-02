@@ -61,7 +61,8 @@ class HistoryGraph internal constructor(private val tree: GameplayTree, private 
         if (chipTextsSource !== texts) { chipTexts.clear(); chipTextsSource = texts }
         chipTexts[rangeId]?.let { return it }
         val range = rangesById[rangeId] ?: return null
-        return historyRangeText(range, texts) { id -> historyText(tree.nodes[id]) }.also { chipTexts[rangeId] = it }
+        return historyRangeText(range, texts, { id -> historyText(tree.nodes[id]) }) { tree.nodes[it]?.grouping?.folded == true }
+            .also { chipTexts[rangeId] = it }
     }
     /** The dialog's selected-event line: the group's text when its chip's last event is selected, else that event's. */
     internal fun selectedText(nodeId: String, texts: Map<String, HistoryText>): String? {

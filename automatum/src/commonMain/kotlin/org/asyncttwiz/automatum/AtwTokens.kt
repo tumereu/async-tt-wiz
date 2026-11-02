@@ -96,7 +96,8 @@ internal object AtwTokens {
         return lines.joinToString("\n")
     }
 
-    private fun text(ability: Ability): String? = when (ability) {
+    /** The text [ability] was parsed from, or what it says of itself (a keyword's number or cost); null when none. */
+    fun text(ability: Ability): String? = when (ability) {
         is Keyword -> when (ability) {
             is HasAmount -> "${ability.text} ${ability.amount}"
             is HasCost -> (ability.cost.parts.singleOrNull() as? CostPart.Mana)?.let { "${ability.text} ${it.cost}" }

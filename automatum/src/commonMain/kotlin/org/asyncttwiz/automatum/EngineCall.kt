@@ -51,9 +51,18 @@ class EngineCall(
     /** What the engine waits for now: a player's decision, or another player's view ([Decision.OtherView]). */
     val pending: Pending? get() = working.pending
 
-    /** Performs [input] and answers the host's decisions that follow; returns what the engine then waits for. */
-    fun perform(input: Input): Pending? {
-        run(input)
+    /** The [changes] (by index) that are a player's own priority pass: the history shows them; other priority changes
+     * (a pass the host made, priority given) are folded into the visible event of their batch (I-D22). */
+    val ownPasses: Set<Int> get() = passes
+    private val passes = mutableSetOf<Int>()
+
+    /**
+     * Performs [input] and answers the host's decisions that follow; returns what the engine then waits for.
+     * [automatic]: the host makes the input for a player, as a priority pass when `Engine.shouldPassFor` says so
+     * (I-D3, I-D18); the history then folds it into its batch's visible event (I-D22).
+     */
+    fun perform(input: Input, automatic: Boolean = false): Pending? {
+        run(input, automatic)
         while (true) {
             val decision = working.pending?.decision ?: return null
             val answer = when (decision) {
@@ -78,8 +87,10 @@ class EngineCall(
     /** The identities of [decision]'s objects, for the player who decides in their own view (D31). */
     fun otherView(decision: Decision.OtherView): List<FilledObject> = decision.objects.map(::filled)
 
-    private fun run(input: Input) {
+    private fun run(input: Input, automatic: Boolean = true) {
         val outcome = Engine.perform(working, input)
+        if (input is Input.PassPriority && !automatic)
+            outcome.changes.indexOfFirst { it is Change.Priority }.takeIf { it >= 0 }?.let { passes += changes.size + it }
         outcome.changes.forEach { working.apply(it); changes += it }
     }
 
@@ -88,8 +99,9 @@ class EngineCall(
         val card = (id as? ObjectId.Card)?.card ?: error("Not a card: $id")
         val atw = hidden[card] ?: ids.atw(card)
         val played = state.board.cards.singleOrNull { it.id == atw } ?: error("No card $atw to fill $id")
+        // I-D21: a card the device couldn't read plays with its printed values and manual abilities
         val definition = CardLedger.of(played.ledger).definition ?: definitions[played.definition]
-            ?: throw Unsupported(listOf("card $atw has no rules definition"))
+            ?: PrintedCards.definition(state, played) ?: throw Unsupported(listOf("card $atw has no card data"))
         return FilledObject(id, definition)
     }
 

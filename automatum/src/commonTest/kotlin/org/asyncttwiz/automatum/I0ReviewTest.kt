@@ -337,8 +337,7 @@ class I0ReviewTest {
         assertEquals(PlayZone.BATTLEFIELD, zone(rt, card.id))
     }
 
-    // CR 702.37 (morph), 708.4: cast face down for {3}; the spell on the Stack is a face-down 2/2
-    @Ignore("i0review #5: a face-down spell is face up in ATW (entry and card)")
+    // SYS-065; CR 702.37 (morph), 708.4: cast face down for {3}; the spell on the Stack is a face-down 2/2
     @Test fun morphCastFaceDown() {
         table.put(alice, PlayZone.BATTLEFIELD, "Forest", "Forest", "Forest", "Forest")
         val card = table.put(alice, PlayZone.HAND, "Barkwood Pathfinders").single()
@@ -348,8 +347,15 @@ class I0ReviewTest {
         cast(rt, alice, "Barkwood Pathfinders") { it.way.alternative != null }
         rt.settle()
         assertTrue(rt.engine().objects.values.single { it.card.value == card }.faceDown, "the spell is face down on the Stack")
+        // STK-005: its ATW Stack entry is face down, so the opponent sees a back
+        assertTrue(rt.state.board.stackEffects.single { it.sourceId == card }.faceDown, "the entry is face down")
+        assertTrue(rt.engine(bob).objects.values.single { it.card.value == card }.unknown, "Bob doesn't know the spell")
         drive(rt) { stackEmpty(it) }
         assertTrue(rt.state.board.cards.single { it.id == card }.isFaceDown)
+        // Nothing the batches sent names the card (D60): actions and tags name it by id only
+        val sent = rt.batches.flatten().joinToString("\n") { m ->
+            GameWire.json.encodeToString(PlayAction.serializer(), m.action) + (m.tag?.data ?: "") }
+        assertTrue("Barkwood" !in sent && "Pathfinders" !in sent, "a batch names the face-down card")
     }
 
     // CR 702.40 (storm): copies of a spell go on the Stack above it
@@ -551,8 +557,7 @@ class I0ReviewTest {
         assertTrue(leaking.isEmpty(), "${leaking.size} shared history tags name Alice's face-down spell")
     }
 
-    // CR 114 (emblems live in the command zone): a planeswalker's ultimate, "You get an emblem with …"
-    @Ignore("i0review #12: emblems (command zone) are unmappable")
+    // SYS-066, TRN-053; CR 114 (emblems live in the command zone): a planeswalker's ultimate, "You get an emblem with …"
     @Test fun planeswalkerUltimateMakesAnEmblem() {
         table.put(alice, PlayZone.BATTLEFIELD, "Island")
         val renji = table.put(alice, PlayZone.BATTLEFIELD, "Renji Kagehara").single()
@@ -568,6 +573,10 @@ class I0ReviewTest {
         rt.settle()
         drive(rt) { stackEmpty(it) }
         assertEquals(1, rt.engine().command.size, "Alice has the emblem")
+        // I-D25: a record ATW shows as a chip by Alice's life square, with the emblem's text
+        val emblem = rt.state.board.engineRecords.single { it.kind == EngineRecordKind.Emblem }
+        assertEquals(alice, emblem.player)
+        assertTrue(emblem.text.startsWith("Whenever a creature you control deals combat damage to a player"), emblem.text)
     }
 
     // I-D2 ("everything meaningful about a card travels with the game"): a token the engine makes shows its rules in

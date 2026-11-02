@@ -60,8 +60,10 @@ object Changes {
                 zone = to,
                 definition = before.definition,
                 face = if (to == Zone.Battlefield || to == Zone.Stack) before.face else 0,
-                token = before.token,
+                // fra: a copy of a card cast as a permanent spell becomes a token as it resolves (CR 111.13)
+                token = before.token || (before.copyOfCard && before.zone == Zone.Stack && to == Zone.Battlefield),
                 copyOfCard = before.copyOfCard,
+                prepareSpellOf = before.prepareSpellOf,
                 tapped = tapped,
                 faceDown = faceDown,
                 // One entry per kind: counters of one kind it enters with add up (CR 122.6)

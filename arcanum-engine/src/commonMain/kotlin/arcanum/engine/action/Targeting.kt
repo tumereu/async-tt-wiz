@@ -23,8 +23,10 @@ internal object Targeting {
         act: Act, slot: TargetSlot, controller: PlayerId, source: ObjectId?, names: Bindings,
         chosen: Map<String, List<TargetRef>> = emptyMap(), self: ObjectId? = null, item: arcanum.engine.state.StackItem? = null,
         event: arcanum.engine.state.TriggerEvent? = item?.event,
+        // fra: the player a per-player slot's target is for ("for each opponent, … that player controls", CR 601.2c)
+        slotPlayer: PlayerId? = null,
     ): List<TargetRef> {
-        val e = act.evaluator(Context(you = controller, self = source, names = names, stackItem = item, event = event))
+        val e = act.evaluator(Context(you = controller, self = source, names = names, stackItem = item, event = event, slotPlayer = slotPlayer))
         val taken = slot.distinctFrom.flatMap { chosen[it].orEmpty() }.toSet()
         val objects = objectFilter(slot.what)?.let { f -> e.each(f) }.orEmpty()
             // CR 115.5: a spell or ability on the Stack can't target itself
@@ -44,7 +46,10 @@ internal object Targeting {
         val matches = when (ref) {
             is TargetRef.Object -> {
                 val exists = act.state.obj(ref.id)?.let { o -> !o.phasedOut } ?: (ref.id in act.state.stackItems)
-                exists && objectFilter(slot.what)?.let { f -> zoneOk(act, f, ref.id) && e.matches(f, ref.id) } == true
+                // fra: a per-player slot's target matches for one of its players (CR 601.2c, 608.2b)
+                val slotPlayers = slot.perPlayer?.let { f -> act.state.apnap().filter { e.matches(f, it) } }
+                exists && objectFilter(slot.what)?.let { f -> zoneOk(act, f, ref.id) &&
+                    (slotPlayers?.any { p -> e.with(e.ctx.copy(slotPlayer = p)).matches(f, ref.id) } ?: e.matches(f, ref.id)) } == true
             }
             is TargetRef.Player -> !act.state.player(ref.id).lost && playerFilter(slot.what)?.let { e.matches(it, ref.id) } == true
         }

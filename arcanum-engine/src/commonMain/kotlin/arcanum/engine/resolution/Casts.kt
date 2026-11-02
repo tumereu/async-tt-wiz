@@ -88,6 +88,21 @@ internal object Casts {
         // A triggered ability's targets may depend on its event ("with lesser mana value", CR 603.3d)
         val e = act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event))
         for (slot in slots) {
+            // fra: one choice for each player of a per-player slot ("for each opponent, up to one target creature that player
+            // controls", CR 601.2c), all under the slot's name
+            slot.perPlayer?.let { f ->
+                val chosenAll = mutableListOf<TargetRef>()
+                for (p in act.state.playersFrom(controller).filter { e.matches(f, it) }) {
+                    val options = Targeting.options(act, slot, controller, source, names, targets, self, event = event, slotPlayer = p)
+                    val pe = e.with(e.ctx.copy(slotPlayer = p))
+                    val min = pe.value(slot.min)
+                    val max = slot.max?.let { pe.value(it) }
+                    if (options.size < min && required) return null
+                    chosenAll += if (options.size <= min) options else act.chooseTargets(controller, source, slot.name, options, min, max)
+                }
+                if (chosenAll.isNotEmpty()) targets[slot.name] = chosenAll
+                continue
+            }
             val options = Targeting.options(act, slot, controller, source, names, targets, self, event = event)
             val min = e.value(slot.min)
             val max = slot.max?.let { e.value(it) }

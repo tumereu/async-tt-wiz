@@ -39,6 +39,11 @@ sealed interface Layout {
     /** Omen card: the inset face is an Omen spell; cast that way it is shuffled into its owner's library as it resolves
      * (CR 720). */
     @Serializable @SerialName("omen") data object Omen : Layout
+    // fra
+    /** Preparation card (CR 722): the second face is the prepare spell, alternative characteristics never cast from the card
+     * itself (722.3) but by a copy its permanent's controller may cast while the permanent is prepared ([ObjectMark.Prepared],
+     * 722.3c). In every zone the card has only its first face's characteristics (722.4). */
+    @Serializable @SerialName("prepare") data object Prepare : Layout
 }
 
 /** One face's characteristics (CR 109.3) and its abilities in printed order. Also used for tokens. A land's mana
@@ -316,6 +321,10 @@ data class TargetSlot(
     /** The targets are chosen at random among the legal ones as it is put on the Stack ("any target chosen at random"); they are
      * still targets (CR 115.1). */
     val atRandom: Boolean = false,
+    // fra
+    /** At most one target for each value of this quality, each target standing for one value it has ("up to one target
+     * nonland card of each card type", as [Choice.Objects.onePer]); [max] then counts all of them. */
+    val onePer: SharedQuality? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */
@@ -419,7 +428,13 @@ sealed interface Choice {
          * the creature, so it can go with a creature card standing for the creature). Unlike [distinct], two chosen objects
          * may share a value as long as each can stand for a different one (CR 205.2a lists the card types). */
         val onePer: SharedQuality? = null,
+        // fra
+        /** The chosen objects' [TotalLimit.property] adds up to at most [TotalLimit.atMost] ("any number of spells with total
+         * mana value 6 or less from among the copies"). */
+        val totalAtMost: TotalLimit? = null,
     ) : Choice
+    /** [property] of the chosen objects added up, at most [atMost] ([Objects.totalAtMost]). */
+    @Serializable data class TotalLimit(val property: NumericProperty, val atMost: Value)
     /** Choose one of named options ("odd or even", "left or right"). */
     @Serializable @SerialName("option") data class Option(val options: List<String>) : Choice
 }

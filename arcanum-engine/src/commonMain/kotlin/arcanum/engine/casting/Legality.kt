@@ -262,7 +262,9 @@ internal object Legality {
         if (!Mana.canActivate(snap, player, source, instance)) return "it can't be activated now (zone, cost, condition or who may activate)"
         val loyalty = ability.cost.parts.any { it is CostPart.Loyalty }
         // CR 606.3: loyalty abilities as a sorcery, once each turn per permanent
-        if (loyalty && (!sorceryTiming(snap, player) || activationsThisTurn(snap, source, LOYALTY_KEY) > 0)) {
+        // fra: "you may activate loyalty abilities of … any time you could cast an instant" (still once each turn)
+        val instantLoyalty = snap.view[source]?.has { it == arcanum.api.Mechanic.LoyaltyAtInstantSpeed } == true
+        if (loyalty && (!(sorceryTiming(snap, player) || instantLoyalty) || activationsThisTurn(snap, source, LOYALTY_KEY) > 0)) {
             return "a loyalty ability: once each turn, as a sorcery (CR 606.3)"
         }
         // CR 606.6: a negative loyalty cost needs that many loyalty counters

@@ -37,6 +37,10 @@ data class GameObject(
     /** A copy of a card (CR 707.12), not a card; [definition] holds the copied card's characteristics. It ceases to exist
      * in any zone other than the Stack or the battlefield (CR 704.5e). */
     val copyOfCard: Boolean = false,
+    // fra
+    /** A copy of this prepared permanent's prepare spell (CR 722.3c): kept in exile while it stays prepared, and as it is cast
+     * a prepare spell (722.3d). */
+    val prepareSpellOf: ObjectId.Card? = null,
     val tapped: Boolean = false,
     /** Face down (CR 708): a 2/2 with no name, text, types other than creature, or mana cost (CR 708.2a). */
     val faceDown: Boolean = false,
@@ -123,6 +127,9 @@ data class ObjectFacts(
     // gtc
     /** Cast as a fused split spell (CR 702.102): on the Stack it has both halves' characteristics (CR 709.4d). */
     val fused: Boolean = false,
+    // fra
+    /** It has dealt combat damage since it became this object ("as long as they haven't dealt combat damage yet"). */
+    val dealtCombatDamage: Boolean = false,
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

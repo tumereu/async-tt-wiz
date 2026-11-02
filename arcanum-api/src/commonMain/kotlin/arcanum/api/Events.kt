@@ -29,7 +29,15 @@ sealed interface EventPattern {
         val spell: ObjectFilter, val by: PlayerFilter, val from: Zone? = null,
     ) : EventPattern
     /** An ability of an object matching [source] is activated; [manaAbilities] whether mana abilities count. */
-    @Serializable @SerialName("activate") data class Activate(val source: ObjectFilter, val by: PlayerFilter, val manaAbilities: Boolean = false) : EventPattern
+    @Serializable @SerialName("activate") data class Activate(
+        val source: ObjectFilter, val by: PlayerFilter, val manaAbilities: Boolean = false,
+        // fra
+        /** Only abilities of this kind ("whenever you activate a loyalty ability", CR 606). */
+        val kind: AbilityKind? = null,
+        /** Only a loyalty ability whose cost removed at least this many loyalty counters ("if you removed two or more loyalty
+         * counters to activate it": its cost can't change once paid, so it is part of the event, CR 606.4, 603.4). */
+        val removedLoyaltyAtLeast: Int? = null,
+    ) : EventPattern
     /** Damage from [source] to [to]; [combat] true = combat damage only, false = noncombat only, null = any; [excess]:
      * only damage over lethal (CR 120.4a). Roles source, object (the recipient); amount = the damage. */
     @Serializable @SerialName("damage") data class Damage(

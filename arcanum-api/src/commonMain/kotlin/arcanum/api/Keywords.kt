@@ -916,7 +916,13 @@ sealed interface Keyword : Ability {
         companion object Kind : KeywordKind { override val id: String get() = "impending"; override val text: String get() = "Impending"; override val rule: String get() = "702.176" }
     }
     /** Equip {2}; "Equip legendary creature {3}" restricts what it attaches to ([onto]). (CR 702.6) */
-    @Serializable @SerialName("equip") data class Equip(override val cost: Cost, val onto: ObjectFilter? = null) : Keyword, HasCost {
+    @Serializable @SerialName("equip") data class Equip(
+        override val cost: Cost, val onto: ObjectFilter? = null,
+        // fra
+        /** "This ability costs {1} less to activate for each +1/+1 counter on the creature it targets" ([Objects.Target]
+         * "creature" is the equip target, CR 601.2f, 602.2b). */
+        val costChange: CostChange? = null,
+    ) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "equip"; override val text: String get() = "Equip"; override val rule: String get() = "702.6" }
     }

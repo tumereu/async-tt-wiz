@@ -78,6 +78,10 @@ sealed interface Value {
      * a [ColorRef] that stands for several colours (a [Choice.Colors]) counts each of them. */
     @Serializable @SerialName("shared-colors") data class SharedColors(val objects: Objects, val colors: List<ColorRef>) : Value
     @Serializable @SerialName("min") data class Min(val parts: List<Value>) : Value
+    // fra
+    /** How many whole times [divisor] fits in [value] ("for every seven cards in your graveyard": the count divided by
+     * seven, rounded down). */
+    @Serializable @SerialName("quotient") data class Quotient(val value: Value, val divisor: Int) : Value
 }
 
 /**
@@ -162,6 +166,12 @@ sealed interface Condition {
     @Serializable @SerialName("this-turn") data class HappenedThisTurn(
         val event: EventPattern, val atLeast: Int, val measure: Measure,
     ) : Condition
+    // fra
+    /** [event] happened during the previous turn, at least [atLeast] times by [measure] ("if an opponent was dealt noncombat
+     * damage last turn"). */
+    @Serializable @SerialName("last-turn") data class HappenedLastTurn(
+        val event: EventPattern, val atLeast: Int, val measure: Measure,
+    ) : Condition
     /** The objects named [name] by an effect are not empty ("if a creature died this way"). */
     @Serializable @SerialName("non-empty") data class NonEmpty(val name: String) : Condition
     /** Your speed is 4, the most it can be (max speed, CR 702.178). */
@@ -204,4 +214,8 @@ sealed interface Duration {
     @Serializable @SerialName("until-leaves") data class UntilLeaves(val objects: Objects) : Duration
     /** No end ("gains control of target creature"). */
     @Serializable @SerialName("indefinitely") data object Indefinitely : Duration
+    // fra
+    /** "until this card is cast from exile": while the card stays where it is and while it is being cast, ending as it
+     * becomes cast (CR 601.2i), so mana it helps make can pay for it. */
+    @Serializable @SerialName("until-cast") data class UntilCast(val objects: Objects) : Duration
 }

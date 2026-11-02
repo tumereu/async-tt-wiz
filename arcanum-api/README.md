@@ -65,6 +65,16 @@ The definition model (overview in `Definitions.kt`):
   `Modification.EntersAs` ("enters … as a Mutant"), `CopyException.ThisAbility`, `Value.GreatestFor` ("the greatest number
   of cards a player discarded"), `CostPart.RemoveCounters.distributed` ("from among creatures you control"),
   `Effect.RemoveCounters.bind`, `TargetSlot.sameOwner` ("from a single graveyard") and `TargetSlot.atRandom`.
+- Reality Fracture (set `fra`): preparation cards (CR 722: `Layout.Prepare`, `ObjectMark.Prepared` set with `Effect.Mark`,
+  `Modification.EntersMarked` for "enters prepared", `ObjectFilter.PrepareSpell`), empower Jace (CR 701.71a:
+  `KeywordAction.EmpowerJace`, written out by `KeywordExpansions` with `KeywordExpansions.JACE_TOKEN`), the Heartwood token
+  (CR 111.10x), split second (a `KeywordExpansions` entry, with `Mechanic.CantActivate` for players), and smaller pieces:
+  `EventPattern.Activate.kind`/`removedLoyaltyAtLeast` ("whenever you activate a loyalty ability", "if you removed two or more
+  loyalty counters"), `Condition.HappenedLastTurn`, `Value.Quotient` ("for every seven cards"), `SharedQuality.PlaneswalkerType`,
+  `ObjectFilter.HasDealtCombatDamage`, `Choice.Objects.totalAtMost` ("total mana value 6 or less"), `TargetSlot.onePer`
+  ("one target of each card type"), `Keyword.Equip.costChange`, `Duration.UntilCast`, `Modification.CreateInstead` ("that many
+  Dragons are created instead"), and the mechanics `AnyNumberInDeck`, `NoGraveyardForZeroLoyalty`, `LegendRuleDoesntApply`,
+  `LoyaltyAtInstantSpeed`, `AssignsDamageAsThoughPowerPositive` and `EventDoesntTrigger`.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

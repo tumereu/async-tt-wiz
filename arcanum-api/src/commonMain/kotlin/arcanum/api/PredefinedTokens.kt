@@ -28,11 +28,16 @@ object PredefinedTokens {
         "Blood" -> artifact("Blood", Ability.Activated(
             Cost(listOf(mana("{1}"), CostPart.TapSelf, CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, count = Value.Fixed(1))), sacrificeSelf)),
             steps(Effect.Draw(Players.You, count = Value.Fixed(1))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
+        // fra: CR 111.10x: a red and green Heartwood artifact token with "{T}: Add {R} or {G}."
+        "Heartwood" -> FaceDefinition("Heartwood Token", colorIndicator = listOf(Color.Red, Color.Green), types = listOf(CardType.Artifact),
+            subtypes = listOf(Subtype("Heartwood")), abilities = listOf(Ability.Activated(Cost(listOf(CostPart.TapSelf)),
+                steps(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1), colors = listOf(ColorRef.Literal(Color.Red), ColorRef.Literal(Color.Green)))),
+                    players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))))
         else -> null
     }
 
     /** Every name [face] knows. */
-    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood")
+    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood")
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)

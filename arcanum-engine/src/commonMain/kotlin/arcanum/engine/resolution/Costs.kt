@@ -92,7 +92,12 @@ internal object Costs {
             is CostPart.Mill -> state.player(payer).library.size >= scope.value(part.count)
             is CostPart.OneOf -> part.options.any { canPay(scope, payer, it) }
             // blb: forage can be paid when one of its two ways can (CR 701.61a)
-            is CostPart.Action -> if (part.action == arcanum.api.KeywordAction.Forage) canPay(scope, payer, arcanum.engine.casting.Costs.forage) else true
+            is CostPart.Action -> when (val action = part.action) {
+                arcanum.api.KeywordAction.Forage -> canPay(scope, payer, arcanum.engine.casting.Costs.forage)
+                // fra: something to behold (CR 701.4a)
+                is arcanum.api.KeywordAction.Behold -> Effects.beholdable(scope, payer, action.filter).isNotEmpty()
+                else -> true
+            }
             is CostPart.ChoosePlayer -> state.players.any { scope.eval().matches(part.filter, it.id) }
         }
     }

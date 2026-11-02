@@ -207,6 +207,32 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
+        // dsk chunk 08: "If this card is in your opening hand, you may begin the game with it on the battlefield." (CR 103.6a)
+        if (line == "If this card is in your opening hand, you may begin the game with it on the battlefield.")
+            return Ability.Static(listOf(Mechanic.MayBeginOnBattlefield), affects = Affected.Objects(Objects.Self), functionsIn = listOf(Zone.Hand))
+        // dsk chunk 08: "If you would gain life, you gain that much life plus 1 instead." (CR 614.1a)
+        GAIN_THAT_MUCH_PLUS.matchEntire(line)?.let { m ->
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.GainLife(PlayerFilter.You),
+                modify = listOf(Modification.AddAmount(Value.Fixed(m.groupValues[1].toInt()))))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 08: "If a card would be put into an opponent's graveyard from anywhere, exile it instead." (CR 614.1a)
+        WOULD_BE_PUT_INTO_GRAVEYARD_EXILE_INSTEAD.matchEntire(line)?.let { m ->
+            val owner = Filters.noun(m.groupValues[1]) ?: return null
+            val whose = if (m.groupValues[2] == "an opponent's") PlayerFilter.Opponent else PlayerFilter.You
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(Filters.all(owner, ObjectFilter.OwnedBy(whose)), to = Zone.Graveyard),
+                modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), affects = Affected.Objects(Objects.Self))
+        }
+        // dsk chunk 08: "Creatures you control are the chosen type in addition to their other types. The same is true for
+        // creature spells you control and creature cards you own that aren't on the battlefield." (CR 607.2d)
+        if (line == "Creatures you control are the chosen type in addition to their other types. The same is true for creature spells you control and creature cards you own that aren't on the battlefield.") {
+            val creature = ObjectFilter.Type(CardType.Creature)
+            val yours = ObjectFilter.ControlledBy(PlayerFilter.You)
+            return Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Remembered(CHOSEN_TYPE)))), affects = Affected.Objects(Objects.Union(listOf(
+                Objects.Each(Filters.all(creature, yours)),
+                Objects.Each(Filters.all(creature, ObjectFilter.Category(arcanum.api.ObjectCategory.Spell), yours)),
+                Objects.Each(Filters.all(creature, ObjectFilter.OwnedBy(PlayerFilter.You),
+                    ObjectFilter.Or(EVERY_ZONE.filter { it != Zone.Battlefield && it != Zone.Stack }.map { ObjectFilter.InZone(it) })))))))
+        }
         // dsk chunk 07: "This spell costs {2} less to cast as long as …" (CR 601.2f)
         SELF_COSTS_LESS_AS_LONG_AS.matchEntire(line)?.let { m ->
             val mana = ManaCost.parse(m.groupValues[1]) ?: return null
@@ -862,6 +888,9 @@ internal class Sentences(
         // dsk chunk 04: "if it had counters on it": the object of the event as it last existed (CR 603.10a)
         val interveningIf = conditional?.let {
             if (it.groupValues[1] == "it had counters on it") arcanum.api.Condition.ObjectMatches(that(trigger), ObjectFilter.HasCounter(null, atLeast = 1))
+            // dsk chunk 08: "if it was a creature": the object of the event as it last existed (CR 603.10a)
+            else if (IT_WAS_A.matches(it.groupValues[1])) arcanum.api.Condition.ObjectMatches(that(trigger),
+                Filters.noun(IT_WAS_A.matchEntire(it.groupValues[1])!!.groupValues[1]) ?: return null)
             else Conditions.condition(it.groupValues[1], self) ?: return null
         }
         // chunk 25: "it"/"them" in the effect: the event's object, or the objects the condition is about;
@@ -1579,6 +1608,23 @@ internal class Sentences(
         if (sentence == "Put the rest on the bottom of your library in a random order." && context.seen != null && context.picked != null) {
             return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(context.seen!!), Objects.Bound(context.picked!!)),
                 Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // dsk chunk 08: "It's an enchantment." after returning it: it stops being a creature (layer 4, CR 613.1d)
+        if (sentence == "It's an enchantment." && context.it != null) {
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(remove = listOf(CardType.Creature))),
+                arcanum.api.Affected.Objects(Objects.Bound("returned")), arcanum.api.Duration.Indefinitely)))
+        }
+        // dsk chunk 08: "Target opponent loses that much life." (the event's amount)
+        TARGET_LOSES_THAT_MUCH.matchEntire(sentence)?.let { m ->
+            val player = if (m.groupValues[1] == "player") context.targetPlayer() else context.targetOpponent()
+            return listOf(Step.Do(Effect.LoseLife(player, Value.EventAmount)))
+        }
+        // dsk chunk 08: "Create a tapped colorless land token named Everywhere that is every basic land type." (CR 111.4)
+        CREATE_NAMED_LAND_TOKEN.matchEntire(sentence)?.let { m ->
+            val face = arcanum.api.FaceDefinition(name = m.groupValues[2], colorIndicator = emptyList(), types = listOf(CardType.Land),
+                subtypes = Filters.BASIC_LAND_TYPES.map { Subtype(it) })
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Defined(face), count = Value.Fixed(1), controller = Players.You,
+                tapped = m.groupValues[1].isNotEmpty())))
         }
         // dsk chunk 07: "After this phase, there is an additional combat phase." (CR 500.8)
         if (sentence == "After this phase, there is an additional combat phase.") return listOf(Step.Do(Effect.ExtraCombat()))
@@ -3583,6 +3629,12 @@ internal class Sentences(
         val ADDITIONAL_CREATURE_TYPE = Regex("""it's an? (\w+) in addition to its other creature types""")
         const val MANIFESTED = "manifested"
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // dsk chunk 08
+        val IT_WAS_A = Regex("""it was an? (.+)""")
+        val GAIN_THAT_MUCH_PLUS = Regex("""If you would gain life, you gain that much life plus (\d+) instead\.""")
+        val WOULD_BE_PUT_INTO_GRAVEYARD_EXILE_INSTEAD = Regex("""If an? (.+?) would be put into (an opponent's|your) graveyard from anywhere, exile it instead\.""")
+        val TARGET_LOSES_THAT_MUCH = Regex("""Target (player|opponent) loses that much life\.""")
+        val CREATE_NAMED_LAND_TOKEN = Regex("""Create an? (tapped )?colorless land token named (.+?) that is every basic land type\.""")
         // dsk chunk 07
         val WHILE = Regex("""(.+?) while (.+)""")
         val SELF_COSTS_LESS_AS_LONG_AS = Regex("""This spell costs ((?:\{[^}]+\})+) less to cast as long as (.+)\.""")

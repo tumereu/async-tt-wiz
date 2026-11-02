@@ -42,6 +42,10 @@ internal object Filters {
         NOT_SAME_NAME_AS.matchEntire(phrase)?.let { m ->
             return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
         }
+        // dsk chunk 08: "an instant or sorcery spell that targets only a single creature you control" (CR 115.7)
+        TARGETS_ONLY_A_SINGLE.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.SingleTarget(noun(m.groupValues[2]) ?: return null))
+        }
         // dsk chunk 07: "Insects and Spiders": either of two plural subtypes
         PLURAL_SUBTYPES_AND.matchEntire(phrase)?.let { m ->
             val a = noun(m.groupValues[1]); val b = noun(m.groupValues[2])
@@ -223,6 +227,8 @@ internal object Filters {
     }
 
     private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
+    // dsk chunk 08
+    private val TARGETS_ONLY_A_SINGLE = Regex("""(.+ spell) that targets only a single (.+)""")
     // dsk chunk 07
     private val PLURAL_SUBTYPES_AND = Regex("""([A-Z][a-z]+s) and ([A-Z][a-z]+s)""")
     // dsk chunk 01
@@ -309,6 +315,11 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 08: "you cast an instant or sorcery spell that targets only a single creature you control", "you gain life",
+        // "you lose life"
+        YOU_CAST_SPELL_THAT.matchEntire(text)?.let { m -> return EventPattern.Cast(Filters.noun(m.groupValues[1]) ?: return null, by = PlayerFilter.You) }
+        if (text == "you gain life") return EventPattern.GainLife(PlayerFilter.You)
+        if (text == "you lose life") return EventPattern.LoseLife(PlayerFilter.You)
         // dsk chunk 07: "a source you control deals noncombat damage to an opponent"
         SOURCE_DEALS_DAMAGE_TO.matchEntire(text)?.let { m ->
             val source = if (m.groupValues[1] == "a source you control") ObjectFilter.ControlledBy(PlayerFilter.You) else subject(m.groupValues[1], self) ?: return null
@@ -466,6 +477,8 @@ internal object Events {
     private val ENTERS = Regex("""(.+) enters?""")
     // dsk chunk 01
     private val YOU_FULLY_UNLOCK = Regex("""you fully unlock an? (\w+)""")
+    // dsk chunk 08
+    private val YOU_CAST_SPELL_THAT = Regex("""you cast an? (.+ spell that .+)""")
     // dsk chunk 07
     private val SOURCE_DEALS_DAMAGE_TO = Regex("""(.+?) deals (noncombat |combat )?damage to (an opponent|a player|you)""")
     // dsk chunk 06
@@ -662,6 +675,10 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // dsk chunk 08: "you have at least 7 life more than your starting life total" (CR 103.4)
+        LIFE_MORE_THAN_STARTING.matchEntire(text)?.let { m ->
+            return Condition.Compare(Value.LifeOf(Players.You), Comparison.AtLeast, Value.Sum(listOf(Value.StartingLife(Players.You), Value.Fixed(m.groupValues[1].toInt()))))
+        }
         // dsk chunk 06: "a permanent entered the battlefield face down under your control this turn", "you turned a permanent
         // face up this turn"
         if (text == "a permanent entered the battlefield face down under your control this turn")
@@ -689,6 +706,8 @@ internal object Conditions {
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
     // dsk chunk 01
+    // dsk chunk 08
+    private val LIFE_MORE_THAN_STARTING = Regex("""you have at least (\d+) life more than your starting life total""")
     // dsk chunk 04
     private val CONTROL_A_PHRASE = Regex("""you (don't )?control an? (.+)""")
     private val EXILED_WITH_AT_LEAST = Regex("""there are (\w+) or more cards exiled with (.+)""")

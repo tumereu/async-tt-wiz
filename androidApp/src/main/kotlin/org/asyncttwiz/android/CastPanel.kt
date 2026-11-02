@@ -30,6 +30,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.ManaUse
 import arcanum.engine.input.Input
+import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.automatum.CastFlow
@@ -68,9 +69,26 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, sce
     }
 }
 
+/**
+ * What the panel sections need of an open flow, private (a cast, [CastController]) or shared (resolution and triggers,
+ * [SharedFlowController]): the engine's state for names, answering, the engine's listed answers, the mana picked for a
+ * payment, and whether the viewer may be shown an object (I-D27: hidden cards stay hidden, also to a player choosing
+ * for the other one).
+ */
+internal interface FlowQuestions {
+    val engine: GameState
+    fun atwCard(id: ObjectId): String?
+    fun answer(answer: Answer): Boolean
+    fun listedAnswers(): List<Answer>
+    val mana: List<ManaUse>
+    val paid: Boolean
+    fun toggleMana(group: List<ManaUse>)
+    fun shown(id: ObjectId): Boolean = true
+}
+
 /** Left of the Stack (or of the table's right edge), centred on it vertically (or on [middle], dp), inside the table. */
 @Composable
-private fun CastPanelPlacement(stack: TableBounds?, middle: Float?, content: @Composable () -> Unit) {
+internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, content: @Composable () -> Unit) {
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val margin = 8.dp.roundToPx()
         val width = minOf(300.dp.roundToPx(), constraints.maxWidth - 2 * margin).coerceAtLeast(0)
@@ -124,8 +142,8 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, nam
             flow.steps.forEachIndexed { index, (decision, answer) -> AnsweredSection(cast, flow, play, names, index, decision, answer) }
             when (val open = flow.pending) {
                 null -> Text("Ready to cast.", fontSize = 12.sp)
-                is Decision.ManaPayment -> ManaSection(cast, flow, play, open)
-                else -> OpenSection(cast, flow, play, names, open)
+                is Decision.ManaPayment -> ManaSection(cast, cast, play, open)
+                else -> OpenSection(cast, cast, play, names, open)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(accept, setAccept, Modifier.semantics { contentDescription = "Accept automatically" })
@@ -141,7 +159,7 @@ private fun CastPanel(cast: CastController, flow: CastFlow, play: PlayState, nam
 }
 
 @Composable
-private fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
+internal fun Section(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         HorizontalDivider(color = AutomatumViolet.copy(alpha = .25f))
         Text(title, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = AutomatumViolet)
@@ -176,17 +194,17 @@ private fun AnsweredSection(cast: CastController, flow: CastFlow, play: PlayStat
         }
         else -> Section(sectionTitle(decision)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(answerLabel(flow, play, names, decision, answer), Modifier.weight(1f), fontSize = 12.sp)
+                Text(answerLabel(cast, play, names, decision, answer), Modifier.weight(1f), fontSize = 12.sp)
                 TextButton({ cast.back(index) }) { Text("Change") }
             }
         }
     }
 }
 
-/** The open question (but targets, chosen on the table, and mana, [ManaSection]). */
+/** The open question (but targets, chosen on the table, and mana, [ManaSection]) of a cast or a shared flow. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun OpenSection(cast: CastController, flow: CastFlow, play: PlayState, names: Map<String, String>, decision: Decision) {
+internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, names: Map<String, String>, decision: Decision) {
     when (decision) {
         is Decision.May -> Section(mayTitle(decision)) {
             Text(decision.text, fontSize = 12.sp)
@@ -194,6 +212,7 @@ private fun OpenSection(cast: CastController, flow: CastFlow, play: PlayState, n
                 Button({ cast.answer(Answer.YesNo(true)) }, enabled = decision.payable) { Text("Yes") }
                 OutlinedButton({ cast.answer(Answer.YesNo(false)) }) { Text("No") }
             }
+            if (!decision.payable) Text("It can't be paid now.", fontSize = 11.sp, color = Color(0xff4b5a5f))
         }
         is Decision.Announce, is Decision.ChooseNumber -> {
             val min = (decision as? Decision.Announce)?.min ?: (decision as Decision.ChooseNumber).min
@@ -255,6 +274,39 @@ private fun OpenSection(cast: CastController, flow: CastFlow, play: PlayState, n
             Text(decision.text, fontSize = 12.sp)
             Button({ cast.answer(Answer.Done) }) { Text("Done") }
         }
+        is Decision.OrderTriggers -> {
+            // CR 603.3b: the first tapped goes on the Stack first (and resolves last)
+            var order by remember(decision.id) { mutableStateOf(listOf<Int>()) }
+            Section("Order triggers") {
+                Text("Tap them in the order they go on the Stack: the first goes on first and resolves last.", fontSize = 11.sp,
+                    color = Color(0xff4b5a5f))
+                for (trigger in decision.triggers) {
+                    val place = order.indexOf(trigger.index)
+                    FilterChip(place >= 0, { order = if (place >= 0) order - trigger.index else order + trigger.index },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text((if (place >= 0) "${place + 1} · " else "") + triggerLabel(flow, play, trigger), fontSize = 12.sp) })
+                }
+                Button({ cast.answer(Answer.Order(order)) }, enabled = order.size == decision.triggers.size) { Text("OK") }
+            }
+        }
+        is Decision.LegendRule -> Section("Legend rule") {
+            Text("Choose the ${decision.name} to keep; the others go to the graveyard.", fontSize = 12.sp)
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                decision.among.forEachIndexed { i, o -> OutlinedButton({ cast.answer(Answer.Keep(o)) }) {
+                    Text("Keep ${objectName(flow, play, o)}${if (decision.among.size > 1) " ${i + 1}" else ""}", fontSize = 12.sp)
+                } }
+            }
+        }
+        is Decision.ChooseReplacement -> Section("Which applies first") {
+            for (option in decision.options) OutlinedButton({ cast.answer(Answer.Replacement(option.index)) }, Modifier.fillMaxWidth()) {
+                Text(option.text ?: (option.source?.let { objectName(flow, play, it) } ?: "Replacement ${option.index + 1}"), fontSize = 12.sp)
+            }
+        }
+        is Decision.ChoosePlayer -> Section("Choose a player") {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                for (player in decision.options) OutlinedButton({ cast.answer(Answer.Player(player)) }) { Text(names[player.value] ?: "A player") }
+            }
+        }
         else -> Section(sectionTitle(decision)) {
             // Choices the panel has no control of its own for yet: the engine's listed answers
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -269,7 +321,7 @@ private fun OpenSection(cast: CastController, flow: CastFlow, play: PlayState, n
 /** The mana section: the engine's suggested tapping shown tapped, the other sources untapped; a tap toggles one. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ManaSection(cast: CastController, flow: CastFlow, play: PlayState, decision: Decision.ManaPayment) {
+internal fun ManaSection(cast: FlowQuestions, flow: FlowQuestions, play: PlayState, decision: Decision.ManaPayment) {
     Section("Mana · ${decision.cost}") {
         val groups = decision.options.groupBy { use -> when (use) {
             is ManaUse.Ability -> use.source.toString()
@@ -294,7 +346,7 @@ private fun ManaSection(cast: CastController, flow: CastFlow, play: PlayState, d
 }
 
 @Composable
-private fun Stepper(value: Int, min: Int, max: Int?, set: (Int) -> Unit) {
+internal fun Stepper(value: Int, min: Int, max: Int?, set: (Int) -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         OutlinedButton({ set(value - 1) }, Modifier.size(36.dp), enabled = value > min, contentPadding = PaddingValues(0.dp)) { Text("−") }
         Text("$value", Modifier.padding(horizontal = 10.dp).semantics { contentDescription = "Value $value" }, fontWeight = FontWeight.Bold)
@@ -315,8 +367,8 @@ private fun TapGlyph(tapped: Boolean) {
 
 /** The eye (I-D10): hides the panel to look at the board, and shows it again. */
 @Composable
-private fun EyeButton(hidden: Boolean, toggle: () -> Unit) {
-    IconButton(toggle, Modifier.size(40.dp).semantics { contentDescription = if (hidden) "Show cast panel" else "Hide cast panel" }) {
+internal fun EyeButton(hidden: Boolean, toggle: () -> Unit, what: String = "cast panel") {
+    IconButton(toggle, Modifier.size(40.dp).semantics { contentDescription = if (hidden) "Show $what" else "Hide $what" }) {
         Canvas(Modifier.size(22.dp)) {
             val stroke = Stroke(1.8f * density)
             drawOval(AutomatumViolet, Offset(1f, size.height * .25f), Size(size.width - 2f, size.height * .5f), style = stroke)
@@ -337,7 +389,7 @@ private fun spellName(flow: CastFlow, play: PlayState): String {
     return definition?.faces?.getOrNull(cast.way.face)?.name ?: CastController.cardName(play, flow.cardId)
 }
 
-private fun cardText(play: PlayState, cardId: String): String? {
+internal fun cardText(play: PlayState, cardId: String): String? {
     val card = play.board.cards.singleOrNull { it.id == cardId } ?: return null
     val faces = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces ?: return null
     return faces.joinToString("\n") { it.rulesText }.trim().ifEmpty { null }
@@ -374,7 +426,7 @@ private fun sectionTitle(d: Decision): String = when (d) {
     else -> "Choice"
 }
 
-private fun answerLabel(flow: CastFlow, play: PlayState, names: Map<String, String>, decision: Decision, answer: Answer): String = when (answer) {
+private fun answerLabel(flow: FlowQuestions, play: PlayState, names: Map<String, String>, decision: Decision, answer: Answer): String = when (answer) {
     is Answer.Targets -> answer.chosen.joinToString { targetName(flow, play, names, it) }.ifEmpty { "None" }
     is Answer.Objects -> answer.chosen.joinToString { objectName(flow, play, it) }.ifEmpty { "None" }
     is Answer.Modes -> answer.chosen.joinToString(" · ") { i -> (decision as? Decision.Modes)?.options?.firstOrNull { it.index == i }?.text ?: "Mode ${i + 1}" }
@@ -393,16 +445,22 @@ private fun answerLabel(flow: CastFlow, play: PlayState, names: Map<String, Stri
     else -> answer::class.simpleName ?: "Answer"
 }
 
-private fun targetName(flow: CastFlow, play: PlayState, names: Map<String, String>, target: TargetRef): String = when (target) {
+internal fun targetName(flow: FlowQuestions, play: PlayState, names: Map<String, String>, target: TargetRef): String = when (target) {
     is TargetRef.Player -> names[target.id.value] ?: "A player"
     is TargetRef.Object -> objectName(flow, play, target.id)
 }
 
-private fun objectName(flow: CastFlow, play: PlayState, id: ObjectId): String =
-    flow.state.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
+/** An object's name, or "A hidden card" when the viewer mustn't see it (I-D27). */
+internal fun objectName(flow: FlowQuestions, play: PlayState, id: ObjectId): String =
+    if (!flow.shown(id)) "A hidden card"
+    else flow.engine.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) } ?: "An object"
 
-private fun manaLabel(flow: CastFlow, play: PlayState, use: ManaUse, group: List<ManaUse>): String = when (use) {
+/** A trigger waiting to be put on the Stack: its source's name and its printed text. */
+private fun triggerLabel(flow: FlowQuestions, play: PlayState, trigger: arcanum.engine.decision.TriggerOption): String =
+    listOfNotNull(trigger.source?.let { objectName(flow, play, it) }, trigger.text).joinToString(": ").ifEmpty { "Trigger ${trigger.index + 1}" }
+
+private fun manaLabel(flow: FlowQuestions, play: PlayState, use: ManaUse, group: List<ManaUse>): String = when (use) {
     is ManaUse.Ability -> objectName(flow, play, use.source) + " " + group.filterIsInstance<ManaUse.Ability>()
         .map { it.color?.symbol ?: 'C' }.distinct().joinToString("/")
     is ManaUse.Pool -> "Pool mana"

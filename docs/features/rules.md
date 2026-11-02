@@ -68,7 +68,7 @@ Rules that every feature follows: what the product is, who decides game state, h
 - **SYS-064** A card whose card data Automatum can't read plays with its printed values (name, cost, colour indicator, the types it knows, P/T, loyalty, defense) and its whole rules text as one ability carried out by hand, instead of keeping Automatum from running. (r36)
 - **SYS-065** A spell Automatum casts face down (morph and the like) gets a face-down Stack entry as in STK-005 and becomes a face-down permanent; nothing Automatum sends or keeps in the game names it, so the opponent sees only its back. Manual face-down casts are unchanged. (r36)
 - **SYS-066** An emblem Automatum makes (CR 114) is kept in the game with whose it is and its text, for its chip by the life square (TRN-053). (r36)
-- **SYS-067** With Automatum on, while steps and turns still change by hand, casting follows priority as the rules give it: on an empty Stack the active player holds priority (so only they can cast then), and after a cast its caster keeps it (the other player can't respond through Automatum yet). Automatum sets that priority within the cast itself. Lands played through Automatum count one per turn; a turn changed by hand starts with none played. (r37)
+- **SYS-067** With Automatum on, while steps and turns still change by hand, priority follows the rules: on an empty Stack the active player holds it (so only they can cast then, or play a land), after a cast its caster passes it (STK-026) and the other player may respond (STK-027), and after something resolves the active player gets it again. Automatum sets that priority within its own steps. Lands played through Automatum count one per turn; a turn changed by hand starts with none played. (r37)
 
 ### Player access policy
 

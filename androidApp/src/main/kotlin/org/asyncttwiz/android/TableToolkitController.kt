@@ -29,6 +29,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun engineTags(): List<MtgTag?> = current()?.let { engineTags(playTree?.invoke(), it.currentNodeId) }.orEmpty()
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it })
+    /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
+     * answer nothing else changes (D32). */
+    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it })
     /** What the viewer may cast or play from their hand now (I-D28). */
     fun handPlays(play: PlayState): org.asyncttwiz.automatum.HandPlays = AutomatumBoards.handPlays(play, viewer, engineTags())
     val manual = ManualActions()
@@ -125,7 +128,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
-        if (cast.open) { error = CastController.BUSY; return false }
+        refusal(action)?.let { error = it; return false }
         val play = current()
         val source = ((action as? PlayAction.Stack)?.action as? StackAction.AddEffect)?.sourceId
         val baseline = draft?.initial ?: play
@@ -138,6 +141,36 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 if (draft == null) refreshStackBubbles()
             }
         }
+    }
+
+    /**
+     * Why [action] can't be made now with Automatum (D32): a cast is open; a shared flow waits for an answer and the
+     * action changes what Automatum reads (only Automatum's own controls and what is only shown, such as notes,
+     * statuses, marks, positions and whose move it is, go on); a step or turn change while the Stack holds something
+     * (Automatum resolves it now, and changes no step itself until I3). Null when it can.
+     */
+    private fun refusal(action: PlayAction): String? {
+        if (cast.open) return CastController.BUSY
+        val play = current() ?: return null
+        val board = play.board
+        if (!board.automatum) return null
+        val own = (action as? PlayAction.Mtg)?.action.let {
+            it is MtgAction.SetAutomatum || it is MtgAction.SetSkipWhenNoChoice || it is MtgAction.ClearRecords }
+        if (own) return null
+        if (Automatum.flowOpen(board) && !shownOnly(play, action)) return SharedFlowController.BUSY
+        val step = action == PlayAction.NextStep || action == PlayAction.EndTurn || action is PlayAction.ChooseStep ||
+            action is PlayAction.BeginTurn
+        if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
+        return null
+    }
+
+    /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
+     * digest covers, SYS-057). An action the rules refuse anyway counts as shown-only: its own refusal is reported. */
+    private fun shownOnly(play: PlayState, action: PlayAction): Boolean {
+        val command = GameCommand(UUID.randomUUID().toString(), GameScope(play.gameId, playId = play.id), GameAction.Play(action),
+            UUID.randomUUID().toString(), "1")
+        val after = GameplayRules.preview(play, viewer, command).state ?: return true
+        return MtgFacts.digest(after.board) == MtgFacts.digest(play.board)
     }
 
     /** Convenience members are lowered against the current draft, then sent together. */
@@ -281,6 +314,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun open(captured: TableIntent.Actions, item: TableItem, selection: TableSelection) {
         // Targets are picked on the table while a cast asks for them (I-D5, I-D6)
         if (cast.targeting) { cast.tapTarget(item); return }
+        if (flows.targeting) { flows.tapTarget(item); return }
         val play = current() ?: return
         if (item.viewport.startsWith("cardPanel/")) {
             val display = (play.board.contentsDisplays + listOfNotNull(localPanelDisplay(play, viewer, layoutState.value)))

@@ -118,6 +118,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     if (toolkit.manual.scope?.usable(play) == false) LaunchedEffect(toolkit.manual.scope) { toolkit.manual.close() }
     // Automatum (I2a): the open cast's panel by the Stack, over the table
     CastPanelHost(toolkit, play, scene, names)
+    // Automatum (I2b): priority, resolution and trigger choices by the Stack
+    SharedFlowHost(toolkit, play, scene, names)
 }
 
 internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, viewer: String? = null): QuickContext = QuickContext(

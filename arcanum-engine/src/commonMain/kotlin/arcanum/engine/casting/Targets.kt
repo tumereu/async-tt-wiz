@@ -69,13 +69,25 @@ internal object Targets {
      * spell or ability itself and, for "hexproof from", its source) and protection (CR 702.16b: against the spell or the
      * ability's source).
      */
+    /** [applied] comes from a hexproof keyword's expansion (CR 702.11). */
+    fun fromHexproof(view: arcanum.engine.view.View, applied: arcanum.engine.view.AppliedMechanic): Boolean {
+        val expansion = applied.origin as? arcanum.engine.view.AbilityOrigin.Expansion ?: return false
+        val holder = applied.source ?: return false
+        return view[holder]?.characteristics?.abilities.orEmpty().any {
+            it.origin == expansion.keyword && (it.ability as? arcanum.api.Keyword)?.kind == arcanum.api.Keyword.Hexproof
+        }
+    }
+
     fun protectedFrom(snap: Snapshot, ref: TargetRef, item: ObjectId, source: ObjectId?): Boolean {
         val mechanics = when (ref) {
             is TargetRef.Object -> snap.view[ref.id]?.mechanics.orEmpty()
             is TargetRef.Player -> snap.view.players[ref.id]?.mechanics.orEmpty()
         }
         val sourceObject = source ?: item
+        // CR 702.11b: "as though they didn't have hexproof": the restriction of their hexproof keywords doesn't apply
+        val ignoringHexproof = mechanics.any { it.mechanic == Mechanic.TargetableDespiteHexproof }
         return mechanics.any { applied ->
+            if (ignoringHexproof && fromHexproof(snap.view, applied)) return@any false
             val e = snap.evaluator(applied.controller, self = applied.source ?: (ref as? TargetRef.Object)?.id, names = applied.names)
             when (val m = applied.mechanic) {
                 is Mechanic.CantBeTargeted -> e.matches(m.by, item) && (m.fromSource == null || e.matches(m.fromSource!!, sourceObject))

@@ -85,6 +85,10 @@ internal object CombatRules {
     private fun attackRestriction(snap: Snapshot, player: PlayerId, attacks: List<Attack>): String? {
         if (attacks.map { it.attacker }.distinct().size != attacks.size) return "A creature attacks only once"
         attacks.forEach { a -> if (!canAttack(snap, player, a.attacker, a.target)) return "${a.attacker} can't attack ${a.target}" }
+        // CR 508.1c: "can't attack alone"
+        attacks.singleOrNull()?.let { a ->
+            if (mechanics(snap, a.attacker).any { it.mechanic == Mechanic.CantAttackAlone }) return "${a.attacker} can't attack alone"
+        }
         // CR 508.1c: "no more than N creatures can attack": counted per effect among the creatures it restricts
         attacks.flatMap { a -> mechanics(snap, a.attacker).filter { it.mechanic is Mechanic.MaximumAttackers }.map { it to a } }
             .groupBy({ (applied, _) -> Triple(applied.source, applied.origin, applied.effect) }, { (applied, a) -> applied to a })
@@ -210,10 +214,12 @@ internal object CombatRules {
         val requirements = blockRequirements(snap, player)
         if (requirements.isEmpty()) return null
         val obeyed = requirements.count { it.obeyedBy(blocks) }
-        val most = mostObeyedBlock(snap, player, requirements).first
+        val best = mostObeyedBlock(snap, player, requirements).second
+        val most = requirements.count { it.obeyedBy(best) }
         if (obeyed >= most) return null
         val missed = requirements.first { !it.obeyedBy(blocks) }
-        return "${missed.creature} blocks each combat if able: $obeyed of the $most requirements that can be obeyed are (CR 509.1c)"
+        val what = if (missed.anyBlocker) "must be blocked if able" else "blocks each combat if able"
+        return "${missed.creature} $what: $obeyed of the $most requirements that can be obeyed are (CR 509.1c)"
     }
 
     /** A declaration of blockers that obeys as many requirements as any legal one can (CR 509.1c); empty when there are
@@ -229,6 +235,10 @@ internal object CombatRules {
             val capacity = blockCapacity(snap, blocker)
             if (capacity != null && bs.size > capacity) return "$blocker can block only $capacity creature(s)"
         }
+        // CR 509.1b: "can't block alone" (another blocker mends it)
+        blocks.map { it.blocker }.distinct().singleOrNull()?.let { blocker ->
+            if (whole && mechanics(snap, blocker).any { it.mechanic == Mechanic.CantBlockAlone }) return "$blocker can't block alone"
+        }
         blocks.groupBy { it.attacker }.forEach { (attacker, bs) ->
             mechanics(snap, attacker).forEach { applied ->
                 when (val m = applied.mechanic) {
@@ -242,9 +252,10 @@ internal object CombatRules {
         return null
     }
 
-    /** One requirement on [creature] (CR 509.1c): it blocks one of [attackers] (those it could block). */
-    private class BlockRequirement(val creature: ObjectId, val attackers: Set<ObjectId>) {
-        fun obeyedBy(blocks: List<Block>) = blocks.any { it.blocker == creature && it.attacker in attackers }
+    /** One requirement on [creature] (CR 509.1c): it blocks one of [attackers] (those it could block); with [anyBlocker]
+     * ("must be blocked if able"), [creature] is the attacker and any creature blocking it obeys. */
+    private class BlockRequirement(val creature: ObjectId, val attackers: Set<ObjectId>, val anyBlocker: Boolean = false) {
+        fun obeyedBy(blocks: List<Block>) = blocks.any { (anyBlocker || it.blocker == creature) && it.attacker in attackers }
     }
 
     /** Each "blocks (…) each combat if able" on a creature [player] controls that could block a matching attacker. */
@@ -257,19 +268,27 @@ internal object CombatRules {
                 attackers.filter { a -> e.matches(m.attackers, a) && canBlock(snap, player, id, a) }.toSet()
                     .takeIf { it.isNotEmpty() }?.let { BlockRequirement(id, it) }
             }
-        }
+        } + attackers.filter { a ->
+            // "must be blocked if able", when a creature of [player]'s could block it
+            mechanics(snap, a).any { it.mechanic == Mechanic.MustBeBlocked } && snap.state.battlefield.any { canBlock(snap, player, it, a) }
+        }.map { a -> BlockRequirement(a, setOf(a), anyBlocker = true) }
     }
 
     /** Creatures that must block choose among what they could block; others join only where "except by N or more"
      * makes a second blocker matter. */
     private fun mostObeyedBlock(snap: Snapshot, player: PlayerId, requirements: List<BlockRequirement>): Pair<Int, List<Block>> {
         val attackers = snap.state.combat?.attackers.orEmpty().map { it.id }
-        val required = requirements.map { it.creature }.distinct()
+        val required = requirements.filter { !it.anyBlocker }.map { it.creature }.distinct()
+        val mustBeBlocked = requirements.filter { it.anyBlocker }.flatMap { it.attackers }
         val needCompany = attackers.filter { a -> mechanics(snap, a).any { it.mechanic is Mechanic.MinimumBlockers } }
-        val helpers = snap.state.battlefield.filter { it !in required && needCompany.any { a -> canBlock(snap, player, it, a) } }
+        // CR 509.1b: "can't block alone" makes a second blocker matter too
+        val alone = snap.state.battlefield.any { b -> mechanics(snap, b).any { it.mechanic == Mechanic.CantBlockAlone } }
+        val helped = (needCompany + mustBeBlocked + if (alone) attackers else emptyList()).distinct()
+        val helpers = snap.state.battlefield.filter { it !in required && helped.any { a -> canBlock(snap, player, it, a) } }
+        fun score(id: ObjectId, a: ObjectId) = requirements.count { (it.anyBlocker || it.creature == id) && a in it.attackers }
         val choices = required.map { id ->
-            attackers.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to requirements.count { it.creature == id && a in it.attackers } }
-        } + helpers.map { id -> needCompany.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to 0 } }
+            attackers.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to score(id, a) }
+        } + helpers.map { id -> helped.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to score(id, a) } }
         return mostObeyed(choices, { blockRestriction(snap, player, it, whole = false) == null },
             { blockRestriction(snap, player, it, whole = true) == null })
     }

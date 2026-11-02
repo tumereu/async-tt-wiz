@@ -985,6 +985,37 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "prototype"; override val text: String get() = "Prototype"; override val rule: String get() = "702.160" }
     }
+    /** Gift a [gift] (CR 702.174): "As an additional cost to cast this spell, you may choose an opponent", and the gift
+     * the chosen player gets: on an instant or sorcery before its other spell abilities, on a permanent when it enters
+     * (702.174a, b, j). "The gift was promised" is [Condition.Paid] of this keyword (702.174k). */
+    @Serializable @SerialName("gift") data class Gift(val gift: Gifted) : Keyword {
+        override val kind: KeywordKind get() = Kind
+        companion object Kind : KeywordKind { override val id: String get() = "gift"; override val text: String get() = "Gift"; override val rule: String get() = "702.174" }
+    }
+    /** A class level bar, "[cost]: Level [level]" with the [abilities] printed in its section (CR 716.2a): "[Cost]: This
+     * Class's level becomes N. Activate only if this Class is level N-1 and only as a sorcery" and "As long as this Class
+     * is level N or greater, it has [abilities]". */
+    @Serializable @SerialName("class-level") data class ClassLevel(override val cost: Cost, val level: Int, val abilities: List<Ability>) : Keyword, HasCost {
+        override val kind: KeywordKind get() = Kind
+        companion object Kind : KeywordKind { override val id: String get() = "class-level"; override val text: String get() = "Level"; override val rule: String get() = "716.2" }
+    }
+}
+
+/** What a gift gives the chosen opponent (CR 702.174d–i). */
+@Serializable
+sealed interface Gifted {
+    /** "Gift a Food": the chosen player creates a Food token (702.174d). */
+    @Serializable @SerialName("food") data object Food : Gifted
+    /** "Gift a card": the chosen player draws a card (702.174e). */
+    @Serializable @SerialName("card") data object Card : Gifted
+    /** "Gift a tapped Fish": the chosen player creates a tapped 1/1 blue Fish creature token (702.174f). */
+    @Serializable @SerialName("tapped-fish") data object TappedFish : Gifted
+    /** "Gift an extra turn": the chosen player takes an extra turn after this one (702.174g). */
+    @Serializable @SerialName("extra-turn") data object ExtraTurn : Gifted
+    /** "Gift a Treasure": the chosen player creates a Treasure token (702.174h). */
+    @Serializable @SerialName("treasure") data object Treasure : Gifted
+    /** "Gift an Octopus": the chosen player creates an 8/8 blue Octopus creature token (702.174i). */
+    @Serializable @SerialName("octopus") data object Octopus : Gifted
 }
 
 /** A keyword by name only, without values ("creatures with ward", "whenever you cycle"). Serialised as its [id]. */
@@ -1178,6 +1209,8 @@ interface KeywordKind {
                 Keyword.CompanionAbility.Kind,
                 Keyword.CommanderNinjutsu.Kind,
                 Keyword.Prototype.Kind,
+                Keyword.Gift.Kind,
+                Keyword.ClassLevel.Kind,
             )
         }
         fun byId(id: String): KeywordKind? = all.firstOrNull { it.id == id }

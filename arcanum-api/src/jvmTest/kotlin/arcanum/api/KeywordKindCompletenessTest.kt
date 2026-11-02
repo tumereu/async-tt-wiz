@@ -21,7 +21,8 @@ class KeywordKindCompletenessTest {
 
     @Test
     fun everyKeywordCitesARuleOfChapter702() {
-        KeywordKind.all.forEach { assertTrue(Regex("""702\.\d+[a-z]?""").matches(it.rule), "${it.id}: ${it.rule}") }
+        // blb: a class level bar is a keyword ability defined with Class cards (CR 716.2)
+        KeywordKind.all.forEach { assertTrue(Regex("""702\.\d+[a-z]?""").matches(it.rule) || it.rule == "716.2", "${it.id}: ${it.rule}") }
     }
 
     @Test

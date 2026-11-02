@@ -138,6 +138,11 @@ sealed interface Mechanic {
      * fromSource = that quality (702.11d); shroud: by = any (702.18a). */
     @Serializable @SerialName("cant-be-targeted") data class CantBeTargeted(val by: ObjectFilter, val fromSource: ObjectFilter? = null) : Mechanic
     @Serializable @SerialName("phasing") data object Phasing : KeywordOnly
+    /** The affected objects can be the targets of spells and abilities as though they didn't have hexproof (CR 702.11b): the
+     * targeting restriction of their hexproof keywords doesn't apply. */
+    @Serializable @SerialName("targetable-despite-hexproof") data object TargetableDespiteHexproof : Mechanic
+    /** The ward abilities of the affected objects don't trigger (CR 702.21a). */
+    @Serializable @SerialName("ward-doesnt-trigger") data object WardDoesntTrigger : Mechanic
     /** What this Aura can target as a spell and be attached to (enchant, CR 702.5, 303.4). */
     @Serializable @SerialName("can-enchant") data class CanEnchant(val what: TargetKind) : KeywordOnly
     /** What this Equipment or Fortification can be attached to besides the default (CR 301.5). */
@@ -177,8 +182,14 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
     @Serializable @SerialName("can-block-any-number") data object CanBlockAnyNumber : Mechanic
+    /** Can't attack alone: it can be declared as an attacker only with another attacker (CR 506.5, 508.1c). */
+    @Serializable @SerialName("cant-attack-alone") data object CantAttackAlone : Mechanic
+    /** Can't block alone: it can be declared as a blocker only with another blocker (CR 506.5, 509.1b). */
+    @Serializable @SerialName("cant-block-alone") data object CantBlockAlone : Mechanic
     @Serializable @SerialName("must-attack") data class MustAttack(val target: Recipients? = null) : Mechanic
     @Serializable @SerialName("must-block") data class MustBlock(val attackers: ObjectFilter) : Mechanic
+    /** "Must be blocked if able": a requirement that at least one creature blocks it, when one can (CR 509.1c). */
+    @Serializable @SerialName("must-be-blocked") data object MustBeBlocked : Mechanic
     /** Assigns combat damage equal to its toughness rather than its power (CR 510.1). */
     @Serializable @SerialName("damage-by-toughness") data object AssignsDamageByToughness : Mechanic
     /** May assign its combat damage as though it weren't blocked (card text; no general rule). */
@@ -220,12 +231,20 @@ sealed interface Mechanic {
         val holder: PlayerFilter,
         /** Only by its [viaAlternative] alternative cost ("cast it from your graveyard using its bestow ability"). */
         @Serializable(with = KeywordKindSerializer::class) val viaAlternative: KeywordKind? = null,
+        /** What a spell cast with this permission and the permanent it becomes get ("If you cast a spell this way, that
+         * creature enters with a finality counter on it", CR 400.7d); [Objects.Affected] in them is that spell (as
+         * [Effect.SpellGets]). */
+        val spellGets: List<Mechanic> = emptyList(),
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
-     * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */
+     * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.
+     * In a static ability of another object, the affected cards get it when that ability's controller casts them ("You
+     * may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast"); [perTurn]: that player may use it only
+     * that many times each turn ("Once each turn, you may pay {0} rather than pay the mana cost for a spell you cast from
+     * exile"). */
     @Serializable @SerialName("alternative-cost") data class AlternativeCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
-        val cost: Cost, val faceDown: Boolean = false,
+        val cost: Cost, val faceDown: Boolean = false, val perTurn: Int? = null,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */
@@ -263,6 +282,9 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-be-activated") data class CantBeActivated(val manaAbilities: Boolean) : Mechanic
     /** The affected permanents can't be regenerated: regeneration shields don't apply to them (CR 701.19c). */
     @Serializable @SerialName("cant-be-regenerated") data object CantBeRegenerated : Mechanic
+    /** The affected face-down permanents can't be turned face up: neither by a special action (CR 116.2b, 701.40b) nor by an
+     * effect. */
+    @Serializable @SerialName("cant-be-turned-face-up") data object CantBeTurnedFaceUp : Mechanic
     /** When the card itself may be cast ("Cast this spell only during combat", "only if …"); prohibitions on other spells
      * are [CantCast]. */
     @Serializable @SerialName("cast-restriction") data class CastRestriction(val timing: Timing? = null, val condition: Condition? = null) : Mechanic
@@ -296,13 +318,25 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
     @Serializable @SerialName("skip-step") data class SkipStep(val step: TurnStep) : Mechanic
-    /** "If [event] causes a triggered ability of [sources] to trigger, it triggers an additional time" (CR 603.2d). */
+    /** "If [event] causes a triggered ability of [sources] to trigger, it triggers an additional time" (CR 603.2d); [event]
+     * null: whatever event ("If a triggered ability of a permanent you control triggers"). */
     @Serializable @SerialName("triggers-additional-time") data class TriggersAdditionalTime(
-        val event: EventPattern, val sources: ObjectFilter,
+        val event: EventPattern?, val sources: ObjectFilter,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    /** The affected permanents untap during each other player's untap step too (CR 502.3). */
+    @Serializable @SerialName("untaps-during-other-untap-steps") data object UntapsDuringOtherUntapSteps : Mechanic
+    /** The affected players don't lose the game for having 0 or less life (CR 704.5a doesn't apply to them). */
+    @Serializable @SerialName("no-loss-for-zero-life") data object NoLossForZeroLife : Mechanic
+    /** The affected players' maximum hand size is [value] (CR 402.2), instead of seven. */
+    @Serializable @SerialName("maximum-hand-size-is") data class MaximumHandSize(val value: Value) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
+    /** "If this card is in your opening hand, you may begin the game with it on the battlefield" (CR 103.6a): an
+     * opening-hand action, taken after mulligans; works in the hand. */
+    @Serializable @SerialName("may-begin-on-battlefield") data object MayBeginOnBattlefield : Mechanic
 
     // ---- Replacement and prevention (CR 614, 615) ----
     /**

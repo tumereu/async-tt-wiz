@@ -55,7 +55,8 @@ internal object Costs {
                     if (chosen == null) parts += KeyedPart(key, part)
                     else part.options.getOrNull(chosen)?.parts?.forEachIndexed { j, p -> add("$key.o$chosen.$j", p) }
                 }
-                is CostPart.Action -> parts += KeyedPart(key, asCostPart(part))
+                // blb: forage is "A or B" (CR 701.61a); its parts' keys carry FORAGE so paying it can be told
+                is CostPart.Action -> asCostPart(part).let { p -> if (p is CostPart.OneOf) add(key + FORAGE, p) else parts += KeyedPart(key, p) }
                 else -> parts += KeyedPart(key, part)
             }
         }
@@ -72,8 +73,19 @@ internal object Costs {
         is arcanum.api.KeywordAction.CollectEvidence -> CostPart.Exile(
             CostObjects.Choose(arcanum.api.ObjectFilter.Any, count = null, total = arcanum.api.Total(arcanum.api.NumericProperty.ManaValue, action.amount)),
             Zone.Graveyard, postBind = part.bind)
+        // blb: CR 701.61a: "Exile three cards from your graveyard or sacrifice a Food."
+        arcanum.api.KeywordAction.Forage -> forage
         else -> part
     }
+
+    /** blb: what foraging is (CR 701.61a), as a cost. */
+    val forage: CostPart.OneOf = CostPart.OneOf(listOf(
+        Cost(listOf(CostPart.Exile(CostObjects.Choose(arcanum.api.ObjectFilter.Any, count = arcanum.api.Value.Fixed(3)), Zone.Graveyard))),
+        Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype("Food")), count = arcanum.api.Value.Fixed(1))))),
+    ))
+
+    /** blb: marks the keys of a forage's parts. */
+    const val FORAGE = ".forage"
 
     /** {X} replaced by its value; X of 0 adds nothing (CR 107.3). */
     fun withX(cost: ManaCost, x: Map<Char, Int>): ManaCost = ManaCost(cost.symbols.flatMap { s ->
@@ -149,6 +161,9 @@ internal object Costs {
             is CostPart.Exile -> part.what
             is CostPart.ReturnToHand -> part.what
             is CostPart.Reveal -> part.what
+            // CR 701.4a: beholding is revealing a card from the hand or choosing a permanent you control
+            is CostPart.Action -> (part.action as? arcanum.api.KeywordAction.Behold)?.let { CostObjects.Choose(it.filter, count = arcanum.api.Value.Fixed(1)) }
+                ?: return null
             is CostPart.RemoveCounters -> part.from
             is CostPart.PutCounters -> part.on
             else -> return null
@@ -160,6 +175,7 @@ internal object Costs {
             is CostPart.Sacrifice, is CostPart.ReturnToHand, is CostPart.TapObjects, is CostPart.RemoveCounters, is CostPart.PutCounters ->
                 s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Discard, is CostPart.Reveal -> s.player(player).hand
+            is CostPart.Action -> s.player(player).hand + s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Exile -> when (part.from) {
                 Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
                 Zone.Stack, Zone.Exile, Zone.Command -> emptyList()
@@ -189,11 +205,19 @@ internal object Costs {
         is CostPart.Exile -> "Exile from ${part.from}"
         is CostPart.ReturnToHand -> "Return to hand"
         is CostPart.Reveal -> "Reveal"
+        is CostPart.Action -> when (part.action) {
+            is arcanum.api.KeywordAction.Behold -> "Behold (reveal from your hand or choose one you control)"
+            // blb
+            arcanum.api.KeywordAction.Forage -> "Forage"
+            else -> "Do"
+        }
         is CostPart.RemoveCounters -> "Remove counters from"
         is CostPart.PutCounters -> "Put counters on"
         is CostPart.PayLife -> "Pay life"
         is CostPart.Mana -> "Pay ${part.cost}"
         is CostPart.OneOf -> part.options.joinToString(" or ") { o -> o.parts.joinToString(", ") { describe(it) } }
+        // blb
+        is CostPart.ChoosePlayer -> "Choose a player"
         else -> part::class.simpleName ?: "cost"
     }
 

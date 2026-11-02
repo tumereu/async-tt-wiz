@@ -177,6 +177,21 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
 - **Undo rule:** each value is its own delta entity or path (`automatum`, `priority`, one `record` per id, card and
   player fields), so a later event blocks undo only through the records and fields it touched.
 
+### 4.6 The mapping (built in I0, module `automatum/`)
+
+- `EngineState.from(playState, definitions, viewer, log)` builds the engine state; `EngineCall` performs and answers
+  the host's decisions; `EngineBatch.plan` turns the call's changes into one batch, run through ATW's reducer while
+  planning. Tests: every engine call round-trips (rebuilt state = engine's own result; undo restores the board).
+- **Spells:** as STK-001/003 say, the card stays where it was cast from; its entry's item is the spell (a spell
+  being cast has an item without data until the engine makes it, CR 601.2a). Abilities are entries of their source.
+- **Tokens:** ATW makes its own token card; its ledger keeps the engine's token id and definition (D35).
+- **Ledgers** hold only what ATW's fields don't say (controller, face of a split card, phasing, marks, memory, facts,
+  control start where ATW's entered turn doesn't say it, …). Records: `effect:<id>`, `delayed:<id>`, `ledger`,
+  `turn` (lands played, extra turns), `combat` (the engine's combat; the lanes show it), `triggered`, `continuation`
+  (the pending decision and the view it was made in: a shared flow goes on in that view).
+- **Event log** (D33): each automated event's tag carries its part of the engine's log; `EngineLog.from(tags)`.
+- **Order:** the Battlefield and Exile are rebuilt in timestamp order; the timestamp counter is ATW's clock.
+
 ## 5. The Automatum switch
 
 - A round sigil button in the table's top bar, beside Table actions (I-D4).

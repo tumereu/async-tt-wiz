@@ -61,9 +61,11 @@ tasks.register("verifyModuleBoundaries") {
             ":arcanum-parser" to setOf(":arcanum-api"),
             ":arcanum-engine" to setOf(":arcanum-api"),
             ":arcanum-tools" to setOf(":arcanum-parser"),
+            // ATW's side of the integration: depends on both sides; nothing in Arcanum depends on it.
+            ":automatum" to setOf(":protocol", ":arcanum-api", ":arcanum-engine"),
         )
-        // Project dependencies allowed only in test configurations: the engine's tests parse the invented cube cards.
-        val testOnly = mapOf(":arcanum-engine" to setOf(":arcanum-parser"))
+        // Project dependencies allowed only in test configurations: these tests parse the invented cube cards.
+        val testOnly = mapOf(":arcanum-engine" to setOf(":arcanum-parser"), ":automatum" to setOf(":arcanum-parser"))
         subprojects.forEach { project ->
             val allowedInTests = testOnly[project.path].orEmpty()
             val actual = project.configurations.flatMap { configuration ->

@@ -160,7 +160,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val statusVersion = statusBubbles.version
     val statusModes = remember(statusBubbles, statusVersion, play.currentNodeId, play.board.players) { statusBubbles.modes(play) }
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
-    val computedBoard = rememberComputedBoard(play, accountId)
+    val computedBoard = rememberComputedBoard(play, accountId, toolkit?.let { t -> { t.engineTags() } })
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
         LocalStatusBubbles provides statusBubbles, LocalOpponentPresence provides runtime.opponentPresence) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
@@ -336,6 +336,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
         }) {
             val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
+            // A cast choosing targets (I-D6): its legal targets glow
+            val castGlow = toolkit?.cast?.glow(play).orEmpty()
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
                 .background(barColor))
@@ -345,7 +347,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
                     play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
-                    pingPulse?.value ?: 0f, statusModes, presenceDot)
+                    pingPulse?.value ?: 0f, statusModes, presenceDot, castGlow)
             }
             previewValue?.let { (pressedId, delta) ->
                 scene.items.firstOrNull { it.id == pressedId }?.let { item ->

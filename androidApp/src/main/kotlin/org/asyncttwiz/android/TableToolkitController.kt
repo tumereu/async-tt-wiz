@@ -18,11 +18,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private val waitingForConnection: () -> Boolean = { false },
     private val playBatch: ((List<PlayAction>, String) -> Boolean)? = null,
     private val playTree: (() -> GameplayTree?)? = null,
-    private val continuation: () -> Continuation? = { null }) : TableActionRoutes {
+    private val continuation: () -> Continuation? = { null },
+    /** One automated batch (Automatum, I-D11) with its tags, sent with the given request id. */
+    automatedBatch: ((GameAction.PlayBatch, String) -> Boolean)? = null) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     private var draft: PlayBatchDraft? = null
     fun current(): PlayState? = (draft?.state ?: state())?.takeIf { TableActionScope(it.gameId, it.id) == identity }
     fun enabled() = connected() && current() != null
+    /** The history's tags up to the shown board (the engine's event log, D33). */
+    fun engineTags(): List<MtgTag?> = current()?.let { engineTags(playTree?.invoke(), it.currentNodeId) }.orEmpty()
+    /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
+    internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it })
+    /** What the viewer may cast or play from their hand now (I-D28). */
+    fun handPlays(play: PlayState): org.asyncttwiz.automatum.HandPlays = AutomatumBoards.handPlays(play, viewer, engineTags())
     val manual = ManualActions()
     val layoutState = mutableStateOf(TableLayoutState())
     val selectionState = mutableStateOf(TableSelection())
@@ -88,6 +96,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun batch(block: () -> Unit) { batchResult { block(); true } }
     private fun batchResult(requestId: String = UUID.randomUUID().toString(), block: () -> Boolean): Boolean {
         if (draft != null) return block()
+        if (cast.open) { error = CastController.BUSY; return false }
         val initial = current() ?: return block()
         val pending = if (playTree == null) PlayBatchDraft(initial, viewer, requestId)
             else PlayBatchDraft(initial, viewer, requestId, playTree.invoke() ?: return false, continuation())
@@ -116,6 +125,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
+        if (cast.open) { error = CastController.BUSY; return false }
         val play = current()
         val source = ((action as? PlayAction.Stack)?.action as? StackAction.AddEffect)?.sourceId
         val baseline = draft?.initial ?: play
@@ -269,6 +279,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
 
     fun open(captured: TableIntent.Actions, item: TableItem, selection: TableSelection) {
+        // Targets are picked on the table while a cast asks for them (I-D5, I-D6)
+        if (cast.targeting) { cast.tapTarget(item); return }
         val play = current() ?: return
         if (item.viewport.startsWith("cardPanel/")) {
             val display = (play.board.contentsDisplays + listOfNotNull(localPanelDisplay(play, viewer, layoutState.value)))
@@ -528,6 +540,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             stackEntryId = viewId.takeIf { it in CombatStackRules.stack(play.board).cards })
     }
     fun handle(intent: TableIntent): Boolean {
+        // Automatum on (I2a, ZON-004): a hand double-tap casts (or plays, a land) through the engine
+        if (intent is TableIntent.Move && intent.handDoubleTap && current()?.board?.automatum == true) return cast.start(intent.scope.contextId)
         if (intent is TableIntent.Batch) return batchResult(intent.invocationId) {
             intent.intents.all { handle(it) }
         }

@@ -116,6 +116,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     toolkit.inspection?.let { GameplayCardInspection(play, toolkit.viewer, it, toolkit::closeInspection, names) }
     toolkit.peek?.let { GameplayCardInspection(play, toolkit.viewer, it, { toolkit.peek(null) }, names, peek = true, peekScroll = peekScroll) }
     if (toolkit.manual.scope?.usable(play) == false) LaunchedEffect(toolkit.manual.scope) { toolkit.manual.close() }
+    // Automatum (I2a): the open cast's panel by the Stack, over the table
+    CastPanelHost(toolkit, play, scene, names)
 }
 
 internal fun toolkitQuickContext(play: PlayState, selection: TableSelection, viewer: String? = null): QuickContext = QuickContext(

@@ -114,6 +114,15 @@ out of anything stuck.
   them (D11). State-based actions and triggers happen by themselves; trigger order and targets are asked only when
   there is a choice (P5).
 - **Today's manual actions stay** in this phase; those that would clash with an open flow are refused (D32).
+- **Built (I2a, casting):** `CastFlow` (module `automatum/`) runs a cast or land play as a private flow on the device,
+  replayed from its start for every answer (so an earlier choice can be changed and the later ones kept while they fit)
+  and planned into one batch when complete; `HandPlays` lists the engine's casts and land plays per hand card. Until the
+  engine runs the steps (I3), `HostPriority` settles priority before a call (empty Stack: the active player; else the
+  holder keeps it) and a turn record counts lands for its turn only. App: double-tap and the hand menu's Cast/Play,
+  the cast panel (sections, target bar over the own hand row with glowing targets, mana section, eye, Accept
+  automatically on the device), other actions refused while it is open. The card stays where it is with its Stack entry
+  (D35 deferred to the owner's review); the spell doesn't resolve by itself (I2b). Catalog: ZON-004, ZON-005, ZON-007,
+  STK-004, STK-023–STK-025, SYS-067.
 
 ### I3 — Abilities, lands, combat, steps
 

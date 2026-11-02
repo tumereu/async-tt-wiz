@@ -10,7 +10,7 @@ internal fun handMenuTools(toolkit: TableToolkitController, play: PlayState, bou
     val ids = bound.sourceIds.filter { it in hand.cards }
     val scope = TableScope(bound.contextViewId, ids)
     val moves = basicMoveTools(play, names, enabled, scope, bound.sources.filterKeys { it in ids }, toolkit::handle, toolkit::dismiss)
-    return listOf(MenuControl("Play", enabled) { if (toolkit.playHand(ids)) toolkit.dismiss() },
+    return listOf(playControl(toolkit, play, bound.contextViewId, ids, enabled),
         MenuControl("Face down", enabled) { if (toolkit.castFaceDown(ids)) toolkit.dismiss() },
         MenuControl("Reveal", enabled && play.board.contentsDisplays.isEmpty()) {
             if (toolkit.submit(PlayAction.RevealHand(hand.id, ids))) toolkit.dismiss()
@@ -28,6 +28,18 @@ internal fun handMenuTools(toolkit: TableToolkitController, play: PlayState, bou
                 if (toolkit.randomHand(hand.id, selection.ids.filter { it in hand.cards }, result)) toolkit.dismiss()
             }
         }
+}
+
+/**
+ * The hand menu's Play (ZON-007). With Automatum on (I2, I-D28) it is the engine's: "Cast" for a non-land card, "Play"
+ * for a land, for the card the menu was opened on, greyed while the engine doesn't allow it now (always shown, the menu
+ * always-show rule).
+ */
+private fun playControl(toolkit: TableToolkitController, play: PlayState, context: String, ids: List<String>, enabled: Boolean): MenuControl {
+    if (!play.board.automatum) return MenuControl("Play", enabled) { if (toolkit.playHand(ids)) toolkit.dismiss() }
+    val name = if (CastController.land(play, context)) "Play" else "Cast"
+    val legal = enabled && !toolkit.cast.open && toolkit.handPlays(play).of(context).isNotEmpty()
+    return MenuControl(name, legal) { if (toolkit.cast.start(context)) toolkit.dismiss() }
 }
 
 /** Same destination and auto-resolution path as a hand double tap, evaluated per card in the batch. */

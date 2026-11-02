@@ -141,6 +141,28 @@ class AutomatumScreenshotTest {
         assertEquals(PlayAction.Mtg(MtgAction.ClearRecords), sent.last())
     }
 
+    // TRN-055: the Automatum panel is a dialog like Table actions: its ✕ closes it, and so do a tap outside and Back
+    @Test fun holdPanelClosesOnOutsideTapAndClose() {
+        val (toolkit, _) = render(board(true))
+        val switch = compose.onNodeWithContentDescription("Automatum on. Turn Automatum off")
+        switch.performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(600)
+        assertEquals("automatum", toolkit.panel)
+        compose.onRoot().performTouchInput { click(androidx.compose.ui.geometry.Offset(20f, height * .55f)) }
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        assertEquals(null, toolkit.panel, "a tap outside closes the panel")
+        switch.performTouchInput { longClick() }
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(600)
+        assertEquals("automatum", toolkit.panel)
+        compose.onNodeWithContentDescription("Close").performClick()
+        compose.mainClock.advanceTimeBy(600)
+        compose.waitForIdle()
+        assertEquals(null, toolkit.panel, "its ✕ closes it")
+    }
+
     // TBL-110 (I1): Inspect explains a computed P/T: printed, then every effect and counter in order
     @Test fun inspectExplainsComputedPowerToughness() {
         val (toolkit, _) = render(board(true))

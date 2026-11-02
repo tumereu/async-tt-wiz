@@ -157,7 +157,8 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun gameplay(action: PlayAction, invocationId: String? = null, continuation: Continuation? = null): Boolean =
         tableActions.gameplay(action, invocationId, continuation)
     fun historyControl(action: GameAction): Boolean = tableActions.historyControl(action)
-    fun gameplayBatch(actions: List<PlayAction>, requestId: String): Boolean = tableActions.gameplayBatch(actions, requestId)
+    fun gameplayBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?> = emptyList()): Boolean =
+        tableActions.gameplayBatch(actions, requestId, tags)
     fun annotate(action: PlayAction): Boolean = tableActions.annotate(action)
     fun annotateBatch(actions: List<PlayAction>): Boolean = tableActions.annotateBatch(actions)
     fun inspectFace(action: PlayAction.InspectFace, lifetimeId: String, isCurrent: () -> Boolean,

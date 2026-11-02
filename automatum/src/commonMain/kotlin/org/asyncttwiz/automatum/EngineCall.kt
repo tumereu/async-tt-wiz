@@ -84,6 +84,13 @@ class EngineCall(
         }
     }
 
+    /** A change the host makes itself before the input (priority settled while ATW's steps change by hand,
+     * [HostPriority]); it goes out with the call's batch. */
+    internal fun host(change: Change) {
+        working.apply(change)
+        changes += change
+    }
+
     /** The identities of [decision]'s objects, for the player who decides in their own view (D31). */
     fun otherView(decision: Decision.OtherView): List<FilledObject> = decision.objects.map(::filled)
 

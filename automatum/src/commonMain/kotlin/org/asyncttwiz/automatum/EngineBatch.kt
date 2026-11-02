@@ -649,7 +649,7 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, emblemText(it))) }
     if (state.ledger.isNotEmpty()) add(EngineRecord(EngineCodec.LEDGER, EngineRecordKind.Ledger, data = EngineCodec.encode(ledgerSerializer, state.ledger)))
     val turn = TurnExtras(state.turn.landsPlayed, state.turn.turnStarted.takeIf { it != Derived.turnStarted(board) },
-        state.turn.extraTurns, state.skipFirstDraw)
+        state.turn.extraTurns, state.skipFirstDraw, state.turn.number.takeIf { state.turn.landsPlayed.isNotEmpty() })
     if (turn != TurnExtras()) add(EngineRecord(EngineCodec.TURN, EngineRecordKind.Turn, data = EngineCodec.encode(TurnExtras.serializer(), turn)))
     state.combat?.let { add(EngineRecord(EngineCodec.COMBAT, EngineRecordKind.Combat, data = EngineCodec.encode(combatSerializer, it))) }
     if (state.triggered.isNotEmpty())

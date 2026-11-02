@@ -1,0 +1,1 @@
+add: With Automatum on, casting a card from your hand opens a cast panel by the Stack: make its choices, pick targets on the table and check which lands get tapped before you cast.

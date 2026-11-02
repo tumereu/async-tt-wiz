@@ -143,7 +143,7 @@ object EngineState {
             effects = LinkedHashMap(board.engineRecords.filter(EngineCodec::isEffect).map(EngineCodec::effect).associateBy { it.id }),
             delayedTriggers = LinkedHashMap(board.engineRecords.filter(EngineCodec::isDelayed).map(EngineCodec::delayed).associateBy { it.id }),
             turn = TurnState(board.turn.number.toInt(), PlayerId(board.turn.accountId), EngineCodec.step(position),
-                turnExtras.landsPlayed, turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns),
+                turnExtras.landsPlayed.takeIf { turnExtras.turn == null || turnExtras.turn == board.turn.number.toInt() } ?: emptyMap(), turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns),
             priority = board.priority?.let { PriorityState(it.holder?.let(::PlayerId), it.passes) } ?: PriorityState(null),
             combat = records[EngineCodec.COMBAT]?.let { EngineCodec.decode(combatSerializer, it.data) } ?: lanes(board, ids),
             ledger = records[EngineCodec.LEDGER]?.let { EngineCodec.decode(ledgerSerializer, it.data).toMutableMap() } ?: mutableMapOf(),

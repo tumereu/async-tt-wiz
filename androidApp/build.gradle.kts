@@ -297,6 +297,8 @@ dependencies {
     implementation(libs.coil.compose)
     testImplementation(libs.kotlin.test)
     testImplementation(project(":scale-fixtures"))
+    // Tests only: invented cards for Automatum casting are parsed from their oracle text, as the device does (I-D2).
+    testImplementation(project(":arcanum-parser"))
     testImplementation(libs.compose.ui.test)
     testImplementation(libs.robolectric)
     testImplementation(libs.roborazzi)

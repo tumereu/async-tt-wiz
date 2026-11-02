@@ -1,0 +1,1 @@
+After picking Bob's life square the cast panel returns by the Stack: the card's text, the target Bob, and the mana section with the suggested Mountain shown tapped beside the other untapped Mountains; Cast is enabled.

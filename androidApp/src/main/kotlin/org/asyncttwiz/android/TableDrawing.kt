@@ -26,7 +26,10 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
     projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
     cache: TableDrawCache, pingPhase: Float = 0f, statusModes: Map<String, StatusBubbleMode> = emptyMap(),
-    presenceDot: PresenceDot? = null) {
+    presenceDot: PresenceDot? = null,
+    /** Automatum cast (I-D6): legal targets glow violet: cards by card id (and their Stack entries and combat copies),
+     * players by their life square's id. */
+    glow: Set<String> = emptySet()) {
     val density = density
     with(TableCardPainter(density, scene, cache, artwork)) {
     scene.viewports.firstOrNull { it.id == "sidebar" }?.bounds?.let { b ->
@@ -155,6 +158,11 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(3 * density))
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x - outset, b.y - outset),
             size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2 * density))
+        if (glow.isNotEmpty() && (i.cardId in glow || i.sourceId in glow || i.id in glow)) {
+            drawRect(AutomatumViolet.copy(alpha = .35f), xy(b.x - outset - 2, b.y - outset - 2),
+                size(b.width + 2 * outset + 4, b.height + 2 * outset + 4), style = Stroke(6 * density))
+            drawRect(AutomatumViolet, xy(b.x - outset, b.y - outset), size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2.5f * density))
+        }
     }
     for (i in scene.items) for (part in i.visible) {
         // Preserve clipped/occluded edges, but leave room around a whole face for its outline.

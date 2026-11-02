@@ -272,8 +272,8 @@ class GameSession(private val connection: GameConnection, private val credential
         gameplayCommand(game, actor, GameAction.Play(action), invocationId, continuation, captured) != null
 
     fun gameplayBatch(game: GameSummary, actor: String, actions: List<PlayAction>, requestId: String,
-        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}): Boolean =
-        gameplayCommand(game, actor, GameAction.PlayBatch(actions), requestId, continuation, captured, requestId) != null
+        continuation: Continuation? = null, captured: (GameCommand) -> Unit = {}, tags: List<MtgTag?> = emptyList()): Boolean =
+        gameplayCommand(game, actor, GameAction.PlayBatch(actions, tags), requestId, continuation, captured, requestId) != null
 
     /** Explicit logged inspection on the same original queue. Callers supply a UI lifetime guard
      * and close the subscription on dismissal. Only Accepted may drive ManualActions.inspected. */

@@ -81,14 +81,15 @@ internal class LobbyTableActions(private val scope: LobbyScope, private val tabl
         val actor = accountId() ?: return false
         return !closed && session?.historyControl(game, actor, action) == true
     }
-    fun gameplayBatch(actions: List<PlayAction>, requestId: String): Boolean {
+    /** [tags]: an automated batch's tag per member (Automatum, rules v36). */
+    fun gameplayBatch(actions: List<PlayAction>, requestId: String, tags: List<MtgTag?> = emptyList()): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
         if (closed) return false
         val personal = historyOwner
         if (personal != null && personal.armed == null && personal.playback?.position?.mode == HistoryMode.PLAYBACK) return false
         fun send(continuation: Continuation?) = session?.gameplayBatch(game, actor, actions, requestId, continuation,
-            captured = { historyOwner?.captured(it) }) == true
+            captured = { historyOwner?.captured(it) }, tags = tags) == true
         return if (personal != null) personal.gameplay({ session?.play(game) }, ::send) else send(null)
     }
     /** Annotating a viewed boundary appends to ordinary current history; it does not activate that

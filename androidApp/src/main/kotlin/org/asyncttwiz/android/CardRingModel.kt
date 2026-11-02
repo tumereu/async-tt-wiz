@@ -47,7 +47,7 @@ internal object CardRingPages {
     val tempPanel = listOf(CardRingPage("Card", panelMoves + tempPiles))
 
     /** Only the state twins replace a cell; nothing is ever added, hidden or left blank. */
-    fun pages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false): List<CardRingPage> = when (layout) {
+    fun pages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false, cast: Boolean = false): List<CardRingPage> = when (layout) {
         CardMenuLayout.CARD -> card.mapIndexed { index, page -> if (index != 0) page else page.copy(actions = page.actions.map { id ->
             when {
                 id == "Declare without tapping" && attacker -> "Attack →"
@@ -56,7 +56,8 @@ internal object CardRingPages {
             }
         }) }
         CardMenuLayout.COMBAT -> combat
-        CardMenuLayout.HAND -> hand
+        // Automatum on (I2, ZON-007): a non-land hand card's Play is the engine's Cast
+        CardMenuLayout.HAND -> if (!cast) hand else hand.map { page -> page.copy(actions = page.actions.map { if (it == "Play") "Cast" else it }) }
         CardMenuLayout.PANEL -> if (panelLayout) panel else pages(CardMenuLayout.CARD, token, attacker)
         CardMenuLayout.TEMP_PANEL -> if (panelLayout) tempPanel else pages(CardMenuLayout.CARD, token, attacker)
     }

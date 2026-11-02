@@ -244,6 +244,9 @@ internal data class TurnExtras(
     val turnStarted: Map<PlayerId, Int>? = null,
     val extraTurns: List<PlayerId> = emptyList(),
     val skipFirstDraw: Boolean = true,
+    /** The turn [landsPlayed] counts (ATW's turn number): a turn changed by hand (I2–I3, before Automatum runs the
+     * turns) starts with no lands played. Null in records made before it was kept. */
+    val turn: Int? = null,
 )
 
 /** The open flow of a shared call (record [org.asyncttwiz.protocol.Automatum.CONTINUATION_ID]): the engine's pending

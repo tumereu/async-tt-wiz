@@ -1,0 +1,1 @@
+With every Mountain tapped, the hand menu of Storm Spark shows Automatum's Cast greyed out: the engine doesn't allow casting it now.

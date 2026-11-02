@@ -168,6 +168,8 @@ internal object Gtc {
 
     val RETURN_SELF_TO_YOUR_HAND = Regex("""Return (.+) to your hand\.""")
 
+    val IT_GAINS_UNTIL_EOT = Regex("""It gains ([a-z ,]+) until end of turn\.""")
+
     // static abilities
     val OTHERS_ENTER_TAPPED = Regex("""(.+) enter tapped\.""")
     val ENCHANTED_HAS_QUOTED = Regex("""Enchanted (land|creature|permanent|artifact) has "(.+)"""")

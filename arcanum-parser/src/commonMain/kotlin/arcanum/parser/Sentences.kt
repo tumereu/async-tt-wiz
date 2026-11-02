@@ -1536,6 +1536,14 @@ internal class Sentences(
             if (flips != null && ((flips.steps.singleOrNull() as? Step.Do)?.effect as? Effect.FlipCoin)?.bind == "flip")
                 return steps.dropLast(1) + flips.copy(steps = flips.steps + Step.If(arcanum.api.Condition.WonFlip("flip"), then = listOf(Step.Do(Effect.ExtraTurn(Players.You)))))
         }
+        // dgm: "It gains haste until end of turn." after putting a card onto the battlefield: that permanent
+        Gtc.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return@let
+            if (move.to.zone != Zone.Battlefield || move.objects !is Objects.Bound) return@let
+            val keywords = m.groupValues[1].split(Regex(""",? and |, """)).map { OracleParser.keyword(it) ?: return@let }
+            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(keywords)), arcanum.api.Affected.Objects(move.objects),
+                arcanum.api.Duration.EndOfTurn))
+        }
         if (Gtc.STILL_A.matches(sentence)) {
             val apply = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics
             if (apply != null && apply.mechanics.any { it is Mechanic.SetTypes && CardType.Creature in it.add && !it.replaceTypes }) return steps.toList()

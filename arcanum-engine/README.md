@@ -292,15 +292,22 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   as a cost; a discard caused by an opponent's spell or ability (its cause is part of the proposed event, so replacements
   see it); "a creature that dealt damage this turn" (the event role); two colours chosen and the spell's colours among
   them counted.
-- Not yet: additional combat
-  phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
+- Done, Gatecrash and Dragon's Maze (scenarios in `commonTest/…/sets/gtc/` and `sets/dgm/`): all cards play. Battalion,
+  bloodrush, extort and evolve ("this creature evolves"), cipher (the card exiled encoded as the spell resolves, the
+  creature's granted trigger reading the effect's names: a granted triggered ability sees the names of the effect that
+  granted it), fuse (both halves of a split card cast from the hand as one spell, `CastWay.fused`: both halves'
+  characteristics on the Stack, each half's targets kept apart as two modes, a mode's own slots bound under their names
+  as its steps begin); additional combat phases (CR 500.8, `TurnState.extraPhases`); text-changing effects (layer 3,
+  colour words and basic land types, CR 612); targets chosen at random (the host rolls among the legal ones); "can only
+  attack alone"; "attacks a player and isn't blocked"; draws replaced except the draw step's first; "a counter is put"
+  triggering once per counter; counters removed from among several creatures; "enters as a Mutant" for tokens too;
+  "except it has this ability"; a triggered mana ability adding a type the land produced.
+- Not yet: skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
-  `during`, repeated target slot names of repeated modes
-  (bound under the first); in the flow: costs to attack other than mana and
+  `during`; in the flow: costs to attack other than mana and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
-  other keyword actions as costs (exert); no cube card has any of these. Also missing: text-changing
-  effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
-  only). Around the game:
+  other keyword actions as costs (exert); no cube card has any of these. Also missing: copy effects from static
+  abilities (effect objects only). Around the game:
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
   starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
   choosing, are not applied); restarting a game (CR 104.1).

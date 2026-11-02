@@ -155,6 +155,9 @@ internal fun actingForText(asked: ActingFor, name: String?): ActingForText {
             "$subject declares blockers now. This declares for them what the combat lanes hold: " +
                 (if (kind.count == 0) "no blocks." else "${kind.count} ${if (kind.count == 1) "blocker" else "blockers"}."),
             "Declare for them")
+        ActingFor.Kind.NoBlocks -> ActingForText("Declare no blocks for $who?",
+            "$subject declares blockers now. This clears the blocks in the combat lanes and declares no blocks for them.",
+            "Declare for them")
         is ActingFor.Kind.Pass -> {
             val first = if (kind.priority) "$subject has priority and may still want to act." else "$subject declares attackers now."
             // In their own turn, passing on past combat declares no attack for them (TRN-057)

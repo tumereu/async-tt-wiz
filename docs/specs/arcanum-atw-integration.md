@@ -240,7 +240,7 @@ out of anything stuck.
   Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-116, ZON-007, ZON-013, ZON-077, ZON-078, TRN-010, TRN-031, TRN-059,
   CMB-025, STK-035, SYS-069.
 - **Built (I-D40, I-D42):** `SharedFlowController.step` (every step route: step button, arrow, phase dialog, quick
-  actions, combat Attack/Block/Deal damage) works out who would act; for the other player nothing is sent and
+  actions, combat Commit attack/Commit blocks/Pass) works out who would act; for the other player nothing is sent and
   `ActingFor` waits for the confirmation dialog (`ActingForDialog`: pass, end turn, a later step, declare attackers or
   blockers), dropped when the table changed. Answers and "Pass for them" already asked; casts and early divisions are
   the viewer's own; combat drafts are reversible lane edits and don't ask. `SetAutomatum(true)` drops the `combat`,

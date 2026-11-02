@@ -1028,12 +1028,24 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return when (intent.tool) {
             CombatTool.AUTOMATUM_STAGE -> stage(play, intent.sourceIds, combat.activeTarget(play))
             CombatTool.AUTOMATUM_CLEAR -> clearCombatDraft(play)
-            else -> {
-                if (CombatStackRules.blocks(play.board.combat).isNotEmpty() && !clearCombatDraft(play)) return false
-                error = null
-                flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
-            }
+            else -> noBlocks(play, confirmed = null)
         }.also { if (it) combat.clearSelection() }
+    }
+
+    /** "No blocks" (CMB-034): the blocks in the lanes are cleared, then the declaration is the step button's (TRN-057).
+     * I-D40: for the other player it asks first, before anything is cleared ([confirmed]: the player agreed to). */
+    private fun noBlocks(play: PlayState, confirmed: String?): Boolean {
+        val clear = CombatStackRules.blocks(play.board.combat).isNotEmpty()
+        val defender = CombatStackRules.defendingPlayer(play.board)
+        if (clear && defender != null && defender != viewer && defender != confirmed) {
+            flows.ask(ActingFor(play.board, defender, org.asyncttwiz.automatum.StepFlow.Until.Pass, ActingFor.Kind.NoBlocks) { player ->
+                (current()?.let { noBlocks(it, player) } ?: false).also { if (it) combat.clearSelection() }
+            })
+            return false
+        }
+        if (clear && !clearCombatDraft(play)) return false
+        error = null
+        return flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass, confirmed)
     }
     /** Declare blockers, then Combat damage, as two separate invocations (two undo steps, two events). */
     private fun assumeNoBlocks(): Boolean {

@@ -140,8 +140,11 @@ internal class SharedFlowController(
         val asked = acting ?: return false
         acting = null
         if (current()?.board !== asked.board) { fail("The table changed: try again."); return false }
-        return step(asked.until, confirmed = asked.player)
+        return asked.go?.invoke(asked.player) ?: step(asked.until, confirmed = asked.player)
     }
+
+    /** I-D40: asks the viewer to confirm [asked], a step for the other player made by another route (No blocks). */
+    fun ask(asked: ActingFor) { fail(null); acting = asked }
 
     /** I-D40: the viewer cancelled [acting]; nothing is sent. */
     fun cancelActing() { acting = null }
@@ -328,9 +331,10 @@ internal class SharedFlowController(
 /**
  * I-D40: a step a player asked for that acts for the other [player] (who holds priority or must declare), waiting for
  * the asking player's confirmation ([SharedFlowController.acting]); planned on [board], so it goes on only while the
- * table is still that board.
+ * table is still that board. [go] does it once confirmed (given the player agreed to); null: the step button's step.
  */
-internal class ActingFor(val board: BoardState, val player: String, val until: StepFlow.Until, val kind: Kind) {
+internal class ActingFor(val board: BoardState, val player: String, val until: StepFlow.Until, val kind: Kind,
+    val go: ((String) -> Boolean)? = null) {
     sealed interface Kind {
         /** [player] passes as far as [until] asks: holding [priority], or else with their attack awaited (declared empty). */
         data class Pass(val priority: Boolean) : Kind
@@ -338,5 +342,7 @@ internal class ActingFor(val board: BoardState, val player: String, val until: S
         data class DeclareAttackers(val count: Int) : Kind
         /** [player]'s blocks are declared as the combat lanes hold them: [count] blockers. */
         data class DeclareBlockers(val count: Int) : Kind
+        /** "No blocks" (CMB-034): the blocks in the lanes are cleared and [player] declares no blocks. */
+        data object NoBlocks : Kind
     }
 }

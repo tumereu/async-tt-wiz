@@ -354,6 +354,32 @@ class AutomatumCombatScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun blockersAreAssignedByTapsLandscape() { landscape = true; blockingFlow("combat-blocking-landscape") } // CMB-034
 
+    // TRN-061, I-D40, CMB-034: Alice uses Bob's Commit blocks and No blocks for him: each asks first, and nothing is cleared
+    // or sent before she confirms; confirmed, No blocks clears his blocks and declares none for him
+    @Test fun declaringBlocksForTheDefenderAsksFirst() {
+        attackers(ogre)
+        val bruteCard = card(play, brute)
+        val ogreCard = card(play, ogre)
+        attackWith(bruteCard)
+        val bob = toolkit(f.b)
+        tapCard(bob, ogreCard)
+        tapCopy(bob, bruteCard)
+        assertEquals(listOf(ogreCard to bruteCard), blocks())
+        val alice = toolkit(f.a)
+        val before = play.board
+        fun use(tool: CombatTool) = alice.perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id), tool, play.board.combat?.id))
+        assertFalse(use(CombatTool.AUTOMATUM_DECLARE))
+        assertEquals(ActingFor.Kind.DeclareBlockers(1), alice.flows.acting?.kind)
+        assertEquals(f.b, alice.flows.acting?.player)
+        alice.flows.cancelActing()
+        assertFalse(use(CombatTool.AUTOMATUM_NO_BLOCKS))
+        assertEquals(ActingFor.Kind.NoBlocks, alice.flows.acting?.kind)
+        assertTrue(before === play.board, "nothing cleared or sent")
+        assertTrue(alice.flows.confirmActing(), alice.error)
+        assertTrue(blocks().isEmpty())
+        assertTrue(TurnPosition.of(play.board.turn) != TurnPosition.DECLARE_BLOCKERS, "declared: the step moved on")
+    }
+
     // CMB-034, CR 702.111b: one blocker isn't enough for menace: Commit blocks is greyed with Automatum's reason
     @Test fun menaceGreysCommitBlocksWithTheReason() {
         attackers(ogre, aliceField = listOf(hound))

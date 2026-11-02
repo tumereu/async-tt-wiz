@@ -92,7 +92,9 @@ turn goes on without them (CR 800.4j).
   the event pipeline, so replacements apply (unearth, madness, counter replacements), and a
   replacement decision while paying waits (`Choices.paying`, D29);
   alternative costs and permissions (evoke, flashback, escape, overload, retrace, morph, "rather
-  than pay"), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
+  than pay"), bestow (an Aura spell and permanent while bestowed, a creature once it stops being, CR 702.103b, e, f),
+  splice (CR 702.47: cards in hand offered as the spell is cast, their text added after its own, their costs added, a
+  card whose target names clash with the spell's not offered), collect evidence as a cost (CR 701.59a), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
   mana abilities without the Stack (their other effects at once, a part needing a decision
   by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
   once (CR 605.4a); special actions (suspend, turning face up); combat:
@@ -108,7 +110,7 @@ turn goes on without them (CR 800.4j).
   with new ids, last known information and "as enters" steps, counters a permanent or token enters
   with put on it through counter replacements (CR 122.6, one entry per kind), damage with
   protection, prevention effects and shields (amounts left, "can't be prevented"), infect, wither,
-  deathtouch, lifelink, toxic and excess; life, counters, tapping, tokens (D35 ids), draws,
+  deathtouch, lifelink, toxic and excess; life (paying life is losing it, through life-loss replacements, CR 119.4), counters, tapping, tokens (D35 ids), draws,
   mills, discards (cards put into one library position together in their owner's order, CR
   401.4), host-ordered shuffles (D25) and host fills (D60); mana costs paid while resolving
   ("unless … pays", ward) with a payment decision, not asked when they can't be paid (CR
@@ -140,13 +142,13 @@ turn goes on without them (CR 800.4j).
   `Events.run` and wait with `Continuation.Event`.
 - Done, the game around it (`setup/`): starting a game (CR 103) with companions and London mulligans, conceding,
   the end of the game (CR 104) and players leaving a multiplayer game (CR 800.4a, j, k).
-- Not yet: paying life through life-loss replacements, additional combat
+- Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   cycling/crewing/saddling/expending/day-night events, `CountersPut.causedBy`, `nthThisTurn`'s
   `during`, "do this only once each turn", repeated target slot names of repeated modes
   (bound under the first); in the flow: attack costs and
   "as it attacks" costs, battles as attack targets,
-  splice, bestow's collect evidence (keyword actions as costs), "next spell" cost changes used
+  other keyword actions as costs (behold, forage, exert), "next spell" cost changes used
   up. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only), the Inspect breakdown of where a value comes from. Around the game: opening-hand actions (CR 103.6) and

@@ -118,7 +118,7 @@ internal object Costs {
             }
             is CostPart.PayLife -> {
                 val amount = scope.value(part.amount)
-                if (amount > 0) act.record(Changes.life(act.state, payer, -amount, listOf(Meaning.LifePaid, Meaning.LifeLost)))
+                if (amount > 0) Actions.payLife(act, cause, payer, amount)
             }
             is CostPart.PayEnergy -> Actions.removeCounters(act, TargetRef.Player(payer), CounterKind.Energy, scope.value(part.amount))
             is CostPart.RemoveCounters -> choose(scope, payer, part.from, Zone.Battlefield, "remove counters from").forEach { id ->

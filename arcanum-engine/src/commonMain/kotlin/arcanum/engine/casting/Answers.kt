@@ -33,6 +33,10 @@ internal object Answers {
                 if (times < 0 || (!q.mechanic.repeatable && times > 1)) refuse("Not a number of times it can be paid")
                 c.copy(costs = c.costs.with(q.key, NamedValue.Number(times)))
             }
+            is Question.Splice -> {
+                val yes = (answer as? Answer.YesNo)?.yes ?: refuse("Expected yes or no")
+                c.copy(costs = c.costs.with(q.key, NamedValue.Number(if (yes) 1 else 0)))
+            }
             is Question.Announce -> {
                 val v = (answer as? Answer.Number)?.value ?: refuse("Expected a number")
                 if (v < q.min) refuse("${q.name} must be at least ${q.min}")

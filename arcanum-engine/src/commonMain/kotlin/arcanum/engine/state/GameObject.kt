@@ -66,6 +66,11 @@ data class GameObject(
     /** A transformed double-faced permanent (CR 712): its back face is up. */
     val transformed: Boolean get() = definition?.layout == Layout.Transform && face == 1
 
+    /** A bestowed Aura spell or permanent (CR 702.103b): cast bestowed, on the Stack or the battlefield, and not ceased
+     * to be bestowed (702.103e, f, which clear [ObjectFacts.alternative]). */
+    val bestowed: Boolean get() = facts.alternative?.keyword == arcanum.api.Keyword.Bestow.Kind && (zone == arcanum.api.Zone.Stack ||
+        zone == arcanum.api.Zone.Battlefield)
+
     /** A flipped flip card (CR 710). */
     val flipped: Boolean get() = definition?.layout == Layout.Flip && face == 1
 

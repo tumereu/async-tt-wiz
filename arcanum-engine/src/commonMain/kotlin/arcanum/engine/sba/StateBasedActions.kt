@@ -57,6 +57,7 @@ internal object StateBasedActions {
         val toGraveyard = mutableListOf<ObjectId>()
         val destroyed = mutableListOf<ObjectId>()
         val unattach = mutableListOf<ObjectId>()
+        val unbestow = mutableListOf<ObjectId>()
         val removedCounters = mutableListOf<Triple<ObjectId, CounterKind, Int>>()
         val sacrificed = mutableListOf<ObjectId>()
 
@@ -90,7 +91,9 @@ internal object StateBasedActions {
             if (c.isType(CardType.Battle) && o.counters(CounterKind.Defense) <= 0) toGraveyard += id
             // CR 704.5m: an Aura attached to an illegal object or player, or not attached
             if (c.subtypes.any { it.name == "Aura" } && !c.isType(CardType.Creature)) {
-                if (!auraLegal(act, id)) toGraveyard += id
+                // CR 702.103f: a bestowed Aura attached illegally or unattached becomes unattached and stops being
+                // bestowed (an exception to 704.5m)
+                if (!auraLegal(act, id)) { if (o.bestowed) unbestow += id else toGraveyard += id }
             } else if (o.attachedTo != null) {
                 // CR 704.5n, p: Equipment or Fortification attached illegally, or anything else attached, becomes unattached
                 val host = (o.attachedTo as? TargetRef.Object)?.id
@@ -137,12 +140,25 @@ internal object StateBasedActions {
             act.record(Changes.counters(act.state, TargetRef.Object(id), CounterKind.PowerToughness(-1, -1), -n, listOf(Meaning.StateBased)))
         }
         unattach.forEach { Actions.attach(act, it, null) }
+        unbestow.forEach { id ->
+            if (act.state.objOrThrow(id).attachedTo != null) Actions.attach(act, id, null)
+            Bestow.cease(act, id)
+        }
         val graveyard = toGraveyard.distinct()
         val destroyable = destroyed.distinct().filter { it !in graveyard && view[it]?.has { m -> m == Mechanic.Indestructible } != true }
         val moves = graveyard.map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.StateBased)) } +
             destroyable.map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.StateBased, Meaning.Destroyed)) } +
             sacrificed.filter { it !in graveyard && it !in destroyable }.map { PlannedMove(it, Zone.Graveyard, meanings = listOf(Meaning.StateBased, Meaning.Sacrificed)) }
         if (moves.isNotEmpty()) Actions.move(act, null, moves)
+    }
+
+    /** CR 702.103e–g: what stops a bestowed Aura or Aura spell being bestowed. */
+    object Bestow {
+        /** It ceases to be bestowed: the effect making it an Aura ends (it is a creature again). */
+        fun cease(act: Act, id: ObjectId) {
+            val o = act.state.objOrThrow(id)
+            if (o.bestowed) act.record(Change.Facts(id, o.facts, o.facts.copy(alternative = null)))
+        }
     }
 
     /** Removing several objects from the same zone: each [Placed] index is its position once the ones before it in the

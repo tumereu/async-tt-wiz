@@ -55,6 +55,7 @@ internal object Costs {
                     if (chosen == null) parts += KeyedPart(key, part)
                     else part.options.getOrNull(chosen)?.parts?.forEachIndexed { j, p -> add("$key.o$chosen.$j", p) }
                 }
+                is CostPart.Action -> parts += KeyedPart(key, asCostPart(part))
                 else -> parts += KeyedPart(key, part)
             }
         }
@@ -63,6 +64,15 @@ internal object Costs {
         var mana = normalize(symbols)
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }
         return TotalCost(mana, parts)
+    }
+
+    /** A keyword action as a cost, as the cost part it is: collecting evidence N is exiling any number of cards from
+     * your graveyard with total mana value N or greater (CR 701.59a). Others stay as they are (not supported yet). */
+    fun asCostPart(part: CostPart.Action): CostPart = when (val action = part.action) {
+        is arcanum.api.KeywordAction.CollectEvidence -> CostPart.Exile(
+            CostObjects.Choose(arcanum.api.ObjectFilter.Any, count = null, total = arcanum.api.Total(arcanum.api.NumericProperty.ManaValue, action.amount)),
+            Zone.Graveyard, postBind = part.bind)
+        else -> part
     }
 
     /** {X} replaced by its value; X of 0 adds nothing (CR 107.3). */

@@ -490,6 +490,128 @@ class Review2KeywordsTest {
         assertTrue(decision<Decision.Manual>().text.startsWith("Miracle"))
     }
 
+    // ---- Splice, bestow, collect evidence
+
+    /** Declining the splice: only the spell's own {R}{R}{R}, and the other card stays in the hand. */
+    // CR 702.47a
+    @Test
+    fun spliceDeclined() = scenario {
+        alice.battlefield("Mountain", "Mountain")
+        alice.hand("Frantic Invocation", "Frantic Invocation")
+        perform(Input.Cast(alice.id, card("Frantic Invocation", 0)))
+        alice.answers(Answer.YesNo(false))
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
+        allPass()
+        assertEquals(3, alice.pool.size)
+        expect { alice.hand.names shouldBe listOf("Frantic Invocation") }
+    }
+
+    /** Splice onto Arcane isn't offered for a spell that isn't Arcane. */
+    // CR 702.47a
+    @Test
+    fun spliceOnlyOntoItsQuality() = scenario {
+        alice.battlefield("Mountain")
+        alice.hand("Storm Spark", "Frantic Invocation")
+        perform(Input.Cast(alice.id, card("Storm Spark")))
+        assertTrue(pending is Decision.Targets, "asked $pending")
+    }
+
+    /** A bestowed Firebird whose creature dies stays on the battlefield as a creature (it stops being bestowed). */
+    // CR 702.103f
+    @Test
+    fun aBestowedAuraBecomesACreatureWhenUnattached() = scenario {
+        alice.battlefield("Mountain", "Elvish Seer")
+        alice.graveyard("Inspector's Firebird", "Duskflame Phoenix", "Smoldering Spite")
+        bob.battlefield("Mountain")
+        bob.hand("Storm Spark")
+        castFirebirdBestowed()
+        allPass()
+        expect { "Elvish Seer".power shouldBe 3 }
+        alice.passes()
+        bob.casts("Storm Spark", target = "Elvish Seer")
+        allPass()
+        expect {
+            alice.graveyard has "Elvish Seer"
+            alice.battlefield has "Inspector's Firebird"
+            "Inspector's Firebird".power shouldBe 2
+            (arcanum.api.CardType.Creature in "Inspector's Firebird".types) shouldBe true
+        }
+        assertEquals(null, state.objOrThrow(card("Inspector's Firebird")).attachedTo)
+    }
+
+    /** A bestowed Aura spell whose target is gone as it resolves enters as a creature instead of not resolving. */
+    // CR 702.103e, 608.3b
+    @Test
+    fun aBestowedSpellWithoutItsTargetResolvesAsACreature() = scenario {
+        alice.battlefield("Mountain", "Elvish Seer")
+        alice.graveyard("Inspector's Firebird", "Duskflame Phoenix", "Smoldering Spite")
+        bob.battlefield("Mountain")
+        bob.hand("Storm Spark")
+        castFirebirdBestowed()
+        expect { ("Aura" in "Inspector's Firebird".subtypes.map { it.name }) shouldBe true }
+        alice.passes()
+        bob.casts("Storm Spark", target = "Elvish Seer")
+        allPass()
+        allPass()
+        expect {
+            alice.battlefield has "Inspector's Firebird"
+            "Inspector's Firebird".power shouldBe 2
+        }
+    }
+
+    /** Collecting evidence 6 can't be paid with cards of total mana value 4. */
+    // CR 701.59a
+    @Test
+    fun collectEvidenceNeedsTheTotal() = scenario {
+        alice.battlefield("Mountain", "Elvish Seer")
+        alice.graveyard("Inspector's Firebird", "Smoldering Spite")
+        assertFailsWith<IllegalArgumentException> { castFirebirdBestowed(listOf("Smoldering Spite")) }
+    }
+
+    private fun arcanum.engine.scenario.Scenario.castFirebirdBestowed(evidence: List<String> = listOf("Duskflame Phoenix", "Smoldering Spite")) {
+        val bestow = view()[card("Inspector's Firebird")]!!.characteristics!!.abilities.first { inst ->
+            (inst.ability as? arcanum.api.Ability.Static)?.mechanics?.any { it is arcanum.api.Mechanic.AlternativeCost } == true
+        }.origin
+        alice.casts("Inspector's Firebird", way = arcanum.engine.input.CastWay(alternative = bestow), target = "Elvish Seer", choosing = evidence)
+    }
+
+    // ---- Paying life is losing life
+
+    /** Paying 1 life for Sunbaked Mesa with a life-loss doubler loses 2 (the payment is still made). */
+    // CR 119.4, 614.1a
+    @Test
+    fun payingLifeGoesThroughLifeLossReplacements() = scenario {
+        // "If you would lose life, you lose twice that much life instead." (by hand: the parser doesn't read it yet)
+        val doubler = Cards.define("Review Bloodtithe Idol", arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(arcanum.api.FaceDefinition(
+            "Review Bloodtithe Idol", manaCost = arcanum.api.ManaCost.parse("{2}{B}"), types = listOf(arcanum.api.CardType.Artifact),
+            abilities = listOf(arcanum.api.Ability.Static(listOf(arcanum.api.Mechanic.Replacement(
+                arcanum.api.EventPattern.LoseLife(arcanum.api.PlayerFilter.You), modify = listOf(arcanum.api.Modification.MultiplyAmount(2)))),
+                affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self)))))))
+        alice.battlefield("Sunbaked Mesa", doubler)
+        alice.library("Plains", "Island")
+        alice.activates("Sunbaked Mesa")
+        expect { alice.life shouldBe 18 }
+    }
+
+    /** Paying life is losing life: "whenever you lose life" triggers on a life payment. */
+    // CR 119.4, 603.2
+    @Test
+    fun payingLifeTriggersOnLifeLoss() = scenario {
+        // "Whenever you lose life, put a +1/+1 counter on this creature." (by hand: the parser doesn't read it yet)
+        val ghoul = Cards.define("Review Pain-Fed Ghoul", arcanum.api.CardDefinition(arcanum.api.Layout.Normal, listOf(arcanum.api.FaceDefinition(
+            "Review Pain-Fed Ghoul", manaCost = arcanum.api.ManaCost.parse("{1}{B}"), types = listOf(arcanum.api.CardType.Creature),
+            power = arcanum.api.PrintedNumber.Fixed(1), toughness = arcanum.api.PrintedNumber.Fixed(1),
+            abilities = listOf(arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(arcanum.api.EventPattern.LoseLife(arcanum.api.PlayerFilter.You)),
+                arcanum.api.Instructions(steps = listOf(arcanum.api.Step.Do(arcanum.api.Effect.PutCounters(arcanum.api.Objects.Self,
+                    CounterKind.PowerToughness(1, 1), arcanum.api.Value.Fixed(1)))))))))))
+        alice.battlefield("Sunbaked Mesa", ghoul)
+        alice.library("Plains", "Island")
+        alice.activates("Sunbaked Mesa")
+        alice.passes()
+        bob.passes()
+        expect { ghoul.counters(CounterKind.PowerToughness(1, 1)) shouldBe 1 }
+    }
+
     /** Every keyword means something to the engine: an expansion, engine code, or abilities that stop by hand. */
     // D61
     @Test

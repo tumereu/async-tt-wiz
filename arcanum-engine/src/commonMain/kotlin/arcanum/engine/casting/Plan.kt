@@ -47,6 +47,8 @@ internal sealed interface Question {
 
     data class Modes(val modes: arcanum.api.Modes) : Question { override val stage get() = AnnounceStage.Modes }
     data class OptionalCost(val key: String, val mechanic: Mechanic.AdditionalCost) : Question { override val stage get() = AnnounceStage.Modes }
+    /** Whether to splice [splice] onto the spell (CR 702.47a). */
+    data class Splice(val key: String, val splice: Plan.Spliceable) : Question { override val stage get() = AnnounceStage.Modes }
     data class Announce(val name: String, val min: Int) : Question { override val stage get() = AnnounceStage.Announce }
     data class Target(val slot: SlotOf, val forPlayer: PlayerId?, val options: List<TargetRef>, val min: Int, val max: Int?) : Question {
         override val stage get() = AnnounceStage.Targets
@@ -105,6 +107,39 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
     val bestowed = alternative?.second?.keyword == Keyword.Bestow.Kind
 
+    /** A card in the caster's hand with "splice onto [quality]" that matches this spell (CR 702.47a): its mechanic and
+     * the instructions it would add. */
+    data class Spliceable(val card: ObjectId, val name: String, val mechanic: Mechanic.SpliceOnto, val instructions: Instructions)
+
+    /**
+     * The cards that can be spliced onto this spell, in hand order (CR 702.47a): each only once (702.47b), not for a
+     * spell cast by an effect. One whose target slots share a name with the spell's or an earlier card's isn't offered
+     * (its targets couldn't be kept apart).
+     */
+    val spliceable: List<Spliceable> by lazy {
+        if (!isSpell || byEffect || overloaded) return@lazy emptyList()
+        val e = plain.evaluator(player, self = itemId)
+        val main = spellAbilities().flatMap { (it.ability as Ability.Spell).instructions.targets.map { t -> t.name } }.toMutableSet()
+        plain.state.player(player).hand.filter { it != itemId }.mapNotNull { id ->
+            val c = plain.view[id]?.characteristics ?: return@mapNotNull null
+            val m = c.abilities.flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.SpliceOnto>().firstOrNull()
+                ?: return@mapNotNull null
+            if (!e.matches(m.onto, itemId)) return@mapNotNull null
+            val text = c.abilities.mapNotNull { (it.ability as? Ability.Spell)?.instructions }
+            if (text.isEmpty()) return@mapNotNull null
+            val added = Instructions(targets = text.flatMap { it.targets }, steps = text.flatMap { it.steps },
+                announced = text.flatMap { it.announced }.distinct(), replacements = text.flatMap { it.replacements })
+            if (text.any { it.modes != null } || added.targets.any { it.name in main }) return@mapNotNull null
+            main += added.targets.map { it.name }
+            Spliceable(id, c.name ?: "", m, added)
+        }
+    }
+
+    fun spliceKey(card: ObjectId) = "splice:$card"
+
+    /** The cards chosen to be spliced onto it so far. */
+    val spliced: List<Spliceable> get() = spliceable.filter { (choices.costs[spliceKey(it.card)] as? NamedValue.Number)?.value == 1 }
+
     /** What it does: the spell abilities of the face cast (overload's own when overloaded, CR 702.96b), or the
      * ability's; an Aura spell's enchant target (CR 303.4a, bestow 702.103b) is the slot [ENCHANT_SLOT]. */
     val instructions: Instructions = run {
@@ -161,7 +196,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         if (overloaded) {
             snap0Abilities().firstNotNullOfOrNull { (it.ability as? Keyword.Overload)?.instructions }?.let { return it }
         }
-        val all = spellAbilities().map { (it.ability as Ability.Spell).instructions }
+        // CR 702.47b, c: the spliced cards' text follows the spell's own
+        val all = spellAbilities().map { (it.ability as Ability.Spell).instructions } + spliced.map { it.instructions }
         return when (all.size) {
             0 -> Instructions()
             1 -> all.single()
@@ -174,7 +210,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     }
 
     private fun spellAbility(): Ability? = when {
-        overloaded -> Ability.Spell(spellInstructions())
+        overloaded || spliced.isNotEmpty() -> Ability.Spell(spellInstructions())
         spellAbilities().size == 1 -> spellAbilities().single().ability
         spellAbilities().isEmpty() -> null
         else -> Ability.Spell(spellInstructions())
@@ -229,6 +265,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             choices.modes.forEachIndexed { p, index ->
                 instructions.modes?.options?.getOrNull(index)?.extraCost?.let { add(Costs.Contribution("mode:$p", it)) }
             }
+            // CR 702.47a: each splice cost is an additional cost
+            spliced.forEach { add(Costs.Contribution(spliceKey(it.card), it.mechanic.cost)) }
             permission?.first?.additionalCost?.let { add(Costs.Contribution("perm", it)) }
         } else {
             when (val a = ability) {
@@ -310,6 +348,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         // CR 601.2b: modes, optional and additional costs, announced values
         instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
         additionalCosts.forEach { (inst, m) -> if (m.optional && optionalTimes(inst) == null) return Question.OptionalCost(optionalKey(inst), m) }
+        spliceable.forEach { if (choices.costs[spliceKey(it.card)] == null) return Question.Splice(spliceKey(it.card), it) }
         val announce = (instructions.announced + (if (Costs.mentionsX(contributions)) listOf("X") else emptyList())).distinct()
         announce.forEach { name -> if (name !in choices.announced) return Question.Announce(name, if (name == "X") xMinimum() else 0) }
         // CR 601.2c: targets
@@ -451,6 +490,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         }
         is Question.OptionalCost -> if (q.mechanic.repeatable) Decision.ChooseNumber(id, player, sourceId, 0, null)
             else Decision.May(id, player, sourceId, "Pay the ${q.mechanic.keyword?.text ?: "optional"} cost?", q.mechanic.cost)
+        is Question.Splice -> Decision.May(id, player, sourceId, "Splice ${q.splice.name} onto it?", q.splice.mechanic.cost)
         is Question.Announce -> Decision.Announce(id, player, sourceId, q.name, q.min)
         is Question.Target -> Decision.Targets(id, player, sourceId, q.slot.key + (q.forPlayer?.let { ":$it" } ?: ""), q.options, q.min, q.max)
         is Question.Divide -> Decision.Divide(id, player, sourceId, q.amount, q.among, minEach = 1)

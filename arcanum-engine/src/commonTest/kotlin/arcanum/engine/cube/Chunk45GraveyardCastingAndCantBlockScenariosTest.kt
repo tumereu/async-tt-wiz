@@ -16,7 +16,6 @@ import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.Bindings
 import arcanum.engine.state.NamedValue
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -237,7 +236,6 @@ class Chunk45GraveyardCastingAndCantBlockScenariosTest {
 
     /** Bestowed from the graveyard for {R} and collecting evidence 6: enchanted creature gets +2/+2, flying, haste. */
     // CR 702.103a, 701.59a
-    @Ignore("engine: collect evidence as part of a cost (keyword actions as costs)")
     @Test
     fun inspectorsFirebirdBestowedFromTheGraveyard() = scenario {
         alice.battlefield("Mountain", "Elvish Seer")

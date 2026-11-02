@@ -10,7 +10,6 @@ import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
 import arcanum.engine.scenario.Scenario
 import arcanum.engine.scenario.scenario
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -61,7 +60,7 @@ class Chunk05TrickyManaScenariosTest {
     }
 
     /** Splice onto Arcane {1}{R} (CR 702.47): a second one spliced onto the first adds its {R}{R}{R} too. */
-    @Ignore("engine: splice")
+    // CR 702.47a, b
     @Test
     fun franticInvocationSpliced() = scenario {
         alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain")

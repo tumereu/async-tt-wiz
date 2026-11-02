@@ -130,7 +130,7 @@ internal object Payment {
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
             if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
-            recorder.record(Changes.life(recorder.state, player, -life, listOf(Meaning.LifePaid)))
+            Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
         val spent = poolNow.filterIndexed { i, _ -> i in usedIndices }
@@ -172,7 +172,7 @@ internal object Payment {
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size
             if (recorder.state.player(player).life < life) refuse("Not enough life to pay $life")
-            recorder.record(Changes.life(recorder.state, player, -life, listOf(Meaning.LifePaid)))
+            Actions.payLife(act, Cause(player, null, key = "life:${recorder.state.nextTimestamp()}"), player, life)
         }
         val usedIndices = used.mapNotNull { (it.use as? ManaUse.Pool)?.index }.toSet()
         if (usedIndices.isNotEmpty()) {
@@ -196,8 +196,8 @@ internal object Payment {
                 CostPart.UntapSelf -> recorder.record(Changes.tap(recorder.state, use.source, tapped = false))
                 is CostPart.Sacrifice -> Actions.move(act, Cause(player, use.source, key = "cost:${use.source}"),
                     listOf(PlannedMove(use.source, Zone.Graveyard, meanings = listOf(Meaning.Sacrificed))))
-                is CostPart.PayLife -> recorder.record(Changes.life(recorder.state, player,
-                    -snap.evaluator(player, self = use.source).value(part.amount), listOf(Meaning.LifePaid)))
+                is CostPart.PayLife -> Actions.payLife(act, Cause(player, use.source, key = "cost:${use.source}"), player,
+                    snap.evaluator(player, self = use.source).value(part.amount))
                 else -> refuse("Not a simple mana ability")
             }
         }
@@ -293,7 +293,7 @@ internal object Payment {
                 // CR 119.4: a player can pay life only up to their life total
                 val n = eval.value(part.amount)
                 if (s.player(player).life < n) refuse("Not enough life to pay $n")
-                if (n > 0) recorder.record(Changes.life(s, player, -n, listOf(Meaning.LifePaid)))
+                if (n > 0) Actions.payLife(act, cause, player, n)
             }
             is CostPart.PayEnergy -> {
                 val n = eval.value(part.amount)
@@ -359,6 +359,8 @@ internal object Payment {
         if (facts != o.facts) recorder.record(Change.Facts(id, o.facts, facts))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
+        // CR 702.47a: the spliced cards are revealed
+        if (plan.spliced.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(plan.player, plan.spliced.map { it.card })))
         // CR 601.2i: the spell becomes cast
         recorder.record(Change.StackItemAdded(item, null, listOf(Meaning.Cast)))
         plan.permission?.first?.let { permission ->

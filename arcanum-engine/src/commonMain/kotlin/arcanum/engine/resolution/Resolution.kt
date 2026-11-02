@@ -119,7 +119,10 @@ internal object Resolution {
             names = names.with(slotName, NamedValue.Targets(legal))
             if (baseName != slotName && names[baseName] == null) names = names.with(baseName, NamedValue.Targets(legal))
         }
-        if (anyTargets && !anyLegal) {
+        if (anyTargets && !anyLegal && act.state.obj(item.id)?.bestowed == true) {
+            // CR 702.103e, 608.3b: a bestowed Aura spell whose target is illegal resolves as a creature spell
+            arcanum.engine.sba.StateBasedActions.Bestow.cease(act, item.id)
+        } else if (anyTargets && !anyLegal) {
             // CR 608.2b: it doesn't resolve; a spell goes to its owner's graveyard
             finish(act, item, fizzled = true)
             return null

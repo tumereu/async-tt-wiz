@@ -60,6 +60,8 @@ internal class Copiable(private val state: GameState) {
             val copied = effect.copied?.let { listOf(IndexedFace(0, it)) } ?: copiedFaces(effect, copy, visiting)
             if (copied != null) faces = copied.map { IndexedFace(it.index, exceptions(it.face, copy.except)) }
         }
+        // CR 702.103b: a bestowed spell or permanent is an Aura enchantment with enchant creature
+        if (o.bestowed) faces = faces.map { IndexedFace(it.index, bestowed(it.face)) }
         // CR 613.2b, 708.2a: face down
         if (o.faceDown) faces = listOf(IndexedFace(0, FACE_DOWN))
         return faces
@@ -79,6 +81,14 @@ internal class Copiable(private val state: GameState) {
         /** CR 708.2a: a 2/2 face-down creature with no text, no name, no subtypes and no mana cost. */
         val FACE_DOWN = FaceDefinition(
             name = "", types = listOf(CardType.Creature), power = PrintedNumber.Fixed(2), toughness = PrintedNumber.Fixed(2),
+        )
+
+        /** CR 702.103b: "becomes an Aura enchantment and gains enchant creature" (no longer a creature, nor of a creature
+         * type). */
+        fun bestowed(face: FaceDefinition): FaceDefinition = face.copy(
+            types = listOf(CardType.Enchantment),
+            subtypes = face.subtypes.filter { Subtypes.kindOf(it) != SubtypeKind.Creature && it.name != "Aura" } + arcanum.api.Subtype("Aura"),
+            abilities = face.abilities + Keyword.Enchant(arcanum.api.TargetKind.Objects(arcanum.api.ObjectFilter.Type(CardType.Creature))),
         )
 
         /** CR 707.9: an exception becomes part of the copiable values. */

@@ -482,17 +482,22 @@ internal object Actions {
     }
 
     /** [player] loses [amount] life (CR 119.3); returns the life actually lost. */
-    fun loseLife(act: Act, cause: Cause?, player: PlayerId, amount: Int): Int {
+    fun loseLife(act: Act, cause: Cause?, player: PlayerId, amount: Int, meanings: List<Meaning> = listOf(Meaning.LifeLost)): Int {
         if (amount <= 0 || act.state.player(player).lost) return 0
         val linked = mutableListOf<WaitingTrigger>()
         val final = Replacements.apply(act, cause, amount, player, null,
-            proposed = { n -> Changes.life(act.state, player, -n, listOf(Meaning.LifeLost)) },
+            proposed = { n -> Changes.life(act.state, player, -n, meanings) },
             modify = { n, r, _ -> modifyAmount(act, n, r) },
             instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0
-        if (final > 0) act.record(Changes.life(act.state, player, -final, listOf(Meaning.LifeLost)))
+        if (final > 0) act.record(Changes.life(act.state, player, -final, meanings))
         Replacements.addLinked(act, linked)
         return final.coerceAtLeast(0)
     }
+
+    /** [player] pays [amount] life (CR 119.4): they lose that much life, so replacements of life loss and "whenever you
+     * lose life" apply; the payment is made whatever the replacements do to the loss. Returns the life actually lost. */
+    fun payLife(act: Act, cause: Cause?, player: PlayerId, amount: Int): Int =
+        loseLife(act, cause, player, amount, listOf(Meaning.LifePaid, Meaning.LifeLost))
 
     private fun modifyAmount(act: Act, n: Int, r: Replacement): Int? {
         var amount = n

@@ -1808,7 +1808,9 @@ internal class Sentences(
         }
 
         fun target(noun: String, filter: ObjectFilter): Objects {
-            val name = name(noun)
+            // gtc chunk 13: a second "target creature" in the same instructions is another target (CR 115.3): its own name
+            val base = name(noun)
+            val name = generateSequence(1) { it + 1 }.map { if (it == 1) base else "$base $it" }.first { n -> targets.none { it.name == n } }
             targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(1), max = Value.Fixed(1))
             return Objects.Target(name)
         }

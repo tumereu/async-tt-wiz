@@ -74,12 +74,12 @@ internal object EventMatcher {
         is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings && e.matches(pattern.lands, it.after.id) &&
             e.matches(pattern.players, it.after.controller ?: it.after.owner) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
-        is EventPattern.CountersPut -> counters(e, change, pattern.objects, pattern.kind, put = true, last = false)
+        is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy)) counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
         is EventPattern.CountersRemoved -> counters(e, change, pattern.objects, pattern.kind, put = false, last = pattern.last)
         is EventPattern.PlayerCountersPut -> (change as? Change.Counters)?.let { c ->
             val holder = c.holder as? TargetRef.Player ?: return@let null
             val delta = (c.after?.count ?: 0) - (c.before?.count ?: 0)
-            if (delta > 0 && (pattern.kind == null || pattern.kind == c.kind) && e.matches(pattern.players, holder.id))
+            if (delta > 0 && (pattern.kind == null || pattern.kind == c.kind) && e.matches(pattern.players, holder.id) && causedBy(e, change, pattern.causedBy))
                 listOf(TriggerEvent(players = listOf(holder.id), amount = delta)) else null
         }.orEmpty()
         is EventPattern.Tap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->
@@ -231,6 +231,15 @@ internal object EventMatcher {
         if (!e.matches(objects, holder.id)) return emptyList()
         return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(e.controllerOf(holder.id)),
             kotlin.math.abs(delta)))
+    }
+
+    /** blb: whether counters were put by an effect of a spell or ability matching [filter] (its Stack item; "you put": one
+     * you control). Counters with no cause (a cost, a rule) match no filter. */
+    private fun causedBy(e: Evaluator, change: Change, filter: arcanum.api.ObjectFilter?): Boolean {
+        if (filter == null) return true
+        val by = (change as? Change.Counters)?.by ?: return false
+        by.item?.let { item -> if (e.board.state.stackItems[item] != null || e.board.state.obj(item) != null) return e.matches(filter, item) }
+        return filter is arcanum.api.ObjectFilter.ControlledBy && e.matches(filter.players, by.controller)
     }
 
     private fun recipient(e: Evaluator, filter: RecipientFilter, ref: TargetRef): Boolean = when (ref) {

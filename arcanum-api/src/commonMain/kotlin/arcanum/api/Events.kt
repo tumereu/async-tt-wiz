@@ -55,7 +55,11 @@ sealed interface EventPattern {
     @Serializable @SerialName("counters-removed") data class CountersRemoved(
         val objects: ObjectFilter, val kind: CounterKind? = null, val last: Boolean = false,
     ) : EventPattern
-    @Serializable @SerialName("player-counters") data class PlayerCountersPut(val players: PlayerFilter, val kind: CounterKind? = null) : EventPattern
+    /** Counters of [kind] are put on a player matching [players], by an effect of a spell or ability matching [causedBy]
+     * when given (blb: "If you would put one or more counters on a permanent or player"). */
+    @Serializable @SerialName("player-counters") data class PlayerCountersPut(
+        val players: PlayerFilter, val kind: CounterKind? = null, val causedBy: ObjectFilter? = null,
+    ) : EventPattern
     @Serializable @SerialName("tap") data class Tap(val objects: ObjectFilter, val forMana: Boolean? = null) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),

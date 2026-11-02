@@ -82,6 +82,17 @@ object OracleParser {
         while (i < lines.size) {
             val raw = lines[i++]
             val line = REMINDER.replace(raw, "").trim()
+            // blb chunk 05: a class level bar "[cost]: Level N" with the abilities of its section, up to the next bar (CR 716.2a).
+            // A section with an unread line stays printed text as a whole.
+            val classLevel = CLASS_LEVEL.matchEntire(line)
+            if (classLevel != null) {
+                val section = mutableListOf<String>()
+                while (i < lines.size && !CLASS_LEVEL.matches(REMINDER.replace(lines[i], "").trim())) section += lines[i++].trim()
+                val printed = (listOf(raw.trim()) + section).joinToString("\n")
+                result += classLevel(classLevel, section, sentences) ?: Ability.Unparsed(printed)
+                raws += printed
+                continue
+            }
             // chunk 55: a leveler band (CR 711.2a, b): "LEVEL N1-N2" or "LEVEL N3+", its P/T box and the abilities printed
             // with it, up to the next band. A band with an unread line stays printed text as a whole.
             if (LEVEL_BAND.matches(line)) {
@@ -174,6 +185,19 @@ object OracleParser {
             arcanum.api.Value.Fixed(pt.groupValues[1].toInt()), arcanum.api.Value.Fixed(pt.groupValues[2].toInt()))) +
             (if (granted.isEmpty()) emptyList() else listOf(arcanum.api.Mechanic.GainAbilities(granted)))
         return Ability.Static(mechanics, condition = condition, affects = Affected.Objects(Objects.Self))
+    }
+
+    /** blb chunk 05: a class level bar and its section's abilities (CR 716.2a), each with its printed line; null when the
+     * cost or a line can't be read. */
+    private fun classLevel(m: MatchResult, section: List<String>, sentences: Sentences): Ability? {
+        val cost = sentences.cost(m.groupValues[1]) ?: return null
+        val abilities = section.flatMap { raw ->
+            val line = REMINDER.replace(raw, "").trim()
+            val parsed = keywordLine(line) ?: sentences.multi(line) ?: listOf(sentences.line(line) ?: return null)
+            if (parsed.any { it is Ability.Unparsed }) return null
+            parsed.map { it.withText(raw) }
+        }
+        return Keyword.ClassLevel(cost, m.groupValues[2].toInt(), abilities)
     }
 
     /**
@@ -320,8 +344,10 @@ object OracleParser {
     private val PROTECTION = Regex("""[Pp]rotection from ([a-z]+)""")
     // chunk 55
     private val LEVEL_PT = Regex("""(\d+)/(\d+)""")
+    // blb chunk 05
+    private val CLASS_LEVEL = Regex("""((?:\{[^}]+\})+): Level (\d+)""")
     // blb chunk 02
-    private val GIFT = Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
+    private val GIFT =Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
 }
 
 /** Writes definitions back as oracle-style English, for checking parses against the original text. */

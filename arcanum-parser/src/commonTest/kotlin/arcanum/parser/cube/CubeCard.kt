@@ -78,6 +78,8 @@ fun withoutText(ability: Ability): Ability = when (ability) {
     is Ability.Triggered -> ability.copy(text = null, instructions = withoutText(ability.instructions))
     is Ability.Static -> ability.copy(text = null)
     is Ability.SpecialAction -> ability.copy(text = null, instructions = withoutText(ability.instructions))
+    // blb: a class level bar's abilities keep their lines too
+    is arcanum.api.Keyword.ClassLevel -> ability.copy(abilities = ability.abilities.map(::withoutText))
     else -> ability
 }
 

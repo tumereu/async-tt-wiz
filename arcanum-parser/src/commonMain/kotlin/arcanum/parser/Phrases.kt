@@ -58,6 +58,14 @@ internal object Filters {
         // chunk 42: "nonland permanent card"
         QUALIFIED_PERMANENT_CARD.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1]) ?: return null, noun("permanent card")!!) }
         ON_THE_BATTLEFIELD.matchEntire(phrase)?.let { m -> return noun(m.groupValues[1]) }
+        // blb chunk 05: "equipped creatures you control" (plural: every creature with an Equipment; "equipped creature" is the
+        // one this Equipment is attached to, CR 301.5)
+        EQUIPPED_PLURAL.matchEntire(phrase)?.let { m ->
+            val attachment = ObjectFilter.Sub(Subtype(if (m.groupValues[1] == "equipped") "Equipment" else "Aura"))
+            return all(ObjectFilter.Attached(attachments = attachment), noun(m.groupValues[2]) ?: return null)
+        }
+        // blb chunk 05: "permanents you control with counters on them" (any kind)
+        WITH_ANY_COUNTERS.matchEntire(phrase)?.let { m -> return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(null, atLeast = 1)) }
         // chunk 21: "creatures you control with +1/+1 counters on them"
         WITH_COUNTERS.matchEntire(phrase)?.let { m ->
             val kind = Counters.kind(m.groupValues[2]) ?: return null
@@ -234,6 +242,9 @@ internal object Filters {
     private val WITH_POWER_TOUGHNESS = Regex("""(\d+)/(\d+) (.+)""")
     // chunk 21
     private val WITH_COUNTERS = Regex("""(.+) with (?:an? )?(\S+) counters? on (?:it|them)""")
+    // blb chunk 05
+    private val WITH_ANY_COUNTERS = Regex("""(.+) with counters on (?:it|them)""")
+    private val EQUIPPED_PLURAL = Regex("""(equipped|enchanted) (creatures.*)""")
     // chunk 40
     private val OTHER = Regex("""(?:an)?other (.+)""")
     // chunk 42
@@ -362,6 +373,12 @@ internal object Events {
         if (text == "you give a gift") return EventPattern.GiveGift(PlayerFilter.You)
         // blb chunk 03: CR 701.61a
         if (text == "you forage") return EventPattern.Forage(PlayerFilter.You)
+        // blb chunk 05: "this Class becomes level 2" (CR 716.2a)
+        BECOMES_LEVEL.matchEntire(text)?.let { m -> return EventPattern.BecomesLevel(subject(m.groupValues[1], self) ?: return null, m.groupValues[2].toInt()) }
+        // blb chunk 05: "one or more creatures you control die"
+        ONE_OR_MORE_DIE.matchEntire(text)?.let { m ->
+            return EventPattern.ZoneChange(Filters.noun(m.groupValues[1]) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
+        }
         // blb chunk 04: "you expend 4" (CR 700.14)
         YOU_EXPEND.matchEntire(text)?.let { m -> return EventPattern.Expend(m.groupValues[1].toInt(), PlayerFilter.You) }
         // blb chunk 01: "a creature you control becomes the target of a spell or ability an opponent controls" (CR 115.10)
@@ -400,6 +417,8 @@ internal object Events {
         }
         // chunk 36: "the beginning of each end step": every player's
         BEGINNING_OF_EACH.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Any) }
+        // blb chunk 05: "the beginning of each opponent's upkeep"
+        BEGINNING_OF_EACH_OPPONENTS.matchEntire(text)?.let { m -> return EventPattern.StepBegins(STEPS[m.groupValues[1]] ?: return null, whose = PlayerFilter.Opponent) }
         // chunk 52: "a creature is exiled from the battlefield"
         EXILED_FROM_THE_BATTLEFIELD.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Exile)
@@ -488,6 +507,10 @@ internal object Events {
     private val TRANSFORMS_INTO = Regex("""(.+) transforms into (.+)""")
     // blb chunk 01
     private val BECOMES_TARGET = Regex("""(.+) becomes the target of a spell or ability (you control|an opponent controls)""")
+    // blb chunk 05
+    private val BEGINNING_OF_EACH_OPPONENTS = Regex("""the beginning of each opponent's (upkeep|end step)""")
+    private val BECOMES_LEVEL = Regex("""(.+) becomes level (\d+)""")
+    private val ONE_OR_MORE_DIE = Regex("""one or more (.+) die""")
     // blb chunk 04
     private val YOU_EXPEND = Regex("""you expend (\d+)""")
     private val ENTERS_AND_WHENEVER = Regex("""(.+) enters and whenever (.+)""")
@@ -614,6 +637,12 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // blb chunk 05: "that player has one or fewer cards in hand" (the event's player)
+        THAT_PLAYER_HAS_CARDS.matchEntire(text)?.let { m ->
+            return Condition.Compare(Value.HandSize(Players.EventPlayer), Comparison.AtMost, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        }
+        // blb chunk 05: "you control a creature with power 4 or greater"
+        CONTROL_A_PHRASE.matchEntire(text)?.let { m -> Filters.noun(m.groupValues[1] + " you control")?.let { return Condition.Exists(it, atLeast = 1) } }
         // blb chunk 03: "A or if B"
         OR_IF.matchEntire(text)?.let { m ->
             val first = condition(m.groupValues[1], self) ?: return null
@@ -675,6 +704,9 @@ internal object Conditions {
     // chunk 36
     private val LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""an? (.+) left your graveyard this turn""")
     private val NTH_RESOLUTION = Regex("""this is the (\w+) time this ability has resolved this turn""")
+    // blb chunk 05
+    private val THAT_PLAYER_HAS_CARDS = Regex("""that player has (\w+) or fewer cards in hand""")
+    private val CONTROL_A_PHRASE = Regex("""you control an? (.+)""")
     // blb chunk 03
     private val OR_IF = Regex("""(.+?) or if (.+)""")
     private val N_LEFT_YOUR_GRAVEYARD_THIS_TURN = Regex("""(\w+) or more (.+) left your graveyard this turn""")

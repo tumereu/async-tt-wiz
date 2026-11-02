@@ -16,6 +16,7 @@ import arcanum.api.Objects
 import arcanum.api.Zone
 import arcanum.engine.change.Change
 import arcanum.engine.change.Changes
+import arcanum.engine.change.causedBy
 import arcanum.engine.change.DamageDealt
 import arcanum.engine.change.Meaning
 import arcanum.engine.change.Move
@@ -553,7 +554,9 @@ internal object Actions {
         }
         val linked = mutableListOf<WaitingTrigger>()
         val final = Replacements.apply(act, cause, amount, affected, (holder as? TargetRef.Object)?.id,
-            proposed = { n -> Changes.counters(act.state, holder, kind, n) },
+            // blb: the proposed change names its cause, for "counters you would put" (EventPattern.CountersPut.causedBy)
+            proposed = { n -> Changes.counters(act.state, holder, kind, n).let { c ->
+                if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
             modify = { n, r, _ -> modifyAmount(act, n, r) },
             instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0
         if (final > 0) act.record(Changes.counters(act.state, holder, kind, final, meanings))

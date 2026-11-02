@@ -34,6 +34,7 @@ by the owner before release.
 | I-D23 | **No branching while a flow is open** (owner, 2026-11-02): starting a branch is refused, like other changes (D32). |
 | I-D24 | **Switching off clears the open flow** (reverted per I-D19) and keeps effect records, so their durations still apply when Automatum is switched on again; a manual "Clear Automatum data" action sits in the switch's hold panel (owner, 2026-11-02). |
 | I-D25 | **Emblems** show as a chip by the player's life square with the emblem's text; playtesting decides whether other UI is needed (owner, 2026-11-02). |
+| I-D26 | **Redo assigns fresh timestamps** when it re-applies an event, so stamp order follows real event order (owner, 2026-11-02; a starting point — undo/redo's final shape is decided by playtesting once Automatum is complete). |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);

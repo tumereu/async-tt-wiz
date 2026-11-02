@@ -309,12 +309,16 @@ fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // t
 - **Changes** are MTG-level, tagged with their meaning (cast, resolved, died, sacrificed, destroyed, discarded, drew,
   …), and carry before- and after-values (D59): moves (with old and new id and position), damage, life, counters,
   tap state, tokens, effect objects added/ended, Stack pushes/resolutions, mana added/spent, priority passes and
-  grants, step changes, ledger changes, continuation set/cleared, player lost.
+  grants, step changes, ledger changes, continuation set/cleared, player lost. For history lines, changes made by a
+  spell's or ability's instructions name what made them (`CausedBy`: source, its name then, controller, Stack item);
+  damage names its source as it was.
 - **After every input** the engine applies state-based actions, puts triggered abilities on the Stack (asking only
   when there is a choice: order, targets, modes) and gives priority, all inside the same call (P5).
 - **Decisions:** targets, modes, X, mana payment (with a suggested tapping), may, choose objects, choose option,
   choose colour/type/name/number, divide, order triggers, order replacements, legend rule, random (answered by the
-  host, D25), host fill (D60), manual (`Manual(text)`, answered "done").
+  host, D25), host fill (D60), steps done in another player's view (`OtherView`, D60/D31), manual (`Manual(text)`,
+  answered "done"). Decisions carry text for people: "you may" prompts and choices are the sentence of the ability's
+  printed text, modes and triggers to order their printed lines (the parser keeps each ability's and mode's text).
 - **Starting a game** (D61): `Engine.newGame(seats, startingLife)` builds the state before the game (decks as
   libraries, sideboards outside the game, CR 103.2a, 103.4); `StartGame(options)` runs CR 103 as committed stages:
   the starting player (given, or chosen by a given chooser or by a player a host die roll picks, CR 103.1), companion
@@ -334,8 +338,17 @@ fun GameState.apply(change: Change); fun GameState.revert(change: Change)   // t
   can't be tracked (CR 701.24a, D38). A card put into a library known stays known until it is shuffled. A face-down
   permanent is a nameless 2/2 creature even unseen (CR 708.2a); "at random" is a host random pick (D25). Decisions
   and changes name only what their player and the viewer may know: other players aren't offered answers naming cards
-  hidden from them, `Engine.visible(state, player)` says what a host may show a player, and a fill only one player
-  sees, asked in another player's view, is done in that player's view (D31).
+  hidden from them, and `Engine.visible(state, player)` says what a host may show a player. A host may keep one state
+  per player: it forwards each player's inputs to the others' states. Another player's land play, cast or activation
+  of a card the viewer doesn't know asks a public fill of that card (it becomes public as it is played, CR 305.1,
+  601.2a, 602.2a) and goes on; `options` lists only what the viewer's state can check. A resolution that reaches
+  cards only another player may look at (their search, scry, surveil, look, a choice among hidden cards) is done in
+  that player's view (D31): it waits on `OtherView(player, objects)`, the host has the player decide in their own state
+  and answers with the identities of `objects` and that player's answers there; the engine works each step out with
+  them and keeps none (the identities aren't in the state or the changes; cards the viewer then sees, put into a
+  public zone or revealed, are filled in as they are), committing step by step; `Engine.otherViewDecision` shows a
+  host that doesn't keep the player's state what they face. Not yet: a face-down cast of a card unknown to the view
+  (filled publicly), private looks outside a resolution (a companion check at the start).
 - **Answers** are checked on one path against what their decision asked (kind, allowed values, counts, uniqueness,
   zones, exactly the filled objects, new ids): a wrong one is refused with `IllegalArgumentException` and changes
   nothing, never a crash.

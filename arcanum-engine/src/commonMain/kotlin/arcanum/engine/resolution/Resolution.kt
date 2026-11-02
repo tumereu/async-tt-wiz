@@ -49,8 +49,14 @@ internal object Resolution {
         return run(recorder, Continuation.Resolving(top, 0, names))
     }
 
-    fun resume(recorder: Recorder, continuation: Continuation.Resolving, answer: Answer): Progress =
-        run(recorder, continuation.copy(answers = continuation.answers + answer))
+    fun resume(recorder: Recorder, continuation: Continuation.Resolving, answer: Answer): Progress {
+        if (continuation.otherView != null) {
+            val sent = answer as Answer.OtherView
+            return OtherView.run(recorder, continuation.copy(answers = continuation.answers + sent.answers),
+                sent.filled.associate { it.id to it.definition })
+        }
+        return run(recorder, continuation.copy(answers = continuation.answers + answer))
+    }
 
     fun resumeEvent(recorder: Recorder, continuation: Continuation.Event, answer: Answer): Progress =
         Events.resume(recorder, continuation, answer)
@@ -61,15 +67,20 @@ internal object Resolution {
         return item.modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.steps.orEmpty() } + instructions.steps
     }
 
-    fun causeOf(item: StackItem) = Cause(item.controller, item.source ?: item.id, item, item.id.toString())
+    fun causeOf(item: StackItem) = Cause(item.controller, selfOf(item), item, item.id.toString())
 
-    private fun run(recorder: Recorder, start: Continuation.Resolving): Progress {
+    /** What "this" is while [item] resolves: a copy of a spell is its own object (CR 707.10), not the card it copies;
+     * an ability's is its source (a copy of an ability has the original's source, CR 707.10b). */
+    fun selfOf(item: StackItem): arcanum.engine.state.ObjectId =
+        if (item.kind is StackItemKind.SpellCopy) item.id else item.source ?: item.id
+
+    internal fun run(recorder: Recorder, start: Continuation.Resolving): Progress {
         var c = start
         while (true) {
             val item = c.left ?: recorder.state.stackItems[c.item] ?: return Progress.Done
             val steps = stepsOf(item)
             val mark = recorder.changes.size
-            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}"))
+            val act = Act(recorder, Asker(c.answers, "${c.item}/${c.step}", mayAskOtherView = true))
             try {
                 if (c.step < steps.size) {
                     val scope = Scope(act, causeOf(item), c.names, item.event)
@@ -84,6 +95,10 @@ internal object Resolution {
             } catch (n: NeedDecision) {
                 recorder.rollback(mark)
                 return Progress.Waiting(Pending(n.decision, c))
+            } catch (n: arcanum.engine.action.NeedOtherView) {
+                // D60, D31: cards only another player may look at; from this step on, worked out as in their view
+                recorder.rollback(mark)
+                return OtherView.start(c, n)
             }
         }
     }
@@ -96,7 +111,7 @@ internal object Resolution {
     private fun start(act: Act, item: StackItem): Bindings? {
         val instructions = Replacements.instructionsOf(item.ability) ?: Instructions()
         val slots = instructions.targets + item.modes.flatMap { instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
-        val source = item.source ?: item.id
+        val source = selfOf(item)
         var names = item.names
         item.announced.forEach { (name, value) -> names = names.with(name, NamedValue.Number(value)) }
         var anyTargets = false
@@ -154,7 +169,7 @@ internal object Resolution {
      * permission says, flashback CR 702.34a); a permanent spell enters the battlefield under its controller's control,
      * an Aura attached to what it targeted (CR 608.3, 303.4f); abilities and copies just leave.
      */
-    private fun finish(act: Act, item: StackItem, fizzled: Boolean) {
+    internal fun finish(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
         val card = act.state.obj(item.id)
         if (item.kind != StackItemKind.Spell || card == null) {

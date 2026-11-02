@@ -74,6 +74,15 @@ internal object AnswerCheck {
                     refuse("Fill exactly ${decision.objects}, each once: $filled")
                 }
             }
+            is Decision.OtherView -> {
+                val a = expect<Answer.OtherView>(decision, answer)
+                val filled = a.filled.map { it.id }
+                // D60: exactly the objects asked, each once; the answers are checked as the steps ask them
+                if (filled.size != decision.objects.size || filled.toSet() != decision.objects.toSet()) {
+                    refuse("Fill exactly ${decision.objects}, each once: $filled")
+                }
+                if (a.answers.any { it is Answer.Filled || it is Answer.OtherView }) refuse("Identities go in filled, not among the answers")
+            }
             is Decision.Manual -> expect<Answer.Done>(decision, answer)
         }
     }

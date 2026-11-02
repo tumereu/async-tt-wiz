@@ -134,7 +134,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Objects.Affected -> listOfNotNull(ctx.affected)
         is Objects.LinkedTo -> boundObjects(selfMemory(objects.keyword.id))
         is Objects.PaidWith -> objects(objects.of).flatMap { id ->
-            boundObjects(state.obj(id)?.facts?.paidWith?.get(objects.way.toString()))
+            boundObjects(facts(id)?.paidWith?.get(objects.way.toString()))
         }
         // Random picks are asked from the host (D25) by the resolution that needs them (Scope.objects)
         is Objects.Random -> error("\"At random\" objects are picked by the resolution that uses them (D25), not evaluated")
@@ -377,7 +377,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         return board.snapshot(id)
     }
 
-    private fun facts(id: ObjectId) = state.obj(id)?.facts ?: lki(id)?.facts
+    /** What happened to [id] as an object: a card's facts, a copy of a spell's own (CR 707.10), or as it last existed. */
+    private fun facts(id: ObjectId) = state.obj(id)?.facts ?: copyFacts(id) ?: lki(id)?.facts
+
+    private fun copyFacts(id: ObjectId) = (state.stackItems[id] ?: ctx.stackItem?.takeIf { it.id == id })?.facts
 
     private fun counterList(id: ObjectId) = state.obj(id)?.counters ?: lki(id)?.counters
 

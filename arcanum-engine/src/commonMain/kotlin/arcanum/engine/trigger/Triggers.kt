@@ -53,9 +53,7 @@ internal object Triggers {
     /** Events whose triggers are checked on the game as it was just before (CR 603.10a). */
     fun looksBack(change: Change): Boolean = when (change) {
         // Leaving the battlefield, and an object all players can see put into a hand or library
-        is Change.ZoneChange -> change.moves.any {
-            it.from == Zone.Battlefield || ((it.to == Zone.Hand || it.to == Zone.Library) && it.from != Zone.Hand && it.from != Zone.Library)
-        }
+        is Change.ZoneChange -> change.moves.any { looksBack(it) }
         is Change.Removed -> true
         is Change.Attached -> change.before != null && change.after != change.before
         is Change.Status -> change.flag == StatusFlag.PhasedOut
@@ -78,9 +76,13 @@ internal object Triggers {
                 found += check(state, ViewBoard(before, then), now, change, s, lookBack = true)
             }
         }
-        // Objects that didn't exist before the event (they entered with it) trigger as they are now
+        // Objects that didn't exist before the event (they entered with it) trigger as they are now, on the parts of a
+        // look-back event that don't look back
         sources(state, now).filter { "${it.id}/${it.origin.key}" !in seen && (before == null || before.obj(it.id) == null) }
-            .forEach { s -> found += check(state, ViewBoard(state, now), now, change, s, lookBack = false) }
+            .forEach { s ->
+                val part = if (before == null) change else seenByNewObject(change, s) ?: return@forEach
+                found += check(state, ViewBoard(state, now), now, part, s, lookBack = false, whole = change)
+            }
         found += additional(state, now, change, found)
         val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
         state.delayedTriggers.values.toList().forEach { dt ->
@@ -147,9 +149,32 @@ internal object Triggers {
         }
     }
 
-    private fun check(state: GameState, board: ViewBoard, now: View, change: Change, s: Source, lookBack: Boolean): List<WaitingTrigger> {
+    /**
+     * The part of a look-back [change] (CR 603.10a) that [s], an object that didn't exist before it, can trigger on:
+     * its abilities didn't exist immediately before the event, so the parts that look back aren't seen (a card's
+     * graveyard ability doesn't see the creatures that died with it, nor its own death); entering the battlefield is
+     * seen (CR 603.6a). An ability that triggers on a card put into a zone "from anywhere" isn't a leaves-the-battlefield
+     * ability (CR 603.6c): it sees the others' moves from the battlefield, but never the move that made its own object
+     * (that was its earlier object's, CR 400.7). Null when nothing is left.
+     */
+    private fun seenByNewObject(change: Change, s: Source): Change? {
+        val moves = (change as? Change.ZoneChange)?.moves ?: return null
+        val fromAnywhere = (s.ability.trigger as? Trigger.On)?.events.orEmpty()
+            .any { it is arcanum.api.EventPattern.ZoneChange && it.from == null && it.to != Zone.Battlefield }
+        val seen = moves.filter { m -> !looksBack(m) || (fromAnywhere && m.after.id != s.id) }
+        return if (seen.isEmpty()) null else Change.ZoneChange(seen)
+    }
+
+    /** One move that looks back (CR 603.10a): leaving the battlefield, or an object all players can see put into a hand
+     * or library. */
+    private fun looksBack(m: arcanum.engine.change.Move): Boolean =
+        m.from == Zone.Battlefield || ((m.to == Zone.Hand || m.to == Zone.Library) && m.from != Zone.Hand && m.from != Zone.Library)
+
+    private fun check(
+        state: GameState, board: ViewBoard, now: View, change: Change, s: Source, lookBack: Boolean, whole: Change = change,
+    ): List<WaitingTrigger> {
         val e = Evaluator(board, Context(s.controller, s.id))
-        val instances = instancesOf(e, board.state, s.ability.trigger, change)
+        val instances = instancesOf(e, board.state, s.ability.trigger, change, whole)
         if (instances.isEmpty()) return emptyList()
         val nowBoard = ViewBoard(state, now)
         val sourceSeen = if (lookBack) snapshot(board, s.id) else null
@@ -182,7 +207,7 @@ internal object Triggers {
      * 603.2c by wording), the nth this turn only ([Trigger.On.nthThisTurn], counting the same units: earlier instances,
      * or earlier batches, so "one or more cards for the first time each turn" keeps the whole batch); chapter abilities
      * as lore counters pass their numbers (CR 714.2b). */
-    fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change): List<TriggerEvent> = when (trigger) {
+    fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change, whole: Change = change): List<TriggerEvent> = when (trigger) {
         is Trigger.On -> {
             fun units(c: Change): List<TriggerEvent> {
                 val all = trigger.events.flatMap { EventMatcher.instances(e, it, c) }
@@ -195,7 +220,7 @@ internal object Triggers {
             }
             val now = units(change)
             val counted = if (now.isEmpty()) now else trigger.nthThisTurn?.let { n ->
-                val earlier = state.eventsOf(state.turn.number).takeWhile { it !== change && it != change }.flatMap { units(it) }
+                val earlier = state.eventsOf(state.turn.number).takeWhile { it !== whole && it != whole }.flatMap { units(it) }
                 if (!trigger.oneOrMore) now.filterIndexed { i, _ -> earlier.size + i + 1 == n }
                 else now.filter { unit ->
                     earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n
@@ -288,7 +313,10 @@ internal object Triggers {
     private fun order(act: Act, player: PlayerId, mine: List<WaitingTrigger>): List<WaitingTrigger> {
         // Triggers of the same ability of the same source are taken as interchangeable (P5)
         if (mine.size < 2 || mine.all { it.ability == mine.first().ability && it.source == mine.first().source }) return mine
-        val options = mine.mapIndexed { i, t -> TriggerOption(i, t.source, (t.ability as? Ability.Triggered)?.text) }
+        // API review 3: each with its printed text and origin, so two triggers of one source can be told apart
+        val options = mine.mapIndexed { i, t ->
+            TriggerOption(i, t.source, arcanum.engine.decision.Texts.of(t.ability, t.origin, t.sourceSeen?.characteristics), t.origin)
+        }
         val order = (act.asker.ask { Decision.OrderTriggers(it, player, null, options) } as Answer.Order).order
         require(order.sorted() == mine.indices.toList()) { "Order every trigger once: $order" }
         return order.map { mine[it] }

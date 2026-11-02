@@ -46,13 +46,13 @@ sealed interface Change {
      * zone as [Move.before] and arrives as [Move.after], a new object with a new id.
      */
     @Serializable @SerialName("zone-change")
-    data class ZoneChange(val moves: List<Move>) : Change {
+    data class ZoneChange(val moves: List<Move>, val by: CausedBy? = null) : Change {
         override fun inverse() = ZoneChange(moves.reversed().map { it.inverse() })
     }
 
     /** Objects come into existence: tokens (CR 111), emblems (CR 114); [Placed.index] is the position in the zone. */
     @Serializable @SerialName("created")
-    data class Created(val objects: List<Placed>, val meanings: List<Meaning> = listOf(Meaning.TokenCreated)) : Change {
+    data class Created(val objects: List<Placed>, val meanings: List<Meaning> = listOf(Meaning.TokenCreated), val by: CausedBy? = null) : Change {
         override fun inverse() = Removed(objects.reversed(), meanings)
     }
 
@@ -66,7 +66,7 @@ sealed interface Change {
     @Serializable @SerialName("status")
     data class Status(
         val id: ObjectId, val flag: StatusFlag, val before: Boolean, val after: Boolean,
-        val meanings: List<Meaning> = emptyList(),
+        val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null,
     ) : Change {
         override fun inverse() = copy(before = after, after = before)
     }
@@ -81,7 +81,7 @@ sealed interface Change {
     @Serializable @SerialName("counters")
     data class Counters(
         val holder: TargetRef, val kind: CounterKind, val before: CounterEntry?, val after: CounterEntry?,
-        val meanings: List<Meaning> = emptyList(),
+        val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null,
     ) : Change {
         override fun inverse() = copy(before = after, after = before)
     }
@@ -106,7 +106,7 @@ sealed interface Change {
 
     /** A player's life total changes (CR 119). */
     @Serializable @SerialName("life")
-    data class Life(val player: PlayerId, val before: Int, val after: Int, val meanings: List<Meaning> = emptyList()) : Change {
+    data class Life(val player: PlayerId, val before: Int, val after: Int, val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null) : Change {
         override fun inverse() = copy(before = after, after = before)
     }
 
@@ -127,7 +127,7 @@ sealed interface Change {
 
     /** A Stack item's record goes: it resolved, was countered, or its ability or copy left the Stack. */
     @Serializable @SerialName("stack-item-removed")
-    data class StackItemRemoved(val item: StackItem, val index: Int?, val meanings: List<Meaning> = emptyList()) : Change {
+    data class StackItemRemoved(val item: StackItem, val index: Int?, val meanings: List<Meaning> = emptyList(), val by: CausedBy? = null) : Change {
         override fun inverse() = StackItemAdded(item, index, meanings)
     }
 
@@ -172,7 +172,7 @@ sealed interface Change {
     @Serializable @SerialName("attached")
     data class Attached(
         val id: ObjectId, val before: TargetRef?, val after: TargetRef?,
-        val timestampBefore: Long, val timestampAfter: Long,
+        val timestampBefore: Long, val timestampAfter: Long, val by: CausedBy? = null,
     ) : Change {
         override fun inverse() = copy(before = after, after = before, timestampBefore = timestampAfter, timestampAfter = timestampBefore)
     }
@@ -282,7 +282,7 @@ sealed interface Change {
     /** Something happened that changes no state but can trigger and be counted (D33): an ability was activated, a coin
      * flipped, cards revealed. */
     @Serializable @SerialName("happened")
-    data class Happened(val event: GameEvent) : Change {
+    data class Happened(val event: GameEvent, val by: CausedBy? = null) : Change {
         override fun inverse() = this
     }
 
@@ -310,6 +310,31 @@ sealed interface Change {
         override fun inverse() = copy(before = after, after = before)
         override val isEvent: Boolean get() = false
     }
+}
+
+/**
+ * What made a change, for a history line ("Storm Spark: bob lost 3 life", D33): the spell or ability being resolved,
+ * or a replacement's or "as enters" ability's object ([source], by [name] as it was then, [controller]'s), and the
+ * Stack [item] resolving. Set on [Change.ZoneChange], [Change.Created], [Change.Status], [Change.Counters],
+ * [Change.Attached], [Change.Life], [Change.Happened] and [Change.StackItemRemoved] (countered) made by the
+ * instructions of a spell or ability; null for what a rule or a player's own action does (state-based and turn-based
+ * actions, casting, paying costs, playing a land), whose [Meaning]s say it. Damage names its source in
+ * [DamageDealt.sourceSeen]; a Stack item names its source and targets.
+ */
+@Serializable
+data class CausedBy(val source: ObjectId?, val name: String?, val controller: PlayerId, val item: ObjectId? = null)
+
+/** [change] with [by] as what made it, if it is of a kind that says so and says nothing yet. */
+internal fun Change.causedBy(by: CausedBy): Change = when (this) {
+    is Change.ZoneChange -> if (this.by == null) copy(by = by) else this
+    is Change.Created -> if (this.by == null) copy(by = by) else this
+    is Change.Status -> if (this.by == null) copy(by = by) else this
+    is Change.Counters -> if (this.by == null) copy(by = by) else this
+    is Change.Life -> if (this.by == null) copy(by = by) else this
+    is Change.Happened -> if (this.by == null) copy(by = by) else this
+    is Change.StackItemRemoved -> if (this.by == null) copy(by = by) else this
+    is Change.Attached -> if (this.by == null) copy(by = by) else this
+    else -> this
 }
 
 /** One object's part of a [Change.ZoneChange]: [before] leaves its zone at [fromIndex], [after] arrives at [toIndex]. */

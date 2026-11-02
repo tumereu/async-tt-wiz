@@ -1,7 +1,18 @@
 package arcanum.engine.action
 
+import arcanum.api.CardDefinition
 import arcanum.api.Mechanic
 import arcanum.api.Zone
+import arcanum.engine.change.Change
+import arcanum.engine.change.GameEvent
+import arcanum.engine.change.Recorder
+import arcanum.engine.state.CardId
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
@@ -99,6 +110,52 @@ internal object Knowledge {
             o.unknown && (revealed || (m.to in PUBLIC_ZONES && !m.faceDown))
         }.map { it.id }.distinct()
         if (ids.isNotEmpty()) act.fill(act.state.objOrThrow(ids.first()).owner, null, ids, "becomes public", public = true)
+    }
+
+    /**
+     * D60, D31: the [hidden] cards were filled in only to work a resolution out as in another player's view
+     * ([arcanum.engine.decision.Decision.OtherView]). The changes made since [mark] are made again without their
+     * identities, in their characteristics and definitions everywhere in the changes, until the viewer sees one (it is
+     * put where the viewer may see it, or revealed): it is filled in just before, as a host fill would have done.
+     * Triggers were found on the changes as they were made, as with full information. Returns the cards still hidden.
+     */
+    fun forgetHidden(recorder: Recorder, mark: Int, hidden: Map<CardId, CardDefinition>): Set<CardId> {
+        if (hidden.isEmpty()) return emptySet()
+        val made = recorder.changes.subList(mark, recorder.changes.size).toList()
+        recorder.rollback(mark)
+        val full = recorder.state.deepCopy()
+        val still = hidden.keys.toMutableSet()
+        made.forEach { c ->
+            full.apply(c)
+            // The fill only the other player saw
+            if (c is Change.Filled && c.before.unknown && c.after.card in still) return@forEach
+            val revealed = ((c as? Change.Happened)?.event as? GameEvent.Revealed)?.ids.orEmpty().mapNotNull { (it as? ObjectId.Card)?.card }
+            still.filter { card -> card in revealed || full.current(card)?.let { viewerSees(full, it) } == true }.forEach { card ->
+                still -= card
+                val o = recorder.state.current(card)
+                if (o != null && o.unknown) recorder.append(Change.Filled(o, o.copy(definition = hidden.getValue(card))))
+            }
+            val seen = if (still.isEmpty()) c else withoutIdentities(c, still)
+            if (seen is Change.Forgotten && seen.before == seen.after) return@forEach
+            recorder.append(seen)
+        }
+        return still
+    }
+
+    /** [change] with the definitions and characteristics of [cards]' objects left out (unknown, D60). */
+    private fun withoutIdentities(change: Change, cards: Set<CardId>): Change {
+        val prefixes = cards.map { "c:${it.value}#" }
+        fun hidden(id: JsonElement?): Boolean =
+            (id as? JsonPrimitive)?.takeIf { it.isString }?.content?.let { s -> prefixes.any { s.startsWith(it) } } == true
+        fun walk(e: JsonElement): JsonElement = when (e) {
+            is JsonObject -> {
+                val hide = hidden(e["id"])
+                JsonObject(e.mapValues { (k, v) -> if (hide && (k == "definition" || k == "characteristics")) JsonNull else walk(v) })
+            }
+            is JsonArray -> JsonArray(e.map(::walk))
+            else -> e
+        }
+        return Json.decodeFromJsonElement(Change.serializer(), walk(Json.encodeToJsonElement(Change.serializer(), change)))
     }
 
     /** After replacements: cards the viewer will see where they go (their own hand, face down under their control) or

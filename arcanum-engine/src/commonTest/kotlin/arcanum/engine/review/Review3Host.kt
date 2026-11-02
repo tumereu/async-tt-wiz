@@ -43,7 +43,7 @@ internal class FakeHost(
     private val optionsEvery: Int = 0,
     private val maxInputs: Int = 4000,
     /** The host's workaround for opponents' plays from hidden hands: fill the card by hand before forwarding the input. */
-    private val fillBeforePlay: Boolean = true,
+    private val fillBeforePlay: Boolean = false,
 ) {
     private val rnd = Random(seed)
     private val json = Json
@@ -77,6 +77,9 @@ internal class FakeHost(
     var inputs = 0
         private set
     var privateFillsInOtherViews = 0
+        private set
+    /** Answers to [Decision.OtherView] a view got: steps only another player sees, worked out as in their view (D31). */
+    var otherViewAnswers = 0
         private set
 
     init {
@@ -158,14 +161,25 @@ internal class FakeHost(
 
     private fun sync(v: View, input: Input, truthDecision: Decision?) {
         val viewDecision = v.state.pending?.decision
+        // D31: in another player's view the steps they see are theirs; the view waits on an OtherView meanwhile
+        val elsewhere = viewDecision is Decision.OtherView
         if ((truthDecision == null) != (viewDecision == null) ||
-            (truthDecision != null && viewDecision != null && truthDecision::class != viewDecision::class)) {
+            (truthDecision != null && viewDecision != null && !elsewhere && truthDecision::class != viewDecision::class)) {
             diverge(v, "decision differs: truth ${truthDecision?.let { it::class.simpleName }}, view ${viewDecision?.let { it::class.simpleName }}")
             return
         }
-        val translated = translate(v, input, viewDecision)
-        // The engine refuses a play or cast of a card the view doesn't know ("unknown card") and asks no fill for it: the
-        // host fills it in by hand (a Change.Filled it makes itself) when [fillBeforePlay], else the view is stuck.
+        // What the other player decides in their view, for translating their answer (a shuffle there gives new ids)
+        val asked = if (viewDecision is Decision.OtherView) Engine.otherViewDecision(v.state, otherView(v, viewDecision, emptyList()).filled)
+            else viewDecision
+        val translated = translate(v, input, asked).let { t ->
+            // The other player's answer in their view, sent with the identities only they may see
+            if (viewDecision is Decision.OtherView && t is Input.Answer) {
+                otherViewAnswers++
+                Input.Answer(viewDecision.id, otherView(v, viewDecision, listOf(t.answer)))
+            } else t
+        }
+        // A play or cast of a card the view doesn't know: the engine asks a public fill for it (review 3 #4); with
+        // [fillBeforePlay] the host fills it in by hand first instead (a Change.Filled it makes itself, the old way).
         val played = when (translated) {
             is Input.PlayLand -> translated.card
             is Input.Cast -> translated.card
@@ -189,6 +203,17 @@ internal class FakeHost(
         v.state = next
         var guard = 50
         while (guard-- > 0) {
+            val other = v.state.pending?.decision as? Decision.OtherView
+            if (other != null) {
+                // D31: the identities alone when the steps need no answer of the other player's now
+                val answer = otherView(v, other, emptyList())
+                if (Engine.otherViewDecision(v.state, answer.filled) != null) break
+                otherViewAnswers++
+                v.state = perform(v.state, Input.Answer(other.id, answer)) ?: run {
+                    diverge(v, "other view refused: $lastRefusal"); return
+                }
+                continue
+            }
             val d = v.state.pending?.decision as? Decision.HostFill ?: break
             if (!d.public && d.player != v.player) {
                 privateFillsInOtherViews++
@@ -201,6 +226,11 @@ internal class FakeHost(
             }
         }
     }
+
+    /** As the host, the answer to [d] in [v]: the identities of its objects (only its player may see them; the engine
+     * keeps none, D31) and [answers] from that player's view. */
+    private fun otherView(v: View, d: Decision.OtherView, answers: List<Answer>): Answer.OtherView =
+        Answer.OtherView(d.objects.map { id -> FilledObject(id, defs.getValue(v.truthCard((id as ObjectId.Card).card))) }, answers)
 
     private fun diverge(v: View, why: String) {
         if (v.diverged == null) note("view diverged", "${v.player}: $why")
@@ -249,7 +279,7 @@ internal class FakeHost(
     // ---- What everyone sees
 
     /** What every player can see of [s], with card ids as the truth has them ([card]). */
-    private fun public(s: GameState, card: (CardId) -> CardId): List<String> {
+    private fun public(s: GameState, card: (CardId) -> CardId, kindless: Boolean = false): List<String> {
         fun id(o: ObjectId) = when (o) { is ObjectId.Card -> card(o.card).value; is ObjectId.StackItem -> o.toString() }
         val lines = mutableListOf<String>()
         lines += "turn ${s.turn.number} ${s.turn.active} ${s.turn.step} priority ${s.priority.holder} combat ${s.combat?.attackers?.map { id(it.id) }}"
@@ -264,13 +294,15 @@ internal class FakeHost(
         lines += "exile ${s.exile.map { s.objOrThrow(it) }.map { if (it.faceDown) "face down" else card(it.card).value }.sorted()}"
         lines += "stack ${s.stack.map { sid -> s.stackItems[sid]?.let { "${it.kind::class.simpleName}/${it.controller}/${it.source?.let { x -> id(x) }}" } ?: id(sid) }}"
         val d = s.pending?.decision
-        if (d != null && d !is Decision.HostFill && d !is Decision.Random) lines += "pending ${d::class.simpleName} for ${d.player}"
+        // D31: while a view waits on steps another player decides in theirs (OtherView), what they decide isn't compared
+        if (d != null && d !is Decision.HostFill && d !is Decision.Random && !kindless) lines += "pending ${d::class.simpleName} for ${d.player}"
         return lines
     }
 
     private fun compare(v: View) {
-        val t = public(truth, { it })
-        val w = public(v.state, v::truthCard)
+        val elsewhere = v.state.pending?.decision is Decision.OtherView
+        val t = public(truth, { it }, elsewhere)
+        val w = public(v.state, v::truthCard, elsewhere)
         if (t != w) {
             val i = t.indices.firstOrNull { it >= w.size || t[it] != w[it] } ?: t.size
             diverge(v, "public state differs:\n  truth ${t.getOrNull(i)}\n  view  ${w.getOrNull(i)}")

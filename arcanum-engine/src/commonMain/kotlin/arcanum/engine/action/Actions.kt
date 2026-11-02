@@ -84,6 +84,13 @@ internal object Actions {
      */
     fun move(act: Act, cause: Cause?, planned: List<PlannedMove>, noRegeneration: Boolean = false): Map<ObjectId, ObjectId> {
         val linked = mutableListOf<WaitingTrigger>()
+        // CR 707.10a: a copy of a spell put into another zone ceases to exist (no card moves)
+        planned.forEach { pm ->
+            val copy = act.state.stackItems[pm.id]?.takeIf { it.kind is arcanum.engine.state.StackItemKind.SpellCopy && act.obj(pm.id) == null }
+            if (copy != null && pm.to != Zone.Stack) {
+                act.record(Change.StackItemRemoved(copy, act.state.stack.indexOf(pm.id), pm.meanings + Meaning.CeasedToExist))
+            }
+        }
         // D60: cards everyone is about to see are filled in first, so replacements and triggers see what they are
         Knowledge.fillRevealedByMoves(act, planned)
         val final = planned.mapNotNull { pm ->
@@ -391,6 +398,15 @@ internal object Actions {
         is TargetRef.Object -> act.obj(ref.id)?.zone == Zone.Battlefield
     }
 
+    /** CR 614.9: a redirection does nothing if one of its permanents is no longer on the battlefield or no longer a
+     * battle, creature or planeswalker, or one of its players has left the game. */
+    private fun redirectable(act: Act, ref: TargetRef): Boolean = recipientExists(act, ref) && when (ref) {
+        is TargetRef.Player -> true
+        is TargetRef.Object -> act.view()[ref.id]?.characteristics.let { c ->
+            c != null && (c.isType(CardType.Creature) || c.isType(CardType.Planeswalker) || c.isType(CardType.Battle))
+        }
+    }
+
     private fun modifyDamage(act: Act, d: DamageDealt, r: Replacement): DamageDealt? {
         var damage = d
         val e = Evaluator(act.board(), Context(you = r.controller, self = r.source, names = r.names))
@@ -399,7 +415,9 @@ internal object Actions {
                 Modification.Skip -> return null
                 is Modification.MultiplyAmount -> damage.copy(amount = damage.amount * mod.factor)
                 is Modification.AddAmount -> damage.copy(amount = damage.amount + e.value(mod.amount))
-                is Modification.ChangeRecipient -> recipientsOf(e, mod.to).firstOrNull()?.let { damage.copy(recipient = it) } ?: damage
+                is Modification.ChangeRecipient -> recipientsOf(e, mod.to).firstOrNull()
+                    ?.takeIf { redirectable(act, damage.recipient) && redirectable(act, it) }
+                    ?.let { damage.copy(recipient = it) } ?: damage
                 else -> damage
             }
         }

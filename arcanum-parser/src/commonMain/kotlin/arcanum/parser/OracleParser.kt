@@ -127,10 +127,24 @@ object OracleParser {
         // casting costs is automated; they stay as printed for the players.
         if (isSpell && result.any { it is Ability.Unparsed }) {
             return result.mapIndexed { index, ability ->
-                if (ability is Ability.Spell || ability.isCastingCost()) Ability.Unparsed(raws[index]) else ability
+                if (ability is Ability.Spell || ability.isCastingCost()) Ability.Unparsed(raws[index]) else ability.withText(raws[index])
             }.distinct()
         }
-        return result
+        return result.mapIndexed { index, ability -> ability.withText(raws[index]) }
+    }
+
+    /** The ability with its printed [raw] lines as its text, reminder text left out (shown to players: "you may"
+     * prompts, which of two triggers is which). Keywords have their own; unparsed text stays as printed. */
+    private fun Ability.withText(raw: String): Ability {
+        val text = raw.lines().map { REMINDER.replace(it, "").trim() }.filter { it.isNotEmpty() }.joinToString("\n")
+        return when (this) {
+            is Ability.Spell -> copy(text = text)
+            is Ability.Activated -> copy(text = text)
+            is Ability.Triggered -> copy(text = text)
+            is Ability.Static -> copy(text = text)
+            is Ability.SpecialAction -> copy(text = text)
+            else -> this
+        }
     }
 
     /**

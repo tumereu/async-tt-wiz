@@ -1,0 +1,111 @@
+package arcanum.engine.decision
+
+import arcanum.api.Ability
+import arcanum.api.Effect
+import arcanum.api.Instructions
+import arcanum.api.Keyword
+import arcanum.api.Step
+import arcanum.engine.view.AbilityOrigin
+import arcanum.engine.view.Characteristics
+
+/**
+ * Text for people in decisions (API review 3): what an ability says as printed (the parser keeps each ability's lines,
+ * [Ability.Triggered.text] and the like, and each mode's line), the sentence of it a decision is about, and plain words
+ * when there is no printed text (hand-made definitions). Never the engine's data as Kotlin text.
+ */
+internal object Texts {
+    /** The text players read for [ability]: its printed text, a keyword's name ("Flying"), unparsed text as printed. */
+    fun of(ability: Ability?): String? = when (ability) {
+        is Ability.Spell -> ability.text
+        is Ability.Activated -> ability.text
+        is Ability.Triggered -> ability.text
+        is Ability.Static -> ability.text
+        is Ability.SpecialAction -> ability.text
+        is Ability.Unparsed -> ability.text
+        is Keyword -> ability.text
+        else -> null
+    }
+
+    /** The text of [ability] with [origin] on an object with [characteristics]: its own, else the printed ability at
+     * [origin], else the keyword whose expansion it is ("Prowess" for prowess's trigger, D23). */
+    fun of(ability: Ability?, origin: AbilityOrigin?, characteristics: Characteristics?): String? {
+        of(ability)?.let { return it }
+        val abilities = characteristics?.abilities.orEmpty()
+        fun at(o: AbilityOrigin?): String? = o?.let { wanted -> of(abilities.firstOrNull { it.origin == wanted }?.ability) }
+        return at(origin) ?: (origin as? AbilityOrigin.Expansion)?.let { at(it.keyword) }
+    }
+
+    /** The sentences of [text], one line or sentence each, a mode's bullet left out. */
+    private fun sentences(text: String): List<String> =
+        text.lines().flatMap { line -> line.removePrefix("• ").split(Regex("""(?<=[.!?])\s+(?=[A-Z])""")) }
+            .map { it.trim() }.filter { it.isNotEmpty() }
+
+    private val MAY = Regex("""\bmay\b""", RegexOption.IGNORE_CASE)
+
+    /**
+     * The prompt of the "you may" [step] of [ability] (CR 608.2d): its sentence of the ability's text when the text has
+     * one "may" sentence for each optional step, else the whole text; plain words for what it does when there is no text.
+     */
+    fun may(ability: Ability?, step: Step): String {
+        val text = of(ability) ?: return "You may: ${describe(maySteps(step))}"
+        val mays = sentences(text).filter { MAY.containsMatchIn(it) }
+        val optional = instructionsOf(ability)?.let { optionalSteps(it) }.orEmpty()
+        val index = optional.indexOfFirst { it === step }.takeIf { it >= 0 } ?: optional.indexOf(step)
+        if (mays.size == optional.size && index >= 0) return mays[index]
+        return mays.singleOrNull() ?: text
+    }
+
+    /** The sentence of [ability]'s text that says [verb] ("search", "choose"), else [otherwise]. */
+    fun sentence(ability: Ability?, verb: String, otherwise: String): String {
+        val text = of(ability) ?: return otherwise
+        val word = Regex("""\b$verb""", RegexOption.IGNORE_CASE)
+        return sentences(text).firstOrNull { word.containsMatchIn(it) } ?: otherwise
+    }
+
+    private fun maySteps(step: Step): List<Step> = when (step) {
+        is Step.May -> step.steps
+        is Step.Pay -> step.steps
+        else -> listOf(step)
+    }
+
+    private fun instructionsOf(ability: Ability?): Instructions? = when (ability) {
+        is Ability.Spell -> ability.instructions
+        is Ability.Activated -> ability.instructions
+        is Ability.Triggered -> ability.instructions
+        is Ability.SpecialAction -> ability.instructions
+        else -> null
+    }
+
+    /** The optional steps ("you may", a cost paid by choice) of [instructions], in printed order: modes first. */
+    private fun optionalSteps(instructions: Instructions): List<Step> {
+        val all = instructions.modes?.options.orEmpty().flatMap { it.instructions.steps } + instructions.steps
+        val found = mutableListOf<Step>()
+        fun walk(s: Step) {
+            when (s) {
+                is Step.May -> { found += s; s.steps.forEach(::walk) }
+                is Step.Pay -> { if (!s.mandatory && s.cost == null) found += s; s.steps.forEach(::walk) }
+                is Step.Simultaneously -> s.steps.forEach(::walk)
+                is Step.If -> { s.then.forEach(::walk); s.otherwise.forEach(::walk) }
+                is Step.ForEach -> s.steps.forEach(::walk)
+                is Step.Repeat -> s.steps.forEach(::walk)
+                else -> {}
+            }
+        }
+        all.forEach(::walk)
+        return found
+    }
+
+    /** Plain words for what [steps] do, by kind ("copy spell; draw"), for definitions without printed text. */
+    fun describe(steps: List<Step>): String = steps.joinToString("; ") { s ->
+        when (s) {
+            is Step.Do -> words(effectName(s.effect))
+            is Step.Manual -> s.text
+            else -> words(s::class.simpleName ?: "step")
+        }
+    }.ifEmpty { "do it" }
+
+    private fun effectName(effect: Effect): String = effect::class.simpleName ?: "effect"
+
+    /** "CopySpell" → "copy spell". */
+    fun words(name: String): String = name.replace(Regex("([a-z])([A-Z])"), "$1 $2").lowercase()
+}

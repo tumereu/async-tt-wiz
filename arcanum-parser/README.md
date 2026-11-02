@@ -12,7 +12,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   `Phrases.kt`. Everything else stays `Ability.Unparsed`. An instant or sorcery with any
   unread line keeps all its spell text and casting costs unparsed, because a spell
   resolves as one object (CR 608.2b). A leveler's "LEVEL" band becomes one conditional static
-  ability (CR 711.2), or stays unparsed as a whole.
+  ability (CR 711.2), or stays unparsed as a whole. Each parsed ability keeps its printed lines as its `text`
+  (reminder text left out), each mode its "• " line (`Mode.text`), for engines to show players.
 - `OracleParser.parseCard(layout, faces)`: a card with several faces (split, adventurer,
   double-faced; CR 709, 712, 715) → `CardDefinition`, each face parsed on its own. A face's
   colour indicator is read from `OracleCard.colorIndicator` ("U").
@@ -34,7 +35,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
 (`Chunk01KeywordCreaturesTest`, `Chunk02ManaLandsTest`, …), one test per card. Each
 card is invented (new name, sometimes another mana cost or subtypes) with the cube
 card's exact oracle text, and states the definition it must parse to; the helper in
-`CubeCard.kt` also checks the printed values read back, nothing stays unparsed and the
+`CubeCard.kt` also checks the printed values read back, nothing stays unparsed, each ability's text is its lines
+(compared apart from the definition) and the
 definition passes `DefinitionChecks`. The owner reviews these files chunk by chunk.
 
 Earlier approach, still useful for cards outside the cube:

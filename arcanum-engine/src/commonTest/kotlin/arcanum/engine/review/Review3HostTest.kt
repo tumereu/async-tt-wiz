@@ -26,7 +26,7 @@ class Review3HostTest {
     // D56, D58, D60, D11
     @Test
     fun eachViewFollowsTheGameWithTheHostsFill() {
-        val host = FakeHost(102, Review3Decks.match("artifacts", "creatures"), optionsEvery = 40, maxInputs = 500)
+        val host = FakeHost(102, Review3Decks.match("artifacts", "creatures"), optionsEvery = 40, maxInputs = 500, fillBeforePlay = true)
         host.play()
         assertTrue(host.views.all { it.diverged == null }, host.report())
         val wrong = host.findings.keys.filter { it.startsWith("public card") || it.startsWith("another player's hand") ||
@@ -34,24 +34,31 @@ class Review3HostTest {
         assertTrue(wrong.isEmpty(), host.report())
     }
 
-    /** Without that workaround the views can't follow the first land the other player plays (#4). */
-    // D60, CR 305.1
-    @Ignore("review3 #4: a viewer's state refuses the other player's play from a hidden hand (\"unknown card\")")
+    /** Without that workaround (#4): the other player's plays, casts and activations of cards a view doesn't know are
+     * filled in publicly by the engine's own host fill, and both views follow the game, with the same checks. */
+    // D60, CR 305.1, 601.2a, 602.2a
     @Test
     fun eachViewFollowsTheGameByTheEngineAlone() {
-        val host = FakeHost(102, Review3Decks.match("artifacts", "creatures"), maxInputs = 200, fillBeforePlay = false)
+        val host = FakeHost(102, Review3Decks.match("artifacts", "creatures"), optionsEvery = 40, maxInputs = 500)
         host.play()
         assertTrue(host.views.all { it.diverged == null }, host.report())
+        assertTrue(host.findings.keys.none { it.startsWith("public card") || it.startsWith("another player's hand") ||
+            it.startsWith("an option only") || it.startsWith("a card put into another") }, host.report())
+        assertTrue((host.findings["a play, cast or activation of a card unknown to the view"] ?: 0) > 0, host.report())
     }
 
-    /** No view is asked to fill cards only another player may see (a scry, a search): answering it puts those cards
-     * into the view (#5, D31). */
+    /** No view is asked to fill cards only another player may see (a scry, a search): answering it would put those cards
+     * into the view (#5). The steps are worked out as in that player's view instead ([Decision.OtherView], D31), and the
+     * views stay in step with the truth, never knowing the other player's hand. */
     // D60, D31
-    @Ignore("review3 #5: a view asks to fill cards only another player may see; the host has no other way on")
     @Test
     fun noViewIsAskedForAnotherPlayersPrivateFill() {
-        val host = FakeHost(101, Review3Decks.match("artifacts", "spells"), maxInputs = 300)
+        val host = FakeHost(101, Review3Decks.match("artifacts", "spells"), optionsEvery = 40, maxInputs = 600)
         host.play()
         assertEquals(0, host.privateFillsInOtherViews, host.report())
+        assertTrue(host.otherViewAnswers > 0, "no look by the other player happened: ${host.report()}")
+        assertTrue(host.views.all { it.diverged == null }, host.report())
+        assertTrue(host.findings.keys.none { it.startsWith("public card") || it.startsWith("another player's hand") ||
+            it.startsWith("an option only") || it.startsWith("a card put into another") }, host.report())
     }
 }

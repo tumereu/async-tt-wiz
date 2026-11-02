@@ -38,6 +38,8 @@ internal data class Replacement(
     val own: Boolean,
     val key: String,
     val prevention: Prevention? = null,
+    /** The printed text of the ability it comes from, for a choice among replacements (CR 616.1). */
+    val text: String? = null,
 )
 
 /** What a prevention effect among the replacements of a damage event prevents (CR 615, 616.1). */
@@ -71,13 +73,15 @@ internal object Replacements {
             item.targets.forEach { (slot, refs) -> names = names.with(slot, arcanum.engine.state.NamedValue.Targets(refs)) }
             item.announced.forEach { (n, v) -> names = names.with(n, arcanum.engine.state.NamedValue.Number(v)) }
             instructionsOf(item.ability)?.replacements.orEmpty().mapIndexed { i, r ->
-                Replacement(r, item.controller, item.source, names, null, own = true, key = "own:${item.id}:$i")
+                Replacement(r, item.controller, item.source, names, null, own = true, key = "own:${item.id}:$i",
+                    text = arcanum.engine.decision.Texts.of(item.ability))
             }
         }.orEmpty()
         val rules = act.view().rules.mapIndexedNotNull { i, applied ->
             val r = applied.mechanic as? Mechanic.Replacement ?: return@mapIndexedNotNull null
             val key = applied.effect?.let { "e:${it.value}:${applied.effect}" } ?: "s:${applied.source}:${applied.origin?.key}:$i"
-            Replacement(r, applied.controller, applied.source, applied.names, applied.effect, own = false, key = "$key/${r.hashCode()}")
+            Replacement(r, applied.controller, applied.source, applied.names, applied.effect, own = false, key = "$key/${r.hashCode()}",
+                text = arcanum.engine.decision.Texts.of(null, applied.origin, applied.source?.let { act.view()[it]?.characteristics }))
         }
         return own + rules
     }
@@ -176,7 +180,8 @@ internal object Replacements {
             it is Modification.AsEnters
     }
 
-    private fun describe(r: Replacement): String = (r.prevention?.let { "Prevent: $it" } ?: r.mechanic.toString()).take(120)
+    /** What a player reads for [r]: its ability's printed text, else plain words (API review 3). */
+    private fun describe(r: Replacement): String = r.text ?: if (r.prevention != null) "Prevent damage" else "A replacement effect"
 
     /** A shield with a count ("the next time …", regeneration) is used once more (D26). */
     private fun useUp(act: Act, r: Replacement) {

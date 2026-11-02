@@ -32,20 +32,60 @@ internal class NeedDecision(val decision: Decision) : Exception("Waiting for ${d
  * same questions in the same order each time it is redone, so answer n belongs to question n. [prefix] makes each
  * decision's id.
  */
-internal class Asker(private val answers: List<Answer>, private val prefix: String) {
+internal class Asker(
+    private val answers: List<Answer>,
+    private val prefix: String,
+    /** Set while a resolution is worked out as in another player's view ([Decision.OtherView]). */
+    val otherView: OtherViewFills? = null,
+    /** A private fill for another player than the viewer switches to [Decision.OtherView] (a resolution's steps). */
+    val mayAskOtherView: Boolean = false,
+) {
     private var used = 0
 
     fun ask(decision: (DecisionId) -> Decision): Answer {
         val answer = answers.getOrNull(used) ?: throw NeedDecision(decision(DecisionId("$prefix.$used")))
+        // Answers sent from another player's view are checked as the steps ask them (the one validation path)
+        otherView?.check?.invoke(decision(DecisionId("$prefix.$used")), answer)
         used++
         return answer
     }
+
+    /** The next answer is the fill of [ids] asked before (answered in this view before it switched to
+     * [Decision.OtherView]): it is used up and returned. */
+    fun filledNext(ids: Set<ObjectId>): Answer.Filled? {
+        val next = answers.getOrNull(used) as? Answer.Filled ?: return null
+        if (next.objects.map { it.id }.toSet() != ids) return null
+        used++
+        return next
+    }
+
+    /** The answers not used (yet). */
+    val unused: List<Answer> get() = answers.drop(used)
 
     companion object {
         /** For flows that must not ask anything. */
         val NONE = Asker(emptyList(), "none")
     }
 }
+
+/**
+ * A resolution worked out as in [player]'s view ([Decision.OtherView], D60, D31): the identities the host sent with the
+ * answer ([filled]; never kept in the state), the unknown objects the steps needed so far ([needed]), the cards filled
+ * only to work it out ([hidden]: only [player] may see them; [Knowledge.forgetHidden] keeps them out of the changes),
+ * and [check] for the answers as the steps ask them.
+ */
+internal class OtherViewFills(
+    val player: PlayerId,
+    val filled: Map<ObjectId, arcanum.api.CardDefinition>,
+    val check: ((Decision, Answer) -> Unit)? = null,
+) {
+    val needed = mutableListOf<ObjectId>()
+    val hidden = mutableMapOf<arcanum.engine.state.CardId, arcanum.api.CardDefinition>()
+}
+
+/** Thrown in a viewer's state when a step reaches cards only another player may look at ([Decision.OtherView]). */
+internal class NeedOtherView(val player: PlayerId, val source: ObjectId?, val objects: List<ObjectId>, val reason: String) :
+    Exception("Done in $player's view")
 
 /**
  * Who does something (D19): [controller] is "you", [source] the object it comes from, [item] the Stack item being
@@ -96,13 +136,21 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** What everyone can see of [id] now (D33): its characteristics after layers, for last known information. */
     fun snapshot(id: ObjectId): ObjectSnapshot? {
-        val o = state.obj(id) ?: return null
+        val o = state.obj(id) ?: return copySnapshot(id)
         val v = view()[id]
         return ObjectSnapshot(
             id = id, owner = o.owner, controller = v?.controller ?: o.controller, zone = o.zone,
             characteristics = v?.characteristics, counters = o.counters, damage = o.damage, tapped = o.tapped,
             token = o.token, attachedTo = o.attachedTo, facts = o.facts, memory = o.memory,
         )
+    }
+
+    /** A copy of a spell on the Stack as everyone sees it (CR 707.10: a spell without a card). */
+    private fun copySnapshot(id: ObjectId): ObjectSnapshot? {
+        val item = state.stackItems[id]?.takeIf { it.kind is arcanum.engine.state.StackItemKind.SpellCopy } ?: return null
+        val v = view()[id]
+        return ObjectSnapshot(id = id, owner = item.controller, controller = v?.controller ?: item.controller, zone = arcanum.api.Zone.Stack,
+            characteristics = v?.characteristics, facts = item.facts ?: arcanum.engine.state.ObjectFacts())
     }
 
     // ---- Decisions (each asked only when there is a choice, P5)
@@ -184,12 +232,31 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false) {
         val unknown = ids.distinct().filter { state.obj(it)?.unknown == true }
         if (unknown.isEmpty()) return
+        // D60, D31: only [player] may look, and the state is another player's view
+        val othersOnly = !public && state.viewer != null && player != state.viewer
+        val other = asker.otherView
+        if (other != null) {
+            // Worked out as in another player's view: a fill answered here before the switch, else the host's identities
+            asker.filledNext(unknown.toSet())?.let { answered -> return record(unknown, answered.objects) }
+            unknown.filter { it !in other.needed }.forEach { other.needed += it }
+            if (unknown.any { it !in other.filled }) throw NeedOtherView(other.player, source, other.needed.toList(), reason)
+            unknown.forEach { id ->
+                val before = state.objOrThrow(id)
+                val definition = other.filled.getValue(id)
+                if (othersOnly) other.hidden[before.card] = definition
+                record(Change.Filled(before, before.copy(definition = definition)))
+            }
+            return
+        }
+        if (othersOnly && asker.mayAskOtherView) throw NeedOtherView(player, source, unknown, reason)
         val filled = (asker.ask { Decision.HostFill(it, player, source, unknown, reason, public) } as Answer.Filled).objects
         // Checked against the decision when answered (AnswerCheck): exactly the asked objects, each once
-        unknown.forEach { id ->
-            val before = state.objOrThrow(id)
-            record(Change.Filled(before, before.copy(definition = filled.first { it.id == id }.definition)))
-        }
+        record(unknown, filled)
+    }
+
+    private fun record(unknown: List<ObjectId>, filled: List<arcanum.engine.decision.FilledObject>) = unknown.forEach { id ->
+        val before = state.objOrThrow(id)
+        record(Change.Filled(before, before.copy(definition = filled.first { it.id == id }.definition)))
     }
 
     /** Ids for "[count] of [among] at random", or new ids for [among] put in a random order hidden from the viewer

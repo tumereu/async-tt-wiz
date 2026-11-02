@@ -101,33 +101,46 @@ class ViewerKnowledgeTest {
         assertTrue(filledIds().isEmpty())
     }
 
-    /** Sunbaked Mesa: alice searches her library for a Mountain and shuffles. The search is filled for her alone (not
-     * public), and bob isn't offered answers naming her cards while it waits; the Mountain is public on the
-     * battlefield; after the shuffle no view knows the library: the host gave new card ids, so not even they tell the
-     * order. */
-    // CR 701.23a, 701.24a, D38, D60
+    /** Sunbaked Mesa: alice searches her library for a Mountain and shuffles. In her view the search is filled for her
+     * alone (not public), and bob isn't offered answers naming her cards while it waits. In bob's view the search is
+     * hers to see: nothing is filled for her there, the rest of the resolution is worked out as in her view with her
+     * answer ([Decision.OtherView], D31), and nobody is offered answers in bob's view. In both the Mountain is public on
+     * the battlefield; after the shuffle no view knows the library: the host gave new card ids, so not even they tell
+     * the order. */
+    // CR 701.23a, 701.24a, D38, D60, D31
     @Test
-    fun aSearchAndShuffleLeaveNoViewKnowingTheLibrary() = onEachView { _ ->
+    fun aSearchAndShuffleLeaveNoViewKnowingTheLibrary() = onEachView { viewer ->
         alice.battlefield("Sunbaked Mesa")
         alice.library("Storm Spark", "Mountain", "Plains")
         val before = state.player(alice.id).library.map { (it as ObjectId.Card).card }.toSet()
 
         alice.activates("Sunbaked Mesa")
         allPass()
-        val d = decision<Decision.ChooseObjects>()
-        assertEquals(alice.id, d.player)
-        assertTrue(Engine.options(state, bob.id).none { it is Input.Answer && (it.answer as Answer.Objects).chosen.isNotEmpty() })
+        if (viewer == alice) {
+            val d = decision<Decision.ChooseObjects>()
+            assertEquals(alice.id, d.player)
+            assertTrue(Engine.options(state, bob.id).none { it is Input.Answer && (it.answer as Answer.Objects).chosen.isNotEmpty() })
+        } else {
+            assertEquals(alice.id, decision<Decision.OtherView>().player)
+            assertTrue(Engine.options(state, bob.id).isEmpty() && Engine.options(state, alice.id).isEmpty())
+        }
         alice.chooses("Mountain")
 
-        val search = hostFillsAsked().single { it.reason == "search" }
-        assertEquals(alice.id, search.player)
-        assertFalse(search.public)
+        if (viewer == alice) {
+            val search = hostFillsAsked().single { it.reason == "search" }
+            assertEquals(alice.id, search.player)
+            assertFalse(search.public)
+            assertTrue((randomsAsked().single().what as RandomKind.Objects).newIds)
+        } else {
+            assertTrue(hostFillsAsked().none { it.reason == "search" })
+            // Only the Mountain, as it is put onto the battlefield: bob's state never knew the rest of her library
+            assertEquals(listOf("Mountain"), applied.filterIsInstance<Change.Filled>().map { it.after.definition!!.faces.first().name })
+        }
         expect { alice.battlefield has "Mountain" }
         val library = state.player(alice.id).library
         assertEquals(2, library.size)
         assertTrue(library.none { known(it) })
         assertTrue(library.none { (it as ObjectId.Card).card in before }, "new card ids")
-        assertTrue((randomsAsked().single().what as RandomKind.Objects).newIds)
     }
 
     /** With full information nothing is forgotten: the searched library is shuffled in an order the host gives, and

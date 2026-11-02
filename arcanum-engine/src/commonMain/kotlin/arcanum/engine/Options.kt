@@ -129,7 +129,7 @@ internal object Options {
         is Decision.ChooseCardName -> cardNames(snap, d).map { Answer.CardName(it) }
         is Decision.Manual -> listOf(Answer.Done)
         // The host's to answer, with its own randomness and knowledge (D25, D60)
-        is Decision.Random, is Decision.HostFill -> emptyList()
+        is Decision.Random, is Decision.HostFill, is Decision.OtherView -> emptyList()
     }
 
     /** Choices of [min] to [max] of [options]: each alone (and none) when one will do, else the first [min]. */

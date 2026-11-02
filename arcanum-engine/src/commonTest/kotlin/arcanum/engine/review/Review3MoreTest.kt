@@ -4,7 +4,6 @@ import arcanum.api.TurnStep
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.scenario.scenario
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -16,7 +15,6 @@ class Review3MoreTest {
     /** Netherbound Turncoat dying alone: "another creature" is never itself, also as the card it became (CR 400.7): no
      * trigger. */
     // CR 603.10a, 400.7
-    @Ignore("review3 #2: a card's graveyard ability triggers on its own death (\"another\" compares new and old ids)")
     @Test
     fun turncoatDyingAloneDoesntTrigger() = scenario {
         alice.battlefield("Netherbound Turncoat", "Swamp")

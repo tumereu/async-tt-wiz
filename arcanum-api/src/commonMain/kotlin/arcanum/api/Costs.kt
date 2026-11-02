@@ -89,7 +89,12 @@ sealed interface CostObjects {
     /** [count] objects matching [filter] ([count] null: any number), or (with [total]) any number whose
      * [Total.property] adds up to at least [Total.atLeast] ("tap any number of creatures with total power 3 or more").
      * "Your hand" is [These], not a count of its size. */
-    @Serializable @SerialName("choose") data class Choose(val filter: ObjectFilter, val count: Value?, val total: Total? = null) : CostObjects
+    @Serializable @SerialName("choose") data class Choose(
+        val filter: ObjectFilter, val count: Value?, val total: Total? = null,
+        // rtr chunk 07
+        /** The chosen objects must all share this quality ("Discard two nonland cards with the same name", CR 201.2). */
+        val shared: SharedQuality? = null,
+    ) : CostObjects
 }
 
 /** Mana an ability or effect adds (CR 106). [restriction] limits what it may be spent on ("spend this mana only to

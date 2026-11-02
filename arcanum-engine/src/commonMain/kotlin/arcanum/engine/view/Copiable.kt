@@ -111,6 +111,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                 is CopyException.PowerToughness -> f.copy(power = PrintedNumber.Fixed(e.power), toughness = PrintedNumber.Fixed(e.toughness))
                 is CopyException.AddAbilities -> f.copy(abilities = f.abilities + e.abilities)
                 is CopyException.ManaCostOf -> f.copy(manaCost = e.cost)
+                // gtc chunk 12: replaced by the ability itself as the copy effect is created (CR 707.9b)
+                CopyException.ThisAbility -> f
             }
         }
 

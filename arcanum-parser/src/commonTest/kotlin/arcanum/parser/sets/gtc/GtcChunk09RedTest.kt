@@ -196,8 +196,8 @@ class GtcChunk09RedTest {
         text = "Seeking Lightning deals 4 damage to target creature and each other creature with the same name as that creature.",
     ) parsesTo abilities(
         spell(
-            Step.Do(Effect.DealDamage(Recipients(objects = Objects.Union(listOf(Objects.Target("creature"), Objects.Each(ObjectFilter.And(listOf(creature,
-                ObjectFilter.Not(ObjectFilter.Is(Objects.Target("creature"))), ObjectFilter.SameNameAs(Objects.Target("creature")))))))), n(4), source = Objects.Self)),
+            Step.Do(Effect.DealDamage(Recipients(objects = Objects.Union(listOf(Objects.Target("creature"), Objects.Each(ObjectFilter.And(listOf(
+                ObjectFilter.Not(ObjectFilter.Is(Objects.Target("creature"))), creature, ObjectFilter.SameNameAs(Objects.Target("creature")))))))), n(4), source = Objects.Self)),
             targets = listOf(slot("creature", creature)),
         ),
     )
@@ -293,7 +293,7 @@ class GtcChunk09RedTest {
         spell(
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantGainLife), Affected.Players(Players.Each(PlayerFilter.Any)), Duration.EndOfTurn)),
             Step.Do(Effect.ApplyMechanics(listOf(Mechanic.DamageCantBePrevented(EventPattern.Damage(ObjectFilter.Any, RecipientFilter()))), affects = null, duration = Duration.EndOfTurn)),
-            Step.Do(Effect.DealDamage(Recipients(target = "target"), n(3), source = Objects.Self)),
+            Step.Do(Effect.DealDamage(Recipients(target = "player or planeswalker"), n(3), source = Objects.Self)),
             targets = listOf(playerOrPlaneswalker),
         ),
     )

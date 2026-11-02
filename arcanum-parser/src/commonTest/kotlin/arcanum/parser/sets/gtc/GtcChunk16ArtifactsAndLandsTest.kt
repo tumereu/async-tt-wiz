@@ -55,7 +55,7 @@ class GtcChunk16ArtifactsAndLandsTest {
     /** "[cost]: This artifact becomes a P/T [colours] [type] artifact creature [with …] until end of turn" (CR 205.1b). */
     private fun keyrune(cost: String, p: Int, t: Int, colors: List<Color>, subtype: String, vararg also: Mechanic) = Ability.Activated(mana(cost), steps(
         untilEndOfTurn(Objects.Self, *(listOf<Mechanic>(
-            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype)))),
+            Mechanic.SetTypes(add = listOf(CardType.Artifact, CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype(subtype))), replaceSubtypes = true),
             Mechanic.SetColors(colors.map { ColorRef.Literal(it) })) + also.toList()).toTypedArray()),
     ), rules = anyTime)
 
@@ -83,7 +83,7 @@ class GtcChunk16ArtifactsAndLandsTest {
         """,
     ) parsesTo abilities(
         manaOf(Color.Red, Color.White),
-        keyrune("{R}{W}", 1, 1, listOf(Color.Red, Color.White), "Soldier", Mechanic.GainAbilities(listOf(Keyword.DoubleStrike)), Mechanic.SetPowerToughness(n(1), n(1))),
+        keyrune("{R}{W}", 1, 1, listOf(Color.Red, Color.White), "Soldier", Mechanic.SetPowerToughness(n(1), n(1)), Mechanic.GainAbilities(listOf(Keyword.DoubleStrike))),
     )
 
     // "can't be blocked this turn" ends with the turn, as the rest does
@@ -112,7 +112,7 @@ class GtcChunk16ArtifactsAndLandsTest {
         """,
     ) parsesTo abilities(
         manaOf(Color.Red, Color.Green),
-        keyrune("{R}{G}", 3, 2, listOf(Color.Red, Color.Green), "Beast", Mechanic.GainAbilities(listOf(Keyword.Trample)), Mechanic.SetPowerToughness(n(3), n(2))),
+        keyrune("{R}{G}", 3, 2, listOf(Color.Red, Color.Green), "Beast", Mechanic.SetPowerToughness(n(3), n(2)), Mechanic.GainAbilities(listOf(Keyword.Trample))),
     )
 
     @Test
@@ -126,7 +126,7 @@ class GtcChunk16ArtifactsAndLandsTest {
         """,
     ) parsesTo abilities(
         manaOf(Color.White, Color.Black),
-        keyrune("{W}{B}", 1, 4, listOf(Color.White, Color.Black), "Thrull", Mechanic.GainAbilities(listOf(Keyword.Lifelink)), Mechanic.SetPowerToughness(n(1), n(4))),
+        keyrune("{W}{B}", 1, 4, listOf(Color.White, Color.Black), "Thrull", Mechanic.SetPowerToughness(n(1), n(4)), Mechanic.GainAbilities(listOf(Keyword.Lifelink))),
     )
 
     @Test
@@ -140,7 +140,7 @@ class GtcChunk16ArtifactsAndLandsTest {
         """,
     ) parsesTo abilities(
         manaOf(Color.Green, Color.Blue),
-        keyrune("{G}{U}", 2, 3, listOf(Color.Green, Color.Blue), "Crab", Mechanic.GainAbilities(listOf(Keyword.Hexproof)), Mechanic.SetPowerToughness(n(2), n(3))),
+        keyrune("{G}{U}", 2, 3, listOf(Color.Green, Color.Blue), "Crab", Mechanic.SetPowerToughness(n(2), n(3)), Mechanic.GainAbilities(listOf(Keyword.Hexproof))),
     )
 
     // CR 702.11b: only your spells and abilities ignore their hexproof
@@ -201,8 +201,8 @@ class GtcChunk16ArtifactsAndLandsTest {
         text = "{1}, {T}: This artifact deals 1 damage to target opponent or planeswalker.",
     ) parsesTo abilities(
         Ability.Activated(costOf(manaPart("{1}"), CostPart.TapSelf), Instructions(
-            targets = listOf(TargetSlot("target", TargetKind.Either(ObjectFilter.Type(CardType.Planeswalker), PlayerFilter.Opponent), min = n(1), max = n(1))),
-            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "target"), n(1), source = Objects.Self))),
+            targets = listOf(TargetSlot("opponent or planeswalker", TargetKind.Either(ObjectFilter.Type(CardType.Planeswalker), PlayerFilter.Opponent), min = n(1), max = n(1))),
+            steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "opponent or planeswalker"), n(1), source = Objects.Self))),
         ), rules = anyTime),
     )
 

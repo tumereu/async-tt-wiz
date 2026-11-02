@@ -101,7 +101,9 @@ internal object Actions {
             val o = act.obj(pm.id) ?: return@mapNotNull null
             Replacements.apply(
                 act, cause, pm, affected = act.controllerOf(pm.id) ?: o.owner, about = pm.id,
-                proposed = { m -> Changes.move(act.state, listOf(m.id), m.to, meanings = m.meanings) },
+                // rtr chunk 06: the proposed move names its cause, for "a spell or ability an opponent controls causes you to discard"
+                proposed = { m -> Changes.move(act.state, listOf(m.id), m.to, meanings = m.meanings).let { c ->
+                    if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
                 modify = { m, r, _ -> modifyMove(act, m, r) },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,

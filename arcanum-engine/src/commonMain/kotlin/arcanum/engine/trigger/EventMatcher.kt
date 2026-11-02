@@ -63,7 +63,7 @@ internal object EventMatcher {
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.before.owner)) }
         is EventPattern.Discard -> moves(change).filter {
             Meaning.Discarded in it.meanings && e.matches(pattern.players, it.before.owner) && e.matches(pattern.cards, it.before.id)
-        }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
+        }.filter { causedBy(e, change, pattern.causedBy) }.map { m -> moveEvent(e, m, proposed, Zone.Hand, EventRole.Before) }
         is EventPattern.Sacrifice -> moves(change).filter { Meaning.Sacrificed in it.meanings && e.matches(pattern.objects, it.before.id) }
             .map { m -> moveEvent(e, m, proposed, Zone.Battlefield, EventRole.Before) }
         is EventPattern.Destroyed -> moves(change).filter { Meaning.Destroyed in it.meanings && e.matches(pattern.objects, it.before.id) }
@@ -247,7 +247,8 @@ internal object EventMatcher {
      * you control). Counters with no cause (a cost, a rule) match no filter. */
     private fun causedBy(e: Evaluator, change: Change, filter: arcanum.api.ObjectFilter?): Boolean {
         if (filter == null) return true
-        val by = (change as? Change.Counters)?.by ?: return false
+        // rtr chunk 06: also a move's cause (a discard caused by a spell or ability)
+        val by = when (change) { is Change.Counters -> change.by; is Change.ZoneChange -> change.by; else -> null } ?: return false
         by.item?.let { item -> if (e.board.state.stackItems[item] != null || e.board.state.obj(item) != null) return e.matches(filter, item) }
         return filter is arcanum.api.ObjectFilter.ControlledBy && e.matches(filter.players, by.controller)
     }

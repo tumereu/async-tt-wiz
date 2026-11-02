@@ -447,6 +447,22 @@ object KeywordExpansions {
                     ObjectFilter.ControlledBy(PlayerFilter.You)))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Target("land")))))),
             ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+        // rtr chunk 04: CR 702.97a: "[Cost], Exile this card from your graveyard: Put a number of +1/+1 counters equal to the power
+        // of the card you exiled on target creature. Activate only as a sorcery." It functions only in a graveyard.
+        is Keyword.Scavenge -> listOf(Ability.Activated(Cost(keyword.cost.parts + CostPart.Exile(CostObjects.Self, from = Zone.Graveyard, preBind = "scavenged")),
+            Instructions(
+                targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1),
+                    Value.Of(NumericProperty.Power, Objects.Bound("scavenged"), Combine.Single))))),
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You), functionsIn = listOf(Zone.Graveyard)))
+        // rtr chunk 04: CR 702.98a: "You may have this permanent enter with an additional +1/+1 counter on it" and "This permanent
+        // can't block as long as it has a +1/+1 counter on it."
+        Keyword.Unleash -> listOf(
+            Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1), Value.Fixed(1))), optional = true)),
+                affects = Affected.Objects(Objects.Self)),
+            Ability.Static(listOf(Mechanic.CantBlock(ObjectFilter.Any)), affects = Affected.Objects(Objects.Self),
+                condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(CounterKind.PowerToughness(1, 1), atLeast = 1))))
         // CR 702.107a: "[Cost], {T}: Put a +1/+1 counter on this creature. Activate only as a sorcery."
         is Keyword.Outlast -> listOf(Ability.Activated(Cost(keyword.cost.parts + CostPart.TapSelf),
             steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),

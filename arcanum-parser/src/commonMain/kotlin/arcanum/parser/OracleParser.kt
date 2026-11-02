@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 17
+    const val VERSION: Int = 18
 
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
@@ -37,9 +37,14 @@ object OracleParser {
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
-            val spellText = card.text.split('\n').map { REMINDER.replace(it, "").trim() }
-                .filter { it.isNotEmpty() && keywordLine(it) == null }.joinToString(" ")
-            val overloaded = Sentences(self, isSpell).instructions(spellText.replace("target ", "each "))
+            // rtr chunk 03: the spell ability's own text, not its static lines ("This spell can't be countered.")
+            val spellText = abilities.filterIsInstance<Ability.Spell>().singleOrNull()?.text?.replace("\n", " ")
+                ?: card.text.split('\n').map { REMINDER.replace(it, "").trim() }
+                    .filter { it.isNotEmpty() && keywordLine(it) == null }.joinToString(" ")
+            // rtr chunk 08: a sentence starting with "Target" becomes "Each"
+            val overloaded = Sentences(self, isSpell).instructions(spellText.replace("target ", "each ").replace("Target ", "Each "))
+                // rtr chunk 03: X announced for the overloaded spell as for the spell (CR 107.3a)
+                ?.let { if (hasX) it.copy(announced = listOf("X")) else it }
             abilities = abilities.map { if (it is Keyword.Overload && overloaded != null) it.copy(instructions = overloaded) else it }
         }
         return face.copy(abilities = abilities)
@@ -445,43 +450,18 @@ object OracleRenderer {
 // dgm
 private val PROTECTION_FROM_AND_FROM = Regex("""[Pp]rotection from (\w+) and from (\w+)""")
 
-private fun arcanum.api.Instructions.join(other: arcanum.api.Instructions): arcanum.api.Instructions {
-    // gtc chunk 13: a later line's "target creature" is another target (CR 115.3): a name of its own
-    var next = other
-    val taken = targets.map { it.name }.toMutableSet()
-    for (slot in other.targets) {
-        if (slot.name in taken) {
-            val name = generateSequence(2) { it + 1 }.map { "${slot.name} $it" }.first { n -> n !in taken && other.targets.none { it.name == n } }
-            next = next.renamedTarget(slot.name, name)
-            taken += name
-        } else taken += slot.name
+private fun arcanum.api.Instructions.join(next: arcanum.api.Instructions): arcanum.api.Instructions {
+    // rtr chunk 08: a later line's target named as an earlier one is a target of its own (CR 115.3): "second creature"
+    var steps2 = next.steps
+    val targets2 = next.targets.map { slot ->
+        if (targets.none { it.name == slot.name }) slot else {
+            val renamed = nextTargetName(slot.name, (targets + next.targets).map { it.name })
+            steps2 = steps2.map { renameTargetSlot(it, slot.name, renamed) }
+            slot.copy(name = renamed)
+        }
     }
-    return copy(
-        targets = targets + next.targets, steps = steps + next.steps, replacements = replacements + next.replacements,
-        announced = (announced + next.announced).distinct(),
-    )
-}
-
-/** These instructions with target slot [from] named [to], and every reference to it (CR 115.3). */
-private fun arcanum.api.Instructions.renamedTarget(from: String, to: String): arcanum.api.Instructions {
-    val json = kotlinx.serialization.json.Json
-    fun same(e: kotlinx.serialization.json.JsonElement?) = (e as? kotlinx.serialization.json.JsonPrimitive)?.takeIf { it.isString }?.content == from
-    val renamed = kotlinx.serialization.json.JsonPrimitive(to)
-    fun walk(e: kotlinx.serialization.json.JsonElement): kotlinx.serialization.json.JsonElement = when (e) {
-        is kotlinx.serialization.json.JsonObject -> kotlinx.serialization.json.JsonObject(e.mapValues { (key, value) ->
-            when {
-                key == "slot" && same(value) -> renamed
-                key == "target" && same(value) -> renamed
-                key == "name" && "what" in e && same(value) -> renamed
-                key == "distinctFrom" && value is kotlinx.serialization.json.JsonArray ->
-                    kotlinx.serialization.json.JsonArray(value.map { if (same(it)) renamed else it })
-                else -> walk(value)
-            }
-        })
-        is kotlinx.serialization.json.JsonArray -> kotlinx.serialization.json.JsonArray(e.map { walk(it) })
-        else -> e
-    }
-    return json.decodeFromJsonElement(arcanum.api.Instructions.serializer(), walk(json.encodeToJsonElement(arcanum.api.Instructions.serializer(), this)))
+    return copy(targets = targets + targets2, steps = steps + steps2, replacements = replacements + next.replacements,
+        announced = (announced + next.announced).distinct())
 }
 
 private fun Ability.isCastingCost() = this is Ability.Static &&

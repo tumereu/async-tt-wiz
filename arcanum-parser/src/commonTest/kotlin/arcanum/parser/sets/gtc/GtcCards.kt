@@ -70,7 +70,7 @@ val anyTarget = TargetSlot("any", TargetKind.Either(ObjectFilter.Or(listOf(creat
     ObjectFilter.Type(CardType.Battle))), PlayerFilter.Any), min = Value.Fixed(1), max = Value.Fixed(1))
 
 /** "target player or planeswalker" */
-val playerOrPlaneswalker = TargetSlot("target", TargetKind.Either(ObjectFilter.Type(CardType.Planeswalker), PlayerFilter.Any),
+val playerOrPlaneswalker = TargetSlot("player or planeswalker", TargetKind.Either(ObjectFilter.Type(CardType.Planeswalker), PlayerFilter.Any),
     min = Value.Fixed(1), max = Value.Fixed(1))
 
 /** [mechanics] for [objects] until end of turn (CR 611.2). */

@@ -73,6 +73,10 @@ sealed interface Value {
     @Serializable @SerialName("times") data class Times(val value: Value, val factor: Int) : Value
     @Serializable @SerialName("half") data class Half(val value: Value, val roundUp: Boolean) : Value
     @Serializable @SerialName("max") data class Max(val parts: List<Value>) : Value
+    // rtr chunk 09
+    /** How many of [colors] [objects] has, each colour counted once ("1 life for each of the chosen colors it is", CR 105.2);
+     * a [ColorRef] that stands for several colours (a [Choice.Colors]) counts each of them. */
+    @Serializable @SerialName("shared-colors") data class SharedColors(val objects: Objects, val colors: List<ColorRef>) : Value
     @Serializable @SerialName("min") data class Min(val parts: List<Value>) : Value
 }
 

@@ -104,7 +104,7 @@ class GtcChunk14GruulTest {
             Mode(Instructions(targets = listOf(slot("creature", ObjectFilter.And(listOf(creature, ObjectFilter.Not(ObjectFilter.HasKeyword(Keyword.Flying)))))),
                 steps = listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target("creature")), Value.Announced("X"), source = Objects.Self))))),
             Mode(Instructions(targets = listOf(playerOrPlaneswalker),
-                steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "target"), Value.Announced("X"), source = Objects.Self))))),
+                steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "player or planeswalker"), Value.Announced("X"), source = Objects.Self))))),
         ), min = 1, max = 3, chooser = Players.You), announced = listOf("X"))),
     )
 
@@ -257,7 +257,7 @@ class GtcChunk14GruulTest {
         Ability.Activated(mana("{1}{R}{G}"), Instructions(
             targets = listOf(slot("land", ObjectFilter.And(listOf(land, you)))),
             steps = listOf(untilEndOfTurn(Objects.Target("land"),
-                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental")))),
+                Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Elemental"))), replaceSubtypes = true),
                 Mechanic.SetPowerToughness(n(4), n(4)))),
         ), rules = anyTime),
     )

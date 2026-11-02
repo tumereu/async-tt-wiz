@@ -238,6 +238,12 @@ internal object Steps {
                 if (among.isEmpty()) return
                 NamedValue.Colors(listOf(act.chooseColor(chooser, source, among)))
             }
+            // rtr chunk 09: "choose two colors": different colours, one at a time
+            is Choice.Colors -> {
+                val chosen = mutableListOf<Color>()
+                repeat(choice.count) { chosen += act.chooseColor(chooser, source, Color.all.filter { it !in chosen }) }
+                NamedValue.Colors(chosen)
+            }
             Choice.CreatureType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, null))
             Choice.BasicLandType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, Subtypes.basicLandTypes.keys.toList()))
             is Choice.CardType -> NamedValue.CardTypeValue(act.chooseCardType(chooser, source, choice.among ?: ALL_TYPES))

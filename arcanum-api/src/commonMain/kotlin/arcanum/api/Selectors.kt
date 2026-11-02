@@ -165,11 +165,12 @@ sealed interface ObjectFilter {
     /** Attached to something in [objects] ("Auras attached to it") or has attachments matching [attachments]
      * ("enchanted creatures"). */
     @Serializable @SerialName("attached") data class Attached(val to: Objects? = null, val attachments: ObjectFilter? = null) : ObjectFilter
-    /** Something happened to it this turn ("creatures that attacked this turn", "entered this turn"). */
+    /** Something happened to it this turn ("creatures that attacked this turn", "entered this turn"), in [role] of the
+     * event when given (any role when null): "creature that dealt damage this turn" is the [EventRole.Source] of a damage
+     * event, "creature that was dealt damage this turn" its [EventRole.Object]. */
     @Serializable @SerialName("this-turn") data class ThisTurn(
         val event: EventPattern,
-        // gtc chunk 11
-        /** Only events in which it had this role ("creature that dealt damage this turn": [EventRole.Source]); null: any. */
+        // rtr chunk 05
         val role: EventRole? = null,
     ) : ObjectFilter
     /** A spell or ability with exactly one target, which matches [target] when given ("target spell or ability with a

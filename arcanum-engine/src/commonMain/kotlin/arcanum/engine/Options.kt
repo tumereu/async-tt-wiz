@@ -166,7 +166,7 @@ internal object Options {
     private fun candidates(snap: Snapshot, pending: Pending): List<Answer> = when (val d = pending.decision) {
         is Decision.May -> listOfNotNull(Answer.YesNo(true).takeIf { d.payable }, Answer.YesNo(false))
         is Decision.Targets -> some(d.options, d.min, d.max).map { Answer.Targets(it) }
-        is Decision.ChooseObjects -> (some(d.options, d.min, d.max) + listOfNotNull(reachingTotal(snap, pending))).map { Answer.Objects(it) }
+        is Decision.ChooseObjects -> (sharing(snap, pending) ?: (some(d.options, d.min, d.max) + listOfNotNull(reachingTotal(snap, pending)))).map { Answer.Objects(it) }
         is Decision.Modes -> {
             val available = d.options.filter { it.available }.map { it.index }
             val repeated = if (d.repeatable && available.isNotEmpty() && available.size < d.min) listOf(List(d.min) { available.first() }) else emptyList()
@@ -223,6 +223,18 @@ internal object Options {
         return chosen
     }
 
+    /** rtr chunk 07: for a cost that asks objects sharing a quality ("two nonland cards with the same name"): the first group of
+     * [Question.Objects]' options that share it, as many as needed. Null when the question asks no such thing. */
+    private fun sharing(snap: Snapshot, pending: Pending): List<List<ObjectId>>? {
+        val c = pending.continuation as? Continuation.Announcing ?: return null
+        if (c.choices.names[Plan.MANUAL] != null) return null
+        val plan = Plan(snap.state, c)
+        val q = plan.next() as? Question.Objects ?: return null
+        val quality = q.choice.shared ?: return null
+        return q.choice.options.map { a -> listOf(a) + q.choice.options.filter { b -> b != a && plan.eval.shares(quality, a, b) } }
+            .filter { it.size >= q.choice.min }.map { it.take(q.choice.min) }.distinctBy { it.toSet() }.take(1)
+    }
+
     /** Creature types of the objects in the game, [player]'s first (CR 205.3m: any creature type may be chosen). */
     private fun creatureTypes(snap: Snapshot, player: PlayerId): List<Subtype> =
         snap.view.objects.values.sortedBy { if (it.controller == player || it.owner == player) 0 else 1 }
@@ -274,6 +286,8 @@ internal object Options {
                 // Another creature instead of one that must attack (when a restriction lets only some of them)
                 val swapped = base.flatMap { a -> others.map { o -> base - a + o } }
                 (listOf(base) + retargeted + others.map { base + it } + swapped).distinct().filter { CombatRules.illegalAttack(snap, player, it) == null }
+                    // rtr chunk 07: a declaration whose cost to attack can't be paid isn't made (CR 508.1d)
+                    .filter { CombatRules.canPayToAttack(snap, player, it) }
                     .map { Input.DeclareAttackers(player, it) }
             }
             player in Combat.pendingDefenders(snap) -> {

@@ -396,6 +396,10 @@ sealed interface Each {
 @Serializable
 sealed interface Choice {
     @Serializable @SerialName("color") data class Color(val among: List<ColorRef>? = null) : Choice
+    // rtr chunk 09
+    /** Choose [count] different colours ("choose two colors"); the name holds all of them, so [ColorRef.Chosen] and
+     * [ColorRef.Remembered] stand for each of them ("one of the chosen colors"). */
+    @Serializable @SerialName("colors") data class Colors(val count: Int) : Choice
     @Serializable @SerialName("creature-type") data object CreatureType : Choice
     @Serializable @SerialName("basic-land-type") data object BasicLandType : Choice
     /** A card type, one of [among] when given ("Choose artifact, creature, or land"). */

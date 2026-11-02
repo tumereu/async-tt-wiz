@@ -67,14 +67,24 @@ internal object Combat {
         require(input.player == s.turn.active) { "Only the active player declares attackers (CR 508.1)" }
         val snap = Snapshot(s)
         CombatRules.illegalAttack(snap, input.player, input.attacks)?.let { throw IllegalArgumentException("Illegal attack: $it") }
+        // rtr chunk 07: a cost to attack is paid first (CR 508.1h–j), as an event that waits for the payment (D29)
+        CombatRules.attackCost(snap, input.attacks)?.let { cost ->
+            require(CombatRules.canPayToAttack(snap, input.player, input.attacks)) { "Illegal attack: the cost to attack ($cost) can't be paid (CR 508.1d)" }
+            return arcanum.engine.action.Events.run(recorder, arcanum.engine.action.PlannedEvent.DeclareAttackers(input.attacks, cost, controller = input.player))
+        }
+        attack(recorder.state, recorder::record, input.attacks)
+        return Progress.Done
+    }
+
+    /** CR 508.1f, k: [attacks] become attacking creatures, tapped unless they have vigilance; [record] makes each change. */
+    fun attack(state: GameState, record: (Change) -> Unit, attacks: List<arcanum.engine.input.Attack>) {
+        val snap = Snapshot(state)
         // CR 508.1f: attacking creatures become tapped, unless they have vigilance
-        input.attacks.forEach { a ->
-            if (snap.view[a.attacker]?.has { it == Mechanic.AttacksWithoutTapping } != true) recorder.record(Changes.tap(recorder.state, a.attacker))
+        attacks.forEach { a ->
+            if (snap.view[a.attacker]?.has { it == Mechanic.AttacksWithoutTapping } != true) record(Changes.tap(state, a.attacker))
         }
         // CR 508.1k: they become attacking creatures
-        recorder.record(Change.Combat(null, CombatState(attackers = input.attacks.map { Attacker(it.attacker, it.target) }),
-            listOf(Meaning.AttackersDeclared)))
-        return Progress.Done
+        record(Change.Combat(null, CombatState(attackers = attacks.map { Attacker(it.attacker, it.target) }), listOf(Meaning.AttackersDeclared)))
     }
 
     /** As the declare blockers step begins: defending players who can't block anything declare no blockers (P5). */

@@ -120,7 +120,7 @@ class GtcChunk13BorosTest {
         """,
     ) parsesTo abilities(
         Ability.Spell(Instructions(modes = Modes(listOf(
-            Mode(Instructions(targets = listOf(playerOrPlaneswalker), steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "target"), n(4), source = Objects.Self))))),
+            Mode(Instructions(targets = listOf(playerOrPlaneswalker), steps = listOf(Step.Do(Effect.DealDamage(Recipients(target = "player or planeswalker"), n(4), source = Objects.Self))))),
             Mode(steps(gains(Objects.Each(ObjectFilter.And(listOf(ObjectFilter.Category(ObjectCategory.Permanent), you))), Keyword.Indestructible))),
             Mode(Instructions(targets = listOf(slot("creature", creature)), steps = listOf(gains(Objects.Target("creature"), Keyword.DoubleStrike)))),
         ), min = 1, max = 1, chooser = Players.You))),
@@ -172,8 +172,8 @@ class GtcChunk13BorosTest {
     ) parsesTo abilities(
         spell(
             pump(Objects.Target("creature"), 3, 0),
-            pump(Objects.Target("creature 2"), 0, 3),
-            targets = listOf(slot("creature", creature), slot("creature 2", creature)),
+            pump(Objects.Target("second creature"), 0, 3),
+            targets = listOf(slot("creature", creature), slot("second creature", creature)),
         ),
     )
 

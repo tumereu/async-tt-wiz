@@ -34,6 +34,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.asyncttwiz.protocol.BoardState
 import org.asyncttwiz.protocol.EngineRecord
 import org.asyncttwiz.protocol.EngineRecordKind
 import org.asyncttwiz.protocol.MtgRef
@@ -156,6 +157,37 @@ internal object EngineCodec {
     fun isEmblem(record: EngineRecord) = record.kind == EngineRecordKind.Emblem
     fun emblem(record: EngineRecord): GameObject = decode(GameObject.serializer(), record.data)
 
+    /** The engine's combat (record [COMBAT]) in turn [turn] (ATW's turn number): the combat's JSON with the turn added. */
+    fun combatRecord(combat: CombatState, turn: Int): EngineRecord {
+        val element = json.encodeToJsonElement(combatSerializer, combat) as JsonObject
+        return EngineRecord(COMBAT, EngineRecordKind.Combat, data = json.encodeToString(JsonElement.serializer(),
+            JsonObject(element + (COMBAT_TURN to JsonPrimitive(turn)))))
+    }
+
+    /** A combat record's combat and its turn (null in records made before the turn was kept). */
+    fun combat(record: EngineRecord): Pair<CombatState, Int?> {
+        val element = json.parseToJsonElement(record.data) as JsonObject
+        val turn = (element[COMBAT_TURN] as? JsonPrimitive)?.content?.toIntOrNull()
+        return json.decodeFromJsonElement(combatSerializer, JsonObject(element - COMBAT_TURN)) to turn
+    }
+
+    /**
+     * The engine's combat on [board] while it is that board's combat (#1, I-D28: a combat finished by hand while
+     * Automatum was off isn't Automatum's any more): its record is of this turn, the turn is in a combat step from
+     * declare attackers to end of combat, and the combat area is open. Null otherwise.
+     * @throws Exception when the record can't be read.
+     */
+    fun currentCombat(board: BoardState): CombatState? {
+        val record = board.engineRecords.singleOrNull { it.id == COMBAT } ?: return null
+        if (board.combat == null || TurnPosition.of(board.turn) !in COMBAT_STEPS) return null
+        val (combat, turn) = combat(record)
+        return combat.takeIf { turn == null || turn == board.turn.number.toIntOrNull() }
+    }
+
+    private const val COMBAT_TURN = "turn"
+    private val COMBAT_STEPS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE,
+        TurnPosition.COMBAT_DAMAGE, TurnPosition.END_COMBAT)
+
     fun isEffect(record: EngineRecord) = record.kind == EngineRecordKind.Effect
     fun isDelayed(record: EngineRecord) = record.kind == EngineRecordKind.DelayedTrigger
     fun effect(record: EngineRecord): EffectObject = decode(EffectObject.serializer(), record.data)
@@ -255,7 +287,14 @@ internal data class TurnExtras(
     /** The turn [landsPlayed] counts (ATW's turn number): a turn changed by hand (I2–I3, before Automatum runs the
      * turns) starts with no lands played. Null in records made before it was kept. */
     val turn: Int? = null,
-)
+    /** Where the passes in a row of the game's priority were counted ([at]: ATW's turn number and step), while there are
+     * any (#10): a step or turn changed by hand since starts the count again. Null without passes. */
+    val passesAt: String? = null,
+) {
+    companion object {
+        fun at(turn: Any, position: TurnPosition) = "$turn/${position.name}"
+    }
+}
 
 /** The open flow of a shared call (record [org.asyncttwiz.protocol.Automatum.CONTINUATION_ID]): the engine's pending
  * decision and continuation, and whose view of the game it was made in (D60): a flow is resumed in that view. */

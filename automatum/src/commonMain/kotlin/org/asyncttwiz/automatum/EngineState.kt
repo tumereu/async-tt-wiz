@@ -150,9 +150,15 @@ object EngineState {
             delayedTriggers = LinkedHashMap(board.engineRecords.filter(EngineCodec::isDelayed).map(EngineCodec::delayed).associateBy { it.id }),
             turn = TurnState(board.turn.number.toInt(), PlayerId(board.turn.accountId), EngineCodec.step(position),
                 turnExtras.landsPlayed.takeIf { turnExtras.turn == null || turnExtras.turn == board.turn.number.toInt() } ?: emptyMap(), turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns),
-            priority = board.priority?.let { PriorityState(it.holder?.let(::PlayerId), it.passes) } ?: PriorityState(null),
+            // #10 (CR 117.4, I-D28): passes in a row count only in the step they were made in; a step or turn changed by
+            // hand while Automatum was off starts the count again
+            priority = board.priority?.let { PriorityState(it.holder?.let(::PlayerId),
+                if (it.passes > 0 && turnExtras.passesAt != null && turnExtras.passesAt != TurnExtras.at(board.turn.number, position)) 0 else it.passes)
+            } ?: PriorityState(null),
             // In the declare attackers step lanes without the engine's combat are a draft of the declaration (I3b)
-            combat = records[EngineCodec.COMBAT]?.let { EngineCodec.decode(combatSerializer, it.data) }
+            // #1 (I-D28): the engine's combat record only while it is this board's combat (a combat finished by hand while
+            // Automatum was off isn't Automatum's any more)
+            combat = EngineCodec.currentCombat(board)
                 ?: lanes(board, ids).takeUnless { position == TurnPosition.DECLARE_ATTACKERS },
             ledger = records[EngineCodec.LEDGER]?.let { EngineCodec.decode(ledgerSerializer, it.data).toMutableMap() } ?: mutableMapOf(),
             log = log.toMutableList(),
@@ -239,7 +245,7 @@ object EngineState {
                 EngineRecordKind.DelayedTrigger -> EngineCodec.delayed(record)
                 EngineRecordKind.Ledger -> EngineCodec.decode(ledgerSerializer, record.data)
                 EngineRecordKind.Turn -> EngineCodec.decode(TurnExtras.serializer(), record.data)
-                EngineRecordKind.Combat -> EngineCodec.decode(combatSerializer, record.data)
+                EngineRecordKind.Combat -> EngineCodec.combat(record)
                 EngineRecordKind.Triggered -> EngineCodec.decode(triggeredSerializer, record.data)
                 EngineRecordKind.Continuation -> codec.decode(FlowRecord.serializer(), record.data)
                 EngineRecordKind.Emblem -> EngineCodec.emblem(record)

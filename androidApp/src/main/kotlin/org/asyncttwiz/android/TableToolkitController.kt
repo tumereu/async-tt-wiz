@@ -29,6 +29,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun enabled() = connected() && current() != null
     /** The history's tags up to the shown board (the engine's event log, D33). */
     fun engineTags(): List<MtgTag?> = current()?.let { engineTags(playTree?.invoke(), it.currentNodeId) }.orEmpty()
+    /** Who made the shown board's latest event (null at the game's start or without the history). */
+    fun latestAuthor(): String? = current()?.let { playTree?.invoke()?.nodes?.get(it.currentNodeId)?.author }
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
         automatumWork)

@@ -67,8 +67,9 @@ internal class CombatController(
     fun giveEarly(division: DamageDivision, shares: Map<MtgRef, Int>): Boolean {
         val play = current() ?: return false
         val card = play.board.cards.singleOrNull { it.id == division.source } ?: return false
+        // Keyed to that division: this turn's, in its damage step (#3, CR 510.4)
         val answer = PreAnswer.Division(division.player, MtgRef.Card(card.id, card.zoneChanges),
-            shares.map { (target, amount) -> PreShare(target, amount) })
+            shares.map { (target, amount) -> PreShare(target, amount) }, play.board.turn.number.toIntOrNull(), division.firstStrike)
         return submit(PreAnswers.set(play.board, answer))
     }
 
@@ -76,13 +77,14 @@ internal class CombatController(
     fun withdrawEarly(division: DamageDivision): Boolean {
         val play = current() ?: return false
         val card = play.board.cards.singleOrNull { it.id == division.source } ?: return false
-        return submit(PreAnswers.withdraw(play.board, PreAnswer.divisionKey(MtgRef.Card(card.id, card.zoneChanges))) ?: return false)
+        return submit(PreAnswers.withdraw(play.board, PreAnswer.divisionKey(MtgRef.Card(card.id, card.zoneChanges), division.firstStrike))
+            ?: return false)
     }
 
     /** The early answer given on [play]'s board for [division], if any. */
     fun early(play: PlayState, division: DamageDivision): PreAnswer.Division? {
         val card = play.board.cards.singleOrNull { it.id == division.source } ?: return null
-        return PreAnswers.find(play.board, PreAnswer.divisionKey(MtgRef.Card(card.id, card.zoneChanges))) as? PreAnswer.Division
+        return PreAnswers.find(play.board, PreAnswer.divisionKey(MtgRef.Card(card.id, card.zoneChanges), division.firstStrike)) as? PreAnswer.Division
     }
 
     /**

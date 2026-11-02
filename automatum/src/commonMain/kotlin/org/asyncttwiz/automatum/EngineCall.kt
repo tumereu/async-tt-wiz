@@ -79,11 +79,33 @@ class EngineCall(
                         else -> return working.pending
                     }
                 }
-                // I-D33: a decision a player answered early is answered now, when the engine takes the early answer
-                else -> PreAnswers.answer(state.board, working, ids, decision) ?: return working.pending
+                // I-D33: a decision a player answered early is answered now, when the engine takes the early answer; the
+                // early answer is used up either way (one the engine refuses leaves the decision asked as usual)
+                else -> {
+                    val early = PreAnswers.matching(state.board, working, ids, decision) ?: return working.pending
+                    preAnswered += PreAnswers.id(early)
+                    PreAnswers.answer(early, working, ids, decision) ?: return working.pending
+                }
             }
             run(Input.Answer(decision.id, answer))
         }
+    }
+
+    /** The early answers (record ids, I-D33) whose decision opened in this call: applied, or refused and asked as usual.
+     * The call's batch removes them; the others stay while their decision can still open ([PreAnswers.kept]). */
+    internal val preAnswered = mutableSetOf<String>()
+
+    /**
+     * Answers the decision open when the call started with the early answer given for it ([PreAnswers.forOpen], #8: given
+     * while the batch that opened the decision was on its way), then goes on as [perform] does; returns what the engine
+     * then waits for.
+     * @throws IllegalArgumentException when no early answer the engine takes is given for the open decision.
+     */
+    fun performEarly(): Pending? {
+        val early = requireNotNull(PreAnswers.forOpen(this)) { "No early answer for the open decision" }
+        val decision = working.pending!!.decision
+        preAnswered += PreAnswers.id(early)
+        return perform(Input.Answer(decision.id, PreAnswers.answer(early, working, ids, decision)!!))
     }
 
     /** A change the host makes itself before the input (priority settled while ATW's steps change by hand,

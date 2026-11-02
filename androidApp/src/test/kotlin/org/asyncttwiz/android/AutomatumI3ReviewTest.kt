@@ -25,7 +25,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ParsedCard
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -156,7 +155,6 @@ class AutomatumI3ReviewTest {
     // #4 (I-D27, STK-033): Alice divides her trampler's damage between Bob's face-down blocker and Bob; the division
     // names the face-down creature: the deciding player is shown every object of their own choice ("a search"), and the
     // shared flow's state has full information
-    @Ignore("i3review #4: a division names the other player's face-down blocker to the attacker")
     @Test fun aDivisionDoesNotNameAFaceDownBlocker() {
         start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute), bobField = listOf(basilisk), faceDown = setOf(basilisk)))
         val attacker = card(play, brute, aField)
@@ -176,7 +174,6 @@ class AutomatumI3ReviewTest {
     // #11 (I-D27, STK-005, STK-027): Alice casts a morph face down; Bob, who may respond, is shown its name and rules text in
     // the respond prompt ("Alice cast Veiled Thicket Stalker"): the prompt names the top entry's card from the game's card
     // data without asking whether the viewer may see it (the Stack entry itself is face down)
-    @Ignore("i3review #11: the respond prompt names a face-down spell and shows its text to the other player")
     @Test fun theRespondPromptDoesNotNameAFaceDownSpell() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(mountain, mountain, mountain),
             bobField = listOf(mountain), aliceHand = listOf(stalker), bobHand = listOf(spark)))
@@ -210,7 +207,6 @@ class AutomatumI3ReviewTest {
     // #5 (STK-032, I-D37): while Automatum waits for something done by hand, manual edits work until Done. After the first
     // edit the board is new and its flow isn't worked out yet (SharedFlowHost does it on a worker), so the next edit is
     // refused as if a choice were waiting ("Automatum is waiting for a choice …"): quick taps on a stepper fail
-    @Ignore("i3review #5: a second manual edit during a by-hand step is refused until the new board's flow is worked out")
     @Test fun manualEditsInARowWhileSomethingIsDoneByHand() {
         val alice = byHandOpen()
         assertTrue(alice.submit(PlayAction.AdjustLife(f.b, "-1")), alice.error)
@@ -219,7 +215,6 @@ class AutomatumI3ReviewTest {
 
     // #6 (STK-032 vs ZON-077, I-D37): "the table's manual edits (life, counters, moves) work until Done", but drags, the
     // way cards are moved and life is changed on the table, are still refused as Automatum drags
-    @Ignore("i3review #6: drags (moves, life) are refused while a by-hand step waits for them")
     @Test fun dragsWorkWhileSomethingIsDoneByHand() {
         val alice = byHandOpen()
         val creature = card(play, brute, aField)

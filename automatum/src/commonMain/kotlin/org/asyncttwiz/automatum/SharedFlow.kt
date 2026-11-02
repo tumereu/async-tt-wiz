@@ -44,8 +44,15 @@ class SharedFlow(
     /** The engine state of the board (names, options of the open decision). */
     val state: GameState get() = view.working
 
-    /** The open decision of the board's shared flow, or null when none is open. */
-    val decision: Decision? get() = view.pending?.decision
+    /** The open decision of the board's shared flow, or null when none is open. A division given early ([early], I-D33) is
+     * its suggestion, so the panel shows it pre-filled. */
+    val decision: Decision? by lazy {
+        val open = view.pending?.decision
+        val given = early
+        if (open is Decision.Divide && given is PreAnswer.Division)
+            open.copy(suggested = given.shares.map { arcanum.engine.decision.Share(view.ids.target(it.target), it.amount) })
+        else open
+    }
 
     /** Who holds priority with something on the Stack and nothing to decide: the player who may respond or let the top
      * resolve. Null otherwise (on an empty Stack the step button passes, [step]). */
@@ -112,6 +119,14 @@ class SharedFlow(
      * @throws IllegalArgumentException when no division is open or the engine refuses [shares] (nothing changes).
      */
     fun divide(shares: Map<MtgRef, Int>?): EngineCall = call().apply { CombatFlow.divide(this, shares) }
+
+    /** The early answer given for the open decision that the engine takes (I-D33, #8: given while the batch that opened
+     * the decision was on its way); null when there is none. [answerEarly] answers with it. */
+    val early: PreAnswer? by lazy { PreAnswers.forOpen(view) }
+
+    /** Answers the open decision with its [early] answer, then the automatic passes.
+     * @throws IllegalArgumentException when there is none (nothing changes). */
+    fun answerEarly(): EngineCall = call().apply { StepFlow.answerEarly(this) }
 
     /** The open division of combat damage in ATW's terms, or null (also null for a division of a spell's damage). */
     val division: DamageDivision? get() {

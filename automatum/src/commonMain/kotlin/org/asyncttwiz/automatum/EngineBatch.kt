@@ -457,10 +457,25 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         val wanted = (after.attackers.map { it.id } + after.blockers.map { it.id }).map { atwCard(it).id }.toSet()
         CombatStackRules.occurrences(board.combat).filter { it.sourceId !in wanted }
             .forEach { play(PlayAction.Combat(CombatAction.Remove(areaId, it.id))) }
+        val placed = mutableSetOf<String>()
         for (attacker in after.attackers) {
             val card = atwCard(attacker.id)
-            if (CombatStackRules.occurrences(board.combat).any { it.sourceId == card.id }) continue
             val target = (attacker.target as? TargetRef.Object)?.let { atwCard(it.id).id }
+            val occurrence = CombatStackRules.occurrences(board.combat).firstOrNull { it.sourceId == card.id }
+            if (occurrence != null) {
+                // #2 (CR 509.1a, CMB-028): every declared attacker has a pair of its own, so each is blocked on its own; one
+                // drafted beside another (CMB-027) moves into a new pair after it
+                val pair = board.combat!!.pairs.first { p -> p.attackers.any { it.id == occurrence.id } }
+                if (pair.attackers.none { it.sourceId in placed } || pair.blockers.isNotEmpty()) { placed += card.id; continue }
+                val pairs = board.combat!!.pairs
+                val next = pairs.getOrNull(pairs.indexOf(pair) + 1)?.id
+                play(PlayAction.Combat(CombatAction.Place(card.id, CombatDestination(areaId, CombatRole.ATTACKER,
+                    pairGap = IdentityGap(pair.id, next), attackTarget = target),
+                    expectedOccurrence = CombatStackRules.location(board.combat!!, occurrence.id))))
+                placed += card.id
+                continue
+            }
+            placed += card.id
             play(PlayAction.Combat(CombatAction.Place(card.id, CombatDestination(areaId, CombatRole.ATTACKER,
                 pairGap = IdentityGap(board.combat!!.pairs.lastOrNull()?.id), attackTarget = target))))
         }
@@ -561,7 +576,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
                 ?: engine.obj(key)?.takeIf { it.zone == Zone.Stack }?.let { EngineCodec.casting(ids.ref(it.id), (it.controller ?: it.owner).value, it.timestamp) }
             if (entry.item != wanted) play(PlayAction.Mtg(MtgAction.SetStackItem(entry.id, entry.item, wanted)))
         }
-        val wanted = records().associateBy { it.id }
+        // I-D33 (#7): early answers stay while their decision can still open; used ones and stale ones go
+        val wanted = (records() + PreAnswers.kept(board, engine, ids, call.preAnswered)).associateBy { it.id }
         val current = board.engineRecords.associateBy { it.id }
         for (id in (current.keys + wanted.keys).sorted()) if (current[id] != wanted[id])
             play(PlayAction.Mtg(MtgAction.SetRecord(id, current[id], wanted[id])))
@@ -714,9 +730,11 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, emblemText(it))) }
     if (state.ledger.isNotEmpty()) add(EngineRecord(EngineCodec.LEDGER, EngineRecordKind.Ledger, data = EngineCodec.encode(ledgerSerializer, state.ledger)))
     val turn = TurnExtras(state.turn.landsPlayed, state.turn.turnStarted.takeIf { it != Derived.turnStarted(board) },
-        state.turn.extraTurns, state.skipFirstDraw, state.turn.number.takeIf { state.turn.landsPlayed.isNotEmpty() })
+        state.turn.extraTurns, state.skipFirstDraw, state.turn.number.takeIf { state.turn.landsPlayed.isNotEmpty() },
+        TurnExtras.at(state.turn.number, EngineCodec.position(state.turn.step, state.combat?.firstStrikeStep == true))
+            .takeIf { state.priority.passes > 0 })
     if (turn != TurnExtras()) add(EngineRecord(EngineCodec.TURN, EngineRecordKind.Turn, data = EngineCodec.encode(TurnExtras.serializer(), turn)))
-    state.combat?.let { add(EngineRecord(EngineCodec.COMBAT, EngineRecordKind.Combat, data = EngineCodec.encode(combatSerializer, it))) }
+    state.combat?.let { add(EngineCodec.combatRecord(it, state.turn.number)) }
     if (state.triggered.isNotEmpty())
         add(EngineRecord(EngineCodec.TRIGGERED, EngineRecordKind.Triggered, data = EngineCodec.encode(triggeredSerializer, state.triggered)))
     state.pending?.let { add(EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation,

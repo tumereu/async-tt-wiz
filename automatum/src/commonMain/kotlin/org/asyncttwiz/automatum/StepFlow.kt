@@ -101,6 +101,16 @@ object StepFlow {
     }
 
     /**
+     * Answers the open decision with the early answer given for it (I-D33, #8: given while the batch that opened the
+     * decision was on its way, [PreAnswers.forOpen]), then the host's automatic passes.
+     * @throws IllegalArgumentException when no early answer the engine takes is given for it; nothing changes then.
+     */
+    fun answerEarly(call: EngineCall): Pending? {
+        call.performEarly()?.let { return it }
+        return automatic(call)
+    }
+
+    /**
      * The host's automatic passes after any input (I-D3, I-D18): while the priority holder can do nothing but pass
      * (`Engine.shouldPassFor`, which follows each player's "Skip when I have no choice"), the host passes for them.
      * Stops at an open decision, a player with a choice, the end of the game, after [MAX_AUTOMATIC_PASSES], or once a

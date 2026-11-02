@@ -22,7 +22,6 @@ import org.asyncttwiz.protocol.PlayAction
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -84,7 +83,6 @@ class I3ReviewTest {
     // (closed, the turn ended), is still the engine's combat once Automatum is switched on again in a later turn: the
     // engine's combat record outlives its combat, so the engine sees Alice's creature attacking in Bob's turn and the
     // table refuses manual combat damage there ("Automatum deals the combat damage itself", CMB-022)
-    @Ignore("i3review #1: the engine's combat record outlives a combat finished by hand while Automatum was off")
     @Test fun aCombatFinishedByHandWhileOffIsNotTheEnginesCombatLater() {
         val (bear) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear")
         val rt = game()
@@ -105,7 +103,6 @@ class I3ReviewTest {
     // #2 (CMB-028 "a pair per attacker", CR 509.1a): two attackers drafted into one pair (CMB-027: dropped beside each
     // other) keep sharing it once declared, so the defender can only block both or neither: a blocker in that pair is
     // read as blocking every attacker of the pair, and the lanes can't be rearranged once attackers are declared
-    @Ignore("i3review #2: attackers drafted into one pair keep one pair; the defender can't block just one of them")
     @Test fun declaredAttackersGetAPairEach() {
         val (bear, brute) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear", "Ironhide Brute")
         val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
@@ -131,7 +128,6 @@ class I3ReviewTest {
     // #3 (STK-034, I-D33; CR 510.4): early divisions are offered only for divisions still to come "in the same damage
     // step". In the first-strike damage step the defender is offered his blocker's division of the regular step; the
     // next batch (Alice's division) removes it unused, so his Ready is silently lost and he is asked again later
-    @Ignore("i3review #3: early divisions of the regular damage step are offered in the first-strike step and dropped")
     @Test fun earlyDivisionsAreOfferedOnlyForTheSameDamageStep() {
         val (squire, brute) = table.put(alice, PlayZone.BATTLEFIELD, "Dawnlance Squire", "Ironhide Brute")
         val (ogre, bear) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre", "Stout Bear")
@@ -168,7 +164,6 @@ class I3ReviewTest {
     // open (the panel offers it); her first answer opens her second, and that batch removes his early answer because
     // "its decision didn't open in that batch". The panel then offers it again, and the same happens, so an early
     // answer only ever works for the division right after the open one
-    @Ignore("i3review #7: an early answer is dropped by any batch before its decision opens, not only by the game moving on")
     @Test fun anEarlyAnswerWaitsForItsOwnDecision() {
         val (rt, ogre, brutes) = twoDivisionsBeforeBobs()
         val (brute1, brute2) = brutes
@@ -186,9 +181,8 @@ class I3ReviewTest {
 
     // #8 (I-D33, PreAnswers KDoc "one given meanwhile never refuses the batch that answers the decision before it (that
     // batch then leaves it to the next one)"): Bob's early answer reaches the server while Alice's division is being
-    // planned. Her batch (planned on the board without it) is accepted and opens Bob's division, but nothing applies the
-    // early answer then: Bob is asked as if he had given none, and the stale record stays until some later batch
-    @Ignore("i3review #8: an early answer that crosses the batch opening its decision is never applied")
+    // planned. Her batch (planned on the board without it) is accepted and opens Bob's division: the early answer stays
+    // beside it and the next call answers the division with it
     @Test fun anEarlyAnswerCrossingTheBatchBeforeItIsStillApplied() {
         val (brute, bear) = table.put(alice, PlayZone.BATTLEFIELD, "Ironhide Brute", "Stout Bear")
         val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
@@ -217,16 +211,18 @@ class I3ReviewTest {
         }
         val open = assertNotNull(CombatFlow.division(rt.call()), "Bob's division is open")
         assertEquals(bob, open.player)
-        // Nothing applies his early answer to the open decision, and the record lingers until some later batch
-        assertTrue(PreAnswers.of(rt.state.board).isEmpty(),
-            "Bob's early answer is neither applied nor removed: he is asked again with it still on the board")
+        // His early answer stays beside the open decision, and the next call answers the decision with it
+        assertEquals(PreAnswers.of(rt.state.board).single(), PreAnswers.forOpen(rt.call()))
+        rt.run(alice) { StepFlow.answerEarly(it) }
+        assertNull(CombatFlow.division(rt.call()), "Bob's division was answered with his early answer")
+        assertEquals("", rt.state.board.cards.single { it.id == brute }.damage, "the Brute got none of the Ogre's damage")
+        assertTrue(PreAnswers.of(rt.state.board).isEmpty(), "used up")
     }
 
     // #10 (CR 117.4, SYS-067): passes in a row survive a turn changed by hand while Automatum was off. Alice passed in her
     // main phase (Bob holds priority, 1 pass); off, the turn goes to Bob's main phase by hand; on again. Bob holds priority
     // there with the stale pass counted, so his own pass ends his main phase without Alice ever getting priority in it
     // (she holds Storm Spark and a Mountain, so the host wouldn't pass for her)
-    @Ignore("i3review #10: stale passes in a row from before a turn changed by hand end the next step after one pass")
     @Test fun passesInARowDoNotSurviveATurnChangedByHand() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         table.put(alice, PlayZone.HAND, "Storm Spark")

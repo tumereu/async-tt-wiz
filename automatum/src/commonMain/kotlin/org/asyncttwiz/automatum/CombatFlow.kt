@@ -75,6 +75,8 @@ data class DamageDivision(
     val suggested: Map<MtgRef, Int>,
     /** Whether the defender can get damage with trample (CR 702.19b): once each blocker has lethal damage. */
     val trampleTo: MtgRef?,
+    /** It is asked in the first-strike combat damage step (CR 510.4), else in the regular one. */
+    val firstStrike: Boolean = false,
 )
 
 /** One damage dealt in a [DamagePreview]: [source] (an ATW card) deals [amount] to [target]; [firstStrike] in the
@@ -172,8 +174,9 @@ object CombatFlow {
     }
 
     /** Whether [board]'s combat runs through the engine: attackers were declared through it (its combat record is
-     * there), so it deals the combat damage itself. */
-    fun throughEngine(board: org.asyncttwiz.protocol.BoardState): Boolean = board.engineRecords.any { it.id == EngineCodec.COMBAT }
+     * there, of this combat: #1, not one finished by hand while Automatum was off), so it deals the combat damage
+     * itself. */
+    fun throughEngine(board: BoardState): Boolean = runCatching { EngineCodec.currentCombat(board) != null }.getOrDefault(false)
 
     /** What the table shows of combat in [call]'s state now ([CombatShown]). */
     fun shown(call: EngineCall): CombatShown {
@@ -183,11 +186,13 @@ object CombatFlow {
         val firstStrike = firstStrikeStep(call)
         val blocks = if (choices.declaring != null && !choices.attackers) lanes(call.state.board.combat).second else null
         val previewed = !choices.attackers && (s.turn.step == TurnStep.DeclareBlockers || open != null || firstStrike)
-        val early = PreAnswers.of(call.state.board).filterIsInstance<PreAnswer.Division>()
+        val turn = s.turn.number
+        val early = PreAnswers.of(call.state.board).filterIsInstance<PreAnswer.Division>().filter { it.turn == null || it.turn == turn }
             .associate { d -> d.source.cardId to d.shares.associate { it.target to it.amount } }
         val preview = if (!previewed) null else try { preview(call, blocks, early) } catch (_: RuntimeException) { null }
+        // #3 (CR 510.4): only divisions of the open one's damage step; the regular step's come with that step
         val coming = if (open == null) emptyList() else preview?.divisions.orEmpty().map { it.first }
-            .filter { it.source != open.source }.distinctBy { it.source }
+            .filter { it.source != open.source && it.firstStrike == open.firstStrike }.distinctBy { it.source }
         val also = s.combat?.blockers.orEmpty().filter { it.attackers.size > 1 }
             .associate { call.ids.atw((it.id as ObjectId.Card).card) to it.attackers.size - 1 }
         val combat = s.combat
@@ -290,8 +295,8 @@ object CombatFlow {
 
     /** Whether [board]'s combat has had a first-strike combat damage step (CR 510.4, I-D31): the phase dialog shows that
      * step while the combat lasts. Never throws; false without Automatum's combat record. */
-    fun hadFirstStrikeStep(board: BoardState): Boolean = board.engineRecords.singleOrNull { it.id == EngineCodec.COMBAT }
-        ?.let { runCatching { EngineCodec.decode(combatSerializer, it.data).firstStrikers != null }.getOrNull() } == true
+    fun hadFirstStrikeStep(board: BoardState): Boolean =
+        runCatching { EngineCodec.currentCombat(board)?.firstStrikers != null }.getOrDefault(false)
 
     /** The open division of combat damage in [call]'s state, or null. */
     fun division(call: EngineCall): DamageDivision? = division(call.working, call.ids)
@@ -430,6 +435,6 @@ object CombatFlow {
         val lethal = d.lethal.associate { ids.ref(it.target) to it.amount }
         val trample = d.among.firstOrNull { t -> d.lethal.none { it.target == t } }
         return DamageDivision(d.player.value, ids.atw(source.card), d.amount, d.among.map(ids::ref), lethal,
-            d.suggested.associate { ids.ref(it.target) to it.amount }, trample?.let(ids::ref))
+            d.suggested.associate { ids.ref(it.target) to it.amount }, trample?.let(ids::ref), s.combat?.firstStrikeStep == true)
     }
 }

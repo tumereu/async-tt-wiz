@@ -42,8 +42,15 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     LaunchedEffect(IdentityKey(play.board), shown) {
         if (!shown) { flows.show(null); return@LaunchedEffect }
         val ready = AutomatumBoards.cachedFlow(play)
-        // SYS-025: the history's tags are walked and the flow worked out off the main thread
-        flows.show(ready ?: withContext(Dispatchers.Default) { AutomatumBoards.sharedFlow(play, toolkit.engineTags()) })
+        // SYS-025: the history's tags are walked and the flow worked out off the main thread (with the open decision and
+        // its early answer, I-D33)
+        val next = withContext(Dispatchers.Default) {
+            (ready ?: AutomatumBoards.sharedFlow(play, toolkit.engineTags()))?.also { it.decision; it.early }
+        }
+        flows.show(next)
+        // #8 (I-D33): a decision that opened with its early answer beside it (given while the batch opening it was on its
+        // way) is answered with it by the client of whoever made the latest event, which is there to send it
+        if (next?.early != null && toolkit.latestAuthor() == toolkit.viewer) flows.answerEarly()
     }
     if (!shown) return
     val flow = flows.view?.takeIf { it.play.board === play.board } ?: return
@@ -76,7 +83,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 flows.hidden -> HiddenEye(flows)
                 else -> RespondPrompt(flows, flow, play, names, viewer)
             }
-            holder != null -> WaitingBar("${name(holder)} may respond to ${topName(flow, play)}", "Pass for them") { confirm = true }
+            holder != null -> WaitingBar("${name(holder)} may respond to ${topName(flows, flow, play)}", "Pass for them") { confirm = true }
         }
     }
     if (confirm) {
@@ -87,7 +94,7 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
             title = { Text(if (decision != null) "Choose for $who?" else "Pass for $who?") },
             text = { Text(if (decision != null) "Automatum asks $who: ${prompt(flows, flow, play, decision)} You'll answer for them; " +
                 "cards only $who can see stay hidden from you."
-                else "$who may still want to respond to ${topName(flow, play)}. Passing for them lets it resolve.") },
+                else "$who may still want to respond to ${topName(flows, flow, play)}. Passing for them lets it resolve.") },
             confirmButton = { TextButton({
                 confirm = false
                 if (decision != null) flows.chooseFor(decision) else flows.pass(other)
@@ -124,11 +131,11 @@ private fun HiddenEye(flows: SharedFlowController) {
 private fun RespondPrompt(flows: SharedFlowController, flow: SharedFlow, play: PlayState, names: Map<String, String>, viewer: String) {
     FlowSurface("Respond prompt") {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(topTitle(flow, play, names, viewer), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Text(topTitle(flows, flow, play, names, viewer), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
             EyeButton(hidden = false, flows::toggleHidden, "Automatum panel")
         }
         flow.top?.let { item ->
-            (flow.text(item) ?: topCard(flow, play)?.let { cardText(play, it) })?.let {
+            (flow.text(item)?.takeUnless { topHidden(flows, flow) } ?: topCard(flows, flow, play)?.let { cardText(play, it) })?.let {
                 Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
             }
             val targets = item.targets.values.flatten()
@@ -173,7 +180,7 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: P
             EyeButton(hidden = false, flows::toggleHidden, "Automatum panel")
         }
         if (forOther) Text("Choosing for $otherName", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
-        if (!hasOwnText(decision)) sourceText(flow, play, decision)?.let {
+        if (!hasOwnText(decision)) sourceText(flows, flow, play, decision)?.let {
             Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
         }
         when (decision) {
@@ -204,26 +211,37 @@ private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: P
 // ---- Words
 
 /** "Alice cast Storm Spark", "You activated Elvish Seer", "Fertile Passing triggered". */
-private fun topTitle(flow: SharedFlow, play: PlayState, names: Map<String, String>, viewer: String): String {
+private fun topTitle(flows: SharedFlowController, flow: SharedFlow, play: PlayState, names: Map<String, String>, viewer: String): String {
     val item = flow.top ?: return "Something is on the Stack"
     val who = if (item.controller.value == viewer) "You" else names[item.controller.value] ?: "The other player"
-    val name = topName(flow, play)
+    val name = topName(flows, flow, play)
     return when (item.kind) {
         StackItemKind.Spell, is StackItemKind.SpellCopy -> "$who cast $name"
         StackItemKind.Activated -> "$who activated $name"
-        StackItemKind.Triggered -> "$name triggered"
+        StackItemKind.Triggered -> "${name.replaceFirstChar { it.uppercase() }} triggered"
     }
 }
 
-/** The name of the top of the Stack as its entry shows it (a card, or an ability whose source is gone, STK-022). */
-private fun topName(flow: SharedFlow, play: PlayState): String {
+/** Whether the top of the Stack (or its source) is hidden from the viewer (I-D27, STK-005: a spell cast face down). */
+private fun topHidden(flows: SharedFlowController, flow: SharedFlow): Boolean {
+    val top = flow.state.stack.lastOrNull() ?: return false
+    val shownObject = if (top is ObjectId.StackItem) flow.state.stackItems[top]?.source else top
+    return shownObject != null && !flows.shown(shownObject)
+}
+
+/** The name of the top of the Stack as its entry shows it (a card, or an ability whose source is gone, STK-022); "a
+ * face-down spell" when the viewer may not see it (#11, I-D27). */
+private fun topName(flows: SharedFlowController, flow: SharedFlow, play: PlayState): String {
+    if (topHidden(flows, flow)) return if (flow.state.stack.lastOrNull() is ObjectId.StackItem) "an ability of a face-down card" else "a face-down spell"
     val entry = CombatStackRules.stack(play.board).cards.firstOrNull() ?: return "it"
     val card = CombatStackRules.inspection(play.board, entry) ?: return "it"
     return faceName(play, card) ?: "it"
 }
 
-private fun topCard(flow: SharedFlow, play: PlayState): String? =
-    CombatStackRules.stack(play.board).cards.firstOrNull()?.let { CombatStackRules.inspection(play.board, it)?.id }
+/** The card the top of the Stack shows, when the viewer may see it. */
+private fun topCard(flows: SharedFlowController, flow: SharedFlow, play: PlayState): String? =
+    if (topHidden(flows, flow)) null
+    else CombatStackRules.stack(play.board).cards.firstOrNull()?.let { CombatStackRules.inspection(play.board, it)?.id }
 
 private fun faceName(play: PlayState, card: PlayCard): String? =
     play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces
@@ -236,9 +254,12 @@ private fun sourceName(flows: SharedFlowController, flow: SharedFlow, play: Play
     return objectName(flows, play, source)
 }
 
-/** The printed text of the decision's source, for a choice without a sentence of its own. */
-private fun sourceText(flow: SharedFlow, play: PlayState, decision: Decision): String? {
+/** The printed text of the decision's source, for a choice without a sentence of its own; none when the viewer may not
+ * see the source (I-D27: a face-down card). */
+private fun sourceText(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String? {
     val source = decision.source ?: return null
+    val card = (source as? ObjectId.StackItem)?.let { flow.state.stackItems[it]?.source } ?: source
+    if (!flows.shown(card)) return null
     flow.state.stackItems[source]?.let { item -> flow.text(item)?.let { return it } }
     return flow.atwCard(source)?.let { cardText(play, it) }
 }

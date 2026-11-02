@@ -133,6 +133,19 @@ internal class SharedFlowController(
         }
     }
 
+    /**
+     * Answers the open decision with the early answer given for it (I-D33, #8: given while the batch that opened the
+     * decision was on its way), then Automatum goes on, as one batch. The client of the player who made the latest event
+     * does it as soon as it shows such a board ([SharedFlowHost]); the panel shows the early answer pre-filled meanwhile.
+     */
+    fun answerEarly(): Boolean {
+        val play = current() ?: return false
+        return sendCall(play) { flow ->
+            if (flow.early == null) throw Refused(null)
+            flow.answerEarly()
+        }
+    }
+
     /** A tap on a table item while the open decision asks for targets (I-D5: players by their life squares). */
     fun tapTarget(item: TableItem): Boolean {
         val decision = answering as? Decision.Targets ?: return false
@@ -182,13 +195,17 @@ internal class SharedFlowController(
         mana = ManaPicks.toggle(decision, mana, group, flow::pays)
     }
 
-    /** I-D27: the viewer sees what the rules let them see; the deciding player also the cards their own choice offers
-     * (a search). Someone choosing for the other player sees that player's hidden cards only as hidden cards. */
+    /** I-D27: the viewer sees what the rules let them see; the deciding player also the cards their own choice offers in
+     * zones that aren't public (their library during a search). Objects in public zones are named only when visible to
+     * the viewer, so a face-down creature stays hidden from the player dividing damage onto it (#4). Someone choosing for
+     * the other player sees that player's hidden cards only as hidden cards. */
     override fun shown(id: ObjectId): Boolean {
         val flow = view ?: return false
-        if (flow.decision?.player?.value == viewer) return true
+        if (id is ObjectId.StackItem) return true
         val known = visible ?: flow.visible(viewer).also { visible = it }
-        return id is ObjectId.StackItem || id in known
+        if (id in known) return true
+        val zone = flow.state.obj(id)?.zone
+        return flow.decision?.player?.value == viewer && zone != null && zone !in PUBLIC_ZONES
     }
 
     /** The flow of [play]'s board: the shown one, or worked out now when the board moved on (blocking: on [work]). */
@@ -264,6 +281,8 @@ internal class SharedFlowController(
     }
 
     companion object {
+        private val PUBLIC_ZONES = setOf(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Stack, arcanum.api.Zone.Graveyard,
+            arcanum.api.Zone.Exile, arcanum.api.Zone.Command)
         const val BUSY = "Automatum is waiting for a choice. Answer it, or switch Automatum off, first."
         const val STACK_WAITING = "Let the Stack resolve before changing the step."
         const val TAKE_OVER = "Automatum can't take over this board."

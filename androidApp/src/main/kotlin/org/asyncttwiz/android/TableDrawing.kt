@@ -49,28 +49,27 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     scene.world?.let { world -> world.horizontalBand(TableBounds(0f, scene.fields.first().gridBounds.bottom,
         0f, scene.fields.last().gridBounds.y - scene.fields.first().gridBounds.bottom)) }?.let { b ->
         clipRect(b.x * density, b.y * density, b.right * density, b.bottom * density) {
-            // CMB-007: the battlefields' own colours reach into the band between them; the combat area is a panel on it,
-            // sized to its content
+            // The narrow band between the battlefields: with combat open, each half in its battlefield's colour
             val upper = scene.fields.first(); val lower = scene.fields.last()
             if (scene.combatLabels.isEmpty()) drawRect(Color(0xfff5f1df), xy(b.x, b.y), size(b.width, b.height)) else {
                 drawRect(battlefieldColor(upper.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y), size(b.width, b.height / 2))
                 drawRect(battlefieldColor(lower.owner, viewer, turnPlayer, lands = false), xy(b.x, b.y + b.height / 2), size(b.width, b.height / 2))
             }
-            val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
-            if (port != null && scene.combatLabels.isNotEmpty()) {
-                val pad = 3f
-                val left = scene.combatLabels.minOf { it.bounds.x } - pad
-                val right = scene.combatLabels.maxOf { it.bounds.right } + pad
-                val top = port.y
-                val height = port.height
-                for (spread in 6 downTo 1) drawRoundRect(Color.Black.copy(alpha = .025f), xy(left - spread / 2f, top - pad + 1.5f - spread / 2f),
-                    size(right - left + spread, height + 2 * pad + spread), CornerRadius(8 * density))
-                drawRoundRect(Color(0xfffbfcfb), xy(left, top - pad), size(right - left, height + 2 * pad), CornerRadius(8 * density))
-                drawRoundRect(Color(0xffc9d2d0), xy(left, top - pad), size(right - left, height + 2 * pad), CornerRadius(8 * density),
-                    style = Stroke(density))
-            }
+        }
+    }
+    // CMB-007: the combat area is a white panel floating over the middle of the table, sized to its content; the
+    // battlefields show around it
+    val panel = scene.combatPanel
+    val table = scene.world?.visibleViewport
+    if (panel != null && table != null) {
+        clipRect(table.x * density, table.y * density, table.right * density, table.bottom * density) {
+            for (spread in 6 downTo 1) drawRoundRect(Color.Black.copy(alpha = .03f), xy(panel.x - spread / 2f, panel.y + 1.5f - spread / 2f),
+                size(panel.width + spread, panel.height + spread), CornerRadius(8 * density))
+            drawRoundRect(Color(0xfffbfcfb), xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density))
+            drawRoundRect(Color(0xffc9d2d0), xy(panel.x, panel.y), size(panel.width, panel.height), CornerRadius(8 * density),
+                style = Stroke(density))
             for ((from, to) in scene.combatLaneDividers) drawLine(Color.Black.copy(alpha = CombatStackPresentation.LANE_DIVIDER_ALPHA),
-                xy(from.x, from.y), xy(to.x, to.y), CombatStackPresentation.laneDividerStroke(scene.cardWidth) * density)
+                xy(from.x, from.y), xy(to.x, to.y), CombatStackPresentation.laneDividerStroke(scene.combatCardWidth) * density)
             for (label in scene.combatLabels) {
                 val bounds = label.bounds
                 val font = label.fontSize

@@ -89,8 +89,8 @@ class AutomatumTest {
         }
         val board = state.board
         assertFalse(board.automatum)
-        // SYS-070 (I-D42): turning Automatum on started the passes in a row again
-        assertEquals(MtgPriority(b, 0), board.priority)
+        // SYS-070 (I-D42, combat review #11): turning Automatum on keeps priority, its holder and passes in a row
+        assertEquals(MtgPriority(b, 1), board.priority)
         assertEquals(listOf(PoolMana("R"), PoolMana("C", """{"source":"x"}""")), board.players.single { it.accountId == a }.manaPool)
         assertEquals(listOf(counter.copy(count = 3)), card(state, 10).typedCounters)
         assertEquals(listOf(TypedCounter("poison", 1, 6)), board.players.single { it.accountId == b }.typedCounters)
@@ -286,8 +286,9 @@ class AutomatumTest {
         assertTrue(MtgTag.valid(MtgTag(folded = true)))
     }
 
-    // SYS-070 (I-D42): turning Automatum on drops the combat record, waiting triggers, early answers and the passes in a
-    // row recorded before it; effects, delayed triggers, emblems and the turn record stay; undoing the switch restores them
+    // SYS-070 (I-D42): turning Automatum on drops the combat record, waiting triggers and early answers recorded before it;
+    // effects, delayed triggers, emblems, the turn record and priority (combat review #11) stay; undoing the switch
+    // restores them
     @Test fun switchingOnDropsTurnScopedEngineData() {
         val combat = EngineRecord("combat", EngineRecordKind.Combat, data = """{"attackers":[]}""")
         val waiting = EngineRecord("triggered", EngineRecordKind.Triggered, data = "[]")
@@ -300,7 +301,7 @@ class AutomatumTest {
         val on = accept(off, mtg(MtgAction.SetAutomatum(true))).state!!
         assertTrue(on.board.automatum)
         assertEquals(kept.sortedBy { it.id }, on.board.engineRecords)
-        assertEquals(MtgPriority(b, 0), on.board.priority)
+        assertEquals(MtgPriority(b, 1), on.board.priority)
         // Off and on again with nothing turn-scoped left: only the switch changes
         val again = accept(accept(on, mtg(MtgAction.SetAutomatum(false))).state!!, mtg(MtgAction.SetAutomatum(true))).state!!
         assertEquals(on.board, again.board)

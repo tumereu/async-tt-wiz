@@ -195,8 +195,8 @@ class TablePresentationTest {
                     val lands = field.landsBounds(field.owner == "a")
                     assertEquals(field.gridBounds.height / 3, lands.height, .001f)
                     assertEquals(lands, lands.intersection(field.gridBounds))
+                    // CMB-007: the combat area floats over the battlefields' middle, never over their outer lands rows
                     assertNull(lands.intersection(lane))
-                    assertNull(field.bounds.intersection(lane))
                     val camera = scene.world!!.clamp(TableCamera(y = if (field.owner == "a") 10000f else -10000f))
                     val panned = TablePresentation.scene(LiveTableFixture.game, play, "a", w, h, true,
                         TableLayoutState(camera), reviewing = reviewing)
@@ -520,21 +520,22 @@ class TablePresentationTest {
         }
     }
 
-    @Test fun portraitOnlyReservesMiddleHeightForAnOpenCombatLane() {
+    // CMB-007 (combat review #1): the open combat area is a panel over the middle of the table, sized to its content; the
+    // battlefields don't move for it
+    @Test fun anOpenCombatAreaFloatsOverTheBattlefields() {
         val initial = TableFixture.play()
         val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
         val scene = TableFixture.scene(play)
         val lane = scene.viewports.single { it.id == "combat" }.bounds
-        assertEquals(CombatStackPresentation.combat(play.board, scene.cardWidth, scene.cardHeight, play.definitions,
+        assertEquals(CombatStackPresentation.combat(play.board, scene.combatCardWidth, scene.combatCardHeight, play.definitions,
             mapOf(TableFixture.game.inviter.accountId to TableFixture.game.inviter.username,
-                TableFixture.game.recipient.accountId to TableFixture.game.recipient.username)).height, lane.height)
+                TableFixture.game.recipient.accountId to TableFixture.game.recipient.username)).height +
+            2 * TablePresentation.COMBAT_PANEL_PAD, lane.height, .001f)
+        assertEquals(scene.combatPanel, lane)
         val closed = TableFixture.scene(initial)
-        assertEquals(closed.fields.first().gridBounds.height, scene.fields.first().gridBounds.height)
-        assertEquals(closed.fields.first().rowHeight, scene.fields.first().rowHeight)
-        assertTrue(scene.fields.first().gridBounds.bottom < lane.y)
-        assertTrue(scene.fields.last().gridBounds.y > lane.bottom)
-        assertTrue(scene.fields.first().gridBounds.y < closed.fields.first().gridBounds.y)
-        assertTrue(scene.fields.last().gridBounds.y > closed.fields.last().gridBounds.y)
+        assertEquals(closed.fields, scene.fields)
+        assertTrue(scene.fields.first().gridBounds.bottom > lane.y)
+        assertTrue(scene.fields.last().gridBounds.y < lane.bottom)
         assertEquals(closed.stackRegion, scene.stackRegion)
         assertEquals(closed.viewports.filter { it.id.startsWith("dock/") }, scene.viewports.filter { it.id.startsWith("dock/") })
     }

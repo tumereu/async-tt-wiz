@@ -54,9 +54,9 @@ class CombatDragGeometryTest {
             assertEquals(expected.x, landing.outlines.single().x, .001f)
             assertEquals(expected.y, landing.outlines.single().y, .001f)
             val (start, end) = assertNotNull(landing.combatInsertion)
-            assertEquals(expected.x - CombatStackPresentation.cardGap(scene.cardWidth) / 2, start.x, .001f)
+            assertEquals(expected.x - CombatStackPresentation.cardGap(scene.combatCardWidth) / 2, start.x, .001f)
             assertEquals(start.x, end.x)
-            assertEquals(scene.cardHeight * .6f, end.y - start.y, .001f)
+            assertEquals(scene.combatCardHeight * .6f, end.y - start.y, .001f)
             assertEquals(expected.center.y, (start.y + end.y) / 2, .001f)
             gestures.up(target.bounds.center, 100)
             assertEquals(TableDestination.Combat(destination), events.filterIsInstance<TableIntent.Move>().single().destination)
@@ -85,7 +85,7 @@ class CombatDragGeometryTest {
             val landing = tableDragLanding(scene, gestures.preview)
             val expected = scene(prediction).items.single { it.cardId == attackers[from].id }.bounds
             assertEquals(expected.x, landing.outlines.single().x, .001f)
-            assertEquals(expected.x - CombatStackPresentation.cardGap(scene.cardWidth) / 2,
+            assertEquals(expected.x - CombatStackPresentation.cardGap(scene.combatCardWidth) / 2,
                 assertNotNull(landing.combatInsertion).first.x, .001f)
             val before = landing.combatInsertion
             gestures.move(TablePoint(target.bounds.center.x + if (from == 0) -1f else 1f, target.bounds.center.y), 90)
@@ -104,7 +104,7 @@ class CombatDragGeometryTest {
         val area = play.board.combat!!.id
         for (zoom in listOf(.65f, 1f, 2f)) {
             val scene = scene(play, zoom)
-            val w = scene.cardWidth
+            val w = scene.combatCardWidth
             val margin = CombatStackPresentation.slotMargin(w)
             val first = scene.items.single { it.cardId == f.id("attacker1") }
             val second = scene.items.single { it.cardId == f.id("attacker2") }
@@ -137,7 +137,7 @@ class CombatDragGeometryTest {
         val scene = scene(play)
         val second = scene.items.single { it.cardId == f.id("attacker2") }
         val scope = TableScope(f.id("attacker1"), listOf(f.id("attacker1")))
-        val point = TablePoint(second.bounds.center.x - scene.cardWidth * .3f, second.bounds.center.y)
+        val point = TablePoint(second.bounds.center.x - scene.combatCardWidth * .3f, second.bounds.center.y)
         val destination = assertNotNull(scene.combatDestination(point, scope))
         assertEquals(CombatDestination(play.board.combat!!.id, CombatRole.ATTACKER, pairs[1].id, insertion = CombatInsertion.GAP,
             cardGap = IdentityGap(null, f.id("attacker2"))), destination)
@@ -150,13 +150,13 @@ class CombatDragGeometryTest {
         val own = scene(together)
         val left = own.items.single { it.cardId == f.id("attacker1") }
         val right = own.items.single { it.cardId == f.id("attacker2") }
-        val swap = assertNotNull(own.combatDestination(TablePoint(right.bounds.center.x + own.cardWidth * .2f, right.bounds.center.y), scope))
+        val swap = assertNotNull(own.combatDestination(TablePoint(right.bounds.center.x + own.combatCardWidth * .2f, right.bounds.center.y), scope))
         assertEquals(IdentityGap(f.id("attacker2"), null), swap.cardGap)
         assertEquals(listOf(f.id("attacker2"), f.id("attacker1")),
             predict(together, scope.cardIds, swap).board.combat!!.pairs.single().attackers.map { it.id })
         val back = TableScope(f.id("attacker2"), listOf(f.id("attacker2")))
         assertEquals(IdentityGap(null, f.id("attacker1")), own.combatDestination(
-            TablePoint(left.bounds.center.x - own.cardWidth * .2f, left.bounds.center.y), back)?.cardGap)
+            TablePoint(left.bounds.center.x - own.combatCardWidth * .2f, left.bounds.center.y), back)?.cardGap)
     }
 
     // CMB-008

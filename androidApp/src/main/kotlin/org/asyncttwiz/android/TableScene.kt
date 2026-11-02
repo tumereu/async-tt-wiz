@@ -189,22 +189,16 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val compactHeader = maxWidth < 400.dp
         val toolbarWidth = if (compactHeader) 240f else TablePresentation.TOOLBAR
         val cardAppearance = rememberCardAppearance()
-        val fieldScale = cardScale(cardAppearance.cardSize)
-        val bandTarget = maxOf(12f, CombatStackPresentation.combat(play.board, 28f * fieldScale, 40f * fieldScale,
-            play.definitions, mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username), accountId,
-            cardAppearance.text(CardTextScalePart.TITLE)).height + 4f)
-        val bandHeight by animateFloatAsState(bandTarget, tween(180), label = "Combat band")
-        var previousBand by remember { mutableFloatStateOf(bandHeight) }
         val logicalPositions = remember(IdentityKey(play.board)) { TablePresentation.logicalPlacements(play) }
         val computed = LocalComputedBoard.current
-        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance, computed) {
+        val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, computed) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
-                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, bandHeight, cardAppearance, logicalPositions,
+                maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
                 computed)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
-        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight) || previousBand != bandHeight
+        val navigation = previousLayout != layout || previousSize != (maxWidth to maxHeight)
         // One interpolated scene feeds Canvas, hit testing AND semantic nodes. No destination-only overlays.
         val animation = remember(play.id, accountId) { HistorySceneAnimation(targetScene) }
         val movePreferences = rememberCardMovePreferences(accountId)
@@ -270,7 +264,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val activePings = pingProjection.records(play)
         val pingPulse = if (activePings.isNotEmpty()) pingPulseProgress() else null
         var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
-        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight; previousBand = bandHeight }
+        SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight }
         SideEffect {
             presentation = { rendered.value.scene }
             var retained = selection.atStep(TurnPosition.of(play.board.turn)).retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
@@ -378,7 +372,9 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
             if (play.board.combat != null || play.board.automatum)
-                CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing) { item -> rendered.value.items[item.id]?.bounds ?: item.bounds }
+                CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
+                    fold = { hide -> layout = layout.copy(combatHidden = if (hide) play.board.combat?.id else null) }) { item ->
+                    rendered.value.items[item.id]?.bounds ?: item.bounds }
             if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, { preview }, writable) { intent ->
                 if (intent is TableIntent.StackDestination) toolkit?.showStackBubbles(null)
                 callback?.invoke(intent)

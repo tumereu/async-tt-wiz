@@ -571,7 +571,8 @@ class TableGesturesTest {
                     val geometry = TableAnnotationGeometry(scene, "a")
                     for (field in scene.fields.filter { it.owner == owner }) for (row in 0..1) for (fraction in listOf(.1f, .5f, .9f)) {
                         val distance = (row + fraction) * field.rowHeight
-                        val end = TablePoint(field.bounds.x + 5 * TablePresentation.GRID,
+                        // Left of the middle, where an open combat area floats over the battlefields (CMB-007)
+                        val end = TablePoint(field.bounds.x + 2 * TablePresentation.GRID,
                             if (field.owner == "a") field.gridBounds.bottom - distance else field.gridBounds.y + distance)
                         val events = mutableListOf<TableIntent>()
                         val gesture = TableGestureCoordinator(events::add)
@@ -638,39 +639,45 @@ class TableGesturesTest {
         assertEquals(listOf<TableIntent>(TableIntent.Peek(card.cardId), TableIntent.Peek(null)), events)
     }
 
-    // CMB-009
-    @Test fun combatDropEndsAreUnboundedDividersAreLenientAndPreviewIsUprightAtLanding() {
+    // CMB-009, CMB-007 (combat review #1: only the panel takes combat drops; its end drops reach its edges, no further)
+    @Test fun combatDropEndsReachThePanelsEdgesDividersAreLenientAndPreviewIsUprightAtLanding() {
         val f = TableStatesFixture
         val play = f.combat()
         for (zoom in listOf(.65f, 1f, 2f)) {
             val base = TablePresentation.scene(f.game, play, f.a, 892f, 412f, true,
                 TableLayoutState(camera = TableCamera(x = -CombatStackPresentation.combat(play.board, 28f, 40f).width / 2 + 50f / zoom, zoom = zoom)))
             val world = base.world!!
-            val scene = base.copy(world = world.copy(viewport = world.viewport.copy(x = -1e6f, width = 2e6f)))
+            // The area's bigger cards (COMBAT_MIN_CARD) reach past a landscape viewport at zoom 2: the viewport is unbounded
+            val scene = base.copy(world = world.copy(viewport = world.viewport.copy(x = -1e6f, width = 2e6f, y = -1e6f, height = 2e6f)))
             val occurrence = scene.items.first { it.viewport == "combat" && it.visible.isNotEmpty() }
             val events = mutableListOf<TableIntent>()
             val gesture = TableGestureCoordinator(events::add)
             gesture.update(scene, TableSelection(), true)
+            val panel = assertNotNull(scene.combatPanel)
+            fun edge(r: CombatDropRegion) = kotlin.math.abs(r.bounds.x - panel.x) < .01f || kotlin.math.abs(r.bounds.right - panel.right) < .01f
             val regions = scene.combatDrops.filter { it.destination.role == org.asyncttwiz.protocol.CombatRole.ATTACKER }
-            val left = regions.single { it.extendLeft }
-            val right = regions.single { it.extendRight }
-            val divider = regions.single { it.destination.pairId == null && !it.extendLeft && !it.extendRight }
+            val left = regions.single { it.destination.pairId == null && kotlin.math.abs(it.bounds.x - panel.x) < .01f }
+            val right = regions.single { it.destination.pairId == null && kotlin.math.abs(it.bounds.right - panel.right) < .01f }
+            val divider = regions.single { it.destination.pairId == null && !edge(it) }
             val lowerDivider = scene.combatDrops.single { it.destination.role == org.asyncttwiz.protocol.CombatRole.BLOCKER &&
-                it.destination.pairId == null && !it.extendLeft && !it.extendRight }
+                it.destination.pairId == null && !edge(it) }
+            // Beside the panel is no combat drop
+            assertNull(scene.combatDestination(TablePoint(panel.x - 1f, left.bounds.center.y), null))
+            assertNull(scene.combatDestination(TablePoint(panel.right + 1f, right.bounds.center.y), null))
             // CMB-027: covering half of a neighbouring card goes beside it, so between two attackers the divider
             // only takes drops within a slot margin; the blocker row has a card on one side only and stays lenient.
-            val near = CombatStackPresentation.slotMargin(scene.cardWidth) * .5f
-            for ((region, point) in listOf(left to TablePoint(-10000f, left.bounds.center.y),
-                right to TablePoint(10000f, right.bounds.center.y),
+            val near = CombatStackPresentation.slotMargin(scene.combatCardWidth) * .5f
+            for ((region, point) in listOf(left to TablePoint(panel.x + .5f, left.bounds.center.y),
+                right to TablePoint(panel.right - .5f, right.bounds.center.y),
                 divider to TablePoint(divider.bounds.center.x - near, divider.bounds.center.y),
                 divider to TablePoint(divider.bounds.center.x + near, divider.bounds.center.y),
-                lowerDivider to TablePoint(lowerDivider.bounds.center.x + minOf(11f, scene.cardWidth / 2), lowerDivider.bounds.center.y))) {
+                lowerDivider to TablePoint(lowerDivider.bounds.center.x + minOf(11f, scene.combatCardWidth / 2), lowerDivider.bounds.center.y))) {
                 events.clear()
                 gesture.down(occurrence.visible.first().center, 0); gesture.move(point, 80)
                 assertEquals(TableDestination.Combat(region.destination), gesture.preview.destination)
                 val landing = tableDragLanding(scene, gesture.preview).outlines.single()
-                assertEquals(scene.cardWidth, landing.width, .001f)
-                assertEquals(scene.cardHeight, landing.height, .001f)
+                assertEquals(scene.combatCardWidth, landing.width, .001f)
+                assertEquals(scene.combatCardHeight, landing.height, .001f)
                 val prediction = CombatStackController.place(play, f.a, listOf(occurrence.cardId!!), region.destination) { action ->
                     GameCommand(java.util.UUID.randomUUID().toString(), GameScope(play.gameId, playId = play.id),
                         GameAction.Play(action), play.id, "1")
@@ -683,8 +690,7 @@ class TableGesturesTest {
                 assertEquals(TableDestination.Combat(region.destination), events.filterIsInstance<TableIntent.Move>().single().destination)
             }
             val last = scene.items.single { it.cardId == f.id("attacker2") }
-            val bandBottom = scene.fields.last().gridBounds.y
-            val end = TablePoint(10000f, bandBottom - .1f)
+            val end = TablePoint(panel.right - .5f, right.bounds.bottom - .1f)
             gesture.down(last.bounds.center, 200); gesture.move(end, 280)
             assertEquals(TableDestination.Combat(right.destination), gesture.preview.destination)
             // The old last group vanishes, so its replacement lands at that same packed position.

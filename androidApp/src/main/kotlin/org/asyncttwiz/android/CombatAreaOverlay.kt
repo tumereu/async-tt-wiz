@@ -46,8 +46,18 @@ private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "Fi
  */
 @Composable
 internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene: TableScene, viewer: String, writable: Boolean,
-    bounds: (TableItem) -> TableBounds) {
+    /** CMB-007: folds the combat area away (true) to see the battlefield under it, or brings it back. */
+    fold: ((Boolean) -> Unit)? = null, bounds: (TableItem) -> TableBounds) {
     val area = play.board.combat
+    // CMB-007: the folded-away area is a button where it was, bringing it back
+    val folded = scene.combatFolded
+    if (area != null && folded != null && fold != null) {
+        Box(Modifier.offset { IntOffset(folded.x.dp.roundToPx(), folded.y.dp.roundToPx()) }.offset((-48).dp, (-16).dp)
+            .size(96.dp, 32.dp).background(Color.White, RoundedCornerShape(16.dp)).border(1.5.dp, ArrowColor, RoundedCornerShape(16.dp))
+            .semantics { contentDescription = "Show the combat area" }.clickable { fold(false) }, contentAlignment = Alignment.Center) {
+            Text("Combat ▴", color = Color(0xff263238), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+        }
+    }
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
     val automatum = play.board.automatum
     val shown = if (automatum && combat != null) combat.ready(play) ?: CombatShown.NONE else CombatShown.NONE
@@ -64,7 +74,7 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
     val glowing = if (blocking && selected != null) choices.blocks[selected].orEmpty().toSet() else emptySet()
     val preview = shown.preview?.takeUnless { combat?.numbersHidden == true }
     // The creatures that deal the next combat damage, when the combat has first-strike damage (I-D31)
-    val dealers = shown.preview?.dealt?.takeIf { d -> d.any { it.firstStrike } || CombatFlow.hadFirstStrikeStep(play.board) }
+    val dealers = shown.preview?.dealt?.takeIf { d -> d.any { it.firstStrike } || AutomatumBoards.hadFirstStrikeStep(play.board) }
         ?.let { d -> d.filter { it.firstStrike == d.first().firstStrike }.map { it.source }.toSet() }.orEmpty()
     val activeLane = if (staging && combat != null) scene.combatLabels.firstOrNull { it.cardId == combat.activeTarget(play) } else null
     if (area != null && port != null) Canvas(Modifier.fillMaxSize()) {
@@ -114,14 +124,16 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         val copy = item.viewport == "combat"
         val real = !copy && item.zone == PlayZone.BATTLEFIELD && !item.projection
         if (!copy && !real) continue
-        val chips = mutableListOf<Pair<String, Color>>()
+        val chips = mutableListOf<Triple<String, Color, String>>()
         val b = bounds(item)
         val attackerCopy = copy && area?.pairs?.any { p -> p.attackers.any { it.id == item.cardId } } == true
         if (attackerCopy && automatum) {
             val keywords = computed.cards[card]?.keywords.orEmpty()
-            COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }.forEach { chips += it.lowercase() to AutomatumViolet }
+            COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }
+                .forEach { chips += Triple(it.lowercase(), AutomatumViolet, it.lowercase()) }
             toTargets[card]?.groupBy { it.target }?.forEach { (target, list) ->
-                chips += "${list.sumOf { it.amount }} → ${label(target)!!.label.removePrefix("→ ")}" to PreviewRed
+                val text = "${list.sumOf { it.amount }} → ${label(target)!!.label.removePrefix("→ ")}"
+                chips += Triple(text, PreviewRed, text)
             }
         }
         if (real && automatum && card in inCombat) {
@@ -129,27 +141,31 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
             val pair = area!!.pairs.first { p -> (p.attackers + p.blockers).any { it.id == occurrence.id } }
             val attacker = pair.attackers.any { it.id == occurrence.id }
             when {
-                staging && attacker -> chips += (scene.combatLabels.firstOrNull { it.cardId == pair.attackTarget }?.label
-                    ?.let { if (it.startsWith("→ ")) it else "→ $it" } ?: "→ attack") to AutomatumViolet
+                staging && attacker -> ((scene.combatLabels.firstOrNull { it.cardId == pair.attackTarget }?.label
+                    ?.let { if (it.startsWith("→ ")) it else "→ $it" } ?: "→ attack")).let { chips += Triple(it, AutomatumViolet, it) }
                 // Only where it fits: small cards show their combat by their copies alone
-                b.width >= 44f -> chips += (if (attacker) "attacking" else "blocking") to ArrowColor
+                b.width >= 44f -> (if (attacker) "attacking" else "blocking").let { chips += Triple(it, ArrowColor, it) }
             }
         }
         val dealt = if (copy || card !in inCombat) damage[card] else null
         val dying = (copy || card !in inCombat) && card in dies
         if (chips.isEmpty() && dealt == null && !dying) continue
-        // An attacker's badges sit on its side away from the arrows (below it in the attacker's view, above it mirrored)
+        // An attacker's badges sit on its side away from the arrows (below it in the attacker's view, above it mirrored),
+        // stacked one per line no wider than the card, so neighbours' chips never run into each other (combat review #2)
         val below = attackerCopy && port != null && b.center.y > port.center.y
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)) {
-            if (chips.isNotEmpty()) Row(Modifier.align(if (below) Alignment.BottomCenter else Alignment.TopCenter)
-                .offset(y = if (below) 9.dp else (-9).dp).wrapContentSize(unbounded = true),
-                horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                for ((text, color) in chips) PreviewChip(text, color, Modifier, text, filled = true)
+            if (chips.isNotEmpty()) Box(Modifier.align(if (below) Alignment.BottomCenter else Alignment.TopCenter).fillMaxWidth().height(0.dp)) {
+                Column(Modifier.fillMaxWidth().wrapContentHeight(if (below) Alignment.Top else Alignment.Bottom, unbounded = true)
+                    .offset(y = if (below) (-3).dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    for ((text, color, description) in (if (below) chips else chips.asReversed())) CombatChip(text, color, b.width, description)
+                }
             }
-            if (dealt != null) Badge("−$dealt", PreviewRed, Modifier.align(Alignment.TopEnd).offset(x = 7.dp, y = 4.dp),
-                "Would take $dealt damage${if (dying) " and die" else ""}")
-            if (dying) Badge("☠", Color(0xff263238), Modifier.align(Alignment.TopStart).offset(x = (-7).dp, y = 4.dp),
-                if (dealt == null) "Would die" else "Dies")
+            // The preview's badges sit over the card's middle, clear of its name (combat review #12)
+            if (dealt != null || dying) Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+                if (dying) Badge("☠", Color(0xff263238), Modifier, if (dealt == null) "Would die" else "Dies")
+                if (dealt != null) Badge("−$dealt", PreviewRed, Modifier, "Would take $dealt damage${if (dying) " and die" else ""}")
+            }
         }
     }
     // The target's header: "16 → 11" over its value at the right end
@@ -186,13 +202,37 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
             .semantics { contentDescription = "Attack ${lane.label.removePrefix("→ ")}" }
             .clickable { combat.chooseTarget(play, lane.cardId) })
     }
-    // CMB-029: the eye at the area's top-right corner hides and shows the preview's numbers
+    // Just right of the panel's top-right corner: the fold button (CMB-007), then the eye hiding and showing the preview's
+    // numbers (CMB-029)
+    val panel = scene.combatPanel ?: return
+    if (fold != null) {
+        Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), panel.y.dp.roundToPx()) }.size(30.dp)
+            .background(Color.White, CircleShape).border(1.dp, ArrowColor, CircleShape)
+            .semantics { contentDescription = "Hide the combat area" }.clickable { fold(true) }, contentAlignment = Alignment.Center) {
+            Text("▾", color = Color(0xff263238), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+    val eyeY = panel.y + if (fold != null) 34f else 0f
     if (shown.preview != null && combat != null) {
-        val right = scene.combatLabels.maxOf { it.bounds.right } + 3f
-        Box(Modifier.offset { IntOffset((right + 3f).dp.roundToPx(), port.y.dp.roundToPx()) }.size(30.dp)
+        Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), eyeY.dp.roundToPx()) }.size(30.dp)
             .background(Color.White, CircleShape).border(1.dp, AutomatumViolet, CircleShape), contentAlignment = Alignment.Center) {
             EyeButton(hidden = combat.numbersHidden, combat::toggleNumbers, "damage preview")
         }
+    }
+}
+
+/** A tag of a combatant (CMB-029, CMB-035): one line, no wider than its card ([width] dp), its text made smaller to fit.
+ * Drawn only, so taps reach the card beneath. */
+@Composable
+private fun CombatChip(text: String, color: Color, width: Float, description: String) {
+    val room = (width - 8f).coerceAtLeast(8f)
+    val natural = CombatStackPresentation.laneTextWidth(text, 9f)
+    val size = if (natural <= room) 9f else maxOf(5.5f, 9f * room / natural)
+    Box(Modifier.widthIn(max = width.dp).semantics { contentDescription = description }
+        .background(color, RoundedCornerShape(6.dp)).border(1.5.dp, color, RoundedCornerShape(6.dp))) {
+        Text(text, Modifier.padding(horizontal = 3.dp), color = Color.White, fontSize = size.sp,
+            fontWeight = FontWeight.Bold, lineHeight = (size + 2f).sp, maxLines = 1, softWrap = false,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Clip)
     }
 }
 

@@ -41,7 +41,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
-        { error }, { error = it })
+        { error }, { error = it }, board = { current() })
     /** Bumped when hand plays worked out in the background are ready, so the hand menu shows them (SYS-025). */
     private var handPlaysReady by mutableStateOf(0)
 
@@ -853,13 +853,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
             if (!attacking) {
                 if (card !in choices.blocks && !creature(play, card)) return false
-                if (card !in choices.blocks) { error = "${CastController.cardName(play, card)} can't block now."; return true }
+                if (card !in choices.blocks) { error = "${combatName(play, card)} can't block now."; return true }
                 combat.select(if (combat.selected == card) null else card)
                 return true
             }
         }
         val blocker = combat.selected
-        if (declaring != null && !choices.attackers && copy && attacking && blocker != null && blocker in choices.blocks && enabled()) {
+        // CMB-034: the attacker's copy or its real card (combat review #12)
+        if (declaring != null && !choices.attackers && attacking && blocker != null && blocker in choices.blocks && enabled()) {
             val pair = area!!.pairs.first { p -> p.attackers.any { it.id == occurrence!!.id } }.id
             block(play, blocker, pair)
             return true
@@ -908,7 +909,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             when {
                 capacity == null || now.size < capacity -> now + pairId
                 capacity == 1 -> listOf(pairId)
-                else -> { error = "${CastController.cardName(play, blocker)} can block only $capacity attackers."; return false }
+                else -> { error = "${combatName(play, blocker)} can block only $capacity attackers."; return false }
             }
         }
         error = null

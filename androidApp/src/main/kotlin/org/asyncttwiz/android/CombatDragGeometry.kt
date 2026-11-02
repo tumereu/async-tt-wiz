@@ -13,8 +13,8 @@ internal fun combatInsertionIndex(midpoints: List<Float>, x: Float, originX: Flo
  * [point]) covers by at least half its width, the most covered first; the dragged cards themselves don't count. */
 private fun TableScene.overlappedCombatCard(point: TablePoint, sources: Set<String>, rows: List<CombatDropRegion>): TableItem? {
     val row = rows.firstOrNull { point.y >= it.bounds.y && point.y < it.bounds.bottom } ?: return null
-    val left = point.x - cardWidth / 2
-    val right = point.x + cardWidth / 2
+    val left = point.x - combatCardWidth / 2
+    val right = point.x + combatCardWidth / 2
     return items.filter { it.viewport == "combat" && it.cardId != null && it.sourceId !in sources &&
             it.bounds.center.y >= row.bounds.y && it.bounds.center.y < row.bounds.bottom }
         .map { it to minOf(right, it.bounds.right) - maxOf(left, it.bounds.x) }

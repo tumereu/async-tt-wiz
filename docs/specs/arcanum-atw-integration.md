@@ -218,6 +218,25 @@ out of anything stuck.
   combat damage tools are gone (I-D39). Catalog: CMB-003, CMB-007–CMB-009, CMB-013, CMB-014, CMB-020, CMB-022,
   CMB-027–CMB-029, CMB-031–CMB-035, TRN-020, TRN-024, TRN-059, TBL-082, STK-033, STK-034; CMB-023–CMB-026, CMB-030
   removed.
+- **Built (combat review fixes, 2026-11-02; decisions made for the owner overnight, to be confirmed):** A — the combat
+  area is an overlay: a panel sized to its content over the middle of the table (`TableScene.combatPanel`); opening it
+  moves no battlefield, it covers the battlefield cards under it, only it takes combat drops, and "▾" folds it away
+  (`TableLayoutState.combatHidden`, the viewer's own; "Combat ▴" brings it back). Its cards are at least
+  `COMBAT_MIN_CARD` (44dp) wide (`TableScene.combatCardWidth`), the preview's badges sit over a card's middle, chips
+  stack one per line no wider than the card. B — order-free divisions are still made without asking, except when the
+  dividing player has "Skip when I have no choice" off: the dialog opens, in Free (`askedInDialog`). #8 — an order-free
+  division is answered by the client of whoever made the latest event; the dividing player's only after
+  `ORDER_FREE_FALLBACK_MILLIS` without an answer. #10 — "In order" and the engine's suggestion leave the excess on the
+  last creature. #11 — `SetAutomatum(true)` keeps priority with its passes in a row (`TurnExtras.passesAt` restarts them
+  after a step changed by hand). #3 (CR 506.4c) — with Automatum on a pair keeps an attack target that left the
+  battlefield (`CombatStackRules.closeInvariants`; by hand only a target leaving in that very change falls back to the
+  player's lane); its lane reads "→ name (gone)", and `EngineState` reads it as an attacker with its target removed.
+  #4 (CR 510.4) — a combat read from the lanes in `FIRST_STRIKE_DAMAGE` is the first of two damage steps with the
+  current first and double strikers as having dealt damage. #5 — headers show loyalty/defense counters with Automatum
+  on. #6 — combat messages name face-down creatures "A face-down creature" (`combatName`). #7 — the selection belongs
+  to the combat step it was made in. #9 — the early division panel has Inspect. #12 — tapping an attacker's real card
+  with a blocker selected blocks it; the combat record's reads are kept per board (`AutomatumBoards.combatRecord`).
+  Catalog: CMB-007, CMB-013, CMB-029, CMB-032–CMB-035, STK-034, SYS-070.
 - **Built (loops):** `StepFlow.automatic` keeps `Engine.loopKey` of each state it passes in with something on the Stack;
   the same key again with only forced passes since (CR 104.4b, 732.4) stops the batch with `Input.MandatoryLoop`, whose
   `Decision.Manual` the shared-flow panel shows ("The game is a draw: …"); answering it makes the engine's game a draw.

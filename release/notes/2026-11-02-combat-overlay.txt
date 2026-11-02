@@ -1,0 +1,1 @@
+mod: The combat area floats over the middle of the table without moving the battlefields, with bigger cards; fold it away with ▾ to see the cards under it.

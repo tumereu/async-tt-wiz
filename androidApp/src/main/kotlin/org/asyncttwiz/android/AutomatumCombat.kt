@@ -54,6 +54,8 @@ internal class CombatController(
     /** The message shown now, and showing another (an engine reason worked out after the refusal). */
     private val error: () -> String? = { null },
     private val fail: (String?) -> Unit = {},
+    /** The board shown now (also while the viewer can't act), which the viewer's selection belongs to. */
+    private val board: () -> PlayState? = current,
 ) {
     private var shownBoard: BoardState? = null
     /** What the table shows of combat on the board last worked out ([show]). */
@@ -67,16 +69,20 @@ internal class CombatController(
 
     // ---- The viewer's own state of the combat area (I-D32): nothing of it is shared
 
-    /** CMB-032, CMB-034: the combatant the viewer selected, by its real card's id; null when none. */
-    var selected by mutableStateOf<String?>(null); private set
+    /** CMB-032, CMB-034: the combatant the viewer selected, by its real card's id; null when none. It belongs to the
+     * combat step it was made in (combat review #7): once that declaration or step is over, by whoever's action, it is
+     * gone. */
+    val selected: String? get() = selection?.takeIf { it.second == step(board()) }?.first
+    private var selection by mutableStateOf<Pair<String, String>?>(null)
+    private fun step(play: PlayState?): String = play?.board?.let { b -> "${b.turn.number}/${b.turn.phase}/${b.turn.step}/${b.combat?.id}" }.orEmpty()
     /** CMB-028: the attack target the viewer's taps stage to, with the turn it was chosen in (null target: the defending
      * player). */
     private var lane by mutableStateOf<Pair<String, String?>?>(null)
     /** CMB-029: the eye hid the preview's numbers. */
     var numbersHidden by mutableStateOf(false); private set
 
-    fun select(card: String?) { selected = card }
-    fun clearSelection() { selected = null }
+    fun select(card: String?) { selection = card?.let { it to step(board()) } }
+    fun clearSelection() { selection = null }
     fun toggleNumbers() { numbersHidden = !numbersHidden }
 
     /** CMB-028: the active target lane on [play]'s board: chosen this turn and still a target, else the defending player. */
@@ -92,7 +98,7 @@ internal class CombatController(
     private var stepDivisions: Pair<Pair<String, Boolean>, List<String>>? = null
 
     private fun noteDivisions(play: PlayState, value: CombatShown) {
-        val asked = value.preview?.divisions.orEmpty().map { it.first }.filterNot(Divisions::orderFree)
+        val asked = value.preview?.divisions.orEmpty().map { it.first }.filter { askedInDialog(play, it) }
         for (step in listOf(true, false)) {
             val sources = asked.filter { it.firstStrike == step }.map { it.source }.distinct()
             if (sources.isEmpty()) continue
@@ -108,7 +114,7 @@ internal class CombatController(
     fun divisionCount(play: PlayState, division: DamageDivision): Pair<Int, Int>? {
         val known = stepDivisions?.takeIf { it.first == (play.board.turn.number to division.firstStrike) }?.second.orEmpty()
         val index = known.indexOf(division.source)
-        val coming = view.early.filterNot(Divisions::orderFree).map { it.source }.distinct()
+        val coming = view.early.filter { askedInDialog(play, it) }.map { it.source }.distinct()
         val (n, m) = if (index >= 0) index + 1 to maxOf(known.size, index + 1 + coming.size) else 1 to 1 + coming.size
         return (n to m).takeIf { m > 1 }
     }
@@ -174,8 +180,8 @@ internal class CombatController(
         if (shown.choices.unsupported.isNotEmpty()) return null
         val choices = shown.choices
         val pair = pairId?.let { id -> play.board.combat?.pairs?.singleOrNull { it.id == id } }
-        choices.declaring ?: return if (CombatFlow.throughEngine(play.board)) DECLARED else NOT_DECLARING
-        fun name(id: String) = CastController.cardName(play, id)
+        choices.declaring ?: return if (AutomatumBoards.throughEngine(play.board)) DECLARED else NOT_DECLARING
+        fun name(id: String) = combatName(play, id)
         if (choices.attackers) {
             if (role != CombatRole.ATTACKER) return "Blockers are declared in the Declare blockers step."
             val target = pair?.attackTarget ?: attackTarget
@@ -257,7 +263,7 @@ internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext,
     val shown = context.automatumCombat ?: return emptyList()
     if (shown.choices.unsupported.isNotEmpty()) return null
     // A combat declared by hand (not through Automatum) keeps its manual quick actions (Close + next, CMB-022)
-    if (position == TurnPosition.COMBAT_DAMAGE && !CombatFlow.throughEngine(play.board) && shown.passing == null) return null
+    if (position == TurnPosition.COMBAT_DAMAGE && !AutomatumBoards.throughEngine(play.board) && shown.passing == null) return null
     val viewer = context.viewer
     val area = context.combatAreaId
     fun action(name: String, tool: CombatTool, ids: List<String> = emptyList()) =
@@ -294,6 +300,11 @@ internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext,
     }
 }
 
+
+/** A card in combat as everyone may see it named in combat's messages (I-D27, combat review #6): a face-down card stays
+ * hidden. */
+internal fun combatName(play: PlayState, cardId: String): String =
+    if (play.board.cards.singleOrNull { it.id == cardId }?.isFaceDown == true) "A face-down creature" else CastController.cardName(play, cardId)
 
 /** A card or player as the viewer may see it named (I-D27: a face-down card stays hidden). */
 internal fun refName(play: PlayState, names: Map<String, String>, ref: MtgRef): String = when (ref) {

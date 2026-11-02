@@ -193,8 +193,9 @@ object Automatum {
      * a manual entry or a Temp pile holds cards (I-D15, [Automatum.turnOnRefusal]), and gives the Battlefield's and
      * Exile's cards that have no timestamp yet (games begun before rules v36) stamps in a stated order
      * ([MtgFacts.stampUnstamped]). Turning it on also drops the turn-scoped engine data recorded before it
-     * ([Automatum.turnScoped]: the combat record, waiting triggers, early answers, passes in a row, I-D42), since play by
-     * hand may have ended that combat, step or turn; undoing the switch brings them back. Turning it off always applies
+     * ([Automatum.turnScoped]: the combat record, waiting triggers, early answers, I-D42), since play by hand may have
+     * ended that combat, step or turn; priority (its holder and passes in a row) stays. Undoing the switch brings them
+     * back. Turning it off always applies
      * and closes an open flow's continuation; effect records stay (I-D24). */
     @Serializable @SerialName("setAutomatum") data class SetAutomatum(val on: Boolean) : MtgAction
     /** "Clear Automatum data" (I-D24): removes every engine record (effects, delayed triggers, the open continuation, …),
@@ -293,10 +294,10 @@ object MtgRules {
                 board.automatum == action.on && (action.on || !Automatum.flowOpen(board)) -> return unchanged
                 action.on -> {
                     Automatum.turnOnRefusal(board)?.let { return reject(it) }
-                    // I-D42: turn-scoped engine data from before the switch is dropped (best effort)
+                    // I-D42: turn-scoped engine data from before the switch is dropped (best effort); priority stays as it is
+                    // (combat review #11: passes in a row restart by themselves once the step changed, TurnExtras.passesAt)
                     MtgFacts.stampUnstamped(board)?.copy(automatum = true,
-                        engineRecords = board.engineRecords.filterNot(Automatum::turnScoped),
-                        priority = board.priority?.copy(passes = 0)) ?: return reject("invalidStructure")
+                        engineRecords = board.engineRecords.filterNot(Automatum::turnScoped)) ?: return reject("invalidStructure")
                 }
                 // I-D24: switching off closes the open flow; every other record stays.
                 else -> board.copy(automatum = false, engineRecords = board.engineRecords.filterNot { it.id == Automatum.CONTINUATION_ID })

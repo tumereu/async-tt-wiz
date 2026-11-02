@@ -482,7 +482,7 @@ object Divisions {
     /**
      * "In order": each creature of [order] gets lethal damage in turn ([DamageDivision.lethal]) while damage is left; what
      * is left once each has lethal damage goes to the attacked player or planeswalker with trample (CR 702.19b), else to
-     * the first creature (as the engine's suggestion has it).
+     * the last creature (as the engine's suggestion has it; combat review #10).
      */
     fun inOrder(d: DamageDivision, order: List<MtgRef>): Map<MtgRef, Int> {
         var left = d.amount
@@ -490,7 +490,7 @@ object Divisions {
         for (r in order) { val n = minOf(left, d.lethal[r] ?: 0); shares[r] = n; left -= n }
         val trample = d.trampleTo
         if (trample != null) shares[trample] = left
-        else if (order.isNotEmpty()) shares[order.first()] = shares.getValue(order.first()) + left
+        else if (order.isNotEmpty()) shares[order.last()] = shares.getValue(order.last()) + left
         return d.among.associateWith { shares[it] ?: 0 }
     }
 

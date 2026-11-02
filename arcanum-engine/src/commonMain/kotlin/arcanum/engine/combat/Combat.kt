@@ -257,7 +257,7 @@ internal object Combat {
     /** Damage among several creatures, or among a blocker and the attacked player or planeswalker with trample: divided
      * as its controller chooses (CR 510.1c–d, 702.19b), even when there is enough for lethal damage to each; fixed only
      * when one division is legal (one blocker and no more than lethal damage for it). The suggestion gives lethal damage
-     * to each in turn, then the rest to the defender with trample, else to the first; short of that, the rest to the
+     * to each in turn, then the rest to the defender with trample, else to the last; short of that, the rest to the
      * next. */
     private fun divide(snap: Snapshot, source: ObjectId, n: Int, creatures: List<ObjectId>, trampleTo: TargetRef?, assigned: List<Assignment>): Plan {
         val lethal = creatures.map { Share(TargetRef.Object(it), lethal(snap, source, it, assigned)) }
@@ -268,7 +268,7 @@ internal object Combat {
         val suggested = lethal.map { l -> Share(l.target, minOf(left, l.amount).also { left -= it }) }.toMutableList()
         if (left > 0) {
             if (trampleTo != null) suggested += Share(trampleTo, left)
-            else suggested[0] = suggested[0].copy(amount = suggested[0].amount + left)
+            else suggested[suggested.lastIndex] = suggested.last().copy(amount = suggested.last().amount + left)
         }
         return Plan.Choice(n, lethal.map { it.target } + listOfNotNull(trampleTo), lethal, trampleTo, suggested)
     }

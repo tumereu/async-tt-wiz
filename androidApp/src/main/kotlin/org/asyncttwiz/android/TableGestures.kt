@@ -448,6 +448,8 @@ class TableGestureCoordinator(
             return TableDestination.Container(it.id, PlayZone.STACK)
         }
         if (scene.worldInput(p)) scene.combatDestination(p, scope)?.let { return TableDestination.Combat(it) }
+        // CMB-007: the rest of the combat panel (its headers, its margins) takes no drop; the battlefield under it is hidden
+        if (scene.worldInput(p) && scene.combatPanel?.contains(p) == true) return null
         val hit = scene.items.asReversed().firstOrNull { i -> i.cardId !in (scope?.cardIds ?: emptyList()) && i.visible.any { it.contains(p) } }
         if (hit != null) {
             // A face inside a Hand is still a drop onto that Hand, not an ordinary battlefield pile.

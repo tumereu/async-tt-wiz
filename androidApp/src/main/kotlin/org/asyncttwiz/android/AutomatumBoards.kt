@@ -136,6 +136,18 @@ internal object AutomatumBoards {
     }
     @Volatile private var lastByHand: Pair<Any, Boolean>? = null
 
+    /** [CombatFlow.throughEngine] and [CombatFlow.hadFirstStrikeStep] of [board], kept for the last board (combat review
+     * #12: the table asks on every frame; each reads the combat record's JSON). */
+    fun combatRecord(board: org.asyncttwiz.protocol.BoardState): Pair<Boolean, Boolean> {
+        lastCombatRecord?.takeIf { it.first === board }?.let { return it.second }
+        val read = org.asyncttwiz.automatum.CombatFlow.throughEngine(board) to org.asyncttwiz.automatum.CombatFlow.hadFirstStrikeStep(board)
+        lastCombatRecord = board to read
+        return read
+    }
+    @Volatile private var lastCombatRecord: Pair<Any, Pair<Boolean, Boolean>>? = null
+    fun throughEngine(board: org.asyncttwiz.protocol.BoardState): Boolean = combatRecord(board).first
+    fun hadFirstStrikeStep(board: org.asyncttwiz.protocol.BoardState): Boolean = combatRecord(board).second
+
     /** Whether manual controls work on [play]'s board: Automatum off, or its open choice is something to do by hand
      * (I-D28, I-D37). */
     fun manualAllowed(play: PlayState): Boolean = !play.board.automatum || byHand(play)
@@ -232,6 +244,7 @@ internal object AutomatumBoards {
         synchronized(flows) { flows.clear() }
         synchronized(combats) { combats.clear() }
         synchronized(decoders) { decoders.clear() }
+        lastCombatRecord = null
     }
 
     /** One worker for the shown boards' engine views, so a board shown only in passing (catch-up playback) is skipped

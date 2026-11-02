@@ -231,7 +231,8 @@ class TableStatesScreenshotTest {
             compose.onNodeWithContentDescription("Table actions").assertIsDisplayed().assertIsEnabled()
             val scene = TablePresentation.scene(f.game, current(), f.a, image.width.toFloat(), image.height.toFloat(), landscape)
             if (kind == "combat") assertRenderedLandsBands(image, scene, f.a, turnPlayer = current().board.turn.accountId)
-            assertTrue(scene.combatLabels.all { it.fontSize in 6.5f..7.5f }) // the card title size
+            // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
+            assertTrue(scene.combatLabels.all { it.fontSize in 10.5f..11.5f })
             val cards = scene.items.filter { it.projection && it.viewport == "combat" }
             assertTrue(cards.isNotEmpty())
             assertTrue(scene.combatLabels.all { label -> cards.all { label.bounds.bottom < it.bounds.y } })

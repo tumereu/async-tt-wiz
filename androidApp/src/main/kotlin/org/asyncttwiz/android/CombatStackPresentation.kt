@@ -145,19 +145,28 @@ object CombatStackPresentation {
             val cardSpan = members.sumOf { slotWidth(it.blockers.size, it.attackers.size, cardWidth).toDouble() }.toFloat()
                 .coerceAtLeast(cardWidth + 2 * padding)
             val targetCard = board.cards.find { it.id == target }
-            val hidden = targetCard != null && (targetCard.isFaceDown || !CardVisibility.isVisibleFaceUp(board, targetCard, viewer))
+            // Combat review #3 (CR 506.4c): with Automatum on attackers keep a target that left the battlefield; they
+            // attack nothing
+            val gone = board.automatum && target != null && board.containers.none { it.zone == PlayZone.BATTLEFIELD && it.id == targetCard?.containerId }
+            val hidden = !gone && targetCard != null && (targetCard.isFaceDown || !CardVisibility.isVisibleFaceUp(board, targetCard, viewer))
             val defender = CombatStackRules.defendingPlayer(board)
             val avatar = if (target == null) avatars[defender]?.takeIf { it.face in 0..15 } else null
             val name = names[defender] ?: "Player"
+            val face = definitions.find { it.digest == targetCard?.definition }?.definition?.faces?.find { it.faceId == targetCard?.faceId }
             val label = when {
                 target == null -> if (avatar != null) name else "→ $name"
                 hidden -> "→ Face-down card"
-                else -> definitions.find { it.digest == targetCard?.definition }?.definition?.faces
-                    ?.find { it.faceId == targetCard?.faceId }?.name ?: "Card"
+                gone -> "→ ${face?.name ?: "Card"} (gone)"
+                else -> face?.name ?: "Card"
             }
             val value = when {
                 target == null -> board.players.firstOrNull { it.accountId == defender }?.life.orEmpty()
-                hidden -> ""
+                hidden || gone -> ""
+                // Combat review #5: with Automatum on loyalty and defense are the typed counters Automatum changes
+                board.automatum && targetCard != null -> {
+                    val kind = if (AttackTargets.hasType(face?.typeLine.orEmpty(), "Planeswalker")) "loyalty" else "defense"
+                    (targetCard.typedCounters.firstOrNull { it.kind == kind }?.count ?: 0).toString()
+                }
                 else -> targetCard?.corner.orEmpty()
             }
             val side = if (target == null) defender else board.containers.firstOrNull { it.id == targetCard?.containerId }?.accountId

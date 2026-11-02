@@ -108,18 +108,18 @@ class TableWorldTest {
         }
     }
 
-    @Test fun combatBandAnimationMovesFieldsWithoutChangingTheirRowsOrHud() {
+    // CMB-007 (combat review #1): the combat area floats over the battlefields; opening it moves no field, row or HUD
+    @Test fun openingCombatMovesNoFieldsRowsOrHud() {
         val initial = TableFixture.play(board = 1)
         val play = initial.copy(board = initial.board.copy(combat = CombatArea("combat")))
-        fun scene(height: Float) = TablePresentation.scene(TableFixture.game, play, "a", 412f, 892f, false, combatBandHeight = height)
-        val closed = scene(12f)
-        for (height in listOf(30f, 60f, 88.48f)) {
-            val frame = scene(height)
-            assertEquals((height - 12) / 2, closed.fields.first().gridBounds.y - frame.fields.first().gridBounds.y, .001f)
-            assertEquals((height - 12) / 2, frame.fields.last().gridBounds.y - closed.fields.last().gridBounds.y, .001f)
-            assertEquals(closed.fields.first().rowHeight, frame.fields.first().rowHeight)
-            assertEquals(closed.stackRegion, frame.stackRegion)
-            for (item in closed.items.filter { it.zone != PlayZone.BATTLEFIELD }) assertEquals(item.bounds, frame.items.single { it.id == item.id }.bounds)
+        for (landscape in listOf(false, true)) {
+            val (w, h) = if (landscape) 892f to 412f else 412f to 892f
+            val closed = TablePresentation.scene(TableFixture.game, initial, "a", w, h, landscape)
+            val open = TablePresentation.scene(TableFixture.game, play, "a", w, h, landscape)
+            assertEquals(closed.fields, open.fields)
+            assertEquals(closed.stackRegion, open.stackRegion)
+            assertNotNull(open.combatPanel)
+            for (item in closed.items) assertEquals(item.bounds, open.items.single { it.id == item.id }.bounds)
         }
     }
 

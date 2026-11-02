@@ -631,7 +631,7 @@ class CombatTest {
     }
 
     // CR 510.1c: enough damage for lethal to every blocker is still divided as its controller chooses; the suggestion
-    // gives each lethal damage and the rest to the first
+    // gives each lethal damage and the rest to the last (owner's decision, 2026-11-02: as the table's "In order")
     @Test
     fun enoughForAllIsStillAChoice() = scenario {
         cards()
@@ -643,7 +643,7 @@ class CombatTest {
         bob.blocks("Plodding Bear" to "Old Mammoth", "Elvish Seer" to "Old Mammoth")
         toDamage()
         val d = assertIs<Decision.Divide>(pending)
-        assertEquals(listOf(Share(target("Plodding Bear"), 4), Share(target("Elvish Seer"), 1)), d.suggested)
+        assertEquals(listOf(Share(target("Plodding Bear"), 2), Share(target("Elvish Seer"), 3)), d.suggested)
         divideAsSuggested()
         expect {
             bob.graveyard has "Plodding Bear"

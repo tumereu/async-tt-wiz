@@ -57,6 +57,9 @@ internal interface Board {
 
     /** The zone of an object that doesn't exist yet but is being tested as it would be (CR 614.12): an entering token. */
     fun proposedZone(id: ObjectId): Zone? = null
+
+    /** Told before a power or toughness is read: the layer system tracks which effects read them (CR 613.8a). */
+    fun readingPowerToughness() {}
 }
 
 /**
@@ -272,8 +275,14 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
                 (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
             } ?: false
-            is ObjectFilter.Power -> c?.power?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
-            is ObjectFilter.Toughness -> c?.toughness?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+            is ObjectFilter.Power -> {
+                board.readingPowerToughness()
+                c?.power?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+            }
+            is ObjectFilter.Toughness -> {
+                board.readingPowerToughness()
+                c?.toughness?.let { compare(it, filter.comparison, value(filter.value)) } ?: false
+            }
             is ObjectFilter.ManaValue -> c != null && compare(manaValue(id, c), filter.comparison, value(filter.value))
             is ObjectFilter.Targets -> {
                 val item = state.stackItems[id]
@@ -466,8 +475,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         val c = characteristics(id)
         val o = state.obj(id)
         return when (property) {
-            NumericProperty.Power -> c?.power ?: 0
-            NumericProperty.Toughness -> c?.toughness ?: 0
+            NumericProperty.Power, NumericProperty.Toughness -> {
+                board.readingPowerToughness()
+                (if (property == NumericProperty.Power) c?.power else c?.toughness) ?: 0
+            }
             NumericProperty.ManaValue -> c?.let { manaValue(id, it) } ?: 0
             NumericProperty.Loyalty -> c?.loyalty ?: 0
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->

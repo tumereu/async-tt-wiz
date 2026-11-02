@@ -123,6 +123,13 @@ internal class WorkBoard(override val state: GameState, val work: MutableMap<Obj
         return if (o.zone == Zone.Battlefield || o.zone == Zone.Stack) work[id]?.controller ?: o.controller ?: o.owner else o.owner
     }
 
+    /** Set when the evaluator reads a power or toughness (the dependency check of [LayerRun], CR 613.8a). */
+    var powerToughnessRead = false
+
+    override fun readingPowerToughness() {
+        powerToughnessRead = true
+    }
+
     fun copy(): WorkBoard = WorkBoard(state, LinkedHashMap(work))
 }
 
@@ -204,31 +211,73 @@ internal class LayerRun(private val state: GameState) {
 
     private fun runLayer(board: WorkBoard, layer: Layer) {
         val applied = mutableSetOf<String>()
+        val resolved = Resolutions(board, layer)
+        var gathered: List<ContinuousEffect>? = null
+        var gatherReadsPowerToughness = false
         while (true) {
-            val candidates = gather(board, layer).filter { it.key !in applied }
+            val all = gathered ?: run {
+                board.powerToughnessRead = false
+                gather(board, layer).also { gathered = it; gatherReadsPowerToughness = board.powerToughnessRead }
+            }
+            val candidates = all.filter { it.key !in applied }
             if (candidates.isEmpty()) return
             // CR 613.3, 613.4a: characteristic-defining abilities first
             val pool = candidates.filter { it.cda }.ifEmpty { candidates }
-            val next = pickNext(board, layer, pool)
-            val resolved = resolve(board, next, layer)
-            if (next.key !in started && resolved.exists) started[next.key] = Started(next, resolved.affected)
-            apply(board, resolved)
+            val next = pickNext(board, layer, pool, resolved)
+            val result = resolved[next]
+            if (next.key !in started && result.exists) started[next.key] = Started(next, result.affected)
+            val changed = changesBoard(board, result)
+            apply(board, result)
             applied += next.key
+            // What was worked out on the board before stays true unless it read what this effect changed
+            if (changed) {
+                val powerToughnessOnly = result.isPowerToughnessOnly()
+                if (!powerToughnessOnly || gatherReadsPowerToughness) gathered = null
+                resolved.changed(powerToughnessOnly)
+            }
+        }
+    }
+
+    /** What each effect does on the board as it is now ([resolve]), kept until the board changes in what it read. */
+    private inner class Resolutions(private val board: WorkBoard, private val layer: Layer) {
+        private val known = HashMap<String, Resolved>()
+        private val readsPowerToughness = HashSet<String>()
+
+        operator fun get(e: ContinuousEffect): Resolved = known[e.key] ?: run {
+            board.powerToughnessRead = false
+            resolve(board, e, layer).also {
+                known[e.key] = it
+                if (board.powerToughnessRead) readsPowerToughness += e.key
+                board.powerToughnessRead = false
+            }
+        }
+
+        fun readsPowerToughness(e: ContinuousEffect): Boolean = e.key in readsPowerToughness
+
+        /** The board changed: only power and toughness, or more. */
+        fun changed(powerToughnessOnly: Boolean) {
+            if (powerToughnessOnly) known.keys.removeAll(readsPowerToughness) else known.clear()
+            readsPowerToughness.retainAll(known.keys)
         }
     }
 
     /** CR 613.8: the next effect to apply: one that depends on no other effect still waiting (except through a
-     * dependency loop, CR 613.8b), the earliest timestamp first (CR 613.7). */
-    private fun pickNext(board: WorkBoard, layer: Layer, pool: List<ContinuousEffect>): ContinuousEffect {
+     * dependency loop, CR 613.8b), the earliest timestamp first (CR 613.7).
+     *
+     * Whether b depends on a is tried out: b resolved after a was applied, against b alone. A pair is tried only when
+     * applying a changes the board, and not when a changes only power and toughness and b's existence, affected set
+     * and values read none (most of layer 7). */
+    private fun pickNext(board: WorkBoard, layer: Layer, pool: List<ContinuousEffect>, resolved: Resolutions): ContinuousEffect {
         val byTimestamp = pool.sortedWith(compareBy({ it.timestamp }, { it.key }))
         if (pool.size == 1) return pool.single()
+        val changes = pool.filter { a -> changesBoard(board, resolved[a]) }
         val dependsOn = pool.associate { b ->
-            val alone = resolve(board, b, layer)
-            b.key to pool.filter { a ->
-                a !== b && run {
+            val bAlone = resolved[b]
+            b.key to changes.filter { a ->
+                a !== b && (!resolved[a].isPowerToughnessOnly() || resolved.readsPowerToughness(b)) && run {
                     val after = board.copy()
-                    apply(after, resolve(board, a, layer))
-                    resolve(after, b, layer) != alone
+                    apply(after, resolved[a])
+                    resolve(after, b, layer) != bAlone
                 }
             }.map { it.key }.toSet()
         }
@@ -245,6 +294,15 @@ internal class LayerRun(private val state: GameState) {
         val ready = byTimestamp.filter { b -> dependsOn[b.key].orEmpty().all { a -> reaches(a, b.key) } }
         return ready.firstOrNull() ?: byTimestamp.first()
     }
+
+    /** Whether applying [resolved] would change any object's characteristics or controller on [board]. */
+    private fun changesBoard(board: WorkBoard, resolved: Resolved): Boolean = resolved.ops.any { (id, ops) ->
+        val partial = board.work[id] ?: return@any false
+        ops.isNotEmpty() && ops.fold(partial) { p, op -> applyOp(p, op) } != partial
+    }
+
+    private fun Resolved.isPowerToughnessOnly(): Boolean =
+        ops.values.all { ops -> ops.all { it is Op.SetPT || it is Op.ModifyPT || it is Op.Switch } }
 
     /** Every continuous effect with a mechanic in [layer], as the board is now; effects that already started keep
      * applying (CR 613.6). */

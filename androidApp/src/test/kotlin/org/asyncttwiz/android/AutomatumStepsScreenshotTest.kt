@@ -115,9 +115,8 @@ class AutomatumStepsScreenshotTest {
         return accepted(play, batch, request, viewer)
     }
 
-    private fun render(play: PlayState, viewer: String) {
+    private fun render(play: PlayState, viewer: String, toolkit: TableToolkitController = toolkit(play, viewer)) {
         AutomatumBoards.compute(play, viewer)
-        val toolkit = toolkit(play, viewer)
         compose.setContent {
             MaterialTheme {
                 NoRipples {
@@ -246,5 +245,64 @@ class AutomatumStepsScreenshotTest {
         val waiting = toolkit(stacked, f.a)
         assertFalse(waiting.table.perform(TableActionIntent.Next(scope)))
         assertEquals(SharedFlowController.STACK_WAITING, waiting.error)
+    }
+
+    // TRN-061, TRN-004, I-D40: Bob presses Next step while Alice holds priority in her main phase: he is asked first and
+    // nothing is sent until he confirms; Cancel sends nothing; confirmed, it is Alice's pass as if she had pressed it
+    @Test fun steppingForTheOtherPlayerAsksFirst() {
+        val play = board()
+        val scope = TableActionScope(play.gameId, play.id)
+        sent.clear()
+        val bob = toolkit(play, f.b)
+        assertFalse(bob.table.perform(TableActionIntent.Next(scope)))
+        assertTrue(sent.isEmpty())
+        val asked = assertNotNull(bob.flows.acting)
+        assertEquals(f.a, asked.player)
+        assertEquals(ActingFor.Kind.Pass(priority = true), asked.kind)
+        bob.flows.cancelActing()
+        assertNull(bob.flows.acting)
+        assertTrue(sent.isEmpty())
+        assertFalse(bob.table.perform(TableActionIntent.Next(scope)))
+        render(play, f.b, bob)
+        compose.onNodeWithText("Pass for Alice?").assertIsDisplayed()
+        compose.onNodeWithText("Alice has priority and may still want to act. Passing for them lets the game go on.").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/automatum/step-for-other-asks.png",
+            "With Automatum on, Bob pressed Next step in Alice's main phase while she holds priority: before anything is sent he is asked \"Pass for Alice?\", with Pass for them and Cancel.")
+        compose.onNode(hasText("Pass for them") and hasAnyAncestor(isDialog())).performClick()
+        compose.waitForIdle()
+        assertNull(bob.flows.acting)
+        val (batch, request) = sent.single()
+        val after = accepted(play, batch, request, f.b)
+        assertEquals(TurnPosition.PRECOMBAT_MAIN, position(after))
+        assertEquals(MtgPriority(f.b, 1), after.board.priority, "Alice passed; Bob, who could cast Storm Spark, holds priority")
+    }
+
+    // TRN-061, I-D40: End turn and a later step for the other player say what they do for them, as do declarations; a
+    // confirmation given after the table changed sends nothing
+    @Test fun actingForTheOtherPlayerSaysWhatItDoes() {
+        val play = board()
+        var live = play
+        sent.clear()
+        val bob = TableToolkitController(f.b, { live }, { true }, { _, _ -> true },
+            automatedBatch = { batch, request -> sent += batch to request; true }, playTree = { tree })
+        assertFalse(bob.table.perform(TableActionIntent.End(TableActionScope(play.gameId, play.id))))
+        val asked = assertNotNull(bob.flows.acting)
+        assertEquals(org.asyncttwiz.automatum.StepFlow.Until.EndOfTurn, asked.until)
+        assertEquals(ActingForText("End the turn for Alice?",
+            "Alice has priority and may still want to act. Automatum passes for them until the turn ends, attacking with nothing.",
+            "End turn for them"), actingForText(asked, "Alice"))
+        assertEquals("Alice has priority and may still want to act. Automatum passes for them on to Postcombat main, attacking with nothing.",
+            actingForText(ActingFor(play.board, f.a, org.asyncttwiz.automatum.StepFlow.Until.Step(TurnPosition.POSTCOMBAT_MAIN),
+                ActingFor.Kind.Pass(priority = true)), "Alice").text)
+        assertEquals(ActingForText("Declare attackers for Alice?",
+            "Alice declares attackers now. This declares for them what the combat lanes hold: 2 attackers.", "Declare for them"),
+            actingForText(ActingFor(play.board, f.a, org.asyncttwiz.automatum.StepFlow.Until.Pass, ActingFor.Kind.DeclareAttackers(2)), "Alice"))
+        assertEquals("Bob declares blockers now. This declares for them what the combat lanes hold: no blocks.",
+            actingForText(ActingFor(play.board, f.b, org.asyncttwiz.automatum.StepFlow.Until.Pass, ActingFor.Kind.DeclareBlockers(0)), "Bob").text)
+        // Alice passed meanwhile: Bob's confirmation sends nothing
+        live = play.copy(board = play.board.copy(priority = MtgPriority(f.b, 1)))
+        assertFalse(bob.flows.confirmActing())
+        assertEquals("The table changed: try again.", bob.error)
+        assertTrue(sent.isEmpty())
     }
 }

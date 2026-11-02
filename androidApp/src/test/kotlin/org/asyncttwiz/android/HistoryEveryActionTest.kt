@@ -106,7 +106,11 @@ class HistoryEveryActionTest {
             PlayAction.Mtg(MtgAction.Restamp(id(32), MtgStamp(0, 0), MtgStamp(1, 2))),
             PlayAction.Mtg(MtgAction.SetLedger(MtgRef.Card(id(32), 0), "", "{}")),
             PlayAction.Mtg(MtgAction.SetStackItem(id(62), null, MtgStackItem(MtgRef.StackItem("s"), MtgStackKind.Triggered, a, timestamp = 1))),
-            PlayAction.Mtg(MtgAction.SetRecord("e", null, EngineRecord("e", EngineRecordKind.Effect, 1, "{}"))))
+            PlayAction.Mtg(MtgAction.SetRecord("e", null, EngineRecord("e", EngineRecordKind.Effect, 1, "{}"))),
+            PlayAction.Mtg(MtgAction.ClearRecords), PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false)),
+            PlayAction.BeginTurn(a),
+            PlayAction.Stack(StackAction.AddAbility(CardDefinition("Spark", listOf(DefinitionFace(id(70), "Spark", rulesText = "Draw a card.")),
+                token = true).let { SubmittedDefinition(DeckJson.digest(it), it) }, a, "digest")))
     }
 
     /** Exhaustive with no else branch: a new action type stops this test compiling until it has a sample above.
@@ -125,6 +129,7 @@ class HistoryEveryActionTest {
         PlayAction.NextStep -> "nextStep"
         PlayAction.PassAttention -> "passAttention"
         PlayAction.EndTurn -> "endTurn"
+        is PlayAction.BeginTurn -> "beginTurn"
         is PlayAction.ChooseStep -> "chooseStep"
         is PlayAction.RollDie -> "rollDie"
         is PlayAction.FlipCoin -> "flipCoin"
@@ -179,6 +184,7 @@ class HistoryEveryActionTest {
             is StackAction.ToggleTextMark -> "toggleTextMark"
             is StackAction.AddEffect -> "addEffect"
             is StackAction.CopyEffect -> "copyEffect"
+            is StackAction.AddAbility -> "addAbility"
             is StackAction.SetController -> "setController"
             is StackAction.RemoveEffect -> "removeEffect"
             is StackAction.ReorderEffect -> "reorderEffect"
@@ -193,6 +199,8 @@ class HistoryEveryActionTest {
             is MtgAction.SetLedger -> "setLedger"
             is MtgAction.SetStackItem -> "setStackItem"
             is MtgAction.SetRecord -> "setRecord"
+            MtgAction.ClearRecords -> "clearRecords"
+            is MtgAction.SetSkipWhenNoChoice -> "setSkipWhenNoChoice"
         }
     }
 
@@ -200,7 +208,7 @@ class HistoryEveryActionTest {
 
     /** A transition shaped like the recorded one where the grouping reads it, at the current rules version. */
     private fun transition(action: PlayAction, rulesVersion: Int) = GameplayTransition(rulesVersion = rulesVersion, fields = when (action) {
-        PlayAction.NextStep, PlayAction.EndTurn -> listOf(GameplayFieldChange(id(4), GameplayField.TURN_PLAYER, a, b))
+        PlayAction.NextStep, PlayAction.EndTurn, is PlayAction.BeginTurn -> listOf(GameplayFieldChange(id(4), GameplayField.TURN_PLAYER, a, b))
         is PlayAction.ChooseStep -> listOf(GameplayFieldChange(id(4), GameplayField.STEP, null, TurnPosition.DECLARE_BLOCKERS.step))
         is PlayAction.SetTapped -> listOf(GameplayFieldChange(action.cardId, GameplayField.TAPPED, "${!action.tapped}", "${action.tapped}"))
         else -> emptyList()

@@ -188,9 +188,19 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   before and after the event (`MtgFacts.clock`: cards, counters, Stack items, records), in card order within an
   event. No event writes the clock, so undoing an earlier event never clashes with a later one's stamps; replay keeps
   recorded stamps. After an undo the clock may fall below a stamp once given, but only stamps of objects on the
-  board are compared and later stamps are always higher, so stamp order is event order (D34's intent).
+  board are compared and later stamps are always higher, so stamp order is event order (D34's intent). A redo
+  (I-D26, `MtgFacts.freshStamps`) shifts the stamps its event gave above the board's current clock when another
+  stamp reached them meanwhile; stamps are capped at 2^53 − 1 (an event needing more is refused).
 - **Undo rule:** each value is its own delta entity or path (`automatum`, `priority`, one `record` per id, card and
   player fields), so a later event blocks undo only through the records and fields it touched.
+- **I0 review decisions (built):** `PlayAction.BeginTurn(player)` (I-D12); `StackAction.AddAbility(card data,
+  controller)`, an entry whose shown card is already gone (I-D13); automated batches (tagged members) up to
+  `PlayBatches.MAX_AUTOMATED` = 1000 members, game messages up to 8 MiB (I-D14); `SetAutomatum(true)` refused over
+  manual Stack entries or filled Temp piles and stamping unstamped Battlefield/Exile cards, `SetAutomatum(false)`
+  closing the continuation (I-D15, I-D24, #11); `PlayPlayer.skipWhenNoChoice` with `MtgAction.SetSkipWhenNoChoice`
+  for the actor (I-D18); `GameAction.RevertFlow` (`FlowRevert`, I-D19); `MtgAction.ClearRecords` (I-D24); forks
+  refused while a continuation is open (I-D23); `MtgTag.board`, the planned board's digest on a batch's first member
+  (#4).
 
 ### 4.6 The mapping (built in I0, module `automatum/`)
 

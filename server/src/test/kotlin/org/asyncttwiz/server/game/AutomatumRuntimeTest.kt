@@ -69,4 +69,40 @@ class AutomatumRuntimeTest {
             }
         }
     }
+
+    // SYS-060, SYS-061, SYS-057
+    @Test fun `an open flow is reverted on the server whoever made its steps, and big automated batches are taken whole`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime)
+                val owner = f.a.account.accountId
+                val other = f.b.account.accountId
+                fun state() = f.games.head(f.a, f.game.id).play!!
+                fun batch(actions: List<PlayAction>, tags: List<MtgTag?>, stream: GameplayFixture.Stream = f.owner) =
+                    stream.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(actions, tags))
+                val start = state()
+                val open = EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation, data = """{"step":1}""")
+                // A flow opened by the owner's batch of 150 members (more than a player's own batch may hold) ...
+                val planned = MtgTag(listOf("life-changed"), board = MtgFacts.digest(start.board))
+                val opening = batch(List(149) { PlayAction.AdjustLife(other, if (it % 2 == 0) "-1" else "+1") } +
+                    PlayAction.Mtg(MtgAction.SetRecord(open.id, null, open)), listOf(planned))
+                assertEquals("accepted", f.owner.execute(opening).let { it.outcome + (it.reason ?: "") })
+                // ... and answered by the other player
+                assertEquals("accepted", f.recipient.execute(f.recipient.command(PlayAction.Mtg(MtgAction.SetRecord(open.id, open,
+                    open.copy(data = """{"step":2}"""))))).outcome)
+                // A batch planned on the board before the flow is refused whole
+                val stale = f.recipient.execute(batch(listOf(PlayAction.AdjustLife(owner, "-3")),
+                    listOf(planned.copy(meanings = listOf("damaged"))), f.recipient))
+                assertEquals("inapplicable", stale.reason)
+                // Switching off reverts it all, both players' steps, in one server process
+                val reverted = f.recipient.execute(f.recipient.command(PlayAction.NextStep).copy(action = GameAction.RevertFlow))
+                assertEquals("accepted", reverted.outcome, reverted.reason)
+                assertEquals(start.board, state().board)
+                assertEquals(start.currentNodeId, state().currentNodeId)
+                assertEquals("noFlow", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.RevertFlow)).reason)
+            }
+        }
+    }
 }

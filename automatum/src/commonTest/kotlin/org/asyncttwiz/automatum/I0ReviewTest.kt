@@ -138,7 +138,7 @@ class I0ReviewTest {
     }
 
     // ---- #12 Extra turns: Time Stride ("Take an extra turn after this one", CR 500.7)
-    @Ignore("i0review #12: extra turns are unmappable (I-D12 decided, not built)")
+    // TRN-052 (I-D12)
     @Test fun timeStrideTakesAnExtraTurn() {
         table.put(alice, PlayZone.BATTLEFIELD, "Island", "Island")
         table.put(alice, PlayZone.HAND, "Time Stride")
@@ -482,7 +482,7 @@ class I0ReviewTest {
 
     // §4.5: "a batch built on another state fails whole (SYS-010)": here a manual life edit lands between the engine's read
     // and the batch; nothing in the batch names the life it read (ordinary actions apply to the current state, SYS-011)
-    @Ignore("i0review #4: a batch planned on another board is applied whole")
+    // SYS-057
     @Test fun batchPlannedOnAnotherBoardIsRefusedWhole() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         table.put(alice, PlayZone.HAND, "Storm Spark")

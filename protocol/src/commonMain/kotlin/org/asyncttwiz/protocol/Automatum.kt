@@ -400,8 +400,8 @@ object MtgFacts {
         val order = listOf(PlayZone.BATTLEFIELD, PlayZone.EXILE).flatMap { zone ->
             board.containers.filter { it.zone == zone }.sortedBy { it.accountId }.flatMap { container ->
                 container.cards.mapNotNull(byId::get).filter { it.timestamp == 0L }
-                    .sortedBy { if (zone == PlayZone.BATTLEFIELD) it.enteredTurn.toLongOrNull() ?: 0 else 0 }
-            }
+            }.withIndex().sortedWith(compareBy({ if (zone == PlayZone.BATTLEFIELD) it.value.enteredTurn.toLongOrNull() ?: 0 else 0 },
+                { it.index })).map { it.value }
         }
         if (order.isEmpty()) return board
         if (clock > Automatum.MAX_TIMESTAMP - order.size) return null

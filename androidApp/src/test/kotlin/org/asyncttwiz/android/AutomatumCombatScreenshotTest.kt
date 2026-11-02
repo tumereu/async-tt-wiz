@@ -302,7 +302,7 @@ class AutomatumCombatScreenshotTest {
         return Triple(bruteCard, bearCard, wardenCard)
     }
 
-    // CMB-030, CMB-029, CR 509.1a: the blocker of two sits in the pair of the first with "+1"; with her division panel
+    // CMB-031, CMB-029, CR 509.1a: the blocker of two sits in the pair of the first with "+1"; with her division panel
     // hidden (the eye) Alice sees it and the preview of her suggested division
     @Test fun blockerOfTwoShowsPlusOne() {
         val (_, _, wardenCard) = wardenBlocksBoth()

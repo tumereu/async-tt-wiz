@@ -318,10 +318,12 @@ object EngineState {
         fun obj(cardId: String) = ObjectId.Card(ids.engine(cardId), board.cards.single { it.id == cardId }.zoneChanges)
         val attackers = area.pairs.flatMap { pair ->
             val target = pair.attackTarget?.let { TargetRef.Object(obj(it)) } ?: TargetRef.Player(PlayerId(defender!!))
-            pair.attackers.map { Attacker(obj(it.sourceId), target, blocked = pair.blocked || pair.blockers.isNotEmpty()) }
+            pair.attackers.map { Attacker(obj(it.sourceId), target, blocked = pair.blocked || pair.blockers.isNotEmpty() ||
+                CombatStackRules.blockedFromElsewhere(area, pair.id)) }
         }
-        val blockers = area.pairs.flatMap { pair -> pair.blockers.map { b ->
-            Blocker(obj(b.sourceId), pair.attackers.map { obj(it.sourceId) }, defender?.let(::PlayerId)) } }
+        // CMB-031: a blocker blocks the attackers of its pair and of the pairs it also blocks
+        val blockers = CombatStackRules.blocks(area).groupBy({ it.first.sourceId }, { it.second.sourceId }).map { (b, attackers) ->
+            Blocker(obj(b), attackers.map(::obj), defender?.let(::PlayerId)) }
         return CombatState(attackers, blockers)
     }
 }

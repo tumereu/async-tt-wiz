@@ -57,9 +57,18 @@ import arcanum.engine.state.StackItemKind
  * the other would change whether it exists, what it applies to, or what it does to them.
  */
 internal object Layers {
+    /**
+     * For tests: every shortcut taken to save work (a view kept across changes, an effect's resolution or the effects
+     * of a layer kept across steps, a dependency not tried) is checked against working it out in full.
+     */
+    internal var checkShortcuts = false
+
     fun view(state: GameState): View {
         val cache = state.viewCache ?: return LayerRun(state).run()
-        cache.view?.let { return it }
+        cache.view?.let { kept ->
+            if (checkShortcuts) check(kept == LayerRun(state).run()) { "A kept view differs from the state's" }
+            return kept
+        }
         val run = LayerRun(state)
         return run.run().also { cache.set(it, readsLog = run.reads.log) }
     }
@@ -226,7 +235,7 @@ internal class LayerRun(private val state: GameState) {
         var gathered: List<ContinuousEffect>? = null
         var gatherReadsPowerToughness = false
         while (true) {
-            val all = gathered ?: run {
+            val all = gathered?.also { kept -> if (Layers.checkShortcuts) checkGathered(kept, board, layer) } ?: run {
                 board.powerToughnessRead = false
                 gather(board, layer).also { gathered = it; gatherReadsPowerToughness = board.powerToughnessRead }
             }
@@ -254,7 +263,13 @@ internal class LayerRun(private val state: GameState) {
         private val known = HashMap<String, Resolved>()
         private val readsPowerToughness = HashSet<String>()
 
-        operator fun get(e: ContinuousEffect): Resolved = known[e.key] ?: run {
+        operator fun get(e: ContinuousEffect): Resolved = known[e.key]?.also { kept ->
+            if (Layers.checkShortcuts) {
+                val read = board.powerToughnessRead
+                check(kept == resolve(board, e, layer)) { "A kept resolution of ${e.key} differs from the board's" }
+                board.powerToughnessRead = read
+            }
+        } ?: run {
             board.powerToughnessRead = false
             resolve(board, e, layer).also {
                 known[e.key] = it
@@ -293,6 +308,18 @@ internal class LayerRun(private val state: GameState) {
                 }
             }.map { it.key }.toSet()
         }
+        if (Layers.checkShortcuts) {
+            val tried = pool.associate { b ->
+                b.key to pool.filter { a ->
+                    a !== b && run {
+                        val after = board.copy()
+                        apply(after, resolve(board, a, layer))
+                        resolve(after, b, layer) != resolve(board, b, layer)
+                    }
+                }.map { it.key }.toSet()
+            }
+            check(tried == dependsOn) { "Dependencies without trying every pair $dependsOn differ from $tried" }
+        }
         fun reaches(from: String, to: String): Boolean {
             val seen = mutableSetOf(from)
             val queue = ArrayDeque(listOf(from))
@@ -305,6 +332,15 @@ internal class LayerRun(private val state: GameState) {
         }
         val ready = byTimestamp.filter { b -> dependsOn[b.key].orEmpty().all { a -> reaches(a, b.key) } }
         return ready.firstOrNull() ?: byTimestamp.first()
+    }
+
+    /** [Layers.checkShortcuts]: the effects gathered for [layer] earlier are those gathered now. */
+    private fun checkGathered(kept: List<ContinuousEffect>, board: WorkBoard, layer: Layer) {
+        val read = board.powerToughnessRead
+        fun ContinuousEffect.parts() = listOf(key, timestamp, cda, mechanics, you, self, names, affects, locked, condition, holder, instance, effect)
+        val now = gather(board, layer)
+        board.powerToughnessRead = read
+        check(kept.map { it.parts() }.toSet() == now.map { it.parts() }.toSet()) { "The effects kept for $layer differ from the board's" }
     }
 
     /** Whether applying [resolved] would change any object's characteristics or controller on [board]. */

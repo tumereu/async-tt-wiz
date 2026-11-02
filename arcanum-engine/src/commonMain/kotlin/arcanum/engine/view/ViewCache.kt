@@ -22,7 +22,12 @@ internal class ViewCache(view: View? = null) {
     private var provisionalView: View? = null
 
     fun provisional(item: StackItem, compute: () -> View): View {
-        provisionalView?.let { if (provisionalItem == item) return it }
+        provisionalView?.let { kept ->
+            if (provisionalItem == item) {
+                if (Layers.checkShortcuts) check(kept == compute()) { "A kept provisional view differs from the state's" }
+                return kept
+            }
+        }
         return compute().also {
             provisionalItem = item
             provisionalView = it

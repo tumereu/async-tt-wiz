@@ -47,6 +47,9 @@ games of cube cards. `revert` takes changes back last first; after a host drops 
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
   keyword's cost is paid by the engine and only its effect is by hand), so no keyword is silently ignored (D61).
+  `ViewCache`: inside `perform` and `options` the engine's own working copy keeps its view until a change that can
+  make it differ (a host's state never caches; `Engine.view` works it out afresh). Within a layer, dependencies are
+  tried only for pairs where one can exist (CR 613.8a) and resolutions are kept until the board changes in what they read.
 - `query/` — `Evaluator`: what objects, players, filters, values and conditions of a definition
   mean in a game; `History` answers "this turn" questions from the log.
 - `setup/` — starting and ending a game: `Seat` (player, deck, sideboard), `StartOptions`, the setup stages
@@ -229,6 +232,8 @@ reviews' scenarios; failing ones are `@Ignore`d with their finding number. Revie
 written against the public API only that keeps the full-information state and each player's view in step (D60), four
 themed 40-card cube decks (`Review3Decks`), their long games (`-Parcanum.review3.games=N --tests '*Review3CubeDecksJvmTest*'`)
 and printed timings on large boards (`-Parcanum.review3.perf=true --tests '*Review3PerformanceJvmTest*' -i`).
+`view/ShortcutsTest` plays games with `Layers.checkShortcuts`, which checks every view kept, every resolution kept and
+every dependency not tried against working it out in full.
 
 The cube cards come from the parser's `cube/Chunk*Test.kt` files, copied by a test into
 `cards/CubeCardTexts.kt`; after the parser tests change, regenerate with

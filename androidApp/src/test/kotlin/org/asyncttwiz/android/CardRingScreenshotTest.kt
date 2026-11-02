@@ -163,11 +163,11 @@ class CardRingScreenshotTest {
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Card action grid").assertIsDisplayed()
         compose.onNodeWithContentDescription("Choose action page").assertDoesNotExist()
-        // Four full rows of five: P/T sits between Hand and Damage and edits the real card (CMB-003).
+        // Rows of five ending with Links: P/T sits between Hand and Damage and edits the real card (CMB-003).
         val slots = CardRingPages.layout(CardRingPages.combat.single().actions)
-        assertEquals(20, slots.last().cell + slots.last().span)
+        assertEquals(18, slots.last().cell + slots.last().span)
         val inspect = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
-        for ((name, cell) in listOf("Hand" to 7, "Set corner" to 8, "Set damage" to 10, "Set EOT P/T" to 12, "Links" to 19)) {
+        for ((name, cell) in listOf("Hand" to 7, "Set corner" to 8, "Set damage" to 10, "Set EOT P/T" to 12, "Links" to 17)) {
             val bounds = compose.onNodeWithContentDescription(name).performScrollTo().assertIsDisplayed().fetchSemanticsNode().boundsInRoot
             assertEquals(inspect.top + cell / 5 * (inspect.height + 2f), bounds.top, .5f, name)
         }

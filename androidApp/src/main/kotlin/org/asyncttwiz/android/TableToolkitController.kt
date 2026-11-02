@@ -446,6 +446,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return
         }
         val play = current() ?: return
+        // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
+        if (combatTap(play, item)) { dismiss(); return }
         if (item.viewport.startsWith("cardPanel/")) {
             val display = (play.board.contentsDisplays + listOfNotNull(localPanelDisplay(play, viewer, layoutState.value)))
                 .singleOrNull { it.id == item.viewport.substringAfter('/') } ?: return
@@ -743,6 +745,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             AutomatumDrags.Route.Combat -> {
                 val destination = (intent.destination as TableDestination.Combat).destination
                 val bound = bind(intent.scope, intent.sources) ?: return false
+                // CMB-034: one of the defender's creatures dropped on an attacker's pair blocks it, as tapping does
+                val choices = combat.choices(play).choices
+                val card = bound.sourceIds.singleOrNull()
+                val pair = destination.pairId
+                if (choices.declaring != null && !choices.attackers && card != null && pair != null &&
+                    controllerOf(play, card) == choices.declaring && play.board.combat?.let { area ->
+                        CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
+                            ?.let { CombatStackRules.blockedPairs(area, it.id).firstOrNull() } } != pair)
+                    return block(play, card, pair)
                 combat.draftRefusal(play, bound.sourceIds, destination.role, destination.pairId, destination.attackTarget)
                     ?.let { error = it; return false }
                 return engineRoute { handle(intent.copy(drag = false)) }
@@ -780,7 +791,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 if (intent.scope.cardIds.any { it in CombatStackRules.stack(board).cards })
                     return basic.handle(intent.copy(invocationId = intent.invocationId ?: invocation))
                 val bound = bind(intent.scope, intent.sources) ?: return false
-                if (intent.destination is TableDestination.Combat) place(bound, intent.destination.destination)
+                if (intent.destination is TableDestination.Combat) current()?.takeIf { enabled() }
+                    ?.let { arrowDrop(it, bound, intent.destination.destination) } ?: place(bound, intent.destination.destination)
                 else if (bound.sourceIds.isEmpty()) false else basic.handle(intent.copy(
                     scope = TableScope(bound.contextViewId.takeIf { it in bound.sourceIds }
                         ?: intent.sources[bound.contextViewId]?.sourceId ?: bound.sourceIds.first(), bound.sourceIds), sources = bound.sources))
@@ -802,7 +814,146 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             else -> basic.handle(intent)
         }
     }
+    // ---- The combat area with Automatum on (I-D32)
+
+    private fun creature(play: PlayState, card: String): Boolean {
+        val c = play.board.cards.firstOrNull { it.id == card } ?: return false
+        if (c.isFaceDown) return true
+        val face = play.definitions.firstOrNull { it.digest == c.definition }?.definition?.faces?.firstOrNull { it.faceId == c.faceId }
+        return AutomatumBoards.cached(play, viewer)?.cards?.get(card)?.typeLine?.contains("Creature", ignoreCase = true)
+            ?: face?.typeLine?.contains("Creature", ignoreCase = true) ?: false
+    }
+
+    private fun controllerOf(play: PlayState, card: String): String? =
+        play.board.containers.firstOrNull { it.id == play.board.cards.firstOrNull { c -> c.id == card }?.containerId }?.accountId
+
+    /**
+     * A tap on [item] with Automatum on while combat is being declared or shown (CMB-028, CMB-032, CMB-034): one of the
+     * attacking player's creatures is staged or unstaged; one of the defending player's creatures is picked as the blocker
+     * to place, and an attacker tapped then is blocked or unblocked by it; other combat copies are selected, the selected
+     * one's menu opening on the next tap. False when the tap opens the card's menu as usual.
+     */
+    private fun combatTap(play: PlayState, item: TableItem): Boolean {
+        if (!play.board.automatum || AutomatumBoards.byHand(play) || item.kind != TableItemKind.CARD) return false
+        val card = item.sourceId ?: return false
+        val copy = item.viewport == "combat"
+        if (!copy && (item.zone != PlayZone.BATTLEFIELD || item.projection)) return false
+        if (copy && play.board.combat == null) return false
+        val choices = combat.choices(play).choices
+        if (choices.unsupported.isNotEmpty()) return false
+        val area = play.board.combat
+        val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
+        val attacking = occurrence != null && area!!.pairs.any { p -> p.attackers.any { it.id == occurrence.id } }
+        val declaring = choices.declaring
+        if (declaring != null && enabled() && controllerOf(play, card) == declaring) {
+            if (choices.attackers) {
+                if (attacking) return unstage(occurrence!!.id)
+                if (card !in choices.attacks && !creature(play, card)) return false
+                return stage(play, listOf(card), combat.activeTarget(play))
+            }
+            if (!attacking) {
+                if (card !in choices.blocks && !creature(play, card)) return false
+                if (card !in choices.blocks) { error = "${CastController.cardName(play, card)} can't block now."; return true }
+                combat.select(if (combat.selected == card) null else card)
+                return true
+            }
+        }
+        val blocker = combat.selected
+        if (declaring != null && !choices.attackers && copy && attacking && blocker != null && blocker in choices.blocks && enabled()) {
+            val pair = area!!.pairs.first { p -> p.attackers.any { it.id == occurrence!!.id } }.id
+            block(play, blocker, pair)
+            return true
+        }
+        if (!copy) return false
+        // CMB-032: select a combatant; the selected one's own tap opens its Combat menu
+        if (combat.selected == card) { combat.clearSelection(); return false }
+        combat.select(card)
+        return true
+    }
+
+    /** CMB-028: stages [cards] as attackers of [target] (null: the defending player), each in a pair of its own at the end,
+     * opening the combat area first when needed; one Undo step. Refused with Automatum's reason when one can't attack it. */
+    internal fun stage(play: PlayState, cards: List<String>, target: String?): Boolean {
+        if (cards.isEmpty()) return false
+        combat.draftRefusal(play, cards, CombatRole.ATTACKER, null, target)?.let { error = it; return false }
+        error = null
+        return engineRoute { batchResult {
+            if (current()?.board?.combat == null && !submit(PlayAction.Combat(CombatAction.Open))) return@batchResult false
+            var sent = false
+            for (card in cards) {
+                val area = current()?.board?.combat ?: break
+                sent = submit(PlayAction.Combat(CombatAction.Place(card, CombatDestination(area.id, CombatRole.ATTACKER,
+                    pairGap = IdentityGap(area.pairs.lastOrNull()?.id), attackTarget = target)))) || sent
+            }
+            sent
+        } }
+    }
+
+    private fun unstage(occurrenceId: String): Boolean {
+        val area = current()?.board?.combat ?: return false
+        error = null
+        return engineRoute { submit(PlayAction.Combat(CombatAction.Remove(area.id, occurrenceId))) }
+    }
+
+    /** CMB-034: [blocker] blocks the attackers of [pairId] too, or no longer when it does; one that can block one attacker
+     * moves to it. Deselected once it blocks as many attackers as it can. */
+    internal fun block(play: PlayState, blocker: String, pairId: String): Boolean {
+        val area = play.board.combat ?: return false
+        val choices = combat.choices(play).choices
+        val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == blocker }
+        val now = occurrence?.let { CombatStackRules.blockedPairs(area, it.id) }.orEmpty()
+        val capacity = if (blocker in choices.capacity) choices.capacity[blocker] else 1
+        val next = if (pairId in now) now - pairId else {
+            combat.draftRefusal(play, listOf(blocker), CombatRole.BLOCKER, pairId, null)?.let { error = it; return false }
+            when {
+                capacity == null || now.size < capacity -> now + pairId
+                capacity == 1 -> listOf(pairId)
+                else -> { error = "${CastController.cardName(play, blocker)} can block only $capacity attackers."; return false }
+            }
+        }
+        error = null
+        val sent = engineRoute { submit(PlayAction.Combat(CombatAction.SetBlocks(area.id, blocker, next, now))) }
+        if (sent && pairId !in now && capacity != null && next.size >= capacity) combat.clearSelection()
+        return sent
+    }
+
+    /** CMB-028, CMB-034: the staged attackers, or the blocks, leave the lanes; one Undo step. */
+    internal fun clearCombatDraft(play: PlayState): Boolean {
+        val area = play.board.combat ?: return false
+        val attackers = combat.choices(play).choices.attackers
+        val ids = area.pairs.flatMap { if (attackers) it.attackers else it.blockers }.map { it.id }
+        if (ids.isEmpty()) return false
+        combat.clearSelection()
+        return engineRoute { batchResult { ids.map { submit(PlayAction.Combat(CombatAction.Remove(area.id, it))) }.any { it } } }
+    }
+
+    /** CMB-031: with Automatum off, a card of the defending player dropped on an attacker ([destination] in an attacker
+     * row) blocks it: one more arrow for a blocker of another attacker, the arrow removed when it already blocks it by
+     * one. Null when the drop is an ordinary placement. */
+    private fun arrowDrop(play: PlayState, bound: ToolkitCapture, destination: CombatDestination): Boolean? {
+        val pair = destination.pairId?.takeIf { destination.role == CombatRole.ATTACKER } ?: return null
+        val area = play.board.combat?.takeIf { it.id == destination.areaId } ?: return null
+        val card = bound.sourceIds.singleOrNull() ?: return null
+        if (controllerOf(play, card) != CombatStackRules.defendingPlayer(play.board)) return null
+        val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
+        if (occurrence != null && area.pairs.any { p -> p.attackers.any { it.id == occurrence.id } }) return null
+        val now = occurrence?.let { CombatStackRules.blockedPairs(area, it.id) }.orEmpty()
+        val next = when {
+            now.firstOrNull() == pair -> return true
+            pair in now -> now - pair
+            else -> now + pair
+        }
+        return submit(PlayAction.Combat(CombatAction.SetBlocks(area.id, card, next, now)))
+    }
+
     fun perform(intent: TableActionIntent): Boolean {
+        // Automatum on (CMB-028, CMB-034): staging and clearing the declaration's draft
+        if (intent is TableActionIntent.Combat && intent.tool in setOf(CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR,
+                CombatTool.AUTOMATUM_NO_BLOCKS)) {
+            if (!table.enabled(intent.scope)) return false
+            if (cast.open) { error = CastController.BUSY; return false }
+            return automatumCombatTool(intent)
+        }
         // Automatum on (I3): declarations and passing on to the damage are engine calls of their own
         if (intent is TableActionIntent.Combat && (intent.tool == CombatTool.AUTOMATUM_DECLARE || intent.tool == CombatTool.AUTOMATUM_PASS)) {
             if (!table.enabled(intent.scope)) return false
@@ -810,10 +961,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             // The same as Next step (TRN-057): a declaration awaited declares what the lanes hold, else the holder passes
             error = null
             return flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass).also {
-                if (it) selectionState.value = TableSelection()
+                if (it) { selectionState.value = TableSelection(); combat.clearSelection() }
             }
         }
-        // Experimental damage shortcuts return their whole-batch success, not the void route receipt.
+        // Close + next returns its whole-batch success, not the void route receipt.
         if (intent is TableActionIntent.Combat && intent.tool in combatDamageTools) {
             if (!table.enabled(intent.scope)) return false
             return performCombatDamage(intent)
@@ -866,10 +1017,23 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
             CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
             CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
-            CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE, CombatTool.REGULAR_DAMAGE,
             CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
             CombatTool.AUTOMATUM_DECLARE, CombatTool.AUTOMATUM_PASS -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
+            CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR, CombatTool.AUTOMATUM_NO_BLOCKS -> automatumCombatTool(intent)
         }
+    }
+    /** "Rest → <target>", "Clear" and "No blocks" with Automatum on (CMB-028, CMB-034). */
+    private fun automatumCombatTool(intent: TableActionIntent.Combat): Boolean {
+        val play = current() ?: return false
+        return when (intent.tool) {
+            CombatTool.AUTOMATUM_STAGE -> stage(play, intent.sourceIds, combat.activeTarget(play))
+            CombatTool.AUTOMATUM_CLEAR -> clearCombatDraft(play)
+            else -> {
+                if (CombatStackRules.blocks(play.board.combat).isNotEmpty() && !clearCombatDraft(play)) return false
+                error = null
+                flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
+            }
+        }.also { if (it) combat.clearSelection() }
     }
     /** Declare blockers, then Combat damage, as two separate invocations (two undo steps, two events). */
     private fun assumeNoBlocks(): Boolean {
@@ -878,46 +1042,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (!submit(PlayAction.ChooseStep(TurnPosition.DECLARE_BLOCKERS), null)) return false
         return submit(PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE), null)
     }
-    /** [CombatDamage.recentDamageEdits] for [play] along the displayed history tree (bounded walk, no replay). */
-    fun combatDamageEdits(play: PlayState): Int {
-        if (TurnPosition.of(play.board.turn) != TurnPosition.COMBAT_DAMAGE || play.board.combat == null) return 0
-        val nodes = playTree?.invoke()?.nodes ?: return 0
-        return CombatDamage.recentDamageEdits(play, nodes::get)
-    }
-    // Experimental combat damage: calculate once, publish existing edits in one batch.
-    private val combatDamageTools = setOf(CombatTool.DEAL_DAMAGE, CombatTool.FIRST_STRIKE_DAMAGE,
-        CombatTool.REGULAR_DAMAGE, CombatTool.DAMAGE_CLOSE_AND_NEXT)
+    private val combatDamageTools = setOf(CombatTool.DAMAGE_CLOSE_AND_NEXT)
+    /** CMB-022: "Close + next" at Combat damage. */
     private fun performCombatDamage(intent: TableActionIntent.Combat): Boolean {
-        val play = current()?.takeIf { enabled() && it.board.combat?.id == intent.areaId } ?: return false
+        current()?.takeIf { enabled() && it.board.combat?.id == intent.areaId } ?: return false
         // Rules v33: End of combat is recorded on the way. The close comes first: a close after a step change would
         // start a second history group.
-        if (intent.tool == CombatTool.DAMAGE_CLOSE_AND_NEXT) return batchResult {
+        return batchResult {
             (intent.areaId == null || submit(PlayAction.Combat(CombatAction.Close(intent.areaId)))) &&
                 StepRun.choose(current()!!.board, TurnPosition.POSTCOMBAT_MAIN).all { submit(it) }
         }
-        val step = when (intent.tool) {
-            CombatTool.FIRST_STRIKE_DAMAGE -> CombatDamageStep.FIRST_STRIKE
-            CombatTool.REGULAR_DAMAGE -> CombatDamageStep.REGULAR
-            else -> CombatDamageStep.ALL
-        }
-        val sent = dealCombatDamage(CombatStackRules.occurrences(play.board.combat).map { it.id },
-            step = step, areaId = intent.areaId)
-        if (sent) selectionState.value = TableSelection()
-        return sent
-    }
-    internal fun dealCombatDamage(ids: List<String>, targetOnly: Boolean = false,
-        step: CombatDamageStep = CombatDamageStep.ALL, areaId: String?): Boolean {
-        val play = current()?.takeIf { enabled() && it.board.combat?.id == areaId } ?: return false
-        // Automatum on (I3): a combat declared through Automatum gets its damage from Automatum; one declared by hand
-        // is dealt with the values Automatum works out (P/T and keywords, i12review #5), not the hand-set ones
-        if (play.board.automatum && org.asyncttwiz.automatum.CombatFlow.throughEngine(play.board)) {
-            error = CombatController.DAMAGE_BY_AUTOMATUM; return false
-        }
-        val computed = if (play.board.automatum) AutomatumBoards.compute(play, viewer).takeIf { it.unsupported.isEmpty() } else null
-        val assignment = CombatDamage.assign(play, ids, targetOnly, step, computed)
-        val sent = batchResult { assignment.actions.all { submit(it) } }
-        if (sent && assignment.notes.isNotEmpty()) error = assignment.notes.joinToString("\n")
-        return sent
     }
     fun declare(ids: List<String>, tap: Boolean): Boolean = batchResult {
         val play = current()?.takeIf { enabled() } ?: return@batchResult false

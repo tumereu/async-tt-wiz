@@ -208,6 +208,16 @@ out of anything stuck.
   (`TurnExtras.passesAt`) and restart after a step changed by hand. "By hand" is read from the continuation record
   (`EngineState.byHand`). Panels name objects in public zones only when visible to the viewer (a face-down spell, blocker
   or source); combat drafts are checked against the last shown combat and engine reasons worked out off the main thread.
+- **Built (combat area redesign, I-D32, I-D38, I-D39):** a blocker's further blocks are `CombatOccurrence.alsoBlocks`
+  (pair ids), set by `CombatAction.SetBlocks` (the full list a card blocks, its copy in the first pair); lanes, the engine
+  state and the planner read and write them (`CombatStackRules.blocks`). The staging and block drafts stay shared lane
+  events; selection, the active target lane and the eye are the viewer's own (`CombatController`). `CombatShown` carries
+  the engine's refusal of the draft and of declaring nothing; `CombatChoices.capacity` how many attackers a blocker can
+  block. The division dialog's rules are `Divisions` (in order, free refusal, order-free); an order-free division is
+  answered with the suggestion by the dividing player's device or that of whoever made the latest event. The manual
+  combat damage tools are gone (I-D39). Catalog: CMB-003, CMB-007–CMB-009, CMB-013, CMB-014, CMB-020, CMB-022,
+  CMB-027–CMB-029, CMB-031–CMB-035, TRN-020, TRN-024, TRN-059, TBL-082, STK-033, STK-034; CMB-023–CMB-026, CMB-030
+  removed.
 - **Built (loops):** `StepFlow.automatic` keeps `Engine.loopKey` of each state it passes in with something on the Stack;
   the same key again with only forced passes since (CR 104.4b, 732.4) stops the batch with `Input.MandatoryLoop`, whose
   `Decision.Manual` the shared-flow panel shows ("The game is a draw: …"); answering it makes the engine's game a draw.

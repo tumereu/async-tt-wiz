@@ -92,6 +92,7 @@ class HistoryEveryActionTest {
             PlayAction.Combat(CombatAction.Place(id(36), CombatDestination(id(60), CombatRole.BLOCKER, id(61)), location)),
             PlayAction.Combat(CombatAction.Remove(id(60), id(62))),
             PlayAction.Combat(CombatAction.SetAttackTarget(id(60), id(61), id(36))),
+            PlayAction.Combat(CombatAction.SetBlocks(id(60), id(36), listOf(id(61)))),
             PlayAction.Stack(StackAction.MarkText(id(62), 0)), PlayAction.Stack(StackAction.MarkText(id(62), null)),
             PlayAction.Stack(StackAction.ToggleTextMark(id(62), 1)), PlayAction.Stack(StackAction.AddEffect(id(32), "digest")),
             PlayAction.Stack(StackAction.CopyEffect(id(62), "digest")), PlayAction.Stack(StackAction.SetController(id(62), b)),
@@ -178,6 +179,8 @@ class HistoryEveryActionTest {
             is CombatAction.Place -> "place"
             is CombatAction.Remove -> "remove"
             is CombatAction.SetAttackTarget -> "setAttackTarget"
+            is CombatAction.SetBlocks -> "setBlocks"
+
         }
         is PlayAction.Stack -> "stack/" + when (action.action) {
             is StackAction.MarkText -> "markText"

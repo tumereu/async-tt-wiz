@@ -1,1 +1,1 @@
-Bob's Gate Warden blocks both of Alice's attackers: while Alice divides her Ironhide Brute's damage, Bob's own division of the Warden's 3 damage waits below her bar, filled in with the suggestion, to be given early with Ready.
+Bob's Gate Warden blocks both of Alice's attackers (Ironhide Brute and Stone Wall) and his Hill Ogre the Brute: while Alice divides the Brute's damage, Bob's own division of the Warden's 3 damage waits below her bar in the dialog's rows, In order and filled in with the suggestion, to be given early with Ready.

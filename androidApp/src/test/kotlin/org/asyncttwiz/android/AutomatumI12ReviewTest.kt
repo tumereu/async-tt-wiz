@@ -126,7 +126,7 @@ class AutomatumI12ReviewTest {
         assertNull(toolkit.cast.flow)
     }
 
-    // i12review #3 (I-D27, STK-005, CMB-025): Alice targets Bob's face-down creature; the cast panel's answered Target
+    // i12review #3 (I-D27, STK-005): Alice targets Bob's face-down creature; the cast panel's answered Target
     // section named it by its real card ("Hidden Basilisk") in I2a; fixed by I2b (CastController.shown), kept as a check
     @Test fun faceDownTargetIsNotNamedInTheCastPanel() {
         val hidden = f.source(f.b, "2/3")
@@ -152,36 +152,6 @@ class AutomatumI12ReviewTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Cast panel").assertExists()
         compose.onAllNodesWithText("Hidden Basilisk", substring = true).assertCountEquals(0)
-    }
-
-    // i12review #5 (CMB-024 "using current … P/T", CMB-025, TBL-112): with Automatum on the attacker shows its computed 4/4
-    // (printed 2/2 with two +1/+1 counters), and the damage worked out for a combat declared by hand is that 4, not the
-    // hand-set 2; dealing it by hand is refused while Automatum doesn't wait for something done by hand (SYS-069)
-    @Test fun combatDamageUsesTheComputedPowerToughness() {
-        val fixture = CombatDamageFixture(attackers = listOf("2/2"))
-        val face = DefinitionFace(TableToolFixture.id(25), "Combatant", typeLine = "Creature — Bear", power = "2", toughness = "2")
-        val printed = CardDefinition("Combatant", listOf(face)).let { SubmittedDefinition(DeckJson.digest(it), it) }
-        val old = fixture.play.definitions.single { it.definition.name == "Combatant" }.digest
-        // The fixture's minimal board has no graveyards or exiles; every real game has them
-        val piles = listOf(fixture.actor, fixture.defender).flatMapIndexed { n, player -> listOf(
-            PlayContainer(TableToolFixture.id(300 + 2 * n), PlayZone.GRAVEYARD, player),
-            PlayContainer(TableToolFixture.id(301 + 2 * n), PlayZone.EXILE, player)) }
-        val play = fixture.play.copy(definitions = fixture.play.definitions.map { if (it.digest == old) printed else it },
-            board = fixture.play.board.copy(automatum = true, containers = fixture.play.board.containers + piles,
-                cards = fixture.play.board.cards.map { card ->
-                if (card.definition != old) card else card.copy(definition = printed.digest, timestamp = 1,
-                    typedCounters = listOf(TypedCounter("+1/+1", 2, 2)))
-            }))
-        assertEquals("4/4", ComputedBoard.of(play, emptyMap(), fixture.actor).cards[fixture.attackerIds.single()]?.corner,
-            "the table shows 4/4")
-        val gameplay = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController(fixture.actor, { play }, { true }, { action, _ -> gameplay += action; true })
-        val computed = AutomatumBoards.compute(play, fixture.actor)
-        assertEquals(listOf<PlayAction>(PlayAction.AdjustLife(fixture.defender, "-4")),
-            CombatDamage.assign(play, fixture.attackerViews, false, CombatDamageStep.ALL, computed).actions)
-        assertFalse(toolkit.dealCombatDamage(fixture.attackerViews, areaId = play.board.combat!!.id))
-        assertEquals(AutomatumDrags.LIFE, toolkit.error)
-        assertTrue(gameplay.isEmpty())
     }
 
     // i12review #7 (STK-024 "tapping a chip taps or untaps it", I-D6): the tapped sources are a set whose colours are

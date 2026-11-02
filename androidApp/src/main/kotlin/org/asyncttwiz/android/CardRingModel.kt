@@ -30,13 +30,13 @@ internal object CardRingPages {
         CardRingPage("More", listOf("owner", "otherSide", "Link", "Unlink",
             "corner/LEFT/1", "corner/LEFT/-1", "corner/RIGHT/1", "corner/RIGHT/-1", "resetCorner",
             "eotCorner/LEFT/1", "eotCorner/LEFT/-1", "eotCorner/RIGHT/1", "eotCorner/RIGHT/-1",
-            "flip", "switchFace") + tempOne + listOf("Deal to target", "Deal to target or creatures",
+            "flip", "switchFace") + tempOne + listOf(
             // Round 34: rarely needed, so last on More rather than on Everyday.
             "damage")))
     /** Attacker/blocker copies in the combat area: combat controls, plus P/T, damage/EOT marks and moves of the real card (CMB-003). */
     val combat = listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →", "Remove from combat",
         "Graveyard", "Exile", "Hand", "corner", "damage", "eotCorner", "eotNote", "eotKeywords",
-        "Deal to target", "Deal to target or creatures", "Link", "Links")))
+        "Link", "Links")))
     val hand = listOf(CardRingPage("Hand", listOf("inspect", "Play", "Face down", "Reveal", "Battlefield", "Discard", "Exile") +
         libraryMoves + tempOne + listOf("Discard random", "Reveal random", "Exile random", "Random to library bottom")))
     private val panelMoves = listOf("inspect", "otherSide", "Ping / Unping", "Hand", "Battlefield", "Move to Stack",

@@ -226,10 +226,14 @@ sealed interface Mechanic {
         @Serializable(with = KeywordKindSerializer::class) val viaAlternative: KeywordKind? = null,
     ) : Mechanic
     /** "You may pay [cost] rather than pay this spell's mana cost" (CR 118.9). [faceDown]: cast face down as a 2/2 for
-     * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up. */
+     * {3} (morph, disguise, CR 702.37c); the keyword's own cost is paid in the special action that turns it face up.
+     * In a static ability of another object, the affected cards get it when that ability's controller casts them ("You
+     * may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast"); [perTurn]: that player may use it only
+     * that many times each turn ("Once each turn, you may pay {0} rather than pay the mana cost for a spell you cast from
+     * exile"). */
     @Serializable @SerialName("alternative-cost") data class AlternativeCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
-        val cost: Cost, val faceDown: Boolean = false,
+        val cost: Cost, val faceDown: Boolean = false, val perTurn: Int? = null,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */
@@ -303,9 +307,10 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
     @Serializable @SerialName("skip-step") data class SkipStep(val step: TurnStep) : Mechanic
-    /** "If [event] causes a triggered ability of [sources] to trigger, it triggers an additional time" (CR 603.2d). */
+    /** "If [event] causes a triggered ability of [sources] to trigger, it triggers an additional time" (CR 603.2d); [event]
+     * null: whatever event ("If a triggered ability of a permanent you control triggers"). */
     @Serializable @SerialName("triggers-additional-time") data class TriggersAdditionalTime(
-        val event: EventPattern, val sources: ObjectFilter,
+        val event: EventPattern?, val sources: ObjectFilter,
     ) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }

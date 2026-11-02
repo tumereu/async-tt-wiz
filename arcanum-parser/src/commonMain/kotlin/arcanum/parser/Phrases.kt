@@ -38,6 +38,18 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // dsk chunk 01: "a Room card that doesn't have the same name as a Room you control" (CR 709.4a: either name)
+        NOT_SAME_NAME_AS.matchEntire(phrase)?.let { m ->
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.SameNameAs(Objects.Each(noun(m.groupValues[2].removeArticle()) ?: return null))))
+        }
+        // dsk chunk 01: "creature spells you cast": spells a player cast are spells they control (CR 112.2)
+        SPELLS_YOU_CAST.matchEntire(phrase)?.let { m -> return all(noun(m.groupValues[1] + " spell") ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)) }
+        // dsk chunk 01: "creatures with power 3 or greater"
+        WITH_POWER_OR_GREATER.matchEntire(phrase)?.let { m ->
+            val n = Value.Fixed(m.groupValues[3].toInt())
+            val test = if (m.groupValues[2] == "power") ObjectFilter.Power(Comparison.AtLeast, n) else ObjectFilter.Toughness(Comparison.AtLeast, n)
+            return all(noun(m.groupValues[1]) ?: return null, test)
+        }
         // chunk 40: "another creature", "other Elves you control": any but this object
         OTHER.matchEntire(phrase)?.let { m -> return all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), noun(m.groupValues[1]) ?: return null) }
         // chunks 31, 42: "creature card in your graveyard", "instant or sorcery card in your graveyard"
@@ -200,6 +212,10 @@ internal object Filters {
     }
 
     private val NAMED = Regex("""card named (.+?)( in each graveyard)?""")
+    // dsk chunk 01
+    private val NOT_SAME_NAME_AS = Regex("""(.+) that doesn't have the same name as (.+)""")
+    private val SPELLS_YOU_CAST = Regex("""(\w+) spells you cast""")
+    private val WITH_POWER_OR_GREATER = Regex("""(.+) with (power|toughness) (\d+) or greater""")
     // chunk 26
     private val COLOR_ALTERNATIVES = Regex("""((?:white|blue|black|red|green)(?:, (?:white|blue|black|red|green))*,? or (?:white|blue|black|red|green)) (.+)""")
     private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
@@ -247,6 +263,8 @@ internal object Events {
     /** One or more events of one trigger ("this artifact enters or leaves the battlefield", "attacks or blocks"). */
     // chunk 21
     fun events(text: String, self: Set<String>): List<EventPattern>? {
+        // dsk chunk 01: "an enchantment you control enters and whenever you fully unlock a Room": one ability, two events
+        if (text.contains(" and whenever ")) return text.split(" and whenever ").flatMap { events(it, self) ?: return null }
         ENTERS_OR_LEAVES.matchEntire(text)?.let { m ->
             val subject = subject(m.groupValues[1], self) ?: return null
             val second = if (m.groupValues[2] == "leaves the battlefield") EventPattern.ZoneChange(subject, from = Zone.Battlefield)
@@ -278,6 +296,11 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 01: unlocking a door of a Room (CR 709.5h, i); only its controller unlocks it
+        if (text == "you unlock this door") return EventPattern.Unlock(ObjectFilter.Is(Objects.Self), thisDoor = true)
+        YOU_FULLY_UNLOCK.matchEntire(text)?.let { m ->
+            return EventPattern.Unlock(Filters.noun(m.groupValues[1] + " you control") ?: return null, fully = true)
+        }
         // chunk 20
         DIES.matchEntire(text)?.let { m ->
             return EventPattern.ZoneChange(subject(m.groupValues[1], self) ?: return null, from = Zone.Battlefield, to = Zone.Graveyard)
@@ -332,6 +355,8 @@ internal object Events {
             return EventPattern.Cast(kind, by = PlayerFilter.Any)
         }
         PLAYER_TAPS_FOR_MANA.matchEntire(text)?.let { m -> return EventPattern.Tap(Filters.noun(m.groupValues[1].removeArticle()) ?: return null, forMana = true) }
+        // dsk chunk 02: "a creature you control attacks alone" (CR 506.5)
+        ATTACKS_ALONE.matchEntire(text)?.let { m -> return EventPattern.Attack(subject(m.groupValues[1], self) ?: return null, alone = true) }
         // chunk 36: "this creature attacks"
         ATTACKS.matchEntire(text)?.let { m -> return EventPattern.Attack(subject(m.groupValues[1], self) ?: return null) }
         // chunk 35: "you sacrifice a permanent": only a permanent's controller can sacrifice it (CR 701.21a), and what is
@@ -404,8 +429,14 @@ internal object Events {
     }
 
     private val ENTERS = Regex("""(.+) enters?""")
-    private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step)""")
-    private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End)
+    // dsk chunk 01
+    private val YOU_FULLY_UNLOCK = Regex("""you fully unlock an? (\w+)""")
+    // dsk chunk 02
+    private val ATTACKS_ALONE = Regex("""(.+) attacks alone""")
+    private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step|first main phase)""")
+    private val STEPS = mapOf("upkeep" to arcanum.api.TurnStep.Upkeep, "draw step" to arcanum.api.TurnStep.Draw, "end step" to arcanum.api.TurnStep.End,
+        // dsk chunk 02: the first main phase is the precombat main phase (CR 505.1a)
+        "first main phase" to arcanum.api.TurnStep.PrecombatMain)
     private val PUT_INTO_GRAVEYARD_FROM_BATTLEFIELD = Regex("""(.+) is put into a graveyard from the battlefield""")
     private val SELF_OR_ANOTHER = Regex("""(.+) or another (.+)""")
     private val DIES = Regex("""(.+) dies""")
@@ -458,6 +489,12 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        // dsk chunk 01: a Room on the battlefield has only its unlocked doors' names (CR 709.5), so these are the names among
+        // the Rooms
+        NAMES_AMONG_UNLOCKED_DOORS.matchEntire(text)?.let { m ->
+            return Condition.Compare(Value.CountDistinct(Objects.Each(Filters.noun("Room you control")!!), SharedQuality.Name),
+                Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
+        }
         CONTROL_A.matchEntire(text)?.let { m -> return Condition.Exists(Filters.noun(m.groupValues[1] + " you control") ?: return null, atLeast = 1) }
         // chunk 30: "you control at least three other snow permanents"
         CONTROL_AT_LEAST.matchEntire(text)?.let { m ->
@@ -582,6 +619,8 @@ internal object Conditions {
     }
 
     private val CONTROL_A = Regex("""you control an? (\w+)""")
+    // dsk chunk 01
+    private val NAMES_AMONG_UNLOCKED_DOORS = Regex("""there are (\w+) or more different names among unlocked doors of Rooms you control""")
     // chunk 30
     private val CONTROL_AT_LEAST = Regex("""you control at least (\w+) (other )?(.+)""")
     private val SELF_IN_YOUR_GRAVEYARD = Regex("""(.+) is in your graveyard""")
@@ -694,6 +733,10 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        // dsk chunk 02: "the number of unlocked doors among Rooms you control" (CR 709.5c)
+        UNLOCKED_DOORS_AMONG.matchEntire(text)?.let { m ->
+            return Value.Of(arcanum.api.NumericProperty.UnlockedDoors, Filters.objects(m.groupValues[1]) ?: return null, Combine.Total)
+        }
         DIED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return Value.EventsThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)),
@@ -712,6 +755,8 @@ internal object Values {
     }
 
     private val DIED_UNDER_YOUR_CONTROL = Regex("""the number of (.+) that died under your control this turn""")
+    // dsk chunk 02
+    private val UNLOCKED_DOORS_AMONG = Regex("""the number of unlocked doors among (.+)""")
     private val CARDS_IN_YOUR_ZONE = Regex("""the number of cards in your (library|hand|graveyard)""")
     private val DEVOTION = Regex("""your devotion to (white|blue|black|red|green)""")
     private val NUMBER_OF = Regex("""the number of (.+)""")

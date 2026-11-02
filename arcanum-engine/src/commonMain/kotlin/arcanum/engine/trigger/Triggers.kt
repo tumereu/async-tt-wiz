@@ -255,7 +255,7 @@ internal object Triggers {
         view.rules.flatMap { applied ->
             val m = applied.mechanic as? Mechanic.TriggersAdditionalTime ?: return@flatMap emptyList()
             val e = Evaluator(ViewBoard(state, view), Context(applied.controller, applied.source, applied.names))
-            if (EventMatcher.instances(e, m.event, change).isEmpty()) return@flatMap emptyList()
+            if (m.event != null && EventMatcher.instances(e, m.event!!, change).isEmpty()) return@flatMap emptyList()
             found.filter { t -> t.delayedTrigger == null && t.source != null && e.matches(m.sources, t.source!!) }
         }
 

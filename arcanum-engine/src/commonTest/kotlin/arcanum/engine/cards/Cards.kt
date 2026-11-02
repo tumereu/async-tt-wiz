@@ -51,6 +51,7 @@ object Cards {
     fun definition(name: String): CardDefinition = InventedCards.all[name] ?: written[name] ?: parsed.getOrPut(name) {
         val text = invented[name] ?: texts[name] ?: BASICS[name]
             ?: CubeCardTexts.all.firstOrNull { it.faces.first().name == name }
+            ?: invented.values.firstOrNull { it.faces.size > 1 && it.faces.first().name == name }
             ?: error("No test card named \"$name\"")
         parse(text)
     }
@@ -68,6 +69,19 @@ object Cards {
         require(name !in texts) { "\"$name\" is a cube card already" }
         invented[name] = card
         return name
+    }
+
+    /**
+     * Adds an invented card of several faces, each as [face] writes it ([layout] as in [CubeCardTexts]: "Split" for a
+     * Room); found by its full "A // B" name or its first face's name. Its text must parse fully. Returns the full name.
+     */
+    fun inventFaces(layout: String, vararg faces: OracleCard): String {
+        val card = CubeCardText(layout, faces.map { if (it.text.startsWith("\n")) it.copy(text = it.text.trimIndent()) else it })
+        val existing = invented[card.name]
+        require(existing == null || existing.faces == card.faces) { "Invented card \"${card.name}\" defined twice differently" }
+        require(card.name !in texts) { "\"${card.name}\" is a cube card already" }
+        invented[card.name] = card
+        return card.name
     }
 
     private fun parse(text: CubeCardText): CardDefinition {

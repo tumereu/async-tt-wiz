@@ -528,6 +528,9 @@ internal object Payment {
                         Actions.putCounters(act, costCause(plan), TargetRef.Object(self), c.kind, plan.eval.value(c.amount))
                     }
                 }
+                // CR 709.5e: paying a locked door's unlock cost unlocks it
+                effect is Effect.UnlockDoor && effect.objects == Objects.Self && effect.door != null ->
+                    arcanum.engine.room.Rooms.unlock(act, self, effect.door!!, plan.player)
                 effect is Effect.Move && effect.objects == Objects.Self && effect.to.attacking == null -> {
                     val counters = effect.to.counters.map { it.kind to plan.eval.value(it.amount) }
                     val moved = Actions.move(act, costCause(plan), listOf(PlannedMove(self, effect.to.zone, faceDown = effect.to.faceDown, counters = counters)))

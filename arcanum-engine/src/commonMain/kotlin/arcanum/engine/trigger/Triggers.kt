@@ -239,7 +239,12 @@ internal object Triggers {
     fun instancesOf(e: Evaluator, state: GameState, trigger: Trigger, change: Change, whole: Change = change, door: Int? = null): List<TriggerEvent> = when (trigger) {
         is Trigger.On -> {
             fun units(c: Change): List<TriggerEvent> {
-                val all = trigger.events.flatMap { EventMatcher.instances(e, it, c, door = door) }
+                val all = trigger.events.flatMap { p ->
+                    val found = EventMatcher.instances(e, p, c, door = door)
+                    // gtc: "whenever a +1/+1 counter is put on …" triggers once per counter put (CR 603.2c)
+                    if (p is arcanum.api.EventPattern.CountersPut && !trigger.oneOrMore) found.flatMap { t -> List(t.amount ?: 1) { t.copy(amount = 1) } }
+                    else found
+                }
                 return when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()

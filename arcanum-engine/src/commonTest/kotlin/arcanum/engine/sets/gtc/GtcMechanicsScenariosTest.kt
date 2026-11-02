@@ -41,7 +41,7 @@ class GtcMechanicsScenariosTest {
 
     private val bear = Cards.invent("Market Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val ox = Cards.invent("Wide Ox", "{2}{G}", "Creature — Ox", "", "1/4")
-    private val giant = Cards.invent("Hill Brute", "{3}{G}", "Creature — Giant", "", "4/4")
+    private val giant = Cards.invent("Hill Brute", "{3}{R}", "Creature — Giant", "", "4/4")
     private val counter = CounterKind.PowerToughness(1, 1)
 
     private fun Scenario.yes() = answer(Answer.YesNo(true))

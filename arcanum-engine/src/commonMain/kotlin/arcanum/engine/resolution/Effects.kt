@@ -146,11 +146,16 @@ internal object Effects {
             }
             is Effect.PutCounters -> putCounters(scope, effect)
             // CR 122.1, 702.62a: counters come off objects in any zone (time counters on a suspended card in exile)
-            is Effect.RemoveCounters -> scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
-                val n = scope.value(effect.amount)
-                val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
-                var left = n
-                kinds.forEach { k -> if (left > 0) left -= Actions.removeCounters(act, TargetRef.Object(id), k, left) }
+            is Effect.RemoveCounters -> {
+                var removed = 0
+                scope.objects(effect.objects).distinct().filter { act.state.obj(it) != null }.forEach { id ->
+                    val n = scope.value(effect.amount)
+                    val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(id).counters.map { it.kind }
+                    var left = n
+                    kinds.forEach { k -> if (left > 0) Actions.removeCounters(act, TargetRef.Object(id), k, left).let { left -= it; removed += it } }
+                }
+                // gtc: "Draw that many cards": the number actually removed
+                effect.bind?.let { scope.bind(it, NamedValue.Number(removed)) }
             }
             is Effect.GivePlayerCounters -> scope.players(effect.players).forEach { p ->
                 Actions.putCounters(act, cause, TargetRef.Player(p), effect.kind, scope.value(effect.amount))
@@ -773,13 +778,23 @@ internal object Effects {
      * Creates an effect object (CR 611.2, D19): characteristic and control changes lock their affected objects now (CR
      * 611.2c); numbers that don't depend on the affected object are fixed now (CR 608.2h); the names used are frozen (D37).
      */
+    // gtc
+    /** "Becomes a copy of …, except it has this ability" (CR 707.9b): the ability resolving, as the effect is created. */
+    private fun thisAbility(scope: Scope, m: Mechanic): Mechanic {
+        if (m !is Mechanic.CopyOf || arcanum.api.CopyException.ThisAbility !in m.except) return m
+        val ability = scope.cause.item?.ability?.takeIf { it !is arcanum.api.Ability.Spell }
+        return m.copy(except = m.except.mapNotNull { x ->
+            if (x == arcanum.api.CopyException.ThisAbility) ability?.let { arcanum.api.CopyException.AddAbilities(listOf(it)) } else x
+        })
+    }
+
     fun applyMechanics(
         scope: Scope, mechanics: List<Mechanic>, affects: Affected?, duration: Duration, uses: Int?,
         locked: List<ObjectId>? = null, amountLeft: Int? = null, extra: Map<String, NamedValue> = emptyMap(),
     ) {
         val act = scope.act
         val e = scope.eval()
-        val fixed = mechanics.map { fix(e, it) }
+        val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }
         val layered = fixed.any { it.layer != null }
         var names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
         // Objects named by the effect itself: its rules that aren't layer effects find them through a frozen name

@@ -29,6 +29,16 @@ import arcanum.engine.state.TriggerEvent
  * event (a replacement deciding whether it applies, CR 614.12), objects are tested as they are before the event.
  */
 internal object EventMatcher {
+    // dgm
+    /** Whether a draw of [player] now would be the first they draw in their own [step] ("except the first one they draw
+     * in each of their draw steps", CR 504.1): no draw of theirs since the step began. */
+    private fun firstDrawIn(state: arcanum.engine.state.GameState, step: arcanum.api.TurnStep, player: PlayerId): Boolean {
+        if (state.turn.step != step || state.turn.active != player) return false
+        val events = state.eventsOf(state.turn.number)
+        val began = events.indexOfLast { it is Change.Step && it.after.step == step && it.before.step != step }
+        return events.drop(began + 1).none { c -> c is Change.ZoneChange && c.moves.any { Meaning.Drew in it.meanings && it.before.owner == player } }
+    }
+
     fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> moves(change).filter { m ->
             (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
@@ -59,7 +69,8 @@ internal object EventMatcher {
         }
         is EventPattern.GainLife -> life(e, change, pattern.players, Meaning.LifeGained)
         is EventPattern.LoseLife -> life(e, change, pattern.players, Meaning.LifeLost)
-        is EventPattern.Draw -> moves(change).filter { Meaning.Drew in it.meanings && e.matches(pattern.players, it.before.owner) }
+        is EventPattern.Draw -> moves(change).filter { Meaning.Drew in it.meanings && e.matches(pattern.players, it.before.owner) &&
+                (pattern.exceptFirstIn?.let { step -> !firstDrawIn(e.board.state, step, it.before.owner) } ?: true) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.before.owner)) }
         is EventPattern.Discard -> moves(change).filter {
             Meaning.Discarded in it.meanings && e.matches(pattern.players, it.before.owner) && e.matches(pattern.cards, it.before.id)
@@ -96,7 +107,9 @@ internal object EventMatcher {
         is EventPattern.BecomesBlocked -> becomesBlocked(e, change, pattern)
         // CR 509.3g: when blockers are declared and the attacker has none (CR 509.1h)
         is EventPattern.AttacksUnblocked -> (change as? Change.Combat)?.takeIf { it.after?.blocksDecided == true && it.before?.blocksDecided != true }?.after
-            ?.attackers.orEmpty().filter { !it.blocked && e.matches(pattern.attacker, it.id) }
+            ?.attackers.orEmpty().filter { !it.blocked && e.matches(pattern.attacker, it.id) &&
+                // dgm: "attacks a player and isn't blocked"
+                (pattern.target?.let { t -> recipient(e, t, it.target) } ?: true) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))), listOfNotNull(defendingPlayer(e, it.target))) }
         is EventPattern.BecomesTarget -> targeted(change).flatMap { (item, refs) ->
             refs.filterIsInstance<TargetRef.Object>().map { it.id }.distinct()

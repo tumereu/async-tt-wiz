@@ -93,7 +93,13 @@ internal object Casts {
             val max = slot.max?.let { e.value(it) }
             if (options.size < min && required) return null
             // P5: no decision when every legal target must be chosen
-            val chosen = if (options.size <= min) options else act.chooseTargets(controller, source, slot.name, options, min, max)
+            val chosen = when {
+                options.size <= min -> options
+                // dgm: "target … chosen at random": the host picks one (a die with a side for each legal target)
+                slot.atRandom -> listOfNotNull(options.getOrNull((act.random(controller, source,
+                    arcanum.engine.decision.RandomKind.Die(options.size, 1)) as Answer.DieRolls).results.single() - 1))
+                else -> act.chooseTargets(controller, source, slot.name, options, min, max)
+            }
             if (chosen.isNotEmpty()) targets[slot.name] = chosen
         }
         return modes to targets

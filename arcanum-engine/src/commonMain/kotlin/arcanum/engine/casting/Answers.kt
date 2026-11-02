@@ -45,7 +45,10 @@ internal object Answers {
                 c.copy(announced = c.announced + (q.name to v))
             }
             is Question.Target -> {
-                val chosen = (answer as? Answer.Targets)?.chosen ?: refuse("Expected targets")
+                // dgm: a target chosen at random: the die result picks it (CR 115: still targeted)
+                val rolled = (answer as? Answer.DieRolls)?.takeIf { q.slot.slot.atRandom }?.results?.singleOrNull()
+                    ?.let { r -> listOfNotNull(q.options.getOrNull(r - 1)) }
+                val chosen = rolled ?: (answer as? Answer.Targets)?.chosen ?: refuse("Expected targets")
                 // CR 601.2c, 115.3: legal targets, the right number, each object or player once per slot
                 if (chosen.size < q.min || (q.max != null && chosen.size > q.max)) refuse("Choose ${q.min} to ${q.max ?: "any number of"} targets")
                 if (chosen.distinct().size != chosen.size) refuse("The same target twice in one slot")

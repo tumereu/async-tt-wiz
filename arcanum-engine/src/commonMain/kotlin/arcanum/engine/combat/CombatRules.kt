@@ -89,6 +89,10 @@ internal object CombatRules {
         attacks.singleOrNull()?.let { a ->
             if (mechanics(snap, a.attacker).any { it.mechanic == Mechanic.CantAttackAlone }) return "${a.attacker} can't attack alone"
         }
+        // dgm: CR 508.1c: "can only attack alone"
+        if (attacks.size > 1) attacks.firstOrNull { a -> mechanics(snap, a.attacker).any { it.mechanic == Mechanic.CanOnlyAttackAlone } }?.let { a ->
+            return "${a.attacker} can only attack alone"
+        }
         // CR 508.1c: "no more than N creatures can attack": counted per effect among the creatures it restricts
         attacks.flatMap { a -> mechanics(snap, a.attacker).filter { it.mechanic is Mechanic.MaximumAttackers }.map { it to a } }
             .groupBy({ (applied, _) -> Triple(applied.source, applied.origin, applied.effect) }, { (applied, a) -> applied to a })

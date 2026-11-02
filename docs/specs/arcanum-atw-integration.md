@@ -1,89 +1,165 @@
-# Arcanum Automatum in ATW: integration draft
+# Arcanum Automatum in ATW: integration spec
 
-Draft notes on how ATW will host the Arcanum libraries, collected while reviewing the
-card definition API. Nothing here is approved for building; library-side decisions
-are in `arcanum-automatum.md` (§2). Each item becomes a rules-version change with
-catalog entries the owner approves when its phase is built.
+How ATW hosts the Arcanum libraries (rules engine `arcanum-engine`, parser, card model). Library-side decisions
+are in `arcanum-automatum.md` (§2, engine API §7.0). This spec is approved in direction (owner, 2026-11-02); each
+phase below becomes a rules-version change (SYS-031) whose catalog entries are written when it is built and reviewed
+by the owner before release.
 
-## Switch
+## 1. Decisions (owner, 2026-11-02)
 
-- One **Automatum on/off** per game (D20). While it is on, some manual actions may be
-  restricted (e.g. manually created Stack entries) where they can't be kept in line
-  with automation. To decide when built: what happens to stored effect objects and
-  Stack entries when the switch changes.
+| # | Decision |
+|---|---|
+| I-D1 | **Phases in order** I0 plumbing → I1 view → I2 casting and resolving → I3 abilities, lands, combat, steps → I4 Automatum-only controls (§3). I1 is the first thing players get. |
+| I-D2 | **Card definitions are parsed on the device** from the client catalog's oracle text, cached by card and parser version. Server-delivered definitions and hand-written overrides come later. |
+| I-D3 | **Automatic passing is a setting, on by default:** when `Engine.options` shows a player can't respond to anything, the engine passes priority for them at once. |
+| I-D4 | **The Automatum switch** sits in the table's top bar (§5); playtesting decides whether it moves into Table actions. |
+| I-D5 | **Players are chosen as targets from their life squares** (TRN-030); avatars aren't on the table. |
+| I-D6 | **One cast panel:** the panel that chooses modes, X and optional costs also shows the suggested mana tapping for the current choices, updated as they change; tapping a mana source in it changes the tapping. Targets are chosen on the table in between (CR 601.2b–h order: choices, targets, payment). |
+| I-D7 | **ATW keeps its own game state; the engine is a pure function over it.** ATW builds an engine state for each call, sends the engine's changes as ordinary actions, and stores the few engine fields of §4.3. The engine state is always rebuildable from ATW state (P3). |
 
-## Shared state ATW stores for the engine
+Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
+(D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);
+randomness and hidden cards are answered by the host (D25, D60).
 
-- **Zone-change count per card** (D21). The engine's object id is the ATW card id
-  plus this count; it goes up on every move between zones. Stored, not derived from
-  history (SYS-026).
-- **Zone mapping** (D38): look/reveal panels are not zone changes; a shuffle advances
-  the zone-change count of the shuffled cards (CR 701.20d). Temp piles are a manual
-  tabletop tool and are not supported by Automatum.
-- **Version per game** (D38): the game stores its definition and engine version; a
-  client on another version plays manually until it updates, and the server refuses
-  its automated batches.
-- **Timestamp per card** (D34): from a game-wide integer counter, set on entering a
-  zone, attaching, turning face up/down and transforming; assigned by ATW itself, with
-  or without Automatum. Only ever goes up: undo leaves it alone (otherwise every
-  stamp would concern one field and block undo of earlier actions). Could be the
-  setting event's sequence number plus a position within the event.
-- **Tagged events** (D33): Automatum events carry their Magic meaning ("sacrificed",
-  "died", …) and a snapshot of the objects involved, used for "this turn" questions
-  and for history texts. Manual moves are tagged too, wherever the move alone
-  defines the meaning unambiguously (died, entered, left the battlefield); "how" tags
-  (sacrificed, destroyed, …) need Automatum.
-- **Ledgers** (D22, per object only): engine bookkeeping on card instances, visible in
-  the Automatum debug menu (P2: no hidden engine memory),
-  (mana spent, X, kicked, activations this turn, …); key names and values
-  come from the engine. Events change them by increments and set changes so undo
-  works. An Automatum debug menu shows them. Undo that removes the cause of a later
-  automated result is fixed by hand.
-- **Stack items** (D19): engine-defined data stored as-is, shown through the engine's
-  description of them.
-- **Effect objects** (D19): engine-defined data stored as-is; Inspect shows them on
-  the cards they affect, "(until end of turn)" as today (TBL-110). Today's per-card
-  EOT marks (TurnMarks) stay for manual play.
+## 2. How a call works
 
-## Decisions the engine asks for
+1. A player acts (taps, double-taps, answers a choice). The client builds `EngineState.from(playState, viewer = me)`.
+2. `Engine.perform(state, input)` returns `Outcome(changes, pending)`.
+3. If the engine stops for **randomness** (shuffle, coin, random pick) or a **host fill** (identity of a hidden card),
+   the client answers at once inside the same call chain: randomness with ATW's own seeded randomness, fills from
+   ATW's server-filled card data (the existing hidden-card fill of libraries and hands). A private look by the other
+   player (`Decision.OtherView`) is handed to that player's client.
+4. The client maps the changes to `PlayAction`s and sends them, with the continuation update, as **one batch**
+   (SYS-010): one engine call is one batch and one Undo step (D59).
+5. If `pending` names a player decision, it is stored (the continuation, §4.3) and shown to the deciding player; the
+   other player sees "Bob is choosing…" with "Choose for him" (D11).
 
-- **Random results** (D25): the client sending the batch answers them with ATW's own
-  randomness (seeded actions, coin flips) and records them in the batch.
-- **Shuffles** (D25): the engine asks ATW to shuffle; ATW uses its existing shuffle
-  and unknown library order.
-- **Secret choices**: manual until ATW can store an answer one player can't read.
-- **Sequences** (D31): the current resolution or cast sequence is game state, one
-  committed step per event batch, undoable per step. A choice opens a blocking
-  dialog that can't be dismissed until completed; no other changes meanwhile. The
-  opponent sees it greyed out ("P1 is choosing") with "Choose for them"; viewing
-  hidden cards that way needs extra confirmation. Look/Reveal steps use today's
-  server fill of hidden library cards.
-- **Who sends** (D31, D12): the client whose player's choice or action started the
-  step sends everything up to the next decision in one batch; after a server fill
-  of hidden cards, the same client continues.
-- **Blocking** (D32): with Automatum on, other changes are blocked during a
-  sequence and rule-breaking moves may be refused (exception to SYS-036); switching
-  Automatum off is always allowed and is the escape from a stuck sequence.
+**Who sends:** the client whose player acted or answered (D31). While a continuation is open, other changes are
+refused (D32), except undo of the open flow's latest step. Switching Automatum off is always allowed and is the way
+out of anything stuck.
 
-## Proposals that change existing catalog entries
+## 3. Phases
 
-- **Spells really move to the Stack** (D35, owner proposal 2026-11-01): Stack entries
-  became projections in round 2 so that activating a battlefield or graveyard card's
-  ability doesn't move it; hand cards followed only for consistency. Proposal: a cast
-  spell card moves onto the Stack (in manual play too), where it has the Stack menu
-  instead of the card menu; abilities stay projections. Needed with Automatum on
-  (casting is a zone change, CR 601.2a). Affects STK-001, STK-004, STK-005 and the
-  hand-card reveal; needs owner-approved catalog text.
+### I0 — Plumbing (invisible)
 
-## State ATW keeps for the engine API (D56–D60, draft 2026-11-01)
+- **Definitions on the device (I-D2):** parse each catalog card's faces with `OracleParser.parseCard` when a game
+  needs it; cache the `CardDefinition` JSON by catalog card id and parser version. Unparsed abilities stay manual.
+- **State mapping** `EngineState.from(playState, viewer)`: players, zones and order, cards (owner, controller,
+  face, face down, tapped, counters (typed, §4.2), damage, attachments), turn and step, combat lanes, plus the new
+  fields of §4. Hidden cards are unknown objects (D60).
+- **Change mapping:** every engine `Change` to `PlayAction`s with the Magic tag (D33) and `CausedBy` for history
+  text ("Storm Spark dealt 3 damage to Grizzly Cub").
+- **The Automatum switch** as a shared game event, and the engine version per game (D38): a client on another
+  version plays manually until it updates; the server refuses automated batches from another version.
+- **Tests:** replay engine scenarios (the cube scenarios and review scenarios) through ATW's mapping and actions;
+  the state rebuilt from ATW must equal the engine's own `apply` after every call, and undo of each batch must give
+  back the previous state.
 
-From a worked example (cast, response window, a death with two triggers, a "you may" draw):
-- **MTG facts ATW models and shows:** zone-change count per card; timestamp per card and the game counter;
-  priority holder and passes in a row; structured Stack items (ability, controller, targets, modes, X); mana pool per
-  player; damage marked on permanents; MTG tags on history events.
-- **Engine data ATW only stores and passes back (opaque JSON):** last known information inside the Stack item or
-  event it belongs to; ledgers, one blob per object; the open continuation, one per game while a flow is open. Kept
-  per object or flow, not in one game-wide blob, so ATW's undo rule doesn't block undo of earlier batches.
-- **One engine call = one ATW batch:** the client whose player acted or answered sends the changes and the
-  continuation update together; undo reverts both (D59). While a continuation is open, other changes (including
-  undo of earlier batches) are refused (D32); undo of the open flow's latest step is allowed.
+### I1 — The board knows the rules (first release)
+
+- With Automatum on, cards show the engine's view: computed P/T in the corner (TBL-021), granted keywords, changed
+  types and colours.
+- **Inspect** explains each value: "2/2 printed, +1/+1 Glorious Anthem, +3/+3 Giant Growth until end of turn".
+  Effect objects show on the cards they affect, "(until end of turn)" as today (TBL-110).
+- Manual play is unchanged. Open (decide when built): a manual P/T edit while on becomes a player-set P/T effect
+  (layer 7b) shown and removable like any effect; keywords in notes count as manually granted keywords.
+
+### I2 — Casting and resolving
+
+- **Starting a cast:** double-tapping a hand card (ZON-004) or "Cast" in the hand menu casts it; a land is played.
+  The card really moves to the Stack (D35).
+- **The cast panel (I-D6):** a floating panel by the Stack, one section per choice in rules order:
+  - face or mode(s), X, optional and alternative costs ("Kicker {4}" as a toggle, "Pay 4 life instead"), each with
+    its card text;
+  - **mana**: the sources the engine suggests tapping, shown tapped, and the other untapped sources; tapping one
+    toggles it; "Cast" stays disabled until the tapping pays the cost. The suggestion follows the choices above it.
+  - **targets** are chosen on the table between the choices and the payment: the panel shrinks to a slim bar
+    ("Storm Spark — choose any target"), legal targets glow, players are picked from their life squares (I-D5); the
+    panel then returns with the mana section.
+  - "Cancel" (or Back) rewinds the whole cast (D58) as one Undo. "Accept automatically" (D3) skips sections whose
+    suggestion leaves nothing to decide.
+- **Priority:** after a cast the caster passes automatically ("cast and hold priority" by long-press, later). The
+  opponent sees "Alice cast Storm Spark — Respond / Let it resolve". With automatic passing on (I-D3) and nothing
+  they could do, they pass at once and the spell resolves.
+- **Resolution choices** use the same panel for whoever decides ("You may draw a card", "Choose a card to
+  discard"), with the card's own sentence as the prompt; the other player sees "… is choosing" and may choose for
+  them (D11). State-based actions and triggers happen by themselves; trigger order and targets are asked only when
+  there is a choice (P5).
+- **Today's manual actions stay** in this phase; those that would clash with an open flow are refused (D32).
+
+### I3 — Abilities, lands, combat, steps
+
+- The card menu lists the card's own activated abilities (with their text) first, then the manual actions.
+- Mana abilities in the cast panel and the card menu; land plays through the engine.
+- Combat lanes (CMB-*) get the engine's attack and block legality, damage steps and damage division (a suggestion
+  to accept).
+- The step button (TRN-007) moves through steps with the engine: untap, draw, cleanup and "at the beginning of …"
+  triggers happen by themselves.
+
+### I4 — Automatum-only controls
+
+- With Automatum on, menus show the engine's actions; the manual actions move behind a "Manual…" entry. Moves that
+  break the rules are refused (D32). Hold-to-inspect and the other gestures stay as they are.
+
+## 4. Shared state ATW adds
+
+### 4.1 MTG facts ATW models and shows
+
+- **Zone-change count per card** (D21): the engine's object id is the card id plus this count; it goes up on every
+  move between zones and on a shuffle (CR 701.20d). Stored, not derived from history (SYS-026).
+- **Timestamp per card** and a game-wide counter (D34): set on entering a zone, attaching, turning face up/down and
+  transforming; assigned by ATW with or without Automatum; never goes back (undo leaves it).
+- **Priority holder and passes in a row** (D57).
+- **Structured Stack items** (D19): ability, source, controller, targets by slot, modes, X. Today's text marks
+  (STK-016) stay for manual entries.
+- **Mana pool per player** (empties between steps, CR 106.4).
+- **Damage marked** on permanents.
+- **MTG tags on history events** (D33) and `CausedBy` for history texts. Manual moves are tagged wherever the move
+  alone decides the meaning (died, entered, left the battlefield).
+
+### 4.2 Typed counters
+
++1/+1, −1/−1, loyalty and named counters (time, lore, charge, …). Today's six colour counters stay as manual markers
+the engine ignores (TBL-078).
+
+### 4.3 Engine data ATW only stores (opaque JSON)
+
+- **Last known information** inside the Stack item or event it belongs to.
+- **Ledgers**, one blob per object (D22): mana spent, X, kicked, activations this turn, card memory.
+- **Effect objects and delayed triggers** (D19, D26), each its own record.
+- **The open continuation**, one per game while a flow is open (D58).
+
+Kept per object or flow, never in one game-wide blob, so ATW's undo rule doesn't block undo of earlier batches.
+Visible in an Automatum debug view (P2).
+
+### 4.4 Zones
+
+Look and reveal panels are not zone changes; temp piles are a manual tool Automatum doesn't support (D38).
+
+## 5. The Automatum switch
+
+- A round sigil button in the table's top bar, beside Table actions (I-D4).
+- **Off:** a dim outlined rune at about 40% opacity.
+- **On:** the rune filled with a violet-to-cyan gradient and a soft outer glow that slowly breathes (about 3 s); one
+  small spark orbits it.
+- **Tap:** switches Automatum for the whole game, as one shared event both players see; history: "Alice turned
+  Automatum on". Turning it on with manual Stack entries or other state the engine can't take over asks first (what
+  happens to them is decided when I0 is built).
+- **Hold:** a small status panel ("Automatum on · 2 abilities are manual") and the debug view of engine data.
+
+## 6. Catalog entries this will change (by phase)
+
+- I0: new entries for the switch, versions, timestamps, zone-change counts, tags (history texts).
+- I1: TBL-021–023 (P/T corner), TBL-086 (keywords), Inspect entries.
+- I2: ZON-004/005/007 (hand double-tap and menu), STK-001–006 (spells move to the Stack, D35), SYS-010, SYS-036
+  (refusals while on, D32).
+- I3: card menu entries, CMB-*, TRN-007.
+- I4: every menu entry that moves behind "Manual…".
+
+## 7. Open (decide when the phase is built)
+
+- What happens to stored effect objects, Stack entries and counters when the switch is turned on or off.
+- Live play windows (§9 of `arcanum-automatum.md`): how long a "Respond" offer stays before the opponent's automatic
+  pass, with both players at the table.
+- Where the debug view lives; who may see it.
+- Secret choices (answers one player can't read) stay manual until ATW can store them.

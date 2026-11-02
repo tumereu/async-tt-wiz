@@ -172,6 +172,10 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.AlternativeCost(cost = Cost.mana(cost), perTurn = 1.takeIf { m.groupValues[1].isNotEmpty() })),
                 affects = Affected.Objects(Objects.Each(cards)))
         }
+        // dsk chunk 06: "You may look at face-down creatures your opponents control any time."
+        MAY_LOOK_AT_ANY_TIME.matchEntire(line)?.let { m ->
+            Filters.noun(m.groupValues[1])?.let { return Ability.Static(listOf(Mechanic.MayLookAt(Objects.Each(it))), affects = Affected.Players(Players.You)) }
+        }
         // dsk chunk 05: "Enchanted creature loses all abilities and is a Toy artifact creature with base power and toughness 0/2 in
         // addition to its other types." (layers 4, 6, 7b, CR 613.1d, f, 613.4b)
         LOSES_ALL_AND_IS.matchEntire(line)?.let { m ->
@@ -1483,6 +1487,33 @@ internal class Sentences(
         if (sentence == "Put the rest on the bottom of your library in a random order." && context.seen != null && context.picked != null) {
             return listOf(Step.Do(Effect.Move(Objects.Except(Objects.Bound(context.seen!!), Objects.Bound(context.picked!!)),
                 Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // dsk chunk 06: "Manifest dread X times, then put X +1/+1 counters on each of those creatures." (CR 701.40e: one at a time)
+        MANIFEST_DREAD_TIMES.matchEntire(sentence)?.let { m ->
+            val times = if (m.groupValues[1] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            val n = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)
+            return listOf(Step.Repeat(times, listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.ManifestDread(Players.You), bind = MANIFESTED)))),
+                Step.Do(Effect.PutCounters(Objects.Bound(MANIFESTED), Counters.kind(m.groupValues[3]) ?: return null, n)))
+        }
+        // dsk chunk 06: "You may return a permanent card from your graveyard to your hand." (zero or one, not targeted)
+        MAY_RETURN_FROM_GRAVEYARD_TO_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // dsk chunk 06: "Reveal target face-down permanent." ("it" afterwards)
+        REVEAL_TARGET.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            context.it = target
+            return listOf(Step.Do(Effect.Reveal(target)))
+        }
+        // dsk chunk 06: "If it's a creature card, you may turn it face up.": the card's own types, not its face-down
+        // characteristics (CR 708.2a)
+        if (sentence == "If it's a creature card, you may turn it face up.") {
+            val it = context.it ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.Type(CardType.Creature, ignoringTypeChanges = true)),
+                then = listOf(Step.May(listOf(Step.Do(Effect.TurnFaceUp(it))), player = Players.You))))
         }
         // dsk chunk 05: "Its controller manifests dread." (the last target's), "The exiled card's owner manifests dread." (CR 701.62a)
         PLAYER_MANIFESTS_DREAD.matchEntire(sentence)?.let { m ->
@@ -3370,6 +3401,11 @@ internal class Sentences(
         val ADDITIONAL_CREATURE_TYPE = Regex("""it's an? (\w+) in addition to its other creature types""")
         const val MANIFESTED = "manifested"
         val DESTROY_ALL = Regex("""Destroy all (.+)\.""")
+        // dsk chunk 06
+        val MAY_LOOK_AT_ANY_TIME = Regex("""You may look at (.+) any time\.""")
+        val MANIFEST_DREAD_TIMES = Regex("""Manifest dread (X|\w+) times, then put (X|\w+) (\S+) counters on each of those creatures\.""")
+        val MAY_RETURN_FROM_GRAVEYARD_TO_HAND = Regex("""You may return an? (.+?) from your graveyard to your hand\.""")
+        val REVEAL_TARGET = Regex("""Reveal target (.+)\.""")
         // dsk chunk 05
         val LOSES_ALL_AND_IS = Regex("""(Enchanted creature) loses all abilities and is an? (.+?) with base power and toughness (\d+)/(\d+) in addition to its other types\.""")
         val FACE_DOWN_CANT_BE_TURNED_FACE_UP = Regex("""As long as (enchanted creature) is face down, it can't be turned face up\.""")

@@ -104,6 +104,7 @@ internal object Filters {
                 "you control" -> PlayerFilter.You
                 "an opponent controls" -> PlayerFilter.Opponent
                 "you don't control" -> PlayerFilter.Not(PlayerFilter.You) // chunk 33
+                "your opponents control" -> PlayerFilter.Opponent // dsk chunk 06
                 else -> return null
             }
             return and(noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(who))
@@ -191,6 +192,8 @@ internal object Filters {
             "ability" -> return ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility)
             // chunk 41: "a tapped land"
             "tapped" -> return ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
+            // dsk chunk 06: "a face-down permanent" (CR 708)
+            "face-down" -> return ObjectFilter.HasStatus(arcanum.api.Status.FaceDown)
             "untapped" -> return ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))
         }
         COLORS[word]?.let { return ObjectFilter.OfColor(it) }
@@ -221,7 +224,7 @@ internal object Filters {
     private val WITH_MANA_VALUE = Regex("""(.+) with mana value (\d+|X)( or less)?""")
     private val WITH_POWER_OR_TOUGHNESS_AT_MOST = Regex("""(.+) with power or toughness (\d+) or less""")
     private val ON_THE_BATTLEFIELD = Regex("""(.+) on the battlefield""")
-    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control)""")
+    private val CONTROLLED = Regex("""(.+) (you control|an opponent controls|you don't control|your opponents control)""")
     private val WITH_BASIC_LAND_TYPE = Regex("""(.+) with a basic land type""")
     private val COLORS = mapOf("white" to Color.White, "blue" to Color.Blue, "black" to Color.Black, "red" to Color.Red, "green" to Color.Green)
     val BASIC_LAND_TYPES = listOf("Plains", "Island", "Swamp", "Mountain", "Forest")
@@ -296,6 +299,13 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        // dsk chunk 06: "this creature or another permanent you control is turned face up", "you turn a permanent face up"
+        // (CR 708.8: its controller turns it), "you sacrifice this enchantment"
+        IS_TURNED_FACE_UP.matchEntire(text)?.let { m -> return EventPattern.TurnedFaceUp(subject(m.groupValues[1], self) ?: return null) }
+        YOU_TURN_FACE_UP.matchEntire(text)?.let { m ->
+            return EventPattern.TurnedFaceUp(Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.ControlledBy(PlayerFilter.You)))
+        }
+        YOU_SACRIFICE_SELF.matchEntire(text)?.takeIf { it.groupValues[1] in self }?.let { return EventPattern.Sacrifice(ObjectFilter.Is(Objects.Self)) }
         // dsk chunk 05: "you manifest dread" (CR 701.62b); "the beginning of each opponent's upkeep"
         if (text == "you manifest dread") return EventPattern.ManifestDread(PlayerFilter.You)
         if (text == "the beginning of each opponent's upkeep") return EventPattern.StepBegins(arcanum.api.TurnStep.Upkeep, PlayerFilter.Opponent)
@@ -434,6 +444,10 @@ internal object Events {
     private val ENTERS = Regex("""(.+) enters?""")
     // dsk chunk 01
     private val YOU_FULLY_UNLOCK = Regex("""you fully unlock an? (\w+)""")
+    // dsk chunk 06
+    private val IS_TURNED_FACE_UP = Regex("""(.+) is turned face up""")
+    private val YOU_TURN_FACE_UP = Regex("""you turn an? (.+) face up""")
+    private val YOU_SACRIFICE_SELF = Regex("""you sacrifice (.+)""")
     // dsk chunk 02
     private val ATTACKS_ALONE = Regex("""(.+) attacks alone""")
     private val BEGINNING_OF_YOUR = Regex("""the beginning of your (upkeep|draw step|end step|first main phase)""")
@@ -624,6 +638,14 @@ internal object Conditions {
             return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
                 ObjectFilter.OwnedBy(PlayerFilter.You)), from = Zone.Graveyard), atLeast = 1, measure = Measure.Events)
         }
+        // dsk chunk 06: "a permanent entered the battlefield face down under your control this turn", "you turned a permanent
+        // face up this turn"
+        if (text == "a permanent entered the battlefield face down under your control this turn")
+            return Condition.HappenedThisTurn(EventPattern.ZoneChange(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+                ObjectFilter.HasStatus(arcanum.api.Status.FaceDown), ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield), atLeast = 1, measure = Measure.Events)
+        if (text == "you turned a permanent face up this turn")
+            return Condition.HappenedThisTurn(EventPattern.TurnedFaceUp(Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent),
+                ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 1, measure = Measure.Events)
         // dsk chunk 04: "you control a Glimmer creature", "you don't control a Glimmer creature"
         CONTROL_A_PHRASE.matchEntire(text)?.let { m ->
             val exists = Condition.Exists(Filters.noun(m.groupValues[2] + " you control") ?: return null, atLeast = 1)
@@ -632,6 +654,11 @@ internal object Conditions {
         // chunk 52: "this is the second time this ability has resolved this turn" (counting this resolution)
         NTH_RESOLUTION.matchEntire(text)?.let { m ->
             return Condition.Compare(Value.AbilityUsesThisTurn(resolved = true), Comparison.Equal, Value.Fixed(Numbers.ordinal(m.groupValues[1]) ?: return null))
+        }
+        // dsk chunk 06: "[condition] or [condition]", when each part is one
+        if (text.contains(" or ")) {
+            val parts = text.split(" or ").map { condition(it, self) }
+            if (parts.size > 1 && parts.all { it != null }) return Condition.Or(parts.filterNotNull())
         }
         return null
     }

@@ -57,6 +57,14 @@ The definition model (overview in `Definitions.kt`):
   `Value.SharedColors` ("1 life for each of the chosen colors it is"), `EventPattern.Discard.causedBy` ("if a spell or
   ability an opponent controls causes you to discard this card"), `ObjectFilter.ThisTurn.role` ("a creature that dealt
   damage this turn": the source of a damage event).
+- Gatecrash and Dragon's Maze (sets `gtc`, `dgm`): extort, evolve and cipher (`KeywordExpansions` entries, CR 702.101a,
+  702.100a, 702.99a); fuse is the engine's (a way to cast a split card). Smaller pieces: `EventPattern.Attack.withOthers`
+  (battalion), `EventPattern.AttacksUnblocked.target` ("attacks a player and isn't blocked"), `EventPattern.Draw.exceptFirstIn`
+  ("except the first one they draw in each of their draw steps"), `ObjectFilter.Blocking`/`BlockedBy`,
+  `Mechanic.TargetableDespiteHexproof.by`, `Mechanic.CanOnlyAttackAlone`, `Mechanic.ChangeText` with `TextWord` (CR 612),
+  `Modification.EntersAs` ("enters … as a Mutant"), `CopyException.ThisAbility`, `Value.GreatestFor` ("the greatest number
+  of cards a player discarded"), `CostPart.RemoveCounters.distributed` ("from among creatures you control"),
+  `Effect.RemoveCounters.bind`, `TargetSlot.sameOwner` ("from a single graveyard") and `TargetSlot.atRandom`.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

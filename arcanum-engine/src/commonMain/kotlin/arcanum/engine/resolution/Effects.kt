@@ -259,8 +259,15 @@ internal object Effects {
             is Effect.ExtraTurn -> scope.players(effect.players).forEach { p ->
                 act.record(Changes.step(act.state, act.state.turn.copy(extraTurns = listOf(p) + act.state.turn.extraTurns)))
             }
-            is Effect.ExtraCombat -> act.manual(scope.actor, scope.self, "Take an additional combat phase" +
-                if (effect.followedByMain) " followed by an additional main phase" else "")
+            // gtc: CR 500.8: added directly after this phase, before phases added earlier
+            is Effect.ExtraCombat -> {
+                if (effect.untapAttackers) {
+                    val attacked = scope.eval().each(arcanum.api.ObjectFilter.ThisTurn(arcanum.api.EventPattern.Attack(arcanum.api.ObjectFilter.Any)))
+                    Actions.tap(act, attacked.filter { act.state.obj(it)?.zone == Zone.Battlefield }, false)
+                }
+                val added = listOf(arcanum.api.TurnStep.BeginningOfCombat) + if (effect.followedByMain) listOf(arcanum.api.TurnStep.PostcombatMain) else emptyList()
+                act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = added + act.state.turn.extraPhases)))
+            }
             is Effect.SkipNextTurn -> scope.players(effect.players).forEach { act.manual(it, scope.self, "Skip your next turn") }
             // CR 701.10f… exchanging life totals: each gains or loses the difference (CR 119.5)
             is Effect.ExchangeLife -> {

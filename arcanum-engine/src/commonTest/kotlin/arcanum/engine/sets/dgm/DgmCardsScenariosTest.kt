@@ -70,6 +70,12 @@ class DgmCardsScenariosTest {
         Cards.invent("$guild Gatehouse", null, "Land — Gate", "This land enters tapped.\n{T}: Add {W} or {U}.")
     }
 
+    private val storm = Cards.invent("Probability Storm", "{3}{R}{R}", "Enchantment",
+        "Whenever a player casts a spell from their hand, that player exiles it, then exiles cards from the top of their library until they exile a card that shares a card type with it. That player may cast that card without paying its mana cost. Then they put all cards exiled with this enchantment on the bottom of their library in a random order.")
+    private val saprolings = Cards.invent("Spore Call", "{G}", "Sorcery", "Create a 1/1 green Saproling creature token.")
+    private val mime = Cards.invent("Progenitor Mime", "{4}{G}{U}", "Creature — Shapeshifter",
+        "You may have this creature enter as a copy of any creature on the battlefield, except it has \"At the beginning of your upkeep, if this creature isn't a token, create a token that's a copy of this creature.\"", "0/0")
+
     private val bear = Cards.invent("Market Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val ox = Cards.invent("Wide Ox", "{2}{G}", "Creature — Ox", "", "1/4")
     private val murder = Cards.invent("Quick Execution", "{1}{B}{B}", "Instant", "Destroy target creature.")
@@ -277,6 +283,48 @@ class DgmCardsScenariosTest {
         alice.casts(murder, target = ox, paying = listOf("Swamp", "Swamp#1"))
         allPass()
         expect { bob.graveyard.names shouldBe listOf(ox) }
+    }
+
+    // ---- Probability Storm
+
+    /** The spell cast from the hand is exiled; the first card sharing a card type with it may be cast without paying
+     * its mana cost; the exiled cards go to the bottom of the library. */
+    // CR 118.9, 701.20
+    @Test
+    fun stormReplacesTheSpell() = scenario {
+        alice.battlefield(storm)
+        alice.hand(study)
+        alice.library("Island", saprolings, "Swamp")
+        alice.castsWithoutCosts(study)
+        resolve()
+        resolveAll()
+        expect {
+            alice.battlefield has "Saproling Token"
+            alice.hand.isEmpty()
+            alice.exile.isEmpty()
+            alice.library.names.first() shouldBe "Swamp"
+            alice.library.names.toSet() shouldBe setOf("Swamp", "Island", study)
+        }
+    }
+
+    // ---- Progenitor Mime
+
+    /** It enters as a copy with the upkeep ability; each upkeep the original (not a token) makes a token copy. */
+    // CR 707.9b, 603.4
+    @Test
+    fun mimeCopiesAndMakesTokens() = scenario {
+        alice.battlefield(bear)
+        alice.hand(mime)
+        alice.library("Island", "Island", "Island")
+        bob.library("Island", "Island", "Island")
+        alice.castsWithoutCosts(mime)
+        resolve()
+        if (pending is Decision.May) answer(Answer.YesNo(true))
+        if (pending is Decision.ChooseObjects) alice.chooses(bear)
+        fun bears() = state.battlefield.count { id -> state.obj(id)?.controller == alice.id && view()[id]?.characteristics?.name == bear }
+        assertEquals(2, bears())
+        advanceTo(TurnStep.Draw, turn = 3)
+        assertEquals(3, bears())
     }
 
     // ---- Ten Gates (CR 104.2b)

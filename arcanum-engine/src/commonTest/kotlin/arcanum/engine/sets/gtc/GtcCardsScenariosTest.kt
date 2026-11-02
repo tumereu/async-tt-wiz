@@ -50,6 +50,11 @@ class GtcCardsScenariosTest {
         {2}, {T}: This land becomes a copy of target land, except it has this ability.
     """)
 
+    private val aurelis = Cards.invent("Aurelis, the Battle Angel", "{2}{R}{R}{W}{W}", "Legendary Creature — Angel", """
+        Flying, vigilance, haste
+        Whenever Aurelis attacks for the first time each turn, untap all creatures you control. After this phase, there is an additional combat phase.
+    """, "3/4")
+
     private val bear = Cards.invent("Market Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val ox = Cards.invent("Wide Ox", "{2}{G}", "Creature — Ox", "", "1/4")
     private val lurker = Cards.invent("Veiled Lurker", "{1}{G}", "Creature — Elf", "Hexproof", "2/2")
@@ -223,6 +228,26 @@ class GtcCardsScenariosTest {
             "Ooze Token".power shouldBe 3
             "Ooze Token".toughness shouldBe 3
         }
+    }
+
+    /** Attacking the first time: everything untaps and a second combat follows this one (the second attack doesn't
+     * trigger it again). */
+    // CR 500.8, 506.1
+    @Test
+    fun aurelisAddsACombat() = scenario {
+        alice.battlefield(aurelis, bear)
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(aurelis, bear)
+        resolveAll()
+        expect { bear.tapped shouldBe false }
+        advanceTo(TurnStep.EndOfCombat)
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(aurelis, bear)
+        expect { stack.isEmpty() }
+        advanceTo(TurnStep.PostcombatMain)
+        expect { bob.life shouldBe 10 }
+        advanceTo(TurnStep.End)
+        expect { bob.life shouldBe 10 }
     }
 
     /** It becomes a copy of the land and keeps this ability, so it can copy again. */

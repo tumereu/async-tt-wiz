@@ -257,7 +257,10 @@ internal object Triggers {
             }
             val now = units(change)
             val counted = if (now.isEmpty()) now else trigger.nthThisTurn?.let { n ->
-                val earlier = state.eventsOf(state.turn.number).takeWhile { it !== whole && it != whole }.flatMap { units(it) }
+                // gtc: the events before this one (the last equal one: two combats can make equal changes)
+                val events = state.eventsOf(state.turn.number)
+                val at = events.indexOfLast { it === whole }.takeIf { it >= 0 } ?: events.indexOfLast { it == whole }
+                val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
                 if (!trigger.oneOrMore) now.filterIndexed { i, _ -> earlier.size + i + 1 == n }
                 else now.filter { unit ->
                     earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n

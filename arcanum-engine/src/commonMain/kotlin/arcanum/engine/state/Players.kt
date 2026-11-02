@@ -76,6 +76,11 @@ data class TurnState(
     val turnStarted: Map<PlayerId, Int> = emptyMap(),
     /** Players taking extra turns after this one, in order (CR 500.7). */
     val extraTurns: List<PlayerId> = emptyList(),
+    // gtc
+    /** Additional phases still to come, by their first step, in order (CR 500.8): each begins as the phase under way ends. */
+    val extraPhases: List<TurnStep> = emptyList(),
+    /** Where the turn's own order goes on once the additional phases are over (CR 500.8). */
+    val resumeAt: TurnStep? = null,
 )
 
 /** Who has priority and how many players in a row have passed (CR 117, D57). Null holder: nobody (untap, cleanup). */

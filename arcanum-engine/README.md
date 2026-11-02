@@ -52,7 +52,7 @@ games of cube cards. `revert` takes changes back last first; after a host drops 
   the layer system (`Layers`, `Copiable`), where abilities function (`Functioning`, CR 113.6),
   subtype lists (CR 205.3); `KeywordMeanings`: a keyword's abilities, its expansion or, for a keyword not automated
   yet, abilities that stop with a `Manual` step at its natural moment (cast, enters, attacks, dies, …; an activated
-  keyword's cost is paid by the engine and only its effect is by hand), so no keyword is silently ignored (D61).
+  keyword's cost is paid by the engine and only its effect is by hand, saddle's excepted), so no keyword is silently ignored (D61).
   `ViewCache`: inside `perform` and `options` the engine's own working copy keeps its view until a change that can
   make it differ (a host's state never caches; `Engine.view` works it out afresh). Within a layer, dependencies are
   tried only for pairs where one can exist (CR 613.8a) and resolutions are kept until the board changes in what they read.
@@ -79,8 +79,9 @@ marks where they go.
 `Input.Concede(player)` is accepted at any time (CR 104.3a). `GameState.result` is `Won` when one player is left
 (CR 104.2a) and `Draw` when the last players lose at once (CR 104.4a); then `options` are empty and `perform` refuses
 input. In a game that goes on, a player who lost or conceded leaves it (CR 800.4a): their objects leave the game, what
-they control is exiled, their abilities on the Stack and waiting triggers go, priority they held passes on, and their
-turn goes on without them (CR 800.4j).
+they control is exiled, their abilities on the Stack and waiting triggers go, their face-down permanents and spells are
+revealed (CR 708.9; in a viewer's state those it doesn't know stay unknown, as leaving can't wait for the host),
+priority they held passes on, and their turn goes on without them (CR 800.4j).
 
 ## Hidden information
 
@@ -116,8 +117,12 @@ tests play). One rule, in the event pipeline and the effects that look:
     identities). The state keeps only the answers and which cards are hidden, so the identities come with every
     answer; while more are needed the engine asks `OtherView` again. Once nothing is hidden the resolution goes on as
     usual. `Engine.otherViewDecision(state, filled)` gives a host that doesn't keep the player's state the decision
-    they face. Not yet: a face-down cast of a card unknown to the view (filled publicly), private looks outside a
-    resolution (a companion check at the start).
+    they face.
+  - Another player's companion check at the start (CR 103.2b) is theirs, made in their own state: the viewer's state
+    doesn't look at their deck and offers every card of theirs outside the game that may be a companion; the one they
+    reveal (the host forwards their choice) is filled in publicly.
+  - Not yet: a face-down cast of a card unknown to the view is filled publicly (CR 708.2 would keep it unknown; the
+    face-down cost comes from the card's own ability, which the view can't read).
 
 Every answer, a player's or the host's, is checked against its decision before anything happens (`AnswerCheck`: kind,
 allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a wrong one is refused with
@@ -146,13 +151,16 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   alternative costs and permissions (evoke, flashback, escape, overload, retrace, morph, "rather
   than pay"), bestow (an Aura spell and permanent while bestowed, a creature once it stops being, CR 702.103b, e, f),
   splice (CR 702.47: cards in hand offered as the spell is cast, their text added after its own, their costs added, a
-  card whose target names clash with the spell's not offered), collect evidence as a cost (CR 701.59a), convoke, delve, cost changes (CR 118.7), Phyrexian, hybrid, snow, restricted mana;
+  card whose target names clash with the spell's not offered), collect evidence as a cost (CR 701.59a), convoke, delve, cost changes (CR 118.7; "the next … spell" effects apply to and are used up by the spells they wait for,
+  CR 611.2f), Phyrexian, hybrid, snow, restricted mana;
   mana abilities without the Stack (their other effects at once, a part needing a decision
   by hand; "in any combination of colors" asks a colour per mana), triggered mana abilities at
   once (CR 605.4a); special actions (suspend, turning face up); combat:
-  declarations with their restrictions and as many requirements as they allow (CR 508.1d, 509.1c),
+  declarations with their restrictions and as many requirements as they allow (CR 508.1d, 509.1c; goaded creatures
+  attack, a player other than the goader if able, until the goader's next turn, CR 701.15),
   the last blockers declaration making attackers blocked or unblocked in the same change (CR 509.1h),
-  removal from combat checked after every event (CR 506.4), first/double strike steps, trample,
+  removal from combat checked after every event (CR 506.4; an attacked planeswalker or battle that leaves or stops being
+  one leaves its attackers attacking nothing, CR 506.4c), first/double strike steps, trample,
   deathtouch, lifelink, infect, wither, toxic, dividing damage as its controller chooses whenever
   more than one division is legal (CR 510.1c–d, 702.19b; `Decision.Divide.suggested` gives one). A spell becomes cast with the
   `StackItemAdded` carrying `Meaning.Cast`; mode targets with a repeated slot name are kept
@@ -171,18 +179,21 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   order when it matters, prevention effects among them (CR 616.1: not asked when one prevents all
   and the others only change the amount, or when only prevention is left: shields last); each once per event; "instead", modifications, optional ones, linked
   "when applied" triggers, one-use shields and regeneration (D26). Resolution (CR 608): target
-  re-check and fizzling, partial legality, every `Step` and every `Effect` (keyword actions
+  re-check and fizzling (the card leaving through `Events.run`, so a replacement's order or a host fill waits), partial
+  legality, every `Step` and every `Effect` (keyword actions
   without a table entry are done directly or by hand), effect objects with locked sets (CR
   611.2c), delayed and reflexive triggers (snapshots of objects that already left, CR 608.2h), "until"
   returns as a one-shot effect right after the event without the Stack (CR 610.3), copies of spells (a spell of its own:
   "this spell" is the copy, with its own facts — X, modes, costs paid copied; not cast, no mana spent; moved, it ceases
-  to exist, CR 707.10, 707.10a), redirection only to a permanent still a creature, planeswalker or battle (CR
+  to exist, CR 707.10, 707.10a; a copy of a permanent spell becomes a token as it resolves, not "created", with the
+  copy's facts, CR 707.10f, 608.3f, 111.13), redirection only to a permanent still a creature, planeswalker or battle (CR
   614.9), casting from an
   effect (CR 608.2g) with the casting flow's own plan (face, modes, optional costs, X, targets, cost objects, mana;
   without paying its mana cost with X 0, for another cost such as madness, or for its own; not cast without legal
   targets), the card going to the graveyard/exile/battlefield (an
   Adventure to exile, castable from there as the creature, CR 715.4); mana paid on resolution as a
-  `ManaPayment` decision (by hand when no payment is found). Permanents enter with their printed
+  `ManaPayment` decision, asked only when a payment is found (CR 118.3), by hand when its amount isn't known there ("its
+  mana cost", an unannounced X). Permanents enter with their printed
   loyalty or defense (CR 306.5b, 310.4b); Sagas get lore counters as they enter and after the
   draw step (CR 714.3); levelers' level abilities count level counters (CR 711). A step that needs a decision is
   taken back and redone with the answers so far (D29); earlier steps stay done (D31).
@@ -190,7 +201,10 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   see only its parts that don't look back, and "from anywhere" abilities the others' moves, CR 603.6c), batches,
   "nth this turn" (counting batches for "one or more"), per-turn limits (counting waiting triggers),
   intervening and trigger-only conditions (an object that left is in no zone, CR 400.7), state triggers,
-  chapters, "triggers an additional time"; waiting triggers in `GameState.triggered`, put on
+  chapters, "triggers an additional time"; keyword events: cycling (the card discarded for a cycling cost, also a
+  discard, triggering from where it went, CR 702.29c–d), becoming crewed (a crew ability resolving, CR 702.122e),
+  becoming saddled (saddle marks it until the cleanup step, CR 702.171), expending (the mana spent on spells this turn
+  reaching N, CR 700.14); waiting triggers in `GameState.triggered`, put on
   the Stack in APNAP order with their order, modes ("not chosen (this turn)") and targets.
   State-based actions (CR 704.5a–q,
   v, Sagas 714.4) as one event, the legend rule as a decision. `History`: "this turn" counts.
@@ -200,17 +214,16 @@ allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a 
   the end of the game (CR 104) and players leaving a multiplayer game (CR 800.4a, j, k).
 - Not yet: additional combat
   phases and skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
-  cycling/crewing/saddling/expending/day-night events, `CountersPut.causedBy`, `nthThisTurn`'s
+  day and night (not tracked: its event never triggers), `CountersPut.causedBy`, `nthThisTurn`'s
   `during`, "do this only once each turn", repeated target slot names of repeated modes
   (bound under the first); in the flow: attack costs and
-  "as it attacks" costs, battles as attack targets,
-  other keyword actions as costs (behold, forage, exert), "next spell" cost changes used
-  up. Also missing: text-changing
+  "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
+  other keyword actions as costs (behold, forage, exert); no cube card has any of these. Also missing: text-changing
   effects (layer 3, no mechanic exists), copy effects from static abilities (effect objects
   only), the Inspect breakdown of where a value comes from. Around the game: opening-hand actions (CR 103.6) and
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
-  starts; a player who leaves while a flow of theirs other than a cast waits for a decision (the decision stays open,
-  CR 800.4h is not applied); restarting a game (CR 104.1).
+  starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
+  choosing, are not applied); restarting a game (CR 104.1).
 
 ## Tests
 

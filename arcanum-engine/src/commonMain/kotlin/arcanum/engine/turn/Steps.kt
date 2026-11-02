@@ -289,6 +289,10 @@ internal object Steps {
         }
         endEffects(recorder) { d, _ -> d == Duration.EndOfTurn }
         endEffects(recorder, onlyController = s.turn.active, createdBefore = s.turn.number) { d, _ -> d == Duration.UntilEndOfYourNextTurn }
+        // CR 702.171b: a permanent stays saddled until the end of the turn
+        val saddled = StatusFlag.Marked(arcanum.api.ObjectMark.Saddled)
+        s.battlefield.filter { s.obj(it)?.marks?.contains(arcanum.api.ObjectMark.Saddled) == true }
+            .forEach { recorder.record(Change.Status(it, saddled, true, false)) }
         val before = recorder.changes.size
         return when (val p = Perform.checks(recorder)) {
             is Progress.Waiting -> Next.Wait(p)

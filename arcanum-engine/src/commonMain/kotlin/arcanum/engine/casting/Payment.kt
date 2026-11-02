@@ -366,6 +366,7 @@ internal object Payment {
         // CR 601.2i: the spell becomes cast
         recorder.record(Change.StackItemAdded(item, null, listOf(Meaning.Cast)))
         NextSpells.useUp(recorder, id)
+        spentOnSpells(recorder, plan.player, spent.size)
         plan.permission?.first?.let { permission ->
             permission.then?.let { then -> recorder.record(Changes.effect(recorder.state) { t -> leavesStackTo(id, plan.player, then, permission.thenInsteadOf, t, s.turn.number) }) }
             if (permission.perTurn != null) countPermission(recorder, plan)
@@ -381,6 +382,22 @@ internal object Payment {
         if (!plan.byEffect) Casting.keepPriority(recorder, plan.player)
         return Progress.Done
     }
+
+    /** CR 700.14: the mana [player] spent to cast spells this turn, counted in their ledger (one key per turn, the
+     * previous turn's dropped), and the [GameEvent.SpentOnSpells] event "whenever you expend N" triggers on. */
+    private fun spentOnSpells(recorder: Recorder, player: PlayerId, amount: Int) {
+        if (amount <= 0) return
+        val s = recorder.state
+        val key = SPENT_ON_SPELLS + s.turn.number
+        val ledger = s.player(player).ledger
+        ledger.keys.filter { it.startsWith(SPENT_ON_SPELLS) && it != key }
+            .forEach { old -> recorder.record(Change.Ledger(player, old, ledger.getValue(old), 0)) }
+        val before = ledger[key] ?: 0
+        recorder.record(Change.Ledger(player, key, before, before + amount))
+        recorder.record(Change.Happened(GameEvent.SpentOnSpells(player, before, before + amount)))
+    }
+
+    private const val SPENT_ON_SPELLS = "spent-on-spells@"
 
     /** "If it would leave the Stack, put it [then] instead" (flashback, CR 702.34a): an effect object on the spell. */
     private fun leavesStackTo(spell: ObjectId, player: PlayerId, then: arcanum.api.Destination, insteadOf: Zone?, timestamp: Long, turn: Int) =

@@ -394,6 +394,9 @@ sealed interface GameEvent {
     @Serializable @SerialName("mulliganed") data class Mulliganed(val player: PlayerId, val count: Int) : GameEvent
     /** [player] kept an opening hand of [cards] cards (CR 103.5). */
     @Serializable @SerialName("kept") data class Kept(val player: PlayerId, val cards: Int) : GameEvent
+    /** [player] paid a cost to cast a spell: the mana they spent to cast spells this turn went from [before] to
+     * [after] (CR 700.14, expend). */
+    @Serializable @SerialName("spent-on-spells") data class SpentOnSpells(val player: PlayerId, val before: Int, val after: Int) : GameEvent
     /** [player] conceded the game (CR 104.3a). */
     @Serializable @SerialName("conceded") data class Conceded(val player: PlayerId) : GameEvent
 }

@@ -84,11 +84,15 @@ object KeywordMeanings {
         data object YourCreatureDies : On(listOf(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
             ObjectFilter.OwnedBy(PlayerFilter.You))), from = Zone.Battlefield, to = Zone.Graveyard)), functionsIn = listOf(Zone.Graveyard))
 
-        /** An activated ability: [extra] cost parts after the keyword's own cost, paid by the engine; the effect by hand. */
-        sealed class Activated(private val zone: Zone, private val timing: Timing, private val extra: (Keyword) -> List<CostPart>) : Moment {
+        /** An activated ability: [extra] cost parts after the keyword's own cost, paid by the engine; the effect by hand
+         * unless [effect] gives it. */
+        sealed class Activated(
+            private val zone: Zone, private val timing: Timing, private val extra: (Keyword) -> List<CostPart>,
+            private val effect: (Keyword) -> List<Step>? = { null },
+        ) : Moment {
             override fun ability(keyword: Keyword, text: String): Ability {
                 val own = (keyword as? arcanum.api.HasCost)?.cost?.parts.orEmpty()
-                return Ability.Activated(Cost(own + extra(keyword)), Instructions(steps = listOf(Step.Manual(text))),
+                return Ability.Activated(Cost(own + extra(keyword)), Instructions(steps = effect(keyword) ?: listOf(Step.Manual(text))),
                     ActivationRules(timing = timing, activatedBy = PlayerFilter.You), functionsIn = listOf(zone))
             }
         }
@@ -97,12 +101,13 @@ object KeywordMeanings {
         data object ExileFromGraveyard : Activated(Zone.Graveyard, Timing.Sorcery, { listOf(CostPart.Exile(CostObjects.Self, Zone.Graveyard)) })
         /** "[Cost], Discard this card: … Activate only as a sorcery." (transmute) */
         data object DiscardAsSorcery : Activated(Zone.Hand, Timing.Sorcery, { listOf(CostPart.Discard(CostObjects.Self)) })
-        /** "Tap any number of other untapped creatures you control with total power N or more: … Activate only as a
-         * sorcery." (saddle) */
+        /** "Tap any number of other untapped creatures you control with total power N or more: This permanent becomes
+         * saddled until end of turn. Activate only as a sorcery." (saddle, CR 702.171a; saddled ends in the cleanup
+         * step) */
         data object TapCreaturesWithTotalPower : Activated(Zone.Battlefield, Timing.Sorcery, { k ->
             listOf(CostPart.TapObjects(CostObjects.Choose(otherCreatureYouControl, count = null,
                 total = Total(NumericProperty.Power, Value.Fixed((k as? HasAmount)?.amount ?: 0)))))
-        })
+        }, { k -> if (k is Keyword.Saddle) listOf(Step.Do(arcanum.api.Effect.Mark(Objects.Self, arcanum.api.ObjectMark.Saddled))) else null })
         /** "Tap another untapped creature you control: … Activate only as a sorcery." (station) */
         data object TapAnotherCreature : Activated(Zone.Battlefield, Timing.Sorcery, {
             listOf(CostPart.TapObjects(CostObjects.Choose(otherCreatureYouControl, count = Value.Fixed(1))))

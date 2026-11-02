@@ -161,8 +161,16 @@ internal object EventMatcher {
                 if (keyword is arcanum.api.Keyword.Crew && e.matches(pattern.objects, vehicle))
                     listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(vehicle))), listOf(item.controller))) else null
             }.orEmpty()
-        // Day/night, saddling and expending aren't tagged yet.
-        is EventPattern.DayNightChanges, is EventPattern.Saddled, is EventPattern.Expend -> emptyList()
+        // CR 702.171b: it becomes saddled (the saddle ability resolving marks it)
+        is EventPattern.Saddled -> (change as? Change.Status)?.takeIf {
+            it.flag == StatusFlag.Marked(arcanum.api.ObjectMark.Saddled) && !it.before && it.after && e.matches(pattern.objects, it.id)
+        }?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))))) }.orEmpty()
+        // CR 700.14: the mana a player spent to cast spells this turn reaches the amount with this payment
+        is EventPattern.Expend -> ((change as? Change.Happened)?.event as? GameEvent.SpentOnSpells)
+            ?.takeIf { it.before < pattern.amount && it.after >= pattern.amount && e.matches(pattern.players, it.player) }
+            ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
+        // Day and night aren't tracked yet.
+        is EventPattern.DayNightChanges -> emptyList()
     }
 
     /** A spell's cast event (CR 601.2i): the Stack item of a cast spell put on the Stack, tagged [Meaning.Cast]. */

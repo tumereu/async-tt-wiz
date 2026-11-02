@@ -4188,6 +4188,8 @@ internal class Sentences(
 
     /** gtc: the Gatecrash and Dragon's Maze sentence rules, tried near the end of [effect]: null when none reads [sentence]. */
     private fun gtcEffect(sentence: String, context: Context): List<Step>? {
+        // the specific wordings first, then the general "gains … until end of turn and … this turn"
+        gtcEffect2(sentence, context)?.let { return it }
         // gtc chunk 01: "creatures you control gain first strike and trample until end of turn and can't be blocked by
         // creature tokens this turn": one continuous effect with each rule, all ending with the turn (CR 611.2a)
         Gtc.TIMED_PREDICATES.matchEntire(sentence)?.let { m ->
@@ -4199,7 +4201,7 @@ internal class Sentences(
             if (objects == null) { while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex); return@let }
             return listOf(Step.Do(Effect.ApplyMechanics(mechanics, arcanum.api.Affected.Objects(objects), arcanum.api.Duration.EndOfTurn)))
         }
-        return gtcEffect2(sentence, context)
+        return null
     }
 
     /** gtc: the Gatecrash one-shot wordings (white, blue, black). */

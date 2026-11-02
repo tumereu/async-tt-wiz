@@ -6407,7 +6407,8 @@ internal class Sentences(
         // rtr chunk 06: "a player casts a spell from a graveyard"
         Rtr.CASTS_A_SPELL_FROM.matchEntire(text)?.let { m ->
             val by = if (m.groupValues[1] == "a player") PlayerFilter.Any else if (m.groupValues[1] == "you") PlayerFilter.You else return null
-            return arcanum.api.Trigger.On(EventPattern.Cast(Filters.noun(m.groupValues[2]) ?: return null, by, from = Zone.Graveyard))
+            val spell = if (m.groupValues[2] == "spell") ObjectFilter.Any else Filters.noun(m.groupValues[2]) ?: return null
+            return arcanum.api.Trigger.On(EventPattern.Cast(spell, by, from = Zone.Graveyard))
         }
         // rtr chunk 07: "a creature attacks you or a planeswalker you control" (CR 508.1b)
         Rtr.ATTACKS_YOU_OR_PLANESWALKER.matchEntire(text)?.let { m ->

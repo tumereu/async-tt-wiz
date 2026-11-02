@@ -102,11 +102,14 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
                 }
             }
             holder == viewer -> when {
-                flows.responding == play.currentNodeId -> RespondBar(flows, viewer)
+                flows.responding == play.currentNodeId -> RespondBar(flows, toolkit.pause, play, viewer)
                 flows.hidden -> HiddenEye(flows)
-                else -> RespondPrompt(flows, flow, play, names, viewer)
+                else -> RespondPrompt(flows, toolkit.pause, flow, play, names, viewer)
             }
-            holder != null -> WaitingBar("${name(holder)} may respond to ${topName(flows, flow, play)}", "Pass for them") { confirm = true }
+            holder != null -> WaitingBar("${name(holder)} may respond to ${topName(flows, flow, play)}", "Pass for them",
+                // STK-038 (I-D41): while this device waits for them
+                toolkit.pause.running(play.currentNodeId)?.takeIf { it.role is PauseRole.Theirs && it.role.millis > 0 }
+                    ?.let { { PauseProgress(toolkit.pause, it) } }) { confirm = true }
         }
     }
     if (confirm) {
@@ -210,14 +213,21 @@ private fun HiddenEye(flows: SharedFlowController) {
     }
 }
 
-/** The priority prompt (CR 117.3d): what is on top of the Stack, Respond and Let it resolve. */
+/** The priority prompt (CR 117.3d): what is on top of the Stack, Respond and Let it resolve; at a pause (I-D41,
+ * STK-037) its time running out and Hold, or "take your time" once held. */
 @Composable
-private fun RespondPrompt(flows: SharedFlowController, flow: SharedFlow, play: PlayState, names: Map<String, String>, viewer: String) {
+private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, flow: SharedFlow, play: PlayState,
+    names: Map<String, String>, viewer: String) {
+    val node = play.currentNodeId
+    val running = pause.running(node)?.takeIf { it.role is PauseRole.Yours }
     FlowSurface("Respond prompt") {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(topTitle(flows, flow, play, names, viewer), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
             EyeButton(hidden = false, flows::toggleHidden, "Automatum panel")
         }
+        if (running != null) PauseProgress(pause, running)
+        else if (pause.holding(node)) Text("Holding — take your time", fontSize = 12.sp, fontWeight = FontWeight.Medium,
+            color = AutomatumViolet)
         flow.top?.let { item ->
             (flow.text(item)?.takeUnless { topHidden(flows, flow) } ?: topCard(flows, flow, play)?.let { cardText(play, it) })?.let {
                 Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
@@ -228,28 +238,36 @@ private fun RespondPrompt(flows: SharedFlowController, flow: SharedFlow, play: P
         val more = flow.state.stack.size - 1
         if (more > 0) Text("$more more below it on the Stack", fontSize = 11.sp, color = Color(0xff4b5a5f))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-            OutlinedButton({ flows.respond(play) }) { Text("Respond") }
-            Button({ flows.pass(viewer) }, colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Let it resolve") }
+            if (running != null) TextButton({ pause.hold(node) }) { Text("Hold") }
+            // Responding holds a running pause first, so the game waits for the response (or it becomes a branch, STK-039)
+            OutlinedButton({ if (running == null || pause.hold(node)) flows.respond(play) }) { Text("Respond") }
+            Button({ if (!pause.passBehind(node)) flows.pass(viewer) },
+                colors = ButtonDefaults.buttonColors(containerColor = AutomatumViolet)) { Text("Let it resolve") }
         }
     }
 }
 
 /** Responding: the prompt as a bar over the hand while the player casts (double-tap or the hand menu's Cast). */
 @Composable
-private fun RespondBar(flows: SharedFlowController, viewer: String) {
+private fun RespondBar(flows: SharedFlowController, pause: PauseController, play: PlayState, viewer: String) {
     SlimBar("Responding") {
         Text("Respond — cast a card from your hand", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
         TextButton(flows::stopResponding) { Text("Back") }
-        TextButton({ flows.pass(viewer) }) { Text("Let it resolve") }
+        TextButton({ if (!pause.passBehind(play.currentNodeId)) flows.pass(viewer) }) { Text("Let it resolve") }
     }
 }
 
-/** What the other player does now, with acting for them (D11) after a confirmation. */
+/** What the other player does now, with acting for them (D11) after a confirmation; [progress]: the time this device
+ * waits for them (STK-038). */
 @Composable
-private fun WaitingBar(text: String, action: String, act: () -> Unit) {
+private fun WaitingBar(text: String, action: String, progress: (@Composable () -> Unit)? = null, act: () -> Unit) {
     SlimBar("Automatum waiting") {
-        Text(text, Modifier.weight(1f), fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        if (progress == null) Text(text, Modifier.weight(1f), fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        else Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(text, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            progress()
+        }
         TextButton(act) { Text(action) }
     }
 }

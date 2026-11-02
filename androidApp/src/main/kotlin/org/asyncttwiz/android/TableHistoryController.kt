@@ -140,6 +140,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                 if (next.cursor != null && (!index.contains(next.cursor) ||
                         (atHead && next.cursor != index.sharedHeadId))) return@review
                 view = next; viewVersion = index.liveVersion; error = next.error
+                pendingHold?.takeIf { it == next.cursor }?.let { if (arm(it)) pendingHold = null }
                 next.state?.let { reviewTexts(index, it) }
                 eventText.displayed(next.cursor, next.state, position.mode, index.nodes, textViewer, usernames, index::isAncestor)
                 stepChanges?.takeIf { it.first == next.cursor }?.let { changes.apply(it.second); stepChanges = null }
@@ -216,7 +217,20 @@ class TableHistoryController(private val worker: Executor, private val post: (()
         armed = node; provisional = false; firstRequest = null; gate = null
         return true
     }
-    fun cancel() { armed = null; provisional = false; firstRequest = null; gate = null }
+    fun cancel() { armed = null; provisional = false; firstRequest = null; gate = null; pendingHold = null }
+
+    /** I-D41 (STK-039): a hold waiting for its board to be shown before its continuation is armed. */
+    private var pendingHold by mutableStateOf<String?>(null)
+    /** I-D41 (STK-039): the viewer holds their pause at [node]: timeline mode paused there with a continuation armed, at
+     * once or as soon as that board is shown, so what they do next continues from it (a branch once the game went on). */
+    fun holdAt(node: String): Boolean {
+        if (closed || playback?.tree?.contains(node) != true) return false
+        select(node)
+        if (!arm(node)) pendingHold = node
+        return true
+    }
+    /** Whether the viewer holds at [node] ([holdAt]). */
+    fun holding(node: String): Boolean = armed == node && !provisional || pendingHold == node
     /** Abandon only local intent and show the live head; no gameplay or control request. */
     fun cancelContinuation() { clearChanges(); cancel(); playback?.continuationApplied() }
     fun current() { if (armed != null) cancelContinuation() else { cancel(); playback?.play() } }

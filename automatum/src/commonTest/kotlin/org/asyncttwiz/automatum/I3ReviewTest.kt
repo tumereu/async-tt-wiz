@@ -227,9 +227,11 @@ class I3ReviewTest {
     // main phase (Bob holds priority, 1 pass); off, the turn goes to Bob's main phase by hand; on again. Bob holds priority
     // there with the stale pass counted, so his own pass ends his main phase without Alice ever getting priority in it
     // (she holds Storm Spark and a Mountain, so the host wouldn't pass for her)
+    // (with "Full control", I-D41, so the host doesn't pass for players who could act)
     @Test fun passesInARowDoNotSurviveATurnChangedByHand() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         table.put(alice, PlayZone.HAND, "Storm Spark")
+        table.fullControl += listOf(alice, bob)
         val rt = game()
         rt.run(alice) { StepFlow.pass(it, alice) }
         assertEquals(MtgPriority(bob, 1), rt.state.board.priority)

@@ -130,8 +130,8 @@ class CastFlow private constructor(
     }
 
     /**
-     * The engine call that goes out once the flow is [complete]: the cast, then the caster's automatic pass (I-D3: "cast
-     * and keep priority" isn't offered) and the automatic passes after it ([StepFlow.automatic], I-D18), so with nothing
+     * The engine call that goes out once the flow is [complete]: the cast, then the caster's automatic pass (I-D3; with
+     * their "Full control" the caster keeps priority instead, a pause of their own, I-D41) and the automatic passes after it ([StepFlow.automatic], I-D18), so with nothing
      * to respond with the spell resolves in the same batch and the game goes on to the next point where a player can act
      * (the steps too, I-D35), or to its first decision (a shared flow from there, I-D11).
      * An activated ability on the Stack is passed on the same way (§3 I4); a land play, a mana ability and a special
@@ -142,6 +142,8 @@ class CastFlow private constructor(
         val done = replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true).call
         val stacked = begin is Input.Cast || (begin is Input.Activate && done.working.stack.size > stackBefore)
         if (stacked && done.pending == null && done.working.stack.isNotEmpty() && done.working.priority.holder?.value == player) {
+            // I-D41: with "Full control" their own spell is a pause for the caster, who keeps priority (to cast again)
+            if (StepFlow.fullControl(done, player)) return done
             done.perform(Input.PassPriority(PlayerId(player)), automatic = true)
             StepFlow.automatic(done)
         }

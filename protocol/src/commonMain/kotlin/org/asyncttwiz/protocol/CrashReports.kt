@@ -2,10 +2,15 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
-/** Debug diagnostics only; never part of game state or history. */
+/** Debug diagnostics only; never part of game state or history. [automatum]: a crash's Automatum log and reproduction
+ * bundle of the latest game (I-D43), at most [MAX_AUTOMATUM] characters; empty when there is none. */
 @Serializable
 data class CrashReport(val reportedAt: String, val appVersion: String, val device: String, val body: String,
-    val kind: String = "crash")
+    val kind: String = "crash", val automatum: String = "") {
+    companion object {
+        const val MAX_AUTOMATUM = 393_216
+    }
+}
 
 /** Milliseconds are monotonic elapsed times, not wall-clock/network latency estimates. */
 @Serializable
@@ -46,13 +51,15 @@ data class ReconnectEpisode(val id: String, val gameId: String, val startedAt: S
 fun GameAction.latencyType(): String = if (this is GameAction.Play) "Play.${action::class.simpleName}"
     else this::class.simpleName ?: "Unknown"
 
-/** Player-sent diagnostics; accepted without an account so it also works from the update gate. */
+/** Player-sent diagnostics; accepted without an account so it also works from the update gate. [automatum]: the latest
+ * game's Automatum log and reproduction bundle (I-D43), at most [MAX_AUTOMATUM] characters; empty when there is none. */
 @Serializable
 data class ProblemReport(val reportedAt: String, val appVersion: String, val versionCode: Int, val buildType: String,
     val device: String, val android: String, val description: String = "", val problem: String = "",
-    val log: String = "", val logcat: String = "") {
+    val log: String = "", val logcat: String = "", val automatum: String = "") {
     companion object {
-        const val MAX_BYTES = 524_288
+        const val MAX_BYTES = 1_048_576
+        const val MAX_AUTOMATUM = CrashReport.MAX_AUTOMATUM
         const val MAX_DESCRIPTION = 2_000
         const val MAX_PROBLEM = 1_000
     }

@@ -10,6 +10,7 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import org.asyncttwiz.automatum.AutomatumLog
 import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.automatum.CombatRefused
 import org.asyncttwiz.automatum.EngineBatch
@@ -275,17 +276,20 @@ internal class SharedFlowController(
             } catch (ask: Ask) {
                 Outcome.Confirm(ask.acting)
             } catch (refused: Refused) {
-                Outcome.Fail(refused.message)
+                Outcome.Fail(refused.message).also { refused.message?.let { AutomatumLog.refusal(play.gameId, "shared flow", it) } }
             } catch (refused: CombatRefused) {
+                AutomatumLog.refusal(play.gameId, "combat", refused.reason)
                 Outcome.Fail(refused.reason)
             } catch (problem: IllegalArgumentException) {
                 AppLog.info("automatum", "Answer refused: ${problem.message?.take(200)}")
+                AutomatumLog.refusal(play.gameId, "shared flow", problem.message.orEmpty())
                 Outcome.Fail(CastController.NOT_ALLOWED)
             } catch (problem: Unmappable) {
                 AppLog.warn("automatum", "Shared flow step couldn't be planned: ${problem.message?.take(200)}")
                 Outcome.Fail("Automatum couldn't send that.")
             } catch (problem: Exception) {
                 AppLog.warn("automatum", "Shared flow couldn't go on: ${problem::class.java.simpleName}: ${problem.message?.take(200)}")
+                AutomatumLog.refusal(play.gameId, "shared flow", "${problem::class.java.simpleName}: ${problem.message}")
                 Outcome.Fail("Automatum couldn't go on from here.")
             }
         }) { outcome ->

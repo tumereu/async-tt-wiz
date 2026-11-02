@@ -18,10 +18,13 @@ import org.asyncttwiz.protocol.ProblemReport
 /** Client margin below the server limit for request framing. */
 internal const val PROBLEM_REPORT_BYTES = ProblemReport.MAX_BYTES - 16_384
 
-internal fun problemReport(description: String, problem: String?, log: String, logcat: String, now: Instant = Instant.now()) =
+/** [automatum]: the latest game's Automatum log and bundle (I-D43, [AutomatumReports.text]), already within its bound. */
+internal fun problemReport(description: String, problem: String?, log: String, logcat: String, now: Instant = Instant.now(),
+    automatum: String = "") =
     ProblemReport(now.toString(), BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_TYPE,
         "${Build.MANUFACTURER} ${Build.MODEL}".take(200), "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})".take(100),
-        description.trim().take(ProblemReport.MAX_DESCRIPTION), problem.orEmpty().take(ProblemReport.MAX_PROBLEM), log, logcat)
+        description.trim().take(ProblemReport.MAX_DESCRIPTION), problem.orEmpty().take(ProblemReport.MAX_PROBLEM), log, logcat,
+        automatum.takeIf { it.length <= ProblemReport.MAX_AUTOMATUM }.orEmpty())
 
 /** Drops the oldest logcat lines first, then the oldest app log lines, until the encoded report fits. */
 internal fun fitProblemReport(report: ProblemReport, maxBytes: Int = PROBLEM_REPORT_BYTES): ProblemReport {
@@ -75,6 +78,8 @@ sealed interface ProblemReportState {
 
 /** One report at a time; a failure is shown and the player may simply send again. */
 class ProblemReportSender(private val scope: CoroutineScope,
+    /** I-D43: the latest game's Automatum log and bundle. */
+    private val automatum: () -> String = { AutomatumReports.text() },
     private val upload: suspend (ProblemReport, String?) -> String = { report, token ->
         // A large log over a slow connection needs longer than ordinary account calls.
         AccountApi(BuildConfig.ACCOUNT_ORIGIN, AccountApi.client(requestTimeout = 90_000)).use { it.sendProblemReport(report, token) }
@@ -89,7 +94,7 @@ class ProblemReportSender(private val scope: CoroutineScope,
         scope.launch {
             state = try {
                 val report = withContext(Dispatchers.IO) {
-                    fitProblemReport(problemReport(description, problem, AppLog.text(), ownLogcat()))
+                    fitProblemReport(problemReport(description, problem, AppLog.text(), ownLogcat(), automatum = automatum()))
                 }
                 val code = upload(report, token)
                 AppLog.info("report", "Problem report sent: $code")

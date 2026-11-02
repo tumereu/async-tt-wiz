@@ -11,7 +11,7 @@ app. Design: `docs/specs/arcanum-automatum.md` §4.1 and §7 (§7.0 is the API, 
 Engine.view(state): View                         // characteristics after layers (CR 613), rules in force
 Engine.explain(state, id): Explanation?          // where one object's characteristics come from, effect by effect
 Engine.options(state, player): List<Input>       // what a player may do now: exact (every input listed is accepted)
-Engine.perform(state, input): Outcome            // Outcome(changes, pending); never writes `state`
+Engine.perform(state, input, trace?): Outcome    // Outcome(changes, pending); never writes `state`; trace: see Tracing
 Engine.newGame(seats, startingLife): GameState   // a game before it begins; Input.StartGame starts it (CR 103)
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
@@ -177,6 +177,14 @@ the start; not casting and activating, which the player does themselves.
 Every answer, a player's or the host's, is checked against its decision before anything happens (`AnswerCheck`: kind,
 allowed values, counts, uniqueness, zones, exactly the asked fills, new ids): a wrong one is refused with
 `IllegalArgumentException`.
+
+## Tracing
+
+`Engine.perform(state, input, trace)` reports each call to an `EngineTrace` sink for a host's logs and bug reports: one
+`TraceEntry` after the call, `Performed` (the input, number of changes, rounds of state-based actions and triggers, the
+pending decision's shape `PendingShape`, a loop stop, whether the game ended, microseconds) or `Refused` (the input, the
+exception's message and class; the exception is still thrown). Entries are serializable, so a host can keep them with a
+report and replay their inputs on a saved state. The default `EngineTrace.None` reads no clock and makes no entry.
 
 ## Status
 

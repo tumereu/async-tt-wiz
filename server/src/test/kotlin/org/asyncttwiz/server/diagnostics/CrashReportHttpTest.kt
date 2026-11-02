@@ -149,6 +149,38 @@ class CrashReportHttpTest {
         }
     }
 
+    // LOB-090, I-D43: a crash carries the latest game's Automatum log and bundle, bounded; other kinds carry none
+    @Test fun `a crash report stores its Automatum bundle in full`() {
+        ActivityFixture().use { f ->
+            val now = Instant.now()
+            val adapter = CrashReportHttp(f.runtime, ActivityClock(now))
+            val server = TomcatServletWebServerFactory(0).apply { setAddress(InetAddress.getByName("127.0.0.1")) }.getWebServer({ context ->
+                context.addServlet("crash-reports", object : HttpServlet() {
+                    override fun service(request: HttpServletRequest, response: HttpServletResponse) {
+                        if (!adapter.handle(request, response)) response.status = 404
+                    }
+                }).addMapping("/")
+            })
+            server.start()
+            try {
+                val client = HttpClient.newHttpClient()
+                fun post(automatum: String, kind: String = "crash"): Int {
+                    val input = CrashReport(now.toString(), "1.0 debug", "Model; Android 15", "trace", kind, automatum)
+                    val request = HttpRequest.newBuilder(URI("http://127.0.0.1:${server.port}/debug/crash-reports"))
+                        .header("Content-Type", "application/json").header("Authorization", "Bearer ${f.tokenA}")
+                        .POST(HttpRequest.BodyPublishers.ofString(AccountJson.format.encodeToString(input)))
+                    return client.send(request.build(), HttpResponse.BodyHandlers.ofString()).statusCode()
+                }
+                val bundle = "atw-automatum-bundle/1 gzip+base64\n" + "A".repeat(200_000)
+                assertEquals(204, post(bundle))
+                assertEquals(200_035L, f.number("SELECT length(automatum) FROM debug_crash_report WHERE kind='crash'"))
+                assertEquals(400, post("x".repeat(CrashReport.MAX_AUTOMATUM + 1)))
+                assertEquals(400, post("bundle", kind = "latency"))
+                assertEquals(1L, f.number("SELECT count(*) FROM debug_crash_report"))
+            } finally { server.stop() }
+        }
+    }
+
     // LOB-090
     @Test fun `every report kind keeps only its newest per account and all kinds together keep only the newest in total`() {
         ActivityFixture().use { f ->

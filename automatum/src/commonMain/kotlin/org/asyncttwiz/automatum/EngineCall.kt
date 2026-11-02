@@ -39,6 +39,9 @@ class EngineCall(
     val log: List<LoggedChange> = emptyList(),
     private val seeds: () -> String,
 ) {
+    // I-D43: the board of the latest call is a report's latest board, also when the engine can't take it
+    init { AutomatumLog.context(state, definitions, viewer, log) }
+
     /** The engine state the call starts from. */
     val start: GameState = EngineState.from(state, definitions, viewer, log)
     /** The state after [changes]. */
@@ -84,7 +87,10 @@ class EngineCall(
                 else -> {
                     val early = PreAnswers.matching(state.board, working, ids, decision) ?: return working.pending
                     preAnswered += PreAnswers.id(early)
-                    PreAnswers.answer(early, working, ids, decision) ?: return working.pending
+                    val taken = PreAnswers.answer(early, working, ids, decision)
+                    AutomatumLog.preEvent(state.gameId, if (taken == null) "refused" else "used",
+                        "${PreAnswers.id(early)} for ${decision::class.simpleName} ${decision.id.value}")
+                    taken ?: return working.pending
                 }
             }
             run(Input.Answer(decision.id, answer))
@@ -105,6 +111,7 @@ class EngineCall(
         val early = requireNotNull(PreAnswers.forOpen(this)) { "No early answer for the open decision" }
         val decision = working.pending!!.decision
         preAnswered += PreAnswers.id(early)
+        AutomatumLog.preEvent(state.gameId, "used", "${PreAnswers.id(early)} for the open ${decision::class.simpleName} ${decision.id.value}")
         return perform(Input.Answer(decision.id, PreAnswers.answer(early, working, ids, decision)!!))
     }
 
@@ -113,13 +120,24 @@ class EngineCall(
     internal fun host(change: Change) {
         working.apply(change)
         changes += change
+        recording?.add(CallStep.Host(change)) ?: hostSteps.add(CallStep.Host(change))
     }
+
+    /** I-D43: the call's steps are recorded ([AutomatumLog]) from its first input on; host changes made before it are kept
+     * until then. */
+    private var recording: CallRecording? = null
+    private val hostSteps = mutableListOf<CallStep>()
+
+    /** The number [AutomatumLog] gave this call, once it performed an input. */
+    val logNumber: Int? get() = recording?.number
 
     /** The identities of [decision]'s objects, for the player who decides in their own view (D31). */
     fun otherView(decision: Decision.OtherView): List<FilledObject> = decision.objects.map(::filled)
 
     private fun run(input: Input, automatic: Boolean = true) {
-        val outcome = Engine.perform(working, input)
+        val recorded = recording ?: AutomatumLog.begin(this, hostSteps.toList()).also { recording = it }
+        recorded.add(CallStep.Perform(input))
+        val outcome = Engine.perform(working, input, recorded.trace)
         if (input is Input.PassPriority && !automatic)
             outcome.changes.indexOfFirst { it is Change.Priority }.takeIf { it >= 0 }?.let { passes += changes.size + it }
         outcome.changes.forEach { working.apply(it); changes += it }

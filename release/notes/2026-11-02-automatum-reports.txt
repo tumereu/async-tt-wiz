@@ -1,0 +1,1 @@
+mod: Problem and crash reports now include your last game's Automatum log, so rules problems can be replayed and fixed.

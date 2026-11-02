@@ -81,14 +81,18 @@ internal class CrashReportStore(private val directory: File) {
 
 internal class CrashExceptionHandler(private val store: CrashReportStore,
     private val previous: Thread.UncaughtExceptionHandler?, private val version: String, private val device: String,
-    private val enabled: () -> Boolean = { true }, private val now: () -> Instant = Instant::now) : Thread.UncaughtExceptionHandler {
+    private val enabled: () -> Boolean = { true },
+    /** I-D43: the latest game's Automatum log and bundle ([AutomatumReports.text]); never throws. */
+    private val automatum: () -> String = { "" },
+    private val now: () -> Instant = Instant::now) : Thread.UncaughtExceptionHandler {
     override fun uncaughtException(thread: Thread, failure: Throwable) {
         try {
             if (!enabled()) return
             val timestamp = now().toString()
             // Exception messages could carry an email address or a token; reports never do (LOB-090).
             store.write(CrashReport(timestamp, version, device, redactLog(
-                "Time: $timestamp\nThread: ${thread.name} (${thread.id})\nApp: $version\nDevice: $device\n\n${failure.stackTraceToString()}")))
+                "Time: $timestamp\nThread: ${thread.name} (${thread.id})\nApp: $version\nDevice: $device\n\n${failure.stackTraceToString()}"),
+                automatum = automatum()))
         } catch (_: Throwable) {
             // Diagnostic failures (including a full disk) must not replace Android's crash handling.
         } finally { previous?.uncaughtException(thread, failure) }
@@ -107,6 +111,7 @@ open class TabletopApplication : Application() {
             } finally { previous?.uncaughtException(thread, failure) }
         }
         AppLog.info("app", "Started. ${appVersionText()}; ${Build.MANUFACTURER} ${Build.MODEL}; API ${Build.VERSION.SDK_INT}")
+        AutomatumReports.install()
         Diagnostics.start(this)
         AndroidTokenCatalog.source(this)
     }
@@ -127,7 +132,8 @@ internal object DebugCrashes {
         val version = "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE}) ${BuildConfig.BUILD_TYPE}; commit ${BuildConfig.GIT_COMMIT}"
         val device = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})"
         Thread.setDefaultUncaughtExceptionHandler(CrashExceptionHandler(reports,
-            Thread.getDefaultUncaughtExceptionHandler(), version, device, enabled = { Diagnostics.enabled }))
+            Thread.getDefaultUncaughtExceptionHandler(), version, device, enabled = { Diagnostics.enabled },
+            automatum = { AutomatumReports.text() }))
         DebugLatency.install(application, reports, version, device)
         DebugJank.install(application, reports, version, device)
         // Opting in after sign-in: start with the session the app already has.

@@ -17,6 +17,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import kotlin.math.roundToInt
 import org.asyncttwiz.automatum.PausePoints
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
@@ -87,9 +88,9 @@ internal class PauseController(private val clock: () -> Long = ::monotonicMillis
     fun end(node: String) { shown?.takeIf { it.node == node }?.let { shown = it.copy(running = false) } }
     /** The pause on [node] while it runs. */
     fun running(node: String): ShownPause? = shown?.takeIf { it.node == node && it.running }
-    /** The part of the pause still to run, 1 to 0. */
-    fun remaining(pause: ShownPause): Float =
-        if (pause.role.millis <= 0) 0f else (1f - (clock() - pause.startedAt).toFloat() / pause.role.millis).coerceIn(0f, 1f)
+    /** The part of the pause still to run, 1 to 0, in hundredths (the bar is drawn from it). */
+    fun remaining(pause: ShownPause): Float = if (pause.role.millis <= 0) 0f
+        else ((1f - (clock() - pause.startedAt).toFloat() / pause.role.millis).coerceIn(0f, 1f) * 100).roundToInt() / 100f
 
     /** Hold or Respond in a running pause: the viewer stays at [node] as long as they like (STK-039). */
     fun hold(node: String): Boolean {

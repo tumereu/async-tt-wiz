@@ -1,0 +1,98 @@
+package org.asyncttwiz.android
+
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Surface
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.dp
+
+/**
+ * One place for every Automatum panel (UI review #4, decided for the owner 2026-11-03): like the cast panel (I-D47), the
+ * table's full width with its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom without one),
+ * so the hand is never covered.
+ */
+@Composable
+internal fun AboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
+        val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
+        val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth,
+            maxHeight = bottom))
+        layout(constraints.maxWidth, constraints.maxHeight) { placeable?.place(0, bottom - placeable.height) }
+    }
+}
+
+/** The viewer's hand row on [scene], where Automatum's panels dock ([AboveHand]). */
+internal fun handRow(scene: TableScene?, viewer: String): TableBounds? =
+    scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == viewer }?.bounds
+
+/**
+ * An Automatum panel docked above the hand ([AboveHand]) in the cast panel's look: white with a violet top edge, its
+ * [content] above a bottom row of fixed height with the eye at its left and the panel's [buttons] at its right (Hold
+ * first, then the others, the main one last). The eye never moves: [hidden] fades everything else away around it.
+ * [what] names the panel for the eye's description and hold tip.
+ */
+@Composable
+internal fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidden: () -> Unit, what: String,
+    buttons: @Composable RowScope.() -> Unit = {}, content: @Composable ColumnScope.() -> Unit) {
+    val shown by animateFloatAsState(if (hidden) 0f else 1f, tween(180), label = description)
+    Column(Modifier.fillMaxWidth()
+        .then(if (hidden) Modifier else Modifier.pointerInput(Unit) {}.semantics { contentDescription = description })
+        .drawBehind {
+            drawRect(Color.White.copy(alpha = shown))
+            drawLine(AutomatumViolet.copy(alpha = shown), Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
+        }) {
+        AnimatedVisibility(!hidden, enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Bottom),
+            exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
+            Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
+        }
+        DockButtonRow(hidden, shown, toggleHidden, what, buttons)
+    }
+}
+
+/** The dock's bottom row: the eye at a fixed spot at the left, [buttons] at the right (hidden with the panel). */
+@Composable
+private fun DockButtonRow(hidden: Boolean, shown: Float, toggleHidden: () -> Unit, what: String, buttons: @Composable RowScope.() -> Unit) {
+    Row(Modifier.fillMaxWidth().height(52.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(shape = CircleShape, color = Color.White, border = BorderStroke(2.dp, AutomatumViolet.copy(alpha = 1f - shown)),
+            shadowElevation = if (hidden) 6.dp else 0.dp) {
+            HoldTip(if (hidden) "Show the $what" else "Hide the $what") { EyeButton(hidden = hidden, toggleHidden, what) }
+        }
+        Spacer(Modifier.weight(1f))
+        AnimatedVisibility(!hidden, enter = fadeIn(tween(180)), exit = fadeOut(tween(180))) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp), content = buttons)
+        }
+    }
+}
+
+/** A slim Automatum bar docked above the hand ([AboveHand]): one line of [content] (a prompt, then its buttons), in the
+ * dock's look. */
+@Composable
+internal fun AutomatumDockBar(description: String, content: @Composable RowScope.() -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).pointerInput(Unit) {}.semantics { contentDescription = description }
+        .drawBehind {
+            drawRect(Color.White)
+            drawLine(AutomatumViolet, Offset(0f, 0f), Offset(size.width, 0f), 2.dp.toPx())
+        }.padding(start = 14.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically, content = content)
+}

@@ -176,7 +176,8 @@ internal fun CombatDivisionDialog(flows: SharedFlowController, play: PlayState, 
 /** The dialog hidden by Inspect (CMB-033): a button bringing it back. */
 @Composable
 internal fun DivisionHidden(flows: SharedFlowController) {
-    Surface(shape = RoundedCornerShape(22.dp), color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
+    AutomatumDockBar("Division hidden") {
+        Text("Dividing combat damage", Modifier.weight(1f), fontSize = 13.sp)
         BarButton("Divide damage", Icons.Outlined.CallSplit, onClick = flows::toggleHidden)
     }
 }
@@ -195,12 +196,13 @@ internal fun EarlyDivisionPanel(combat: CombatController, play: PlayState, divis
     // Combat review #9: Inspect folds the panel away to look at the combat area, as the division dialog's does
     var hidden by remember(division.source, division.firstStrike) { mutableStateOf(false) }
     if (hidden) {
-        Surface(shape = RoundedCornerShape(22.dp), color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
+        AutomatumDockBar("Early division hidden") {
+            Text("Your division comes later", Modifier.weight(1f), fontSize = 13.sp)
             BarButton("Divide early", Icons.Outlined.CallSplit) { hidden = false }
         }
         return
     }
-    Surface(Modifier.widthIn(max = 380.dp).semantics { contentDescription = "Early division" }, shape = RoundedCornerShape(8.dp),
+    Surface(Modifier.fillMaxWidth().semantics { contentDescription = "Early division" }, shape = RoundedCornerShape(0.dp),
         color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("${combatName(play, division.source)} — divide ${division.amount} damage", fontWeight = FontWeight.Bold, fontSize = 14.sp)

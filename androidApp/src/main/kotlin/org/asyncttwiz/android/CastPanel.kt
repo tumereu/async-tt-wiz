@@ -78,7 +78,7 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, sce
     val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == toolkit.viewer }?.bounds
     if (cast.targeting) {
         // Picking a target in Manage Stack: its sheet stands in for the bar until it closes
-        CastPanelPlacement(stack, handRow?.center?.y) { if (!toolkit.stackTargeting) TargetBar(cast, flow, play) }
+        AboveHand(handRow) { if (!toolkit.stackTargeting) TargetBar(cast, flow, play) }
         return
     }
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
@@ -152,16 +152,14 @@ internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: Table
 @Composable
 private fun TargetBar(cast: CastController, flow: CastFlow, play: PlayState) {
     val decision = flow.pending as Decision.Targets
-    Surface(Modifier.semantics { contentDescription = "Choose targets" }, shape = RoundedCornerShape(22.dp), color = Color.White,
-        shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        Row(Modifier.padding(start = 14.dp, end = 4.dp).heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("${spellName(flow, play)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
-                fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
-                IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
-            }
-            TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { IconText(Icons.Outlined.Close, "Cancel") }
+    // UI review #4, #9: docked above the hand like every Automatum panel, never over it
+    AutomatumDockBar("Choose targets") {
+        Text("${spellName(flow, play)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
+            fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        if (decision.max != 1 || decision.min == 0) TextButton(cast::confirmTargets, enabled = cast.picked.size >= decision.min) {
+            IconText(Icons.Outlined.Check, if (cast.picked.isEmpty()) "None" else "Done")
         }
+        TextButton(cast::cancel, Modifier.semantics { contentDescription = "Cancel cast" }) { IconText(Icons.Outlined.Close, "Cancel") }
     }
 }
 

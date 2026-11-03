@@ -86,7 +86,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
     }
     // Wide enough for one row of seven 48 dp entry buttons.
     InlinePopupPanel(dismiss, title = if (targets != null) "Choose a target · ${targets.size}" else "Manage Stack · ${order.size}",
-        width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
+        // UI review #6: the target picker is as tall as its entries
+        width = 384.dp, height = if (targets != null) (96 + 72 * entries.size).coerceAtMost(520).dp else 520.dp, key = "manage-stack", sheet = true) {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
@@ -105,7 +106,10 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         val face = definition?.faces?.indexOfFirst { it.faceId == card?.faceId } ?: -1
                         val art = if (entry.faceVisible && definition != null && face >= 0)
                             InspectedCard.retained(requireNotNull(card).definition, definition).artwork[face] else null
-                        Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
+                        // UI review #6, I-D48: picking a target, the entry is drawn as a battlefield card
+                        if (targets != null) ChoiceCardFace(choiceCard(state, viewer, id, card?.id, entry.faceVisible, entry.name)
+                            .copy(own = controlled), small = true)
+                        else Box(Modifier.size(32.dp * size, 44.dp * size).cardFrame(card?.token == true, owner, projection)
                             .semantics { contentDescription = if (controlled) "Your Stack entry" else "Opponent Stack entry" },
                             contentAlignment = Alignment.Center) {
                             if (art != null) CardArtwork(art, entry.name, 64, 88, Modifier.fillMaxSize())

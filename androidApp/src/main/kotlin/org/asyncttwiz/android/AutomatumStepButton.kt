@@ -46,7 +46,8 @@ internal sealed class AutomatumStep(val label: String) {
         fun of(play: PlayState): AutomatumStep {
             val board = play.board
             if (Automatum.flowOpen(board)) return if (AutomatumBoards.byHand(play)) Done else Waiting
-            if (CombatStackRules.stack(board).cards.isNotEmpty()) return Resolve
+            // Only Automatum's own Stack entries resolve through it (a manual entry is moved by hand)
+            if (CombatStackRules.stack(board).cards.isNotEmpty()) return if (board.stackEffects.any { it.item != null }) Resolve else Waiting
             val position = TurnPosition.of(board.turn)
             val holder = board.priority?.holder
                 ?: return when (position) {

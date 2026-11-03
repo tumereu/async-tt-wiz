@@ -274,9 +274,10 @@ class AutomatumPauseTest {
         compose.mainClock.advanceTimeBy(800)
         compose.onNodeWithText("Precombat main: you may act").assertExists()
         compose.onNodeWithText("Hold").assertExists()
-        compose.onNodeWithText("Pass").assertExists()
+        // TRN-063: the step arrow says Pass too; the pause panel's own Pass is beside Hold
+        compose.onNode(hasText("Pass") and hasAnyAncestor(hasContentDescription("Your pause"))).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-empty-stack.png",
-            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: by the Stack \"Precombat main: you may act\" with a violet bar emptying over his response time, an eye to hide the panel, Hold and Pass.")
+            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: docked full width above his hand \"Precombat main: you may act\" with a violet bar emptying over his response time, the eye at the bottom left, Hold and Pass at the right.")
     }
 
     // SYS-071 (I-D41): the device's Full control goes into a game Automatum is on in when the game's value differs

@@ -44,7 +44,9 @@ import kotlin.math.roundToInt
  * Inspect.
  */
 internal data class ChoiceCardData(val key: String, val cardId: String?, val name: String, val art: ArtworkReference?,
-    val shown: Boolean, val token: Boolean = false, val own: Boolean = true, val tapped: Boolean = false)
+    val shown: Boolean, val token: Boolean = false, val own: Boolean = true, val tapped: Boolean = false,
+    /** The battlefield's type glyph, shown while the art is missing. */
+    val typeIcon: String = "")
 
 /** The [ChoiceCardData] of ATW card [cardId] on [play]'s board as [viewer] may see it ([shown]); [fallback] names an
  * object that is no card. */
@@ -56,7 +58,7 @@ internal fun choiceCard(play: PlayState, viewer: String, key: String, cardId: St
     val face = definition?.faces?.firstOrNull { it.faceId == card.faceId } ?: definition?.faces?.firstOrNull()
     val art = if (shown && definition != null && face != null) face.tableArtwork(definition.faces.indexOf(face), card.definition)?.forTable() else null
     return ChoiceCardData(key, card.id, if (shown) face?.name ?: fallback else "Hidden card", art, shown, card.token,
-        card.owner == viewer, tapped)
+        card.owner == viewer, tapped, if (shown) TablePresentation.cardTypeIcon(face?.typeLine.orEmpty()) else "")
 }
 
 /** The width and height of a choice's card (the battlefield's 28 × 40 shape), scaled by the Panels card size. */
@@ -85,7 +87,12 @@ internal fun ChoiceCardFace(card: ChoiceCardData, modifier: Modifier = Modifier,
                 Text(card.name, fontSize = if (small) 7.sp else 8.sp, lineHeight = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                     overflow = TextOverflow.Ellipsis, color = MenuInk)
                 Box(Modifier.fillMaxWidth().weight(1f).padding(vertical = 2.dp)) {
-                    CardArtwork(card.art, card.name, 192, 140, Modifier.fillMaxSize(), crop = true)
+                    // As on the battlefield: the type glyph while there is no art
+                    CardArtwork(card.art, "", 192, 140, Modifier.fillMaxSize(), crop = true, placeholder = {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Text(card.typeIcon, fontSize = if (small) 14.sp else 20.sp, color = MenuInk)
+                        }
+                    })
                 }
                 Spacer(Modifier.height(6.dp))
             }

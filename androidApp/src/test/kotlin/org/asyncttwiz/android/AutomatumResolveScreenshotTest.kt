@@ -207,14 +207,16 @@ class AutomatumResolveScreenshotTest {
         return after
     }
 
-    // STK-030, I-D11, CR 603.3, 608.2d: the deciding player answers in the panel; its prompt is the card's sentence
+    // STK-030, I-D11, I-D47, CR 603.3, 608.2d: the deciding player answers in the panel, titled with what the choice is and
+    // where it comes from and showing the card it is about; its prompt is the card's sentence
     @Test fun resolutionChoicePanel() {
         val open = fertileDeath()
         val toolkit = render(open, f.b)
         compose.onNodeWithContentDescription("Automatum choice").assertExists()
-        compose.onNodeWithText("Fertile Passing").assertExists()
+        compose.onNodeWithText("You may · Fertile Passing").assertExists()
+        compose.onNode(hasContentDescription("Tinkered Mite") and hasClickAction()).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/resolve-choice.png",
-            "Alice's Storm Spark killed Bob's Tinkered Mite under her Fertile Passing: by the Stack Bob is asked the trigger's sentence, \"that creature's controller may draw a card\", with Yes and No; the move is his while he chooses.")
+            "Alice's Storm Spark killed Bob's Tinkered Mite under her Fertile Passing: docked above his hand Bob sees Fertile Passing's card beside \"You may · Fertile Passing\", \"About:\" with Tinkered Mite's card, the trigger's sentence \"that creature's controller may draw a card\", and Yes and No with icons; the move is his while he chooses.")
         // STK-032: life changes wait; passing the move only shows and goes on
         compose.runOnIdle {
             assertFalse(toolkit.submit(PlayAction.AdjustLife(f.b, "-1")))

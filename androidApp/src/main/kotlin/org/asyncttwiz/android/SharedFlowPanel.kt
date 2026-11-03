@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.state.ObjectId
+import arcanum.engine.state.TargetRef
 import arcanum.engine.state.StackItemKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -76,11 +77,8 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
     var confirm by remember(IdentityKey(play.board)) { mutableStateOf(false) }
     val viewer = toolkit.viewer
     fun name(player: String) = if (player == viewer) "You" else names[player] ?: "The other player"
-    val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
-    val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == viewer }?.bounds
     val decision = flow.decision
     val holder = flow.priority
-    val bar = flows.targeting || (decision == null && holder == viewer && flows.responding == play.currentNodeId)
     // CMB-033: a division of combat damage is a dialog of its own; one made by itself shows nothing meanwhile
     val dialog = decision is Decision.Divide && flow.division != null
     if (dialog && flows.answering != null && !flows.hidden && dividingInDialog(flow)) {
@@ -90,29 +88,28 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
         }
         return
     }
-    // Finalreview-combat #2: the priority prompts (a pause on something on the Stack, the other player's) dock above the
-    // hand in portrait while the combat area is shown, clear of its preview
-    CastPanelPlacement(stack, if (bar) handRow?.center?.y else null, if (!bar && decision == null) combatDock(scene, viewer) else null) {
+    // UI review #4 (decided for the owner): every Automatum panel docks full width exactly above the viewer's hand, like
+    // the cast panel, the eye always at the same spot
+    AboveHand(handRow(scene, viewer)) {
         CompositionLocalProvider(LocalChoiceFrame provides ChoiceFrame(viewer)) {
         when {
             decision != null && flows.answering != null -> when {
                 flows.targeting -> if (!toolkit.stackTargeting) FlowTargetBar(flows, flow, play, decision as Decision.Targets)
                 dialog -> if (dividingInDialog(flow)) DivisionHidden(flows)
-                flows.hidden -> HiddenEye(flows)
                 else -> DecisionPanel(flows, flow, play, names, decision, forOther = decision.player.value != viewer,
                     otherName = name(decision.player.value))
             }
-            decision != null -> Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                WaitingBar("${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing — " +
-                    prompt(flows, flow, play, decision), "Choose for them") { confirm = true }
+            decision != null -> Column {
                 // I-D29, I-D33: meanwhile the viewer may give their own division of this damage step early
                 toolkit.combat.ready(play)?.early?.firstOrNull { it.player == viewer && askedInDialog(play, it) }?.let { early ->
                     EarlyDivisionPanel(toolkit.combat, play, early, names, toolkit.enabled())
                 }
+                // UI review #5: short, what the choice is and where it comes from
+                WaitingBar("${name(decision.player.value)} ${if (decision.player.value == viewer) "are" else "is"} choosing — " +
+                    choiceTitle(flows, flow, play, decision), "Choose for them") { confirm = true }
             }
             holder == viewer -> when {
                 flows.responding == play.currentNodeId -> RespondBar(flows, toolkit.pause, play, viewer)
-                flows.hidden -> HiddenEye(flows)
                 else -> RespondPrompt(flows, toolkit.pause, flow, play, names, viewer)
             }
             holder != null -> WaitingBar("${name(holder)} may respond to ${topName(flows, flow, play)}", "Pass for them",
@@ -200,67 +197,79 @@ internal fun actingForText(asked: ActingFor, name: String?): ActingForText {
     }
 }
 
-@Composable
-private fun FlowSurface(description: String, content: @Composable ColumnScope.() -> Unit) {
-    Surface(Modifier.semantics { contentDescription = description }, shape = RoundedCornerShape(8.dp), color = Color.White,
-        shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        Column(Modifier.padding(10.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
-    }
-}
-
-@Composable
-private fun SlimBar(description: String, content: @Composable RowScope.() -> Unit) {
-    Surface(Modifier.semantics { contentDescription = description }, shape = RoundedCornerShape(22.dp), color = Color.White,
-        shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        Row(Modifier.padding(start = 14.dp, end = 4.dp).heightIn(min = 44.dp), verticalAlignment = Alignment.CenterVertically, content = content)
-    }
-}
-
-@Composable
-private fun HiddenEye(flows: SharedFlowController) {
-    Surface(Modifier.size(44.dp), shape = CircleShape, color = Color.White, shadowElevation = 6.dp, border = BorderStroke(2.dp, AutomatumViolet)) {
-        EyeButton(hidden = true, flows::toggleHidden, "Automatum panel")
-    }
-}
-
-/** The priority prompt (CR 117.3d): what is on top of the Stack, Respond and Let it resolve; at a pause (I-D41,
- * STK-037) its time running out and Hold, or "take your time" once held. */
+/** The priority prompt (CR 117.3d), docked above the hand (UI review #4): the card on top of the Stack drawn as a card
+ * (hold: Inspect) beside "Alice cast Storm Spark", an ability's own line, its targets (cards as cards), Respond and Let
+ * it resolve; at a pause (I-D41, STK-037) its time running out and Hold, or "take your time" once held. */
 @Composable
 private fun RespondPrompt(flows: SharedFlowController, pause: PauseController, flow: SharedFlow, play: PlayState,
     names: Map<String, String>, viewer: String) {
     val node = play.currentNodeId
     val running = pause.running(node)?.takeIf { it.role is PauseRole.Yours }
-    FlowSurface("Respond prompt") {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(topTitle(flows, flow, play, names, viewer), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            EyeButton(hidden = false, flows::toggleHidden, "Automatum panel")
-        }
-        if (running != null) PauseProgress(pause, running)
-        else if (pause.holding(node)) Text("Holding — take your time", fontSize = 12.sp, fontWeight = FontWeight.Medium,
-            color = AutomatumViolet)
-        flow.top?.let { item ->
-            (flow.text(item)?.takeUnless { topHidden(flows, flow) } ?: topCard(flows, flow, play)?.let { cardText(play, it) })?.let {
-                Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
+    val inspector = remember(node) { ChoiceInspector() }
+    AutomatumDockPanel("Respond prompt", flows.hidden, flows::toggleHidden, "Automatum panel", buttons = {
+        if (running != null) BarButton("Hold", Icons.Outlined.PanTool) { pause.hold(node) }
+        // Responding holds the pause first, its bar running or not (#2), so the game waits for the response or it
+        // becomes a branch (STK-039)
+        ChoiceButton("Respond", Icons.AutoMirrored.Outlined.Reply) { flows.respond(play) }
+        ChoiceButton("Let it resolve", Icons.Outlined.PlayArrow, primary = true) { if (!pause.passBehind(node)) flows.pass(viewer) }
+    }) {
+        val item = flow.top
+        val hidden = topHidden(flows, flow)
+        val entry = CombatStackRules.stack(play.board).cards.firstOrNull()?.let { CombatStackRules.inspection(play.board, it)?.id }
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (entry != null) choiceCard(play, viewer, "top", entry, !hidden, topName(flows, flow, play)).let { card ->
+                ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
             }
-            val targets = item.targets.values.flatten()
-            if (targets.isNotEmpty()) Text("Target: " + targets.joinToString { targetName(flows, play, names + (viewer to "You"), it) }, fontSize = 12.sp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(topTitle(flows, flow, play, names, viewer), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                // An ability says which of its source's abilities it is; a spell is its card (hold it to read it)
+                if (item != null && !hidden && item.kind !is StackItemKind.Spell && item.kind !is StackItemKind.SpellCopy)
+                    flow.text(item)?.let { Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f)) }
+                if (running != null) PauseProgress(pause, running)
+                else if (pause.holding(node)) Text("Holding — take your time", fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                    color = AutomatumViolet)
+            }
         }
+        val targets = item?.targets?.values?.flatten().orEmpty()
+        if (targets.isNotEmpty()) AboutRow("Target", targets.map { target ->
+            when (target) {
+                is TargetRef.Object -> AboutItem.Card(choiceCardOf(flows, play, viewer, target.id))
+                is TargetRef.Player -> AboutItem.Player(if (target.id.value == viewer) "You" else names[target.id.value] ?: "A player")
+            }
+        }, inspector)
         val more = flow.state.stack.size - 1
         if (more > 0) Text("$more more below it on the Stack", fontSize = 11.sp, color = Color(0xff4b5a5f))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-            if (running != null) BarButton("Hold", Icons.Outlined.PanTool) { pause.hold(node) }
-            // Responding holds the pause first, its bar running or not (#2), so the game waits for the response or it
-            // becomes a branch (STK-039)
-            ChoiceButton("Respond", Icons.AutoMirrored.Outlined.Reply) { flows.respond(play) }
-            ChoiceButton("Let it resolve", Icons.Outlined.PlayArrow, primary = true) { if (!pause.passBehind(node)) flows.pass(viewer) }
+    }
+    ChoiceInspection(inspector, play, viewer)
+}
+
+/** What a prompt or choice is about: a card (drawn as a card) or a player (named). */
+private sealed interface AboutItem {
+    data class Card(val card: ChoiceCardData) : AboutItem
+    data class Player(val name: String) : AboutItem
+}
+
+/** "Target: [card] You", "About: [card]" (UI review #5): the objects a prompt or a choice is about. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AboutRow(label: String, items: List<AboutItem>, inspector: ChoiceInspector) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("$label:", Modifier.align(Alignment.CenterVertically), fontSize = 12.sp, color = Color(0xff4b5a5f))
+        for (item in items) when (item) {
+            is AboutItem.Card -> ChoiceCardFace(item.card, Modifier.choiceCardGestures(item.card.key, tap = {},
+                hold = { inspector.hold(item.card, it) }), small = true)
+            is AboutItem.Player -> Row(Modifier.align(Alignment.CenterVertically), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Outlined.Person, null, Modifier.size(18.dp), tint = MenuInk)
+                Text(item.name, fontSize = 12.sp)
+            }
         }
     }
 }
 
-/** Responding: the prompt as a bar over the hand while the player casts (double-tap or the hand menu's Cast). */
+/** Responding: the prompt as a bar above the hand while the player casts (double-tap or the hand menu's Cast). */
 @Composable
 private fun RespondBar(flows: SharedFlowController, pause: PauseController, play: PlayState, viewer: String) {
-    SlimBar("Responding") {
+    AutomatumDockBar("Responding") {
         Text("Respond — cast a card from your hand", Modifier.weight(1f), fontSize = 13.sp, fontWeight = FontWeight.Medium,
             maxLines = 2, overflow = TextOverflow.Ellipsis)
         BarButton("Back", Icons.AutoMirrored.Outlined.ArrowBack, onClick = flows::stopResponding)
@@ -272,30 +281,46 @@ private fun RespondBar(flows: SharedFlowController, pause: PauseController, play
  * waits for them (STK-038). */
 @Composable
 private fun WaitingBar(text: String, action: String, progress: (@Composable () -> Unit)? = null, act: () -> Unit) {
-    SlimBar("Automatum waiting") {
-        if (progress == null) Text(text, Modifier.weight(1f), fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+    AutomatumDockBar("Automatum waiting") {
+        if (progress == null) Text(text, Modifier.weight(1f), fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         else Column(Modifier.weight(1f).padding(vertical = 6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(text, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(text, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             progress()
         }
         BarButton(action, if (action.startsWith("Pass")) Icons.Outlined.SkipNext else Icons.Outlined.SupervisorAccount, onClick = act)
     }
 }
 
-/** An open choice of a resolution or a trigger, for the player answering it. */
+/** An open choice of a resolution or a trigger, for the player answering it, docked above the hand (UI review #4): the
+ * source's card beside the title saying what the choice is and where it comes from (I-D47), an ability's own line, the
+ * cards it is about (what it triggered on, its targets; UI review #5), a short instruction, then the choice. */
 @Composable
 private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: PlayState, names: Map<String, String>,
     decision: Decision, forOther: Boolean, otherName: String) {
-    FlowSurface("Automatum choice") {
-        // I-D47: what the choice is and where it comes from ("Scry 2 · Carrot Cake"), then a short instruction
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(choiceTitle(flows, flow, play, decision), Modifier.weight(1f), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            EyeButton(hidden = false, flows::toggleHidden, "Automatum panel")
+    val viewer = LocalChoiceFrame.current.viewer
+    val inspector = remember(decision.id) { ChoiceInspector() }
+    val item = decision.source?.let { flow.state.stackItems[it] }
+    val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
+    AutomatumDockPanel("Automatum choice", flows.hidden, flows::toggleHidden, "Automatum panel") {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            sourceCard?.let { choiceCardOf(flows, play, viewer, it) }?.takeIf { it.cardId != null }?.let { card ->
+                ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // I-D47: what the choice is and where it comes from ("Scry 2 · Carrot Cake")
+                Text(choiceTitle(flows, flow, play, decision), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                if (forOther) Text("Choosing for $otherName", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
+                // An ability's own line (a spell is its card: hold it to read it)
+                if (!hasOwnText(decision) && item != null && (item.kind is StackItemKind.Activated || item.kind is StackItemKind.Triggered) &&
+                    sourceCard?.let(flows::shown) != false) flow.text(item)?.let {
+                    Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
+                }
+            }
         }
-        if (forOther) Text("Choosing for $otherName", fontSize = 12.sp, fontWeight = FontWeight.Medium, color = AutomatumViolet)
-        if (!hasOwnText(decision)) sourceText(flows, flow, play, decision)?.let {
-            Text(it, fontSize = 11.sp, lineHeight = 14.sp, color = Color(0xff4b5a5f))
-        }
+        // UI review #5: which objects the choice is about, e.g. the creature that died
+        val about = item?.let { (it.event?.objects.orEmpty().flatMap { r -> r.ids } +
+            it.targets.values.flatten().filterIsInstance<TargetRef.Object>().map { t -> t.id }).distinct() - setOfNotNull(sourceCard) }.orEmpty()
+        if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(flows, play, viewer, it)) }, inspector)
         choiceHint(decision)?.let { ChoiceHintText(it) }
         CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true)) {
             when (decision) {
@@ -311,16 +336,17 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: P
             }
         }
     }
+    ChoiceInspection(inspector, play, viewer)
 }
 
 /** A choice's title (I-D47): what it is and, when it has one, the card it comes from: "Scry 2 · Carrot Cake". */
-private fun choiceTitle(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String =
+internal fun choiceTitle(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String =
     listOfNotNull(choiceWhat(decision), decision.source?.let { sourceName(flows, flow, play, decision) }).joinToString(" · ")
 
 /** Targets of a trigger, picked on the table as for a cast (I-D5, I-D6); there is no cancelling a shared flow. */
 @Composable
 private fun FlowTargetBar(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision.Targets) {
-    SlimBar("Choose targets") {
+    AutomatumDockBar("Choose targets") {
         Text("${sourceName(flows, flow, play, decision)} — ${targetPrompt(decision)}", Modifier.weight(1f), fontSize = 13.sp,
             fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (decision.max != 1 || decision.min == 0) BarButton(if (flows.picked.isEmpty()) "None" else "Done",
@@ -373,16 +399,6 @@ private fun sourceName(flows: SharedFlowController, flow: SharedFlow, play: Play
     val source = decision.source ?: return if (decision is Decision.OrderTriggers) "Triggers" else "Automatum"
     if (source is ObjectId.StackItem) flow.state.stackItems[source]?.source?.let { return objectName(flows, play, it) }
     return objectName(flows, play, source)
-}
-
-/** The printed text of the decision's source, for a choice without a sentence of its own; none when the viewer may not
- * see the source (I-D27: a face-down card). */
-private fun sourceText(flows: SharedFlowController, flow: SharedFlow, play: PlayState, decision: Decision): String? {
-    val source = decision.source ?: return null
-    val card = (source as? ObjectId.StackItem)?.let { flow.state.stackItems[it]?.source } ?: source
-    if (!flows.shown(card)) return null
-    flow.state.stackItems[source]?.let { item -> flow.text(item)?.let { return it } }
-    return flow.atwCard(source)?.let { cardText(play, it) }
 }
 
 private fun hasOwnText(decision: Decision) =

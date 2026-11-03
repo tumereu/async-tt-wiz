@@ -137,7 +137,7 @@ internal class SharedFlowController(
         if (Automatum.flowOpen(play.board)) { fail(BUSY); return false }
         // I-D46 d: with something on the Stack the step arrow is "Resolve": its holder passes, as Let it resolve does
         val stacked = CombatStackRules.stack(play.board).cards.isNotEmpty()
-        if (stacked && until != StepFlow.Until.Pass) { fail(STACK_WAITING); return false }
+        if (stacked && (until != StepFlow.Until.Pass || play.board.stackEffects.none { it.item != null })) { fail(STACK_WAITING); return false }
         // TRN-027, TRN-028: the opening (mulligans) is the host's setup; the engine's game begins after it (CR 103.8)
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) { fail(OPENING); return false }
         acting = null

@@ -249,15 +249,18 @@ import kotlin.concurrent.Volatile
         val state = stateAt(target) ?: return GameplayTreeChange(reason = "historyUnavailable")
         // A retained future also exists beyond an explicitly activated internal current pointer.
         // Merely viewing/arming never reaches this code. Allocate metadata only after real success.
-        val forks = target != currentNodeId || index().children[target].orEmpty().isNotEmpty()
-        // Rules v36 (I-D23): no branch starts while an Automatum flow is open, live or at the branch point.
-        if (forks && (Automatum.flowOpen(state.board) || stateAt(currentNodeId)?.board?.let(Automatum::flowOpen) == true))
-            return GameplayTreeChange(reason = RuleRefusals.FLOW_OPEN)
+        val forks = forksAt(target)
+        // Rules v36 (I-D23): no branch starts from a point inside an open Automatum flow. A choice open only on the live
+        // line is left behind with that line (I-D41 decision A, pausereview #7: a late reaction branches).
+        if (forks && Automatum.flowOpen(state.board)) return GameplayTreeChange(reason = RuleRefusals.FLOW_OPEN)
         val branchId = if (forks) CommandIds.uuidV5(command.requestId, "history-branch") else currentBranchId
         val reseeds = if (forks) LibraryKnowledge.reseeds(state, actor) else emptyList()
         val reseeded = LibraryKnowledge.applyReseeds(state, reseeds, false) ?: return GameplayTreeChange(reason = "historyUnavailable")
         val resolved = if (forks) LibraryKnowledge.resolveEdge(reseeded, command, state) else command
-        val change = GameplayRules.change(reseeded.copy(currentBranchId = branchId), actor, resolved, referenceResolver())
+        // pausereview #10: an automated batch planned on the branch point before its reseed (sent before the device saw
+        // the game go on) still applies there; a device that saw it plans on [branchStart].
+        val change = GameplayRules.change(reseeded.copy(currentBranchId = branchId), actor, resolved, referenceResolver(),
+            plannedBefore = state.board.takeIf { reseeds.isNotEmpty() })
         val mutation = change.mutation?.let {
             val recorded = GameplayHistory.recontextualize(state, it.copy(transition = it.transition.copy(
                 delta = it.transition.delta!!.copy(libraryReseeds = reseeds))))
@@ -283,6 +286,18 @@ import kotlin.concurrent.Volatile
         next.changedFrom(this, keys)
         return GameplayTreeChange(next, targetId = mutation.id)
     }
+
+    /** Whether a play continuing from [target] starts a branch: the game has gone on from it, or it has a retained
+     * future (redo). */
+    fun forksAt(target: String): Boolean = target != currentNodeId || index().children[target].orEmpty().isNotEmpty()
+
+    /**
+     * HIS-042 (pausereview #10): [state], the board at a point a play by [actor] continues from, as a branch from there
+     * begins: the unknown order of every library reseeded exactly as [play] reseeds it. A client plans an automated
+     * batch ([MtgTag.board]) on it when [forksAt] says its play starts a branch. Null when the libraries don't fit.
+     */
+    fun branchStart(state: PlayState, actor: String): PlayState? =
+        LibraryKnowledge.applyReseeds(state, LibraryKnowledge.reseeds(state, actor), false)
 
     /** The active line's identity for [GameCommand.expectedSelection]: the request that made the current
      * selection by forking (explicit continuation), or the root before any. Undo/Redo never change it. */

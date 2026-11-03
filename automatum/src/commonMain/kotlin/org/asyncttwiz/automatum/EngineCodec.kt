@@ -298,9 +298,20 @@ internal data class TurnExtras(
 }
 
 /** The open flow of a shared call (record [org.asyncttwiz.protocol.Automatum.CONTINUATION_ID]): the engine's pending
- * decision and continuation, and whose view of the game it was made in (D60): a flow is resumed in that view. */
+ * decision and continuation, whose view of the game it was made in (D60): a flow is resumed in that view, and the
+ * [lingering] objects of its unfinished resolution. */
 @Serializable
-data class FlowRecord(val viewer: String? = null, val pending: Pending)
+data class FlowRecord(val viewer: String? = null, val pending: Pending, val lingering: List<Lingering> = emptyList())
+
+/**
+ * A token, or a copy of a card, that left the Battlefield or the Stack while the decision a flow waits for opened
+ * (a destroyed token whose ability asks "may search" before it finishes): the engine keeps it in its new zone until
+ * state-based actions are next checked (CR 111.7, 704.5d, 704.5e) and reads it there (last known information, CR
+ * 608.2h), but ATW's token stopped existing at once (TBL-103), so players never see it there. [index]: its place in its
+ * owner's library, hand or graveyard in the engine's order (bottom first); null in Exile (timestamp order).
+ */
+@Serializable
+data class Lingering(val obj: GameObject, val index: Int? = null)
 
 /** One step of the engine's tagged-event log (D33) carried in a history event's [org.asyncttwiz.protocol.MtgTag.data]. */
 @Serializable

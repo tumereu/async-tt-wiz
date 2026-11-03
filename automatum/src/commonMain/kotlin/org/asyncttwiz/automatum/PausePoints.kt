@@ -14,7 +14,7 @@ import org.asyncttwiz.protocol.TurnPosition
  * - A **stop** ([Point.Stop]) is the player's own main phase on an empty Stack: they act in their own time.
  * - A **pause** ([Point.Pause]) is something they could react to: a spell or ability of another player on top of the
  *   Stack, the other player's attack (the defending player in the declare attackers step), blocks (both players in the
- *   declare blockers step). The player is shown it for a short time (the app's response time) and the game goes on
+ *   declare blockers step), the other player's end step. The player is shown it for a short time (the app's response time) and the game goes on
  *   unless they react; their own spells and every other step with priority are pauses only with their "Full control"
  *   ([org.asyncttwiz.protocol.PlayPlayer.fullControl]).
  * - Anywhere else ([of] is null) the host passes for them.
@@ -44,6 +44,8 @@ object PausePoints {
         // Combat that involves them: the defending player answers an attack, both players the blocks
         attacking && position == TurnPosition.DECLARE_ATTACKERS && holder != active -> Point.Pause
         attacking && position == TurnPosition.DECLARE_BLOCKERS -> Point.Pause
+        // I-D41 decision B (pausereview #8): the other player's end step, for "at the end of turn" instants
+        holder != active && position == TurnPosition.END_STEP -> Point.Pause
         fullControl -> Point.Pause
         else -> null
     }

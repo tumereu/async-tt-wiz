@@ -31,7 +31,7 @@ by the owner before release.
 | I-D20 | **The undo window keeps counting events** (owner, 2026-11-02); it may be raised if playtesting shows automated batches push a player's own actions (e.g. a life edit) out of reach. |
 | I-D21 | **Deck card data is refreshed for Automatum** (owner, 2026-11-02): stored deck card data made before the new fields (`parts`, `colorIndicator`) is rebuilt from the catalog (a forced catalog/deck refresh if needed; decks may be wiped if a refresh can't be done). A card that still can't be read plays with its printed values and manual abilities instead of blocking the game. |
 | I-D22 | **History events are natural branching points** (owner, 2026-11-02): the minimum is one event each time a player could take an action. Engine bookkeeping (restamps, ledgers, records) is folded into its batch's visible event, and a priority pass is shown only when a player passed themselves (automatic passes stay inside the event); timeline stepping skips what is folded. Today's many events come from the manual board not knowing what can be responded to; further event cleanup may follow from Automatum. |
-| I-D23 | **No branching while a flow is open** (owner, 2026-11-02): starting a branch is refused, like other changes (D32). |
+| I-D23 | **No branching while a flow is open** (owner, 2026-11-02): starting a branch is refused, like other changes (D32). Since the pause review (decision A, to be confirmed): only from a point inside the flow; a choice open only on the live line is left behind with it. |
 | I-D24 | **Switching off clears the open flow** (reverted per I-D19) and keeps effect records, so their durations still apply when Automatum is switched on again; a manual "Clear Automatum data" action sits in the switch's hold panel (owner, 2026-11-02). |
 | I-D25 | **Emblems** show as a chip by the player's life square with the emblem's text; playtesting decides whether other UI is needed (owner, 2026-11-02). |
 | I-D26 | **Redo assigns fresh timestamps** when it re-applies an event, so stamp order follows real event order (owner, 2026-11-02; a starting point — undo/redo's final shape is decided by playtesting once Automatum is complete). |
@@ -280,9 +280,27 @@ out of anything stuck.
   returns to live when the game has gone on. A pass made for another player starts its own history group, so the pause
   ends one; timeline Auto stops at the viewer's pauses (`HistoryPlayback.stopAtPause`). Settings → Automatum
   (`PauseSettings`, device per account; Full control copied into each game). Choices: response time and wait are the
-  acting device's own (the reacting device shows its own time); "online" is the green presence dot; the opponent's end
-  step and beginning of combat are pauses only with Full control. Catalog: STK-026, STK-036–STK-039, TRN-057, SYS-071,
-  HIS-093, LOB-079, LOB-113.
+  acting device's own (the reacting device shows its own time); "online" is the green presence dot; the opponent's
+  beginning of combat is a pause only with Full control (the end step: see the review fixes below). Catalog: STK-026,
+  STK-036–STK-039, TRN-057, SYS-071, HIS-093, LOB-079, LOB-113.
+- **Built (pause points review fixes, 2026-11-03; decisions made for the owner overnight, to be confirmed):** A — a
+  late reaction may branch while the live game has an open choice when that choice is only on the line being left
+  (I-D23 is about forks inside one flow on the same line): `GameplayTree.play` refuses a fork only when the branch point's
+  board has a flow open (SYS-062). B — the other player's end step is a pause by default (`PausePoints.of`), subject to
+  Skip when I have no choice like other pauses, so end-of-turn instants work without Full control. C — the hold signal:
+  no change (playtesting decides). Fixes: a fork reseeds the libraries' unknown order (HIS-042), so the app plans
+  Automatum's batches from a held or past point on the branch's start (`TableToolkitController.acting`,
+  `GameplayTree.forksAt`/`branchStart`), and `GameplayRules.change` also takes a batch's `MtgTag.board` digest of the
+  branch point before its reseed (`plannedBefore`, a batch sent before the device saw the game go on); beginning a cast,
+  ability or Respond at the viewer's pause holds it (`PauseController.holdForReaction`, bar running or not); no
+  automatic pass for the viewer under their own open cast; a device passes by itself at most once per pause
+  (`PauseController.passedAt`, so Undo of it stays); the viewer's own device passes at their pause when the other player
+  isn't online; Full control goes into a game only after a change on the device the game hasn't taken
+  (`PauseSettings.fullControlChanged`, `FullControlSync` per game in the device's preferences), else the game's value
+  wins; one playback stop per pause (`HistoryPlayback.pauseKey`, also after an auto-pause or a ping); a pass made for the
+  holder reads "alice passed for bob". Test boards shuffle their libraries (#13). #9 (a mana ability at an empty-Stack
+  pause) is fixed by the final cast review's #3 (`HostPriority.kept`). Catalog: STK-036–STK-039, SYS-062,
+  SYS-071, HIS-091, HIS-093.
 - **Built (final cast review fixes, 2026-11-03; owner questions decided overnight, vision-aligned, to be confirmed):**
   - **Card names and types (#1, decision A):** never built from the game's card data (it holds the other player's hidden
     deck and hand, I-D27). "Choose a card name" is a text field (any name; the engine takes any non-blank name) with
@@ -402,7 +420,11 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
 - **Spells:** as STK-001/003 say, the card stays where it was cast from; its entry's item is the spell (a spell
   being cast has an item without data until the engine makes it, CR 601.2a). Abilities are entries of their source.
 - **Tokens:** ATW makes its own token card, with the token's printed values and rules text (I-D2); its ledger keeps
-  the engine's token id and definition (D35).
+  the engine's token id and definition (D35). A token (or copy of a card) that leaves the Battlefield or the Stack stops
+  existing in ATW at once (TBL-103); the engine keeps it in its new zone until state-based actions are next checked (CR
+  704.5d), so while a flow waits for a decision mid-resolution (a destroyed token's "its controller may search") the
+  continuation record keeps those objects and their place (`FlowRecord.lingering`), never shown to players; without an
+  open decision such an object is unmappable.
 - **Copies of cards** (CR 707.12, made where the card is): an ATW token card made in its owner's Exile
   (`CreateToken(definition, containerId)`), showing the copied card's own card data marked as a token's (as ATW's
   manual copy, `CloneToken`); its ledger keeps the engine's id, definition and `copyOfCard`. Cast, it stays in Exile

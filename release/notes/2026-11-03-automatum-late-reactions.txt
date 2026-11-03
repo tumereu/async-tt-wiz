@@ -1,0 +1,1 @@
+fix: With Automatum on, a reaction at your pause is no longer lost or refused: casting from your hand, an ability or Respond (also after the bar ran out) keeps you at that point, and answering after your opponent's device went on starts a branch as it should.

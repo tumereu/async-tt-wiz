@@ -205,7 +205,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
     // I-D41: Automatum's pauses on the live table, held in the timeline when the viewer holds one
-    val pauseSettings by rememberPauseSettings(accountId).first
+    val (pauseSettingsState, pausePreferences) = rememberPauseSettings(accountId)
+    val pauseSettings by pauseSettingsState
     val pauseRoutes = remember(history) { object : PauseRoutes {
         override fun hold(node: String) = history.holdAt(node)
         override fun holding(node: String) = history.holding(node)
@@ -216,7 +217,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     AutomatumPauseDriver(toolkit, playback, play, live?.currentNodeId,
         liveShown = position?.mode == HistoryMode.LIVE && history.armed == null && !resultLocked,
         opponentOnline = state.opponentPresence?.let { PresenceText.dot(it, monotonicMillis()) == PresenceDot.ONLINE } == true,
-        settings = pauseSettings)
+        settings = pauseSettings, sync = pausePreferences)
     LaunchedEffect(resultLocked) {
         if (resultLocked) {
             toolkit.dismiss(); toolkit.closeInspection(); toolkit.tokens.close(); toolkit.showStackBubbles(null)

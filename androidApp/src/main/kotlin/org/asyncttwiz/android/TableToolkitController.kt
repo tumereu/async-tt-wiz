@@ -35,13 +35,37 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun authorOf(nodeId: String): String? = playTree?.invoke()?.nodes?.get(nodeId)?.author
     /** Automatum's pauses on this table (I-D41): the one shown and the one the viewer holds. */
     internal val pause = PauseController()
+
+    /**
+     * The board Automatum plans the viewer's casts and passes on (pausereview #10): the one shown, or, when what the viewer
+     * does next continues from a point the game has gone on from (a held pause, a timeline point), that point's board as
+     * the branch will begin, every library's unknown order reseeded (HIS-042), so the batch applies there. Kept while the
+     * shown board and the history's answer stay the same, so a cast following its board isn't worked out again.
+     */
+    internal fun acting(): PlayState? {
+        val play = current() ?: return null
+        if (draft != null || !play.board.automatum) return play
+        val from = continuation()?.nodeId?.takeIf { it == play.currentNodeId } ?: return play
+        val tree = playTree?.invoke() ?: return play
+        if (tree.initial.id != play.id || !tree.forksAt(from)) return play
+        branchStart?.takeIf { it.first === play }?.let { return it.second }
+        val start = tree.branchStart(play, viewer) ?: play
+        branchStart = play to start
+        return start
+    }
+    private var branchStart: Pair<PlayState, PlayState>? = null
+
+    /** #1, #2 (STK-039): a reaction the viewer begins at their own pause (a cast or ability, Respond) holds the pause
+     * first, so it continues from there (a branch once the game went on) instead of being dropped when the game moves. */
+    private fun holdForReaction() = pause.holdForReaction(current(), viewer)
+
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
-    internal val cast = CastController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork)
+    internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
+        automatumWork, beginning = ::holdForReaction)
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
-    internal val flows = SharedFlowController(viewer, { current()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork)
+    internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
+        automatumWork, onRespond = ::holdForReaction)
     private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,

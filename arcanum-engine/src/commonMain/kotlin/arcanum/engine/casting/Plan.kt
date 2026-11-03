@@ -314,6 +314,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     }
 
     /** How often the optional cost of [inst] was chosen; null while not asked. */
+    /** tdm: the spell could be cast now without an additional cost that gives it flash: sorcery timing apart from the spell itself on the
+     * Stack (CR 307.1), or an instant. */
+    fun flashWithoutCost(): Boolean {
+        val s = base
+        val sorceryTime = s.turn.active == player && s.stack.all { it == itemId } &&
+            (s.turn.step == arcanum.api.TurnStep.PrecombatMain || s.turn.step == arcanum.api.TurnStep.PostcombatMain)
+        return sorceryTime || snap.view[itemId]?.characteristics?.types?.contains(arcanum.api.CardType.Instant) == true
+    }
+
     fun optionalTimes(inst: AbilityInstance): Int? = (choices.costs[optionalKey(inst)] as? NamedValue.Number)?.value
 
     val contributions: List<Costs.Contribution> = buildList {
@@ -582,7 +591,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 if (part.options.none { option -> Answers.payable(this, option.parts) }) return "None of ${labels(part)} can be paid"
                 return@forEach
             }
-            if (choices.names[OBJECTS + kp.key] == null) {
+            // tdm: objects a cost names by a value still to be announced ("Sacrifice a creature you control with mana value X") are
+            // checked once it is (CR 601.2b before 601.2h)
+            val unannounced = instructions.announced.any { it !in choices.announced } &&
+                kotlinx.serialization.json.Json.encodeToString(CostPart.serializer(), part).contains("\"announced\"")
+            if (choices.names[OBJECTS + kp.key] == null && !unannounced) {
                 Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { choice ->
                     if (choice.options.size < choice.min) {
                         return "Not enough to ${choice.text.lowercase()}: ${choice.options.size} of ${choice.min}"
@@ -593,7 +606,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                     }
                 }
             }
-            if (!Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
+            if (!unannounced && !Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
         }
         return null
     }

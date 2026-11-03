@@ -19,7 +19,7 @@ class CardListSupportTest {
         printingId = id())
     private val plain = card("Plain Cub", "Trample")
     private val odd = card("Odd Cub", "Whenever the moon is full, this creature dances a slow jig.")
-    private val banded = card("Banded Cub", "Banding")
+    private val banded = card("Banded Cub", "Whenever the tide turns, this creature hums an old sea song.")
     private val unreadable = CardDefinition("Broken Cub", listOf(DefinitionFace(id(), "Broken Cub", typeLine = "Creature — Bear", rulesText = "Trample")),
         layout = "split")
     private val cards = listOf(plain, odd, banded, unreadable).associateBy(DeckJson::digest)
@@ -37,7 +37,7 @@ class CardListSupportTest {
     }, parserVersion = 21, engineVersion = 3)
     private fun submitted(vararg definitions: CardDefinition) = definitions.map { SubmittedDefinition(DeckJson.digest(it), it) }
 
-    // LOB-115: unread text, a keyword done only by hand and unreadable card data are by hand; each card is read once
+    // LOB-115: unread text (two cards) and unreadable card data are by hand; each card is read once (no keyword is by hand any more)
     @Test fun aListNamesItsCardsPlayedByHand() {
         assertEquals(CardListSupport(21, engineVersion = 3), check.support(submitted(plain)))
         assertEquals(CardListSupport(21, listOf("Banded Cub", "Broken Cub", "Odd Cub"), 3), check.support(submitted(plain, odd, banded, unreadable)))

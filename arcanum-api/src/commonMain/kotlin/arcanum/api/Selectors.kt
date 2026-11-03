@@ -205,6 +205,9 @@ sealed interface ObjectFilter {
     /** It has dealt combat damage since it became this object (CR 400.7): "as long as they haven't dealt combat damage
      * yet". */
     @Serializable @SerialName("has-dealt-combat-damage") data object HasDealtCombatDamage : ObjectFilter
+    // tdm
+    /** It has dealt damage, combat or not, since it became this object (CR 400.7): "as long as it hasn't dealt damage yet". */
+    @Serializable @SerialName("has-dealt-damage") data object HasDealtDamage : ObjectFilter
     // msh
     /** An attacking creature that attacked alone: the only creature declared as an attacker in its combat (CR 506.5, "a
      * creature you control that's attacking alone"). */
@@ -303,6 +306,9 @@ sealed interface SharedQuality {
     @Serializable @SerialName("planeswalker-type") data object PlaneswalkerType : SharedQuality
     /** The value of [property] ("creatures with different powers"). */
     @Serializable @SerialName("number") data class Number(val property: NumericProperty) : SharedQuality
+    // tdm
+    /** Kinds of counters on it (CR 122.1: "three or more different kinds of counters among creatures you control"). */
+    @Serializable @SerialName("counter-kind") data object CounterKind : SharedQuality
 }
 
 /** Which players something refers to, worked out when it is used. "You" is the controller of the spell or ability

@@ -162,7 +162,11 @@ object DefinitionChecks {
                     val uses = bind?.let { b -> Regex(""""name":"${Regex.escape(b)}"""").findAll(body.toString()).count() } ?: 0
                     // hob chunk 03: a keyword action has no players to give ("its controller amasses Goblins X"): it stays a loop
                     val action = ((body.getOrNull(0) as? JsonObject)?.get("effect") as? JsonObject)?.typeName() == "keyword-action"
-                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1 && !action)
+                    // tdm chunk 02: a token attacking that player ("for each opponent, create a token … attacking that opponent") has one
+                    // attack target each: it stays a loop
+                    val effect = (body.getOrNull(0) as? JsonObject)?.get("effect") as? JsonObject
+                    val attacksThem = effect?.typeName() == "create-token" && bind != null && effect["attacking"].toString().contains("\"$bind\"")
+                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1 && !action && !attacksThem)
                         found += "a single effect for each player: give the effect the players (one event); loops are for several steps"
                 }
                 if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")

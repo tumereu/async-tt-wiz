@@ -33,6 +33,8 @@ internal object Answers {
                     else -> refuse("Expected yes or no, or a number")
                 }
                 if (times < 0 || (!q.mechanic.repeatable && times > 1)) refuse("Not a number of times it can be paid")
+                // tdm: cast when only an instant could be, "as though it had flash if you [pay this cost]": it must be paid (CR 702.8a, 601.2b)
+                if (q.mechanic.flash && times == 0 && !plan.flashWithoutCost()) refuse("Cast as though it had flash only by paying that cost")
                 c.copy(costs = c.costs.with(q.key, NamedValue.Number(times)))
             }
             is Question.Splice -> {

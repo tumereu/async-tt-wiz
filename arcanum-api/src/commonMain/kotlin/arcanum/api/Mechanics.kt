@@ -296,6 +296,10 @@ sealed interface Mechanic {
     @Serializable @SerialName("additional-cost") data class AdditionalCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val optional: Boolean = false, val repeatable: Boolean = false, val times: Value? = null,
+        // tdm
+        /** Paying it lets the spell be cast as though it had flash (CR 702.8a): cast when only an instant could be, the cost must be paid
+         * ("You may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it"). */
+        val flash: Boolean = false,
     ) : Mechanic
     /** Some of the spell's mana may be paid another [way] (delve, convoke, improvise; CR 702.66a, 702.51a). */
     @Serializable @SerialName("pay-mana-by") data class PayManaBy(val way: ManaPaymentWay) : Mechanic

@@ -400,6 +400,11 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   Lander tokens; devour of a kind ("devour land 3"); draw replacements that add to or multiply the number drawn (CR 121.2a); objects
   chosen as a cost (tapped or sacrificed with the costs); delayed triggers that wait for a later turn; permissions that change a
   spell's cost or make lands enter tapped; and counters put on each of several objects counted once before any is put (CR 608.2h).
+- Done, Tarkir: Dragonstorm (scenarios in `commonTest/…/sets/tdm/`): every non-trivial card plays. Omen spells are shuffled into
+  their owner's library as they resolve (CR 720.3d); endure by any permanent, its controller choosing counters or the Spirit; the clan
+  chosen as a Siege enters, each clan's ability working only when chosen; a spell cast as though it had flash only by paying the
+  additional cost that gives it flash; what has dealt any damage remembered; and a cost that names an announced X ("Sacrifice a creature
+  you control with mana value X") checked once X is announced (CR 601.2b).
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action and the foretold card's permission),

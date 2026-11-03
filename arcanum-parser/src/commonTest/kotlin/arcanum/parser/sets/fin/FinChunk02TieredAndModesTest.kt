@@ -320,7 +320,7 @@ class FinChunk02TieredAndModesTest {
         Ability.Triggered(entersSelf, Instructions(modes = modes(
             mode(destroy(target("creature")), targets = listOf(slot("creature", and(creature, ObjectFilter.ThisTurn(arcanum.api.EventPattern.Damage(
                 source = ObjectFilter.Any, to = arcanum.api.RecipientFilter()), arcanum.api.EventRole.Object))))),
-            mode(move(target("cards"), Zone.Exile), targets = listOf(slot("cards", inZone(Zone.Graveyard), min = 0, max = 2).copy(sameOwner = true))),
+            mode(move(target("card"), Zone.Exile), targets = listOf(slot("card", and(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), inZone(Zone.Graveyard)), min = 0, max = 2).copy(sameOwner = true))),
         ))),
     )
 

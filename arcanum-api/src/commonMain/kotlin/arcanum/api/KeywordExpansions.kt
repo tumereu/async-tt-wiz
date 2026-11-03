@@ -698,13 +698,14 @@ object KeywordExpansions {
                 Step.If(Condition.Not(Condition.Did("discover-cast")), listOf(Step.Do(Effect.Move(Objects.Bound("discovered"), Destination(Zone.Hand))))),
                 Step.Do(Effect.Move(Objects.Bound("discover-rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
-        // CR 701.63a: put N +1/+1 counters on it or create an N/N white Spirit creature token (counters only while it is on the
-        // battlefield)
-        is KeywordAction.Endure -> listOf(
-            Step.Choose(Choice.Option(listOf(ENDURE_COUNTERS, ENDURE_SPIRIT)), bind = "endure", chooser = Players.You),
-            Step.If(Condition.And(listOf(Condition.Chose("endure", ENDURE_COUNTERS), Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Battlefield)))),
-                then = listOf(Step.Do(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), action.count))),
-                otherwise = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(SPIRIT_TOKEN, power = action.count, toughness = action.count), Value.Fixed(1), Players.You)))))
+        // CR 701.63a: its controller puts N +1/+1 counters on it or creates an N/N white Spirit creature token (counters only while it is
+        // on the battlefield); enduring 0 does nothing (701.63b)
+        is KeywordAction.Endure -> listOf(Step.If(Condition.Compare(action.count, Comparison.Greater, Value.Fixed(0)), then = listOf(
+            Step.Choose(Choice.Option(listOf(ENDURE_COUNTERS, ENDURE_SPIRIT)), bind = "endure", chooser = Players.ControllerOf(action.objects)),
+            Step.If(Condition.And(listOf(Condition.Chose("endure", ENDURE_COUNTERS), Condition.ObjectMatches(action.objects, ObjectFilter.InZone(Zone.Battlefield)))),
+                then = listOf(Step.Do(Effect.PutCounters(action.objects, CounterKind.PowerToughness(1, 1), action.count))),
+                otherwise = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(SPIRIT_TOKEN, power = action.count, toughness = action.count), Value.Fixed(1),
+                    Players.ControllerOf(action.objects))))))))
         // CR 701.48a: you may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a
         // card
         KeywordAction.Learn -> listOf(

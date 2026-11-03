@@ -129,9 +129,9 @@ class FinChunk16BlackRedGreenTest {
             Flashback {6}{B} (You may cast this card from your graveyard for its flashback cost. Then exile it.)
         """,
     ) parsesTo abilities(
-        spell(doing(Effect.LookAt(Objects.LibraryCards(Players.You, n(3), fromTop = true), Players.You, bind = "seen")),
-            Step.Choose(Choice.Objects(ObjectFilter.Any, n(1), n(1), from = Objects.Bound("seen")), bind = "kept", chooser = Players.You),
-            move(Objects.Bound("kept"), Zone.Hand), move(Objects.Except(Objects.Bound("seen"), Objects.Bound("kept")), Zone.Graveyard)),
+        spell(doing(Effect.LookAt(Objects.LibraryCards(Players.You, n(3), fromTop = true), Players.You, bind = "looked")),
+            Step.Choose(Choice.Objects(ObjectFilter.Any, n(1), n(1), from = Objects.Bound("looked")), bind = "picked", chooser = Players.You),
+            move(Objects.Bound("picked"), Zone.Hand), move(Objects.Except(Objects.Bound("looked"), Objects.Bound("picked")), Zone.Graveyard)),
         Keyword.Flashback(manaCost("{6}{B}")),
     )
 

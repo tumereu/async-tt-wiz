@@ -27,11 +27,11 @@ class AutomatumSupportTest {
         assertTrue(AutomatumSupport.handParts(definition).single().startsWith("unread text"))
     }
 
-    // A keyword the engine only carries out by hand (KeywordMeanings.isManual): the card reads fully, but isn't supported
-    @Test fun aKeywordDoneOnlyByHandIsNotSupported() {
+    // Banding was the last keyword done only by hand; the engine now carries it out (CR 702.22), so the card is supported
+    @Test fun aKeywordTheEngineCarriesOutIsSupported() {
         val definition = card("Banding")
         assertTrue(definition.faces.single().abilities.none { it is arcanum.api.Ability.Unparsed }, "the parser reads the keyword")
-        assertEquals(listOf("keyword by hand: Banding"), AutomatumSupport.handParts(definition))
+        assertEquals(emptyList(), AutomatumSupport.handParts(definition))
     }
 
     @Test fun aManualStepIsPlayedByHand() {

@@ -2,7 +2,6 @@ package org.asyncttwiz.android
 
 import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
-import java.util.UUID
 import androidx.lifecycle.ViewModel
 
 data class ToolkitLibrary(val controller: LibraryController, val handIds: List<String>, val tool: LibraryTool)
@@ -179,7 +178,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
 
     fun batch(block: () -> Unit) { batchResult { block(); true } }
-    private fun batchResult(requestId: String = UUID.randomUUID().toString(), block: () -> Boolean): Boolean {
+    private fun batchResult(requestId: String = DeviceRandom.uuid(), block: () -> Boolean): Boolean {
         if (draft != null) return block()
         if (cast.open) { error = CastController.BUSY; return false }
         val initial = current() ?: return block()
@@ -284,8 +283,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Whether [action] changes only what is shown, nothing Automatum reads (the values an automated batch's board
      * digest covers, SYS-057). An action the rules refuse anyway counts as shown-only: its own refusal is reported. */
     private fun shownOnly(play: PlayState, action: PlayAction): Boolean {
-        val command = GameCommand(UUID.randomUUID().toString(), GameScope(play.gameId, playId = play.id), GameAction.Play(action),
-            UUID.randomUUID().toString(), "1")
+        val command = GameCommand(DeviceRandom.uuid(), GameScope(play.gameId, playId = play.id), GameAction.Play(action),
+            DeviceRandom.uuid(), "1")
         val after = GameplayRules.preview(play, viewer, command).state ?: return true
         if (after.board === play.board) return true
         // #12 (SYS-025): the shown board's digest once per board
@@ -302,7 +301,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (action is PlayAction.MoveCard && action.removeStackEntryId == null && play.board.containers.any {
                 it.id == action.destination.containerId && it.zone == PlayZone.STACK }) {
             return enqueue(BasicTableController.projection(play, action) ?: return false,
-                invocationId ?: UUID.randomUUID().toString())
+                invocationId ?: DeviceRandom.uuid())
         }
         if (action is PlayAction.InspectFace && acceptedInspection != null) return loggedInspection(action)
         if (draft == null && exitFlow != null && leavesFlow(play, action)) {
@@ -310,7 +309,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return exitFlow.invoke((action as PlayAction.Mtg).action).also { sent ->
                 if (!sent) error = "Action could not be queued. Reconnect and try again." }
         }
-        val group = invocationId ?: UUID.randomUUID().toString()
+        val group = invocationId ?: DeviceRandom.uuid()
         val actions = if (action is PlayAction.MoveCard) GameplayRules.moveActions(play,
             action.copy(destination = ownerMoveDestination(play.board, action.cardId, action.destination, play.id))) else listOf(action)
         if (!enqueue(actions.first(), group)) return false
@@ -343,7 +342,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     private fun loggedInspection(action: PlayAction.InspectFace): Boolean {
         val play = current() ?: return false
         closeInspection()
-        val lifetime = UUID.randomUUID().toString()
+        val lifetime = DeviceRandom.uuid()
         inspectionLifetime = lifetime
         inspection = ManualInspection(play.gameId, play.id, action.cardId, listOf(action.faceId), explicit = true, provisional = true)
         val subscription = acceptedInspection?.invoke(action, lifetime, {
@@ -549,10 +548,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * layer) per owner's Library, each with a fresh seed, as ONE invocation. Tokens are left out. */
     fun toLibraryRandom(ids: List<String>, bottom: Boolean): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        val random = java.security.SecureRandom()
-        val actions = org.asyncttwiz.protocol.LibraryActions.toLibraryRandom(play.board, ids, bottom) {
-            RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
-        }
+        val actions = org.asyncttwiz.protocol.LibraryActions.toLibraryRandom(play.board, ids, bottom) { DeviceRandom.seed() }
         if (actions.isEmpty()) return false
         return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
     }
@@ -580,7 +576,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** The whole Temp pile into its owner's Library, then that Library shuffled, as ONE invocation (one Undo). */
     fun tempShuffleIntoLibrary(tempId: String): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        val seed = RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })
+        val seed = DeviceRandom.seed()
         val actions = TempPiles.shuffleIntoLibrary(play.board, tempId, seed)
         if (actions.isEmpty()) return false
         return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
@@ -647,7 +643,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     fun randomHand(handId: String, selectedIds: List<String>, result: HandRandomResult): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        val seed = RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })
+        val seed = DeviceRandom.seed()
         val action = runCatching { HandActions.random(play.board, handId, selectedIds, seed, result) }.getOrNull() ?: return false
         return submit(action)
     }
@@ -695,8 +691,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             val board = current()?.board ?: return@batchResult false
             for (library in cards.mapNotNull { id -> board.cards.singleOrNull { it.id == id }?.owner }.distinct()
                 .mapNotNull { board.zoneContainer(it, PlayZone.LIBRARY) })
-                if (!submit(PlayAction.ShuffleLibrary(library.id, RandomV1.encodeSeed(ByteArray(32).also {
-                        java.security.SecureRandom().nextBytes(it) })))) return@batchResult false
+                if (!submit(PlayAction.ShuffleLibrary(library.id, DeviceRandom.seed()))) return@batchResult false
         }
         true
     }
@@ -729,7 +724,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 enqueue(action, group).also { if (it && (action is PlayAction.MoveCard ||
                     (action as? PlayAction.Stack)?.action is StackAction.AddEffect)) submitted++ }
             }
-            val sent = batchResult(intent.invocationId ?: UUID.randomUUID().toString()) { adapter.handle(intent) }
+            val sent = batchResult(intent.invocationId ?: DeviceRandom.uuid()) { adapter.handle(intent) }
             LibrarySubmission(if (sent) submitted else 0, if (sent) intent.scope.cardIds.size - submitted else intent.scope.cardIds.size)
         }, viewer = viewer, batchRequest = { actions, group ->
             if (actions.size == 1) submit(actions.single(), group) else batchResult(group) {
@@ -768,7 +763,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             is TableIntent.StackDestination, is TableIntent.StackBubbleRemove -> true
             else -> false
         }
-        return if (multiple) batchResult((intent as? TableIntent.Move)?.invocationId ?: UUID.randomUUID().toString()) {
+        return if (multiple) batchResult((intent as? TableIntent.Move)?.invocationId ?: DeviceRandom.uuid()) {
             handleOne(intent)
         } else handleOne(intent)
     }
@@ -1204,7 +1199,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return@batchResult setAttackTarget(bound,
                 initial.board.combat?.pairs?.find { it.id == destination.pairId }?.attackTarget ?: destination.attackTarget)
         val probe = runCatching { CombatStackController.place(initial, viewer, bound.viewIds, destination) { action ->
-            GameCommand(UUID.randomUUID().toString(), GameScope(initial.gameId, playId = initial.id),
+            GameCommand(DeviceRandom.uuid(), GameScope(initial.gameId, playId = initial.id),
                 GameAction.Play(action), initial.id, "0")
         } }
         if (probe.isFailure) { error = probe.exceptionOrNull()?.message ?: "Unavailable combat destination"; return@batchResult false }

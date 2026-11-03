@@ -370,6 +370,18 @@ out of anything stuck.
     again (busy, table changed) a few times. #7: `MtgFacts.digest` leaves out Full control and Skip when I have no
     choice, so a change of either never refuses the other player's batch in flight; the combat quick actions offer no
     "Pass" while the viewer's pause bar (with its Pass) is shown. Catalog: CMB-029, STK-036–STK-038, SYS-057.
+  - **Leftovers of #7 (2026-11-03):** the defending player's empty-Stack pause on the attack reads "Alice attacks: you
+    may act" (`pauseStep`); one pause per attack: once a spell or ability of the attacking player has left the Stack in
+    the declare attackers step (the defender had its respond panel), the empty Stack after it is no second pause unless
+    Full control (`PausePoints.attackAnswered`, read from the engine log; the board keeps it in the turn record's
+    `TurnExtras.attackAnswered`). The two-device simulations are deterministic: the table's request ids and seeds come
+    from `DeviceRandom` (seeded in tests), and the combat games also run with each device's Automatum work queued and
+    drained on the test's schedule as `AutomatumWork.Background` would deliver it. The stall seen once was the
+    simulation's: its devices took a board as unchanged while the newest event's id was, but an Undo of an earlier
+    event replays the later ones under the same ids, so a device kept passing on the old board. With background work a
+    tap right after the board changed was taken as a target for the previous board's choice (the panel's flow is
+    worked out off the main thread): `SharedFlowController.targeting` now holds only for the board acted on.
+    STK-036, STK-037.
 
 ## 4. Shared state ATW adds
 

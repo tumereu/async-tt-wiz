@@ -1,5 +1,6 @@
 package org.asyncttwiz.automatum
 
+import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.state.PlayerId
@@ -74,6 +75,11 @@ class PausePointsTest {
         assertEquals(Point.Pause, PausePoints.of(alice, alice, TurnPosition.DECLARE_BLOCKERS, null, attacking = true, fullControl = false))
         assertEquals(Point.Pause, PausePoints.of(bob, alice, TurnPosition.DECLARE_BLOCKERS, null, attacking = true, fullControl = false))
         assertNull(PausePoints.of(bob, alice, TurnPosition.DECLARE_ATTACKERS, null, attacking = false, fullControl = false))
+        // Finalreview-combat #7: one pause for one attack: none on the empty Stack once the attacking player's trigger or
+        // spell of the step was answered (unless Full control)
+        assertNull(PausePoints.of(bob, alice, TurnPosition.DECLARE_ATTACKERS, null, attacking = true, fullControl = false, answered = true))
+        assertEquals(Point.Pause, PausePoints.of(bob, alice, TurnPosition.DECLARE_ATTACKERS, null, attacking = true, fullControl = true, answered = true))
+        assertEquals(Point.Pause, PausePoints.of(bob, alice, TurnPosition.DECLARE_ATTACKERS, alice, attacking = true, fullControl = false, answered = true))
         // The other player's end step (I-D41 decision B, pausereview #8); the active player's own end step isn't one
         assertEquals(Point.Pause, PausePoints.of(bob, alice, TurnPosition.END_STEP, null, attacking = false, fullControl = false))
         assertNull(PausePoints.of(alice, alice, TurnPosition.END_STEP, null, attacking = false, fullControl = false))
@@ -178,5 +184,45 @@ class PausePointsTest {
         assertEquals(At(alice, Point.Pause), PausePoints.at(rt.state.board))
         rt.run(alice) { StepFlow.pass(it, alice) }
         assertEquals(At(bob, Point.Pause), PausePoints.at(rt.state.board))
+    }
+
+    private fun raidcallLizard() = Cards.invent("Raidcall Lizard", "{1}{R}", "Creature — Lizard Assassin",
+        "Whenever this creature attacks, defending player loses 1 life and you gain 1 life.", "1/3")
+
+    // STK-036 (finalreview-combat #7): one pause for one attack: Alice's attack trigger on the Stack is Bob's pause (the
+    // respond panel); once it resolved he isn't paused again on the empty Stack, and his blocks are awaited
+    @Test fun anAttackTriggerIsTheDefendersOnePause() {
+        at(TurnPosition.PRECOMBAT_MAIN, 3)
+        armed()
+        val (lizard) = table.put(alice, PlayZone.BATTLEFIELD, raidcallLizard())
+        table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
+        val rt = game()
+        rt.run(alice) { StepFlow.pass(it, alice) }
+        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(lizard))) }
+        assertEquals(TurnPosition.DECLARE_ATTACKERS, position(rt))
+        assertEquals(At(bob, Point.Pause), PausePoints.at(rt.state.board), "the trigger on the Stack")
+        rt.run(bob) { StepFlow.pass(it, bob) }
+        assertEquals("19", life(rt, bob))
+        assertNull(rt.state.board.priority?.holder, "no second pause on the empty Stack: his blocks are awaited")
+    }
+
+    // STK-036, SYS-071 (finalreview-combat #7): with Full control Bob still gets the empty Stack after the trigger as a
+    // pause; the board says the attack was answered, so without Full control it is none (the host's rule, read from ATW)
+    @Test fun anAnsweredAttackIsReadFromTheBoard() {
+        at(TurnPosition.PRECOMBAT_MAIN, 3)
+        armed()
+        table.fullControl += bob
+        val (lizard) = table.put(alice, PlayZone.BATTLEFIELD, raidcallLizard())
+        val rt = game()
+        rt.run(alice) { StepFlow.pass(it, alice) }
+        // His Full control pauses on the way to the attack (her main phase, beginning of combat)
+        while (rt.state.board.priority?.holder == bob) rt.run(bob) { StepFlow.pass(it, bob) }
+        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(lizard))) }
+        rt.run(bob) { StepFlow.pass(it, bob) }
+        assertEquals("19", life(rt, bob))
+        assertEquals(TurnPosition.DECLARE_ATTACKERS, position(rt))
+        assertEquals(At(bob, Point.Pause), PausePoints.at(rt.state.board))
+        val board = rt.state.board.copy(players = rt.state.board.players.map { it.copy(fullControl = false) })
+        assertNull(PausePoints.at(board))
     }
 }

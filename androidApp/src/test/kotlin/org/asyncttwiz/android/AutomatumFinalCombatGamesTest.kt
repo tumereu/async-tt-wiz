@@ -36,6 +36,8 @@ import kotlin.test.assertTrue
  * lets it go; Full control is on for some players. The server takes each device's requests onto one history in order.
  * Counted: requests the server refused, reactions lost, a game nobody moves on (stalls), controller failures, and
  * boards the engine can't take over. Invented cards (oracle templates of the cube and the sets) parsed as on a device.
+ * Deterministic: time is the test clock, the devices' request ids and seeds come from [DeviceRandom] seeded with the
+ * game's seed, and background work ([QueuedWork]) runs when the test drains it.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -102,7 +104,7 @@ class AutomatumFinalCombatGamesTest {
     }
     @After fun forget() {
         kotlinx.coroutines.runBlocking(AutomatumBoards.boardWorker) {}
-        AutomatumBoards.reset(); AutomatumBoards.definitionSource = null
+        AutomatumBoards.reset(); AutomatumBoards.definitionSource = null; DeviceRandom.seeded(null)
     }
 
     private fun what(play: PlayState, card: String): Invented? =
@@ -162,7 +164,20 @@ class AutomatumFinalCombatGamesTest {
         class Release(at: Long, node: String) : Plan(at, node)
     }
 
-    private inner class Device(val player: String, var settings: PauseSettings) {
+    /**
+     * The device's worker for Automatum's engine work (SYS-025) as the app's [AutomatumWork.Background] runs it, but on the
+     * test's own schedule: a job waits until the simulation [drain]s it (the worker finished; its result applied on the
+     * main thread), so other events can arrive in between, as on a phone; the same game on every run.
+     */
+    private class QueuedWork : AutomatumWork {
+        private val jobs = ArrayDeque<() -> Unit>()
+        val pending: Boolean get() = jobs.isNotEmpty()
+        override fun <T> run(work: () -> T, done: (T) -> Unit) { jobs += { done(work()) } }
+        /** Runs every job, also those the results queue meanwhile. */
+        fun drain() { while (jobs.isNotEmpty()) jobs.removeFirst().invoke() }
+    }
+
+    private inner class Device(val player: String, var settings: PauseSettings, val work: QueuedWork?) {
         val name = if (player == f.a) "alice" else "bob"
         var online = true
         var held: String? = null
@@ -177,7 +192,7 @@ class AutomatumFinalCombatGamesTest {
         val toolkit = TableToolkitController(player, { if (held != null) view else live }, { true }, { action, _ -> manual(action, null) },
             playBatch = { actions, request -> manualBatch(actions, request) },
             automatedBatch = { batch, request -> queue += Triple(batch, request, held); madeOn[request] = (if (held != null) view else live).currentNodeId; true }, playTree = { tree },
-            continuation = { held?.let { Continuation(it, explicit = true) } })
+            continuation = { held?.let { Continuation(it, explicit = true) } }, automatumWork = work ?: AutomatumWork.Inline)
         val routes = object : PauseRoutes {
             override fun hold(node: String): Boolean { held = node; view = tree!!.stateAt(node)!!; return true }
             override fun holding(node: String) = held == node
@@ -192,6 +207,8 @@ class AutomatumFinalCombatGamesTest {
         var holdGone = false
         var heldAtStart = false
         var lastPoint: String? = null
+        /** The board [AutomatumCombatHost] last worked combat out for (with [work]). */
+        var combatShown: BoardState? = null
     }
 
     private class Stats {
@@ -212,14 +229,18 @@ class AutomatumFinalCombatGamesTest {
 
     private fun scene(play: PlayState, viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
 
-    private fun simulate(seed: Long, ticks: Int): Stats {
+    /** [background]: each device's Automatum work runs as on a phone, off the main thread with its result later
+     * ([QueuedWork]). */
+    private fun simulate(seed: Long, ticks: Int, ids: Long = seed, background: Boolean = false): Stats {
         val random = kotlin.random.Random(seed)
+        // The devices' request ids and seeds from the game's seed: the same game on every run
+        DeviceRandom.seeded(ids)
         val start = simBoard(random)
         tree = GameplayTree(start)
         val stats = Stats()
         fun settings() = PauseSettings(responseMillis = listOf(1_000L, 2_000L, 3_000L).random(random),
             proceedAtOnce = random.nextInt(4) == 0, fullControl = random.nextInt(3) == 0)
-        val devices = listOf(Device(f.a, settings()), Device(f.b, settings()))
+        val devices = listOf(Device(f.a, settings(), QueuedWork().takeIf { background }), Device(f.b, settings(), QueuedWork().takeIf { background }))
         // Full control into the game as the devices' settings say (SYS-071)
         tree = GameplayTree(start.copy(board = start.board.copy(players = start.board.players.map { p ->
             p.copy(fullControl = devices.single { it.player == p.accountId }.settings.fullControl) })))
@@ -244,10 +265,11 @@ class AutomatumFinalCombatGamesTest {
         fun liveState() = tree!!.stateAt(tree!!.currentNodeId)!!
         fun refresh() {
             val live = liveState()
-            if (live.currentNodeId != head.value.currentNodeId) { changedAt = now; stats.events++ }
+            // By the board: an Undo of an earlier event replays the later ones, changing the board at the same newest event
+            if (live.board !== head.value.board) { changedAt = now; stats.events++ }
             head.value = live
             for (d in devices) {
-                if (d.live.currentNodeId != live.currentNodeId) {
+                if (d.live.board !== live.board) {
                     d.live = live
                     if (d.held == null && d.toolkit.cast.open) d.toolkit.cast.follow()
                 }
@@ -300,6 +322,22 @@ class AutomatumFinalCombatGamesTest {
             refresh()
         }
         fun tags(play: PlayState) = engineTags(tree, play.currentNodeId)
+        val workRandom = kotlin.random.Random(seed * 31 + 7)
+        /** [d]'s worker catches up: its results apply, and combat on the shown board is worked out as
+         * [AutomatumCombatHost] does. Nothing with inline work. */
+        fun drain(d: Device) {
+            val work = d.work ?: return
+            work.drain()
+            if (d.combatShown !== d.view.board) {
+                d.combatShown = d.view.board
+                d.toolkit.combat.show(d.view, AutomatumBoards.combat(d.view) { tags(d.view) })
+            }
+            // As SharedFlowHost: the panel's flow is the shown board's once worked out
+            d.toolkit.flows.show(if (!d.toolkit.cast.open && AutomatumBoards.sharedFlowShown(d.view))
+                AutomatumBoards.sharedFlow(d.view, tags(d.view)) else null)
+            refresh()
+            work.drain()
+        }
         fun flowOf(d: Device) = AutomatumBoards.sharedFlow(d.view, tags(d.view))
         fun hand(d: Device) = d.view.board.containers.single { it.id == (if (d.player == f.a) aHand else bHand) }.cards
         fun field(play: PlayState, player: String) = play.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == player }.cards
@@ -312,6 +350,7 @@ class AutomatumFinalCombatGamesTest {
         fun begin(d: Device, card: String): Boolean {
             AutomatumBoards.compute(d.view, d.player)
             if (!d.toolkit.cast.start(card)) return false
+            drain(d)
             var guard = 3
             while (d.toolkit.cast.open && d.toolkit.cast.targeting && guard-- > 0) {
                 val items = scene(d.view, d.player).items.filter { it.viewport != "combat" }
@@ -322,6 +361,7 @@ class AutomatumFinalCombatGamesTest {
                     ?: legal.firstOrNull { it.id == "life/${other(d).player}" } ?: legal.randomOrNull(random)
                 if (target == null) { d.toolkit.cast.cancel(); return false }
                 tapItem(d, target)
+                drain(d)
             }
             return d.toolkit.cast.open
         }
@@ -334,7 +374,9 @@ class AutomatumFinalCombatGamesTest {
                 release(d); return
             }
             val before = d.queue.size
-            if (!d.toolkit.cast.cast() || d.queue.size == before) {
+            val taken = d.toolkit.cast.cast()
+            drain(d)
+            if (!taken || d.queue.size == before) {
                 path?.let { stats.lost += "$it: not sent (${d.toolkit.error})" }
                 d.toolkit.cast.cancel(); release(d); return
             }
@@ -344,6 +386,7 @@ class AutomatumFinalCombatGamesTest {
             val live = head.value
             val there = live.currentNodeId == plan.node || d.held == plan.node || d.view.currentNodeId == plan.node
             if (!there) { stats.count("plan outdated"); return }
+            drain(d)
             when (plan) {
                 is Plan.Think -> {
                     val cards = hand(d).mapNotNull { id -> what(d.view, id)?.let { id to it } }
@@ -354,8 +397,9 @@ class AutomatumFinalCombatGamesTest {
                         land != null && random.nextInt(3) > 0 -> { if (begin(d, land.first)) finish(d, null); stats.count(if (d.queue.size > queued) "land" else "land refused") }
                         spell != null && random.nextInt(3) > 0 && begin(d, spell.first) -> { finish(d, null); stats.count(if (d.queue.size > queued) "cast" else "cast refused") }
                         else -> {
-                            if (!d.toolkit.flows.step(if (random.nextInt(4) == 0) StepFlow.Until.EndOfTurn else StepFlow.Until.Pass) && d.toolkit.flows.acting != null)
-                                stats.failures += "${d.name}'s Next step at a stop would act for the other player"
+                            d.toolkit.flows.step(if (random.nextInt(4) == 0) StepFlow.Until.EndOfTurn else StepFlow.Until.Pass)
+                            drain(d)
+                            if (d.toolkit.flows.acting != null) stats.failures += "${d.name}'s Next step at a stop would act for the other player"
                             stats.count("step")
                         }
                     }
@@ -373,6 +417,7 @@ class AutomatumFinalCombatGamesTest {
                         val action = if (commit?.enabled == true) commit else { quick(d).firstOrNull { it.name == "Clear" }?.takeIf { it.enabled }?.let { d.toolkit.perform(it.intent) }; quick(d).lastOrNull() }
                         if (action == null || !action.enabled || !d.toolkit.perform(action.intent)) stats.failures += "attack: ${action?.name} ${action?.refused ?: d.toolkit.error}"
                         else stats.count("attack ${action.name.substringBefore(" (")}")
+                        drain(d)
                     } else {
                         val attackers = d.view.board.combat?.pairs.orEmpty().flatMap { it.attackers }.map { it.sourceId }
                         for (c in field(d.view, d.player)) if (attackers.isNotEmpty() && what(d.view, c)?.creature == true && random.nextBoolean()) {
@@ -384,6 +429,7 @@ class AutomatumFinalCombatGamesTest {
                         val action = if (commit?.enabled == true) commit else quick(d).firstOrNull { it.name == "No blocks" }
                         if (action == null || !action.enabled || !d.toolkit.perform(action.intent)) stats.failures += "blocks: ${action?.name} ${action?.refused ?: d.toolkit.error}"
                         else stats.count(action.name)
+                        drain(d)
                     }
                 }
                 is Plan.Answer -> {
@@ -398,6 +444,7 @@ class AutomatumFinalCombatGamesTest {
                     }
                     if (answer == null || !d.toolkit.flows.answer(answer)) stats.failures += "answer refused: ${d.toolkit.error} ($decision)"
                     else stats.count(if (decision.player.value == d.player) "answer" else "answer for them")
+                    drain(d)
                 }
                 is Plan.React -> {
                     val cards = hand(d).filter { what(d.view, it)?.instant == true }.shuffled(random)
@@ -408,13 +455,15 @@ class AutomatumFinalCombatGamesTest {
                     d.castAt = stats.events; d.holdGone = false; d.heldAtStart = d.held != null
                 }
                 is Plan.Hold -> { d.toolkit.pause.hold(plan.node); d.plan = Plan.Release(now + random.nextLong(1_000, 5_000), plan.node) }
-                is Plan.Release -> if (d.held == plan.node && !d.toolkit.pause.passBehind(plan.node)) d.toolkit.flows.pass(d.player)
+                is Plan.Release -> { if (d.held == plan.node && !d.toolkit.pause.passBehind(plan.node)) d.toolkit.flows.pass(d.player); drain(d) }
             }
         }
         refresh()
         repeat(ticks) {
             now += 100
             compose.mainClock.advanceTimeBy(100)
+            // The workers catch up now and then (an engine call takes 100–300 ms on a phone)
+            for (d in devices) if (d.work?.pending == true && workRandom.nextInt(3) > 0) drain(d)
             serveQueues()
             val live = head.value
             if (live.board.players.any { (it.life.toIntOrNull() ?: 1) <= 0 }) { stats.end = "a player lost"; return stats }
@@ -446,12 +495,15 @@ class AutomatumFinalCombatGamesTest {
                     if (flow == null) { stats.unsupported += "turn ${d.view.board.turn.number}"; continue }
                     val decision = flow.decision
                     val since = now - maxOf(changedAt, flippedAt)
+                    // An Undo can bring back a choice or a declaration already made at this point: after a while the
+                    // player makes it again (by hand, as at a pause an Undo brought back)
+                    val again = d.lastPoint != node || since > 10_000
                     when {
-                        decision != null -> if (d.held == null && d.lastPoint != node &&
+                        decision != null -> if (d.held == null && again &&
                             (decision.player.value == d.player || (!other(d).online && since > 3_000))) {
                             d.lastPoint = node; d.plan = Plan.Answer(now + random.nextLong(300, 2_000), node)
                         }
-                        flow.declaring != null -> if (d.held == null && d.lastPoint != node &&
+                        flow.declaring != null -> if (d.held == null && again &&
                             (flow.declaring == d.player || (!other(d).online && since > 3_000))) {
                             if (flow.declaring == d.player) { d.lastPoint = node; d.plan = Plan.Declare(now + random.nextLong(300, 2_500), node) }
                         }
@@ -468,12 +520,14 @@ class AutomatumFinalCombatGamesTest {
                                 // A pause an Undo brought back: no device passes it again by itself (pausereview #4); the player does
                                 stats.count("pause after undo passed by hand")
                                 if (!d.toolkit.pause.passBehind(node)) d.toolkit.flows.pass(d.player)
+                                drain(d)
                                 changedAt = now
                             } else if (d.held == null && since > 10_000) {
                                 stats.stalls += "turn ${d.view.board.turn.number} ${TurnPosition.of(d.view.board.turn)} ${d.name}'s pause (by ${
                                     if (tree!!.nodes[node]?.author == f.a) "alice" else "bob"}; " + devices.joinToString { "${it.name} online ${it.online} " +
                                     "shown ${it.toolkit.pause.shown?.let { s -> "${s.role::class.simpleName} running ${s.running}" }} passed ${it.toolkit.pause.passedAt(node)}" } + ")"
                                 if (!d.toolkit.pause.passBehind(node)) d.toolkit.flows.pass(d.player)
+                                drain(d)
                                 changedAt = now
                             }
                         }
@@ -498,9 +552,9 @@ class AutomatumFinalCombatGamesTest {
 
     // finalreview-combat: seeded two-device games with combat through the controllers, pauses, holds, reactions and
     // presence changes: the server refuses nothing but races, no reaction is lost, no game stalls, no controller fails
-    private fun game(seed: Long): Stats {
-        val stats = simulate(seed, ticks = 5_000)
-        println("COMBATSIM seed $seed: $stats")
+    private fun game(seed: Long, ids: Long = seed, background: Boolean = false): Stats {
+        val stats = simulate(seed, ticks = 5_000, ids, background)
+        println("COMBATSIM seed $seed ids $ids${if (background) " background" else ""}: head ${tree?.currentNodeId} $stats")
         assertTrue(stats.events > 30, "the game moved: $stats")
         assertTrue(stats.stalls.isEmpty(), "no game left where nobody moves it on: $stats")
         assertTrue(stats.failures.isEmpty(), "no controller failure: $stats")
@@ -517,4 +571,14 @@ class AutomatumFinalCombatGamesTest {
     @Test fun twoDeviceCombatGames4() { game(4L) }
     @Test fun twoDeviceCombatGames5() { game(5L) }
     @Test fun twoDeviceCombatGames6() { game(6L) }
+
+    // The same games with each device's Automatum work done as on a phone, off the main thread with its result later
+    // (SYS-025): other events arrive between a tap or an automatic pass and its result. Deterministic: the test drains the
+    // work on its own schedule, so a seed plays the same game on every run, however busy the machine is
+    @Test fun twoDeviceCombatGamesWithBackgroundWork1() { game(1L, background = true) }
+    @Test fun twoDeviceCombatGamesWithBackgroundWork2() { game(2L, background = true) }
+    @Test fun twoDeviceCombatGamesWithBackgroundWork3() { game(3L, background = true) }
+    @Test fun twoDeviceCombatGamesWithBackgroundWork4() { game(4L, background = true) }
+    @Test fun twoDeviceCombatGamesWithBackgroundWork5() { game(5L, background = true) }
+    @Test fun twoDeviceCombatGamesWithBackgroundWork6() { game(6L, background = true) }
 }

@@ -776,7 +776,9 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
             .takeIf { state.priority.passes > 0 || state.priority.holder.let { it != null && it != state.turn.active } },
         // Finalreview-combat #1 (CR 500.8): an additional phase still to come is kept between calls
         state.turn.extraPhases, state.turn.resumeAt,
-        state.turn.number.takeIf { state.turn.extraPhases.isNotEmpty() || state.turn.resumeAt != null })
+        state.turn.number.takeIf { state.turn.extraPhases.isNotEmpty() || state.turn.resumeAt != null },
+        // Finalreview-combat #7: the defending player's pause on this attack was had (PausePoints.at reads it)
+        TurnExtras.at(state.turn.number, TurnPosition.DECLARE_ATTACKERS).takeIf { PausePoints.attackAnswered(state) })
     if (turn != TurnExtras()) add(EngineRecord(EngineCodec.TURN, EngineRecordKind.Turn, data = EngineCodec.encode(TurnExtras.serializer(), turn)))
     state.combat?.let { add(EngineCodec.combatRecord(it, state.turn.number)) }
     if (state.triggered.isNotEmpty())

@@ -32,8 +32,6 @@ import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.automatum.Unmappable
 import org.asyncttwiz.automatum.Unsupported
 import org.asyncttwiz.protocol.*
-import java.security.SecureRandom
-import java.util.UUID
 
 /**
  * Combat through Automatum on today's lanes (integration spec §3 I3; the interim before the combat area redesign, I-D32):

@@ -20,8 +20,6 @@ import org.asyncttwiz.automatum.ManaPicks
 import org.asyncttwiz.automatum.Unmappable
 import org.asyncttwiz.automatum.Unsupported
 import org.asyncttwiz.protocol.*
-import java.security.SecureRandom
-import java.util.UUID
 import java.util.concurrent.Executors
 
 /**
@@ -407,9 +405,9 @@ internal class CastController(
 
     /** The complete [done] as one batch (I-D11, SYS-010) on the board it was worked out on. */
     private fun plan(done: CastFlow): Step {
-        val requestId = UUID.randomUUID().toString()
+        val requestId = DeviceRandom.uuid()
         val command = GameCommand(requestId, GameScope(done.play.gameId, playId = done.play.id),
-            GameAction.PlayBatch(listOf(PlayAction.PassAttention)), UUID.randomUUID().toString(), "1")
+            GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
         return try { Step.Send(done, done.plan(viewer, command), requestId, done.play.board) } catch (problem: Unmappable) {
             AppLog.warn("automatum", "Cast couldn't be planned: ${problem.message?.take(200)}")
             Step.Drop("Automatum couldn't send that cast.")
@@ -429,8 +427,7 @@ internal class CastController(
         }
     }
 
-    private val random = SecureRandom()
-    private fun seeds() = CastFlow.Seeds { RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes)) }
+    private fun seeds() = CastFlow.Seeds { DeviceRandom.seed() }
 
     companion object {
         const val BUSY = "Finish or cancel the cast first."

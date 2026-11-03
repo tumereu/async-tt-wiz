@@ -1,7 +1,5 @@
 package org.asyncttwiz.android
 
-import java.security.SecureRandom
-import java.util.UUID
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.protocol.LibraryActions as SharedLibraryActions
 
@@ -16,7 +14,7 @@ class LibraryController(
     private val connected: () -> Boolean,
     private val submit: (PlayAction) -> Boolean,
     private val seed: () -> String = {
-        RandomV1.encodeSeed(ByteArray(32).also { SecureRandom().nextBytes(it) })
+        DeviceRandom.seed()
     },
     private val request: ((PlayAction, String) -> Boolean)? = null,
     private val moveRequest: ((TableIntent.Move) -> LibrarySubmission)? = null,
@@ -31,7 +29,7 @@ class LibraryController(
     fun setKeepTopRevealed(enabled: Boolean): LibrarySubmission =
         if (!maySetKeepTopRevealed()) LibrarySubmission(0, 1)
         else send(listOf(PlayAction.SetKeepTopRevealed(libraryId, enabled)))
-    private fun send(actions: List<PlayAction>, invocation: String = UUID.randomUUID().toString()): LibrarySubmission {
+    private fun send(actions: List<PlayAction>, invocation: String = DeviceRandom.uuid()): LibrarySubmission {
         if (actions.isEmpty()) return LibrarySubmission(0, 0)
         val routed = actions.map { action ->
             if (action is PlayAction.MoveCard) current()?.let {
@@ -105,7 +103,7 @@ class LibraryController(
                     CombatStackRules.canProject(current.board, it) } != true }) return LibrarySubmission(0, ids.size)
             TableDestination.Container(target.id, target.zone)
         } else destination.position?.let { TableDestination.Grid.auto(target.id) } ?: return LibrarySubmission(0, ids.size)
-        return moveRequest?.invoke(TableIntent.Move(TableScope(ids.first(), ids), bound, sources, UUID.randomUUID().toString()))
+        return moveRequest?.invoke(TableIntent.Move(TableScope(ids.first(), ids), bound, sources, DeviceRandom.uuid()))
             ?: LibrarySubmission(0, ids.size)
     }
     fun mulligan(displayedHand: List<String>, count: Int = 7, minusOne: Boolean = false): LibrarySubmission {

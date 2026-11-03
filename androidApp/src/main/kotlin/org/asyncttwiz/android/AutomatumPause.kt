@@ -262,7 +262,7 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
     val running = pause.running(node)
     val held = pause.holding(node) && PausePoints.pauseFor(play.board, viewer)
     if (running == null && !held) return
-    val step = TurnPosition.of(play.board.turn)?.label ?: "This step"
+    val step = pauseStep(play.board, viewer, names)
     val stack = scene?.stackRegion ?: scene?.items?.firstOrNull { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }?.bounds
     CastPanelPlacement(stack, null, combatDock(scene, viewer)) {
         val role = running?.role
@@ -298,6 +298,16 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
             }
         }
     }
+}
+
+/** What an empty-Stack pause is about, for the viewer: the step, or (finalreview-combat #7) on the other player's attack
+ * "Alice attacks", so the defending player doesn't read it as their own declaration. */
+internal fun pauseStep(board: BoardState, viewer: String, names: Map<String, String>): String {
+    val position = TurnPosition.of(board.turn)
+    if (position == TurnPosition.DECLARE_ATTACKERS && board.turn.accountId != viewer &&
+        board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true)
+        return "${names[board.turn.accountId] ?: "The other player"} attacks"
+    return position?.label ?: "This step"
 }
 
 /** Finalreview-combat #2 (I-D41, CMB-029): while the combat area's panel is shown, pause surfaces dock above the viewer's

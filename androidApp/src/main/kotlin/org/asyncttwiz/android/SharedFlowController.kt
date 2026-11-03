@@ -20,7 +20,6 @@ import org.asyncttwiz.automatum.SharedFlow
 import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.automatum.Unmappable
 import org.asyncttwiz.protocol.*
-import java.util.UUID
 
 /**
  * Priority, responding, resolution, triggers and the steps of the turn through Automatum (integration spec §3 I2b, I3)
@@ -78,8 +77,9 @@ internal class SharedFlowController(
     /** The open decision, when the viewer answers it: theirs, or the other player's after "Choose for them". */
     val answering: Decision? get() = view?.decision?.takeIf { it.player.value == viewer || choosingFor == it.id.value }
 
-    /** The open decision is targets the viewer picks on the table. */
-    val targeting: Boolean get() = answering is Decision.Targets
+    /** The open decision is targets the viewer picks on the table, on the board they act on: until the panel has the new
+     * board's flow (worked out off the main thread) a tap isn't taken as a target for the previous board's decision. */
+    val targeting: Boolean get() = answering is Decision.Targets && view?.play?.board === current()?.board
 
     fun toggleHidden() { hidden = !hidden }
 
@@ -300,9 +300,9 @@ internal class SharedFlowController(
         work.run({
             try {
                 val call = perform(flowOf(play))
-                val requestId = UUID.randomUUID().toString()
+                val requestId = DeviceRandom.uuid()
                 val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
-                    GameAction.PlayBatch(listOf(PlayAction.PassAttention)), UUID.randomUUID().toString(), "1")
+                    GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
                 val plan = EngineBatch.plan(call, viewer, command)
                 if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
             } catch (ask: Ask) {

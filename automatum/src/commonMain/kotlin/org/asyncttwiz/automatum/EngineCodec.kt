@@ -307,6 +307,9 @@ internal data class TurnExtras(
     val resumeAt: TurnStep? = null,
     /** The turn (ATW's turn number) [extraPhases] and [resumeAt] belong to: a later turn has none (finalreview-combat #1). */
     val phasesTurn: Int? = null,
+    /** [at] the declare attackers step whose attack the defending player has been paused for already
+     * ([PausePoints.attackAnswered], finalreview-combat #7); null otherwise. */
+    val attackAnswered: String? = null,
 ) {
     /** [extraPhases] and [resumeAt] when they are of [turn], else none. */
     fun phases(turn: Int): Pair<List<TurnStep>, TurnStep?> =

@@ -1,7 +1,6 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
-import java.security.SecureRandom
 
 data class TableActionScope(val gameId: String, val playId: String)
 data class TurnPlayerTargets(val accountId: String, val battlefieldId: String, val libraryId: String, val handId: String)
@@ -62,8 +61,7 @@ data class PlayerValueTarget(val scope: TableActionScope, val accountId: String,
 /** Main-thread adapter. The supplied ordinary sender owns stable request IDs, retries and prediction.
  * All fresh input is connection-gated; a failed send never causes an automatic resample/resubmit. */
 private fun secureTableSample(): (Int) -> Int {
-    val random = SecureRandom()
-    return { bound -> RandomV1.sample(bound) { random.nextInt().toLong() and 0xffffffffL } }
+    return { bound -> RandomV1.sample(bound) { java.nio.ByteBuffer.wrap(DeviceRandom.bytes(4)).int.toLong() and 0xffffffffL } }
 }
 
 class TableActionController(private val state: () -> PlayState?, private val canAct: () -> Boolean,

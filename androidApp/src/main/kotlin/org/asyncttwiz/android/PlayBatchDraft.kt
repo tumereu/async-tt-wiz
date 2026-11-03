@@ -1,13 +1,12 @@
 package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
-import java.util.UUID
 
 /** Short-lived input lowering only. Discarded before the single session request is enqueued.
  * The table supplies its retained tree and armed continuation. Standalone board-only adapters
  * use their supplied endpoint as a root; they cannot draft historical continuations. */
 internal class PlayBatchDraft(val initial: PlayState, private val actor: String,
-    val requestId: String = UUID.randomUUID().toString(),
+    val requestId: String = DeviceRandom.uuid(),
     tree: GameplayTree = GameplayTree(initial.copy(root = PlayRoot(initial.currentNodeId, initial.currentBranchId))),
     private val continuation: Continuation? = null) {
     private var tree = tree.materializedCopy()

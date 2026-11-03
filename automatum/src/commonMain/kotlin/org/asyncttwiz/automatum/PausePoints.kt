@@ -1,5 +1,7 @@
 package org.asyncttwiz.automatum
 
+import arcanum.api.TurnStep
+import arcanum.engine.change.Change
 import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import org.asyncttwiz.protocol.Automatum
@@ -13,8 +15,9 @@ import org.asyncttwiz.protocol.TurnPosition
  *
  * - A **stop** ([Point.Stop]) is the player's own main phase on an empty Stack: they act in their own time.
  * - A **pause** ([Point.Pause]) is something they could react to: a spell or ability of another player on top of the
- *   Stack, the other player's attack (the defending player in the declare attackers step), blocks (both players in the
- *   declare blockers step), the other player's end step. The player is shown it for a short time (the app's response time) and the game goes on
+ *   Stack, the other player's attack (the defending player in the declare attackers step, once: not again on the empty
+ *   Stack after the attacking player's trigger or spell there was answered, [attackAnswered]), blocks (both players in
+ *   the declare blockers step), the other player's end step. The player is shown it for a short time (the app's response time) and the game goes on
  *   unless they react; their own spells and every other step with priority are pauses only with their "Full control"
  *   ([org.asyncttwiz.protocol.PlayPlayer.fullControl]).
  * - Anywhere else ([of] is null) the host passes for them.
@@ -34,15 +37,18 @@ object PausePoints {
 
     /**
      * What it is for [holder] to hold priority with [stackTop] (the controller of the top of the Stack; null: empty) in
-     * [position] of [active]'s turn, [attacking] whether creatures attack in this combat; [fullControl] the holder's.
-     * Null: the host passes for them.
+     * [position] of [active]'s turn, [attacking] whether creatures attack in this combat; [fullControl] the holder's;
+     * [answered]: the attack was answered in this declare attackers step already ([attackAnswered]). Null: the host
+     * passes for them.
      */
     fun of(holder: String, active: String, position: TurnPosition?, stackTop: String?, attacking: Boolean,
-        fullControl: Boolean): Point? = when {
+        fullControl: Boolean, answered: Boolean = false): Point? = when {
         stackTop != null -> if (stackTop != holder || fullControl) Point.Pause else null
         holder == active && (position == TurnPosition.PRECOMBAT_MAIN || position == TurnPosition.POSTCOMBAT_MAIN) -> Point.Stop
         // Combat that involves them: the defending player answers an attack, both players the blocks
-        attacking && position == TurnPosition.DECLARE_ATTACKERS && holder != active -> Point.Pause
+        // (finalreview-combat #7: one pause for one attack: none on the empty Stack once the defending player had the
+        // attacking player's trigger or spell of this step to respond to)
+        attacking && position == TurnPosition.DECLARE_ATTACKERS && holder != active && !answered -> Point.Pause
         attacking && position == TurnPosition.DECLARE_BLOCKERS -> Point.Pause
         // I-D41 decision B (pausereview #8): the other player's end step, for "at the end of turn" instants
         holder != active && position == TurnPosition.END_STEP -> Point.Pause
@@ -54,7 +60,33 @@ object PausePoints {
     fun of(s: GameState, holder: PlayerId, fullControl: Boolean): Point? = of(holder.value, s.turn.active.value,
         EngineCodec.position(s.turn.step, s.combat?.firstStrikeStep == true),
         s.stack.lastOrNull()?.let { top -> s.stackItems[top]?.controller?.value ?: "" },
-        s.combat?.attackers?.isNotEmpty() == true, fullControl)
+        s.combat?.attackers?.isNotEmpty() == true, fullControl, attackAnswered(s))
+
+    /**
+     * Finalreview-combat #7: whether in [s]'s declare attackers step a spell or ability of the attacking (active) player
+     * has left the Stack (resolved or countered): the defending player was paused for it (the respond panel), so that was
+     * their pause on the attack. Read from the engine's log back to the step's beginning; ATW's board keeps it in the
+     * turn record ([TurnExtras.attackAnswered]).
+     */
+    internal fun attackAnswered(s: GameState): Boolean {
+        if (s.turn.step != TurnStep.DeclareAttackers) return false
+        for (entry in s.log.asReversed()) {
+            if (entry.turn != s.turn.number) return false
+            when (val change = entry.change) {
+                is Change.Step -> return false
+                is Change.StackItemRemoved -> if (change.item.controller == s.turn.active) return true
+                else -> {}
+            }
+        }
+        return false
+    }
+
+    /** [attackAnswered] on ATW's [board], from the turn record (read only in the declare attackers step). */
+    private fun attackAnswered(board: BoardState): Boolean {
+        val record = board.engineRecords.singleOrNull { it.id == EngineCodec.TURN } ?: return false
+        val extras = runCatching { EngineCodec.decode(TurnExtras.serializer(), record.data) }.getOrNull() ?: return false
+        return extras.attackAnswered == TurnExtras.at(board.turn.number, TurnPosition.DECLARE_ATTACKERS)
+    }
 
     /** A player holding priority on a board and what their point is. */
     data class At(val holder: String, val point: Point)
@@ -73,7 +105,10 @@ object PausePoints {
         }
         val attacking = board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true
         val fullControl = board.players.firstOrNull { it.accountId == holder }?.fullControl == true
-        return of(holder, board.turn.accountId, TurnPosition.of(board.turn), top, attacking, fullControl)?.let { At(holder, it) }
+        val position = TurnPosition.of(board.turn)
+        val answered = position == TurnPosition.DECLARE_ATTACKERS && attacking && top == null && holder != board.turn.accountId &&
+            attackAnswered(board)
+        return of(holder, board.turn.accountId, position, top, attacking, fullControl, answered)?.let { At(holder, it) }
     }
 
     /** The pause of [viewer] on [board] ([at]): they hold priority there at a [Point.Pause]. */

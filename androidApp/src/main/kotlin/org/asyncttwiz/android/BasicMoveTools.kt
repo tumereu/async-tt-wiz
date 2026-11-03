@@ -22,13 +22,13 @@ internal fun basicMoveTools(play: PlayState, names: Map<String, String>, enabled
         }
     }
     if (!context.token) add(MenuControl("Shuffle into library", enabled && currentZone != PlayZone.LIBRARY) {
-        val invocation = java.util.UUID.randomUUID().toString()
+        val invocation = DeviceRandom.uuid()
         val library = play.board.zoneContainer(owner, PlayZone.LIBRARY) ?: return@MenuControl
         val libraries = scope.cardIds.mapNotNull { id -> CombatStackRules.liveSource(play.board, id)?.owner }
             .distinct().mapNotNull { account -> play.board.zoneContainer(account, PlayZone.LIBRARY) }
         val intents = listOf(TableIntent.Move(scope, TableDestination.Container(library.id, PlayZone.LIBRARY), sources, invocation)) +
             libraries.map { target -> TableIntent.Submit(PlayAction.ShuffleLibrary(target.id,
-                RandomV1.encodeSeed(ByteArray(32).also { java.security.SecureRandom().nextBytes(it) })), invocation) }
+                DeviceRandom.seed()), invocation) }
         if (request(TableIntent.Batch(intents, invocation))) dismiss()
     })
     val stack = play.board.containers.single { it.zone == PlayZone.STACK }

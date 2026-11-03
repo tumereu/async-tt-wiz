@@ -49,8 +49,9 @@ seeded random games of cube cards, failing on any open player decision without a
   ability's instructions carry `CausedBy` (its source, the name it had, controller, Stack item) for history lines;
   damage carries its source as it was (`DamageDealt.sourceSeen`).
 - `input/` — `Input`: `PlayLand`, `Cast(card, way)`, `Activate`, `PassPriority`,
-  `DeclareAttackers`, `DeclareBlockers`, `Answer`, `Cancel(player)`, `StartGame(options)`, `Concede`, and the host's
-  `MandatoryLoop` (see Loops). Each names the acting player (answers excepted: anyone may answer, P7); only the player
+  `DeclareAttackers`, `DeclareBlockers`, `Answer`, `Cancel(player)`, `StartGame(options)`, `Concede`,
+  `SetupAnswer(player, answer)` (see Starting and ending a game), and the host's `MandatoryLoop` (see Loops) and
+  `AgreedResult(result)`. Each names the acting player (answers excepted: anyone may answer, P7); only the player
   casting or activating may cancel.
 - `decision/` — `Decision` (data only, with id and deciding player) and its `Answer`;
   `Continuation`, the open flow the host stores opaquely (D58). Decisions carry text for people (`Texts`): a "you
@@ -87,6 +88,15 @@ meets the condition (CR 103.2b); the host's shuffles (D25); opening hands; mulli
 order, mulligans at once, then each puts as many cards on the bottom as mulligans taken, the first free in multiplayer,
 103.5c); turn 1 from its upkeep with priority. Opening-hand actions (CR 103.6) have no cube card yet: the stage list
 marks where they go.
+
+With `StartOptions.simultaneousMulligans` (a host variant for players who don't sit together) each round's
+declarations and bottom choices may be made in any order: the open decision is still the next in turn order, and any
+other player who still has theirs to make gives it ahead with `Input.SetupAnswer(player, answer)` (listed by `options`);
+the open decision is then asked again with a new id, and the mulligans are still taken together.
+
+`Input.AgreedResult(result)` ends the game as the players agreed, at once, also while a decision is open (an announced
+cast is cancelled): a draw (CR 104.4i), or a win, every other remaining player conceding (CR 104.3a); the host vouches
+for the agreement, as for a mandatory loop, and `options` never lists it.
 
 `Input.Concede(player)` is accepted at any time (CR 104.3a). `GameState.result` is `Won` when one player is left
 (CR 104.2a) and `Draw` when the last players lose at once (CR 104.4a); then `options` are empty and `perform` refuses

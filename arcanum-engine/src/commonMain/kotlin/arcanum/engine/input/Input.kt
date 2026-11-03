@@ -72,6 +72,27 @@ sealed interface Input {
      */
     @Serializable @SerialName("mandatory-loop")
     data object MandatoryLoop : Input
+
+    /**
+     * The players still in the game agreed to end it with [result]: a draw (CR 104.4i: all players in the game may agree
+     * to an intentional draw), or a win of one of them ([arcanum.engine.setup.GameResult.Won]): every other player still
+     * in the game concedes at once (CR 104.3a). The engine can't see the agreement: the host vouches for it, as for
+     * [MandatoryLoop]. Accepted at any time, also while a decision is open (a cast being announced is cancelled first);
+     * the game ends at once (CR 104.1). Never offered by [arcanum.engine.Engine.options].
+     */
+    @Serializable @SerialName("agreed-result")
+    data class AgreedResult(val result: arcanum.engine.setup.GameResult) : Input
+
+    /**
+     * [player]'s own mulligan declaration ([arcanum.engine.decision.Answer.Option] keep or mulligan) or choice of cards to
+     * put on the bottom ([arcanum.engine.decision.Answer.Objects]), made while another player's is the open decision, in a
+     * game started with [arcanum.engine.setup.StartOptions.simultaneousMulligans] (CR 103.5, as a host variant: players
+     * who don't sit together decide in any order). Accepted while the game's setup waits on a declaration or a bottom
+     * choice of this round that [player] hasn't made yet; the open decision is then asked again (with a new id) unless it
+     * is no longer needed.
+     */
+    @Serializable @SerialName("setup-answer")
+    data class SetupAnswer(val player: PlayerId, val answer: arcanum.engine.decision.Answer) : Input
 }
 
 /**

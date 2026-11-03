@@ -423,6 +423,9 @@ sealed interface GameEvent {
     @Serializable @SerialName("conceded") data class Conceded(val player: PlayerId) : GameEvent
     /** The game was in a loop of mandatory actions: it is a draw (CR 104.4b, 732.4). */
     @Serializable @SerialName("mandatory-loop") data object MandatoryLoop : GameEvent
+    /** The players still in the game agreed to end it with [result] ([arcanum.engine.input.Input.AgreedResult]: an
+     * intentional draw, CR 104.4i, or the others conceding, CR 104.3a). */
+    @Serializable @SerialName("result-agreed") data class ResultAgreed(val result: arcanum.engine.setup.GameResult) : GameEvent
     /** [player] foraged (CR 701.61a). */
     @Serializable @SerialName("foraged") data class Foraged(val player: PlayerId) : GameEvent
     /** [player] completed [dungeon] (CR 309.7). */

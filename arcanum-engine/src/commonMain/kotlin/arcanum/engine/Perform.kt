@@ -59,6 +59,7 @@ internal object Perform {
     private inline fun untraced(state: GameState, input: Input, view: arcanum.engine.view.View?, made: (Recorder) -> Unit): Outcome {
         require(!GameEnd.over(state)) { "The game is over (CR 104.1)" }
         if (input is Input.Concede) return GameEnd.concede(state, input)
+        if (input is Input.AgreedResult) return GameEnd.agree(state, input)
         return runOn(Recorder(state.deepCopy(), view).also(made), input)
     }
 
@@ -69,7 +70,7 @@ internal object Perform {
      * [Input.Concede]. */
     fun runOn(recorder: Recorder, input: Input): Outcome {
         require(!GameEnd.over(recorder.state)) { "The game is over (CR 104.1)" }
-        require(input !is Input.Concede) { "Conceding works on its own copy" }
+        require(input !is Input.Concede && input !is Input.AgreedResult) { "Ending the game works on its own copy" }
         val open = recorder.state.pending
         val progress = if (open != null) {
             when (input) {
@@ -84,6 +85,7 @@ internal object Perform {
                     recorder.record(Changes.pending(recorder.state, null))
                     Casting.cancel(recorder, open.continuation, input.player)
                 }
+                is Input.SetupAnswer -> Setup.early(recorder, open, input)
                 else -> throw IllegalArgumentException("Waiting for ${open.decision::class.simpleName}: only its answer is accepted (D58)")
             }
         } else {
@@ -96,7 +98,8 @@ internal object Perform {
                 is Input.DeclareBlockers -> Combat.declareBlockers(recorder, input)
                 is Input.StartGame -> Setup.start(recorder, input)
                 is Input.MandatoryLoop -> Loops.report(recorder)
-                is Input.Concede -> error("Conceding is handled above")
+                is Input.Concede, is Input.AgreedResult -> error("Ending the game is handled above")
+                is Input.SetupAnswer -> throw IllegalArgumentException("No mulligan decision is open")
                 is Input.Answer -> throw IllegalArgumentException("No decision is open")
                 is Input.Cancel -> throw IllegalArgumentException("Nothing to cancel")
             }

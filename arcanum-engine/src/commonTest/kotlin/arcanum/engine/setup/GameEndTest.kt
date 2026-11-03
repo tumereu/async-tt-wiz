@@ -106,6 +106,38 @@ class GameEndTest {
         nothingMoreHappens()
     }
 
+    // CR 104.4i, 104.1: the players agree to a draw; the game ends at once
+    @Test
+    fun anAgreedDraw() = scenario {
+        alice.battlefield("Swamp")
+        perform(Input.AgreedResult(GameResult.Draw))
+        assertEquals(GameResult.Draw, Engine.result(state))
+        assertTrue(applied.any { it is Change.Happened && it.event == GameEvent.ResultAgreed(GameResult.Draw) })
+        nothingMoreHappens()
+    }
+
+    // CR 104.3a, 104.2a: an agreed win: the other player concedes, also while a cast is being announced
+    @Test
+    fun anAgreedWinWhileACastIsAnnounced() = scenario {
+        alice.battlefield("Swamp", "Swamp")
+        alice.hand("Undead Soothsayer")
+        perform(Input.Cast(alice.id, card("Undead Soothsayer")))
+        assertTrue(pending is Decision.ManaPayment)
+        perform(Input.AgreedResult(GameResult.Won(bob.id)))
+        assertEquals(GameResult.Won(bob.id), Engine.result(state))
+        assertTrue(applied.any { it is Change.Happened && it.event == GameEvent.Conceded(alice.id) })
+        // The cast was cancelled: the card is back in hand
+        expect { alice.hand has "Undead Soothsayer" }
+        nothingMoreHappens()
+    }
+
+    // CR 104.2a: only a player still in the game can be agreed the winner
+    @Test
+    fun anAgreedWinnerIsInTheGame() = scenario(players = 3) {
+        perform(Input.Concede(carol.id))
+        assertFailsWith<IllegalArgumentException> { Engine.perform(state, Input.AgreedResult(GameResult.Won(carol.id))) }
+    }
+
     // CR 104.4a: if all remaining players lose at once, the game is a draw
     @Test
     fun aGameIsADrawWhenEveryoneLosesAtOnce() = scenario {

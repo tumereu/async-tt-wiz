@@ -192,7 +192,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         b
     }
 
-    val eval: Evaluator = snap.evaluator(player, self = sourceId, names = names, stackItem = item)
+    // hob: a permission's cost reads the spell it lets be cast as the affected object ("pay life equal to its mana value
+    // rather than pay its mana cost", CR 118.9)
+    val eval: Evaluator = snap.evaluator(player, self = sourceId, names = names, stackItem = item).let { e ->
+        if (isSpell) e.with(e.ctx.copy(affected = itemId)) else e
+    }
 
     // ---- Instructions
 
@@ -306,11 +310,31 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             permission?.first?.additionalCost?.let { add(Costs.Contribution("perm", it)) }
         } else {
             when (val a = ability) {
-                is Ability.Activated -> add(Costs.Contribution("base", a.cost))
+                // hob: "you may pay {0} rather than pay the equip cost" (CR 118.9, 602.2b): a free alternative is never worse, so it is used
+                is Ability.Activated -> add(Costs.Contribution("base", freeAlternative() ?: a.cost))
                 is Ability.SpecialAction -> add(Costs.Contribution("base", a.cost))
                 else -> Unit
             }
         }
+    }
+
+    /** hob: a free alternative activation cost the player has for this ability ([Mechanic.AbilityAlternativeCost]), within its
+     * "first … each turn" (the abilities matching it activated earlier this turn, by the keyword they stand for). */
+    private fun freeAlternative(): Cost? = snap.view.players[player]?.mechanics.orEmpty().firstNotNullOfOrNull { applied ->
+        val m = applied.mechanic as? Mechanic.AbilityAlternativeCost ?: return@firstNotNullOfOrNull null
+        val free = m.cost.parts.all { p -> p is CostPart.Mana && p.cost.symbols.all { it is arcanum.api.ManaSymbol.Generic && it.amount == 0 } }
+        if (!free) return@firstNotNullOfOrNull null
+        val e = snap.evaluator(applied.controller, self = applied.source, names = applied.names)
+        if (!e.matches(m.abilities, itemId)) return@firstNotNullOfOrNull null
+        if (m.firstEachTurn) {
+            val keyword = (m.abilities as? ObjectFilter.AbilityOf)?.keyword?.id
+            val earlier = snap.state.eventsOf(snap.state.turn.number).count { c ->
+                val a = (c as? arcanum.engine.change.Change.Happened)?.event as? arcanum.engine.change.GameEvent.Activated
+                a != null && a.player == player && !a.manaAbility && (keyword == null || a.keyword == keyword)
+            }
+            if (earlier > 0) return@firstNotNullOfOrNull null
+        }
+        m.cost
     }
 
     /** The keyword whose expansion this activated ability is (cycling, crew), as the source is now. */

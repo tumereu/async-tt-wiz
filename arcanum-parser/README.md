@@ -31,6 +31,8 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   halves). Reality Fracture (`fra`): all 285 cards parse (preparation cards as two faces, the prepare spell second); its
   rules are in `FraWordings.kt` and the `fra*` functions of `Sentences.kt`, most of them tried only after the other rules
   find nothing.
+  The Hobbit (`hob`): all 193 cards parse (adventurers as two faces); its rules are in `HobWordings.kt` and the `hob*` functions of
+  `Sentences.kt` (tried first, each reading one specific wording; texts of several sentences are offered to them whole first).
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

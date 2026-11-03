@@ -196,6 +196,10 @@ sealed interface ObjectFilter {
     /** It has dealt combat damage since it became this object (CR 400.7): "as long as they haven't dealt combat damage
      * yet". */
     @Serializable @SerialName("has-dealt-combat-damage") data object HasDealtCombatDamage : ObjectFilter
+    // hob
+    /** The object passes [condition], read with [Objects.Tested] as that object ("a spell with mana value of the chosen
+     * quality"). */
+    @Serializable @SerialName("where") data class Where(val condition: Condition) : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

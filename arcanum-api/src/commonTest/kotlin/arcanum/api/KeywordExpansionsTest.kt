@@ -110,4 +110,36 @@ class KeywordExpansionsTest {
         val text = Json.encodeToString(Step.serializer(), KeywordExpansions.expand(KeywordAction.Connive(objects = Objects.Self, count = Value.Fixed(1)))!!.single())
         assertEquals(true, "\"type\":\"where\"" in text)
     }
+
+    // hob: CR 702.195a: storied gives an enduring story to its controller while they control three or more artifacts, Sagas
+    // and/or legendary permanents; the designation stays (702.195b)
+    @Test
+    fun storiedGivesAnEnduringStory() {
+        val static = KeywordExpansions.expand(Keyword.Storied)!!.single() as Ability.Static
+        assertEquals(listOf(Mechanic.GetsDesignation(Designation.EnduringStory)), static.mechanics)
+        assertEquals(Affected.Players(Players.You), static.affects)
+        assertEquals(3, (static.condition as Condition.Exists).atLeast)
+        assertEquals(emptyList(), DefinitionChecks.problems(card(listOf(Keyword.Storied) + KeywordExpansions.expand(Keyword.Storied)!!), keywordTable = true))
+    }
+
+    // hob: CR 701.70a: recruit draws, discards, and makes a 1/1 white Human Soldier only for a nonland card discarded
+    @Test
+    fun recruitExpandsCleanly() {
+        val steps = KeywordExpansions.expand(KeywordAction.Recruit)!!
+        assertEquals(3, steps.size)
+        val token = ((steps[2] as Step.If).then.single() as Step.Do).effect as Effect.CreateToken
+        assertEquals(TokenSpec.Defined(KeywordExpansions.RECRUIT_TOKEN), token.token)
+        assertEquals(listOf(Color.White), KeywordExpansions.RECRUIT_TOKEN.colorIndicator)
+        assertEquals(emptyList(), DefinitionChecks.problems(card(listOf(Ability.Spell(Instructions(steps = steps))))))
+    }
+
+    // hob: "its controller amasses Goblins X": a keyword action takes no players, so a loop over that one player stays
+    @Test
+    fun aKeywordActionMayBeLoopedOverAPlayer() {
+        val step = Step.ForEach(Each.Players(Players.ControllerOf(Objects.Target("creature"))), "player",
+            listOf(Step.Do(Effect.Action(KeywordAction.Amass(Subtype("Goblin"), Value.Fixed(2))))), together = true)
+        val spell = Ability.Spell(Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)),
+            min = Value.Fixed(1), max = Value.Fixed(1))), steps = listOf(step)))
+        assertEquals(emptyList(), DefinitionChecks.problems(card(listOf(spell))))
+    }
 }

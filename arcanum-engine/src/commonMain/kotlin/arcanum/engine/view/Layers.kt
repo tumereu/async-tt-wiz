@@ -465,12 +465,16 @@ internal class LayerRun(private val state: GameState, private val traced: Object
                 is CounterKind.Keyword -> if (layer == Layer.Ability) {
                     (kind.keyword as? Keyword)?.let { Mechanic.GainAbilities(listOf(it)) }
                 } else null
+                // hob: CR 122.1j: a hone counter on an Equipment gives +1/+0 to the creature it's attached to
+                CounterKind.Hone -> if (layer == Layer.PowerToughnessModify && o.zone == Zone.Battlefield && o.attachedTo != null) {
+                    Mechanic.ModifyPowerToughness(arcanum.api.Value.Fixed(entry.count), arcanum.api.Value.Fixed(0))
+                } else null
                 else -> null
             } ?: return@mapNotNull null
             ContinuousEffect(
                 key = "c:$id:${entry.kind}", timestamp = entry.timestamp, cda = false, mechanics = listOf(mechanic),
                 you = board.controller(id) ?: o.owner, self = id, names = Bindings.EMPTY,
-                affects = Affected.Objects(Objects.Self), locked = null, condition = null, holder = null,
+                affects = Affected.Objects(if (entry.kind == CounterKind.Hone) Objects.AttachedTo(Objects.Self) else Objects.Self), locked = null, condition = null, holder = null,
                 instance = AbilityInstance(arcanum.api.Ability.Unparsed("counter"), AbilityOrigin.FromCounter(entry.kind)), effect = null,
             )
         }

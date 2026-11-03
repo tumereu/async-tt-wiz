@@ -179,7 +179,10 @@ internal object Actions {
         // CR 614.5: it doesn't apply again to the events its own instructions make
         val added = act.replacing.add(r.key)
         try {
-            Steps.run(Scope(act, cause, r.names, instance), r.mechanic.instead!!.steps)
+            val scope = Scope(act, cause, r.names, instance)
+            Steps.run(scope, r.mechanic.instead!!.steps)
+            // hob: what the spell's own replacement named is the spell's to read afterwards
+            if (r.own) scope.names.values.forEach { (name, value) -> if (r.names.values[name] != value) act.ownInsteadBinds[name] = value }
         } finally {
             if (added) act.replacing.remove(r.key)
         }

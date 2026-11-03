@@ -226,7 +226,8 @@ class FraChunk10GreenTest {
             Keyword.Enchant(TargetKind.Objects(or(artifact, and(not(sub("Aura")), ObjectFilter.Type(CardType.Enchantment))))),
             static(Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = listOf(SubtypeRef.Literal(Subtype("Construct")))),
                 Mechanic.SetPowerToughness(n(5), n(5)), affects = Objects.AttachedTo(Objects.Self)),
-            activated(cost(mana("{4}{G}")), move(Objects.Self, Zone.Hand)),
+            // hob: the ability works in the graveyard it returns the card from (CR 113.6m)
+            activated(cost(mana("{4}{G}")), move(Objects.Self, Zone.Hand)).copy(functionsIn = listOf(Zone.Graveyard)),
         )
 
     @Test

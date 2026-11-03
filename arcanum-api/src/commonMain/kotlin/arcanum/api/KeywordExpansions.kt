@@ -72,6 +72,12 @@ object KeywordExpansions {
             Instructions(steps = listOf(
                 Step.Pay(keyword.cost, payer = Players.ControllerOf(Objects.EventObject(EventRole.Source)), bind = "paid"),
                 Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Do(Effect.Counter(Objects.EventObject(EventRole.Source)))))))))
+        // hob: CR 702.195a: "Any time you control three or more permanents that are artifacts, Sagas, and/or legendary and you
+        // don't have an enduring story, you have an enduring story for the rest of the game."
+        Keyword.Storied -> listOf(Ability.Static(listOf(Mechanic.GetsDesignation(Designation.EnduringStory)),
+            affects = Affected.Players(Players.You), condition = Condition.Exists(ObjectFilter.And(listOf(
+                or(ObjectFilter.Type(CardType.Artifact), ObjectFilter.Sub(Subtype("Saga")), ObjectFilter.Super(Supertype.Legendary)),
+                ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 3)))
         // CR 702.29a: "[Cost], Discard this card: Draw a card." (works from the hand)
         is Keyword.Cycling -> listOf(cycling(keyword.cost, Effect.Draw(Players.You, count = Value.Fixed(1))))
         // CR 702.29e: "[Cost], Discard this card: Search your library for a [type] card, reveal it, put it into your
@@ -556,6 +562,12 @@ object KeywordExpansions {
                 Step.Do(Effect.PutCounters(Objects.Bound("bolstered"), CounterKind.PowerToughness(1, 1), action.count)))
         }
         // fra: CR 701.71a: create a Jace token if you control none, then put N loyalty counters on a Jace token you control
+        // hob: CR 701.70a: draw a card, then discard a card; if a nonland card was discarded this way, a 1/1 white Human Soldier
+        is KeywordAction.Recruit -> listOf(
+            Step.Do(Effect.Draw(Players.You, Value.Fixed(1))),
+            Step.Do(Effect.Discard(Players.You, Value.Fixed(1), ObjectFilter.Any, preBind = "recruited")),
+            Step.If(Condition.ObjectMatches(Objects.Bound("recruited"), ObjectFilter.Not(ObjectFilter.Type(CardType.Land))),
+                then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(RECRUIT_TOKEN), Value.Fixed(1), Players.You)))))
         is KeywordAction.EmpowerJace -> listOf(
             Step.If(Condition.Not(Condition.Exists(jaceTokenYouControl, atLeast = 1)),
                 then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(JACE_TOKEN), count = Value.Fixed(1), controller = Players.You)))),
@@ -563,6 +575,11 @@ object KeywordExpansions {
             Step.Do(Effect.PutCounters(Objects.Bound("empowered"), CounterKind.Loyalty, action.count)))
         else -> null
     }
+
+    // hob
+    /** The token recruit creates (CR 701.70a): a 1/1 white Human Soldier creature token. */
+    val RECRUIT_TOKEN: FaceDefinition = FaceDefinition("Human Soldier Token", colorIndicator = listOf(Color.White), types = listOf(CardType.Creature),
+        subtypes = listOf(Subtype("Human"), Subtype("Soldier")), power = PrintedNumber.Fixed(1), toughness = PrintedNumber.Fixed(1))
 
     // fra
     /** The token empower Jace creates (CR 701.71a): a blue Jace planeswalker token with 0 loyalty, "[−1]: Surveil 1" and

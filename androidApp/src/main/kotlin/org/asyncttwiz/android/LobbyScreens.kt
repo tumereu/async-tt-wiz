@@ -225,8 +225,12 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
         val ownCards = remember(own?.deck, state.preparation?.definitions) {
             own?.deck?.entries?.map { it.definition }?.toSet()?.let { digests -> state.preparation?.definitions?.filter { it.digest in digests } }
         }
+        // Pivot review #2: Ready waits until the device knows (a check that can't tell isn't a yes)
+        val checking = LocalCardListSupport.current != null && !ownCards.isNullOrEmpty()
+        val support = rememberCardListSupport(ownCards)
         val reason = readyReason(state.preparation, accountId)
-            ?: AUTOMATUM_DECK_BLOCKED.takeIf { rememberCardListSupport(ownCards)?.supported == false }
+            ?: AUTOMATUM_DECK_BLOCKED.takeIf { support?.supported == false }
+            ?: AUTOMATUM_CHECKING.takeIf { checking && support == null }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
                 if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)

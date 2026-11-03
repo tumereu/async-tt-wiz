@@ -282,8 +282,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             else {
                 historyLoaded = System.nanoTime()
                 // I-D52: the board changes only through Automatum; the rest of a play command is the shared reducer's
-                (AutomatumOnly.refusal(tree, inbox.accountId.toString(), command)?.let { GameplayTreeChange(reason = it) }
-                    ?: HistoryContinuation.change(tree, inbox.accountId.toString(), command)).also { change ->
+                AutomatumOnly.change(tree, inbox.accountId.toString(), command).also { change ->
                     reduced = System.nanoTime()
                     change.tree?.let { next ->
                         treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1), command.requestId)
@@ -556,12 +555,27 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (change.state?.let { preparation -> StartRules.canStart(summary, preparation) &&
             preparation.players.any { !DeckValidation.quantities(it.deck!!.entries.map { entry -> entry.quantity }) } } == true)
             return "invalidDeck"
+        // I-D51/I-D52 (pivot review #2): a player is Ready, and a game starts, only with decks Automatum can play fully, as
+        // stored for the deck each player prepared (also in a lobby kept from before the block); a pod game's decks come
+        // from the pod's source
+        if (change.state?.let { preparation -> (command.action == GameAction.Ready || StartRules.canStart(summary, preparation)) &&
+            unsupported(sql, summary, preparation, account.toString().takeUnless { StartRules.canStart(summary, preparation) }) } == true)
+            return "automatumUnsupported"
         change.state?.let { preparation ->
             PreparationStore.saveReadiness(sql, account, preparation)
             if (command.action is GameAction.ShowDeck) DeckVisibilityStore.chosen(sql, game.id!!, account)
             if (StartRules.canStart(summary, preparation)) PlayStore.start(sql, summary, preparation, command.requestId)
         }
         return change.reason
+    }
+
+    /** Whether a deck of [preparation] ([only]'s alone when given) is one Automatum can't play fully, by the stored support
+     * results (I-D52). */
+    private fun unsupported(sql: DSLContext, summary: GameSummary, preparation: LobbyPreparation, only: String? = null): Boolean {
+        summary.podId?.let { return PodService(runtime).unsupported(sql, UUID.fromString(it)) }
+        return preparation.players.filter { only == null || it.accountId == only }.any { player -> player.deck?.let { deck ->
+            DeckService(runtime).storedSupport(sql, UUID.fromString(player.accountId), deck.sourceId, deck.sourceRevision)?.supported == false
+        } == true }
     }
 
     /** Recovery validates the newly implemented durable worker inputs, not forgotten client queues. */

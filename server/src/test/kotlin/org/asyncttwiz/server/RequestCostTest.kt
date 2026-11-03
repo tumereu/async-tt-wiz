@@ -147,8 +147,8 @@ class RequestCostTest {
                     }
                     repeat(10) {
                         // Game action: socket admission, execution, then publication to both players' open tables.
-                        val command = GameCommand(id(), GameScope(game.id, playId = play.id),
-                            org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(pa.account.accountId, "1")), streamA.streamId, streamA.generation)
+                        val command = org.asyncttwiz.server.game.boarded(games, a, GameCommand(id(), GameScope(game.id, playId = play.id),
+                            org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(pa.account.accountId, "1")), streamA.streamId, streamA.generation))
                         measure("game action: admit") { socket(a.token) { games.admit(it, hello, connection, command) } }
                         measure("game action: execute") { assertTrue(games.executeOne()) }
                         measure("game action: publish") {

@@ -122,7 +122,8 @@ class AutomatumCombatReviewTest {
     private fun accept(actor: String, action: GameAction, request: String = f.id("request/${requests++}")): Boolean {
         val history = tree!!
         val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client"), "1")
-        val change = if (action is GameAction.Play) history.play(actor, command) else PlayBatches.change(history, actor, command)
+        // As the server: its gate, then the shared reducer (pivot review #11)
+        val change = AutomatumOnly.change(history, actor, command)
         if (change.reason != null) { refused += "${change.reason}: $action".take(300); return false }
         tree = change.tree
         live.value = tree!!.stateAt(tree!!.currentNodeId)

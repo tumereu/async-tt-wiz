@@ -11,6 +11,8 @@ import arcanum.engine.state.GameState
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
+import org.asyncttwiz.protocol.AutomatumOnly
+import org.asyncttwiz.protocol.GameplayTree
 import org.asyncttwiz.protocol.CommandIds
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.GameCommand
@@ -85,8 +87,10 @@ internal class RoundTrip(var state: PlayState, val definitions: Map<String, Card
         lastPlan = plan
         largestBatch = maxOf(largestBatch, plan.actions.size)
         largestTag = maxOf(largestTag, plan.tags.maxOfOrNull { it?.data?.encodeToByteArray()?.size ?: 0 } ?: 0)
-        // As the server: each member through the reducer, with its tag
+        // As the server: its gate (pivot review #11), then each member through the reducer, with its tag
         val batch = command.copy(action = plan.action)
+        assertEquals(null, AutomatumOnly.refusal(GameplayTree(state.copy(currentNodeId = state.root.id)), actor, batch),
+            "the server's gate takes the batch")
         var next = state
         val mutations = mutableListOf<GameplayMutation>()
         for ((i, action) in plan.actions.withIndex()) {

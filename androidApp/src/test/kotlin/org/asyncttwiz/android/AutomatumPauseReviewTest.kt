@@ -101,7 +101,8 @@ class AutomatumPauseReviewTest {
     /** The server's answer to [batch] from [actor] (continuing from [from]: a branch when the game has gone on). */
     private fun serve(play: PlayState, batch: GameAction.PlayBatch, request: String, actor: String, from: String? = null): GameplayTreeChange {
         val history = tree ?: GameplayTree(play)
-        val change = PlayBatches.change(history, actor, command(play, request, batch, from))
+        // As the server: its gate, then the shared reducer (pivot review #11)
+        val change = AutomatumOnly.change(history, actor, command(play, request, batch, from))
         change.tree?.let { tree = it }
         return change
     }

@@ -39,11 +39,11 @@ class GameResultLifecycleTest {
         val stream = games.open(actor, hello, connection, gameId, id())
         fun command(action: GameAction, scope: GameScope? = null): GameCommand {
             val summary = games.head(actor, gameId).summary
-            return GameCommand(id(), scope ?: if (action is GameAction.Play || action is GameAction.AcceptResult)
+            return games.boarded(actor, GameCommand(id(), scope ?: if (action is GameAction.Play || action is GameAction.AcceptResult)
                 GameScope(gameId, playId = summary.playId) else GameScope(gameId, summary.preparationRound,
-                    if (action == GameAction.AcceptInvitation) summary.invitationId else null), action, stream.streamId, stream.generation)
+                    if (action == GameAction.AcceptInvitation) summary.invitationId else null), action, stream.streamId, stream.generation))
         }
-        fun admit(command: GameCommand) = games.admit(actor, hello, connection, command)
+        fun admit(command: GameCommand) = games.admit(actor, hello, connection, games.boarded(actor, command))
         fun result(command: GameCommand) = games.results(actor, gameId, listOf(command.requestId)).statuses.single().result!!
         fun execute(command: GameCommand): GameResult { assertTrue(admit(command) is GameReceipt); assertTrue(games.executeOne()); return result(command) }
         fun execute(action: GameAction) = execute(command(action))

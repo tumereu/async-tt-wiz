@@ -25,7 +25,7 @@ class DeckVisibilityTest {
             val summary = games.head(actor, gameId).summary
             val scope = if (action is GameAction.Play || action is GameAction.AcceptResult) GameScope(gameId, playId = summary.playId)
                 else GameScope(gameId, summary.preparationRound, if (action == GameAction.AcceptInvitation) summary.invitationId else null)
-            val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
+            val command = games.boarded(actor, GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation))
             assertTrue(games.admit(actor, hello, connection, command) is GameReceipt); assertTrue(games.executeOne())
             return games.results(actor, gameId, listOf(command.requestId)).statuses.single().result!!
         }

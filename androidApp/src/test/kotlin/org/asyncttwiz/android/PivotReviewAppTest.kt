@@ -95,8 +95,7 @@ class PivotReviewAppTest {
         val history = tree!!
         val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client/$actor"), "1",
             continuation = from?.let { Continuation(it, explicit = true) })
-        val change = AutomatumOnly.refusal(history, actor, command)?.let { GameplayTreeChange(reason = it) }
-            ?: HistoryContinuation.change(history, actor, command)
+        val change = AutomatumOnly.change(history, actor, command)
         if (change.reason != null) { refused += "${change.reason}: ${action.toString().take(200)}"; return false }
         tree = change.tree
         return true
@@ -272,20 +271,20 @@ class PivotReviewAppTest {
 
     // ---- Client and server agree on what goes without Automatum
 
-    // pivotreview #7 — SYS-069, SYS-073 (I-D52): the device's own check of a change by hand (`AutomatumDrags.manual`,
-    // used by `TableToolkitController.refusal`) still lets through what the tabletop used to allow (statuses, notes,
-    // pings, dice and coins, colour counters, comments, keeping a library's top card revealed, closing a panel), which the
-    // server now refuses ([AutomatumOnly]). Nothing in the app sends them today, but the next control that does gets a
-    // server refusal after its prediction was shown instead of the device's own quiet refusal. Expected: the device
-    // checks with the server's rule ([AutomatumOnly.allowed]), one list instead of two.
-    @Ignore("pivotreview #7: the device's check of hand-made changes isn't the server's")
+    // Pivot review #7 — SYS-069, SYS-073 (I-D52): the device checks a change by hand with the server's own rule
+    // ([AutomatumOnly.allowed]); what the server refuses the device refuses itself, without asking the server or showing a
+    // prediction first
     @Test fun theDeviceRefusesWhatTheServerRefuses() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(bear), bobField = listOf(ogre)))
-        val bearCard = card(play, bear)
-        val library = play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }.id
-        val samples = listOf(PlayAction.SetStatus("Thinking"), PlayAction.SetNote(bearCard, "note"), PlayAction.FlipCoin(CoinFace.HEADS),
-            PlayAction.RollDie(6, 3), PlayAction.SetKeepTopRevealed(library, true))
-        val disagree = samples.filter { action -> !AutomatumDrags.manual(action) && !AutomatumOnly.allowed(play.board, f.a, action) }
-        assertEquals(emptyList(), disagree.map { it::class.simpleName }, "let through by the device, refused by the server")
+        val alice = toolkit(f.a)
+        val bearCard = play.board.cards.single { it.id == card(play, bear) }
+        val graveyard = play.board.containers.single { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a }.id
+        val samples = listOf(PlayAction.SetStatus("Thinking"), PlayAction.SetLife(f.b, "30"),
+            PlayAction.MoveCard(bearCard.id, MoveSource(bearCard.containerId, bearCard.placement), MoveDestination(graveyard, MoveInsertion.UNORDERED)))
+        for (action in samples) {
+            assertFalse(AutomatumOnly.allowed(play.board, f.a, action), "the server refuses $action")
+            assertFalse(alice.submit(action), "the device refuses $action")
+        }
+        assertEquals(emptyList(), refused, "nothing reached the server")
     }
 }

@@ -151,8 +151,7 @@ class PivotReviewGamesTest {
         val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client"), "1",
             continuation = from?.let { Continuation(it, explicit = true) })
         // As GameService: the gate (I-D52), then the shared reducer
-        val change = AutomatumOnly.refusal(history, actor, command)?.let { GameplayTreeChange(reason = it) }
-            ?: HistoryContinuation.change(history, actor, command)
+        val change = AutomatumOnly.change(history, actor, command)
         if (change.reason == RuleRefusals.AUTOMATUM_ONLY) gateRefused += "${if (actor == f.a) "alice" else "bob"}: ${action.toString().take(160)}"
         change.tree?.let { tree = it }
         return change

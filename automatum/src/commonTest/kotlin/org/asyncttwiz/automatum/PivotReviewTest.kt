@@ -83,7 +83,6 @@ class PivotReviewTest {
     // engine carries out "skips their next turn" itself (`Effect.SkipNextTurn`, a skipped turn in the turn record), but
     // `AutomatumSupport` still lists `skip-next-turn` among the effects done by hand, so a card whose every word Automatum
     // plays (this SOS wording) is marked unsupported and blocks its deck, cube or set (I-D52 hard block)
-    @Ignore("pivotreview #6: a card Automatum plays fully is marked unsupported")
     @Test fun aSkippedTurnIsSupported() {
         val definition = CardDefinition(Layout.Normal, listOf(OracleParser.parse(OracleCard("Coinstorm Hex", "{3}{U}{U}", "Sorcery",
             "Flip five coins. Target opponent skips their next X turns, where X is the number of coins that came up heads.", null, null))))

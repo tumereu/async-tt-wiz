@@ -231,8 +231,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (step) return SharedFlowController.STEPS_FORWARD
         // TRN-027: the viewer's own mulligans and library bottom during their opening, the host's setup before the game
         if (AutomatumDrags.openingAction(board, viewer, action)) return null
-        // I4, I-D28, I-D52: only what the rules allow; nothing changes the game by hand
-        if (engineRoute == 0 && AutomatumDrags.manual(action)) return when (action) {
+        // I4, I-D28, I-D52: only what the rules allow; nothing changes the game by hand. The server's own check
+        // (pivot review #7), so the device never shows a change the server refuses
+        if (engineRoute == 0 && !AutomatumOnly.allowed(board, viewer, action)) return when (action) {
             is PlayAction.Stack -> AutomatumDrags.STACK
             is PlayAction.SetLife, is PlayAction.AdjustLife -> AutomatumDrags.LIFE
             else -> AutomatumDrags.MANUAL

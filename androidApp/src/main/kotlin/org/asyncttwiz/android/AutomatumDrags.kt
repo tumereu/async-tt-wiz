@@ -3,9 +3,9 @@ package org.asyncttwiz.android
 import org.asyncttwiz.protocol.*
 
 /**
- * What a drag means with Automatum on (integration spec I-D36, I-D28): the engine action it stands for, or a refusal
- * with the reason. Life and zone moves by hand are refused while Automatum is on; only moving a card within its own
- * Battlefield, which changes nothing Automatum reads, stays as it is. A hand is never reordered (I-D50, ZON-081).
+ * What a drag means (integration spec I-D36, I-D28, I-D52): the engine action it stands for, or a refusal with the
+ * reason. Life and zone moves by hand are refused; only moving a card within its own Battlefield, which changes nothing
+ * Automatum reads, stays as it is. A hand is never reordered (I-D50, ZON-081).
  */
 internal object AutomatumDrags {
     sealed interface Route {
@@ -45,50 +45,20 @@ internal object AutomatumDrags {
         return Route.Refused(MANUAL_MOVE)
     }
 
-    /**
-     * Whether [viewer] is in their opening with Automatum on (TRN-027–TRN-029, CR 103.5): the first turn and their status
-     * still the opening "Mulliganing". The opening is the host's setup before the engine's game begins: [openingAction]s
-     * stay allowed, and the first turn begins once both players are Ready.
-     */
-    fun opening(board: BoardState, viewer: String?): Boolean = board.turn.number == "1" &&
-        PlayerStatus.opening(board, viewer)
+    /** Whether [viewer] is in their opening (TRN-027–TRN-029, CR 103.5, [AutomatumOnly.opening]): the host's setup
+     * before the engine's game begins; [openingAction]s stay allowed, and the first turn begins once both players are Ready. */
+    fun opening(board: BoardState, viewer: String?): Boolean = AutomatumOnly.opening(board, viewer)
 
     /** Whether [action] is one of [viewer]'s opening actions ([opening], I-D49): a mulligan of their own hand and library,
-     * or putting their own hand cards on the bottom of their library (the London mulligan's bottom on keeping, CR 103.5). */
-    fun openingAction(board: BoardState, viewer: String?, action: PlayAction): Boolean {
-        if (!opening(board, viewer)) return false
-        fun own(containerId: String, zone: PlayZone) = board.containers.any { it.id == containerId && it.zone == zone && it.accountId == viewer }
-        return when (action) {
-            is PlayAction.Mulligan -> own(action.libraryId, PlayZone.LIBRARY) && own(action.handId, PlayZone.HAND)
-            is PlayAction.MoveCard -> action.destination.insertion == MoveInsertion.BOTTOM &&
-                own(action.destination.containerId, PlayZone.LIBRARY) &&
-                board.cards.singleOrNull { it.id == action.cardId }?.let { own(it.containerId, PlayZone.HAND) } == true
-            else -> false
-        }
-    }
+     * or putting their own hand cards on the bottom of their library (the London mulligan's bottom on keeping, CR 103.5);
+     * the server's own check ([AutomatumOnly.allowed]). */
+    fun openingAction(board: BoardState, viewer: String?, action: PlayAction): Boolean = viewer != null && opening(board, viewer) &&
+        (action is PlayAction.Mulligan || action is PlayAction.MoveCard) && AutomatumOnly.allowed(board, viewer, action)
 
     const val MANUAL_MOVE = "Cards move only by the rules."
     const val STACK = "Automatum resolves the Stack: let it resolve."
     const val LIFE = "Life changes only by the rules."
     const val ONE_AT_A_TIME = "Cast or play one card at a time."
-    /** Any other change made by hand while Automatum is on (I-D28, §3 I4). */
+    /** Any other change made by hand (I-D28, I-D52: [AutomatumOnly]). */
     const val MANUAL = "The game changes only by the rules."
-
-    /**
-     * Whether [action] changes the game by hand, which Automatum on refuses (I-D28) unless its open choice is something
-     * to do by hand (I-D37). What has no game effect stays: notes, pings, statuses, marks, links, the six colour
-     * counters Automatum ignores, dice and coins, inspecting, result suggestions, passing the move, keeping a library's
-     * top card revealed, closing a panel, and Automatum's own records.
-     */
-    fun manual(action: PlayAction): Boolean = when (action) {
-        is PlayAction.Ping, is PlayAction.Unping, is PlayAction.SetStatus, is PlayAction.SetNote, is PlayAction.SetEotNote,
-        is PlayAction.SetProjectionNote, is PlayAction.Link, is PlayAction.RemoveLink, is PlayAction.LinkProjections,
-        is PlayAction.RemoveProjectionLink, is PlayAction.RollDie, is PlayAction.FlipCoin, is PlayAction.InspectFace,
-        is PlayAction.SuggestResult, is PlayAction.DeclineResult, is PlayAction.WithdrawResult, is PlayAction.EventComment,
-        PlayAction.PassAttention, is PlayAction.SetKeepTopRevealed, is PlayAction.DismissContents,
-        is PlayAction.SetCounter, is PlayAction.AdjustCounter, is PlayAction.ClearCardCounter,
-        is PlayAction.SetPlayerCounter, is PlayAction.AdjustPlayerCounter, is PlayAction.Mtg -> false
-        is PlayAction.Stack -> action.action !is StackAction.MarkText
-        else -> true
-    }
 }

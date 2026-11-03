@@ -158,6 +158,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         // one the engine checked state-based actions (CR 704.3) and it ceased to exist (CR 704.5d)
         if (engine.pending == null) lingering(engine) { card(atwId(it)) != null }.takeIf { it.isNotEmpty() }
             ?.let { throw Unmappable("a token outside the battlefield without an open decision: ${it.map { l -> l.obj.id }}") }
+        // Pivot review #3: what the engine skipped is said in the history, each as an event of its own
+        call.gaps.distinct().forEach { play(PlayAction.Mtg(MtgAction.Skipped(gapText(it))), fold = false) }
         // I-D34: with Automatum on the move follows who must act (folded into the batch's event, I-D35)
         if (actions.isNotEmpty()) acting(engine)?.let { who -> if (board.effectiveAttentionHolder != who) play(PlayAction.PassAttention) }
         if (pendingLog.isNotEmpty()) {
@@ -174,6 +176,13 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         return plan
     }
 
+    /** An engine gap's [text] on one line, within [MtgAction.Skipped.MAX_BYTES]. */
+    private fun gapText(text: String): String {
+        var line = text.replace(Regex("\\s+"), " ").trim().ifEmpty { "a step" }
+        while (line.encodeToByteArray().size > MtgAction.Skipped.MAX_BYTES) line = line.dropLast(1)
+        return line
+    }
+
     /** The batch passes the server's own checks ([GameWire.valid]) and fits one game message; else it can't be sent. */
     private fun check(plan: BatchPlan) {
         val command = template.copy(action = plan.action)
@@ -188,8 +197,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
 
     /** Plays [action] as the next member; false when it changes nothing (then it isn't part of the batch). Engine
      * bookkeeping is tagged to be folded into the visible event before it ([folds]). */
-    private fun play(action: PlayAction, tag: MtgTag? = null): Boolean {
-        val sent = if (actions.isNotEmpty() && folds(action)) (tag ?: MtgTag()).copy(folded = true) else tag
+    private fun play(action: PlayAction, tag: MtgTag? = null, fold: Boolean = true): Boolean {
+        val sent = if (fold && actions.isNotEmpty() && folds(action)) (tag ?: MtgTag()).copy(folded = true) else tag
         val member = PlayBatches.member(template, actions.size, action).let { if (sent == null) it else it.copy(action = GameAction.Play(action, sent)) }
         val change = GameplayRules.preview(atw, actor, member)
         if (change.reason != null) throw Unmappable("ATW refused $action (${change.reason})")

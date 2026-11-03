@@ -61,9 +61,9 @@ internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 12, 
         val stream = games.open(actor, hello, connection, game.id, gameplayId())
         fun lobby(action: GameAction) = GameCommand(gameplayId(), GameScope(game.id, game.preparationRound,
             if (action == GameAction.AcceptInvitation) game.invitationId else null), action, stream.streamId, stream.generation)
-        fun command(action: PlayAction) = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
-            automatedPlay(action), stream.streamId, stream.generation)
-        fun admit(input: GameCommand) = games.admit(actor, hello, connection, input)
+        fun command(action: PlayAction) = games.boarded(actor, GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
+            automatedPlay(action), stream.streamId, stream.generation))
+        fun admit(input: GameCommand) = games.admit(actor, hello, connection, games.boarded(actor, input))
         fun result(input: GameCommand) = games.results(actor, game.id, listOf(input.requestId)).statuses.single().result!!
         fun execute(input: GameCommand): GameResult {
             assertTrue(admit(input) is GameReceipt); assertTrue(games.executeOne()); return result(input)

@@ -138,20 +138,6 @@ class AutomatumI3ReviewTest {
         accept(actor, EngineBatch.plan(call, actor, command).action, request)
     }
 
-    /** Alice casts Odd Rearrangement (something Automatum leaves to be done by hand): its "By hand" choice is open. */
-    private fun byHandOpen(): TableToolkitController {
-        start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(mountain, brute), bobField = emptyList(),
-            aliceHand = listOf(odd)))
-        val alice = toolkit(f.a)
-        assertTrue(alice.cast.start(card(play, odd, aHand)), alice.error)
-        if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
-        assertTrue(Automatum.flowOpen(play.board))
-        // The table's host has worked the shown board's flow out (SharedFlowHost)
-        val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)))
-        assertIs<Decision.Manual>(flow.decision)
-        return alice
-    }
-
     // #4 (I-D27, STK-033): Alice divides her trampler's damage between Bob's face-down blocker and Bob; the division
     // names the face-down creature: the deciding player is shown every object of their own choice ("a search"), and the
     // shared flow's state has full information

@@ -129,8 +129,22 @@ class PodService(private val runtime: ServiceRuntime) {
             return error(400, "invalid_definition")
         if (!definitions.map { it.digest }.toSet().containsAll(input.snapshot.cards.map { it.definition }))
             return error(400, "definitions_unavailable")
+        if (input.support?.let(CardListSupport::valid) == false) return error(400, "invalid_request")
+        // I-D51/I-D52: a set Automatum can't play fully (as the creator's device worked it out) can't start a pod.
+        if (input.support?.supported == false) return error(409, "automatum_unsupported")
         return null
     }
+
+    /** I-D52 (pivot review #2): the pod's stored Automatum support of its source, null when not known. */
+    private fun support(row: PodRecord): CardListSupport? = org.asyncttwiz.server.decks.automatumSupport(row.automatumSupport)
+
+    /** Whether pod [id]'s source has cards Automatum can't play fully, as stored with it (I-D52). */
+    internal fun unsupported(sql: DSLContext, id: UUID): Boolean =
+        sql.selectFrom(POD).where(POD.ID.eq(id)).fetchOne()?.let { unsupported(it) != null } == true
+
+    /** Why the pod's draft or its games can't start: its source has cards Automatum can't play fully (I-D52). */
+    internal fun unsupported(row: PodRecord): Result? =
+        if (support(row)?.supported == false) error(409, "automatum_unsupported") else null
 
     private fun storeSet(sql: DSLContext, input: PodSetSource) = storeDefinitions(sql, input.definitions)
     private fun storeDefinitions(sql: DSLContext, definitions: List<SubmittedDefinition>) {
@@ -140,7 +154,9 @@ class PodService(private val runtime: ServiceRuntime) {
     }
 
     private class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>,
-        val unsupported: Boolean = false)
+        val support: String? = null) {
+        val unsupported: Boolean get() = org.asyncttwiz.server.decks.automatumSupport(support)?.supported == false
+    }
 
     /** The saved cube as this pod's prepared cube: its Main is drafted, its Maybe kept aside for Prepare cube. */
     private fun snapshot(sql: DSLContext, owner: UUID, cubeId: String): CubeSnapshot? {
@@ -163,7 +179,7 @@ class PodService(private val runtime: ServiceRuntime) {
         // Only Main is drafted; Maybe reaches the draft only when Prepare cube moves it to Main (DRF-050).
         return CubeSnapshot(cube.name!!, entries.filter { it.first == SavedDeckSection.MAINBOARD.name }.map { it.second },
             entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second },
-            org.asyncttwiz.server.decks.automatumSupport(cube.automatumSupport)?.supported == false)
+            cube.automatumSupport)
     }
 
     private fun encodedMaybe(maybe: List<DraftCubeEntry>) = if (maybe.isEmpty()) null else encoded(maybe)
@@ -185,7 +201,9 @@ class PodService(private val runtime: ServiceRuntime) {
                 .set(POD.NAME, input.name).set(POD.SETTINGS, encoded(settings))
                 .set(POD.SOURCE_NAME, snapshot?.name ?: input.setSource!!.snapshot.setName)
                 .set(POD.SOURCE_SNAPSHOT, snapshot?.let { encoded(it.main) } ?: encodedSet(input.setSource!!.snapshot))
-                .set(POD.SOURCE_MAYBE, snapshot?.let { encodedMaybe(it.maybe) }).returning().fetchSingle()
+                .set(POD.SOURCE_MAYBE, snapshot?.let { encodedMaybe(it.maybe) })
+                .set(POD.AUTOMATUM_SUPPORT, snapshot?.support ?: input.setSource?.support?.let { json.encodeToString(it) })
+                .returning().fetchSingle()
             sql.insertInto(MEMBER).set(MEMBER.POD_ID, row.id).set(MEMBER.ACCOUNT_ID, owner).execute()
             detail(sql, row, owner, 201)
         }
@@ -209,8 +227,10 @@ class PodService(private val runtime: ServiceRuntime) {
             validateLibrarian(settings(row))?.let { return@mutate it }
             storeLibrarian(sql, settings(row))
             // A newly chosen source starts unprepared: the cube's own Main and Maybe.
-            snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe) }
-            input.setSource?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot); row.sourceMaybe = null }
+            snapshot?.let { row.sourceName = it.name; row.sourceSnapshot = encoded(it.main); row.sourceMaybe = encodedMaybe(it.maybe)
+                row.automatumSupport = it.support }
+            input.setSource?.let { storeSet(sql, it); row.sourceName = it.snapshot.setName; row.sourceSnapshot = encodedSet(it.snapshot); row.sourceMaybe = null
+                row.automatumSupport = it.support?.let { support -> json.encodeToString(support) } }
             overLimit(sql, row)
             save(sql, row)
             detail(sql, row, owner)
@@ -351,6 +371,7 @@ class PodService(private val runtime: ServiceRuntime) {
         if (players.size > settings.mode.players.last) return error(409, "too_many_members")
         if (settings.validate(players.size).isNotEmpty()) return error(400, "invalid_settings")
         validateLibrarian(settings)?.let { return it }
+        unsupported(row)?.let { return it }
         if (!supply(row, players.size).sufficient) return error(409, "insufficient_supply")
         row.autoStart = false; row.autoStartOffReason = null; row.autoStartOffAccount = null
         val seed = RandomV1.encodeSeed(ByteArray(32).also(random::nextBytes))
@@ -585,6 +606,8 @@ class PodService(private val runtime: ServiceRuntime) {
             // Only the challenger's deck must be submitted; an opponent still building receives the invitation on submit.
             if (row.phase != "DRAFTED" || players.getValue(owner.toString()).submittedDeck == null)
                 return@mutate error(409, "deck_not_submitted")
+            // I-D52 (pivot review #2): its decks come from the source; a source Automatum can't play fully starts no game
+            unsupported(row)?.let { return@mutate it }
             val held = players.getValue(input.opponentId).submittedDeck == null
             val basics = PodGamePreparation.basicDefinitions(input.basicDefinitions)
                 ?: return@mutate error(400, "invalid_basic_definitions")

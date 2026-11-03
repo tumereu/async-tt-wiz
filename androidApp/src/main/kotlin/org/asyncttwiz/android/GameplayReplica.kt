@@ -194,11 +194,12 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
             it.commitRevision = update.resultRevision
         }
     }
-    /** The same bounded inverse/forward traversal as authoritative processing, including selective controls. */
+    /** The same bounded inverse/forward traversal as authoritative processing, including selective controls and the
+     * server's gate (I-D52, pivot review #7: a change the server refuses is never shown). */
     private fun predictChange(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
         if (!command.action.isGameplay)
             return GameplayTreeChange(reason = "predictionUnavailable")
-        return HistoryContinuation.change(tree, actor, command)
+        return AutomatumOnly.change(tree, actor, command)
     }
 
     private fun rebase() {

@@ -69,7 +69,8 @@ class AutomatumOpeningTest {
     private val play: PlayState get() = tree.stateAt(tree.currentNodeId)!!
     private fun apply(actor: String, action: GameAction, request: String = id("request/${requests++}")): Boolean {
         val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, id("client/$actor"), "1")
-        val change = HistoryContinuation.change(tree, actor, command)
+        // As the server: its gate, then the shared reducer (pivot review #11)
+        val change = AutomatumOnly.change(tree, actor, command)
         change.tree?.let { tree = it }
         return change.tree != null
     }

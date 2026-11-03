@@ -26,6 +26,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -296,20 +297,18 @@ class AutomatumChoicesScreenshotTest {
         }
     }
 
-    // TRN-063, STK-032, I-D46 d, I-D37: while Automatum waits for something done by hand the step arrow says Done, and a tap
-    // is Done: the spell finishes resolving
-    @Test fun doneOnTheStepArrowFinishesAStepDoneByHand() {
-        val open = aliceCasts(board(odd))
-        assertTrue(Automatum.flowOpen(open.board))
-        assertEquals(AutomatumStep.Done, AutomatumStep.of(open))
-        render(open, f.a)
-        compose.onNodeWithText("By hand · Odd Rearrangement").assertExists()
-        compose.onNodeWithContentDescription("Done").performClick()
-        compose.waitForIdle()
-        val (batch, request) = sent.single()
-        val after = accepted(open, batch, request, f.a)
-        assertFalse(Automatum.flowOpen(after.board))
-        assertTrue(after.board.stackEffects.isEmpty())
+    // STK-030, TRN-063, SYS-064 (I-D52, pivot review #3): a step Automatum leaves to the players (an engine gap) never
+    // waits for them: it is skipped at once, the spell finishes resolving in the same step, and the timeline says what
+    // was skipped
+    @Test fun aStepByHandIsSkippedAndSaid() {
+        val after = aliceCasts(board(odd))
+        assertFalse(Automatum.flowOpen(after.board), "nothing waits for the players")
+        assertTrue(after.board.stackEffects.isEmpty(), "the spell resolved")
+        assertNotEquals(AutomatumStep.Done, AutomatumStep.of(after))
+        val skipped = tree!!.nodes.values.single { (it.action as? PlayAction.Mtg)?.action is MtgAction.Skipped }
+        assertEquals("Automatum skipped what it can't do yet: Rearrange the permanents on the battlefield however you like.",
+            historyText(skipped, null, f.a).description)
+        assertNotEquals(true, skipped.tag?.folded, "an event of its own in the timeline")
     }
 
     // TRN-063, STK-029, I-D46 d: with Alice's spell on the Stack, Bob (who could answer) holds priority: his step arrow says

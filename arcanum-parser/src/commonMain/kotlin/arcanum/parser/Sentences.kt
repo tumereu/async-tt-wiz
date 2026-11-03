@@ -17092,6 +17092,13 @@ internal class Sentences(
             val second = triggered("Whenever ${m.groupValues[2]}, ${m.groupValues[3]}") ?: return null
             return listOf(first, second)
         }
+        // fin chunk 13: "You may play lands and cast Bird spells from the top of your library." (two permissions, CR 305.1, 601.2a)
+        Fin.PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP.matchEntire(line)?.let { m ->
+            val subtype = m.groupValues[1].takeIf { it in RulesWords.subtypes } ?: return null
+            fun top(cards: ObjectFilter, how: PlayKind) = Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, how, topOnly = true, holder = PlayerFilter.You)),
+                affects = arcanum.api.Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))))
+            return listOf(top(ObjectFilter.Type(arcanum.api.CardType.Land), PlayKind.Play), top(ObjectFilter.Sub(Subtype(subtype)), PlayKind.Cast))
+        }
         // fin-multi-end
         return null
     }
@@ -17256,6 +17263,37 @@ internal class Sentences(
             return Ability.Activated(cost, Instructions(targets = listOf(slot), steps = listOf(Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Battlefield,
                 tapped = true, controller = Players.You, counters = listOf(arcanum.api.CountersToPut(arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(n)))))))),
                 arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You))
+        }
+        // fin chunk 13: "Damage isn't removed from this creature during cleanup steps." (CR 514.2)
+        Fin.DAMAGE_NOT_REMOVED.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.DamageNotRemovedInCleanup), affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 13: "Prevent all combat damage that would be dealt to Diamond Weapon." (CR 615.1)
+        Fin.PREVENT_COMBAT_DAMAGE_TO_SELF.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Prevention(EventPattern.Damage(ObjectFilter.Any, RecipientFilter(objects = ObjectFilter.Is(Objects.Self)), combat = true))),
+                affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 13: "If one or more +1/+1 counters would be put on a creature you control, twice that many +1/+1 counters are put on that creature
+        // instead." (CR 614.1a)
+        Fin.COUNTERS_DOUBLED.matchEntire(line)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val onto = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CountersPut(onto, kind), modify = listOf(Modification.MultiplyAmount(2)))),
+                affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 13: "If one or more tokens would be created under your control, those tokens plus a 1/1 green Frog creature token are created instead."
+        Fin.TOKENS_PLUS_ONE.matchEntire(line)?.let { m ->
+            val token = Tokens.defined(m.groupValues[1]) ?: Tokens.defined("a " + m.groupValues[1]) ?: Tokens.spec("a " + m.groupValues[1])?.second ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.CreateToken(ObjectFilter.ControlledBy(PlayerFilter.You)),
+                modify = listOf(Modification.AlsoCreate(token, Value.Fixed(1))))), affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 13: "If a land or Bird you control entering the battlefield causes a triggered ability of a permanent you control to trigger, that
+        // ability triggers an additional time." (CR 603.2d)
+        Fin.ENTERING_CAUSES_TRIGGER_ADDITIONAL.matchEntire(line)?.let { m ->
+            val entering = Filters.noun(m.groupValues[1]) ?: return null
+            val sources = Filters.noun(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.TriggersAdditionalTime(EventPattern.ZoneChange(entering, to = Zone.Battlefield), sources)),
+                affects = arcanum.api.Affected.Objects(Objects.Self))
         }
         // fin-late-end
         return null
@@ -17703,6 +17741,60 @@ internal class Sentences(
             val creature = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
             return listOf(Step.Do(Effect.Attach(Objects.Target(equipmentName), Recipients(objects = creature))))
         }
+        // fin chunk 13: "When you search your library this way, put a +1/+1 counter on target creature you control." (CR 603.12)
+        Fin.WHEN_YOU_SEARCH_THIS_WAY.matchEntire(sentence)?.let { m ->
+            val read = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            return listOf(Step.Do(Effect.ReflexiveTrigger(read)))
+        }
+        // fin chunk 13: "Search your library for up to two basic land cards and/or Town cards with different names, put them onto the battlefield tapped,
+        // then shuffle." (CR 701.23)
+        Fin.SEARCH_UP_TO_DIFFERENT_NAMES.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val filter = Filters.noun(m.groupValues[2]) ?: return null
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(n), reveal = false, zones = listOf(Zone.Library), differentNames = true,
+                bind = "found", searcher = Players.You)), Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
+                Step.Do(Effect.Shuffle(Players.You)))
+        }
+        // fin chunk 13: "This enchantment becomes a 7/7 Beast creature in addition to its other types." (for good, CR 611.2a)
+        Fin.SELF_BECOMES_CREATURE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val subtype = m.groupValues[4].takeIf { it in RulesWords.subtypes } ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Creature),
+                addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(Subtype(subtype)))), Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[2].toInt()),
+                Value.Fixed(m.groupValues[3].toInt()))), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.Indefinitely)))
+        }
+        // fin chunk 13: 'Until end of turn, target creature gets +1/+0 and gains "When this creature dies, …"' (layers 6, 7c)
+        Fin.UNTIL_EOT_GETS_AND_GAINS_QUOTE.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val granted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[4].trimEnd('.') + ".") ?: return null
+            if (granted is Ability.Unparsed) return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt())),
+                Mechanic.GainAbilities(listOf(granted))), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin chunk 13: "Put a number of +1/+1 counters equal to its power on up to one target creature." (in a dies trigger: its last power)
+        Fin.COUNTERS_EQUAL_ITS_POWER_ON_UP_TO_ONE.matchEntire(sentence)?.let { m ->
+            val dies = (context.event as? EventPattern.ZoneChange)?.takeIf { it.objects == ObjectFilter.Is(Objects.Self) && it.to == Zone.Graveyard } ?: return null
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val name = Filters.slotName(m.groupValues[2])
+            context.targets += TargetSlot(name, TargetKind.Objects(Filters.noun(m.groupValues[2]) ?: return null), min = Value.Fixed(0), max = Value.Fixed(1))
+            return listOf(Step.Do(Effect.PutCounters(Objects.Target(name), kind, Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before),
+                arcanum.api.Combine.Single))))
+        }
+        // fin chunk 13: "Until end of turn, this creature gets +1/+1 for each permanent card in your graveyard."
+        Fin.UNTIL_EOT_SELF_GETS_FOR_EACH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[2]) ?: return null))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(per, per)), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin chunk 13: "Exile it and create ten tapped Treasure tokens." in this creature's dies trigger (the card in the graveyard, CR 400.7)
+        Fin.EXILE_IT_AND.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            val rest = effect(m.groupValues[1].replaceFirstChar { c -> c.uppercase() } + ".", context) ?: return null
+            return listOf(Step.Do(Effect.Move(it, Destination(Zone.Exile)))) + rest
+        }
+        // fin chunk 13: "Create ten tapped Treasure tokens." (CR 111.10a)
+        Fin.CREATE_N_TAPPED_PREDEFINED.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: m.groupValues[1].toIntOrNull() ?: return null
+            return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Predefined(m.groupValues[2]), Value.Fixed(n), Players.You, tapped = true)))
+        }
         // fin-effect-end
         return null
     }
@@ -17954,6 +18046,28 @@ internal class Sentences(
                 Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Play, withoutPaying = true, holder = PlayerFilter.You)),
                     arcanum.api.Affected.Objects(Objects.Union(listOf(mine, lesser))), arcanum.api.Duration.EndOfTurn)))
         }
+        // fin chunk 13: "Mill four cards. You may put a land card from among them into your hand. If you put a Town card into your hand this way, you gain
+        // 2 life."
+        Fin.MILL_MAY_PUT_IF_TOWN_GAIN.matchEntire(text)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val kind = Filters.noun(m.groupValues[2]) ?: return null
+            val bonus = Filters.noun(m.groupValues[3]) ?: return null
+            return listOf(Step.Do(Effect.Mill(Players.You, Value.Fixed(n), postBind = "milled")),
+                Step.Choose(arcanum.api.Choice.Objects(Filters.all(kind, ObjectFilter.InZone(Zone.Graveyard)), Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("milled")),
+                    bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))),
+                Step.If(arcanum.api.Condition.ObjectMatches(Objects.Bound("chosen"), bonus), then = listOf(Step.Do(Effect.GainLife(Players.You, Value.Fixed(m.groupValues[4].toInt()))))))
+        }
+        // fin chunk 13: "Target creature you control deals damage equal to its power to target creature an opponent controls. If this spell was kicked,
+        // the creature you control deals twice that much damage instead." (CR 702.33d)
+        if (text == "Target creature you control deals damage equal to its power to target creature an opponent controls. If this spell was kicked, the creature you control deals twice that much damage instead.") {
+            val mine = context.target("creature", Filters.noun("creature you control") ?: return null)
+            val theirs = context.target("creature", Filters.noun("creature an opponent controls") ?: return null)
+            val power = Value.Of(arcanum.api.NumericProperty.Power, mine, arcanum.api.Combine.Single)
+            fun deal(amount: Value) = Step.Do(Effect.DealDamage(Recipients(objects = theirs), amount, mine))
+            return listOf(Step.If(arcanum.api.Condition.Paid(arcanum.api.Keyword.Kicker.Kind, times = 1, of = Objects.Self),
+                then = listOf(deal(Value.Times(power, 2))), otherwise = listOf(deal(power))))
+        }
         // fin-whole-end
         return null
     }
@@ -18023,6 +18137,31 @@ internal class Sentences(
                     Value.Fixed(1), Players.You, bind = "tokens")),
                 Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(whenStep, PlayerFilter.Any)),
                     Instructions(steps = listOf(Step.Do(Effect.Sacrifice(Objects.Bound("tokens"))))))))))
+        }
+        // fin chunk 13: "Landfall — Whenever a land you control enters, double Tifa's power until end of turn." (CR 701.10a: +X/+0)
+        Fin.DOUBLE_SELF_POWER_EOT.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val trigger = (triggered("${m.groupValues[1]}, draw a card.") as? Ability.Triggered) ?: return null
+            return trigger.copy(instructions = Instructions(steps = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(
+                Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single), Value.Fixed(0))), arcanum.api.Affected.Objects(Objects.Self),
+                arcanum.api.Duration.EndOfTurn)))))
+        }
+        // fin chunk 13: "Whenever you cast your first Human creature spell each turn, that creature enters with an additional +1/+1 counter on it for
+        // each Dog and/or Wolf you control." (the spell cast first among such spells this turn)
+        Fin.FIRST_SPELL_EACH_TURN_ENTERS_WITH.matchEntire(line)?.let { m ->
+            val spells = Filters.noun(m.groupValues[1]) ?: return null
+            val event = EventPattern.Cast(spells, PlayerFilter.You)
+            val read = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }, event = event) ?: return null
+            return Ability.Triggered(arcanum.api.Trigger.On(listOf(event), nthThisTurn = 1), read)
+        }
+        // fin chunk 13: "When Bartz and Boko enters, each other Bird you control deals damage equal to its power to target creature an opponent controls."
+        Fin.EACH_OTHER_DEALS_DAMAGE_EQUAL_POWER.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val trigger = (triggered("When ${m.groupValues[1]} enters, draw a card.") as? Ability.Triggered)?.trigger ?: return null
+            val each = Filters.noun("other " + m.groupValues[2]) ?: return null
+            val victim = Filters.noun(m.groupValues[3]) ?: return null
+            val slot = TargetSlot(Filters.slotName(m.groupValues[3]), TargetKind.Objects(victim), min = Value.Fixed(1), max = Value.Fixed(1))
+            val bound = Objects.Bound("bird")
+            return Ability.Triggered(trigger, Instructions(targets = listOf(slot), steps = listOf(Step.ForEach(arcanum.api.Each.Objects(Objects.Each(each)), "bird", steps = listOf(
+                Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target(slot.name)), Value.Of(arcanum.api.NumericProperty.Power, bound, arcanum.api.Combine.Single), bound)))))))
         }
         // fin-line-end
         return null

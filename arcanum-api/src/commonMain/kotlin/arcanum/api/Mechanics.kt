@@ -394,6 +394,9 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    // fin
+    /** "Damage isn't removed from this creature during cleanup steps" (CR 514.2): the affected permanents keep their marked damage. */
+    @Serializable @SerialName("keeps-damage") data object DamageNotRemovedInCleanup : Mechanic
     // msh
     /** The affected permanents can't become untapped: not in an untap step and not by any effect ("can't become untapped"). */
     @Serializable @SerialName("cant-become-untapped") data object CantBecomeUntapped : Mechanic

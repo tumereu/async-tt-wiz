@@ -25,6 +25,8 @@ internal object FinPhrases {
     private val SUBTYPE_LIST_YOU_CONTROL = Regex("""([A-Z][a-z]+), ([A-Z][a-z]+), and(?:/or)? ([A-Z][a-z]+) you control""")
     /** A subtype written singular or plural ("Scouts", "Scout"); null when neither is a subtype. */
     private fun singular(word: String): String? = listOf(word, word.removeSuffix("s"), word.removeSuffix("es")).firstOrNull { it in RulesWords.subtypes }
+    private val BASIC_LAND_OR_TOWN = Regex("""basic land cards? (?:or|and/or) Town cards?""")
+    private val DIDNT_ENTER_THIS_TURN = Regex("""(.+?) didn't enter the battlefield this turn""")
     fun noun(phrase: String): ObjectFilter? {
         THAT_ISNT.matchEntire(phrase)?.let { m ->
             val kind = Filters.noun(m.groupValues[1]) ?: return null
@@ -53,6 +55,11 @@ internal object FinPhrases {
         SUBTYPE_LIST_YOU_CONTROL.matchEntire(phrase)?.let { m ->
             val names = listOf(m.groupValues[1], m.groupValues[2], m.groupValues[3]).map { singular(it) ?: return null }
             return Filters.all(ObjectFilter.Or(names.map { ObjectFilter.Sub(arcanum.api.Subtype(it)) }), ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You))
+        }
+        // fin chunk 13: "basic land card or Town card", "basic land cards and/or Town cards"
+        BASIC_LAND_OR_TOWN.matchEntire(phrase)?.let {
+            return ObjectFilter.Or(listOf(Filters.all(ObjectFilter.Super(arcanum.api.Supertype.Basic), ObjectFilter.Type(arcanum.api.CardType.Land)),
+                ObjectFilter.Sub(arcanum.api.Subtype("Town"))))
         }
         // fin-noun-end
         return null
@@ -102,6 +109,11 @@ internal object FinPhrases {
         CARDS_ARE_IN_GRAVEYARD.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             return Condition.Exists(Filters.all(ObjectFilter.InZone(arcanum.api.Zone.Graveyard), ObjectFilter.OwnedBy(arcanum.api.PlayerFilter.You)), atLeast = n)
+        }
+        // fin chunk 13: "this creature didn't enter the battlefield this turn"
+        DIDNT_ENTER_THIS_TURN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
+            return Condition.Not(Condition.HappenedThisTurn(arcanum.api.EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = arcanum.api.Zone.Battlefield),
+                atLeast = 1, measure = arcanum.api.Measure.Events))
         }
         // fin-condition-end
         return null
@@ -211,4 +223,23 @@ internal object Fin {
     val ATTACH_UP_TO_ONE_TARGET_TO_TARGET = Regex("""Attach up to one target (.+?) to target (.+)\.""")
     val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?)'s power""")
     val WHENEVER_COPY_OF_IT_EQUIP_LESS = Regex("""Whenever (.+?), create a token that's a copy of it, except it has "This Equipment's equip abilities cost (\{\d+\}) less to activate\." Sacrifice that token at the beginning of the next (upkeep|end step)\.""")
+    // fin chunk 13
+    val DOUBLE_SELF_POWER_EOT = Regex("""(Whenever .+?), double (.+?)'s power until end of turn\.""")
+    val FIRST_SPELL_EACH_TURN_ENTERS_WITH = Regex("""Whenever you cast your first (.+?) spell each turn, (that creature enters with .+)""")
+    val EACH_OTHER_DEALS_DAMAGE_EQUAL_POWER = Regex("""When (.+?) enters, each other (.+?) deals damage equal to its power to target (.+)\.""")
+    val DAMAGE_NOT_REMOVED = Regex("""Damage isn't removed from (.+?) during cleanup steps\.""")
+    val PREVENT_COMBAT_DAMAGE_TO_SELF = Regex("""Prevent all combat damage that would be dealt to (.+)\.""")
+    val COUNTERS_DOUBLED = Regex("""If one or more (\S+) counters would be put on an? (.+?), twice that many \S+ counters are put on that creature instead\.""")
+    val TOKENS_PLUS_ONE = Regex("""If one or more tokens would be created under your control, those tokens plus an? (.+? token) are created instead\.""")
+    val PLAY_LANDS_AND_CAST_SUBTYPE_FROM_TOP = Regex("""You may play lands and cast ([A-Z][a-z]+) spells from the top of your library\.""")
+    val ENTERING_CAUSES_TRIGGER_ADDITIONAL = Regex("""If an? (.+?) entering the battlefield causes a triggered ability of an? (.+?) to trigger, that ability triggers an additional time\.""")
+    val WHEN_YOU_SEARCH_THIS_WAY = Regex("""When you search your library this way, (.+)""")
+    val SEARCH_UP_TO_DIFFERENT_NAMES = Regex("""Search your library for up to (\w+) (.+?) with different names, put them onto the battlefield tapped, then shuffle\.""")
+    val SELF_BECOMES_CREATURE = Regex("""(.+?) becomes an? (\d+)/(\d+) ([A-Z][a-z]+) creature in addition to its other types\.""")
+    val UNTIL_EOT_GETS_AND_GAINS_QUOTE = Regex("""Until end of turn, target (.+?) gets \+(\d+)/\+(\d+) and gains "(.+)"\.?""")
+    val COUNTERS_EQUAL_ITS_POWER_ON_UP_TO_ONE = Regex("""Put a number of (\S+) counters equal to its power on up to one target (.+)\.""")
+    val UNTIL_EOT_SELF_GETS_FOR_EACH = Regex("""Until end of turn, (.+?) gets \+1/\+1 for each (.+)\.""")
+    val MILL_MAY_PUT_IF_TOWN_GAIN = Regex("""Mill (\w+) cards\. You may put an? (.+?) from among them into your hand\. If you put an? (.+?) into your hand this way, you gain (\d+) life\.""")
+    val EXILE_IT_AND = Regex("""Exile it and (create .+)\.""")
+    val CREATE_N_TAPPED_PREDEFINED = Regex("""Create (\w+) tapped (Treasure|Food|Clue) tokens?\.""")
 }

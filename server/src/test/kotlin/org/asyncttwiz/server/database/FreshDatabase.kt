@@ -39,34 +39,15 @@ class FreshDatabase(private val migrated: Boolean = true) : TestPostgres {
     /** Lazily started on first use, stopped and verified removed when the test JVM exits; never reused across runs. */
     private object SharedContainer {
         private const val TEMPLATE = "foundation_migrated_template"
-        private val postgres: OwnedPostgres = OwnedPostgres().start(shared = true).also { owned ->
+        // Over the container's bridge address (see [OwnedPostgres]): faster, and free of the published
+        // port's connection resets. The shared container is never stopped or restarted while in use.
+        private val postgres: OwnedPostgres = OwnedPostgres(viaBridge = true).start(shared = true).also { owned ->
             Runtime.getRuntime().addShutdownHook(Thread { owned.close() })
-        }
-        // Docker's published loopback port runs every round trip through the userland proxy and,
-        // on this WSL host, the mirrored Windows loopback: about 2 ms per query instead of 0.2 ms,
-        // and the path that sometimes resets new connections. The container's bridge address is
-        // host-only too, so prefer it. It is chosen once, before any test, never per query.
-        private val address: String = run {
-            val container = postgres.container
-            val bridge = container.dockerClient.inspectContainerCmd(container.containerId).exec()
-                .networkSettings.networks.orEmpty().values.mapNotNull { it.ipAddress?.takeIf(String::isNotEmpty) }.firstOrNull()
-            val reachable = bridge != null && try {
-                OwnedPostgres.awaitStartupConnection(timeoutMillis = 3_000) {
-                    DriverManager.getConnection("jdbc:postgresql://$bridge:5432/${container.databaseName}?connectTimeout=1&socketTimeout=1",
-                        container.username, container.password)
-                }.use { connection -> connection.createStatement().use { it.execute("SELECT 1") } }
-                true
-            } catch (unreachable: java.sql.SQLException) { false }
-            if (reachable) "$bridge:5432" else "${container.host}:${container.getMappedPort(5432)}"
-                .also { println("Shared test PostgreSQL: bridge address unreachable, using the published port") }
         }
         private var templateReady = false
 
-        fun settings(database: String): DatabaseSettings {
-            val query = postgres.container.jdbcUrl.substringAfter('?', "")
-            return DatabaseSettings("jdbc:postgresql://$address/$database" + if (query.isEmpty()) "" else "?$query",
-                postgres.container.username, postgres.container.password)
-        }
+        fun settings(database: String): DatabaseSettings =
+            DatabaseSettings(postgres.jdbcUrl(database), postgres.container.username, postgres.container.password)
 
         @Synchronized fun migratedTemplate(): String {
             if (!templateReady) {

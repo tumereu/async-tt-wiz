@@ -13134,7 +13134,7 @@ internal class Sentences(
         // sos chunk 10: "you may sacrifice an artifact. If you do, copy that spell and you may choose new targets for the copy."
         Sos.CAST_TRIGGER_MAY_SACRIFICE_COPY.matchEntire(sentence)?.let { m ->
             if (context.event !is EventPattern.Cast) return null
-            val filter = Filters.noun(m.groupValues[1] + " you control") ?: return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
             return listOf(Step.Pay(Cost(listOf(CostPart.Sacrifice(CostObjects.Choose(filter, Value.Fixed(1))))), payer = Players.You, bind = "paid"),
                 Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.CopySpell(Objects.EventObject(EventRole.Object), Players.You, newTargets = true)))))
         }

@@ -213,6 +213,9 @@ data class ActivationRules(
      * untapped creature you control rather than pay that mana": [ManaPaymentWay.TapCreaturesForAnyMana]); cost changes
      * apply first, so they change how much may be paid this way (CR 601.2f, 602.2b). */
     val payManaBy: List<ManaPaymentWay> = emptyList(),
+    // tla
+    /** The least the X announced for it may be ("X can't be 0" = 1, CR 107.3); null: any. */
+    val minimumX: Int? = null,
 )
 
 /** When something may be cast or activated. */

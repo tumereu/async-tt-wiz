@@ -11359,7 +11359,10 @@ internal class Sentences(
         // Exile those permanents." (CR 101.4)
         Tla.STARTING_WITH_YOU_EACH_CHOOSES_EXILE.matchEntire(sentence)?.let { m ->
             val among = Filters.noun(m.groupValues[2]) ?: return null
-            val chosen = Filters.all(Filters.noun(m.groupValues[1]) ?: return null, among)
+            val kind = Filters.noun(m.groupValues[1]) ?: return null
+            // "a permanent … from among permanents your opponents control": the kind and what "among" adds to it
+            val kindParts = (kind as? ObjectFilter.And)?.all ?: listOf(kind)
+            val chosen = Filters.all(kind, *((among as? ObjectFilter.And)?.all ?: listOf(among)).filter { it !in kindParts }.toTypedArray())
             return listOf(
                 Step.ForEach(arcanum.api.Each.Players(Players.Each(PlayerFilter.Any)), bind = "player", together = true, startingWith = Players.You, steps = listOf(
                     Step.Choose(arcanum.api.Choice.Objects(chosen, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.Bound("player")))),
@@ -11514,6 +11517,11 @@ internal class Sentences(
     /** tla chunk 03: whole lines of black, red, green and multicoloured cards. */
     private fun tlaLine2(line: String): Ability? {
         tlaSingular(line)?.let { return line(it) }
+        // "Waterbend {X}: …. X can't be 0. Activate only during your turn." (the least X of an activated ability, CR 107.3)
+        Tla.X_CANT_BE_0.matchEntire(line)?.let { m ->
+            val ability = line(m.groupValues[1] + m.groupValues[2]) as? Ability.Activated ?: return null
+            return ability.copy(rules = ability.rules.copy(minimumX = 1))
+        }
         // "Whenever another creature you control dies, if it had counters on it, put its counters on this creature." (CR 603.10a)
         Tla.DIES_IF_HAD_COUNTERS.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val (trigger, onlyIf) = trigger("${m.groupValues[1]} dies") ?: return null

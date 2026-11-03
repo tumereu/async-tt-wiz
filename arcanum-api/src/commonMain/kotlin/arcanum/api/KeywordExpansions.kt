@@ -59,7 +59,7 @@ object KeywordExpansions {
                 targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.And(listOfNotNull(
                     ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You), keyword.onto))), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = Objects.Target("creature")))))),
-            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You, costChange = keyword.costChange)))
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You, costChange = keyword.costChange, perTurn = keyword.perTurn)))
         // fra: CR 702.61a: "As long as this spell is on the stack, players can't cast other spells or activate abilities that
         // aren't mana abilities."
         Keyword.SplitSecond -> listOf(Ability.Static(listOf(Mechanic.CantCast(ObjectFilter.Not(ObjectFilter.Is(Objects.Self))),

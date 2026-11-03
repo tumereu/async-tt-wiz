@@ -191,7 +191,8 @@ object OracleParser {
                 continue
             }
             // chunk 21: a triggered ability with modes ("Whenever …, choose one that hasn't been chosen this turn —", CR 700.2)
-            if (!isSpell && line.endsWith(" —") && i < lines.size && lines[i].startsWith("• ")) {
+            // tmt chunk 02: "…, choose one that hasn't been chosen this turn." with a period before the modes
+            if (!isSpell && (line.endsWith(" —") || line.endsWith(" hasn't been chosen this turn.")) && i < lines.size && lines[i].startsWith("• ")) {
                 val modeLines = mutableListOf<String>()
                 while (i < lines.size && lines[i].startsWith("• ")) modeLines += REMINDER.replace(lines[i++].removePrefix("• "), "").trim()
                 val printed = (listOf(raw.trim()) + modeLines.map { "• $it" }).joinToString("\n")

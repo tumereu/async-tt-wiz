@@ -120,6 +120,7 @@ internal object AtwTokens {
         "Shard" to "{2}, Sacrifice this token: Scry 1, then draw a card.",
         "Clue" to "{2}, Sacrifice this token: Draw a card.",
         "Blood" to "{1}, {T}, Discard a card, Sacrifice this token: Draw a card.",
+        "Mutagen" to "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target creature. Activate only as a sorcery.",
     )
 
     private fun number(value: PrintedNumber?): String = when (value) {

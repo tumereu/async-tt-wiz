@@ -207,6 +207,10 @@ sealed interface ObjectFilter {
     /** The object passes [condition], read with [Objects.Tested] as that object ("a spell with mana value of the chosen
      * quality"). */
     @Serializable @SerialName("where") data class Where(val condition: Condition) : ObjectFilter
+    // tmt
+    /** It crewed one of [vehicles] this turn: it was tapped to pay the cost of that Vehicle's crew ability (CR 702.122b, c;
+     * "target creature that crewed it this turn"). */
+    @Serializable @SerialName("crewed-this-turn") data class CrewedThisTurn(val vehicles: Objects) : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

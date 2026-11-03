@@ -44,6 +44,7 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        TmtPhrases.noun(phrase)?.let { return it } // tmt
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
         gtcNoun(phrase)?.let { return it }
@@ -898,6 +899,7 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        TmtPhrases.condition(text, self)?.let { return it } // tmt
         MshPhrases.condition(text, self)?.let { return it } // msh
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra

@@ -307,12 +307,20 @@ internal object Triggers {
                     b.objects.filter { it.role == EventRole.Object }.flatMap { it.ids }.distinct().sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
                 }
             }
-            val now = units(change)
+            // "during each of your draw steps" ([Trigger.On.during]): only events in that step count, and only there it triggers
+            val inStep = trigger.during == null || state.turn.step == trigger.during
+            val now = if (inStep) units(change) else emptyList()
             val counted = if (now.isEmpty()) now else trigger.nthThisTurn?.let { n ->
                 // gtc: the events before this one (the last equal one: two combats can make equal changes)
                 val events = state.eventsOf(state.turn.number)
                 val at = events.indexOfLast { it === whole }.takeIf { it >= 0 } ?: events.indexOfLast { it == whole }
-                val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
+                var before = if (at >= 0) events.take(at) else events
+                // within [during]: counted from the start of this step (its latest beginning: extra combats repeat steps)
+                trigger.during?.let { step ->
+                    val began = before.indexOfLast { it is Change.Step && it.after.step == step && it.before.step != step }
+                    before = before.drop(began + 1)
+                }
+                val earlier = before.flatMap { units(it) }
                 // hob: for that player ("an opponent draws their second card each turn": each opponent's own draws, CR 603.2)
                 fun same(a: TriggerEvent, b: TriggerEvent) = a.players.firstOrNull() == b.players.firstOrNull()
                 // spm: "your first or second card each turn" ([Trigger.On.throughNth]): any of the first n

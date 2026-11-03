@@ -23,6 +23,8 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import arcanum.engine.state.TurnState
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.MapSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import org.asyncttwiz.protocol.game.EngineJson
 import org.asyncttwiz.protocol.game.GameDefinitions
@@ -36,9 +38,22 @@ import kotlin.random.Random
  * inputs (whole games of themed decks of invented cube cards) and heavy ones (large boards, a board wipe, many
  * triggers), with the cost of applying the changes and of the JSON the server would store (events and checkpoints).
  * Prints timings, asserts none (the owner's rule: no timing tests). Runs only with `-Patw.engineSpike=true`:
- * `./scripts/gradle.sh :server:test -Patw.engineSpike=true --tests '*EngineOnServerSpikeTest*'`.
+ * `./scripts/gradle.sh :server:test -Patw.engineSpike=true --tests '*EngineOnServerSpikeTest*'`. The same workloads run
+ * outside Gradle as a jar ([main] in EngineBenchmark.kt, `:server:engineBenchmarkJar`), e.g. on the Pi.
  */
 class EngineOnServerSpikeTest {
+    /** Warm-up games, measured games per deck pair, measured runs per heavy case and per checkpoint encode/decode. */
+    var warmupGames = 6
+    var gamesPerPair = 3
+    var heavyRuns = 5
+    var checkpointRuns = 5
+
+    /**
+     * Each game's inputs by seed, as [record] wrote them: when set, games replay these instead of asking the random
+     * player (whose option listing costs about ten times what is measured), so a slow machine plays the same games.
+     */
+    var scripts: Map<Long, List<Input>>? = null
+    private var recording: MutableMap<Long, List<Input>>? = null
     private val enabled get() = System.getProperty("atw.engineSpike") == "true"
     private val alice = PlayerId("alice")
     private val bob = PlayerId("bob")
@@ -89,8 +104,10 @@ class EngineOnServerSpikeTest {
 
     private val inline = Json { encodeDefaults = false }
 
-    /** Plays one whole game of [decks]; records each input's costs into [samples]; returns the final state. */
+    /** Plays one whole game of [decks] (or replays its [scripts]); records each input's costs into [samples]; returns the final state. */
     private fun game(seed: Long, decks: Pair<List<String>, List<String>>, samples: Samples?): Pair<GameState, Int> {
+        val script = scripts?.let { requireNotNull(it[seed]) { "no recorded game $seed" } }
+        val played = mutableListOf<Input>()
         val seats = listOf(alice to decks.first, bob to decks.second).map { (p, names) ->
             Seat(p, names.mapIndexed { i, name -> DeckCard(CardId("${p.value}.$i"), Cards.definition(name)) })
         }
@@ -100,8 +117,9 @@ class EngineOnServerSpikeTest {
         val chooser = Chooser(seed)
         var inputs = 0
         var turn = 0
-        while (Engine.result(state) == null && state.turn.number < 60 && inputs < 6000) {
-            val input = chooser.next(state)
+        while (if (script != null) inputs < script.size else Engine.result(state) == null && state.turn.number < 60 && inputs < 6000) {
+            val input = script?.get(inputs) ?: chooser.next(state)
+            played += input
             val t0 = System.nanoTime()
             val outcome = Engine.perform(state, input)
             val t1 = System.nanoTime()
@@ -121,37 +139,52 @@ class EngineOnServerSpikeTest {
             chooser.inputsThisTurn++
             if (state.turn.number != turn) { turn = state.turn.number; chooser.inputsThisTurn = 0 }
         }
+        recording?.put(seed, played)
+        check(Engine.result(state) != null || state.turn.number >= 60 || inputs >= 6000) { "replay of game $seed ended early" }
         return state to inputs
     }
 
     private fun List<Long>.pct(p: Double): Long = sorted().let { if (it.isEmpty()) 0 else it[((it.size - 1) * p).toInt()] }
     private fun ms(us: Long) = "%.2f".format(us / 1000.0)
+    private fun stats(us: List<Long>) = "median ${ms(us.pct(0.5))} ms, p95 ${ms(us.pct(0.95))} ms, max ${ms(us.max())} ms"
 
     @Test
     fun spike() {
-        if (!enabled) return
+        if (enabled) run()
+    }
+
+    /** Plays the games [run] plays with the random player and returns their inputs by seed, as JSON for [scripts]. */
+    fun record(): String {
+        recording = mutableMapOf()
+        games(null)
+        return EngineJson.json.encodeToString(SCRIPTS, recording!!).also { recording = null }
+    }
+
+    /** The cold game, the warm-up games and the measured games (returned with their input count). */
+    private fun games(measured: Samples?, cold: Samples? = null): List<Pair<GameState, Int>> {
+        game(99L, Decks.creatures to Decks.spells, cold)
+        repeat(warmupGames) { game(100L + it, Decks.creatures to Decks.spells, null) }
+        return Decks.pairs.withIndex().flatMap { (i, pair) -> List(gamesPerPair) { g -> game(1000L + i * 10 + g, pair, measured) } }
+    }
+
+    /** The whole spike: typical inputs, checkpoints, heavy inputs (printed lines start with `SPIKE`). */
+    fun run() {
         println("SPIKE JVM ${Runtime.version()} on ${System.getProperty("os.arch")}, ${Runtime.getRuntime().availableProcessors()} cores, " +
             "max heap ${Runtime.getRuntime().maxMemory() / (1 shl 20)} MiB")
-        // A cold JVM: the first game after start (the engine interpreted until the JIT compiles its hot paths)
+        // A cold JVM: the first game after start (the engine interpreted until the JIT compiles its hot paths), then
+        // warm-up games (the JIT compiles the engine's hot paths: the server's steady state), then the measured games.
         val cold = Samples()
-        game(99L, Decks.creatures to Decks.spells, cold).second.let { n ->
-            val all = cold.perform.values.flatten()
-            println("SPIKE cold JVM, first game ($n inputs): perform median ${ms(all.pct(0.5))} ms, p95 ${ms(all.pct(0.95))} ms, max ${ms(all.max())} ms")
-        }
-        // Warm up: the JIT compiles the engine's hot paths (the server's steady state).
-        repeat(6) { game(100L + it, Decks.creatures to Decks.spells, null) }
-
         val samples = Samples()
-        var inputs = 0
-        var finalStates = mutableListOf<GameState>()
         val t0 = System.nanoTime()
-        for ((i, pair) in Decks.pairs.withIndex()) repeat(3) { g ->
-            val (state, n) = game(1000L + i * 10 + g, pair, samples)
-            inputs += n; finalStates += state
-        }
+        val played = games(samples, cold)
         val wall = (System.nanoTime() - t0) / 1e6
-        println("SPIKE typical: ${finalStates.size} whole games, $inputs inputs, ${"%.0f".format(wall)} ms in all " +
-            "(${"%.2f".format(wall / inputs)} ms per input incl. options for the random player)")
+        cold.perform.values.flatten().let { all ->
+            println("SPIKE cold JVM, first game (${all.size} inputs): perform median ${ms(all.pct(0.5))} ms, p95 ${ms(all.pct(0.95))} ms, max ${ms(all.max())} ms")
+        }
+        val finalStates = played.map { it.first }
+        val inputs = played.sumOf { it.second }
+        println("SPIKE typical: ${finalStates.size} whole games after $warmupGames warm-up games, $inputs inputs; all games " +
+            "${"%.0f".format(wall)} ms (${if (scripts != null) "replayed" else "incl. options for the random player"})")
         val all = samples.perform.values.flatten()
         println("SPIKE perform, all inputs: median ${ms(all.pct(0.5))} ms, p95 ${ms(all.pct(0.95))} ms, p99 ${ms(all.pct(0.99))} ms, max ${ms(all.max())} ms")
         samples.perform.entries.sortedByDescending { it.value.size }.forEach { (k, v) ->
@@ -167,26 +200,27 @@ class EngineOnServerSpikeTest {
         val model = GameModel(longest, TableState())
         val codec = EngineJson(GameDefinitions.of(longest))
         var encoded = ""
-        val enc = timeUs(5) { encoded = codec.encodeModel(model) }
-        val dec = timeUs(5) { codec.decodeModel(encoded) }
-        val copy = timeUs(5) { longest.deepCopy() }
+        val enc = timeUs(checkpointRuns) { encoded = codec.encodeModel(model) }
+        val dec = timeUs(checkpointRuns) { codec.decodeModel(encoded) }
+        val copy = timeUs(checkpointRuns) { longest.deepCopy() }
         println("SPIKE checkpoint of a turn-${longest.turn.number} state (${longest.objects.size} objects, log ${longest.log.size}): " +
-            "${encoded.length / 1024} KiB, encode ${ms(enc)} ms, decode ${ms(dec)} ms, deepCopy ${ms(copy)} ms; " +
+            "${encoded.length / 1024} KiB, encode ${stats(enc)}; decode ${stats(dec)}; deepCopy ${stats(copy)}; " +
             "definitions ${codec.definitions.size}, ${codec.encodeDefinitions().length / 1024} KiB once per game")
         // As GameModel keeps it: logged changes older than last turn dropped (what a stored checkpoint holds)
         val trimmed = GameModel(longest.deepCopy().also { it.forgetOlderTurns() }, TableState())
         var stored = ""
-        val encTrimmed = timeUs(5) { stored = codec.encodeModel(trimmed) }
-        val decTrimmed = timeUs(5) { codec.decodeModel(stored) }
+        val encTrimmed = timeUs(checkpointRuns) { stored = codec.encodeModel(trimmed) }
+        val decTrimmed = timeUs(checkpointRuns) { codec.decodeModel(stored) }
         println("SPIKE checkpoint as stored (log of this and last turn: ${trimmed.engine.log.size}): ${stored.length / 1024} KiB, " +
-            "encode ${ms(encTrimmed)} ms, decode ${ms(decTrimmed)} ms")
+            "encode ${stats(encTrimmed)}; decode ${stats(decTrimmed)}")
 
         heavy()
     }
 
-    private fun timeUs(times: Int, block: () -> Unit): Long {
+    /** Microseconds of each of [times] runs of [block], after one warm-up run. */
+    private fun timeUs(times: Int, block: () -> Unit): List<Long> {
         block()
-        return List(times) { val t = System.nanoTime(); block(); (System.nanoTime() - t) / 1000 }.sorted()[times / 2]
+        return List(times) { val t = System.nanoTime(); block(); (System.nanoTime() - t) / 1000 }
     }
 
     // ---- Heavy inputs on constructed boards
@@ -219,11 +253,10 @@ class EngineOnServerSpikeTest {
         return state
     }
 
-    /** Median microseconds of [block] on fresh copies of [state] (the first runs warm up). */
+    /** Microseconds of [block] on [heavyRuns] fresh copies of [state] (two more runs before them warm up). */
     private fun heavyCase(label: String, state: GameState, block: (GameState) -> Pair<Long, Int>) {
-        val runs = List(7) { block(state.deepCopy()) }.drop(2)
-        val us = runs.map { it.first }.sorted()
-        println("SPIKE heavy $label: ${state.battlefield.size} permanents: median ${ms(us[us.size / 2])} ms, max ${ms(us.max())} ms, " +
+        val runs = List(heavyRuns + 2) { block(state.deepCopy()) }.drop(2)
+        println("SPIKE heavy $label: ${state.battlefield.size} permanents: ${stats(runs.map { it.first })}, " +
             "${runs.first().second} changes")
     }
 
@@ -371,6 +404,9 @@ class EngineOnServerSpikeTest {
         val pairs = listOf(creatures to spells, artifacts to graveyard, creatures to graveyard, artifacts to spells)
     }
 }
+
+/** Recorded games: inputs by seed ([EngineOnServerSpikeTest.record]). */
+internal val SCRIPTS = MapSerializer(Long.serializer(), ListSerializer(Input.serializer()))
 
 private fun GameState.updatePlayerForTest(id: PlayerId, change: (arcanum.engine.state.PlayerState) -> arcanum.engine.state.PlayerState) {
     val i = players.indexOfFirst { it.id == id }

@@ -62,6 +62,37 @@ application { mainClass.set("org.asyncttwiz.server.ServiceCommand") }
 // The engine's invented cube cards by name, shared as source (their texts live only there), as :automatum does.
 kotlin.sourceSets.named("test") { kotlin.srcDir("../arcanum-engine/src/commonTest/kotlin/arcanum/engine/cards") }
 
+// I-D54: the engine spike's workloads as one runnable jar (EngineBenchmark.kt), to measure the engine on another machine
+// (the Pi) without Gradle or a database: the spike's classes, the invented cube cards, only the libraries they use, and
+// the seeded games' inputs recorded here (the jar replays them instead of running the slow random player).
+val engineBenchmarkGames = tasks.register<JavaExec>("engineBenchmarkGames") {
+    description = "Records the engine benchmark's seeded games (their inputs) for engineBenchmarkJar."
+    classpath = sourceSets.test.get().runtimeClasspath
+    mainClass.set("org.asyncttwiz.server.game.EngineBenchmarkKt")
+    maxHeapSize = "1g"
+    val games = layout.buildDirectory.file("benchmark/games/engine-benchmark-games.json")
+    outputs.file(games)
+    args("record", games.get().asFile.absolutePath)
+}
+tasks.register<Jar>("engineBenchmarkJar") {
+    group = "verification"
+    description = "Writes build/benchmark/engine-benchmark.jar: java -jar it to print the engine spike's timings."
+    archiveFileName.set("engine-benchmark.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("benchmark"))
+    manifest { attributes("Main-Class" to "org.asyncttwiz.server.game.EngineBenchmarkKt") }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(sourceSets.test.map { it.output.classesDirs }) {
+        include("org/asyncttwiz/server/game/EngineOnServerSpikeTest*", "org/asyncttwiz/server/game/EngineBenchmark*")
+        include("arcanum/engine/cards/**")
+    }
+    from(engineBenchmarkGames)
+    val prefixes = listOf("arcanum-", "protocol", "core", "kotlin-stdlib", "kotlinx-serialization", "kotlinx-collections")
+    val libraries = configurations.testRuntimeClasspath.map { classpath ->
+        classpath.filter { file -> prefixes.any { file.name.startsWith(it) } }.map { zipTree(it) }
+    }
+    from(libraries) { exclude("META-INF/*.SF", "META-INF/*.DSA", "META-INF/*.RSA", "**/module-info.class") }
+}
+
 val generateJooq = tasks.register<JavaExec>("generateJooq") {
     group = "code generation"
     description = "Migrate an owned disposable PostgreSQL17 and generate real server-only jOOQ bindings"

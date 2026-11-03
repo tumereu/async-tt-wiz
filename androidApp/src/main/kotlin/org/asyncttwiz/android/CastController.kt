@@ -66,6 +66,8 @@ internal class CastController(
     /** A cast or ability is being begun, before the board it begins on is read (#1: it holds the viewer's pause shown,
      * [PauseController.holdForReaction], so it begins on that point's board). */
     private val beginning: () -> Unit = {},
+    /** The pictures of tokens a cast makes (§4.6). */
+    private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
 ) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
@@ -408,7 +410,7 @@ internal class CastController(
         val requestId = DeviceRandom.uuid()
         val command = GameCommand(requestId, GameScope(done.play.gameId, playId = done.play.id),
             GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
-        return try { Step.Send(done, done.plan(viewer, command), requestId, done.play.board) } catch (problem: Unmappable) {
+        return try { Step.Send(done, done.plan(viewer, command, tokenArt), requestId, done.play.board) } catch (problem: Unmappable) {
             AppLog.warn("automatum", "Cast couldn't be planned: ${problem.message?.take(200)}")
             Step.Drop("Automatum couldn't send that cast.")
         }

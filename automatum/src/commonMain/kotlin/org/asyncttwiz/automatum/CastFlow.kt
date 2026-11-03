@@ -157,8 +157,9 @@ class CastFlow private constructor(
     }
 
     /** The batch that sends the whole flow (I-D11) with what follows it ([sent]), with [command]'s request id, as
-     * [actor]. Only once [complete]. */
-    fun plan(actor: String, command: GameCommand): BatchPlan = EngineBatch.plan(sent(), actor, command)
+     * [actor]. Only once [complete]. [tokenArt] finds the picture of each token it makes. */
+    fun plan(actor: String, command: GameCommand, tokenArt: TokenArt = TokenArt.None): BatchPlan =
+        EngineBatch.plan(sent(), actor, command, tokenArt)
 
     /** The ATW reference of an engine object or player (target glow, labels). */
     fun ref(target: TargetRef): MtgRef = call.ids.ref(target)

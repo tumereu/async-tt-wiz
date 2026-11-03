@@ -85,6 +85,12 @@ class CatalogRepository(private val directory: File, private val openDriver: (Fi
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.printing(id) } }
     }
 
+    /** The token printing a token Automatum makes is drawn with ([TokenArtMatch]), null for the plain frame or
+     * without card records. Worker-only. */
+    fun tokenArt(face: DefinitionFace, sourceName: String?, sourcePrintingId: String?): CatalogPrinting? = synchronized(lock) {
+        activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.tokenArt(face, sourceName, sourcePrintingId) } }
+    }
+
     /** Worker-only; query the installed public generation, never account data. */
     fun avatarChoices(query: String = "", previous: List<CatalogAvatar> = emptyList()): List<CatalogAvatar> = synchronized(lock) {
         activeFile()?.let { file -> CatalogIndex(openDriver(file)).use { it.avatarChoices(query, previous) } }.orEmpty()
@@ -215,6 +221,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
         sql("CREATE INDEX set_lookup ON printing(set_code)")
         sql("CREATE TABLE catalog_set (code TEXT NOT NULL PRIMARY KEY, release_date TEXT NOT NULL, installed_at INTEGER NOT NULL, checksum TEXT NOT NULL)")
         createImportNames()
+        createTokenRelations()
         sql("PRAGMA user_version=$CATALOG_INDEX_VERSION")
     }
 
@@ -267,6 +274,7 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             sql("DELETE FROM token_search WHERE printing_id IN ($ids)", listOf(code))
             sql("DELETE FROM token_search_ready")
         }
+        if (hasTokenRelations()) sql("DELETE FROM token_relation WHERE token IN ($ids) OR source IN ($ids)", listOf(code, code))
         sql("DELETE FROM printing WHERE set_code=?", listOf(code))
         sql("DELETE FROM catalog_set WHERE code=?", listOf(code))
     }
@@ -285,7 +293,39 @@ class CatalogIndex internal constructor(driver: SqlDriver) : app.cash.sqldelight
             if (long("SELECT changes()") == 0L) { duplicateRecords++; return@forEachIndexed }
             record.otherFaces.forEach { target -> sql("INSERT INTO face VALUES (?, ?)", listOf(record.id, target)) }
             addImportNames(record, json)
+            val related = trait?.related.orEmpty()
+            if (related.isNotEmpty()) {
+                if (!tokenRelationsReady) { createTokenRelations(); tokenRelationsReady = true }
+                related.forEach { other -> sql("INSERT OR IGNORE INTO token_relation VALUES (?, ?)",
+                    if (record.token) listOf(other, record.id) else listOf(record.id, other)) }
+            }
         }
+    }
+
+    // Optional enrichment like set names, not an index-version change: a catalog imported before it has no rows, and
+    // token pictures then come from the tokens' characteristics alone.
+    private var tokenRelationsReady = false
+    /** A card's related tokens: (a card's printing id, a token's printing id) from the card's own links, and (a card
+     * name in lower case, a token's printing id) from the token's list of the cards that make it. */
+    private fun createTokenRelations() = sql("CREATE TABLE IF NOT EXISTS token_relation (source TEXT NOT NULL, " +
+        "token TEXT NOT NULL, PRIMARY KEY(source, token)) WITHOUT ROWID")
+    private fun hasTokenRelations() = long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='token_relation')") != 0L
+
+    /**
+     * The token printing a token Automatum makes is drawn with ([TokenArtMatch.best]): among the related tokens of the
+     * card that made it ([sourcePrintingId]'s own links and the tokens listing [sourceName]), else among all tokens of
+     * the token's name; ties prefer the set of the source's printing.
+     */
+    internal fun tokenArt(face: DefinitionFace, sourceName: String?, sourcePrintingId: String?): CatalogPrinting? {
+        fun dated(rows: List<CatalogPrinting>) = rows.map { it.copy(releaseDate = releaseDates[it.set].orEmpty()) }
+        val sources = listOfNotNull(sourcePrintingId, sourceName?.lowercase(Locale.ROOT)).distinct()
+        val related = if (sources.isEmpty() || !hasTokenRelations()) emptyList() else dated(rows(
+            "SELECT p.* FROM token_relation r JOIN printing p ON p.id=r.token WHERE p.token=1 AND r.source IN " +
+                sources.joinToString(",", "(", ")") { "?" }, sources, enrich = false))
+        val named = dated(rows("SELECT * FROM printing WHERE token=1 AND normalized=?",
+            listOf(TokenArtMatch.name(face.name)), enrich = false))
+        val set = sourcePrintingId?.let { printing(it)?.set }
+        return TokenArtMatch.best(face, set, related, named)
     }
 
     internal fun validate(): Long {

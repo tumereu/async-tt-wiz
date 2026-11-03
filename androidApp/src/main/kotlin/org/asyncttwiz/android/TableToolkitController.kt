@@ -24,7 +24,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * server step ([GameAction.ExitFlow]) that takes the flow back when it can and always goes through. */
     private val exitFlow: ((MtgAction) -> Boolean)? = null,
     /** Where a cast's engine work runs (SYS-025): off the main thread in the app. */
-    automatumWork: AutomatumWork = AutomatumWork.Inline) : TableActionRoutes {
+    automatumWork: AutomatumWork = AutomatumWork.Inline,
+    /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
+    tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     private var draft: PlayBatchDraft? = null
     fun current(): PlayState? = (draft?.state ?: state())?.takeIf { TableActionScope(it.gameId, it.id) == identity }
@@ -63,11 +65,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, beginning = ::holdForReaction)
+        automatumWork, beginning = ::holdForReaction, tokenArt = tokenArt)
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, onRespond = ::holdForReaction)
+        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt)
     private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,

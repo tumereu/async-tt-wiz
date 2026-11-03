@@ -106,6 +106,8 @@ sealed interface CostObjects {
         // rtr chunk 07
         /** The chosen objects must all share this quality ("Discard two nonland cards with the same name", CR 201.2). */
         val shared: SharedQuality? = null,
+        /** [count] is the most chosen, none being enough ("tapping up to one untapped creature you control", harmonize). */
+        val upTo: Boolean = false,
     ) : CostObjects
 }
 

@@ -389,6 +389,9 @@ sealed interface GameEvent {
         // hob
         /** The keyword whose expansion the ability is, by its id ("equip"), for "the first equip ability you activate each turn". */
         val keyword: String? = null,
+        // gtc backfill
+        /** The ability put on the Stack (none for a mana ability), "that ability" of a trigger on its activation. */
+        val item: ObjectId? = null,
     ) : GameEvent
     /** [ids] were revealed to every player (CR 701.20). */
     @Serializable @SerialName("revealed") data class Revealed(val player: PlayerId, val ids: List<ObjectId>) : GameEvent
@@ -440,6 +443,8 @@ sealed interface GameEvent {
     @Serializable @SerialName("firebended") data class Firebended(val player: PlayerId) : GameEvent
     /** [player] waterbended: paid a waterbend cost (CR 701.67c). */
     @Serializable @SerialName("waterbended") data class Waterbended(val player: PlayerId) : GameEvent
+    /** Day became night ([night]) or night became day (CR 731.1a). */
+    @Serializable @SerialName("day-night") data class DayNightChanged(val night: Boolean) : GameEvent
     /** A triggered ability of [source] triggered on an event of [cause]'s kind and was put on the Stack as [item] (CR 603.2): what
      * "attacking causes a triggered ability of that creature to trigger" looks for. [attack]: the event was [source] attacking. */
     @Serializable @SerialName("ability-triggered") data class AbilityTriggered(val source: ObjectId, val item: ObjectId, val attack: Boolean) : GameEvent

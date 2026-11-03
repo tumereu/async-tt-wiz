@@ -310,8 +310,8 @@ object KeywordExpansions {
             modify = listOf(Modification.AsEnters(listOf(
                 Step.Choose(Choice.Objects(ObjectFilter.And(listOf(keyword.what ?: ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
                     ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))), Value.Fixed(0), null), bind = DEVOURED, chooser = Players.You),
-                Step.Do(Effect.Sacrifice(Objects.Bound(DEVOURED))),
-                Step.Modify(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1), Value.Times(Value.Count(Objects.Bound(DEVOURED)), keyword.amount)))))))),
+                Step.Do(Effect.Sacrifice(Objects.Bound(DEVOURED), postBind = "eaten")),
+                Step.Modify(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1), Value.Times(Value.Count(Objects.Bound("eaten")), keyword.amount)))))))),
             affects = Affected.Objects(Objects.Self)))
         // CR 702.84a: return to the battlefield; it gains haste; exile it at the next end step; if it would leave the
         // battlefield, exile it instead; activate only as a sorcery
@@ -637,7 +637,7 @@ object KeywordExpansions {
                 optional = true)),
                 condition = Condition.Exists(creatureYouControl, atLeast = 1), affects = Affected.Objects(Objects.Self)))
         }
-        else -> null
+        else -> KeywordExpansionsMore.expand(keyword)
     }
 
     /**
@@ -684,6 +684,39 @@ object KeywordExpansions {
                     Instructions(steps = listOf(Step.Do(Effect.Move(returned, Destination(Zone.Battlefield, tapped = true, controller = Players.You))))))),
             )
         }
+        // CR 701.39a, b: a +1/+1 counter on each of the targets
+        is KeywordAction.Support -> listOf(Step.Do(Effect.PutCounters(Objects.Target(action.slot), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))
+        // CR 701.57a: exile cards from the top until a nonland card with mana value N or less; you may cast it without paying its mana
+        // cost if the resulting spell's mana value is N or less, else put it into your hand; the rest on the bottom in a random order
+        is KeywordAction.Discover -> {
+            val upTo = ObjectFilter.ManaValue(Comparison.AtMost, action.count)
+            listOf(
+                Step.Do(Effect.RevealUntil(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Type(CardType.Land)), upTo)), library = Players.You,
+                    count = Value.Fixed(1), reveal = true, into = Zone.Exile, foundBind = "discovered", restBind = "discover-rest")),
+                Step.Pay(steps = listOf(Step.Do(Effect.Cast(Objects.Bound("discovered"), PlayKind.Cast, withoutPaying = true, resultingSpell = upTo,
+                    caster = Players.You))), payer = Players.You, bind = "discover-cast"),
+                Step.If(Condition.Not(Condition.Did("discover-cast")), listOf(Step.Do(Effect.Move(Objects.Bound("discovered"), Destination(Zone.Hand))))),
+                Step.Do(Effect.Move(Objects.Bound("discover-rest"), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+        }
+        // CR 701.63a: put N +1/+1 counters on it or create an N/N white Spirit creature token (counters only while it is on the
+        // battlefield)
+        is KeywordAction.Endure -> listOf(
+            Step.Choose(Choice.Option(listOf(ENDURE_COUNTERS, ENDURE_SPIRIT)), bind = "endure", chooser = Players.You),
+            Step.If(Condition.And(listOf(Condition.Chose("endure", ENDURE_COUNTERS), Condition.ObjectMatches(Objects.Self, ObjectFilter.InZone(Zone.Battlefield)))),
+                then = listOf(Step.Do(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), action.count))),
+                otherwise = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(SPIRIT_TOKEN, power = action.count, toughness = action.count), Value.Fixed(1), Players.You)))))
+        // CR 701.48a: you may reveal a Lesson card you own from outside the game and put it into your hand, or discard a card to draw a
+        // card
+        KeywordAction.Learn -> listOf(
+            Step.Choose(Choice.Option(listOf(LEARN_LESSON, LEARN_RUMMAGE, LEARN_NOTHING)), bind = "learn", chooser = Players.You),
+            Step.If(Condition.Chose("learn", LEARN_LESSON), listOf(
+                Step.Choose(Choice.Objects(ObjectFilter.And(listOf(ObjectFilter.InZone(Zone.Outside), ObjectFilter.OwnedBy(PlayerFilter.You),
+                    ObjectFilter.Sub(Subtype("Lesson")))), Value.Fixed(1), Value.Fixed(1)), bind = "lesson", chooser = Players.You),
+                Step.Do(Effect.Reveal(Objects.Bound("lesson"))),
+                Step.Do(Effect.Move(Objects.Bound("lesson"), Destination(Zone.Hand))))),
+            Step.If(Condition.Chose("learn", LEARN_RUMMAGE), listOf(
+                Step.Pay(Cost(listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Any, Value.Fixed(1))))), payer = Players.You, bind = "rummaged"),
+                Step.If(Condition.Did("rummaged"), listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1))))))))
         is KeywordAction.EmpowerJace -> listOf(
             Step.If(Condition.Not(Condition.Exists(jaceTokenYouControl, atLeast = 1)),
                 then = listOf(Step.Do(Effect.CreateToken(TokenSpec.Defined(JACE_TOKEN), count = Value.Fixed(1), controller = Players.You)))),
@@ -696,6 +729,16 @@ object KeywordExpansions {
     /** Firebending [amount] (CR 702.189a): an attack trigger adding [amount] {R} kept until end of combat. */
     private fun firebending(amount: Value) = Ability.Triggered(Trigger.On(EventPattern.Attack(ObjectFilter.Is(Objects.Self))), steps(Effect.AddMana(
         ManaProduction(ManaKind.Fixed(ManaCost.parse("{R}")!!, times = amount), keptUntil = Duration.EndOfCombat), Players.You)))
+
+    private const val ENDURE_COUNTERS = "+1/+1 counters"
+    private const val ENDURE_SPIRIT = "Spirit token"
+    private const val LEARN_LESSON = "a Lesson card from outside the game"
+    private const val LEARN_RUMMAGE = "discard a card to draw a card"
+    private const val LEARN_NOTHING = "nothing"
+
+    /** The token endure creates (CR 701.63a): a white Spirit creature token, N/N as it is created. */
+    private val SPIRIT_TOKEN: FaceDefinition = FaceDefinition("Spirit Token", colorIndicator = listOf(Color.White), types = listOf(CardType.Creature),
+        subtypes = listOf(Subtype("Spirit")), power = PrintedNumber.Fixed(0), toughness = PrintedNumber.Fixed(0))
 
     // hob
     /** The token recruit creates (CR 701.70a): a 1/1 white Human Soldier creature token. */

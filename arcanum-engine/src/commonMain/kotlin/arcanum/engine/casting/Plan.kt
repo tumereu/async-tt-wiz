@@ -291,8 +291,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** A condition about the spell being cast, read from the choices so far: its optional costs paid (an unpaid or
      * unasked one counts as not paid); other conditions as the game is. */
     private fun holdsAsCast(condition: arcanum.api.Condition): Boolean = when (condition) {
-        is arcanum.api.Condition.Paid -> condition.of == arcanum.api.Objects.Self && additionalCosts
-            .filter { (_, m) -> m.keyword == condition.keyword }.sumOf { (inst, _) -> optionalTimes(inst) ?: 0 } >= condition.times
+        is arcanum.api.Condition.Paid -> condition.of == arcanum.api.Objects.Self && (additionalCosts
+            .filter { (_, m) -> m.keyword == condition.keyword }.sumOf { (inst, _) -> optionalTimes(inst) ?: 0 } >= condition.times ||
+            // CR 702.113b: the alternative cost chosen (awaken)
+            (condition.keyword != null && alternative?.second?.keyword == condition.keyword && condition.times <= 1))
         is arcanum.api.Condition.Not -> !holdsAsCast(condition.condition)
         is arcanum.api.Condition.And -> condition.all.all { holdsAsCast(it) }
         is arcanum.api.Condition.Or -> condition.any.any { holdsAsCast(it) }
@@ -413,6 +415,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                         is CostPart.Sacrifice -> listOf(part.preBind, part.postBind)
                         is CostPart.Discard -> listOf(part.preBind, part.postBind)
                         is CostPart.ReturnToHand -> listOf(part.preBind, part.postBind)
+                        // CR 702.180a: the creature tapped for harmonize
+                        is CostPart.TapObjects -> listOf(part.bind)
                         else -> emptyList()
                     }
                     bindNames.filterNotNull().forEach { b = b.with(it, ids) }
@@ -613,9 +617,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val raised = q.modes.maxIf != null && holdsAsCast(q.modes.maxIf!!)
             val printed = if (raised) q.modes.maxIfCount ?: q.modes.max else q.modes.max
             // msh: "choose up to X"
-            val max = q.modes.maxCount?.let { minOf(printed, maxOf(q.modes.min, eval.value(it))) } ?: printed
+            val counted = q.modes.maxCount?.let { minOf(printed, maxOf(q.modes.min, eval.value(it))) } ?: printed
+            // CR 702.42a: entwine lets every mode be chosen (its cost is added once more than the printed number are)
+            val entwine = additionalCosts.any { it.second.keyword == arcanum.api.Keyword.Entwine.Kind }
+            val max = if (entwine) maxOf(counted, q.modes.options.size) else counted
             // ecl: "Choose one. If …, choose both instead": exactly that many
-            val min = if (raised && q.modes.min == q.modes.max) max else q.modes.min
+            // dsk backfill: "choose one or more instead" keeps the minimum (CR 700.2d)
+            val min = if (raised && q.modes.min == q.modes.max && !q.modes.upToMaxIf) max else q.modes.min
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
                 ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
             }, min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)

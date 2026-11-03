@@ -61,7 +61,10 @@ internal object EventMatcher {
                 else -> true
             } && (pattern.removedLoyaltyAtLeast == null || (a.loyalty ?: 0) <= -pattern.removedLoyaltyAtLeast!!)
             if (kindMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.source))), listOf(a.player))) else null
+                // gtc backfill: the activated ability is the event's object ("copy that ability", like the spell of a cast
+                // event); its source is the source (CR 113.7)
+                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.item ?: a.source)), RoleObjects(EventRole.Source, listOf(a.source))),
+                    listOf(a.player))) else null
         }.orEmpty()
         is EventPattern.Damage -> (change as? Change.Damage)?.dealt.orEmpty().filter { d ->
             !pattern.excess && (pattern.combat == null || pattern.combat == d.combat) &&
@@ -201,8 +204,9 @@ internal object EventMatcher {
         is EventPattern.Expend -> ((change as? Change.Happened)?.event as? GameEvent.SpentOnSpells)
             ?.takeIf { it.before < pattern.amount && it.after >= pattern.amount && e.matches(pattern.players, it.player) }
             ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = pattern.amount)) }.orEmpty()
-        // Day and night aren't tracked yet.
-        is EventPattern.DayNightChanges -> emptyList()
+        // CR 731.1a: day becomes night, or night becomes day
+        is EventPattern.DayNightChanges -> ((change as? Change.Happened)?.event as? GameEvent.DayNightChanged)
+            ?.takeIf { pattern.toNight == null || pattern.toNight == it.night }?.let { listOf(TriggerEvent()) }.orEmpty()
         // blb: CR 702.174c, 701.61a, 716.2a
         is EventPattern.GiveGift -> ((change as? Change.Happened)?.event as? GameEvent.GaveGift)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()

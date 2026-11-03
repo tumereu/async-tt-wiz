@@ -231,7 +231,7 @@ internal object Costs {
         // rtr chunk 07: only objects with enough others sharing the quality can be among the chosen
         val sharing = choose.shared?.let { q -> options.filter { a -> options.count { b -> b != a && eval.shares(q, a, b) } >= (count ?: 1) - 1 } } ?: options
         return if (choose.total != null) ObjectChoice(sharing, 1, null, text, choose.total, choose.shared)
-            else ObjectChoice(sharing, count ?: 0, count, text, null, choose.shared)
+            else ObjectChoice(sharing, if (choose.upTo) 0 else count ?: 0, count, text, null, choose.shared)
     }
 
     /** A plain description of a cost part, for decisions ("Sacrifice a creature"). */

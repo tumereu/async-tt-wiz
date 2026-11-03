@@ -364,7 +364,8 @@ internal object Options {
         val sources = s.battlefield + s.player(player).hand + s.player(player).graveyard + s.exile + s.command +
             s.player(player).outside
         return sources.flatMap { id ->
-            (snap.view[id]?.characteristics?.abilities.orEmpty() + Legality.faceDownActions(snap, id))
+            (snap.view[id]?.characteristics?.abilities.orEmpty() + Legality.faceDownActions(snap, id) +
+                arcanum.engine.foretell.Foretell.actions(s, snap.view, id))
                 .filter { it.ability is Ability.Activated || it.ability is Ability.SpecialAction }
                 .filter { Legality.cantActivate(snap, player, id, it) == null }
                 .map { Input.Activate(player, id, it.origin) }

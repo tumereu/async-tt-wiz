@@ -29,22 +29,60 @@ import arcanum.api.Zone
 /**
  * What a keyword ability means to the engine: its expansion from the shared table ([KeywordExpansions]), or, for a
  * keyword the engine doesn't automate yet, abilities that stop with a `Manual` step at its natural moment (as the spell is
- * cast, as the permanent enters, attacks, dies, …), so it is never silently left out (D61). Where the keyword is an
- * activated ability, the engine pays its cost and only its effect is done by hand. Keywords whose meaning is engine code
- * ([engineCode]: phasing) have no abilities.
+ * cast, as the permanent enters, attacks, dies, …), so it is never silently left out (D61). Keywords whose meaning is engine
+ * code ([engineCode]: phasing, fuse, foretell) have no abilities.
  */
 object KeywordMeanings {
     /** Keywords the engine applies in its own code rather than through abilities. */
     val engineCode: Set<KeywordKind> = setOf(Keyword.Phasing,
         // gtc: casting both halves of a split card (CR 702.102) is a way to cast it ([arcanum.engine.input.CastWay.fused])
-        Keyword.Fuse)
+        Keyword.Fuse,
+        // CR 702.143: foretelling is a special action the rules give a card in a hand that keeps it hidden, and casting it
+        // a permission the rules give its owner (arcanum.engine.foretell.Foretell)
+        Keyword.Foretell.Kind,
+        // CR 702.179a: start your engines! gives speed as a state-based action (arcanum.engine.turn.Speed)
+        Keyword.StartYourEngines,
+        // CR 702.145: day and night, and the transforming of daybound and nightbound permanents (arcanum.engine.turn.DayNight)
+        Keyword.Daybound, Keyword.Nightbound,
+        // CR 702.150a: fewer loyalty counters for Phyrexian mana paid with life, as it enters (arcanum.engine.action.Actions)
+        Keyword.Compleated,
+        // CR 702.155: the lore counters a Saga enters with, and which chapters trigger the turn it entered
+        Keyword.ReadAhead)
 
-    /** The abilities [keyword] stands for; empty for [engineCode] keywords and those with no rules meaning. */
-    fun expand(keyword: Keyword): List<Ability> =
-        KeywordExpansions.expand(keyword) ?: if (keyword.kind in engineCode) emptyList() else manual(keyword)
+    /** Keywords whose abilities depend on the face they are printed on ([expand]'s `below`). */
+    val faceDependent: Set<KeywordKind> = setOf(Keyword.Backup.Kind)
+
+    /** The abilities [keyword] stands for; empty for [engineCode] keywords and those with no rules meaning. [below]: the
+     * abilities printed after it on its face (backup grants them, CR 702.165a). */
+    fun expand(keyword: Keyword, below: List<Ability> = emptyList()): List<Ability> =
+        KeywordExpansions.expand(keyword) ?: when {
+            keyword.kind in engineCode -> emptyList()
+            keyword is Keyword.Backup -> listOf(backup(keyword, below))
+            else -> manual(keyword)
+        }
 
     /** Whether [keyword] is done by hand ([expand] gives `Manual` abilities only). */
-    fun isManual(keyword: Keyword): Boolean = KeywordExpansions.expand(keyword) == null && keyword.kind !in engineCode
+    fun isManual(keyword: Keyword): Boolean = KeywordExpansions.expand(keyword) == null && keyword.kind !in engineCode &&
+        keyword.kind !in faceDependent
+
+    /**
+     * CR 702.165a, c, d: "When this creature enters, put N +1/+1 counters on target creature. If that's another creature, it also
+     * gains the non-backup abilities of this creature printed below this one until end of turn." [below] are the abilities printed
+     * after the backup ability on its face, fixed as the trigger is created.
+     */
+    private fun backup(keyword: Keyword.Backup, below: List<Ability>): Ability {
+        val target = Objects.Target("backup")
+        val granted = below.filterNot { it is Keyword.Backup }
+        return Ability.Triggered(Trigger.On(EventPattern.ZoneChange(self, to = Zone.Battlefield)), Instructions(
+            targets = listOf(arcanum.api.TargetSlot("backup", arcanum.api.TargetKind.Objects(ObjectFilter.Type(CardType.Creature)),
+                min = Value.Fixed(1), max = Value.Fixed(1))),
+            steps = listOfNotNull(
+                Step.Do(arcanum.api.Effect.PutCounters(target, arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(keyword.amount))),
+                if (granted.isEmpty()) null else Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.ObjectMatches(target, self)), listOf(
+                    Step.Do(arcanum.api.Effect.ApplyMechanics(listOf(arcanum.api.Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(target),
+                        arcanum.api.Duration.EndOfTurn)))),
+            )))
+    }
 
     /** The by-hand abilities of a keyword without an expansion, at its natural moment ([moments]; as cast when not listed). */
     fun manual(keyword: Keyword): List<Ability> {
@@ -69,89 +107,29 @@ object KeywordMeanings {
         data object Enters : On(listOf(EventPattern.ZoneChange(self, to = Zone.Battlefield)))
         data object Attacks : On(listOf(EventPattern.Attack(self)))
         data object AttacksOrBlocks : On(listOf(EventPattern.Attack(self), EventPattern.Block(self, ObjectFilter.Any)))
-        data object BecomesBlocked : On(listOf(EventPattern.BecomesBlocked(self, ObjectFilter.Any)))
         data object Dies : On(listOf(EventPattern.ZoneChange(self, from = Zone.Battlefield, to = Zone.Graveyard)))
-        data object YourUpkeep : On(listOf(EventPattern.StepBegins(TurnStep.Upkeep, PlayerFilter.You)))
-        data object CombatDamageToAPlayer : On(listOf(EventPattern.Damage(self, RecipientFilter(players = PlayerFilter.Any), combat = true)))
-        data object YouCastASpell : On(listOf(EventPattern.Cast(ObjectFilter.Any, by = PlayerFilter.You)))
         data object AnotherCreatureYouControlEnters : On(listOf(EventPattern.ZoneChange(ObjectFilter.And(listOf(
             ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Not(self))), to = Zone.Battlefield)))
-        data object AnotherCreatureEnters : On(listOf(EventPattern.ZoneChange(ObjectFilter.And(listOf(
-            ObjectFilter.Type(CardType.Creature), ObjectFilter.Not(self))), to = Zone.Battlefield)))
         /** This card is put into a graveyard (cast from or activated in the graveyard). */
         data object PutIntoAGraveyard : On(listOf(EventPattern.ZoneChange(self, to = Zone.Graveyard)), functionsIn = listOf(Zone.Graveyard))
-        /** This card is put into a hand (drawn; also when returned there from elsewhere). */
-        data object PutIntoAHand : On(listOf(EventPattern.ZoneChange(self, to = Zone.Hand)), functionsIn = listOf(Zone.Hand))
-        /** While this card is in the graveyard, a creature card is put into its owner's graveyard from the battlefield. */
-        data object YourCreatureDies : On(listOf(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
-            ObjectFilter.OwnedBy(PlayerFilter.You))), from = Zone.Battlefield, to = Zone.Graveyard)), functionsIn = listOf(Zone.Graveyard))
-
-        /** An activated ability: [extra] cost parts after the keyword's own cost, paid by the engine; the effect by hand
-         * unless [effect] gives it. */
-        sealed class Activated(
-            private val zone: Zone, private val timing: Timing, private val extra: (Keyword) -> List<CostPart>,
-            private val effect: (Keyword) -> List<Step>? = { null },
-        ) : Moment {
-            override fun ability(keyword: Keyword, text: String): Ability {
-                val own = (keyword as? arcanum.api.HasCost)?.cost?.parts.orEmpty()
-                return Ability.Activated(Cost(own + extra(keyword)), Instructions(steps = effect(keyword) ?: listOf(Step.Manual(text))),
-                    ActivationRules(timing = timing, activatedBy = PlayerFilter.You), functionsIn = listOf(zone))
-            }
-        }
-
-        /** "[Cost], Exile this card from your graveyard: … Activate only as a sorcery." (embalm, eternalize, scavenge, encore) */
-        data object ExileFromGraveyard : Activated(Zone.Graveyard, Timing.Sorcery, { listOf(CostPart.Exile(CostObjects.Self, Zone.Graveyard)) })
-        /** "[Cost], Discard this card: … Activate only as a sorcery." (transmute) */
-        data object DiscardAsSorcery : Activated(Zone.Hand, Timing.Sorcery, { listOf(CostPart.Discard(CostObjects.Self)) })
-        /** "Tap any number of other untapped creatures you control with total power N or more: This permanent becomes
-         * saddled until end of turn. Activate only as a sorcery." (saddle, CR 702.171a; saddled ends in the cleanup
-         * step) */
-        data object TapCreaturesWithTotalPower : Activated(Zone.Battlefield, Timing.Sorcery, { k ->
-            listOf(CostPart.TapObjects(CostObjects.Choose(otherCreatureYouControl, count = null,
-                total = Total(NumericProperty.Power, Value.Fixed((k as? HasAmount)?.amount ?: 0)))))
-        }, { k -> if (k is Keyword.Saddle) listOf(Step.Do(arcanum.api.Effect.Mark(Objects.Self, arcanum.api.ObjectMark.Saddled))) else null })
     }
 
     private val self: ObjectFilter get() = ObjectFilter.Is(Objects.Self)
-    private val otherCreatureYouControl: ObjectFilter get() = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
-        ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
-        ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped))))
 
     /** The natural moment(s) of each by-hand keyword; a keyword missing here comes up as its spell is cast. */
     val moments: Map<KeywordKind, List<Moment>> by lazy {
         val m = mutableMapOf<KeywordKind, List<Moment>>()
         fun at(vararg moment: Moment, kinds: () -> List<KeywordKind>) = kinds().forEach { m[it] = moment.toList() }
         at(Moment.Cast) {
-            listOf(Keyword.Epic, Keyword.Gravestorm, Keyword.Assist,
-                Keyword.Demonstrate, Keyword.Bargain, Keyword.Spree, Keyword.Tiered, Keyword.Undaunted, Keyword.Ascend, Keyword.Ripple.Kind,
-                Keyword.Entwine.Kind, Keyword.Replicate.Kind, Keyword.Prowl.Kind,
-                Keyword.Dash.Kind, Keyword.Surge.Kind, Keyword.Emerge.Kind, Keyword.Spectacle.Kind, Keyword.Mutate.Kind,
-                Keyword.Foretell.Kind, Keyword.Blitz.Kind, Keyword.Squad.Kind, Keyword.Disguise.Kind, Keyword.Plot.Kind,
-                Keyword.Freerunning.Kind,
-                Keyword.Awaken.Kind, Keyword.Impending.Kind, Keyword.Prototype.Kind)
+            listOf(Keyword.Epic, Keyword.Assist, Keyword.Mutate.Kind)
         }
         at(Moment.Enters) {
-            listOf(Keyword.HiddenAgenda, Keyword.Riot, Keyword.Daybound, Keyword.Nightbound, Keyword.Compleated,
-                Keyword.ReadAhead, Keyword.Ravenous, Keyword.StartYourEngines, Keyword.Amplify.Kind,
-                Keyword.Bloodthirst.Kind, Keyword.Tribute.Kind, Keyword.Backup.Kind, Keyword.Echo.Kind,
-                Keyword.PartnerWith.Kind)
+            listOf(Keyword.HiddenAgenda)
         }
         at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
-        at(Moment.Enters, Moment.AnotherCreatureEnters) { listOf(Keyword.Graft.Kind) }
-        at(Moment.Attacks) {
-            listOf(Keyword.Provoke, Keyword.Myriad, Keyword.Melee, Keyword.Dethrone, Keyword.Enlist, Keyword.Mobilize.Kind)
-        }
+        at(Moment.Attacks) { listOf(Keyword.Enlist) }
         at(Moment.AttacksOrBlocks) { listOf(Keyword.Banding) }
-        at(Moment.BecomesBlocked) { listOf(Keyword.Rampage.Kind) }
-        at(Moment.Dies) { listOf(Keyword.Soulshift.Kind) }
         at(Moment.Dies, Moment.Cast) { listOf(Keyword.Haunt) }
-        at(Moment.YourUpkeep) { listOf(Keyword.CumulativeUpkeep.Kind) }
-        at(Moment.CombatDamageToAPlayer) { listOf(Keyword.Ingest) }
-        at(Moment.PutIntoAGraveyard) { listOf(Keyword.Aftermath, Keyword.Disturb.Kind, Keyword.Harmonize.Kind) }
-        at(Moment.YourCreatureDies) { listOf(Keyword.Recover.Kind) }
-        at(Moment.ExileFromGraveyard) { listOf(Keyword.Embalm.Kind, Keyword.Eternalize.Kind, Keyword.Encore.Kind) }
-        at(Moment.DiscardAsSorcery) { listOf(Keyword.Transmute.Kind) }
-        at(Moment.TapCreaturesWithTotalPower) { listOf(Keyword.Saddle.Kind) }
         m
     }
 }

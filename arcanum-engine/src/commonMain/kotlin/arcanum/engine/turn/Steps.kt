@@ -160,15 +160,23 @@ internal object Steps {
             next = Priority.nextPlayer(s, next)
         }
         val number = s.turn.number + 1
+        // CR 723.1, 723.1a, b: control of the player whose turn actually begins applies to it, the last created winning; the
+        // control of the turn before ends as this one begins
+        val (taken, waiting) = s.turn.controlNext.partition { it.player == next }
         val turn = TurnState(
             number = number, active = next, step = TurnStep.Untap,
             turnStarted = s.turn.turnStarted + (next to number),
             extraTurns = if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
             skippedTurns = skipped,
+            controlNext = waiting, controlled = taken.lastOrNull(),
         )
         // CR 800.4m: players who left and whose turn would have begun now (passed over in turn order)
         val passedOver = if (extra == null) leftPlayersBetween(s, s.turn.active, next) else emptyList()
+        val previous = s.turn.active
+        val previousTurn = s.turn.number
         recorder.record(Changes.step(s, turn, listOf(Meaning.TurnBegan, Meaning.StepBegan)))
+        // CR 502.2, 731.2: the untap step checks whether day becomes night or night becomes day
+        DayNight.untapCheck(recorder, previous, previousTurn)
         // Their effects lasting until their next turn, or until a point in it, end as that turn would have begun
         passedOver.forEach { left -> endEffects(recorder, onlyController = left) { d, _ -> keyedToYourNextTurn(d) } }
         // "Until your next turn" ends as that player's next turn begins (CR 611.2b); so does their goading (CR 701.15a)

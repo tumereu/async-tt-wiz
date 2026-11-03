@@ -355,8 +355,11 @@ data class Move(
     val meanings: List<Meaning> = emptyList(),
     /** What everyone could see of it as it left (D33): characteristics after layers, for history and "dies" triggers. */
     val seen: ObjectSnapshot? = null,
+    /** A merged permanent's other components (CR 730.3): put into the new zone as their own objects as it leaves the
+     * battlefield ([before] is merged), taken out of it again when the move is taken back ([after] is merged). */
+    val parts: List<Placed> = emptyList(),
 ) {
-    fun inverse() = Move(after, before, toIndex, fromIndex, meanings, seen)
+    fun inverse() = Move(after, before, toIndex, fromIndex, meanings, seen, parts)
     val from: Zone get() = before.zone
     val to: Zone get() = after.zone
 }
@@ -422,6 +425,10 @@ sealed interface GameEvent {
     @Serializable @SerialName("mandatory-loop") data object MandatoryLoop : GameEvent
     /** [player] foraged (CR 701.61a). */
     @Serializable @SerialName("foraged") data class Foraged(val player: PlayerId) : GameEvent
+    /** [player] completed [dungeon] (CR 309.7). */
+    @Serializable @SerialName("completed-dungeon") data class CompletedDungeon(val player: PlayerId, val dungeon: ObjectId) : GameEvent
+    /** [player] took the initiative (CR 726.2, 726.5: also when they had it). */
+    @Serializable @SerialName("took-initiative") data class TookInitiative(val player: PlayerId) : GameEvent
     /** [player] gave a gift (CR 702.174c). */
     @Serializable @SerialName("gave-gift") data class GaveGift(val player: PlayerId) : GameEvent
     /** The Class [id] became level [level] (CR 716.2a). */
@@ -444,6 +451,8 @@ sealed interface GameEvent {
     /** [player] waterbended: paid a waterbend cost (CR 701.67c). */
     @Serializable @SerialName("waterbended") data class Waterbended(val player: PlayerId) : GameEvent
     /** [attacker] enlisted [enlisted]: tapped it as it attacked (CR 702.154a, c). */
+    /** A mutating creature spell, card [card], merged with [permanent] as it resolved, on top or under it (CR 702.140c, d). */
+    @Serializable @SerialName("mutated") data class Mutated(val permanent: ObjectId, val card: ObjectId, val onTop: Boolean) : GameEvent
     @Serializable @SerialName("enlisted") data class Enlisted(val attacker: ObjectId, val enlisted: ObjectId) : GameEvent
     /** The Ring tempted [player] (CR 701.54d); [bearer]: the creature they chose as their Ring-bearer, if they could. */
     @Serializable @SerialName("ring-tempted") data class RingTempted(val player: PlayerId, val bearer: ObjectId?) : GameEvent
@@ -482,11 +491,15 @@ sealed interface Meaning {
     @Serializable @SerialName("put-into-graveyard") data object PutIntoGraveyard : Meaning
     @Serializable @SerialName("entered") data object Entered : Meaning
     @Serializable @SerialName("left-battlefield") data object LeftBattlefield : Meaning
+    /** Removed from the game (a completed dungeon, CR 309.7): back outside the game. */
+    @Serializable @SerialName("left-the-game") data object LeftTheGame : Meaning
     @Serializable @SerialName("played-land") data object PlayedLand : Meaning
     @Serializable @SerialName("token-created") data object TokenCreated : Meaning
     /** A copy of a card was created in the card's zone (CR 707.12). */
     @Serializable @SerialName("card-copied") data object CardCopied : Meaning
     @Serializable @SerialName("ceased-to-exist") data object CeasedToExist : Meaning
+    /** Became part of a merged permanent (CR 730.2b: it leaves its zone). */
+    @Serializable @SerialName("merged") data object Merged : Meaning
     @Serializable @SerialName("turned-face-up") data object TurnedFaceUp : Meaning
     @Serializable @SerialName("turned-face-down") data object TurnedFaceDown : Meaning
     @Serializable @SerialName("transformed") data object Transformed : Meaning

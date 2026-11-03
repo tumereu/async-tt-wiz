@@ -99,6 +99,8 @@ sealed interface Value {
      * common"; a changeling shares every creature type). */
     /** How many times the Ring has tempted [players] this game (CR 701.54c). */
     @Serializable @SerialName("ring-temptations") data class RingTemptations(val players: Players) : Value
+    /** How many dungeons [players] have completed this game (CR 309.7: "if you've completed a dungeon"). */
+    @Serializable @SerialName("dungeons-completed") data class DungeonsCompleted(val players: Players) : Value
     @Serializable @SerialName("most-sharing") data class MostSharing(val objects: Objects, val quality: SharedQuality) : Value
 }
 

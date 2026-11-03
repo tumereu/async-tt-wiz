@@ -101,7 +101,11 @@ data class Permission(val source: ObjectId? = null, val ability: AbilityOrigin? 
  * each of its enlist abilities at most (an optional cost to attack, CR 508.1g, 702.154a): untapped creatures its controller
  * controls that don't attack, have haste or have been under their control since the turn began. */
 @Serializable
-data class Attack(val attacker: ObjectId, val target: TargetRef, val enlisted: List<ObjectId> = emptyList())
+data class Attack(
+    val attacker: ObjectId, val target: TargetRef, val enlisted: List<ObjectId> = emptyList(),
+    /** Banding (CR 702.22c): attackers with the same number form one attacking band. */
+    val band: Int? = null,
+)
 
 /** [blocker] blocks [attacker] (CR 509.1a). */
 @Serializable

@@ -13021,6 +13021,8 @@ internal class Sentences(
             return Objects.Target(slotName)
         }
         if (s == "enchanted creature" || s == "Enchanted creature" || s == "equipped creature" || s == "Equipped creature") return Objects.AttachedTo(Objects.Self)
+        // CR 701.54e: "your Ring-bearer" (at most one creature)
+        if (s == "your Ring-bearer" || s == "Your Ring-bearer") return Objects.Each(MechanicWordings.yourRingBearer)
         return fraObjects(s, context)
     }
 

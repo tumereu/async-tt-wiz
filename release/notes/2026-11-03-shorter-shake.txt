@@ -1,0 +1,1 @@
+mod: A card you can't play right now just gives a short shake when tapped instead of lifting up, and every shake is quicker and smaller.

@@ -283,4 +283,110 @@ class MechanicWordingsTest {
             targets = listOf(TargetSlot("player", TargetKind.Players(PlayerFilter.Any), Value.Fixed(1), Value.Fixed(1))),
             steps = listOf(Step.Do(Effect.Discard(arcanum.api.Players.Target("player"), Value.Fixed(1), ObjectFilter.Any)))),
             functionsIn = listOf(Zone.Exile)))
+
+    // CR 702.140a, d: mutate is a keyword with a cost; "Whenever this creature mutates" is its own event
+    @Test
+    fun wheneverThisCreatureMutates() = card(
+        name = "Gnarled Mutant",
+        cost = "{3}{G}",
+        type = "Creature — Beast",
+        pt = "4/4",
+        text = """
+            Mutate {1}{G}{G}
+            Whenever this creature mutates, draw a card.
+        """.trimIndent(),
+    ) parsesTo abilities(
+        arcanum.api.Keyword.Mutate(arcanum.parser.cube.manaCost("{1}{G}{G}")),
+        Ability.Triggered(Trigger.On(EventPattern.Mutates(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(drawCards(1)))),
+    )
+
+    // CR 701.49a: "venture into the dungeon"
+    @Test
+    fun ventureIntoTheDungeon() = card(
+        name = "Torch Delver",
+        cost = "{1}{W}",
+        type = "Creature — Human Rogue",
+        pt = "2/1",
+        text = "When this creature enters, venture into the dungeon.",
+    ) parsesTo abilities(whenThisEnters(Step.Do(Effect.Action(KeywordAction.Venture))))
+
+    // CR 726.1, 726.3: "you take the initiative"
+    @Test
+    fun takeTheInitiative() = card(
+        name = "Gate Warden",
+        cost = "{2}{W}",
+        type = "Creature — Human Soldier",
+        pt = "2/3",
+        text = "When this creature enters, you take the initiative.",
+    ) parsesTo abilities(whenThisEnters(Step.Do(Effect.GiveDesignation(arcanum.api.Players.You, arcanum.api.Designation.Initiative))))
+
+    // CR 309.7: "Whenever you complete a dungeon" and "as long as you've completed a dungeon"
+    @Test
+    fun completeADungeon() = card(
+        name = "Vault Cartographer",
+        cost = "{2}{U}",
+        type = "Creature — Human Wizard",
+        pt = "1/3",
+        text = "Whenever you complete a dungeon, draw a card.",
+    ) parsesTo abilities(Ability.Triggered(Trigger.On(EventPattern.CompletesDungeon(PlayerFilter.You)), Instructions(steps = listOf(drawCards(1)))))
+
+    // CR 309.4: a dungeon card's rooms, their effects and their arrows
+    @Test
+    fun dungeonRooms() {
+        val face = OracleParser.parse(OracleCard("Test Crypt", null, "Dungeon — Undercity", """
+            Crypt Door — Scry 1. (→ Bone Hall or Dark Well)
+            Bone Hall — Draw a card. (→ Final Vault)
+            Dark Well — Draw a card. (→ Final Vault)
+            Final Vault — Draw a card.
+        """.trimIndent()))
+        kotlin.test.assertEquals(listOf(arcanum.api.CardType.Dungeon), face.types)
+        kotlin.test.assertEquals(listOf(arcanum.api.Subtype("Undercity")), face.subtypes)
+        kotlin.test.assertEquals(listOf("Crypt Door", "Bone Hall", "Dark Well", "Final Vault"), face.rooms.map { it.name })
+        kotlin.test.assertEquals(listOf(listOf(1, 2), listOf(3), listOf(3), emptyList()), face.rooms.map { it.next })
+        kotlin.test.assertEquals(Instructions(steps = listOf(drawCards(1))), face.rooms[3].instructions)
+    }
+
+    // CR 702.55c: a modal "When this creature enters or the creature it haunts dies, choose one —" works on the battlefield and in exile
+    @Test
+    fun modalHauntTrigger() {
+        val face = OracleParser.parse(arcanum.parser.OracleCard("Gloom Arbiter", "{2}{W}{B}", "Creature — Spirit Cleric", """
+            Haunt
+            When this creature enters or the creature it haunts dies, choose one —
+            • Creatures you control get +1/+1 until end of turn.
+            • Creatures you don't control get -1/-1 until end of turn.
+        """.trimIndent(), "2/2"))
+        val trigger = face.abilities.filterIsInstance<Ability.Triggered>().single()
+        kotlin.test.assertEquals(listOf(Zone.Battlefield, Zone.Exile), trigger.functionsIn)
+        kotlin.test.assertEquals(2, trigger.instructions.modes?.options?.size)
+    }
+
+    // CR 701.54a, d: "Whenever you choose a creature as your Ring-bearer": the Ring tempting you with a creature chosen, "that creature"
+    // its object
+    @Test
+    fun wheneverYouChooseARingBearer() = card(
+        name = "Barrow Herald",
+        cost = "{1}{W}",
+        type = "Creature — Human Soldier",
+        pt = "2/2",
+        text = "Whenever you choose a creature as your Ring-bearer, put a +1/+1 counter on that creature.",
+    ) parsesTo abilities(Ability.Triggered(Trigger.On(EventPattern.RingTempts(PlayerFilter.You, chosen = true)), Instructions(steps = listOf(
+        Step.Do(Effect.PutCounters(Objects.EventObject(EventRole.Object), arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(1)))))))
+
+    // CR 701.54e: "your Ring-bearer" as the affected object of a static ability, a trigger's subject and an effect's object
+    @Test
+    fun yourRingBearerAsAnObject() = card(
+        name = "Shire Banner",
+        cost = "{2}",
+        type = "Artifact",
+        text = """
+            Your Ring-bearer gets +1/+1.
+            Whenever your Ring-bearer attacks, draw a card.
+            At the beginning of your end step, put a +1/+1 counter on your Ring-bearer.
+        """.trimIndent(),
+    ) parsesTo abilities(
+        Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1))), affects = Affected.Objects(Objects.Each(yourRingBearer))),
+        Ability.Triggered(Trigger.On(EventPattern.Attack(yourRingBearer)), Instructions(steps = listOf(drawCards(1)))),
+        Ability.Triggered(Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)), Instructions(steps = listOf(
+            Step.Do(Effect.PutCounters(Objects.Each(yourRingBearer), arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(1)))))),
+    )
 }

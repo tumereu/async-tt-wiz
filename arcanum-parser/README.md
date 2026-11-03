@@ -63,6 +63,10 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   other than [this] as your Ring-bearer"), soulbond's "As long as [this] is paired with another creature, both creatures have …" /
   "each of those creatures gets/has …", haunt's "the creature it haunts dies" (those triggers work in exile, CR 702.55c), "if this
   spell / it was bargained", "if tribute wasn't paid" and "If [this] would be put into a graveyard from anywhere, exile it instead";
+  "[this] mutates", "Venture into the dungeon." / "Venture into Undercity.", "You take the initiative.", "you complete a dungeon",
+  "you've completed a dungeon", "whenever you choose a creature as your Ring-bearer", "your Ring-bearer" as a noun, subject and
+  object ("Put a +1/+1 counter on your Ring-bearer."), haunt's modal trigger working in exile too, and a dungeon card's rooms ("[name] — [effect] (→ [room] or [room])", `MechanicWordings.rooms`; a room
+  effect it can't read is a `Step.Manual`);
   in `OracleParser`, spree's and tiered's "+ [cost] — [effect]" modes and "Partner with [name]" (names with commas).
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,

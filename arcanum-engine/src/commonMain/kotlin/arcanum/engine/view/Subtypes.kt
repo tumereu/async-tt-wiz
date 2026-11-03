@@ -16,6 +16,7 @@ sealed interface SubtypeKind {
     data object Planeswalker : SubtypeKind { override val types = listOf(CardType.Planeswalker) }
     data object Spell : SubtypeKind { override val types = listOf(CardType.Instant, CardType.Sorcery) }
     data object Battle : SubtypeKind { override val types = listOf(CardType.Battle) }
+    data object Dungeon : SubtypeKind { override val types = listOf(CardType.Dungeon) }
 }
 
 /** The subtype lists of the pinned rules (CR 205.3g–m); creature types are every subtype not in another list. */
@@ -49,6 +50,8 @@ object Subtypes {
     )
     /** Battle types (CR 205.3q). */
     private val BATTLE = setOf("Siege")
+    /** Dungeon types (CR 205.3p). */
+    private val DUNGEON = setOf("Undercity")
 
     /** The basic land types and the mana their intrinsic ability adds (CR 305.6). */
     val basicLandTypes: Map<Subtype, Color> = mapOf(
@@ -66,6 +69,7 @@ object Subtypes {
         in SPELL -> SubtypeKind.Spell
         in PLANESWALKER -> SubtypeKind.Planeswalker
         in BATTLE -> SubtypeKind.Battle
+        in DUNGEON -> SubtypeKind.Dungeon
         else -> SubtypeKind.Creature
     }
 }

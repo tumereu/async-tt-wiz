@@ -27,6 +27,11 @@ dependencies {
     testImplementation(project(":scale-fixtures"))
     implementation(project(":core"))
     implementation(project(":protocol"))
+    // I-D54: the server runs the Arcanum engine (the authoritative engine state of each game).
+    implementation(project(":arcanum-api"))
+    implementation(project(":arcanum-engine"))
+    // Tests only: the engine's invented cube cards are parsed from their oracle text (I-D54 spike, event model tests).
+    testImplementation(project(":arcanum-parser"))
     implementation(libs.flyway.core)
     implementation(libs.flyway.postgresql)
     implementation(libs.postgresql)
@@ -53,6 +58,9 @@ dependencies {
 }
 
 application { mainClass.set("org.asyncttwiz.server.ServiceCommand") }
+
+// The engine's invented cube cards by name, shared as source (their texts live only there), as :automatum does.
+kotlin.sourceSets.named("test") { kotlin.srcDir("../arcanum-engine/src/commonTest/kotlin/arcanum/engine/cards") }
 
 val generateJooq = tasks.register<JavaExec>("generateJooq") {
     group = "code generation"
@@ -116,4 +124,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("asyncttwiz.recordUpgradeFixture", recordUpgradeFixture.toString())
     inputs.property("upgradeFixtureMode", recordUpgradeFixture)
     testLogging { events("passed", "skipped", "failed"); showStandardStreams = true }
+    // -Patw.engineSpike=true runs the I-D54 engine cost spike (EngineOnServerSpikeTest: prints timings, asserts none).
+    providers.gradleProperty("atw.engineSpike").orNull?.let { systemProperty("atw.engineSpike", it) }
 }

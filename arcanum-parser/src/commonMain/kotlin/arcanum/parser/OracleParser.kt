@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 28
+    const val VERSION: Int = 29
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -37,6 +37,12 @@ object OracleParser {
     /** Parses a whole face: its printed characteristics and its rules text. */
     fun parse(card: OracleCard): FaceDefinition {
         val face = characteristics(card)
+        // CR 309.4: a dungeon card's text is its rooms
+        if (arcanum.api.CardType.Dungeon in face.types) {
+            val self = selfNames(card.name, face)
+            MechanicWordings.rooms(card.text) { Sentences(self, true).instructions(it) }?.let { return face.copy(rooms = it) }
+            return face.copy(abilities = listOf(Ability.Unparsed(card.text)))
+        }
         val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }
         val self = selfNames(card.name, face)
         var abilities = abilities(card.text, self, isSpell)
@@ -60,6 +66,8 @@ object OracleParser {
                 ?.let { if (hasX) it.copy(announced = listOf("X")) else it }
             abilities = abilities.map { if (it is Keyword.Overload && overloaded != null) it.copy(instructions = overloaded) else it }
         }
+        // CR 702.55c: "the creature it haunts" triggers in exile, a modal one too
+        abilities = abilities.map { MechanicWordings.haunting(it) ?: it }
         // spm chunk 06: "It gains this card's other abilities." (CR 113.10): the face's other abilities written into the effect
         abilities = abilities.map { a -> if (a is Ability.Activated && a.text?.contains("this card's other abilities") == true) withOtherAbilities(a, abilities.filter { it !== a }) else a }
         // eoe chunk 01: a station card's P/T box (CR 721.2b)

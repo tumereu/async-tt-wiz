@@ -70,6 +70,7 @@ internal sealed class KeywordSyntax(val text: String) {
             none(Keyword.Fuse),
             none(Keyword.Dethrone),
             none(Keyword.HiddenAgenda),
+            none(Keyword.DoubleAgenda),
             none(Keyword.Prowess),
             none(Keyword.Exploit),
             none(Keyword.Menace),

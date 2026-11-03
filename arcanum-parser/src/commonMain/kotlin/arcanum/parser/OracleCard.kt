@@ -57,7 +57,11 @@ object TypeLine {
         "World" to Supertype.World)
     private val CARD_TYPES = mapOf("Artifact" to CardType.Artifact, "Battle" to CardType.Battle, "Creature" to CardType.Creature,
         "Enchantment" to CardType.Enchantment, "Instant" to CardType.Instant, "Kindred" to CardType.Kindred, "Land" to CardType.Land,
-        "Planeswalker" to CardType.Planeswalker, "Sorcery" to CardType.Sorcery)
+        "Planeswalker" to CardType.Planeswalker, "Sorcery" to CardType.Sorcery,
+        // CR 309.1
+        "Dungeon" to CardType.Dungeon,
+        // CR 905.4
+        "Conspiracy" to CardType.Conspiracy)
 }
 
 /** Reads a printed P/T, loyalty or defense ("2", "*", "1+*", "X"). */

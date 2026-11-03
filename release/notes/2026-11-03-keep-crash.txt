@@ -1,0 +1,1 @@
+fix: The app no longer crashes when you keep your opening hand after a mulligan.

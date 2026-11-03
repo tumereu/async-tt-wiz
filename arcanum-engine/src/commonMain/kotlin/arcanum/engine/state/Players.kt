@@ -128,6 +128,8 @@ data class Attacker(
     /** CR 506.4, 506.4c: the planeswalker or battle it attacked was removed from combat (it left the battlefield or
      * stopped being a planeswalker or battle): it still attacks, but nothing, and deals no combat damage unblocked. */
     val targetRemoved: Boolean = false,
+    /** The attacking band it is in (banding, CR 702.22c, e), by the number declared. */
+    val band: Int? = null,
 )
 
 /** [id] blocks [attackers]; [player] is the defending player who declared it (CR 509.1g), null when unknown. */

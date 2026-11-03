@@ -206,6 +206,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     private fun boundObjects(value: NamedValue?): List<ObjectId> = when (value) {
         is NamedValue.Objects -> value.ids
         is NamedValue.Targets -> value.refs.mapNotNull { (it as? TargetRef.Object)?.id }
+        is NamedValue.Spell -> listOf(value.item.id)
         else -> emptyList()
     }
 
@@ -292,8 +293,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Is -> id in objects(filter.objects)
             is ObjectFilter.Category -> when (filter.category) {
                 // dsk gaps: a copy of a card isn't a card (CR 109.1)
-                ObjectCategory.Card -> (o != null && !o.token && !o.copyOfCard) || (o == null && lki(id)?.token == false)
-                ObjectCategory.Token -> o?.token ?: lki(id)?.token ?: false
+                ObjectCategory.Card -> (o != null && !o.isToken && !o.copyOfCard) || (o == null && lki(id)?.token == false)
+                ObjectCategory.Token -> o?.isToken ?: lki(id)?.token ?: false
                 // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
                 ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
                 // msh: a card tested as the spell it would be or is becoming as it is cast (CR 601.2a)
@@ -332,7 +333,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // CR 709.4a: a split card has each of its halves' names
             is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
             is ObjectFilter.ChosenName -> c?.name != null && (ctx.names[filter.name] as? NamedValue.Name)?.name == c.name
-            is ObjectFilter.RememberedName -> c?.name != null && (selfMemory(filter.key) as? NamedValue.Name)?.name == c.name
+            // CR 702.106f: double agenda's second name counts as the chosen name too
+            is ObjectFilter.RememberedName -> c?.name != null && ((selfMemory(filter.key) as? NamedValue.Name)?.name == c.name ||
+                (filter.key == arcanum.engine.conspiracy.Conspiracies.CHOSEN_NAME &&
+                    (selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME) as? NamedValue.Name)?.name == c.name))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)
@@ -607,6 +611,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.ManaInPool -> players(value.players).sumOf { state.player(it).manaPool.size }
         // tla: the most objects sharing one value of the quality (a changeling shares every creature type, CR 702.73a)
         is Value.RingTemptations -> players(value.players).sumOf { arcanum.engine.ring.TheRing.temptations(state, it) }
+        is Value.DungeonsCompleted -> players(value.players).sumOf { arcanum.engine.dungeon.Dungeons.completed(state, it) }
         is Value.MostSharing -> mostSharing(value.quality, objects(value.objects))
         is Value.Of -> combine(value.how, objects(value.objects).map { property(value.property, it) })
         is Value.PlayerCounters -> players(value.players).sumOf { state.player(it).counters(value.kind) }

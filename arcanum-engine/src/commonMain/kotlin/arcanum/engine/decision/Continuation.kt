@@ -193,7 +193,14 @@ data class Choices(
     /** The payment under way when paying waits for a decision (a replacement effect on a cost's event, CR 601.2h,
      * 614): the mana [Paying.uses] answered and the answers so far; the payment is redone from its start with them (D29). */
     val paying: Paying? = null,
+    /** Assist (CR 702.132a): the player chosen to help pay, how much of the generic mana they pay and with what. */
+    val assist: Assisting? = null,
 )
+
+/** Assist (CR 702.132a): [player] chosen to help pay (null: nobody), the [amount] of generic mana they pay (once they chose), and
+ * the mana abilities and pool mana they pay it with ([uses], once paid). */
+@Serializable
+data class Assisting(val player: PlayerId?, val amount: Int? = null, val uses: List<ManaUse>? = null)
 
 /** A payment being redone with its [uses] and the [answers] to the decisions it asked so far (D29). */
 @Serializable

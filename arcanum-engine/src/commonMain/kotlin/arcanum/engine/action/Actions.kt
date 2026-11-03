@@ -256,7 +256,9 @@ internal object Actions {
                 // D60: hidden from the viewer where it goes (an opponent's hand, face down), or put in a hidden random order
                 if (Knowledge.forgets(scratch, after)) after = Knowledge.forgotten(after)
                 if (m.newId != null && m.to == Zone.Library) after = Knowledge.forgotten(after).copy(id = m.newId)
-                mv.copy(after = after, seen = snapshots[m.id])
+                // CR 730.3: a merged permanent's other components, forgotten as its own card is where the viewer can't see
+                val parts = mv.parts.map { p -> if (Knowledge.forgets(scratch, p.obj)) p.copy(obj = Knowledge.forgotten(p.obj)) else p }
+                mv.copy(after = after, seen = snapshots[m.id], parts = parts)
             }
             scratch.apply(Change.ZoneChange(listOf(moved)))
             all += moved

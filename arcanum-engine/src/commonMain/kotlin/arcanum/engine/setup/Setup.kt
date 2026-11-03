@@ -60,6 +60,8 @@ data class StartOptions(
     val chooser: PlayerId? = null,
     val handSize: Int = 7,
     val freeFirstMulligan: Boolean? = null,
+    /** A Conspiracy Draft game (CR 103.2e, 905.4): each player may put conspiracy cards from their sideboard into the command zone. */
+    val conspiracies: Boolean = false,
 )
 
 /** Where starting the game is ([Continuation.Setup]): each stage is done at once or waits for a decision. */
@@ -70,6 +72,10 @@ sealed interface SetupStage {
 
     /** CR 103.2b: the next player in turn order not [asked] yet may reveal a companion. */
     @Serializable @SerialName("companion") data class RevealCompanion(val asked: List<PlayerId> = emptyList()) : SetupStage
+
+    /** CR 103.2e, 905.4: in a Conspiracy Draft game, the next player in turn order not [asked] yet puts conspiracies into the command
+     * zone. */
+    @Serializable @SerialName("conspiracies") data class Conspiracies(val asked: List<PlayerId> = emptyList()) : SetupStage
 
     /** CR 103.3: every deck is shuffled and becomes a library. */
     @Serializable @SerialName("shuffle") data object Shuffle : SetupStage
@@ -196,6 +202,7 @@ internal object Setup {
     private fun key(stage: SetupStage): String = when (stage) {
         SetupStage.StartingPlayer -> "starting-player"
         is SetupStage.RevealCompanion -> "companion:${stage.asked.size}"
+        is SetupStage.Conspiracies -> "conspiracies:${stage.asked.size}"
         SetupStage.Shuffle -> "shuffle"
         SetupStage.Draw -> "draw"
         is SetupStage.Declare -> stage.mulligans.let { "declare:${it.taken.values.sum()}:${it.kept.size}:${it.taking.size}" }
@@ -208,7 +215,15 @@ internal object Setup {
     /** Does [stage] and returns the next one; null once the first turn has begun. */
     private fun step(act: Act, stage: SetupStage, options: StartOptions): SetupStage? = when (stage) {
         SetupStage.StartingPlayer -> startingPlayer(act, options)
-        is SetupStage.RevealCompanion -> companion(act, stage.asked)
+        is SetupStage.RevealCompanion -> companion(act, stage.asked) ?: if (options.conspiracies) SetupStage.Conspiracies() else SetupStage.Shuffle
+        is SetupStage.Conspiracies -> {
+            val player = order(act.state).firstOrNull { it !in stage.asked }
+            if (player == null) SetupStage.Shuffle
+            else {
+                arcanum.engine.conspiracy.Conspiracies.putIntoCommand(act, player)
+                SetupStage.Conspiracies(stage.asked + player)
+            }
+        }
         SetupStage.Shuffle -> {
             order(act.state).forEach { Actions.shuffle(act, it) }
             SetupStage.Draw
@@ -255,8 +270,8 @@ internal object Setup {
 
     // ---- CR 103.2b, 702.139a
 
-    private fun companion(act: Act, asked: List<PlayerId>): SetupStage {
-        val player = order(act.state).firstOrNull { it !in asked } ?: return SetupStage.Shuffle
+    private fun companion(act: Act, asked: List<PlayerId>): SetupStage? {
+        val player = order(act.state).firstOrNull { it !in asked } ?: return null
         val candidates = companions(act, player)
         // I-D18: whether a card outside the game is a companion is the player's to know (unknown ones are offered as
         // they are, see [companions])

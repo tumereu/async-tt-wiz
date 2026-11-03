@@ -240,14 +240,21 @@ internal object EventMatcher {
         is EventPattern.AbilityTriggers -> ((change as? Change.Happened)?.event as? GameEvent.AbilityTriggered)
             ?.takeIf { it.attack && pattern.cause is EventPattern.Attack && e.matches(pattern.source, it.source) }
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.item)), RoleObjects(EventRole.Source, listOf(it.source))))) }.orEmpty()
+        // CR 702.140d: a spell merged with a creature as a resolving mutating creature spell
+        is EventPattern.Mutates -> ((change as? Change.Happened)?.event as? GameEvent.Mutated)
+            ?.takeIf { e.matches(pattern.objects, it.permanent) }
+            ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.permanent))))) }.orEmpty()
         // CR 702.154a, c: an attacker enlisted a creature; the creature enlisted is the other combatant
         is EventPattern.Enlists -> ((change as? Change.Happened)?.event as? GameEvent.Enlisted)
             ?.takeIf { e.matches(pattern.objects, it.attacker) }
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.attacker)), RoleObjects(EventRole.OtherCombatant, listOf(it.enlisted))))) }.orEmpty()
         // CR 701.54d: the Ring tempted a player; the creature chosen is the event's object
         is EventPattern.RingTempts -> ((change as? Change.Happened)?.event as? GameEvent.RingTempted)
-            ?.takeIf { e.matches(pattern.players, it.player) }
+            ?.takeIf { e.matches(pattern.players, it.player) && (!pattern.chosen || it.bearer != null) }
             ?.let { listOf(TriggerEvent(listOfNotNull(it.bearer?.let { b -> RoleObjects(EventRole.Object, listOf(b)) }), listOf(it.player))) }.orEmpty()
+        // CR 309.7
+        is EventPattern.CompletesDungeon -> ((change as? Change.Happened)?.event as? GameEvent.CompletedDungeon)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         is EventPattern.Forage -> ((change as? Change.Happened)?.event as? GameEvent.Foraged)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         is EventPattern.BecomesLevel -> ((change as? Change.Happened)?.event as? GameEvent.BecameLevel)

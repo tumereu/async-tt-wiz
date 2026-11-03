@@ -213,6 +213,8 @@ internal object Resolution {
         if (anyTargets && !anyLegal && act.state.obj(item.id)?.bestowed == true) {
             // CR 702.103e, 608.3b: a bestowed Aura spell whose target is illegal resolves as a creature spell
             arcanum.engine.sba.StateBasedActions.Bestow.cease(act, item.id)
+        } else if (anyTargets && !anyLegal && act.state.obj(item.id)?.let { arcanum.engine.mutate.Mutate.mutating(it) } == true) {
+            // CR 702.140b: a mutating creature spell whose target is illegal resolves as a creature spell
         } else if (anyTargets && !anyLegal) {
             // CR 608.2b: it doesn't resolve; a spell goes to its owner's graveyard
             fizzles()
@@ -289,6 +291,8 @@ internal object Resolution {
 
     private fun finishLeaving(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
+        // CR 702.50a: epic's spell abilities, the last of the spell's instructions
+        if (!fizzled) arcanum.engine.epic.Epic.resolves(act, item)
         val card = act.state.obj(item.id)
         if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.GaveGift(item.controller)))
         // tla: CR 702.189b: a firebending ability its controller controls resolved
@@ -313,6 +317,8 @@ internal object Resolution {
         val permanent = c != null && PERMANENT_TYPES.any { c.isType(it) }
         act.record(Change.StackItemRemoved(item, null, listOf(meaning)))
         if (permanent && !fizzled) {
+            // CR 702.140c: a mutating creature spell with a legal target merges with it instead of entering
+            if (arcanum.engine.mutate.Mutate.mutating(card) && arcanum.engine.mutate.Mutate.resolve(act, item, card)) return
             val attachTo = if (c.subtypes.any { it.name == "Aura" }) item.targets.values.flatten().firstOrNull() else null
             // msh: sneak (CR 702.190b): tapped and attacking what the returned creature attacked
             val sneaked = card.facts.alternative?.keyword == arcanum.api.Keyword.Sneak.Kind

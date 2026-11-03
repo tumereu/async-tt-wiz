@@ -500,6 +500,10 @@ sealed interface CopyException {
     @Serializable @SerialName("colors") data class Colors(val colors: List<ColorRef>, val add: Boolean = false) : CopyException
     @Serializable @SerialName("pt") data class PowerToughness(val power: Int, val toughness: Int) : CopyException
     @Serializable @SerialName("abilities") data class AddAbilities(val abilities: List<Ability>) : CopyException
+    /** "Except for its [keyword] ability" (epic, CR 702.50a): the copy doesn't have it. */
+    @Serializable @SerialName("without-keyword") data class WithoutKeyword(
+        @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind,
+    ) : CopyException
     @Serializable @SerialName("mana-cost") data class ManaCostOf(val cost: ManaCost?) : CopyException
     // gtc chunk 12
     /** "… and it has this ability": the copy also has the ability whose effect made it a copy (CR 707.9a, b). */

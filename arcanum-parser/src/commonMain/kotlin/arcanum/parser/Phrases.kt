@@ -44,6 +44,8 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // CR 701.54e: "your Ring-bearer"
+        if (phrase == "your Ring-bearer" || phrase == "Your Ring-bearer") return MechanicWordings.yourRingBearer
         TdmPhrases.noun(phrase)?.let { return it } // tdm
         EoePhrases.noun(phrase)?.let { return it } // eoe
         SpmPhrases.noun(phrase)?.let { return it } // spm
@@ -512,6 +514,7 @@ internal object Events {
 
     fun event(text: String, self: Set<String>): EventPattern? {
         MechanicWordings.event(text)?.let { return it }
+        MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
@@ -802,6 +805,8 @@ internal object Events {
         if (text in self || text.replaceFirstChar { it.lowercase() } in self) return ObjectFilter.Is(Objects.Self)
         // chunk 20
         if (text == "equipped creature" || text == "enchanted creature") return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
+        // CR 701.54e
+        if (text == "your Ring-bearer" || text == "Your Ring-bearer") return MechanicWordings.yourRingBearer
         // gtc chunk 08
         if (text == "enchanted land") return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
         SELF_OR_ANOTHER.matchEntire(text)?.let { m ->

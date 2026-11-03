@@ -98,6 +98,10 @@ The definition model (overview in `Definitions.kt`):
   `Duration.UntilEndOfNextTurnOf` ("until the end of their next turn"), `Effect.RevealUntil.totalAtLeast` ("until you exile cards with
   total mana value 4 or greater"); `DefinitionChecks` lets a spell's cost statics read its announced X ("As an additional cost to cast
   this spell, pay X life").
+- Teenage Mutant Ninja Turtles (set `tmt`): the Mutagen token (CR 111.10v, `PredefinedTokens`), `ObjectFilter.CrewedThisTurn`
+  ("target creature that crewed it this turn", CR 702.122c), `Measure.Distinct` ("for each card type among spells you've cast this
+  turn", each event's object as it was) and `Keyword.Equip.perTurn` ("Equip—Sacrifice another nonland permanent. Activate only once
+  each turn"); sneak's "if his sneak cost was paid" is `Condition.Paid` of the sneak keyword.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

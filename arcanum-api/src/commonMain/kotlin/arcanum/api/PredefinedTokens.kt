@@ -33,11 +33,17 @@ object PredefinedTokens {
             subtypes = listOf(Subtype("Heartwood")), abilities = listOf(Ability.Activated(Cost(listOf(CostPart.TapSelf)),
                 steps(Effect.AddMana(ManaProduction(ManaKind.Choose(Value.Fixed(1), colors = listOf(ColorRef.Literal(Color.Red), ColorRef.Literal(Color.Green)))),
                     players = Players.You)), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You))))
+        // tmt chunk 01: CR 111.10v: a Mutagen artifact token with "{1}, {T}, Sacrifice this token: Put a +1/+1 counter on target
+        // creature. Activate only as a sorcery."
+        "Mutagen" -> artifact("Mutagen", Ability.Activated(Cost(listOf(mana("{1}"), CostPart.TapSelf, sacrificeSelf)),
+            Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
+                steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))),
+            rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
         else -> null
     }
 
     /** Every name [face] knows. */
-    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood")
+    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen")
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)

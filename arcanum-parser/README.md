@@ -39,6 +39,9 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Secrets of Strixhaven (`sos`): all 271 cards parse (preparation cards as two faces; the five basic lands untested); its rules are in
   `SosWordings.kt` and the `sos*` functions of `Sentences.kt`, tried first like The Hobbit's except "A, B, and C" sentences and "If
   [any condition], …" / "… unless [condition]", tried only after every other rule finds nothing.
+  Teenage Mutant Ninja Turtles (`tmt`): all 190 cards parse; its rules are in `TmtWordings.kt` and the `tmt*` functions of
+  `Sentences.kt`, tried first like The Hobbit's; names of two characters ("Don & Raph attack", "The Neutrinos get") are read with
+  singular verbs, and a modal trigger's "choose one that hasn't been chosen this turn." may end with a period.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

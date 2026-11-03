@@ -365,6 +365,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 toOk && attachmentsOk
             }
             is ObjectFilter.ThisTurn -> History.happened(this, filter.event, objectId = id, role = filter.role)
+            // tmt: tapped this turn to pay a crew cost of one of the Vehicles (CR 702.122c)
+            is ObjectFilter.CrewedThisTurn -> History.crewed(this, id, objects(filter.vehicles).toSet())
             // blb gaps 2: "with {X} in its mana cost" (CR 107.3, 202.1); "the first instant spell you've cast this turn"
             ObjectFilter.XInManaCost -> c?.manaCost?.symbols.orEmpty().any { it is arcanum.api.ManaSymbol.Variable && it.name == 'X' }
             is ObjectFilter.NthSpellThisTurn -> History.isNthSpell(this, filter, id)
@@ -691,7 +693,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Combine.Least -> values.minOrNull() ?: 0
     }
 
-    private fun distinct(quality: SharedQuality, ids: List<ObjectId>): Int {
+    internal fun distinct(quality: SharedQuality, ids: List<ObjectId>): Int {
         val cs = ids.mapNotNull { characteristics(it) }
         return when (quality) {
             SharedQuality.Color -> cs.flatMap { it.colors }.distinct().size
@@ -855,6 +857,21 @@ internal object History {
                     ?: e.objects.firstOrNull())?.ids.orEmpty()
             }.size
             arcanum.api.Measure.Amount -> instances(evaluator, event, number).sumOf { it.amount ?: 0 }
+            // tmt: the qualities among the events' objects, each as it was then ("card types among spells you've cast this turn")
+            is arcanum.api.Measure.Distinct -> evaluator.distinct(measure.quality, instances(evaluator, event, number).flatMap { e ->
+                (e.objects.firstOrNull { it.role == arcanum.api.EventRole.Object || it.role == arcanum.api.EventRole.Before }
+                    ?: e.objects.firstOrNull())?.ids.orEmpty()
+            }.distinct())
+        }
+    }
+
+    /** tmt: whether [id] was tapped this turn to pay the crew cost of one of [vehicles] (CR 702.122b, c). */
+    fun crewed(evaluator: Evaluator, id: ObjectId, vehicles: Set<ObjectId>): Boolean {
+        evaluator.board.readingLog()
+        val state = evaluator.board.state
+        return state.eventsOf(state.turn.number).any { change ->
+            change is arcanum.engine.change.Change.Status && change.id == id &&
+                change.meanings.any { it is arcanum.engine.change.Meaning.Crewed && it.vehicle in vehicles }
         }
     }
 

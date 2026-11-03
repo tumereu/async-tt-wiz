@@ -100,6 +100,10 @@ sealed interface Measure {
     @Serializable @SerialName("events") data object Events : Measure
     @Serializable @SerialName("objects") data object Objects : Measure
     @Serializable @SerialName("amount") data object Amount : Measure
+    // tmt
+    /** The number of different [quality] values among the events' objects, each as it was in its event ("for each card type
+     * among spells you've cast this turn": the types of the spells as they were cast). */
+    @Serializable @SerialName("distinct") data class Distinct(val quality: SharedQuality) : Measure
 }
 
 /** A number an object has (part of its properties). */

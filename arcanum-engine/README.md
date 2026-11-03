@@ -338,6 +338,11 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   infusion, repartee, stun counters, casualty and miracle (also when another object gives them; a spell has the abilities other objects
   give it as its costs are determined, CR 601.2a–b), skipped turns (CR 614.10: `TurnState.skippedTurns`), "can't be copied", exiling
   until a total mana value, "until the end of their next turn" for another player, and 2ˣ.
+- Done, Teenage Mutant Ninja Turtles (scenarios in `commonTest/…/sets/tmt/`): all 190 cards play. Mutagen tokens, sneak's "if
+  his sneak cost was paid" (this turn too), sneak given to cards in a graveyard and casting them from there only with it (the alternative
+  cost the card had where it was cast from is kept as it moves to the Stack, CR 601.2a, b; `MayPlay.viaAlternative` is enforced),
+  disappear, the card types among spells cast this turn (`Measure.Distinct`), creatures that crewed a Vehicle this turn (tapping for a
+  crew cost is recorded with `Meaning.Crewed`, CR 702.122b), an equip cost paid once each turn, searching outside the game.
 - Not yet: several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and

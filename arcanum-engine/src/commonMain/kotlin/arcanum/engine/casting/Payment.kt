@@ -268,7 +268,9 @@ internal object Payment {
                 val ids = objects(part.what)
                 check(ids, Zone.Battlefield)
                 // msh: tapped to pay a keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a)
-                val paidFor = plan.costKeyword(kp.key)?.let { listOf(Meaning.PaidFor(it)) }.orEmpty()
+                val paidFor = plan.costKeyword(kp.key)?.let { listOf(Meaning.PaidFor(it)) }.orEmpty() +
+                    // tmt: tapped for a Vehicle's crew ability: they crewed it (CR 702.122b)
+                    listOfNotNull(Meaning.Crewed(plan.sourceId).takeIf { plan.keyword() is Keyword.Crew })
                 ids.forEach { if (recorder.state.obj(it)?.tapped != false) refuse("$it is tapped"); recorder.record(Changes.tap(recorder.state, it, meanings = paidFor)) }
                 part.bind?.let { bound[it] = NamedValue.Objects(ids) }
             }

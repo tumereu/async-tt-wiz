@@ -119,8 +119,9 @@ internal object StateBasedActions {
             // fra: "Planeswalkers you control aren't put into their owners' graveyards for having 0 loyalty."
             if (c.isType(CardType.Planeswalker) && o.counters(CounterKind.Loyalty) <= 0 &&
                 view[id]?.has { it == Mechanic.NoGraveyardForZeroLoyalty } != true) toGraveyard += id
-            // CR 704.5v: a battle with 0 defense
-            if (c.isType(CardType.Battle) && o.counters(CounterKind.Defense) <= 0) toGraveyard += id
+            // CR 704.5v, w: a battle with 0 defense (a Siege not while an ability of its own that triggered waits or is on the Stack)
+            if (c.isType(CardType.Battle) && o.counters(CounterKind.Defense) <= 0 && !arcanum.engine.combat.Battles.siegeWaits(state, view, id))
+                toGraveyard += id
             // CR 704.5m: an Aura attached to an illegal object or player, or not attached
             if (c.subtypes.any { it.name == "Aura" } && !c.isType(CardType.Creature)) {
                 // CR 702.103f: a bestowed Aura attached illegally or unattached becomes unattached and stops being
@@ -152,6 +153,9 @@ internal object StateBasedActions {
             }
         }
 
+        // CR 704.5x, y: battles without an appropriate protector get one; with none possible, they go to the graveyard
+        toGraveyard += arcanum.engine.combat.Battles.checkProtectors(act, view, battlefield)
+
         // CR 704.5j: a player with two or more legendary permanents with the same name chooses one; the rest go
         // fra: permanents the "legend rule" doesn't apply to
         battlefield.filter { view[it]?.characteristics?.supertypes?.contains(Supertype.Legendary) == true &&
@@ -159,7 +163,7 @@ internal object StateBasedActions {
             .groupBy { (view[it]?.controller ?: state.objOrThrow(it).owner) to view[it]?.characteristics?.name }
             .filter { (key, ids) -> key.second != null && ids.size >= 2 }
             .forEach { (key, ids) ->
-                val kept = (act.asker.ask { Decision.LegendRule(it, key.first, null, key.second!!, ids) } as Answer.Keep).kept
+                val kept = (act.ask { Decision.LegendRule(it, key.first, null, key.second!!, ids) } as Answer.Keep).kept
                 require(kept in ids) { "Keep one of $ids" }
                 toGraveyard += ids.filter { it != kept }
             }

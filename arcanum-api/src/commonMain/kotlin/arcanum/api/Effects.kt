@@ -238,6 +238,8 @@ sealed interface Effect {
         val bind: String? = null, val caster: Players,
         /** Only if the resulting spell matches ("if the resulting spell's mana value is less", cascade, CR 702.85a). */
         val resultingSpell: ObjectFilter? = null,
+        /** "Cast it transformed": a transforming double-faced card cast with its back face up (a Siege, CR 310.12b, 712.11a). */
+        val transformed: Boolean = false,
         // fin
         /** "and mana of any type can be spent to cast that spell" (CR 601.2h). */
         val manaAsAnyType: Boolean = false,

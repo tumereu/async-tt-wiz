@@ -254,8 +254,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             state.combat?.attackers.orEmpty().filter { it.id in attackers }.mapNotNull { attack ->
                 when (val target = attack.target) {
                     is TargetRef.Player -> target.id
-                    // The controller of the planeswalker, or the protector of the battle (CR 506.2)
-                    is TargetRef.Object -> controllerOf(target.id)
+                    // The controller of the planeswalker, or the protector of the battle (CR 506.2, 310.9d)
+                    is TargetRef.Object -> state.obj(target.id)?.protector ?: controllerOf(target.id)
                 }
             }.distinct()
         }

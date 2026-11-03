@@ -48,7 +48,7 @@ internal object Casts {
                     meanings = listOf(Meaning.PlayedLand))))
                 continue
             }
-            arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost, effect.manaAsAnyType)?.let { cast += it }
+            arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost, effect.transformed, effect.manaAsAnyType)?.let { cast += it }
         }
         scope.bind(effect.bind, NamedValue.Objects(cast))
     }
@@ -75,7 +75,7 @@ internal object Casts {
             // msh: "choose up to X": at most that many
             val max = m.maxCount?.let { minOf(m.max, maxOf(m.min, act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event)).value(it))) } ?: m.max
             val chosen = if (used.isEmpty() && m.min == max && max == m.options.size && !m.repeatable) options.map { it.index }
-                else (act.asker.ask { Decision.Modes(it, controller, source, options, m.min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
+                else (act.ask { Decision.Modes(it, controller, source, options, m.min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
             require(chosen.size <= max) { "At most $max modes" }
             require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
             if (o != null && (m.onlyUnchosen || m.onlyUnchosenThisTurn) && chosen.isNotEmpty()) {

@@ -751,7 +751,7 @@ internal object Effects {
         if (effect.distributed && divided.isEmpty() && ids.size > 1) {
             // CR 608.2d: distributed as the controller chooses, at least one each
             val total = scope.value(effect.amount)
-            val shares = (act.asker.ask { id ->
+            val shares = (act.ask { id ->
                 arcanum.engine.decision.Decision.Divide(id, scope.you, scope.self, total, ids.map { TargetRef.Object(it) }, 1)
             } as Answer.Division).shares
             shares.forEach { s -> Actions.putCounters(act, scope.cause, s.target, effect.kind, s.amount) }

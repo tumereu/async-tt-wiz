@@ -36,7 +36,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         memo[id]?.let { return it }
         if (id in visiting) return null
         val result = compute(id, visiting + id)
-        memo[id] = result
+        // Values worked out while a static copy finds what it affects leave that copy out: not kept
+        if (evaluating.isEmpty()) memo[id] = result
         return result
     }
 
@@ -88,9 +89,49 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         return top + others.map { it.copy(abilitiesOnly = true) }
     }
 
+    /** The copy effects on [id] in timestamp order (CR 613.7): effect objects locked on it, and static abilities of permanents
+     * whose `affects` include it ([staticCopies]), as effect objects of the ability's timestamp. */
     private fun copyEffectsOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> =
-        state.effects.values.filter { it.locked?.contains(id) == true }.sortedBy { it.timestamp }
-            .flatMap { e -> e.mechanics.filterIsInstance<Mechanic.CopyOf>().map { e to it } }
+        (state.effects.values.filter { it.locked?.contains(id) == true }
+            .flatMap { e -> e.mechanics.filterIsInstance<Mechanic.CopyOf>().map { e to it } } + staticCopiesOn(id))
+            .sortedBy { it.first.timestamp }
+
+    /** A static ability with a copy effect (CR 613.2a, 707.2: "… is a copy of …") printed on [source], a permanent. */
+    private class StaticCopy(val source: GameObject, val index: Int, val ability: Ability.Static, val copy: Mechanic.CopyOf)
+
+    /** Static abilities with copy effects among the permanents' printed abilities (an ability a copy effect gives isn't one). */
+    private val staticCopies: List<StaticCopy> by lazy {
+        state.battlefield.mapNotNull { state.obj(it) }.filter { !it.phasedOut && !it.faceDown }.flatMap { o ->
+            o.definition?.faces?.getOrNull(o.face)?.abilities.orEmpty().mapIndexedNotNull { i, a ->
+                (a as? Ability.Static)?.let { s -> s.mechanics.filterIsInstance<Mechanic.CopyOf>().firstOrNull()?.let { StaticCopy(o, i, s, it) } }
+            }
+        }
+    }
+
+    /** The static copies being worked out now: one read again while its own affected objects are found doesn't apply. */
+    private val evaluating = mutableSetOf<StaticCopy>()
+
+    /** The static copy effects that apply to [id] (CR 613.2a): the ability's condition holds and its `affects` include [id], both
+     * read on the copiable values (layer 1 comes first, CR 613.8 aside); the copied values are those the object copied has. */
+    private fun staticCopiesOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> {
+        if (staticCopies.isEmpty()) return emptyList()
+        return staticCopies.filter { it !in evaluating }.mapNotNull { sc ->
+                evaluating += sc
+                try {
+                    val controller = sc.source.controller ?: sc.source.owner
+                    val e = Evaluator(PrintedBoard(state, this), Context(you = controller, self = sc.source.id))
+                    val affected = (sc.ability.affects as? arcanum.api.Affected.Objects)?.let { e.objects(it.objects) }.orEmpty()
+                    if (id !in affected || (sc.ability.condition?.let { !e.holds(it) } == true)) return@mapNotNull null
+                    EffectObject(
+                        id = arcanum.engine.state.EffectId("static-copy:${sc.source.id}:${sc.index}"), mechanics = listOf(sc.copy),
+                        affects = sc.ability.affects, locked = listOf(id), source = sc.source.id, controller = controller,
+                        timestamp = sc.source.timestamp, createdTurn = 0, duration = arcanum.api.Duration.Indefinitely,
+                    ) to sc.copy
+                } finally {
+                    evaluating -= sc
+                }
+            }
+    }
 
     private fun copiedFaces(effect: EffectObject, copy: Mechanic.CopyOf, visiting: Set<ObjectId>): List<IndexedFace>? {
         val evaluator = Evaluator(PrintedBoard(state, this), Context(you = effect.controller, self = effect.source, names = effect.names))

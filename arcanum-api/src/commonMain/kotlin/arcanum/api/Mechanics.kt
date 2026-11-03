@@ -201,6 +201,11 @@ sealed interface Mechanic {
     @Serializable @SerialName("attack-cost") data class AttackCost(val cost: Cost, val target: Recipients? = null) : Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
+    /** "Creatures can't block [attackers] unless their controller pays [cost] for each" (CR 509.1d): the static ability's
+     * `affects` is the creatures restricted; [attackers] what they block (any attacker when null). */
+    @Serializable @SerialName("block-cost") data class BlockCost(val cost: Cost, val attackers: ObjectFilter? = null) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** Can block [count] additional creatures each combat. */
     @Serializable @SerialName("can-block-additional") data class CanBlockAdditional(val count: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
@@ -424,6 +429,14 @@ sealed interface Mechanic {
     /** "If this card is in your opening hand, you may begin the game with it on the battlefield" (CR 103.6a): an
      * opening-hand action, taken after mulligans; works in the hand. */
     @Serializable @SerialName("may-begin-on-battlefield") data object MayBeginOnBattlefield : Mechanic
+    /** "Any time you could mulligan and this card is in your hand, you may [instructions]" (CR 103.5b): an action its owner may
+     * take where they would declare whether they take a mulligan, then they declare; works in the hand. */
+    @Serializable @SerialName("when-you-could-mulligan") data class WhenYouCouldMulligan(val instructions: Instructions) : Mechanic
+    /** The affected players' starting hand size is changed by [change] (CR 103.5: "some effects can modify a player's starting
+     * hand size", 103.5a); read as the game starts, from objects in the command zone (a conspiracy, a vanguard). */
+    @Serializable @SerialName("starting-hand-size") data class StartingHandSize(val change: Int) : Mechanic {
+        override val stacking: Stacking get() = Stacking.Additive
+    }
     // fra
     /** "A deck can have any number of cards named ~" (CR 100.2a): a deck-construction rule, nothing during a game. */
     @Serializable @SerialName("any-number-in-deck") data object AnyNumberInDeck : Mechanic

@@ -152,7 +152,8 @@ internal object Steps {
             val kept = p.manaPool.mapNotNull { u -> if (keeps(u)) u else becomes?.let { u.copy(color = it, keptUntil = null) } }
             if (kept != p.manaPool) recorder.record(Changes.manaPool(s, p.id, kept, listOf(Meaning.ManaEmptied)))
         }
-        endEffects(recorder) { d, you -> d is Duration.ThroughNextStep && d.step == step && whose(recorder.state, d.whose, you) }
+        // the step's player read with the effect's own names (exert: "its controller's next untap step", CR 701.43a)
+        endEffectsNamed(recorder) { d, you, names -> d is Duration.ThroughNextStep && d.step == step && whose(recorder.state, d.whose, you, names) }
         if (step == TurnStep.EndOfCombat) {
             // CR 511.2: "until end of combat" effects end; CR 511.3: everything is removed from combat
             endEffects(recorder) { d, _ -> d == Duration.EndOfCombat }
@@ -161,8 +162,8 @@ internal object Steps {
     }
 
     /** Whether the active player is one of [players] for the effect's controller. */
-    private fun whose(s: GameState, players: Players, you: PlayerId): Boolean =
-        s.turn.active in Snapshot(s).evaluator(you).players(players)
+    private fun whose(s: GameState, players: Players, you: PlayerId, names: arcanum.engine.state.Bindings): Boolean =
+        s.turn.active in Snapshot(s).evaluator(you, names = names).players(players)
 
     private fun begin(recorder: Recorder, step: TurnStep) {
         val s = recorder.state
@@ -391,11 +392,16 @@ internal object Steps {
     /** Ends effect objects and delayed triggers whose duration [ends] says is over now. */
     private fun endEffects(
         recorder: Recorder, onlyController: PlayerId? = null, createdBefore: Int? = null, ends: (Duration, PlayerId) -> Boolean,
+    ) = endEffectsNamed(recorder, onlyController, createdBefore) { d, you, _ -> ends(d, you) }
+
+    private fun endEffectsNamed(
+        recorder: Recorder, onlyController: PlayerId? = null, createdBefore: Int? = null,
+        ends: (Duration, PlayerId, arcanum.engine.state.Bindings) -> Boolean,
     ) {
         recorder.state.effects.values.toList().forEach { e: EffectObject ->
             if (onlyController != null && e.controller != onlyController) return@forEach
             if (createdBefore != null && e.createdTurn >= createdBefore) return@forEach
-            if (ends(e.duration, e.controller)) recorder.record(Change.EffectRemoved(e))
+            if (ends(e.duration, e.controller, e.names)) recorder.record(Change.EffectRemoved(e))
         }
         // fin: control that returns as the effects end is lost before the delayed triggers of the same duration end ("when you lose control
         // of that Equipment this turn", CR 514.2)
@@ -404,7 +410,7 @@ internal object Steps {
             val d = t.duration ?: return@forEach
             if (onlyController != null && t.controller != onlyController) return@forEach
             if (createdBefore != null && t.createdTurn >= createdBefore) return@forEach
-            if (ends(d, t.controller)) recorder.record(Change.DelayedTriggerRemoved(t, listOf(Meaning.EffectEnded)))
+            if (ends(d, t.controller, t.names)) recorder.record(Change.DelayedTriggerRemoved(t, listOf(Meaning.EffectEnded)))
         }
     }
 }

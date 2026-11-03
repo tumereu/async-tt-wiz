@@ -20,13 +20,13 @@ import kotlin.random.Random
  * device adds (a place for each permanent that entered), and now and then a table-only event (a card moved on the
  * battlefield, a setting changed).
  */
-internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> = CREATURES to SPELLS) {
+internal class EngineGames(seed: Long, decks: Pair<List<String>, List<String>> = CREATURES to SPELLS, life: Int = 20) {
     val alice = PlayerId("alice")
     val bob = PlayerId("bob")
     val rnd = Random(seed)
     val initial: GameState = Engine.newGame(listOf(alice to decks.first, bob to decks.second).map { (p, names) ->
         Seat(p, names.mapIndexed { i, name -> DeckCard(CardId("${p.value}.$i"), Cards.definition(name)) })
-    })
+    }, startingLife = life)
     val codec = EngineJson(GameDefinitions.of(initial))
     private var inputsThisTurn = 0
     private var turn = 0

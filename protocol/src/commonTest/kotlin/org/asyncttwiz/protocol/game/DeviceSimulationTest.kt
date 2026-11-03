@@ -1,0 +1,194 @@
+package org.asyncttwiz.protocol.game
+
+import arcanum.engine.Engine
+import arcanum.engine.decision.Answer
+import arcanum.engine.input.Input
+import arcanum.engine.state.PlayerId
+import kotlin.random.Random
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import kotlin.test.fail
+
+/**
+ * I-D56 step B, §13's tests: seeded whole games of two players through their devices ([GameDevice]) and the in-memory
+ * server ([DeviceSim]), each player acting only through their own device the way a player would (playing back, answering
+ * at decision stops: mostly the assumed answer, sometimes another, which branches; acting at their move; pressing
+ * Assume buttons now and then; undoing, asking to undo and answering requests; conceding rarely), live (prompt
+ * delivery, green presence) or async (players away, coming back to a catch-up), with messages crossing on the wire.
+ *
+ * Oracles: the leak oracle on every event shown (nothing revealed while the player's line is tentative, §5); at the
+ * end, each device's line and state equal the server's, and each device's reproduction bundle replays exactly (the
+ * engine is deterministic and random answers come from the line's stream, so every event is made again identically —
+ * the equivalence of device and server play).
+ */
+class DeviceSimulationTest {
+    private enum class Mode { LIVE, ASYNC, MIXED }
+
+    private class Stats {
+        var games = 0; var events = 0; var branches = 0; var confirmations = 0; var rewinds = 0; var requests = 0
+        var assumed = 0; var assumedBlocks = 0; var results = 0; var catchUps = 0; var shown = 0
+        override fun toString() = "games $games, events $events, branches $branches, confirmations $confirmations, " +
+            "rewinds $rewinds, requests $requests, assumed $assumed (blocks $assumedBlocks), results $results, catch-ups $catchUps, shown $shown"
+    }
+
+    private fun play(seed: Long, mode: Mode, decks: Pair<List<String>, List<String>>, stats: Stats, maxEvents: Int = 260) {
+        val sim = DeviceSim(EngineGames(seed, decks, life = 7))
+        val rnd = Random(seed * 1_000_003 + mode.ordinal)
+        val players = listOf(sim.alice, sim.bob)
+        val online = players.associateWith { true }.toMutableMap()
+        sim.start(if (rnd.nextBoolean()) sim.alice else sim.bob, if (rnd.nextInt(4) == 0) ResponseMode.Normal else ResponseMode.AutoSkip)
+        var quiet = 0
+        var lastProgress = ""
+        var ticks = 0
+        while (ticks++ < 6_000) {
+            if (players.all { (sim.device(it).status as? GameDevice.Status.Over)?.final == true }) break
+            if (sim.server.store.size > maxEvents) break
+            val p = players[rnd.nextInt(2)]
+            val q = sim.other(p)
+            // Presence: async players come and go; a player coming back loads the game (catch-up)
+            if (mode != Mode.LIVE) {
+                if (!online.getValue(p)) {
+                    if (rnd.nextInt(if (mode == Mode.ASYNC) 6 else 3) == 0) {
+                        online[p] = true
+                        if (sim.load(p).catchUp) stats.catchUps++
+                    } else { sim.now += rnd.nextLong(0, 30_000); continue }
+                } else if (rnd.nextInt(if (mode == Mode.ASYNC) 8 else 25) == 0) { online[p] = false; continue }
+            }
+            sim.device(p).presence(online.getValue(q), sim.now)
+            if (sim.pendingDeliveries(p) > 0) sim.deliver(p, if (rnd.nextBoolean()) null else rnd.nextInt(1, 4))
+            turn(sim, p, rnd, stats)
+            sim.flush(p)
+            sim.now += rnd.nextLong(0, 4_000)
+            val progress = "${sim.server.head}/${sim.server.heads}/${sim.server.request}/${players.map { sim.device(it).session.localHead }}"
+            if (progress == lastProgress && players.all { sim.pendingDeliveries(it) == 0 }) quiet++ else quiet = 0
+            lastProgress = progress
+            if (quiet > 400) fail("seed $seed $mode: stuck at ${players.map { "${it.value}: ${sim.device(it).status} ${online[it]}" }}, " +
+                "server ${sim.server.state().engine.turn} pending ${sim.server.state().engine.pending?.decision} holder ${sim.server.state().engine.priority.holder}")
+        }
+        // Everyone comes back and plays on to the head, confirming what waits for them
+        for (p in players) { online[p] = true; sim.device(p).presence(true, sim.now) }
+        repeat(60) {
+            sim.settle()
+            for (p in players) {
+                val d = sim.device(p)
+                if (d.needsReload) sim.load(p)
+                sim.device(p).play()
+                (sim.device(p).status as? GameDevice.Status.Stopped)?.let { sim.device(p).act(it.assumed); sim.flush(p) }
+            }
+        }
+        sim.settle()
+        if (sim.leaks.isNotEmpty()) fail("seed $seed $mode: leaks ${sim.leaks}")
+        for (p in players) {
+            val d = sim.device(p)
+            assertTrue(!d.needsReload, "seed $seed $mode ${p.value}: reload")
+            assertEquals(sim.server.head, d.session.head, "seed $seed $mode ${p.value}: the device's main line ends at the server's head")
+            assertEquals(sim.server.line().takeLast(d.session.events.size), d.session.events, "seed $seed $mode ${p.value}: the same main line")
+            if (d.session.pending.isEmpty()) assertTrue(d.model.sameAs(sim.server.stateAt(d.session.localHead)),
+                "seed $seed $mode ${p.value}: the shown state is the server's at the local head")
+            val repro = GameRepro.decode(d.repro(sim.server.history.codec).encode())
+            assertEquals(emptyList(), repro.check(), "seed $seed $mode ${p.value}: the bundle replays")
+        }
+        stats.games++
+        stats.events += sim.server.line().size
+        stats.branches += sim.branches
+        stats.confirmations += sim.confirmations
+        stats.rewinds += sim.rewinds
+        stats.shown += sim.shownChecked
+        stats.assumed += sim.server.line().count { it.assumed != null }
+        stats.assumedBlocks += sim.server.line().count { it.assumed?.input is Input.DeclareBlockers }
+        if (Engine.result(sim.server.state().engine) != null) stats.results++
+    }
+
+    /** One thing player [p] does on their device, as a player would. */
+    private fun turn(sim: DeviceSim, p: PlayerId, rnd: Random, stats: Stats) {
+        val d = sim.device(p)
+        d.advance(sim.now)
+        d.notes()
+        d.request?.let { r ->
+            if (r.by != p.value && rnd.nextInt(3) == 0) { d.requestPreview(); d.answerRequest(rnd.nextBoolean()); return }
+            if (r.by == p.value && rnd.nextInt(15) == 0) { d.cancelRequest(); return }
+        }
+        when (val status = d.status) {
+            GameDevice.Status.Reload -> sim.load(p)
+            GameDevice.Status.CatchUp -> d.play()
+            is GameDevice.Status.Playing -> repeat(rnd.nextInt(1, 8)) { d.step() }
+            is GameDevice.Status.Stopped -> answer(sim, d, status, rnd)
+            GameDevice.Status.YourMove -> move(sim, d, rnd, stats)
+            is GameDevice.Status.Waiting -> when {
+                status.blockersScreen -> if (rnd.nextInt(4) > 0) d.assume(blocks(d, rnd)) else d.closeBlockersScreen()
+                status.offer != null && rnd.nextInt(6) == 0 -> d.assume(if (status.offer == GameDevice.Offer.AssumeBlockers) blocks(d, rnd) else emptyList())
+                rnd.nextInt(30) == 0 && d.undoTarget() != null -> undo(d, rnd, stats)
+                else -> {}
+            }
+            is GameDevice.Status.Over -> if (status.confirmable && !status.final) d.confirmResult()
+            else -> {}
+        }
+    }
+
+    /** Blocks the device's player assumes: "No blocks" mostly, else some the engine lists. */
+    private fun blocks(d: GameDevice, rnd: Random): List<arcanum.engine.input.Block> =
+        if (rnd.nextInt(3) > 0) emptyList()
+        else Engine.options(d.model.engine, d.opponent).filterIsInstance<Input.DeclareBlockers>().randomOrNull(rnd)?.blocks.orEmpty()
+
+    /** At a decision stop: mostly the assumed answer (a confirmation), sometimes another one (a branch). */
+    private fun answer(sim: DeviceSim, d: GameDevice, stop: GameDevice.Status.Stopped, rnd: Random) {
+        val s = d.model.engine
+        val others = Engine.options(s, d.me).filter { it !is Input.Concede && !Acceptance.same(it, stop.assumed) &&
+            Authority.mayMake(s, it, d.me, d.model.table) }
+        if (others.isEmpty() || rnd.nextInt(10) < 7) d.act(stop.assumed)
+        else d.act(others.random(rnd), follow = sim.flow(d.me, rnd))
+    }
+
+    /** At the player's move: an action of theirs (doing something mostly, passing sometimes), an End turn, an undo. */
+    private fun move(sim: DeviceSim, d: GameDevice, rnd: Random, stats: Stats) {
+        val s = d.model.engine
+        if (rnd.nextInt(25) == 0 && d.undoTarget() != null) return undo(d, rnd, stats)
+        if (rnd.nextInt(1_500) == 0) { d.concede(); return }
+        if (s.priority.holder == d.me && s.pending == null && rnd.nextInt(12) == 0) { d.endTurn(sim.now); return }
+        val listed = Engine.options(s, d.me).filter { it !is Input.Concede && Authority.mayMake(s, it, d.me, d.model.table) }
+        if (listed.isEmpty()) return
+        val doing = listed.filterNot { it is Input.PassPriority || (it is Input.DeclareAttackers && it.attacks.isEmpty()) ||
+            (it is Input.DeclareBlockers && it.blocks.isEmpty()) }
+        val input = if (doing.isNotEmpty() && rnd.nextInt(3) > 0) doing.random(rnd) else (listed - doing.toSet()).ifEmpty { listed }.random(rnd)
+        val mulligan = input is Input.Answer && input.answer == Answer.Option("Mulligan") || input is Input.SetupAnswer && input.answer == Answer.Option("Mulligan")
+        if (mulligan && rnd.nextInt(3) > 0) return
+        d.act(input, follow = sim.flow(d.me, rnd))
+    }
+
+    private fun undo(d: GameDevice, rnd: Random, stats: Stats) {
+        when (val undo = d.undo()) {
+            is GameDevice.Undo.Request -> if (rnd.nextBoolean()) { stats.requests++; d.requestUndo(undo.target, "sorry") }
+            else -> {}
+        }
+    }
+
+    private fun run(mode: Mode, seeds: LongRange, decks: Pair<List<String>, List<String>> = EngineGames.CREATURES to EngineGames.SPELLS): Stats {
+        val stats = Stats()
+        for (seed in seeds) play(seed, mode, decks, stats)
+        println("$mode: $stats")
+        return stats
+    }
+
+    // I-D56 §4, §7, §8: live play: waits at pauses, prompt playback, races of assumed and real passes
+    @Test
+    fun liveGames() {
+        val stats = run(Mode.LIVE, 1L..3L)
+        assertTrue(stats.confirmations > 0 && stats.assumed > 0, "$stats")
+    }
+
+    // I-D56 §4, §7, §8: async play: assumptions at once, catch-up playback stopping by mode, branches
+    @Test
+    fun asyncGames() {
+        val stats = run(Mode.ASYNC, 11L..13L)
+        assertTrue(stats.confirmations > 0 && stats.branches > 0 && stats.catchUps > 0, "$stats")
+    }
+
+    // I-D56 §4, §10: players coming and going (grace, live and async waits), undo requests, results
+    @Test
+    fun mixedGames() {
+        val stats = run(Mode.MIXED, 21L..22L)
+        val more = run(Mode.MIXED, 31L..32L, EngineGames.GRAVEYARD to EngineGames.CREATURES)
+        assertTrue(stats.rewinds + more.rewinds > 0 && stats.requests + more.requests > 0, "$stats / $more")
+    }
+}

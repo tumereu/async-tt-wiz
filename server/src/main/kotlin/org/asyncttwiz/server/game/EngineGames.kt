@@ -153,7 +153,7 @@ internal class EngineGames(private val capacity: Int = 32) {
                 }
                 event.startsLine?.let { sql.update(ENGINE_PLAY).set(ENGINE_PLAY.LINES, it).where(ENGINE_PLAY.PLAY_ID.eq(play)).execute() }
                 store.append(history, event, author, result.live.model)
-                setHead(sql, play, author, event.id)
+                if (result.authorHead) setHead(sql, play, author, event.id)
                 // A concession ends an open undo request (I-D56 §10)
                 if (row.request != null) clearRequest(sql, play)
                 refresh(sql, play, history, result.live, listOf(event), live)
@@ -270,8 +270,13 @@ internal class EngineGames(private val capacity: Int = 32) {
         synchronized(warm) { warm[play] = state }
         val seats = seats(sql, play)
         val row = playRow(sql, play)
+        // I-D56 §7: from the earliest local head behind the head, its state and the events after it
+        val behind = seats.mapNotNull { seat -> MainLine.after(history, head, seat.head)?.let { seat.head to it } }.maxByOrNull { it.second.size }
+            ?.takeIf { it.second.isNotEmpty() }
+        val base = behind?.let { (at, after) -> store.codec.encodeModel(stateAtLocalHead(history, state, at, after)) }
         return EngineSnapshot(store.codec.encodeDefinitions(), store.rootId, head, store.codec.encodeModel(state.model),
-            seats.associate { it.account.toString() to it.head }, seats.singleOrNull { it.account == viewer }?.settings, row.request, row.lines) to
+            seats.associate { it.account.toString() to it.head }, seats.singleOrNull { it.account == viewer }?.settings, row.request, row.lines,
+            behind?.first, base, behind?.second.orEmpty().map(store.codec::encodeEvent)) to
             attention(seats, viewer)
     }
 

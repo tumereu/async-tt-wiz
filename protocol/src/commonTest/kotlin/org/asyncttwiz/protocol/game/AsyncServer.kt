@@ -20,6 +20,8 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
     var lines = 0
         private set
     val heads = mutableMapOf<PlayerId, String>()
+    /** The open undo request (I-D56 §10): only a concession is taken while it is. */
+    var request: org.asyncttwiz.protocol.EngineRewindRequest? = null
     private var warm: LiveState? = null
     private var ids = 0
     val alice get() = games.alice
@@ -47,7 +49,7 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
      * back to the branch point. */
     fun submit(submission: Submission, author: PlayerId): Result<Acceptance.Result> = try {
         val oldHead = head
-        val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1)
+        val result = Acceptance.accept(history, head, warm, submission, author, heads, lines + 1, rewindOpen = request != null)
         when (result) {
             is Acceptance.Accepted -> {
                 val event = result.event
@@ -59,7 +61,9 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
                 store.add(event, history.checkpointFor(store.depthOfParent(event) + 1, result.live.model))
                 head = event.id
                 warm = result.live
-                heads[author] = event.id
+                if (result.authorHead) heads[author] = event.id
+                // A concession ends an open undo request
+                request = null
             }
             is Acceptance.Confirmed -> heads[author] = result.event
         }
@@ -90,18 +94,30 @@ internal class AsyncServer(val games: EngineGames, every: Int = 16) {
 
     /** Takes the main line back to just after [target] (free or approved): its events go, a new line starts there with
      * a reshuffle of the unknown library parts, and local heads past the target move to the new line's first event. */
-    fun rewind(player: PlayerId, target: String): GameEvent {
+    fun rewind(player: PlayerId, target: String): GameEvent = rewindAll(player, target).first()
+
+    /** [rewind]'s events: the new line's first, then the other players' table-only events added again while they apply
+     * (as the server does); local heads past the target move to the last. Closes an open undo request. */
+    fun rewindAll(player: PlayerId, target: String): List<GameEvent> {
         val after = MainLine.after(history, head, target)!!
+        val standing = Rewind.standing(after, player)
         val gone = after.map { it.id }.toSet()
         store.remove(gone)
         val model = history.stateAt(target)
         lines++
         val builder = EventBuilder(model, "line$lines", target, player.value)
         builder.startLine(lines)
-        val event = builder.build()
-        add(event, model)
-        heads.replaceAll { _, h -> if (h in gone || h == target) event.id else h }
-        return event
+        val events = mutableListOf(builder.build())
+        add(events.last(), model)
+        for ((n, kept) in standing.withIndex()) {
+            val again = EventBuilder(model, "line${lines}s$n", events.last().id, kept.author)
+            try { kept.table.forEach(again::table) } catch (_: IllegalStateException) { again.abandon(); continue }
+            events += again.build()
+            add(events.last(), model)
+        }
+        heads.replaceAll { _, h -> if (h in gone || h == target) events.last().id else h }
+        request = null
+        return events
     }
 
     fun state(): GameModel = warm?.takeIf { it.at == head }?.model?.copy() ?: history.stateAt(head)

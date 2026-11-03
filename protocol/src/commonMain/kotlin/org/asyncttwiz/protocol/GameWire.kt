@@ -143,7 +143,13 @@ const val GAME_PROTOCOL_MINOR = 6
     /** The open undo request, if any (I-D56 §10). */
     val rewindRequest: EngineRewindRequest? = null,
     /** The play's line counter: a branch starts line [lines] + 1 (I-D56 §9). */
-    val lines: Int = 0)
+    val lines: Int = 0,
+    /** I-D56 §7: when a local head is behind the head, the earliest of them ([baseId]), the state there ([base]) and the
+     * main line's events after it up to the head ([events], oldest first): a device shows the game from its own local
+     * head, buffers the events past it, and can go back to the other player's (where a branch may start). */
+    val baseId: String? = null,
+    val base: String? = null,
+    val events: List<String> = emptyList())
 /** An open undo request (I-D56 §10): [by] asks to take the main line back to just after [target], with [message]. */
 @Serializable data class EngineRewindRequest(val by: String, val target: String, val message: String = "")
 /** I-D56: what an engine revision changed beyond [GameRevision.engineEvent]: the events after the first ([events]), a

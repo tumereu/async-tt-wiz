@@ -134,6 +134,12 @@ class EventBuilder(private val model: GameModel, private val id: String, private
     /** Whether nothing was made yet. */
     val empty: Boolean get() = steps.isEmpty() && table.isEmpty() && line == lineBefore
 
+    /** The inputs performed so far, in order. */
+    val inputs: List<Input> get() = steps.mapNotNull { it.input }
+
+    /** The engine changes made so far, in order. */
+    val changes: List<Change> get() = steps.flatMap { it.changes }
+
     /** Performs [input] on the model's engine state and applies its changes; an input the engine refuses changes nothing
      * and throws ([IllegalArgumentException] for a wrong answer, [IllegalStateException] for an input it can't take).
      * [assumedBy]: the input is another player's, assumed by this one (I-D56 §3). */

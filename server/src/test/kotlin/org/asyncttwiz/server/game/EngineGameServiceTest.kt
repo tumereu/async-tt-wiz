@@ -134,8 +134,8 @@ class EngineGameServiceTest {
         // The broadcast event is Bob's own; Alice's device drops hers and updates
         val broadcast = f.revisions(f.a, revision).mapNotNull { it.engineEvent }.map(codec::decodeEvent)
         assertEquals(1, broadcast.size)
-        assertEquals(GameSession.Received.Confirmed, bob.received(broadcast.single()))
-        assertTrue(alice.received(broadcast.single()) is GameSession.Received.Applied)
+        assertEquals(GameSession.Received.Confirmed, bob.receivedShown(broadcast.single()))
+        assertTrue(alice.receivedShown(broadcast.single()) is GameSession.Received.Applied)
         assertTrue(alice.model.sameAs(bob.model))
         // Alice acts again on the new state; an input of the other player's is refused
         val again = alice.model.engine.pending!!.decision
@@ -169,8 +169,8 @@ class EngineGameServiceTest {
         assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id,
             Answer.Option("Keep"))))).outcome)
         val aliceKeep = alice.pending.single()
-        bob.received(aliceKeep)
-        alice.received(aliceKeep)
+        bob.receivedShown(aliceKeep)
+        alice.receivedShown(aliceKeep)
         val open = alice.model.engine.pending!!.decision
         val before = f.games.head(f.a, f.game.id).summary.revision
         assertEquals("accepted", f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(open.id, Answer.Option("Keep")), assumed = true))).outcome)
@@ -204,7 +204,7 @@ class EngineGameServiceTest {
         val bob = f.device(f.b)
         f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(alice.model.engine.pending!!.decision.id, Answer.Option("Keep")))))
         val aliceKeep = alice.pending.single()
-        bob.received(aliceKeep); alice.received(aliceKeep)
+        bob.receivedShown(aliceKeep); alice.receivedShown(aliceKeep)
         val open = alice.model.engine.pending!!.decision
         f.owner.execute(GameAction.Submit(alice.act(id(), Input.Answer(open.id, Answer.Option("Keep")), assumed = true)))
         val discarded = alice.pending.single()
@@ -222,6 +222,22 @@ class EngineGameServiceTest {
         assertEquals(aliceKeep.id, snapshot.localHeads[f.a.account.accountId])
         assertTrue(f.codec().decodeModel(snapshot.state).sameAs(bob.model))
         assertNotEquals(discarded.id, snapshot.headId)
+        // I-D56 §7 (step B): the snapshot also holds the state at the earliest local head and the events after it, so
+        // her device opens at her local head with Bob's branch buffered
+        assertEquals(aliceKeep.id, snapshot.baseId)
+        assertEquals(listOf(branch), snapshot.events.map(f.codec()::decodeEvent))
+        val (opened, _) = org.asyncttwiz.protocol.game.GameDevice.load(snapshot, f.alice) { id() }
+        assertEquals(aliceKeep.id, opened.session.localHead)
+        assertEquals(listOf(branch), opened.session.buffered)
+        opened.playToStop()
+        assertTrue(opened.model.sameAs(bob.model))
+        // A table-only event of hers at the head while she is behind doesn't move her local head (it confirms nothing)
+        val behind = org.asyncttwiz.protocol.game.GameDevice.load(f.snapshot(), f.alice) { id() }.first
+        val early = behind.session.headModel().let { m -> EventBuilder(m, id(), snapshot.headId, f.a.account.accountId).also {
+            it.table(org.asyncttwiz.protocol.game.TableChange.Suggestion(null, org.asyncttwiz.protocol.game.ResultSuggestion(f.alice, EngineResult.Draw)))
+        }.build() }
+        assertEquals("accepted", f.owner.execute(GameAction.Submit(Submission.of(early))).outcome)
+        assertEquals(aliceKeep.id, f.snapshot().localHeads[f.a.account.accountId])
         // Her later input on the discarded line is stale
         val late = Submission(id(), discarded.id, listOf(Act.Perform(Input.PassPriority(f.alice))))
         assertEquals("stale", f.owner.execute(GameAction.Submit(late)).reason)
@@ -292,3 +308,7 @@ class EngineGameServiceTest {
         assertEquals("notEngineState", f.owner.execute(GameAction.Submit(submission)).reason)
     }
 }
+
+/** The server's [event] received and played back at once (a device that shows events as they arrive, I-D56 §7). */
+private fun GameSession.receivedShown(event: org.asyncttwiz.protocol.game.GameEvent): GameSession.Received =
+    received(event).also { while (behind) showNext() }

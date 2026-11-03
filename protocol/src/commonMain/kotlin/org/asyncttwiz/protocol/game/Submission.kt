@@ -211,15 +211,29 @@ object WhoActs {
     private fun automatic(model: GameModel, input: Input, player: PlayerId, decision: Decision?): Boolean {
         val state = model.engine
         if (input is Input.PassPriority) return Engine.shouldPassFor(state, player)
-        if (input !is Input.Answer || decision == null) return false
-        if (decision is Decision.Divide && decision.lethal.isNotEmpty() && input.answer == Answer.Division(decision.suggested)) {
-            val creatures = decision.lethal.size
-            if (creatures <= 1 || decision.amount >= decision.lethal.sumOf { it.amount }) return true
-        }
+        if (input !is Input.Answer || decision == null || decision.player != player) return false
+        return input == earlyAnswer(model, decision) || input == orderFree(decision)
+    }
+
+    /**
+     * The engine-automatic answer to the open [decision] on [model] (§6 b, c), or null: the decider's own early answer to
+     * it (I-D33), valid this turn; else an order-free division of combat damage with the engine's suggestion (CMB-033:
+     * one creature, or enough for lethal damage to each). Any device running the step makes it.
+     */
+    fun automaticAnswer(model: GameModel, decision: Decision): Input.Answer? = earlyAnswer(model, decision) ?: orderFree(decision)
+
+    private fun earlyAnswer(model: GameModel, decision: Decision): Input.Answer? {
         val key = EarlyAnswer.keyOf(decision)
-        return model.table.earlyAnswers.values.any { early ->
-            early.player == player && early.key == key && early.answer == input.answer && (early.turn == null || early.turn == state.turn.number)
-        }
+        val turn = model.engine.turn.number
+        return model.table.earlyAnswers.values.firstOrNull { early ->
+            early.player == decision.player && early.key == key && (early.turn == null || early.turn == turn)
+        }?.let { Input.Answer(decision.id, it.answer) }
+    }
+
+    private fun orderFree(decision: Decision): Input.Answer? {
+        if (decision !is Decision.Divide || decision.lethal.isEmpty()) return null
+        if (decision.lethal.size > 1 && decision.amount < decision.lethal.sumOf { it.amount }) return null
+        return Input.Answer(decision.id, Answer.Division(decision.suggested))
     }
 
     /** Why [author] may not assume [input] of [player] here (I-D56 §3), or null: a pass anywhere but at [player]'s stop,
@@ -282,7 +296,8 @@ class LiveState(val at: String, val model: GameModel)
  * The server's order (I-D54 §3, I-D56 §8): submissions are taken in arrival order. A player adds real inputs only at
  * their local head ([LocalHeads]): a submission at P first moves its author's local head to P (P at or past it on the
  * main line), then
- * - P is the head: appended;
+ * - P is the head: appended (a table-only event may be made there by an author who is behind: it doesn't move their
+ *   local head, I-D56 §6);
  * - the next main-line event after P is an assumed input about the author: the same input confirms it ([Confirmed]: the
  *   author's local head moves past it and the submission is dropped as a duplicate); any other input (a mana ability
  *   or special action first included) is a branch: the new event's parent is P, it starts a new line, and the old line
@@ -295,8 +310,10 @@ class LiveState(val at: String, val model: GameModel)
  */
 object Acceptance {
     sealed interface Result
-    /** The accepted [event] and the state after it ([live]); [discarded]: the first event of the line it discarded. */
-    class Accepted(val event: GameEvent, val live: LiveState, val discarded: String? = null) : Result
+    /** The accepted [event] and the state after it ([live]); [discarded]: the first event of the line it discarded;
+     * [authorHead]: the author's local head moves to it (not for a table-only event added at the head while the author
+     * is behind: it confirms nothing, I-D56 §6). */
+    class Accepted(val event: GameEvent, val live: LiveState, val discarded: String? = null, val authorHead: Boolean = true) : Result
     /** The submission confirmed the assumed input [event] about its author and was dropped. */
     class Confirmed(val event: String) : Result
 
@@ -324,7 +341,7 @@ object Acceptance {
             val tentative = others.any { other -> tentativeFor(history, head, other, author) }
             val seen = others.all { other -> MainLine.after(history, head, other)?.all { e -> e.engine == null } == true }
             val event = Authority.make(model, submission, author, Authority.Rules(tentative = tentative, resultSeenByAll = seen))
-            return Accepted(event, LiveState(event.id, model))
+            return Accepted(event, LiveState(event.id, model), authorHead = event.engine != null || parent == own)
         }
         val next = rest.first()
         val first = submission.acts.filterIsInstance<Act.Perform>().firstOrNull()

@@ -269,7 +269,33 @@ from an older point" and "random answers as given", and the phase 3–4 notes' `
   `EngineGameServiceTest` (the same through the service, per-viewer attention, async rounds, private settings,
   decks parsed on the server).
 
-**Next:** step B (device core: `GameSession` buffer past the local head, playback stops by mode, local-head reports,
-assume/wait/grace, revert on a branch), step C (app with I-D54 item 2; catalog entries per `async-play.md` §17), step
-D (switch-over: the wipe as `V<n>`, delete the old model, adversarial review).
+## 11. Built (I-D56 step B, 2026-11-04): the device core
+
+Behind the seam, in `protocol` `game`; not wired into the app. Replaces the phase 3–4 note's `GameSession.received`
+applying another player's event at once (now buffered past the local head, `async-play.md` §7).
+- **`GameSession`** (data): the main line from a recent point (`lineStart`) to the head, the shown state at the local
+  head plus the device's own pending events, the buffer past the local head (`showNext`), drafts (a draft at the local
+  head while events are buffered starts a new line: a branch), `received` (confirmed / buffered / main line changed
+  behind the shown state: taken back to the branch point / reload), `rewound`, `refused`, `stateAt`, `headModel`, `trim`.
+- **`GameDevice`** (policy, speaking only `GameAction`s and engine revisions; times are the caller's): `status`
+  (catch-up, playing, stopped at a decision stop, your move, waiting with the bar's reason and Assume offer, over),
+  `step`/`playToStop`/`play`, `advance` (the player's own passes by mode and End turn, engine-automatic answers and
+  public forced passes folded, assumptions or waits per §4 with the 60 s grace, the information-rule stop), `act` (at the
+  head, or at a stop: the same input confirms, another branches; concession at any time), `begin`/`send` for flows,
+  `assume`, `table` (at the head; staging behind it kept; stale ones re-made), suggestions, `confirmResult`,
+  `earlyAnswer`, `settings`, `undo` (free or request), `requestUndo`/`answerRequest`/`cancelRequest`/`requestPreview`
+  (frozen while open), `revision`/`refused` (notes: branched, taken back, request needed, refused), `take` (outbox with
+  throttled `EngineSeen`), `repro`; `GameDevice.load(EngineSnapshot)`.
+- **`GameRepro`** (I-D43): the device's bundle; `check()` replays it through `Authority.make`.
+- **Protocol/server:** `EngineSnapshot.baseId/base/events` (the state at the earliest local head and the events after
+  it); `WhoActs.automaticAnswer` (one source for device and server); `Acceptance.Accepted.authorHead` (a table-only
+  event at the head doesn't move a local head that is behind).
+- **Tests** (`protocol` commonTest): `GameDeviceTest` (scenarios: async keep assumed and confirmed on catch-up, Full
+  control stops, branch and the assumer's take-back, live wait with grace and Always assume resolves, the
+  information-rule stop, free undo and the request freeze, table-only events at the head, the bundle) and
+  `DeviceSimulationTest` (seeded whole games of two devices through `DeviceSim`, live, async and mixed, with the leak
+  oracle on every shown event and device = server state and bundle replay at the end).
+
+**Next:** step C (app with I-D54 item 2, rendering from `GameDevice`; catalog entries per `async-play.md` §17), step D
+(switch-over: the wipe as `V<n>`, delete the old model, adversarial review).
 

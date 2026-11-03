@@ -519,3 +519,49 @@ Decided while building (the most vision-aligned reading; owner to confirm):
     number moved).
 15. **Cards the server can't read** start as unknown objects; the readiness check (I-D52) already keeps such decks
     out of games.
+
+## 19. Built (step B, 2026-11-04)
+
+Step B of §13 (phase 3, the device core) is built behind the seam, in `protocol` `game` (not wired into the app yet;
+nothing a player sees changed, so no catalog entry of §17 changes in this step): `GameSession` (the data: the main line
+from a recent point to the head, the shown state at the local head, the buffer past it, pending events, drafts, branches
+and rewinds), `GameDevice` (the policy: playback stops by mode, local-head reports, the device's own passes and folds,
+assume/wait/grace, the information-rule stop, confirmations, undo and requests, table-only events, suggestions, results;
+it speaks only `GameAction`s and engine revisions) and `GameRepro` (I-D43 on the new model). See
+`engine-state-architecture.md` §11.
+
+Decided while building (the most vision-aligned reading; owner to confirm):
+1. **Loading:** the snapshot also carries the state at the earliest local head and the main line's events after it
+   (`EngineSnapshot.baseId/base/events`), so a device opens at its own local head with the rest buffered and can go back
+   to the other player's (where a branch starts) without loading again.
+2. **Confirming at a stop:** the device sends its real answer as a submission at its local head (the server confirms it
+   as a duplicate, §8) and plays on at once; a later local-head report confirms it anyway if that submission is lost.
+3. **Table-only events while behind** are made at the head and shown when playback reaches them; they don't move the
+   author's local head on the server (a server rule added: they confirm nothing). After a `stale` refusal they are made
+   again at the new head with the values there; a place for a card no longer on the battlefield, or a suggestion or result
+   confirmation the head has changed, is dropped.
+4. **The information rule on the device** is judged before anything is sent: an assumption is probed once per point
+   (its whole outcome with the automatic answers folded after it; the probe is taken back, never shown), and the
+   player's own events while their line is tentative are checked before sending.
+5. **Pauses are judged as Normal's** (`Stops.pause`), never with the other player's own cards; a point is a live wait
+   only when it is first met while they are live (green presence), and stays one while they are live or until 60 s after
+   their last live moment; "Always assume resolves" covers passes only, not blocks or keeps.
+6. **Blocks are never assumed by the device alone:** async opens the Assume blockers screen with "No blocks" (one tap
+   assumes); Back leaves a wait with "Assume blockers" on the bar.
+7. **Simultaneous mulligans:** the non-starting player's own declaration is their move while the starter's is open.
+8. **End turn** is the device's intent for the rest of the turn: it passes the player's priority (declaring no
+   attackers); the other player's points are assumed, automatic or waited for as usual (HIS-058's separate events).
+9. **Auto-skip's one-answer questions** are answered by the player's own device as their own inputs, folded into the
+   event that reached them; Autotap stays in the cast flow (step C).
+10. **Playback is paced by the UI** (one event per step); local-head reports go out at once at a stop or the head and
+    at most every 2 s while playback runs.
+11. **What a device keeps:** 64 events before the earlier local head; an undo target or request preview further back is
+    treated as needing a request (the server checks again).
+12. **Undo's target** is just before the player's latest own event that isn't an assumption (a real input, or a
+    table-only event of theirs). The request preview shows the board at the target when the viewer has seen it, else
+    their local head's board with "and actions you haven't seen yet".
+13. **Reloading:** a device that can't follow exactly (a revert more than 4 turns back, a branch or rewind while its own
+    branch is pending, a refused branch) asks to load the game again.
+14. **The reproduction bundle** (`GameRepro`, header `atw-engine-bundle/1 gzip+base64`): the state at the line's start,
+    the line, the pending events, local heads, settings and the last 400 log entries; `check()` makes every event again
+    through the server's gate and compares.

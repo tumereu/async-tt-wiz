@@ -23,7 +23,9 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
                 val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
                 // Owner playtest 2026-11-03 #1, #6: what a tap of the step arrow does, worked out in the background as each
                 // board appears, so its words and its tap are the same plan and the tap needs no work
-                LaunchedEffect(toolkit, IdentityKey(play.board), toolkit.flows.busy, toolkit.cast.open) { toolkit.planStep() }
+                LaunchedEffect(toolkit, IdentityKey(play.board), toolkit.flows.busy, toolkit.cast.open) {
+                    if (stepArrowShown(play, accountId)) toolkit.planStep()
+                }
                 QuickActionStrip(play, toolkitQuickContext(play, accountId)
                     .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open,
                         plannedStep = toolkit.plannedStep(play))

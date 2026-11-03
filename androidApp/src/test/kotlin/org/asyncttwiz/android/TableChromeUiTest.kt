@@ -44,6 +44,7 @@ class TableChromeUiTest {
                         readOnly = !review, onEnter = { playback.scrub(playback.tree.sharedHeadId); review = true }, playControls = playControls,
                          onSettings = {}, onTree = {}) }))
         } }
+        var arrow: androidx.compose.ui.geometry.Rect? = null
         for (who in listOf("a", "b")) for (turn in listOf("a", "b")) for (move in listOf("a", "b")) {
             compose.runOnIdle {
                 viewer = who; review = false
@@ -52,9 +53,12 @@ class TableChromeUiTest {
                     turn = initial.board.turn.copy(accountId = turn, phase = position.phase, step = position.step)))
             }
             val prefix = "chrome-${if (landscape) "landscape" else "portrait"}-$who-turn-$turn-move-$move"
-            // TRN-015, TRN-059, TRN-063: the toggles and the step arrow show on either player's turn
+            // TRN-015, TRN-059, TRN-063: the toggles show on either player's turn, the step arrow in your own turn and in the
+            // other player's only while you must act (the move is yours: your blockers here)
+            val shown = who == turn || who == move
+            assertEquals(shown, stepArrowShown(play, who))
             val next = compose.onNodeWithContentDescription(AutomatumStep.of(play).label)
-            next.assertIsDisplayed()
+            if (shown) next.assertIsDisplayed() else next.assertDoesNotExist()
             compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
             compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
@@ -69,7 +73,8 @@ class TableChromeUiTest {
             assertEquals(tint, pixels.getRGB(pixels.width - 2, 35), "Tint continues to the screen edge")
             assertEquals(tint, pixels.getRGB(2, pixels.height - 2))
             run {
-                val b = next.fetchSemanticsNode().boundsInRoot
+                // Hidden, the arrow's room stays empty: the toggles don't move
+                val b = if (shown) next.fetchSemanticsNode().boundsInRoot.also { arrow = it } else requireNotNull(arrow)
                 assertTrue(b.width in 68f..72f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
                 val cells = listOf(AutomatumToggles.FULL_CONTROL, AutomatumToggles.SKIP, AutomatumToggles.AUTOTAP)

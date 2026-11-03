@@ -137,9 +137,13 @@ internal object Legality {
         val fromHand = o.zone == Zone.Hand && o.owner == player
         val permission = if (fromHand && way.permission == null) null else permission(snap, player, card, way, PlayKind.Cast)
         if (!fromHand && permission == null) return "no permission to cast it from ${o.zone}"
-        // A permission for some spells only ("it may not be cast as an Adventure this way", CR 715.4): the face cast
+        // A permission for some spells only ("it may not be cast as an Adventure this way", CR 715.4): the face cast; a filter
+        // the face alone can't answer ("a spell with mana value less than or equal to …", ecl) is checked on the card
         (permission?.second?.mechanic as? Mechanic.MayPlay)?.resultingSpell?.let { filter ->
-            if (faceMatches(filter, face) == false) return "that permission doesn't let it be cast as ${face.name}"
+            val applied = permission.second
+            val matches = faceMatches(filter, face)
+                ?: snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player).matches(filter, card)
+            if (!matches) return "that permission doesn't let it be cast as ${face.name}"
         }
         if (way.alternative != null && alternative(snap, card, way, player) == null) return "no such alternative cost, or its condition isn't met"
         // tmt: a permission to cast only by an alternative cost ("using their sneak abilities", "using its bestow ability")

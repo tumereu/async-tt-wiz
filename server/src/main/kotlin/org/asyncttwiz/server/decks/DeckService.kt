@@ -18,6 +18,11 @@ import org.jooq.DSLContext
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
 
+/** A stored [CardListSupport] (I-D51); unreadable (another version's) values read as none. */
+internal fun automatumSupport(value: String?): CardListSupport? = value?.let {
+    runCatching { DeckJson.format.decodeFromString(CardListSupport.serializer(), it) }.getOrNull()
+}
+
 /** Immutable snapshots and account data, not a provider catalog or a local-authority deck store. */
 class DeckService(private val runtime: ServiceRuntime) {
     data class Result(val status: Int, val body: String)
@@ -110,9 +115,12 @@ class DeckService(private val runtime: ServiceRuntime) {
                 }
             }
             if (name != row.name || cover != row.coverDigest || next != previous) {
+                // I-D51: changed cards need their Automatum support worked out again.
+                val support = if (next != previous) null else row.automatumSupport
                 sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.COVER_DIGEST, cover)
+                    .set(SAVED_DECK.AUTOMATUM_SUPPORT, support)
                     .set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L)).where(SAVED_DECK.ID.eq(row.id)).execute()
-                row.name = name; row.coverDigest = cover; row.revision = row.revision!! + 1
+                row.name = name; row.coverDigest = cover; row.automatumSupport = support; row.revision = row.revision!! + 1
             }
             Result(200, json.encodeToString(SavedDeck(summary(sql, row, next), next)))
         }
@@ -135,7 +143,8 @@ class DeckService(private val runtime: ServiceRuntime) {
             val entries = entries(sql, source.id!!)
             val copy = UUID.randomUUID()
             val row = sql.insertInto(SAVED_DECK).set(SAVED_DECK.ID, copy).set(SAVED_DECK.ACCOUNT_ID, owner)
-                .set(SAVED_DECK.NAME, source.name).set(SAVED_DECK.COVER_DIGEST, source.coverDigest).returning().fetchSingle()
+                .set(SAVED_DECK.NAME, source.name).set(SAVED_DECK.COVER_DIGEST, source.coverDigest)
+                .set(SAVED_DECK.AUTOMATUM_SUPPORT, source.automatumSupport).returning().fetchSingle()
             entries.forEachIndexed { index, entry ->
                 sql.insertInto(DECK_ENTRY).set(DECK_ENTRY.DECK_ID, copy).set(DECK_ENTRY.ACCOUNT_ID, owner)
                     .set(DECK_ENTRY.POSITION, index).set(DECK_ENTRY.SECTION, entry.section.name)
@@ -200,7 +209,24 @@ class DeckService(private val runtime: ServiceRuntime) {
             entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() },
             entries.filter { it.section == SavedDeckSection.SIDEBOARD }.sumOf { it.quantity.toLong() }, cover,
             row.draftPodId?.let { DraftDeckOrigin(it.toString(), row.draftPodName!!) },
-            entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() })
+            entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() },
+            automatumSupport(row.automatumSupport))
+    }
+
+    /** I-D51: stores the owner's device's Automatum support for the deck's [SetCardListSupport.revision] only; a deck
+     * changed meanwhile keeps none. Not an edit: the revision stays (draft decks take it too). */
+    fun setSupport(principal: AccountService.Principal, id: String, input: SetCardListSupport): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        if (!CardListSupport.valid(input.support) || input.revision.toLongOrNull() == null) return error(400, "invalid_request")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val owner = UUID.fromString(principal.account.accountId)
+            val row = owned(sql, owner, id) ?: return@transaction error(404, "not_found")
+            val stored = row.revision == input.revision.toLong()
+            if (stored) sql.update(SAVED_DECK).set(SAVED_DECK.AUTOMATUM_SUPPORT, json.encodeToString(input.support))
+                .where(SAVED_DECK.ID.eq(row.id)).execute()
+            Result(200, json.encodeToString(CardListSupportStored(stored)))
+        }
     }
 
     /** INSERT uniqueness waits for concurrent identical IDs, then reads the committed original result.

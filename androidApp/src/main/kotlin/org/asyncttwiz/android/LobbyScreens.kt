@@ -221,7 +221,12 @@ internal fun WaitingLobby(controller: LobbyController, accountId: String, hambur
             }
         }
         val own = state.preparation?.players?.find { it.accountId == accountId }
+        // I-D52 (LOB-115): a deck Automatum can't play fully can't start a game.
+        val ownCards = remember(own?.deck, state.preparation?.definitions) {
+            own?.deck?.entries?.map { it.definition }?.toSet()?.let { digests -> state.preparation?.definitions?.filter { it.digest in digests } }
+        }
         val reason = readyReason(state.preparation, accountId)
+            ?: AUTOMATUM_DECK_BLOCKED.takeIf { rememberCardListSupport(ownCards)?.supported == false }
         Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Box(Modifier.fillMaxWidth().heightIn(min = 20.dp)) {
                 if (reason != null) Text(reason, style = MaterialTheme.typography.bodySmall)
@@ -354,10 +359,16 @@ internal fun PreparedSummary(preparation: LobbyPreparation?, accountId: String, 
                 CardArtwork(ArtworkReference(face.scryfallId, 0, cover, "small", face.imageUri), definition.name,
                     48, 68, Modifier.size(48.dp, 68.dp), placeholder = { PodCardPlaceholder(definition.name) })
             } else Box(Modifier.size(48.dp, 68.dp), contentAlignment = Alignment.Center) { EntryIcon(null, "decks") }
-            Column {
+            Column(Modifier.weight(1f, fill = false)) {
                 Text(ownPodDeckName?.takeIf { accountId == viewer } ?: gameDeckName(accountId, viewer, deck.name, player?.deckShown == true, player?.shownPodDeckName), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 Text("${deck.count(SavedDeckSection.MAINBOARD)} main / ${deck.count(SavedDeckSection.SIDEBOARD)} side",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            // LOB-115: only your own deck, worked out from the game's card data of its cards.
+            if (accountId == viewer) {
+                val digests = remember(deck) { deck.entries.map { it.definition }.toSet() }
+                val cards = remember(digests, preparation.definitions) { preparation.definitions.filter { it.digest in digests } }
+                AutomatumSupportIcon(rememberCardListSupport(cards), Modifier.testTag("automatum-support"))
             }
         }
     }
@@ -399,6 +410,8 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
                             cover.name, 48, 68, Modifier.size(48.dp, 68.dp)) } ?: EntryIcon(null, "decks")
                          Column(Modifier.weight(1f)) { Text(deck.name, fontWeight = FontWeight.SemiBold)
                              Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                         // LOB-115
+                         AutomatumSupportIcon(deck.automatum, onTap = { if (!picker.confirming) controller.highlightDeck(deck) })
                     }
                 }
             }
@@ -406,12 +419,15 @@ private fun LobbyDeckPicker(controller: LobbyController, importDeck: (() -> Unit
         }
         }
         }
+        // I-D52 (LOB-115): the highlighted deck can't be used while Automatum plays some of its cards by hand.
+        if (picker.draft?.automatum?.supported == false) Text(AUTOMATUM_DECK_BLOCKED, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp)
+            .testTag("automatum-blocked"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
         Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ScreenOutlinedButton(onClick = { importDeck?.invoke() }, enabled = importDeck != null && !picker.confirming, modifier = Modifier.weight(1f)) {
                 EntryIcon(null, "import"); Spacer(Modifier.width(8.dp)); Text("Import deck")
             }
-            ScreenButton(onClick = controller::confirmDeck, enabled = picker.draft != null && !picker.loading && !picker.confirming,
-                modifier = Modifier.weight(1f)) {
+            ScreenButton(onClick = controller::confirmDeck, enabled = picker.draft != null && !picker.loading && !picker.confirming &&
+                picker.draft.automatum?.supported != false, modifier = Modifier.weight(1f)) {
                 EntryIcon(null, "ready"); Spacer(Modifier.width(8.dp)); Text("Use selected deck")
             }
         }

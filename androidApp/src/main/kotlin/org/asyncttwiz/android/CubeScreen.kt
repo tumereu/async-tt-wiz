@@ -68,6 +68,8 @@ private fun CubeCollection(controller: CubeController) {
                                 Text(cube.name, fontWeight = FontWeight.Bold)
                                 Text("${cube.totalCopies} copies", style = MaterialTheme.typography.bodySmall)
                             }
+                            // DRF-161
+                            AutomatumSupportIcon(cube.automatum, onTap = { controller.open(cube.id) })
                             EntryIcon(null, "chevron")
                         }
                     }
@@ -106,6 +108,7 @@ internal fun CubeScreen(controller: CubeController, navigation: (() -> Unit)?, d
                                     Text(detail.saved.cube.name, style = MaterialTheme.typography.titleLarge)
                                     Text("${detail.saved.cube.totalCopies} total copies")
                                 }
+                                AutomatumSupportIcon(detail.saved.cube.automatum, Modifier.testTag("automatum-support"))
                                 DeckViewColumnsControl(columns)
                             }
                             if (draftCube != null) ScreenButton(onClick = { draftCube(detail.saved.cube.id) }) {

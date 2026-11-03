@@ -77,6 +77,14 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
             }
         }
     }
+    // LOB-115, DRF-161: the list as it is being edited, with Automatum's warning icon beside its name.
+    val support = rememberEditorSupport(editor)
+    val named: @Composable (Modifier) -> Unit = { modifier ->
+        Row(modifier, verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { nameRow() }
+            AutomatumSupportIcon(support, Modifier.testTag("automatum-support"))
+        }
+    }
     Column(Modifier.fillMaxSize()) {
         // Landscape keeps the pictures tall enough: the name joins the title row, the Cards summary the tab row.
         // LOB-057: a saved list's editor also has a red Delete at the top right; in portrait the link then shows as its icon.
@@ -95,11 +103,11 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (navigation != null) IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") }
             Text(title, Modifier.padding(start = if (navigation == null) 8.dp else 0.dp), style = MaterialTheme.typography.titleLarge, maxLines = 1)
-            Box(Modifier.weight(1f)) { nameRow() }
+            named(Modifier.weight(1f))
             link()
         } else ScreenHeader(title, navigation) { link() }
         if (!landscape) {
-            Box(Modifier.padding(horizontal = 16.dp)) { nameRow() }
+            named(Modifier.padding(horizontal = 16.dp))
             tabs(Modifier.padding(top = 8.dp))
         } else Row(verticalAlignment = Alignment.CenterVertically) {
             tabs(Modifier.width(320.dp))
@@ -145,6 +153,25 @@ internal fun rememberCardListTab(existing: Boolean) = rememberSaveable { mutable
 
 @Composable
 private fun Modifier.verticalScrollable() = this.then(Modifier.verticalScroll(rememberScrollState()))
+
+/** I-D51: the edited list's Automatum support, its cards' data made as saving makes it, worked out off the main thread. */
+@Composable
+private fun rememberEditorSupport(editor: CardListEditor): CardListSupport? {
+    val check = LocalCardListSupport.current ?: return null
+    val entries = editor.entries
+    val support by produceState<CardListSupport?>(null, check, entries) {
+        value = entries?.takeIf { it.isNotEmpty() }?.let { list ->
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { runCatching {
+                check.support(list.distinctBy { it.printing.id }.map { entry ->
+                    val definition = PhysicalCardFaces.normalize(editor.retainedDefinition(entry.printing.id)
+                        ?: entry.catalogDefinition(editor.listCatalog))
+                    SubmittedDefinition(DeckJson.digest(definition), definition)
+                })
+            }.getOrNull() }
+        }
+    }
+    return support
+}
 
 /** Every displayed card's definition, read once per printing: a retained card's saved one, otherwise the catalog's. */
 @Composable

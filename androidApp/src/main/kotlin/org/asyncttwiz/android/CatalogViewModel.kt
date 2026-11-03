@@ -49,6 +49,19 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private val directory = AndroidCatalogStorage.directory(application)
     internal val repository = AndroidCatalogStorage.repository(application)
     private val cadence = CatalogCadence(File(directory, "cadence.properties"))
+    /** I-D51 (DRF-161): draft sets' Automatum support, worked out in the background once card records are installed. */
+    internal val setSupport = CatalogSetSupport(repository, org.asyncttwiz.automatum.AutomatumSupport::byHand)
+    private val supportWorker = Executors.newSingleThreadExecutor { Thread(it, "set-support").apply { priority = Thread.MIN_PRIORITY } }
+    @Volatile private var supportRunning = false
+    private fun refreshSetSupport() {
+        if (cleared || supportRunning) return
+        supportRunning = true
+        supportWorker.execute {
+            try { setSupport.refresh { cleared } }
+            catch (failure: Exception) { AppLog.warn("Automatum", "Working out sets' Automatum support failed", failure) }
+            finally { supportRunning = false }
+        }
+    }
     private val preferences = application.getSharedPreferences("public-catalog-update", Context.MODE_PRIVATE)
     private val source: CatalogSource = if (BuildConfig.DEBUG && BuildConfig.CATALOG_TEST_ORIGIN.isNotEmpty())
         HttpCatalogSource(BuildConfig.CATALOG_BASE, BuildConfig.CATALOG_TEST_ORIGIN)
@@ -191,6 +204,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     private fun publish(value: CatalogUiState) { main.post { if (!cleared) {
         state = catalogConsentPresentation(value.copy(loaded = true), initialDownloadAccepted)
         working = false
+        if (value.installed != null) refreshSetSupport()
         // Consent may arrive while the small metadata check is finishing.
         if (initialDownloadAccepted && value.installed == null && !value.error && value.plan != null) consent()
     } } }
@@ -198,6 +212,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
         cleared = true
         connectivity.unregisterNetworkCallback(callback)
         worker.shutdownNow()
+        supportWorker.shutdownNow()
     }
 }
 

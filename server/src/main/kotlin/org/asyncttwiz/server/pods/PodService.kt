@@ -139,7 +139,8 @@ class PodService(private val runtime: ServiceRuntime) {
             .set(DEFINITION.PAYLOAD, DeckJson.canonical(submitted.definition)).onConflictDoNothing().execute()
     }
 
-    private class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>)
+    private class CubeSnapshot(val name: String, val main: List<DraftCubeEntry>, val maybe: List<DraftCubeEntry>,
+        val unsupported: Boolean = false)
 
     /** The saved cube as this pod's prepared cube: its Main is drafted, its Maybe kept aside for Prepare cube. */
     private fun snapshot(sql: DSLContext, owner: UUID, cubeId: String): CubeSnapshot? {
@@ -161,7 +162,8 @@ class PodService(private val runtime: ServiceRuntime) {
             }
         // Only Main is drafted; Maybe reaches the draft only when Prepare cube moves it to Main (DRF-050).
         return CubeSnapshot(cube.name!!, entries.filter { it.first == SavedDeckSection.MAINBOARD.name }.map { it.second },
-            entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second })
+            entries.filter { it.first != SavedDeckSection.MAINBOARD.name }.map { it.second },
+            org.asyncttwiz.server.decks.automatumSupport(cube.automatumSupport)?.supported == false)
     }
 
     private fun encodedMaybe(maybe: List<DraftCubeEntry>) = if (maybe.isEmpty()) null else encoded(maybe)
@@ -173,6 +175,8 @@ class PodService(private val runtime: ServiceRuntime) {
             if ((input.cubeId == null) == (input.setSource == null)) return@business error(400, "invalid_source")
             input.setSource?.let { validateSet(it)?.let { failure -> return@business failure } }
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@business error(404, "cube_not_found") }
+            // I-D51/I-D52: a cube Automatum can't play fully (as the owner's device worked it out) can't start a pod.
+            if (snapshot?.unsupported == true) return@business error(409, "automatum_unsupported")
             input.setSource?.let { storeSet(sql, it) }
             val settings = input.settings ?: DraftSettings.defaults(input.mode)
             validateLibrarian(settings)?.let { return@business it }
@@ -199,6 +203,7 @@ class PodService(private val runtime: ServiceRuntime) {
             if (input.cubeId != null && input.setSource != null) return@mutate error(400, "invalid_source")
             input.setSource?.let { validateSet(it)?.let { failure -> return@mutate failure } }
             val snapshot = input.cubeId?.let { snapshot(sql, owner, it) ?: return@mutate error(404, "cube_not_found") }
+            if (snapshot?.unsupported == true) return@mutate error(409, "automatum_unsupported")
             input.name?.let { row.name = it }
             input.settings?.let { row.settings = encoded(it) }
             validateLibrarian(settings(row))?.let { return@mutate it }

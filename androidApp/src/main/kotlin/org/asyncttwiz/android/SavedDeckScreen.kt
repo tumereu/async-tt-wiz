@@ -57,7 +57,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
         Column(Modifier.fillMaxSize()) {
         state.detail?.let { detail ->
             DeckMetadataHeader(detail.saved.deck.name, detail.saved.deck.cover, padding = PaddingValues(start = 16.dp, end = 8.dp,
-                top = 8.dp, bottom = 8.dp)) { DeckViewColumnsControl(columns) }
+                top = 8.dp, bottom = 8.dp), automatum = detail.saved.deck.automatum) { DeckViewColumnsControl(columns) }
             detail.saved.deck.draft?.let { origin ->
                 Text(draftDeckNote(origin), Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -228,6 +228,7 @@ private fun SavedDeckRow(deck: DeckSummary, open: () -> Unit) {
                 Text(deck.name, fontWeight = FontWeight.Bold)
                 Text(deckRowDetail(deck), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            AutomatumSupportIcon(deck.automatum, onTap = open)
             EntryIcon(null, "chevron")
         }
     }

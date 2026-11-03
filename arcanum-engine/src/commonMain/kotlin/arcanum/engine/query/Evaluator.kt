@@ -563,6 +563,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         Value.ModesChosen -> ctx.stackItem?.modes?.size ?: 0
         Value.EventAmount -> ctx.event?.amount ?: 0
         is Value.Quotient -> if (value.divisor <= 0) 0 else value(value.value) / value.divisor
+        // sos: "2ˣ" (2⁰ = 1), held to an Int (a game never needs more)
+        is Value.Exponential -> {
+            var result = 1L
+            repeat(value(value.exponent).coerceIn(0, 62)) { result = (result * value.base).coerceAtMost(Int.MAX_VALUE.toLong()) }
+            result.toInt()
+        }
         is Value.Count -> objects(value.objects).size
         is Value.CountPlayers -> players(value.players).size
         is Value.CountDistinct -> distinct(value.quality, objects(value.objects))
@@ -728,6 +734,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Condition.HappenedThisTurn -> History.count(this, condition.event, condition.measure) >= condition.atLeast
         is Condition.HappenedLastTurn -> History.count(this, condition.event, condition.measure, turn = state.turn.number - 1) >= condition.atLeast
         is Condition.NonEmpty -> boundObjects(ctx.names[condition.name]).isNotEmpty()
+        // sos: paradigm (CR 702.192a): a spell with that name controlled by such a player resolved earlier this game
+        is Condition.ResolvedEarlierThisGame -> objects(condition.of).flatMap { names(characteristics(it)) }.any { name ->
+            state.players.any { p -> matches(condition.controller, p.id) && (p.ledger[resolvedKey(name)] ?: 0) > 0 }
+        }
         // Speed (CR 702.178) isn't modelled yet.
         Condition.MaxSpeed -> false
         // The revealed companion is set up before the game (CR 702.139a); the host marks it in card memory.
@@ -761,6 +771,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         const val EXCESS_PREFIX = "\$excess:"
         const val TARGETS_LEGAL_PREFIX = "\$targets-legal:"
         const val SEARCHED_PREFIX = "\$searched:"
+        /** sos: the player ledger key counting resolutions of spells named [name] that player controlled (CR 702.192a). */
+        fun resolvedKey(name: String): String = "resolved:$name"
+
         /** Card memory keys and game ledger keys the engine itself uses. */
         const val REVEALED_COMPANION = "\$revealed-companion"
         const val CLASS_LEVEL = "\$class-level"

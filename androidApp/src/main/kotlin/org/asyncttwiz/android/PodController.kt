@@ -819,5 +819,6 @@ private fun podError(failure: Exception): String = when ((failure as? PodFailure
     "main_too_small" -> "Main must contain at least 40 cards including basics."
     "sideboard_limit" -> "Move surplus sideboard cards to Trash before submitting."
     "not_found" -> "This pod is no longer available."
+    "automatum_unsupported" -> AUTOMATUM_SOURCE_BLOCKED
     else -> "Could not complete the pod request (${(failure as? PodFailure)?.code ?: "connection"}). Retry to check the outcome."
 }

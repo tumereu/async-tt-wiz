@@ -48,7 +48,6 @@ internal object Ecl {
     val POWER_IS_EQUAL = Regex("""(.+?)'s power is equal to (.+)\.""")
 
     // ecl chunk 09
-    val ONE_OR_TWO_EACH_GET = Regex("""One or two target (creatures) each get ([+-]\d+)/([+-]\d+) until end of turn\.""")
     val AS_LONG_AS_EQUIPPED_TOUGHNESS_GREATER = Regex("""As long as equipped creature's toughness is greater than its power, it assigns combat damage equal to its toughness rather than its power\.""")
     val EACH_CREATURE_TARGET_OPPONENT_LOSES = Regex("""[Ee]ach creature target opponent controls loses all abilities, becomes an? ([A-Z]\w+) in addition to its other types, and has base power and toughness (\d+)/(\d+)\.""")
     val EXILE_UP_TO_N_TARGET_CARDS_FROM_GRAVEYARDS = Regex("""[Ee]xile up to (one|two|three) target cards from graveyards\.""")

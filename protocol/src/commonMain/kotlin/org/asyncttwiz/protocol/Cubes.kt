@@ -17,7 +17,9 @@ import kotlinx.serialization.Serializable
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class CubeSummary(val id: String, val name: String, val revision: String,
     val createdAt: String, val updatedAt: String, val totalCopies: Long, val cubeCobraId: String? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeCopies: Long = 0)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeCopies: Long = 0,
+    /** Which cards Automatum plays by hand (I-D51; null until a device worked it out for this revision). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: CardListSupport? = null)
 @Serializable data class SavedCube(val cube: CubeSummary, val entries: List<SavedCubeEntry>)
 @Serializable data class CubeList(val cubes: List<CubeSummary>, val next: String? = null)
 @Serializable data class ReadCubeDefinitions(val digests: List<String>)

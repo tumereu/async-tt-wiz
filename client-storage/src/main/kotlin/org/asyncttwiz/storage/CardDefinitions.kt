@@ -83,6 +83,9 @@ class CardDefinitions internal constructor(
     companion object {
         private val json = Json
 
+        /** The parser version results are kept for ([OracleParser.VERSION]); a new one works them out again (I-D51). */
+        val parserVersion: Int get() = OracleParser.VERSION
+
         /** Every subtype the pinned Comprehensive Rules list ([OracleParser.subtypes]): a choice of a creature type with
          * no given list offers those that are creature types, never only the game's (I-D27, CR 205.3m). */
         val ruleSubtypes: Set<String> get() = OracleParser.subtypes

@@ -45,6 +45,7 @@ internal object Filters {
      */
     fun noun(phrase: String): ObjectFilter? {
         EclPhrases.noun(phrase)?.let { return it } // ecl
+        SosPhrases.noun(phrase)?.let { return it } // sos
         TmtPhrases.noun(phrase)?.let { return it } // tmt
         MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
@@ -906,6 +907,7 @@ internal object Events {
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
         EclPhrases.condition(text, self)?.let { return it } // ecl
+        SosPhrases.condition(text, self)?.let { return it } // sos
         TmtPhrases.condition(text, self)?.let { return it } // tmt
         MshPhrases.condition(text, self)?.let { return it } // msh
         HobPhrases.condition(text)?.let { return it } // hob
@@ -1369,6 +1371,7 @@ internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
         EclPhrases.value(text)?.let { return it } // ecl
+        SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)

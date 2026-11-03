@@ -92,6 +92,12 @@ The definition model (overview in `Definitions.kt`):
   `TargetSlot.totalAtMost`, `CostPart.GetCounters` (ward—get poison counters), `Effect.OneMoreCounterOfEachKind`,
   `Effect.ControlNextTurn` (CR 723), and the mechanics `CantBecomeUntapped`, `AbilitiesIgnoreSummoningSickness` and the
   modification `HealsOtherDamage` (CR 701.69a).
+- Secrets of Strixhaven (set `sos`): paradigm (CR 702.192: `Keyword.Paradigm`, written out by `KeywordExpansions` with
+  `Condition.ResolvedEarlierThisGame`), increment (CR 702.191), casualty (CR 702.153) and miracle (CR 702.94) as `KeywordExpansions`
+  entries, and smaller pieces: `Mechanic.CantBeCopied` ("This spell can't be copied"), `Value.Exponential` ("2ˣ cards"),
+  `Duration.UntilEndOfNextTurnOf` ("until the end of their next turn"), `Effect.RevealUntil.totalAtLeast` ("until you exile cards with
+  total mana value 4 or greater"); `DefinitionChecks` lets a spell's cost statics read its announced X ("As an additional cost to cast
+  this spell, pay X life").
 - Teenage Mutant Ninja Turtles (set `tmt`): the Mutagen token (CR 111.10v, `PredefinedTokens`), `ObjectFilter.CrewedThisTurn`
   ("target creature that crewed it this turn", CR 702.122c), `Measure.Distinct` ("for each card type among spells you've cast this
   turn", each event's object as it was) and `Keyword.Equip.perTurn` ("Equip—Sacrifice another nonland permanent. Activate only once

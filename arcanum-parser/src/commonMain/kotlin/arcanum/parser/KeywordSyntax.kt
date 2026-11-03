@@ -105,6 +105,7 @@ internal sealed class KeywordSyntax(val text: String) {
             none(Keyword.Tiered),
             none(Keyword.Station),
             none(Keyword.Increment),
+            none(Keyword.Paradigm), // sos
             none(Keyword.Storied),
             amount("Rampage") { Keyword.Rampage(it) },
             amount("Fading") { Keyword.Fading(it) },

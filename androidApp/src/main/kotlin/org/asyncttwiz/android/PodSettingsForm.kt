@@ -144,13 +144,15 @@ internal fun podModeSettings(mode: DraftMode, current: DraftSettings) = DraftSet
 @Composable
 internal fun PodSettingsForm(name: String, settings: DraftSettings, source: PodSource?, members: Int,
     editable: Boolean, rename: (String) -> Unit, chooseSource: () -> Unit,
-    change: ((DraftSettings) -> DraftSettings) -> Unit, reroll: (() -> Unit)? = null) {
+    change: ((DraftSettings) -> DraftSettings) -> Unit, reroll: (() -> Unit)? = null, automatum: CardListSupport? = null) {
     // The other settings follow as choices, not fields: the action key only closes the keyboard.
     OutlinedTextField(name, rename, Modifier.fillMaxWidth(), label = { Text("Pod name") }, singleLine = true,
         readOnly = !editable, keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = hideKeyboardActions(), trailingIcon = reroll?.let { action -> { ScreenIconButton("Suggest another pod name", "shuffle", action) } })
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(source?.let { if (it.kind == PodSourceKind.SET) it.setName ?: it.setCode.orEmpty() else it.cubeName }
             ?.takeIf { it.isNotBlank() } ?: "No source", Modifier.weight(1f))
+        // DRF-161: the chosen cube's or set's Automatum support
+        AutomatumSupportIcon(automatum, Modifier.testTag("automatum-support"))
         if (editable) ScreenIconButton("Change source", "edit", chooseSource)
     }
     PodSettingsFields(settings, members, editable, source ?: PodSource(), change)

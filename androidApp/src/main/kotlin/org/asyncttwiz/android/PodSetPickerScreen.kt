@@ -35,7 +35,11 @@ internal fun PodSourcePickerDialog(controller: PodController, manageCubes: () ->
                 else if (cubes.isEmpty()) Text("No cubes found")
                 else LazyColumn(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     items(cubes, key = { it.id }) { cube ->
-                        ScreenOutlinedButton({ controller.chooseCube(cube.id) }, Modifier.fillMaxWidth()) { Text(cube.name) }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            ScreenOutlinedButton({ controller.chooseCube(cube.id) }, Modifier.weight(1f)) { Text(cube.name) }
+                            // DRF-161
+                            AutomatumSupportIcon(cube.automatum)
+                        }
                     }
                 }
             }
@@ -58,6 +62,7 @@ internal fun PodSetPickerContent(state: PodSetPickerState, query: (String) -> Un
                 ScreenOutlinedButton({ choose(row.set.code) }, Modifier.weight(1f)) {
                     Text(row.set.name)
                 }
+                AutomatumSupportIcon(row.automatum)
                 if (row.cached) ScreenIconButton("Redownload ${row.set.code}", "refresh", { redownload(row.set.code) }, enabled = !state.busy)
             }
         }

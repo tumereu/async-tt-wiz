@@ -266,6 +266,18 @@ internal object Resolution {
      * an Aura attached to what it targeted (CR 608.3, 303.4f); abilities and copies just leave.
      */
     internal fun finish(act: Act, item: StackItem, fizzled: Boolean) {
+        // sos: paradigm reads which names resolved earlier this game (CR 702.192a): counted once the spell has finished resolving
+        val resolvedNames = if (fizzled || (item.kind != StackItemKind.Spell && item.kind !is StackItemKind.SpellCopy)) emptyList()
+            else act.view()[item.id]?.characteristics?.name?.split(" // ").orEmpty()
+        finishLeaving(act, item, fizzled)
+        resolvedNames.forEach { name ->
+            val key = arcanum.engine.query.Evaluator.resolvedKey(name)
+            val before = act.state.player(item.controller).ledger[key] ?: 0
+            act.record(Change.Ledger(item.controller, key, before, before + 1))
+        }
+    }
+
+    private fun finishLeaving(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
         val card = act.state.obj(item.id)
         if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.GaveGift(item.controller)))

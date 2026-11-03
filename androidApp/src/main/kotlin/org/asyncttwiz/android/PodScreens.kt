@@ -219,6 +219,10 @@ internal fun PodRow(pod: PodSummary, accountId: String?, open: () -> Unit, modif
     }
 }
 
+/** DRF-161: a chosen cube's (known from the cube list) or set's Automatum support. */
+private fun podSourceSupport(controller: PodController, cubeId: String?, setCode: String?): CardListSupport? =
+    cubeId?.let { id -> controller.state.cubes.find { it.id == id }?.automatum } ?: controller.setPicker.state.support(setCode)
+
 @Composable
 private fun NewPodScreen(controller: PodController) {
     val state = controller.state
@@ -227,11 +231,17 @@ private fun NewPodScreen(controller: PodController) {
         Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val source = state.sourcePreview ?: draft.setSource?.podSource() ?: state.cubes.find { it.id == draft.cubeId }?.let { PodSource(it.name, it.totalCopies) }
+            LaunchedEffect(Unit) { controller.setPicker.loadSupport() }
+            val support = if (state.sourcePreview != null) null else podSourceSupport(controller, draft.cubeId, draft.setSource?.snapshot?.setCode)
             PodSettingsForm(draft.name, draft.settings, source, 2, true, controller::newName, controller::chooseSet,
-                controller::newSettings, controller::reroll)
+                controller::newSettings, controller::reroll, automatum = support)
+            // I-D52 (DRF-161): a source Automatum can't play fully can't start a pod.
+            if (support?.supported == false) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"),
+                color = MaterialTheme.colorScheme.error)
         }
         Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.setSource != null) && draft.name.isNotBlank() &&
-            draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null) { Text("Create") }
+            draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
+            podSourceSupport(controller, draft.cubeId, draft.setSource?.snapshot?.setCode)?.supported != false) { Text("Create") }
     }
 }
 
@@ -260,8 +270,12 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
     val source = state.sourcePreview ?: detail.source
     LaunchedEffect(detail.id, creator) { if (creator) controller.loadCubes() }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LaunchedEffect(detail.id) { controller.setPicker.loadSupport() }
+        val support = if (state.sourcePreview != null) null else podSourceSupport(controller, edit?.cubeId,
+            edit?.setSource?.snapshot?.setCode ?: source.setCode.takeIf { edit?.cubeId == null && source.kind == PodSourceKind.SET })
         PodSettingsForm(edit?.name ?: detail.name, settings, source, detail.members.size, enabled,
-            { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings)
+            { controller.editSetup(name = it) }, controller::chooseSet, controller::editSettings, automatum = support)
+        val unsupported = support?.supported == false
         // DRF-141: the creator moves this pod's cards between the cube's Main and Maybe before drafting.
         if (creator && source.kind == PodSourceKind.CUBE && state.sourcePreview == null && edit?.cubeId == null && edit?.setSource == null)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -281,9 +295,11 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
             val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain
             val limit = podPlayerLimitText(detail.copy(settings = settings))
             if (detail.pendingInvitations.isEmpty())
-                ScreenButton(controller::start, enabled = idle && podCanStart(detail)) { Text("Start draft") }
+                ScreenButton(controller::start, enabled = idle && podCanStart(detail) && !unsupported) { Text("Start draft") }
             else if (detail.autoStart) ScreenOutlinedButton({ controller.autoStart(false) }, enabled = idle) { Text(podAutoStartLabel(detail)) }
-            else ScreenButton({ controller.autoStart(true) }, enabled = idle && limit == null) { Text(podAutoStartLabel(detail)) }
+            else ScreenButton({ controller.autoStart(true) }, enabled = idle && limit == null && !unsupported) { Text(podAutoStartLabel(detail)) }
+            // I-D52 (DRF-161): a source Automatum can't play fully can't start a draft.
+            if (unsupported) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"), color = MaterialTheme.colorScheme.error)
             // DRF-035, DRF-036: why Start or auto-start is not offered with this many players.
             limit?.let { Text(it, Modifier.testTag("pod-player-limit"), color = MaterialTheme.colorScheme.error) }
         } else if (detail.autoStart) {

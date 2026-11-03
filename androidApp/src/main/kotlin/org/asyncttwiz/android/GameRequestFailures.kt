@@ -35,6 +35,7 @@ internal fun refusalText(reason: String?): String = when (reason) {
     "mainTooSmall" -> "Main must contain at least 40 cards including basics."
     "sideboardLimit" -> "Side exceeds this pod's sideboard limit. Move cards to Main."
     "podDeckFixed" -> "This game's deck is fixed to your submitted pod deck."
+    "automatumUnsupported" -> "Automatum can't play every card of this deck yet. Choose another deck."
     "starterRequired" -> "Choose the starting player to get ready."
     "branched" -> "Your opponent went back to an earlier point — your last action wasn't applied."
     // SYS-053

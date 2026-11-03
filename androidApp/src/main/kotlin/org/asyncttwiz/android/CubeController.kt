@@ -33,6 +33,8 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
         private set
     /** The editor's catalog search page (a section header's +). */
     val search = CardListSearch(worker, post)
+    /** I-D51: works out a saved cube's Automatum support right after saving (null: left to the background run). */
+    internal var supportCheck: CardListSupportCheck? = null
     /** Name and text the editor opened with, to ask before discarding changes. */
     private var initial: Pair<String, String> = "" to ""
     override val kind get() = CardListKind.CUBE
@@ -247,6 +249,11 @@ class CubeController(private val api: Cubes, private val credential: () -> Strin
                 if (plan.target == null) api.create(token, plan.cube) else api.update(token, plan.target,
                     UpdateCube(plan.cube.requestId, plan.cube.name, plan.cube.entries, plan.cube.cubeCobraId))
             }
+            // I-D51 (DRF-161): its support goes with it at once; a failure leaves it to the background run.
+            supportCheck?.let { check -> runCatching {
+                val support = check.support(plan.definitions.definitions)
+                api.setCubeSupport(token, saved.cube.id, SetCardListSupport(saved.cube.revision, support))
+            } }
             return@work {
                 pendingSave = null
                 if (state.text == input.text && state.name == input.name) {

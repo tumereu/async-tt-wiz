@@ -216,7 +216,13 @@ model is untouched):**
    `GameAction.Concede`/`AcceptResult`.
 4. *History reads:* timeline/history pages, undo (`UndoRule`) and explicit branching on engine events; the
    reproduction bundle (I-D43) from the stored inputs.
-5. *Then* move `db/pending/wipe_plays_for_engine_state.sql` to the next `V<n>` (test env first) and delete the old
+5. *Before the wipe, so the stored format changes once* (async-play spec review B4, B2, B3, B5): positional library
+   knowledge (known prefix/suffix and ordered layers per library) in the engine or table state, so a branch reseeds
+   only the unknown order; random answers deterministic per line (seeded by the game, the line's start and the
+   decision's index on the line: undo and redo give the same results, only a branch gets a new stream; where the seed
+   lives without letting devices predict hidden results needs a decision); the assumed-input flag, confirmations,
+   event splitting and a per-player head; who may submit which input plugs into `WhoActs`.
+6. *Then* move `db/pending/wipe_plays_for_engine_state.sql` to the next `V<n>` (test env first) and delete the old
    model: `automatum/` mapping, `PlayState`/`BoardState` game fields, `AutomatumOnly`, the manual protocol actions.
 
 **For the owner:** (1) the wipe's timing (kept for the switch rather than run now); (2) §8's agreed results and

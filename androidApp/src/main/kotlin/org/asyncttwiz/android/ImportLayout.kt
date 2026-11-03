@@ -51,13 +51,15 @@ internal fun ImportLinkDialog(value: String, onValue: (String) -> Unit, placehol
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, imeAction = ImeAction.Go),
             keyboardActions = submitKeyboardActions(importEnabled && !fetching) { start(); import() },
             trailingIcon = {
-                IconButton(onClick = { start(); pasteAndImport(clipboard.getText()?.text) }, Modifier.size(48.dp)) {
-                    EntryIcon(pasteDescription, "paste")
+                HoldTip(pasteDescription) {
+                    IconButton(onClick = { start(); pasteAndImport(clipboard.getText()?.text) }, Modifier.size(48.dp)) {
+                        EntryIcon(pasteDescription, "paste")
+                    }
                 }
             })
         ImportError(error)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            ScreenOutlinedButton(dismiss, Modifier.testTag("cancel-link")) { Text("Cancel") }
+            ScreenOutlinedButton(dismiss, Modifier.testTag("cancel-link")) { ButtonLabel("close", "Cancel") }
             ScreenButton(onClick = { start(); import() }, Modifier.testTag("import-link"), enabled = importEnabled && !fetching) {
                 if (fetching) CircularProgressIndicator(Modifier.size(20.dp), LocalContentColor.current, 2.dp)
                 else EntryIcon(null, "download")
@@ -79,8 +81,10 @@ internal fun ColumnScope.ImportListField(text: String, onText: (String) -> Unit,
         singleLine = false, placeholder = description, visualTransformation = underline,
         textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace),
         trailingIcon = {
-            IconButton(onClick = { clipboard.getText()?.text?.let(onText) }, Modifier.size(48.dp)) {
-                EntryIcon("Paste from clipboard", "paste")
+            HoldTip("Paste from clipboard") {
+                IconButton(onClick = { clipboard.getText()?.text?.let(onText) }, Modifier.size(48.dp)) {
+                    EntryIcon("Paste from clipboard", "paste")
+                }
             }
         })
 }

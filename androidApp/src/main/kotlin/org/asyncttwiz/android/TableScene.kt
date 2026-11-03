@@ -166,7 +166,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         val targetScene = remember(game, IdentityKey(play), accountId, maxWidth, maxHeight, landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, computed) {
             TablePresentation.scene(game, play, accountId, maxWidth.value.coerceAtLeast(1f),
                 maxHeight.value.coerceAtLeast(1f), landscape, layout, placements, toolbarWidth, runtime.reviewing, cardAppearance, logicalPositions,
-                computed)
+                computed, landscapeHome = true)
         }
         var previousLayout by remember { mutableStateOf(layout) }
         var previousSize by remember { mutableStateOf(maxWidth to maxHeight) }
@@ -312,9 +312,14 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
         CardPanelHeaders(scene, accountId, toolkit)
         TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
+        // TBL-067: table popups keep off both hands where they fit elsewhere
+        val hands = remember(scene) { scene.items.filter { it.kind == TableItemKind.HAND }.map { it.bounds } }
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
-         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, accepted,
-              peekScroll = peekScroll, scene = scene, onTimeline = runtime.history)
+         if (toolkit != null) CompositionLocalProvider(LocalPopupAvoid provides hands) {
+             TableToolkitScreen(toolkit, play, game, landscape, accepted,
+              peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
+              reviewing = runtime.reviewing && !runtime.continuationArmed)
+         }
         }
     }
     }

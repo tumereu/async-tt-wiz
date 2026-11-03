@@ -1,0 +1,1 @@
+fix: Menus on the table open beside the hands instead of covering them.

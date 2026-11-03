@@ -39,7 +39,7 @@ internal fun PodPicksButton(detail: PodDetail, accountId: String, definitions: M
     inspection: CardInspectionController) {
     var open by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.End) {
-        TextButton({ open = true }, Modifier.testTag("pod-picks")) { Text("Picks") }
+        TextButton({ open = true }, Modifier.testTag("pod-picks")) { ButtonLabel("decks", "Picks") }
     }
     if (open) PodPicksDialog(podOpponentPicks(detail, accountId), definitions, inspection) { open = false }
 }

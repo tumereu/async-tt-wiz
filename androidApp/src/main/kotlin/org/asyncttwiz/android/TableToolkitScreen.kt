@@ -2,6 +2,7 @@ package org.asyncttwiz.android
 
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.AutoFixHigh
 import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.HourglassTop
@@ -30,7 +31,7 @@ import org.asyncttwiz.protocol.*
 internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState, game: GameSummary,
     landscape: Boolean,
     accepted: PlayState? = null, peekScroll: ScrollState? = null, scene: TableScene? = null,
-    onTimeline: (() -> Unit)? = null) {
+    onTimeline: (() -> Unit)? = null, reviewing: Boolean = false) {
     val names = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username)
     val enabled = toolkit.enabled()
     val endingColor = if (play.board.turn.accountId == toolkit.viewer) OwnTableColor else OpponentTableColor
@@ -84,7 +85,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     // Automatum (I2a): the open cast's panel by the Stack, over the table
     CastPanelHost(toolkit, play, scene, names)
     // Automatum (I2b): priority, resolution and trigger choices by the Stack
-    SharedFlowHost(toolkit, play, scene, names)
+    SharedFlowHost(toolkit, play, scene, names, reviewing)
     // I-D41: a pause on an empty Stack (on the Stack the respond panel shows it)
     PauseBarHost(toolkit, play, scene, names)
     // I-D49: the opening's Keep / Bottom screen
@@ -110,7 +111,7 @@ internal fun automatumRows(toolkit: TableToolkitController, play: PlayState, bou
     val card = play.board.cards.singleOrNull { it.id == cardId } ?: return emptyList()
     val zone = play.board.containers.singleOrNull { it.id == card.containerId }?.zone
     if (zone == PlayZone.HAND && !CastController.ownHand(play, cardId, toolkit.viewer))
-        return listOf(EngineRow(MenuControl("Cast", false, refused = CastController.NOT_YOURS) {}, PlayCardIcon))
+        return listOf(EngineRow(MenuControl("Cast", false, refused = CastController.NOT_YOURS) {}, Icons.Outlined.AutoAwesome))
     val plays = toolkit.cardPlays(play)
         ?: return listOf(EngineRow(MenuControl(WORKING_OUT, false) {}, Icons.Outlined.HourglassTop))
     return engineRows(toolkit, play, cardId, plays.of(cardId), names, enabled)
@@ -174,7 +175,9 @@ internal fun engineRefusal(refusal: org.asyncttwiz.automatum.CardPlay.Refusal, k
 }
 
 private fun engineIcon(kind: org.asyncttwiz.automatum.CardPlay.Kind) = when (kind) {
-    org.asyncttwiz.automatum.CardPlay.Kind.Cast, org.asyncttwiz.automatum.CardPlay.Kind.Play -> PlayCardIcon
+    // UI review round 2 N12: a cast has the cast panel's sparkle, a land play the card placed on the table
+    org.asyncttwiz.automatum.CardPlay.Kind.Cast -> Icons.Outlined.AutoAwesome
+    org.asyncttwiz.automatum.CardPlay.Kind.Play -> PlayCardIcon
     org.asyncttwiz.automatum.CardPlay.Kind.Mana -> Icons.Outlined.WaterDrop
     org.asyncttwiz.automatum.CardPlay.Kind.Special -> Icons.Outlined.AutoFixHigh
     org.asyncttwiz.automatum.CardPlay.Kind.Ability -> Icons.Outlined.Bolt

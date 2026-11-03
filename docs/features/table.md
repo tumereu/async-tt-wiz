@@ -25,6 +25,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 - **TBL-015** Each direction is limited on its own: content wider than the screen can't show past its ends, and narrower content can't be pushed partly off-screen. (r3)
 - **TBL-016** A pan stays in the area where it started (battlefield, hand, side panel or Stack); pinching a scrolling area never zooms the battlefield. (r10)
 - **TBL-017** Camera and zoom are personal; they never change where cards are for the other player. (r2)
+- **TBL-121** In landscape the table opens zoomed out (never below 0.65×) so both battlefields' rows fit between the hands, column 0 still at the left edge; your first pan or zoom takes over from there. (r47)
 
 ### How cards look
 
@@ -81,7 +82,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 
 - **TBL-063** Every card menu is one floating popup: square, solid, bordered buttons with a light shadow on the board, with no sheet, title or close button. (r10)
 - **TBL-064** Card menus (battlefield, combat and panel cards) put their buttons in a grid of 5 columns of 48 dp cells, each an icon plus one short label; a menu with fewer buttons just has fewer rows. Labels wrap only between words: where a word or the label's two lines don't fit the cell (large system text), the label is drawn smaller instead of breaking a word or being cut off; the quick-actions cells do the same. Holding a button shows its full name above it (below near the top edge), never under the finger. (r16)
-- **TBL-067** The menu opens on the side of the card with the most room, preferring above your own cards and below the opponent's. (r4)
+- **TBL-067** The menu opens on the side of the card with the most room, preferring above your own cards and below the opponent's. Card menus and the other table popups (piles, life, the Stack list) keep off both hands wherever they fit elsewhere: a menu of your Library, say, opens just above your hand instead of over it. (r47)
 - **TBL-068** A tap outside the menu closes it and still goes through to the table (double taps and drags work); only buttons and chips count as inside, gaps do not. Back also closes it. (r11)
 - **TBL-069** A press that starts within 280 ms of the menu opening does nothing, so a fast second tap cannot hit a button by accident. (r8)
 - **TBL-070** Menu buttons are always shown and greyed out when they don't apply. (r45)

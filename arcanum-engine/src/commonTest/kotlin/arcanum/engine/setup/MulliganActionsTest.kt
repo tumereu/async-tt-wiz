@@ -16,8 +16,8 @@ import kotlin.test.assertTrue
 
 /** Actions "any time you could mulligan" (CR 103.5b) and effects that change the starting hand size (CR 103.5, 103.5a). */
 class MulliganActionsTest {
-    /** "Any time you could mulligan and this card is in your hand, you may draw a card." (written by hand: the parser doesn't
-     * read the wording yet; the action from the parsed "draw a card") */
+    /** "Any time you could mulligan and this card is in your hand, you may draw a card." (written by hand from the parsed "draw
+     * a card"; `casting/ReadLaneWordingsScenariosTest` plays the parsed wording) */
     private val augury = run {
         val base = Cards.definition(Cards.invent("Powdered Augury Base", "{3}", "Artifact", "When this artifact enters, draw a card."))
         val face = base.faces.single()

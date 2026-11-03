@@ -187,7 +187,8 @@ class TableStatesScreenshotTest {
         assertEquals(if (landscape) 412 else 892, image.height)
         if (kind.startsWith("combat")) {
             compose.onNodeWithContentDescription("Table actions").assertIsDisplayed().assertIsEnabled()
-            val scene = TablePresentation.scene(f.game, current(), f.a, image.width.toFloat(), image.height.toFloat(), landscape)
+            val scene = TablePresentation.scene(f.game, current(), f.a, image.width.toFloat(), image.height.toFloat(), landscape,
+                landscapeHome = true)
             if (kind == "combat") assertRenderedLandsBands(image, scene, f.a, turnPlayer = current().board.turn.accountId)
             // the title size of the area's cards, never smaller than COMBAT_MIN_CARD (combat review #12)
             assertTrue(scene.combatLabels.all { it.fontSize in 10.5f..11.5f })

@@ -169,7 +169,7 @@ private fun PodLimitedBoardPrefetch(view: LimitedView, definitions: Map<String, 
 /** Full-width Confirm under a pick screen, enabled with a choice and while nothing is being sent. */
 @Composable
 internal fun PodLimitedConfirm(text: String, enabled: Boolean, confirm: () -> Unit) {
-    Button(confirm, Modifier.fillMaxWidth().testTag("pod-limited-confirm"), enabled = enabled) { Text(text) }
+    Button(confirm, Modifier.fillMaxWidth().testTag("pod-limited-confirm"), enabled = enabled) { ButtonLabel("ready", text) }
 }
 
 /** Rotisserie cards sort like Build columns: W U B R G, multicolour, colourless, then name. */
@@ -372,9 +372,9 @@ internal fun PodWinstonView(view: LimitedView, members: List<AccountIdentity>, d
         if (mine) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val last = view.piles.drop(view.pile + 1).none { it.isNotEmpty() }
             OutlinedButton({ send(LimitedAction.PASS_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-pass"),
-                enabled = !busy && podWinstonCanPass(view)) { Text(if (last) "Pass · take top card" else "Pass") }
+                enabled = !busy && podWinstonCanPass(view)) { ButtonLabel("pass", if (last) "Pass · take top card" else "Pass") }
             Button({ send(LimitedAction.TAKE_PILE, view.turn, null, null, view.pile) }, Modifier.weight(1f).testTag("pod-winston-take"),
-                enabled = !busy && view.piles.getOrNull(view.pile)?.isNotEmpty() == true) { Text("Take pile ${view.pile + 1}") }
+                enabled = !busy && view.piles.getOrNull(view.pile)?.isNotEmpty() == true) { ButtonLabel("take", "Take pile ${view.pile + 1}") }
         }
     }
     PodLimitedPreviewHost(preview, definitions, inspection)

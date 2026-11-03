@@ -147,8 +147,10 @@ internal fun PreparationLayout(title: String, tag: String, columnsScreen: DeckVi
         if (undo != null) {
             Surface(Modifier.align(Alignment.BottomStart).padding(16.dp).size(48.dp).testTag("$tag-undo"),
                 shape = CircleShape, color = MaterialTheme.colorScheme.surfaceContainerHigh, shadowElevation = 4.dp) {
-                IconButton(undo, enabled = undoEnabled, modifier = Modifier.semantics { contentDescription = "Undo" }) {
-                    TableChromeIcon("undo")
+                HoldTip("Undo") {
+                    IconButton(undo, enabled = undoEnabled, modifier = Modifier.semantics { contentDescription = "Undo" }) {
+                        TableChromeIcon("undo")
+                    }
                 }
             }
         }

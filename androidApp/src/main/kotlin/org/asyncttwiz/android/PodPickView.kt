@@ -161,7 +161,7 @@ internal fun PodPickView(
             if (onConfirmLibrarians != null) onConfirmLibrarians(marks.keeps.toList(), rules.burnIds(marks).toList(), marks.librarians.toList())
             else onConfirm(marks.keeps.toList(), rules.burnIds(marks).toList())
         } }, enabled = rules.canConfirm(marks, busy), modifier = Modifier.fillMaxWidth()) {
-            Text(if (marks.librarians.isEmpty()) "Confirm" else
+            ButtonLabel("ready", if (marks.librarians.isEmpty()) "Confirm" else
                 "Confirm · ${marks.librarians.size} ${if (marks.librarians.size == 1) "Librarian" else "Librarians"}")
         }
     }
@@ -256,7 +256,7 @@ internal fun PodPickWaiting(text: String = "Waiting for other players", onMainMe
     Column(Modifier.padding(horizontal = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text, Modifier.testTag("pod-waiting"), color = MaterialTheme.colorScheme.onSurface.copy(alpha = .6f),
             textAlign = TextAlign.Center)
-        if (onMainMenu != null) TextButton(onMainMenu) { Text("Main menu") }
+        if (onMainMenu != null) TextButton(onMainMenu) { ButtonLabel("menu", "Main menu") }
     }
 }
 

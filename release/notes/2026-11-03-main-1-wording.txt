@@ -1,0 +1,1 @@
+mod: The pause bar names the main phases as the phase chip does ("Main 1"), and a cast reads with a sparkle icon in card menus.

@@ -102,7 +102,7 @@ internal fun CatalogDownloadStatus(catalog: CatalogViewModel) {
         Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(state.status ?: "Preparing card records…", style = MaterialTheme.typography.bodySmall)
             state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
-            if (state.error) TextButton(onClick = { catalog.foreground(force = true) }) { Text("Retry download") }
+            if (state.error) TextButton(onClick = { catalog.foreground(force = true) }) { ButtonLabel("refresh", "Retry download") }
         }
     }
 }
@@ -114,7 +114,7 @@ internal fun AvatarChooser(controller: AuthController, catalog: CatalogViewModel
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Choose your avatar", style = MaterialTheme.typography.headlineSmall)
         AvatarPicker(account, catalog, { controller.saveAvatar(it) }, Modifier.weight(1f))
-        OutlinedButton(onClick = { controller.chooseAvatar(false) }) { Text("Skip") }
+        OutlinedButton(onClick = { controller.chooseAvatar(false) }) { ButtonLabel("chevron", "Skip") }
     }
 }
 
@@ -154,8 +154,10 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
             Avatar(account, size = if (compact) 48.dp else 80.dp)
-            FilledTonalIconButton(onClick = { query = ""; reroll++ }, enabled = ready) {
-                Icon(Icons.Outlined.Casino, "Reroll avatars")
+            HoldTip("Reroll avatars") {
+                FilledTonalIconButton(onClick = { query = ""; reroll++ }, enabled = ready) {
+                    Icon(Icons.Outlined.Casino, "Reroll avatars")
+                }
             }
         }
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("Search by card name") }, singleLine = true,
@@ -164,16 +166,16 @@ private fun AvatarPicker(account: AccountIdentity, catalog: CatalogViewModel?,
             if (!ready) {
                 val state = catalog?.state ?: CatalogUiState()
                 if (compact) {
-                    if (state.error && catalog != null) FilledTonalIconButton(onClick = catalog::consent) {
-                        EntryIcon("Retry catalog download", "refresh")
+                    if (state.error && catalog != null) HoldTip("Retry catalog download") {
+                        FilledTonalIconButton(onClick = catalog::consent) { EntryIcon("Retry catalog download", "refresh") }
                     } else CircularProgressIndicator()
                 } else Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium) {
                     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(avatarCatalogStatus(state))
                         state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
                             ?: LinearProgressIndicator(Modifier.fillMaxWidth())
-                        if (state.error && catalog != null) FilledTonalIconButton(onClick = catalog::consent) {
-                            EntryIcon("Retry catalog download", "refresh")
+                        if (state.error && catalog != null) HoldTip("Retry catalog download") {
+                            FilledTonalIconButton(onClick = catalog::consent) { EntryIcon("Retry catalog download", "refresh") }
                         }
                     }
                 }
@@ -204,7 +206,7 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Avatar(account, size = 48.dp)
         Text(account.username, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-        FilledTonalIconButton(onClick = { controller.editProfile() }) { EntryIcon("Edit profile", "edit") }
+        HoldTip("Edit profile") { FilledTonalIconButton(onClick = { controller.editProfile() }) { EntryIcon("Edit profile", "edit") } }
     }
     if (state.profileDialog) {
         val nameField = rememberDialogField(account.username, account.accountId, focusOnOpen = false)
@@ -222,7 +224,7 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
                             keyboardActions = submitKeyboardActions(!state.profileBusy) { controller.saveProfile(name, avatar) })
                         DialogActionsRow {
                             DialogCancelButton("Cancel", { controller.editProfile(false) })
-                            DialogMainButton("Save", { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy)
+                            DialogMainButton("Save", { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy, icon = "save")
                         }
                     }
                 }

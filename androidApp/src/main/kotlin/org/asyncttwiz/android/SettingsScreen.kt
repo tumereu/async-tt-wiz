@@ -158,12 +158,12 @@ internal fun ProblemReportDialog(token: () -> String?, dismiss: () -> Unit) {
     var description by remember { mutableStateOf("") }
     val state = reports.state
     ScreenDialog(dismiss, title = "Report a problem", actions = {
-        if (state is ProblemReportState.Sent) DialogMainButton("Close", dismiss)
+        if (state is ProblemReportState.Sent) DialogMainButton("Close", dismiss, icon = "close")
         else {
             DialogCancelButton("Cancel", dismiss)
             DialogMainButton(if (state is ProblemReportState.Failed) "Try again" else "Send",
                 { reports.send(description, token = token()) }, Modifier.testTag("send-report"),
-                enabled = state != ProblemReportState.Sending)
+                enabled = state != ProblemReportState.Sending, icon = if (state is ProblemReportState.Failed) "refresh" else "send")
         }
     }) {
         Text("Describe what went wrong, if you like. The report includes the app's recent log, your last game's Automatum " +

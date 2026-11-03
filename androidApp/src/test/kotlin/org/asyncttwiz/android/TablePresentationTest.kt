@@ -36,6 +36,28 @@ internal object TableFixture {
 }
 
 class TablePresentationTest {
+    // TBL-121: landscape opens zoomed out so both battlefields' rows fit between the hands, column 0 where it was;
+    // portrait, and a camera the player moved, are left alone
+    @Test fun landscapeOpensOnBothBattlefieldsWholeHeight() {
+        val play = TableFixture.play(board = 3, hand = 2)
+        fun scene(landscape: Boolean, ui: TableLayoutState = TableLayoutState(), home: Boolean = true) =
+            TablePresentation.scene(TableFixture.game, play, "a", if (landscape) 892f else 412f, if (landscape) 412f else 892f,
+                landscape, ui, landscapeHome = home)
+        val plain = scene(true, home = false)
+        val opened = scene(true)
+        val viewport = assertNotNull(opened.world).viewport
+        assertTrue(opened.camera.zoom < 1f && opened.camera.zoom >= TablePresentation.MIN_ZOOM, "${opened.camera}")
+        assertTrue(plain.fields.any { it.gridBounds.y < viewport.y - .5f || it.gridBounds.bottom > viewport.bottom + .5f },
+            "at 1× the rows don't fit")
+        for (field in opened.fields) {
+            assertTrue(field.gridBounds.y >= viewport.y - .5f && field.gridBounds.bottom <= viewport.bottom + .5f, "$field in $viewport")
+            assertEquals(plain.fields.single { it.owner == field.owner }.originX, field.originX, .01f)
+        }
+        assertEquals(TableCamera(), scene(false).camera)
+        val moved = TableCamera(10f, 0f, 1f)
+        assertEquals(moved, scene(true, TableLayoutState(moved)).camera)
+    }
+
     @Test fun landscapeLaneFitsAllPileSizesAndGlobalCardSizeFallbacksWithoutHorizontalScrolling() {
         val sizes = (5..30).map { it / 10f }
         val appearances = sizes.flatMap { size ->

@@ -151,7 +151,8 @@ private fun CubeDialogs(controller: CubeController) {
         ScreenDialog(controller::dismiss, error = state.error, dismissError = controller::dismissError,
             title = if (deleting) "Delete cube?" else "Rename cube", actions = {
                 DialogCancelButton(if (deleting) "Keep cube" else "Cancel", controller::dismiss, enabled = !state.busy)
-                DialogMainButton(if (deleting) "Delete cube" else "Save name", controller::confirm, enabled = !state.busy, danger = deleting)
+                DialogMainButton(if (deleting) "Delete cube" else "Save name", controller::confirm, enabled = !state.busy, danger = deleting,
+                icon = if (deleting) "delete" else "rename")
             }) {
             if (deleting) Text("Delete ${state.detail?.saved?.cube?.takeIf { !state.editing || it.id == state.target }?.name
                 ?: state.name}? Deletion cannot be undone.")

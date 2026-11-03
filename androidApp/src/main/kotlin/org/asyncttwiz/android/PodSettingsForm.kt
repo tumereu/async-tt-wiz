@@ -247,7 +247,7 @@ internal fun PodSettingPopup(field: PodSetting, settings: DraftSettings, dismiss
     val confirm = { save(if (unlimited) null else input.text.toInt()) }
     ScreenDialog(dismiss, Modifier.widthIn(max = 320.dp), title = field.label, actions = {
         DialogCancelButton("Cancel", dismiss)
-        DialogMainButton("Save", confirm, enabled = saveEnabled)
+        DialogMainButton("Save", confirm, enabled = saveEnabled, icon = "save")
     }) {
         Text(field.explanation(settings), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))

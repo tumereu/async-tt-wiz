@@ -125,7 +125,14 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
                 PodConfirmation.SUBMIT -> "Submit"
                 PodConfirmation.START -> "Start now"
             }, if (state.uncertain) controller::retry else controller::confirm,
-                enabled = !state.loading && (state.pending == 0 || state.uncertain), danger = action != PodConfirmation.SUBMIT && action != PodConfirmation.START)
+                enabled = !state.loading && (state.pending == 0 || state.uncertain), danger = action != PodConfirmation.SUBMIT && action != PodConfirmation.START,
+                icon = if (state.uncertain) "refresh" else when (action) {
+                    PodConfirmation.DESTROY -> "delete"
+                    PodConfirmation.LEAVE -> "logout"
+                    PodConfirmation.CANCEL -> "cancel"
+                    PodConfirmation.SUBMIT -> "send"
+                    PodConfirmation.START -> "start"
+                })
         }) {
             Text(podConfirmationText(action, state.detail))
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -138,8 +145,8 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
 internal fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier) {
         if (state.retryPodChallengeName != null) {
-            FilledTonalIconButton(retry, Modifier.align(Alignment.TopEnd).padding(12.dp), enabled = !state.mutating) {
-                EntryIcon("Retry challenge", "refresh")
+            HoldTip("Retry challenge", Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                FilledTonalIconButton(retry, enabled = !state.mutating) { EntryIcon("Retry challenge", "refresh") }
             }
         }
         FloatingTransientError(state.error, dismiss, Modifier.align(Alignment.BottomCenter))
@@ -151,7 +158,7 @@ private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodP
     startNow: Boolean = false) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        if (compact) IconButton({ expanded = true }, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") }
+        if (compact) HoldTip("Pod actions") { IconButton({ expanded = true }, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") } }
         else ScreenIconButton("Pod actions", "more", { expanded = true })
         DropdownMenu(expanded, { expanded = false }) {
             // Starting is otherwise "Start when everyone accepts" while invitations are pending.
@@ -190,8 +197,8 @@ internal fun PodsList(state: PodState, accountId: String?, open: (String) -> Uni
                             Avatar(invitation.creator); Text(invitation.creator.username)
                         }
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ScreenButton({ respond(invitation.podId, true) }, enabled = state.pending == 0) { Text("Accept") }
-                            ScreenOutlinedButton({ respond(invitation.podId, false) }, enabled = state.pending == 0) { Text("Decline") }
+                            ScreenButton({ respond(invitation.podId, true) }, enabled = state.pending == 0) { ButtonLabel("ready", "Accept") }
+                            ScreenOutlinedButton({ respond(invitation.podId, false) }, enabled = state.pending == 0) { ButtonLabel("close", "Decline") }
                         }
                     }
                 }
@@ -241,7 +248,7 @@ private fun NewPodScreen(controller: PodController) {
         }
         Button(controller::create, Modifier.fillMaxWidth().padding(horizontal = 8.dp), enabled = (draft.cubeId != null || draft.setSource != null) && draft.name.isNotBlank() &&
             draft.settings.validate(2).isEmpty() && state.pending == 0 && !state.uncertain && state.sourcePreview == null &&
-            podSourceSupport(controller, draft.cubeId, draft.setSource?.snapshot?.setCode)?.supported != false) { Text("Create") }
+            podSourceSupport(controller, draft.cubeId, draft.setSource?.snapshot?.setCode)?.supported != false) { ButtonLabel("add", "Create") }
     }
 }
 
@@ -295,9 +302,9 @@ private fun PodSetupScreen(controller: PodController, detail: PodDetail, account
             val idle = state.setup == null && state.sourcePreview == null && state.pending == 0 && !state.uncertain
             val limit = podPlayerLimitText(detail.copy(settings = settings))
             if (detail.pendingInvitations.isEmpty())
-                ScreenButton(controller::start, enabled = idle && podCanStart(detail) && !unsupported) { Text("Start draft") }
-            else if (detail.autoStart) ScreenOutlinedButton({ controller.autoStart(false) }, enabled = idle) { Text(podAutoStartLabel(detail)) }
-            else ScreenButton({ controller.autoStart(true) }, enabled = idle && limit == null && !unsupported) { Text(podAutoStartLabel(detail)) }
+                ScreenButton(controller::start, enabled = idle && podCanStart(detail) && !unsupported) { ButtonLabel("start", "Start draft") }
+            else if (detail.autoStart) ScreenOutlinedButton({ controller.autoStart(false) }, enabled = idle) { ButtonLabel("pending", podAutoStartLabel(detail)) }
+            else ScreenButton({ controller.autoStart(true) }, enabled = idle && limit == null && !unsupported) { ButtonLabel("pending", podAutoStartLabel(detail)) }
             // I-D52 (DRF-161): a source Automatum can't play fully can't start a draft.
             if (unsupported) Text(AUTOMATUM_SOURCE_BLOCKED, Modifier.testTag("automatum-blocked"), color = MaterialTheme.colorScheme.error)
             // DRF-035, DRF-036: why Start or auto-start is not offered with this many players.
@@ -398,7 +405,7 @@ internal fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailin
     Surface {
         Row(Modifier.fillMaxWidth().height(PodPlayHeaderHeight).testTag("pod-play-header"),
             verticalAlignment = Alignment.CenterVertically) {
-            if (navigation != null) IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") }
+            if (navigation != null) HoldTip("Open navigation") { IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") } }
             else Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(detail.name, Modifier.height(16.dp).testTag("pod-play-title"), style = MaterialTheme.typography.labelSmall,
@@ -478,9 +485,11 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
         detail.members.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
                 if (podChallengeOffered(detail, member, accountId) && lobby != null)
+                    HoldTip("Challenge") {
                     FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
                         enabled = mine?.submitted == true && !lobby.state.mutating) {
                         Icon(painterResource(R.drawable.swords_outlined), contentDescription = "Challenge")
+                    }
                     }
             }
         }

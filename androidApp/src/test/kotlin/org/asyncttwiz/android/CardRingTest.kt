@@ -37,6 +37,26 @@ class CardRingTest {
         }
     }
 
+    // TBL-067: a popup keeps off both hands where it fits elsewhere: your Library's menu opens just above your hand, the
+    // opponent's just below theirs, a battlefield card's where it did; with no room off them it still opens
+    @Test fun popupsKeepOffTheHands() {
+        val hands = listOf(TableBounds(8f, 116f, 396f, 52f), TableBounds(8f, 668f, 396f, 52f))
+        val library = TableBounds(76f, 740f, 28f, 40f)
+        val row = assertNotNull(CardRingGeometry.place(412f, 892f, library, true, 264f, 40f, avoid = hands)).square
+        assertTrue(hands.all { it.intersection(row) == null }, "$row")
+        assertEquals(668f - 8f, row.bottom)
+        val opponentLibrary = TableBounds(76f, 64f, 28f, 40f)
+        val below = assertNotNull(CardRingGeometry.place(412f, 892f, opponentLibrary, false, 264f, 40f, avoid = hands)).square
+        assertEquals(168f + 8f, below.y)
+        val field = TableBounds(182f, 560f, 28f, 40f)
+        assertEquals(CardRingGeometry.place(412f, 892f, field, true), CardRingGeometry.place(412f, 892f, field, true, avoid = hands))
+        val tight = listOf(TableBounds(0f, 0f, 412f, 550f), TableBounds(0f, 610f, 412f, 282f))
+        assertEquals(CardRingGeometry.place(412f, 892f, field, true), CardRingGeometry.place(412f, 892f, field, true, avoid = tight))
+        // an area the card itself lies in is not avoided
+        val around = listOf(TableBounds(0f, 540f, 412f, 80f))
+        assertEquals(CardRingGeometry.place(412f, 892f, field, true), CardRingGeometry.place(412f, 892f, field, true, avoid = around))
+    }
+
     // TBL-067
     @Test fun largestFittingSideWinsAndOwnershipBreaksAboveBelowTies() {
         val portrait = TableBounds(182f, 412f, 48f, 68f)

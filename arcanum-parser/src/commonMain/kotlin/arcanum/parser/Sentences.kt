@@ -164,6 +164,7 @@ internal class Sentences(
     fun line(line: String): Ability? {
         finLine(line)?.let { return it } // fin
         MechanicWordings.static(line, ::isSelf, OracleParser::keyword) { Sentences(setOf("this creature")).line(it) }?.let { return it }
+        mechanicLine(line)?.let { return it }
         // CR 702.55c: "the creature it haunts" triggers in exile
         if (line.contains(" haunts dies")) return MechanicWordings.haunting(triggered(line))
         tdmLine(line)?.let { return it } // tdm
@@ -210,6 +211,178 @@ internal class Sentences(
             }
         }
         return static(line) ?: triggered(line) ?: activated(line) ?: spell(line) ?: fraStaticLate(line) /* fra */ ?: finLate(line) // fin
+    }
+
+    // ---- Mechanics the engine plays since its lanes 1–4 ([MechanicWordings]); each rule reads one wording and falls through
+
+    /** Whole lines: exert as it attacks, actions any time you could mulligan, starting hand sizes. */
+    private fun mechanicLine(line: String): Ability? {
+        // CR 701.43d, 508.1g: "You may exert this creature as it attacks. When you do, [effect]": an optional cost of attacking with it, and a
+        // reflexive trigger once it is paid (CR 603.12, 607.2h); "it" in the effect is this creature, as in its attack trigger
+        MechanicWordings.MAY_EXERT_AS_ATTACKS.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val then = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { effect ->
+                (triggered("Whenever ${m.groupValues[1]} attacks, $effect") as? Ability.Triggered)?.instructions ?: return null
+            }
+            return Ability.Static(listOf(Mechanic.AsAttacks(Cost(listOf(CostPart.Action(arcanum.api.KeywordAction.Exert(Objects.Self)))), then)),
+                affects = Affected.Objects(Objects.Self))
+        }
+        // CR 103.5b: "Any time you could mulligan and this card is in your hand, you may [effect]": an action in the hand
+        MechanicWordings.ANY_TIME_YOU_COULD_MULLIGAN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val action = instructions(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.WhenYouCouldMulligan(action)), affects = Affected.Objects(Objects.Self), functionsIn = listOf(Zone.Hand))
+        }
+        // CR 103.5: "Your starting hand size is increased by one." (a conspiracy's, in the command zone, CR 905.4)
+        MechanicWordings.STARTING_HAND_SIZE.matchEntire(line)?.let { m ->
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            return Ability.Static(listOf(Mechanic.StartingHandSize(if (m.groupValues[1] == "increased") n else -n)), affects = Affected.Players(Players.You),
+                functionsIn = listOf(Zone.Command))
+        }
+        return null
+    }
+
+    /** The objects a static ability of this mechanic group affects: this object, the one it enchants or equips, or each of a kind. */
+    private fun mechanicAffected(subject: String): Objects? {
+        if (isSelf(subject)) return Objects.Self
+        if (subject == "Enchanted creature" || subject == "Equipped creature" || subject == "enchanted creature" || subject == "equipped creature")
+            return Objects.AttachedTo(Objects.Self)
+        return Objects.Each(Filters.noun(subject.replaceFirstChar { it.lowercase() }) ?: return null)
+    }
+
+    /** Static abilities, also inside "As long as …": costs to attack and block, copy effects. */
+    private fun mechanicStatic(line: String): Ability? {
+        // CR 508.1d, h: "Creatures can't attack you unless their controller pays {2} for each creature they control that's attacking you."
+        MechanicWordings.CANT_ATTACK_YOU_UNLESS_PAYS_EACH_ATTACKING.matchEntire(line)?.let { m ->
+            val attackers = mechanicAffected(m.groupValues[1]) ?: return null
+            val walkers = m.groupValues[2].takeIf { it.isNotEmpty() }?.let { Objects.Each(Filters.noun(it) ?: return null) }
+            val mana = ManaCost.parse(m.groupValues[3]) ?: return null
+            val x = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { Values.value(it) ?: return null }
+            return Ability.Static(listOf(Mechanic.AttackCost(Cost(listOf(CostPart.Mana(mana, x = x))), target = Recipients(objects = walkers, players = Players.You))),
+                affects = Affected.Objects(attackers))
+        }
+        // CR 508.1d, 509.1d: "Enchanted creature can't attack unless its controller pays {3}." / "… can't attack or block unless …"
+        MechanicWordings.CANT_ATTACK_UNLESS_ITS_CONTROLLER_PAYS.matchEntire(line)?.let { m ->
+            val objects = mechanicAffected(m.groupValues[1]) ?: return null
+            val cost = Cost.mana(ManaCost.parse(m.groupValues[3]) ?: return null)
+            val mechanics = when (m.groupValues[2]) {
+                "attack" -> listOf(Mechanic.AttackCost(cost))
+                "block" -> listOf(Mechanic.BlockCost(cost))
+                else -> listOf(Mechanic.AttackCost(cost), Mechanic.BlockCost(cost))
+            }
+            return Ability.Static(mechanics, affects = Affected.Objects(objects))
+        }
+        // CR 508.1h, 509.1d: "This creature can't attack unless you sacrifice a land." (a cost other than mana, paid as it is declared)
+        MechanicWordings.SELF_CANT_ATTACK_UNLESS_YOU.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val cost = cost(m.groupValues[3].replaceFirstChar { it.uppercase() }) ?: return null
+            val mechanic = if (m.groupValues[2] == "attack") Mechanic.AttackCost(cost) else Mechanic.BlockCost(cost)
+            return Ability.Static(listOf(mechanic), affects = Affected.Objects(Objects.Self))
+        }
+        // CR 508.1h: "Black creatures can't attack unless their controller sacrifices a land of their choice for each black creature they
+        // control that's attacking." (the cost for each attacker)
+        MechanicWordings.CANT_ATTACK_UNLESS_CONTROLLER_SACRIFICES.matchEntire(line)?.takeIf {
+            it.groupValues[1].replaceFirstChar { c -> c.lowercase() } == it.groupValues[3] + "s"
+        }?.let { m ->
+            val attackers = mechanicAffected(m.groupValues[1]) ?: return null
+            val cost = cost("Sacrifice ${m.groupValues[2]}") ?: return null
+            return Ability.Static(listOf(Mechanic.AttackCost(cost)), affects = Affected.Objects(attackers))
+        }
+        // CR 509.1d: "Creatures can't block unless their controller pays {1} for each of those creatures."
+        MechanicWordings.CANT_BLOCK_UNLESS_PAYS.matchEntire(line)?.let { m ->
+            val blockers = mechanicAffected(m.groupValues[1]) ?: return null
+            val cost = PAY_LIFE.matchEntire("Pay " + m.groupValues[2])?.let { Cost(listOf(CostPart.PayLife(Value.Fixed(it.groupValues[1].toInt())))) }
+                ?: Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null)
+            return Ability.Static(listOf(Mechanic.BlockCost(cost)), affects = Affected.Objects(blockers))
+        }
+        // CR 613.2a, 707.2: "Enchanted creature is a copy of the chosen creature." (the creature chosen as this Aura entered, CR 607.2d),
+        // "Other creatures you control are copies of enchanted creature."
+        MechanicWordings.IS_A_COPY_OF.matchEntire(line)?.let { m ->
+            val affected = when {
+                m.groupValues[1].startsWith("Other ") -> Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                    Filters.noun(m.groupValues[1].removePrefix("Other ")) ?: return null))
+                else -> mechanicAffected(m.groupValues[1]) ?: return null
+            }
+            val of = when (m.groupValues[2]) {
+                "the chosen creature", "the chosen permanent", "the chosen artifact" -> Objects.Remembered(CHOSEN)
+                "enchanted creature", "equipped creature", "enchanted permanent" -> Objects.AttachedTo(Objects.Self)
+                else -> return null
+            }
+            return Ability.Static(listOf(Mechanic.CopyOf(of)), affects = Affected.Objects(affected))
+        }
+        return null
+    }
+
+    /** Cost parts: "Exert this creature" (CR 701.43a, b). */
+    private fun mechanicCostPart(text: String): List<CostPart>? {
+        MechanicWordings.EXERT_COST.matchEntire(text)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(CostPart.Action(arcanum.api.KeywordAction.Exert(Objects.Self)))
+        }
+        return null
+    }
+
+    /** The number a keyword action names: N, or X announced with the costs (an activated ability's or a spell's, CR 107.3a). */
+    private fun mechanicCount(text: String): Value? = when (text) {
+        "X" -> if (isSpell || announcedX) Value.Announced(name = "X") else null
+        "card" -> Value.Fixed(1)
+        "two cards" -> Value.Fixed(2)
+        "three cards" -> Value.Fixed(3)
+        else -> text.toIntOrNull()?.let { Value.Fixed(it) }
+    }
+
+    /** The objects a keyword action's subject or object names: this object, "it", "that creature", a target, "each/all …". */
+    private fun mechanicObjects(subject: String, context: Context): Objects? {
+        if (subject == "That creature" || subject == "that creature") return context.that ?: context.it
+        // "it" after a sentence with an object target is that target ("target creature gains … . It explores.")
+        if (subject == "it" || subject == "It")
+            context.targets.lastOrNull()?.takeIf { it.what is TargetKind.Objects }?.let { return Objects.Target(it.name) }
+        MechanicWordings.ALL_NOUN.matchEntire(subject)?.let { return Objects.Each(Filters.noun(it.groupValues[1]) ?: return null) }
+        return tdmObjects(subject, context)
+    }
+
+    /** Effect sentences: the keyword actions (CR 701) the engine does, and the exiled hand redrawn. */
+    private fun mechanicEffect(sentence: String, context: Context): List<Step>? {
+        fun action(action: arcanum.api.KeywordAction) = listOf(Step.Do(Effect.Action(action)))
+        when (sentence) {
+            // CR 701.48a
+            "Learn." -> return action(arcanum.api.KeywordAction.Learn)
+            // CR 701.56a
+            "Time travel." -> return action(arcanum.api.KeywordAction.TimeTravel)
+        }
+        // CR 701.44a: "When this creature enters, it explores.", "Target creature you control explores."
+        MechanicWordings.EXPLORES.matchEntire(sentence)?.let { m ->
+            return action(arcanum.api.KeywordAction.Explore(mechanicObjects(m.groupValues[1], context) ?: return null))
+        }
+        // CR 701.37a: "Monstrosity 3." (an activated ability's: this permanent)
+        MechanicWordings.MONSTROSITY.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Monstrosity(mechanicCount(m.groupValues[1]) ?: return null)) }
+        // CR 701.46a
+        MechanicWordings.ADAPT.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Adapt(mechanicCount(m.groupValues[1]) ?: return null)) }
+        // CR 701.39a, b: up to N other target creatures (a permanent's), up to N target creatures (an instant's or sorcery's)
+        MechanicWordings.SUPPORT.matchEntire(sentence)?.let { m ->
+            val count = mechanicCount(m.groupValues[1]) ?: return null
+            val creature = ObjectFilter.Type(CardType.Creature)
+            val name = context.name("supported")
+            context.targets += TargetSlot(name, TargetKind.Objects(if (isSpell) creature else Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), creature)),
+                min = Value.Fixed(0), max = count)
+            return action(arcanum.api.KeywordAction.Support(count, name))
+        }
+        // CR 701.57a
+        MechanicWordings.DISCOVER.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Discover(mechanicCount(m.groupValues[1]) ?: return null)) }
+        // CR 701.40a: "Manifest the top card of your library."
+        MechanicWordings.MANIFEST_TOP.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Manifest(mechanicCount(m.groupValues[1]) ?: return null)) }
+        // CR 701.58a: "Cloak the top card of your library."
+        MechanicWordings.CLOAK_TOP.matchEntire(sentence)?.let { m -> return action(arcanum.api.KeywordAction.Cloak(mechanicCount(m.groupValues[1]) ?: return null)) }
+        // CR 701.15a: "Goad target creature.", "Goad it.", "Goad all creatures your opponents control."
+        MechanicWordings.GOAD.matchEntire(sentence)?.let { m ->
+            // "goad it" after another effect: the object that effect named (its target), never this permanent by default
+            val objects = (if (m.groupValues[1] == "it") mechanicObjects("it", context)?.takeIf { it != Objects.Self } ?: context.it?.takeIf { it != Objects.Self }
+                else mechanicObjects(m.groupValues[1], context)) ?: return null
+            return action(arcanum.api.KeywordAction.Goad(objects))
+        }
+        // "Exile all the cards from your hand, then draw that many cards."
+        if (MechanicWordings.EXILE_HAND_DRAW_THAT_MANY.matches(sentence)) {
+            return listOf(
+                Step.Do(Effect.Move(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You))), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Draw(Players.You, Value.Count(Objects.Bound("exiled")))))
+        }
+        return null
     }
 
     /**
@@ -321,6 +494,7 @@ internal class Sentences(
 
     /** "As this land enters, you may pay 2 life. If you don't, it enters tapped." (CR 614.12, 118.12a) */
     private fun static(line: String): Ability? {
+        mechanicStatic(line)?.let { return it }
         tdmStatic(line)?.let { return it } // tdm
         eoeStatic(line)?.let { return it } // eoe
         spmStatic(line)?.let { return it } // spm
@@ -1448,6 +1622,7 @@ internal class Sentences(
         Fin.PAY_LIFE_EQUAL_TO_POWER.matchEntire(text)?.let {
             return listOf(CostPart.PayLife(Value.Of(arcanum.api.NumericProperty.Power, Objects.Self, arcanum.api.Combine.Single)))
         }
+        mechanicCostPart(text)?.let { return it }
         tdmCostPart(text)?.let { return it } // tdm
         eoeCostPart(text)?.let { return it } // eoe
         tlaCostPart(text)?.let { return it } // tla
@@ -2898,6 +3073,7 @@ internal class Sentences(
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
         MechanicWordings.effect(sentence)?.let { return it }
+        mechanicEffect(sentence, context)?.let { return it }
         tdmEffect(sentence, context)?.let { return it } // tdm
         eoeEffect(sentence, context)?.let { return it } // eoe
         finEffect(sentence, context)?.let { return it } // fin

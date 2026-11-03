@@ -38,6 +38,8 @@ internal object Knowledge {
         public(o) -> true
         o.zone == Zone.Hand || o.zone == Zone.Outside -> o.owner == player
         o.faceDown && (o.zone == Zone.Battlefield || o.zone == Zone.Stack) -> (o.controller ?: o.owner) == player
+        // CR 702.106b: a face-down conspiracy in the command zone, its owner's
+        o.faceDown && o.zone == Zone.Command -> o.owner == player
         // CR 702.143a: its owner may look at a foretold card
         o.faceDown && arcanum.engine.foretell.Foretell.mayLook(o, player) -> true
         else -> false

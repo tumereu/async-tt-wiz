@@ -197,4 +197,37 @@ class TheRingTest {
         assertEquals(null, ringBearer())
         assertFalse(ObjectMark.RingBearer in state.objOrThrow(card(bear)).marks)
     }
+
+    private val herald = Cards.invent("Ring Barrow Herald", "{1}{W}", "Creature — Human Soldier",
+        "Whenever you choose a creature as your Ring-bearer, put a +1/+1 counter on that creature.", "2/2")
+
+    // CR 701.54a, d, e: "whenever you choose a creature as your Ring-bearer" and "your Ring-bearer" as an object
+    @Test
+    fun choosingARingBearerAndYourRingBearer() = scenario {
+        val banner = Cards.invent("Ring Shire Banner", "{2}", "Artifact", "Your Ring-bearer gets +1/+1.")
+        alice.battlefield("Swamp", herald, banner, bear)
+        alice.hand(beckon)
+        alice.casts(beckon)
+        allPass()
+        if (pending is Decision.ChooseObjects) alice.chooses(bear)
+        allPass()
+        expect {
+            bear.power shouldBe 4
+            herald.power shouldBe 2
+        }
+    }
+
+    // CR 701.54a: with no creature to choose, "whenever you choose a creature as your Ring-bearer" doesn't trigger
+    @Test
+    fun noRingBearerChosenNoTrigger() = scenario {
+        val charm = Cards.invent("Ring Herald Charm", "{2}", "Artifact",
+            "Whenever you choose a creature as your Ring-bearer, you gain 3 life.")
+        alice.battlefield("Swamp", charm)
+        alice.hand(beckon)
+        alice.casts(beckon)
+        allPass()
+        assertEquals(0, state.stack.size)
+        assertEquals(20, alice.life)
+        assertEquals(1, TheRing.temptations(state, alice.id))
+    }
 }

@@ -76,6 +76,7 @@ internal object Combat {
         require(input.player == s.turn.active) { "Only the active player declares attackers (CR 508.1)" }
         val snap = Snapshot(s)
         CombatRules.illegalAttack(snap, input.player, input.attacks)?.let { throw IllegalArgumentException("Illegal attack: $it") }
+        Banding.illegal(snap, input.attacks)?.let { throw IllegalArgumentException("Illegal attack: $it") }
         // rtr chunk 07: a cost to attack is paid first (CR 508.1h–j), as an event that waits for the payment (D29)
         CombatRules.attackCost(snap, input.attacks)?.let { cost ->
             require(CombatRules.canPayToAttack(snap, input.player, input.attacks)) { "Illegal attack: the cost to attack ($cost) can't be paid (CR 508.1d)" }
@@ -95,7 +96,7 @@ internal object Combat {
         // CR 508.1g, h, 702.154a: the creatures enlisted are tapped as the optional cost to attack
         attacks.forEach { a -> a.enlisted.forEach { record(Changes.tap(state, it)) } }
         // CR 508.1k: they become attacking creatures
-        record(Change.Combat(null, CombatState(attackers = attacks.map { Attacker(it.attacker, it.target) }), listOf(Meaning.AttackersDeclared)))
+        record(Change.Combat(null, CombatState(attackers = attacks.map { Attacker(it.attacker, it.target, band = it.band) }), listOf(Meaning.AttackersDeclared)))
         // CR 702.154a, c: "When you do" (the linked trigger, 607.2h) sees each creature an attacker enlisted
         attacks.forEach { a -> a.enlisted.forEach { record(Change.Happened(arcanum.engine.change.GameEvent.Enlisted(a.attacker, it))) } }
     }
@@ -117,7 +118,8 @@ internal object Combat {
         }
         CombatRules.illegalBlock(snap, input.player, input.blocks)?.let { throw IllegalArgumentException("Illegal block: $it") }
         val combat = s.combat!!
-        val blockers = input.blocks.groupBy { it.blocker }.map { (b, bs) -> Blocker(b, bs.map { it.attacker }, input.player) }
+        // CR 702.22h: blocking a member of a band blocks the whole band
+        val blockers = input.blocks.groupBy { it.blocker }.map { (b, bs) -> Banding.blocks(combat, Blocker(b, bs.map { it.attacker }, input.player)) }
         // CR 509.1g: they become blocking creatures; CR 509.1h: with the last declaration, attackers become blocked or
         // unblocked in the same event, so triggers on it see the final state (CR 509.3c, 509.3g)
         recorder.record(Change.Combat(combat, decided(snap, combat.copy(blockers = combat.blockers + blockers,
@@ -306,7 +308,8 @@ internal object Combat {
             is Plan.Choice -> p
             is Plan.Fixed -> return continueAssigning(recorder, action.copy(assigned = action.assigned + p.assignments, attackers = action.attackers.drop(1)))
         }
-        val player = snap.board.controller(next) ?: recorder.state.turn.active
+        // CR 702.22j, k: banding gives the assignment to the other player
+        val player = Banding.assigner(snap, recorder.state.combat!!, next) ?: snap.board.controller(next) ?: recorder.state.turn.active
         val decision = Decision.Divide(decisionId(recorder.state, "combat-damage:$next"), player, next, plan.amount, plan.among,
             minEach = 0, lethal = plan.lethal, suggested = plan.suggested)
         return Progress.Waiting(Pending(decision, Continuation.TurnBased(action)))

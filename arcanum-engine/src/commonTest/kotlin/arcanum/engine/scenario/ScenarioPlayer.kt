@@ -54,6 +54,11 @@ class ScenarioPlayer internal constructor(private val scenario: Scenario, val id
         scenario.put(this, names.toList(), Zone.Exile)
     }
 
+    /** Cards this player owns outside the game (CR 400.11): a sideboard, dungeon cards (CR 309.2). */
+    fun outside(vararg names: String) {
+        scenario.put(this, names.toList(), Zone.Outside)
+    }
+
     /** Life total: set during setup, read in expectations. */
     var life: Int
         get() = state.player(id).life

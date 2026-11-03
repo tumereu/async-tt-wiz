@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
@@ -188,13 +189,19 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         val top = part.y - if (part.y == i.bounds.y) outset else 0f
         val right = part.right + if (part.right == i.bounds.right) outset else 0f
         val bottom = part.bottom + if (part.bottom == i.bounds.bottom) outset else 0f
+        // An empty fragment (or one with no finite size) draws nothing: no clip, layer or offset for it.
+        if (!(right > left && bottom > top)) continue
         clipRect(left * density, top * density, right * density, bottom * density) {
         val alpha = alphas[i.id] ?: 1f
+        val shift = shake?.takeIf { (id, _) -> i.id == id || i.cardId == id }?.second ?: 0f
+        // Playtest crash 2026-11-03 ("Underflow in restore" on Keep): the fade's layer and the shake's offset are undone
+        // by restoring to the save count from before them, never by counting restores (a layer the renderer didn't push
+        // must not pop a save of the nodes around the table).
+        val saved = drawContext.canvas.nativeCanvas.saveCount
         // Opaque cards need only the existing clip, not a separate GPU render target per fragment.
         if (alpha < 1f) drawContext.canvas.saveLayer(androidx.compose.ui.geometry.Rect(left * density, top * density,
             right * density, bottom * density), cache.layerPaint.apply { this.alpha = alpha })
-        val shift = shake?.takeIf { (id, _) -> i.id == id || i.cardId == id }?.second ?: 0f
-        if (shift != 0f) drawContext.transform.translate(shift * density, 0f)
+        if (shift != 0f) { drawContext.canvas.save(); drawContext.canvas.translate(shift * density, 0f) }
         try {
         val b = i.bounds
         val color = if (i.owner == null) Color(0xff59656a) else if (i.owner == viewer) OwnTableColor else OpponentTableColor
@@ -263,8 +270,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
         }
         if (i.kind != TableItemKind.CARD) outlines(i, b)
         } finally {
-            if (shift != 0f) drawContext.transform.translate(-shift * density, 0f)
-            if (alpha < 1f) drawContext.canvas.restore()
+            drawContext.canvas.nativeCanvas.restoreToCount(saved)
         }
     }
     }

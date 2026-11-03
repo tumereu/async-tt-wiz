@@ -128,6 +128,22 @@ internal object Answers {
                 c.copy(names = c.names.with(q.key, NamedValue.Colors(before + color)))
             }
             is Question.Pay -> refuse("Mana is paid when the cast finishes")
+            // CR 702.132a: assist
+            is Question.Assist -> {
+                val chosen = (answer as? Answer.Option)?.chosen ?: refuse("Expected an option")
+                if (chosen == Plan.NOBODY) c.copy(assist = arcanum.engine.decision.Assisting(null))
+                else q.among.firstOrNull { it.value == chosen }?.let { c.copy(assist = arcanum.engine.decision.Assisting(it)) }
+                    ?: refuse("Not a player to choose: $chosen")
+            }
+            is Question.AssistAmount -> {
+                val n = (answer as? Answer.Number)?.value ?: refuse("Expected a number")
+                if (n !in 0..q.max) refuse("Pay 0 to ${q.max}")
+                c.copy(assist = c.assist?.copy(amount = n))
+            }
+            is Question.AssistPay -> {
+                val uses = (answer as? Answer.ManaPayment)?.uses ?: refuse("Expected a mana payment")
+                c.copy(assist = c.assist?.copy(uses = uses))
+            }
             // ecl: a creature type chosen with the costs, kept under its name for the parts and the spell that read it
             // eoe: objects chosen with the costs, kept under the choice's name for the spell
             is Question.CostChoice -> if (q.part.choice is arcanum.api.Choice.Objects) {
@@ -164,6 +180,8 @@ internal object Answers {
         is Question.Target -> if (q.options.isEmpty() && q.min == 0) Answer.Targets(emptyList()) else null
         // blb: the only opponent there is (CR 702.174a, two players)
         is Question.Player -> q.among.singleOrNull()?.let { Answer.Player(it) }
+        // assist: nobody to choose
+        is Question.Assist -> if (q.among.isEmpty()) Answer.Option(Plan.NOBODY) else null
         else -> null
     }
 

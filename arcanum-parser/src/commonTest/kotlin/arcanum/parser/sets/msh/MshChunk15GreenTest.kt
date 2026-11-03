@@ -82,9 +82,11 @@ class MshChunk15GreenTest {
         """,
     ) parsesTo abilities(
         Ability.Spell(Instructions(
-            modes = Modes(listOf(artifact, creature, enchantment, land).map { Mode(Instructions(targets = listOf(slot("card", inYourGraveyard(it))))) },
-                min = 0, max = 2, chooser = Players.You),
-            steps = listOf(move(Objects.Union(List(4) { target("card") }), Zone.Hand)))),
+            // each mode its own slot, so the step after the modes reads every chosen target
+            modes = Modes(listOf(artifact, creature, enchantment, land).zip(listOf("artifact", "creature", "enchantment", "land")).map { (filter, kind) ->
+                Mode(Instructions(targets = listOf(slot("$kind card", inYourGraveyard(filter)))))
+            }, min = 0, max = 2, chooser = Players.You),
+            steps = listOf(move(Objects.Union(listOf("artifact", "creature", "enchantment", "land").map { target("$it card") }), Zone.Hand)))),
     )
 
     // CR 614.1a: plus one of each kind; X mana of one colour (X its power)

@@ -386,7 +386,10 @@ sealed interface KeywordAction {
     @Serializable @SerialName("amass") data class Amass(val subtype: Subtype, val count: Value) : KeywordAction
     @Serializable @SerialName("connive") data class Connive(val objects: Objects, val count: Value) : KeywordAction
     @Serializable @SerialName("discover") data class Discover(val count: Value) : KeywordAction
+    /** "Venture into the dungeon" (CR 701.49a–c). */
     @Serializable @SerialName("venture") data object Venture : KeywordAction
+    /** "Venture into [quality]" (CR 701.49d: "venture into Undercity"): a new dungeon is one of [dungeons]. */
+    @Serializable @SerialName("venture-into") data class VentureInto(val dungeons: ObjectFilter) : KeywordAction
     @Serializable @SerialName("manifest") data class Manifest(val count: Value) : KeywordAction
     /** "[Players] manifest(s) dread" (CR 701.62a): look at the top two cards of their library, manifest one of them
      * (CR 701.40a: onto the battlefield face down as a 2/2 creature, [ObjectMark.Manifested]) and put the other into

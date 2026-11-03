@@ -423,21 +423,50 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
+- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`, `dungeon/VentureTest`, `combat/BandingTest`, `conspiracy/HiddenAgendaTest`): mutate and merged permanents
+  (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
+  same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
+  `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
+  other components in `GameObject.mergedAbove` / `mergedBelow` as `MergedPart`s: layer 1 gives it the topmost component's
+  characteristics and every component's abilities, `AbilityOrigin.Printed.card` naming the component, and a token only when the
+  topmost is one, 730.2d; leaving the battlefield each component becomes its own object in the new zone, `Move.parts`, right
+  after its own card, 730.3; merged on top of a face-down permanent it is face up and its card filled in publicly, 730.2e, D60).
+  Not done: a copy of a mutating spell merging (it enters as a token), effects that find "it" after a merged permanent leaves
+  find its own card only (730.3c), turning a merged permanent face down (730.2f, j). Epic (`epic/Epic`, CR 702.50, scenarios in
+  `epic/EpicTest`): as a spell with epic finishes resolving, an effect object that its controller can't cast spells and a repeating
+  delayed trigger at each of their upkeeps that copies the spell as it last was on the Stack (`NamedValue.Spell`: its choices
+  and snapshot), except for its epic ability (`CopyException.WithoutKeyword`), new targets allowed. Assist (CR 702.132, scenarios in
+  `casting/AssistTest`): with the costs, the caster may choose another player (`Decision.ChooseOption`, "nobody" or a player),
+  who chooses how much of the total cost's generic mana to pay (`ChooseNumber`) and pays it with their own mana (`ManaPayment`
+  of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player's mana is paid
+  as on resolution (no spell-restricted mana). Venturing into the dungeon and the initiative (`dungeon/Dungeons`, CR 309, 701.49,
+  726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game (chosen in their own view when the state
+  is another player's, D31) is put into the command zone with the venture marker (the dungeon's memory) on its topmost room; each
+  venture follows an arrow (the owner choosing among several) and the room's ability triggers, controlled by the owner; from the
+  bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
+  Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
+  ledger. "Venture into Undercity" only chooses Undercity dungeons; the initiative's three inherent triggers (CR 726.2: upkeep, combat
+  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers.
+  Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an
+  attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature
+  blocking a member blocks the whole band; the defending player assigns the damage of an attacker blocked by a creature with banding,
+  the active player that of a blocker blocking one. `options` doesn't list bands; a host adds them to a declaration. "Bands with
+  other" isn't an API keyword yet. Hidden agenda and double agenda (`conspiracy/Conspiracies`, CR 702.106, 103.2e, 905.4,
+  scenarios in `conspiracy/HiddenAgendaTest`): with `StartOptions.conspiracies` (a Conspiracy Draft game) each player in turn order
+  may put conspiracy cards from outside the game into the command zone, those with hidden agenda face down with their owner's
+  secretly chosen name(s) as memory under "name" (what "the chosen name" reads; double agenda's second name counts too); the
+  keyword expands to the special action turning it face up (CR 116.2j). D60: the owner may look at it; in another player's view
+  the host answers which chosen cards go face down, and the name is asked of the owner (the host answering) as it is revealed.
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
-  - Keywords: epic (copying, each upkeep, a spell that has left the Stack: copies are made from Stack items only), assist (another
-    player paying part of the mana: the payment flow has one payer), mutate (merging permanents, CR 730: an object represented by
-    several cards, through zone changes, layers and hidden information), banding (bands and the defending player assigning damage,
-    CR 702.22) and hidden agenda (conspiracies, outside normal play).
-  - Keyword actions: venture into the dungeon and the initiative (dungeon cards, outside the game and the deck, and their rooms;
-    the parser doesn't read them either).
+  - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
+    read).
   - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
     whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
-  - Parser side (`Ability.Unparsed`, not the engine's): a haunt card's modal "… or the creature it haunts dies, choose one —", the
-    Ring's rarer wordings ("whenever you choose a creature as your Ring-bearer", "your Ring-bearer" as an object), and the keyword
-    actions above other than earthbend, airbend, behold, blight, connive, forage, recruit, the Ring and the cube's (discover,
-    manifest, cloak, support, learn, endure and time travel are done by the engine once read).
-- Not yet: venture (above), `nthThisTurn`'s
+  - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
+    "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
+    are read since the third round).
+- Not yet: `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and enlist, and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
   other keyword actions as costs (exert); no cube card has any of these. Also missing: copy effects from static

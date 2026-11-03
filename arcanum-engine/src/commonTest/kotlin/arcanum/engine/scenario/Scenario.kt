@@ -247,7 +247,9 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
     internal fun cards(name: String, owner: ScenarioPlayer? = null, zone: Zone? = null): List<GameObject> = state.objects.values
         .filter { owner == null || it.owner == owner.id }
         .filter { zone == null || it.zone == zone }
-        .filter { o -> nameOf(o) == name || definitionOf(o)?.faces?.any { it.name == name } == true }
+        .filter { o -> nameOf(o) == name || definitionOf(o)?.faces?.any { it.name == name } == true ||
+            // CR 730.2: a merged permanent is each of its cards
+            (o.mergedAbove + o.mergedBelow).any { p -> p.definition?.faces?.any { it.name == name } == true } }
         .sortedWith(compareBy({ it.card.value.substringAfter('.').toIntOrNull() ?: Int.MAX_VALUE }, { it.timestamp }))
 
     /**

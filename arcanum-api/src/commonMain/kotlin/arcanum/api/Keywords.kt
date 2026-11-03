@@ -279,6 +279,11 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = this; override val id: String get() = "hidden-agenda"
         override val text: String get() = "Hidden agenda"; override val rule: String get() = "702.106"
     }
+    /** Double agenda (CR 702.106f): hidden agenda with two different card names secretly chosen. */
+    @Serializable @SerialName("double-agenda") data object DoubleAgenda : Keyword, KeywordKind {
+        override val kind: KeywordKind get() = this; override val id: String get() = "double-agenda"
+        override val text: String get() = "Double agenda"; override val rule: String get() = "702.106f"
+    }
     /** Prowess (CR 702.108) */
     @Serializable @SerialName("prowess") data object Prowess : Keyword, KeywordKind {
         override val kind: KeywordKind get() = this; override val id: String get() = "prowess"
@@ -1112,6 +1117,7 @@ interface KeywordKind {
                 Keyword.Fuse,
                 Keyword.Dethrone,
                 Keyword.HiddenAgenda,
+                Keyword.DoubleAgenda,
                 Keyword.Prowess,
                 Keyword.Exploit,
                 Keyword.Menace,

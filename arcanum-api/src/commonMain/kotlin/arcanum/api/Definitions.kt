@@ -63,7 +63,16 @@ data class FaceDefinition(
     val loyalty: PrintedNumber? = null,
     val defense: PrintedNumber? = null,
     val abilities: List<Ability> = emptyList(),
+    /** A dungeon's rooms, the topmost first (CR 309.4): [DungeonRoom]. */
+    val rooms: List<DungeonRoom> = emptyList(),
 )
+
+/**
+ * One room of a dungeon card (CR 309.4): its [name] (flavour, CR 309.4b), its room ability's effect ("When you move your venture
+ * marker into this room, [effect]", CR 309.4c) and the rooms its arrows lead to, by index ([next]; none: the bottommost room).
+ */
+@Serializable
+data class DungeonRoom(val name: String, val instructions: Instructions, val next: List<Int>)
 
 /** One ability of a face (CR 113). */
 @Serializable

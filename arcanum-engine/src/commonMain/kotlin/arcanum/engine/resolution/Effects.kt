@@ -74,10 +74,18 @@ internal object Effects {
                 val b = scope.objects(effect.second).firstOrNull { creatureOnBattlefield(scope, it) }
                 if (a != null && b != null) {
                     val e = scope.eval()
-                    Actions.damage(act, cause, listOf(
+                    val result = Actions.damage(act, cause, listOf(
                         DamageDealt(a, TargetRef.Object(b), e.property(arcanum.api.NumericProperty.Power, a)),
                         DamageDealt(b, TargetRef.Object(a), e.property(arcanum.api.NumericProperty.Power, b)),
                     ))
+                    // spm: the damage the first dealt to the second, and its excess (CR 120.4a)
+                    effect.bind?.let { bind ->
+                        scope.bind(bind, NamedValue.Number(result.dealt.filter { it.recipient == TargetRef.Object(b) }.sumOf { it.amount }))
+                        scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(result.excessTo[TargetRef.Object(b)] ?: 0))
+                    }
+                } else effect.bind?.let { bind ->
+                    scope.bind(bind, NamedValue.Number(0))
+                    scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(0))
                 }
             }
             is Effect.Destroy -> {
@@ -733,8 +741,9 @@ internal object Effects {
                     else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
                 }
             }
+            // spm: the copy's exceptions, after those of a copy it copies (CR 707.9b)
             val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) StackItemKind.SpellCopy(
-                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id) else original.kind
+                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except) else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
                 facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)

@@ -146,8 +146,9 @@ class SpmChunk06CopiesAndElsewhereTest {
                     doing(Effect.ApplyMechanics(
                             mechanics = listOf(
                                 has(
-                                    triggered(
-                                        on(EventPattern.Damage(source = ObjectFilter.Is(Objects.Self), to = RecipientFilter(players = PlayerFilter.Any), combat = true)),
+                                    // the other ability, with its printed line (CR 113.10)
+                                    lookAtThatManyText(triggered(
+                                        combatDamageToAPlayer,
                                         doing(Effect.LookAt(
                                                 objects = Objects.LibraryCards(of = Players.You, count = Value.EventAmount, fromTop = true),
                                                 players = Players.You,
@@ -163,7 +164,7 @@ class SpmChunk06CopiesAndElsewhereTest {
                                                 objects = Objects.Except(base = Objects.Bound("seen"), minus = Objects.Bound("kept")),
                                                 to = Destination(Zone.Graveyard),
                                             )),
-                                    ),
+                                    )),
                                 ),
                             ),
                             affects = Affected.Objects(target("creature")),

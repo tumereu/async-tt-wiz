@@ -289,9 +289,11 @@ internal object Triggers {
                 val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
                 // hob: for that player ("an opponent draws their second card each turn": each opponent's own draws, CR 603.2)
                 fun same(a: TriggerEvent, b: TriggerEvent) = a.players.firstOrNull() == b.players.firstOrNull()
-                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1 == n }
+                // spm: "your first or second card each turn" ([Trigger.On.throughNth]): any of the first n
+                fun nth(k: Int) = if (trigger.throughNth) k <= n else k == n
+                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> nth(earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1) }
                 else now.filter { unit ->
-                    earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n
+                    nth(earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1)
                 }
             } ?: now
             counted.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }

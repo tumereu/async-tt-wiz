@@ -91,7 +91,9 @@ internal object EventMatcher {
             ((change as? Change.StackItemRemoved)?.takeIf { Meaning.Countered in it.meanings && e.matches(pattern.objects, it.item.id) }
                 ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.item.id))), listOf(it.item.controller))) }.orEmpty())
         is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings && e.matches(pattern.lands, it.after.id) &&
-            e.matches(pattern.players, it.after.controller ?: it.after.owner) }
+            e.matches(pattern.players, it.after.controller ?: it.after.owner) &&
+            // spm: "play a land from exile", "from anywhere other than your hand"
+            (pattern.from == null || it.from == pattern.from) && (pattern.notFrom == null || it.from != pattern.notFrom) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
         is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching))
             counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()

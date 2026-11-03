@@ -113,8 +113,12 @@ internal object Steps {
     private fun leave(recorder: Recorder) {
         val s = recorder.state
         val step = s.turn.step
+        // spm: "You don't lose unspent red mana as steps and phases end" (CR 500.4)
+        val keeps = if (s.players.all { it.manaPool.isEmpty() }) emptyMap() else arcanum.engine.view.Layers.view(s).players.mapValues { (_, v) ->
+            v.mechanics.mapNotNull { it.mechanic as? arcanum.api.Mechanic.KeepsUnspentMana }.flatMap { it.colors }.toSet() }
         s.players.forEach { p ->
-            val kept = p.manaPool.filter { it.keptUntil != null && !(step == TurnStep.Cleanup && it.keptUntil == Duration.EndOfTurn) }
+            val colors = keeps[p.id].orEmpty()
+            val kept = p.manaPool.filter { (it.keptUntil != null && !(step == TurnStep.Cleanup && it.keptUntil == Duration.EndOfTurn)) || it.color in colors }
             if (kept.size != p.manaPool.size) recorder.record(Changes.manaPool(s, p.id, kept, listOf(Meaning.ManaEmptied)))
         }
         endEffects(recorder) { d, you -> d is Duration.ThroughNextStep && d.step == step && whose(recorder.state, d.whose, you) }

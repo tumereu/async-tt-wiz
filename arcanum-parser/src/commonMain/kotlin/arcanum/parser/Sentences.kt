@@ -14305,9 +14305,27 @@ internal class Sentences(
         val m = WHENEVER.matchEntire(header) ?: return null
         if (!Spm.CHOOSE_ONE_OR_BOTH_MODES.matches(m.groupValues[3])) return null
         val (trigger, onlyIf) = trigger(m.groupValues[2]) ?: return null
-        val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it), that = that(trigger)) ?: return null, text = it) }
+        val options = spmDistinctSlots(modeLines.map { arcanum.api.Mode(instructions(modeBody(it), that = that(trigger)) ?: return null, text = it) })
         if (options.size != 2) return null
         return Ability.Triggered(trigger, Instructions(modes = arcanum.api.Modes(options, min = 1, max = 2, chooser = Players.You)), triggersOnlyIf = onlyIf)
+    }
+
+    /** spm chunk 04: modes that may all be chosen keep their targets apart: a slot named as an earlier mode's gets the next name
+     * ("Tap target creature" and "Untap target creature": "creature" and "second creature", CR 700.2, 601.2c). */
+    private fun spmDistinctSlots(options: List<arcanum.api.Mode>): List<arcanum.api.Mode> {
+        val taken = mutableListOf<String>()
+        return options.map { mode ->
+            var instructions = mode.instructions
+            instructions.targets.forEach { slot ->
+                if (slot.name in taken) {
+                    val renamed = nextTargetName(slot.name, taken + instructions.targets.map { it.name })
+                    instructions = instructions.copy(targets = instructions.targets.map { if (it.name == slot.name) it.copy(name = renamed) else it },
+                        steps = instructions.steps.map { renameTargetSlot(it, slot.name, renamed) })
+                    taken += renamed
+                } else taken += slot.name
+            }
+            mode.copy(instructions = instructions)
+        }
     }
 
     /** spm: "Spend this mana only to cast spells from exile." (CR 106.6) */

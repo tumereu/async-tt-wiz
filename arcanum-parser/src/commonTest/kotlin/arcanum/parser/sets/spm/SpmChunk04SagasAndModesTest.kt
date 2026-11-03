@@ -305,8 +305,9 @@ class SpmChunk04SagasAndModesTest {
                         Mode(
                             Instructions(targets = listOf(slot("creature", creature)), steps = listOf(doing(Effect.Tap(target("creature"))))),
                         ),
+                        // CR 700.2, 601.2c: both modes may be chosen, so the second's target has a name of its own
                         Mode(
-                            Instructions(targets = listOf(slot("creature", creature)), steps = listOf(doing(Effect.Untap(target("creature"))))),
+                            Instructions(targets = listOf(slot("second creature", creature)), steps = listOf(doing(Effect.Untap(target("second creature"))))),
                         ),
                     ),
                     min = 1,

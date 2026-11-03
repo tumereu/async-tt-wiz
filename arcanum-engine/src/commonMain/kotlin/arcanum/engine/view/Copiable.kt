@@ -44,8 +44,10 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         state.stackItems[id]?.kind?.let { kind ->
             // CR 707.10: a copy of a spell copies the original's copiable values
             if (kind is StackItemKind.SpellCopy) {
-                return faces(kind.copied, visiting)
-                    ?: state.stackItems[id]?.snapshots?.firstOrNull { it.id == kind.copied }?.characteristics?.let { listOf(IndexedFace(0, it.asFace())) }
+                return (faces(kind.copied, visiting)
+                    ?: state.stackItems[id]?.snapshots?.firstOrNull { it.id == kind.copied }?.characteristics?.let { listOf(IndexedFace(0, it.asFace())) })
+                    // spm: its own exceptions (CR 707.9b)
+                    ?.map { if (kind.except.isEmpty()) it else IndexedFace(it.index, exceptions(it.face, kind.except)) }
             }
         }
         val o = state.obj(id) ?: return null

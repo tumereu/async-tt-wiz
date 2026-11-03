@@ -213,6 +213,10 @@ internal object Actions {
         if (planned.isEmpty()) return emptyMap()
         // The counters each permanent enters with, after the replacements on counters being put (CR 122.6)
         val moves = planned.map { m -> if (m.to == Zone.Battlefield) m.copy(counters = enteringCounters(act, cause, m, linked)) else m }
+        // CR 310.9a, 310.12a: as a battle enters, its controller chooses its protector
+        val protectors = moves.mapNotNull { m -> enteringFace(act, act.state.objOrThrow(m.id), m)?.takeIf { CardType.Battle in it.types }?.let { face ->
+            arcanum.engine.combat.Battles.protectorAsEnters(act, m.id, m.controller ?: act.state.objOrThrow(m.id).owner, face.subtypes)?.let { m.id to it }
+        } }.toMap()
         val scratch = act.state.deepCopy()
         val all = mutableListOf<Move>()
         // Copy effects and extra abilities exist as the object enters (CR 614.12, 707.4), so its own enters triggers see them.
@@ -242,6 +246,7 @@ internal object Actions {
             val moved = zc.moves.single().let { mv ->
                 var after = mv.after
                 if (m.memory.values.isNotEmpty()) after = after.copy(memory = m.memory)
+                protectors[m.id]?.let { if (toBattlefield) after = after.copy(protector = it) }
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
                 if (toBattlefield && m.transformed && before.definition?.layout == Layout.Transform) after = after.copy(face = 1)
                 // CR 702.145b: at night a daybound card enters transformed
@@ -323,10 +328,7 @@ internal object Actions {
     /** CR 306.5b, 310.4b: a planeswalker enters with loyalty counters equal to its printed loyalty, a battle with defense
      * counters equal to its printed defense (the face that enters, or what it enters as a copy of; X counts as 0). */
     private fun printedCounters(act: Act, o: GameObject, m: PlannedMove): List<Pair<CounterKind, Int>> {
-        if (m.to != Zone.Battlefield || m.faceDown) return emptyList()
-        val face = m.copyOf?.let { (of, _) -> arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face }
-            ?: o.definition?.faces?.getOrNull(if (m.transformed && o.definition.layout == Layout.Transform) 1 else o.face)
-            ?: return emptyList()
+        val face = enteringFace(act, o, m) ?: return emptyList()
         fun amount(n: arcanum.api.PrintedNumber?) = (n as? arcanum.api.PrintedNumber.Fixed)?.value ?: 0
         // CR 702.150a: compleated: two fewer for each Phyrexian symbol paid with life
         val compleated = if (face.abilities.any { it == arcanum.api.Keyword.Compleated }) 2 * o.facts.phyrexianPaidWithLife else 0
@@ -334,6 +336,14 @@ internal object Actions {
             (CounterKind.Loyalty to amount(face.loyalty) - compleated).takeIf { CardType.Planeswalker in face.types && it.second > 0 },
             (CounterKind.Defense to amount(face.defense)).takeIf { CardType.Battle in face.types && it.second > 0 },
         )
+    }
+
+    /** The face [o] enters the battlefield with in [m] (the one up, or what it enters as a copy of); null when it doesn't
+     * enter face up. */
+    private fun enteringFace(act: Act, o: GameObject, m: PlannedMove): arcanum.api.FaceDefinition? {
+        if (m.to != Zone.Battlefield || m.faceDown) return null
+        return m.copyOf?.let { (of, _) -> arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face }
+            ?: o.definition?.faces?.getOrNull(if (m.transformed && o.definition.layout == Layout.Transform) 1 else o.face)
     }
 
     private fun lockedEffect(

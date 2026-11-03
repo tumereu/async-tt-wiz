@@ -471,6 +471,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   abilities are done as the action, the source as "this" (CR 701.43a, b); an exerted permanent's "doesn't untap" now ends after its
   controller's next untap step (the step's player read with the effect's names). `options` lists, beside the plain declarations, one
   with every optional cost paid, one with enlisting and one with a band.
+  Battles (`combat/Battles`, CR 310, scenarios in `combat/BattleTest`): a battle's protector (`GameObject.protector`) is chosen as
+  it enters by its controller (a Siege's among their opponents, 310.12a; one with no battle type is its controller's, 310.9a) and
+  by the state-based actions when it has none or one who can't be (704.5x, y; none possible: the graveyard). Battles are attack
+  targets of players their protector defends against, a Siege of its own controller's too, never of the protector (310.9b, 508.1b);
+  the protector is the defending player of those attacks and the only one who blocks them (310.9c, d, `Players.DefendingPlayerOf`).
+  A Siege has the intrinsic trigger of 310.12b (`AbilityOrigin.Rule("siege")`: exiled, then it may be cast transformed without
+  paying its mana cost, `Effect.Cast.transformed`) and waits for it at 0 defense (704.5v).
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
@@ -481,7 +488,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round).
 - Not yet: `nthThisTurn`'s
-  `during`; battles as attack targets (protectors, CR 310.8, 506.2). Also missing: copy effects from static
+  `during`. Also missing: copy effects from static
   abilities (effect objects only). Around the game:
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
   starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player

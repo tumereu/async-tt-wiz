@@ -70,6 +70,9 @@ data class GameObject(
     val mergedAbove: List<MergedPart> = emptyList(),
     /** A merged permanent's other components under its own card, topmost first (CR 730.2). */
     val mergedBelow: List<MergedPart> = emptyList(),
+    /** A battle's protector (CR 310.9): chosen as it enters (310.9a, 310.12a) or by the state-based action of 310.11; it
+     * stays when the permanent stops being a battle (310.9g). */
+    val protector: PlayerId? = null,
 ) {
     val card: CardId get() = id.card
 

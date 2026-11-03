@@ -26,15 +26,23 @@ internal object CombatRules {
 
     private fun mechanics(snap: Snapshot, id: ObjectId): List<AppliedMechanic> = snap.view[id]?.mechanics.orEmpty()
 
-    /** What [player] may attack: each opponent still in the game and the planeswalkers they control (CR 506.2, 508.1b). */
+    /** What [player] may attack: each opponent still in the game, the planeswalkers they control and the battles they
+     * protect, a Siege [player] controls among them (CR 506.2, 508.1b, 310.9b). */
     fun attackTargets(snap: Snapshot, player: PlayerId): List<TargetRef> {
         val opponents = snap.state.opponents(player)
         val walkers = snap.state.battlefield.filter { id ->
             onBattlefield(snap, id) && snap.view[id]?.characteristics?.isType(CardType.Planeswalker) == true &&
                 snap.board.controller(id) in opponents
         }
-        return opponents.map { TargetRef.Player(it) } + walkers.map { TargetRef.Object(it) }
+        val battles = snap.state.battlefield.filter { id ->
+            onBattlefield(snap, id) && snap.view[id]?.characteristics?.isType(CardType.Battle) == true &&
+                snap.state.obj(id)?.protector in opponents
+        }
+        return opponents.map { TargetRef.Player(it) } + walkers.map { TargetRef.Object(it) } + battles.map { TargetRef.Object(it) }
     }
+
+    /** The defending player of an attack on [target] (CR 506.2, 310.9d). */
+    fun defenderOf(snap: Snapshot, target: TargetRef): PlayerId? = Battles.defender(snap.state, { snap.board.controller(it) }, target)
 
     /** CR 508.1a, c: [id] could attack [target] (any target when null): an untapped creature [player] controls, not
      * summoning sick unless it has haste (CR 302.6), not restricted (defender, "can't attack"). */
@@ -294,11 +302,8 @@ internal object CombatRules {
         if (snap.view[blocker]?.characteristics?.isType(CardType.Battle) == true) return false
         val attack = snap.state.combat?.attackers?.firstOrNull { it.id == attacker } ?: return false
         if (!onBattlefield(snap, attacker)) return false
-        val defending = when (val t = attack.target) {
-            is TargetRef.Player -> t.id
-            is TargetRef.Object -> snap.board.controller(t.id)
-        }
-        if (defending != player) return false
+        // CR 310.9c: only a battle's protector blocks the creatures attacking it
+        if (defenderOf(snap, attack.target) != player) return false
         val blockerOk = mechanics(snap, blocker).none { applied ->
             val e = snap.evaluator(applied.controller, self = applied.source ?: blocker, names = applied.names)
             when (val m = applied.mechanic) {
@@ -423,15 +428,11 @@ internal object CombatRules {
         return snap.state.battlefield.any { b -> attackers.any { a -> canBlock(snap, player, b, a) } }
     }
 
-    /** The defending players (CR 506.2): those attacked, and controllers of attacked planeswalkers. */
+    /** The defending players (CR 506.2): those attacked, controllers of attacked planeswalkers and protectors of attacked
+     * battles (310.9d). */
     fun defendingPlayers(snap: Snapshot): List<PlayerId> {
         val combat = snap.state.combat ?: return emptyList()
-        val players = combat.attackers.mapNotNull { a ->
-            when (val t = a.target) {
-                is TargetRef.Player -> t.id
-                is TargetRef.Object -> snap.board.controller(t.id)
-            }
-        }.toSet()
+        val players = combat.attackers.mapNotNull { a -> defenderOf(snap, a.target) }.toSet()
         return snap.state.apnap().filter { it in players && !snap.state.player(it).lost }
     }
 }

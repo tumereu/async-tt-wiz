@@ -14531,6 +14531,18 @@ internal class Sentences(
     }
 
     private fun eclWhole3(text: String, context: Context): List<Step>? {
+        // ecl chunk 06: "Choose a creature type. Return all creature cards of the chosen type from your graveyard to the battlefield." (the type chosen
+        // now, not one kept by the card)
+        Ecl.CHOOSE_A_CREATURE_TYPE_THEN.matchEntire(text)?.takeIf { it.groupValues[1].contains("the chosen type") }?.let { m ->
+            val rest = mutableListOf<Step>()
+            for (sentence in sentences(m.groupValues[1])) rest += effect(sentence, context) ?: return null
+            val json = kotlinx.serialization.json.Json
+            val serializer = kotlinx.serialization.builtins.ListSerializer(Step.serializer())
+            val remembered = json.encodeToString(arcanum.api.SubtypeRef.serializer(), arcanum.api.SubtypeRef.Remembered("type"))
+            val chosen = json.encodeToString(arcanum.api.SubtypeRef.serializer(), arcanum.api.SubtypeRef.Chosen("type"))
+            val steps = json.decodeFromString(serializer, json.encodeToString(serializer, rest).replace(remembered, chosen))
+            return listOf(Step.Choose(arcanum.api.Choice.CreatureType, bind = "type", chooser = Players.You)) + steps
+        }
         // ecl chunk 14: "Exile cards from the top of your library until you exile a nonland card. You may cast that card without paying its mana cost
         // if the spell's mana value is less than or equal to the amount of life you gained this turn. Otherwise, put it into your hand."
         if (Ecl.EXILE_UNTIL_NONLAND_CAST_IF_LIFE.matches(text)) {
@@ -14583,6 +14595,14 @@ internal class Sentences(
     }
 
     private fun eclStatic3(line: String): Ability? {
+        // ecl chunk 06: "As this artifact enters, choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk." (a creature type of
+        // those, kept as the chosen type, CR 614.12, 607.2d)
+        Ecl.AS_ENTERS_CHOOSE_TYPE_AMONG.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val types = m.groupValues[2].split(Regex(",? or |, ")).map { it.takeIf { t -> t in RulesWords.subtypes } ?: return@let }
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield), modify = listOf(
+                Modification.AsEnters(listOf(Step.Choose(arcanum.api.Choice.CreatureTypeAmong(types.map { Subtype(it) }), bind = "type", chooser = Players.You,
+                    remember = true)))))), affects = eclSelfOnly)
+        }
         // ecl chunk 05: "You may have this creature enter as a copy of any creature on the battlefield, except it has changeling." (CR 707.9b, 614.1c)
         Ecl.MAY_ENTER_AS_COPY_EXCEPT.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val except = eclCopyExceptions(m.groupValues[2]) ?: return null

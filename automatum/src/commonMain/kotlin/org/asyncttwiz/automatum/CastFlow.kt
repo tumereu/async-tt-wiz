@@ -11,6 +11,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.input.Input
+import arcanum.engine.setup.result
 import arcanum.engine.state.GameState
 import arcanum.engine.state.LoggedChange
 import arcanum.engine.state.ObjectId
@@ -330,6 +331,26 @@ internal object HostPriority {
             s.stack.isEmpty() && s.priority.passes == 0 && holder != active && !kept -> PriorityState(active, 0)
             else -> null
         }
+    }
+
+    /**
+     * [s] rests in an untap step with nobody holding priority and nothing to decide (CR 502.4). ATW rests there before
+     * the engine's game begins: the opening (mulligans, TRN-027–TRN-029) is the host's setup, after which the first turn's
+     * untap step has nothing to do (CR 103.8, as the engine's own setup goes on to the upkeep); or after a turn changed by
+     * hand while Automatum was off, whose untapping is taken as done by hand (I-D28, best effort). The step button then
+     * ends the step ([leaveUntap]).
+     */
+    fun resting(s: GameState): Boolean = s.pending == null && s.result == null && s.turn.step == TurnStep.Untap &&
+        s.priority.holder == null
+
+    /** Ends the untap step [call] rests in ([resting]) as the rules end a step (CR 500.2): the host gives the active
+     * player priority as the last of the players to pass in succession, so their pass ends it and the upkeep begins.
+     * Nothing changes when the call doesn't rest there. */
+    fun leaveUntap(call: EngineCall) {
+        val s = call.working
+        if (!resting(s)) return
+        val order = s.playersFrom(s.turn.active)
+        call.host(Change.Priority(s.priority, PriorityState(order.first(), order.size - 1), listOf(Meaning.PriorityGranted)))
     }
 
     /** Attackers or blockers are awaited (CR 508.1, 509.1): nobody has priority until they are declared. */

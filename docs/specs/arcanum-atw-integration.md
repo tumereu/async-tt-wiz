@@ -266,6 +266,13 @@ out of anything stuck.
   `triggered` and pre-answer records and sets passes in a row to 0 (`Automatum.turnScoped`), recorded in the sealed
   delta so Undo of the switch restores them. Catalog: TRN-004, TRN-057, TRN-061, SYS-055, SYS-070.
 
+- **Built (opening, 2026-11-03):** ATW's opening (TRN-027–TRN-029) is the host's setup before the engine's game begins
+  (not the engine's `StartGame`): while a player's status is "Mulliganing" on turn 1 the toolkit lets their own
+  `Mulligan` and hand-to-own-library-bottom moves through (`AutomatumDrags.openingAction`); every step route is refused
+  until both are Ready (`SharedFlowController.OPENING`). A board resting in an untap step with nobody holding priority
+  (`HostPriority.resting`: the new game, or a turn changed by hand while off) is left by the active player's pass: the
+  host gives them priority as the last to pass in succession, so the step ends (CR 500.2, 103.8) and the upkeep follows
+  (`HostPriority.leaveUntap`, `SharedFlow.holder`). Catalog: TRN-057, TRN-059, TRN-062, SYS-069.
 - **Built (I-D41, pause points):** `PausePoints` (module `automatum/`) is the rule: a stop is the holder's own main phase on
   an empty Stack; a pause is another player's spell or ability on top of the Stack, the defending player's priority in
   the declare attackers step and both players' in the declare blockers step (once creatures attack); with

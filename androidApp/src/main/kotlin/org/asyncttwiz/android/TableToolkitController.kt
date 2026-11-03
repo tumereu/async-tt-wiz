@@ -246,6 +246,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             action is PlayAction.BeginTurn
         if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
         if (step) return SharedFlowController.STEPS_FORWARD
+        // TRN-027: the viewer's own mulligans and library bottom during their opening, the host's setup before the game
+        if (AutomatumDrags.openingAction(board, viewer, action)) return null
         // I4, I-D28: only what the rules allow; manual changes only while Automatum waits for something done by hand
         if (!byHand && engineRoute == 0 && AutomatumDrags.manual(action)) return when (action) {
             is PlayAction.Stack -> AutomatumDrags.STACK

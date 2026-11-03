@@ -48,12 +48,18 @@ internal object EventMatcher {
     }
 
     fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null): List<TriggerEvent> = when (pattern) {
-        is EventPattern.ZoneChange -> moves(change).filter { m ->
-            (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
-                (pattern.notTo == null || m.to != pattern.notTo) &&
-                (!pattern.resolving || Meaning.Resolved in m.meanings) &&
-                e.matches(pattern.objects, tested(m, pattern.from, proposed))
-        }.map { moveEvent(e, it, proposed, pattern.from) }
+        is EventPattern.ZoneChange -> {
+            // tmt backfill: an object that left its zone is tested as it last existed, its controller too (CR 603.10a,
+            // 608.2h), whichever board asks: "if a permanent left the battlefield under your control this turn" in a
+            // static ability's condition
+            val back = Evaluator(LastKnownBoard(e.board), e.ctx)
+            moves(change).filter { m ->
+                (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
+                    (pattern.notTo == null || m.to != pattern.notTo) &&
+                    (!pattern.resolving || Meaning.Resolved in m.meanings) &&
+                    back.matches(pattern.objects, tested(m, pattern.from, proposed))
+            }.map { moveEvent(e, it, proposed, pattern.from) }
+        }
         is EventPattern.Cast -> if (isCast(change)) {
             val item = (change as Change.StackItemAdded).item
             val from = e.board.state.obj(item.id)?.facts?.castFrom
@@ -405,4 +411,11 @@ internal object EventMatcher {
     @Suppress("unused")
     private fun isCopy(change: Change): Boolean =
         change is Change.StackItemAdded && change.item.kind is StackItemKind.SpellCopy
+}
+
+/** A [base] board that answers for an object that has left its zone as it last existed: its controller then (CR 608.2h).
+ * The finished view reads objects that way already; the board the layers are worked out on doesn't. */
+internal class LastKnownBoard(private val base: arcanum.engine.query.Board) : arcanum.engine.query.Board by base {
+    override fun controller(id: ObjectId): PlayerId? = base.controller(id)
+        ?: if (base.state.obj(id) == null && id !in base.state.stackItems) { base.readingLog(); base.snapshot(id)?.let { it.controller ?: it.owner } } else null
 }

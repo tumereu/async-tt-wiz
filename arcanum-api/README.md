@@ -154,6 +154,13 @@ The definition model (overview in `Definitions.kt`):
   among creatures you control"), `ObjectFilter.HasDealtDamage` ("as long as it hasn't dealt damage yet") and `AdditionalCost.flash`
   ("you may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it", CR 702.8a);
   `DefinitionChecks` keeps a loop that creates a token attacking each player.
+- Final Fantasy (set `fin`): `Effect.EndTurn` (CR 724.1) and `Effect.AdditionalStep` ("an additional end step after this step", CR
+  500.9), `KeywordAction.Meld(objects, into)` with the existing `Layout.Meld` (CR 701.42), `Effect.Cast.manaAsAnyType` (CR 609.4b),
+  `ActivationRules.cantBeCopied` ("this ability can't be copied", CR 707.10), `Modification.AsTransforms` ("as this creature transforms
+  into …", its steps), `Modification.WinFlips` (a coin flip won by a replacement, CR 705.2), `Modification.EntersUntapped` ("lands you
+  control enter untapped"), `Mechanic.DamageNotRemovedInCleanup` (CR 514.2), `Mechanic.LoseAllLandTypes` (layer 4), events
+  `EventPattern.LoseGame`, `ControlChange(objects, from, to)` (CR 613.1b), `Mill` (for replacements of a mill) and `Tap.producing` ("tap
+  a land for {C}"), and `ObjectFilter.CrewedBy` ("a Vehicle crewed by [this] this turn").
 - Engine lane 4 (2026-11-03): `Mechanic.BlockCost` ("creatures can't block unless their controller pays …", CR 509.1d), beside
   `Mechanic.AttackCost` (any cost parts now, CR 508.1h) and `Mechanic.AsAttacks` (exert, CR 701.43d); `Effect.Cast.transformed`
   ("cast it transformed", a Siege's intrinsic trigger, CR 310.12b); `Mechanic.WhenYouCouldMulligan` ("any time you could

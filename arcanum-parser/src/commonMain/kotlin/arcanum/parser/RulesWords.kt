@@ -558,6 +558,19 @@ internal object RulesWords {
         "investigative journalism", "lizard formula", "look around", "mind swap", "nosh", "patrol night", "pavitr's sevā", "puff piece",
         "repair", "reveal", "sensational save", "share", "smear campaign", "sonic blast", "top of the food chain", "undying vengeance",
         "unreliable visions", "venom blast", "vibro-shock gauntlets", "web support",
+        // fin
+        "10,000 needles", "a test of your reflexes!", "ability", "abraxas", "aerial blast", "angelo cannon", "attack", "bad breath",
+        "blessing of light", "blizzaga", "blizzara", "blizzard", "blow up", "blue magic", "brimstone", "burning chains", "chain", "chaosbringer",
+        "chef's knife", "cold snap", "crescent fang", "cura", "curaga", "cure", "darkness", "death gigas", "diamond dust", "diana", "double",
+        "double overdrive", "dragonfire dive", "echo of the lost", "ecliptic growl", "final heaven", "fira", "firaga", "fire", "fire cross",
+        "flames of rebirth", "flare star", "gooooaaaalll!", "gae bolg", "galian beast", "gestalt mode", "gigaflare", "gungnir", "hagneia",
+        "hall of sorrow", "heavenly strike", "heavenward howl", "hellmasker", "hero's sundering", "i've come up with a new recipe!", "immune",
+        "item", "jecht beam", "judgment bolt", "jump", "kerplunk", "lightbringer and hero's shield", "lunge", "machina", "magic", "mega flare",
+        "mesmerize", "meteor strikes", "murasame", "mutsunokami", "my first friend", "oblivion", "pain", "particle beam", "perseus's bow",
+        "protect", "rat tail", "rising flames", "rough divide", "selfie shot", "slipstream", "somersault", "stagger", "stampede!", "starfall",
+        "starscourge", "summon", "super nova", "take 59 flights of stairs", "take the elevator", "the allagan eye", "the minstrel's ballad",
+        "thundaga", "thundara", "thunder", "time compression", "trance", "triple", "two-headed coin", "ultimate end", "ultimate jecht shot",
+        "wark", "wave cannon", "wings of light", "zantetsuken",
     )
 
     /** An ability word or flavor word ([abilityWords], [flavorWords]), compared without case. */

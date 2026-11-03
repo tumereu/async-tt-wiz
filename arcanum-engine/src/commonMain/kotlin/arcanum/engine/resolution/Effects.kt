@@ -185,6 +185,7 @@ internal object Effects {
                 if (layout == Layout.ModalDoubleFaced && (arcanum.api.CardType.Instant in other.types || arcanum.api.CardType.Sorcery in other.types)) return@forEach
                 act.record(Change.Face(id, o.face, 1 - o.face, listOf(Meaning.Transformed)))
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
+                asTransforms(scope, id)
             }
             is Effect.Flip -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
@@ -243,7 +244,14 @@ internal object Effects {
             }
             is Effect.FlipCoin -> {
                 val player = scope.players(effect.players).firstOrNull() ?: scope.actor
-                val won = (act.random(player, scope.self, RandomKind.CoinFlip) as Answer.CoinFlip).won
+                // fin: "those coins come up heads and you win those flips": a replacement of the flip (CR 705.2, 614.1a)
+                val linked = mutableListOf<arcanum.engine.decision.WaitingTrigger>()
+                val wins = arcanum.engine.action.Replacements.apply(act, cause, false, player, null,
+                    proposed = { w -> if (w) null else Change.Happened(GameEvent.CoinFlipped(player, false)) },
+                    modify = { w, r, _ -> w || r.mechanic.modify.any { it == arcanum.api.Modification.WinFlips } },
+                    instead = { r, instance -> Actions.runInstead(act, r, instance) }, linked = linked) ?: false
+                arcanum.engine.action.Replacements.addLinked(act, linked)
+                val won = wins || (act.random(player, scope.self, RandomKind.CoinFlip) as Answer.CoinFlip).won
                 act.record(Change.Happened(GameEvent.CoinFlipped(player, won)))
                 scope.bind(effect.bind, NamedValue.Flip(won))
             }
@@ -297,6 +305,21 @@ internal object Effects {
                     applyMechanics(scope, listOf(Mechanic.CantAttack()), arcanum.api.Affected.Objects(arcanum.api.Objects.Each(arcanum.api.ObjectFilter.Not(only))),
                         Duration.UntilStep(arcanum.api.TurnStep.PostcombatMain, arcanum.api.PlayerFilter.Any), null)
                 }
+            }
+            // fin: CR 500.9: an additional step right after this one, before those added earlier
+            is Effect.AdditionalStep -> act.record(Changes.step(act.state, act.state.turn.copy(extraSteps = listOf(effect.step) + act.state.turn.extraSteps)))
+            // fin: CR 724.1a, b: waiting triggers cease to exist and every other object on the Stack is exiled; the resolving one is exiled as it
+            // leaves ([Resolution.finish]) and the turn goes on from its cleanup step ([arcanum.engine.turn.Steps.endTheTurn])
+            Effect.EndTurn -> {
+                act.state.triggered.toList().let { waiting -> if (waiting.isNotEmpty()) act.record(Change.TriggersWaiting(waiting, emptyList())) }
+                act.state.stack.filter { it != scope.cause.item?.id }.forEach { id ->
+                    val item = act.state.stackItems[id] ?: return@forEach
+                    if (act.state.obj(id) != null && item.kind == arcanum.engine.state.StackItemKind.Spell) {
+                        act.record(Change.StackItemRemoved(item, null, listOf(arcanum.engine.change.Meaning.Exiled)))
+                        Actions.moveTo(act, cause, listOf(id), Zone.Exile, emptyList())
+                    } else act.record(Change.StackItemRemoved(item, act.state.stack.indexOf(id), listOf(arcanum.engine.change.Meaning.Exiled)))
+                }
+                act.record(Changes.step(act.state, act.state.turn.copy(endingTurn = true)))
             }
             // sos: each skip passes over one more of that player's turns (CR 614.10)
             is Effect.SkipNextTurn -> scope.players(effect.players).forEach { p ->
@@ -765,6 +788,39 @@ internal object Effects {
     }
 
     /** CR 707.10: a copy of a spell or ability is put on the Stack (not cast); it may get new targets. */
+    /** fin: "As this creature transforms into [name], …": the face it transformed into does it as it transforms (CR 614.1c, as with "as
+     * enters", 614.12), before anything sees the permanent transformed; choices it remembers are kept on the permanent. */
+    private fun asTransforms(scope: Scope, id: ObjectId) {
+        val act = scope.act
+        val controller = act.controllerOf(id) ?: return
+        val steps = act.view()[id]?.characteristics?.abilities.orEmpty()
+            .flatMap { (it.ability as? arcanum.api.Ability.Static)?.mechanics.orEmpty() }.filterIsInstance<Mechanic.Replacement>()
+            .flatMap { r -> r.modify.filterIsInstance<arcanum.api.Modification.AsTransforms>().flatMap { it.steps } }
+        if (steps.isNotEmpty()) Steps.run(Scope(act, arcanum.engine.action.Cause(controller, id, key = "transforms:$id"), arcanum.engine.state.Bindings.EMPTY, null), steps)
+    }
+
+    /**
+     * fin: "meld them into [name]" (CR 701.42a, 712.4): the two exiled cards of a meld pair, owned by one player, become one permanent
+     * under that player's control with the combined back face up: the card whose back face is [KeywordAction.Meld.into] enters
+     * transformed, the other one merged under it ([arcanum.engine.state.GameObject.mergedBelow]: both leave the battlefield together, as two
+     * cards, CR 712.21). Any other pair stays where it is (CR 701.42c).
+     */
+    private fun meld(scope: Scope, action: arcanum.api.KeywordAction.Meld) {
+        val act = scope.act
+        val cards = scope.objects(action.objects).mapNotNull { act.state.obj(it) }.filter { it.zone == Zone.Exile && !it.token }.distinctBy { it.id }
+        if (cards.size != 2 || cards[0].owner != cards[1].owner) return
+        val top = cards.firstOrNull { it.definition?.layout is Layout.Meld && it.definition.faces.getOrNull(1)?.name == action.into } ?: return
+        val other = cards.first { it.id != top.id }
+        val partner = (top.definition!!.layout as Layout.Meld).partner
+        if (other.definition?.layout !is Layout.Meld || other.definition.faces.firstOrNull()?.name != partner) return
+        val entered = Actions.move(act, scope.cause, listOf(PlannedMove(top.id, Zone.Battlefield, controller = top.owner, transformed = true)))[top.id]
+        val now = entered?.let { act.state.obj(it) }?.takeIf { it.zone == Zone.Battlefield } ?: return
+        val lone = act.state.objOrThrow(other.id)
+        act.record(Change.Removed(listOf(Placed(lone, act.state.zone(Zone.Exile, lone.owner).indexOf(lone.id))), listOf(Meaning.Merged)))
+        val part = arcanum.engine.state.MergedPart(lone.id as ObjectId.Card, lone.owner, lone.definition, 0, lone.token, lone.copyOfCard)
+        act.record(Change.ObjectUpdated(now, now.copy(mergedBelow = now.mergedBelow + part)))
+    }
+
     private fun copySpell(scope: Scope, effect: Effect.CopySpell) {
         val act = scope.act
         val controller = scope.players(effect.controller).firstOrNull() ?: scope.you
@@ -775,6 +831,8 @@ internal object Effects {
                 .firstOrNull { it.item.id == id }?.item ?: return@forEach
             // sos: "This spell can't be copied." (CR 707.10): no copy is created
             if (act.view()[id]?.has { it == Mechanic.CantBeCopied } == true) return@forEach
+            // fin: "This ability can't be copied" (CR 707.10)
+            if ((original.ability as? arcanum.api.Ability.Activated)?.rules?.cantBeCopied == true) return@forEach
             val ts = act.state.nextTimestamp()
             val copyId = ObjectId.StackItem("copy:$ts")
             var targets = original.targets
@@ -899,6 +957,8 @@ internal object Effects {
         val act = scope.act
         val e = scope.eval()
         var names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
+        // fin: "that player" of the trigger's event, for an effect that lasts after the trigger has resolved
+        scope.event?.players?.takeIf { it.isNotEmpty() }?.let { names = names.with(arcanum.engine.query.Evaluator.EVENT_PLAYERS, NamedValue.Players(it)) }
         // gtc backfill: a copy of the object an event names ("become a copy of that card", the card put into a graveyard) is
         // found now and kept by name (D37): the event is gone when the copy effect is applied later (CR 707.2)
         val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }.map { m ->
@@ -906,6 +966,11 @@ internal object Effects {
             val of = e.objects(m.objects).firstOrNull() ?: return@map m
             names = names.with(COPY_OF, NamedValue.Objects(listOf(of)))
             m.copy(objects = Objects.Bound(COPY_OF))
+        }.map { m ->
+            // fin: "that player gains control of …": the player the event names, found now (CR 608.2h) and kept by name
+            if (m !is Mechanic.ControlledBy || !m.players.toString().contains("Event")) return@map m
+            names = names.with(NEW_CONTROLLER, NamedValue.Players(e.players(m.players)))
+            m.copy(players = arcanum.api.Players.Bound(NEW_CONTROLLER))
         }
         val layered = fixed.any { it.layer != null }
         // Objects named by the effect itself: its rules that aren't layer effects find them through a frozen name
@@ -914,7 +979,11 @@ internal object Effects {
             names = names.with(LOCKED, NamedValue.Objects(locked))
             affected = Affected.Objects(Objects.Bound(LOCKED))
         }
-        val lockedObjects = locked ?: if (layered && affects is Affected.Objects) e.objects(affects.objects) else null
+        // fin: CR 400.7j: a target the effect moved to a public zone ("return target card to the battlefield. It gains haste") is found
+        // as the new object
+        val lockedObjects = locked ?: if (layered && affects is Affected.Objects) e.objects(affects.objects).map { id ->
+            if (affects.objects is Objects.Target) arcanum.engine.query.Lki.newObject(act.state, id) ?: id else id
+        } else null
         val lockedPlayers = (affects as? Affected.Players)?.let { e.players(it.players) }
         act.record(Changes.effect(act.state) { ts ->
             EffectObject(
@@ -927,6 +996,7 @@ internal object Effects {
 
     private const val LOCKED = "\$affected"
     private const val COPY_OF = "\$copy-of"
+    private const val NEW_CONTROLLER = "\$new-controller"
 
     /** Marks an effect on a spell and the permanent it becomes ([Effect.SpellGets], CR 400.7d): its names hold both. */
     const val FOLLOWS_SPELL = "\$follows-spell"
@@ -1340,6 +1410,7 @@ internal object Effects {
             // CR 701.49: venture into the dungeon, or into [quality] (701.49d)
             KeywordAction.Venture -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, null)
             is KeywordAction.VentureInto -> arcanum.engine.dungeon.Dungeons.venture(act, cause, scope.actor, action.dungeons)
+            is KeywordAction.Meld -> meld(scope, action)
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
     }

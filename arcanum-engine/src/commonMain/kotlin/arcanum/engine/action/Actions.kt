@@ -73,6 +73,9 @@ internal data class PlannedMove(
     // fra
     /** Marks it enters with ("enters prepared", CR 722.3a). */
     val marks: List<arcanum.api.ObjectMark> = emptyList(),
+    // fin
+    /** "Lands you control enter untapped": it enters untapped whatever else says (applied last). */
+    val untapped: Boolean = false,
 )
 
 /**
@@ -182,6 +185,10 @@ internal object Actions {
                 // Amounts, recipients and extra tokens don't apply to a zone change.
                 is Modification.MultiplyAmount, is Modification.AddAmount, is Modification.ChangeRecipient,
                 is Modification.AlsoCreate, is Modification.CreateInstead, Modification.HealsOtherDamage -> move
+                // fin: "Lands you control enter untapped": applied after the others ([untapped])
+                Modification.EntersUntapped -> if (move.to == Zone.Battlefield) move.copy(untapped = true) else move
+                // fin: transforming and coin flips aren't zone changes
+                is Modification.AsTransforms, Modification.WinFlips -> move
             }
         }
         return move
@@ -240,7 +247,7 @@ internal object Actions {
             val toBattlefield = m.to == Zone.Battlefield
             val zc = Changes.move(
                 scratch, listOf(m.id), m.to, position = m.position ?: if (m.to == Zone.Library) Changes.Position.Top else Changes.Position.Bottom,
-                controller = m.controller, tapped = m.tapped && toBattlefield, faceDown = m.faceDown, meanings = m.meanings,
+                controller = m.controller, tapped = m.tapped && toBattlefield && !m.untapped, faceDown = m.faceDown, meanings = m.meanings,
                 counters = if (toBattlefield || m.to == Zone.Exile) m.counters.filter { it.second > 0 } else emptyList(),
             )
             val moved = zc.moves.single().let { mv ->
@@ -248,7 +255,7 @@ internal object Actions {
                 if (m.memory.values.isNotEmpty()) after = after.copy(memory = m.memory)
                 protectors[m.id]?.let { if (toBattlefield) after = after.copy(protector = it) }
                 if (toBattlefield && m.attachTo != null) after = after.copy(attachedTo = m.attachTo)
-                if (toBattlefield && m.transformed && before.definition?.layout == Layout.Transform) after = after.copy(face = 1)
+                if (toBattlefield && m.transformed && (before.definition?.layout == Layout.Transform || before.definition?.layout is Layout.Meld)) after = after.copy(face = 1)
                 // CR 702.145b: at night a daybound card enters transformed
                 if (toBattlefield && !m.faceDown && arcanum.engine.turn.DayNight.entersTransformed(scratch, after)) after = after.copy(face = 1)
                 // CR 709.5d: a Room enters with the half cast as a spell unlocked
@@ -343,7 +350,7 @@ internal object Actions {
     private fun enteringFace(act: Act, o: GameObject, m: PlannedMove): arcanum.api.FaceDefinition? {
         if (m.to != Zone.Battlefield || m.faceDown) return null
         return m.copyOf?.let { (of, _) -> arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face }
-            ?: o.definition?.faces?.getOrNull(if (m.transformed && o.definition.layout == Layout.Transform) 1 else o.face)
+            ?: o.definition?.faces?.getOrNull(if (m.transformed && (o.definition.layout == Layout.Transform || o.definition.layout is Layout.Meld)) 1 else o.face)
     }
 
     private fun lockedEffect(
@@ -562,7 +569,14 @@ internal object Actions {
             o.mechanics.mapIndexedNotNull { i, a ->
                 val p = a.mechanic as? Mechanic.Protection ?: return@mapIndexedNotNull null
                 Replacement(Mechanic.Replacement(anyDamage), a.controller, o.id, Bindings.EMPTY, null, own = false,
-                    key = "protection:${o.id}:$i", prevention = Prevention.Protection(p.from, o.id))
+                    key = "protection:${o.id}:$i", prevention = Prevention.Protection(p.from, TargetRef.Object(o.id)))
+            }
+        } + view.players.values.flatMap { pv ->
+            // fin: a player with protection (CR 702.16e)
+            pv.mechanics.mapIndexedNotNull { i, a ->
+                val p = a.mechanic as? Mechanic.Protection ?: return@mapIndexedNotNull null
+                Replacement(Mechanic.Replacement(anyDamage), pv.id, null, Bindings.EMPTY, null, own = false,
+                    key = "protection:${pv.id}:$i", prevention = Prevention.Protection(p.from, TargetRef.Player(pv.id)))
             }
         }
         val effects = view.rules.mapIndexedNotNull { i, applied ->
@@ -876,7 +890,14 @@ internal object Actions {
 
     /** [player] mills [count] (CR 701.17): the top cards into the graveyard as one event. */
     fun mill(act: Act, cause: Cause?, player: PlayerId, count: Int): Map<ObjectId, ObjectId> {
-        val cards = act.state.player(player).library.take(count.coerceAtLeast(0))
+        // fin: replacements of the mill itself ("they mill that many cards plus four instead", CR 614.1a)
+        val linked = mutableListOf<WaitingTrigger>()
+        val n = if (count <= 0) 0 else Replacements.apply(act, cause, count, player, null,
+            proposed = { k -> Change.Happened(arcanum.engine.change.GameEvent.Milling(player, k)) },
+            modify = { k, r, _ -> modifyAmount(act, k, r) },
+            instead = { r, instance -> runInstead(act, r, instance) }, linked = linked) ?: 0
+        Replacements.addLinked(act, linked)
+        val cards = act.state.player(player).library.take(n.coerceAtLeast(0))
         return moveTo(act, cause, cards, Zone.Graveyard, listOf(Meaning.Milled))
     }
 

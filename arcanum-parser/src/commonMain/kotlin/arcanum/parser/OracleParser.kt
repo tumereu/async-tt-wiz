@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 30
+    const val VERSION: Int = 31
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -118,6 +118,8 @@ object OracleParser {
         sentences.discardedCard = text.contains("the discarded card")
         // tla chunk 02: an Aura's spell targets through its enchant slot (CR 303.4a)
         sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
+        // fin chunk 05: "When the chosen creature leaves the battlefield" links to the creature an earlier ability chose (CR 607.2a)
+        sentences.finChosenCreatureLinked = text.contains("When the chosen creature leaves the battlefield")
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
@@ -237,6 +239,22 @@ object OracleParser {
                     continue
                 }
             }
+            // fin: "Tiered" and its "• [name] — [cost] — [effect]" modes, perhaps after a paragraph the modes complete: choose one, its cost an
+            // additional cost of the spell (CR 702.183a, 700.2)
+            if (isSpell && line == "Tiered" && i < lines.size) {
+                var j = i
+                val body = if (!lines[j].startsWith("• ")) REMINDER.replace(lines[j++], "").trim() else null
+                val modeLines = mutableListOf<String>()
+                while (j < lines.size && lines[j].startsWith("• ")) modeLines += REMINDER.replace(lines[j++].removePrefix("• "), "").trim()
+                sentences.finTiered(body, modeLines)?.let { spell ->
+                    i = j
+                    result += Keyword.Tiered
+                    raws += raw.trim()
+                    result += spell
+                    raws += (listOfNotNull(body) + modeLines.map { "• $it" }).joinToString("\n")
+                    continue
+                }
+            }
             // tdm chunk 02: "As this enchantment enters, choose Abzan or Mardu." and its "• Abzan — [ability]" lines (CR 614.12, 607.2a)
             if (!isSpell && i < lines.size && lines[i].startsWith("• ") && Tdm.AS_ENTERS_CHOOSE_A_OR_B.matches(line)) {
                 val bullets = mutableListOf<String>()
@@ -284,7 +302,8 @@ object OracleParser {
             val previous = result.lastOrNull()
             // dsk chunk 07: "If …, instead …" replaces the whole spell
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) ?: sentences.insteadAll(line, previous) else null
-            var parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            var parsed = if (instead == null) keywordLine(line) ?: flavorKeywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences)
+                ?: sentences.finMulti(line) /* fin */ else null
             // msh: a legendary creature's "he"/"she"/"him"/"her" read as "it" when the line can't be read as written
             if (instead == null && parsed == null) ungendered(line, self).takeIf { it != line }?.let { u ->
                 parsed = sentences.multi(u) ?: sentences.line(u)?.let(::listOf)
@@ -322,7 +341,22 @@ object OracleParser {
         // tdm chunk 02: "exile … until this creature leaves the battlefield" and a later "the exiled card": the exile keeps the card as card memory
         // (linked abilities, CR 607.2a)
         val linked = if (sentences.exiledCard == arcanum.api.Objects.Remembered(EXILED_WITH)) result.map(::rememberUntilLeaves) else result
-        return linked.mapIndexed { index, ability -> ability.withText(raws[index]) }
+        return finCostTargets(linked).mapIndexed { index, ability -> ability.withText(raws[index]) }
+    }
+
+    /** fin chunk 07: "This spell costs {2} less to cast if it targets a tapped creature." read before the spell's "target nonland permanent":
+     * the condition names a slot the spell doesn't have; it is the spell's only object target, which must also be that noun (CR 601.2f). */
+    private fun finCostTargets(abilities: List<Ability>): List<Ability> {
+        val slots = abilities.filterIsInstance<Ability.Spell>().flatMap { it.instructions.targets }
+        val only = slots.singleOrNull()?.takeIf { it.what is arcanum.api.TargetKind.Objects } ?: return abilities
+        return abilities.map { ability ->
+            val static = ability as? Ability.Static ?: return@map ability
+            val condition = static.condition as? arcanum.api.Condition.ObjectMatches ?: return@map ability
+            val target = condition.objects as? arcanum.api.Objects.Target ?: return@map ability
+            if (target.slot == only.name || static.mechanics.none { it is arcanum.api.Mechanic.CostChange }) return@map ability
+            val noun = Filters.noun(target.slot) ?: return@map ability
+            static.copy(condition = arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Target(only.name), Filters.all(condition.filter, noun)))
+        }
     }
 
     /** tdm: [ability] with each top-level "exile … until … leaves" kept as card memory (when nothing keeps it already). */
@@ -442,6 +476,12 @@ object OracleParser {
             PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
         }
         return listOf(first) + split.map { keyword(it) ?: Ability.Unparsed(it) }
+    }
+
+    /** fin: "Gae Bolg — Equip {4}": a keyword line after a flavor word (CR 207.2d), which has no rules meaning. */
+    private fun flavorKeywordLine(line: String): List<Ability>? {
+        val m = FLAVOR_WORD.matchEntire(line)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) } ?: return null
+        return keywordLine(m.groupValues[2])?.takeIf { parts -> parts.none { it is Ability.Unparsed } }
     }
 
     /** chunk 33: "Kicker {X}. X can't be 0.": a keyword line, then a sentence about it on the same line. */
@@ -617,6 +657,8 @@ object OracleParser {
     private val STATION_SYMBOL = Regex("""(\d+)\+ \| (.+)""")
     private val STATION_CREATURE_AT = Regex("""It's an artifact creature at (\d+)\+\.""")
     private val CLASS_LEVEL = Regex("""((?:\{[^}]+\})+): Level (\d+)""")
+    // fin
+    private val FLAVOR_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\- ]+) — (.+)""")
     // blb chunk 02
     private val GIFT =Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
 }

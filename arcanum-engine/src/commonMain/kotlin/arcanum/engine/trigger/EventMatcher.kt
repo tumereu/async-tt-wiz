@@ -124,7 +124,9 @@ internal object EventMatcher {
             if (delta > 0 && (pattern.kind == null || pattern.kind == c.kind) && e.matches(pattern.players, holder.id) && causedBy(e, change, pattern.causedBy))
                 listOf(TriggerEvent(players = listOf(holder.id), amount = delta)) else null
         }.orEmpty()
-        is EventPattern.Tap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->
+        // fin: "tap a land for {C}": seen as the mana its ability added goes to the pool ([tappedProducing])
+        is EventPattern.Tap -> if (pattern.producing != null) tappedProducing(e, change, pattern, pattern.producing!!)
+            else (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->
             val forMana = Meaning.ManaAdded in c.meanings
             // msh: tapped to pay a keyword's cost (CR 702.194a)
             val forCost = pattern.forCost == null || c.meanings.any { it is Meaning.PaidFor && it.keyword == pattern.forCost }
@@ -157,6 +159,16 @@ internal object EventMatcher {
         is EventPattern.CreateToken -> (change as? Change.Created)?.takeIf { Meaning.TokenCreated in it.meanings }?.objects.orEmpty()
             .filter { e.matches(pattern.tokens, it.obj.id) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.obj.id))), listOfNotNull(it.obj.controller ?: it.obj.owner)) }
+        // fin: control passing between players (CR 613.1b)
+        is EventPattern.ControlChange -> ((change as? Change.Happened)?.event as? GameEvent.ControlChanged)?.takeIf { c ->
+            (pattern.from == null || e.matches(pattern.from!!, c.from)) && (pattern.to == null || e.matches(pattern.to!!, c.to)) && e.matches(pattern.objects, c.id)
+        }?.let { c -> listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))), listOf(c.to))) }.orEmpty()
+        // fin: a player losing the game (CR 104.3)
+        is EventPattern.LoseGame -> (change as? Change.Lost)?.takeIf { !it.before && it.after && e.matches(pattern.players, it.player) }
+            ?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        // fin: a mill about to happen (replacements of it, CR 614.1a)
+        is EventPattern.Mill -> ((change as? Change.Happened)?.event as? GameEvent.Milling)?.takeIf { e.matches(pattern.players, it.player) }
+            ?.let { listOf(TriggerEvent(players = listOf(it.player), amount = it.count)) }.orEmpty()
         is EventPattern.Transform -> (change as? Change.Face)?.takeIf { Meaning.Transformed in it.meanings && e.matches(pattern.objects, it.id) }
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.id))))) }.orEmpty()
         is EventPattern.TurnedFaceUp -> (change as? Change.Status)?.takeIf {
@@ -303,6 +315,18 @@ internal object EventMatcher {
             ),
             players = listOf(player),
         )
+    }
+
+    /** fin: a permanent tapped for mana of [cost]'s kind (CR 106.12): mana a tapped [EventPattern.Tap.objects] permanent's ability adds to the
+     * pool ([arcanum.engine.state.ManaUnit.source]); {C}: colorless mana, a colour symbol: mana of that colour. */
+    private fun tappedProducing(e: Evaluator, change: Change, pattern: EventPattern.Tap, cost: arcanum.api.ManaCost): List<TriggerEvent> {
+        val c = change as? Change.ManaPool ?: return emptyList()
+        if (Meaning.ManaAdded !in c.meanings || c.after.size <= c.before.size) return emptyList()
+        val wanted = cost.symbols.mapNotNull { (it as? arcanum.api.ManaSymbol.Colored)?.color }
+        return c.after.drop(c.before.size).filter { u -> if (wanted.isEmpty()) u.color == null else u.color in wanted }
+            .mapNotNull { it.source }.distinct()
+            .filter { id -> e.board.state.obj(id)?.tapped == true && e.matches(pattern.objects, id) }
+            .map { id -> TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(id))), listOfNotNull(e.controllerOf(id))) }
     }
 
     private fun life(e: Evaluator, change: Change, players: PlayerFilter, meaning: Meaning): List<TriggerEvent> {

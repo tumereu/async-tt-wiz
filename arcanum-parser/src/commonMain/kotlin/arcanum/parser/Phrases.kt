@@ -46,6 +46,7 @@ internal object Filters {
     fun noun(phrase: String): ObjectFilter? {
         // CR 701.54e: "your Ring-bearer"
         if (phrase == "your Ring-bearer" || phrase == "Your Ring-bearer") return MechanicWordings.yourRingBearer
+        FinPhrases.noun(phrase)?.let { return it } // fin
         TdmPhrases.noun(phrase)?.let { return it } // tdm
         EoePhrases.noun(phrase)?.let { return it } // eoe
         SpmPhrases.noun(phrase)?.let { return it } // spm
@@ -139,7 +140,9 @@ internal object Filters {
         }
         // blb chunk 06: "creature an opponent controls that was dealt damage this turn"
         DEALT_DAMAGE_THIS_TURN.matchEntire(phrase)?.let { m ->
-            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter())))
+            return all(noun(m.groupValues[1]) ?: return null, ObjectFilter.ThisTurn(EventPattern.Damage(ObjectFilter.Any, arcanum.api.RecipientFilter()),
+                // fin chunk 02: the creature dealt the damage, not one that dealt it
+                role = arcanum.api.EventRole.Object))
         }
         // blb chunk 05: "equipped creatures you control" (plural: every creature with an Equipment; "equipped creature" is the
         // one this Equipment is attached to, CR 301.5)
@@ -925,6 +928,7 @@ internal object Conditions {
         MechanicWordings.condition(text, self)?.let { return it }
         TdmPhrases.condition(text)?.let { return it } // tdm
         EoePhrases.condition(text, self)?.let { return it } // eoe
+        FinPhrases.condition(text, self)?.let { return it } // fin
         SpmPhrases.condition(text, self)?.let { return it } // spm
         TlaPhrases.condition(text, self)?.let { return it } // tla
         EclPhrases.condition(text, self)?.let { return it } // ecl
@@ -1393,6 +1397,7 @@ internal object Values {
     fun value(text: String, exiled: Objects? = null): Value? {
         TdmPhrases.value(text)?.let { return it } // tdm
         EoePhrases.value(text)?.let { return it } // eoe
+        FinPhrases.value(text)?.let { return it } // fin
         TlaPhrases.value(text)?.let { return it } // tla
         EclPhrases.value(text)?.let { return it } // ecl
         SosPhrases.value(text)?.let { return it } // sos

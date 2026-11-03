@@ -60,7 +60,7 @@ internal object Steps {
         var again = afterPriority && recorder.state.turn.step == TurnStep.Cleanup
         while (true) {
             leave(recorder)
-            val next = if (again) TurnStep.Cleanup else afterPhase(recorder) ?: nextStep(recorder.state)
+            val next = if (again) TurnStep.Cleanup else afterStep(recorder) ?: afterPhase(recorder) ?: nextStep(recorder.state)
             again = false
             if (next == null) beginTurn(recorder) else begin(recorder, next)
             when (val n = turnBasedActions(recorder)) {
@@ -68,6 +68,33 @@ internal object Steps {
                 is Next.Wait -> return n.progress
                 Next.GoOn -> Unit
             }
+        }
+    }
+
+    // fin
+    /** CR 500.9: an additional step added right after the step that just ended ("an additional end step after this step"). */
+    private fun afterStep(recorder: Recorder): TurnStep? {
+        val s = recorder.state
+        val extra = s.turn.extraSteps.firstOrNull() ?: return null
+        recorder.record(Changes.step(s, s.turn.copy(extraSteps = s.turn.extraSteps.drop(1))))
+        return extra
+    }
+
+    /**
+     * CR 724.1d: an effect ended the turn: the current step and phase end, everything is removed from combat, and the game skips straight to
+     * the cleanup step (its "at the beginning of the end step" abilities don't trigger, 724.1e). Additional steps and phases still to come are
+     * dropped with the rest of the turn.
+     */
+    fun endTheTurn(recorder: Recorder): Progress {
+        val s = recorder.state
+        recorder.record(Changes.step(s, s.turn.copy(endingTurn = false, extraSteps = emptyList(), extraPhases = emptyList(), resumeAt = null)))
+        recorder.state.combat?.let { recorder.record(Change.Combat(it, null, listOf(Meaning.CombatEnded))) }
+        leave(recorder)
+        begin(recorder, TurnStep.Cleanup)
+        return when (val n = turnBasedActions(recorder)) {
+            Next.Priority -> Progress.Done
+            is Next.Wait -> n.progress
+            Next.GoOn -> endStep(recorder, afterPriority = false)
         }
     }
 
@@ -335,8 +362,11 @@ internal object Steps {
      * state-based actions or triggers, players get priority in this cleanup step and another one follows. */
     private fun finishCleanup(recorder: Recorder): Next {
         val s = recorder.state
+        // fin: "Damage isn't removed from this creature during cleanup steps" (CR 514.2)
+        val view = Snapshot(s).view
         s.battlefield.toList().forEach { id ->
             val o = s.obj(id) ?: return@forEach
+            if (view[id]?.mechanics.orEmpty().any { it.mechanic == arcanum.api.Mechanic.DamageNotRemovedInCleanup }) return@forEach
             if (o.damage != 0 || o.deathtouchDamage) recorder.record(Change.DamageMarked(id, o.damage, 0, o.deathtouchDamage, false))
         }
         endEffects(recorder) { d, _ -> d == Duration.EndOfTurn }
@@ -373,6 +403,9 @@ internal object Steps {
             if (createdBefore != null && e.createdTurn >= createdBefore) return@forEach
             if (ends(e.duration, e.controller, e.names)) recorder.record(Change.EffectRemoved(e))
         }
+        // fin: control that returns as the effects end is lost before the delayed triggers of the same duration end ("when you lose control
+        // of that Equipment this turn", CR 514.2)
+        arcanum.engine.sba.ControlChanges.notice(recorder)
         recorder.state.delayedTriggers.values.toList().forEach { t: DelayedTrigger ->
             val d = t.duration ?: return@forEach
             if (onlyController != null && t.controller != onlyController) return@forEach

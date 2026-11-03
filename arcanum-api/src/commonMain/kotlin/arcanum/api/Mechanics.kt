@@ -92,6 +92,11 @@ sealed interface Mechanic {
     @Serializable @SerialName("lose-all-creature-types") data object LoseAllCreatureTypes : Mechanic {
         override val layer: Layer get() = Layer.Type
     }
+    // fin
+    /** "Loses all land types" (layer 4, CR 613.1d, 205.3i): it has no land types; its other types and subtypes stay. */
+    @Serializable @SerialName("lose-all-land-types") data object LoseAllLandTypes : Mechanic {
+        override val layer: Layer get() = Layer.Type
+    }
     @Serializable @SerialName("colors") data class SetColors(val colors: List<ColorRef>, val add: Boolean = false) : Mechanic {
         override val layer: Layer get() = Layer.Color
         override val stacking: Stacking get() = Stacking.Independent
@@ -403,6 +408,9 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("doesnt-untap") data object DoesntUntap : Mechanic
+    // fin
+    /** "Damage isn't removed from this creature during cleanup steps" (CR 514.2): the affected permanents keep their marked damage. */
+    @Serializable @SerialName("keeps-damage") data object DamageNotRemovedInCleanup : Mechanic
     // msh
     /** The affected permanents can't become untapped: not in an untap step and not by any effect ("can't become untapped"). */
     @Serializable @SerialName("cant-become-untapped") data object CantBecomeUntapped : Mechanic
@@ -577,6 +585,16 @@ sealed interface Modification {
      * you don't, it enters tapped"), choose ("choose a creature type"). Effects on [Objects.Self] apply to it as it
      * enters. */
     @Serializable @SerialName("as-enters") data class AsEnters(val steps: List<Step>) : Modification
+    // fin
+    /** "As this creature transforms into [face], …" (CR 712.20): [steps] happen while the permanent transforms, not afterward and not on the
+     * Stack, with the permanent already its new face; used on a [Mechanic.Replacement] of [EventPattern.Transform]. Unlike [AsEnters], the
+     * steps may do anything ("you get an emblem", "choose an opponent"). */
+    @Serializable @SerialName("as-transforms") data class AsTransforms(val steps: List<Step>) : Modification
+    /** On a [Mechanic.Replacement] of [EventPattern.FlipCoin]: the coins come up heads and the flipping player wins those flips ("those
+     * coins come up heads and you win those flips", CR 705.2). */
+    @Serializable @SerialName("win-flips") data object WinFlips : Modification
+    /** "Lands you control enter untapped": the permanent enters untapped even if another effect would have it enter tapped (applied last). */
+    @Serializable @SerialName("enters-untapped") data object EntersUntapped : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
     /** Also create [count] of [token] ("those tokens plus that many 1/1 Squirrel tokens"). */

@@ -1,1 +1,1 @@
-Alice casts Quash with two Storm Sparks on the Stack: tapping the glowing Stack opened Manage Stack as a target picker, both spells outlined as legal targets and the editing buttons left out.
+Alice casts Quash with two Storm Sparks on the Stack: tapping the glowing Stack opened the target picker docked above her hand, both spells drawn as cards numbered from the top and ringed in violet as legal targets, with the eye and Back in its bottom row; only the Stack glows, not the cards in the hands.

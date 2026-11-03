@@ -149,8 +149,8 @@ class AutomatumResolveScreenshotTest {
 
     private fun life(play: PlayState, player: String) = play.board.players.single { it.accountId == player }.life.toInt()
 
-    // STK-026, STK-027, I-D3, CR 117.3d, 117.4: Bob could respond, so he holds priority and is asked; "Let it resolve"
-    // passes and the spell resolves in that batch. Steps don't change while it waits (STK-029).
+    // STK-026, STK-027, STK-029, TRN-063, I-D3, CR 117.3d, 117.4: Bob could respond, so he holds priority and is asked;
+    // the step arrow's "Resolve" passes and the spell resolves in that batch. Steps don't change while it waits.
     @Test fun respondPromptAndLetItResolve() {
         val cast = aliceCasts(board(), "life/${f.b}")
         assertEquals(MtgPriority(f.b, 1), cast.board.priority)
@@ -161,12 +161,13 @@ class AutomatumResolveScreenshotTest {
         compose.onNode(hasText("Target:") and hasAnyAncestor(hasContentDescription("Respond prompt"))).assertExists()
         compose.onNode(hasText("You") and hasAnyAncestor(hasContentDescription("Respond prompt"))).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/respond-prompt.png",
-            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: docked above his hand Bob sees Storm Spark's card beside \"Alice cast Storm Spark\", \"Target: You\", the eye at the bottom left and Respond and Let it resolve at the right, and the move is his (\"Your move\") since he must act.")
+            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: docked above his hand Bob sees Storm Spark's card beside \"Alice cast Storm Spark\", \"Target: You\", the eye at the bottom left and Respond at the right, his step arrow reads Resolve, and the move is his (\"Your move\") since he must act.")
         compose.runOnIdle { assertFalse(toolkit.submit(PlayAction.NextStep)); assertEquals(SharedFlowController.STACK_WAITING, toolkit.error) }
         compose.onNodeWithText("Respond").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Respond — cast a card from your hand").assertExists()
-        compose.onNodeWithText("Let it resolve").performClick()
+        compose.onNodeWithText("Let it resolve").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Resolve").performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(cast, batch, request, f.b)
@@ -186,15 +187,17 @@ class AutomatumResolveScreenshotTest {
         assertTrue(aSpark in after.board.containers.single { it.id == f.id("a/GRAVEYARD") }.cards)
     }
 
-    // STK-028, D11: the player without priority sees who may respond, and may pass for them after confirming
+    // STK-028, TRN-061, D11: the player without priority sees who may respond; their step arrow's Resolve passes for them
+    // after confirming
     @Test fun passForTheOtherPlayer() {
         val cast = aliceCasts(board(), "life/${f.b}")
         render(cast, f.a)
         compose.onNodeWithText("Bob may respond to Storm Spark").assertExists()
-        compose.onNodeWithText("Pass for them").performClick()
+        compose.onNodeWithText("Pass for them").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Resolve").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Pass for Bob?").assertExists()
-        compose.onAllNodesWithText("Pass for them")[1].performClick()
+        compose.onNodeWithText("Pass for them").performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         assertEquals(life(cast, f.b) - 3, life(accepted(cast, batch, request, f.a), f.b))
@@ -233,13 +236,13 @@ class AutomatumResolveScreenshotTest {
         assertEquals(open.board.containers.single { it.id == bHand }.cards.size + 1, after.board.containers.single { it.id == bHand }.cards.size)
     }
 
-    // STK-031, D11: the other player sees "… is choosing" and may choose for them after confirming
+    // STK-031, D11: the other player sees "Bob is choosing · <source>" and may choose for them after confirming
     @Test fun isChoosingAndChooseForThem() {
         val open = fertileDeath()
         val toolkit = render(open, f.a)
-        compose.onNodeWithText("Bob is choosing", substring = true).assertExists()
+        compose.onNodeWithText("Bob is choosing · Fertile Passing").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/resolve-is-choosing.png",
-            "The same moment seen by Alice: a slim bar by the Stack says \"Bob is choosing — that creature's controller may draw a card.\" with Choose for them; the move is Bob's while he chooses (\"Waiting · Bob\").")
+            "The same moment seen by Alice: a slim one-line bar above her hand shows Fertile Passing's card beside \"Bob is choosing · Fertile Passing\" with Choose for them; her step arrow reads Next, greyed, and the move is Bob's while he chooses (\"Waiting · Bob\").")
         compose.onNodeWithText("Choose for them").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("Choose for Bob?").assertExists()
@@ -255,17 +258,19 @@ class AutomatumResolveScreenshotTest {
         assertNull(toolkit.error)
     }
 
-    // STK-030, CR 603.3b: two different triggers of Alice's at once are ordered by her in the panel
+    // STK-030, I-D48, CR 603.3b: two different triggers of Alice's at once are ordered by her in the panel, each its
+    // source's card with its own line, numbered as tapped
     @Test fun triggerOrdering() {
         val play = board(bobSpark = false, aliceExtra = listOf(peak, mite))
         val open = aliceCasts(play, "life/${f.b}")
         val flow = assertNotNull(AutomatumBoards.sharedFlow(open, tags(open)))
         assertIs<Decision.OrderTriggers>(flow.decision)
         render(open, f.a)
-        compose.onNodeWithText("Order triggers").assertExists()
-        captureShot("$SCREENSHOTS/automatum/resolve-trigger-order.png",
-            "Alice cast Storm Spark with Peak Ascendancy out: its two triggers wait in the panel by the Stack to be tapped in the order they go on the Stack, with OK greyed until both are numbered.")
+        compose.onNodeWithText("Order triggers", substring = true).assertExists()
         compose.onNodeWithText("may draw a card", substring = true).performClick()
+        compose.waitForIdle()
+        captureShot("$SCREENSHOTS/automatum/resolve-trigger-order.png",
+            "Alice cast Storm Spark with Peak Ascendancy out: its two triggers wait docked above her hand as their source's cards, each with its own line under it; she tapped the draw trigger first, so it is ringed and numbered 1, and OK beside the eye stays greyed until both are numbered.")
         compose.onNodeWithText("creatures you control get +1/+1", substring = true).performClick()
         compose.onNodeWithText("OK").performClick()
         compose.waitForIdle()

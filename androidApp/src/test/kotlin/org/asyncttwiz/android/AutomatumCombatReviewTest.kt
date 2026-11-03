@@ -148,6 +148,9 @@ class AutomatumCombatReviewTest {
         assertTrue(action.enabled, "$name: ${action.refused}")
         toolkit.perform(action.intent)
     }
+    /** The step arrow (TRN-063): it reads [label] (when given), isn't greyed, and a tap goes on. */
+    private fun arrow(toolkit: TableToolkitController, label: String? = null) =
+        tapArrow(play, toolkit, AutomatumBoards.combat(play) { tags() }, label)
     private fun life(player: String) = play.board.players.single { it.accountId == player }.life.toInt()
 
     private fun render(toolkit: TableToolkitController) {
@@ -171,7 +174,7 @@ class AutomatumCombatReviewTest {
     private fun attackWith(vararg cards: String) {
         val alice = toolkit(f.a)
         cards.forEach { tapCard(alice, it) }
-        assertTrue(perform(alice, "Commit attack (${cards.size})"), alice.error)
+        assertTrue(arrow(alice, "Attack (${cards.size})"), alice.error)
         if (TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_ATTACKERS) assertTrue(alice.flows.step(StepFlow.Until.Pass), alice.error)
         assertEquals(TurnPosition.DECLARE_BLOCKERS, TurnPosition.of(play.board.turn))
     }
@@ -404,10 +407,14 @@ class AutomatumCombatReviewTest {
                         val device = devices.getValue(flow.declaring!!)
                         val mine = play.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == device.viewer }.cards
                         for (c in mine) if (random.nextInt(3) > 0) { tapCard(device, c); device.dismissError() }
-                        val commit = quick(device).last()
-                        if (!commit.enabled) { perform(device, "Clear") }
-                        val action = quick(device).last()
-                        if (!action.enabled || !device.perform(action.intent)) { note("${action.name} refused: ${action.refused ?: device.error}"); break }
+                        // The step arrow attacks (TRN-063); greyed (a staging Automatum doesn't allow), Clear first
+                        val combat = AutomatumBoards.combat(play) { tags() }
+                        if (stepBlocked(play, false, combat) != null) { perform(device, "Clear") }
+                        val blocked = stepBlocked(play, false, AutomatumBoards.combat(play) { tags() })
+                        val label = AutomatumStep.of(play).label
+                        if (blocked != null || !device.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id)))) {
+                            note("$label refused: ${blocked ?: device.error}"); break
+                        }
                     }
                     flow.declaring != null -> {
                         val device = devices.getValue(flow.declaring!!)
@@ -418,14 +425,19 @@ class AutomatumCombatReviewTest {
                             if (device.combat.selected == c) tapCopy(device, attackers.random(random))
                             device.combat.clearSelection(); device.dismissError()
                         }
-                        val commit = quick(device).single { it.name == "Commit blocks" }
-                        val action = if (commit.enabled) commit else quick(device).single { it.name == "No blocks" }
+                        // The step arrow declares (TRN-063): Block (N), or No blocks once Clear emptied a draft it greys
+                        if (stepBlocked(play, false, AutomatumBoards.combat(play) { tags() }) != null &&
+                            CombatStackRules.blocks(play.board.combat).isNotEmpty()) perform(device, "Clear")
+                        val blocked = stepBlocked(play, false, AutomatumBoards.combat(play) { tags() })
+                        val label = AutomatumStep.of(play).label
                         // What the table previews for the blocks as declared (CMB-029), before they go out
-                        if (commit.enabled || CombatStackRules.blocks(play.board.combat).isEmpty()) {
+                        if (blocked == null) {
                             expected = AutomatumBoards.combat(play) { tags() }.preview?.life
                             lifeAtBlocks = listOf(f.a, f.b).associateWith { life(it) }; combatTurn = play.board.turn.number
                         }
-                        if (!action.enabled || !device.perform(action.intent)) { note("${action.name} refused: ${action.refused ?: device.error}"); break }
+                        if (blocked != null || !device.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id)))) {
+                            note("$label refused: ${blocked ?: device.error}"); break
+                        }
                     }
                     flow.holder != null -> {
                         val device = devices.getValue(flow.holder!!)

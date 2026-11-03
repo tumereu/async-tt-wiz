@@ -1,1 +1,1 @@
-Alice attacked Bob with her Ironhide Brute and Bob could answer with Storm Spark: his pause bar above his hand reads "Alice attacks: you may act" with the eye, a violet bar emptying over his response time, Hold and Pass.
+Alice attacked Bob with her Ironhide Brute and Bob could answer with Storm Spark: his pause bar above his hand reads "Alice attacks: you may act" with the eye, a violet bar emptying over his response time and Hold; his step arrow reads Pass.

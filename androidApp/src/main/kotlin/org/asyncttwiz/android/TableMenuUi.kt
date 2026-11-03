@@ -156,21 +156,20 @@ internal fun MenuIcon(name: String, modifier: Modifier = Modifier, tint: Color =
     } else if (swordsIcon(name)) Box(modifier.size(24.dp)) {
         val n = name.lowercase()
         Icon(painterResource(R.drawable.swords_outlined), name, Modifier.fillMaxSize(), tint = tint)
-        // The attack's own swords, badged: "+ tap" taps, "Rest →" adds every other creature, Commit attack confirms
+        // The attack's own swords, badged: "+ tap" taps, "Rest →" adds every other creature
         val badge = when {
             "+ tap" in n -> Icons.Outlined.Rotate90DegreesCw
             n.startsWith("rest →") -> Icons.Outlined.Add
-            n.startsWith("commit attack") -> Icons.Outlined.Check
             else -> null
         }
         if (badge != null) Icon(badge, null, Modifier.size(10.dp).align(Alignment.BottomEnd), tint = tint)
     } else Icon(menuIcon(name), contentDescription = name, modifier = modifier.size(24.dp), tint = tint)
 }
 
-/** Attack-making names drawn as crossed swords: Declare …, and Automatum's "Rest → <target>" and "Commit attack" (CMB-028). */
+/** Attack-making names drawn as crossed swords: Declare …, and Automatum's "Rest → <target>" (CMB-028). */
 internal fun swordsIcon(name: String): Boolean {
     val n = name.lowercase()
-    return n.startsWith("rest →") || n.startsWith("commit attack") || "declare" in n && n != "declare blockers"
+    return n.startsWith("rest →") || "declare" in n && n != "declare blockers"
 }
 
 /** Bounded context panel: wrap content, never reserve an empty fullscreen sheet. */

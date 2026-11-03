@@ -102,6 +102,8 @@ internal class CastController(
     private val preview: CastPreview? = null,
     /** The pictures of tokens a cast makes (§4.6). */
     private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
+    /** UI review round 2 #4 (I-D46 b): shakes a card on the table, for a cast that can't go on ([visual]). */
+    private val shake: (String) -> Unit = {},
 ) : FlowQuestions {
     /** The open cast, null when none. */
     var flow by mutableStateOf<CastFlow?>(null); private set
@@ -117,6 +119,9 @@ internal class CastController(
     var hidden by mutableStateOf(false); private set
     /** The engine is working out the last step (SYS-025): the panel shows it and takes no input meanwhile. */
     var busy by mutableStateOf(false); private set
+    /** Why the last step in the open panel was refused ("Not enough mana to pay {5}{R}."), shown inside the panel (UI
+     * review round 2 #4: no message over the table); null when none. */
+    var notice by mutableStateOf<String?>(null); private set
     /** "Autotap mana sources" (I-D47, Settings → Automatum, on by default): a payment is made with the engine's suggestion
      * (mana in the pool first) and never asked; off, the mana section lets the player choose the sources. */
     var autotap by mutableStateOf(true)
@@ -137,6 +142,8 @@ internal class CastController(
     private var previewId: String? = null
 
     val open: Boolean get() = flow != null || starting != null || sendingCard != null
+    /** The card being cast (or played, or whose ability is activated) while a cast is [open]. */
+    val castCard: String? get() = flow?.cardId ?: starting ?: sendingCard
     /** The open question is targets, chosen on the table: the panel is a slim bar. */
     val targeting: Boolean get() = flow?.pending is Decision.Targets
 
@@ -226,12 +233,13 @@ internal class CastController(
     /** Another way of casting the card (face, alternative cost), keeping the choices that still fit. */
     fun way(input: Input): Boolean = update { it.withBegin(input) }
 
-    /** A tap on a table item while targets are chosen (I-D5: players by their life squares). True when it was taken. */
+    /** A tap on a table item while targets are chosen (I-D5: players by their life squares). True when it was taken;
+     * false when it isn't a legal target (the table shakes it, I-D46 b) or nothing is targeted now. */
     fun tapTarget(item: TableItem): Boolean {
         val f = flow ?: return false
         val decision = f.pending as? Decision.Targets ?: return false
         if (busy) return true
-        val target = targetOf(f, decision, item) ?: return true.also { fail("That isn't a legal target.") }
+        val target = targetOf(f, decision, item) ?: return false
         fail(null)
         val max = decision.max
         if (max == 1 && decision.min <= 1) return answer(Answer.Targets(listOf(target)))
@@ -275,7 +283,19 @@ internal class CastController(
 
     /** "Cancel" or Back: the whole cast is dropped; nothing was sent (I-D11). A step still being worked out is dropped
      * with it. */
+    /**
+     * Drops the cast with [message]: one saying the card can't be cast, played or paid for now, or that the table changed
+     * under it, shakes the card instead of a message (UI review round 2 #4, I-D46 b: Inspect says why); genuine failures
+     * (offline, can't be worked out or sent) keep their message.
+     */
+    private fun drop(message: String) {
+        val card = castCard
+        cancel("dropped: $message")
+        if (card != null && visual(message)) { fail(null); shake(card) } else fail(message)
+    }
+
     fun cancel(how: String = "cancelled") {
+        notice = null
         // I-D43: how each cast flow ended
         if (flow != null || starting != null || sendingCard != null) (flow?.play?.gameId ?: current()?.gameId)?.let {
             AutomatumLog.flow(it, "cast", how, flow?.cardId ?: starting ?: sendingCard.orEmpty())
@@ -396,6 +416,7 @@ internal class CastController(
         is Step.Preview -> true
         is Step.Show -> {
             starting = null
+            notice = null
             outcome.ways?.let { ways = it }
             if (outcome.ways != null) AutomatumLog.flow(outcome.flow.play.gameId, "cast", "started", outcome.flow.cardId)
             listed = outcome.listed; visible = outcome.visible
@@ -410,8 +431,8 @@ internal class CastController(
             true
         }
         is Step.Send -> sendPlanned(outcome)
-        is Step.Drop -> { cancel("dropped: ${outcome.message}"); fail(outcome.message); false }
-        is Step.Refuse -> { fail(outcome.message); follow(); false }
+        is Step.Drop -> { drop(outcome.message); false }
+        is Step.Refuse -> { notice = outcome.message; follow(); false }
     }
 
     /** Sends a planned cast, on the board the player acts on now: worked out again when that board moved on meanwhile;
@@ -428,7 +449,7 @@ internal class CastController(
         if (!play.board.automatum) { cancel("dropped: switched off"); fail(SWITCHED_OFF); return false }
         if (play.board !== planned.board && !previewed) {
             // The board moved on under a preview: it is taken back, and the cast with it (the plainest, I-D47)
-            if (shown != null) { cancel("dropped: table changed"); fail("The table changed: cast it again."); return false }
+            if (shown != null) { drop(TABLE_CHANGED); return false }
             val history = tags()
             val autotapOn = autotap
             starting = null
@@ -436,7 +457,7 @@ internal class CastController(
                 val ready = try {
                     planned.flow.on(play, AutomatumBoards.engineLog(play, AutomatumBoards.definitions(play), history))
                 } catch (_: Exception) { null }
-                ready?.let { complete(it, autotapOn) } ?: Step.Drop("The table changed: cast it again.")
+                ready?.let { complete(it, autotapOn) } ?: Step.Drop(TABLE_CHANGED)
             }
         }
         val route = send ?: run { cancel("dropped: no route"); fail("Casting isn't available here."); return false }
@@ -543,6 +564,11 @@ internal class CastController(
 
     companion object {
         const val BUSY = "Finish or cancel the cast first."
+        const val TABLE_CHANGED = "The table changed: cast it again."
+
+        /** Whether a dropped cast's [message] is shown by shaking its card (a refusal) rather than said (a failure). */
+        fun visual(message: String) = message.endsWith("can't be cast now.") || message.endsWith("can't be played now.") ||
+            message.endsWith("that can't be done now.") || message.startsWith("Not enough mana") || message.startsWith("The table changed")
         const val SWITCHED_OFF = "Automatum was switched off: the cast was dropped."
         const val CANT_ACT = "You can't cast right now (reviewing the timeline, or offline). The cast stays open."
         /** I-D27: the same for every card in the other player's hand, whatever it is. */
@@ -582,12 +608,18 @@ internal class CastController(
 /** The table items that glow for the legal targets [refs] (I-D6): cards by id, a Graveyard or Exile pile holding one
  * (tapped, it opens to pick from, i12review #14), Stack entries by id, and the Stack itself when an entry below the top
  * is one (tapped, Manage Stack opens to pick from), players by their life square. */
-internal fun targetGlow(play: PlayState, refs: List<MtgRef>): Set<String> = refs.flatMap { ref -> when (ref) {
-    is MtgRef.Player -> listOf("life/${ref.accountId}")
-    is MtgRef.Card -> listOf(ref.cardId) + listOfNotNull(play.board.cards.singleOrNull { it.id == ref.cardId }?.containerId
-        ?.takeIf { id -> play.board.containers.any { it.id == id && it.zone in PublicPiles.zones } })
-    is MtgRef.StackItem -> listOfNotNull(play.board.stackEffects.firstOrNull { it.item?.id == ref }?.id)
-} }.toSet() + listOfNotNull(CombatStackRules.stack(play.board).takeIf { stack ->
+internal fun targetGlow(play: PlayState, refs: List<MtgRef>): Set<String> = refs.flatMap { ref ->
+    // UI review round 2 #4 (decided for the owner): a spell on the Stack glows as its entry only, never as its real card
+    // (in a hand, STK-001) or the pile holding it
+    val entries = play.board.stackEffects.filter { it.item?.id == ref }.map { it.id }
+    if (entries.isNotEmpty()) return@flatMap entries
+    when (ref) {
+        is MtgRef.Player -> listOf("life/${ref.accountId}")
+        is MtgRef.Card -> listOf(ref.cardId) + listOfNotNull(play.board.cards.singleOrNull { it.id == ref.cardId }?.containerId
+            ?.takeIf { id -> play.board.containers.any { it.id == id && it.zone in PublicPiles.zones } })
+        is MtgRef.StackItem -> emptyList()
+    }
+}.toSet() + listOfNotNull(CombatStackRules.stack(play.board).takeIf { stack ->
     targetEntries(play, refs).any { it != stack.cards.firstOrNull() } }?.id)
 
 /** The Stack entries that are legal targets among [refs]: a spell by its card (its item's object), an ability by its

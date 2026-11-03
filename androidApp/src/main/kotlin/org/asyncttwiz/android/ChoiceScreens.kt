@@ -140,8 +140,8 @@ internal fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.ChooseCardName -> "Write any card name, then OK."
     is Decision.ChooseNumber -> "Set the number, then OK."
     is Decision.Divide -> "Give each its share; all ${decision.amount} must be divided."
-    is Decision.OrderTriggers -> "Tap them in the order they go on the Stack: the first goes on first and resolves last."
-    is Decision.ChooseReplacement -> "Tap the one that applies first."
+    is Decision.OrderTriggers -> "Tap them in the order they go on the Stack (the first goes on first and resolves last), then OK."
+    is Decision.ChooseReplacement -> "Tap the one that applies first, then OK."
     is Decision.LegendRule -> "Tap the ${decision.name} to keep; the others go to the graveyard."
     is Decision.Manual -> "Do it on the table, then Done."
     is Decision.Targets, is Decision.May, is Decision.Random, is Decision.HostFill, is Decision.OtherView -> null
@@ -182,7 +182,7 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Play
                     shape.second?.takeIf { places }?.let { ChoiceArea(it, areaIcon(it), ordered = shape.orderSecond) }, inspector)
                 val chosen = (if (!places || shape.chosenFirst) state.first else state.second).map(ids::getValue)
                 val fits = chosen.size >= decision.min && (decision.max == null || chosen.size <= decision.max!!)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                DockButtons {
                     ChoiceButton("OK", Icons.Outlined.Check, enabled = fits, primary = true) {
                         val then = listOfNotNull(state.first.takeIf { places && shape.orderFirst && it.size > 1 },
                             state.second.takeIf { places && shape.orderSecond && it.size > 1 })
@@ -200,7 +200,7 @@ internal fun ObjectsSection(cast: FlowQuestions, flow: FlowQuestions, play: Play
                         else -> chosen + key
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                DockButtons {
                     ChoiceButton("OK", Icons.Outlined.Check, enabled = chosen.size >= decision.min &&
                         (decision.max == null || chosen.size <= decision.max!!), primary = true) {
                         cast.answer(Answer.Objects(chosen.map(ids::getValue)))
@@ -221,7 +221,7 @@ internal fun LegendRuleSection(cast: FlowQuestions, flow: FlowQuestions, play: P
     val ids = decision.among.associateBy { it.toString() }
     Section(choiceWhat(decision), choiceHint(decision)) {
         CardPicks(decision.among.map { choiceCardOf(flow, play, viewer, it) }, listOfNotNull(kept), inspector) { kept = it }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        DockButtons {
             ChoiceButton("Keep", Icons.Outlined.Check, enabled = kept != null, primary = true) {
                 kept?.let { cast.answer(Answer.Keep(ids.getValue(it))) }
             }
@@ -248,6 +248,22 @@ internal fun CardRow(card: ChoiceCardData?, inspector: ChoiceInspector, modifier
     Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (card != null) ChoiceCardFace(card, Modifier.choiceCardGestures(card.key, tap = {}, hold = { inspector.hold(card, it) }), small = true)
         content()
+    }
+}
+
+/** A card of a choice with its own short [line] under it (a trigger's text, a replacement effect's), I-D48: a tap
+ * ([tap]) chooses it, holding inspects it; [card] null: a card-shaped [name] (an ability whose source isn't a card). */
+@Composable
+internal fun LabelledChoiceCard(card: ChoiceCardData?, key: String, name: String, line: String, inspector: ChoiceInspector,
+    selected: Boolean, badge: String? = null, tap: () -> Unit) {
+    val face = (card ?: ChoiceCardData(key, null, name, null, shown = true)).copy(key = key)
+    val (width, _) = choiceCardSize()
+    // The card and its line are one target
+    Column(Modifier.width(maxOf(width * 1.5f, 84.dp)).choiceCardGestures(key, tap = tap, hold = { inspector.hold(face, it) }),
+        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        ChoiceCardFace(face, selected = selected, badge = badge)
+        Text(line, fontSize = 10.sp, lineHeight = 12.sp, maxLines = 3, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, color = Color(0xff4b5a5f))
     }
 }
 

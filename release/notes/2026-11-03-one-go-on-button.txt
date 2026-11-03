@@ -1,0 +1,1 @@
+mod: With Automatum on, the step button is the one way to go on: panels no longer have their own Pass, Let it resolve, Commit or No blocks, and the button is greyed (hold it to see why) while it can't be used.

@@ -32,8 +32,8 @@ data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: 
     val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null,
     /** CMB-028: the active attack target lane (null: the defending player) and its name, for "Rest → <target>". */
     val combatTarget: String? = null, val combatTargetName: String = "",
-    /** Finalreview-combat #7: the viewer's pause bar is shown with its own Pass, so combat offers no second one. */
-    val pauseBar: Boolean = false)
+    /** UI review round 2 #3: the viewer's own cast is open, so the step arrow can't act ([stepBlocked]). */
+    val castOpen: Boolean = false)
 
 /** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
@@ -135,8 +135,7 @@ object QuickActions {
         is TableActionIntent.Bundle -> intent.actions.any(::manualIntent)
         is TableActionIntent.Untap, is TableActionIntent.Draw, is TableActionIntent.Library, is TableActionIntent.Orient,
         is TableActionIntent.Token -> true
-        is TableActionIntent.Combat -> intent.tool !in setOf(CombatTool.AUTOMATUM_DECLARE, CombatTool.AUTOMATUM_PASS,
-            CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR, CombatTool.AUTOMATUM_NO_BLOCKS, CombatTool.DECLARE)
+        is TableActionIntent.Combat -> intent.tool !in setOf(CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR, CombatTool.DECLARE)
         else -> false
     }
 }
@@ -190,9 +189,11 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
                         quickActionLabel(action.name), owner = Color.Black, modifier = Modifier.weight(1f).height(48.dp))
                 }
             }
-            // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour
-            if (visible && !QuickActions.mulliganOnly(play, context.viewer) && play.board.automatum) AutomatumStepArrow(play,
-                controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) }) { perform(TableActionIntent.Next(scope)) }
+            // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour; it is the one way to go on
+            // (UI review round 2 #1), so it shows with the toggles on either player's turn
+            if (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer) && play.board.automatum) AutomatumStepArrow(play,
+                controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
+                blocked = stepBlocked(play, context.castOpen, context.automatumCombat)) { perform(TableActionIntent.Next(scope)) }
             else if (visible && !QuickActions.mulliganOnly(play, context.viewer)) ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
                 .background(style.fill, AdvanceArrowShape).border(1.dp, style.outline, AdvanceArrowShape).clip(AdvanceArrowShape),
                 fill = style.fill, ink = style.ink, compactContent = true,
@@ -234,12 +235,14 @@ internal fun quickActionLabel(name: String) = when (name) {
 internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifier: Modifier = Modifier,
     fill: Color = Color.Transparent, badge: String? = null, selected: Boolean = false,
     holdName: String? = null, onHold: (() -> Unit)? = null, ink: Color? = null,
-    gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, compactContent: Boolean = false, onClick: () -> Unit) {
+    gestureKey: Any? = null, icon: (@Composable () -> Unit)? = null, compactContent: Boolean = false,
+    /** What holding it shows when no hold command is assigned (its [name] otherwise). */
+    tooltip: String? = null, onClick: () -> Unit) {
     val click by rememberUpdatedState(onClick)
     val haptic = LocalHapticFeedback.current
     val performHold: (() -> Unit)? = onHold?.let { action -> { haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick); action() } }
     val currentPerformHold by rememberUpdatedState(performHold)
-    var tooltip by remember(name) { mutableStateOf(false) }
+    var holdTip by remember(name) { mutableStateOf(false) }
     var pressed by remember(name) { mutableStateOf(false) }
     val foreground = ink ?: if (fill == Color.Transparent) LocalContentColor.current else Color.White
     Box(modifier.then(if (compactContent) Modifier.height(48.dp) else Modifier.size(48.dp)).graphicsLayer {
@@ -265,7 +268,7 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
         awaitPointerEventScope {
             while (true) {
                 val event = awaitPointerEvent()
-                if (event.changes.any { it.position != it.previousPosition || !it.pressed }) tooltip = false
+                if (event.changes.any { it.position != it.previousPosition || !it.pressed }) holdTip = false
             }
         }
     }.pointerInput(name, enabled, holdName, gestureKey) {
@@ -278,13 +281,13 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
                 press = ActionPress(capturedHold != null)
                 pressed = enabled
                 try { if (!tryAwaitRelease()) press.cancel() }
-                finally { tooltip = false; pressed = false }
+                finally { holdTip = false; pressed = false }
             },
             onTap = { if (enabled && press.release() == PressAction.TAP) capturedClick?.invoke() },
             onLongPress = {
                 if (enabled) when (press.hold()) {
                     PressAction.HOLD -> capturedHold?.invoke()
-                    PressAction.TOOLTIP -> tooltip = true
+                    PressAction.TOOLTIP -> holdTip = true
                     else -> Unit
                 }
             })
@@ -293,6 +296,6 @@ internal fun ActionSquare(name: String, glyph: String, enabled: Boolean, modifie
         else MenuIcon(name, tint = foreground)
         if (badge != null) Icon(menuIcon(if (badge == "↷") "Tap" else if (badge == "↓") "Draw one" else "Next step"),
             null, Modifier.align(Alignment.BottomEnd).padding(2.dp).size(12.dp), tint = foreground)
-        if (tooltip) HoldTooltip(name)
+        if (holdTip) HoldTooltip(tooltip ?: name)
     }
 }

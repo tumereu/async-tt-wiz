@@ -204,7 +204,7 @@ class AutomatumI3ReviewTest {
         compose.onAllNodesWithText("Morph", substring = true, useUnmergedTree = true).assertCountEquals(0)
         compose.onNodeWithText("a face-down spell", substring = true).assertExists()
         captureShot("$SCREENSHOTS/automatum/respond-face-down.png",
-            "Alice cast a morph creature face down and Bob may respond: his prompt reads \"Alice cast a face-down spell\" without its name or text, with Respond and Let it resolve.")
+            "Alice cast a morph creature face down and Bob may respond: his prompt reads \"Alice cast a face-down spell\" without its name or text, its card covered, with Respond (the step arrow reads Resolve).")
     }
 
     // #5 (STK-032, I-D37): while Automatum waits for something done by hand, manual edits work until Done. After the first

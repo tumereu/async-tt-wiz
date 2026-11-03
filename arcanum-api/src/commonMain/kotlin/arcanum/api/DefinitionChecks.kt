@@ -245,10 +245,11 @@ object DefinitionChecks {
             (static["mechanics"] as? JsonArray).orEmpty().filter { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost") }
                 .forEach { collectNames(it, costNames) }
         }
-        fun check(ability: JsonObject, extra: Set<String>, extraSlots: Set<String> = emptySet()) {
+        fun check(ability: JsonObject, extra: Set<String>, extraSlots: Set<String> = emptySet(), extraAnnounced: Set<String> = emptySet()) {
             val scope = Scope()
             scope.named += extra
             scope.slots += extraSlots
+            scope.announced += extraAnnounced
             scope.visit(ability, root = true)
             (scope.usedNames - scope.named).forEach { found += "$name: \"$it\" is used but never named in its ability" }
             (scope.usedSlots - scope.slots).forEach { found += "$name: target slot \"$it\" is used but not declared in its ability" }
@@ -268,6 +269,8 @@ object DefinitionChecks {
         }
         // Targets are chosen before costs are determined (CR 601.2c, 601.2f): the card's costs see the spell's slots.
         val spellSlots = mutableSetOf<String>()
+        val spellAnnounced = abilities.filter { it.typeName() == "spell" }.flatMap { spell ->
+            ((spell["instructions"] as? JsonObject)?.get("announced") as? JsonArray).orEmpty().map { it.jsonPrimitive.content } }.toSet()
         abilities.filter { it.typeName() == "spell" }.forEach { spell -> visitAll(spell) { o ->
             if (o.typeName() == null && "what" in o) o.string("name")?.let { spellSlots += it } } }
         // A cost reduction of the spell is applied after its targets are chosen too ("costs {3} less if it targets a tapped
@@ -277,7 +280,8 @@ object DefinitionChecks {
         abilities.forEach { ability ->
             when {
                 ability.typeName() == "spell" -> check(ability, costNames)
-                isCostStatic(ability) -> check(ability, costNames, spellSlots)
+                // sos: "As an additional cost to cast this spell, pay X life." reads the X announced for the spell (CR 601.2b)
+                isCostStatic(ability) -> check(ability, costNames, spellSlots, spellAnnounced)
                 // fra: an equip ability's cost change reads the creature it targets, the slot its expansion declares (CR 702.6a)
                 ability.typeName() == "equip" -> check(ability, costNames, setOf("creature"))
                 // The Stack item holds the cost names: a cost reduction can read them ("for each card exiled this way").

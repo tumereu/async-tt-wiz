@@ -275,7 +275,10 @@ internal object Effects {
                 val added = listOf(arcanum.api.TurnStep.BeginningOfCombat) + if (effect.followedByMain) listOf(arcanum.api.TurnStep.PostcombatMain) else emptyList()
                 act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = added + act.state.turn.extraPhases)))
             }
-            is Effect.SkipNextTurn -> scope.players(effect.players).forEach { act.manual(it, scope.self, "Skip your next turn") }
+            // sos: each skip passes over one more of that player's turns (CR 614.10)
+            is Effect.SkipNextTurn -> scope.players(effect.players).forEach { p ->
+                act.record(Changes.step(act.state, act.state.turn.copy(skippedTurns = act.state.turn.skippedTurns + p)))
+            }
             // CR 701.10f… exchanging life totals: each gains or loses the difference (CR 119.5)
             is Effect.ExchangeLife -> {
                 val a = scope.players(effect.first).firstOrNull() ?: return
@@ -635,14 +638,21 @@ internal object Effects {
         val owner = scope.players(effect.library).firstOrNull() ?: return
         val library = act.state.player(owner).library
         val wanted = scope.value(effect.count)
+        // sos: "until you exile cards with total mana value 4 or greater": until the matching cards' total reaches it
+        val total = effect.totalAtLeast?.let { scope.value(it.atLeast) }
+        var sum = 0
         val turned = mutableListOf<ObjectId>()
         val found = mutableListOf<ObjectId>()
         for (id in library) {
-            if (found.size >= wanted) break
+            if (total == null && found.size >= wanted) break
+            if (total != null && sum >= total) break
             // D60: each card is asked for as it is turned over, so the cards below the last one stay unknown
             act.fill(owner, scope.self, listOf(id), if (effect.reveal) "revealed" else "looked at", public = effect.reveal)
             turned += id
-            if (scope.eval().matches(effect.filter, id)) found += id
+            if (scope.eval().matches(effect.filter, id)) {
+                found += id
+                effect.totalAtLeast?.let { t -> sum += scope.eval().property(t.property, id) }
+            }
         }
         if (effect.reveal && turned.isNotEmpty()) act.record(Change.Happened(GameEvent.Revealed(owner, turned)))
         val rest = turned.filter { it !in found }
@@ -705,6 +715,8 @@ internal object Effects {
         val copies = mutableListOf<ObjectId>()
         scope.objects(effect.objects).forEach { id ->
             val original = act.state.stackItems[id] ?: return@forEach
+            // sos: "This spell can't be copied." (CR 707.10): no copy is created
+            if (act.view()[id]?.has { it == Mechanic.CantBeCopied } == true) return@forEach
             val ts = act.state.nextTimestamp()
             val copyId = ObjectId.StackItem("copy:$ts")
             var targets = original.targets
@@ -855,6 +867,11 @@ internal object Effects {
     private fun fix(e: Evaluator, mechanic: Mechanic): Mechanic = when (mechanic) {
         is Mechanic.ModifyPowerToughness -> Mechanic.ModifyPowerToughness(fixValue(e, mechanic.power), fixValue(e, mechanic.toughness))
         is Mechanic.SetPowerToughness -> Mechanic.SetPowerToughness(mechanic.power?.let { fixValue(e, it) }, mechanic.toughness?.let { fixValue(e, it) })
+        // sos: "that creature enters with X additional +1/+1 counters, where X is the number of colors of mana spent to cast it": X fixed as
+        // the effect is created (CR 608.2h)
+        is Mechanic.Replacement -> mechanic.copy(modify = mechanic.modify.map { m ->
+            if (m is arcanum.api.Modification.EntersWithCounters) m.copy(amount = fixValue(e, m.amount)) else m
+        })
         // "Protection from the color of your choice": the colour chosen now (CR 608.2h), not looked up later
         is Mechanic.GainAbilities -> Mechanic.GainAbilities(mechanic.abilities.map { a ->
             if (a is arcanum.api.Keyword.Protection) arcanum.api.Keyword.Protection(fixColors(e, a.from)) else a

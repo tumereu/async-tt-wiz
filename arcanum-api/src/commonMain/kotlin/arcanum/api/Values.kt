@@ -85,6 +85,9 @@ sealed interface Value {
     /** How many whole times [divisor] fits in [value] ("for every seven cards in your graveyard": the count divided by
      * seven, rounded down). */
     @Serializable @SerialName("quotient") data class Quotient(val value: Value, val divisor: Int) : Value
+    // sos
+    /** [base] raised to the power [exponent] ("draws 2ˣ cards": 2⁰ = 1); a negative exponent counts as 0. */
+    @Serializable @SerialName("exponential") data class Exponential(val base: Int, val exponent: Value) : Value
 }
 
 /**
@@ -209,6 +212,10 @@ sealed interface Condition {
     @Serializable @SerialName("remembered-option") data class RememberedOption(val key: String, val option: String) : Condition
     @Serializable @SerialName("day") data object IsDay : Condition
     @Serializable @SerialName("night") data object IsNight : Condition
+    // sos
+    /** A spell with [of]'s name controlled by a player matching [controller] has resolved earlier this game (paradigm: "if this is the
+     * first time a spell you control with this spell's name has resolved this game" is its negation, CR 702.192a). */
+    @Serializable @SerialName("resolved-earlier-this-game") data class ResolvedEarlierThisGame(val of: Objects, val controller: PlayerFilter) : Condition
 }
 
 /** How long a continuous effect created by a resolving spell or ability lasts (CR 611.2). */
@@ -235,4 +242,8 @@ sealed interface Duration {
     /** "until this card is cast from exile": while the card stays where it is and while it is being cast, ending as it
      * becomes cast (CR 601.2i), so mana it helps make can pay for it. */
     @Serializable @SerialName("until-cast") data class UntilCast(val objects: Objects) : Duration
+    // sos
+    /** "until the end of their next turn": ends as the next turn of [players] (one player) ends; about you it is
+     * [UntilEndOfYourNextTurn]. Fixed as the effect is created (CR 611.2c). */
+    @Serializable @SerialName("end-of-next-turn-of") data class UntilEndOfNextTurnOf(val players: Players) : Duration
 }

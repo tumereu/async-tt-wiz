@@ -481,10 +481,10 @@ class Review2KeywordsTest {
         assertTrue(decision<Decision.Manual>().text.startsWith("Harmonize"))
     }
 
-    /** Miracle comes up as the card is drawn. */
-    // CR 702.94a, D61
+    /** Miracle comes up as the card is drawn: its controller may cast it for the miracle cost (sos: no longer by hand). */
+    // CR 702.94a
     @Test
-    fun miracleIsDoneByHandAsItIsDrawn() = scenario {
+    fun miracleIsOfferedAsItIsDrawn() = scenario {
         val wonder = Cards.invent("Review Sudden Wonder", "{3}{W}", "Sorcery", "Draw two cards.\nMiracle {W}")
         players.forEach { it.library("Island", "Island") }
         alice.library(wonder)
@@ -492,7 +492,7 @@ class Review2KeywordsTest {
         advanceTo(TurnStep.Draw, turn = 3)
         allPass()
         expect { alice.hand has wonder }
-        assertTrue(decision<Decision.Manual>().text.startsWith("Miracle"))
+        assertEquals(alice.id, decision<Decision.May>().player)
     }
 
     // ---- Splice, bestow, collect evidence

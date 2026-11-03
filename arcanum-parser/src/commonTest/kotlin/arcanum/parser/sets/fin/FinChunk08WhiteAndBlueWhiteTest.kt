@@ -24,7 +24,7 @@ import kotlin.test.Test
 
 /**
  * Final Fantasy chunk 08: white and white-blue cards: counts of Equipment and creatures, a player with protection from each opponent
- * (CR 702.16j), a bonus counting creatures you control and cards in your graveyard, "any number of cards named", milling by the life
+ * (CR 702.16k), a bonus counting creatures you control and cards in your graveyard, "any number of cards named", milling by the life
  * gained this turn, artifact and Hero anthems, plainscycling.
  */
 class FinChunk08WhiteAndBlueWhiteTest {
@@ -208,7 +208,7 @@ class FinChunk08WhiteAndBlueWhiteTest {
             targets = listOf(slot("creature", creature))),
     )
 
-    /** "You have protection from each of your opponents." (CR 702.16j) */
+    /** "You have protection from each of your opponents." (CR 702.16k) */
     @Test
     fun virtueAbsolute() = card(
         name = "Virtue Absolute",

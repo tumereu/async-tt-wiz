@@ -216,6 +216,9 @@ data class ActivationRules(
     // tla
     /** The least the X announced for it may be ("X can't be 0" = 1, CR 107.3); null: any. */
     val minimumX: Int? = null,
+    // fin
+    /** "This ability can't be copied" (CR 707.10): an effect that would copy it on the Stack does nothing. */
+    val cantBeCopied: Boolean = false,
 )
 
 /** When something may be cast or activated. */

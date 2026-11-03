@@ -561,6 +561,9 @@ sealed interface Modification {
      * Stack, with the permanent already its new face; used on a [Mechanic.Replacement] of [EventPattern.Transform]. Unlike [AsEnters], the
      * steps may do anything ("you get an emblem", "choose an opponent"). */
     @Serializable @SerialName("as-transforms") data class AsTransforms(val steps: List<Step>) : Modification
+    /** On a [Mechanic.Replacement] of [EventPattern.FlipCoin]: the coins come up heads and the flipping player wins those flips ("those
+     * coins come up heads and you win those flips", CR 705.2). */
+    @Serializable @SerialName("win-flips") data object WinFlips : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
     /** Also create [count] of [token] ("those tokens plus that many 1/1 Squirrel tokens"). */

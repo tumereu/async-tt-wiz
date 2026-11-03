@@ -209,6 +209,8 @@ sealed interface Effect {
     /** "End the turn" (CR 724.1): every spell and ability on the Stack is exiled (this one included), then the turn goes on from its cleanup
      * step (CR 514), with no other phases or steps in between. */
     @Serializable @SerialName("end-turn") data object EndTurn : Effect
+    /** "There is an additional [step] after this step" (CR 500.9): the step happens again right after the current one. */
+    @Serializable @SerialName("additional-step") data class AdditionalStep(val step: TurnStep) : Effect
     /** An additional combat phase after this one, followed by an additional main phase when [followedByMain] (CR 500.8). */
     @Serializable @SerialName("extra-combat") data class ExtraCombat(
         val untapAttackers: Boolean = false, val followedByMain: Boolean = false,
@@ -236,6 +238,9 @@ sealed interface Effect {
         val bind: String? = null, val caster: Players,
         /** Only if the resulting spell matches ("if the resulting spell's mana value is less", cascade, CR 702.85a). */
         val resultingSpell: ObjectFilter? = null,
+        // fin
+        /** "and mana of any type can be spent to cast that spell" (CR 601.2h). */
+        val manaAsAnyType: Boolean = false,
     ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
      * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once

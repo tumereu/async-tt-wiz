@@ -134,6 +134,11 @@ sealed interface EventPattern {
     // fin
     /** A player matching [players] loses the game (CR 104.3; "When the chosen player loses the game, you win the game"). */
     @Serializable @SerialName("lose-game") data class LoseGame(val players: PlayerFilter) : EventPattern
+    /** Control of a permanent matching [objects] passes from a player matching [from] to one matching [to] (null: any; CR 613.1b): "Whenever an
+     * opponent gains control of a permanent from you", "When you lose control of that Equipment". */
+    @Serializable @SerialName("control-change") data class ControlChange(val objects: ObjectFilter, val from: PlayerFilter?, val to: PlayerFilter?) : EventPattern
+    /** A player matching [players] mills cards (CR 701.17); the event's amount is how many ("If an opponent would mill one or more cards"). */
+    @Serializable @SerialName("mill") data class Mill(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("turned-face-up") data class TurnedFaceUp(val objects: ObjectFilter) : EventPattern
     @Serializable @SerialName("search") data class Search(val players: PlayerFilter) : EventPattern
     @Serializable @SerialName("countered") data class Countered(val objects: ObjectFilter) : EventPattern

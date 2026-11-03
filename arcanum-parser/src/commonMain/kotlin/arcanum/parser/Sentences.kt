@@ -17172,7 +17172,7 @@ internal class Sentences(
                 Filters.all(equipment, ObjectFilter.Attached(to = Objects.Self)))))), affects = arcanum.api.Affected.Objects(Objects.Self),
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(to = null, attachments = equipment)))
         }
-        // fin chunk 08: "You have protection from each of your opponents." (CR 702.16j: from everything those players control)
+        // fin chunk 08: "You have protection from each of your opponents." (CR 702.16i, 702.16k: from everything those players control)
         if (line == "You have protection from each of your opponents.")
             return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Protection(ObjectFilter.ControlledBy(PlayerFilter.Opponent))))),
                 affects = arcanum.api.Affected.Players(Players.You))
@@ -17186,6 +17186,46 @@ internal class Sentences(
             val per = Value.Sum(listOf(Value.Count(Objects.Each(first)), Value.Count(Objects.Each(second))))
             fun times(n: Int) = if (n == 1) per else Value.Times(per, n)
             return Ability.Static(listOf(Mechanic.ModifyPowerToughness(times(p), times(t))), affects = arcanum.api.Affected.Objects(Objects.Each(affected)))
+        }
+        // fin chunk 09: "As an additional cost to cast this spell, sacrifice a legendary creature or pay {2}." (one of two costs, CR 601.2b)
+        Fin.ADDITIONAL_COST_OR.matchEntire(line)?.let { m ->
+            val first = cost(m.groupValues[1].replaceFirstChar { it.uppercase() }) ?: return null
+            val second = cost(m.groupValues[2].replaceFirstChar { it.uppercase() }) ?: return null
+            return Ability.Static(listOf(Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.OneOf(listOf(first, second)))))), affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 09: "As long as The Lunar Whale attacked this turn, you may play the top card of your library." (CR 305.1, 601.2a)
+        Fin.ATTACKED_THIS_TURN_MAY_PLAY_TOP.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.MayPlay(Zone.Library, PlayKind.Play, topOnly = true, holder = PlayerFilter.You)),
+                affects = arcanum.api.Affected.Objects(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Library), ObjectFilter.OwnedBy(PlayerFilter.You)))),
+                condition = arcanum.api.Condition.HappenedThisTurn(EventPattern.Attack(ObjectFilter.Is(Objects.Self)), atLeast = 1, measure = arcanum.api.Measure.Events))
+        }
+        // fin chunk 09: "If an opponent would mill one or more cards, they mill that many cards plus four instead." (CR 614.1a)
+        Fin.WOULD_MILL_PLUS.matchEntire(line)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Mill(PlayerFilter.Opponent), modify = listOf(Modification.AddAmount(Value.Fixed(n))))),
+                affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // fin chunk 09: "Enchanted permanent doesn't untap during its controller's untap step and its activated abilities can't be activated."
+        if (line == "Enchanted permanent doesn't untap during its controller's untap step and its activated abilities can't be activated.")
+            return Ability.Static(listOf(Mechanic.DoesntUntap, Mechanic.CantBeActivated(manaAbilities = true)),
+                affects = arcanum.api.Affected.Objects(Objects.AttachedTo(Objects.Self)))
+        // fin chunk 09: "The first time you flip one or more coins each turn, those coins come up heads and you win those flips." (CR 705.2)
+        if (line == "The first time you flip one or more coins each turn, those coins come up heads and you win those flips.") {
+            val flip = EventPattern.FlipCoin(PlayerFilter.You)
+            return Ability.Static(listOf(Mechanic.Replacement(flip, modify = listOf(Modification.WinFlips))), affects = arcanum.api.Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(flip, atLeast = 1, measure = arcanum.api.Measure.Events)))
+        }
+        // fin chunk 09: "{X}{X}, {T}: Copy target activated or triggered ability you control X times. You may choose new targets for the copies. This
+        // ability can't be copied and X can't be 0." (CR 707.10, 107.3)
+        Fin.COPY_ABILITY_X_TIMES.matchEntire(line)?.let { m ->
+            val cost = cost(m.groupValues[1]) ?: return null
+            val ability = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.Or(listOf(
+                ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Activated), ObjectFilter.AbilityOf(kind = arcanum.api.AbilityKind.Triggered))),
+                ObjectFilter.ControlledBy(PlayerFilter.You))
+            val slot = TargetSlot("ability", TargetKind.Objects(ability), min = Value.Fixed(1), max = Value.Fixed(1))
+            return Ability.Activated(cost, Instructions(targets = listOf(slot), steps = listOf(Step.Repeat(Value.Announced("X"),
+                listOf(Step.Do(Effect.CopySpell(Objects.Target("ability"), Players.You, newTargets = true))))), announced = listOf("X")),
+                arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You, minimumX = 1, cantBeCopied = true))
         }
         // fin-late-end
         return null
@@ -17298,6 +17338,16 @@ internal class Sentences(
             if (move.to.zone != Zone.Hand) return null
             return steps.dropLast(1) + Step.If(arcanum.api.Condition.CastFrom(Zone.Graveyard, Objects.Self),
                 then = listOf(Step.Do(move.copy(to = Destination(Zone.Battlefield)))), otherwise = listOf(last))
+        }
+        // fin chunk 09: "Then if this spell was cast from a graveyard, put two +1/+1 counters on that token." after creating a token
+        Fin.IF_CAST_FROM_GRAVEYARD_COUNTERS_ON_TOKEN.matchEntire(sentence)?.let { m ->
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val create = last.effect as? Effect.CreateToken ?: return null
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val bind = create.bind ?: "tokens"
+            return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) + Step.If(arcanum.api.Condition.CastFrom(Zone.Graveyard, Objects.Self),
+                then = listOf(Step.Do(Effect.PutCounters(Objects.Bound(bind), kind, Value.Fixed(n)))))
         }
         // fin-modify-end
         return null
@@ -17546,6 +17596,14 @@ internal class Sentences(
             val amount = if (m.groupValues[1] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             return listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), amount)))
         }
+        // fin chunk 09: "If it's the first end step of the turn, there is an additional end step after this step." (CR 500.9)
+        if (sentence == "If it's the first end step of the turn, there is an additional end step after this step.") {
+            return listOf(Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.HappenedThisTurn(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any),
+                atLeast = 2, measure = arcanum.api.Measure.Events)), then = listOf(Step.Do(Effect.AdditionalStep(arcanum.api.TurnStep.End)))))
+        }
+        // fin chunk 09: "Each opponent mills cards equal to the number of cards in your hand."
+        if (sentence == "Each opponent mills cards equal to the number of cards in your hand.")
+            return listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), Value.HandSize(Players.You))))
         // fin-effect-end
         return null
     }
@@ -17602,6 +17660,52 @@ internal class Sentences(
                 Step.Choose(arcanum.api.Choice.Objects(equipment, Value.Fixed(1), Value.Fixed(1), from = Objects.AttachmentsOf(Objects.Self, equipment)), bind = "equipment",
                     chooser = Players.You),
                 Step.Do(Effect.Attach(Objects.Bound("equipment"), Recipients(objects = target))))
+        }
+        // fin chunk 09: five revealed cards handed out in turns between you and a chosen opponent
+        if (text == "Reveal the top five cards of your library. Put one of them into your hand. Then choose an opponent. They put one on the bottom of your library. Then you put one into your hand. Then they put one on the bottom of your library. Put the other into your hand.") {
+            fun rest(vararg taken: String): Objects = if (taken.isEmpty()) Objects.Bound("revealed")
+                else Objects.Except(Objects.Bound("revealed"), Objects.Union(taken.map { Objects.Bound(it) }))
+            fun pick(into: String, chooser: Players, vararg taken: String) = Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1),
+                from = rest(*taken)), bind = into, chooser = chooser)
+            fun to(objects: Objects, zone: Zone, position: Int? = null) = Step.Do(Effect.Move(objects, Destination(zone, libraryPosition = position)))
+            val opponent = Players.Bound("opponent")
+            return listOf(Step.Do(Effect.Reveal(Objects.LibraryCards(Players.You, Value.Fixed(5), fromTop = true), bind = "revealed")),
+                pick("first", Players.You), to(Objects.Bound("first"), Zone.Hand),
+                Step.Choose(arcanum.api.Choice.Player(PlayerFilter.Opponent), bind = "opponent", chooser = Players.You),
+                pick("second", opponent, "first"), to(Objects.Bound("second"), Zone.Library, -1),
+                pick("third", Players.You, "first", "second"), to(Objects.Bound("third"), Zone.Hand),
+                pick("fourth", opponent, "first", "second", "third"), to(Objects.Bound("fourth"), Zone.Library, -1),
+                to(rest("first", "second", "third", "fourth"), Zone.Hand))
+        }
+        // fin chunk 09: "Choose target spell. Surveil 2, then counter the chosen spell unless its controller pays {1} for each card in your graveyard."
+        Fin.CHOOSE_SPELL_SURVEIL_COUNTER_UNLESS.matchEntire(text)?.let { m ->
+            val spell = context.target("spell", ObjectFilter.Category(arcanum.api.ObjectCategory.Spell))
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val graveyard = Value.Count(Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))))
+            return listOf(Step.Do(Effect.Surveil(Players.You, Value.Fixed(n)))) + unlessPays(Players.ControllerOf(spell),
+                Cost(listOf(CostPart.Mana(ManaCost.parse(m.groupValues[2]) ?: return null, times = graveyard))), listOf(Step.Do(Effect.Counter(spell))))
+        }
+        // fin chunk 09: "You may cast target instant or sorcery card from a graveyard, and mana of any type can be spent to cast that spell. If that
+        // spell would be put into a graveyard, exile it instead." (CR 608.2g, 601.2h)
+        Fin.MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE.matchEntire(text)?.let { m ->
+            val target = context.target("card", Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.InZone(Zone.Graveyard)))
+            val spell = Objects.Bound("spell")
+            return listOf(Step.May(listOf(Step.Do(Effect.Cast(target, PlayKind.Cast, bind = "spell", caster = Players.You, manaAsAnyType = true))), Players.You),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(spell), from = Zone.Stack, to = Zone.Graveyard),
+                    modify = listOf(Modification.ChangeDestination(Destination(Zone.Exile))))), null, arcanum.api.Duration.Indefinitely)))
+        }
+        // fin chunk 09: "Choose target creature you control and target Equipment. Gain control of that Equipment until end of turn. Attach it to the
+        // chosen creature. When you lose control of that Equipment this turn, if it's attached to a creature you control, unattach it."
+        if (text == "Choose target creature you control and target Equipment. Gain control of that Equipment until end of turn. Attach it to the chosen creature. When you lose control of that Equipment this turn, if it's attached to a creature you control, unattach it.") {
+            val creature = context.target("creature", Filters.noun("creature you control") ?: return null)
+            val equipment = context.target("Equipment", ObjectFilter.Sub(Subtype("Equipment")))
+            val yours = Filters.noun("creature you control") ?: return null
+            return listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(Players.You)), arcanum.api.Affected.Objects(equipment), arcanum.api.Duration.EndOfTurn)),
+                Step.Do(Effect.Attach(equipment, Recipients(objects = creature))),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.ControlChange(ObjectFilter.Is(equipment), from = PlayerFilter.You, to = null)),
+                    Instructions(steps = listOf(Step.If(arcanum.api.Condition.ObjectMatches(equipment, ObjectFilter.Attached(to = Objects.Each(yours))),
+                        then = listOf(Step.Do(Effect.Unattach(equipment)))))), arcanum.api.Duration.EndOfTurn)))
         }
         // fin-whole-end
         return null

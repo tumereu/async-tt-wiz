@@ -21,6 +21,7 @@ internal object FinPhrases {
     private val DIED_UNDER_CONTROL = Regex("""an? (\w+) died under (an opponent's|your) control this turn""")
     private val CARDS_ARE_IN_GRAVEYARD = Regex("""(\w+) or more cards are in your graveyard""")
     private val AND_SUBTYPE_YOU_CONTROL = Regex("""([A-Za-z]+ creatures) and ([A-Z][a-z]+?)(?:es|s) you control""")
+    private val ABILITIES_OR_SPELL = Regex("""activated ability, triggered ability, or (.+ spell)""")
     fun noun(phrase: String): ObjectFilter? {
         THAT_ISNT.matchEntire(phrase)?.let { m ->
             val kind = Filters.noun(m.groupValues[1]) ?: return null
@@ -34,6 +35,12 @@ internal object FinPhrases {
             if (m.groupValues[2] !in RulesWords.subtypes) return null
             return Filters.all(ObjectFilter.Or(listOf(first, ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[2])))),
                 ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You))
+        }
+        // fin chunk 09: "activated ability, triggered ability, or noncreature spell" (abilities on the Stack, CR 113.1c)
+        ABILITIES_OR_SPELL.matchEntire(phrase)?.let { m ->
+            fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
+            val spell = Filters.noun(m.groupValues[1]) ?: return null
+            return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered), spell))
         }
         // fin-noun-end
         return null
@@ -160,4 +167,12 @@ internal object Fin {
     // fin chunk 08
     val GET_FOR_EACH_AND_EACH = Regex("""(.+?) get \+(\d+)/\+(\d+) for each (.+?) and each (.+?)\.""")
     val EACH_OPPONENT_MILLS = Regex("""Each opponent mills (X|\w+) cards?\.""")
+    // fin chunk 09
+    val IF_CAST_FROM_GRAVEYARD_COUNTERS_ON_TOKEN = Regex("""(?:Then )?[Ii]f this spell was cast from a graveyard, put (\w+) (\S+) counters? on that token\.""")
+    val CHOOSE_SPELL_SURVEIL_COUNTER_UNLESS = Regex("""Choose target spell\. Surveil (\w+), then counter the chosen spell unless its controller pays (\{\d+\}) for each card in your graveyard\.""")
+    val MAY_CAST_TARGET_FROM_GRAVEYARD_ANY_TYPE = Regex("""You may cast target (.+?) from a graveyard, and mana of any type can be spent to cast that spell\. If that spell would be put into a graveyard, exile it instead\.""")
+    val ADDITIONAL_COST_OR = Regex("""As an additional cost to cast this spell, (sacrifice an? .+?) or (pay \{.+\})\.""")
+    val ATTACKED_THIS_TURN_MAY_PLAY_TOP = Regex("""As long as (.+?) attacked this turn, you may play the top card of your library\.""")
+    val WOULD_MILL_PLUS = Regex("""If an opponent would mill one or more cards, they mill that many cards plus (\w+) instead\.""")
+    val COPY_ABILITY_X_TIMES = Regex("""(\{X\}\{X\}, \{T\}): Copy target activated or triggered ability you control X times\. You may choose new targets for the copies\. This ability can't be copied and X can't be 0\.""")
 }

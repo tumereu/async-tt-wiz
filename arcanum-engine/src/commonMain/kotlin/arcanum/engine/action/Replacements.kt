@@ -45,7 +45,7 @@ internal data class Replacement(
 /** What a prevention effect among the replacements of a damage event prevents (CR 615, 616.1). */
 internal sealed interface Prevention {
     /** All damage to [recipient] from sources [from] matches (protection, CR 702.16e). */
-    data class Protection(val from: arcanum.api.ObjectFilter, val recipient: ObjectId) : Prevention
+    data class Protection(val from: arcanum.api.ObjectFilter, val recipient: arcanum.engine.state.TargetRef) : Prevention
 
     /** All of the damage, or [each] of each such damage event; then its [additional] effect (CR 615.5). */
     data class Amount(val each: arcanum.api.Value?, val additional: arcanum.api.Instructions? = null) : Prevention
@@ -103,8 +103,8 @@ internal object Replacements {
         if (protection != null) {
             // CR 702.16e: damage to the protected permanent from a source with the quality
             val hit = (change as? Change.Damage)?.dealt.orEmpty().any { d ->
-                d.recipient == arcanum.engine.state.TargetRef.Object(protection.recipient) &&
-                    e.with(Context(r.controller, protection.recipient)).matches(protection.from, d.source)
+                d.recipient == protection.recipient &&
+                    e.with(Context(r.controller, (protection.recipient as? arcanum.engine.state.TargetRef.Object)?.id)).matches(protection.from, d.source)
             }
             return if (hit) listOf(TriggerEvent()) else emptyList()
         }

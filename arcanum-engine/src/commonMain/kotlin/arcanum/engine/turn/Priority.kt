@@ -39,6 +39,8 @@ internal object Priority {
      * cleanup step, which only gets here when something happened in it (CR 514.3a). */
     fun give(recorder: Recorder): Progress {
         val s = recorder.state
+        // fin: CR 724.1d: an effect ended the turn: straight to the cleanup step
+        if (s.turn.endingTurn && s.stack.isEmpty()) return Steps.endTheTurn(recorder)
         if (s.priority.holder != null || s.turn.step == TurnStep.Untap || Combat.waitingForDeclaration(s)) return Progress.Done
         val to = s.playersFrom(s.turn.active).firstOrNull() ?: return Progress.Done
         recorder.record(Changes.priority(s, PriorityState(to, 0), listOf(Meaning.PriorityGranted)))

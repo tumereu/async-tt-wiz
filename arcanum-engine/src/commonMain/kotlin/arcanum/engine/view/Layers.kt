@@ -666,6 +666,9 @@ internal class LayerRun(private val state: GameState, private val traced: Object
 
     // ---- Rules that are not characteristics (D24, CR 613.10, 613.11)
 
+    /** fin: abilities players gain ("you have protection from …"): players have no layers, the keywords apply to them as rules. */
+    private fun forPlayers(e: ContinuousEffect, mechanic: Mechanic): Boolean = e.affects is Affected.Players && mechanic is Mechanic.GainAbilities
+
     private fun collect(board: WorkBoard): View {
         val objectMechanics = LinkedHashMap<ObjectId, MutableList<AppliedMechanic>>()
         val playerMechanics = LinkedHashMap<PlayerId, MutableList<AppliedMechanic>>()
@@ -681,8 +684,13 @@ internal class LayerRun(private val state: GameState, private val traced: Object
                 !Layers.isRule(mechanic) && affects == null && e.locked != null -> e.locked!!.filter { it in board.work }
                     .forEach { objectMechanics.getOrPut(it) { mutableListOf() } += applied }
                 Layers.isRule(mechanic) || affects == null || affects is Affected.NextSpells -> rules += applied
-                affects is Affected.Players -> (lockedPlayers ?: evaluator(board, e).players(affects.players))
-                    .forEach { playerMechanics.getOrPut(it) { mutableListOf() } += applied }
+                affects is Affected.Players -> (lockedPlayers ?: evaluator(board, e).players(affects.players)).forEach { p ->
+                    val list = playerMechanics.getOrPut(p) { mutableListOf() }
+                    // fin: "You have protection from …": the player has the keyword's protection (CR 702.16b, e)
+                    if (mechanic is Mechanic.GainAbilities) mechanic.abilities.filterIsInstance<arcanum.api.Keyword.Protection>()
+                        .forEach { k -> list += applied.copy(mechanic = Mechanic.Protection(k.from)) }
+                    else list += applied
+                }
                 affects is Affected.Objects -> placedOn(board, e, mechanic, affects.objects)
                     .filter { it in board.work && state.obj(it)?.phasedOut != true }
                     .forEach { objectMechanics.getOrPut(it) { mutableListOf() } += applied }
@@ -690,7 +698,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         }
 
         staticEffects(board).forEach { e ->
-            val mechanics = e.mechanics.filter { Layers.layerOf(it, e.cda) == null }
+            val mechanics = e.mechanics.filter { Layers.layerOf(it, e.cda) == null || forPlayers(e, it) }
             if (mechanics.isEmpty()) return@forEach
             val affects = e.affects
             if (affects is Affected.Players && e.condition != null) {
@@ -704,7 +712,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         }
         effectObjects(board).forEach { e ->
             val effect = state.effects.getValue(e.effect!!)
-            effect.mechanics.filter { it.layer == null }.forEach { place(e, it, effect.lockedPlayers) }
+            effect.mechanics.filter { it.layer == null || forPlayers(e, it) }.forEach { place(e, it, effect.lockedPlayers) }
         }
         // blb gaps 2: one or more finality counters on a permanent create one replacement effect, "If this permanent would
         // be put into a graveyard from the battlefield, exile it instead" (CR 122.1h); it doesn't come from an ability, so

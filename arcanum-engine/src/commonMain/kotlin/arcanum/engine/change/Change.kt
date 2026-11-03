@@ -461,6 +461,11 @@ sealed interface GameEvent {
     /** A triggered ability of [source] triggered on an event of [cause]'s kind and was put on the Stack as [item] (CR 603.2): what
      * "attacking causes a triggered ability of that creature to trigger" looks for. [attack]: the event was [source] attacking. */
     @Serializable @SerialName("ability-triggered") data class AbilityTriggered(val source: ObjectId, val item: ObjectId, val attack: Boolean) : GameEvent
+    // fin
+    /** Control of [id] passed from [from] to [to] (CR 613.1b), noticed with the state-based checks. */
+    @Serializable @SerialName("control-changed") data class ControlChanged(val id: ObjectId, val from: PlayerId, val to: PlayerId) : GameEvent
+    /** [player] would mill [count] cards (CR 701.17): proposed only, for replacements of the mill. */
+    @Serializable @SerialName("milling") data class Milling(val player: PlayerId, val count: Int) : GameEvent
 }
 
 /**

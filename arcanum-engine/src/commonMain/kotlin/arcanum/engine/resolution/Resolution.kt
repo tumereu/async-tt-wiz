@@ -356,6 +356,8 @@ internal object Resolution {
     /** Where a resolved or countered spell's card goes: its owner's graveyard, unless the permission it was cast with
      * says otherwise (flashback: exile, CR 702.34a). */
     private fun leavesTo(act: Act, item: StackItem): Zone {
+        // fin: CR 724.1b: the spell that ended the turn is exiled as it leaves
+        if (act.state.turn.endingTurn) return Zone.Exile
         val o = act.state.obj(item.id) ?: return Zone.Graveyard
         val from = o.facts.castFrom ?: return Zone.Graveyard
         val permissions = act.view()[item.id]?.characteristics?.abilities.orEmpty()

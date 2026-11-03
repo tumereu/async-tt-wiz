@@ -69,7 +69,8 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
             if (copied != null) faces = copied.map { it.copy(face = exceptions(it.face, copy.except)) }
         }
         // CR 730.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all
-        if (o.merged) faces = merged(o, faces)
+        // fin: a melded permanent has only the combined back face's characteristics (CR 712.8g)
+        if (o.merged && !(o.definition?.layout is arcanum.api.Layout.Meld && o.face == 1)) faces = merged(o, faces)
         // CR 702.103b: a bestowed spell or permanent is an Aura enchantment with enchant creature
         if (o.bestowed) faces = faces.map { it.copy(face = bestowed(it.face)) }
         // CR 709.5: a Room's locked halves have no name, mana cost or rules text

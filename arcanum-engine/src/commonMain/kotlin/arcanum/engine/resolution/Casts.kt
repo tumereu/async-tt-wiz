@@ -48,7 +48,7 @@ internal object Casts {
                     meanings = listOf(Meaning.PlayedLand))))
                 continue
             }
-            arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost)?.let { cast += it }
+            arcanum.engine.casting.Casting.castByEffect(act, caster, id, effect.withoutPaying, effect.cost, effect.manaAsAnyType)?.let { cast += it }
         }
         scope.bind(effect.bind, NamedValue.Objects(cast))
     }

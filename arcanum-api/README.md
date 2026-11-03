@@ -149,6 +149,11 @@ The definition model (overview in `Definitions.kt`):
   tapped"), `CreateDelayedTrigger.laterTurn` ("its owner may play it for as long as it remains exiled" only after this turn) and
   `Selector.WasPaid` counting alternative costs ("a spell was warped this turn"); `DefinitionChecks` allows comparing a count of what
   your opponents control with a number (their total).
+- Tarkir: Dragonstorm (set `tdm`): `KeywordAction.Endure` names the objects that endure ("Anafenza endures 2", "it endures X" of the
+  creature that entered; enduring 0 does nothing, CR 701.63b), `SharedQuality.CounterKind` ("three or more different kinds of counters
+  among creatures you control"), `ObjectFilter.HasDealtDamage` ("as long as it hasn't dealt damage yet") and `AdditionalCost.flash`
+  ("you may cast this spell as though it had flash if you behold a Dragon as an additional cost to cast it", CR 702.8a);
+  `DefinitionChecks` keeps a loop that creates a token attacking each player.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

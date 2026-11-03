@@ -58,3 +58,9 @@ internal fun Scenario.choose(vararg names: String) {
     names.forEach { taken += preferred(it, listOf { o -> o.id in options }, taken) }
     answer(Answer.Objects(taken)); resolveAll()
 }
+
+/** Sets [name] up with its back face up (setup only). */
+internal fun Scenario.backFaceUp(name: String) {
+    val id = card(name)
+    state.objects[id] = state.objOrThrow(id).copy(face = 1)
+}

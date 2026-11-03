@@ -421,6 +421,11 @@ internal object Triggers {
             timestamp = act.state.nextTimestamp(),
         )
         act.record(Change.StackItemAdded(item, act.state.stack.size, listOf(Meaning.Triggered)))
+        // tla: its source attacking made it trigger (CR 603.2): "attacking causes a triggered ability of that creature to trigger"
+        val source = t.source
+        if (source != null && (ability.trigger as? arcanum.api.Trigger.On)?.events.orEmpty().any { it is arcanum.api.EventPattern.Attack } &&
+            t.event.objects.any { it.role == arcanum.api.EventRole.Object && source in it.ids })
+            act.record(Change.Happened(arcanum.engine.change.GameEvent.AbilityTriggered(source, stackId, attack = true)))
     }
 
     private fun recordTriggerCount(act: Act, source: ObjectId, origin: AbilityOrigin?) {

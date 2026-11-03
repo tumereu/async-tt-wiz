@@ -11192,6 +11192,14 @@ internal class Sentences(
             context.targets.clear(); context.targets += read.targets
             return read.steps.toMutableList().also { it[at] = Step.Do(paid) }
         }
+        // tmt chunk 06: "Whenever a creature you control attacks alone this turn, put three +1/+1 counters on it. It gains trample, lifelink, and
+        // indestructible until end of turn." (a delayed trigger for the rest of the turn with all its sentences, CR 603.7c)
+        Tmt.WHENEVER_THIS_TURN.matchEntire(text)?.let { m ->
+            val (trigger, onlyIf) = trigger(m.groupValues[1]) ?: return null
+            if (onlyIf != null) return null
+            val read = instructions(m.groupValues[2], event = trigger.events.first()) ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(trigger, read, duration = arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
         // tmt chunk 02: "Choose target creature an opponent controls. Exile that creature until this creature leaves the battlefield. If this
         // creature's sneak cost was paid, instead exile the chosen creature." (CR 610.3)
         Tmt.SNEAK_INSTEAD_EXILE.matchEntire(text)?.let { m ->
@@ -11353,6 +11361,16 @@ internal class Sentences(
 
     /** tmt: sentences that change the steps before them, tried first in [modify]. */
     private fun tmtModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // tmt chunk 01: "If it isn't a creature, it becomes a 0/0 Robot creature in addition to its other types." after putting counters on
+        // it: the object the counters were put on (layers 4 and 7b, indefinitely, CR 611.2a)
+        Tmt.IF_IT_ISNT_CREATURE_BECOMES.matchEntire(sentence)?.let { m ->
+            val it = ((steps.lastOrNull() as? Step.Do)?.effect as? Effect.PutCounters)?.objects ?: return null
+            val subtypes = m.groupValues[3].split(' ').map { arcanum.api.SubtypeRef.Literal(Subtype(it.takeIf { s -> s in RulesWords.subtypes } ?: return null)) }
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(it, ObjectFilter.Not(ObjectFilter.Type(CardType.Creature))), then = listOf(
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(add = listOf(CardType.Creature), addSubtypes = subtypes),
+                    Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[1].toInt()), Value.Fixed(m.groupValues[2].toInt()))),
+                    Affected.Objects(it), arcanum.api.Duration.Indefinitely))))
+        }
         // tmt chunk 02: "If this spell's sneak cost was paid, they enter tapped and attacking." after creating tokens (CR 508.4)
         Tmt.SNEAK_THEY_ENTER_TAPPED_AND_ATTACKING.matchEntire(sentence)?.let { m ->
             val condition = Conditions.condition(m.groupValues[1] + " was paid", self) ?: return null
@@ -11414,6 +11432,14 @@ internal class Sentences(
             context.targets += tmtSlot(name, Filters.noun(m.groupValues[3]) ?: return null)
             return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target(name)), amount, Objects.Self)))
         }
+        // tmt chunk 02: "You may put a creature card and/or a land card from your hand onto the battlefield." (one of each at most)
+        Tmt.MAY_PUT_AND_OR_FROM_HAND.matchEntire(sentence)?.let { m ->
+            val hand = Objects.Each(Filters.all(ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))
+            fun choose(noun: String): Step? = Step.Choose(arcanum.api.Choice.Objects(Filters.all(Filters.noun(noun) ?: return null,
+                ObjectFilter.Category(arcanum.api.ObjectCategory.Card)), Value.Fixed(0), Value.Fixed(1), from = hand), bind = noun, chooser = Players.You)
+            return listOf(choose(m.groupValues[1]) ?: return null, choose(m.groupValues[2]) ?: return null,
+                Step.Do(Effect.Move(Objects.Union(listOf(Objects.Bound(m.groupValues[1]), Objects.Bound(m.groupValues[2]))), Destination(Zone.Battlefield))))
+        }
         // tmt chunk 03: "Exile enchanted creature."
         Tmt.VERB_ATTACHED.matchEntire(sentence)?.let { m ->
             val attached = Objects.AttachedTo(Objects.Self)
@@ -11454,8 +11480,9 @@ internal class Sentences(
         // a Mutant in addition to its other types." (CR 707.9b; the card exiled, CR 400.7, linked to the Saga's later chapters, CR 607.2a)
         Tmt.EXILE_THEN_COPY_IT.matchEntire(sentence)?.let { m ->
             val subtype = m.groupValues[2].takeIf { it in RulesWords.subtypes } ?: return null
-            val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[1]))
-            context.targets += tmtSlot(name, Filters.noun(m.groupValues[1].replace(" from your graveyard", " in your graveyard")) ?: return null)
+            val noun = m.groupValues[1].replace(" from your graveyard", " in your graveyard")
+            val name = tmtNewSlotName(context, Filters.slotName(noun))
+            context.targets += tmtSlot(name, Filters.noun(noun) ?: return null)
             return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Exile), postBind = "exiled"))) +
                 (if (linkedExile) listOf(Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))) else emptyList()) +
                 tmtCopyExcept(Objects.Bound("exiled"), subtype)
@@ -11609,7 +11636,7 @@ internal class Sentences(
         // tmt chunk 07: "Exile target creature you control, then return it to the battlefield under its owner's control.", "Exile up to one
         // target creature you own, then return it to the battlefield under your control tapped and attacking." (CR 400.7, 508.4)
         Tmt.EXILE_THEN_RETURN.matchEntire(sentence)?.let { m ->
-            val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[2]))
+            val name = tmtNewSlotName(context, Filters.slotName(m.groupValues[2].removeSuffix(" you own")))
             context.targets += tmtSlot(name, Filters.noun(m.groupValues[2]) ?: return null, min = if (m.groupValues[1].isEmpty()) 1 else 0)
             val controller = if (m.groupValues[3] == "your") Players.You else Players.OwnerOf(Objects.Bound("exiled"))
             val attacking = m.groupValues[4].isNotEmpty()
@@ -11647,7 +11674,8 @@ internal class Sentences(
         Tmt.EACH_OF_YOUR_OPPONENTS.matchEntire(sentence)?.let { m -> return effect("Each opponent " + m.groupValues[1], context) }
         // tmt chunk 08: "Create a Mutagen token for each +1/+1 counter on it." (the creature that left, as it last existed, CR 603.10a)
         Tmt.TOKEN_FOR_EACH_COUNTER_ON_IT.matchEntire(sentence)?.let { m ->
-            val it = context.it ?: return null
+            val event = context.event as? EventPattern.ZoneChange
+            val it = (if (event?.from == Zone.Battlefield) Objects.EventObject(EventRole.Before) else context.it) ?: return null
             if (m.groupValues[1] !in arcanum.api.PredefinedTokens.names) return null
             return listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Predefined(m.groupValues[1]),
                 Value.Of(arcanum.api.NumericProperty.Counters(tmtP1P1), it, arcanum.api.Combine.Single), Players.You)))

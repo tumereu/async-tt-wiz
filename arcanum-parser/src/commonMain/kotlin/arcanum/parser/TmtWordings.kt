@@ -64,6 +64,11 @@ internal object Tmt {
     val PUT_COUNTERS_ON_UP_TO_ONE = Regex("""[Pp]ut (\w+) (\S+) counters? on up to one (other )?target (.+)\.""")
     val EXILE_THEN_COPY_IT = Regex("""Exile target (.+?)\. Create a token that's a copy of it, except it isn't legendary and is an? ([A-Z]\w+) in addition to its other types\.""")
     val DEALS_DAMAGE_EQUAL_TO_TARGET = Regex("""(.+?) deals damage equal to (.+) to target (.+)\.""")
+    val IF_IT_ISNT_CREATURE_BECOMES = Regex("""If it isn't a creature, it becomes an? (\d+)/(\d+) ([A-Z][A-Za-z ]+?) creature in addition to its other types\.""")
+    val WITH_A_COUNTER_ON_IT = Regex("""(.+) with a counter on (?:it|them)""")
+    val LIST_OR_CREATURE_WITH = Regex("""(.+), or (creature with .+)""")
+    val MAY_PUT_AND_OR_FROM_HAND = Regex("""[Yy]ou may put an? (\w+) card and/or an? (\w+) card from your hand onto the battlefield\.""")
+    val WHENEVER_THIS_TURN = Regex("""Whenever (.+?) this turn, (.+\. .+)""")
     val ADD_THAT_MUCH = Regex("""[Aa]dd that much (\{[WUBRGC]\})\.""")
     val ENTERS_OR_DEALS_COMBAT_DAMAGE = Regex("""(.+) enters or deals combat damage to a player""")
     val RETURN_ONE_OR_TWO_FROM_GRAVEYARD = Regex("""Return one or two target (.+?) cards(?: each( with .+?))? from your graveyard to (?:the |your )(battlefield|hand)\.""")
@@ -142,6 +147,15 @@ internal object TmtPhrases {
         // tmt chunk 02: "Dinosaurs you control other than this creature"
         Tmt.OTHER_THAN_SELF.matchEntire(phrase)?.takeIf { it.groupValues[2].startsWith("this ") }?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
+        }
+        // tmt chunk 01: "creature you control with a counter on it" (of any kind)
+        Tmt.WITH_A_COUNTER_ON_IT.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null, ObjectFilter.HasCounter(null, atLeast = 1))
+        }
+        // tmt chunk 01: "artifact, enchantment, or creature with flying": the quality is the creature's
+        Tmt.LIST_OR_CREATURE_WITH.matchEntire(phrase)?.let { m ->
+            val first = m.groupValues[1].split(", ").map { Filters.noun(it) ?: return null }
+            return ObjectFilter.Or(first + (Filters.noun(m.groupValues[2]) ?: return null))
         }
         Tmt.SPELL_THAT_TARGETS.matchEntire(phrase)?.let { m ->
             val targeted = Filters.noun(m.groupValues[1]) ?: return null

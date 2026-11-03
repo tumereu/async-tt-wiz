@@ -56,6 +56,8 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
             modifier = Modifier.size((modeButton?.width ?: 48f).dp).background(Color.White).border(1.dp, OwnTableColor).semantics {
                 contentDescription = "Interaction mode"; stateDescription = "${selection.mode.name.lowercase()}, ${selection.ids.size} selected"
             }, ink = OwnTableColor, icon = { TableChromeIcon(when (selection.mode) { TableMode.NORMAL -> "mode"; TableMode.SELECT -> "select"; TableMode.PING -> "ping" }) },
-            onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true) })
+            // TBL-119 (I-D50): with Automatum on there is no Ping mode
+            onClick = { coordinator.cancel(); selection = selection.cycleMode(runtime.ping != null && runtime.controlsConnected == true &&
+                !scene.automatumHand) })
     }
 }

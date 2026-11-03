@@ -142,6 +142,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     val manual = ManualActions()
     val layoutState = mutableStateOf(TableLayoutState())
+    /** I-D50 (ZON-079, ZON-080): the viewer's hand with Automatum on: a tap raises a card with its cost chips. */
+    internal val hand = HandController(viewer, { acting()?.takeIf { enabled() } }, layoutState, automatumWork, ::engineTags,
+        cast = { card, way, extras -> error = null; castGesture = card; cast.start(card, way, extras) },
+        shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
     val selectionState = mutableStateOf(TableSelection())
     val tokens = TokenLinkController(::current, { action -> submit(action) }, submitInvocation = { actions ->
         batchResult {
@@ -600,6 +604,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return
         }
         val play = current() ?: return
+        // ZON-079 (I-D50): with Automatum on a hand has no menu: a tap raises the card (or casts the raised one); a tap on
+        // anything else lowers it
+        if (item.zone == PlayZone.HAND && item.kind == TableItemKind.CARD && !AutomatumBoards.manualAllowed(play)) {
+            dismiss(); showStackBubbles(null)
+            item.cardId?.let(hand::tap)
+            return
+        }
+        hand.lower()
         // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
         if (combatTap(play, item)) { dismiss(); return }
         if (item.viewport.startsWith("cardPanel/")) {
@@ -896,8 +908,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * played; one already known to have no cast or play Automatum allows now shakes at once (I-D46). */
     private fun castFromHand(cardId: String): Boolean {
         val play = acting()?.takeIf { enabled() }
+        // I-D50: the raised card goes the way its chips chose
+        val (way, extras) = hand.castChoice(cardId)
+        hand.lower()
         if (play != null && !cast.open && unplayable(play, cardId)) { shake(cardId); return false }
-        return cast.start(cardId)
+        return cast.start(cardId, way, extras)
     }
 
     /** The card a cast was begun on by a gesture, so its refusal worked out in the background shakes it too. */
@@ -974,6 +989,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 return castFromHand(intent.scope.contextId)
             }
             AutomatumDrags.Route.Place -> return engineRoute { handle(intent.copy(drag = false)) }
+            AutomatumDrags.Route.Stay -> return false
             AutomatumDrags.Route.Combat -> {
                 val destination = (intent.destination as TableDestination.Combat).destination
                 val bound = bind(intent.scope, intent.sources) ?: return false

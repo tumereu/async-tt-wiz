@@ -224,9 +224,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
                 // A face-down Battlefield card's values are public (rules v23); its face stays hidden.
                 *(if (publicFaceDown(state.board, card)) arrayOf(computedCorner(computed, card, viewer) ?: inspectedCorner(card).takeIf(String::isNotBlank),
                     card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
-                    card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
-                    card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
-                    card.note.takeIf(String::isNotBlank)) else emptyArray())).joinToString("\n")) },
+                    *tabletopMarks(state, card)) else emptyArray())).joinToString("\n")) },
             confirmButton = { TextButton(onClick = close) { Text("Close") } })
     } else {
         // The full name only when every face is permitted: a partial view never names a face it hides.
@@ -246,7 +244,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown, flipped) }
         val annotation = remember(card, names, inspection.provisional, computed, viewer, IdentityKey(state.board)) {
-            listOfNotNull(inspectionAnnotation(card, names, inspection.provisional, computed, viewer).ifBlank { null },
+            listOfNotNull(inspectionAnnotation(card, names, inspection.provisional, computed, viewer, state).ifBlank { null },
                 automatumReasons(state, viewer, card.id, names).joinToString("\n").ifBlank { null }).joinToString("\n") }
         if (controller.state != null) CardInspection(controller, annotation,
             markedOptions = marks,
@@ -262,14 +260,19 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
 /** The text above a game card's inspection: owner, tapped state and the card's current table values; with Automatum
  * on (I1), where its computed values come from instead of the manual corner. */
 private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, provisional: Boolean,
-    computed: ComputedBoard = ComputedBoard.NONE, viewer: String = ""): String = listOfNotNull(
+    computed: ComputedBoard = ComputedBoard.NONE, viewer: String = "", state: PlayState? = null): String = listOfNotNull(
     "Provisional inspection · awaiting shared result".takeIf { provisional },
     "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
     computedCorner(computed, card, viewer) ?: inspectedCorner(card).takeIf(String::isNotBlank),
     card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
-    card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
-    card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
-    card.note.takeIf(String::isNotBlank)).joinToString("\n")
+    *tabletopMarks(state, card)).joinToString("\n")
+
+/** A card's until-end-of-turn note, colour counters and note; none with Automatum on (TBL-119, I-D50: not shown while on). */
+private fun tabletopMarks(state: PlayState?, card: PlayCard): Array<String?> =
+    if (state != null && !AutomatumBoards.manualAllowed(state)) emptyArray() else arrayOf(
+        card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
+        card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
+        card.note.takeIf(String::isNotBlank))
 
 /**
  * I-D46 (b): with Automatum on, why the viewer can't do now what Automatum offers for [cardId] (cast or play it, an

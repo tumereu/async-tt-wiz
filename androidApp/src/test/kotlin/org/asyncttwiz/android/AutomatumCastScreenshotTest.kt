@@ -167,13 +167,18 @@ class AutomatumCastScreenshotTest {
         assertTrue(EngineState.unsupported(after, AutomatumBoards.definitions(after)).isEmpty())
     }
 
-    // STK-023, STK-024, I-D47: a cast with a real choice (kicker) opens the panel docked above the hand, full width, with
-    // the card small (no rules text, no mana selection); the eye stays where it is while the panel fades around it;
-    // after the choice and the target Autotap pays and the cast goes out at once
+    /** A cast of [card] begun from a card menu (TBL-115): its optional costs are asked in the panel (STK-023); a hand
+     * card's are chosen with its cost chips instead (ZON-080). */
+    private fun menuCast(toolkit: TableToolkitController, play: PlayState, card: String) =
+        toolkit.cast.begin(card, AutomatumBoards.handPlays(play, f.a) { emptyList() }.of(card).first())
+
+    // STK-023, STK-024, I-D47: a cast with a real choice (kicker, begun from a card menu) opens the panel docked above the
+    // hand, full width, with the card small (no rules text, no mana selection); the eye stays where it is while the panel
+    // fades around it; after the choice and the target Autotap pays and the cast goes out at once
     @Test fun kickerPanelDockedAboveTheHand() {
         val play = board()
         val toolkit = render(play)
-        compose.runOnIdle { assertTrue(toolkit.cast.start(surgeId)) }
+        compose.runOnIdle { assertTrue(menuCast(toolkit, play, surgeId)) }
         compose.waitForIdle()
         compose.onNodeWithText("Pay the Kicker cost?").assertExists()
         compose.onNodeWithContentDescription("Card Flash Surge").assertExists()
@@ -240,12 +245,12 @@ class AutomatumCastScreenshotTest {
         assertEquals(1, after.board.cards.count { it.tapped && it.definition == mountain.submitted.digest })
     }
 
-    // STK-023, I-D6: choices first (kicker), then targets, then mana (Autotap off); the kicker stays a toggle and the mana
-    // follows it
+    // STK-023, I-D6: choices first (kicker, a cast begun from a card menu), then targets, then mana (Autotap off); the
+    // kicker stays a toggle and the mana follows it
     @Test fun kickerChoiceThenToggle() {
         val play = board()
         val toolkit = render(play, autotap = false)
-        compose.runOnIdle { assertTrue(toolkit.cast.start(surgeId)) }
+        compose.runOnIdle { assertTrue(menuCast(toolkit, play, surgeId)) }
         compose.waitForIdle()
         compose.onNodeWithText("Pay the Kicker cost?").assertExists()
         compose.onNodeWithText("Yes").performClick()
@@ -270,18 +275,12 @@ class AutomatumCastScreenshotTest {
         assertTrue(sent.isEmpty(), "a cancelled cast sends nothing (I-D11)")
     }
 
-    // ZON-007, TBL-115, I-D28, I-D46: the hand menu's Cast is greyed while the engine doesn't allow the cast; a
-    // double-tap shakes the card instead of saying why
+    // ZON-004, I-D28, I-D46: a double-tap on a card the engine doesn't allow now shakes the card instead of saying why
+    // (the raised card's greyed chips, ZON-079, ZON-080: AutomatumHandScreenshotTest)
     @Test fun castNotAllowedIsGreyed() {
         val play = board(tapped = true)
         val toolkit = render(play)
-        compose.runOnIdle { toolkit.openCard(TableScope(sparkId, listOf(sparkId))) }
-        compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Cast").assertIsNotEnabled()
-        captureShot("$SCREENSHOTS/automatum/cast-greyed.png",
-            "With every Mountain tapped, the hand menu of Storm Spark shows Automatum's Cast row greyed out above Inspect: the engine doesn't allow casting it now.")
         compose.runOnIdle {
-            toolkit.dismiss()
             assertFalse(doubleTap(toolkit, sparkId))
             assertNull(toolkit.error)
             assertEquals(sparkId, toolkit.shaking?.id)

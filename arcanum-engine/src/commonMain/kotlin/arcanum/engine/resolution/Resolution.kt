@@ -310,7 +310,9 @@ internal object Resolution {
             // CR 708.4: a face-down spell enters face down
             // ecl: cards a cost of the spell kept for the permanent ("the exiled card", CR 607.2a)
             val memory = Bindings(item.names.values.filterKeys { it.startsWith(arcanum.engine.casting.Payment.REMEMBERED) }
-                .mapKeys { it.key.removePrefix(arcanum.engine.casting.Payment.REMEMBERED) })
+                .mapKeys { it.key.removePrefix(arcanum.engine.casting.Payment.REMEMBERED) } +
+                // spm: the names a keyword's cost made ("the returned creature" of web-slinging) stay with the permanent
+                item.names.values.filterKeys { it in arcanum.api.KeywordExpansions.COST_NAMES })
             Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Battlefield, controller = item.controller,
                 meanings = listOf(Meaning.Resolved), attachTo = attachTo, faceDown = card.faceDown, tapped = sneaked, attacking = attacking, memory = memory)))
             return

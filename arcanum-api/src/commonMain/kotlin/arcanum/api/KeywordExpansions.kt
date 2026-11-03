@@ -699,6 +699,9 @@ object KeywordExpansions {
     /** The name the creature returned to pay a web-slinging cost is bound to (spm: "the mana value of the returned creature"). */
     const val WEB_SLINGING_RETURNED: String = "web-slinging-returned"
 
+    /** The names keyword costs make for the spell, which its permanent keeps too (CR 400.7d: "the returned creature"). */
+    val COST_NAMES: Set<String> = setOf(SNEAK_RETURNED, WEB_SLINGING_RETURNED)
+
     /** spm: the alternative cost of web-slinging [cost] (CR 702.188a): [cost] and returning a tapped creature you control to its
      * owner's hand; also what "each legendary spell you cast … has web-slinging" gives those spells. */
     fun webSlinging(cost: Cost): Mechanic.AlternativeCost = Mechanic.AlternativeCost(Keyword.WebSlinging.Kind, Cost(cost.parts + CostPart.ReturnToHand(

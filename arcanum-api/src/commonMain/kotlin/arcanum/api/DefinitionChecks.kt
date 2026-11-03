@@ -235,6 +235,7 @@ object DefinitionChecks {
 
     /** The names the costs of keyword expansions make, by the keyword's JSON type name. */
     private val keywordCostNames = mapOf("web-slinging" to KeywordExpansions.WEB_SLINGING_RETURNED, "sneak" to KeywordExpansions.SNEAK_RETURNED)
+        .also { check(it.values.toSet() == KeywordExpansions.COST_NAMES) }
 
     private fun checkCounts(what: String, min: Int, max: Int, found: MutableList<String>) {
         if (min > max) found += "$what: minimum $min is more than maximum $max"

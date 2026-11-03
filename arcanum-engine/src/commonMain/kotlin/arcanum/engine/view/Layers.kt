@@ -505,7 +505,10 @@ internal class LayerRun(private val state: GameState, private val traced: Object
     private fun affected(board: WorkBoard, e: ContinuousEffect): Set<ObjectId> {
         started[e.key]?.let { return it.affected }
         val ids = e.locked ?: when (val a = e.affects) {
-            is Affected.Objects -> evaluator(board, e).objects(a.objects)
+            // spm: a keyword with an alternative cost given to spells is on the cards as the spells they would be (CR 601.2a, b)
+            is Affected.Objects -> if (e.mechanics.isNotEmpty() && e.mechanics.all { grantsAlternativeCost(it) })
+                evaluator(board, e).let { ev -> ev.with(ev.ctx.copy(prospectiveCast = true)) }.objects(a.objects).filter { state.obj(it)?.zone != Zone.Battlefield }
+                else evaluator(board, e).objects(a.objects)
             else -> emptyList()
         }
         return ids.filter { it in board.work && state.obj(it)?.phasedOut != true }.toSet()
@@ -729,6 +732,10 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         if (mechanic !is Mechanic.MayPlay) return eval.objects(objects)
         return state.players.flatMap { p -> eval.with(eval.ctx.copy(holder = p.id)).objects(objects) }.distinct()
     }
+
+    /** spm: abilities given are all keywords that are alternative costs (web-slinging): the spells get them as they are cast. */
+    private fun grantsAlternativeCost(mechanic: Mechanic): Boolean = mechanic is Mechanic.GainAbilities && mechanic.abilities.isNotEmpty() &&
+        mechanic.abilities.all { a -> a is Keyword && arcanum.api.KeywordExpansions.expand(a).orEmpty().any { e -> e is Ability.Static && e.mechanics.any { it is Mechanic.AlternativeCost } } }
 
     private fun AbilityOrigin.isOwn(): Boolean = when (root) {
         is AbilityOrigin.Printed, is AbilityOrigin.LandType -> true

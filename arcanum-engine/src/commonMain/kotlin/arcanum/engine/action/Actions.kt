@@ -133,7 +133,9 @@ internal object Actions {
 
     private fun modifyMove(act: Act, m: PlannedMove, r: Replacement): PlannedMove? {
         var move = m
-        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = r.names))
+        // spm: the entering permanent's own replacements read the names its spell's keyword costs made ("the returned creature")
+        val names = if (m.memory.values.isEmpty() || r.source != m.id) r.names else Bindings(m.memory.values + r.names.values)
+        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = names))
         for (mod in r.mechanic.modify) {
             move = when (mod) {
                 Modification.Skip -> return null

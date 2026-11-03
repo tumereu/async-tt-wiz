@@ -225,7 +225,7 @@ internal object Setup {
             // CR 103.8, 800.4k: the starting player (or, if they left, the next player) takes the first turn
             val s = act.state
             val first = order(s).first()
-            act.record(Changes.step(s, TurnState(1, first, TurnStep.Untap, turnStarted = mapOf(first to 1)),
+            act.record(Changes.step(s, TurnState(1, first, TurnStep.Untap, turnStarted = mapOf(first to 1), turnsTaken = mapOf(first to 1)),
                 listOf(Meaning.TurnBegan, Meaning.StepBegan)))
             null
         }

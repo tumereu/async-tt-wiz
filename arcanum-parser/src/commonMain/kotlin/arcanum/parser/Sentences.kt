@@ -11352,6 +11352,18 @@ internal class Sentences(
         return null
     }
 
+    /** tmt chunk 11: the steps with their last token creation naming the token, if only steps about that token follow it. */
+    private fun tmtCreatedToken(steps: List<Step>): Pair<List<Step>, Objects>? {
+        val at = steps.indexOfLast { (it as? Step.Do)?.effect is Effect.CreateToken }.takeIf { it >= 0 } ?: return null
+        val create = (steps[at] as Step.Do).effect as Effect.CreateToken
+        val name = create.bind ?: "token"
+        val about = Objects.Bound(name)
+        val after = steps.drop(at + 1)
+        if (!after.all { step -> val e = (step as? Step.Do)?.effect
+                (e is Effect.ApplyMechanics && e.affects == Affected.Objects(about)) || e is Effect.CreateDelayedTrigger }) return null
+        return steps.toMutableList().also { it[at] = Step.Do(create.copy(bind = name)) } to about
+    }
+
     /** tmt: [text] read as instructions with the context's targets. */
     private fun tmtRead(text: String, context: Context): List<Step>? {
         val read = instructions(text, seedTargets = context.targets.toList(), event = context.event) ?: return null
@@ -11361,6 +11373,19 @@ internal class Sentences(
 
     /** tmt: sentences that change the steps before them, tried first in [modify]. */
     private fun tmtModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // tmt chunk 11: "It gains haste until end of turn." / "Destroy it at the beginning of the next end step." right after creating a
+        // token: "it" is that token (CR 111.1)
+        Tmt.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
+            val (before, token) = tmtCreatedToken(steps) ?: return@let
+            val keywords = tmtKeywords(m.groupValues[1]) ?: return null
+            return before + tmtUntilEndOfTurn(token, Mechanic.GainAbilities(keywords))
+        }
+        Tmt.ACT_ON_IT_NEXT_END_STEP.matchEntire(sentence)?.let { m ->
+            val (before, token) = tmtCreatedToken(steps) ?: return@let
+            val effect = if (m.groupValues[1] == "Destroy") Effect.Destroy(token) else Effect.Sacrifice(token)
+            return before + Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.Any)),
+                Instructions(steps = listOf(Step.Do(effect)))))
+        }
         // tmt chunk 01: "If it isn't a creature, it becomes a 0/0 Robot creature in addition to its other types." after putting counters on
         // it: the object the counters were put on (layers 4 and 7b, indefinitely, CR 611.2a)
         Tmt.IF_IT_ISNT_CREATURE_BECOMES.matchEntire(sentence)?.let { m ->
@@ -11584,7 +11609,8 @@ internal class Sentences(
         }
         // tmt chunk 04: "You gain life equal to its toughness." (the creature that died, as it last existed, CR 603.10a)
         Tmt.GAIN_LIFE_EQUAL_TO_ITS.matchEntire(sentence)?.let { m ->
-            val it = context.it ?: return null
+            val event = context.event as? EventPattern.ZoneChange
+            val it = (if (event?.from == Zone.Battlefield) Objects.EventObject(EventRole.Before) else context.it) ?: return null
             val property = if (m.groupValues[1] == "power") arcanum.api.NumericProperty.Power else arcanum.api.NumericProperty.Toughness
             return listOf(Step.Do(Effect.GainLife(Players.You, Value.Of(property, it, arcanum.api.Combine.Single))))
         }
@@ -11687,9 +11713,9 @@ internal class Sentences(
         // tmt chunk 03: "You may exchange control of two other target creatures controlled by different players." (CR 701.12a)
         Tmt.EXCHANGE_CONTROL_DIFFERENT_PLAYERS.matchEntire(sentence)?.let { m ->
             val filter = Filters.all(Filters.noun(m.groupValues[1].removeSuffix("s")) ?: return null, ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))
-            context.targets += tmtSlot("creature", filter, min = 0)
+            context.targets += tmtSlot("creature", filter)
             context.targets += tmtSlot("other creature", Filters.all(filter, ObjectFilter.Not(ObjectFilter.ControlledBy(PlayerFilter.Is(
-                Players.ControllerOf(Objects.Target("creature")))))), min = 0).copy(distinctFrom = listOf("creature"))
+                Players.ControllerOf(Objects.Target("creature"))))))).copy(distinctFrom = listOf("creature"))
             return listOf(Step.May(listOf(Step.Do(Effect.ExchangeControl(Objects.Target("creature"), Objects.Target("other creature")))), player = Players.You))
         }
         // tmt chunk 03: "Each player may shuffle their hand and graveyard into their library, then each player who does draws seven cards."

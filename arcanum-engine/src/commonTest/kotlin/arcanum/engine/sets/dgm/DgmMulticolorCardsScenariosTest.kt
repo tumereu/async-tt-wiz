@@ -150,7 +150,6 @@ class DgmMulticolorCardsScenariosTest {
         Whenever you tap this creature for mana, it deals 1 damage to each opponent.
     """, "1/1")
     private val redWhite = Cards.invent("Maze Runner Legionnaire", "{R}{W}", "Creature — Human Soldier", "", "2/2")
-    private val whiteBear = Cards.invent("Maze Runner Lancer", "{1}{W}", "Creature — Human Soldier", "", "2/2")
     private val tokenCall = Cards.invent("Maze Runner Muster", "{W}", "Sorcery", "Create two 1/1 white Soldier creature tokens.")
 
     // ---- Chunks 05–07: multicolored

@@ -107,7 +107,6 @@ class DskSurvivalAndDreadCardsScenariosTest {
         Manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)
         You may return a permanent card from your graveyard to your hand.
     """)
-    private val valgavothsOnrush = Cards.invent("Valgavoth's Onrush", "{X}{X}{G}", "Sorcery", "Manifest dread X times, then put X +1/+1 counters on each of those creatures. (To manifest dread, look at the top two cards of your library, then put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)")
     private val unsettlingGlee = Cards.invent("Unsettling Glee", "{B}{R}", "Enchantment", """
         When this enchantment enters, you may sacrifice another enchantment or creature. If you do, draw two cards.
         When you sacrifice this enchantment, manifest dread. (Look at the top two cards of your library. Put one onto the battlefield face down as a 2/2 creature and the other into your graveyard. Turn it face up any time for its mana cost if it's a creature card.)

@@ -389,6 +389,9 @@ sealed interface GameEvent {
         // hob
         /** The keyword whose expansion the ability is, by its id ("equip"), for "the first equip ability you activate each turn". */
         val keyword: String? = null,
+        // gtc backfill
+        /** The ability put on the Stack (none for a mana ability), "that ability" of a trigger on its activation. */
+        val item: ObjectId? = null,
     ) : GameEvent
     /** [ids] were revealed to every player (CR 701.20). */
     @Serializable @SerialName("revealed") data class Revealed(val player: PlayerId, val ids: List<ObjectId>) : GameEvent

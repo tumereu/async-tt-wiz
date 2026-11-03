@@ -61,7 +61,10 @@ internal object EventMatcher {
                 else -> true
             } && (pattern.removedLoyaltyAtLeast == null || (a.loyalty ?: 0) <= -pattern.removedLoyaltyAtLeast!!)
             if (kindMatches && (pattern.manaAbilities || !a.manaAbility) && e.matches(pattern.source, a.source) && e.matches(pattern.by, a.player))
-                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.source))), listOf(a.player))) else null
+                // gtc backfill: the activated ability is the event's object ("copy that ability", like the spell of a cast
+                // event); its source is the source (CR 113.7)
+                listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(a.item ?: a.source)), RoleObjects(EventRole.Source, listOf(a.source))),
+                    listOf(a.player))) else null
         }.orEmpty()
         is EventPattern.Damage -> (change as? Change.Damage)?.dealt.orEmpty().filter { d ->
             !pattern.excess && (pattern.combat == null || pattern.combat == d.combat) &&

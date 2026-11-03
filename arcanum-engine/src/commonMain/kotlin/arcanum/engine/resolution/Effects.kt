@@ -849,9 +849,16 @@ internal object Effects {
     ) {
         val act = scope.act
         val e = scope.eval()
-        val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }
-        val layered = fixed.any { it.layer != null }
         var names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
+        // gtc backfill: a copy of the object an event names ("become a copy of that card", the card put into a graveyard) is
+        // found now and kept by name (D37): the event is gone when the copy effect is applied later (CR 707.2)
+        val fixed = mechanics.map { fix(e, it) }.map { thisAbility(scope, it) }.map { m ->
+            if (m !is Mechanic.CopyOf || !m.objects.toString().contains("EventObject")) return@map m
+            val of = e.objects(m.objects).firstOrNull() ?: return@map m
+            names = names.with(COPY_OF, NamedValue.Objects(listOf(of)))
+            m.copy(objects = Objects.Bound(COPY_OF))
+        }
+        val layered = fixed.any { it.layer != null }
         // Objects named by the effect itself: its rules that aren't layer effects find them through a frozen name
         var affected = affects
         if (locked != null && affects == null) {
@@ -870,6 +877,7 @@ internal object Effects {
     }
 
     private const val LOCKED = "\$affected"
+    private const val COPY_OF = "\$copy-of"
 
     /** Marks an effect on a spell and the permanent it becomes ([Effect.SpellGets], CR 400.7d): its names hold both. */
     const val FOLLOWS_SPELL = "\$follows-spell"

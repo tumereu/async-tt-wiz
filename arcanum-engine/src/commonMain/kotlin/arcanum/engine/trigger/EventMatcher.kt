@@ -39,6 +39,14 @@ internal object EventMatcher {
         return events.drop(began + 1).none { c -> c is Change.ZoneChange && c.moves.any { Meaning.Drew in it.meanings && it.before.owner == player } }
     }
 
+    /** [filter] with "spell" read as true: for a cast whose spell is no longer on the Stack (CR 601.2a). */
+    private fun castAsSpell(filter: ObjectFilter): ObjectFilter = when (filter) {
+        is ObjectFilter.Category -> if (filter.category == arcanum.api.ObjectCategory.Spell) ObjectFilter.Any else filter
+        is ObjectFilter.And -> ObjectFilter.And(filter.all.map { castAsSpell(it) })
+        is ObjectFilter.Or -> ObjectFilter.Or(filter.any.map { castAsSpell(it) })
+        else -> filter
+    }
+
     fun instances(e: Evaluator, pattern: EventPattern, change: Change, proposed: Boolean = false, door: Int? = null): List<TriggerEvent> = when (pattern) {
         is EventPattern.ZoneChange -> moves(change).filter { m ->
             (pattern.from == null || m.from == pattern.from) && (pattern.to == null || m.to == pattern.to) &&
@@ -49,7 +57,10 @@ internal object EventMatcher {
         is EventPattern.Cast -> if (isCast(change)) {
             val item = (change as Change.StackItemAdded).item
             val from = e.board.state.obj(item.id)?.facts?.castFrom
-            if (e.matches(pattern.spell, item.id) && e.matches(pattern.by, item.controller) && (pattern.from == null || from == pattern.from))
+            // fra backfill: an earlier cast this turn, counted for "your first … spell each turn" once that spell has
+            // left the Stack, was a spell as it was cast (CR 601.2a)
+            val spell = if (e.board.state.stackItems.containsKey(item.id)) pattern.spell else castAsSpell(pattern.spell)
+            if (e.matches(spell, item.id) && e.matches(pattern.by, item.controller) && (pattern.from == null || from == pattern.from))
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(item.id))), listOf(item.controller))) else emptyList()
         } else emptyList()
         is EventPattern.Activate -> ((change as? Change.Happened)?.event as? GameEvent.Activated)?.let { a ->

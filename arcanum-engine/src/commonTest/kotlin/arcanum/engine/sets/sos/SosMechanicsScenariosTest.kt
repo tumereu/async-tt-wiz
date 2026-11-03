@@ -43,11 +43,11 @@ class SosMechanicsScenariosTest {
         Tap target creature. If it's your turn, put a stun counter on it. (If a permanent with a stun counter would become untapped, remove one from it instead.)
         Draw a card.
     """)
-    private val shock = Cards.invent("Sparkling Jolt", "{R}", "Instant", "Sparkling Jolt deals 2 damage to any target.")
-    private val bigSpell = Cards.invent("Gathered Storm", "{4}{R}", "Sorcery", "Gathered Storm deals 1 damage to any target.")
+    private val shock = Cards.invent("Campus Sparkling Jolt", "{R}", "Instant", "Campus Sparkling Jolt deals 2 damage to any target.")
+    private val bigSpell = Cards.invent("Campus Gathered Storm", "{4}{R}", "Sorcery", "Campus Gathered Storm deals 1 damage to any target.")
     private val bear = Cards.invent("Plaza Bear", "{1}{G}", "Creature — Bear", "", "2/2")
-    private val lifeSpell = Cards.invent("Small Mercy", "{W}", "Instant", "You gain 2 life.")
-    private val imp = Cards.invent("Tally Imp", "{1}{R}", "Creature — Imp", "Increment", "2/2")
+    private val lifeSpell = Cards.invent("Campus Small Mercy", "{W}", "Instant", "You gain 2 life.")
+    private val imp = Cards.invent("Campus Tally Imp", "{1}{R}", "Creature — Imp", "Increment", "2/2")
     private val p1p1 = CounterKind.PowerToughness(1, 1)
 
     private fun Scenario.resolveAll() {
@@ -113,7 +113,7 @@ class SosMechanicsScenariosTest {
         bob.battlefield(bear)
         alice.casts(shock, target = "Plaza Bear")
         resolveAll()
-        expect { "Tally Imp".counters(p1p1) shouldBe 0 }
+        expect { "Campus Tally Imp".counters(p1p1) shouldBe 0 }
     }
 
     /** Opus: one damage for a small spell, three when five or more mana was spent on it. */

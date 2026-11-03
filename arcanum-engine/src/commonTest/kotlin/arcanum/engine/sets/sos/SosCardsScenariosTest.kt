@@ -69,10 +69,10 @@ class SosCardsScenariosTest {
         • Target creature becomes prepared. (Only creatures with prepare spells can become prepared.)
         • Target creature becomes unprepared.
     """, "3/4")
-    private val shock = Cards.invent("Sparkling Jolt", "{R}", "Instant", "Sparkling Jolt deals 2 damage to any target.")
-    private val pump = Cards.invent("Quick Lift", "{W}", "Instant", "Target creature gets +1/+1 until end of turn.")
-    private val tokens = Cards.invent("Spirit Call", "{W}", "Sorcery", "Create a 1/1 white Spirit creature token with flying.")
-    private val draw = Cards.invent("Light Study", "{U}", "Sorcery", "Draw a card.")
+    private val shock = Cards.invent("Campus Sparkling Jolt", "{R}", "Instant", "Campus Sparkling Jolt deals 2 damage to any target.")
+    private val pump = Cards.invent("Campus Quick Lift", "{W}", "Instant", "Target creature gets +1/+1 until end of turn.")
+    private val tokens = Cards.invent("Campus Spirit Call", "{W}", "Sorcery", "Create a 1/1 white Spirit creature token with flying.")
+    private val draw = Cards.invent("Campus Light Study", "{U}", "Sorcery", "Draw a card.")
     private val bear = Cards.invent("Plaza Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val ogre = Cards.invent("Plaza Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
     private val giant = Cards.invent("Lecture Hall Giant", "{4}{G}", "Creature — Giant", "", "5/5")
@@ -157,7 +157,7 @@ class SosCardsScenariosTest {
         (pending as? Decision.ManaPayment)?.let { answer(Answer.ManaPayment(it.suggestion)) }
         resolveAll()
         expect {
-            alice.graveyard has "Light Study"
+            alice.graveyard has "Campus Light Study"
             alice.hand has "Plaza Bear"
         }
         assertEquals(2, state.battlefield.count { state.obj(it)!!.tapped })

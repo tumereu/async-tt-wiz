@@ -47,12 +47,12 @@ class SosMoreCardsScenariosTest {
         Increment (Whenever you cast a spell, if the amount of mana you spent is greater than this creature's power or toughness, put a +1/+1 counter on this creature.)
         {T}: Add an amount of {G} equal to this creature's power.
     """, "1/2")
-    private val study = Cards.invent("Light Study", "{U}", "Sorcery", "Draw a card.")
-    private val bigDraw = Cards.invent("Deep Study", "{3}{U}{U}", "Sorcery", "Draw two cards.")
-    private val wizard = Cards.invent("Plaza Wizard", "{U}", "Creature — Human Wizard", "", "1/1")
+    private val study = Cards.invent("Campus Light Study", "{U}", "Sorcery", "Draw a card.")
+    private val bigDraw = Cards.invent("Campus Deep Study", "{3}{U}{U}", "Sorcery", "Draw two cards.")
+    private val wizard = Cards.invent("Campus Plaza Wizard", "{U}", "Creature — Human Wizard", "", "1/1")
     private val bear = Cards.invent("Plaza Bear", "{1}{G}", "Creature — Bear", "", "2/2")
     private val ogre = Cards.invent("Plaza Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
-    private val bolt = Cards.invent("Sparkling Jolt", "{R}", "Instant", "Sparkling Jolt deals 2 damage to any target.")
+    private val bolt = Cards.invent("Campus Sparkling Jolt", "{R}", "Instant", "Campus Sparkling Jolt deals 2 damage to any target.")
     private val p1p1 = CounterKind.PowerToughness(1, 1)
 
     private fun Scenario.resolveAll() {
@@ -69,7 +69,7 @@ class SosMoreCardsScenariosTest {
         alice.library(bear, bear, bear, bear)
         val free = Engine.options(state, alice.id).filterIsInstance<Input.Cast>()
         assertTrue(free.isNotEmpty(), "a sorcery castable without mana")
-        perform(free.first { state.obj(it.card)?.definition?.faces?.first()?.name == "Deep Study" })
+        perform(free.first { state.obj(it.card)?.definition?.faces?.first()?.name == "Campus Deep Study" })
         resolveAll()
         expect { alice.hand.names.count { it == "Plaza Bear" } shouldBe 2 }
         assertTrue(Engine.options(state, alice.id).filterIsInstance<Input.Cast>().isEmpty(), "only once each turn")

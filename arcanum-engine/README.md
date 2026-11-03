@@ -93,7 +93,8 @@ order, mulligans at once, then each puts as many cards on the bottom as mulligan
 input. In a game that goes on, a player who lost or conceded leaves it (CR 800.4a): their objects leave the game, what
 they control is exiled, their abilities on the Stack and waiting triggers go, their face-down permanents and spells are
 revealed (CR 708.9; in a viewer's state those it doesn't know stay unknown, as leaving can't wait for the host),
-priority they held passes on, and their turn goes on without them (CR 800.4j).
+priority they held passes on, their turn goes on without them (CR 800.4j), and their decisions are made by others or not at
+all (CR 800.4f–h, see Status).
 
 ## Loops
 
@@ -488,7 +489,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   the action is taken, then the player declares, in any round; the starting hand size is a player's own
   (`StartOptions.handSizes`, CR 103.5a) or everyone's, changed by `Mechanic.StartingHandSize` effects (a conspiracy in the command
   zone), for draws, mulligans and the zero-card limit. In another player's view the hidden hand's cards offer no such action (the
-  host takes the declaration from the player's own state).
+  host takes the declaration from the player's own state). Decisions of a player who left (`setup/LeftPlayers`, CR 800.4f–h,
+  scenarios in `setup/LeftPlayersTest`): every question a flow asks goes through `Act.ask`, which decides one of a player who
+  left: a cost they'd choose whether to pay isn't paid, without asking (800.4f); another choice an object asks of them is made by
+  a player its controller chooses (another opponent of the controller if possible; one possible player: no question, 800.4g);
+  a choice the rules ask (no object, or its controller left too) by the next player in turn order (800.4h). A decision open as
+  its player concedes goes to that player at once (or to the controller's choice of who); an open cost choice stays open for
+  "no".
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
@@ -499,8 +506,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round).
 - Not yet, around the game:
-  team and other variant starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
-  choosing, are not applied); restarting a game (CR 104.1).
+  team and other variant starts; restarting a game (CR 104.1).
 
 ## Tests
 

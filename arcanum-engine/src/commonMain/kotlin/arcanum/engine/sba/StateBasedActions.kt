@@ -161,7 +161,7 @@ internal object StateBasedActions {
             .groupBy { (view[it]?.controller ?: state.objOrThrow(it).owner) to view[it]?.characteristics?.name }
             .filter { (key, ids) -> key.second != null && ids.size >= 2 }
             .forEach { (key, ids) ->
-                val kept = (act.asker.ask { Decision.LegendRule(it, key.first, null, key.second!!, ids) } as Answer.Keep).kept
+                val kept = (act.ask { Decision.LegendRule(it, key.first, null, key.second!!, ids) } as Answer.Keep).kept
                 require(kept in ids) { "Keep one of $ids" }
                 toGraveyard += ids.filter { it != kept }
             }

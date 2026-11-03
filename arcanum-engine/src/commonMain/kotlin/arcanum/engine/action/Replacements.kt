@@ -177,7 +177,7 @@ internal object Replacements {
             if (preventions.size == matching.size) return preventions.sortedBy { if (it.first.prevention is Prevention.Shield) 1 else 0 }.first()
         }
         val options = matching.mapIndexed { i, (r, _) -> ReplacementOption(i, r.source, describe(r)) }
-        val chosen = (act.asker.ask { Decision.ChooseReplacement(it, affected, about, options) } as Answer.Replacement).index
+        val chosen = (act.ask { Decision.ChooseReplacement(it, affected, about, options) } as Answer.Replacement).index
         return matching.getOrNull(chosen) ?: throw IllegalArgumentException("No replacement $chosen")
     }
 

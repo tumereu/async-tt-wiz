@@ -42,6 +42,9 @@ internal class Asker(
 ) {
     private var used = 0
 
+    /** The id the next question gets. */
+    fun nextId(): DecisionId = DecisionId("$prefix.$used")
+
     fun ask(decision: (DecisionId) -> Decision): Answer {
         val answer = answers.getOrNull(used) ?: throw NeedDecision(decision(DecisionId("$prefix.$used")))
         // Answers sent from another player's view are checked as the steps ask them (the one validation path)
@@ -160,8 +163,27 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     // ---- Decisions (each asked only when there is a choice, P5)
 
+    /** Asks [decision] through the [asker]; one of a player who left the game is decided as CR 800.4f–h say
+     * ([arcanum.engine.setup.LeftPlayers]): a cost not paid, without asking; the next player, or a player the object's
+     * controller chooses first, deciding it. */
+    fun ask(decision: (DecisionId) -> Decision): Answer {
+        if (state.players.none { it.lost }) return asker.ask(decision)
+        val first = decision(asker.nextId())
+        return when (val r = arcanum.engine.setup.LeftPlayers.redirect(state, first)) {
+            null -> asker.ask(decision)
+            arcanum.engine.setup.LeftPlayers.Redirect.NotPaid -> Answer.YesNo(false)
+            is arcanum.engine.setup.LeftPlayers.Redirect.To ->
+                asker.ask { id -> arcanum.engine.setup.LeftPlayers.reassigned(decision(id), id, r.player) }
+            is arcanum.engine.setup.LeftPlayers.Redirect.ChosenBy -> {
+                val chosen = (asker.ask { id -> Decision.ChoosePlayer(id, r.chooser, first.source, r.options) } as? Answer.Player)?.player
+                    ?.takeIf { it in r.options } ?: throw IllegalArgumentException("Choose who decides among ${r.options} (CR 800.4g)")
+                asker.ask { id -> arcanum.engine.setup.LeftPlayers.reassigned(decision(id), id, chosen) }
+            }
+        }
+    }
+
     fun yesNo(player: PlayerId, source: ObjectId?, text: String, cost: arcanum.api.Cost? = null): Boolean =
-        (asker.ask { Decision.May(it, player, source, text, cost) } as Answer.YesNo).yes
+        (ask { Decision.May(it, player, source, text, cost) } as Answer.YesNo).yes
 
     /** I-D18: [player] is asked a decision the rules leave them no choice in when they turned "Skip when I have no
      * choice" off and the skip depends on cards only they may see ([hiddenDecides]). */
@@ -171,7 +193,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
      * only "no" accepted ([Decision.May.payable]). */
     fun cannotPay(player: PlayerId, source: ObjectId?, text: String, cost: arcanum.api.Cost?, hiddenDecides: Boolean) {
         if (!asksAnyway(player, hiddenDecides)) return
-        val yes = (asker.ask { Decision.May(it, player, source, text, cost, payable = false) } as Answer.YesNo).yes
+        val yes = (ask { Decision.May(it, player, source, text, cost, payable = false) } as Answer.YesNo).yes
         require(!yes) { "The cost can't be paid" }
     }
 
@@ -212,11 +234,11 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         }
         if (forced != null) {
             if (!asksAnyway(player, hiddenDecides)) return forced
-            val chosen = (asker.ask { Decision.ChooseObjects(it, player, source, forced, forced.size, forced.size, text) } as Answer.Objects).chosen
+            val chosen = (ask { Decision.ChooseObjects(it, player, source, forced, forced.size, forced.size, text) } as Answer.Objects).chosen
             require(chosen.toSet() == forced.toSet()) { "Not a valid choice: $chosen" }
             return forced
         }
-        val chosen = (asker.ask { Decision.ChooseObjects(it, player, source, options, min.coerceAtMost(top), top, text) } as Answer.Objects).chosen
+        val chosen = (ask { Decision.ChooseObjects(it, player, source, options, min.coerceAtMost(top), top, text) } as Answer.Objects).chosen
         require(chosen.all { it in options } && chosen.size in min.coerceAtMost(top)..top) { "Not a valid choice: $chosen" }
         return chosen
     }
@@ -224,51 +246,51 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
     /** Puts all of [options] in an order (first: top of a library). */
     fun order(player: PlayerId, source: ObjectId?, options: List<ObjectId>, text: String): List<ObjectId> {
         if (options.size < 2) return options
-        val chosen = (asker.ask { Decision.ChooseObjects(it, player, source, options, options.size, options.size, text) } as Answer.Objects).chosen
+        val chosen = (ask { Decision.ChooseObjects(it, player, source, options, options.size, options.size, text) } as Answer.Objects).chosen
         require(chosen.toSet() == options.toSet() && chosen.size == options.size) { "Order every one once: $chosen" }
         return chosen
     }
 
     fun chooseColor(player: PlayerId, source: ObjectId?, among: List<Color>): Color =
-        if (among.size == 1) among.single() else (asker.ask { Decision.ChooseColor(it, player, source, among) } as Answer.ColorChoice).color
+        if (among.size == 1) among.single() else (ask { Decision.ChooseColor(it, player, source, among) } as Answer.ColorChoice).color
 
     fun chooseNumber(player: PlayerId, source: ObjectId?, min: Int, max: Int?): Int =
-        if (max == min) min else (asker.ask { Decision.ChooseNumber(it, player, source, min, max) } as Answer.Number).value
+        if (max == min) min else (ask { Decision.ChooseNumber(it, player, source, min, max) } as Answer.Number).value
 
     fun choosePlayer(player: PlayerId, source: ObjectId?, options: List<PlayerId>): PlayerId? = when (options.size) {
         0 -> null
         1 -> options.single()
-        else -> (asker.ask { Decision.ChoosePlayer(it, player, source, options) } as Answer.Player).player
+        else -> (ask { Decision.ChoosePlayer(it, player, source, options) } as Answer.Player).player
     }
 
     fun chooseOption(player: PlayerId, source: ObjectId?, options: List<String>): String =
-        if (options.size == 1) options.single() else (asker.ask { Decision.ChooseOption(it, player, source, options) } as Answer.Option).chosen
+        if (options.size == 1) options.single() else (ask { Decision.ChooseOption(it, player, source, options) } as Answer.Option).chosen
 
     fun chooseSubtype(player: PlayerId, source: ObjectId?, among: List<Subtype>?): Subtype =
-        (asker.ask { Decision.ChooseSubtype(it, player, source, among) } as Answer.SubtypeChoice).subtype
+        (ask { Decision.ChooseSubtype(it, player, source, among) } as Answer.SubtypeChoice).subtype
 
     fun chooseCardType(player: PlayerId, source: ObjectId?, among: List<CardType>): CardType =
-        if (among.size == 1) among.single() else (asker.ask { Decision.ChooseCardType(it, player, source, among) } as Answer.CardTypeChoice).cardType
+        if (among.size == 1) among.single() else (ask { Decision.ChooseCardType(it, player, source, among) } as Answer.CardTypeChoice).cardType
 
     fun chooseCardName(player: PlayerId, source: ObjectId?, filter: ObjectFilter): String =
-        (asker.ask { Decision.ChooseCardName(it, player, source, filter) } as Answer.CardName).name
+        (ask { Decision.ChooseCardName(it, player, source, filter) } as Answer.CardName).name
 
     fun chooseTargets(player: PlayerId, source: ObjectId?, slot: String, options: List<TargetRef>, min: Int, max: Int?): List<TargetRef> {
         if (options.isEmpty()) return emptyList()
-        val chosen = (asker.ask { Decision.Targets(it, player, source, slot, options, min, max) } as Answer.Targets).chosen
+        val chosen = (ask { Decision.Targets(it, player, source, slot, options, min, max) } as Answer.Targets).chosen
         require(chosen.all { it in options }) { "Not a legal target: $chosen" }
         return chosen
     }
 
     /** A random result, answered by the host at once (D25). */
-    fun random(player: PlayerId, source: ObjectId?, what: RandomKind): Answer = asker.ask { Decision.Random(it, player, source, what) }
+    fun random(player: PlayerId, source: ObjectId?, what: RandomKind): Answer = ask { Decision.Random(it, player, source, what) }
 
     /** [player] pays mana [cost] while something resolves (CR 118.12, 608.2g): how is asked ([Decision.ManaPayment], with
      * the engine's suggestion, §7.8), then it is paid. */
     fun payMana(player: PlayerId, source: ObjectId?, cost: arcanum.api.ManaCost) {
         if (arcanum.engine.mana.Mana.needs(cost).isEmpty()) return
         val snap = arcanum.engine.casting.Snapshot(state)
-        val uses = (asker.ask {
+        val uses = (ask {
             Decision.ManaPayment(it, player, source, cost, arcanum.engine.mana.Mana.options(snap, player, cost, null),
                 arcanum.engine.mana.Mana.suggest(snap, player, cost, null))
         } as Answer.ManaPayment).uses
@@ -277,7 +299,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** Something to do by hand (D61): shown to [player], answered "done". */
     fun manual(player: PlayerId, source: ObjectId?, text: String) {
-        asker.ask { Decision.Manual(it, player, source, text) }
+        ask { Decision.Manual(it, player, source, text) }
     }
 
     /** Makes sure the identities of [ids] are known, asking the host for exactly the unknown ones (D60): [player] looks
@@ -302,7 +324,7 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
             return
         }
         if (othersOnly && asker.mayAskOtherView) throw NeedOtherView(player, source, unknown, reason)
-        val filled = (asker.ask { Decision.HostFill(it, player, source, unknown, reason, public) } as Answer.Filled).objects
+        val filled = (ask { Decision.HostFill(it, player, source, unknown, reason, public) } as Answer.Filled).objects
         // Checked against the decision when answered (AnswerCheck): exactly the asked objects, each once
         record(unknown, filled)
     }

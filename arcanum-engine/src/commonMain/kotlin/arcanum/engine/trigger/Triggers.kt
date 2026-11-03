@@ -455,7 +455,7 @@ internal object Triggers {
         val options = mine.mapIndexed { i, t ->
             TriggerOption(i, t.source, arcanum.engine.decision.Texts.of(t.ability, t.origin, t.sourceSeen?.characteristics), t.origin)
         }
-        val order = (act.asker.ask { Decision.OrderTriggers(it, player, null, options) } as Answer.Order).order
+        val order = (act.ask { Decision.OrderTriggers(it, player, null, options) } as Answer.Order).order
         require(order.sorted() == mine.indices.toList()) { "Order every trigger once: $order" }
         return order.map { mine[it] }
     }
@@ -496,7 +496,7 @@ internal object Triggers {
                 0 -> emptyList()
                 1 -> listOf(arcanum.engine.state.DividedShare(slot.name, chosen.single(), amount))
                 else -> {
-                    val shares = (act.asker.ask { Decision.Divide(it, t.controller, t.source, amount, chosen, 1) } as Answer.Division).shares
+                    val shares = (act.ask { Decision.Divide(it, t.controller, t.source, amount, chosen, 1) } as Answer.Division).shares
                     require(shares.sumOf { it.amount } == amount && shares.all { it.amount >= 1 && it.target in chosen }) {
                         "Divide $amount among the targets, at least 1 each"
                     }

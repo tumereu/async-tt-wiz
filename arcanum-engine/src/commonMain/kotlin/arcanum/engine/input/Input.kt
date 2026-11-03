@@ -105,6 +105,10 @@ data class Attack(
     val attacker: ObjectId, val target: TargetRef, val enlisted: List<ObjectId> = emptyList(),
     /** Banding (CR 702.22c): attackers with the same number form one attacking band. */
     val band: Int? = null,
+    /** The optional costs to attack chosen for it (CR 508.1g): the "you may [cost] as this creature attacks" abilities
+     * ([arcanum.api.Mechanic.AsAttacks]: exert, CR 701.43d) whose cost is paid, by their origin on the attacker. Paid with
+     * the other costs to attack (CR 508.1h–j); each one's "when you do" trigger then triggers (CR 607.2h). */
+    val paying: List<AbilityOrigin> = emptyList(),
 )
 
 /** [blocker] blocks [attacker] (CR 509.1a). */

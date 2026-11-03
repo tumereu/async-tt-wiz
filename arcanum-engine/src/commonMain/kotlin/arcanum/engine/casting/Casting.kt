@@ -217,10 +217,12 @@ internal object Casting {
      * mana to pay with; CR 101.2, 601.2c, 601.2h, 118.3): then nothing about it happened and the card stays where it is.
      */
     fun castByEffect(act: arcanum.engine.action.Act, player: arcanum.engine.state.PlayerId, card: ObjectId,
-                     withoutPaying: Boolean, cost: arcanum.api.Cost?): ObjectId? {
+                     withoutPaying: Boolean, cost: arcanum.api.Cost?, transformed: Boolean = false): ObjectId? {
         val o = act.state.obj(card) ?: return null
         val snap = Snapshot(act.state)
-        val faces = Legality.castableFaces(o).filter { Legality.cantCastByEffect(snap, player, card, it) == null }
+        // CR 712.11a: cast transformed, a transforming double-faced card is its back face (a Siege, CR 310.12b)
+        val castTransformed = transformed && o.definition?.layout == arcanum.api.Layout.Transform && o.definition.faces.size > 1
+        val faces = (if (castTransformed) listOf(1) else Legality.castableFaces(o)).filter { Legality.cantCastByEffect(snap, player, card, it) == null }
         if (faces.isEmpty()) return null
         val face = if (faces.size == 1) faces.single() else {
             val names = faces.map { o.definition!!.faces[it].name }
@@ -256,12 +258,12 @@ internal object Casting {
             if (q is Question.Pay) {
                 // CR 118.3: a cost that can't be paid isn't; the spell then can't be cast
                 if (arcanum.engine.mana.Mana.suggest(plan.snap, player, q.cost, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor).isEmpty()) return cannot()
-                val uses = (act.asker.ask { plan.decision(q, it) } as? Answer.ManaPayment)?.uses
+                val uses = (act.ask { plan.decision(q, it) } as? Answer.ManaPayment)?.uses
                     ?: throw IllegalArgumentException("Expected a mana payment")
                 Payment.finish(act.recorder, c, uses, mark)
                 return onStack
             }
-            val answer = Answers.automatic(plan, q) ?: forcedByEffect(plan, q) ?: act.asker.ask { plan.decision(q, it) }.also { asked = true }
+            val answer = Answers.automatic(plan, q) ?: forcedByEffect(plan, q) ?: act.ask { plan.decision(q, it) }.also { asked = true }
             c = c.copy(choices = Answers.apply(plan, q, answer))
         }
         Payment.finish(act.recorder, c, emptyList(), mark)

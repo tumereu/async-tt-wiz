@@ -9,6 +9,7 @@ import arcanum.engine.casting.Plan
 import arcanum.engine.casting.Question
 import arcanum.engine.casting.Snapshot
 import arcanum.engine.change.Recorder
+import arcanum.engine.combat.Banding
 import arcanum.engine.combat.Combat
 import arcanum.engine.combat.CombatRules
 import arcanum.engine.decision.Answer
@@ -286,10 +287,14 @@ internal object Options {
                 }
                 // Another creature instead of one that must attack (when a restriction lets only some of them)
                 val swapped = base.flatMap { a -> others.map { o -> base - a + o } }
-                (listOf(base) + retargeted + others.map { base + it } + swapped).distinct().filter { CombatRules.illegalAttack(snap, player, it) == null }
+                fun legal(d: List<Attack>) = CombatRules.illegalAttack(snap, player, d) == null && Banding.illegal(snap, d) == null &&
                     // rtr chunk 07: a declaration whose cost to attack can't be paid isn't made (CR 508.1d)
-                    .filter { CombatRules.canPayToAttack(snap, player, it) }
-                    .map { Input.DeclareAttackers(player, it) }
+                    CombatRules.canPayToAttack(snap, player, d)
+                val plain = (listOf(base) + retargeted + others.map { base + it } + swapped).distinct().filter { legal(it) }
+                // The choices made with a declaration, each on one of them: optional costs to attack paid (CR 508.1g), creatures
+                // enlisted (CR 702.154a), an attacking band (CR 702.22c)
+                val extras = plain.flatMap { d -> listOfNotNull(paying(snap, d), enlisting(snap, player, d), banded(snap, d)) }
+                (plain + extras.filter { legal(it) }).distinct().map { Input.DeclareAttackers(player, it) }
             }
             player in Combat.pendingDefenders(snap) -> {
                 // CR 509.1c: from the least that obeys the requirements (none without any), one more block
@@ -298,10 +303,49 @@ internal object Options {
                     s.combat!!.attackers.filter { CombatRules.canBlock(snap, player, b, it.id) }.map { a -> base + Block(b, a.id) }
                 }
                 (listOf(base) + more).distinct().filter { CombatRules.illegalBlock(snap, player, it) == null }
+                    // CR 509.1d: a declaration whose cost to block can't be paid isn't made
+                    .filter { CombatRules.canPayToBlock(snap, player, it) }
                     .map { Input.DeclareBlockers(player, it) }
             }
             else -> emptyList()
         }
+    }
+
+    /** [d] with every optional cost to attack chosen (CR 508.1g: exert, 701.43d); null when it has none. */
+    private fun paying(snap: Snapshot, d: List<Attack>): List<Attack>? {
+        val paid = d.map { a -> a.copy(paying = CombatRules.optionalAttackCosts(snap, a.attacker).mapNotNull { it.origin }) }
+        return paid.takeIf { it != d }
+    }
+
+    /** [d] with each attacker with enlist enlisting creatures that could be (CR 702.154a), one per enlist ability; null when
+     * none can. */
+    private fun enlisting(snap: Snapshot, player: PlayerId, d: List<Attack>): List<Attack>? {
+        val s = snap.state
+        val attackers = d.map { it.attacker }.toSet()
+        val free = s.battlefield.filter { id ->
+            val view = snap.view[id]
+            id !in attackers && s.obj(id)?.let { !it.tapped && !it.phasedOut } == true && snap.board.controller(id) == player &&
+                view?.characteristics?.isType(arcanum.api.CardType.Creature) == true &&
+                (!view.summoningSick || view.has { it == arcanum.api.Mechanic.IgnoresSummoningSickness })
+        }.toMutableList()
+        val enlisted = d.map { a ->
+            val n = snap.view[a.attacker]?.characteristics?.abilities.orEmpty().count { it.ability == arcanum.api.Keyword.Enlist }
+            val taken = free.take(n).also { free.removeAll(it) }
+            if (taken.isEmpty()) a else a.copy(enlisted = taken)
+        }
+        return enlisted.takeIf { it != d }
+    }
+
+    /** [d] with an attacking band (CR 702.22c, d): the attackers with banding that attack what the first one does, and one
+     * without; null when no band of two can be made. */
+    private fun banded(snap: Snapshot, d: List<Attack>): List<Attack>? {
+        fun banding(id: arcanum.engine.state.ObjectId) = snap.view[id]?.characteristics?.hasKeyword(arcanum.api.Keyword.Banding) == true
+        val first = d.firstOrNull { banding(it.attacker) } ?: return null
+        val with = d.filter { banding(it.attacker) && it.target == first.target }
+        val without = d.firstOrNull { !banding(it.attacker) && it.target == first.target }
+        val members = (with + listOfNotNull(without)).map { it.attacker }.toSet()
+        if (members.size < 2) return null
+        return d.map { if (it.attacker in members) it.copy(band = 1) else it }
     }
 
     /** Lands in hand, and with a permission elsewhere (CR 305.1, D41). */

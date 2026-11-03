@@ -640,7 +640,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
-        is Question.CostChoice -> Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
+        // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
+        is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->
+            Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose")
+        } ?: Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
@@ -648,6 +651,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor),
             Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, notSources = tappedByCost))
     }
+
+    /** eoe: the objects a [CostPart.Choose] of objects may choose, in the zones its filter names (the battlefield otherwise). */
+    fun costChoiceObjects(choice: arcanum.api.Choice.Objects): List<ObjectId> =
+        eval.inZonesOf(choice.filter).filter { snap.state.obj(it) != null && eval.matches(choice.filter, it) }
 
     companion object {
         /** The target slot of an Aura spell (CR 303.4a) and of a bestowed spell (CR 702.103b). */

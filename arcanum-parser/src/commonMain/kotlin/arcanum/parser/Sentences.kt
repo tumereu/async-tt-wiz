@@ -17205,9 +17205,13 @@ internal class Sentences(
                 affects = Affected.Objects(Objects.Each(Filters.all(cards, ObjectFilter.InZone(Zone.Hand), ObjectFilter.OwnedBy(PlayerFilter.You)))))
         }
         // eoe chunk 11: "As an additional cost to cast this spell, choose a creature you control or a warped creature card you own in exile."
-        // (CR 601.2f: a choice made with the costs, kept with the spell)
+        // (CR 601.2f: a choice made with the costs, kept with the spell); a permanent ("a creature you control") is on the battlefield
         Eoe.ADDITIONAL_COST_CHOOSE.matchEntire(line)?.let { m ->
-            val choices = m.groupValues[1].split(" or ").map { Filters.noun(it.removeArticle()) ?: return null }
+            fun zoned(f: ObjectFilter): Boolean = f is ObjectFilter.InZone || (f is ObjectFilter.And && f.all.any(::zoned))
+            val choices = m.groupValues[1].split(" or ").map { phrase ->
+                val f = Filters.noun(phrase.removeArticle()) ?: return null
+                if (zoned(f)) f else Filters.all(f, ObjectFilter.InZone(Zone.Battlefield))
+            }
             return Ability.Static(listOf(Mechanic.AdditionalCost(null, Cost(listOf(CostPart.Choose(arcanum.api.Choice.Objects(ObjectFilter.Or(choices),
                 Value.Fixed(1), Value.Fixed(1)), bind = "chosen"))))), affects = Affected.Objects(Objects.Self))
         }

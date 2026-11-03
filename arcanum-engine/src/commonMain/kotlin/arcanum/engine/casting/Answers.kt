@@ -129,7 +129,15 @@ internal object Answers {
             }
             is Question.Pay -> refuse("Mana is paid when the cast finishes")
             // ecl: a creature type chosen with the costs, kept under its name for the parts and the spell that read it
-            is Question.CostChoice -> {
+            // eoe: objects chosen with the costs, kept under the choice's name for the spell
+            is Question.CostChoice -> if (q.part.choice is arcanum.api.Choice.Objects) {
+                val choice = q.part.choice as arcanum.api.Choice.Objects
+                val ids = (answer as? Answer.Objects)?.chosen ?: refuse("Expected objects")
+                val options = plan.costChoiceObjects(choice)
+                if (ids.any { it !in options } || ids.distinct().size != ids.size) refuse("Not objects to choose")
+                if (ids.size < plan.eval.value(choice.min) || choice.max?.let { ids.size > plan.eval.value(it) } == true) refuse("Wrong number of objects")
+                c.copy(names = c.names.with(q.part.bind, NamedValue.Objects(ids)))
+            } else {
                 val subtype = (answer as? Answer.SubtypeChoice)?.subtype ?: refuse("Expected a creature type")
                 (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.let { if (subtype !in it.among) refuse("Not one of the types offered") }
                 c.copy(names = c.names.with(q.part.bind, NamedValue.SubtypeValue(subtype)))

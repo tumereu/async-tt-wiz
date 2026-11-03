@@ -449,6 +449,18 @@ internal object Payment {
                     names = Bindings(mapOf(arcanum.engine.resolution.Effects.FOLLOWS_SPELL to NamedValue.Objects(listOfNotNull(id, next)))))
             })
         }
+        // eoe: cast for a warp cost another object gave the card in hand (Tannuk, CR 702.185a): the spell keeps warp, so the permanent it
+        // becomes is exiled at the beginning of the next end step and may be cast later
+        plan.alternative?.let { (inst, m) ->
+            if (m.keyword != Keyword.Warp.Kind) return@let
+            if (recorder.snapshot().view[id]?.characteristics?.hasKeyword(Keyword.Warp.Kind) == true) return@let
+            recorder.record(Changes.effect(recorder.state) { t ->
+                val next = (id as? ObjectId.Card)?.next()
+                EffectObject(EffectId("warp:$id"), listOf(Mechanic.GainAbilities(listOf(Keyword.Warp(m.cost)))),
+                    affects = arcanum.api.Affected.Objects(Objects.Self), locked = listOfNotNull(id, next), source = id,
+                    controller = plan.player, timestamp = t, createdTurn = s.turn.number, duration = Duration.Indefinitely)
+            })
+        }
         // dsk gaps: a granted alternative cost with a limit each turn is used once more
         plan.alternative?.let { (inst, m) ->
             val origin = inst.origin as? AbilityOrigin.FromAbility ?: return@let

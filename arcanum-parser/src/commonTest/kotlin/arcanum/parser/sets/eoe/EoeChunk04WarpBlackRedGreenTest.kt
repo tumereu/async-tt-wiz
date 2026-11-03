@@ -157,7 +157,7 @@ class EoeChunk04WarpBlackRedGreenTest {
                     CostPart.Choose(
                         choice = Choice.Objects(
                             filter = or(
-                                and(creature, you),
+                                and(creature, you, inZone(Zone.Battlefield)),
                                 and(
                                     creature,
                                     ownedByYou,

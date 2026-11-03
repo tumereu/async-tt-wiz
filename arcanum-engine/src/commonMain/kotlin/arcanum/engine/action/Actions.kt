@@ -345,7 +345,12 @@ internal object Actions {
 
     /** What a damage event did: the damage each part actually dealt after prevention and replacement, and the excess
      * over lethal per recipient (CR 120.4a). */
-    data class DamageResult(val dealt: List<DamageDealt>, val excess: Int) {
+    data class DamageResult(
+        val dealt: List<DamageDealt>, val excess: Int,
+        // tla
+        /** The excess damage dealt to each recipient (CR 120.4a). */
+        val excessTo: Map<TargetRef, Int> = emptyMap(),
+    ) {
         val total: Int get() = dealt.sumOf { it.amount }
     }
 
@@ -395,6 +400,7 @@ internal object Actions {
             if (!o.facts.dealtCombatDamage) act.record(Change.ObjectUpdated(o, o.copy(facts = o.facts.copy(dealtCombatDamage = true))))
         }
         var excess = 0
+        val excessTo = mutableMapOf<TargetRef, Int>()
         val lifelink = mutableMapOf<PlayerId, Int>()
         dealt.forEach { d ->
             val source = board.characteristics(d.source)
@@ -411,7 +417,9 @@ internal object Actions {
                     val c = view[r.id]?.characteristics
                     if (c?.isType(CardType.Creature) == true) {
                         val lethal = (c.toughness ?: 0) - o.damage
-                        excess += (d.amount - (if (Keyword.Deathtouch in keywords) minOf(1, lethal) else lethal).coerceAtLeast(0)).coerceAtLeast(0)
+                        val over = (d.amount - (if (Keyword.Deathtouch in keywords) minOf(1, lethal) else lethal).coerceAtLeast(0)).coerceAtLeast(0)
+                        excess += over
+                        excessTo[r] = (excessTo[r] ?: 0) + over
                         if (Keyword.Wither in keywords || Keyword.Infect in keywords) {
                             // CR 122.6, 614.1: the counters are put on it, so effects that change counters being put apply
                             putCounters(act, cause, r, CounterKind.PowerToughness(-1, -1), d.amount)
@@ -440,7 +448,7 @@ internal object Actions {
         lifelink.forEach { (player, amount) -> gainLife(act, cause, player, amount) }
         Replacements.addLinked(act, linked)
         afterwards.forEach { it() }
-        return DamageResult(dealt, excess)
+        return DamageResult(dealt, excess, excessTo)
     }
 
     private fun recipientExists(act: Act, ref: TargetRef): Boolean = when (ref) {

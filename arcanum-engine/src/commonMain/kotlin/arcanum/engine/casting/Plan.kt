@@ -423,8 +423,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     }
 
     /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2). */
-    val manaWays: List<ManaPaymentWay> = if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
-        snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }
+    val manaWays: List<ManaPaymentWay> by lazy {
+        (if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
+            snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
+            // tla: one Waterbend for each generic mana of its waterbend costs (CR 701.67b; Mana.specialPayers)
+            List(total.waterbend) { ManaPaymentWay.Waterbend }
+    }
 
     /** "You can't spend mana to cast this spell": only its other ways pay (convoke, delve). */
     val cantSpendMana: Boolean = isSpell &&
@@ -435,8 +439,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         .filterIsInstance<Mechanic.XAtMost>().minOfOrNull { eval.value(it.max) }
 
     /** The least X may be ("X can't be 0", CR 107.3). */
-    private fun xMinimum(): Int = snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
-        .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
+    private fun xMinimum(): Int = if (!isSpell) (ability as? Ability.Activated)?.rules?.minimumX ?: 0 // tla: an activated ability's own
+        else snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
+            .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
 
     // ---- The next question
 

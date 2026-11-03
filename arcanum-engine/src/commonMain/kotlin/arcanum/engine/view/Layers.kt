@@ -223,6 +223,8 @@ private sealed interface Op {
     // dgm
     /** CR 612: a colour word or basic land type word in its rules text (and a land type in its type line) becomes another. */
     data class Text(val from: TextChange.Word, val to: TextChange.Word) : Op
+    /** tla: a name set by an effect (CR 612.8). */
+    data class Name(val name: String) : Op
 }
 
 private class Started(val effect: ContinuousEffect, val affected: Set<ObjectId>)
@@ -535,8 +537,9 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             }))
             is Mechanic.GainAbilitiesOf -> Op.Gain(ev.objects(mechanic.objects).flatMap { from ->
                 board.work[from]?.chars?.abilities.orEmpty()
-                    .filter { it.ability is Ability.Activated }
-                    .filter { !mechanic.exceptLoyalty || (it.ability as Ability.Activated).cost.parts.none { p -> p is CostPart.Loyalty } }
+                    // tla: triggered abilities too when the mechanic says so
+                    .filter { it.ability is Ability.Activated || (mechanic.triggered && it.ability is Ability.Triggered) }
+                    .filter { !mechanic.exceptLoyalty || (it.ability as? Ability.Activated)?.cost?.parts.orEmpty().none { p -> p is CostPart.Loyalty } }
                     .map { AbilityInstance(it.ability, AbilityOrigin.Borrowed(from, it.origin), e.timestamp) }
             })
             is Mechanic.LoseAbilities -> Op.Lose(mechanic.keyword)
@@ -544,6 +547,8 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             is Mechanic.SetPowerToughness -> Op.SetPT(mechanic.power?.let { ev.value(it) }, mechanic.toughness?.let { ev.value(it) })
             is Mechanic.ModifyPowerToughness -> Op.ModifyPT(ev.value(mechanic.power), ev.value(mechanic.toughness))
             Mechanic.SwitchPowerToughness -> Op.Switch
+            // tla: layer 3, a name set by an effect (CR 612.8)
+            is Mechanic.SetName -> Op.Name(mechanic.name)
             // dgm: layer 3, text-changing effects (CR 612)
             is Mechanic.ChangeText -> {
                 fun word(w: arcanum.api.TextWord): TextChange.Word? = when (w) {
@@ -603,6 +608,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             is Op.SetPT -> p.copy(chars = c.copy(power = op.power ?: c.power, toughness = op.toughness ?: c.toughness))
             is Op.ModifyPT -> p.copy(chars = c.copy(power = (c.power ?: 0) + op.power, toughness = (c.toughness ?: 0) + op.toughness))
             Op.Switch -> p.copy(chars = c.copy(power = c.toughness, toughness = c.power))
+            is Op.Name -> p.copy(chars = c.copy(name = op.name))
             is Op.Text -> {
                 // dgm: CR 612.2: a basic land type word in the type line too
                 val subtypes = if (op.from is TextChange.Word.LandType && op.to is TextChange.Word.LandType)

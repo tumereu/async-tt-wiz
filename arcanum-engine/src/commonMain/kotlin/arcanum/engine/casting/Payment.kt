@@ -92,6 +92,8 @@ internal object Payment {
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")
         total.parts.forEach { payPart(act, plan, it, bound, snapshots) }
+        // tla: paying a waterbend cost is waterbending, however it was paid (CR 701.67c)
+        if (total.waterbends) recorder.record(Change.Happened(GameEvent.Waterbended(plan.player)))
         // blb: each forage paid (its parts' keys carry it, Costs.total) is a forage (CR 701.61a)
         total.parts.mapNotNull { kp -> kp.key.substringBefore(Costs.FORAGE, "").takeIf { it.isNotEmpty() } }.distinct().forEach {
             recorder.record(Change.Happened(GameEvent.Foraged(plan.player)))
@@ -123,6 +125,9 @@ internal object Payment {
             refuse("Life pays only Phyrexian mana (CR 107.4f)")
         }
         val specials = uses.filterIsInstance<ManaUse.Special>()
+        // tla: CR 701.67b: tapping pays only the generic mana of the waterbend cost
+        if (specials.filter { it.way == ManaPaymentWay.Waterbend }.sumOf { it.objects.size } > plan.total.waterbend)
+            refuse("Tapping pays only the generic mana of the waterbend cost")
         val board = Plan(recorder.state, plan.c).snap
         val allowedSpecials = Mana.specialPayers(board, player, plan.manaWays)
         val specialPayers = specials.flatMap { use ->
@@ -149,7 +154,8 @@ internal object Payment {
         byWay.forEach { (way, ids) ->
             when (way) {
                 // CR 702.51a, 702.126a: tap them
-                ManaPaymentWay.TapCreatures, ManaPaymentWay.TapArtifacts, ManaPaymentWay.TapCreaturesForAnyMana -> ids.forEach { recorder.record(Changes.tap(recorder.state, it)) }
+                ManaPaymentWay.TapCreatures, ManaPaymentWay.TapArtifacts, ManaPaymentWay.TapCreaturesForAnyMana, ManaPaymentWay.Waterbend ->
+                    ids.forEach { recorder.record(Changes.tap(recorder.state, it)) }
                 // CR 702.66a: exile them from the graveyard
                 ManaPaymentWay.ExileFromGraveyard -> Actions.move(act, costCause(plan), ids.map { PlannedMove(it, Zone.Exile) })
             }
@@ -257,6 +263,8 @@ internal object Payment {
             return after
         }
         when (val part = kp.part) {
+            // tla: a waterbend cost is paid with the mana (Costs.total)
+            is CostPart.Waterbend -> Unit
             // CR 302.6, 602.5a: checked when activating; {T} taps the source
             CostPart.TapSelf -> {
                 if (s.obj(plan.sourceId)?.tapped != false) refuse("It's already tapped")

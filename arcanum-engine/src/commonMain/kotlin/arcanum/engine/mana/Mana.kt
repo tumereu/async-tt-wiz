@@ -326,10 +326,17 @@ internal object Mana {
         return snap.evaluator(player, self = unit.source).matches(restriction, paysFor)
     }
 
-    /** Payers for the other ways the spell may pay ([ManaPaymentWay], CR 702.51, 702.66, 702.126). */
+    /** Payers for the other ways the spell may pay ([ManaPaymentWay], CR 702.51, 702.66, 702.126); [ManaPaymentWay.Waterbend] is listed
+     * once for each generic mana of the waterbend cost (tla, CR 701.67b), and [suggest] uses at most that many of its payers. */
     fun specialPayers(snap: Snapshot, player: PlayerId, ways: List<ManaPaymentWay>, exclude: Set<ObjectId> = emptySet()): List<Payer> =
         ways.distinct().flatMap { way ->
             when (way) {
+                // tla: CR 701.67a: an untapped artifact or creature for one generic mana
+                ManaPaymentWay.Waterbend -> snap.state.battlefield.filter { id ->
+                    val o = snap.state.obj(id)
+                    o != null && !o.tapped && !o.phasedOut && snap.board.controller(id) == player && id !in exclude &&
+                        snap.view[id]?.characteristics?.let { it.isType(CardType.Artifact) || it.isType(CardType.Creature) } == true
+                }.map { id -> Payer(emptySet(), snow = false, use = ManaUse.Special(way, listOf(id))) }
                 ManaPaymentWay.TapCreatures -> untapped(snap, player, CardType.Creature).filter { it !in exclude }.map { id ->
                     Payer((snap.view[id]?.characteristics?.colors.orEmpty() + listOf<Color?>()).toSet(), snow = false,
                         use = ManaUse.Special(way, listOf(id)))
@@ -346,6 +353,13 @@ internal object Mana {
                 }
             }
         }
+
+    /** tla: at most as many waterbend payers as the waterbend cost has generic mana (CR 701.67b). */
+    private fun capped(payers: List<Payer>, ways: List<ManaPaymentWay>): List<Payer> {
+        val cap = ways.count { it == ManaPaymentWay.Waterbend }
+        val waterbend = payers.filter { (it.use as? ManaUse.Special)?.way == ManaPaymentWay.Waterbend }
+        return payers.filter { it !in waterbend } + waterbend.take(cap)
+    }
 
     private fun untapped(snap: Snapshot, player: PlayerId, type: CardType): List<ObjectId> = snap.state.battlefield.filter { id ->
         val o = snap.state.obj(id)
@@ -380,12 +394,12 @@ internal object Mana {
         ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true,
     ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
-        if (!canSpendMana) return suggestFrom(snap, player, cost, specialPayers(snap, player, ways), emptyList(), paysFor)
+        if (!canSpendMana) return suggestFrom(snap, player, cost, capped(specialPayers(snap, player, ways), ways), emptyList(), paysFor)
         val pool = poolPayers(snap, player, paysFor)
         val sources = sources(snap, player)
         val byMana = suggestFrom(snap, player, cost, pool, sources, paysFor)
         if (byMana.isNotEmpty() || ways.isEmpty()) return byMana
-        return suggestFrom(snap, player, cost, pool + specialPayers(snap, player, ways, sources.map { it.id }.toSet()), sources, paysFor)
+        return suggestFrom(snap, player, cost, pool + capped(specialPayers(snap, player, ways, sources.map { it.id }.toSet()), ways), sources, paysFor)
     }
 
     /** [suggest] from [pool] (pool mana and other ways' payers, used as they are) and mana [sources]. */

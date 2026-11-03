@@ -103,6 +103,35 @@ internal object Costs {
             is CostPart.ChoosePlayer -> state.players.any { scope.eval().matches(part.filter, it.id) }
             // ecl: a choice made as the cost is paid can always be made
             is CostPart.Choose -> true
+            // tla: CR 701.67a: tapping artifacts and creatures for its generic mana, the rest paid with mana
+            is CostPart.Waterbend -> waterbendCost(scope, part)?.let { cost -> leastTaps(scope, payer, cost) != null } ?: true
+        }
+    }
+
+    /** tla: the mana a waterbend cost asks for here ([CostPart.Waterbend.x] its X); null when an X is left unknown. */
+    private fun waterbendCost(scope: Scope, part: CostPart.Waterbend): ManaCost? {
+        val withX = part.x?.let { Mana.withX(part.cost, mapOf('X' to scope.value(it))) } ?: part.cost
+        return withX.takeIf { c -> c.symbols.none { it is ManaSymbol.Variable } }
+    }
+
+    /** tla: untapped artifacts and creatures [payer] could tap for a waterbend cost (CR 701.67a). */
+    private fun waterbendTappers(scope: Scope, payer: PlayerId): List<ObjectId> {
+        val e = scope.eval()
+        val state = scope.act.state
+        return state.battlefield.filter { id ->
+            val o = state.obj(id)!!
+            !o.tapped && !o.phasedOut && e.controllerOf(id) == payer &&
+                e.characteristics(id)?.let { it.isType(arcanum.api.CardType.Artifact) || it.isType(arcanum.api.CardType.Creature) } == true
+        }
+    }
+
+    /** tla: the fewest objects [payer] must tap so that the rest of [cost] can be paid with mana; null when even tapping all can't. */
+    private fun leastTaps(scope: Scope, payer: PlayerId, cost: ManaCost): Int? {
+        val generic = cost.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
+        val most = minOf(generic, waterbendTappers(scope, payer).size)
+        return (0..most).firstOrNull { t ->
+            val rest = arcanum.engine.casting.Costs.reduce(cost, ManaCost(listOf(ManaSymbol.Generic(t))))
+            Mana.needs(rest).isEmpty() || Mana.suggest(scope.act.recorder.snapshot(), payer, rest, null).isNotEmpty()
         }
     }
 
@@ -182,6 +211,20 @@ internal object Costs {
             is CostPart.ChoosePlayer -> Unit
             // ecl: a choice made while paying (as a step of the same name)
             is CostPart.Choose -> Steps.run(scope, listOf(arcanum.api.Step.Choose(part.choice, part.bind, chooser = arcanum.api.Players.You)))
+            // tla: CR 701.67a: tap some artifacts and creatures for its generic mana, pay the rest; that is waterbending (701.67c)
+            is CostPart.Waterbend -> {
+                val cost = waterbendCost(scope, part)
+                if (cost == null) payMana(scope, payer, "waterbend " + part.cost.toString())
+                else {
+                    val generic = cost.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
+                    val tappers = waterbendTappers(scope, payer)
+                    val least = leastTaps(scope, payer, cost) ?: 0
+                    val tapped = act.chooseObjects(payer, scope.self, tappers, least, minOf(generic, tappers.size), "Tap artifacts and creatures to pay the waterbend cost")
+                    if (tapped.isNotEmpty()) Actions.tap(act, tapped, true, listOf(Meaning.Paid))
+                    act.payMana(payer, scope.self, arcanum.engine.casting.Costs.reduce(cost, ManaCost(listOf(ManaSymbol.Generic(tapped.size)))))
+                }
+                act.record(Change.Happened(GameEvent.Waterbended(payer)))
+            }
         }
     }
 

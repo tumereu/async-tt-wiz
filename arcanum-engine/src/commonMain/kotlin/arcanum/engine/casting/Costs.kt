@@ -20,7 +20,14 @@ internal data class KeyedPart(val key: String, val part: CostPart)
  * The total cost of a spell or ability (CR 601.2f, 118): its mana, with X replaced and cost changes applied (CR
  * 118.7), and its other parts in order.
  */
-internal data class TotalCost(val mana: ManaCost, val parts: List<KeyedPart>) {
+internal data class TotalCost(
+    val mana: ManaCost, val parts: List<KeyedPart>,
+    // tla
+    /** The generic mana of its waterbend costs, which untapped artifacts and creatures may pay (CR 701.67a, b). */
+    val waterbend: Int = 0,
+    /** Whether it has a waterbend cost: paying it is waterbending (CR 701.67c). */
+    val waterbends: Boolean = false,
+) {
     val manaValue: Int get() = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 1 }
     val hasMana: Boolean get() = mana.symbols.any { !(it is ManaSymbol.Generic && it.amount == 0) }
 }
@@ -42,8 +49,18 @@ internal object Costs {
     ): TotalCost {
         val symbols = mutableListOf<ManaSymbol>()
         val parts = mutableListOf<KeyedPart>()
+        var waterbend = 0
+        var waterbends = false
         fun add(key: String, part: CostPart) {
             when (part) {
+                // tla: CR 701.67a: its mana is part of the total; its generic mana may be paid by tapping (701.67b)
+                is CostPart.Waterbend -> {
+                    val partX = part.x?.let { mapOf('X' to eval.value(it)) } ?: x
+                    val mana = withX(part.cost, partX).symbols
+                    symbols += mana
+                    waterbend += mana.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
+                    waterbends = true
+                }
                 is CostPart.Mana -> {
                     val times = part.times?.let { eval.value(it) } ?: 1
                     val partX = part.x?.let { mapOf('X' to eval.value(it)) } ?: x
@@ -64,7 +81,8 @@ internal object Costs {
         increases.forEach { symbols += it.symbols }
         var mana = normalize(symbols)
         reductions.forEach { (r, minimum) -> mana = reduce(mana, r, minimum) }
-        return TotalCost(mana, parts)
+        val generic = mana.symbols.sumOf { (it as? ManaSymbol.Generic)?.amount ?: 0 }
+        return TotalCost(mana, parts, waterbend = minOf(waterbend, generic), waterbends = waterbends)
     }
 
     /** A keyword action as a cost, as the cost part it is: collecting evidence N is exiling any number of cards from

@@ -1502,7 +1502,7 @@ internal class Sentences(
             it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) }
         val defined = WHERE_X.find(text)?.let { w ->
             if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
-            else sosValue(w.groupValues[1]) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
+            else sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
         }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself
         if (defined == null) WHERE_X.find(text)?.let { selfNumber(it.groupValues[1]) }?.let { own ->
@@ -12466,7 +12466,10 @@ internal class Sentences(
     private val sosBottomRandom get() = Destination(Zone.Library, libraryPosition = -1, randomOrder = true)
 
     /** sos: values that name this card ("1 plus the number of cards named Ancestral Anger in your graveyard"). */
-    private fun sosValue(text: String): Value? {
+    private fun sosValue(text: String, event: EventPattern?): Value? {
+        // sos chunk 01: "the number of colors of mana spent to cast it" in a cast trigger: the spell cast
+        if (text == "the number of colors of mana spent to cast it" && event is EventPattern.Cast)
+            return Value.ManaSpent(distinctColors = true, of = Objects.EventObject(EventRole.Object))
         Sos.PLUS_NAMED_IN_GRAVEYARD.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             return Value.Sum(listOf(Value.Fixed(m.groupValues[1].toInt()),
                 Value.Count(Objects.Each(sosYourGraveyard(ObjectFilter.Named(m.groupValues[2]))))))
@@ -12952,6 +12955,15 @@ internal class Sentences(
     private fun sosEffect(sentence: String, context: Context): List<Step>? {
         // "Look at the top two cards …. Put one of them …" arrives as one sentence (see [sentences])
         if (sentence.contains(". ")) sosWhole(sentence, context)?.let { return it }
+        // sos chunk 04: "Create a 0/0 green and blue Fractal creature token and put X +1/+1 counters on it" ("it" is the token)
+        Sos.CREATE_TOKEN_AND_PUT_COUNTERS_ON_IT.matchEntire(sentence)?.let { m ->
+            val (count, token) = Tokens.spec(m.groupValues[1] + " token") ?: return@let
+            if (count != 1) return@let
+            val kind = Counters.kind(m.groupValues[3]) ?: return null
+            val amount = if (m.groupValues[2] == "X") Value.Announced(name = "X") else Value.Fixed(Numbers.count(m.groupValues[2]) ?: return null)
+            return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(1), Players.You, bind = "token")),
+                Step.Do(Effect.PutCounters(Objects.Bound("token"), kind, amount)))
+        }
         // sos chunk 01: "put a +1/+1 counter on another target creature you control"
         Sos.ANOTHER_TARGET_COUNTER.matchEntire(sentence)?.let { m ->
             val kind = Counters.kind(m.groupValues[1]) ?: return null
@@ -13117,7 +13129,7 @@ internal class Sentences(
         Sos.CREATE_TOKEN_PUT_COUNTERS_OF_SELF.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
             val (count, token) = Tokens.spec(m.groupValues[1] + " token") ?: return null
             return listOf(Step.Do(Effect.CreateToken(token, Value.Fixed(count), Players.You, bind = "token")),
-                Step.Do(Effect.PutCountersOf(Objects.Bound("token"), of = Objects.Self)))
+                Step.Do(Effect.PutCountersOf(Objects.Bound("token"), of = if (context.selfDied()) Objects.EventObject(EventRole.Before) else Objects.Self)))
         }
         // sos chunk 10: "you may sacrifice an artifact. If you do, copy that spell and you may choose new targets for the copy."
         Sos.CAST_TRIGGER_MAY_SACRIFICE_COPY.matchEntire(sentence)?.let { m ->

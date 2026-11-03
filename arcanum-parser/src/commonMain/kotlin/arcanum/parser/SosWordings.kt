@@ -135,6 +135,7 @@ internal object Sos {
     val GROUP_GETS_FOR_EACH_COLOR_SPENT = Regex("""(.+?) get ([+-]\d+)/([+-]\d+) until end of turn for each color of mana spent to cast that spell\.""")
     val PLUS_NAMED_IN_GRAVEYARD = Regex("""(\d+) plus the number of cards named (.+) in your graveyard""")
     val DEALS_DAMAGE_EQUAL_TO_TARGET = Regex("""(.+?) deals damage equal to (.+?) to target (.+)\.""")
+    val CREATE_TOKEN_AND_PUT_COUNTERS_ON_IT = Regex("""[Cc]reate (an? .+?) token and put (X|\w+) (\S+) counters on it\.""")
     val GRANDEUR = Regex("""Grandeur — Discard another card named (.+?): (.+)""")
     val LANDS_HAVE_QUOTED = Regex("""(Lands you control) have "(.+)"""")
     val PUT_X_COUNTERS_ON_IT = Regex("""Put (X|\w+) (\S+) counters on it\.""")

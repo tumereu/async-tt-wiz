@@ -81,7 +81,7 @@ internal object InventedCards {
                 ))),
             )),
         )),
-        // Keyword actions the parser doesn't read yet (CR 701)
+        // Keyword actions, written in the model (CR 701; the parser reads them since the lane wordings round)
         /** "Manifest the top two cards of your library." (CR 701.40a, c) */
         sorcery("Twofold Manifestation", "{2}{G}", action(arcanum.api.KeywordAction.Manifest(Value.Fixed(2)))),
         /** "Cloak the top card of your library." (CR 701.58a) */

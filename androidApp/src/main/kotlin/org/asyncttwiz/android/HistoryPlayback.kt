@@ -193,16 +193,32 @@ class HistoryPlayback(initial: HistoryTree,
     private var acceptedHead: String? = null
 
     /** No route list or replay is built up front. A missing/deleted bookmark starts at root.
-     * Anything unseen opens timeline mode paused at the last seen point; nothing plays by itself. */
-    fun openFrom(lastSeen: String?) {
+     * Anything unseen opens timeline mode paused at the last seen point; nothing plays by itself. Owner playtest
+     * 2026-11-03 #4: only what someone other than [viewer] did counts as unseen: when everything after the last seen
+     * point on the live line is the viewer's own (their own device's automatic passes, another device of theirs), the
+     * game opens live, with no switch into timeline mode. */
+    fun openFrom(lastSeen: String?, viewer: String? = null) {
         // No saved point (first open, another device): open live at the newest move, never from the start.
         if (lastSeen == null) return
         val cursor = tree.source?.resolveCursor(lastSeen) ?: lastSeen.takeIf(tree::contains) ?: tree.rootId
         if (cursor == tree.sharedHeadId) return
+        if (viewer != null && onlyOwnSince(cursor, viewer)) return
         position = HistoryPosition(cursor, HistoryMode.PLAYBACK, false, tree.version(cursor))
         lineAnchor = null
         detectBranch()
         if (branched && autoRewindOpen) play()
+    }
+    /** Whether every event after [seen] on the live line up to its head was made by [viewer] ([seen] an ancestor of the
+     * head, at most [OWN_WALK] events back): a parent walk over the unseen part only, never a replay. */
+    private fun onlyOwnSince(seen: String, viewer: String): Boolean {
+        var id = tree.sharedHeadId
+        repeat(OWN_WALK) {
+            if (id == seen) return true
+            val node = tree.nodes[id] ?: return false
+            if (node.author != viewer) return false
+            id = node.parentId ?: return false
+        }
+        return false
     }
     /** Cheap (common-ancestor walk over the divergent part only): never a replay from the root. */
     private fun planRollback(): String {
@@ -258,6 +274,10 @@ class HistoryPlayback(initial: HistoryTree,
             foreground && position.mode == HistoryMode.LIVE -> HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
             resumeHold && position.mode == HistoryMode.PLAYBACK && position.displayVersion == tree.liveVersion ->
                 position.copy(cursorId = tree.sharedHeadId) // Expected own confirmation: no unseen presentation difference.
+            // Owner playtest 2026-11-03 #4: only the viewer's own events since: still presented as live, no timeline flash
+            resumeHold && position.mode == HistoryMode.PLAYBACK && !position.playing && viewer != null &&
+                tree.contains(cursor) && onlyOwnSince(cursor, viewer) ->
+                position.copy(cursorId = tree.sharedHeadId, displayVersion = tree.liveVersion)
             cursor != position.cursorId -> position.copy(cursorId = cursor,
                 playing = false, displayVersion = tree.version(cursor))
             foreground && position.mode == HistoryMode.PLAYBACK -> position.copy(displayVersion = tree.version(cursor))
@@ -370,7 +390,8 @@ class HistoryPlayback(initial: HistoryTree,
     fun caughtUp() {
         if (!foreground || !resumeHold) return
         resumeHold = false
-        if (position.mode == HistoryMode.PLAYBACK && !position.playing && position.cursorId == tree.sharedHeadId) continuationApplied()
+        if (position.mode == HistoryMode.PLAYBACK && !position.playing && (position.cursorId == tree.sharedHeadId ||
+                panelViewer?.let { onlyOwnSince(position.cursorId, it) } == true)) continuationApplied()
         else if (position.mode == HistoryMode.PLAYBACK && !position.playing) {
             detectBranch()
             // Returning to the app counts as opening the game again.
@@ -494,6 +515,10 @@ class HistoryPlayback(initial: HistoryTree,
         position = HistoryPosition(tree.sharedHeadId, displayVersion = tree.liveVersion)
     }
 }
+
+/** The most unseen events opening a game looks through for someone else's ([HistoryPlayback.openFrom]); more than that
+ * opens timeline mode as before. */
+internal const val OWN_WALK = 512
 
 data class HistoryAnimatedItem(val item: TableItem, val bounds: TableBounds, val alpha: Float)
 

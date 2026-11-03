@@ -245,6 +245,42 @@ class CatchupPlaybackTest {
         assertTrue(player.branched)
     }
 
+    // HIS-033 (owner playtest 2026-11-03 #4): only the viewer's own events since the last seen point (their device's own
+    // passes, another device of theirs) open the game live, without a switch into timeline mode; one event of the other
+    // player among them opens timeline mode there as before
+    @Test fun onlyOwnEventsSinceTheLastSeenPointOpenLive() {
+        val seen = append(GameplayTree(F.root()), 100, F.b)
+        val own = append(append(seen, 101, F.a), 102, F.a)
+        val opened = HistoryPlayback(index(own))
+        opened.openFrom(seen.currentNodeId, F.a)
+        assertEquals(HistoryMode.LIVE, opened.position.mode)
+        assertEquals(own.currentNodeId, opened.position.cursorId)
+        val theirs = append(own, 103, F.b)
+        val caughtUp = HistoryPlayback(index(theirs))
+        caughtUp.openFrom(seen.currentNodeId, F.a)
+        assertEquals(HistoryMode.PLAYBACK, caughtUp.position.mode)
+        assertEquals(seen.currentNodeId, caughtUp.position.cursorId)
+        // Through the table's history controller, as the table opens a game
+        val history = TableHistoryController(Executor { it.run() }, { it() }, { _, _ -> false }, { _, _, _ -> false })
+        history.openFrom(seen.currentNodeId) { _, _ -> }
+        history.update(own, "head", viewer = F.a)
+        assertEquals(HistoryMode.LIVE, assertNotNull(history.playback).position.mode)
+        history.close()
+    }
+
+    // HIS-035 (owner playtest 2026-11-03 #4): returning to the app when only the viewer's own events arrived meanwhile
+    // stays live: presented as live while the catch-up comes in, live once it is in
+    @Test fun returningToOnlyOwnEventsStaysLive() {
+        val seen = append(GameplayTree(F.root()), 100, F.b)
+        val player = HistoryPlayback(index(seen))
+        player.background()
+        player.receive(index(append(seen, 101, F.a)), F.a)
+        player.foreground()
+        assertTrue(player.resumeHeld, "presented as live while the catch-up comes in")
+        player.caughtUp()
+        assertEquals(HistoryMode.LIVE, player.position.mode)
+    }
+
     // HIS-033
     @Test fun controllerOpensPausedAtLastSeenAndReportsAPendingBranch() {
         val common = append(GameplayTree(F.root()), 100)

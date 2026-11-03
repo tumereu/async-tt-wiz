@@ -109,7 +109,7 @@ class TableHistoryController(private val worker: Executor, private val post: (()
                     if (old == null || old.tree.rootId != index.rootId) playback = HistoryPlayback(index, ::playbackChanges,
                         { clearChanges() }).also {
                         it.autoRewindLive = autoRewindLive; it.autoRewindOpen = autoRewindOpen
-                        if (opening) it.openFrom(lastSeen)
+                        if (opening) it.openFrom(lastSeen, viewer)
                     }
                     else old.receive(index, viewer, accepted.currentNodeId)
                     if (!foreground) playback?.background()

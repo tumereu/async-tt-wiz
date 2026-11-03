@@ -110,11 +110,13 @@ fun TurnIndicator(turn: TurnState, turnPlayerName: String, turnPlayerColor: Colo
     }
 }
 
+/**
+ * The phase dialog (TRN-008): where the turn is, view-only (owner playtest 2026-11-03 #3: the game moves on only by the
+ * step arrow, TRN-063; the squares do nothing and there are no step buttons).
+ */
 @Composable
-fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
-    controller: TableActionController, onDismiss: () -> Unit, onComplete: () -> Unit = onDismiss,
+fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color, onDismiss: () -> Unit,
     names: Map<String, String> = emptyMap()) {
-    val scope = TableActionScope(play.gameId, play.id)
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val turn = play.board.turn
     val player = names[turn.accountId]?.let { "$it's turn" } ?: if (turn.accountId == viewerId) "Your turn" else "Opponent's turn"
@@ -127,22 +129,15 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
                 Row(Modifier.fillMaxWidth().background(phaseColor(phase), MaterialTheme.shapes.extraSmall)
                     .horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp, vertical = if (landscape) 0.dp else 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    for (step in steps) ActionSquare(step.label, step.glyph, controller.enabled(scope),
-                        Modifier.border(1.dp, if (TurnPosition.of(turn) == step) endingPlayerColor else MenuBorder),
-                        ink = if (TurnPosition.of(turn) == step) endingPlayerColor else MenuInk,
-                        selected = TurnPosition.of(turn) == step,
-                        icon = { StepIcon(step) },
-                        onClick = { if (controller.perform(TableActionIntent.Choose(scope, step))) onComplete() })
+                    for (step in steps) {
+                        val current = TurnPosition.of(turn) == step
+                        Box(Modifier.size(48.dp).border(1.dp, if (current) endingPlayerColor else MenuBorder)
+                            .semantics(mergeDescendants = true) { contentDescription = step.label; selected = current },
+                            contentAlignment = Alignment.Center) {
+                            CompositionLocalProvider(LocalContentColor provides if (current) endingPlayerColor else MenuInk) { StepIcon(step) }
+                        }
+                    }
                 }
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MenuButton("Next step", Modifier.weight(1f), controller.enabled(scope)) {
-                if (controller.perform(TableActionIntent.Next(scope))) onComplete()
-            }
-            MenuButton(if (turn.accountId == viewerId) "End turn" else "End opponent's turn",
-                Modifier.weight(1f), controller.enabled(scope), endingPlayerColor) {
-                if (controller.perform(TableActionIntent.End(scope))) onComplete()
             }
         }
     }

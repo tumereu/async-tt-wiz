@@ -32,7 +32,9 @@ data class QuickContext(val combatAreaId: String? = null,
     /** CMB-028: the active attack target lane (null: the defending player) and its name, for "Rest → <target>". */
     val combatTarget: String? = null, val combatTargetName: String = "",
     /** UI review round 2 #3: the viewer's own cast is open, so the step arrow can't act ([stepBlocked]). */
-    val castOpen: Boolean = false)
+    val castOpen: Boolean = false,
+    /** Owner playtest 2026-11-03 #1: the step arrow's words from its tap's plan, once worked out. */
+    val plannedStep: AutomatumStep? = null)
 
 /** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,
@@ -114,10 +116,15 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
                 }
             }
             // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour; it is the one way to go on
-            // (UI review round 2 #1), so it shows with the toggles on either player's turn
-            if (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) AutomatumStepArrow(play,
+            // (UI review round 2 #1). Owner playtest 2026-11-03 #2: in the other player's turn only while the viewer holds
+            // priority or must decide; its room stays, so the toggles don't move
+            val arrow = (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) && stepArrowShown(play, context.viewer)
+            if (arrow) AutomatumStepArrow(play,
                 controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
-                blocked = stepBlocked(play, context.castOpen, context.automatumCombat)) { perform(TableActionIntent.Next(scope)) }
+                blocked = stepBlocked(play, context.castOpen, context.automatumCombat), planned = context.plannedStep) {
+                perform(TableActionIntent.Next(scope))
+            }
+            else if (toggles) Spacer(Modifier.width(if (compact) 68.dp else 72.dp))
         }
     }
 }

@@ -59,7 +59,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 pendingSuggestionId = suggestion?.id, mayAccept = suggestion?.author?.let { it != toolkit.viewer } == true,
                 perform = toolkit::perform, names = names, onTimeline = onTimeline)
         }
-        "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
+        "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit::dismiss, names = names)
         else -> if (panel?.startsWith("library/") == true) {
             val id = panel.substringAfter('/')
             InlinePopupPanel(toolkit::dismiss, "Library", width = 264.dp, key = panel) {

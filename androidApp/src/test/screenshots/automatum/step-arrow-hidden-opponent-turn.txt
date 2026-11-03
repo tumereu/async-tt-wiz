@@ -1,0 +1,1 @@
+Bob's table in Alice's main phase while she holds priority: Bob's Automatum toggles show, but no step arrow, since there is nothing for him to pass or decide.

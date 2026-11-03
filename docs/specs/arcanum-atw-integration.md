@@ -557,6 +557,26 @@ out of anything stuck.
   prediction and the app's and automatum's multi-device test servers. Leftovers: the Note text size and the Pings /
   comments and Die / coin auto-pauses are gone. Not done: deleting the protocol actions only manual play used, their
   state (notes, links, pings, colour counters, Temp piles) and the dead test-only helpers of `CombatStackController`.
+- **Built (playtest of 47fc3623, 2026-11-03; choices made for the owner, to be confirmed):** #1, #6: the step arrow's tap is
+  planned in the background as each board appears (`SharedFlowController.plan`, `StepPlan`; `TableControlsLayer` starts it,
+  `TableToolkitController.planStep`/`plannedStep`): the same engine call and batch the tap sends, so its words come from
+  where that call ends (`StepFlow.landing`: Pass for the other player of the turn; To combat when it stops in combat; End
+  turn for a later turn or the end step/cleanup with no combat damage on the way; Next otherwise) and the tap sends the
+  planned batch at once (its local prediction shows it); acting for the other player still asks first and confirming
+  sends the same plan. The cause of "To combat" ending the turn: the words came from the board alone, while with nothing
+  able to attack the engine declares no attackers (CR 508.8) and the passes ran on to the turn's end. The pause: the tap
+  worked the flow, the passes and the batch out on the worker before anything showed (`StepArrowGamesTest.probeTheStepArrowsTap`,
+  desktop JVM, turn 4+: tap median 33 ms / max 200 ms before; 0 ms after, the plan ~34 ms median in the background, the
+  local prediction ~2 ms). Choices: until the plan is worked out the arrow shows the board's words and a tap works the
+  step out as before; "Next" for a tap that skips combat to the second main phase and for combat damage; the step
+  button's hold (End turn) is unchanged. #2: `stepArrowShown` — in the other player's turn the arrow shows only while the
+  viewer holds priority or the move is theirs (their blockers, a choice); its room stays empty so the toggles don't move;
+  in the viewer's own turn it still passes for the other player after asking (I-D40). #3: the phase dialog is view-only
+  (`TableActionIntent.Choose` and `StepFlow.Until.Step` stay, unused by the UI). #4: `HistoryPlayback.openFrom(lastSeen,
+  viewer)` opens live when every event after the last seen point is the viewer's own (at most 512 looked at), and a
+  return to the app with only own events stays presented as live, then live. #5: `ManaPoolRows` (TBL-120). Catalog:
+  TRN-004, TRN-009, TRN-015, TRN-057, TRN-059, TRN-061, TRN-063, STK-028, STK-029, SYS-067, HIS-006, HIS-033, HIS-035,
+  TBL-120 (new).
 
 ## 4. Shared state ATW adds
 

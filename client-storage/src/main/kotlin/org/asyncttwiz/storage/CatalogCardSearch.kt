@@ -10,8 +10,10 @@ import java.io.File
 import java.util.Locale
 
 /** Search-only provider data stored beside a printing: lower-case rarity, colour identity mask, legal-format bits
- * (CardSearchRules.FORMATS order, legal or restricted). */
-internal data class CatalogPrintingTraits(val rarity: String, val identity: Int?, val legal: Long)
+ * (CardSearchRules.FORMATS order, legal or restricted), and its related tokens ([related]: a card's token printings'
+ * ids; a token's names of the cards that make it, lower case), which Automatum's token pictures use. */
+internal data class CatalogPrintingTraits(val rarity: String, val identity: Int?, val legal: Long,
+    val related: List<String> = emptyList())
 
 /** One search result: a card (oracle identity) shown with its preferred matching printing; faces front first. */
 data class CatalogCard(val key: String, val name: String, val faces: List<CatalogPrinting>) {

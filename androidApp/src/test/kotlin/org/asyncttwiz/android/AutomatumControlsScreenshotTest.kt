@@ -136,8 +136,8 @@ class AutomatumControlsScreenshotTest {
         assertTrue(sent.isEmpty() && manual.isEmpty())
     }
 
-    // TBL-115, CR 602.2, 605.3a: activating from the menu goes through the cast panel ("Activate") and out as one batch
-    // that the server takes; a mana ability adds its mana at once
+    // TBL-115, STK-024, CR 602.2, 605.3a: activating from the menu goes out as one batch that the server takes, paid by
+    // Autotap without a panel (nothing to choose, I-D47); a mana ability adds its mana at once
     @Test fun activatingFromTheMenu() {
         val play = board(lands = 3)
         val toolkit = render(play)
@@ -145,10 +145,7 @@ class AutomatumControlsScreenshotTest {
         compose.waitForIdle()
         compose.ringClick("{2}{G}, {T}: Draw a card.")
         compose.waitForIdle()
-        compose.onNodeWithContentDescription("Cast panel").assertExists()
-        compose.onNodeWithText("Mana · {2}{G}").assertExists()
-        compose.onNode(hasText("Activate") and hasClickAction()).performClick()
-        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
         assertNull(toolkit.cast.flow)
         val (batch, request) = sent.single()
         val after = accepted(play, batch, request)
@@ -223,11 +220,11 @@ class AutomatumControlsScreenshotTest {
         compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).performClick()
         compose.waitForIdle()
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-        assertFalse(AutotapPreferences(context, f.a).autotap)
+        assertFalse(PausePreferences(context, f.a).settings.autotap, "the cast's own setting")
         assertTrue(PausePreferences(context, f.a).settings.fullControl)
         compose.onNodeWithContentDescription(AutomatumToggles.AUTOTAP).performTouchInput { longClick() }
         compose.waitForIdle()
-        compose.onNodeWithText("Autotap mana: casting pays its mana by itself when it can").assertExists()
+        compose.onNodeWithText("Autotap mana sources: casting pays by itself, with mana in your pool first").assertExists()
     }
 
     // ZON-078, CR 305.1, 401.5 (final cast review #8): with a Seer of Harvestide-like card, the Library menu offers the
@@ -292,17 +289,20 @@ class AutomatumControlsScreenshotTest {
         compose.onNodeWithContentDescription("Graveyard").assertExists()
     }
 
-    // I-D46 (a): the viewer's cards Automatum lets them use now are the glowing ones: the Druid (its mana ability) and
-    // Storm Spark with a Mountain untapped; nothing of the other player's, nothing while Automatum is off
+    // TBL-117, I-D46 (a): the viewer's cards Automatum lets them use now glow: Storm Spark with Mountains untapped and the
+    // Druid (its draw ability); lands with only their mana abilities don't; nothing of the other player's, nothing while
+    // Automatum is off
     @Test fun playableCardsGlow() {
         val play = board(lands = 1).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
             if (it.definition == mountain.submitted.digest) it.copy(tapped = false) else it })) }
         val toolkit = render(play)
         val playable = compose.runOnIdle { toolkit.playable(play) }
-        assertTrue(druidId in playable && sparkId in playable && forests[0] in playable, playable.toString())
+        assertTrue(druidId in playable && sparkId in playable, playable.toString())
+        assertFalse(forests[0] in playable, "a mana ability alone doesn't glow")
+        assertTrue(playable.none { id -> play.board.cards.single { it.id == id }.definition == mountain.submitted.digest })
         assertTrue(playable.none { id -> play.board.cards.single { it.id == id }.owner != f.a }, "only the viewer's own cards")
         captureShot("$SCREENSHOTS/automatum/playable-glow.png",
-            "With Automatum on in Alice's main phase, her cards she can use now glow softly in cyan from behind: Storm Spark in her hand, Grovewatch Druid, the Forest and her untapped Mountains (their mana abilities).")
+            "With Automatum on in Alice's main phase, her cards she can use now glow softly in cyan from behind: Storm Spark in her hand and Grovewatch Druid (its draw ability); her Forest and untapped Mountains, which offer only mana, don't.")
         val off = board(lands = 1, automatum = false)
         assertTrue(TableToolkitController(f.a, { off }, { true }, { _, _ -> true }).playable(off).isEmpty())
     }
@@ -321,8 +321,10 @@ class AutomatumControlsScreenshotTest {
                 handDoubleTap = true)))
             assertEquals(sparkId, toolkit.shaking?.id)
             assertNull(toolkit.error)
-            assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(druidId, listOf(druidId)), true, toggle = true)))
-            assertEquals(druidId, toolkit.shaking?.id)
+            // A tapped Mountain (no mana ability Automatum allows now, TBL-043): untapping it by hand shakes it
+            val tappedMountain = play.board.cards.first { it.definition == mountain.submitted.digest && it.tapped }.id
+            assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(tappedMountain, listOf(tappedMountain)), false, toggle = true)))
+            assertEquals(tappedMountain, toolkit.shaking?.id)
             assertFalse(toolkit.handle(TableIntent.PlayerDelta(f.a, null, -1)))
             assertEquals("life/${f.a}", toolkit.shaking?.id)
             assertFalse(toolkit.handle(TableIntent.Move(TableScope(druidId, listOf(druidId)),

@@ -130,7 +130,8 @@ class AutomatumPauseReviewTest {
         AutomatumBoards.compute(play, viewer)
         assertTrue(toolkit.cast.start(cardId), toolkit.error)
         targetLife(toolkit, play, viewer, target)
-        assertTrue(toolkit.cast.cast(), toolkit.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
         return takeSent(play, viewer, from)
     }
     private fun targetLife(toolkit: TableToolkitController, play: PlayState, viewer: String, target: String) {
@@ -245,7 +246,8 @@ class AutomatumPauseReviewTest {
         assertEquals(cast.currentNodeId, routes.held, "the pause shown is held")
         assertTrue(bob.cast.start(card(cast, bHand)), bob.error)
         targetLife(bob, cast, f.b, f.a)
-        assertTrue(bob.cast.cast(), bob.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
         takeSent(cast, f.b, from = cast.currentNodeId)
         assertEquals(2, tree!!.nodes.values.count { it.parentId == cast.currentNodeId }, "a branch from Bob's pause")
     }
@@ -381,7 +383,8 @@ class AutomatumPauseReviewTest {
         AutomatumBoards.compute(cast, f.b)
         assertTrue(bob.cast.start(card(cast, bHand, 0)), bob.error)
         targetLife(bob, cast, f.b, f.a)
-        assertTrue(bob.cast.cast(), bob.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
         val (batch, request) = sent.single()
         val change = serve(cast, batch, request, f.b, from = cast.currentNodeId)
         assertNull(change.reason, "the late reaction is a branch")
@@ -447,7 +450,8 @@ class AutomatumPauseReviewTest {
         AutomatumBoards.compute(cast, f.b)
         assertTrue(bob.cast.start(card(cast, bHand, 0)), bob.error)
         targetLife(bob, cast, f.b, f.a)
-        assertTrue(bob.cast.cast(), bob.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
         val (batch, request) = sent.single()
         val planned = assertNotNull(tree).let { if (knowsBranch && shuffled) it.branchStart(cast, f.b)!! else cast }
         if (shuffled) assertTrue(planned.board != cast.board == knowsBranch, "the branch's start reseeds the libraries")
@@ -479,10 +483,11 @@ class AutomatumPauseReviewTest {
         /** The live game as this device last received it. */
         var live: PlayState = view
         val queue = mutableListOf<Triple<GameAction.PlayBatch, String, String?>>()
-        // As the app's toolkit (TableScreen's tableToolkit): the live game, or the held point's board once held
+        // As the app's toolkit (TableScreen's tableToolkit): the live game, or the held point's board once held. These games
+        // keep a cast open (its mana section, I-D47 Autotap off) while the table goes on, then Cast it
         val toolkit = TableToolkitController(player, { if (held != null) view else live }, { true }, { _, _ -> true },
             automatedBatch = { batch, request -> queue += Triple(batch, request, held); true }, playTree = { tree },
-            continuation = { held?.let { Continuation(it, explicit = true) } })
+            continuation = { held?.let { Continuation(it, explicit = true) } }).also { it.cast.autotap = false }
         val routes = object : PauseRoutes {
             override fun hold(node: String): Boolean { held = node; view = tree!!.stateAt(node)!!; return true }
             override fun holding(node: String) = held == node

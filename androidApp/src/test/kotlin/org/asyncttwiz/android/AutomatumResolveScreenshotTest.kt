@@ -119,7 +119,8 @@ class AutomatumResolveScreenshotTest {
         assertTrue(toolkit.cast.start(aSpark))
         val tapped = if (target.startsWith("life/")) item(play, f.a) { it.id == target } else item(play, f.a) { it.cardId == target }
         toolkit.open(TableIntent.Actions(tapped.id, null), tapped, TableSelection())
-        assertTrue(toolkit.cast.cast(), toolkit.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
         val (batch, request) = sent.single()
         return accepted(play, batch, request, f.a)
     }

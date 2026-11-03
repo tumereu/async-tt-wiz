@@ -1,0 +1,1 @@
+add: Tokens made by Automatum show the matching token's picture, from the set of the card that made them when there is one.

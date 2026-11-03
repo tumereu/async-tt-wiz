@@ -408,6 +408,25 @@ out of anything stuck.
   board's ping-target set (`RetainedPosition.targets`, ~45 KB on a 600-card board) by digest instead of repeating it:
   each distinct set is stored once per play as a `targets` endpoint record (server-only, no migration; positions
   written before keep the set inline and read the same). Stored bytes per batch member went from ~28 KB to ~3 KB.
+- **Built (I-D47 casting, 2026-11-03):** "Autotap mana sources" is `PauseSettings.autotap` (Settings → Automatum, device
+  per account, on by default; `PausePreferences.settings` is the value a quick-actions toggle binds), copied into
+  `CastController.autotap`. With it on a payment is answered with the engine's suggestion (pool mana first, `Mana.suggest`)
+  and never shown; one the suggestion can't make is refused ("Not enough mana to pay …"); off, the mana chips stay
+  (STK-024). `CastFlow.sending(payment)` completes a flow in one replay (was three: answer, `sent`, plan); its
+  `Sending.cast` is the cast alone and `Sending.sent()` goes on in the same call. Latency found with
+  `PerformanceProbeTest.probeACastOnABusyBoard` (desktop JVM, ~180-card board): hand plays ~150 ms (cached, worked out in
+  the background), start ~12 ms, pay ~20 ms, preview plan ~12–40 ms, the passes after the cast (`StepFlow.automatic`)
+  ~70–200 ms, the full plan ~30–60 ms, then the prediction on the main thread ~15–35 ms; nothing waited for the server
+  (automated batches were already predicted). So a complete cast's own changes are planned first (`Step.Preview`) and
+  shown as a local-only prediction (`CastPreview`: `GameSession.previewBatch`, never sent) while the worker goes straight
+  on to the full batch (`AutomatumWork.staged`, nothing queued in between); the batch then replaces the preview
+  (`GameplayReplica.replace`: the table animates from the preview to the batch's result with the batch's own events) and
+  a cast that can't go out drops it (`retire`, a jump back). Only casts on the live line preview (not a held or reviewed
+  point); a board that moved on under a preview drops the cast ("The table changed: cast it again."). A double-tap on a
+  battlefield card with Automatum on activates its one legal mana ability (several: its card menu) — the way to tap by
+  hand for the next cast. The cast panel docks full width exactly above the viewer's hand with the card small
+  (`SmallCard`: tap Inspect, hold the large overlay; I-D48), no rules text, no spinner, the eye fixed at the bottom-left
+  while the rest fades (`HoldTip` on hold), icon + text buttons. Catalog: STK-023, STK-024, STK-042, TBL-043, LOB-113.
 - **Built (I-D46 (a)–(c), 2026-11-03):** (a) `TableToolkitController.playable` is the set of cards with a legal
   `CardPlay` for the viewer (the engine's options, worked out on the Automatum worker and kept per board); the table
   draws a soft cyan halo behind them (live table only; none during a cast or an open choice). (b) An Automatum refusal
@@ -416,8 +435,8 @@ out of anything stuck.
   failures (offline, still working out) keep theirs. A refused control (`MenuControl.refused`) shakes on tap and shows
   its reason on hold; `LocalRefusal` is gone. Inspect lists the reasons of the card's refused plays
   (`automatumReasons`). (c) With Automatum on the quick-actions row is `AutomatumToggles` (Full control: the device
-  setting, synced as SYS-071; Skip when I have no choice: `SetSkipWhenNoChoice`; Autotap mana: `AutotapPreferences`,
-  prefs `automatum-cast`, key `autotap/<account>`, on by default, for the cast flow to read), except during the opening
+  setting, synced as SYS-071; Skip when I have no choice: `SetSkipWhenNoChoice`; Autotap mana: the cast's own
+  setting `PauseSettings.autotap`), except during the opening
   mulligan and while Automatum's combat offers quick actions. "Manual…" is gone: card and zone menus show only engine
   rows and no-game-effect cells, today's menus while a `Manual` decision is open; Table actions, the Stack bubbles and
   Manage Stack drop their manual entries. Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-118, ZON-004, ZON-007,
@@ -522,7 +541,9 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   existing in ATW at once (TBL-103); the engine keeps it in its new zone until state-based actions are next checked (CR
   704.5d), so while a flow waits for a decision mid-resolution (a destroyed token's "its controller may search") the
   continuation record keeps those objects and their place (`FlowRecord.lingering`), never shown to players; without an
-  open decision such an object is unmappable.
+  open decision such an object is unmappable. Its picture (SYS-072, built): the planning device's `TokenArt` finds the
+  best catalog token printing (the source card's related tokens, else a full characteristics match, else none) and its
+  Scryfall id goes into the `CreateToken`'s card data; the engine's definition is unchanged.
 - **Copies of cards** (CR 707.12, made where the card is): an ATW token card made in its owner's Exile
   (`CreateToken(definition, containerId)`), showing the copied card's own card data marked as a token's (as ATW's
   manual copy, `CloneToken`); its ledger keeps the engine's id, definition and `copyOfCard`. Cast, it stays in Exile

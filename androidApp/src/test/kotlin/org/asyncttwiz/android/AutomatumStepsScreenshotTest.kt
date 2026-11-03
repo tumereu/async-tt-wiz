@@ -161,7 +161,8 @@ class AutomatumStepsScreenshotTest {
         assertTrue(toolkit.cast.start(aSpark))
         val life = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
         toolkit.open(TableIntent.Actions(life.id, null), life, TableSelection())
-        assertTrue(toolkit.cast.cast(), toolkit.error)
+        // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
+        if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
         val (batch, request) = sent.single()
         val cast = accepted(play, batch, request, f.a)
         fun life(p: PlayState) = p.board.players.single { it.accountId == f.b }.life.toInt()

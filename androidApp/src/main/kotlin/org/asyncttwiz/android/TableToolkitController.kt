@@ -24,7 +24,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * server step ([GameAction.ExitFlow]) that takes the flow back when it can and always goes through. */
     private val exitFlow: ((MtgAction) -> Boolean)? = null,
     /** Where a cast's engine work runs (SYS-025): off the main thread in the app. */
-    automatumWork: AutomatumWork = AutomatumWork.Inline) : TableActionRoutes {
+    automatumWork: AutomatumWork = AutomatumWork.Inline,
+    /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
+    tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
+    /** I-D47: a complete cast shown at once on this device while its batch is worked out (null: not here). */
+    castPreview: CastPreview? = null) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     private var draft: PlayBatchDraft? = null
     fun current(): PlayState? = (draft?.state ?: state())?.takeIf { TableActionScope(it.gameId, it.id) == identity }
@@ -63,11 +67,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { castMessage(it) },
-        automatumWork, beginning = ::holdForReaction)
+        automatumWork, beginning = ::holdForReaction, preview = castPreview, tokenArt = tokenArt)
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, onRespond = ::holdForReaction)
+        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt)
     private val automatumWork = automatumWork
     /** Combat through Automatum (I3 on today's lanes): declarations, passing on to the damage, early divisions. */
     internal val combat = CombatController({ current()?.takeIf { enabled() } }, { submit(it) }, ::engineTags, automatumWork,
@@ -105,7 +109,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /**
      * I-D46 (a): the cards the viewer may do something with through Automatum now (cast or play it, activate one of its
-     * abilities, mana abilities and special actions included): exactly the engine's options for the viewer
+     * abilities other than mana abilities, special actions included): exactly the engine's options for the viewer
      * ([org.asyncttwiz.automatum.CardPlays], worked out off the main thread and kept per board). Empty with Automatum
      * off, while a cast or an Automatum choice is open, while the viewer can't act, and until it is worked out.
      */
@@ -115,7 +119,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
         val plays = cardPlays(play) ?: return emptySet()
         playableCache?.takeIf { it.first === plays }?.let { return it.second }
-        return plays.byCard.filterValues { offered -> offered.any { it.legal } }.keys.also { playableCache = plays to it }
+        // A mana ability alone is no reason to glow (owner, 2026-11-03): lands and mana rocks would glow whenever you hold
+        // priority
+        return plays.byCard.filterValues { offered -> offered.any { it.legal && it.kind != org.asyncttwiz.automatum.CardPlay.Kind.Mana } }
+            .keys.also { playableCache = plays to it }
     }
     private var playableCache: Pair<org.asyncttwiz.automatum.CardPlays, Set<String>>? = null
 
@@ -863,6 +870,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         // waits for something done by hand drags work as with it off (I-D37, SYS-069)
         val engineDrags = current()?.let { it.board.automatum && !AutomatumBoards.byHand(it) } == true
         if (intent is TableIntent.Move && intent.drag && engineDrags) return automatumDrag(intent)
+        // I-D47: a double-tap on a battlefield card taps it for mana through Automatum (the mana goes to the pool)
+        if (intent is TableIntent.Rotate && intent.toggle && engineDrags) tapForMana(intent)?.let { return it }
         if (intent is TableIntent.PlayerDelta && intent.color == null && engineDrags) {
             error = AutomatumDrags.LIFE; return false
         }
@@ -879,6 +888,24 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             handleOne(intent)
         } else handleOne(intent)
     }
+    /**
+     * I-D47 (TBL-043): a double-tap on a battlefield card with Automatum on activates its mana ability, the mana going to
+     * its controller's pool for the next cast (autotap pays with the pool first): the one mana ability Automatum allows
+     * now goes as from its menu (TBL-115); with several (or one asking a colour) the panel or the card's menu lets the
+     * player choose. Null when the card has no mana ability allowed now (then the double-tap is what it was).
+     */
+    private fun tapForMana(intent: TableIntent.Rotate): Boolean? {
+        val play = current()?.takeIf { enabled() } ?: return null
+        val card = CombatStackRules.liveSource(play.board, intent.scope.contextId)?.id ?: return null
+        val plays = cardPlays(play) ?: run { error = WORKING_OUT; return false }
+        val mana = plays.of(card).filter { it.kind == org.asyncttwiz.automatum.CardPlay.Kind.Mana && it.legal }
+        return when (mana.size) {
+            0 -> null
+            1 -> play(card, mana.single())
+            else -> { openCard(TableScope(card, listOf(card)), intent.sources); true }
+        }
+    }
+
     /**
      * A drag with Automatum on (I-D36): a hand card dropped on the Battlefield or the Stack is played or cast (the cast
      * panel, as a double-tap, ZON-004); a creature dropped into the combat area joins the draft of the declaration the

@@ -100,7 +100,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
                             }
                             if (record == null) { skipped++; continue }
                             batch += record
-                            traits += searchTraits(element.asJsonObject)
+                            traits += searchTraits(element.asJsonObject, record.token)
                             count++
                             if (record.token) tokens++
                             if (record.name.startsWith("A-")) alchemy++
@@ -175,7 +175,7 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
 
     /** Search-only provider data kept beside the record, never in it (the record becomes deck data). Lenient:
      * malformed optional fields mean "unknown", never a rejected card. */
-    private fun searchTraits(json: JsonObject): CatalogPrintingTraits = CatalogPrintingTraits(
+    private fun searchTraits(json: JsonObject, token: Boolean): CatalogPrintingTraits = CatalogPrintingTraits(
         rarity = json.get("rarity")?.takeIf { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.asString
             ?.lowercase()?.takeIf { it.length <= 32 }.orEmpty(),
         identity = json.get("colorIdentity")?.takeIf { it.isJsonArray }?.asJsonArray
@@ -184,7 +184,20 @@ class MtgJsonCatalog(private val recordBytes: Int = 256 * 1024, private val fiel
             val bit = CardSearchRules.FORMATS.indexOf(format.lowercase())
             val allowed = status.isJsonPrimitive && status.asJsonPrimitive.isString && status.asString.lowercase() in setOf("legal", "restricted")
             if (bit >= 0 && allowed) mask or (1L shl bit) else mask
-        } ?: 0L)
+        } ?: 0L,
+        related = relatedTokens(json, token))
+
+    /** A card's `relatedCards.tokens` (token printing ids); a token's `relatedCards.reverseRelated` (and the older
+     * top-level `reverseRelated`): the names of the cards that make it, lower case. Lenient, like [searchTraits]. */
+    private fun relatedTokens(json: JsonObject, token: Boolean): List<String> {
+        fun strings(element: JsonElement?) = element?.takeIf { it.isJsonArray }?.asJsonArray
+            ?.filter { it.isJsonPrimitive && it.asJsonPrimitive.isString }?.map { it.asString }.orEmpty()
+        val related = json.get("relatedCards")?.takeIf { it.isJsonObject }?.asJsonObject
+        return if (token) (strings(related?.get("reverseRelated")) + strings(json.get("reverseRelated")))
+            .filter { it.length in 1..256 }.map { it.lowercase(java.util.Locale.ROOT) }.distinct().take(2000)
+        else strings(related?.get("tokens")).filter { runCatching { UUID.fromString(it).toString() == it }.getOrDefault(false) }
+            .distinct().take(64)
+    }
 
     companion object {
         // Exhaustive consumers: DeckImportResolver, DeckSavePlan/DeckEditorSource, card inspection,

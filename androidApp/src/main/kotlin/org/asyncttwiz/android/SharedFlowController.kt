@@ -42,6 +42,8 @@ internal class SharedFlowController(
     private val work: AutomatumWork = AutomatumWork.Inline,
     /** "Respond" was tapped (#2: it holds the viewer's pause, [PauseController.holdForReaction]). */
     private val onRespond: () -> Unit = {},
+    /** The pictures of tokens a flow makes (§4.6). */
+    private val tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
 ) : FlowQuestions {
     /** The flow of the shown board, null until worked out (or when there is none). */
     var view by mutableStateOf<SharedFlow?>(null); private set
@@ -305,7 +307,7 @@ internal class SharedFlowController(
                 val requestId = DeviceRandom.uuid()
                 val command = GameCommand(requestId, GameScope(play.gameId, playId = play.id),
                     GameAction.PlayBatch(listOf(PlayAction.PassAttention)), DeviceRandom.uuid(), "1")
-                val plan = EngineBatch.plan(call, viewer, command)
+                val plan = EngineBatch.plan(call, viewer, command, tokenArt)
                 if (plan.actions.isEmpty()) Outcome.Empty else Outcome.Send(play.board, plan.action, requestId)
             } catch (ask: Ask) {
                 Outcome.Confirm(ask.acting)

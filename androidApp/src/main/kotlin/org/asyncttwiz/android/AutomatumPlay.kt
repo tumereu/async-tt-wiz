@@ -1,7 +1,5 @@
 package org.asyncttwiz.android
 
-import android.content.Context
-import android.content.SharedPreferences
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.KeyframesSpec
 import androidx.compose.animation.core.keyframes
@@ -18,7 +16,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -46,37 +43,6 @@ internal fun Modifier.shaken(shakes: Int): Modifier {
     return graphicsLayer { translationX = offset.value * density }
 }
 
-/**
- * I-D47 "Autotap mana" (on by default): Automatum pays a cast's mana by itself when its suggestion pays, so the cast
- * panel skips the mana section. Device-local per account, like the other Automatum settings (LOB-113).
- */
-internal class AutotapPreferences(context: Context, accountId: String) {
-    private val preferences = context.applicationContext.getSharedPreferences("automatum-cast", Context.MODE_PRIVATE)
-    private val key = "autotap/$accountId"
-    var autotap: Boolean
-        get() = preferences.getBoolean(key, true)
-        set(value) { preferences.edit().putBoolean(key, value).apply() }
-
-    fun observe(onChange: () -> Unit): () -> Unit {
-        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, changed -> if (changed == null || changed == key) onChange() }
-        preferences.registerOnSharedPreferenceChangeListener(listener)
-        return { preferences.unregisterOnSharedPreferenceChangeListener(listener) }
-    }
-}
-
-@Composable
-internal fun rememberAutotap(accountId: String): Pair<State<Boolean>, AutotapPreferences> {
-    val context = LocalContext.current
-    val preferences = remember(context, accountId) { AutotapPreferences(context, accountId) }
-    val state = remember(preferences) { mutableStateOf(preferences.autotap) }
-    DisposableEffect(preferences) {
-        val stop = preferences.observe { state.value = preferences.autotap }
-        state.value = preferences.autotap
-        onDispose { stop() }
-    }
-    return state to preferences
-}
-
 /** One of the viewer's Automatum toggles in the quick-actions row (I-D46 (c)). */
 internal data class AutomatumToggle(val name: String, val label: String, val tooltip: String, val icon: ImageVector,
     val on: Boolean, val enabled: Boolean, val toggle: () -> Unit)
@@ -100,7 +66,7 @@ internal object AutomatumToggles {
     }
 
     /** The three toggles: Full control and Skip when I have no choice as the game holds them for [viewer] (SYS-071,
-     * SYS-063), Autotap mana from this device (I-D47). */
+     * SYS-063), Autotap mana sources from this device (I-D47, [PauseSettings.autotap], which casting reads). */
     fun of(play: PlayState, viewer: String, enabled: Boolean, autotap: Boolean, setFullControl: (Boolean) -> Unit,
         submit: (PlayAction) -> Boolean, setAutotap: (Boolean) -> Unit): List<AutomatumToggle> {
         val own = play.board.players.single { it.accountId == viewer }
@@ -111,7 +77,7 @@ internal object AutomatumToggles {
                 Icons.Outlined.FastForward, own.skipWhenNoChoice, enabled) {
                 submit(PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(!own.skipWhenNoChoice)))
             },
-            AutomatumToggle(AUTOTAP, "Autotap\nmana", "Autotap mana: casting pays its mana by itself when it can",
+            AutomatumToggle(AUTOTAP, "Autotap\nmana", "Autotap mana sources: casting pays by itself, with mana in your pool first",
                 Icons.Outlined.WaterDrop, autotap, true) { setAutotap(!autotap) })
     }
 }
@@ -121,12 +87,12 @@ internal object AutomatumToggles {
 @Composable
 internal fun RowScope.AutomatumToggleCells(play: PlayState, viewer: String, enabled: Boolean, submit: (PlayAction) -> Boolean) {
     val (pauseState, pausePreferences) = rememberPauseSettings(viewer)
-    val (autotapState, autotapPreferences) = rememberAutotap(viewer)
-    val toggles = AutomatumToggles.of(play, viewer, enabled, autotapState.value,
+    val toggles = AutomatumToggles.of(play, viewer, enabled, pauseState.value.autotap,
         // SYS-071: the device's setting, which goes into the game after a change (FullControlSync)
         setFullControl = { on -> pausePreferences.settings = pauseState.value.copy(fullControl = on,
             fullControlChanged = System.currentTimeMillis()) },
-        submit = submit, setAutotap = { autotapPreferences.autotap = it })
+        // I-D47: the cast's own "Autotap mana sources" setting (Settings → Automatum)
+        submit = submit, setAutotap = { on -> pausePreferences.settings = pauseState.value.copy(autotap = on) })
     for (toggle in toggles) key(toggle.name) {
         val control = MenuControl(toggle.name, toggle.enabled, selected = toggle.on, color = AutomatumViolet) { toggle.toggle() }
         RingPress(control, Modifier.weight(1f).height(48.dp).semantics { stateDescription = if (toggle.on) "On" else "Off" },

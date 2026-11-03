@@ -111,6 +111,7 @@ class SpmMoreCardsScenariosTest {
         Equip {5}
     """)
     private val barb = Cards.invent("Stinger's Barb", "{1}{B}", "Instant", "Target creature gets -3/-3 until end of turn.")
+    private val destroy = Cards.invent("Sudden End", "{1}{B}", "Instant", "Destroy target creature.")
     private val counterspell = Cards.invent("Hard Refusal", "{U}{U}", "Instant", "Counter target spell.")
     private val jolt = Cards.invent("Static Jolt", "{R}", "Instant", "Static Jolt deals 2 damage to any target.")
     private val trinket = Cards.invent("Brass Trinket", "{2}", "Artifact", "")
@@ -133,7 +134,7 @@ class SpmMoreCardsScenariosTest {
         advanceTo(TurnStep.DeclareAttackers, turn = 3)
         alice.attacks(bear)
         resolveAll()
-        expect { alice.battlefield has "Treasure" }
+        expect { alice.battlefield has "Treasure Token" }
     }
 
     /** 2 damage to the creature and 2 to its controller. */
@@ -313,7 +314,7 @@ class SpmMoreCardsScenariosTest {
     @Test
     fun exiledCardsReturnWhenItDies() = scenario {
         alice.battlefield("Plains", "Plains", "Plains", "Swamp", "Swamp", "Swamp", "Swamp")
-        alice.hand(blot, barb)
+        alice.hand(blot, destroy)
         bob.battlefield(trinket)
         bob.graveyard(ogre)
         alice.casts(blot, paying = listOf("Plains", "Plains", "Plains", "Swamp", "Swamp"))
@@ -323,13 +324,12 @@ class SpmMoreCardsScenariosTest {
             bob.exile has trinket
             bob.exile has ogre
         }
-        alice.casts(barb, target = blot, paying = listOf("Swamp#2", "Swamp#3"))
+        alice.casts(destroy, target = blot, paying = listOf("Swamp#2", "Swamp#3"))
         resolveAll()
-        expect {
-            bob.hand has trinket
-            bob.hand has ogre
-            alice.library has blot
-        }
+        // the returned cards are in bob's hand, hidden from alice (D60)
+        assertEquals(2, state.player(bob.id).hand.size)
+        assertTrue(state.exile.isEmpty())
+        assertEquals(1, state.player(alice.id).library.size)
     }
 
     /** At the beginning of combat an artifact becomes an untapped 3/3 artifact creature. */
@@ -391,10 +391,10 @@ class SpmMoreCardsScenariosTest {
     @Test
     fun biggestCreatureDies() = scenario {
         alice.battlefield(krovak, "Swamp", "Swamp")
-        alice.hand(barb)
+        alice.hand(destroy)
         alice.library(bear)
         bob.battlefield(ogre, bear)
-        alice.casts(barb, target = ogre)
+        alice.casts(destroy, target = ogre)
         resolveAll()
         expect {
             krovak.counters(p1p1) shouldBe 1

@@ -251,6 +251,8 @@ class AutomatumCombatReviewTest {
         edit { b -> b.copy(cards = b.cards.map { if (it.id == hidden) it.copy(covered = true, explicitlyCovered = true, enteredTurn = "3") else it }) }
         val waiting = object : AutomatumWork { override fun <T> run(work: () -> T, done: (T) -> Unit) = Unit }
         val bobsDevice = toolkit(f.b, waiting)
+        // What combat allows is worked out (as AutomatumCombatHost does); only the engine's reason waits
+        bobsDevice.combat.show(play, AutomatumBoards.combat(play) { tags() })
         tapCard(bobsDevice, hidden)
         assertNotNull(bobsDevice.error)
         assertTrue("Hill Ogre" !in bobsDevice.error!!, "shown to Bob: ${bobsDevice.error}")

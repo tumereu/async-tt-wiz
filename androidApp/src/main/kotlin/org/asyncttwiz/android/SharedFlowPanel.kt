@@ -84,7 +84,9 @@ internal fun SharedFlowHost(toolkit: TableToolkitController, play: PlayState, sc
         CombatDivisionDialog(flows, play, names, decision as Decision.Divide, division, toolkit.combat.divisionCount(play, division))
         return
     }
-    CastPanelPlacement(stack, if (bar) handRow?.center?.y else null) {
+    // Finalreview-combat #2: the priority prompts (a pause on something on the Stack, the other player's) dock above the
+    // hand in portrait while the combat area is shown, clear of its preview
+    CastPanelPlacement(stack, if (bar) handRow?.center?.y else null, if (!bar && decision == null) combatDock(scene, viewer) else null) {
         when {
             decision != null && flows.answering != null -> when {
                 flows.targeting -> if (!toolkit.stackTargeting) FlowTargetBar(flows, flow, play, decision as Decision.Targets)

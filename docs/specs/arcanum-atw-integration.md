@@ -352,6 +352,24 @@ out of anything stuck.
     changes when an earlier event changes) as a shared persistent list; a log is worked out from the nearest event
     already read and only this and last turn's entries are walked. The app's `engineTags` is a lazy `HistoryTags` that
     `AutomatumBoards.engineLog` reads through the chain without listing the history.
+- **Built (final combat review fixes, 2026-11-03; decisions made for the owner overnight, vision-aligned, to be
+  confirmed):**
+  - **Decisions:** in portrait, while the combat area's panel is shown, pause surfaces (the empty-Stack pause bar, the
+    respond prompt and the other player's waiting bar) dock just above the viewer's hand (`CastPanelPlacement` with
+    `combatDock`), so the combat preview stays visible; the empty-Stack pause bar has the eye (I-D10,
+    `PauseController.hiddenAt`). The first-strike damage step stays without a pause unless Full control is on.
+  - **Additional combat phases (#1, CR 500.8):** `TurnExtras` keeps the engine's `extraPhases`/`resumeAt` with the turn
+    they belong to (`phasesTurn`), so stops and pauses keep them; the reducer takes a passed step back to
+    `BEGIN_COMBAT` with Automatum on (`ChooseStep(through = true)`), the step back into the added combat.
+  - #3: after a whole round of turns in one call, `StepFlow.automatic` goes on to the active player's main phase (a stop)
+    instead of stopping wherever it is. #4: `CombatFlow.preview` answers another decision on the way with its suggestion
+    or the engine's first listed answer and says so (`DamagePreview.assumed`, "Depends on a choice" under the area).
+    #5: `CombatController.choices` never works combat out on the main thread with background work: until
+    `AutomatumCombatHost` has, combat taps and drags say "still working out". #6: `SharedFlowController.autoPass` tells
+    through a callback whether the pass went out; `AutomatumPauseDriver` counts the pause passed only then and tries
+    again (busy, table changed) a few times. #7: `MtgFacts.digest` leaves out Full control and Skip when I have no
+    choice, so a change of either never refuses the other player's batch in flight; the combat quick actions offer no
+    "Pass" while the viewer's pause bar (with its Pass) is shown. Catalog: CMB-029, STK-036–STK-038, SYS-057.
 - **Built (batch cost, finalreview-sync N4, 2026-11-03):** a 1000-member batch keeps every per-member check and record,
   made cheaper without changing what is accepted or recorded (`AutomatedBatchEquivalenceTest` compares the recorded
   events with the earlier reducer's). The reducer visits only the cards an event changed (`CardChanges`) instead of

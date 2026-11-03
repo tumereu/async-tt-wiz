@@ -119,7 +119,8 @@ object StepFlow {
      * (`Engine.shouldPassFor`, which follows each player's "Skip when I have no choice"), or holds priority where they
      * have neither a stop nor a pause ([PausePoints]), the host passes for them.
      * Stops at an open decision, a player with a choice, the end of the game, after [MAX_AUTOMATIC_PASSES], or once a
-     * whole round of turns went by in this call (turn number two up from where the call is now). A loop of mandatory
+     * whole round of turns went by in this call (turn number two up from where the call is now) at the next stop (the
+     * active player's main phase, even when they could do nothing there). A loop of mandatory
      * actions (CR 104.4b, 732.4: the same state, `Engine.loopKey`, again with only forced passes since) stops it with
      * `Input.MandatoryLoop`: the engine's decision done by hand (I-D37) says the game is a draw, and answering it makes it one.
      */
@@ -135,7 +136,12 @@ object StepFlow {
             val s = call.working
             s.pending?.let { return it }
             if (Engine.result(s) != null) return null
-            if (s.turn.number >= start + 2) return null
+            // A whole round of turns went by in this call: it ends at the next stop, the active player's main phase on an
+            // empty Stack (finalreview-combat #3: never where the holder has neither a stop nor a pause), or sooner where
+            // a player has a point of their own
+            val round = s.turn.number >= start + 2
+            if (round && s.priority.holder == s.turn.active && s.stack.isEmpty() &&
+                (s.turn.step == arcanum.api.TurnStep.PrecombatMain || s.turn.step == arcanum.api.TurnStep.PostcombatMain)) return null
             // The step the player chose is reached: they act in it (TRN-009)
             if (keep != null && keep.reached(s)) return null
             val going = keep != null && keep.going(s)

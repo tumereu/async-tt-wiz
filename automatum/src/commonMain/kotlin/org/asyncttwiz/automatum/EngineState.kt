@@ -145,6 +145,7 @@ object EngineState {
             )
         }
         val position = TurnPosition.of(board.turn)!!
+        val (extraPhases, resumeAt) = turnExtras.phases(board.turn.number.toInt())
         val built = GameState(
             players = players.toMutableList(),
             objects = objects,
@@ -160,7 +161,8 @@ object EngineState {
                 .associateBy { it.id }),
             delayedTriggers = LinkedHashMap(board.engineRecords.filter(EngineCodec::isDelayed).map(EngineCodec::delayed).associateBy { it.id }),
             turn = TurnState(board.turn.number.toInt(), PlayerId(board.turn.accountId), EngineCodec.step(position),
-                turnExtras.landsPlayed.takeIf { turnExtras.turn == null || turnExtras.turn == board.turn.number.toInt() } ?: emptyMap(), turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns),
+                turnExtras.landsPlayed.takeIf { turnExtras.turn == null || turnExtras.turn == board.turn.number.toInt() } ?: emptyMap(), turnExtras.turnStarted ?: Derived.turnStarted(board), turnExtras.extraTurns,
+                extraPhases, resumeAt),
             // #10 (CR 117.4, I-D28): passes in a row count only in the step they were made in; a step or turn changed by
             // hand while Automatum was off starts the count again
             priority = board.priority?.let { PriorityState(it.holder?.let(::PlayerId),

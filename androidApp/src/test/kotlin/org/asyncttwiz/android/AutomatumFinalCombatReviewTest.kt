@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import arcanum.api.Layout
 import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
@@ -20,7 +21,6 @@ import org.asyncttwiz.protocol.*
 import org.asyncttwiz.storage.ParsedCard
 import org.junit.After
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -280,23 +280,87 @@ class AutomatumFinalCombatReviewTest {
     private fun bounds(description: String): List<Rect> =
         compose.onAllNodesWithContentDescription(description, substring = true).fetchSemanticsNodes().map { it.boundsInRoot }
 
-    // finalreview-combat #2 — I-D41, CMB-029, STK-037: at a pause in combat (the blocks), the thing to react to is the
-    // combat area's damage preview, but the pause bar ("Declare blockers: you may act", Hold, Pass) is placed by the Stack
-    // (CastPanelPlacement: 300 dp wide, left of the Stack, centred on it) — over the middle of the table where the combat
-    // panel sits, covering the preview's badges for the whole response time. Expected: the pause bar leaves the combat
-    // panel's preview visible (e.g. docked above the hand or beside the panel)
-    @Ignore("finalreview-combat #2: the pause bar covers the combat area's damage preview")
+    // finalreview-combat #2 (fixed) — I-D41, CMB-029, STK-037: at a pause in combat (the blocks), the thing to react to is
+    // the combat area's damage preview: in portrait the pause bar ("Declare blockers: you may act", Hold, Pass) docks above
+    // Alice's hand, clear of the combat panel and its preview, and its eye hides it (I-D10) and brings it back
     @Test fun thePauseOnTheBlocksLeavesThePreviewVisible() {
         val alice = blocked()
         show(alice)
         compose.mainClock.advanceTimeBy(500)
-        snap("pause-on-blocks-portrait")
+        compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-combat-docked.png",
+            "Bob blocked Alice's Ironhide Brute with his Hill Ogre and it is Alice's pause on the blocks: in portrait her pause bar (\"Declare blockers: you may act\", the eye, Hold and Pass) sits just above her hand, so the combat area and its damage preview stay in view.")
         val pause = bounds("Your pause")
         assertEquals(1, pause.size, "Alice's pause bar is shown")
         val preview = bounds("Would take") + bounds("Header would go from") + bounds("Hide the combat area")
         assertTrue(preview.isNotEmpty(), "the preview is shown")
         val covered = preview.filter { it.overlaps(pause.single()) }
         assertTrue(covered.isEmpty(), "the pause bar ${pause.single()} covers the preview at $covered")
+        compose.onNodeWithContentDescription("Hide pause").performClick()
+        compose.mainClock.advanceTimeByFrame()
+        assertTrue(bounds("Your pause").isEmpty(), "the eye hides the bar")
+        compose.onNodeWithContentDescription("Show pause").performClick()
+        compose.mainClock.advanceTimeByFrame()
+        assertEquals(1, bounds("Your pause").size, "and brings it back")
+    }
+
+    // finalreview-combat #7 — CMB-029, STK-037: at Alice's pause on the blocks the pause bar has the Pass; the combat quick
+    // actions offer no second one while that bar is shown, and do once it is gone
+    @Test fun thePauseOnTheBlocksHasOnePass() {
+        val alice = blocked()
+        val context = toolkitQuickContext(play, TableSelection(), f.a)
+            .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
+        val scope = TableActionScope(play.gameId, play.id)
+        assertTrue(automatumCombatQuickActions(play, context, scope).orEmpty().any { it.name == "Pass" }, "no pause bar: the quick Pass")
+        assertTrue(automatumCombatQuickActions(play, context.copy(pauseBar = true), scope).orEmpty().none { it.name == "Pass" })
+        show(alice)
+        compose.mainClock.advanceTimeBy(500)
+        assertTrue(alice.pause.barWithPass(play, f.a), "Alice's bar with its Pass is shown")
+    }
+
+    // finalreview-combat #5 — SYS-025: right after the other player's event arrived, before what combat allows on the new
+    // board is worked out off the main thread, a combat tap isn't worked out on the main thread: it says so instead
+    @Test fun aCombatTapBeforeTheBoardIsWorkedOutDoesntBlock() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre)))
+        val waiting = object : AutomatumWork { override fun <T> run(work: () -> T, done: (T) -> Unit) = Unit }
+        val device = TableToolkitController(f.a, { live.value }, { true }, { action, _ -> accept(f.a, GameAction.Play(action)) },
+            playBatch = { actions, request -> accept(f.a, GameAction.PlayBatch(actions), request) },
+            playTree = { tree }, automatedBatch = { batch, request -> accept(f.a, batch, request) }, automatumWork = waiting)
+        val before = play.board
+        val bruteCard = card(play, brute)
+        tapCard(device, bruteCard)
+        assertEquals(CombatController.WORKING_OUT, device.error)
+        assertTrue(play.board === before, "nothing staged meanwhile")
+        assertNull(AutomatumBoards.cachedCombat(play), "nothing worked out on the caller's thread")
+        // Once worked out (AutomatumCombatHost), the tap stages
+        device.combat.show(play, AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
+        tapCard(device, bruteCard)
+        assertTrue(play.board.combat?.pairs.orEmpty().any { p -> p.attackers.any { it.sourceId == bruteCard } }, device.error)
+    }
+
+    // finalreview-combat #6 — STK-038: a pass at a pause is worked out on the worker; when the table changed meanwhile (the
+    // live board replaced without a new event) it isn't sent and its callback says so, so the pause isn't counted as passed
+    // (AutomatumPauseDriver tries again); the next try goes out
+    @Test fun aPauseIsCountedPassedOnlyOnceItsPassWentOut() {
+        blocked()
+        val queued = mutableListOf<() -> Unit>()
+        val later = object : AutomatumWork {
+            override fun <T> run(work: () -> T, done: (T) -> Unit) { queued += { done(work()) } }
+        }
+        val device = TableToolkitController(f.b, { live.value }, { true }, { action, _ -> accept(f.b, GameAction.Play(action)) },
+            playBatch = { actions, request -> accept(f.b, GameAction.PlayBatch(actions), request) },
+            playTree = { tree }, automatedBatch = { batch, request -> accept(f.b, batch, request) }, automatumWork = later)
+        val node = play.currentNodeId
+        var sent: Boolean? = null
+        assertTrue(device.flows.autoPass(f.a, node) { sent = it })
+        // An equal board (a replica rebuild): set through null, as the state keeps an equal value it is given
+        val rebuilt = play.copy(board = play.board.copy()); live.value = null; live.value = rebuilt
+        queued.removeAt(0)()
+        assertEquals(false, sent, "the table changed: not sent")
+        assertEquals(node, play.currentNodeId)
+        assertTrue(device.flows.autoPass(f.a, node) { sent = it })
+        queued.removeAt(0)()
+        assertEquals(true, sent, "sent the second time")
+        assertTrue(play.currentNodeId != node, "Alice's pause passed")
     }
 
     // In landscape the bar sits over the sidebar (life squares), clear of the combat area: a check that holds

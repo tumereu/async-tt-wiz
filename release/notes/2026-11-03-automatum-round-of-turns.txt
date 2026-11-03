@@ -1,0 +1,1 @@
+fix: With Automatum on, after turns in which nobody could do anything the game goes on to your main phase instead of stopping in your upkeep without a pause panel, and a pause the other device should end by itself is no longer sometimes left waiting.

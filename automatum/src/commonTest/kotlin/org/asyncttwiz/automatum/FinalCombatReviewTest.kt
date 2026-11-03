@@ -7,7 +7,6 @@ import org.asyncttwiz.protocol.MtgPriority
 import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -30,6 +29,7 @@ class FinalCombatReviewTest {
             "Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those creatures, where X is the number of enchantments you control.")
         Cards.invent("Ember Lance", "{R}", "Instant", "Ember Lance deals 1 damage to any target.")
         Cards.invent("Dawnwatch Cleric", "{1}{W}", "Creature — Human Cleric", "At the beginning of your upkeep, you gain 1 life.", "1/1")
+        Cards.invent("Alleyway Bruiser", "{2}{B}", "Creature — Human Warrior", "Whenever this creature becomes blocked, defending player discards a card.", "2/2")
     }
     private val table = AtwTable("final-combat-review")
     private val alice get() = table.alice
@@ -70,7 +70,6 @@ class FinalCombatReviewTest {
     // finalreview-combat #1: TurnExtras doesn't keep extraPhases/resumeAt, so EngineState.from drops the added phase
     // (the round trip fails on "turn"; without the check the second combat never comes). Once kept, the step back to the
     // added beginning of combat must also be taken (see the next test)
-    @Ignore("finalreview-combat #1: an additional combat phase is lost between engine calls (TurnExtras has no extraPhases)")
     @Test fun anAdditionalCombatPhaseFromAnAttackTriggerIsTaken() {
         val (valoria) = table.put(alice, PlayZone.BATTLEFIELD, "Valoria, Dawnwing Marshal")
         val rt = game()
@@ -96,7 +95,6 @@ class FinalCombatReviewTest {
     // attackers again. The planner says the step back to the added beginning of combat as a passed step, which ATW's
     // reducer refuses: the plan fails, so the attack can't be sent at all; the game can't go on with Automatum on
     // (every retry plans the same batch) until Automatum is switched off
-    @Ignore("finalreview-combat #1: an attack whose trigger adds a combat can't be sent when the call runs into that combat")
     @Test fun anAttackThatRunsIntoTheAddedCombatCanBeSent() {
         val (valoria) = table.put(alice, PlayZone.BATTLEFIELD, "Valoria, Dawnwing Marshal")
         val rt = game(fullControl = false, bobResponds = false)
@@ -212,5 +210,46 @@ class FinalCombatReviewTest {
         // straight to Alice's second main phase, Bob's pause in her end step, and Bob's own turn
         assertEquals(listOf("DECLARE_ATTACKERS:-", "DECLARE_ATTACKERS:B", "DECLARE_BLOCKERS:-", "DECLARE_BLOCKERS:A",
             "DECLARE_BLOCKERS:B", "POSTCOMBAT_MAIN:A", "END_STEP:B", "PRECOMBAT_MAIN:B"), points.take(8), "$points")
+    }
+
+    // finalreview-combat #4 — I-D29, CMB-029: the way to the damage needs a choice (Bob's discard from the Bruiser's
+    // "becomes blocked" trigger). The preview takes the engine's first listed answer and says the damage assumes one
+    // instead of showing nothing for the whole declare blockers step
+    @Test fun aPreviewThatNeedsAChoiceOnTheWayAssumesAnAnswer() {
+        val (bruiser) = table.put(alice, PlayZone.BATTLEFIELD, "Alleyway Bruiser")
+        val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
+        table.put(bob, PlayZone.HAND, "Island", "Island")
+        val rt = game(fullControl = false)
+        rt.run(alice) { StepFlow.pass(it, alice) }
+        passUntil(rt) { position(rt) == TurnPosition.DECLARE_ATTACKERS && holder(rt) == null }
+        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(bruiser))) }
+        passUntil(rt) { position(rt) == TurnPosition.DECLARE_BLOCKERS && holder(rt) == null }
+        val unblocked = assertNotNull(CombatFlow.preview(rt.call(), emptyList()))
+        assertEquals(false, unblocked.assumed, "no choice on the way without blocks")
+        val preview = assertNotNull(CombatFlow.preview(rt.call(), listOf(LaneBlock(ogre, bruiser))), "a preview with the discard assumed")
+        assertTrue(preview.assumed)
+        assertEquals(listOf(bruiser), preview.dies, "the Ogre (3/3) kills the Bruiser (2/2)")
+    }
+
+    // finalreview-combat #3 — I-D41, STK-036: a call that goes through a whole round of turns (nobody can do anything in
+    // Bob's turn: no land to play, nothing castable; no Full control) doesn't end in a step where the holder has neither
+    // a stop nor a pause (Alice's upkeep, where her untapped Mountain and instant mean the host can't pass for her as
+    // having no choice); it goes on to her main phase
+    @Test fun aRoundOfAutomaticTurnsEndsAtAStop() {
+        // Alice's Mountain is tapped until her untap step: in Bob's turn she can do nothing either
+        table.put(alice, PlayZone.HAND, "Ember Lance")
+        table.put(alice, PlayZone.BATTLEFIELD, "Mountain", tapped = true)
+        table.put(alice, PlayZone.LIBRARY, "Island", "Island", "Island", "Island")
+        table.put(bob, PlayZone.LIBRARY, "Ironhide Brute", "Ironhide Brute", "Ironhide Brute")
+        table.turn = TurnState(alice, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
+        table.priority = MtgPriority(alice)
+        val rt = RoundTrip(table.state(), table.definitions)
+        rt.run(alice) { StepFlow.pass(it, alice, StepFlow.Until.EndOfTurn) }
+        val s = rt.engine()
+        val h = assertNotNull(holder(rt), "someone holds priority")
+        assertEquals("5", rt.state.board.turn.number, "a whole round went by")
+        val point = PausePoints.of(s, arcanum.engine.state.PlayerId(h), false)
+        assertTrue(point != null || arcanum.engine.Engine.shouldPassFor(s, arcanum.engine.state.PlayerId(h)),
+            "${position(rt)} of turn ${s.turn.number}: $h holds priority at neither a stop nor a pause")
     }
 }

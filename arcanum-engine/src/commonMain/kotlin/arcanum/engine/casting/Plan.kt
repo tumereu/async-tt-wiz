@@ -602,7 +602,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             // msh: "choose up to X"
             val max = q.modes.maxCount?.let { minOf(printed, maxOf(q.modes.min, eval.value(it))) } ?: printed
             // ecl: "Choose one. If …, choose both instead": exactly that many
-            val min = if (raised && q.modes.min == q.modes.max) max else q.modes.min
+            // dsk backfill: "choose one or more instead" keeps the minimum (CR 700.2d)
+            val min = if (raised && q.modes.min == q.modes.max && !q.modes.upToMaxIf) max else q.modes.min
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
                 ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
             }, min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)

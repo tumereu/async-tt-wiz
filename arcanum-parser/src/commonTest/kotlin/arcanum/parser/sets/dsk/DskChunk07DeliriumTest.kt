@@ -145,6 +145,7 @@ class DskChunk07DeliriumTest {
                 max = 1,
                 maxIf = delirium,
                 maxIfCount = 3,
+                upToMaxIf = true,
                 chooser = Players.You,
             )),
             abilityWord = "Delirium",

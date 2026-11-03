@@ -275,6 +275,9 @@ data class Modes(
     /** "… If [condition], you may choose [maxIf] instead" (e.g. "you may choose both instead"). */
     val maxIf: Condition? = null,
     val maxIfCount: Int? = null,
+    /** dsk backfill: when [maxIf] holds, any number from [min] up to [maxIfCount] modes are chosen ("choose one or more
+     * instead", CR 700.2d) rather than exactly [maxIfCount] ("choose both instead"). */
+    val upToMaxIf: Boolean = false,
     /** "Choose one that hasn't been chosen" (for this object). */
     val onlyUnchosen: Boolean = false,
     /** "Choose one that hasn't been chosen this turn". */

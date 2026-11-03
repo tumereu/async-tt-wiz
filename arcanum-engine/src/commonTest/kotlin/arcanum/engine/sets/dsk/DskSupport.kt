@@ -1,6 +1,11 @@
 package arcanum.engine.sets.dsk
 
+import arcanum.api.Ability
 import arcanum.api.CounterKind
+import arcanum.api.Mechanic
+import arcanum.engine.Engine
+import arcanum.engine.input.Input
+import arcanum.engine.view.AbilityOrigin
 import arcanum.engine.input.CastWay
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
@@ -76,3 +81,12 @@ internal fun Scenario.resolveAll() {
 /** Casts the [door]th half (0 left, 1 right) of the Room [room] (CR 709.3, 709.5d). */
 internal fun ScenarioPlayer.castsDoor(room: String, door: Int, target: String? = null, paying: List<String>? = null) =
     casts(room, target = target, way = CastWay(face = door), paying = paying)
+
+/** The cast of [name] for its own printed alternative cost (impending, CR 702.176a). */
+internal fun Scenario.ownAlternative(name: String): CastWay = CastWay(alternative = view()[card(name)]!!.characteristics!!.abilities.first { inst ->
+    (inst.ability as? Ability.Static)?.mechanics?.any { it is Mechanic.AlternativeCost } == true
+}.origin)
+
+/** The cast of [name] for an alternative cost another permanent gives it, as [Engine.options] lists it. */
+internal fun Scenario.grantedWay(name: String): CastWay? = Engine.options(state, alice.id).filterIsInstance<Input.Cast>()
+    .firstOrNull { it.card == card(name) && it.way.alternative is AbilityOrigin.FromAbility }?.way

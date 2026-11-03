@@ -417,10 +417,36 @@ internal object Triggers {
         val item = StackItem(
             id = stackId, kind = StackItemKind.Triggered, controller = t.controller, source = t.source, ability = ability,
             origin = t.origin, targets = choices.second, modes = choices.first, names = t.names,
+            divided = divide(act, t, ability, choices.first, choices.second),
             snapshots = (listOfNotNull(t.sourceSeen) + t.snapshots).distinctBy { it.id }, event = t.event, delayedTrigger = t.delayedTrigger,
             timestamp = act.state.nextTimestamp(),
         )
         act.record(Change.StackItemAdded(item, act.state.stack.size, listOf(Meaning.Triggered)))
+    }
+
+    /** dsk backfill: an amount divided among a triggered ability's targets is divided as it is put on the Stack (CR 603.3d,
+     * 601.2d): a single target gets all of it; among two or more, its controller divides it, at least one each. */
+    private fun divide(
+        act: Act, t: WaitingTrigger, ability: Ability.Triggered, modes: List<Int>, targets: Map<String, List<TargetRef>>,
+    ): List<arcanum.engine.state.DividedShare> {
+        val slots = ability.instructions.targets + modes.flatMap { ability.instructions.modes?.options?.getOrNull(it)?.instructions?.targets.orEmpty() }
+        if (slots.none { it.divided != null }) return emptyList()
+        val e = act.evaluator(arcanum.engine.query.Context(t.controller, t.source, t.names, event = t.event))
+        return slots.flatMap { slot ->
+            val amount = slot.divided?.let { e.value(it) } ?: return@flatMap emptyList()
+            val chosen = targets[slot.name].orEmpty()
+            when (chosen.size) {
+                0 -> emptyList()
+                1 -> listOf(arcanum.engine.state.DividedShare(slot.name, chosen.single(), amount))
+                else -> {
+                    val shares = (act.asker.ask { Decision.Divide(it, t.controller, t.source, amount, chosen, 1) } as Answer.Division).shares
+                    require(shares.sumOf { it.amount } == amount && shares.all { it.amount >= 1 && it.target in chosen }) {
+                        "Divide $amount among the targets, at least 1 each"
+                    }
+                    shares.map { arcanum.engine.state.DividedShare(slot.name, it.target, it.amount) }
+                }
+            }
+        }
     }
 
     private fun recordTriggerCount(act: Act, source: ObjectId, origin: AbilityOrigin?) {

@@ -258,7 +258,8 @@ internal class Sentences(
         val options = modeLines.map { arcanum.api.Mode(instructions(modeBody(it)) ?: return null, text = it) }
         if (options.isEmpty()) return null
         val maxIf = when (m.groupValues[4]) { "one or more" -> options.size; "both" -> 2; else -> Numbers.count(m.groupValues[4]) ?: return null }
-        return Ability.Spell(Instructions(modes = arcanum.api.Modes(options, min = n, max = n, maxIf = condition, maxIfCount = maxIf, chooser = Players.You)),
+        return Ability.Spell(Instructions(modes = arcanum.api.Modes(options, min = n, max = n, maxIf = condition, maxIfCount = maxIf,
+            upToMaxIf = m.groupValues[4] == "one or more", chooser = Players.You)),
             abilityWord = m.groupValues[1].ifEmpty { null })
     }
 

@@ -463,10 +463,9 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
     whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
-  - Parser side (`Ability.Unparsed`, not the engine's): a haunt card's modal "… or the creature it haunts dies, choose one —", the
-    Ring's rarer wordings ("whenever you choose a creature as your Ring-bearer", "your Ring-bearer" as an object), and the keyword
-    actions above other than earthbend, airbend, behold, blight, connive, forage, recruit, the Ring and the cube's (discover,
-    manifest, cloak, support, learn, endure and time travel are done by the engine once read).
+  - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
+    "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
+    are read since the third round).
 - Not yet: `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and enlist, and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),

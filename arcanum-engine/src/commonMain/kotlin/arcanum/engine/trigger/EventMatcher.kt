@@ -233,7 +233,7 @@ internal object EventMatcher {
             ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.attacker)), RoleObjects(EventRole.OtherCombatant, listOf(it.enlisted))))) }.orEmpty()
         // CR 701.54d: the Ring tempted a player; the creature chosen is the event's object
         is EventPattern.RingTempts -> ((change as? Change.Happened)?.event as? GameEvent.RingTempted)
-            ?.takeIf { e.matches(pattern.players, it.player) }
+            ?.takeIf { e.matches(pattern.players, it.player) && (!pattern.chosen || it.bearer != null) }
             ?.let { listOf(TriggerEvent(listOfNotNull(it.bearer?.let { b -> RoleObjects(EventRole.Object, listOf(b)) }), listOf(it.player))) }.orEmpty()
         // CR 309.7
         is EventPattern.CompletesDungeon -> ((change as? Change.Happened)?.event as? GameEvent.CompletedDungeon)

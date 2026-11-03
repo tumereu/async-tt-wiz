@@ -35,6 +35,8 @@ internal object MechanicWordings {
     fun event(text: String): EventPattern? = when (text) {
         // CR 701.54d
         "the Ring tempts you" -> EventPattern.RingTempts(PlayerFilter.You)
+        // CR 701.54a, d: the creature chosen as the Ring tempts you is the event's object; none chosen, it doesn't count
+        "you choose a creature as your Ring-bearer" -> EventPattern.RingTempts(PlayerFilter.You, chosen = true)
         // CR 309.7
         "you complete a dungeon" -> EventPattern.CompletesDungeon(PlayerFilter.You)
         // CR 702.55b, c
@@ -99,8 +101,19 @@ internal object MechanicWordings {
         return null
     }
 
+    private val PUT_COUNTERS_ON_RING_BEARER = Regex("""Put (a|an|one|two|three) (\S+) counters? on your Ring-bearer\.""")
+
     /** Effect sentences ("The Ring tempts you."). */
-    fun effect(sentence: String): List<Step>? = when (sentence) {
+    fun effect(sentence: String): List<Step>? {
+        // CR 701.54e: "Put a +1/+1 counter on your Ring-bearer." (none when you don't control one)
+        PUT_COUNTERS_ON_RING_BEARER.matchEntire(sentence)?.let { m ->
+            return listOf(Step.Do(Effect.PutCounters(Objects.Each(yourRingBearer), Counters.kind(m.groupValues[2]) ?: return null,
+                Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))))
+        }
+        return wholeEffect(sentence)
+    }
+
+    private fun wholeEffect(sentence: String): List<Step>? = when (sentence) {
         // CR 701.54a
         "The Ring tempts you." -> listOf(Step.Do(Effect.Action(KeywordAction.TheRingTemptsYou)))
         // CR 701.49a–d

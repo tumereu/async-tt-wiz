@@ -44,6 +44,8 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        // CR 701.54e: "your Ring-bearer"
+        if (phrase == "your Ring-bearer" || phrase == "Your Ring-bearer") return MechanicWordings.yourRingBearer
         EoePhrases.noun(phrase)?.let { return it } // eoe
         SpmPhrases.noun(phrase)?.let { return it } // spm
         EclPhrases.noun(phrase)?.let { return it } // ecl
@@ -802,6 +804,8 @@ internal object Events {
         if (text in self || text.replaceFirstChar { it.lowercase() } in self) return ObjectFilter.Is(Objects.Self)
         // chunk 20
         if (text == "equipped creature" || text == "enchanted creature") return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
+        // CR 701.54e
+        if (text == "your Ring-bearer" || text == "Your Ring-bearer") return MechanicWordings.yourRingBearer
         // gtc chunk 08
         if (text == "enchanted land") return ObjectFilter.Is(Objects.AttachedTo(of = Objects.Self))
         SELF_OR_ANOTHER.matchEntire(text)?.let { m ->

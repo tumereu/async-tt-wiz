@@ -177,7 +177,11 @@ sealed interface EventPattern {
     @Serializable @SerialName("enlists") data class Enlists(val objects: ObjectFilter) : EventPattern
     /** "Whenever the Ring tempts you" (CR 701.54d): once the player has chosen their Ring-bearer, or couldn't. Role object: the
      * creature chosen. */
-    @Serializable @SerialName("ring-tempts") data class RingTempts(val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("ring-tempts") data class RingTempts(
+        val players: PlayerFilter,
+        /** "Whenever you choose a creature as your Ring-bearer": only when a creature was chosen. */
+        val chosen: Boolean = false,
+    ) : EventPattern
     @Serializable @SerialName("forage") data class Forage(val players: PlayerFilter) : EventPattern
     /** A player completes a dungeon (CR 309.7, "Whenever you complete a dungeon"). */
     @Serializable @SerialName("completes-dungeon") data class CompletesDungeon(val players: PlayerFilter) : EventPattern

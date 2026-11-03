@@ -66,6 +66,8 @@ object OracleParser {
                 ?.let { if (hasX) it.copy(announced = listOf("X")) else it }
             abilities = abilities.map { if (it is Keyword.Overload && overloaded != null) it.copy(instructions = overloaded) else it }
         }
+        // CR 702.55c: "the creature it haunts" triggers in exile, a modal one too
+        abilities = abilities.map { MechanicWordings.haunting(it) ?: it }
         // spm chunk 06: "It gains this card's other abilities." (CR 113.10): the face's other abilities written into the effect
         abilities = abilities.map { a -> if (a is Ability.Activated && a.text?.contains("this card's other abilities") == true) withOtherAbilities(a, abilities.filter { it !== a }) else a }
         // eoe chunk 01: a station card's P/T box (CR 721.2b)

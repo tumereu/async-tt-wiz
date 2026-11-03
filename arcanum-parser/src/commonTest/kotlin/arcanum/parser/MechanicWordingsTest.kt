@@ -345,4 +345,48 @@ class MechanicWordingsTest {
         kotlin.test.assertEquals(listOf(listOf(1, 2), listOf(3), listOf(3), emptyList()), face.rooms.map { it.next })
         kotlin.test.assertEquals(Instructions(steps = listOf(drawCards(1))), face.rooms[3].instructions)
     }
+
+    // CR 702.55c: a modal "When this creature enters or the creature it haunts dies, choose one —" works on the battlefield and in exile
+    @Test
+    fun modalHauntTrigger() {
+        val face = OracleParser.parse(arcanum.parser.OracleCard("Gloom Arbiter", "{2}{W}{B}", "Creature — Spirit Cleric", """
+            Haunt
+            When this creature enters or the creature it haunts dies, choose one —
+            • Creatures you control get +1/+1 until end of turn.
+            • Creatures you don't control get -1/-1 until end of turn.
+        """.trimIndent(), "2/2"))
+        val trigger = face.abilities.filterIsInstance<Ability.Triggered>().single()
+        kotlin.test.assertEquals(listOf(Zone.Battlefield, Zone.Exile), trigger.functionsIn)
+        kotlin.test.assertEquals(2, trigger.instructions.modes?.options?.size)
+    }
+
+    // CR 701.54a, d: "Whenever you choose a creature as your Ring-bearer": the Ring tempting you with a creature chosen, "that creature"
+    // its object
+    @Test
+    fun wheneverYouChooseARingBearer() = card(
+        name = "Barrow Herald",
+        cost = "{1}{W}",
+        type = "Creature — Human Soldier",
+        pt = "2/2",
+        text = "Whenever you choose a creature as your Ring-bearer, put a +1/+1 counter on that creature.",
+    ) parsesTo abilities(Ability.Triggered(Trigger.On(EventPattern.RingTempts(PlayerFilter.You, chosen = true)), Instructions(steps = listOf(
+        Step.Do(Effect.PutCounters(Objects.EventObject(EventRole.Object), arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(1)))))))
+
+    // CR 701.54e: "your Ring-bearer" as the affected object of a static ability, a trigger's subject and an effect's object
+    @Test
+    fun yourRingBearerAsAnObject() = card(
+        name = "Shire Banner",
+        cost = "{2}",
+        type = "Artifact",
+        text = """
+            Your Ring-bearer gets +1/+1.
+            Whenever your Ring-bearer attacks, draw a card.
+            At the beginning of your end step, put a +1/+1 counter on your Ring-bearer.
+        """.trimIndent(),
+    ) parsesTo abilities(
+        Ability.Static(listOf(Mechanic.ModifyPowerToughness(Value.Fixed(1), Value.Fixed(1))), affects = Affected.Objects(Objects.Each(yourRingBearer))),
+        Ability.Triggered(Trigger.On(EventPattern.Attack(yourRingBearer)), Instructions(steps = listOf(drawCards(1)))),
+        Ability.Triggered(Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)), Instructions(steps = listOf(
+            Step.Do(Effect.PutCounters(Objects.Each(yourRingBearer), arcanum.api.CounterKind.PowerToughness(1, 1), Value.Fixed(1)))))),
+    )
 }

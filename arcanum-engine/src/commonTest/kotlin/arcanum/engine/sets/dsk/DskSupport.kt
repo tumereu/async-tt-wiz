@@ -61,6 +61,11 @@ internal fun Scenario.may(yes: Boolean) {
     answer(Answer.YesNo(yes))
 }
 
+/** Pays an open mana payment with the engine's suggestion. */
+internal fun Scenario.payIfAsked() {
+    (pending as? Decision.ManaPayment)?.let { answer(Answer.ManaPayment(it.suggestion)) }
+}
+
 /** Answers the open option choice with the option starting with [text]. */
 internal fun Scenario.option(text: String) {
     val d = decision<Decision.ChooseOption>()

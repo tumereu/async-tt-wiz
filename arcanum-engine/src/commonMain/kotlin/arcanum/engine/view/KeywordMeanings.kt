@@ -51,7 +51,9 @@ object KeywordMeanings {
         // CR 702.50a: epic's two spell abilities, as the spell finishes resolving (arcanum.engine.epic.Epic)
         Keyword.Epic,
         // CR 702.132a: another player paying part of the generic mana, with the costs (arcanum.engine.casting.Plan.assistable)
-        Keyword.Assist)
+        Keyword.Assist,
+        // CR 702.22: attacking bands and who assigns combat damage (arcanum.engine.combat.Banding)
+        Keyword.Banding)
 
     /** Keywords whose abilities depend on the face they are printed on ([expand]'s `below`). */
     val faceDependent: Set<KeywordKind> = setOf(Keyword.Backup.Kind)
@@ -127,7 +129,6 @@ object KeywordMeanings {
         at(Moment.Enters) {
             listOf(Keyword.HiddenAgenda)
         }
-        at(Moment.AttacksOrBlocks) { listOf(Keyword.Banding) }
         m
     }
 }

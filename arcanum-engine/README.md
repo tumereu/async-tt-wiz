@@ -423,7 +423,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
-- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`, `dungeon/VentureTest`): mutate and merged permanents
+- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`, `dungeon/VentureTest`, `combat/BandingTest`): mutate and merged permanents
   (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
   same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
   `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
@@ -447,9 +447,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
   ledger. "Venture into Undercity" only chooses Undercity dungeons; the initiative's three inherent triggers (CR 726.2: upkeep, combat
   damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers.
+  Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an
+  attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature
+  blocking a member blocks the whole band; the defending player assigns the damage of an attacker blocked by a creature with banding,
+  the active player that of a blocker blocking one. `options` doesn't list bands; a host adds them to a declaration. "Bands with
+  other" isn't an API keyword yet.
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
-  - Keywords: banding (bands and the defending player assigning damage,
-    CR 702.22) and hidden agenda (conspiracies, outside normal play).
+  - Keywords: hidden agenda (conspiracies, outside normal play).
   - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
     whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.

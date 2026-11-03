@@ -219,9 +219,9 @@ class AutomatumScreenshotTest {
         val (toolkit, _) = render(play)
         compose.runOnIdle { toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id))) }
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        // TBL-116: with Automatum on the P/T controls are in the usual menu behind "Manual…", greyed while Automatum
-        // doesn't wait for something done by hand
-        compose.onNodeWithContentDescription(CardRingPages.MANUAL).assertIsNotEnabled()
+        // TBL-116, I-D46: with Automatum on the menu has no P/T controls (and no "Manual…") while Automatum doesn't wait
+        // for something done by hand
+        compose.onNodeWithContentDescription("Manual…").assertDoesNotExist()
         compose.onNodeWithContentDescription("Set corner").assertDoesNotExist()
         compose.onNodeWithContentDescription("Set EOT P/T").assertDoesNotExist()
     }

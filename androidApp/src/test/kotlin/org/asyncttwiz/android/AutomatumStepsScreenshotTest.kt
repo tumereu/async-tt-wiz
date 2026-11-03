@@ -216,7 +216,7 @@ class AutomatumStepsScreenshotTest {
         sent.clear()
         val waiting = toolkit(open, f.a)
         assertTrue(waiting.submit(PlayAction.AdjustLife(f.b, "-2")), waiting.error)
-        // SYS-069, TBL-116: the manual controls ("Manual…") work until Done
+        // SYS-069, TBL-116: the manual controls (today's menus) work until Done
         assertTrue(AutomatumBoards.manualAllowed(open))
         // The spell is still resolving on the Stack: the step waits (STK-029)
         assertFalse(waiting.submit(PlayAction.NextStep))

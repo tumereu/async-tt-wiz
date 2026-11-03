@@ -400,6 +400,21 @@ out of anything stuck.
   board's ping-target set (`RetainedPosition.targets`, ~45 KB on a 600-card board) by digest instead of repeating it:
   each distinct set is stored once per play as a `targets` endpoint record (server-only, no migration; positions
   written before keep the set inline and read the same). Stored bytes per batch member went from ~28 KB to ~3 KB.
+- **Built (I-D46 (a)–(c), 2026-11-03):** (a) `TableToolkitController.playable` is the set of cards with a legal
+  `CardPlay` for the viewer (the engine's options, worked out on the Automatum worker and kept per board); the table
+  draws a soft cyan halo behind them (live table only; none during a cast or an open choice). (b) An Automatum refusal
+  of a gesture (hand double-tap or drag cast, tapping by hand, a manual drag, a life drag, a Library or Temp pile with
+  nothing to offer) shakes the item (`TableToolkitController.shaking`) instead of setting the message; genuine
+  failures (offline, still working out) keep theirs. A refused control (`MenuControl.refused`) shakes on tap and shows
+  its reason on hold; `LocalRefusal` is gone. Inspect lists the reasons of the card's refused plays
+  (`automatumReasons`). (c) With Automatum on the quick-actions row is `AutomatumToggles` (Full control: the device
+  setting, synced as SYS-071; Skip when I have no choice: `SetSkipWhenNoChoice`; Autotap mana: `AutotapPreferences`,
+  prefs `automatum-cast`, key `autotap/<account>`, on by default, for the cast flow to read), except during the opening
+  mulligan and while Automatum's combat offers quick actions. "Manual…" is gone: card and zone menus show only engine
+  rows and no-game-effect cells, today's menus while a `Manual` decision is open; Table actions, the Stack bubbles and
+  Manage Stack drop their manual entries. Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-118, ZON-004, ZON-007,
+  ZON-013, ZON-077, ZON-078, TRN-010, TRN-015, TRN-020, TRN-031, TRN-059, TRN-061, STK-035, SYS-063, SYS-069, SYS-071,
+  LOB-113.
 
 ## 4. Shared state ATW adds
 

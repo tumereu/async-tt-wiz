@@ -189,8 +189,8 @@ class AutomatumI12ReviewTest {
     }
 
     // i12review #9 (I-D27, ZON-004, ZON-007; rules v30: the other player acts on a hand blind): with Automatum on, Bob's
-    // hidden hand cards all read "Cast" (greyed) in Alice's hand menu, and her double-tap on one says the same neutral
-    // "Only its owner can cast that card." whatever the card is
+    // hidden hand cards all read "Cast" (greyed) in Alice's hand menu, and her double-tap on one only shakes it (I-D46,
+    // TBL-118), whatever the card is
     @Test fun opponentsHiddenHandCardIsNeitherNamedNorTyped() {
         assertTrue(bobHand.size >= 2)
         val play = board(emptyList(), listOf(mountain)) { card -> when (card.id) {
@@ -203,13 +203,13 @@ class AutomatumI12ReviewTest {
             toolkit.dismissError()
             toolkit.handle(TableIntent.Move(TableScope(card, listOf(card)), TableDestination.Container(f.id("stack"), PlayZone.STACK),
                 handDoubleTap = true))
+            assertEquals(card, toolkit.shaking?.id, "the card shakes")
             return toolkit.error
         }
         val land = doubleTap(bobHand[0])
         val instant = doubleTap(bobHand[1])
-        assertFalse(land.orEmpty().contains("Mountain") || instant.orEmpty().contains("Storm Spark"), "$land / $instant")
-        assertEquals(land, instant, "the refusal doesn't tell a hidden land from a hidden spell")
-        assertEquals(CastController.NOT_YOURS, land)
+        assertNull(land, "no message tells a hidden land")
+        assertNull(instant, "no message tells a hidden spell")
         fun control(card: String) = handMenuTools(toolkit, play, ToolkitCapture(listOf(card), card, listOf(card), emptyMap(), null),
             TableSelection(), emptyMap(), true).single { it.name == "Play" || it.name == "Cast" }
         assertEquals(control(bobHand[0]).name, control(bobHand[1]).name, "the menu doesn't tell a hidden land from a hidden spell")

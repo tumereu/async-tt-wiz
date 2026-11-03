@@ -132,5 +132,15 @@ internal fun AutomatumPauseSettings(accountId: String) {
                 Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
             Switch(checked = settings.fullControl, onCheckedChange = null)
         }
+        // I-D47 (I-D46 (c): also a toggle in the table's quick-actions row)
+        val (autotapState, autotapPreferences) = rememberAutotap(accountId)
+        val autotap by autotapState
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("autotap")
+            .toggleable(autotap, role = Role.Switch, onValueChange = { autotapPreferences.autotap = it }),
+            verticalAlignment = Alignment.CenterVertically) {
+            SettingsLabel("Autotap mana", "Casting pays its mana by itself when it can",
+                Modifier.weight(1f).padding(end = 12.dp, top = 4.dp, bottom = 4.dp))
+            Switch(checked = autotap, onCheckedChange = null)
+        }
     }
 }

@@ -190,7 +190,8 @@ class AutomatumCastScreenshotTest {
         assertTrue(sent.isEmpty(), "a cancelled cast sends nothing (I-D11)")
     }
 
-    // ZON-007, TBL-115, I-D28: the hand menu's Cast is greyed while the engine doesn't allow the cast; a double-tap says why
+    // ZON-007, TBL-115, I-D28, I-D46: the hand menu's Cast is greyed while the engine doesn't allow the cast; a
+    // double-tap shakes the card instead of saying why
     @Test fun castNotAllowedIsGreyed() {
         val play = board(tapped = true)
         val toolkit = render(play)
@@ -198,11 +199,12 @@ class AutomatumCastScreenshotTest {
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
         compose.onNodeWithContentDescription("Cast").assertIsNotEnabled()
         captureShot("$SCREENSHOTS/automatum/cast-greyed.png",
-            "With every Mountain tapped, the hand menu of Storm Spark shows Automatum's Cast row greyed out above Inspect and a greyed \"Manual…\": the engine doesn't allow casting it now.")
+            "With every Mountain tapped, the hand menu of Storm Spark shows Automatum's Cast row greyed out above Inspect: the engine doesn't allow casting it now.")
         compose.runOnIdle {
             toolkit.dismiss()
             assertFalse(doubleTap(toolkit, sparkId))
-            assertEquals("Storm Spark can't be cast now.", toolkit.error)
+            assertNull(toolkit.error)
+            assertEquals(sparkId, toolkit.shaking?.id)
         }
         assertNull(toolkit.cast.flow)
     }

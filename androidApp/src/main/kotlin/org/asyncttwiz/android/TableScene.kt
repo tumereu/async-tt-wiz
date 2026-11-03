@@ -165,9 +165,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val statusModes = remember(statusBubbles, statusVersion, play.currentNodeId, play.board.players) { statusBubbles.modes(play) }
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
     val computedBoard = rememberComputedBoard(play, accountId, toolkit?.let { t -> { t.engineTags() } })
-    val refusal: (String) -> Unit = remember(toolkit) { { message -> toolkit?.refuse(message) } }
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
-        LocalRefusal provides refusal,
         LocalStatusBubbles provides statusBubbles, LocalOpponentPresence provides runtime.opponentPresence) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
@@ -338,6 +336,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
             // A cast or an Automatum decision choosing targets (I-D6): its legal targets glow
             val castGlow = toolkit?.cast?.glow(play).orEmpty() + toolkit?.flows?.glow(play).orEmpty()
+            // I-D46: the viewer's playable cards glow (live table only); a refused gesture shakes what it was made on
+            val playable = if (runtime.reviewing) emptySet() else toolkit?.playable(play).orEmpty()
+            val shaking = toolkit?.shaking
+            val shakeOffset = remember(shaking) { androidx.compose.animation.core.Animatable(0f) }
+            LaunchedEffect(shaking) { if (shaking != null) shakeOffset.animateTo(0f, shakeKeyframes()) }
             Box(Modifier.fillMaxWidth().height(48.dp).background(barColor))
             Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(tableBottomHeight(landscape).dp)
                 .background(barColor))
@@ -347,7 +350,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
                 drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview, play.board.links, frame.alphas, activePings,
                     play.board.projectionLinks, TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
-                    pingPulse?.value ?: 0f, statusModes, presenceDot, castGlow)
+                    pingPulse?.value ?: 0f, statusModes, presenceDot, castGlow, playable,
+                    shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f })
             }
             previewValue?.let { (pressedId, delta) ->
                 scene.items.firstOrNull { it.id == pressedId }?.let { item ->

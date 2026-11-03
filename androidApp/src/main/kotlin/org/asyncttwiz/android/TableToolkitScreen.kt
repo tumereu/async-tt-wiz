@@ -115,7 +115,7 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
             val pile = play.board.containers.singleOrNull { it.id == panel.substringAfter('/') && it.zone in PublicPiles.zones }
             if (pile == null) LaunchedEffect(panel) { toolkit.dismiss() }
             else InlinePopupPanel(toolkit::dismiss, moveZoneLabel(pile.zone), width = 152.dp, height = 104.dp, key = panel) {
-                // Looking stays with Automatum on: Search is kept beside "Manual…"
+                // Looking stays with Automatum on: Search is its only cell
                 AutomatumZoneMenu(play, kept = {
                     InlinePopupCell(MenuControl("Search", pile.cards.isNotEmpty()) { toolkit.openPublicPile(pile.id, toggle = false) })
                 }) { PublicPileActions(toolkit, play, pile) }
@@ -175,7 +175,7 @@ internal fun automatumRows(toolkit: TableToolkitController, play: PlayState, bou
 
 /**
  * Automatum on (ZON-078, final cast review #8): what the engine offers for the top card of the Library [libraryId] (cast
- * or play it from the top, Seer of Harvestide-like), as rows above the Library menu's "Manual…"; none when it offers
+ * or play it from the top, Seer of Harvestide-like), as the Library menu's rows; none when it offers
  * nothing, or for a top card the viewer may not see (CardPlays lists nothing of hidden cards, I-D27).
  */
 internal fun libraryTopRows(toolkit: TableToolkitController, play: PlayState, libraryId: String, names: Map<String, String>,
@@ -239,23 +239,17 @@ private fun engineIcon(kind: org.asyncttwiz.automatum.CardPlay.Kind) = when (kin
 }
 
 /**
- * A zone menu (Library, Graveyard, Exile, Temp pile) with Automatum on (§3 I4, I-D28): the engine's [rows] (the Library's
- * top card cast or played from the top, ZON-078), what has no game effect ([kept], looking) and "Manual…", which opens
- * today's menu ([manual]) only while Automatum waits for something done by hand (I-D37), else greyed with the reason on
- * tap. With Automatum off it is today's menu.
+ * A zone menu (Library, Graveyard, Exile) with Automatum on (§3 I4, I-D28, I-D46): only the engine's [rows] (the
+ * Library's top card cast or played from the top, ZON-078) and what has no game effect ([kept], looking). Today's menu
+ * ([manual]) shows with Automatum off and while Automatum waits for something done by hand (I-D37).
  */
 @Composable
 internal fun AutomatumZoneMenu(play: PlayState, kept: @Composable () -> Unit = {}, rows: List<EngineRow> = emptyList(),
     manual: @Composable () -> Unit) {
-    var open by remember(play.board.automatum) { mutableStateOf(false) }
-    if (!play.board.automatum || open) { manual(); return }
+    if (AutomatumBoards.manualAllowed(play)) { manual(); return }
     Column(verticalArrangement = Arrangement.spacedBy(InlinePopupStyle.cellGap.dp)) {
         for (row in rows) EngineActionRow(row, LocalInlinePopupColor.current)
-        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            kept()
-            InlinePopupCell(MenuControl(CardRingPages.MANUAL, AutomatumBoards.manualAllowed(play), refused = AutomatumDrags.MANUAL) { open = true },
-                CardRingPages.MANUAL)
-        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) { kept() }
     }
 }
 

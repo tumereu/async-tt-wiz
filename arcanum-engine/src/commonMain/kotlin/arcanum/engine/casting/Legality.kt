@@ -89,6 +89,8 @@ internal object Legality {
             if (kind == PlayKind.Play && m.how != PlayKind.Play) return@mapNotNull null
             val eval = snap.evaluator(applied.controller, self = applied.source, names = applied.names, holder = player)
             if (!eval.matches(m.holder, player)) return@mapNotNull null
+            // hob: "you may play them if you control a Wizard"
+            if (m.condition != null && !eval.holds(m.condition!!)) return@mapNotNull null
             if (m.topOnly && snap.state.player(o.owner).library.firstOrNull() != card) return@mapNotNull null
             if (m.perTurn != null && usedThisTurn(snap, applied) >= m.perTurn!!) return@mapNotNull null
             Permission(source = applied.source, ability = applied.origin, effect = applied.effect) to applied

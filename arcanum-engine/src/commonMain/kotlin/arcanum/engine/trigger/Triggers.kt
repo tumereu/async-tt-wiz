@@ -269,11 +269,16 @@ internal object Triggers {
                     if (p is arcanum.api.EventPattern.CountersPut && !trigger.oneOrMore) found.flatMap { t -> List(t.amount ?: 1) { t.copy(amount = 1) } }
                     else found
                 }
-                return when {
+                val batches = when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()
                     trigger.batchPerPlayer -> all.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
                     else -> listOf(batch(all))
+                }
+                // hob: "with creatures with total power 12 or greater": only a batch whose objects add up to it (CR 603.2c)
+                val total = trigger.batchTotal ?: return batches
+                return batches.filter { b ->
+                    b.objects.filter { it.role == EventRole.Object }.flatMap { it.ids }.distinct().sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
                 }
             }
             val now = units(change)

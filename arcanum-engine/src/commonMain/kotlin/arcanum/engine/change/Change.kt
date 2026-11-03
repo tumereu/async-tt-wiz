@@ -386,6 +386,9 @@ sealed interface GameEvent {
         // fra
         /** For a loyalty ability, the loyalty counters its cost put (positive) or removed (negative) (CR 606.4). */
         val loyalty: Int? = null,
+        // hob
+        /** The keyword whose expansion the ability is, by its id ("equip"), for "the first equip ability you activate each turn". */
+        val keyword: String? = null,
     ) : GameEvent
     /** [ids] were revealed to every player (CR 701.20). */
     @Serializable @SerialName("revealed") data class Revealed(val player: PlayerId, val ids: List<ObjectId>) : GameEvent

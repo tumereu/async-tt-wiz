@@ -57,6 +57,14 @@ internal object StateBasedActions {
         arcanum.engine.action.Knowledge.fillLookable(act)
         val state = act.state
         val view = act.view()
+        // hob: storied (CR 702.195a): a static ability, not a state-based action, but checked with them: any time its condition
+        // holds, its player gets the designation at once, for the rest of the game; the checks then run again, so continuous
+        // effects apply before triggers are looked for (702.195c)
+        state.players.filter { !it.lost }.forEach { p ->
+            view.players[p.id]?.mechanics.orEmpty().mapNotNull { (it.mechanic as? Mechanic.GetsDesignation)?.designation }.distinct()
+                .filter { it !in state.player(p.id).designations }
+                .forEach { act.record(Change.PlayerDesignation(p.id, it, before = false, after = true)) }
+        }
         val toGraveyard = mutableListOf<ObjectId>()
         val destroyed = mutableListOf<ObjectId>()
         val unattach = mutableListOf<ObjectId>()

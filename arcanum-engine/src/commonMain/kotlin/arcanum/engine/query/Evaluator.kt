@@ -570,6 +570,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Value.ManaSpent -> objects(value.of).sumOf { id ->
             val spent = facts(id)?.manaSpent.orEmpty()
             when {
+                // hob: only mana from sources matching (as they last existed, CR 106.3)
+                value.source != null -> facts(id)?.manaSources.orEmpty().count { matches(value.source!!, it) }
                 value.distinctColors -> spent.filter { it.color != null && it.amount > 0 }.map { it.color }.distinct().size
                 value.color != null -> spent.filter { it.color == value.color }.sumOf { it.amount }
                 else -> spent.sumOf { it.amount }

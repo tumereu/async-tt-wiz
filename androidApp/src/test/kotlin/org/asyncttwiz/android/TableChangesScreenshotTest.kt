@@ -172,6 +172,8 @@ class TableChangesScreenshotTest {
             appearance = CardAppearance(cardSize = MIN_CARD_SCALE))
         val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.owner == "a" && !it.covered }
         val changes = TableChanges { 0L }
+        // Automatum's board worked out up front, so the frames below never depend on when its worker finishes
+        AutomatumBoards.compute(play, "a")
         compose.setContent { MaterialTheme {
             TableSurface(LiveTableFixture.game, play, "a", false, runtime = TableRuntimeHooks(changes = changes))
         } }

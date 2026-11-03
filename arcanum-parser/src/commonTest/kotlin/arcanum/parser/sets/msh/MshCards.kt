@@ -72,7 +72,8 @@ val opponents: ObjectFilter = ObjectFilter.ControlledBy(PlayerFilter.Opponent)
 val another: ObjectFilter = ObjectFilter.Not(ObjectFilter.Is(Objects.Self))
 val attacking: ObjectFilter = ObjectFilter.HasStatus(arcanum.api.Status.Attacking)
 val tapped: ObjectFilter = ObjectFilter.HasStatus(arcanum.api.Status.Tapped)
-fun and(vararg filters: ObjectFilter): ObjectFilter = ObjectFilter.And(filters.toList())
+/** All of [filters], nested "and"s flattened (the parser's one canonical form). */
+fun and(vararg filters: ObjectFilter): ObjectFilter = ObjectFilter.And(filters.flatMap { if (it is ObjectFilter.And) it.all else listOf(it) })
 fun or(vararg filters: ObjectFilter): ObjectFilter = ObjectFilter.Or(filters.toList())
 fun not(filter: ObjectFilter): ObjectFilter = ObjectFilter.Not(filter)
 fun sub(name: String): ObjectFilter = ObjectFilter.Sub(Subtype(name))
@@ -230,3 +231,15 @@ fun attacksAlone(filter: ObjectFilter): Trigger = on(EventPattern.Attack(filter,
 val secondCardEachTurn: Trigger = drawSecondCard
 /** "you've put" counters: by your spells and abilities */
 val byYou: ObjectFilter = ObjectFilter.ControlledBy(PlayerFilter.You)
+/** "This land enters tapped." */
+val entersTapped: Ability = Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+    modify = listOf(arcanum.api.Modification.EntersTapped))), affects = Affected.Objects(Objects.Self))
+/** "{T}: Add {A} or {B}." */
+fun addEither(a: String, b: String): Ability = activated(cost(tap), Step.Do(Effect.AddMana(arcanum.api.ManaProduction(arcanum.api.ManaKind.Choose(n(1),
+    colors = listOf(Color.of(a[0])!!, Color.of(b[0])!!).map { arcanum.api.ColorRef.Literal(it) })), Players.You)))
+/** A Saga's chapter ability (CR 714.2b). */
+fun chapter(number: Int, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Triggered(Trigger.Chapter(listOf(number)), Instructions(targets = targets, steps = steps.toList()))
+/** "I, II —": one chapter ability for each listed chapter (CR 714.2c). */
+fun chapters(numbers: List<Int>, vararg steps: Step, targets: List<TargetSlot> = emptyList()) =
+    Ability.Triggered(Trigger.Chapter(numbers), Instructions(targets = targets, steps = steps.toList()))

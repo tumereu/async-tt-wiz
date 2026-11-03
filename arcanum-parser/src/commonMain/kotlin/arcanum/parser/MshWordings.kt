@@ -267,6 +267,11 @@ internal object MshPhrases {
         // msh chunk 02: "equipped creature you control" (a creature with an Equipment attached, CR 301.5)
         if (phrase == "equipped creature you control") return Filters.all(ObjectFilter.Type(arcanum.api.CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
             ObjectFilter.Attached(attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
+        // msh chunk 09: "nontoken artifact or creature": the adjective goes with both types
+        NON_A_OR_B.matchEntire(phrase)?.let { m ->
+            return Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
+                ObjectFilter.Or(listOf(Filters.noun(m.groupValues[2]) ?: return null, Filters.noun(m.groupValues[3]) ?: return null)))
+        }
         // msh chunk 08: "permanent card in your graveyard that was put there from anywhere this turn"
         PUT_THERE_THIS_TURN.matchEntire(phrase)?.let { m ->
             return Filters.all(Filters.noun(m.groupValues[1]) ?: return null,
@@ -275,6 +280,7 @@ internal object MshPhrases {
         return null
     }
     private val ATTACKING_ALONE = Regex("""(.+) that's attacking alone""")
+    private val NON_A_OR_B = Regex("""(non\w+) (artifact|creature|enchantment|land|planeswalker) or (artifact|creature|enchantment|land|planeswalker)""")
     private val PUT_THERE_THIS_TURN = Regex("""(.+) that was put there from anywhere this turn""")
 
     /** The number of [color] mana symbols in [of]'s mana cost (CR 107.4). */

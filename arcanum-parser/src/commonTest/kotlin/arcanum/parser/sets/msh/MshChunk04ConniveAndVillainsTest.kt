@@ -257,7 +257,7 @@ class MshChunk04ConniveAndVillainsTest {
     ) parsesTo abilities(
         static(pt(2, 1), affects = Objects.Each(and(another, villainFilter, you))),
         activated(cost(mana("{1}{B}"), CostPart.Discard(CostObjects.Self)), search(sub("Plan"), reveal = true),
-            move(Objects.Bound("found"), Zone.Hand), shuffle, functionsIn = listOf(Zone.Hand)),
+            move(Objects.Bound("found"), Zone.Hand), shuffle),
     )
 
 }

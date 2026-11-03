@@ -454,6 +454,14 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = this; override val id: String get() = "increment"
         override val text: String get() = "Increment"; override val rule: String get() = "702.191"
     }
+    // sos
+    /** Paradigm (CR 702.192): "If this is the first time a spell you control with this spell's name has resolved this game, at the
+     * beginning of each of your precombat main phases for the rest of the game, create a copy of this object in exile. You may cast the copy
+     * without paying its mana cost" and "Exile this spell." [KeywordExpansions] writes it out. */
+    @Serializable @SerialName("paradigm") data object Paradigm : Keyword, KeywordKind {
+        override val kind: KeywordKind get() = this; override val id: String get() = "paradigm"
+        override val text: String get() = "Paradigm"; override val rule: String get() = "702.192"
+    }
     /** Storied (CR 702.195) */
     @Serializable @SerialName("storied") data object Storied : Keyword, KeywordKind {
         override val kind: KeywordKind get() = this; override val id: String get() = "storied"
@@ -1121,6 +1129,7 @@ interface KeywordKind {
                 Keyword.Tiered,
                 Keyword.Station,
                 Keyword.Increment,
+                Keyword.Paradigm,
                 Keyword.Storied,
                 Keyword.Rampage.Kind,
                 Keyword.Fading.Kind,

@@ -40,7 +40,9 @@ object OracleParser {
         val isSpell = face.types.any { it == arcanum.api.CardType.Instant || it == arcanum.api.CardType.Sorcery }
         val self = selfNames(card.name, face)
         var abilities = abilities(card.text, self, isSpell)
-        val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true
+        val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
+            // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
+            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life."))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
@@ -144,6 +146,21 @@ object OracleParser {
                     else Ability.Unparsed(printed)
                 raws += printed
                 continue
+            }
+            // sos chunk 12: "Choose up to four. You may choose the same mode more than once." and its "• " modes (CR 700.2, 700.2d)
+            if (isSpell && i < lines.size && lines[i].startsWith("• ")) Sos.CHOOSE_UP_TO_SAME_MODE.matchEntire(line)?.let { m ->
+                val modeLines = mutableListOf<String>()
+                var j = i
+                while (j < lines.size && lines[j].startsWith("• ")) modeLines += REMINDER.replace(lines[j++].removePrefix("• "), "").trim()
+                val n = Numbers.count(m.groupValues[1])
+                val options = modeLines.map { modeLine -> sentences.instructions(modeLine)?.let { arcanum.api.Mode(it, text = modeLine) } }
+                if (n != null && options.all { it != null }) {
+                    i = j
+                    result += Ability.Spell(arcanum.api.Instructions(modes = arcanum.api.Modes(options.filterNotNull(), min = 0, max = n, repeatable = true,
+                        chooser = arcanum.api.Players.You)))
+                    raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                    continue
+                }
             }
             // msh chunk 08: "Choose up to two. Return those cards from your graveyard to your hand." and its "• Target …" modes
             if (isSpell && i < lines.size && lines[i].startsWith("• ") && line.startsWith("Choose up to ")) {

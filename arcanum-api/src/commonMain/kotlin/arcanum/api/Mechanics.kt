@@ -303,6 +303,9 @@ sealed interface Mechanic {
         override val stacking: Stacking get() = Stacking.Independent
     }
     @Serializable @SerialName("cant-be-countered") data object CantBeCountered : Mechanic
+    // sos
+    /** The affected spells can't be copied ("This spell can't be copied."): an effect that would copy one creates no copy (CR 707.10). */
+    @Serializable @SerialName("cant-be-copied") data object CantBeCopied : Mechanic
     /** Activated abilities of the affected objects can't be activated; [manaAbilities] false keeps mana abilities
      * ("unless they're mana abilities"). */
     @Serializable @SerialName("cant-be-activated") data class CantBeActivated(val manaAbilities: Boolean) : Mechanic

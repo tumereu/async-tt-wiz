@@ -78,6 +78,28 @@ object KeywordExpansions {
             affects = Affected.Players(Players.You), condition = Condition.Exists(ObjectFilter.And(listOf(
                 or(ObjectFilter.Type(CardType.Artifact), ObjectFilter.Sub(Subtype("Saga")), ObjectFilter.Super(Supertype.Legendary)),
                 ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = 3)))
+        // sos: CR 702.191a: "Whenever you cast a spell, if this permanent is a creature and the amount of mana spent to cast that spell is
+        // greater than this creature's power or this creature's toughness, put a +1/+1 counter on this creature."
+        Keyword.Increment -> {
+            val spent = Value.ManaSpent(of = Objects.EventObject(EventRole.Object))
+            listOf(Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Any, PlayerFilter.You)),
+                steps(Effect.PutCounters(Objects.Self, CounterKind.PowerToughness(1, 1), Value.Fixed(1))),
+                interveningIf = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, ObjectFilter.Type(CardType.Creature)), Condition.Or(listOf(
+                    Condition.Compare(spent, Comparison.Greater, Value.Of(NumericProperty.Power, Objects.Self, Combine.Single)),
+                    Condition.Compare(spent, Comparison.Greater, Value.Of(NumericProperty.Toughness, Objects.Self, Combine.Single))))))))
+        }
+        // sos: CR 702.192a: as the spell finishes resolving it is exiled ("Exile this spell"), and if no spell its controller controlled with
+        // its name resolved before this game, "at the beginning of each of your precombat main phases for the rest of the game, create a
+        // copy of this object in exile. You may cast the copy without paying its mana cost" (CR 707.10, 707.12)
+        Keyword.Paradigm -> listOf(Ability.Static(listOf(Mechanic.Replacement(
+            EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), from = Zone.Stack, to = Zone.Graveyard, resolving = true),
+            instead = Instructions(steps = listOf(
+                Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = "paradigm")),
+                Step.If(Condition.Not(Condition.ResolvedEarlierThisGame(Objects.Self, PlayerFilter.You)), then = listOf(
+                    Step.Do(Effect.CreateDelayedTrigger(Trigger.On(EventPattern.StepBegins(TurnStep.PrecombatMain, PlayerFilter.You)), Instructions(steps = listOf(
+                        Step.Do(Effect.CopyCard(Objects.Bound("paradigm"), owner = Players.You, bind = "copy")),
+                        Step.May(listOf(Step.Do(Effect.Cast(Objects.Bound("copy"), PlayKind.Cast, withoutPaying = true, caster = Players.You))), player = Players.You))),
+                        repeats = true)))))))), affects = Affected.Objects(Objects.Self)))
         // CR 702.29a: "[Cost], Discard this card: Draw a card." (works from the hand)
         is Keyword.Cycling -> listOf(cycling(keyword.cost, Effect.Draw(Players.You, count = Value.Fixed(1))))
         // CR 702.29e: "[Cost], Discard this card: Search your library for a [type] card, reveal it, put it into your

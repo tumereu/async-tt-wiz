@@ -591,7 +591,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 if (part.options.none { option -> Answers.payable(this, option.parts) }) return "None of ${labels(part)} can be paid"
                 return@forEach
             }
-            if (choices.names[OBJECTS + kp.key] == null) {
+            // tdm: objects a cost names by a value still to be announced ("Sacrifice a creature you control with mana value X") are
+            // checked once it is (CR 601.2b before 601.2h)
+            val unannounced = instructions.announced.any { it !in choices.announced } &&
+                kotlinx.serialization.json.Json.encodeToString(CostPart.serializer(), part).contains("\"announced\"")
+            if (choices.names[OBJECTS + kp.key] == null && !unannounced) {
                 Costs.objectChoice(snap, player, if (isSpell) itemId else null, part, eval)?.let { choice ->
                     if (choice.options.size < choice.min) {
                         return "Not enough to ${choice.text.lowercase()}: ${choice.options.size} of ${choice.min}"
@@ -602,7 +606,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                     }
                 }
             }
-            if (!Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
+            if (!unannounced && !Answers.payable(this, listOf(part))) return "Can't pay ${Costs.describe(part)}"
         }
         return null
     }

@@ -66,7 +66,11 @@ internal object Casting {
         // CR 601.2a: the card moves to the Stack and becomes the topmost object there
         recorder.record(Changes.move(recorder.state, listOf(input.card), Zone.Stack, controller = input.player, faceDown = faceDown))
         val onStack = (input.card as ObjectId.Card).next()
-        if (way.face != recorder.state.objOrThrow(onStack).face) recorder.record(Change.Face(onStack, recorder.state.objOrThrow(onStack).face, way.face))
+        // CR 702.146a, 712.11a: a double-faced card cast transformed (disturb) is its back face on the Stack and enters that way
+        val castTransformed = (permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay)?.transformed == true &&
+            o.definition?.layout == arcanum.api.Layout.Transform && (o.definition.faces.size) > 1
+        val face = if (castTransformed) 1 else way.face
+        if (face != recorder.state.objOrThrow(onStack).face) recorder.record(Change.Face(onStack, recorder.state.objOrThrow(onStack).face, face))
         // dsk gaps: from here on it is a spell being cast from where it was (CR 601.2a), so "a spell you cast from exile"
         // is known as its costs are determined (CR 601.2b, f)
         recorder.state.objOrThrow(onStack).let { moved ->

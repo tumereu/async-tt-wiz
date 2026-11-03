@@ -81,5 +81,13 @@ internal object InventedCards {
                 ))),
             )),
         )),
+        /** "Partner with Bonded Finder" (CR 702.124j; the parser doesn't read partner with yet) */
+        partner("Bonded Seeker", "Bonded Finder"),
+        /** "Partner with Bonded Seeker" */
+        partner("Bonded Finder", "Bonded Seeker"),
     )
+
+    private fun partner(name: String, with: String) = card(FaceDefinition(name = name, manaCost = ManaCost.parse("{1}{G}"),
+        colorIndicator = null, types = listOf(CardType.Creature), subtypes = listOf(Subtype("Elf")), power = PrintedNumber.Fixed(2),
+        toughness = PrintedNumber.Fixed(2), abilities = listOf(arcanum.api.Keyword.PartnerWith(with))))
 }

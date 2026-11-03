@@ -601,7 +601,7 @@ object KeywordExpansions {
                 optional = true)),
                 condition = Condition.Exists(creatureYouControl, atLeast = 1), affects = Affected.Objects(Objects.Self)))
         }
-        else -> null
+        else -> KeywordExpansionsMore.expand(keyword)
     }
 
     /**

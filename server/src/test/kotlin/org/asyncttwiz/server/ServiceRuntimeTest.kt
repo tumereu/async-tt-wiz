@@ -13,6 +13,9 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+// Each test owns its container (roles are cluster-wide) and never restarts it, so connections go
+// over the bridge address: the published port resets about one new connection in a few hundred under
+// CPU load, and these scenarios open many unpooled test connections.
 class ServiceRuntimeTest {
     private fun awaitReady(runtime: ServiceRuntime) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(20)
@@ -23,7 +26,7 @@ class ServiceRuntimeTest {
     }
 
     @Test fun `single owner and game activity workers retain epoch when new work connections fail`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             FoundationMigrations.migrate(db.settings)
             // A non-superuser connection limit rejects new work connections without touching
             // the already connected advisory-lock session. No network timing/fault proxy needed.
@@ -111,7 +114,7 @@ class ServiceRuntimeTest {
     }
 
     @Test fun `admission rejects nonowners and loss then recovers through the same fenced transaction boundary`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { first ->
                 assertFalse(first.ready())
@@ -158,7 +161,7 @@ class ServiceRuntimeTest {
     }
 
     @Test fun `shutdown immediately stops admission and drains an already admitted commit before release`() {
-        OwnedPostgres().start().use { db ->
+        OwnedPostgres(viaBridge = true).start().use { db ->
             FoundationMigrations.migrate(db.settings)
             val executor = Executors.newFixedThreadPool(2)
             val entered = CountDownLatch(1)

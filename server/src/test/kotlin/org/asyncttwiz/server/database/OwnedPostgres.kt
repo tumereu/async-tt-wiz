@@ -12,8 +12,18 @@ import java.util.Properties
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 
-/** Never attaches to Compose/developer databases and never enables container reuse. */
-class OwnedPostgres : TestPostgres {
+/**
+ * Never attaches to Compose/developer databases and never enables container reuse.
+ *
+ * With [viaBridge], [settings] and [connection] reach the container on its Docker bridge address
+ * when that is reachable from this host. Docker's published loopback port runs every new
+ * connection through the userland proxy and, on this WSL host, the mirrored Windows loopback:
+ * about 2 ms per query instead of 0.2 ms, and under CPU load it resets roughly one new connection
+ * in a few hundred ("The connection attempt failed.", Connection reset). The bridge address is
+ * host-only too. Tests that stop, pause or restart the container must not use it: a restarted
+ * container may get another bridge address, while the published port mapping stays stable.
+ */
+class OwnedPostgres(private val viaBridge: Boolean = false) : TestPostgres {
     // Reserve on the actual eventual bind address, including non-restart tests.
     // Docker's random wildcard publisher does not consult this host's loopback
     // socket allocation. WSL can reset that path even after PostgreSQL is ready.
@@ -67,9 +77,32 @@ class OwnedPostgres : TestPostgres {
         }
     }
 
-    override val settings: DatabaseSettings get() = DatabaseSettings(container.jdbcUrl, container.username, container.password)
+    /** Bridge host:port with [viaBridge] when reachable, chosen once after startup and never per query. */
+    private val bridgeAddress: String? by lazy {
+        if (!viaBridge) return@lazy null
+        val bridge = container.dockerClient.inspectContainerCmd(container.containerId).exec()
+            .networkSettings.networks.orEmpty().values.mapNotNull { it.ipAddress?.takeIf(String::isNotEmpty) }.firstOrNull()
+        val reachable = bridge != null && try {
+            awaitStartupConnection(timeoutMillis = 3_000) {
+                DriverManager.getConnection("jdbc:postgresql://$bridge:5432/${container.databaseName}?connectTimeout=1&socketTimeout=1",
+                    container.username, container.password)
+            }.use { connection -> connection.createStatement().use { it.execute("SELECT 1") } }
+            true
+        } catch (unreachable: SQLException) { false }
+        if (reachable) "$bridge:5432" else null
+            .also { println("Owned test PostgreSQL: bridge address unreachable, using the published port") }
+    }
 
-    override fun connection(): Connection = DriverManager.getConnection(container.jdbcUrl, container.username, container.password)
+    /** JDBC URL of [database] in this container, over the bridge address with [viaBridge] when reachable. */
+    fun jdbcUrl(database: String = container.databaseName): String {
+        val address = bridgeAddress ?: "${container.host}:${container.getMappedPort(5432)}"
+        val query = container.jdbcUrl.substringAfter('?', "")
+        return "jdbc:postgresql://$address/$database" + if (query.isEmpty()) "" else "?$query"
+    }
+
+    override val settings: DatabaseSettings get() = DatabaseSettings(jdbcUrl(), container.username, container.password)
+
+    override fun connection(): Connection = DriverManager.getConnection(jdbcUrl(), container.username, container.password)
 
     companion object {
         internal fun awaitStartupConnection(timeoutMillis: Long = 10_000, connect: () -> Connection): Connection {

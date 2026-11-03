@@ -408,5 +408,4 @@ internal fun tableToolkit(controller: LobbyController, history: TableHistoryCont
     waitingForConnection = { game.id !in controller.table.value.connectedGames }, playBatch = controller::gameplayBatch,
     playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } },
     automatedBatch = { batch, requestId -> controller.gameplayBatch(batch.actions, requestId, batch.tags) },
-    exitFlow = { controller.historyControl(GameAction.ExitFlow(it)) },
     automatumWork = AutomatumWork.Background, tokenArt = tokenArt, castPreview = controller.castPreview)

@@ -149,6 +149,18 @@ class GameResultLifecycleTest {
         assertEquals(proposal.state.board.resultSuggestion, following.state.board.resultSuggestion)
     }
 
+    // TRN-046, CR 104.3a (I-D52): a player concedes by suggesting their own loss and accepting it themselves; any other
+    // suggestion still needs the other player
+    @Test fun aPlayerMayAcceptTheirOwnLoss() {
+        val prepared = PreparationRules.empty(game).copy(players = listOf(PlayerPreparation(a.accountId, true), PlayerPreparation(b.accountId, true)))
+        for ((outcome, accepted) in listOf(SuggestedResult.LOSS to true, SuggestedResult.WIN to false, SuggestedResult.DRAW to false)) {
+            val play = suggest(outcome).state!!
+            val result = GameResultRules.accept(game, play, prepared, a.accountId, command(GameAction.AcceptResult(play.board.resultSuggestion!!.id), 15))
+            if (accepted) assertNotNull(result.preparation, "$outcome: ${result.reason}")
+            else assertEquals("otherPlayerRequired", result.reason, "$outcome")
+        }
+    }
+
     // LOB-046
     @Test fun exactOtherPlayerAcceptanceReturnsLastPreparationWithBothReadyClearedAndNewRound() {
         val play = suggest().state!!

@@ -70,22 +70,6 @@ class I0ReviewProtocolTest {
         assertTrue(MtgTag.valid(MtgTag(listOf("destroyed"), data = data)))
     }
 
-    // Owner decision A → I-D19 (SYS-060): a shared flow's steps are sent by whoever answers (D11, §2): Bob answered Alice's
-    // trigger. Undo takes back only the actor's own events, so switching off reverts the flow on the server instead, every
-    // step whoever made it.
-    @Test fun aSharedFlowAnsweredByBothPlayersCanBeTakenBack() {
-        val start = base()
-        val open = EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation, data = """{"step":1}""")
-        val answered = open.copy(data = """{"step":2}""")
-        val step1 = play(GameplayTree(start), a, PlayAction.Mtg(MtgAction.SetRecord(open.id, null, open)))
-        val step2 = play(step1, b, PlayAction.Mtg(MtgAction.SetRecord(open.id, open, answered)))
-        // Alice switches off: the server reverts the flow to where it began
-        val reverted = HistoryContinuation.change(step2, a, command(GameAction.RevertFlow))
-        val back = reverted.tree
-        assertTrue(back != null && head(back).board.engineRecords.isEmpty(), "Alice can't take the flow back: ${reverted.reason}")
-        assertEquals(GameplayTree(start).currentNodeId, back.currentNodeId)
-    }
-
     // Owner decision B: SYS-026 counts the undo window in events (50 later events, 51 back to the actor's own). One engine call is one
     // batch of up to 100 events (a turn change on a busy board is ~50): after one such step by Bob, Alice can't undo her
     // own last action although nothing in Bob's batch touches it (the undo rule would allow it).
@@ -98,16 +82,5 @@ class I0ReviewProtocolTest {
         val stepped = assertNotNull(PlayBatches.change(edited, b, batch).tree, "Bob's automated step")
         val undo = SelectiveUndo.change(stepped, a, command(GameAction.Undo))
         assertNotNull(undo.tree, "Alice's undo of her life edit: ${undo.reason}")
-    }
-
-    // #11 SYS-031, SYS-056: in a game started before rules v36 every permanent has timestamp 0; Automatum switched on
-    // there orders them (CR 613.7, layers) by card id. The switch should stamp what it takes over.
-    // SYS-059
-    @Test fun switchingAutomatumOnInAnOlderGameGivesItsPermanentsTimestamps() {
-        val state = base()
-        assertTrue(state.board.cards.all { it.timestamp == 0L })
-        val on = gameplayChange(state, PlayAction.Mtg(MtgAction.SetAutomatum(true)), 703).state!!
-        val field = on.board.cards.filter { it.containerId == gameplayId(22) }
-        assertEquals(field.size, field.map { it.timestamp }.distinct().size, "permanents share timestamps: ${field.map { it.timestamp }}")
     }
 }

@@ -205,7 +205,7 @@ class LobbyStartTest {
             fresh.head(game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id, revision = "2"), play = play)
             assertEquals(play, fresh.lobby.state.play); assertTrue(fresh.commands().isEmpty())
             assertEquals(4, play.board.containers.single { it.accountId == owner.accountId && it.zone == PlayZone.LIBRARY }.cards.size)
-            assertTrue(play.board.containers.filter { it.zone != PlayZone.LIBRARY }.all { it.cards.isEmpty() })
+            assertTrue(play.board.containers.filter { it.zone != PlayZone.LIBRARY && it.zone != PlayZone.HAND }.all { it.cards.isEmpty() }) // I-D49: opening hands drawn
             assertTrue(play.board.players.all { it.life == "20" }); assertEquals("UNTAP", play.board.turn.step)
         }
     }

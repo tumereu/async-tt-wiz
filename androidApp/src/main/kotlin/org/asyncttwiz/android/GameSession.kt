@@ -328,7 +328,7 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Exact typed shared controls use the SAME original queue and processing-time target.
      * No fixed Undo target, alternate endpoint, or durable offline command queue. */
     fun historyControl(game: GameSummary, actor: String, action: GameAction): Boolean {
-        if (action != GameAction.Undo && action != GameAction.Redo && action != GameAction.RevertFlow && action !is GameAction.ExitFlow) return false
+        if (action != GameAction.Undo && action != GameAction.Redo) return false
         return gameplayCommand(game, actor, action, null, null) != null
     }
 
@@ -656,16 +656,13 @@ class GameSession(private val connection: GameConnection, private val credential
         inspections.notifyInspections()
     }
     /** I-D43: an Automatum batch the server refused was planned on a board the server no longer had (or failed its
-     * checks): the client and the server disagree. A flow revert's outcome is logged too. */
+     * checks): the client and the server disagree. */
     private fun automatumResult(original: GameCommand, result: GameResult) {
         val game = original.scope.gameId
         val batch = original.action as? GameAction.PlayBatch
         if (batch != null && batch.tags.isNotEmpty() && result.outcome != "accepted")
             org.asyncttwiz.automatum.AutomatumLog.mismatch(game, "server refused a batch",
                 "${result.outcome}: ${result.reason} (${batch.actions.size} actions, request ${original.requestId})")
-        if (original.action == GameAction.RevertFlow || original.action is GameAction.ExitFlow)
-            org.asyncttwiz.automatum.AutomatumLog.flow(game, "shared", "${if (original.action is GameAction.ExitFlow) "exit" else "revert"} " +
-                "${result.outcome}", result.reason.orEmpty())
     }
 
     private fun result(result: GameResult) {

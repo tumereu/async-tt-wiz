@@ -74,7 +74,7 @@ class AutomatumPauseTest {
         val dropped = initial.board.cards.filter { (it.containerId == aHand || it.containerId == bHand) && it.id !in kept }.map { it.id }.toSet()
         fun as_(card: PlayCard, what: Invented) = card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = "", tapped = false)
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 players = initial.board.players.map { it.copy(fullControl = it.accountId in fullControl) },
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> when (card.id) {
                     aSpark, bSpark -> as_(card, spark)

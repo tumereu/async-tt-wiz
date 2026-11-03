@@ -78,7 +78,7 @@ class AutomatumI12ReviewTest {
         val initial = f.initial
         val fieldCards = initial.board.cards.filter { it.containerId == field }.map { it.id }
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a), cards = initial.board.cards.map { card ->
+            board = initial.board.copy(priority = MtgPriority(f.a), cards = initial.board.cards.map { card ->
                 val h = hand.indexOf(card.id).takeIf { it in inHand.indices }?.let(inHand::get)
                 val b = fieldCards.indexOf(card.id).takeIf { it in onField.indices }?.let(onField::get)
                 when {
@@ -96,36 +96,6 @@ class AutomatumI12ReviewTest {
         CastController(f.a, current, { batch, _ -> sent += batch; true }, { emptyList() }, { message = it }).also { it.autotap = false }
     private fun manaGroups(decision: Decision.ManaPayment) =
         decision.options.filterIsInstance<ManaUse.Ability>().groupBy { it.source }.values.map { it.toList<ManaUse>() }
-
-    // i12review #1 (I-D24, SYS-060, STK-025, D32): the other player (or another device) switches Automatum off while
-    // Alice's cast is open: the cast is dropped with a message, never sent as an automated batch (the server refuses
-    // those while Automatum is off, SYS-057)
-    @Test fun switchingOffUnderAnOpenCastDropsIt() {
-        var live: PlayState? = board(listOf(mountain, spark), listOf(mountain))
-        val cast = controller { live }
-        assertTrue(cast.start(hand[1]))
-        assertTrue(cast.answer(Answer.Targets(listOf(TargetRef.Player(PlayerId(f.b))))))
-        val off = live!!.copy(board = live!!.board.copy(automatum = false))
-        live = off
-        cast.follow()
-        assertNull(cast.flow, "Automatum is off: the cast is dropped")
-        assertEquals(CastController.SWITCHED_OFF, message)
-        assertFalse(cast.cast())
-        assertTrue(sent.isEmpty())
-    }
-
-    // i12review #2 (§2 "switching Automatum off is always allowed and is the way out of anything stuck", TRN-054,
-    // STK-025): with a cast open, the player's own switch drops the cast (nothing was sent of it) and switches off
-    @Test fun ownSwitchOffDuringAnOpenCastDropsTheCastAndSwitches() {
-        val play = board(listOf(mountain, spark), listOf(mountain))
-        val gameplay = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> gameplay += action; true },
-            automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
-        assertTrue(toolkit.cast.start(hand[1]))
-        assertTrue(toolkit.setAutomatum(false), "switching off: ${toolkit.error}")
-        assertEquals(listOf<PlayAction>(PlayAction.Mtg(MtgAction.SetAutomatum(false))), gameplay)
-        assertNull(toolkit.cast.flow)
-    }
 
     // i12review #3 (I-D27, STK-005): Alice targets Bob's face-down creature; the cast panel's answered Target
     // section named it by its real card ("Hidden Basilisk") in I2a; fixed by I2b (CastController.shown), kept as a check
@@ -171,22 +141,6 @@ class AutomatumI12ReviewTest {
         assertTrue(cast.mana.isEmpty(), "both untapped")
         cast.toggleMana(dual); cast.toggleMana(single)
         assertTrue(cast.paid, "both tapped again pay {W}{U}: ${cast.mana}")
-    }
-
-    // i12review #8 (SYS-060, TRN-055's dialog "Removes every effect, ledger and record"): Clear Automatum data removes
-    // card and player ledgers too, and its button is enabled exactly when there is something to remove
-    @Test fun clearAutomatumDataRemovesLedgers() {
-        val play = board(emptyList(), listOf(mountain)) { it }.let { p ->
-            p.copy(board = p.board.copy(priority = null, cards = p.board.cards.map { if (it.id == lands[0]) it.copy(ledger = "{\"memory\":{}}") else it },
-                players = p.board.players.map { if (it.accountId == f.a) it.copy(ledger = "{\"ledger\":{}}") else it }))
-        }
-        val change = GameplayRules.change(play, f.a, GameCommand(f.id("clear"), GameScope(play.gameId, playId = play.id),
-            GameAction.Play(PlayAction.Mtg(MtgAction.ClearRecords)), f.id("client"), "1"))
-        val after = assertNotNull(change.state)
-        assertEquals("", after.board.cards.single { it.id == lands[0] }.ledger)
-        assertEquals("", after.board.players.single { it.accountId == f.a }.ledger)
-        assertTrue(Automatum.recorded(play.board), "only ledgers: the button is enabled")
-        assertFalse(Automatum.recorded(after.board), "nothing left: the button is greyed")
     }
 
     // i12review #9 (I-D27, ZON-004, ZON-007; rules v30: the other player acts on a hand blind): with Automatum on, Bob's

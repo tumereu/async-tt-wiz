@@ -37,7 +37,7 @@ class TempPileRuntimeTest {
                 val beforeResolve = state()
                 val batch = TempPiles.allToLibrary(beforeResolve.board, tempId, bottom = true)
                 assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep)
-                    .copy(action = GameAction.PlayBatch(batch))).outcome)
+                    .copy(action = automatedBatch(batch))).outcome)
                 assertTrue(TempPiles.container(state().board, owner)!!.cards.isEmpty())
                 assertEquals(TempPiles.container(beforeResolve.board, owner)!!.cards,
                     state().board.containers.single { it.id == library.id }.cards.takeLast(2))
@@ -81,7 +81,7 @@ class TempPileRuntimeTest {
                     f.owner.execute(f.owner.command(PlayAction.SetTempPile(owner, 1, false))) }.code)
                 val beforeAll = state()
                 val all = TempPiles.allToPile(beforeAll.board, beforeAll.id, TempPiles.containerId(beforeAll.id, owner, 3), 1)
-                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(all))).outcome)
+                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = automatedBatch(all))).outcome)
                 assertEquals(ids.reversed(), TempPiles.container(state().board, owner, 1)!!.cards)
                 // Once empty, the piles turn off.
                 accept(PlayAction.SetTempPile(owner, 3, false))
@@ -105,7 +105,7 @@ class TempPileRuntimeTest {
                 val owner = f.a.account.accountId
                 fun state() = f.games.head(f.a, f.game.id).play!!
                 fun batch(actions: List<PlayAction>) {
-                    val result = f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(actions)))
+                    val result = f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = automatedBatch(actions)))
                     assertEquals("accepted", result.outcome, result.reason)
                 }
                 fun accept(action: PlayAction) {

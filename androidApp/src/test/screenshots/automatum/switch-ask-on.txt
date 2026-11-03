@@ -1,1 +1,0 @@
-Tapping the Automatum switch while it is off asks first: "Turn Automatum on?" with what it means, Cancel and Turn on.

@@ -106,7 +106,7 @@ class AutomatumCombatScreenshotTest {
             first(aHand, aliceHand.size).zip(aliceHand) + first(bHand, bobHand.size).zip(bobHand)).toMap()
         val dropped = initial.board.cards.filter { it.containerId in setOf(aField, bField, aHand, bHand) && it.id !in roles }.map { it.id }.toSet()
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = priority,
+            board = initial.board.copy(priority = priority,
                 turn = TurnState(f.a, "3", position.phase, position.step),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> roles[card.id]?.let { what ->
                     card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner, tapped = false,
@@ -534,37 +534,6 @@ class AutomatumCombatScreenshotTest {
         assertTrue(PreAnswers.of(play.board).isEmpty(), "applied and used up")
         assertEquals(PlayZone.BATTLEFIELD, zone(bruteCard), "the Warden's 3 went to the Wall: the Brute got only the Ogre's 3")
         assertEquals(PlayZone.GRAVEYARD, zone(wardenCard), "Alice's suggestion: lethal 3 to the Warden first")
-    }
-    // CMB-031, CMB-022: with Automatum off, a defender's card dropped on an attacker blocks it; dropped on a second
-    // attacker it gets one more arrow, and again there the arrow goes; at Combat damage only Close + next is offered
-    // (I-D39: the damage is dealt by hand)
-    @Test fun manualBlocksByArrows() {
-        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre)).let {
-            it.copy(board = it.board.copy(automatum = false, priority = null)) })
-        val alice = toolkit(f.a)
-        val (bruteCard, bearCard, ogreCard) = listOf(card(play, brute), card(play, bear), card(play, ogre))
-        assertTrue(alice.declare(listOf(bruteCard, bearCard), tap = true), alice.error)
-        val bob = toolkit(f.b)
-        fun drop(card: String, attacker: String) = bob.handle(TableIntent.Move(TableScope(card, listOf(card)),
-            TableDestination.Combat(CombatDestination(play.board.combat!!.id, CombatRole.ATTACKER, pairId = pairOf(attacker).id)), drag = true))
-        assertTrue(drop(ogreCard, bruteCard), bob.error)
-        assertTrue(drop(ogreCard, bearCard), bob.error)
-        assertEquals(listOf(ogreCard to bruteCard, ogreCard to bearCard), blocks())
-        assertEquals(1, CombatStackRules.occurrences(play.board.combat).count { it.sourceId == ogreCard }, "one copy, two arrows")
-        render(bob)
-        captureShot("$SCREENSHOTS/automatum/combat-manual.png",
-            "Automatum off, Bob's mirrored view: he dropped Hill Ogre on Ironhide Brute and then on Stout Bear, so one blocker copy sits under the Brute with an arrow to each attacker; no glows, numbers or badges.")
-        compose.runOnIdle { assertTrue(drop(ogreCard, bearCard)) }
-        compose.waitForIdle()
-        assertEquals(listOf(ogreCard to bruteCard), blocks(), "dropped there again: that arrow goes")
-        compose.runOnIdle { assertTrue(drop(ogreCard, bearCard)) }
-        compose.waitForIdle()
-        assertTrue(play.board.combat!!.pairs.single { p -> p.attackers.any { it.sourceId == bearCard } }.let { pair ->
-            CombatStackRules.blockedFromElsewhere(play.board.combat, pair.id) }, "the Bear counts as blocked by the arrow")
-        live.value = play.copy(board = play.board.copy(turn = play.board.turn.copy(phase = TurnPosition.COMBAT_DAMAGE.phase,
-            step = TurnPosition.COMBAT_DAMAGE.step)))
-        assertEquals(listOf("Close + next"), QuickActions.contextual(play, toolkitQuickContext(play, TableSelection(), f.a), alice.table)
-            .map { it.name })
     }
     // ---- A Stack entry below the top as a target (STK-023)
 

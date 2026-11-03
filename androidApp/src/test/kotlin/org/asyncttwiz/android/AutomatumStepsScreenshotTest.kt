@@ -79,7 +79,7 @@ class AutomatumStepsScreenshotTest {
         val dropped = initial.board.cards.filter { (it.containerId == aHand || it.containerId == bHand) && it.id !in kept }.map { it.id }.toSet()
         fun as_(card: PlayCard, what: Invented) = card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = "", tapped = false)
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 players = initial.board.players.map { it.copy(fullControl = it.accountId in fullControl) },
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> when (card.id) {
                     aSpark, bSpark -> as_(card, spark)
@@ -186,7 +186,7 @@ class AutomatumStepsScreenshotTest {
     // TRN-056, TRN-008: in a combat's first-strike damage step the phase dialog shows that step's square between
     // Blockers and Damage, current; TRN-007: the step button shows "1st strike"
     @Test fun phaseDialogShowsTheFirstStrikeStep() {
-        val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE, "5").let { it.copy(board = it.board.copy(automatum = true)) }
+        val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE, "5").let { it.copy(board = it.board) }
         val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             Column {

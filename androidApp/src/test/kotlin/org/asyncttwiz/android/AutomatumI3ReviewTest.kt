@@ -90,7 +90,7 @@ class AutomatumI3ReviewTest {
             first(aHand, aliceHand.size).zip(aliceHand) + first(bHand, bobHand.size).zip(bobHand)).toMap()
         val dropped = initial.board.cards.filter { it.containerId in setOf(aField, bField, aHand, bHand) && it.id !in roles }.map { it.id }.toSet()
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = priority,
+            board = initial.board.copy(priority = priority,
                 turn = TurnState(f.a, "3", position.phase, position.step),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> roles[card.id]?.let { what ->
                     val down = what in faceDown && card.containerId in setOf(aField, bField)

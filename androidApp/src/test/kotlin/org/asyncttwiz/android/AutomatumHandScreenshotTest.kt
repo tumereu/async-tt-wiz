@@ -80,7 +80,7 @@ class AutomatumHandScreenshotTest {
         val kept = (own + extra.map { it.id }).take(lands)
         val cubCard = initial.board.cards.single { it.id == landId }.copy(id = cubId, definition = cub.submitted.digest, faceId = "cub")
         val spare = (0 until more).map { n -> initial.board.cards.single { it.id == landId }.copy(id = f.id("spare-$n")) }
-        val board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+        val board = initial.board.copy(priority = MtgPriority(f.a),
             cards = initial.board.cards.map { when (it.id) {
                 sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                 surgeId -> it.copy(definition = surge.submitted.digest, faceId = "surge")
@@ -377,12 +377,6 @@ class AutomatumHandScreenshotTest {
         assertEquals(listOf(listOf("inspect", "Attack →", "Remove from combat")), CardRingPages.automatumPages(CardMenuLayout.COMBAT).map { it.actions })
         assertEquals(listOf(listOf("inspect", "otherSide")), CardRingPages.automatumPages(CardMenuLayout.PANEL).map { it.actions })
         assertEquals(TableMode.NORMAL, TableMode.SELECT.next(pingAvailable = !on.automatumHand), "no Ping mode")
-        // Kept in the game: with Automatum off they show again
-        val off = scene(marked.copy(board = marked.board.copy(automatum = false)))
-        assertEquals("Remember me", off.items.single { it.cardId == noted && it.zone == PlayZone.BATTLEFIELD }.note)
-        assertEquals("Thinking…", off.items.single { it.id == "life/${f.a}" }.status)
-        assertTrue(off.items.any { it.kind == TableItemKind.COUNTER })
-        assertFalse(off.automatumHand)
     }
 
     // TBL-119: Table actions have no Roll die… or Flip coin with Automatum on

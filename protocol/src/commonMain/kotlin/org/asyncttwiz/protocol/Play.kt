@@ -243,13 +243,14 @@ object CardVisibility {
     val stackTextMarks: Map<String, StackTextMarks> = emptyMap(),
     /** Null retains the legacy meaning: attention follows the turn player. */
     val attentionHolder: String? = null,
-    /** Rules v36: the Automatum switch for this game (D20); a play starts with the game's choice (I-D44). */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: Boolean = false,
     /** Rules v36: who has priority and how many passed in a row (D57); null while nobody tracks it. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val priority: MtgPriority? = null,
     /** Rules v36: the engine's own records (§4.3), sorted by id, each changed on its own. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val engineRecords: List<EngineRecord> = emptyList()) {
     val effectiveAttentionHolder: String get() = attentionHolder ?: turn.accountId
+    /** I-D52: Automatum is always on; there is no switch. Kept (always true, never stored) only until the app's
+     * manual paths that still ask are gone. */
+    val automatum: Boolean get() = true
 }
 @Serializable data class InitialShuffle(val accountId: String, val seed: String, val order: List<String>,
     val algorithm: String = "shuffle-v1")
@@ -308,11 +309,10 @@ object StartRules {
         preparation.players.size == 2 && preparation.players.all { it.ready && it.deck != null }
 
     /** Inputs are acquired independently by the server only after the readiness transition applies. */
-    /** [automatum]: the play starts with Automatum on, the game's choice when it was created (I-D44, SYS-055), and
-     * each player's opening hand ([GameRules.openingHand]) already drawn from their shuffled library (I-D49). */
+    /** Every play is played with Automatum (I-D52) and starts with each player's opening hand ([GameRules.openingHand])
+     * already drawn from their shuffled library (I-D49). */
     fun initialize(game: GameSummary, preparation: LobbyPreparation, requestId: String,
-        librarySeeds: Map<String, String>, starterSeed: String? = null, librarySecret: String? = null,
-        automatum: Boolean = false): PlayState {
+        librarySeeds: Map<String, String>, starterSeed: String? = null, librarySecret: String? = null): PlayState {
         librarySecret?.let(RandomV1::decodeSeed)
         require(canStart(game, preparation) && preparation.gameId == game.id && preparation.roundId == game.preparationRound)
         val players = preparation.players.sortedBy { it.accountId }
@@ -330,8 +330,8 @@ object StartRules {
         val definitions = preparation.definitions.associateBy { it.digest }
         val cards = mutableListOf<PlayCard>(); val containers = mutableListOf<PlayContainer>()
         val shuffles = mutableListOf<InitialShuffle>()
-        // I-D49: with Automatum on each player's opening hand is drawn from the shuffled library at once
-        val opening = if (automatum) GameRules.STANDARD.openingHand else 0
+        // I-D49: each player's opening hand is drawn from the shuffled library at once
+        val opening = GameRules.STANDARD.openingHand
         for (player in players) {
             val deck = player.deck!!
             val library = CommandIds.uuidV5(playId, "container/${player.accountId}/LIBRARY")
@@ -360,7 +360,7 @@ object StartRules {
         val needed = cards.map { it.definition }.toSet()
         return PlayState(game.id, playId, preparation.roundId, requestId, root, root.id,
             BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers,
-                TurnState(starter.accountId), automatum = automatum),
+                TurnState(starter.accountId)),
             needed.sorted().map { definitions.getValue(it) }, shuffles, starter, librarySecret = librarySecret)
     }
 }

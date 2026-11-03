@@ -281,7 +281,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             if (tree == null) GameplayTreeChange(reason = "lifecycleEnded")
             else {
                 historyLoaded = System.nanoTime()
-                HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->
+                // I-D52: the board changes only through Automatum; the rest of a play command is the shared reducer's
+                (AutomatumOnly.refusal(tree, inbox.accountId.toString(), command)?.let { GameplayTreeChange(reason = it) }
+                    ?: HistoryContinuation.change(tree, inbox.accountId.toString(), command)).also { change ->
                     reduced = System.nanoTime()
                     change.tree?.let { next ->
                         treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1), command.requestId)

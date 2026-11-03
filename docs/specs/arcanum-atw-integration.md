@@ -522,6 +522,24 @@ out of anything stuck.
   ZON-002, ZON-004, ZON-007, ZON-011, ZON-077, TBL-025, TBL-026, TBL-032, TBL-056, TBL-071, TBL-115, TBL-116, TBL-118,
   SYS-069, HIS-078, TRN-010, TRN-030, TRN-034, TRN-035, TRN-039, TRN-044, CMB-005, STK-009, STK-016, STK-019, STK-023,
   STK-035.
+- **Built (I-D52 P1, Automatum always on — protocol, server, engine, 2026-11-03):** the switch is gone: `BoardState.automatum`
+  (left as an always-true getter until the app's manual paths go), `MtgAction.SetAutomatum`/`ClearRecords`,
+  `GameAction.RevertFlow`/`ExitFlow`, `FlowRevert`, `Automatum.closeFlow`/`turnOnRefusal`/`turnScoped`,
+  `MtgFacts.stampUnstamped`, `EngineRecord.resolving`, `CreateInvitation.automatum`/`ChallengeFromPod.automatum` and
+  `game.automatum`; the app's switch, its confirmation and hold panel ("Clear Automatum data", engine details) and the New
+  game option. Every play starts with the opening hands drawn (`StartRules.initialize`). The server checks every play
+  command with `AutomatumOnly.refusal` before the shared reducer: an automated command (a tagged event, or a batch with a
+  tagged member) goes on; otherwise only result suggestions and answers, the player's own Skip when I have no choice and
+  Full control, early answers (`PreAnswer` records), Inspect other side, a card's place within its own Battlefield, the
+  combat draft (not closing the area) and the player's own opening (mulligan, its count, own hand to own library bottom,
+  Ready) while they are mulliganing on turn 1 (`RuleRefusals.AUTOMATUM_ONLY`, "The game changes only by the rules.").
+  Conceding (CR 104.3a) is accepting one's own suggested loss (`GameResultRules.accept`). Loop protection is the engine's
+  choice: `Decision.ChooseOption` (with its new `text`) of `LoopStop.CONTINUE` / `LoopStop.DRAW` for both the cap and a
+  reported mandatory loop. `Engine.SUPPORT_VERSION` keys the I-D51 support results with the parser version
+  (`CardListSupport.engineVersion`, `CatalogSetSupport(engineVersion)`); `CardDataRefreshRun` reads cube cards 250 at a
+  time. V54 deletes every game that ever started a play (as V41) and drops `game.automatum`. `GAME_PROTOCOL_MINOR` 4.
+  Catalog: SYS-055, SYS-057, SYS-062, SYS-063, SYS-067, SYS-069, SYS-073 (new), TRN-031, TRN-060, STK-030, STK-032,
+  LOB-031, HIS-091; removed SYS-059, SYS-060, SYS-070, TRN-054, TRN-055.
 
 ## 4. Shared state ATW adds
 
@@ -653,6 +671,8 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   one (`-Pautomatum.bundle=<file>` with `ReproFromFileTest`).
 
 ## 5. The Automatum switch
+
+Removed by I-D52 (every game is played with Automatum); kept here as the record of what it was.
 
 - A round sigil button in the table's top bar, beside Table actions (I-D4).
 - **Off:** a dim outlined rune at about 40% opacity.

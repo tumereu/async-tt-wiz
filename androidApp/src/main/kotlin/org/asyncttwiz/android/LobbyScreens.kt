@@ -470,17 +470,6 @@ private fun GameNameDialog(controller: LobbyController) {
                              }, label = { Text("Game name") }, singleLine = true, enabled = !state.mutating && !state.uncertain,
                          keyboardOptions = imeOptions(ImeAction.Done), keyboardActions = submitKeyboardActions(!state.mutating, submit = controller::create),
                          trailingIcon = { IconButton(controller::reroll, enabled = !state.mutating && !state.uncertain) { EntryIcon("Suggest another game name", "shuffle") } })
-                 // I-D44 (LOB-031): the game starts with Automatum on unless turned off here
-                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("new-game-automatum")
-                     .toggleable(draft.automatum, enabled = !state.mutating && !state.uncertain, role = Role.Switch,
-                         onValueChange = controller::automatum), verticalAlignment = Alignment.CenterVertically) {
-                     Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                         Text("Automatum", style = MaterialTheme.typography.bodyLarge)
-                         Text("Plays by the rules for you. Can be turned off in the game.",
-                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                     }
-                     Switch(checked = draft.automatum, onCheckedChange = null, enabled = !state.mutating && !state.uncertain)
-                 }
                  // Rare retry state; errors themselves float, so no permanently reserved gap.
                  if (state.uncertain) Text("Retry keeps the original name and invitation.", style = MaterialTheme.typography.bodySmall, maxLines = 2)
     }

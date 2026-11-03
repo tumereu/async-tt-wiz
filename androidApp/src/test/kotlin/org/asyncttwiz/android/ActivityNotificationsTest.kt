@@ -27,6 +27,9 @@ class ActivityNotificationsTest {
             assertEquals("Friday · vs Alex", shown.title)
             assertEquals(text, shown.text)
         }
+        // CR 104.3a (I-D52): the opponent accepted their own loss
+        assertEquals("Game over · Alex conceded", gameNotificationText(content.copy(gameOver = org.asyncttwiz.protocol.SuggestedResult.LOSS,
+            conceded = true)).text)
     }
 
     // LOB-114

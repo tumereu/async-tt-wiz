@@ -66,7 +66,7 @@ class AutomatumControlsScreenshotTest {
 
     /** Alice's main phase, holding priority: Grovewatch Druid and [lands] Forests on her battlefield (her other lands
      * Mountains), Storm Spark in hand. */
-    private fun board(lands: Int, automatum: Boolean = true): PlayState {
+    private fun board(lands: Int): PlayState {
         val initial = f.initial
         val others = initial.board.cards.filter { it.containerId == field }.map { it.id }
         val added = listOf(PlayCard(druidId, druid.submitted.digest, f.a, field, "druid", covered = false, corner = "1/2",
@@ -74,7 +74,7 @@ class AutomatumControlsScreenshotTest {
             forests.take(lands).mapIndexed { n, id -> PlayCard(id, forest.submitted.digest, f.a, field, "forest", covered = false,
                 placement = PlayPlacement(BoardPosition(3 + n, 0), id)) }
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
-            board = initial.board.copy(automatum = automatum, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 cards = initial.board.cards.map { when (it.id) {
                     sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                     in others -> it.copy(definition = mountain.submitted.digest, faceId = "mountain", tapped = true, corner = "")
@@ -188,7 +188,6 @@ class AutomatumControlsScreenshotTest {
             phase = TurnPosition.DRAW.phase, step = TurnPosition.DRAW.step))) }
         assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.a)))
         assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.b)), "also on the other player's turn")
-        assertFalse(AutomatumToggles.shown(board(lands = 2, automatum = false), QuickContext(viewer = f.a)))
         render(drawStep)
         compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).assertIsDisplayed()
         compose.onNodeWithContentDescription(AutomatumToggles.SKIP).assertIsDisplayed()
@@ -268,20 +267,8 @@ class AutomatumControlsScreenshotTest {
         }
     }
 
-    // TBL-116: with Automatum off the menus are exactly as before: no engine rows, today's pages
-    @Test fun automatumOffKeepsTodaysMenu() {
-        val play = board(lands = 2, automatum = false)
-        val toolkit = render(play)
-        compose.runOnIdle { toolkit.openCard(TableScope(druidId, listOf(druidId))) }
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
-        compose.onNodeWithContentDescription("{T}: Add {G}.").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Graveyard").assertExists()
-    }
-
     // TBL-117, I-D46 (a): the viewer's cards Automatum lets them use now glow: Storm Spark with Mountains untapped and the
-    // Druid (its draw ability); lands with only their mana abilities don't; nothing of the other player's, nothing while
-    // Automatum is off
+    // Druid (its draw ability); lands with only their mana abilities don't; nothing of the other player's
     @Test fun playableCardsGlow() {
         val play = board(lands = 1).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
             if (it.definition == mountain.submitted.digest) it.copy(tapped = false) else it })) }
@@ -293,8 +280,6 @@ class AutomatumControlsScreenshotTest {
         assertTrue(playable.none { id -> play.board.cards.single { it.id == id }.owner != f.a }, "only the viewer's own cards")
         captureShot("$SCREENSHOTS/automatum/playable-glow.png",
             "With Automatum on in Alice's main phase, her cards she can use now glow softly in cyan from behind: Storm Spark in her hand and Grovewatch Druid (its draw ability); her Forest and untapped Mountains, which offer only mana, don't.")
-        val off = board(lands = 1, automatum = false)
-        assertTrue(TableToolkitController(f.a, { off }, { true }, { _, _ -> true }).playable(off).isEmpty())
     }
 
     // I-D46 (b), ZON-004, ZON-077: a double-tap or drag Automatum doesn't allow shakes the card instead of a message, and
@@ -346,7 +331,7 @@ class AutomatumControlsScreenshotTest {
     // Note, Ping or text marks either); with it off all are there
     @Test fun stackOffersNoManualMoves() {
         val off = f.combat()
-        val on = off.copy(board = off.board.copy(automatum = true))
+        val on = off.copy(board = off.board)
         val entry = f.id("effect")
         fun shown(play: PlayState) = TablePresentation.stackBubbles(
             TablePresentation.scene(f.game, play, f.a, 412f, 892f, false), play, entry, 412f, 892f)

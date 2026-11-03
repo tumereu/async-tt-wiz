@@ -35,7 +35,8 @@ object GameResultRules {
             prepared.gameId != game.id || prepared.roundId != play.preparationRound) return reject("inapplicable")
         val suggestion = play.board.resultSuggestion ?: return reject("inapplicable")
         if (action.suggestionId != suggestion.id) return reject("inapplicable")
-        if (actor == suggestion.author) return reject("otherPlayerRequired")
+        // CR 104.3a (I-D52): a player may concede at any time; their own loss needs nobody else's acceptance
+        if (actor == suggestion.author && suggestion.outcome != SuggestedResult.LOSS) return reject("otherPlayerRequired")
         // The persisted preparation is independent of the mutable play board and saved deck sources.
         // Do not introduce a new starter default or sample Random during this transition. Alternating
         // hands the start to the player who did not start this play (its resolved starter, after Random).

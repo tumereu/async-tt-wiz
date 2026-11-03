@@ -14,13 +14,15 @@ import kotlinx.serialization.json.Json
  * "opponent is waiting" notice after their moves went unanswered (omitted when false). [gameOver]: the opponent
  * accepted the recipient's result suggestion, which was this outcome from the recipient's (its author's) side
  * (omitted otherwise). [opponentReady]: the opponent is Ready while the recipient is still in the opening "Mulliganing"
- * status (LOB-114; omitted when false). */
+ * status (LOB-114; omitted when false). [conceded]: the opponent conceded, accepting their own suggested loss (CR 104.3a,
+ * I-D52); [gameOver] is then that loss, from the opponent's side (omitted when false). */
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 @Serializable data class GameNoticeContent(val gameName: String, val opponentName: String,
     val lastEventAt: String, val yourMove: Boolean, val newMessage: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val reminder: Boolean = false,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val gameOver: SuggestedResult? = null,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val opponentReady: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val opponentReady: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val conceded: Boolean = false)
 @Serializable data class ActivityPage(val entries: List<ActivityHint>, val nextCursor: String,
     val retentionFloor: String, val summaryReset: Boolean, val hasMore: Boolean,
     val readyNotices: List<ActivityHint>? = null)

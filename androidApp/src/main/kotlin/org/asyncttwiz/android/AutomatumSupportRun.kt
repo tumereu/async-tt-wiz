@@ -4,16 +4,18 @@ import org.asyncttwiz.protocol.*
 
 /**
  * I-D51 (LOB-115, DRF-161): works out the Automatum support of the signed-in player's saved decks (draft decks too) and
- * cubes that have none for this app's [parserVersion] — lists saved before it existed, draft decks and copies, lists
- * whose cards changed elsewhere, and every list after a parser change — and stores it with each list on the server.
+ * cubes that have none for this app's [parserVersion] and [engineVersion] — lists saved before it existed, draft decks
+ * and copies, lists whose cards changed elsewhere, and every list after a parser or engine change — and stores it with
+ * each list on the server.
  * [support] works a list out from its card data (blocking). Lists are read one at a time; throws on a service failure
  * (tried again later).
  */
 internal class AutomatumSupportRun(private val decks: Decks, private val cubes: Cubes,
-    private val parserVersion: Int, private val support: (Collection<SubmittedDefinition>) -> CardListSupport) {
+    private val parserVersion: Int, private val engineVersion: Int,
+    private val support: (Collection<SubmittedDefinition>) -> CardListSupport) {
     data class Outcome(val decks: Int = 0, val cubes: Int = 0)
 
-    private fun needed(value: CardListSupport?) = value?.parserVersion != parserVersion
+    private fun needed(value: CardListSupport?) = value == null || value.parserVersion != parserVersion || value.engineVersion != engineVersion
 
     suspend fun run(token: String): Outcome {
         var deckCount = 0

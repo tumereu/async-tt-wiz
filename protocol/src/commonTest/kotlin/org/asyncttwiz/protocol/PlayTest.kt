@@ -54,8 +54,8 @@ class PlayTest {
         }
     }
 
-    // TRN-029, TRN-033
-    @Test fun sharedInitialBoardPreservesConcreteCopiesDefaultsAndDefinitionsExcludesSideboardAndNeverDraws() {
+    // TRN-029, TRN-033 (the opening hands: automatumStartDrawsEachOpeningHand)
+    @Test fun sharedInitialBoardPreservesConcreteCopiesDefaultsAndDefinitionsExcludesSideboard() {
         val preparation = ready()
         val original = preparation.copy()
         val state = StartRules.initialize(game, preparation, id(11), seeds)
@@ -73,15 +73,16 @@ class PlayTest {
         assertTrue(state.board.cards.all { it.covered && !it.tapped && !it.token && it.corner == "2/4" &&
             it.faceId == front.faceId && it.counters.isEmpty() && it.note.isEmpty() })
         assertEquals(11, state.board.containers.size)
-        assertTrue(state.board.containers.filter { it.zone != PlayZone.LIBRARY }.all { it.cards.isEmpty() })
+        assertTrue(state.board.containers.filter { it.zone != PlayZone.LIBRARY && it.zone != PlayZone.HAND }.all { it.cards.isEmpty() })
         for (player in ready().players) {
             val deck = player.deck!!
             val expected = deck.entries.filter { it.section == SavedDeckSection.MAINBOARD }.flatMap { entry ->
                 List(entry.quantity) { deck.card(entry, it).id } }.toSet()
             val library = state.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == player.accountId }
-            assertEquals(expected, library.cards.toSet())
-            assertEquals(expected, state.board.cards.filter { it.owner == player.accountId && it.containerId == library.id }.map { it.id }.toSet())
-            assertEquals(library.cards, state.shuffles.single { it.accountId == player.accountId }.order)
+            val hand = state.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player.accountId }
+            assertEquals(expected, (hand.cards + library.cards).toSet())
+            assertEquals(expected, state.board.cards.filter { it.owner == player.accountId && it.containerId in setOf(library.id, hand.id) }.map { it.id }.toSet())
+            assertEquals(hand.cards + library.cards, state.shuffles.single { it.accountId == player.accountId }.order)
         }
         assertEquals(original, preparation) // Input is immutable; no preparation or source reset.
         val head = GameHead(game.id, "5", game.copy(lifecycle = GameLifecycle.ACTIVE, playId = state.id), play = state)
@@ -90,11 +91,10 @@ class PlayTest {
         assertEquals(revision, GameWire.json.decodeFromString<GameServerMessage>(GameWire.encode(revision)))
     }
 
-    // TRN-062 (I-D49, CR 103.5): a play started with Automatum on begins with each player's opening hand of seven drawn
-    // from the top of their shuffled library, both players still mulliganing
+    // TRN-062 (I-D49, I-D52, CR 103.5): every play begins with each player's opening hand of seven drawn from the top of
+    // their shuffled library, both players still mulliganing
     @Test fun automatumStartDrawsEachOpeningHand() {
-        val state = StartRules.initialize(game, ready(), id(11), seeds, automatum = true)
-        assertTrue(state.board.automatum)
+        val state = StartRules.initialize(game, ready(), id(11), seeds)
         assertEquals(listOf(PlayerStatus.OPENING, PlayerStatus.OPENING), state.board.players.map { it.status })
         for (player in ready().players) {
             val order = state.shuffles.single { it.accountId == player.accountId }.order
@@ -105,8 +105,6 @@ class PlayTest {
             assertTrue(LibraryLayers.valid(library))
             assertTrue(state.board.cards.filter { it.id in hand.cards }.all { it.containerId == hand.id && it.covered })
         }
-        assertTrue(StartRules.initialize(game, ready(), id(11), seeds).board.containers.filter { it.zone == PlayZone.HAND }
-            .all { it.cards.isEmpty() }, "without Automatum the players draw by hand (TRN-027)")
     }
 
     @Test fun randomIsOnlyResolvedFromExplicitInitializationInputAndSameInputIsDeterministic() {

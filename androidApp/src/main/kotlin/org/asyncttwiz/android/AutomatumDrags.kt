@@ -67,12 +67,12 @@ internal object AutomatumDrags {
         }
     }
 
-    const val MANUAL_MOVE = "With Automatum on, cards move only by the rules. Switch Automatum off to move them by hand."
-    const val STACK = "Automatum resolves the Stack: let it resolve, or switch Automatum off to move it by hand."
-    const val LIFE = "With Automatum on, life changes only by the rules. Switch Automatum off to change it by hand."
+    const val MANUAL_MOVE = "Cards move only by the rules."
+    const val STACK = "Automatum resolves the Stack: let it resolve."
+    const val LIFE = "Life changes only by the rules."
     const val ONE_AT_A_TIME = "Cast or play one card at a time."
     /** Any other change made by hand while Automatum is on (I-D28, §3 I4). */
-    const val MANUAL = "With Automatum on, the game changes only by the rules. Switch Automatum off to change it by hand."
+    const val MANUAL = "The game changes only by the rules."
 
     /**
      * Whether [action] changes the game by hand, which Automatum on refuses (I-D28) unless its open choice is something

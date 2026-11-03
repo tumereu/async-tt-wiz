@@ -439,7 +439,7 @@ class GameSocketTest {
                     assertEquals(state.id, revision.summary.playId); assertEquals(listOf(state.id, state.root.id), original.createdIds)
                     assertEquals(14, state.board.cards.size); assertEquals(listOf("20", "20"), state.board.players.map { it.life })
                     assertEquals(TurnState(state.starter.accountId), state.board.turn)
-                    assertTrue(state.board.containers.filter { it.zone != PlayZone.LIBRARY }.all { it.cards.isEmpty() })
+                    assertTrue(state.board.containers.filter { it.zone != PlayZone.LIBRARY && it.zone != PlayZone.HAND }.all { it.cards.isEmpty() }) // I-D49: opening hands drawn
                     for (player in prepared.players) {
                         val deck = player.deck!!; val members = deck.entries.filter { it.section == SavedDeckSection.MAINBOARD }.flatMap { entry ->
                             List(entry.quantity) { deck.card(entry, it).id } }.toSet()

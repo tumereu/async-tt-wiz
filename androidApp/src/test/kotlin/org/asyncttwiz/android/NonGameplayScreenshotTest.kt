@@ -263,11 +263,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  compose.onNodeWithText("Choose cover").assertIsDisplayed()
                  compose.onNodeWithText("Meadow Sentinel").assertIsDisplayed()
              }
-            "create-game" -> {
-                dialogActions("Cancel", "Create")
-                // LOB-031 (I-D44): the Automatum switch starts on
-                compose.onNodeWithTag("new-game-automatum").assertIsOn()
-            }
+            "create-game" -> dialogActions("Cancel", "Create")
             "game-context" -> dialogActions(null, "Delete game")
             "delete-game" -> dialogActions("Keep game", "Delete game")
             "cancel-lobby" -> dialogActions("Keep game", "Cancel game")

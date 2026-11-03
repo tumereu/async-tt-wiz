@@ -73,12 +73,6 @@ class CombatReviewTest {
         rt.tags += null
     }
 
-    /** Automatum switched off and on again, nothing done by hand in between (I-D42 drops the turn's engine data). */
-    private fun offAndOn(rt: RoundTrip) {
-        manual(rt, alice, PlayAction.Mtg(MtgAction.SetAutomatum(false)))
-        manual(rt, alice, PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-    }
-
     private fun blocksTwo(card: String) {
         val digest = table.state().board.cards.single { it.id == card }.definition
         val definition = table.definitions.getValue(digest)
@@ -185,38 +179,6 @@ class CombatReviewTest {
         assertTrue(preview.dealt.any { it.source == brute && it.target == MtgRef.Player(bob) && it.amount == 5 })
     }
 
-    // CR 509.1h, I-D42, SYS-070: switching Automatum off and on (nothing done by hand) drops the combat record; read
-    // from the lanes, the Bear's pair keeps "blocked", so it still deals no damage
-    @Test fun switchingOffAndOnKeepsABlockedAttackerBlocked() {
-        val (rt, _, aliceBear) = blockerGone()
-        offAndOn(rt)
-        val preview = assertNotNull(CombatFlow.preview(rt.call()))
-        assertTrue(preview.dealt.none { it.source == aliceBear }, "the Bear stays blocked (CR 509.1h): ${preview.dealt}")
-        assertEquals(mapOf(bob to -5), preview.life)
-    }
-
-    // combatreview #4 (fixed) — CR 510.4, I-D31, I-D42, SYS-070: Alice's Dawnlance Squire (first strike 2/1) is blocked by Bob's
-    // Hill Ogre (3/3); in the first-strike damage step it dealt its 2. Switched off and on there (nothing done by hand),
-    // the combat record (which knows this is the first-strike step and who dealt damage in it) is dropped: rebuilt from
-    // the lanes the engine takes the step as the regular combat damage step, so the next pass's batch counts passes at
-    // COMBAT_DAMAGE while ATW is still at FIRST_STRIKE_DAMAGE and the rebuilt state no longer matches the engine's
-    // (the round trip fails); the Squire would also be free to strike again. Expected: the regular step follows with
-    // only the Ogre dealing damage
-    @Test fun switchingOffAndOnInTheFirstStrikeStepDoesNotStrikeTwice() {
-        val (squire) = table.put(alice, PlayZone.BATTLEFIELD, "Dawnlance Squire")
-        val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
-        val rt = attack(game(), LaneAttack(squire))
-        rt.run(bob) { CombatFlow.declareBlockers(it, listOf(LaneBlock(ogre, squire))) }
-        while (position(rt) != TurnPosition.FIRST_STRIKE_DAMAGE) passBob(rt)
-        assertEquals("2", rt.state.board.cards.single { it.id == ogre }.damage)
-        offAndOn(rt)
-        var guard = 6
-        while (position(rt) == TurnPosition.FIRST_STRIKE_DAMAGE && guard-- > 0) pass(rt)
-        assertEquals(PlayZone.GRAVEYARD, zone(rt, squire), "the Ogre's 3 kill the Squire")
-        assertEquals(PlayZone.BATTLEFIELD, zone(rt, ogre), "the Squire doesn't strike again (CR 510.4)")
-        assertEquals("2", rt.state.board.cards.single { it.id == ogre }.damage)
-    }
-
     // CR 506.4c, 510.1b: a planeswalker that leaves the battlefield is removed from combat; the creature attacking it stays
     // attacking but, unblocked, deals no combat damage (to nobody, not to its controller)
     @Test fun anAttackerOfAPlaneswalkerThatLeftDealsNoDamage() {
@@ -234,34 +196,4 @@ class CombatReviewTest {
         assertTrue(preview.life.values.all { it == 0 }, "${preview.life}")
     }
 
-    // combatreview #3 (fixed) — CR 506.4c, 510.1b, 702.19f, I-D42: as above, then Automatum is switched off and on. When the
-    // planeswalker left, the planner moved the Bear's pair into Bob's own lane (attackTarget null), so the table shows the
-    // Bear attacking Bob, and read back from the lanes it is attacking Bob: it deals 2 to Bob. Expected: no damage
-    @Test fun switchingOffAndOnAfterTheAttackedPlaneswalkerLeft() {
-        val (aliceBear) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear")
-        val (seer) = table.put(bob, PlayZone.BATTLEFIELD, "Oath Seer")
-        val rt = game()
-        rt.state = rt.state.copy(board = rt.state.board.copy(cards = rt.state.board.cards.map {
-            if (it.id == seer) it.copy(typedCounters = listOf(TypedCounter("loyalty", 3, 0))) else it }))
-        // Bob has no creature: no blockers are declared (nothing to declare)
-        attack(rt, LaneAttack(aliceBear, seer))
-        sparkAt(rt, seer)
-        assertTrue(rt.state.board.combat!!.pairs.none { p -> p.attackTarget == null && p.attackers.any { it.sourceId == aliceBear } },
-            "the lanes don't show the Bear attacking Bob")
-        offAndOn(rt)
-        val preview = assertNotNull(CombatFlow.preview(rt.call()), "the combat can be taken over")
-        assertTrue(preview.dealt.isEmpty(), "${preview.dealt}")
-        assertTrue(preview.life.values.all { it == 0 }, "${preview.life}")
-    }
-
-    // combatreview #11 (fixed) — SYS-070, I-D42, CR 117.3d: Alice passed in her main phase, so Bob holds priority; switching
-    // Automatum off and on (nothing done by hand) keeps him holding it, with Alice's pass counted
-    @Test fun switchingOffAndOnKeepsThePriorityHolder() {
-        val rt = game()
-        rt.run(alice) { StepFlow.pass(it, alice) }
-        assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
-        offAndOn(rt)
-        assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
-        assertEquals(null, HostPriority.wanted(rt.call().working, HostPriority.kept(rt.state.board)), "the host leaves priority with Bob")
-    }
 }

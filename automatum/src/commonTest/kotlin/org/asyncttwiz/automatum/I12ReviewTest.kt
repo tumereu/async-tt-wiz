@@ -47,7 +47,7 @@ class I12ReviewTest {
             EffectId("pump"), listOf(Mechanic.ModifyPowerToughness(Value.Fixed(3), Value.Fixed(3))), Affected.Objects(Objects.Self),
             locked = listOf(ObjectId.Card(engineId, 0)), source = ObjectId.Card(engineId, 0), controller = PlayerId(alice),
             timestamp = 5, createdTurn = 1, duration = Duration.EndOfTurn)))
-        val turn1 = base.copy(board = base.board.copy(automatum = true, engineRecords = listOf(pump),
+        val turn1 = base.copy(board = base.board.copy(engineRecords = listOf(pump),
             cards = base.board.cards.map { if (it.id == gremlin) it.copy(timestamp = 1) else it }))
         assertEquals("5/5", ComputedBoard.of(turn1, table.definitions, alice).cards.getValue(gremlin).corner, "pumped in its own turn")
         // Two turns later, changed with the step button (TRN-007): the cleanup of turn 1 (CR 514.2) has passed
@@ -79,7 +79,7 @@ class I12ReviewTest {
         assertTrue(visible.none { (it.action as? PlayAction.Mtg)?.action is MtgAction.SetManaPool }, "visible events: $shown")
     }
 
-    // i12review #12 (TRN-055, STK-023): the reasons Automatum gives players for not taking over a board (hold panel, cast
+    // i12review #12 (STK-023): the reasons Automatum gives players for not taking over a board (the cast
     // refusal "Automatum can't take over this board: …") are plain sentences with card names, never internal ids
     @Test fun refusalReasonsNameNoInternalIds() {
         val (spark, held) = table.put(alice, PlayZone.HAND, "Storm Spark", "Storm Spark")

@@ -209,7 +209,7 @@ class GameChatTest {
             ServiceRuntime(db.settings).use { runtime ->
                 ready(runtime); val f = Fixture(runtime); val before = f.games.head(f.a, f.game.id)
                 val first = f.owner.command(GameAction.SendChat("before board"))
-                val edit = f.owner.command(GameAction.SendChat("scope")).copy(action = GameAction.Play(
+                val edit = f.owner.command(GameAction.SendChat("scope")).copy(action = automatedPlay(
                     PlayAction.AdjustLife(f.a.account.accountId, "2")))
                 val second = f.recipient.command(GameAction.SendChat("after board"))
                 listOf(f.owner to first, f.owner to edit, f.recipient to second).forEach { (stream, command) -> stream.admit(command) }
@@ -248,7 +248,7 @@ class GameChatTest {
                 val retained = TreeSync.decode(records.asSequence(), head.gameId, head.play!!.id).tree
                 assertEquals(listOf(edit.requestId), retained.nodes.values.map { it.requestId })
                 assertEquals(head.play, retained.stateAt(retained.currentNodeId))
-                val suggest = edit.copy(requestId = id(), action = GameAction.Play(PlayAction.SuggestResult(SuggestedResult.DRAW)))
+                val suggest = edit.copy(requestId = id(), action = automatedPlay(PlayAction.SuggestResult(SuggestedResult.DRAW)))
                 assertEquals("accepted", f.owner.execute(suggest).outcome)
                 val suggestion = f.games.head(f.b, f.game.id).play!!.board.resultSuggestion!!
                 val accept = f.recipient.command(GameAction.SendChat("scope")).copy(action = GameAction.AcceptResult(suggestion.id))

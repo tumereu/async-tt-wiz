@@ -40,15 +40,14 @@ class AutomatumOpeningTest {
     @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null }
 
     /** A new game as the server starts it: 12-card libraries in an unknown order, both players "Mulliganing", Alice
-     * starting in her first untap step; [automatum]: the game's choice (I-D44), which also draws each player's opening
-     * hand of seven from the top of their shuffled library (I-D49, as [StartRules.initialize] does); without it the hands
-     * are empty. */
-    private fun newGame(automatum: Boolean = false): PlayState {
+     * starting in her first untap step, each player's opening hand of seven drawn from the top of their shuffled library
+     * (I-D49, as [StartRules.initialize] does). */
+    private fun newGame(): PlayState {
         val cards = mutableListOf<PlayCard>()
         val containers = mutableListOf<PlayContainer>()
         for (player in listOf(alice, bob)) {
             val ids = List(12) { id("$player/card/$it") }
-            val drawn = if (automatum) ids.take(7) else emptyList()
+            val drawn = ids.take(7)
             val rest = ids - drawn.toSet()
             ids.forEach { cards += PlayCard(it, mountain.digest, player, id("$player/${if (it in drawn) "HAND" else "LIBRARY"}"), mountainFace.faceId) }
             for (zone in PlayZone.entries.filter { it != PlayZone.STACK }) containers += PlayContainer(id("$player/$zone"), zone, player,
@@ -59,7 +58,7 @@ class AutomatumOpeningTest {
         val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
         return PlayState(id("game"), id("play"), id("round"), id("start"), PlayRoot(id("root"), id("branch")), id("root"),
             BoardState(listOf(alice, bob).map { PlayPlayer(it, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id },
-                containers, TurnState(alice), automatum = automatum),
+                containers, TurnState(alice)),
             listOf(mountain), listOf(alice, bob).map { p -> InitialShuffle(p, seed, cards.filter { it.owner == p }.map { it.id }) },
             InitialStarter(StarterChoice(alice), alice))
     }
@@ -124,7 +123,7 @@ class AutomatumOpeningTest {
     // hand; both players see Mulligan and Keep (no Mull N); both keep at once; the game doesn't begin until both have
     // kept; then Alice's step button begins her first turn through Automatum: no draw, her main phase, where she plays a land
     @Test fun bothKeepAndTheFirstTurnPlays() {
-        tree = GameplayTree(newGame(automatum = true))
+        tree = GameplayTree(newGame())
         val a = device(alice)
         val b = device(bob)
         assertEquals(7, hand(alice).size)
@@ -156,7 +155,7 @@ class AutomatumOpeningTest {
 
     // TRN-062 (I-D49, CR 103.5): the first mulligan is free: a new seven, counted, and Keep sets Ready at once with seven
     @Test fun aFreeMulliganThenKeepSeven() {
-        tree = GameplayTree(newGame(automatum = true))
+        tree = GameplayTree(newGame())
         val a = device(alice)
         mulligan(a)
         assertEquals(1, mulligans(alice))
@@ -174,7 +173,7 @@ class AutomatumOpeningTest {
     // exactly one card; it goes to the bottom of Alice's library and she is Ready with six. Bob mulligans meanwhile:
     // both decide at the same time
     @Test fun twoMulligansPutOneOnTheBottom() {
-        tree = GameplayTree(newGame(automatum = true))
+        tree = GameplayTree(newGame())
         val a = device(alice)
         val b = device(bob)
         mulligan(a)
@@ -204,7 +203,7 @@ class AutomatumOpeningTest {
     // TRN-062 (I-D49), SYS-038: the opening's steps are undone one at a time: a keep with its bottom card, then a mulligan
     // with its count, each restoring the hand it changed
     @Test fun undoWithinTheOpening() {
-        tree = GameplayTree(newGame(automatum = true))
+        tree = GameplayTree(newGame())
         val a = device(alice)
         val seven = hand(alice)
         mulligan(a)
@@ -230,7 +229,7 @@ class AutomatumOpeningTest {
     // TRN-062 (I-D49, CR 103.5): mulligans go on until the hand kept would have no cards; then Mulligan is greyed and says
     // why, and Keep puts all seven on the bottom
     @Test fun noMulliganOnceTheHandKeptWouldBeEmpty() {
-        tree = GameplayTree(newGame(automatum = true))
+        tree = GameplayTree(newGame())
         val a = device(alice)
         repeat(8) { mulligan(a) }
         val refused = quick(a, QuickActions.MULLIGAN)
@@ -243,39 +242,4 @@ class AutomatumOpeningTest {
         assertTrue(hand(alice).isEmpty())
     }
 
-    // TRN-062 (I-D49): Automatum switched on during an opening with empty hands (a game begun without it): Mulligan
-    // draws the opening hand without counting a mulligan; the opening then goes on by the rules
-    @Test fun switchedOnBeforeTheHandsAreDrawn() {
-        tree = GameplayTree(newGame())
-        val a = device(alice)
-        assertEquals(listOf("Mull N", "Mull −1", QuickActions.READY), quickNames(a), "Automatum off: by hand (TRN-027)")
-        assertTrue(a.setAutomatum(true), a.error)
-        assertEquals(listOf(QuickActions.MULLIGAN, QuickActions.KEEP), quickNames(a))
-        mulligan(a)
-        assertEquals(7, hand(alice).size)
-        assertEquals(0, mulligans(alice))
-        mulligan(a)
-        assertEquals(1, mulligans(alice))
-        keep(a)
-        assertFalse(opening(alice))
-        assertEquals(7, hand(alice).size)
-    }
-
-    // TRN-027, TRN-029 (I-D28): the opening played with Automatum off, Automatum switched on once both are Ready: the
-    // first turn begins from its untap step through Automatum all the same
-    @Test fun switchedOnAfterTheOpeningTheFirstTurnBegins() {
-        tree = GameplayTree(newGame())
-        val a = device(alice)
-        val b = device(bob)
-        mullSeven(a)
-        mullSeven(b)
-        ready(a)
-        ready(b)
-        assertTrue(b.setAutomatum(true), b.error)
-        assertTrue(next(a), a.error)
-        assertEquals(TurnPosition.PRECOMBAT_MAIN, TurnPosition.of(play.board.turn))
-        assertEquals(7, hand(alice).size)
-        playLand(a)
-        assertEquals(6, hand(alice).size)
-    }
 }

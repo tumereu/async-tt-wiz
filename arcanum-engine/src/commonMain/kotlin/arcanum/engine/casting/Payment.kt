@@ -131,7 +131,7 @@ internal object Payment {
                     ?: refuse("$id can't pay that way")
             }
         }
-        val payers = Mana.poolPayers(board, player, plan.itemId, chosenPool + added) + specialPayers
+        val payers = Mana.poolPayers(board, player, plan.itemId, chosenPool + added, plan.manaAsAnyColor) + specialPayers
         if (Mana.leastMana(cost) > payers.size) refuse("That doesn't pay $cost")
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         // CR 107.4f, 119.4: 2 life for each Phyrexian symbol paid with life, only with that much life
@@ -558,7 +558,7 @@ internal object Payment {
         ability.instructions.steps.forEachIndexed { i, step ->
             val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
             val colors = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors.orEmpty()
-            val one = ability.copy(instructions = ability.instructions.copy(steps = listOf(step)))
+            val one = ability.copy(instructions = ability.instructions.copy(steps = listOf(Mana.withChosenColors(ability, step))))
             // CR 608.2h: what a sacrificed or discarded object could produce is read as it last existed, before paying
             val yields = if (add.mana.kind is arcanum.api.ManaKind.AsCouldProduce) Mana.yields(plan.snap, plan.player, plan.sourceId, one, plan.manaNames())
                 else Mana.yields(snap, plan.player, plan.sourceId, one, plan.names)
@@ -572,13 +572,28 @@ internal object Payment {
         countActivation(recorder, plan.sourceId, plan.origin, loyalty = false)
         arcanum.engine.trigger.Triggers.resolveManaTriggers(recorder)
         Casting.keepPriority(recorder, plan.player)
-        val rest = ability.instructions.steps.filterNot { it is Step.Do && it.effect is Effect.AddMana }
+        // ecl: "Add one mana of any color. This creature becomes that color": the colour chosen for the mana is what its
+        // choice step binds, so that step isn't asked again (CR 605.3b: the ability resolves as a whole)
+        var names = plan.names.with(bound)
+        val answered = mutableSetOf<String>()
+        ability.instructions.steps.forEachIndexed { i, step ->
+            val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return@forEachIndexed
+            val colors = (plan.choices.names[Plan.COLOR + i] as? NamedValue.Colors)?.colors.orEmpty()
+            if (colors.isEmpty()) return@forEachIndexed
+            (add.mana.kind as? arcanum.api.ManaKind.Choose)?.colors.orEmpty().filterIsInstance<arcanum.api.ColorRef.Chosen>().forEach { ref ->
+                names = names.with(ref.name, NamedValue.Colors(colors))
+                answered += ref.name
+            }
+        }
+        val rest = ability.instructions.steps.filterNot {
+            (it is Step.Do && it.effect is Effect.AddMana) || (it is Step.Choose && it.choice is arcanum.api.Choice.Color && it.bind in answered)
+        }
         if (rest.isEmpty()) return Progress.Done
         val mark = recorder.changes.size
         return try {
             val act = arcanum.engine.action.Act(recorder, arcanum.engine.action.Asker.NONE)
             val cause = arcanum.engine.action.Cause(plan.player, plan.sourceId, key = "mana:${plan.sourceId}:${recorder.state.nextTimestamp()}")
-            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, cause, plan.names.with(bound), null), rest)
+            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, cause, names, null), rest)
             Progress.Done
         } catch (n: arcanum.engine.action.NeedDecision) {
             recorder.rollback(mark)

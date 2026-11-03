@@ -26,8 +26,9 @@ import kotlin.test.Test
 /**
  * Edge of Eternities chunks 13 to 15 in play: the green, multicolored and artifact cards and the lands. Verdani Groundgardener, Residue
  * Elemental, Frostgrotto Smasher and Icefield Worldmaw repeat tested landfall templates; Meltcaller's surveil and Plucky Greenhorn's
- * counter use covered effects; Spawning Lagoon and the other shock lands repeat a cube template; Rationing Brick is a Food with a covered
- * dies trigger; Outpost Overseer repeats Summit Envoy's Drone; Sir Harvell, the Luminous repeats a tested enters-or-attacks pump.
+ * counter use covered effects; Spawning Lagoon, Faithless Chapel, Hallowed Smeltery, Trampling Hollow and Sunken Ossuary are dual lands
+ * with "As this land enters, you may pay 2 life" (CR 614.12, tested in the engine's replacement tests); Outpost Overseer repeats a tested
+ * second-spell Drone; Sir Harvell, the Luminous repeats a tested enters-or-attacks pump.
  */
 class EoeGreenGoldArtifactScenariosTest {
     private fun Scenario.libraries() {
@@ -485,6 +486,18 @@ class EoeGreenGoldArtifactScenariosTest {
         expect {
             bob.life shouldBe 18
             alice.hand.size shouldBe 1
+        }
+    }
+
+    @Test
+    fun rationBrickDrawsWhenSacrificed() = scenario {
+        alice.battlefield(EoeSet.rationBrick, "Plains", "Plains")
+        alice.library(notes)
+        alice.activates(EoeSet.rationBrick)
+        resolveAll()
+        expect {
+            alice.life shouldBe 23
+            alice.hand has notes
         }
     }
 

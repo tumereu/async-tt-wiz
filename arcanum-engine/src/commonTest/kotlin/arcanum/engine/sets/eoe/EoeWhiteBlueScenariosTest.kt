@@ -24,9 +24,9 @@ import kotlin.test.Test
 /**
  * Edge of Eternities chunks 07 to 10 in play: the white and blue cards. Exiling Radiance and Rift Tear repeat Every-Path Prowler's
  * exile-until-it-leaves ([EoeWarpScenariosTest.everyPathProwlerExilesUntilItLeaves]); Launch-Bay Marshal and Vanguard Battle-Brute
- * repeat Daybreak Spearhead's "two or more tapped creatures" end step; Twin-Star Disciples' pump, Laurel of Merit, Gleaming Blow, Void
- * Out, Drifter Windedge and Plague Scarab-like one-liners use covered effects and are played where they differ; Mistshaper Mechanic and
- * Drifter Agent repeat tested static and second-spell templates.
+ * repeat Daybreak Spearhead's "two or more tapped creatures" end step; Gleaming Blow (destroy, gain life) and Drifter Windedge (flash,
+ * flying, sacrifice to draw) use covered effects; Mistshaper Mechanic and Drifter Agent repeat tested artifact-static and second-spell
+ * templates.
  */
 class EoeWhiteBlueScenariosTest {
     private fun Scenario.libraries() {
@@ -541,6 +541,20 @@ class EoeWhiteBlueScenariosTest {
         resolveAll()
         choose()
         expect { giant.zone shouldBe Zone.Library }
+    }
+
+    @Test
+    fun voidOutCountersAnArtifactSpell() = scenario {
+        alice.battlefield("Island")
+        alice.hand(EoeSet.voidOut)
+        bob.battlefield("Plains")
+        bob.hand(trinket)
+        turn(active = bob)
+        bob.casts(trinket)
+        bob.passes()
+        alice.casts(EoeSet.voidOut, target = trinket)
+        resolveAll()
+        expect { trinket.zone shouldBe Zone.Graveyard }
     }
 
     // ---- chunk 10

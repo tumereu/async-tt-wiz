@@ -24,7 +24,7 @@ import kotlin.test.assertTrue
 /**
  * Edge of Eternities chunks 03 and 04 in play: the warp cards (CR 702.185) and what they do as they enter, cast for their warp costs
  * where it matters. Radiant Squire-Commander's Soldier, Riftsurge Leviathan's surveil 2, Sprouting Crawler's 2 life, Supernova Wyrm's 1
- * damage and Loombalde Augmenter's counters as they enter repeat tested enters templates; Forgotten Juggernaut and Crimson Panther
+ * damage and Loomblade Augmenter's counters as they enter repeat tested enters templates; Forgotten Juggernaut and Crimson Panther
  * Automaton are warp and haste only (warp is tested in [EoeMechanicsScenariosTest]).
  */
 class EoeWarpScenariosTest {

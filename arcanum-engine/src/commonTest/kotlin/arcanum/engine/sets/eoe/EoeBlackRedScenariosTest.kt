@@ -22,7 +22,8 @@ import kotlin.test.Test
 /**
  * Edge of Eternities chunks 11 and 12 in play: the black and red cards. Gravcrush, Welcome the Abyss's destruction, Cast Out by Ballot
  * (convoke is covered), Barrage Shot, Stardust Wyrm's 3 damage and Outfit for Battle use covered effects; Gravjet Zealot's tapped Robot
- * and Menagerie Automaton's pump repeat tested templates; Hullgouger and Zealot Picket are keywords only.
+ * and Menagerie Automaton's pump repeat tested templates; Vanguard Battle-Brute repeats Daybreak Spearhead's tapped-creatures end step;
+ * Hullgouger and Zealot Picket are keywords only.
  */
 class EoeBlackRedScenariosTest {
     private fun Scenario.libraries() {
@@ -307,6 +308,17 @@ class EoeBlackRedScenariosTest {
             giant.zone shouldBe Zone.Battlefield
             alice.life shouldBe 18
         }
+    }
+
+    @Test
+    fun plagueScarabMakesEachOpponentDiscard() = scenario {
+        alice.battlefield("Swamp", "Swamp")
+        alice.hand(EoeSet.plagueScarab)
+        bob.hand(giant)
+        alice.casts(EoeSet.plagueScarab)
+        resolveAll()
+        choose(giant)
+        expect { bob.graveyard has giant }
     }
 
     // ---- chunk 12

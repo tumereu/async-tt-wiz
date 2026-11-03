@@ -59,6 +59,12 @@ internal fun Scenario.choose(vararg names: String) {
     answer(Answer.Objects(taken)); resolveAll()
 }
 
+/** Pays an open mana payment as the engine suggests, then resolves on. */
+internal fun Scenario.pay() {
+    (pending as? Decision.ManaPayment)?.let { answer(Answer.ManaPayment(it.suggestion)) }
+    resolveAll()
+}
+
 /** Sets [name] up with its back face up (setup only). */
 internal fun Scenario.backFaceUp(name: String) {
     val id = card(name)

@@ -115,6 +115,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = if (byEffect) (c.what as Announced.Spell).permitted?.let { it to null }
         else way.permission?.let { p -> (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p) }
 
+    /** tla: the permission lets mana of any type be spent on it (CR 609.4b). */
+    val anyColorMana: Boolean get() = permission?.first?.manaAsAnyColor == true
+
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
     // gtc
     val fused = way.fused
@@ -619,7 +622,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays), Mana.suggest(snap, player, q.cost, itemId, manaWays))
+            Mana.options(snap, player, q.cost, itemId, manaWays, anyColorMana),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = anyColorMana))
     }
 
     companion object {

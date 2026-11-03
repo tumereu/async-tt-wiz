@@ -136,7 +136,7 @@ internal object Payment {
                     ?: refuse("$id can't pay that way")
             }
         }
-        val payers = Mana.poolPayers(board, player, plan.itemId, chosenPool + added) + specialPayers
+        val payers = Mana.poolPayers(board, player, plan.itemId, chosenPool + added, plan.anyColorMana) + specialPayers
         if (Mana.leastMana(cost) > payers.size) refuse("That doesn't pay $cost")
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         // CR 107.4f, 119.4: 2 life for each Phyrexian symbol paid with life, only with that much life

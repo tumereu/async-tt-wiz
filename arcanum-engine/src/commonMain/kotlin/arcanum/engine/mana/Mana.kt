@@ -304,10 +304,11 @@ internal object Mana {
         return if (go(0)) payers.filterIndexed { j, _ -> used[j] } else null
     }
 
-    /** Payers from mana in [player]'s pool that may be spent on [paysFor] (CR 106.6). */
-    fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null): List<Payer> {
+    /** Payers from mana in [player]'s pool that may be spent on [paysFor] (CR 106.6); [anyColor]: the spell's permission lets mana be
+     * spent as though it were mana of any colour (tla, CR 609.4b). */
+    fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null, anyColor: Boolean = false): List<Payer> {
         val pool = snap.state.player(player).manaPool
-        val anyColor = spendsAsAnyColor(snap, player, paysFor)
+        val anyColor = anyColor || spendsAsAnyColor(snap, player, paysFor)
         return pool.withIndex().filter { (i, u) -> (indices == null || i in indices) && allowed(snap, player, u, paysFor) }
             .map { (i, u) -> Payer(if (anyColor) (Color.all + u.color).toSet() else setOf(u.color), u.snow, ManaUse.Pool(i), u) }
     }
@@ -370,9 +371,11 @@ internal object Mana {
 
     /** Ways [player] could pay [cost] now (CR 601.2g–h): pool mana, simple mana abilities with each colour they can
      * make, life for Phyrexian symbols, and the spell's other ways. */
-    fun options(snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?, ways: List<ManaPaymentWay> = emptyList()): List<ManaUse> =
+    fun options(
+        snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?, ways: List<ManaPaymentWay> = emptyList(), anyColor: Boolean = false,
+    ): List<ManaUse> =
         buildList {
-            poolPayers(snap, player, paysFor).forEach { add(it.use) }
+            poolPayers(snap, player, paysFor, anyColor = anyColor).forEach { add(it.use) }
             sources(snap, player).forEach { s ->
                 val colors = s.yields.filter { it.choice }.flatMap { it.colors }.distinct()
                 if (colors.isEmpty()) add(ManaUse.Ability(s.id, s.origin, s.colors.singleOrNull()))
@@ -391,19 +394,22 @@ internal object Mana {
      */
     fun suggest(
         snap: Snapshot, player: PlayerId, cost: ManaCost, paysFor: ObjectId?,
-        ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true,
+        ways: List<ManaPaymentWay> = emptyList(), canSpendMana: Boolean = true, anyColor: Boolean = false,
     ): List<ManaUse> {
         if (cost.symbols.all { it is ManaSymbol.Generic && it.amount == 0 || it is ManaSymbol.Variable }) return emptyList()
         if (!canSpendMana) return suggestFrom(snap, player, cost, capped(specialPayers(snap, player, ways), ways), emptyList(), paysFor)
-        val pool = poolPayers(snap, player, paysFor)
+        val any = anyColor || spendsAsAnyColor(snap, player, paysFor)
+        val pool = poolPayers(snap, player, paysFor, anyColor = any)
         val sources = sources(snap, player)
-        val byMana = suggestFrom(snap, player, cost, pool, sources, paysFor)
+        val byMana = suggestFrom(snap, player, cost, pool, sources, paysFor, any)
         if (byMana.isNotEmpty() || ways.isEmpty()) return byMana
-        return suggestFrom(snap, player, cost, pool + capped(specialPayers(snap, player, ways, sources.map { it.id }.toSet()), ways), sources, paysFor)
+        return suggestFrom(snap, player, cost, pool + capped(specialPayers(snap, player, ways, sources.map { it.id }.toSet()), ways), sources, paysFor, any)
     }
 
     /** [suggest] from [pool] (pool mana and other ways' payers, used as they are) and mana [sources]. */
-    private fun suggestFrom(snap: Snapshot, player: PlayerId, cost: ManaCost, pool: List<Payer>, sources: List<Source>, paysFor: ObjectId?): List<ManaUse> {
+    private fun suggestFrom(
+        snap: Snapshot, player: PlayerId, cost: ManaCost, pool: List<Payer>, sources: List<Source>, paysFor: ObjectId?, anyColor: Boolean = false,
+    ): List<ManaUse> {
         // More mana than every payer and source together makes isn't found (nor worked out symbol by symbol: a huge X)
         if (leastMana(cost) > pool.size + sources.sumOf { s -> s.yields.sumOf { it.amount.toLong() } }) return emptyList()
         val phyrexian = cost.symbols.withIndex().filter { it.value is ManaSymbol.Phyrexian || it.value is ManaSymbol.PhyrexianHybrid }.map { it.index }
@@ -411,14 +417,16 @@ internal object Mana {
         for (lifeCount in 0..phyrexian.size) {
             val lifeFor = phyrexian.takeLast(lifeCount).toSet()
             if (snap.state.player(player).life < 2 * lifeCount) break
-            val found = search(snap, player, needs(cost, lifeFor), pool, sources, paysFor)
+            val found = search(snap, player, needs(cost, lifeFor), pool, sources, paysFor, anyColor)
             if (found != null) return found + lifeFor.sorted().map { ManaUse.Life(it) }
         }
         return emptyList()
     }
 
     /** Depth-first search for sources that pay [needs] with [pool] mana first; cheapest sources tried first. */
-    private fun search(snap: Snapshot, player: PlayerId, needs: List<Need>, pool: List<Payer>, sources: List<Source>, paysFor: ObjectId?): List<ManaUse>? {
+    private fun search(
+        snap: Snapshot, player: PlayerId, needs: List<Need>, pool: List<Payer>, sources: List<Source>, paysFor: ObjectId?, anyColor: Boolean = false,
+    ): List<ManaUse>? {
         assign(needs, pool)?.let { used -> return used.map { it.use } }
         // Add sources one at a time, cheapest first, until the payers cover the needs
         val chosen = mutableListOf<Pair<Source, Color?>>()
@@ -426,7 +434,10 @@ internal object Mana {
         fun payersOf(list: List<Pair<Source, Color?>>): List<Payer> = list.flatMap { (s, c) ->
             s.yields.flatMap { y ->
                 units(y, c, s.id).filter { allowed(snap, player, it, paysFor) }
-                    .map { u -> Payer(setOf(u.color), u.snow, ManaUse.Ability(s.id, s.origin, if (y.choice) c else s.colors.singleOrNull()), u) }
+                    .map { u ->
+                        Payer(if (anyColor) (Color.all + u.color).toSet() else setOf(u.color), u.snow,
+                            ManaUse.Ability(s.id, s.origin, if (y.choice) c else s.colors.singleOrNull()), u)
+                    }
             }
         }
         fun go(from: Int): List<ManaUse>? {

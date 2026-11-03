@@ -10,6 +10,7 @@ import arcanum.engine.state.ControlSince
 import arcanum.engine.state.GameObject
 import arcanum.engine.state.GameState
 import arcanum.engine.state.LoggedChange
+import arcanum.engine.state.MergedPart
 import arcanum.engine.state.ObjectId
 import arcanum.engine.state.PlayerId
 import arcanum.engine.state.PlayerState
@@ -77,9 +78,20 @@ object EngineState {
         val printed = mutableMapOf<String, CardDefinition?>()
         fun definition(card: PlayCard): CardDefinition? = definitions[card.definition]
             ?: printed.getOrPut(card.definition) { PrintedCards.definition(state, card) }
+        // CR 730.2: the cards of merged permanents' other components are parts of those permanents, no objects of their own
+        val ledgers = board.cards.associate { it.id to CardLedger.of(it.ledger) }
+        val parts = ledgers.values.flatMap { it.mergedAbove + it.mergedBelow }.toSet()
+        fun part(id: String): MergedPart {
+            val card = byId[id] ?: throw Unsupported(listOf("A merged permanent's card isn't on the table any more"))
+            val ledger = ledgers.getValue(id)
+            return MergedPart(ObjectId.Card(ids.engine(card.id), card.zoneChanges), PlayerId(ledger.ownerOverride ?: Derived.owner(state, card)),
+                ledger.definition ?: definition(card), ledger.faceOverride ?: Derived.face(state, card), card.token && !ledger.copyOfCard,
+                ledger.copyOfCard, card.timestamp)
+        }
         for (card in board.cards) {
+            if (card.id in parts) continue
             val container = containers.getValue(card.containerId)
-            val ledger = CardLedger.of(card.ledger)
+            val ledger = ledgers.getValue(card.id)
             val spell = spells[card.id]
             val zone = if (spell != null) Zone.Stack else zone(container.zone)
             val engineId = ObjectId.Card(ids.engine(card.id), card.zoneChanges)
@@ -109,6 +121,8 @@ object EngineState {
                 facts = ledger.facts,
                 goadedBy = ledger.goadedBy,
                 protector = ledger.protector,
+                mergedAbove = ledger.mergedAbove.map(::part),
+                mergedBelow = ledger.mergedBelow.map(::part),
             )
             if (viewer != null && !known(board, card, obj, viewer)) obj = obj.copy(definition = null)
             objects[engineId] = obj

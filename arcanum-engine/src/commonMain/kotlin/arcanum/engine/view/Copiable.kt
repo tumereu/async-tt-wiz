@@ -64,14 +64,18 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
         if (o.facts.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
             faces = faces.map { it.copy(face = prototyped(it.face)) }
-        // CR 613.2a, 707.2: copy effects in timestamp order
+        // CR 730.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all, a
+        // copy effect timestamped as the objects merged (the latest merge)
+        // fin: a melded permanent has only the combined back face's characteristics (CR 712.8g)
+        var mergeDue = o.merged && !(o.definition?.layout is arcanum.api.Layout.Meld && o.face == 1)
+        val mergedAt = (o.mergedAbove + o.mergedBelow).maxOfOrNull { it.timestamp } ?: 0
+        // CR 613.2a, 613.7, 707.2: copy effects (the merge among them) in timestamp order: a later copy effect overrides the merge
         copyEffectsOn(id).forEach { (effect, copy) ->
+            if (mergeDue && effect.timestamp > mergedAt) { faces = merged(o, faces); mergeDue = false }
             val copied = effect.copied?.let { listOf(IndexedFace(0, it)) } ?: copiedFaces(effect, copy, visiting)
             if (copied != null) faces = copied.map { it.copy(face = exceptions(it.face, copy.except)) }
         }
-        // CR 730.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all
-        // fin: a melded permanent has only the combined back face's characteristics (CR 712.8g)
-        if (o.merged && !(o.definition?.layout is arcanum.api.Layout.Meld && o.face == 1)) faces = merged(o, faces)
+        if (mergeDue) faces = merged(o, faces)
         // CR 702.103b: a bestowed spell or permanent is an Aura enchantment with enchant creature
         if (o.bestowed) faces = faces.map { it.copy(face = bestowed(it.face)) }
         // CR 709.5: a Room's locked halves have no name, mana cost or rules text
@@ -140,6 +144,14 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     }
 
     companion object {
+        /** The copiable values [faces] give a copy effect as one face (CR 707.2): the first face, with the abilities of a
+         * merged permanent's other components (CR 730.2a, 702.140e: they are part of its copiable values). */
+        fun copiedFace(faces: List<IndexedFace>?): FaceDefinition? {
+            val main = faces?.firstOrNull { !it.abilitiesOnly }?.face ?: return null
+            val others = faces.filter { it.abilitiesOnly }.flatMap { it.face.abilities }
+            return if (others.isEmpty()) main else main.copy(abilities = main.abilities + others)
+        }
+
         /** CR 708.2a: a 2/2 face-down creature with no text, no name, no subtypes and no mana cost. */
         val FACE_DOWN = FaceDefinition(
             name = "", types = listOf(CardType.Creature), power = PrintedNumber.Fixed(2), toughness = PrintedNumber.Fixed(2),

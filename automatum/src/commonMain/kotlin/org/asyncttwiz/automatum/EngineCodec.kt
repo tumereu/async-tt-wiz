@@ -262,6 +262,11 @@ internal data class CardLedger(
     val protector: PlayerId? = null,
     /** The engine's order of counter kinds when it isn't by name (ATW sorts [org.asyncttwiz.protocol.PlayCard.typedCounters]). */
     val counterOrder: List<String>? = null,
+    /** A merged permanent's other components (mutate, CR 730.2, 702.140c), ATW card ids topmost first: above its own card and
+     * under it. Each component's card lies on the same Battlefield, its zone-change count and timestamp the engine's of the
+     * component as it merged ([arcanum.engine.state.MergedPart]); it is no permanent of its own ([EngineState.from]). */
+    val mergedAbove: List<String> = emptyList(),
+    val mergedBelow: List<String> = emptyList(),
 ) {
     fun text(): String = if (this == EMPTY) "" else EngineCodec.encode(serializer(), this)
 

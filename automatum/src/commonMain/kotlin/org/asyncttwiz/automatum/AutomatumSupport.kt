@@ -41,6 +41,13 @@ object AutomatumSupport {
     /** Keyword actions the engine hands to the players (`Effects.keywordAction`'s `manual` call): by their JSON type. */
     private val manualKeywordActions = setOf("learn")
 
+    /** Nightreview #13 (CR 309.2a, 701.49a, 726.2): venturing into the dungeon (also by taking the initiative) needs dungeon cards
+     * outside the game, which an ATW game doesn't have yet: the engine's venture would do nothing, so these are left to the
+     * players. By JSON type: the keyword actions, and the designation. */
+    private val dungeonKeywordActions = setOf("venture", "venture-into")
+    private const val INITIATIVE = "initiative"
+    private const val NO_DUNGEONS = "by hand: venturing into the dungeon (ATW games have no dungeon cards yet)"
+
     /** Steps of a mana ability's resolution, besides adding the mana, that ask a player something: the engine can't ask
      * while a mana ability resolves (CR 605.3b), so it leaves them to the players (`Payment.finishManaAbility`). */
     private val askingSteps = setOf("choose", "may", "pay")
@@ -119,7 +126,10 @@ object AutomatumSupport {
                     "keyword-action", "action" -> (element["action"] as? JsonObject)?.let { action ->
                         val kind = (action["type"] as? JsonPrimitive)?.content
                         if (kind in manualKeywordActions) found += "by hand: $kind"
+                        if (kind in dungeonKeywordActions) found += NO_DUNGEONS
                     }
+                    "designation" -> if (((element["designation"] as? JsonObject)?.get("type") as? JsonPrimitive)?.content == INITIATIVE)
+                        found += "by hand: the initiative (ATW games have no dungeon cards yet)"
                     "pay" -> element["cost"]?.let { resolutionCost(it, found) }
                     in keywordNames -> {
                         val keyword = runCatching { json.decodeFromJsonElement(Ability.serializer(), element) }.getOrNull() as? Keyword

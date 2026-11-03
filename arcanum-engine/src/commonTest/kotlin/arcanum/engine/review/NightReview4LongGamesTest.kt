@@ -3,7 +3,6 @@ package arcanum.engine.review
 import arcanum.engine.cards.Cards
 import arcanum.engine.state.PlayerId
 import arcanum.parser.OracleCard
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertTrue
 
@@ -99,7 +98,6 @@ class NightReview4LongGamesTest {
     // D60, D35: a token's id (here the Ring's emblem, CR 701.54c) is the same in every view, so a host can keep the views in step: bob's
     // "The Ring tempts you" spell is known in alice's view under another card id (new ids after a shuffle), and the emblem's id is
     // derived from the resolving spell's id, so the views' emblems (and the Ring's triggers on the Stack) differ from the truth's
-    @Ignore("nightreview #11: token and emblem ids made by a resolving spell differ between views")
     @Test
     fun theRingsEmblemHasTheSameIdInEveryView() {
         val host = FakeHost(4300L, Lane.match(), maxInputs = 600)

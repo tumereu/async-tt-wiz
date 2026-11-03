@@ -19,7 +19,6 @@ import arcanum.engine.scenario.ScenarioPlayer
 import arcanum.engine.scenario.scenario
 import arcanum.engine.state.TargetRef
 import arcanum.parser.OracleCard
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -267,7 +266,6 @@ class NightReview4MoreTest {
     // ---- Conspiracies (CR 702.106)
 
     // CR 702.106e: a player leaving the game reveals their face-down conspiracies to all players
-    @Ignore("nightreview #10: face-down conspiracies are not revealed as their owner leaves")
     @Test
     fun aLeavingPlayersConspiracyIsRevealed() = scenario(players = 3) {
         val id = put(bob, listOf(tithe), Zone.Command, faceDown = true).single()
@@ -330,7 +328,6 @@ class NightReview4MoreTest {
 
     // D60, P7, CR 103.5b: alice's declaration offers "Use 1: <card in her hand>"; the answers listed to bob must not name a card of
     // her hidden hand (as `options` leaves out answers naming hidden objects, an option label naming one is the same leak)
-    @Ignore("nightreview #8: the \"Use\" option of a mulligan action names a hidden card in other players' options")
     @Test
     fun aMulliganActionDoesntNameAHiddenCardToOthers() {
         val reshuffle = Cards.invent("NR4 Ashen Reshuffle", "{2}", "Artifact",
@@ -351,7 +348,6 @@ class NightReview4MoreTest {
     }
 
     // CR 800.4f: the player chosen to assist leaves the game while paying: their part of the cost isn't paid by anybody else
-    @Ignore("nightreview #7: the assist payment of a player who left goes to another player, with the left player's lands")
     @Test
     fun theAssistingPlayerLeavesWhilePaying() = scenario(players = 3) {
         alice.battlefield("Forest", "Forest", "Forest", "Forest", "Forest")

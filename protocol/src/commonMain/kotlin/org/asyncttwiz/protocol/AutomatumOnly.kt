@@ -9,7 +9,8 @@ package org.asyncttwiz.protocol
  * - result suggestions: suggest (a draw, their win, or conceding: suggesting their own loss), decline, withdraw;
  * - their own Automatum settings: Skip when I have no choice ([MtgAction.SetSkipWhenNoChoice]) and Full control
  *   ([MtgAction.SetFullControl]);
- * - early answers ([MtgAction.SetRecord] of [EngineRecordKind.PreAnswer] records only, I-D33);
+ * - their own early answers ([MtgAction.SetRecord] of [EngineRecordKind.PreAnswer] records only, whose [EngineRecord.player] is
+ *   the sender, I-D33);
  * - their own opening (I-D49, CR 103.5) while it lasts ([opening]), as the two batches the rules make of it: a London
  *   mulligan of their own hand (counted up by one with [MtgAction.SetMulligans] while another may be taken), or keeping
  *   (exactly the cards [GameRules.owed] from their own hand to the bottom of their own library, then Ready: clearing
@@ -74,8 +75,9 @@ object AutomatumOnly {
             is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
             is MtgAction.SetMulligans -> opening(board, actor) && mtg.before == mulligans(board, actor) &&
                 mtg.after == mtg.before + 1 && rules.canMulligan(mtg.before)
+            // I-D33, I-D56: an early answer is its player's own (the attacker's exert, enlist and band choices, CMB-036–CMB-038)
             is MtgAction.SetRecord -> listOfNotNull(mtg.before, mtg.after).let { records ->
-                records.isNotEmpty() && records.all { it.kind == EngineRecordKind.PreAnswer } }
+                records.isNotEmpty() && records.all { it.kind == EngineRecordKind.PreAnswer && it.player == actor } }
             else -> false
         }
         is PlayAction.Mulligan -> opening(board, actor) && own(board, actor, action.libraryId, PlayZone.LIBRARY) &&

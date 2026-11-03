@@ -97,6 +97,10 @@ internal object GameEnd {
         val setup = keep?.continuation as? Continuation.Setup
         val progress: Progress = when {
             setup != null -> Setup.run(recorder, setup.stage, setup.options, emptyList())
+            // CR 800.4f: another player's cast asked them to pay part of it (assist): their part isn't paid; the cast goes on with
+            // its next question (the caster paying the rest), asked anew, so a payment is never handed to another player
+            keep != null && keep.continuation is Continuation.Announcing && keep.decision.player == player ->
+                Casting.advance(recorder, keep.continuation as Continuation.Announcing, recorder.changes.size)
             keep != null && stillOpen(s, keep.continuation) -> {
                 // CR 800.4g, h: their open decision goes to whoever decides it now, as the flow will ask it again (a cost
                 // they were choosing whether to pay stays open for "no", 800.4f)
@@ -170,7 +174,8 @@ internal object GameEnd {
      * (to outside the game; their tokens then cease to exist, CR 704.5d); their abilities and copies on the Stack cease to
      * exist; what they still control is exiled. Their waiting and delayed triggers are dropped (CR 800.4d). Priority they
      * held passes to the next player (CR 800.4a); passes made so far keep counting, theirs aside. An active player's turn
-     * goes on without them (CR 800.4j).
+     * goes on without them (CR 800.4j). The initiative they had passes on (CR 726.4); their face-down permanents, spells and
+     * conspiracies are revealed (CR 708.9, 702.106e).
      */
     fun leave(recorder: Recorder, player: PlayerId) {
         val s = recorder.state
@@ -178,14 +183,16 @@ internal object GameEnd {
             .forEach { recorder.record(Change.EffectRemoved(it)) }
         s.delayedTriggers.values.filter { it.controller == player }
             .forEach { recorder.record(Change.DelayedTriggerRemoved(it, listOf(Meaning.EffectEnded))) }
+        passInitiative(recorder, player)
         // Their abilities and copies of spells on the Stack cease to exist
         s.stack.filter { it is ObjectId.StackItem && s.stackItems[it]?.controller == player }.reversed().forEach { id ->
             recorder.record(Change.StackItemRemoved(s.stackItems.getValue(id), s.stack.indexOf(id)))
         }
         // CR 708.9: their face-down permanents and spells are revealed to all players (in a viewer's state, those the
-        // viewer doesn't know stay unknown: the game can't wait for the host here; they leave the game at once)
-        val faceDown = s.objects.values.filter { it.owner == player && it.faceDown && (it.zone == Zone.Battlefield || it.zone == Zone.Stack) }
-            .map { it.id }
+        // viewer doesn't know stay unknown: the game can't wait for the host here; they leave the game at once); CR 702.106e:
+        // so are their face-down conspiracies in the command zone
+        val faceDown = s.objects.values.filter { it.owner == player && it.faceDown && (it.zone == Zone.Battlefield || it.zone == Zone.Stack ||
+            it.zone == Zone.Command) }.map { it.id }
         if (faceDown.isNotEmpty()) recorder.record(Change.Happened(GameEvent.Revealed(player, faceDown)))
         // Every object they own leaves the game
         val owned = s.objects.values.filter { it.owner == player && it.zone != Zone.Outside }.map { it.id }
@@ -222,6 +229,20 @@ internal object GameEnd {
             p.copy(passes = p.passes - if (player in passedBefore(s, holder, p.passes, player)) 1 else 0)
         }
         if (after != p) recorder.record(Changes.priority(s, after, if (after.holder != holder) listOf(Meaning.PriorityGranted) else emptyList()))
+    }
+
+    /** CR 726.4: when [player], leaving, has the initiative, the active player takes it at the same time; if the active player is
+     * the one leaving, the next player in turn order does. Taking it is a [GameEvent.TookInitiative] (its venture into Undercity
+     * triggers, CR 726.2). */
+    private fun passInitiative(recorder: Recorder, player: PlayerId) {
+        val s = recorder.state
+        val initiative = arcanum.api.Designation.Initiative
+        if (initiative !in s.player(player).designations) return
+        recorder.record(Change.PlayerDesignation(player, initiative, true, false))
+        val taker = s.turn.active.takeIf { it != player && !s.player(it).lost } ?: Priority.nextPlayer(s, player)
+        if (taker == player) return
+        recorder.record(Change.PlayerDesignation(taker, initiative, false, true))
+        recorder.record(Change.Happened(GameEvent.TookInitiative(taker)))
     }
 
     /** The [passes] players who passed in succession before [holder], counted among the players still in the game and

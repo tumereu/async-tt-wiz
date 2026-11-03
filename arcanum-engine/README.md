@@ -45,7 +45,8 @@ seeded random games of cube cards, failing on any open player decision without a
   attachment, timestamp (D34), control start (CR 302.6), card memory and per-instance facts
   (D22/D41); unknown objects have no definition (D60); Stack items with targets, modes, X,
   names and snapshots; effect objects and delayed triggers (D19, D26); turn, step, priority;
-  ledgers; the tagged event log (D33); the open `Pending`. `TokenIds`: v5 UUID token ids.
+  ledgers; the tagged event log (D33); the open `Pending`. `TokenIds`: v5 UUID ids of tokens, emblems and card copies, from
+  the creation's timestamp, so every player's view (D60) derives the same ones.
   Each library's known places (`PlayerState.libraryPlaces`, CR 401.2): cards put at a known place, looked at or
   revealed where they lie, and random-order groups; a shuffle forgets them. Kept by the engine as it records changes
   (`Change.LibraryPlaces`); with full information the engine records what a player looked at as `Change.Shown`
@@ -463,7 +464,10 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   other components in `GameObject.mergedAbove` / `mergedBelow` as `MergedPart`s: layer 1 gives it the topmost component's
   characteristics and every component's abilities, `AbilityOrigin.Printed.card` naming the component, and a token only when the
   topmost is one, 730.2d; leaving the battlefield each component becomes its own object in the new zone, `Move.parts`, right
-  after its own card, 730.3; merged on top of a face-down permanent it is face up and its card filled in publicly, 730.2e, D60).
+  after its own card, 730.3; merged on top of a face-down permanent it is face up and its card filled in publicly, 730.2e, D60;
+  the merge is a copy effect timestamped as the objects merge, `MergedPart.timestamp`, applied in timestamp order among the
+  permanent's copy effects, so a later one overrides it, 613.7; a copy of a merged permanent copies the topmost card with every
+  component's abilities, 707.2).
   Not done: a copy of a mutating spell merging (it enters as a token), effects that find "it" after a merged permanent leaves
   find its own card only (730.3c), turning a merged permanent face down (730.2f, j). Epic (`epic/Epic`, CR 702.50, scenarios in
   `epic/EpicTest`): as a spell with epic finishes resolving, an effect object that its controller can't cast spells and a repeating
@@ -471,15 +475,17 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   and snapshot), except for its epic ability (`CopyException.WithoutKeyword`), new targets allowed. Assist (CR 702.132, scenarios in
   `casting/AssistTest`): with the costs, the caster may choose another player (`Decision.ChooseOption`, "nobody" or a player),
   who chooses how much of the total cost's generic mana to pay (`ChooseNumber`) and pays it with their own mana (`ManaPayment`
-  of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player's mana is paid
-  as on resolution (no spell-restricted mana). Venturing into the dungeon and the initiative (`dungeon/Dungeons`, CR 309, 701.49,
+  of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player spends their mana
+  to cast the spell, so mana restricted to such spells pays (CR 106.6); one who leaves the game before the cast finishes pays
+  nothing and nobody else is asked (CR 800.4f): the caster pays the whole cost. Venturing into the dungeon and the initiative (`dungeon/Dungeons`, CR 309, 701.49,
   726, scenarios in `dungeon/VentureTest`): a dungeon card the player owns outside the game (chosen in their own view when the state
   is another player's, D31) is put into the command zone with the venture marker (the dungeon's memory) on its topmost room; each
   venture follows an arrow (the owner choosing among several) and the room's ability triggers, controlled by the owner; from the
   bottommost room venturing completes it and starts a new one, and a dungeon on its bottommost room whose room ability has left the
   Stack is completed as a state-based action (CR 309.6): back outside the game, `GameEvent.CompletedDungeon`, counted in the player's
   ledger. "Venture into Undercity" only chooses Undercity dungeons; the initiative's three inherent triggers (CR 726.2: upkeep, combat
-  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers.
+  damage to its holder, taking it, `GameEvent.TookInitiative` also when retaken, 726.5) are sourceless waiting triggers; when
+  its holder leaves the game the active player (or, the active player leaving, the next player in turn order) takes it (726.4).
   Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an
   attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature
   blocking a member blocks the whole band; the defending player assigns the damage of an attacker blocked by a creature with banding,
@@ -490,10 +496,14 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   secretly chosen name(s) as memory under "name" (what "the chosen name" reads; double agenda's second name counts too); the
   keyword expands to the special action turning it face up (CR 116.2j). D60: the owner may look at it; in another player's view
   the host answers which chosen cards go face down, and the name is asked of the owner (the host answering) as it is revealed.
+  A player leaving the game reveals their face-down conspiracies (702.106e).
 - Done, engine lane 4 (2026-11-03, scenarios in `combat/CombatCostsTest`): costs to attack of any kind (`Mechanic.AttackCost`:
   sacrificing, tapping, life, … with the mana, CR 508.1h–j) and costs to block (`Mechanic.BlockCost`, CR 509.1d–f), paid as the
   declaration is made (`PlannedEvent.DeclareAttackers` / `DeclareBlockers`, waiting for the payment's choices, D29); a declaration
-  that can't be paid isn't made or offered, and a requirement never makes a creature pay one (CR 508.1d, 509.1c). Optional "as it
+  that can't be paid isn't made or offered, and a requirement never makes a creature pay one (CR 508.1d, 509.1c). The attackers
+  without vigilance and the creatures enlisted are tapped before the costs are paid (508.1f, g), so none of them taps for mana
+  towards them; parts using up objects need different objects (two "sacrifice a land" take two lands), and a part that can't be
+  paid in full refuses the declaration (508.1j: no partial payments). Optional "as it
   attacks" costs (`Mechanic.AsAttacks`, CR 508.1g: exert, 701.43d) are chosen with the declaration (`Attack.paying`, their origins),
   paid with the other costs, and their "when you do" triggers (CR 607.2h). Exert and other keyword actions as costs of activated
   abilities are done as the action, the source as "this" (CR 701.43a, b); an exerted permanent's "doesn't untap" now ends after its
@@ -512,7 +522,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   names while its condition holds, both read on the copiable values, in timestamp order with the effect objects' copies (a static
   copy ability a copy effect gives isn't one, and one doesn't see its own result while it finds what it affects).
   Starting a game (scenarios in `setup/MulliganActionsTest`): actions "any time you could mulligan" (CR 103.5b,
-  `Mechanic.WhenYouCouldMulligan` of cards in the hand) are further options of each declaration (`Setup.USE` and the card's name):
+  `Mechanic.WhenYouCouldMulligan` of cards in the hand) are further options of each declaration (`Setup.USE` and the card's name;
+  `Decision.ChooseOption.naming` says which card, so other players aren't listed answers naming a card hidden from them, P7):
   the action is taken, then the player declares, in any round; the starting hand size is a player's own
   (`StartOptions.handSizes`, CR 103.5a) or everyone's, changed by `Mechanic.StartingHandSize` effects (a conspiracy in the command
   zone), for draws, mulligans and the zero-card limit. In another player's view the hidden hand's cards offer no such action (the
@@ -522,7 +533,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   a player its controller chooses (another opponent of the controller if possible; one possible player: no question, 800.4g);
   a choice the rules ask (no object, or its controller left too) by the next player in turn order (800.4h). A decision open as
   its player concedes goes to that player at once (or to the controller's choice of who); an open cost choice stays open for
-  "no".
+  "no"; a payment (`ManaPayment`) is never handed to another player (800.4f), and another player's cast asking the one who left
+  goes on with its next question (assist: the caster pays it all).
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).

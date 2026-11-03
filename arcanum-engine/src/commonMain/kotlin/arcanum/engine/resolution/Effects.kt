@@ -503,7 +503,7 @@ internal object Effects {
     private fun copyCards(scope: Scope, effect: Effect.CopyCard) {
         val act = scope.act
         val owner = scope.players(effect.owner).firstOrNull() ?: scope.actor
-        val creator = "${scope.cause.key}@${act.state.nextTimestamp()}/copy"
+        val creator = TokenIds.created("copy", act.state.nextTimestamp())
         val first = act.state.nextTimestamp()
         val copies = scope.objects(effect.objects).mapNotNull { act.state.obj(it) }.filter { !it.unknown }.mapIndexed { i, card ->
             GameObject(
@@ -886,7 +886,7 @@ internal object Effects {
         val act = scope.act
         val ts = act.state.nextTimestamp()
         val o = GameObject(
-            id = ObjectId.Card(TokenIds.token("${scope.cause.key}@$ts/emblem", 0), 0), owner = player, controller = player,
+            id = ObjectId.Card(TokenIds.token(TokenIds.created("emblem", ts), 0), 0), owner = player, controller = player,
             zone = Zone.Command, definition = CardDefinition(Layout.Normal, listOf(FaceDefinition("Emblem", abilities = abilities))),
             token = false, timestamp = ts,
         )

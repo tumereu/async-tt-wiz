@@ -159,6 +159,8 @@ internal object Applier {
                     check(o == change.before) { "${change.before.id} isn't as expected" }
                     change.after
                 }
+                // CR 730.2a: a merge's timestamp is given as the objects merge
+                (change.after.mergedAbove + change.after.mergedBelow).forEach { stamp(state, it.timestamp) }
             }
             is Change.Step -> {
                 check(state.turn == change.before) { "Turn isn't ${change.before}" }

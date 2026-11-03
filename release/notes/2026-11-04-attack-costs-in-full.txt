@@ -1,0 +1,1 @@
+fix: A creature that taps for mana can no longer pay its own cost to attack, and costs to attack are paid in full or not at all

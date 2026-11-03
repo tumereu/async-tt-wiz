@@ -87,14 +87,20 @@ internal object Combat {
     }
 
     /** CR 508.1h–j, 509.1d–f: [player] pays [costs] in full: the mana as one payment, then the other parts, each read with
-     * its creature as "this"; each paid optional cost's "when you do" triggers (CR 603.12, 607.2h). */
+     * its creature as "this"; each paid optional cost's "when you do" triggers (CR 603.12, 607.2h). CR 508.1j "Partial
+     * payments are not allowed": a part that can't be paid in full when its turn comes (an object a cost before it took)
+     * refuses the declaration ([IllegalArgumentException]). */
     fun payCosts(act: arcanum.engine.action.Act, player: PlayerId, costs: List<CombatRules.CombatCost>) {
         CombatRules.manaOf(costs)?.let { act.payMana(player, null, it) }
         costs.forEachIndexed { i, c ->
-            val rest = c.cost.parts.filter { it !is arcanum.api.CostPart.Mana }
-            if (rest.isEmpty()) return@forEachIndexed
+            val rest = arcanum.api.Cost(c.cost.parts.filter { it !is arcanum.api.CostPart.Mana })
+            if (rest.parts.isEmpty()) return@forEachIndexed
             val cause = arcanum.engine.action.Cause(player, c.creature, key = "combat-cost:${c.creature}:$i")
-            arcanum.engine.resolution.Costs.pay(arcanum.engine.resolution.Scope(act, cause, c.names, null), player, arcanum.api.Cost(rest))
+            val scope = arcanum.engine.resolution.Scope(act, cause, c.names, null)
+            require(arcanum.engine.resolution.Costs.canPay(scope, player, rest)) {
+                "The cost to attack or block with ${c.creature} can't be paid in full (CR 508.1j, 509.1f: no partial payments)"
+            }
+            arcanum.engine.resolution.Costs.pay(scope, player, rest)
         }
         val linked = costs.filter { it.then != null }.map { c ->
             arcanum.engine.decision.WaitingTrigger(player, arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(emptyList()), c.then!!),
@@ -105,13 +111,19 @@ internal object Combat {
 
     /** CR 508.1f, k: [attacks] become attacking creatures, tapped unless they have vigilance; [record] makes each change. */
     fun attack(state: GameState, record: (Change) -> Unit, attacks: List<arcanum.engine.input.Attack>) {
-        val snap = Snapshot(state)
-        // CR 508.1f: attacking creatures become tapped, unless they have vigilance
-        attacks.forEach { a ->
-            if (snap.view[a.attacker]?.has { it == Mechanic.AttacksWithoutTapping } != true) record(Changes.tap(state, a.attacker))
-        }
-        // CR 508.1g, h, 702.154a: the creatures enlisted are tapped as the optional cost to attack
-        attacks.forEach { a -> a.enlisted.forEach { record(Changes.tap(state, it)) } }
+        tapForAttack(state, record, attacks)
+        becomeAttacking(record, attacks)
+    }
+
+    /** CR 508.1f: the chosen attackers without vigilance become tapped; CR 508.1g, j, 702.154a: the creatures enlisted are
+     * tapped as the optional cost to attack. Done before the other costs to attack are paid ([payCosts]), so none of them taps
+     * for mana towards those costs ([CombatRules.tappedByAttack]). */
+    fun tapForAttack(state: GameState, record: (Change) -> Unit, attacks: List<arcanum.engine.input.Attack>) {
+        CombatRules.tappedByAttack(Snapshot(state), attacks).forEach { record(Changes.tap(state, it)) }
+    }
+
+    /** CR 508.1k: [attacks] become attacking creatures, once [tapForAttack] has tapped them and the costs are paid. */
+    fun becomeAttacking(record: (Change) -> Unit, attacks: List<arcanum.engine.input.Attack>) {
         // CR 508.1k: they become attacking creatures
         record(Change.Combat(null, CombatState(attackers = attacks.map { Attacker(it.attacker, it.target, band = it.band) }), listOf(Meaning.AttackersDeclared)))
         // CR 702.154a, c: "When you do" (the linked trigger, 607.2h) sees each creature an attacker enlisted

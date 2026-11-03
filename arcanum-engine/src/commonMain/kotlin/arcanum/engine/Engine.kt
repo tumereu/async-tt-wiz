@@ -26,7 +26,7 @@ object Engine {
      * automatic, or the other way round. A host that keeps per-card "fully supported" results worked out with this
      * engine keeps them per this version (and the parser's), so a new engine works them out again.
      */
-    const val SUPPORT_VERSION: Int = 5
+    const val SUPPORT_VERSION: Int = 6
 
     /** The characteristics of every object after continuous effects (CR 613), the rules that apply to objects and
      * players, and the game rules in force (P3). A pure function of [state]. */

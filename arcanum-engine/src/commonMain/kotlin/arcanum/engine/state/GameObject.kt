@@ -113,6 +113,9 @@ data class MergedPart(
     val face: Int = 0,
     val token: Boolean = false,
     val copyOfCard: Boolean = false,
+    /** When it merged (CR 730.2a: the merge is a copy effect with this timestamp, applied in timestamp order among the
+     * permanent's copy effects, CR 613.7); 0: before every copy effect. */
+    val timestamp: Long = 0,
 )
 
 /** [count] counters of [kind], with the timestamp the kind last got (CR 613.7c). */

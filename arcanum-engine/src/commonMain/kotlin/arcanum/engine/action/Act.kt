@@ -171,7 +171,8 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         val first = decision(asker.nextId())
         return when (val r = arcanum.engine.setup.LeftPlayers.redirect(state, first)) {
             null -> asker.ask(decision)
-            arcanum.engine.setup.LeftPlayers.Redirect.NotPaid -> Answer.YesNo(false)
+            // A payment they were making isn't handed to anyone else (CR 800.4f): it stays theirs, for the host
+            arcanum.engine.setup.LeftPlayers.Redirect.NotPaid -> if (first is Decision.May) Answer.YesNo(false) else asker.ask(decision)
             is arcanum.engine.setup.LeftPlayers.Redirect.To ->
                 asker.ask { id -> arcanum.engine.setup.LeftPlayers.reassigned(decision(id), id, r.player) }
             is arcanum.engine.setup.LeftPlayers.Redirect.ChosenBy -> {
@@ -263,8 +264,9 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
         else -> (ask { Decision.ChoosePlayer(it, player, source, options) } as Answer.Player).player
     }
 
-    fun chooseOption(player: PlayerId, source: ObjectId?, options: List<String>): String =
-        if (options.size == 1) options.single() else (ask { Decision.ChooseOption(it, player, source, options) } as Answer.Option).chosen
+    /** [naming]: the object an option names ([Decision.ChooseOption.naming]). */
+    fun chooseOption(player: PlayerId, source: ObjectId?, options: List<String>, naming: Map<String, ObjectId> = emptyMap()): String =
+        if (options.size == 1) options.single() else (ask { Decision.ChooseOption(it, player, source, options, naming = naming) } as Answer.Option).chosen
 
     fun chooseSubtype(player: PlayerId, source: ObjectId?, among: List<Subtype>?): Subtype =
         (ask { Decision.ChooseSubtype(it, player, source, among) } as Answer.SubtypeChoice).subtype

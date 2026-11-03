@@ -202,18 +202,41 @@ internal object CombatRules {
 
     /** rtr chunk 07: whether [player] could pay the costs to attack with [attacks] (CR 508.1d: a declaration needing a cost they
      * don't pay isn't made). */
-    fun canPayToAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): Boolean = canPay(snap, player, attackCosts(snap, attacks))
+    fun canPayToAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): Boolean {
+        val costs = attackCosts(snap, attacks)
+        return costs.isEmpty() || canPay(tappedForAttack(snap, attacks), player, costs)
+    }
+
+    /** The creatures declaring [attacks] taps before the costs to attack are paid: each attacker without vigilance (CR 508.1f)
+     * and each creature enlisted (CR 702.154a, 508.1g: tapped as a cost, so it can't also pay another one). */
+    fun tappedByAttack(snap: Snapshot, attacks: List<Attack>): List<ObjectId> =
+        attacks.filter { a -> snap.view[a.attacker]?.has { it == Mechanic.AttacksWithoutTapping } != true }.map { it.attacker } +
+            attacks.flatMap { it.enlisted }
+
+    /** CR 508.1f, i, j: [snap] as the costs to attack with [attacks] are paid, the creatures [tappedByAttack] tapped: a tapped
+     * attacker is no mana source for them (a mana creature can't pay its own cost to attack). */
+    private fun tappedForAttack(snap: Snapshot, attacks: List<Attack>): Snapshot {
+        val tapping = tappedByAttack(snap, attacks).filter { snap.state.obj(it)?.tapped == false }
+        if (tapping.isEmpty()) return snap
+        val s = snap.state.deepCopy()
+        tapping.forEach { id -> s.objects[id] = s.objOrThrow(id).copy(tapped = true) }
+        return Snapshot(s)
+    }
 
     /** CR 509.1d: whether [player] could pay the costs to block with [blocks]. */
     fun canPayToBlock(snap: Snapshot, player: PlayerId, blocks: List<Block>): Boolean = canPay(snap, player, blockCosts(snap, blocks))
 
     /** Whether [player] could pay all of [costs]: the mana as one payment, and each other part (objects to choose, life);
-     * parts that take no resource (exert, CR 701.43b) always can. Objects chosen by two costs aren't told apart. */
+     * parts that take no resource (exert, CR 701.43b) always can. CR 508.1j "Partial payments are not allowed": an object
+     * sacrificed, tapped, discarded, exiled or returned pays one such part only, so those parts together need distinct
+     * objects (one land doesn't pay two "sacrifice a land"). */
     private fun canPay(snap: Snapshot, player: PlayerId, costs: List<CombatCost>): Boolean {
         if (costs.isEmpty()) return true
         manaOf(costs)?.let { if (arcanum.engine.mana.Mana.suggest(snap, player, it, null).isEmpty()) return false }
         var life = snap.state.player(player).life
-        return costs.all { c ->
+        // Each object a using-up part takes, as one slot with its options
+        val slots = mutableListOf<List<ObjectId>>()
+        val each = costs.all { c ->
             val e = snap.evaluator(player, self = c.creature, names = c.names)
             c.cost.parts.all { part ->
                 when (part) {
@@ -221,10 +244,28 @@ internal object CombatRules {
                     is arcanum.api.CostPart.PayLife -> e.value(part.amount).let { n -> (life >= n).also { life -= n } }
                     arcanum.api.CostPart.TapSelf -> snap.state.obj(c.creature)?.tapped == false
                     arcanum.api.CostPart.UntapSelf -> snap.state.obj(c.creature)?.tapped == true
-                    else -> arcanum.engine.casting.Costs.objectChoice(snap, player, null, part, e)?.let { it.options.size >= it.min } ?: true
+                    else -> arcanum.engine.casting.Costs.objectChoice(snap, player, null, part, e)?.let { choice ->
+                        if (usesUp(part)) repeat(choice.min) { slots += choice.options }
+                        choice.options.size >= choice.min
+                    } ?: true
                 }
             }
         }
+        return each && distinctObjects(slots)
+    }
+
+    /** Whether paying [part] uses its chosen objects up, so no other part can choose them. */
+    private fun usesUp(part: arcanum.api.CostPart): Boolean = part is arcanum.api.CostPart.Sacrifice || part is arcanum.api.CostPart.TapObjects ||
+        part is arcanum.api.CostPart.Discard || part is arcanum.api.CostPart.Exile || part is arcanum.api.CostPart.ReturnToHand
+
+    /** Whether each of [slots] can take a different object among its options (a bipartite matching, augmenting paths). */
+    private fun distinctObjects(slots: List<List<ObjectId>>): Boolean {
+        if (slots.size < 2) return true
+        val holder = mutableMapOf<ObjectId, Int>()
+        fun place(slot: Int, seen: MutableSet<ObjectId>): Boolean = slots[slot].any { id ->
+            seen.add(id) && (holder[id]?.let { place(it, seen) } ?: true).also { ok -> if (ok) holder[id] = slot }
+        }
+        return slots.indices.all { place(it, mutableSetOf()) }
     }
 
     /** One requirement on [creature] (CR 508.1d): it attacks, anything when [targets] is null. */

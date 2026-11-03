@@ -236,7 +236,9 @@ internal object Actions {
             val next = (m.id as ObjectId.Card).next()
             m.copyOf?.let { (of, except) ->
                 act.record(Changes.effect(act.state) { ts -> lockedEffect("E$ts", listOf(Mechanic.CopyOf(Objects.Bound(COPIED), except)), next, m.controller, ts, act,
-                    Bindings.EMPTY.with(COPIED, NamedValue.Objects(listOf(of))), copied = arcanum.engine.view.Copiable(act.state).faces(of)?.firstOrNull()?.face) })
+                    Bindings.EMPTY.with(COPIED, NamedValue.Objects(listOf(of))),
+                    // CR 707.2, 730.2a: a merged permanent's copiable values include every component's abilities
+                    copied = arcanum.engine.view.Copiable.copiedFace(arcanum.engine.view.Copiable(act.state).faces(of))) })
             }
             if (m.abilities.isNotEmpty()) act.record(Changes.effect(act.state) { ts ->
                 lockedEffect("E$ts", listOf(Mechanic.GainAbilities(m.abilities)), next, m.controller, ts, act)
@@ -746,7 +748,8 @@ internal object Actions {
     ): List<ObjectId> {
         if (count <= 0) return emptyList()
         val linked = mutableListOf<WaitingTrigger>()
-        val creator = "${cause.key}@${act.state.nextTimestamp()}"
+        // D35, D60: from the timestamp, not the cause's key (a spell's card id differs between views)
+        val creator = TokenIds.created("token", act.state.nextTimestamp())
         fun planned(specs: List<Pair<FaceDefinition, Int>>): List<GameObject> {
             var n = 0
             val first = act.state.nextTimestamp()

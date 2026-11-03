@@ -1,0 +1,1 @@
+fix: Mutating a creature with Automatum no longer stops the game: both cards stay one creature

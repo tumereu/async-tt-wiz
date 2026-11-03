@@ -16,7 +16,6 @@ import org.asyncttwiz.protocol.PlayZone
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
 import org.asyncttwiz.protocol.TypedCounter
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -35,6 +34,7 @@ class NightReview4AtwTest {
     private companion object {
         const val BRUTE = "Night Mutate Brute"
         const val WOLF = "Night Mutate Wolf"
+        const val DOOM = "Night Doom Strike"
         val ensured: Boolean by lazy {
             Cards.invent(BRUTE, "{3}{G}{G}", "Creature — Beast", "Mutate {2}{G}\nTrample", "6/6")
             Cards.invent(WOLF, "{1}{G}", "Creature — Wolf", "Vigilance", "2/2")
@@ -64,7 +64,6 @@ class NightReview4AtwTest {
     // CMB-037, CR 508.1f, 508.1i: the chosen attackers are tapped before the costs to attack are paid, so the staged Elvish Seer
     // can't tap for mana towards the Prison's {2}; with one other mana source the declaration can't be paid: the step arrow is
     // greyed with a reason, and the declaration with Autotap is refused
-    @Ignore("nightreview #1: the attacking Seer taps for mana for its own tax")
     @Test fun anAttackingManaCreatureDoesntPayItsOwnTax() {
         val (seer) = table.put(alice, PlayZone.BATTLEFIELD, "Elvish Seer")
         table.put(alice, PlayZone.BATTLEFIELD, "Frosthorn Elves")
@@ -77,9 +76,8 @@ class NightReview4AtwTest {
         assertTrue(refused.isFailure, "the declaration is refused")
     }
 
-    // CMB-036–CMB-038 ("The other player sees the chosen costs' chips and the costs, without changing them"), I-D1: shared state is
+    // SYS-073, CMB-036–CMB-038 ("The other player sees the chosen costs' chips and the costs, without changing them"), I-D1: shared state is
     // server-authoritative; the defending player's command setting the attacking player's choices (exert, enlist, band) is refused
-    @Ignore("nightreview #14: the rules accept any player's early answers, also another player's attack choices")
     @Test fun onlyTheAttackingPlayerSetsTheAttackChoices() {
         val (raider) = table.put(alice, PlayZone.BATTLEFIELD, CombatChoiceCards.RAIDER)
         val rt = toAttackers(game())
@@ -92,10 +90,34 @@ class NightReview4AtwTest {
         assertTrue(change.outcome != "accepted", "bob set alice's attack choices: ${change.outcome}")
     }
 
-    // CR 702.140c, 730.2: a creature mutated on top of another through ATW: the merged permanent keeps both cards (the board must
+    // SYS-074, CR 702.140c, 730.2: a creature mutated on top of another through ATW: the merged permanent keeps both cards (the board must
     // carry the merge, so the rebuilt engine state equals the engine's: RoundTrip checks every call)
-    @Ignore("nightreview #12: a merge leaves the mutating card on the ATW Stack: the board is no longer representable")
     @Test fun aMutatedCreatureSurvivesTheRoundTrip() {
+        mutated()
+    }
+
+    // SYS-074, CR 730.3: the merged permanent dies: each component's card goes to the graveyard as its own object, on the ATW board too
+    @Test fun aMergedPermanentLeavesWithEveryCard() {
+        Cards.invent(DOOM, "{0}", "Instant", "Destroy target creature.")
+        table.put(alice, PlayZone.HAND, DOOM)
+        val rt = mutated()
+        val wolf = rt.obj(WOLF, Zone.Battlefield)
+        rt.cast(alice, DOOM)
+        rt.settle { it is Decision.Targets }
+        if (rt.decision is Decision.Targets) rt.target(TargetRef.Object(wolf))
+        rt.settle()
+        rt.pass(alice)
+        rt.pass(bob)
+        rt.settle()
+        val s = rt.engine()
+        val graveyard = s.player(PlayerId(alice)).graveyard.mapNotNull { s.obj(it)?.definition?.faces?.firstOrNull()?.name }
+        assertTrue(BRUTE in graveyard && WOLF in graveyard, "both cards die: $graveyard")
+        assertTrue(rt.state.board.cards.filter { it.containerId == rt.state.board.containers.single { c -> c.zone == PlayZone.BATTLEFIELD &&
+            c.accountId == alice }.id }.none { CardLedger.of(it.ledger).mergedAbove.isNotEmpty() })
+    }
+
+    /** alice's Brute mutated on top of her Wolf through ATW (RoundTrip checks every call). */
+    private fun mutated(): RoundTrip {
         table.put(alice, PlayZone.BATTLEFIELD, "Forest", "Forest", "Forest", WOLF)
         table.put(alice, PlayZone.HAND, BRUTE)
         val rt = game()
@@ -116,24 +138,19 @@ class NightReview4AtwTest {
         val merged = rt.engine().objOrThrow(wolf)
         assertEquals(1, merged.mergedAbove.size, "the merged permanent keeps the Brute on top")
         assertEquals(6, Engine.view(rt.engine())[wolf]!!.characteristics!!.power)
+        return rt
     }
 
-    // CR 309.2, 309.2a, 701.49a, I-D51: a card that ventures into the dungeon parses fully, so ATW lets it be played; venturing needs a
-    // dungeon card its player owns outside the game, which an ATW game never has: the venture does nothing
-    @Ignore("nightreview #13: an ATW game has no dungeon cards outside the game, so venturing does nothing")
-    @Test fun venturingIntoTheDungeonThroughAtw() {
-        Cards.invent("Night Torch Map", "{W}", "Sorcery", "Venture into the dungeon.")
-        table.put(alice, PlayZone.BATTLEFIELD, "Plains")
-        table.put(alice, PlayZone.HAND, "Night Torch Map")
-        val rt = game()
-        rt.cast(alice, "Night Torch Map")
-        rt.settle()
-        rt.pass(alice)
-        rt.pass(bob)
-        rt.settle()
-        val s = rt.engine()
-        assertTrue(s.command.any { id -> s.obj(id)?.definition?.faces?.firstOrNull()?.types?.contains(arcanum.api.CardType.Dungeon) == true },
-            "alice is in a dungeon after venturing: command zone ${s.command}")
+    // CR 309.2, 309.2a, 701.49a, 726.2, I-D51: venturing needs a dungeon card its player owns outside the game, which an ATW game
+    // doesn't have yet (nightreview #13, the fallback until ATW provides dungeons): a card that ventures into the dungeon or takes the
+    // initiative counts as played by hand, so a deck holding it can't start a game (LOB-115)
+    @Test fun venturingIntoTheDungeonIsLeftToThePlayers() {
+        val map = Cards.invent("Night Torch Map", "{W}", "Sorcery", "Venture into the dungeon.")
+        val claim = Cards.invent("Night Claim", "{W}", "Instant", "You take the initiative.")
+        val plain = Cards.invent("Night Plain Bolt", "{R}", "Instant", "Night Plain Bolt deals 3 damage to any target.")
+        assertTrue(AutomatumSupport.handParts(Cards.definition(map)).any { "dungeon" in it }, "venture: ${AutomatumSupport.handParts(Cards.definition(map))}")
+        assertTrue(AutomatumSupport.handParts(Cards.definition(claim)).any { "initiative" in it }, "initiative: ${AutomatumSupport.handParts(Cards.definition(claim))}")
+        assertTrue(AutomatumSupport.handParts(Cards.definition(plain)).isEmpty())
     }
 
     // CMB-039, CR 310.12b, 712: alice defeats her own Siege; its trigger exiles it and she casts it transformed: the back face

@@ -367,13 +367,13 @@ class FinalCombatGamesTest {
         return problems
     }
 
-    @Test fun cubeGames() = assertTrue(run("cube", listOf(51L, 52L)).isEmpty())
-    @Test fun blbGames() = assertTrue(run("blb", listOf(61L, 62L)).isEmpty())
-    @Test fun dskGames() = assertTrue(run("dsk", listOf(71L, 72L)).isEmpty())
-    @Test fun rtrGames() = assertTrue(run("rtr", listOf(81L, 82L)).isEmpty())
-    @Test fun gtcGames() = assertTrue(run("gtc", listOf(91L, 92L)).isEmpty())
-    @Test fun dgmGames() = assertTrue(run("dgm", listOf(101L, 102L)).isEmpty())
-    @Test fun fraGames() = assertTrue(run("fra", listOf(111L, 112L)).isEmpty())
+    @Test fun cubeGames() = run("cube", listOf(51L, 52L)).let { assertTrue(it.isEmpty(), it.joinToString("\n")) }
+    @Test fun blbGames() = run("blb", listOf(61L, 62L)).let { assertTrue(it.isEmpty(), it.joinToString("\n")) }
+    @Test fun dskGames() = run("dsk", listOf(71L, 72L)).let { assertTrue(it.isEmpty(), it.joinToString("\n")) }
+    @Test fun rtrGames() = run("rtr", listOf(81L, 82L)).let { assertTrue(it.isEmpty(), it.joinToString("\n")) }
+    @Test fun gtcGames() = run("gtc", listOf(91L, 92L)).let { assertTrue(it.isEmpty(), it.joinToString("\n")) }
+    @Test fun dgmGames() = run("dgm", listOf(101L, 102L)).let { assertTrue(it.isEmpty(), it.joinToString("\n")) }
+    @Test fun fraGames() = run("fra", listOf(111L, 112L)).let { assertTrue(it.isEmpty(), it.joinToString("\n")) }
 
     // finalreview-combat #3 (I-D41, STK-036): a call that went through a whole round of turns (nobody could act: Gatecrash
     // seed 92, turns 9–11) stops in the next upkeep with a player holding priority who could act there (an instant) but

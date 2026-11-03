@@ -57,7 +57,9 @@ class AutomatumFinalCombatReviewTest {
     private val ogre = invented("ogre", "Hill Ogre", "{2}{R}", "Creature — Ogre", "", "3/3")
     private val spark = invented("spark", "Storm Spark", "{R}", "Instant", "Storm Spark deals 3 damage to any target.")
     private val mountain = invented("mountain", "Mountain", null, "Basic Land — Mountain", "")
-    private val all = listOf(brute, bear, ogre, spark, mountain)
+    private val tolls = invented("tolls", "Edict of Tolls", "{4}{W}", "Enchantment",
+        "Creatures can't attack you or planeswalkers you control unless their controller pays {X} for each of those creatures, where X is the number of enchantments you control.")
+    private val all = listOf(brute, bear, ogre, spark, mountain, tolls)
 
     private val aHand = f.id("a/HAND")
     private val bHand = f.id("b/HAND")
@@ -253,6 +255,26 @@ class AutomatumFinalCombatReviewTest {
         }
         assertEquals(PlayZone.GRAVEYARD, play.board.containers.single { c -> c.id == play.board.cards.single { it.id == bearCard }.containerId }.zone)
         assertEquals(bobLife - 2, play.board.players.single { it.accountId == f.b }.life.toInt(), "on the branch only the Brute's 2 trample over")
+    }
+
+    // CR 508.1g–j (rtr), CMB-028, I-D29: Bob's Edict of Tolls makes attacking him cost {1} per creature. Alice stages her
+    // Stout Bear and commits: the attack waits for her payment, a choice of hers the shared-flow panel shows with the
+    // suggested Mountain; paid, the Bear attacks
+    @Test fun aCostToAttackIsPaidFromTheCommit() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(bear, mountain), bobField = listOf(tolls)))
+        val alice = toolkit(f.a)
+        val bearCard = card(play, bear)
+        tapCard(alice, bearCard)
+        assertTrue(perform(alice, "Commit attack (1)"), alice.error)
+        val flow = assertNotNull(AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId)))
+        val payment = assertIs<arcanum.engine.decision.Decision.ManaPayment>(flow.decision, "the attack waits for Alice's payment")
+        assertEquals(f.a, payment.player.value)
+        assertTrue(quick(alice).none { it.enabled }, "no combat quick action while the payment is open: ${quick(alice).map { it.name }}")
+        alice.flows.show(flow)
+        assertTrue(alice.flows.answer(arcanum.engine.decision.Answer.ManaPayment(payment.suggestion)), alice.error)
+        assertTrue(play.board.cards.single { it.id == bearCard }.tapped, "the Bear attacks")
+        assertTrue(play.board.cards.single { it.id == card(play, mountain) }.tapped, "the Mountain paid")
+        assertTrue(TurnPosition.of(play.board.turn) != TurnPosition.DECLARE_ATTACKERS || PausePoints.at(play.board)?.holder == f.b)
     }
 
     private fun bounds(description: String): List<Rect> =

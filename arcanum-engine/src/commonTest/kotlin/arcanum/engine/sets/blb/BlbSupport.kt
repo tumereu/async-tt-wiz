@@ -32,6 +32,7 @@ internal object Blb {
     val heal = Cards.invent("Hedge Balm", "{W}", "Instant", "You gain 2 life.")
     val pact = Cards.invent("Hedge Pact", "{B}", "Sorcery", "You lose 2 life.")
     val rabbitCall = Cards.invent("Hedge Warren Call", "{W}", "Sorcery", "Create a 1/1 white Rabbit creature token.")
+    val unsummon = Cards.invent("Hedge Gust", "{U}", "Instant", "Return target creature to its owner's hand.")
     val idol = Cards.invent("Hedge Idol", "{2}", "Artifact", "")
     val charm = Cards.invent("Hedge Charm", "{1}{W}", "Enchantment", "")
     val food = Cards.invent("Hedge Pie", "{1}", "Artifact — Food", "{2}, {T}, Sacrifice this artifact: You gain 3 life.")

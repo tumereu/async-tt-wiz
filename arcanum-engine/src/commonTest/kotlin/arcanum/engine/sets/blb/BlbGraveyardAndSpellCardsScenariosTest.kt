@@ -26,6 +26,7 @@ import arcanum.engine.sets.blb.Blb.raccoon
 import arcanum.engine.sets.blb.Blb.rat
 import arcanum.engine.sets.blb.Blb.shock
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 
 /** Bloomburrow's graveyard, threshold and spell cards in play (parser chunks 09–10). */
@@ -218,12 +219,17 @@ class BlbGraveyardAndSpellCardsScenariosTest {
         expect { alice.graveyard has ogre }
     }
 
+    @Test
+    fun ideaHuskerNeedsThreshold() = scenario {
+        alice.battlefield(ideaHusker, "Island", "Island")
+        assertFailsWith<IllegalArgumentException> { alice.activates(ideaHusker) }
+    }
+
     // CR 602.5b: "only once"
     @Test
     fun ideaHuskerOnceAtThreshold() = scenario {
         alice.battlefield(ideaHusker, "Island", "Island", "Island", "Island")
         alice.library(bear, ogre)
-        assertFailsWith<IllegalArgumentException> { alice.activates(ideaHusker) }
         alice.graveyard(*seven)
         alice.activates(ideaHusker)
         resolveAll()
@@ -406,10 +412,10 @@ class BlbGraveyardAndSpellCardsScenariosTest {
     @Test
     fun sharpEyedCollectorGrowsWithFourTypes() = scenario {
         alice.battlefield(sharpEyedCollector, "Forest", "Forest", "Forest", "Forest")
-        bob.graveyard(bear, "Forest", idol, charm)
+        bob.graveyard(bear, "Plains", idol, charm)
         alice.activates(sharpEyedCollector, target = bear)
         resolveAll()
-        alice.activates(sharpEyedCollector, target = "Forest")
+        alice.activates(sharpEyedCollector, target = "Plains")
         resolveAll()
         alice.activates(sharpEyedCollector, target = idol)
         resolveAll()
@@ -531,8 +537,10 @@ class BlbGraveyardAndSpellCardsScenariosTest {
         alice.battlefield("Plains", "Plains")
         alice.hand(wardOffDisaster)
         bob.battlefield(bear, giant)
-        assertFailsWith<IllegalArgumentException> { alice.casts(wardOffDisaster, target = bear) }
-        alice.casts(wardOffDisaster, target = giant)
+        alice.casts(wardOffDisaster)
+        assertEquals(listOf(target(giant)), decision<Decision.Targets>().options)
+        targets(giant)
+        answer(Answer.ManaPayment(decision<Decision.ManaPayment>().suggestion))
         resolveAll()
         expect { bob.graveyard has giant }
     }

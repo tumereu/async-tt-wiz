@@ -625,8 +625,14 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
             Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor))
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, excluding = tappedByCost))
     }
+
+    /** blb backfill: an ability whose cost taps or untaps its own source can't also be paid with that source's mana
+     * (CR 601.2h: the {T} is paid after the mana abilities are activated), so the suggestion leaves it out. */
+    private val tappedByCost: Set<ObjectId>
+        get() = if ((ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is arcanum.api.CostPart.TapSelf || it is arcanum.api.CostPart.UntapSelf })
+            setOf(sourceId) else emptySet()
 
     companion object {
         /** The target slot of an Aura spell (CR 303.4a) and of a bestowed spell (CR 702.103b). */

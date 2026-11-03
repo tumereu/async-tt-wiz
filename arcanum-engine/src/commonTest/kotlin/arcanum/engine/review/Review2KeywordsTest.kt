@@ -416,21 +416,21 @@ class Review2KeywordsTest {
 
     // ---- Keywords done by hand
 
-    /** A keyword the engine doesn't automate (enlist) stops with a manual step as the creature attacks; mobilize, by hand
-     * before, now creates its tokens. */
-    // CR 702.154a, 702.181a, D61
+    /** A keyword the engine doesn't automate (banding; enlist was, until the engine took it on) stops with a manual step as the
+     * creature attacks; mobilize, by hand before, now creates its tokens. */
+    // CR 702.22a, 702.181a, D61
     @Test
-    fun enlistIsDoneByHandAsItAttacks() = scenario {
-        val enlister = Cards.invent("Review Drafting Sergeant", "{1}{W}", "Creature — Human Soldier", "Enlist", "2/2")
+    fun bandingIsDoneByHandAsItAttacks() = scenario {
+        val bander = Cards.invent("Review Drafting Sergeant", "{1}{W}", "Creature — Human Soldier", "Banding", "2/2")
         val mobilizer = Cards.invent("Review Horde Caller", "{1}{R}", "Creature — Goblin", "Mobilize 2", "2/2")
-        alice.battlefield(enlister, mobilizer)
+        alice.battlefield(bander, mobilizer)
         advanceTo(TurnStep.DeclareAttackers)
-        alice.attacks(enlister, mobilizer)
+        alice.attacks(bander, mobilizer)
         allPass()
         if (pending is Decision.OrderTriggers) alice.answers(Answer.Order(listOf(0, 1)))
         while (pending !is Decision.Manual && state.stack.isNotEmpty()) passPriority()
         val manual = decision<Decision.Manual>()
-        assertEquals("Enlist (CR 702.154): apply it by hand", manual.text)
+        assertEquals("Banding (CR 702.22): apply it by hand", manual.text)
         assertEquals(alice.id, manual.player)
         alice.answers(Answer.Done)
         allPass()

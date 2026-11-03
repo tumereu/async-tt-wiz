@@ -86,9 +86,11 @@ internal object Triggers {
                 found += check(state, ViewBoard(state, now), now, part, s, lookBack = false, whole = change)
             }
         found += discardedFromHand(state, now, change, seen)
+        found += leftTheStack(state, now, change, seen)
         found += additional(state, now, change, found)
         val delayedFired = mutableListOf<arcanum.engine.state.DelayedTrigger>()
         state.delayedTriggers.values.toList().forEach { dt ->
+            if (dt.laterTurn && state.turn.number <= dt.createdTurn) return@forEach
             val e = Evaluator(ViewBoard(state, now), Context(dt.controller, dt.source, dt.names))
             val instances = instancesOf(e, state, dt.trigger, change)
             if (instances.isNotEmpty()) {
@@ -155,6 +157,25 @@ internal object Triggers {
                     "${o.id}/${inst.origin.key}" in seen) emptyList()
                 // the event names the card as it was in the hand
                 else check(state, ViewBoard(state, now), now, change, Source(m.before.id, o.owner, ability, inst.origin), lookBack = false)
+            }
+        }
+
+    /**
+     * A spell's own "when this spell is put into a graveyard during its resolution" (haunt, CR 702.55a) works on the Stack (CR 113.6k):
+     * found on the card as it is now, its abilities that trigger on itself leaving the Stack, the event naming the spell it was.
+     */
+    private fun leftTheStack(state: GameState, now: View, change: Change, seen: Set<String>): List<WaitingTrigger> =
+        (change as? Change.ZoneChange)?.moves.orEmpty().filter { it.from == Zone.Stack }.flatMap { m ->
+            val o = now[m.after.id] ?: return@flatMap emptyList()
+            val c = o.characteristics ?: return@flatMap emptyList()
+            c.abilities.flatMap { inst ->
+                val ability = inst.ability as? Ability.Triggered
+                val fromStack = (ability?.trigger as? Trigger.On)?.events.orEmpty().any {
+                    it is arcanum.api.EventPattern.ZoneChange && it.from == Zone.Stack && it.objects == arcanum.api.ObjectFilter.Is(arcanum.api.Objects.Self)
+                }
+                if (ability == null || !fromStack || Functioning.zones(ability, c.isInstantOrSorcery()) != setOf(Zone.Stack) ||
+                    "${o.id}/${inst.origin.key}" in seen) emptyList()
+                else check(state, ViewBoard(state, now), now, change, Source(m.before.id, m.before.controller ?: o.owner, ability, inst.origin), lookBack = false)
             }
         }
 

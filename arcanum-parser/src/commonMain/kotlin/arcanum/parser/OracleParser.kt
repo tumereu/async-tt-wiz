@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 26
+    const val VERSION: Int = 29
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -62,7 +62,8 @@ object OracleParser {
         }
         // spm chunk 06: "It gains this card's other abilities." (CR 113.10): the face's other abilities written into the effect
         abilities = abilities.map { a -> if (a is Ability.Activated && a.text?.contains("this card's other abilities") == true) withOtherAbilities(a, abilities.filter { it !== a }) else a }
-        return face.copy(abilities = abilities)
+        // eoe chunk 01: a station card's P/T box (CR 721.2b)
+        return withStationPowerToughness(face.copy(abilities = abilities), card.text)
     }
 
     /** spm: [ability] with the empty "gains abilities" its "this card's other abilities" was read as filled with [others]. */
@@ -135,6 +136,25 @@ object OracleParser {
                 raws += printed
                 continue
             }
+            // CR 702.172a, 702.183a: spree's and tiered's "+ [cost] — [effect]" lines: modes whose costs are additional costs of the spell
+            // when chosen ([arcanum.api.Mode.extraCost]); spree chooses one or more, tiered exactly one
+            if (isSpell && COST_MODE.matches(line)) {
+                val modeLines = mutableListOf(line)
+                while (i < lines.size && COST_MODE.matches(REMINDER.replace(lines[i], "").trim())) modeLines += REMINDER.replace(lines[i++], "").trim()
+                val tiered = result.any { it == Keyword.Tiered }
+                val options = modeLines.map { ml ->
+                    val m = COST_MODE.matchEntire(ml)!!
+                    val cost = ManaCost.parse(m.groupValues[1])
+                    val instructions = sentences.instructions(m.groupValues[2].replaceFirstChar { it.uppercase() })
+                    if (cost == null || instructions == null) null else arcanum.api.Mode(instructions, extraCost = Cost.mana(cost), text = ml)
+                }
+                val printed = modeLines.joinToString("\n")
+                result += if (options.all { it != null } && (tiered || result.any { it == Keyword.Spree })) Ability.Spell(arcanum.api.Instructions(
+                    modes = arcanum.api.Modes(options.filterNotNull(), min = 1, max = if (tiered) 1 else options.size, chooser = arcanum.api.Players.You)))
+                    else Ability.Unparsed(printed)
+                raws += printed
+                continue
+            }
             // chunk 55: a leveler band (CR 711.2a, b): "LEVEL N1-N2" or "LEVEL N3+", its P/T box and the abilities printed
             // with it, up to the next band. A band with an unread line stays printed text as a whole.
             if (LEVEL_BAND.matches(line)) {
@@ -143,6 +163,13 @@ object OracleParser {
                 val printed = band.joinToString("\n")
                 result += levelBand(line, band.drop(1), sentences) ?: Ability.Unparsed(printed)
                 raws += printed
+                continue
+            }
+            // eoe chunk 01: a station symbol and the abilities of its striation, "N+ | [abilities]" (CR 721.2a): "As long as this permanent
+            // has N or more charge counters on it, it has [abilities]." Its P/T box is added by [parse]. An unread line stays printed text.
+            STATION_SYMBOL.matchEntire(line)?.let { m ->
+                result += stationSymbol(m.groupValues[1].toInt(), m.groupValues[2], sentences) ?: Ability.Unparsed(raw.trim())
+                raws += raw.trim()
                 continue
             }
             // blb chunk 06: "Choose up to five {P} worth of modes. You may choose the same mode more than once." and its
@@ -252,7 +279,8 @@ object OracleParser {
             val previous = result.lastOrNull()
             // dsk chunk 07: "If …, instead …" replaces the whole spell
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) ?: sentences.insteadAll(line, previous) else null
-            var parsed = if (instead == null) keywordLine(line) ?: flavorKeywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            var parsed = if (instead == null) keywordLine(line) ?: flavorKeywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences)
+                ?: sentences.finMulti(line) /* fin */ else null
             // msh: a legendary creature's "he"/"she"/"him"/"her" read as "it" when the line can't be read as written
             if (instead == null && parsed == null) ungendered(line, self).takeIf { it != line }?.let { u ->
                 parsed = sentences.multi(u) ?: sentences.line(u)?.let(::listOf)
@@ -326,6 +354,39 @@ object OracleParser {
         return Ability.Static(mechanics, condition = condition, affects = Affected.Objects(Objects.Self))
     }
 
+    /** eoe chunk 01: a station symbol's static ability (CR 721.2a) granting the abilities of its striation (the static keeps the printed
+     * line as its text); null when one can't be read. */
+    private fun stationSymbol(threshold: Int, body: String, sentences: Sentences): Ability? {
+        val granted = keywordLine(body) ?: sentences.multi(body) ?: listOf(sentences.line(body) ?: return null)
+        if (granted.any { it is Ability.Unparsed }) return null
+        return Ability.Static(listOf(arcanum.api.Mechanic.GainAbilities(granted)), affects = Affected.Objects(Objects.Self),
+            condition = stationed(threshold))
+    }
+
+    /** eoe: "this permanent has N or more charge counters on it" (CR 721.2a). */
+    private fun stationed(threshold: Int): arcanum.api.Condition = arcanum.api.Condition.ObjectMatches(Objects.Self,
+        arcanum.api.ObjectFilter.HasCounter(arcanum.api.KeywordExpansions.CHARGE, atLeast = threshold))
+
+    /** eoe chunk 01: a station card's P/T box is part of the static ability of its striation (CR 721.2b): "… and is a creature with base
+     * power and toughness [P/T] in addition to its other types". The striation is the one the station reminder names ("It's an artifact
+     * creature at 12+."), else the highest. */
+    private fun withStationPowerToughness(face: FaceDefinition, text: String): FaceDefinition {
+        val power = (face.power as? arcanum.api.PrintedNumber.Fixed)?.value ?: return face
+        val toughness = (face.toughness as? arcanum.api.PrintedNumber.Fixed)?.value ?: return face
+        if (face.abilities.none { it == Keyword.Station }) return face
+        val thresholds = face.abilities.mapNotNull { a -> a.stationThreshold() }
+        val threshold = STATION_CREATURE_AT.find(text)?.groupValues?.get(1)?.toInt() ?: thresholds.maxOrNull() ?: return face
+        return face.copy(abilities = face.abilities.map { a ->
+            if (a !is Ability.Static || a.stationThreshold() != threshold) a
+            else a.copy(mechanics = listOf(arcanum.api.Mechanic.SetTypes(add = listOf(arcanum.api.CardType.Creature)),
+                arcanum.api.Mechanic.SetPowerToughness(arcanum.api.Value.Fixed(power), arcanum.api.Value.Fixed(toughness))) + a.mechanics)
+        })
+    }
+
+    private fun Ability.stationThreshold(): Int? = ((this as? Ability.Static)?.condition as? arcanum.api.Condition.ObjectMatches)
+        ?.takeIf { it.objects == Objects.Self }?.let { (it.filter as? arcanum.api.ObjectFilter.HasCounter) }
+        ?.takeIf { it.kind == arcanum.api.KeywordExpansions.CHARGE }?.atLeast
+
     /** blb chunk 05: a class level bar and its section's abilities (CR 716.2a), each with its printed line; null when the
      * cost or a line can't be read. */
     private fun classLevel(m: MatchResult, section: List<String>, sentences: Sentences): Ability? {
@@ -346,6 +407,8 @@ object OracleParser {
      */
     private fun keywordLine(line: String): List<Ability>? {
         if (line.isEmpty() || (line.endsWith(".") && !line.contains('—'))) return null
+        // CR 702.124j: "Partner with [name]", a name that may have a comma, alone on its line
+        PARTNER_WITH.matchEntire(line)?.let { return listOf(Keyword.PartnerWith(it.groupValues[1])) }
         // A keyword with an em-dash cost ("Flashback—{1}{U}, Pay 3 life.") is alone on its line; its commas are the cost's.
         val parts = when {
             line.contains("; ") -> line.split("; ")
@@ -422,6 +485,10 @@ object OracleParser {
         AFFINITY.matchEntire(part)?.let { m -> return Keyword.Affinity(Filters.noun(m.groupValues[1]) ?: return null, m.groupValues[1]) }
         // chunk 30: "Evoke—Exile a white card from your hand.", "Escape—{R}{R}, Exile eight other cards from your graveyard."
         // (CR 702.74a, 702.138a): a cost that isn't only mana.
+        // eoe chunk 11: "Devour land 3": devour of another quality (CR 702.82c)
+        Eoe.DEVOUR_QUALITY.matchEntire(part)?.let { m ->
+            return Keyword.Devour(m.groupValues[2].toInt(), what = Filters.noun(m.groupValues[1]) ?: return null)
+        }
         DASH_COST.matchEntire(part)?.let { m ->
             val cost = Sentences(setOf("this card")).cost(m.groupValues[2]) ?: return null
             // dsk chunk 06: "Equip—Sacrifice a creature." (CR 702.6a), "Ward—Discard a card." (CR 702.21a)
@@ -429,6 +496,8 @@ object OracleParser {
                 "Evoke" -> Keyword.Evoke(cost)
                 "Equip" -> Keyword.Equip(cost)
                 "Ward", "ward" -> Keyword.Ward(cost)
+                // eoe chunk 09: "Warp—{B}, Pay 2 life." (CR 702.185a)
+                "Warp" -> Keyword.Warp(cost)
                 else -> Keyword.Escape(cost)
             }
         }
@@ -487,6 +556,9 @@ object OracleParser {
     /** Longest names first, so "Double strike" or "Multikicker" is never read as a shorter name. */
     private val BY_LENGTH = KeywordSyntax.all.sortedByDescending { it.lowercase.length }
     private val LEVEL_BAND = Regex("""LEVEL (\d+)(?:-(\d+)|\+)""")
+    /** A spree or tiered mode (CR 702.172a, 702.183a): "+ {1} — Counter target spell." */
+    private val COST_MODE = Regex("""\+ ((?:\{[^}]+\})+) — (.+)""")
+    private val PARTNER_WITH = Regex("""Partner with (.+)""")
     private val CHOOSE = Regex("""Choose (one|two|three|four)( or more| or both)?(?: —|\. You may choose the same mode more than once\.)""")
     private val FLASHBACK_COST = Regex("""Flashback—(.+?)\.?""")
     private val SPLICE = Regex("""Splice onto (\w+) (\{.+\})""")
@@ -499,7 +571,7 @@ object OracleParser {
     private val ESCALATE_COST = Regex("""Escalate—(.+?)\.?""")
     // chunk 30
     private val AFFINITY = Regex("""Affinity for (\w+)""")
-    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward)—(.+?)\.?""")
+    private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward|Warp)—(.+?)\.?""")
     // dsk chunk 06
     private val TYPECYCLING = Regex("""([A-Z][a-z]+(?: land)?)cycling (\{.+\})""")
     // hob chunk 06
@@ -518,6 +590,9 @@ object OracleParser {
     private val PAWPRINT_CHOOSE = Regex("""Choose up to (\w+) \{P\} worth of modes\. You may choose the same mode more than once\.""")
     private val PAWPRINT_MODE = Regex("""((?:\{P\})+) — (.+)""")
     // blb chunk 05
+    // eoe chunk 01
+    private val STATION_SYMBOL = Regex("""(\d+)\+ \| (.+)""")
+    private val STATION_CREATURE_AT = Regex("""It's an artifact creature at (\d+)\+\.""")
     private val CLASS_LEVEL = Regex("""((?:\{[^}]+\})+): Level (\d+)""")
     // fin
     private val FLAVOR_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\- ]+) — (.+)""")

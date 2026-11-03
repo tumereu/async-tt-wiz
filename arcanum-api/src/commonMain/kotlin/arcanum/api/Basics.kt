@@ -147,6 +147,10 @@ sealed interface ObjectMark {
     /** Harnessed (CR 701.64b): a permanent stays harnessed until it leaves the battlefield; its ∞ abilities work only then
      * ([AbilityLabel.Infinity], CR 702.186b). Set with [Effect.Mark] ("Harness [this permanent]", 701.64a). */
     @Serializable @SerialName("harnessed") data object Harnessed : ObjectMark
+    // eoe
+    /** A warped card in exile (CR 702.185b): exiled by the delayed triggered ability a warp ability created (its owner may cast
+     * it after that turn). Set with [Effect.Mark] on the exiled card. */
+    @Serializable @SerialName("warped") data object Warped : ObjectMark
     /** A foretold card (CR 702.143a, c): exiled face down by its foretell special action; its owner may look at it and cast it
      * for its foretell cost after the turn it was foretold. Set by the engine. */
     @Serializable @SerialName("foretold") data object Foretold : ObjectMark
@@ -156,6 +160,10 @@ sealed interface ObjectMark {
     /** A cloaked permanent (CR 701.58a): face down as a 2/2 creature with ward {2} because it was cloaked; turned face up for
      * its mana cost if it's a creature card (701.58b). Set by the engine as it cloaks. */
     @Serializable @SerialName("cloaked") data object Cloaked : ObjectMark
+    /** A Ring-bearer (CR 701.54a, b): the creature its controller chose as the Ring tempted them, until they choose another or
+     * another player gains control of it. Not a copiable value. Set by the engine; "your Ring-bearer" is a creature you control
+     * with it (701.54e). */
+    @Serializable @SerialName("ring-bearer") data object RingBearer : ObjectMark
     /** Any other mark by name. */
     @Serializable @SerialName("named") data class Named(val name: String) : ObjectMark
 }

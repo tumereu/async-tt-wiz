@@ -54,6 +54,16 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Avatar: The Last Airbender (`tla`): all 286 cards parse (the Sagas that transform as two faces, the five basic lands untested); its
   rules are in `TlaWordings.kt` (`Tla`, and `TlaPhrases` for conditions and values) and the `tla*` functions of `Sentences.kt`, tried
   first; names with " and " ("Kiro and Tide") are read with singular verbs, and "waterbend {X}" as an additional cost announces X.
+  Edge of Eternities (`eoe`): all 261 cards parse (the five basic lands untested); its rules are in `EoeWordings.kt` (`Eoe`, and
+  `EoePhrases` for values, conditions, nouns and events) and the `eoe*` functions of `Sentences.kt`, tried first; station symbol lines
+  ("N+ | abilities") become statics of the Spacecraft or Planet with N or more charge counters, and the printed power and toughness
+  belong to the striation that makes it a creature ("It's an artifact creature at N+.").
+- Mechanics that used to be by hand (`MechanicWordings.kt`, tried first; `MechanicWordingsTest`, one test per wording): the Ring tempting
+  you (the effect, "whenever the Ring tempts you", "[this] is your Ring-bearer", "you don't control a Ring-bearer", "you chose a creature
+  other than [this] as your Ring-bearer"), soulbond's "As long as [this] is paired with another creature, both creatures have …" /
+  "each of those creatures gets/has …", haunt's "the creature it haunts dies" (those triggers work in exile, CR 702.55c), "if this
+  spell / it was bargained", "if tribute wasn't paid" and "If [this] would be put into a graveyard from anywhere, exile it instead";
+  in `OracleParser`, spree's and tiered's "+ [cost] — [effect]" modes and "Partner with [name]" (names with commas).
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

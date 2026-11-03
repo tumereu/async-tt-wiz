@@ -1,0 +1,1 @@
+add: More cards can now be played: the Ring tempting you, enlist, soulbond, haunt, spree, tiered, bargain and partner cards are handled for you.

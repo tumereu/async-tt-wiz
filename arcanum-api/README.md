@@ -125,12 +125,24 @@ The definition model (overview in `Definitions.kt`):
 - Keywords no longer by hand (2026-11-03): `KeywordExpansionsMore` (asked by `KeywordExpansions.expand` for keywords it doesn't list)
   writes out dash, blitz, echo, cumulative upkeep, embalm, eternalize, encore, mobilize, myriad, melee, dethrone, provoke, rampage,
   soulshift, bloodthirst, ingest, undaunted, ascend, gravestorm, replicate, squad, bargain, demonstrate, spectacle, surge, prowl,
-  freerunning, warp, disturb, recover, transmute, riot, ravenous, devour, amplify, graft, saddle, station, partner
+  freerunning, disturb, recover, transmute, riot, ravenous, amplify, graft, saddle, partner
   with, entwine, disguise, plot, awaken, tribute, emerge, harmonize, prototype, aftermath and ripple from their CR definitions; spree and
   tiered expand to nothing (their modes carry the costs, `Mode.extraCost`). Keyword actions written out: support (now
   `KeywordAction.Support(count, slot)`, its targets a slot of the instructions), discover, endure and learn. New pieces:
   `ObjectMark.Foretold`, `Plotted` and `Cloaked`, `Effect.IncreaseSpeed` (CR 702.179c) and `CostObjects.Choose.upTo` ("tapping up to one
   untapped creature you control").
+- By-hand mechanics, second round (2026-11-03): enlist (its linked trigger on `EventPattern.Enlists`; the cost is the engine's), soulbond
+  (`Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`) and haunt (`Effect.Haunt`, "the creature it haunts" is `Objects.LinkedTo`
+  haunt) are written out; the Ring tempting you gets `ObjectMark.RingBearer`, `Value.RingTemptations` and `EventPattern.RingTempts`;
+  `KeywordExpansions.TRIBUTE_PAID` is public for "if tribute wasn't paid".
+- Edge of Eternities (set `eoe`): warp, station and devour written out by `KeywordExpansions` (CR 702.185, 702.184, 702.82; warp's
+  exile at the next end step and the card's later permission from exile, `ObjectMark.Warped` for "warped cards"; station puts charge
+  counters equal to `NumericProperty.Stationing`, the tapped creature's power, or its toughness with `Mechanic.StationsWithToughness`;
+  `Keyword.Devour.what` for "devour land 3"), the predefined Lander token (CR 111.10u), `AlternativeCost.from` (warp only from the
+  hand), `MayPlay.costChange` and `landsEnterTapped` ("spells you cast this way cost {1} more", "lands you play this way enter
+  tapped"), `CreateDelayedTrigger.laterTurn` ("its owner may play it for as long as it remains exiled" only after this turn) and
+  `Selector.WasPaid` counting alternative costs ("a spell was warped this turn"); `DefinitionChecks` allows comparing a count of what
+  your opponents control with a number (their total).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

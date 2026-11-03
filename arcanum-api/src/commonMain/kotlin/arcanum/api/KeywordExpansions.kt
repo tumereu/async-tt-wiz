@@ -285,6 +285,34 @@ object KeywordExpansions {
         is Keyword.Mayhem -> static(Mechanic.MayPlay(Zone.Graveyard, if (keyword.cost == null) PlayKind.Play else PlayKind.Cast, cost = keyword.cost,
             holder = PlayerFilter.You, condition = Condition.ObjectMatches(Objects.Self,
                 ObjectFilter.ThisTurn(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.You), role = EventRole.After))))
+        // eoe: CR 702.185a: "You may cast this card from your hand by paying [cost] rather than its mana cost" and "If this spell's warp
+        // cost was paid, exile the permanent this spell becomes at the beginning of the next end step. Its owner may cast this card after
+        // the current turn has ended for as long as it remains exiled." The delayed trigger is created as the permanent enters (CR
+        // 608.3g); the exiled card is a warped card (702.185b).
+        is Keyword.Warp -> listOf(
+            Ability.Static(listOf(Mechanic.AlternativeCost(Keyword.Warp.Kind, keyword.cost, from = Zone.Hand)), affects = Affected.Objects(Objects.Self)),
+            Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+                modify = listOf(Modification.AsEnters(listOf(Step.Do(Effect.CreateDelayedTrigger(
+                    Trigger.On(EventPattern.StepBegins(TurnStep.End, whose = PlayerFilter.Any)), warpExile))))))),
+                condition = Condition.Paid(Keyword.Warp.Kind, times = 1, of = Objects.Self), affects = Affected.Objects(Objects.Self)),
+        )
+        // eoe: CR 702.184a: "Tap another untapped creature you control: Put a number of charge counters on this permanent equal to the
+        // tapped creature's power. Activate only as a sorcery." (or another number a static ability says, 702.184c)
+        Keyword.Station -> listOf(Ability.Activated(
+            Cost(listOf(CostPart.TapObjects(CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
+                ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped)))), count = Value.Fixed(1)), bind = STATION_TAPPED))),
+            steps(Effect.PutCounters(Objects.Self, CHARGE, Value.Of(NumericProperty.Stationing, Objects.Bound(STATION_TAPPED), Combine.Single))),
+            ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+        // eoe: CR 702.82a, c: "As this object enters, you may sacrifice any number of creatures [permanents of the quality]. This permanent
+        // enters with N times that many +1/+1 counters on it."
+        is Keyword.Devour -> listOf(Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
+            modify = listOf(Modification.AsEnters(listOf(
+                Step.Choose(Choice.Objects(ObjectFilter.And(listOf(keyword.what ?: ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+                    ObjectFilter.Not(ObjectFilter.Is(Objects.Self)))), Value.Fixed(0), null), bind = DEVOURED, chooser = Players.You),
+                Step.Do(Effect.Sacrifice(Objects.Bound(DEVOURED), postBind = "eaten")),
+                Step.Modify(Modification.EntersWithCounters(CounterKind.PowerToughness(1, 1), Value.Times(Value.Count(Objects.Bound("eaten")), keyword.amount)))))))),
+            affects = Affected.Objects(Objects.Self)))
         // CR 702.84a: return to the battlefield; it gains haste; exile it at the next end step; if it would leave the
         // battlefield, exile it instead; activate only as a sorcery
         is Keyword.Unearth -> listOf(Ability.Activated(keyword.cost, Instructions(steps = listOf(
@@ -772,11 +800,37 @@ object KeywordExpansions {
 
     /** CR 702.49a, d: "[Cost], Reveal this card, Return an unblocked attacking creature you control to its owner's hand:
      * Put this card onto the battlefield tapped and attacking" (the same player or planeswalker as the returned creature). */
+    /** The mark of a creature whose tribute was paid (CR 702.104b): "if tribute wasn't paid" is its absence. */
+    val TRIBUTE_PAID: ObjectMark get() = KeywordExpansionsMore.TRIBUTE_PAID
+
     /** The name the creature returned to pay a sneak cost is bound to (msh, CR 702.190b). */
     const val SNEAK_RETURNED: String = "sneak-returned"
 
     /** The name the creature returned to pay a web-slinging cost is bound to (spm: "the mana value of the returned creature"). */
     const val WEB_SLINGING_RETURNED: String = "web-slinging-returned"
+
+    // eoe
+    /** The name the permanents a devour ability sacrifices are bound to (CR 702.82b: "the creatures it devoured"). */
+    const val DEVOURED: String = "devoured"
+
+    /** The name the creature tapped to pay a station cost is bound to (CR 702.184a: "the tapped creature's power"). */
+    const val STATION_TAPPED: String = "station-tapped"
+
+    /** Charge counters (CR 122.1): what station puts on its permanent and station symbols count (CR 721.2a). */
+    val CHARGE: CounterKind = CounterKind.Named("charge")
+
+    /** The name the card a warp ability's delayed trigger exiles is bound to (CR 702.185a). */
+    const val WARP_EXILED: String = "warp-exiled"
+
+    /** eoe: what warp's delayed trigger does at the beginning of the next end step (CR 702.185a, b): exile the permanent; the card is a
+     * warped card, and its owner may cast it from exile after the current turn has ended for as long as it remains exiled. */
+    val warpExile: Instructions get() = Instructions(steps = listOf(
+        Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = WARP_EXILED)),
+        Step.Do(Effect.Mark(Objects.Bound(WARP_EXILED), ObjectMark.Warped)),
+        Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, holder = PlayerFilter.You,
+            condition = Condition.Not(Condition.ObjectMatches(Objects.Bound(WARP_EXILED), ObjectFilter.ThisTurn(
+                EventPattern.ZoneChange(ObjectFilter.Any, to = Zone.Exile), role = EventRole.After))))),
+            Affected.Objects(Objects.Bound(WARP_EXILED)), Duration.Indefinitely))))
 
     /** The names keyword costs make for the spell, which its permanent keeps too (CR 400.7d: "the returned creature"). */
     val COST_NAMES: Set<String> = setOf(SNEAK_RETURNED, WEB_SLINGING_RETURNED)

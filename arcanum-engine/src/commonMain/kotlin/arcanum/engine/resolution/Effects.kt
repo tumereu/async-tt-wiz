@@ -213,7 +213,9 @@ internal object Effects {
             is Effect.PhaseOut -> onBattlefield(scope, effect.objects).forEach {
                 Actions.tapStatus(act, it, StatusFlag.PhasedOut, true, listOf(Meaning.PhasedOut))
             }
-            is Effect.Mark -> onBattlefield(scope, effect.objects).forEach {
+            // eoe: a warped card is marked in exile (CR 702.185b)
+            is Effect.Mark -> (if (effect.mark == arcanum.api.ObjectMark.Warped) scope.objects(effect.objects).filter { act.state.obj(it)?.zone == Zone.Exile }
+                else onBattlefield(scope, effect.objects)).forEach {
                 // fra: becoming prepared or unprepared (CR 722.3a–c)
                 if (effect.mark == arcanum.api.ObjectMark.Prepared) {
                     if (effect.remove) arcanum.engine.prepare.Prepare.unprepare(act, it) else arcanum.engine.prepare.Prepare.becomePrepared(act, it)
@@ -232,7 +234,7 @@ internal object Effects {
                 val o = act.state.objOrThrow(id)
                 if (o.damage > 0 || o.deathtouchDamage) act.record(Change.DamageMarked(id, o.damage, 0, o.deathtouchDamage, false))
             }
-            is Effect.CreateDelayedTrigger -> createDelayed(scope, effect.trigger, effect.instructions, effect.duration, effect.repeats)
+            is Effect.CreateDelayedTrigger -> createDelayed(scope, effect.trigger, effect.instructions, effect.duration, effect.repeats, laterTurn = effect.laterTurn)
             is Effect.RollDie -> {
                 val player = scope.players(effect.players).firstOrNull() ?: scope.actor
                 val rolls = (act.random(player, scope.self, RandomKind.Die(effect.sides, effect.count)) as Answer.DieRolls).results
@@ -333,6 +335,18 @@ internal object Effects {
                 names = scope.names,
             )))
             is Effect.RevealUntil -> revealUntil(scope, effect)
+            // CR 702.55a, b: the card is exiled haunting the creature (its memory under the keyword's id)
+            is Effect.Haunt -> scope.objects(effect.card).firstOrNull { act.state.obj(it)?.zone == Zone.Graveyard }?.let { card ->
+                val creature = scope.objects(effect.creature).firstOrNull()
+                val exiled = Actions.move(act, scope.cause, listOf(PlannedMove(card, Zone.Exile, meanings = listOf(Meaning.Exiled))))[card]
+                    ?.takeIf { act.state.obj(it)?.zone == Zone.Exile }
+                if (exiled != null && creature != null)
+                    act.record(Change.Memory(exiled, arcanum.api.Keyword.Haunt.id, null, arcanum.engine.state.NamedValue.Objects(listOf(creature))))
+            }
+            // CR 702.95a, c: soulbond's pairing
+            is Effect.Pair -> scope.objects(effect.objects).firstOrNull()?.let { first ->
+                arcanum.engine.soulbond.Soulbond.pair(act, scope.actor, scope.self, first, scope.objects(effect.with))
+            }
             is Effect.CreateEmblem -> scope.players(effect.players).forEach { p -> createEmblem(scope, p, effect.abilities) }
             is Effect.Action -> keywordAction(scope, effect.action, effect.bind)
             // CR 709.5f: the chooser picks a locked door of each (or the door named)
@@ -720,9 +734,12 @@ internal object Effects {
             shares.forEach { s -> Actions.putCounters(act, scope.cause, s.target, effect.kind, s.amount) }
             return
         }
+        // eoe: the amount is worked out once, before any counter is put ("put X +1/+1 counters on each creature you control, where X is
+        // this creature's power", CR 608.2h), unless each object has its own divided share
+        val once = if (divided.isEmpty()) scope.value(effect.amount) else null
         ids.forEach { id ->
             val share = divided.firstOrNull { it.target == TargetRef.Object(id) }?.amount
-            Actions.putCounters(act, scope.cause, TargetRef.Object(id), effect.kind, scope.eval(dividedShare = share).value(effect.amount))
+            Actions.putCounters(act, scope.cause, TargetRef.Object(id), effect.kind, once ?: scope.eval(dividedShare = share).value(effect.amount))
         }
     }
 
@@ -977,7 +994,7 @@ internal object Effects {
 
     private fun createDelayed(
         scope: Scope, trigger: Trigger, instructions: Instructions, duration: Duration?, repeats: Boolean,
-        extra: Map<String, NamedValue> = emptyMap(), oneShot: Boolean = false,
+        extra: Map<String, NamedValue> = emptyMap(), oneShot: Boolean = false, laterTurn: Boolean = false,
     ) {
         val act = scope.act
         val names = extra.entries.fold(scope.names) { n, (k, v) -> n.with(k, v) }
@@ -992,11 +1009,13 @@ internal object Effects {
         val ts = act.state.nextTimestamp()
         act.record(Change.DelayedTriggerAdded(DelayedTrigger(
             id = EffectId("D$ts"), trigger = trigger, instructions = instructions, duration = duration, repeats = repeats,
-            source = scope.self, controller = scope.you, timestamp = ts, createdTurn = act.state.turn.number, names = names,
+            // eoe: created as a permanent enters (CR 608.3g, warp): its source is the permanent, the object the entering one becomes
+            source = scope.entering?.let { (it.id as? ObjectId.Card)?.next() } ?: scope.self, controller = scope.you, timestamp = ts,
+            createdTurn = act.state.turn.number, names = names,
             // An object that already left (a countered spell) is kept as it last existed (CR 608.2h), not read later from
             // a log the host may have trimmed
             snapshots = refs.mapNotNull { act.snapshot(it) ?: arcanum.engine.query.Lki.find(act.state, it) },
-            oneShot = oneShot,
+            oneShot = oneShot, laterTurn = laterTurn,
         )))
     }
 
@@ -1312,6 +1331,8 @@ internal object Effects {
                 }
                 scope.bind(bind, NamedValue.Objects(blighted))
             }
+            // CR 701.54: the Ring tempts the player doing it
+            KeywordAction.TheRingTemptsYou -> arcanum.engine.ring.TheRing.tempt(act, cause, scope.actor)
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
     }

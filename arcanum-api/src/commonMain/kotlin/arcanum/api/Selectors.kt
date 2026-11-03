@@ -37,6 +37,8 @@ sealed interface Objects {
     /** The top or bottom [count] cards of a library. */
     @Serializable @SerialName("library-cards") data class LibraryCards(val of: Players, val count: Value, val fromTop: Boolean) : Objects
     @Serializable @SerialName("union") data class Union(val parts: List<Objects>) : Objects
+    /** The creature each of [of] is paired with by soulbond (CR 702.95b): "the creature it's paired with". */
+    @Serializable @SerialName("paired-with") data class PairedWith(val of: Objects) : Objects
     /** In a static ability's or effect object's mechanics or condition: each affected object in turn ("for each other
      * creature that shares a creature type with it"). */
     @Serializable @SerialName("affected") data object Affected : Objects
@@ -77,7 +79,7 @@ sealed interface EventRole {
      * at the object that generated it, CR 113.7). */
     @Serializable @SerialName("source") data object Source : EventRole
     /** In a block or becoming blocked: the creature on the other side ("destroy that creature" for "blocks or becomes
-     * blocked by"). */
+     * blocked by"); in an enlist: the creature enlisted. */
     @Serializable @SerialName("other-combatant") data object OtherCombatant : EventRole
     /** In an attack: the planeswalker or battle attacked (the attacked player is [Players.EventPlayer]). */
     @Serializable @SerialName("defender") data object Defender : EventRole
@@ -150,13 +152,16 @@ sealed interface ObjectFilter {
     /** A spell (or the permanent it became, CR 400.7d) that was cast, from [from] when given ("spells you cast from
      * exile"). */
     @Serializable @SerialName("was-cast") data class WasCast(val from: Zone? = null) : ObjectFilter
-    /** Its [keyword] optional cost was paid at least [times] ("kicked spells"). */
+    /** Its [keyword] optional cost was paid at least [times] ("kicked spells"), or its [keyword] alternative cost (eoe: "a spell was warped",
+     * CR 702.185c). */
     @Serializable @SerialName("was-paid") data class WasPaid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val times: Int,
     ) : ObjectFilter
     @Serializable @SerialName("status") data class HasStatus(val status: Status) : ObjectFilter
     /** Its controller hasn't controlled it continuously since their most recent turn began (CR 302.6). */
     @Serializable @SerialName("summoning-sick") data object SummoningSick : ObjectFilter
+    /** A creature paired with another by soulbond (CR 702.95b); "unpaired" is its [Not]. */
+    @Serializable @SerialName("paired") data object Paired : ObjectFilter
     /** Has [atLeast] counters of [kind], or of any kind when null ("with a counter on it"). */
     @Serializable @SerialName("counter") data class HasCounter(val kind: CounterKind?, val atLeast: Int) : ObjectFilter
 

@@ -394,6 +394,12 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   some attackers, mana of any type spent through a permission, a spell's own "as though it had flash" from the hand, the spell being
   cast counted as the next one cast ("the first … spell you cast each turn costs less"), what a sacrificed Aura enchanted and the
   counters of a permanent that left read as they last were, and a {T} cost's source not suggested for its mana.
+- Done, Edge of Eternities (scenarios in `commonTest/…/sets/eoe/`): all 261 cards play. Warp (from the hand only, unless a permission
+  says so: cast from the graveyard, or a warp another permanent gives the spell, which the spell keeps once cast), the warped card's
+  later permission from exile, "a spell was warped this turn" and void; station (the creature's power or toughness) and striations;
+  Lander tokens; devour of a kind ("devour land 3"); draw replacements that add to or multiply the number drawn (CR 121.2a); objects
+  chosen as a cost (tapped or sacrificed with the costs); delayed triggers that wait for a later turn; permissions that change a
+  spell's cost or make lands enter tapped; and counters put on each of several objects counted once before any is put (CR 608.2h).
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action and the foretold card's permission),
@@ -405,23 +411,34 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   inherent once-each-turn trigger as a sourceless repeating delayed trigger, max speed), compleated (Phyrexian symbols paid with
   life, `ObjectFacts.phyrexianPaidWithLife`), read ahead (the lore counters chosen as it enters; only that chapter triggers that
   turn), doubling mana, time travel, and controlling another player (above).
+- Done, by-hand mechanics, second round (2026-11-03, scenarios in `ring/TheRingTest`, `combat/EnlistTest`, `soulbond/SoulbondTest`,
+  `resolution/HauntTest`, `casting/ReadWordingsScenariosTest`): the Ring tempting you (`ring/TheRing`, CR 701.54: the emblem The Ring
+  with the abilities its temptation count gives, `Value.RingTemptations`; the Ring-bearer, `ObjectMark.RingBearer`, ended by another
+  choice or another player gaining control; `EventPattern.RingTempts`, the chosen creature as its object); enlist (CR 702.154, an
+  optional cost to attack, CR 508.1g: `Attack.enlisted` names the creatures tapped, one per enlist ability, checked with the
+  declaration; the linked trigger reads `EventPattern.Enlists`; `options` doesn't list enlisting, a host adds it to a declaration;
+  two enlist abilities on one creature both trigger for each creature enlisted, a simplification of 702.154d);
+  soulbond (`soulbond/Soulbond`, CR 702.95: `Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`, the pair kept in both
+  creatures' memory and ended with the state-based actions, 702.95e); haunt (CR 702.55: `Effect.Haunt` exiles the card haunting the target, kept as
+  `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
+  and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
+  into a graveyard from anywhere, exile it instead".
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
-  - Keywords: epic (copying, each upkeep, a spell that has left the Stack), assist (another player paying part of the mana),
-    mutate (merging permanents, CR 730), soulbond (pairing two permanents), enlist (an optional cost to attack, CR 508.1g, which the
-    flow lacks, as for exert), banding (bands and the defending player assigning damage, CR 702.22), haunt (exiled haunting a
-    creature, with the "creature it haunts" link the parser doesn't read either) and hidden agenda (conspiracies, outside normal
-    play).
-  - Keyword actions: venture into the dungeon (dungeon cards and their rooms) and the Ring tempting you (the Ring-bearer and its
-    levels); the parser reads neither.
+  - Keywords: epic (copying, each upkeep, a spell that has left the Stack: copies are made from Stack items only), assist (another
+    player paying part of the mana: the payment flow has one payer), mutate (merging permanents, CR 730: an object represented by
+    several cards, through zone changes, layers and hidden information), banding (bands and the defending player assigning damage,
+    CR 702.22) and hidden agenda (conspiracies, outside normal play).
+  - Keyword actions: venture into the dungeon and the initiative (dungeon cards, outside the game and the deck, and their rooms;
+    the parser doesn't read them either).
   - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
     whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
-  - Parser side (`Ability.Unparsed`, not the engine's): spree and tiered mode lines ("+ {1} — …"), "partner with" (an expansion
-    exists), "if this spell was bargained", "if tribute wasn't paid", the haunt and soulbond wordings, a disturb back face's "exile
-    it instead", and the keyword actions above other than earthbend, airbend, behold, blight, connive, forage, recruit and the
-    cube's (discover, manifest, cloak, support, learn, endure and time travel are done by the engine once read).
-- Not yet: venture and the Ring (above), `nthThisTurn`'s
-  `during`; in the flow: costs to attack other than mana and
+  - Parser side (`Ability.Unparsed`, not the engine's): a haunt card's modal "… or the creature it haunts dies, choose one —", the
+    Ring's rarer wordings ("whenever you choose a creature as your Ring-bearer", "your Ring-bearer" as an object), and the keyword
+    actions above other than earthbend, airbend, behold, blight, connive, forage, recruit, the Ring and the cube's (discover,
+    manifest, cloak, support, learn, endure and time travel are done by the engine once read).
+- Not yet: venture (above), `nthThisTurn`'s
+  `during`; in the flow: costs to attack other than mana and enlist, and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
   other keyword actions as costs (exert); no cube card has any of these. Also missing: copy effects from static
   abilities (effect objects only). Around the game:

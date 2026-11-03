@@ -447,8 +447,9 @@ internal object Setup {
         // CR 103.5b: actions "any time you could mulligan" of cards in their hand, then they declare
         val uses = mulliganActions(act, player)
         val labels = uses.mapIndexed { i, (id, _) -> "$USE ${i + 1}: ${act.state.obj(id)?.definition?.faces?.firstOrNull()?.name ?: "a card"}" }
-        val choice = if (canMulligan || uses.isNotEmpty()) act.chooseOption(player, null, listOf(KEEP) + (if (canMulligan) listOf(MULLIGAN) else emptyList()) + labels)
-            else KEEP
+        // D60, P7: each "Use" option names a card of a hidden hand: not listed to the other players ([Decision.ChooseOption.naming])
+        val choice = if (canMulligan || uses.isNotEmpty()) act.chooseOption(player, null, listOf(KEEP) + (if (canMulligan) listOf(MULLIGAN) else emptyList()) + labels,
+            labels.zip(uses.map { it.first }).toMap()) else KEEP
         labels.indexOf(choice).takeIf { it >= 0 }?.let { i ->
             val (card, instructions) = uses[i]
             val cause = arcanum.engine.action.Cause(player, card, key = "mulligan-action:$card")

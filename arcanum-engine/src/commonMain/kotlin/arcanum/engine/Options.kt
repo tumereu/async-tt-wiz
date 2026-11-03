@@ -142,7 +142,7 @@ internal object Options {
         val hidden = if (player == d.player) emptySet() else objectsOf(d) - arcanum.engine.action.Knowledge.visible(snap.state, snap.view, player)
         // In a cast or activation, only answers after which it can still be finished (no dead end, CR 601.2c, 601.2g–h)
         val found = if (d is Decision.Announce && announcing) announced(snap, pending, NUMBERS)
-            else candidates(snap, pending).distinct().filter { hidden.isEmpty() || objectsOf(it).none { id -> id in hidden } }
+            else candidates(snap, pending).distinct().filter { hidden.isEmpty() || objectsOf(d, it).none { id -> id in hidden } }
                 .filter { if (announcing) goesOnAfter(snap, pending, it) else accepted(snap, Input.Answer(d.id, it)) }
         val cancel = (pending.continuation as? Continuation.Announcing)?.takeIf { it.player == player }?.let { Input.Cancel(player) }
         return found.map { Input.Answer(d.id, it) } + listOfNotNull(cancel)
@@ -153,14 +153,16 @@ internal object Options {
         is Decision.ChooseObjects -> d.options.toSet()
         is Decision.Targets -> d.options.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }.toSet()
         is Decision.LegendRule -> d.among.toSet()
+        is Decision.ChooseOption -> d.naming.values.toSet()
         else -> emptySet()
     }
 
-    /** The objects an answer names. */
-    private fun objectsOf(a: Answer): List<ObjectId> = when (a) {
+    /** The objects an answer to [d] names. */
+    private fun objectsOf(d: Decision, a: Answer): List<ObjectId> = when (a) {
         is Answer.Objects -> a.chosen
         is Answer.Targets -> a.chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
         is Answer.Keep -> listOf(a.kept)
+        is Answer.Option -> listOfNotNull((d as? Decision.ChooseOption)?.naming?.get(a.chosen))
         else -> emptyList()
     }
 

@@ -87,9 +87,10 @@ internal object Payment {
         var spent: List<ManaUnit> = emptyList()
         var paidWith: Map<ManaPaymentWay, List<ObjectId>> = emptyMap()
         // CR 702.132a: the assisting player pays their part of the generic mana first, with their own mana
+        // (CR 106.6: spent to cast this spell, so mana restricted to such spells pays; CR 800.4f: not paid by a player who left)
         plan.choices.assist?.let { a ->
-            if (a.player != null && (a.amount ?: 0) > 0) payOnResolution(act, a.player, ManaCost(listOf(arcanum.api.ManaSymbol.Generic(a.amount!!))),
-                a.uses ?: refuse("The assisting player hasn't paid"))
+            if (a.player != null && plan.assistPaid > 0) payOnResolution(act, a.player, ManaCost(listOf(arcanum.api.ManaSymbol.Generic(plan.assistPaid))),
+                a.uses ?: refuse("The assisting player hasn't paid"), spell = plan)
         }
         if (total.hasMana && plan.manaToPay.symbols.isEmpty() && uses.isNotEmpty()) refuse("Nothing left to pay with mana")
         if (total.hasMana && plan.manaToPay.symbols.isNotEmpty()) {
@@ -176,9 +177,10 @@ internal object Payment {
     /**
      * Pays mana [cost] for [player] while a spell or ability resolves (CR 118.12, 608.2g): the mana abilities and pool
      * mana [uses] names, life for Phyrexian symbols (CR 107.4f); refused unless it pays the whole cost (CR 118.3). The
-     * mana pays for no spell, so restricted mana can't be spent.
+     * mana pays for no spell, so restricted mana can't be spent; [spell]: the cast it is spent on instead (assist, CR 702.132a),
+     * restrictions read against that spell, provisionally on the Stack (CR 106.6).
      */
-    fun payOnResolution(act: Act, player: PlayerId, cost: ManaCost, uses: List<ManaUse>) {
+    fun payOnResolution(act: Act, player: PlayerId, cost: ManaCost, uses: List<ManaUse>, spell: Plan? = null) {
         val recorder = act.recorder
         if (uses.any { it is ManaUse.Special }) refuse("Only mana and life pay a cost while resolving")
         val poolBefore = recorder.state.player(player).manaPool
@@ -191,7 +193,8 @@ internal object Payment {
         if (lifeFor.any { cost.symbols.getOrNull(it).let { s -> s !is arcanum.api.ManaSymbol.Phyrexian && s !is arcanum.api.ManaSymbol.PhyrexianHybrid } }) {
             refuse("Life pays only Phyrexian mana (CR 107.4f)")
         }
-        val payers = Mana.poolPayers(recorder.snapshot(), player, null, chosenPool + added)
+        val board = spell?.let { Plan(recorder.state, it.c).snap } ?: recorder.snapshot()
+        val payers = Mana.poolPayers(board, player, spell?.itemId, chosenPool + added)
         val used = Mana.assign(Mana.needs(cost, lifeFor), payers) ?: refuse("That doesn't pay $cost")
         if (lifeFor.isNotEmpty()) {
             val life = 2 * lifeFor.size

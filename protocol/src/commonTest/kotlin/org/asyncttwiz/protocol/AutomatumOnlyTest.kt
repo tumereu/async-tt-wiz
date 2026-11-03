@@ -80,6 +80,15 @@ class AutomatumOnlyTest {
         assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(state, PlayAction.Mtg(MtgAction.SetRecord(effect.id, null, effect))))
     }
 
+    // SYS-073, CMB-036–CMB-038 (I-D33, I-D56, nightreview #14): an early answer is its own player's: another player neither gives
+    // nor withdraws it (the defending player never sets the attacker's exert, enlist or band choices)
+    @Test fun anotherPlayersEarlyAnswerIsRefused() {
+        val state = state()
+        val early = EngineRecord("pre:x", EngineRecordKind.PreAnswer, data = "{}", player = b)
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(state, PlayAction.Mtg(MtgAction.SetRecord(early.id, null, early)), a))
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(state, PlayAction.Mtg(MtgAction.SetRecord(early.id, early, null)), a))
+    }
+
     // TRN-062 (I-D49, CR 103.5): a player's own opening — a mulligan with its count, or keeping (the owed hand cards to the
     // bottom of their own library, then Ready) — goes while they are mulliganing on turn 1, and only then, and only as
     // those batches (pivot review #5)

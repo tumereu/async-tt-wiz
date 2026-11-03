@@ -58,7 +58,8 @@ internal object Mutate {
         if (onTop && target.faceDown) act.fill(target.owner, item.id, listOf(target.id), "merged face up", public = true)
         val now = act.state.objOrThrow(target.id)
         val spell = act.state.objOrThrow(card.id)
-        val part = MergedPart(spell.id, spell.owner, spell.definition, spell.face, spell.token, spell.copyOfCard)
+        // CR 730.2a: the merge is a copy effect timestamped as the objects merge
+        val part = MergedPart(spell.id, spell.owner, spell.definition, spell.face, spell.token, spell.copyOfCard, act.state.nextTimestamp())
         // CR 730.2b: it leaves the Stack and becomes part of the permanent, which hasn't entered
         act.record(Change.Removed(listOf(Placed(spell, act.state.stack.indexOf(spell.id))), listOf(Meaning.Merged)))
         act.record(Change.ObjectUpdated(now, if (onTop) now.copy(mergedAbove = listOf(part) + now.mergedAbove, faceDown = false)

@@ -292,7 +292,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
                     if (actions.size > at) tags[at] = tag(m.meanings.map(::name), cause(change), "", tags[at]?.folded == true)
                 }
                 // Several cards into one library or hand: each went next to the cards already there; now the engine's order
-                change.moves.map { it.after }.filter { it.zone == Zone.Library || it.zone == Zone.Hand }
+                change.moves.flatMap { m -> listOf(m.after) + m.parts.map { it.obj } }.filter { it.zone == Zone.Library || it.zone == Zone.Hand }
                     .map { it.zone to it.owner }.distinct().forEach { (zone, owner) ->
                         if (zone == Zone.Library) arrange(container(PlayZone.LIBRARY, owner.value), engine.player(owner).library)
                         else arrange(container(PlayZone.HAND, owner.value), engine.player(owner).hand)
@@ -300,7 +300,8 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             }
             is Change.Created -> change.objects.forEach { create(it.obj, change.by) }
             is Change.Removed -> change.objects.forEach { placed ->
-                card(atwId(placed.obj.card))?.takeIf { it.token }?.let { play(PlayAction.RemoveToken(it.id)) }
+                if (Meaning.Merged in change.meanings) merge(placed.obj)
+                else card(atwId(placed.obj.card))?.takeIf { it.token }?.let { play(PlayAction.RemoveToken(it.id)) }
             }
             is Change.Shuffle -> shuffle(change)
             is Change.Reorder -> reorder(change)
@@ -316,6 +317,40 @@ private class Planner(private val call: EngineCall, private val actor: String, c
     }
 
     private fun move(m: Move) {
+        moveOne(m)
+        // CR 730.3: a merged permanent leaving the battlefield takes each other component's card to the new zone as its own
+        // object; taken back, they go back to lie with it ([merge])
+        m.parts.forEach { placed ->
+            if (m.before.merged) {
+                val part = atwCard(placed.obj.id)
+                play(PlayAction.MoveCard(part.id, source(part), destination(placed.obj, part),
+                    faceDown = true.takeIf { placed.obj.zone == Zone.Battlefield && placed.obj.faceDown }))
+            } else if (m.after.merged) mergeWith(placed.obj.id, m.after)
+        }
+    }
+
+    /**
+     * CR 730.2, 702.140c: [o] (a mutating spell, or a card melded under another, CR 712.21) becomes part of the permanent a later
+     * change of this call merges it with: its card goes to lie on that permanent's Battlefield (a spell's Stack entry pulled), and
+     * the permanent's ledger names it ([CardLedger.mergedAbove], [CardLedger.mergedBelow]).
+     */
+    private fun merge(o: GameObject) {
+        val host = call.changes.drop(current + 1).asSequence().filterIsInstance<Change.ObjectUpdated>().map { it.after }
+            .firstOrNull { h -> (h.mergedAbove + h.mergedBelow).any { it.id == o.id } }
+            ?: throw Unmappable("${o.id} merged with no permanent")
+        mergeWith(o.id, host)
+    }
+
+    private fun mergeWith(part: ObjectId, host: GameObject) {
+        val card = atwCard(part)
+        val field = container(PlayZone.BATTLEFIELD, (host.controller ?: host.owner).value).id
+        val entry = entries.remove(part)?.takeIf { e -> board.stackEffects.any { it.id == e } }
+        if (card.containerId == field && entry == null) return
+        play(PlayAction.MoveCard(card.id, source(card), MoveDestination(field, MoveInsertion.EMPTY, BattlefieldPlacement.cell(atw, field, card)),
+            removeStackEntryId = entry))
+    }
+
+    private fun moveOne(m: Move) {
         val card = atwCard(m.before.id)
         when {
             m.to == Zone.Stack -> {
@@ -689,6 +724,13 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             play(PlayAction.Mtg(MtgAction.SetCounter(ref(), kind, held[kind], counters[kind])))
         val ledger = ledger(now(), o).text()
         if (now().ledger != ledger) play(PlayAction.Mtg(MtgAction.SetLedger(ref(), now().ledger, ledger)))
+        // CR 730.2: each other component's card keeps the component's zone-change count and the merge's timestamp
+        (o.mergedAbove + o.mergedBelow).forEach { part ->
+            val card = card(atwId(part.id.card)) ?: throw Unmappable("no ATW card for the merged component ${part.id}")
+            val wanted = MtgStamp(ids.zoneChanges(part.id), part.timestamp)
+            if (MtgStamp(card.zoneChanges, card.timestamp) != wanted)
+                play(PlayAction.Mtg(MtgAction.Restamp(card.id, MtgStamp(card.zoneChanges, card.timestamp), wanted)))
+        }
     }
 
     /** The ledger that makes [EngineState.from] give back [o] for [card]. */
@@ -708,6 +750,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             controlSince = o.controlSince.takeIf { it != Derived.controlSince(o.zone, container.accountId, card) },
             noControlSince = o.controlSince == null && Derived.controlSince(o.zone, container.accountId, card) != null,
             memory = o.memory, facts = o.facts, goadedBy = o.goadedBy, protector = o.protector, counterOrder = EngineCodec.counterOrder(o.counters),
+            mergedAbove = o.mergedAbove.map { atwId(it.id.card) }, mergedBelow = o.mergedBelow.map { atwId(it.id.card) },
         )
     }
 

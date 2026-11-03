@@ -41,8 +41,8 @@ sealed interface PlannedEvent {
         override val controller: PlayerId, override val source: ObjectId? = null,
     ) : PlannedEvent
 
-    /** rtr chunk 07: [controller] pays the total cost to attack (CR 508.1g–j), then [attacks] become attacking creatures
-     * (CR 508.1f, k). The cost is worked out from the state the event starts in, so a redone event pays the same. */
+    /** rtr chunk 07: the attackers without vigilance and the enlisted creatures are tapped (CR 508.1f, g), [controller] pays
+     * the total cost to attack (CR 508.1h–j), then [attacks] become attacking creatures (CR 508.1k). The cost is worked out from the state the event starts in, so a redone event pays the same. */
     @Serializable @SerialName("declare-attackers")
     data class DeclareAttackers(
         val attacks: List<arcanum.engine.input.Attack>,
@@ -98,8 +98,10 @@ internal object Events {
             }
             is PlannedEvent.DeclareAttackers -> {
                 val costs = arcanum.engine.combat.CombatRules.attackCosts(arcanum.engine.casting.Snapshot(act.state), event.attacks)
+                // CR 508.1f before 508.1i–j: the attackers and the creatures enlisted are tapped before the costs are paid
+                arcanum.engine.combat.Combat.tapForAttack(act.state, act::record, event.attacks)
                 arcanum.engine.combat.Combat.payCosts(act, event.controller, costs)
-                arcanum.engine.combat.Combat.attack(act.state, act::record, event.attacks)
+                arcanum.engine.combat.Combat.becomeAttacking(act::record, event.attacks)
             }
             is PlannedEvent.DeclareBlockers -> {
                 val costs = arcanum.engine.combat.CombatRules.blockCosts(arcanum.engine.casting.Snapshot(act.state), event.blocks)

@@ -1,16 +1,21 @@
 package arcanum.engine.state
 
 /**
- * Card ids of tokens (D35): name-based UUIDs (version 5, RFC 9562) from the Stack item that creates them (or the
- * event, for mana abilities, special actions and replacements, D42) and the token's number, so every client computes
- * the same ids and later steps of the same batch can name them.
+ * Card ids of tokens, emblems and card copies the engine creates (D35): name-based UUIDs (version 5, RFC 9562) from what
+ * every view of the game agrees on, the timestamp the creation gets ([created]) and the object's number, so every client and
+ * every player's view (D60, where a spell's card has another id after a shuffle) computes the same ids and later steps of the
+ * same batch can name them.
  */
 object TokenIds {
     /** The namespace of Arcanum token ids (a fixed random UUID). */
     const val NAMESPACE: String = "3f6c1d2a-8b4e-4c7a-9e15-7d2b0a6f4c91"
 
-    /** The card id of token number [number] (from 0) created by [creator] (a Stack item id or event key). */
+    /** The card id of token number [number] (from 0) created by [creator] ([created], or another view-independent name). */
     fun token(creator: String, number: Int): CardId = CardId(uuid5(NAMESPACE, "$creator/$number"))
+
+    /** The creator name of objects of [kind] ("token", "emblem") created with [timestamp], the next timestamp as they are
+     * created: each creation stamps its objects, so no two creations share one. */
+    fun created(kind: String, timestamp: Long): String = "$kind@$timestamp"
 
     /** A version 5 UUID of [name] in [namespace] (RFC 9562 §5.5). */
     fun uuid5(namespace: String, name: String): String {

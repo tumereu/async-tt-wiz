@@ -83,12 +83,15 @@ sealed interface Decision {
     ) : Decision
 
     /** Choose one of named [options] ("odd or even"). [text], when given, says what the choice is about where neither a
-     * source nor the options do: the engine's own questions, such as the loop choice ([LoopStop]). */
+     * source nor the options do: the engine's own questions, such as the loop choice ([LoopStop]). [naming]: the object an
+     * option names (a mulligan action's card, CR 103.5b), so answers naming a card hidden from a player aren't listed to them
+     * (D60, P7) and a host shows such an option only to the players who may see that card. */
     @Serializable @SerialName("option")
     data class ChooseOption(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val options: List<String>,
         val text: String? = null,
+        val naming: Map<String, ObjectId> = emptyMap(),
     ) : Decision
 
     /** Choose a colour among [among]. */

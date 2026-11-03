@@ -7,7 +7,8 @@ import arcanum.engine.state.PlayerId
 
 /**
  * Decisions of a player who left the game (CR 800.4f–h), as a flow asks them ([arcanum.engine.action.Act.ask]):
- * - a cost they would pay or choose whether to pay ([Decision.May] with a cost) isn't paid (800.4f);
+ * - a cost they would pay or choose whether to pay ([Decision.May] with a cost) isn't paid (800.4f); a payment they were making
+ *   ([Decision.ManaPayment]) is never handed to another player (an assisting player's part becomes 0, the caster paying the rest);
  * - another choice an object asks of them is made by a player the object's controller chooses: another opponent of the
  *   controller when the one who left was one, if there is one, else any other player in the game (800.4g);
  * - a choice the rules ask of them (no source, or its controller left too) is made by the next player in turn order (800.4h).
@@ -27,7 +28,8 @@ internal object LeftPlayers {
     fun redirect(s: GameState, d: Decision): Redirect? {
         if (!s.player(d.player).lost) return null
         if (d is Decision.Random || d is Decision.HostFill || d is Decision.OtherView) return null
-        if (d is Decision.May && d.cost != null) return Redirect.NotPaid
+        // CR 800.4f: nor a payment they were making: it is never handed to another player (paid with the left player's objects)
+        if (d is Decision.May && d.cost != null || d is Decision.ManaPayment) return Redirect.NotPaid
         val left = d.player
         val controller = d.source?.let { id -> s.obj(id)?.let { it.controller ?: it.owner } ?: s.stackItems[id]?.controller }
             ?.takeIf { !s.player(it).lost }

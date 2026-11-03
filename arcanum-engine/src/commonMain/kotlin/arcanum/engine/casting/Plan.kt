@@ -545,6 +545,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         // CR 702.132a: before mana abilities are activated, another player may be chosen to pay part of the generic mana
         if (assistable > 0) {
             val a = choices.assist ?: return Question.Assist(snap.state.playersFrom(player).filter { it != player })
+            if (assistingLeft) return if (total.hasMana && manaToPay.symbols.isNotEmpty()) Question.Pay(manaToPay) else null
             if (a.player != null && a.amount == null) return Question.AssistAmount(a.player, assistable)
             if (a.player != null && (a.amount ?: 0) > 0 && a.uses == null) return Question.AssistPay(a.player, ManaCost(listOf(ManaSymbol.Generic(a.amount!!))))
         }
@@ -558,9 +559,16 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         else total.mana.symbols.filterIsInstance<ManaSymbol.Generic>().sumOf { it.amount }
     }
 
+    /** CR 800.4f: the player chosen to assist left the game: "that cost is not paid", so their part is 0 and the caster pays the
+     * whole cost; nobody else is asked. */
+    val assistingLeft: Boolean get() = choices.assist?.player?.let { base.player(it).lost } == true
+
+    /** The generic mana the assisting player pays (CR 702.132a): 0 when nobody assists or they left the game (CR 800.4f). */
+    val assistPaid: Int get() = if (assistingLeft) 0 else choices.assist?.amount ?: 0
+
     /** The total mana cost the caster pays: less the generic mana an assisting player pays (CR 702.132a). */
     val manaToPay: ManaCost get() {
-        var left = choices.assist?.amount ?: 0
+        var left = assistPaid
         if (left == 0) return total.mana
         return ManaCost(total.mana.symbols.mapNotNull { s ->
             if (s !is ManaSymbol.Generic || left == 0) return@mapNotNull s
@@ -707,8 +715,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
         is Question.Assist -> Decision.ChooseOption(id, player, sourceId, listOf(NOBODY) + q.among.map { it.value }, "Choose a player to assist")
         is Question.AssistAmount -> Decision.ChooseNumber(id, q.player, sourceId, 0, q.max)
-        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, null, emptyList(), false),
-            Mana.suggest(snap, q.player, q.cost, null, emptyList()))
+        // CR 702.132a, 106.6: the assisting player spends mana to cast this spell: mana restricted to such spells may pay
+        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, itemId, emptyList(), false),
+            Mana.suggest(snap, q.player, q.cost, itemId, emptyList()))
         // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
         is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->
             Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose")

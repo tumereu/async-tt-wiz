@@ -19,7 +19,6 @@ import arcanum.engine.scenario.scenario
 import arcanum.api.Designation
 import arcanum.engine.state.TargetRef
 import arcanum.engine.view.AbilityOrigin
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -109,7 +108,6 @@ class NightReview4LanesTest {
 
     // CR 508.1f, 508.1i: the chosen attackers are tapped before the costs to attack are paid, so an attacking creature without
     // vigilance can't tap for mana to pay its own tax. Alice's only mana is the attacking Elvish Seer: the attack can't be paid.
-    @Ignore("nightreview #1: attackers are tapped only after the costs to attack are paid")
     @Test
     fun anAttackingManaCreatureCantPayItsOwnTax() = scenario {
         alice.battlefield("Elvish Seer")
@@ -121,7 +119,6 @@ class NightReview4LanesTest {
 
     // CR 508.1j: partial payments aren't allowed. Two black creatures attacking need two lands sacrificed; with one land the
     // declaration can't be paid, so it isn't made or offered (CR 508.1d)
-    @Ignore("nightreview #3: costs to attack choosing objects are checked one by one, so one land pays two sacrifices")
     @Test
     fun twoSacrificesWithOneLandCantBePaid() = scenario {
         alice.battlefield(blackBear, blackBear, "Swamp")
@@ -138,7 +135,6 @@ class NightReview4LanesTest {
 
     // CR 702.154a, 508.1g–j: the enlisted creature is tapped as a cost to attack, so it can't also tap for mana to pay another
     // cost to attack: tapping it twice isn't possible. Alice's only mana is the Seer she enlists.
-    @Ignore("nightreview #2: an enlisted creature also taps for mana to pay the costs to attack")
     @Test
     fun theEnlistedCreatureCantAlsoPayTheTax() = scenario {
         alice.battlefield(sergeant, "Elvish Seer")
@@ -261,7 +257,6 @@ class NightReview4LanesTest {
 
     // CR 707.2, 730.2a: the merge is a copiable effect, so a copy of a mutated permanent copies the topmost card's characteristics and
     // the abilities of every component
-    @Ignore("nightreview #4: a copy of a merged permanent gets only the topmost component")
     @Test
     fun aCopyOfAMutatedPermanentCopiesTheMerge() = scenario {
         libraries()
@@ -290,7 +285,6 @@ class NightReview4LanesTest {
 
     // CR 730.2a, 613.7: the merge is a copy effect with the timestamp of the merge; a copy effect applied to the merged permanent
     // later wins: it becomes a copy of the Ox, with none of the merged cards' characteristics or abilities
-    @Ignore("nightreview #5: the merge is applied after every copy effect, whatever their timestamps")
     @Test
     fun aLaterCopyEffectOverridesTheMerge() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", wolf)
@@ -357,7 +351,6 @@ class NightReview4LanesTest {
 
     // CR 726.4: if the player who has the initiative leaves the game, the active player takes it at once (and, taking it,
     // ventures into Undercity, CR 726.2)
-    @Ignore("nightreview #6: the initiative is lost when its holder leaves")
     @Test
     fun theInitiativePassesToTheActivePlayerWhenItsHolderLeaves() = scenario(players = 3) {
         alice.outside(undercity)
@@ -376,7 +369,6 @@ class NightReview4LanesTest {
 
     // CR 702.132a, 106.6: the assisting player pays part of the spell's total cost, spending their mana to cast it: mana that may
     // only be spent to cast artifact spells pays for an artifact spell with assist
-    @Ignore("nightreview #9: the assisting player may not spend mana restricted to spells of a kind")
     @Test
     fun assistingWithManaRestrictedToArtifactSpells() = scenario {
         alice.battlefield("Forest", "Forest")

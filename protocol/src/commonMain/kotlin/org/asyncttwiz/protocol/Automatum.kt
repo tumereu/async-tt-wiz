@@ -358,6 +358,9 @@ object MtgRules {
             is MtgAction.SetRecord -> {
                 val current = board.engineRecords.singleOrNull { it.id == action.id }
                 if (current != action.before) return reject("inapplicable")
+                // I-D33, I-D56: an early answer is given or changed only by its own player (another player never sets the
+                // attacker's exert, enlist or band choices, CMB-036–CMB-038); Automatum's batches only drop them
+                if (action.after?.kind == EngineRecordKind.PreAnswer && action.after.player != actor) return reject("accessDenied")
                 if (action.before == action.after) return unchanged
                 board.copy(engineRecords = (board.engineRecords.filterNot { it.id == action.id } + listOfNotNull(action.after))
                     .sortedBy { it.id })

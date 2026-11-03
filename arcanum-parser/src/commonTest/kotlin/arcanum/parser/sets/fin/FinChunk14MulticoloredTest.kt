@@ -73,13 +73,13 @@ class FinChunk14MulticoloredTest {
 
     @Test
     fun chocoboSeeker() = card(
-        name = "Chocobo, Seeker of Havens",
+        name = "Striderbird, Seeker of Havens",
         cost = "{1}{G}{W}{U}",
         type = "Legendary Creature — Bird",
         pt = "3/5",
         text = """
             Whenever one or more Birds you control attack, look at that many cards from the top of your library. You may put one of them into your hand. Then put any number of land cards from among them onto the battlefield tapped and the rest into your graveyard.
-            Landfall — Whenever a land you control enters, Chocobo gets +1/+0 until end of turn.
+            Landfall — Whenever a land you control enters, Striderbird gets +1/+0 until end of turn.
         """,
     ) parsesTo abilities(
         triggered(Trigger.On(EventPattern.Attack(and(sub("Bird"), you)), oneOrMore = true),

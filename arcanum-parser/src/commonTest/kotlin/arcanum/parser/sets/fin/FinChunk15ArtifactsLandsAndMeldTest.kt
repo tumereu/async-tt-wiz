@@ -151,7 +151,7 @@ class FinChunk15ArtifactsLandsAndMeldTest {
 
     @Test
     fun pupuSaucer() = card(
-        name = "Pupu Saucer",
+        name = "Moonhop Saucer",
         cost = "{2}",
         type = "Artifact Creature — Construct Alien",
         pt = "0/4",

@@ -1064,9 +1064,9 @@ internal object FinSet {
         When Zidren enters, gain control of target creature an opponent controls until end of turn. Untap it. It gains lifelink and haste until end of turn.
         Whenever an opponent gains control of a permanent from you, you create a Treasure token.
     """.trimIndent(), "3/3")
-    val chocoboSeekerOfHavens = Cards.invent("Chocobo, Seeker of Havens", "{1}{G}{W}{U}", "Legendary Creature — Bird", """
+    val chocoboSeekerOfHavens = Cards.invent("Striderbird, Seeker of Havens", "{1}{G}{W}{U}", "Legendary Creature — Bird", """
         Whenever one or more Birds you control attack, look at that many cards from the top of your library. You may put one of them into your hand. Then put any number of land cards from among them onto the battlefield tapped and the rest into your graveyard.
-        Landfall — Whenever a land you control enters, Chocobo gets +1/+0 until end of turn.
+        Landfall — Whenever a land you control enters, Striderbird gets +1/+0 until end of turn.
     """.trimIndent(), "3/5")
     val jenaraAncientCalamity = Cards.invent("Jenara, Ancient Calamity", "{2}{B}{G}", "Legendary Creature — Alien", """
         At the beginning of combat on your turn, put a number of +1/+1 counters equal to Jenara's power on up to one other target creature. That creature becomes a Mutant in addition to its other types.
@@ -1095,7 +1095,7 @@ internal object FinSet {
             When Ragnaroth dies, destroy target permanent and return target nonlegendary permanent card from your graveyard to the battlefield.
         """.trimIndent(), "7/6", null, "BG"),
     )
-    val pupuSaucer = Cards.invent("Pupu Saucer", "{2}", "Artifact Creature — Construct Alien", """
+    val pupuSaucer = Cards.invent("Moonhop Saucer", "{2}", "Artifact Creature — Construct Alien", """
         Flying
         {T}: You may put a land card from your hand onto the battlefield.
         {3}: Until end of turn, this creature's base power becomes equal to the number of Towns you control.

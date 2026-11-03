@@ -220,6 +220,10 @@ sealed interface ObjectFilter {
     /** It crewed one of [vehicles] this turn: it was tapped to pay the cost of that Vehicle's crew ability (CR 702.122b, c;
      * "target creature that crewed it this turn"). */
     @Serializable @SerialName("crewed-this-turn") data class CrewedThisTurn(val vehicles: Objects) : ObjectFilter
+    // fin
+    /** A Vehicle that [crew] crewed this turn (one of the creatures tapped to pay its crew cost, CR 702.122b; "a Vehicle crewed by Balthier
+     * and Fran this turn"). */
+    @Serializable @SerialName("crewed-by") data class CrewedBy(val crew: Objects) : ObjectFilter
     // spm
     /** A modified permanent (CR 700.9): it has a counter on it, is equipped, or is enchanted by an Aura its controller
      * controls ("a modified creature you control"). */

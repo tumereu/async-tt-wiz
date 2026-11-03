@@ -567,6 +567,8 @@ sealed interface Modification {
     /** On a [Mechanic.Replacement] of [EventPattern.FlipCoin]: the coins come up heads and the flipping player wins those flips ("those
      * coins come up heads and you win those flips", CR 705.2). */
     @Serializable @SerialName("win-flips") data object WinFlips : Modification
+    /** "Lands you control enter untapped": the permanent enters untapped even if another effect would have it enter tapped (applied last). */
+    @Serializable @SerialName("enters-untapped") data object EntersUntapped : Modification
     /** The damage is dealt to [to] instead ("is dealt to this creature instead"). */
     @Serializable @SerialName("redirect") data class ChangeRecipient(val to: Recipients) : Modification
     /** Also create [count] of [token] ("those tokens plus that many 1/1 Squirrel tokens"). */

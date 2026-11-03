@@ -1,0 +1,158 @@
+package org.asyncttwiz.server.game
+
+import arcanum.engine.Engine
+import arcanum.engine.cards.Cards
+import arcanum.engine.decision.Answer
+import arcanum.engine.decision.Decision
+import arcanum.engine.decision.RandomKind
+import arcanum.engine.input.Input
+import arcanum.engine.setup.DeckCard
+import arcanum.engine.setup.Seat
+import arcanum.engine.state.CardId
+import arcanum.engine.state.PlayerId
+import java.util.UUID
+import kotlin.random.Random
+import org.asyncttwiz.protocol.game.EventBuilder
+import org.asyncttwiz.protocol.game.GameDefinitions
+import org.asyncttwiz.protocol.game.GameEvent
+import org.asyncttwiz.protocol.game.GameHistory
+import org.asyncttwiz.protocol.game.GameModel
+import org.asyncttwiz.server.database.FoundationMigrations
+import org.asyncttwiz.server.database.FreshDatabase
+import org.jooq.DSLContext
+import org.jooq.SQLDialect
+import org.jooq.impl.DSL
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
+
+/**
+ * I-D54 phase 2: a play's engine history in PostgreSQL (V56): definitions once per play, events, checkpoints every
+ * [GameHistory.CHECKPOINT_EVERY] events of depth; a cold read of any event's state is one checkpoint plus the events
+ * below it, read in one query, and equals the state reached directly.
+ */
+class EngineHistoryStoreTest {
+    private val a = UUID.fromString("00000000-0000-4000-8000-00000000000a")
+    private val b = UUID.fromString("00000000-0000-4000-8000-00000000000b")
+
+    /** The rows a play needs (accounts, game, invitation, start request) and the play itself. */
+    private fun seedPlay(sql: DSLContext): UUID {
+        val game = UUID.randomUUID(); val play = UUID.randomUUID(); val round = UUID.randomUUID()
+        val invitation = UUID.randomUUID(); val start = UUID.randomUUID()
+        for ((account, name) in listOf(a to "EngineA", b to "EngineB")) sql.execute("""INSERT INTO account
+            (id,username,username_key,email_delivery,email_key,password_phc) VALUES (?,?,?,?,?,?)""",
+            account, name, name.lowercase(), "$name@example.invalid", "${name.lowercase()}@example.invalid", "fixture")
+        sql.execute("""INSERT INTO game(id,game_name,inviter_id,recipient_id,preparation_round,current_invitation,revision,next_ingress)
+            VALUES (?,'Engine game',?,?,?,?,1,2)""", game, a, b, round, invitation)
+        sql.execute("INSERT INTO invitation(id,game_id,state) VALUES (?,?,'ACCEPTED')", invitation, game)
+        sql.execute("INSERT INTO request_identity(id,account_id,kind,scope,intent_digest) VALUES (?,?,'gameCommand',?,?)",
+            start, a, game.toString(), "0".repeat(64))
+        sql.execute("""INSERT INTO game_inbox(request_id,game_id,account_id,ingress_ordinal,stream_id,generation,command,result)
+            VALUES (?,?,?,1,?,1,'{}','{}')""", start, game, a, UUID.randomUUID())
+        sql.execute("""INSERT INTO game_play(id,game_id,preparation_round,start_request_id,root_id,payload,initial_payload)
+            VALUES (?,?,?,?,?,'{}','{}')""", play, game, round, start, UUID.randomUUID())
+        return play
+    }
+
+    /** One acting point: the first listed input of anyone (a seeded pick among them), then the random results. */
+    private fun next(model: GameModel, parent: String, rnd: Random): GameEvent {
+        val builder = EventBuilder(model, UUID.randomUUID().toString(), parent, a.toString())
+        val s = model.engine
+        val input = if (s.turn.number == 0 && s.pending == null) Input.StartGame()
+            else s.players.flatMap { Engine.options(s, it.id) }.filter { it !is Input.Concede }.let { it[rnd.nextInt(it.size)] }
+        builder.perform(input)
+        while (true) {
+            val d = model.engine.pending?.decision as? Decision.Random ?: break
+            builder.perform(Input.Answer(d.id, when (val k = d.what) {
+                RandomKind.CoinFlip -> Answer.CoinFlip(rnd.nextBoolean())
+                is RandomKind.Die -> Answer.DieRolls(List(k.count) { rnd.nextInt(1, k.sides + 1) })
+                is RandomKind.Objects -> Answer.RandomObjects(k.among.shuffled(rnd).take(k.count))
+            }))
+        }
+        return builder.build()
+    }
+
+    @Test
+    fun aPlaysEngineHistoryIsStoredAndReadBackFromItsNearestCheckpoint() = FreshDatabase().start().use { db ->
+        FoundationMigrations.migrate(db.settings)
+        db.connection().use { connection ->
+            connection.autoCommit = false
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val play = seedPlay(sql)
+            val alice = PlayerId(a.toString()); val bob = PlayerId(b.toString())
+            val names = List(16) { if (it % 2 == 0) "Forest" else "Mountain" } + List(24) { listOf("Elvish Seer", "Storm Spark", "Thicketwood Elves")[it % 3] }
+            val initial = Engine.newGame(listOf(alice, bob).map { p -> Seat(p, names.mapIndexed { i, n -> DeckCard(CardId("${p.value}.$i"), Cards.definition(n)) }) })
+            val root = UUID.randomUUID()
+            val store = EngineHistoryStore.create(sql, play, root, GameDefinitions.of(initial), GameModel(initial.deepCopy()))
+            val history = GameHistory(store, store.codec)
+            // A main line of 150 events and a branch of 40 from its 70th
+            val rnd = Random(5)
+            val direct = mutableMapOf<String, GameModel>()
+            fun grow(from: String, model: GameModel, count: Int): List<String> {
+                var parent = from
+                return List(count) {
+                    val event = next(model, parent, rnd)
+                    store.append(history, event, a, model)
+                    direct[event.id] = model.copy()
+                    parent = event.id
+                    event.id
+                }
+            }
+            val main = grow(root.toString(), GameModel(initial.deepCopy()), 150)
+            val branch = grow(main[69], direct.getValue(main[69]).copy(), 40)
+            connection.commit()
+
+            assertEquals(3, sql.fetchCount(DSL.table("engine_checkpoint")), "the root's and depths 64 and 128")
+            assertEquals(190, sql.fetchCount(DSL.table("engine_event")))
+            assertNull(EngineHistoryStore.open(sql, UUID.randomUUID()))
+            // Cold: a new store reads each state from its nearest checkpoint, one query for the events in between
+            for (id in listOf(main[0], main[62], main[63], main[64], main[149], branch[0], branch[39])) {
+                val cold = EngineHistoryStore.open(sql, play)!!
+                val line = cold.line(id, GameHistory.CHECKPOINT_EVERY)
+                assertTrue(line.size < GameHistory.CHECKPOINT_EVERY, "$id: ${line.size} events below its checkpoint")
+                val state = GameHistory(cold, cold.codec).stateAt(id)
+                assertTrue(state.sameAs(direct.getValue(id)), "the state at $id")
+            }
+            assertEquals(listOf(main[0]), EngineHistoryStore.open(sql, play)!!.line(main[0], 64).map { it.event.id })
+            assertEquals(71, history.depthOf(branch[0]))
+        }
+    }
+
+    /** The wipe planned for the switch to engine events (db/pending, owner accepted): every started game goes with every
+     * row of any table that names it or its plays, both histories included; a game that never started stays. */
+    @Test
+    fun theWipeForTheSwitchRemovesStartedGamesWithEverythingThatNamesThem() = FreshDatabase().start().use { db ->
+        FoundationMigrations.migrate(db.settings)
+        db.connection().use { connection ->
+            connection.autoCommit = false
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val play = seedPlay(sql)
+            val game = sql.fetchValue("SELECT game_id FROM game_play WHERE id = ?", play) as UUID
+            val initial = Engine.newGame(listOf(Seat(PlayerId(a.toString()), listOf(DeckCard(CardId("c1"), Cards.definition("Forest"))))))
+            val store = EngineHistoryStore.create(sql, play, UUID.randomUUID(), GameDefinitions.of(initial), GameModel(initial.deepCopy()))
+            store.append(GameHistory(store, store.codec), next(GameModel(initial.deepCopy()), store.rootId, Random(1)), a, GameModel(initial.deepCopy()))
+            val waiting = UUID.randomUUID(); val invitation = UUID.randomUUID()
+            sql.execute("""INSERT INTO game(id,game_name,inviter_id,recipient_id,preparation_round,current_invitation,revision,next_ingress)
+                VALUES (?,'Not started',?,?,?,?,1,1)""", waiting, a, b, UUID.randomUUID(), invitation)
+            sql.execute("INSERT INTO invitation(id,game_id,state) VALUES (?,?,'PENDING')", invitation, waiting)
+            connection.commit()
+
+            val wipe = javaClass.getResource("/db/pending/wipe_plays_for_engine_state.sql")!!.readText()
+            connection.createStatement().use { it.execute(wipe) }
+            connection.commit()
+
+            val columns = sql.fetch("""SELECT table_name, column_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND column_name IN ('game_id', 'play_id')""")
+            assertTrue(columns.size > 10)
+            for (row in columns) {
+                val table = row.get(0, String::class.java); val column = row.get(1, String::class.java)
+                val named = if (column == "game_id") game else play
+                assertEquals(0, sql.fetchCount(DSL.table(DSL.name(table)), DSL.field(DSL.name(column)).eq(named)), "$table.$column")
+            }
+            assertEquals(0, sql.fetchCount(DSL.table("game"), DSL.field("id").eq(game)))
+            assertEquals(1, sql.fetchCount(DSL.table("game"), DSL.field("id").eq(waiting)))
+            assertEquals(0, sql.fetchCount(DSL.table("engine_play")))
+        }
+    }
+}

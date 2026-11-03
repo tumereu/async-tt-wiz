@@ -423,7 +423,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
-- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`): mutate and merged permanents
+- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`): mutate and merged permanents
   (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
   same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
   `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
@@ -435,10 +435,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   find its own card only (730.3c), turning a merged permanent face down (730.2f, j). Epic (`epic/Epic`, CR 702.50, scenarios in
   `epic/EpicTest`): as a spell with epic finishes resolving, an effect object that its controller can't cast spells and a repeating
   delayed trigger at each of their upkeeps that copies the spell as it last was on the Stack (`NamedValue.Spell`: its choices
-  and snapshot), except for its epic ability (`CopyException.WithoutKeyword`), new targets allowed.
+  and snapshot), except for its epic ability (`CopyException.WithoutKeyword`), new targets allowed. Assist (CR 702.132, scenarios in
+  `casting/AssistTest`): with the costs, the caster may choose another player (`Decision.ChooseOption`, "nobody" or a player),
+  who chooses how much of the total cost's generic mana to pay (`ChooseNumber`) and pays it with their own mana (`ManaPayment`
+  of that player, kept in `Choices.assist`); the caster pays the rest (`Plan.manaToPay`). The assisting player's mana is paid
+  as on resolution (no spell-restricted mana).
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
-  - Keywords: assist (another
-    player paying part of the mana: the payment flow has one payer), banding (bands and the defending player assigning damage,
+  - Keywords: banding (bands and the defending player assigning damage,
     CR 702.22) and hidden agenda (conspiracies, outside normal play).
   - Keyword actions: venture into the dungeon and the initiative (dungeon cards, outside the game and the deck, and their rooms;
     the parser doesn't read them either).

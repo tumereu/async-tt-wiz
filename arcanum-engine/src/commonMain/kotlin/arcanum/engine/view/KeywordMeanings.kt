@@ -49,7 +49,9 @@ object KeywordMeanings {
         // CR 702.155: the lore counters a Saga enters with, and which chapters trigger the turn it entered
         Keyword.ReadAhead,
         // CR 702.50a: epic's two spell abilities, as the spell finishes resolving (arcanum.engine.epic.Epic)
-        Keyword.Epic)
+        Keyword.Epic,
+        // CR 702.132a: another player paying part of the generic mana, with the costs (arcanum.engine.casting.Plan.assistable)
+        Keyword.Assist)
 
     /** Keywords whose abilities depend on the face they are printed on ([expand]'s `below`). */
     val faceDependent: Set<KeywordKind> = setOf(Keyword.Backup.Kind)
@@ -122,9 +124,6 @@ object KeywordMeanings {
     val moments: Map<KeywordKind, List<Moment>> by lazy {
         val m = mutableMapOf<KeywordKind, List<Moment>>()
         fun at(vararg moment: Moment, kinds: () -> List<KeywordKind>) = kinds().forEach { m[it] = moment.toList() }
-        at(Moment.Cast) {
-            listOf(Keyword.Assist)
-        }
         at(Moment.Enters) {
             listOf(Keyword.HiddenAgenda)
         }

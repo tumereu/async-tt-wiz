@@ -10,6 +10,7 @@ import arcanum.api.Effect
 import arcanum.api.Instructions
 import arcanum.api.Keyword
 import arcanum.api.ManaCost
+import arcanum.api.ManaSymbol
 import arcanum.api.ManaKind
 import arcanum.api.ManaPaymentWay
 import arcanum.api.Mechanic
@@ -63,6 +64,12 @@ internal sealed interface Question {
     /** ecl: a creature type chosen as part of the cost ("you may choose a creature type and behold two creatures of that type", CR 601.2f). */
     data class CostChoice(val key: String, val part: CostPart.Choose) : Question { override val stage get() = AnnounceStage.Costs }
     data class Pay(val cost: ManaCost) : Question { override val stage get() = AnnounceStage.Mana }
+    /** Assist (CR 702.132a): the caster may choose another player among [among] to help pay. */
+    data class Assist(val among: List<PlayerId>) : Question { override val stage get() = AnnounceStage.Costs }
+    /** Assist: how much of the [max] generic mana [player] pays. */
+    data class AssistAmount(val player: PlayerId, val max: Int) : Question { override val stage get() = AnnounceStage.Costs }
+    /** Assist: [player] pays [cost], generic mana of the spell's total cost. */
+    data class AssistPay(val player: PlayerId, val cost: ManaCost) : Question { override val stage get() = AnnounceStage.Mana }
 }
 
 /**
@@ -510,8 +517,32 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             if (choices.names[OBJECTS + kp.key] == null) return Question.Objects(kp.key, choice)
         }
         if (isManaAbility) colorQuestion()?.let { return it }
-        if (total.hasMana) return Question.Pay(total.mana)
+        // CR 702.132a: before mana abilities are activated, another player may be chosen to pay part of the generic mana
+        if (assistable > 0) {
+            val a = choices.assist ?: return Question.Assist(snap.state.playersFrom(player).filter { it != player })
+            if (a.player != null && a.amount == null) return Question.AssistAmount(a.player, assistable)
+            if (a.player != null && (a.amount ?: 0) > 0 && a.uses == null) return Question.AssistPay(a.player, ManaCost(listOf(ManaSymbol.Generic(a.amount!!))))
+        }
+        if (total.hasMana && manaToPay.symbols.isNotEmpty()) return Question.Pay(manaToPay)
         return null
+    }
+
+    /** Assist (CR 702.132a): the generic mana of the total cost another player may pay; 0 without assist. */
+    val assistable: Int by lazy {
+        if (!isSpell || byEffect || withGrantedAsSpell().none { it.ability == Keyword.Assist }) 0
+        else total.mana.symbols.filterIsInstance<ManaSymbol.Generic>().sumOf { it.amount }
+    }
+
+    /** The total mana cost the caster pays: less the generic mana an assisting player pays (CR 702.132a). */
+    val manaToPay: ManaCost get() {
+        var left = choices.assist?.amount ?: 0
+        if (left == 0) return total.mana
+        return ManaCost(total.mana.symbols.mapNotNull { s ->
+            if (s !is ManaSymbol.Generic || left == 0) return@mapNotNull s
+            val taken = minOf(left, s.amount)
+            left -= taken
+            if (s.amount - taken > 0) ManaSymbol.Generic(s.amount - taken) else null
+        })
     }
 
     /**
@@ -645,6 +676,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
+        is Question.Assist -> Decision.ChooseOption(id, player, sourceId, listOf(NOBODY) + q.among.map { it.value }, "Choose a player to assist")
+        is Question.AssistAmount -> Decision.ChooseNumber(id, q.player, sourceId, 0, q.max)
+        is Question.AssistPay -> Decision.ManaPayment(id, q.player, sourceId, q.cost, Mana.options(snap, q.player, q.cost, null, emptyList(), false),
+            Mana.suggest(snap, q.player, q.cost, null, emptyList()))
         // eoe: objects chosen with the costs ("choose a creature you control or a warped creature card you own in exile", CR 601.2f)
         is Question.CostChoice -> (q.part.choice as? arcanum.api.Choice.Objects)?.let { choice ->
             Decision.ChooseObjects(id, player, sourceId, costChoiceObjects(choice), eval.value(choice.min), choice.max?.let { eval.value(it) }, "Choose")
@@ -664,6 +699,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     companion object {
         /** The target slot of an Aura spell (CR 303.4a) and of a bestowed spell (CR 702.103b). */
         const val ENCHANT_SLOT = arcanum.api.Keyword.Enchant.SLOT
+        /** Assist's "no player" option (CR 702.132a: "you may choose another player"). */
+        const val NOBODY = "nobody"
 
         // Keys in [arcanum.engine.decision.Choices.names] the casting flow keeps for itself; [publicNames] drops them.
         const val ITEM = "\$item"

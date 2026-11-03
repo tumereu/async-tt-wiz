@@ -86,8 +86,14 @@ internal object Payment {
         val snapshots = mutableListOf<ObjectSnapshot>()
         var spent: List<ManaUnit> = emptyList()
         var paidWith: Map<ManaPaymentWay, List<ObjectId>> = emptyMap()
-        if (total.hasMana) {
-            val paid = payMana(act, plan, total.mana, uses)
+        // CR 702.132a: the assisting player pays their part of the generic mana first, with their own mana
+        plan.choices.assist?.let { a ->
+            if (a.player != null && (a.amount ?: 0) > 0) payOnResolution(act, a.player, ManaCost(listOf(arcanum.api.ManaSymbol.Generic(a.amount!!))),
+                a.uses ?: refuse("The assisting player hasn't paid"))
+        }
+        if (total.hasMana && plan.manaToPay.symbols.isEmpty() && uses.isNotEmpty()) refuse("Nothing left to pay with mana")
+        if (total.hasMana && plan.manaToPay.symbols.isNotEmpty()) {
+            val paid = payMana(act, plan, plan.manaToPay, uses)
             spent = paid.first
             paidWith = paid.second
         } else if (uses.isNotEmpty()) refuse("Nothing to pay with mana")

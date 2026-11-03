@@ -197,6 +197,8 @@ internal class Recorder(val state: GameState, view: arcanum.engine.view.View? = 
         val viewBefore = if (lookBack) state.viewCache?.view else null
         state.apply(change)
         changes += change
+        // Library places some player knows (CR 401.2), kept with the change that made them known
+        arcanum.engine.action.LibraryPlaces.follow(this, change)
         if (change.isEvent) arcanum.engine.trigger.Triggers.detect(this, change, before, viewBefore)
         // CR 506.4: what an event takes out of combat leaves it at once (combat changes set combat as they mean it)
         if (change.isEvent && change !is Change.Combat) arcanum.engine.combat.Combat.removeWhatLeft(this)

@@ -67,6 +67,9 @@ internal data class PlannedMove(
     /** Put into a library in a random order hidden from the viewer (D60): the new id the host gave it; it arrives
      * unknown under that id ([arcanum.engine.decision.RandomKind.Objects.newIds]). */
     val newId: ObjectId.Card? = null,
+    /** Put into a library in a random order together with the other moves so marked: their places are known as a group
+     * only ([LibraryPlaces.group]). */
+    val randomOrder: Boolean = false,
     // dsk gaps
     /** What the instruction says it is as it enters the battlefield (CR 611.2e): applied as it enters. */
     val entersAs: List<Mechanic> = emptyList(),
@@ -119,6 +122,8 @@ internal object Actions {
         }
         Knowledge.fillSeenAfterMoves(act, final)
         val result = commitMoves(act, cause, final, linked)
+        final.filter { it.randomOrder }.mapNotNull { result[it.id] }.filter { act.state.obj(it)?.zone == Zone.Library }
+            .takeIf { it.size > 1 }?.let { LibraryPlaces.group(act.recorder, it) }
         // CR 714.3a: as a Saga enters, its controller puts a lore counter on it
         final.filter { it.to == Zone.Battlefield }.mapNotNull { result[it.id] }
             .filter { act.state.obj(it)?.zone == Zone.Battlefield && act.view()[it]?.characteristics?.subtypes?.any { s -> s.name == "Saga" } == true }

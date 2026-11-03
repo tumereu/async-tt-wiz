@@ -42,6 +42,15 @@ data class PlayerState(
      * nothing hidden stay automatic either way (P5). A host changes it with [arcanum.engine.change.Change.SkipWhenNoChoice].
      */
     val skipWhenNoChoice: Boolean = true,
+    /**
+     * The library cards whose place some player knows since the library was last shuffled (CR 401.2: the order is
+     * otherwise unknown): 0 for a card whose exact place is known (put on the top, the bottom or Nth from the top, looked
+     * at or revealed where it lies, put back in a chosen order), a group number above 0 for cards put in together in a
+     * random order (their places are known as a group, not which is where). Cards without an entry are the unknown part.
+     * Entries of cards that left the library are dropped when it next changes. Kept by the engine
+     * ([arcanum.engine.change.Change.LibraryPlaces]); a host reorders only unknown parts ([arcanum.engine.Engine.unknownOrder]).
+     */
+    val libraryPlaces: Map<ObjectId, Int> = emptyMap(),
 ) {
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
 }

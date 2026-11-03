@@ -17,6 +17,10 @@ Engine.result(state): GameResult?                // Won(player) or Draw once the
 Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
 Engine.shouldPassFor(state, player): Boolean     // a host passes priority for this player now (I-D3, I-D18)
 Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
+Engine.revealed(before, changes, viewer): Set<CardId> // cards the changes show the viewer at some moment, new to them (full information)
+Engine.unknownOrder(state, player): List<List<ObjectId>> // the library's parts whose order nobody knows (CR 401.2)
+Engine.reorderUnknown(state, player, parts): Change.Reorder? // a host's new random order of those parts, known places kept
+Engine.blockCosts(state, blocks): Boolean        // whether the blocks have costs to block (CR 509.1d)
 Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
 Engine.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
 Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
@@ -42,6 +46,10 @@ seeded random games of cube cards, failing on any open player decision without a
   (D22/D41); unknown objects have no definition (D60); Stack items with targets, modes, X,
   names and snapshots; effect objects and delayed triggers (D19, D26); turn, step, priority;
   ledgers; the tagged event log (D33); the open `Pending`. `TokenIds`: v5 UUID token ids.
+  Each library's known places (`PlayerState.libraryPlaces`, CR 401.2): cards put at a known place, looked at or
+  revealed where they lie, and random-order groups; a shuffle forgets them. Kept by the engine as it records changes
+  (`Change.LibraryPlaces`); with full information the engine records what a player looked at as `Change.Shown`
+  (changes nothing; `Engine.revealed` reads it).
 - `change/` — `Change` (sealed, serializable): every change carries before- and after-values
   and its `Meaning`s (cast, died, sacrificed, …); events are logged for "this turn" questions.
   `Change.Reverted` takes a change back inside a batch (cancelling a cast). `Changes` builds

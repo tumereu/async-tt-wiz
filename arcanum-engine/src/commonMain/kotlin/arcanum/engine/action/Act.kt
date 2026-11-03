@@ -304,7 +304,12 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** Makes sure the identities of [ids] are known, asking the host for exactly the unknown ones (D60): [player] looks
      * at them, or everyone sees them when [public] ([Decision.HostFill]). */
-    fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false) {
+    fun fill(player: PlayerId, source: ObjectId?, ids: List<ObjectId>, reason: String, public: Boolean = false, shown: Boolean = true) {
+        // With full information nothing is filled: what the player looks at is said by a Change.Shown
+        if (state.viewer == null && shown) {
+            val hidden = ids.distinct().filter { id -> state.obj(id)?.let { !Knowledge.public(it) } == true }
+            if (hidden.isNotEmpty()) record(Change.Shown(if (public) null else player, hidden))
+        }
         val unknown = ids.distinct().filter { state.obj(it)?.unknown == true }
         if (unknown.isEmpty()) return
         // D60, D31: only [player] may look, and the state is another player's view

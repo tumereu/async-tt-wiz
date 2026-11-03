@@ -203,6 +203,11 @@ internal object Applier {
                 check(state.zone(change.zone, change.owner) == change.before) { "${change.zone} isn't in the expected order" }
                 state.setZone(change.zone, change.owner, change.after)
             }
+            is Change.LibraryPlaces -> state.updatePlayer(change.player) { p ->
+                check(p.libraryPlaces == change.before) { "Library places of ${change.player} aren't as expected" }
+                p.copy(libraryPlaces = change.after)
+            }
+            is Change.Shown -> Unit
             is Change.Forgotten -> applyState(state, Change.Filled(change.before, change.after))
             is Change.Filled -> {
                 check(change.before.id == change.after.id) { "Filling can't change an id" }

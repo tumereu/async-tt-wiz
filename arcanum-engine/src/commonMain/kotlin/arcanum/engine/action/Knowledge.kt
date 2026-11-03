@@ -83,6 +83,32 @@ internal object Knowledge {
         return ownVisible(state, view, player).filter { id -> others.any { id !in it } }.toSet()
     }
 
+    /** [arcanum.engine.Engine.revealed]. */
+    fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId): Set<CardId> {
+        val known = visible(before, arcanum.engine.Engine.view(before), viewer).mapNotNull { (it as? ObjectId.Card)?.card }.toSet()
+        val existing = before.objects.values.map { it.card }.toSet()
+        val state = before.deepCopy()
+        val shown = mutableSetOf<CardId>()
+        fun see(id: ObjectId) { state.obj(id)?.let { o -> if (mayKnow(o, viewer)) shown += o.card } }
+        for (change in changes) {
+            state.apply(change)
+            val plain = (change as? Change.Reverted)?.change?.inverse() ?: change
+            when (plain) {
+                is Change.Shown -> if (plain.to == null || plain.to == viewer) plain.ids.forEach { id -> state.obj(id)?.let { shown += it.card } }
+                is Change.Happened -> (plain.event as? GameEvent.Revealed)?.ids?.forEach { id -> state.obj(id)?.let { shown += it.card } }
+                is Change.ZoneChange -> plain.moves.forEach { see(it.after.id) }
+                is Change.Status -> see(plain.id)
+                is Change.Face -> see(plain.id)
+                is Change.ControlStart -> see(plain.id)
+                is Change.ObjectUpdated -> see(plain.after.id)
+                is Change.Filled -> see(plain.after.id)
+                else -> {}
+            }
+        }
+        visible(state, arcanum.engine.Engine.view(state), viewer).forEach { id -> state.obj(id)?.let { shown += it.card } }
+        return shown.filterTo(mutableSetOf()) { it in existing && it !in known }
+    }
+
     /** Cards a "you may look at … any time" ability lets a player look at (CR 401.5), with who may look (null: revealed
      * to everyone): applied to a player ("the top card of your library") or to the cards themselves. */
     fun lookable(state: GameState, view: View): List<Pair<ObjectId, PlayerId?>> {
@@ -113,7 +139,7 @@ internal object Knowledge {
         lookable(state, act.view()).filter { (id, looker) -> state.obj(id)?.unknown == true && (looker == null || state.viewer == null || looker == state.viewer) }
             .groupBy { it.second }.forEach { (looker, cards) ->
                 val ids = cards.map { it.first }.distinct()
-                act.fill(looker ?: state.objOrThrow(ids.first()).owner, null, ids, "may look at any time", public = looker == null)
+                act.fill(looker ?: state.objOrThrow(ids.first()).owner, null, ids, "may look at any time", public = looker == null, shown = false)
             }
     }
 

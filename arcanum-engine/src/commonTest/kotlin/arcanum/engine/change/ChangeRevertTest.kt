@@ -20,7 +20,8 @@ class ChangeRevertTest {
         samples.forEach { (state, change) ->
             val copy = state.deepCopy()
             copy.apply(change)
-            assertNotEquals(state, copy, "${change::class.simpleName} changed nothing")
+            // Change.Shown only says what a player looked at: it changes nothing by design
+            if (change !is Change.Shown) assertNotEquals(state, copy, "${change::class.simpleName} changed nothing")
             copy.revert(change)
             copy.timestampCounter = state.timestampCounter
             if (copy != state) fail("${change::class.simpleName} didn't revert exactly:\n${StateDiff.between(state, copy)}")

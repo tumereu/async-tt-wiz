@@ -133,6 +133,8 @@ internal object ChangeSamples {
             on(base, Change.SkipWhenNoChoice(bob, true, false)),
             on(base, Change.Shuffle(alice, library, library.reversed().map { it.copy(id = it.id.next()) })),
             on(base, Change.Reorder(Zone.Library, alice, base.player(alice).library, base.player(alice).library.reversed())),
+            on(base, Change.LibraryPlaces(alice, emptyMap(), mapOf(base.player(alice).library.first() to 0))),
+            on(base, Change.Shown(alice, base.player(alice).library)),
             on(withUnknown, Change.Filled(unknown, base.objOrThrow(spark))),
             on(base, Change.Forgotten(base.objOrThrow(spark), unknown)),
             on(base, Change.Happened(GameEvent.CoinFlipped(alice, won = true))),

@@ -115,6 +115,55 @@ object Engine {
      */
     fun loopKey(state: GameState): arcanum.engine.turn.LoopKey = arcanum.engine.turn.Loops.key(state)
 
+    /**
+     * The cards whose identity [changes] (made on [before] in order, such as an [Outcome]'s) show [viewer] at some moment
+     * that [visible] didn't give them in [before]: put where they may see them (a hand they own, a public zone face up),
+     * turned face up or revealed (CR 701.20, 708.9), looked at ([Change.Shown]: a search, scry, look, the cards of a choice
+     * among hidden cards), or that they may look at once the changes are made (CR 401.5). Compared by card, so a card
+     * changing zones (a new object, CR 400.7) isn't new; cards that didn't exist in [before] (tokens, copies) were hidden
+     * from nobody and aren't counted. For a full-information state ([GameState.viewer] null; a viewer's state says this
+     * with its fills). Works on a copy: [before] isn't changed. A host uses it to keep a player from learning hidden cards
+     * by going on (ATW's async play, I-D56) or to tell whether taking an event back would forget something seen.
+     */
+    fun revealed(before: GameState, changes: List<Change>, viewer: PlayerId): Set<arcanum.engine.state.CardId> =
+        arcanum.engine.action.Knowledge.revealed(before, changes, viewer)
+
+    /**
+     * The parts of [player]'s library whose order no player knows (CR 401.2), each as its cards in library order: the
+     * library's unknown part (every card since the last shuffle, CR 701.24, whose place nobody learned), then each group of
+     * cards put in together in a random order ([arcanum.engine.state.PlayerState.libraryPlaces]). A card whose place a player
+     * knows (put on the top, the bottom or Nth from the top, looked at or revealed where it lies, put back in a chosen order)
+     * or may look at now (CR 401.5, "play with the top card revealed") is in none. Parts of one card are left out.
+     */
+    fun unknownOrder(state: GameState, player: PlayerId): List<List<arcanum.engine.state.ObjectId>> =
+        arcanum.engine.action.LibraryPlaces.unknownParts(state, player,
+            arcanum.engine.action.Knowledge.lookable(state, view(state)).map { it.first }.toSet())
+
+    /**
+     * A host's new random order of [player]'s library where nobody knows it (D25: the host's randomness): [parts] are
+     * [unknownOrder]'s parts in the same order, each with its cards in a new order, put back into that part's own places;
+     * every other card stays where it is, so no player's knowledge of the library changes (the order nobody knew is
+     * still unknown). A [Change.Reorder] (the cards keep their ids), or null when nothing moves. Throws
+     * [IllegalArgumentException] when a part doesn't hold exactly the cards of the part it replaces.
+     */
+    fun reorderUnknown(state: GameState, player: PlayerId, parts: List<List<arcanum.engine.state.ObjectId>>): Change.Reorder? {
+        val unknown = unknownOrder(state, player)
+        require(parts.size == unknown.size && parts.zip(unknown).all { (a, b) -> a.size == b.size && a.toSet() == b.toSet() }) {
+            "Each part is a new order of the same part of the library"
+        }
+        val library = state.player(player).library
+        val after = library.toMutableList()
+        parts.zip(unknown).forEach { (order, part) ->
+            val places = part.map { library.indexOf(it) }
+            places.forEachIndexed { i, place -> after[place] = order[i] }
+        }
+        return if (after == library) null else Change.Reorder(arcanum.api.Zone.Library, player, library, after)
+    }
+
+    /** Whether declaring [blocks] has costs to block, which the defending player determines and pays (CR 509.1d). */
+    fun blockCosts(state: GameState, blocks: List<arcanum.engine.input.Block>): Boolean =
+        arcanum.engine.combat.CombatRules.blockCosts(arcanum.engine.casting.Snapshot(state), blocks).isNotEmpty()
+
     /** How the game ended (CR 104): the winner or a draw; null while it goes on. */
     fun result(state: GameState): GameResult? = state.result
 }

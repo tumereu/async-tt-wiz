@@ -272,6 +272,29 @@ sealed interface Change {
         override fun inverse() = copy(before = after, after = before)
     }
 
+    /**
+     * Which of [player]'s library cards have a place some player knows ([arcanum.engine.state.PlayerState.libraryPlaces]):
+     * [before] and [after]. Recorded by the engine as places become known (cards put into the library at a known place,
+     * looked at or revealed where they lie, reordered) or unknown (a shuffle); bookkeeping, not an event.
+     */
+    @Serializable @SerialName("library-places")
+    data class LibraryPlaces(val player: PlayerId, val before: Map<ObjectId, Int>, val after: Map<ObjectId, Int>) : Change {
+        override fun inverse() = copy(before = after, after = before)
+        override val isEvent: Boolean get() = false
+    }
+
+    /**
+     * Cards whose identity [to] looks at (null: everyone sees them), where the state has full information
+     * ([arcanum.engine.state.GameState.viewer] null) and so asks no host fill (D60): searched, scried, looked at, revealed,
+     * the cards of a choice among hidden cards. Changes nothing; a host learns from it what a player saw in passing
+     * ([arcanum.engine.Engine.revealed]) and the engine which library places became known.
+     */
+    @Serializable @SerialName("shown")
+    data class Shown(val to: PlayerId?, val ids: List<ObjectId>) : Change {
+        override fun inverse() = this
+        override val isEvent: Boolean get() = false
+    }
+
     /** The host fills in an unknown object's identity (D60). */
     @Serializable @SerialName("filled")
     data class Filled(val before: GameObject, val after: GameObject) : Change {

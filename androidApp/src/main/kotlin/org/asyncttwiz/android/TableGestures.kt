@@ -24,12 +24,14 @@ class TableGestureCoordinator(
     init { require(density.isFinite() && density > 0f) }
     private val markStepDp = 28f
     fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
-    private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM, MARK, PAN }
+    private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM, MARK, PAN, HAND_PAN }
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
         var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null, var replacingLocal: Boolean = false,
-        val suppressTapUi: Boolean = false, val camera: TableCamera = TableCamera(), val panRegion: String? = null)
+        val suppressTapUi: Boolean = false, val camera: TableCamera = TableCamera(), val panRegion: String? = null,
+        /** ZON-081: where a hand pan started (its scroll plus the pull past its end shown then). */
+        var handStart: Float = 0f)
     private data class Tap(val capture: Capture, val deadline: Long, val shown: Boolean)
     private var capture: Capture? = null
     private var transformRegion: String? = null
@@ -53,10 +55,15 @@ class TableGestureCoordinator(
     private var navigationCamera: TableCamera? = null // unresisted pointer position, never compounded rubber
     private data class SpringReturn(val from: TableCamera, val to: TableCamera, var start: Long? = null)
     private var spring: SpringReturn? = null
+    /** ZON-081 (I-D50): a hand pulled past its end springs back like the battlefield (TBL-014). */
+    private data class HandSpring(val viewport: String, val from: Float, var start: Long? = null)
+    private var handSpring: HandSpring? = null
+    /** The pull past its end each hand shows now (dp, by viewport id). */
+    private val handPull = mutableMapOf<String, Float>()
     var preview = TableGesturePreview(); private set
     var capturedActions: TableIntent.Actions? = null; private set
     var actionItem: TableItem? = null; private set
-    val busy get() = capture != null || pending != null || spring != null
+    val busy get() = capture != null || pending != null || spring != null || handSpring != null
     // The hand row background previews nothing; its cards have their own items.
     private fun peekId(item: TableItem?) = item?.cardId ?: item?.cards?.firstOrNull()?.takeIf { !item.covered && item.kind != TableItemKind.HAND }
     val peeking get() = capture?.let { it.phase == Phase.HOLD && peekId(it.item) != null } == true
@@ -92,6 +99,7 @@ class TableGestureCoordinator(
         if (capture != null) cancel()
         tick(time)
         spring = null // a new gesture interrupts the return at its displayed position
+        handSpring = null
         transforming = false; transformRegion = null
         navigationCamera = scene.world?.unresist(scene.camera) ?: scene.camera
         val item = scene.hit(point)
@@ -150,6 +158,12 @@ class TableGestureCoordinator(
             else publishCamera(s.to.copy(x = s.to.x + (s.from.x - s.to.x) * remaining,
                 y = s.to.y + (s.from.y - s.to.y) * remaining))
         }
+        handSpring?.let { s ->
+            val start = s.start ?: time.also { s.start = it }
+            val seconds = ((time - start).coerceAtLeast(0) / 1000f)
+            if (seconds >= .65f) { handSpring = null; pull(s.viewport, 0f) }
+            else pull(s.viewport, s.from * (1f + 16f * seconds) * exp(-16f * seconds))
+        }
         val p = pending
         if (p != null && time >= p.deadline) { pending = null; if (!p.shown) single(p.capture) }
         val c = capture ?: return
@@ -177,6 +191,10 @@ class TableGestureCoordinator(
             // Crossing slop wins over hold even when a delayed input frame arrives after its deadline.
             pending = null
             c.phase = when {
+                // ZON-081 (I-D50): with Automatum on a drag on a hand that first moves sideways pans it (a card's too)
+                scene.automatumHand && c.viewport?.hand == true && abs(dx) > abs(dy) && !c.double -> Phase.HAND_PAN.also {
+                    c.handStart = c.viewport.scroll + (handPull[c.viewport.id] ?: 0f)
+                }
                 c.double && c.item == null && c.panRegion == WORLD_PAN_REGION -> Phase.PAN
                 // Panels pan like the table: double-tap-drag anywhere (also over cards) scrolls; a one-finger
                 // drag on empty panel space draws the selection rectangle, on a card it drags the card.
@@ -194,6 +212,13 @@ class TableGestureCoordinator(
             }
         }
         when (c.phase) {
+            Phase.HAND_PAN -> c.viewport?.let { port ->
+                val raw = c.handStart - dx
+                val scroll = raw.coerceIn(0f, port.maxScroll)
+                val over = raw - scroll
+                if (port.maxScroll > 0f) emit(TableIntent.Scroll(port.id, scroll))
+                pull(port.id, over / (2f + abs(over) / 96f))
+            }
             Phase.PAN -> navigate(c.camera.copy(x = c.camera.x - dx / c.camera.zoom, y = c.camera.y - dy / c.camera.zoom), elastic = true)
             Phase.MARK -> {
                 val bubble = c.bubble ?: return
@@ -351,7 +376,17 @@ class TableGestureCoordinator(
         scene = scene.copy(camera = camera) // coalesce rapid pointer frames without losing personal navigation deltas
         emit(TableIntent.Camera(camera))
     }
+    private fun pull(viewport: String, offset: Float) {
+        if (offset == 0f) handPull.remove(viewport) else handPull[viewport] = offset
+        emit(TableIntent.Overscroll(viewport, offset))
+    }
+    /** ZON-081: a hand pulled past its end springs back on release. */
+    private fun settleHand() {
+        val (viewport, from) = handPull.entries.firstOrNull { it.value != 0f }?.toPair() ?: return
+        if (handSpring == null) handSpring = HandSpring(viewport, from)
+    }
     private fun settleCamera() {
+        settleHand()
         if (navigationCamera == null) return
         navigationCamera = null
         val target = scene.world?.clamp(scene.camera) ?: return

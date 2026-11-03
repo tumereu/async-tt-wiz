@@ -34,7 +34,9 @@ internal object StackMenuActions {
         // Automatum on (§3 I4, I-D28, I-D46): Automatum resolves the Stack; its entries change only by the rules, so the
         // manual controls aren't offered (except while Automatum waits for something done by hand)
         val manual = AutomatumBoards.manualAllowed(state)
-        return (if (!manual) emptyList() else listOf(
+        // TBL-119 (I-D50): nor are notes and pings
+        if (!manual) return emptyList()
+        return (listOf(
             MenuControl("Remove from Stack", enabled && effect != null) { perform(TableIntent.Submit(remove(entryId), null)) },
             MenuControl("Put to battlefield", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
             MenuControl("Put to graveyard", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
@@ -118,7 +120,8 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         }
                         Text("${if (index == 0) "Top" else "${index + 1}"} · ${entry.name}", Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                        StackMarkChips(state.board.stackTextMarks[id].orEmpty())
+                        // TBL-119 (I-D50): no text marks with Automatum on
+                        if (AutomatumBoards.manualAllowed(state)) StackMarkChips(state.board.stackTextMarks[id].orEmpty())
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         StackMenuActions.controls(state, id, enabled, perform, note = editNote?.let { { it(id) } },
@@ -129,7 +132,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                             }
                         }
                     }
-                    stackTextOptions(state, id, viewer).forEachIndexed { option, text ->
+                    (if (AutomatumBoards.manualAllowed(state)) stackTextOptions(state, id, viewer) else emptyList()).forEachIndexed { option, text ->
                         FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
                             onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
                              enabled = enabled, modifier = Modifier.ringInputTarget().tableChangeFlash(LocalTableChanges.current,

@@ -110,7 +110,11 @@ internal fun battlefieldRowHeight(cardHeight: Float, scale: Float) = cardHeight 
 data class TableLayoutState(val camera: TableCamera = TableCamera(), val scroll: Map<String, Float> = emptyMap(),
     val scrollY: Map<String, Float> = emptyMap(), val localPileId: String? = null, val localPileTargets: Boolean = false,
     /** CMB-007: the combat area (by its id) the viewer folded away to see the battlefield under it; the viewer's own. */
-    val combatHidden: String? = null)
+    val combatHidden: String? = null,
+    /** ZON-079 (I-D50): the viewer's hand card raised by a tap with Automatum on; the viewer's own. */
+    val raised: String? = null,
+    /** ZON-081 (I-D50): a hand pulled past its end (dp, by hand viewport id), springing back on release. */
+    val overscroll: Map<String, Float> = emptyMap())
 enum class TableItemKind { CARD, PILE, LIFE, COUNTER, HAND }
 data class TableItem(
     val id: String, val bounds: TableBounds, val label: String, val value: String,
@@ -146,7 +150,9 @@ data class TableItem(
     /** Automatum on (I1): an until-end-of-turn effect changes the computed P/T (⌛ as TBL-023). */
     val cornerHourglass: Boolean = false,
     /** Automatum on (I1): changed types and colours, keywords gained or lost and typed counters, as one chip. */
-    val automatumMarks: List<String> = emptyList()
+    val automatumMarks: List<String> = emptyList(),
+    /** ZON-079: a raised hand card (drawn above its hand row, not clipped by it at the top). */
+    val raised: Boolean = false
 ) {
     /** The card title's colour on the table: blue while it entered this turn, else the default text colour. */
     val titleColor: Int get() = if (enteredThisTurn) EnteredThisTurnTitleColor else android.graphics.Color.DKGRAY
@@ -211,7 +217,10 @@ data class TableScene(val items: List<TableItem>, val fields: List<TableField>,
     val modeButton: TableBounds? = null,
     /** The undrawn face-up (or covered, when face down) drawing of a Graveyard/Exile member: the look of a
      * card flying from or to a public pile. Library and Temp pile members fly face down. */
-    val pileCards: PileCardDrawings = PileCardDrawings.NONE) {
+    val pileCards: PileCardDrawings = PileCardDrawings.NONE,
+    /** ZON-081 (I-D50): Automatum on (and nothing to do by hand): a sideways drag on a hand pans it, elastic at its
+     * ends; no hand reordering. */
+    val automatumHand: Boolean = false) {
     fun worldInput(point: TablePoint) = world?.visibleViewport?.contains(point) == true &&
         stackRegion?.contains(point) != true && items.none { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE && it.stackBadge.contains(point) } &&
         cardPanels.none { it.bounds.contains(point) } && stackBubbles?.controls?.any { it.bounds.contains(point) } != true
@@ -256,6 +265,8 @@ internal val TableItem.visibleAnchor get() = if (visible.any { it.contains(bound
 
 object TablePresentation {
     const val GRID = 56f
+    /** ZON-079: how far a raised hand card rises, in its own heights. */
+    const val RAISE = .25f
     const val COLUMN_PITCH = 42f
     /** Combat review #12: the smallest card width in the combat area (dp at zoom 1), whatever the card size. */
     const val COMBAT_MIN_CARD = 44f
@@ -302,9 +313,8 @@ object TablePresentation {
         val geometry = StackBubbleGeometry.create(requireNotNull(entryId), pile.bounds, width, height,
             play.board.stackTextMarks[entryId]?.minOrNull(), if (card.covered) 0 else StackText.options(play, entryId).size)
             .copy(multipleMarks = play.board.stackTextMarks[entryId].orEmpty().size > 1)
-        // STK-035 (I-D46): with Automatum on its manual moves aren't offered; the Mark text handle stays
-        return if (AutomatumBoards.manualAllowed(play)) geometry
-            else geometry.copy(controls = geometry.controls.filter { it.id.endsWith("/mark") })
+        // STK-035 (I-D46, I-D50): with Automatum on there are no Stack bubbles: no manual moves, no text marks (TBL-119)
+        return if (AutomatumBoards.manualAllowed(play)) geometry else null
     }
 
     fun scene(game: GameSummary, play: PlayState, viewer: String, width: Float, height: Float, landscape: Boolean,
@@ -322,6 +332,10 @@ object TablePresentation {
         val byId = play.board.cards.associateBy { it.id }
         val definitions = play.definitions.associate { it.digest to it.definition }
         val castFromHand = castSpellSources(play.board)
+        // I-D50: with Automatum on (and nothing to do by hand) the hand is Automatum's and the virtual-tabletop marks
+        // (notes, colour counters, statuses, links, text marks, pings) aren't shown (TBL-119)
+        val automatumHand = !AutomatumBoards.manualAllowed(play)
+        val tabletop = !automatumHand
         fun name(id: String?) = if (game.inviter.accountId == id) game.inviter.username else game.recipient.username
         fun container(player: String?, zone: PlayZone) = play.board.containers.single { it.accountId == player && it.zone == zone && !it.temp }
         fun face(card: PlayCard?) = card?.let { definitions[it.definition]?.faces?.firstOrNull { f -> f.faceId == it.faceId } }
@@ -463,12 +477,12 @@ object TablePresentation {
                  zone, kind = TableItemKind.CARD, viewport = viewport,
                 cardId = viewId, covered = hidden, tapped = tapped, corner = if (!values) "" else autoCorner ?: effectiveCorner(card),
                 damage = if (!values) "" else card.damage, eotCorner = if (!values || autoCorner != null) "" else card.eotCorner,
-                eotNote = if (!values) "" else card.eotNote,
+                eotNote = if (!values || !tabletop) "" else card.eotNote,
                 footprint = footprint, sourceId = if (frozen) null else card.id, projection = projection, frozen = frozen,
                 // A copy or Stack entry without a note of its own shows the real card's note (CMB-005, STK-009).
-                token = card.token, note = if (!values) "" else if (projection)
+                token = card.token, note = if (!values || !tabletop) "" else if (projection)
                     CombatStackRules.projectionNote(play.board, viewId).orEmpty().ifBlank { card.note } else card.note,
-                counters = if (!values) emptyMap() else card.counters.filterValues(::nonzero),
+                counters = if (!values || !tabletop) emptyMap() else card.counters.filterValues(::nonzero),
                    typeIcon = if (hidden) "" else cardTypeIcon(f?.typeLine.orEmpty()), artwork = art(card, hidden),
                     typeLine = if (hidden) "" else f?.typeLine.orEmpty(), faceId = card.faceId,
                     changedPowerToughness = if (autoCorner != null) false
@@ -503,12 +517,18 @@ object TablePresentation {
                 handBounds.bottom - modeSize - ((handBounds.height - modeSize) / 2).coerceAtLeast(0f), modeSize, modeSize)
             val handContent = if (hand.cards.isEmpty()) 0f else (hand.cards.size - 1) * (handWidth + 4f) + handWidth
             val hp = port(hand.id, handBounds.copy(width = (handBounds.width - 24f).coerceAtLeast(1f)), handContent, true)
-            val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll
+            // ZON-081: a hand pulled past its end (Automatum on) is drawn that far off, springing back on release
+            val pulled = if (automatumHand) ui.overscroll[hp.id] ?: 0f else 0f
+            val start = hp.bounds.x + ((hp.bounds.width - handContent) / 2).coerceAtLeast(0f) - hp.scroll - pulled
             items += TableItem(hand.id, handBounds, "${name(player.accountId)} Hand, ${hand.cards.size} cards", hand.cards.size.toString(),
                 player.accountId, PlayZone.HAND, hand.cards, TableItemKind.HAND, hp.id)
             hand.cards.forEachIndexed { n, id -> byId[id]?.let { c ->
-                val b = TableBounds(start + n * (handWidth + 4f), handBounds.y + (handBounds.height - handHeight) / 2, handWidth, handHeight)
+                // ZON-079: the raised card sits a quarter of its height higher
+                val raised = automatumHand && ownSide && !reviewing && id == ui.raised
+                val b = TableBounds(start + n * (handWidth + 4f), handBounds.y + (handBounds.height - handHeight) / 2 -
+                    if (raised) handHeight * RAISE else 0f, handWidth, handHeight)
                 card(c, b, b, player.accountId, PlayZone.HAND, hp.id)
+                if (raised) items[items.lastIndex] = items.last().copy(raised = true)
             } }
             val field = fields[index]
             val battlefield = container(player.accountId, PlayZone.BATTLEFIELD)
@@ -547,7 +567,7 @@ object TablePresentation {
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
                 "${name(player.accountId)}, life ${player.life}" + player.status.takeIf { it.isNotEmpty() }?.let { ", status $it" }.orEmpty(),
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
-                valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP, status = player.status,
+                valueDragSide = if (ownSide) ValueDragSide.BOTTOM else ValueDragSide.TOP, status = if (tabletop) player.status else "",
                 emblems = EmblemChips.texts(play.board, player.accountId))
             val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
             val landscapeTempHeight = minOf(pileHeight, counterHeight - 4f)
@@ -573,8 +593,8 @@ object TablePresentation {
                     keepTopRevealed = c.keepTopRevealed,
                     drawHandId = hand.id.takeIf { zone == PlayZone.LIBRARY && !c.temp }, temp = c.temp,
                     tempNumber = if (c.temp) c.tempNumber else 0,
-                    note = if (hidden) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
-                    counters = if (hidden) emptyMap() else top?.counters.orEmpty().filterValues(::nonzero),
+                    note = if (hidden || !tabletop) "" else top?.note.orEmpty(), faceTitle = if (hidden) "" else face(top)?.name.orEmpty(),
+                    counters = if (hidden || !tabletop) emptyMap() else top?.counters.orEmpty().filterValues(::nonzero),
                     corner = if (hidden) "" else top?.corner.orEmpty(),
                     typeIcon = if (hidden) "" else cardTypeIcon(face(top)?.typeLine.orEmpty()), artwork = art(top, hidden),
                     changedPowerToughness = !hidden && changedPowerToughness(top?.corner.orEmpty(), face(top)))
@@ -593,7 +613,8 @@ object TablePresentation {
                         minOf(width, 2 * gridWidth), counterHeights[index]), minOf(width, 2 * gridWidth))
                     else port("counters/${player.accountId}",
                     TableBounds(dock.right, rowY, (width - dock.right).coerceAtLeast(0f), dockRow), portraitGrid)
-                for ((n, color) in CounterColor.entries.withIndex()) {
+                // TBL-119: with Automatum on the player counters aren't shown (their room stays)
+                if (tabletop) for ((n, color) in CounterColor.entries.withIndex()) {
                     val v = player.counters[color].orEmpty().takeIf(::nonzero).orEmpty()
                     val b = if (landscape) TableBounds(cp.bounds.x + n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, counterHeight)
                         else if (ownRow) TableBounds(cp.bounds.x + n * cp.contentWidth / 6 - cp.scroll, cp.bounds.y, cp.contentWidth / 6, cp.bounds.height)
@@ -694,7 +715,7 @@ object TablePresentation {
                 p.accountId to TempPiles.NUMBERS.map { TempPiles.containerId(play.id, p.accountId, it) } },
             stackProjections = stackProjections, cardOwners = play.board.cards.associate { it.id to it.owner } +
                 items.filter { it.cardId != null && it.owner != null }.associate { it.cardId!! to it.owner!! },
-            modeButton = modeButton, pileCards = PileCardDrawings { id ->
+            modeButton = modeButton, automatumHand = automatumHand, pileCards = PileCardDrawings { id ->
                 // Built only on demand: for a card that changed pile, never for every pile member per update.
                 val member = byId[id] ?: return@PileCardDrawings null
                 val pile = play.board.containers.firstOrNull { it.id == member.containerId && it.zone in PublicPiles.zones }
@@ -713,9 +734,11 @@ object TablePresentation {
         val panel = scene.combatPanel
         val clipped = ordered.map { i ->
             val viewport = viewports[i.viewport]
+            // ZON-079: a raised hand card shows whole above its row
+            val port = viewport?.bounds?.let { b -> if (i.raised && i.bounds.y < b.y) b.copy(y = i.bounds.y, height = b.bottom - i.bounds.y) else b }
             val clippedRegions = listOfNotNull((if (i.inTransit) {
                 if (i.zone == PlayZone.BATTLEFIELD) scene.world?.visibleViewport ?: screen else screen
-            } else viewport?.bounds)?.let(i.bounds::intersection)?.intersection(screen))
+            } else port)?.let(i.bounds::intersection)?.intersection(screen))
             // CMB-007: the combat area's panel covers the battlefield cards under it
             val regions = if (panel == null || i.inTransit || i.zone != PlayZone.BATTLEFIELD || i.viewport == "combat" ||
                 i.viewport.startsWith("cardPanel/") || i.bounds.intersection(panel) == null) clippedRegions

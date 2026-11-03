@@ -55,6 +55,13 @@ class CastFlow private constructor(
     val steps: List<Pair<Decision, Answer>>,
     /** How many objects the Stack held before [begin]. */
     internal val stackBefore: Int,
+    /**
+     * I-D50: the times each optional additional cost of the spell is paid (kicker, buyback, offspring, gift, …; in the
+     * order of [HandCasts.extras]), chosen before the cast with the hand's cost chips: the flow answers those questions
+     * itself, so they are neither [pending] nor [steps]. Null: they are asked like any other question (a cast begun from a
+     * card menu).
+     */
+    val extras: List<Int>? = null,
 ) {
     /** The open question of the cast or land play itself, or null when it is complete and can be sent ([plan]). A
      * decision after it (the order or targets of triggers it caused, the legend rule) belongs to the shared flow that
@@ -110,7 +117,7 @@ class CastFlow private constructor(
     /** The flow replayed on [newPlay] (the board changed underneath, D32): the same answers while they still fit.
      * @throws IllegalArgumentException when the cast can't be begun there any more. */
     fun on(newPlay: PlayState, newLog: List<LoggedChange> = log): CastFlow =
-        replay(Context(newPlay, definitions, player, newLog, seeds), begin, answers, strict = false)
+        replay(Context(newPlay, definitions, player, newLog, seeds, extras), begin, answers, strict = false)
 
     /** Whether paying the open [Decision.ManaPayment] with [uses] completes it (the engine accepts the payment). */
     fun pays(uses: List<arcanum.engine.decision.ManaUse>): Boolean {
@@ -144,7 +151,7 @@ class CastFlow private constructor(
      */
     fun sent(): EngineCall {
         check(complete) { "The cast isn't complete" }
-        return Sending(replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true)).sent()
+        return Sending(replay(Context(play, definitions, player, log, seeds, extras), begin, answers, strict = true)).sent()
     }
 
     /**
@@ -158,7 +165,7 @@ class CastFlow private constructor(
             require(pending is Decision.ManaPayment) { "No payment is open" }
             answers + Answer.ManaPayment(payment)
         } else answers
-        val done = replay(Context(play, definitions, player, log, seeds), begin, all, strict = true)
+        val done = replay(Context(play, definitions, player, log, seeds, extras), begin, all, strict = true)
         require(done.complete) { "The cast isn't complete" }
         return Sending(done)
     }
@@ -198,7 +205,7 @@ class CastFlow private constructor(
     fun atwCard(id: ObjectId): String? = (id as? ObjectId.Card)?.let { call.ids.atw(it.card) }
 
     private fun replayOn(on: PlayState, begin: Input, answers: List<Answer>, strict: Boolean): CastFlow =
-        replay(Context(on, definitions, player, log, seeds), begin, answers, strict)
+        replay(Context(on, definitions, player, log, seeds, extras), begin, answers, strict)
 
     /** Random results of a flow, kept so a replay repeats them. */
     class Seeds(private val fresh: () -> String) {
@@ -216,8 +223,8 @@ class CastFlow private constructor(
          * @throws Unsupported when the board holds something the engine can't take over.
          */
         fun start(play: PlayState, definitions: Map<String, CardDefinition>, player: String, log: List<LoggedChange>,
-            begin: Input, seeds: Seeds, answers: List<Answer> = emptyList()): CastFlow =
-            replay(Context(play, definitions, player, log, seeds), begin, answers, strict = true)
+            begin: Input, seeds: Seeds, answers: List<Answer> = emptyList(), extras: List<Int>? = null): CastFlow =
+            replay(Context(play, definitions, player, log, seeds, extras), begin, answers, strict = true)
 
         /** Whether [continuation] is part of casting or playing the card (CR 601.2, 305.1), which the caster's device
          * keeps to itself (I-D11), rather than what follows it. */
@@ -225,7 +232,7 @@ class CastFlow private constructor(
             continuation is Continuation.Announcing || continuation is Continuation.Event || continuation is Continuation.Played
 
         internal class Context(val play: PlayState, val definitions: Map<String, CardDefinition>, val player: String,
-            val log: List<LoggedChange>, val seeds: Seeds)
+            val log: List<LoggedChange>, val seeds: Seeds, val extras: List<Int>? = null)
 
         internal fun replay(c: Context, begin: Input, answers: List<Answer>, strict: Boolean): CastFlow {
             val call = EngineCall(c.play, c.definitions, null, c.log, c.seeds.reader())
@@ -234,6 +241,8 @@ class CastFlow private constructor(
             call.perform(begin)
             val given = mutableListOf<Answer>()
             val steps = mutableListOf<Pair<Decision, Answer>>()
+            fun chosen() { if (c.extras != null) HandCasts.answerExtras(call, c.extras) }
+            chosen()
             for (answer in answers) {
                 val open = call.pending?.takeIf { private(it.continuation) }?.decision ?: break
                 try {
@@ -245,8 +254,9 @@ class CastFlow private constructor(
                 call.perform(Input.Answer(open.id, answer))
                 given += answer
                 steps += open to answer
+                chosen()
             }
-            return CastFlow(c.play, c.definitions, c.player, c.log, begin, given, c.seeds, call, steps, stackBefore)
+            return CastFlow(c.play, c.definitions, c.player, c.log, begin, given, c.seeds, call, steps, stackBefore, c.extras)
         }
 
         /** What [Input.Cast] [way] says beside the plain cast: its face when the card has several to cast ("Reel // Rend

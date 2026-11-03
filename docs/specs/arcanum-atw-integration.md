@@ -497,6 +497,30 @@ out of anything stuck.
   main button; Attack → stays as a greyed cell rather than leaving a gap; a choice's buttons read No then Yes (main last).
   Catalog: TRN-015, TRN-059, TRN-061, TRN-063, CMB-028, CMB-029, CMB-033, CMB-034, STK-023–STK-025, STK-027–STK-034,
   STK-037–STK-039, STK-044, STK-045 (new), TBL-116, TBL-118, SYS-067.
+- **Built (I-D50, hand and table, 2026-11-03):** `HandCasts` (module `automatum/`) works a hand card's cost chips out:
+  its ways (the engine's offered casts plus the ways it would begin but can't pay now, so they show greyed: castable faces
+  × plain/alternative costs, then fused), the chosen way's extras (the spell's optional `AdditionalCost`s in the engine's
+  order), and per choice whether it is paid and the sources Autotap would tap, by trying it as far as its payment (other
+  questions answered with the engine's first listed answer, the least X, the first targets). `CastFlow.extras` answers the
+  optional costs itself (`HandCasts.answerExtras`: the n-th optional cost question of the spell at the Modes stage), so they
+  are neither pending nor steps; null (a card-menu cast) asks them as before. App: `HandController` (`toolkit.hand`) — a tap
+  on the viewer's hand card raises it (`TableLayoutState.raised`, a quarter of its height, unclipped above the row) and
+  works its chips out on the Automatum worker; a second tap, the chosen way's chip, a double-tap or a drag casts it that
+  way (`CastController.start(card, way, extras)`, no "Cast as" section); a tap elsewhere lowers it. `RaisedCardChips` draws
+  the chips above it (ways violet, extras amber with a check box, ×N and "−" for repeatable ones, greyed when unaffordable,
+  hold = details popup); `drawTable(sources)` outlines the sources in amber. Hand panning: `TableScene.automatumHand`
+  turns a drag on a hand that first moves sideways into `HAND_PAN` (scroll within the ends, a rubber-band pull past them,
+  `TableIntent.Overscroll`, springing back like the camera); `AutomatumDrags.Route.Stay` drops a hand-to-same-hand drag.
+  Virtual-tabletop controls are gone while `AutomatumBoards.manualAllowed` is false (TBL-119): menu cells, Ping mode, Stack
+  bubbles, Manage Stack's buttons and marks, Table actions' dice and coin, the Life panel's status; notes, colour counters,
+  statuses, links, text marks and pings aren't drawn or inspected (kept in the game). Choices made: a card-menu cast (other
+  zones) still asks optional costs in the panel; the other player's hand cards do nothing on tap; a card that can't be cast
+  rises with a shake and keeps its (greyed) chips; when the board changes the raised card stays raised and its chips are
+  worked out again; the player counters' room stays empty; while Automatum waits for something done by hand the
+  tabletop controls and today's menus are back; splice stays a panel question. Catalog: ZON-079–ZON-081, TBL-119 (new),
+  ZON-002, ZON-004, ZON-007, ZON-011, ZON-077, TBL-025, TBL-026, TBL-032, TBL-056, TBL-071, TBL-115, TBL-116, TBL-118,
+  SYS-069, HIS-078, TRN-010, TRN-030, TRN-034, TRN-035, TRN-039, TRN-044, CMB-005, STK-009, STK-016, STK-019, STK-023,
+  STK-035.
 
 ## 4. Shared state ATW adds
 

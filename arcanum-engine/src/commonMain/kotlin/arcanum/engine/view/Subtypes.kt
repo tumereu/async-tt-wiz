@@ -56,6 +56,9 @@ object Subtypes {
         Subtype("Mountain") to Color.Red, Subtype("Forest") to Color.Green,
     )
 
+    /** tla: how many creature types a changeling counts as having (CR 205.3m lists over 250; more than any "to a maximum of"). */
+    const val creatureTypeCount: Int = 250
+
     fun kindOf(subtype: Subtype): SubtypeKind = when (subtype.name) {
         in LAND -> SubtypeKind.Land
         in ARTIFACT -> SubtypeKind.Artifact

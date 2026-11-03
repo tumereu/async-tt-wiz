@@ -59,7 +59,12 @@ sealed interface StackItemKind {
     @Serializable @SerialName("spell") data object Spell : StackItemKind
     /** A copy of a spell (CR 707.10): not a card, a spell of its own (it is "this spell" when it resolves, with its
      * own [StackItem.facts]); ceases to exist when it leaves the Stack (CR 707.10a, 704.5e). */
-    @Serializable @SerialName("spell-copy") data class SpellCopy(val copied: ObjectId) : StackItemKind
+    @Serializable @SerialName("spell-copy") data class SpellCopy(
+        val copied: ObjectId,
+        // spm
+        /** Exceptions to the copy ("except the copy isn't legendary", CR 707.9b, 707.10): part of its copiable values. */
+        val except: List<arcanum.api.CopyException> = emptyList(),
+    ) : StackItemKind
     /** An activated ability (CR 602). */
     @Serializable @SerialName("activated") data object Activated : StackItemKind
     /** A triggered ability (CR 603), delayed and reflexive ones included. */

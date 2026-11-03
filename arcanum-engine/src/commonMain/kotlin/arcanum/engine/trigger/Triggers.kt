@@ -289,9 +289,11 @@ internal object Triggers {
                 val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
                 // hob: for that player ("an opponent draws their second card each turn": each opponent's own draws, CR 603.2)
                 fun same(a: TriggerEvent, b: TriggerEvent) = a.players.firstOrNull() == b.players.firstOrNull()
-                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1 == n }
+                // spm: "your first or second card each turn" ([Trigger.On.throughNth]): any of the first n
+                fun nth(k: Int) = if (trigger.throughNth) k <= n else k == n
+                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> nth(earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1) }
                 else now.filter { unit ->
-                    earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n
+                    nth(earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1)
                 }
             } ?: now
             counted.filter { trigger.atLeast == null || it.objects.firstOrNull { o -> o.role == EventRole.Object }?.ids.orEmpty().size >= trigger.atLeast!! }
@@ -422,6 +424,11 @@ internal object Triggers {
             timestamp = act.state.nextTimestamp(),
         )
         act.record(Change.StackItemAdded(item, act.state.stack.size, listOf(Meaning.Triggered)))
+        // tla: its source attacking made it trigger (CR 603.2): "attacking causes a triggered ability of that creature to trigger"
+        val source = t.source
+        if (source != null && (ability.trigger as? arcanum.api.Trigger.On)?.events.orEmpty().any { it is arcanum.api.EventPattern.Attack } &&
+            t.event.objects.any { it.role == arcanum.api.EventRole.Object && source in it.ids })
+            act.record(Change.Happened(arcanum.engine.change.GameEvent.AbilityTriggered(source, stackId, attack = true)))
     }
 
     /** dsk backfill: an amount divided among a triggered ability's targets is divided as it is put on the Stack (CR 603.3d,

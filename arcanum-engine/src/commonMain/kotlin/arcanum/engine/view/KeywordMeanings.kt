@@ -131,7 +131,7 @@ object KeywordMeanings {
                 Keyword.Entwine.Kind, Keyword.Replicate.Kind, Keyword.Prowl.Kind,
                 Keyword.Dash.Kind, Keyword.Surge.Kind, Keyword.Emerge.Kind, Keyword.Spectacle.Kind, Keyword.Mutate.Kind,
                 Keyword.Foretell.Kind, Keyword.Blitz.Kind, Keyword.Squad.Kind, Keyword.Disguise.Kind, Keyword.Plot.Kind,
-                Keyword.Freerunning.Kind, Keyword.Warp.Kind, Keyword.WebSlinging.Kind,
+                Keyword.Freerunning.Kind, Keyword.Warp.Kind,
                 Keyword.Awaken.Kind, Keyword.Impending.Kind, Keyword.Prototype.Kind)
         }
         at(Moment.Enters) {
@@ -143,8 +143,7 @@ object KeywordMeanings {
         at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
         at(Moment.Enters, Moment.AnotherCreatureEnters) { listOf(Keyword.Graft.Kind) }
         at(Moment.Attacks) {
-            listOf(Keyword.Provoke, Keyword.Myriad, Keyword.Melee, Keyword.Dethrone, Keyword.Enlist, Keyword.Mobilize.Kind,
-                Keyword.Firebending.Kind)
+            listOf(Keyword.Provoke, Keyword.Myriad, Keyword.Melee, Keyword.Dethrone, Keyword.Enlist, Keyword.Mobilize.Kind)
         }
         at(Moment.AttacksOrBlocks) { listOf(Keyword.Banding) }
         at(Moment.BecomesBlocked) { listOf(Keyword.Rampage.Kind) }
@@ -152,7 +151,7 @@ object KeywordMeanings {
         at(Moment.Dies, Moment.Cast) { listOf(Keyword.Haunt) }
         at(Moment.YourUpkeep) { listOf(Keyword.CumulativeUpkeep.Kind) }
         at(Moment.CombatDamageToAPlayer) { listOf(Keyword.Ingest) }
-        at(Moment.PutIntoAGraveyard) { listOf(Keyword.Aftermath, Keyword.Disturb.Kind, Keyword.Harmonize.Kind, Keyword.Mayhem.Kind) }
+        at(Moment.PutIntoAGraveyard) { listOf(Keyword.Aftermath, Keyword.Disturb.Kind, Keyword.Harmonize.Kind) }
         at(Moment.YourCreatureDies) { listOf(Keyword.Recover.Kind) }
         at(Moment.ExileFromGraveyard) { listOf(Keyword.Embalm.Kind, Keyword.Eternalize.Kind, Keyword.Encore.Kind) }
         at(Moment.DiscardAsSorcery) { listOf(Keyword.Transmute.Kind) }

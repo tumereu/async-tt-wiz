@@ -94,7 +94,9 @@ internal object EventMatcher {
             ((change as? Change.StackItemRemoved)?.takeIf { Meaning.Countered in it.meanings && e.matches(pattern.objects, it.item.id) }
                 ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.item.id))), listOf(it.item.controller))) }.orEmpty())
         is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings && e.matches(pattern.lands, it.after.id) &&
-            e.matches(pattern.players, it.after.controller ?: it.after.owner) }
+            e.matches(pattern.players, it.after.controller ?: it.after.owner) &&
+            // spm: "play a land from exile", "from anywhere other than your hand"
+            (pattern.from == null || it.from == pattern.from) && (pattern.notFrom == null || it.from != pattern.notFrom) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
         is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching))
             counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
@@ -207,6 +209,19 @@ internal object EventMatcher {
         // blb: CR 702.174c, 701.61a, 716.2a
         is EventPattern.GiveGift -> ((change as? Change.Happened)?.event as? GameEvent.GaveGift)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        // tla: CR 701.65b, 701.66b, 702.189b, 701.67c
+        is EventPattern.Airbend -> ((change as? Change.Happened)?.event as? GameEvent.Airbended)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        is EventPattern.Earthbend -> ((change as? Change.Happened)?.event as? GameEvent.Earthbended)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        is EventPattern.Firebend -> ((change as? Change.Happened)?.event as? GameEvent.Firebended)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        is EventPattern.Waterbend -> ((change as? Change.Happened)?.event as? GameEvent.Waterbended)
+            ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
+        // tla: CR 603.2: a triggered ability of a matching source triggered on that source attacking
+        is EventPattern.AbilityTriggers -> ((change as? Change.Happened)?.event as? GameEvent.AbilityTriggered)
+            ?.takeIf { it.attack && pattern.cause is EventPattern.Attack && e.matches(pattern.source, it.source) }
+            ?.let { listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.item)), RoleObjects(EventRole.Source, listOf(it.source))))) }.orEmpty()
         is EventPattern.Forage -> ((change as? Change.Happened)?.event as? GameEvent.Foraged)
             ?.takeIf { e.matches(pattern.players, it.player) }?.let { listOf(TriggerEvent(players = listOf(it.player))) }.orEmpty()
         is EventPattern.BecomesLevel -> ((change as? Change.Happened)?.event as? GameEvent.BecameLevel)

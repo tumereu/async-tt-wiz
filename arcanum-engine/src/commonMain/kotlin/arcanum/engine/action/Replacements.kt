@@ -147,7 +147,9 @@ internal object Replacements {
             used += r.key
             if (r.mechanic.optional && !act.yesNo(r.controller, r.source, "Apply ${describe(r)}?")) continue
             useUp(act, r)
-            r.mechanic.whenApplied?.let { linked += linkedTrigger(r, it, instance) }
+            // spm: an entering copy's linked trigger is made when the copied object is chosen (it names it), and only if one is
+            r.mechanic.whenApplied?.takeIf { r.mechanic.modify.none { m -> m is arcanum.api.Modification.EntersAsCopy && m.bind != null } }
+                ?.let { linked += linkedTrigger(r, it, instance) }
             if (r.mechanic.instead != null) {
                 instead(r, instance)
                 return null

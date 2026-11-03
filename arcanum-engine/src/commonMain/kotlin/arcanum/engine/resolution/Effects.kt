@@ -74,10 +74,18 @@ internal object Effects {
                 val b = scope.objects(effect.second).firstOrNull { creatureOnBattlefield(scope, it) }
                 if (a != null && b != null) {
                     val e = scope.eval()
-                    Actions.damage(act, cause, listOf(
+                    val result = Actions.damage(act, cause, listOf(
                         DamageDealt(a, TargetRef.Object(b), e.property(arcanum.api.NumericProperty.Power, a)),
                         DamageDealt(b, TargetRef.Object(a), e.property(arcanum.api.NumericProperty.Power, b)),
                     ))
+                    // tla: the damage the first dealt to the second, and its excess (CR 120.4a)
+                    effect.bind?.let { bind ->
+                        scope.bind(bind, NamedValue.Number(result.dealt.filter { it.source == a && it.recipient == TargetRef.Object(b) }.sumOf { it.amount }))
+                        scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(result.excessTo[TargetRef.Object(b)] ?: 0))
+                    }
+                } else effect.bind?.let { bind ->
+                    scope.bind(bind, NamedValue.Number(0))
+                    scope.bind(Evaluator.EXCESS_PREFIX + bind, NamedValue.Number(0))
                 }
             }
             is Effect.Destroy -> {
@@ -240,6 +248,14 @@ internal object Effects {
             is Effect.ExchangeControl -> exchangeControl(scope, effect)
             is Effect.MoveCounters -> {
                 val to = onBattlefield(scope, effect.to).firstOrNull() ?: return
+                // tla: a permanent that has left the battlefield ("when it leaves, put its counters on …"): the counters it had as
+                // it last existed are put, none removed (CR 608.2h)
+                val board = scope.eval().board
+                scope.objects(effect.from).filter { act.state.obj(it)?.zone != Zone.Battlefield }.forEach { gone ->
+                    board.snapshot(gone)?.counters.orEmpty().filter { c -> c.count > 0 && (effect.kind == null || c.kind == effect.kind) }.forEach { c ->
+                        Actions.putCounters(act, cause, TargetRef.Object(to), c.kind, minOf(c.count, scope.value(effect.amount)))
+                    }
+                }
                 onBattlefield(scope, effect.from).forEach { from ->
                     val kinds = effect.kind?.let { listOf(it) } ?: act.state.objOrThrow(from).counters.map { it.kind }
                     kinds.forEach { k ->
@@ -282,6 +298,11 @@ internal object Effects {
                 }
                 val added = listOf(arcanum.api.TurnStep.BeginningOfCombat) + if (effect.followedByMain) listOf(arcanum.api.TurnStep.PostcombatMain) else emptyList()
                 act.record(Changes.step(act.state, act.state.turn.copy(extraPhases = added + act.state.turn.extraPhases)))
+                // tla: "Only land creatures can attack during that combat phase": the others can't attack until the next main phase begins
+                effect.onlyAttackers?.let { only ->
+                    applyMechanics(scope, listOf(Mechanic.CantAttack()), arcanum.api.Affected.Objects(arcanum.api.Objects.Each(arcanum.api.ObjectFilter.Not(only))),
+                        Duration.UntilStep(arcanum.api.TurnStep.PostcombatMain, arcanum.api.PlayerFilter.Any), null)
+                }
             }
             // sos: each skip passes over one more of that player's turns (CR 614.10)
             is Effect.SkipNextTurn -> scope.players(effect.players).forEach { p ->
@@ -360,7 +381,9 @@ internal object Effects {
             }
             // msh: CR 723: who makes a player's decisions is the host's; done by hand
             is Effect.ControlNextTurn -> scope.players(effect.players).forEach { p ->
-                act.manual(scope.actor, scope.self, "You control ${p.value} during their next turn (CR 723)")
+                // tla: or only their next combat phase (CR 723.2)
+                act.manual(scope.actor, scope.self, if (effect.combatPhase) "You control ${p.value} during their next combat phase (CR 723.2)"
+                    else "You control ${p.value} during their next turn (CR 723)")
             }
             is Effect.PutCountersOf -> {
                 val board = scope.eval().board
@@ -745,8 +768,9 @@ internal object Effects {
                     else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
                 }
             }
+            // spm: the copy's exceptions, after those of a copy it copies (CR 707.9b)
             val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) StackItemKind.SpellCopy(
-                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id) else original.kind
+                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except) else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
                 facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)
@@ -1125,6 +1149,16 @@ internal object Effects {
     private fun keywordAction(scope: Scope, action: KeywordAction, bind: String?) {
         val act = scope.act
         if (action is KeywordAction.Connive && connive(scope, action)) return
+        // tla: CR 701.65a: exile them; each card exiled may be cast by its owner for {2} for as long as it stays exiled
+        if (action is KeywordAction.Airbend) return airbend(scope, action, bind)
+        // tla: CR 701.66a, b: the land, its counters and the delayed return; earthbending happens as that trigger is created
+        if (action is KeywordAction.Earthbend) {
+            KeywordExpansions.expand(action)?.let { Steps.run(scope, it) }
+            val land = scope.objects(arcanum.api.Objects.Target(action.slot))
+            scope.bind(bind, NamedValue.Objects(land))
+            if (land.isNotEmpty()) act.record(Change.Happened(GameEvent.Earthbended(scope.actor)))
+            return
+        }
         KeywordExpansions.expand(action)?.let { steps -> return Steps.run(scope, steps) }
         val cause = scope.cause
         when (action) {
@@ -1276,6 +1310,31 @@ internal object Effects {
         val graveyard = Actions.moveTo(act, scope.cause, rest, Zone.Graveyard)
         act.record(Change.Happened(GameEvent.ManifestedDread(player, manifested, graveyard.values.toList())))
         scope.bind(bind, NamedValue.Objects(listOfNotNull(manifested)))
+    }
+
+    /** tla: CR 701.65a: [action]'s objects are exiled; for each card exiled, an effect lets its owner cast it from exile by paying {2}
+     * rather than its mana cost for as long as it stays there (a new object leaving exile, the effect has nothing left to apply to). */
+    private fun airbend(scope: Scope, action: KeywordAction.Airbend, bind: String?) {
+        val act = scope.act
+        val ids = scope.objects(action.objects).filter { act.state.obj(it)?.let { o -> o.zone == Zone.Battlefield || o.zone == Zone.Stack } == true }.distinct()
+        if (ids.isEmpty()) { scope.bind(bind, NamedValue.Objects(emptyList())); return }
+        val moved = Actions.move(act, scope.cause, ids.map { PlannedMove(it, Zone.Exile, meanings = listOf(Meaning.Exiled)) })
+        val exiled = moved.values.filter { act.state.obj(it)?.zone == Zone.Exile && act.state.obj(it)?.token == false }
+        exiled.forEach { card ->
+            val owner = act.state.obj(card)!!.owner
+            act.record(arcanum.engine.change.Changes.effect(act.state) { ts ->
+                arcanum.engine.state.EffectObject(
+                    id = arcanum.engine.state.EffectId("E$ts"),
+                    mechanics = listOf(Mechanic.MayPlay(Zone.Exile, arcanum.api.PlayKind.Cast, cost = arcanum.api.Cost.mana(arcanum.api.ManaCost.parse("{2}")!!),
+                        holder = arcanum.api.PlayerFilter.You)),
+                    affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self), locked = listOf(card), source = card,
+                    controller = owner, timestamp = ts, createdTurn = act.state.turn.number,
+                    duration = Duration.Indefinitely,
+                )
+            })
+        }
+        scope.bind(bind, NamedValue.Objects(exiled))
+        act.record(Change.Happened(GameEvent.Airbended(scope.actor)))
     }
 
     private const val POPULATED = "\$populated"

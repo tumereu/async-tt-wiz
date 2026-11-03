@@ -56,6 +56,12 @@ sealed interface Mechanic {
         override val layer: Layer get() = Layer.Text
         override val stacking: Stacking get() = Stacking.Independent
     }
+    // tla
+    /** Its name becomes [name] and it loses any other names ("… named Humble Merchant", CR 612.8: a text-changing effect, layer 3). */
+    @Serializable @SerialName("set-name") data class SetName(val name: String) : Mechanic {
+        override val layer: Layer get() = Layer.Text
+        override val stacking: Stacking get() = Stacking.Independent
+    }
     /** Becomes a copy of [objects] (CR 707), with [except] as part of the copy (CR 707.9b). */
     @Serializable @SerialName("copy-of") data class CopyOf(val objects: Objects, val except: List<CopyException> = emptyList()) : Mechanic {
         override val layer: Layer get() = Layer.Copy
@@ -292,8 +298,13 @@ sealed interface Mechanic {
     /** Splice onto [onto] (CR 702.47a): as you cast such a spell you may reveal this card and pay [cost]; the spell gains
      * this card's instructions. Functions in the hand. */
     @Serializable @SerialName("splice-onto") data class SpliceOnto(val onto: ObjectFilter, val cost: Cost) : Mechanic
-    /** Has the activated abilities of [objects] (layer 6), loyalty abilities too unless [exceptLoyalty]. */
-    @Serializable @SerialName("gain-abilities-of") data class GainAbilitiesOf(val objects: Objects, val exceptLoyalty: Boolean = false) : Mechanic {
+    /** Has the activated abilities of [objects] (layer 6), loyalty abilities too unless [exceptLoyalty]; their triggered abilities too
+     * when [triggered] ("has all activated and triggered abilities of the last chosen card", tla). */
+    @Serializable @SerialName("gain-abilities-of") data class GainAbilitiesOf(
+        val objects: Objects, val exceptLoyalty: Boolean = false,
+        // tla
+        val triggered: Boolean = false,
+    ) : Mechanic {
         override val layer: Layer get() = Layer.Ability
         override val stacking: Stacking get() = Stacking.Independent
     }
@@ -352,6 +363,13 @@ sealed interface Mechanic {
     @Serializable @SerialName("cant-gain-life") data object CantGainLife : Mechanic
     @Serializable @SerialName("cant-lose-game") data object CantLoseGame : Mechanic
     @Serializable @SerialName("no-maximum-hand-size") data object NoMaximumHandSize : Mechanic
+    // tla
+    /** The affected players don't lose unspent mana of [colors] as steps and phases end ("you don't lose unspent red mana as steps and
+     * phases end", CR 106.4). */
+    @Serializable @SerialName("keeps-unspent-mana") data class KeepsUnspentMana(val colors: List<Color>) : Mechanic
+    /** Mana the affected players would lose as steps and phases end becomes [color] instead and stays in their mana pool ("If you would
+     * lose unspent mana, that mana becomes red instead", CR 106.4, 614.1a). */
+    @Serializable @SerialName("unspent-mana-becomes") data class UnspentManaBecomes(val color: Color) : Mechanic
     @Serializable @SerialName("maximum-hand-size") data class MaximumHandSizeChange(val change: Int) : Mechanic {
         override val stacking: Stacking get() = Stacking.Additive
     }
@@ -487,6 +505,11 @@ sealed interface ManaPaymentWay {
      * activation cost, you may tap an untapped creature you control rather than pay that mana"): unlike convoke (CR
      * 702.51a) the creature's colour doesn't matter. Used by [ActivationRules.payManaBy]. */
     @Serializable @SerialName("tap-creatures-for-any-mana") data object TapCreaturesForAnyMana : ManaPaymentWay
+    // tla
+    /** Tap an untapped artifact or creature you control rather than pay one generic mana of a waterbend cost (CR 701.67a); only for
+     * the generic mana of the waterbend cost itself, not other generic mana of the total cost (701.67b). Comes from
+     * [CostPart.Waterbend], never written in a definition. */
+    @Serializable @SerialName("waterbend") data object Waterbend : ManaPaymentWay
 }
 
 /** Whether a permission lets a card be played (lands included) or only cast. */
@@ -509,7 +532,12 @@ sealed interface Modification {
     @Serializable @SerialName("destination") data class ChangeDestination(val to: Destination) : Modification
     @Serializable @SerialName("enters-tapped") data object EntersTapped : Modification
     @Serializable @SerialName("enters-with-counters") data class EntersWithCounters(val kind: CounterKind, val amount: Value) : Modification
-    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean) : Modification
+    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(
+        val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean,
+        // spm
+        /** Names the object copied, for the replacement's [Mechanic.Replacement.whenApplied] ("When you do, exile that card"). */
+        val bind: String? = null,
+    ) : Modification
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If

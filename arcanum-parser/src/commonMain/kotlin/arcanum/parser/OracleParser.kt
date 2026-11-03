@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 24
+    const val VERSION: Int = 26
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -44,7 +44,9 @@ object OracleParser {
             // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
             // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
-            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life."))
+            (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life.")) ||
+            // tla chunk 01: "As an additional cost to cast this spell, waterbend {X}." (X announced as it is cast, CR 601.2b, 107.3)
+            (isSpell && card.text.contains("As an additional cost to cast this spell, waterbend {X}."))
         if (hasX) abilities = abilities.map { if (it is Ability.Spell) it.copy(instructions = it.instructions.copy(announced = listOf("X"))) else it }
         // Overload (CR 702.96b): the spell's text with "target" replaced by "each".
         if (abilities.any { it is Keyword.Overload }) {
@@ -58,8 +60,18 @@ object OracleParser {
                 ?.let { if (hasX) it.copy(announced = listOf("X")) else it }
             abilities = abilities.map { if (it is Keyword.Overload && overloaded != null) it.copy(instructions = overloaded) else it }
         }
+        // spm chunk 06: "It gains this card's other abilities." (CR 113.10): the face's other abilities written into the effect
+        abilities = abilities.map { a -> if (a is Ability.Activated && a.text?.contains("this card's other abilities") == true) withOtherAbilities(a, abilities.filter { it !== a }) else a }
         return face.copy(abilities = abilities)
     }
+
+    /** spm: [ability] with the empty "gains abilities" its "this card's other abilities" was read as filled with [others]. */
+    private fun withOtherAbilities(ability: Ability.Activated, others: List<Ability>): Ability.Activated =
+        ability.copy(instructions = ability.instructions.copy(steps = ability.instructions.steps.map { step ->
+            val apply = (step as? arcanum.api.Step.Do)?.effect as? arcanum.api.Effect.ApplyMechanics ?: return@map step
+            step.copy(effect = apply.copy(mechanics = apply.mechanics.map { m ->
+                if (m is arcanum.api.Mechanic.GainAbilities && m.abilities.isEmpty()) arcanum.api.Mechanic.GainAbilities(others) else m }))
+        }))
 
     fun parse(name: String, text: String): FaceDefinition = FaceDefinition(name = name, abilities = abilities(text, setOf(name)))
 
@@ -95,6 +107,8 @@ object OracleParser {
         // abilities, CR 607.2a): hideaway's card, or the cards an exile instruction keeps as card memory.
         // dsk chunk 11: "the discarded card" is the card discarded to pay the additional cost
         sentences.discardedCard = text.contains("the discarded card")
+        // tla chunk 02: an Aura's spell targets through its enchant slot (CR 303.4a)
+        sentences.enchantSlot = text.lines().any { it.startsWith("Enchant ") }
         sentences.exiledCard = when {
             text.lines().any { it.trim().startsWith("Hideaway ") } -> arcanum.api.Objects.LinkedTo(Keyword.Hideaway.Kind)
             text.contains("the exiled card", ignoreCase = true) -> arcanum.api.Objects.Remembered(EXILED_WITH)
@@ -340,6 +354,8 @@ object OracleParser {
     /** One keyword with its values, or null when [part] isn't exactly a known keyword written in its form. */
     fun keyword(part: String): Keyword? {
         // "Flashback—Sacrifice a Mountain." (CR 702.34a): a cost that isn't only mana.
+        // spm: "Mayhem" without a cost (CR 702.187c)
+        if (part == "Mayhem") return Keyword.Mayhem(null)
         FLASHBACK_COST.matchEntire(part)?.let { m ->
             return Keyword.Flashback(Sentences(setOf("this card")).cost(m.groupValues[1]) ?: return null)
         }
@@ -494,6 +510,7 @@ object OracleRenderer {
             append(ability.text)
             if (ability is HasAmount) append(' ').append(ability.amount)
             if (ability is HasCost) append(if (ability is HasAmount) "—" else " ").append(cost(ability.cost))
+            if (ability is Keyword.Mayhem) ability.cost?.let { append(' ').append(cost(it)) } // spm
         }
         else -> error("Rendering ${ability::class.simpleName} is not written yet")
     }

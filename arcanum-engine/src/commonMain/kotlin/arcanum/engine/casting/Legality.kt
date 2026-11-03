@@ -156,8 +156,7 @@ internal object Legality {
         if (way.fused) cantFuse(o, way, fromHand, permission != null)?.let { return it }
         // CR 307.1, 702.8a: sorcery timing unless it's an instant or has flash
         val instant = during != null || !faceDown && (CardType.Instant in types || chars?.hasKeyword(Keyword.Flash) == true ||
-            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card) ||
-            ownInstantSpeed(snap, player, card))
+            snap.view[card]?.has { it is Mechanic.InstantSpeed } == true || castsAsThoughFlash(snap, player, card))
         if (!instant && !sorceryTiming(snap, player)) return "only as a sorcery: your main phase, empty Stack (CR 307.1)"
         restriction(snap, player, card)?.let { return it }
         if (cantCastBy(snap, player, card)) return "$player can't cast it"
@@ -187,13 +186,6 @@ internal object Legality {
         else -> null
     }
 
-    /** ecl: the card's own "You may cast this spell as though it had flash if …" (CR 113.6a: it works where the card is cast
-     * from), when its condition holds. */
-    private fun ownInstantSpeed(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
-        snap.view[card]?.characteristics?.abilities.orEmpty().any { inst ->
-            val static = inst.ability as? Ability.Static ?: return@any false
-            Mechanic.InstantSpeed in static.mechanics && static.condition?.let { snap.evaluator(player, self = card).holds(it) } != false
-        }
 
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->

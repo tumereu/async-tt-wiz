@@ -54,6 +54,10 @@ sealed interface Objects {
     @Serializable @SerialName("where") data class Where(val objects: Objects, val filter: ObjectFilter) : Objects
     /** [base] without [minus] ("the rest", "the other cards"). */
     @Serializable @SerialName("except") data class Except(val base: Objects, val minus: Objects) : Objects
+    // tla
+    /** In an ability another object's static ability gives (layer 6), the object giving it ('Equipped creature has "… Return this
+     * Equipment to its owner's hand."', CR 113.10); elsewhere [Self]. */
+    @Serializable @SerialName("granter") data object Granter : Objects
 }
 
 /**
@@ -211,6 +215,10 @@ sealed interface ObjectFilter {
     /** It crewed one of [vehicles] this turn: it was tapped to pay the cost of that Vehicle's crew ability (CR 702.122b, c;
      * "target creature that crewed it this turn"). */
     @Serializable @SerialName("crewed-this-turn") data class CrewedThisTurn(val vehicles: Objects) : ObjectFilter
+    // spm
+    /** A modified permanent (CR 700.9): it has a counter on it, is equipped, or is enchanted by an Aura its controller
+     * controls ("a modified creature you control"). */
+    @Serializable @SerialName("modified") data object Modified : ObjectFilter
 }
 
 /** A subtype written out, or the one chosen under [Chosen.key] (a choice of this resolution or remembered on the source,

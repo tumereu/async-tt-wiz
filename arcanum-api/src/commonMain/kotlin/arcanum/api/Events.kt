@@ -146,7 +146,13 @@ sealed interface EventPattern {
     /** A player commits a crime: targets an opponent or their objects (CR 700.13). */
     @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter) : EventPattern
     /** A player plays a land (a special action, CR 116.2a, 305.1). */
-    @Serializable @SerialName("play-land") data class PlayLand(val lands: ObjectFilter, val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("play-land") data class PlayLand(
+        val lands: ObjectFilter, val players: PlayerFilter,
+        // spm
+        /** Only a land played from this zone ("whenever you play a land from exile"); [notFrom]: from any zone but this one ("from
+         * anywhere other than your hand"). */
+        val from: Zone? = null, val notFrom: Zone? = null,
+    ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes attached to something matching [to]. Role object
      * (the attachment). */
     @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter, val to: ObjectFilter) : EventPattern
@@ -179,6 +185,19 @@ sealed interface EventPattern {
     /** A permanent matching [objects] would connive or connives (CR 701.50): what a replacement replaces ("If a creature you
      * control would connive, instead …"). Role object (the conniving permanent); [Players.EventPlayer] is its controller. */
     @Serializable @SerialName("connive") data class Connive(val objects: ObjectFilter) : EventPattern
+    // tla
+    /** A player matching [players] airbends: exiles one or more objects as a result of an instruction to airbend (CR 701.65b). */
+    @Serializable @SerialName("airbend") data class Airbend(val players: PlayerFilter) : EventPattern
+    /** A player matching [players] earthbends: as the delayed triggered ability of an earthbend is created (CR 701.66b). */
+    @Serializable @SerialName("earthbend") data class Earthbend(val players: PlayerFilter) : EventPattern
+    /** A player matching [players] firebends: a firebending ability they control resolves (CR 702.189b). */
+    @Serializable @SerialName("firebend") data class Firebend(val players: PlayerFilter) : EventPattern
+    /** A player matching [players] waterbends: pays a waterbend cost, however they paid it (CR 701.67c). */
+    @Serializable @SerialName("waterbend") data class Waterbend(val players: PlayerFilter) : EventPattern
+    /** A triggered ability of an object matching [source] triggers on an event matching [cause] ("Whenever a creature you control
+     * attacking causes a triggered ability of that creature to trigger", CR 603.2). Roles object (the triggered ability, once it is
+     * put on the Stack) and source (its source). */
+    @Serializable @SerialName("ability-triggers") data class AbilityTriggers(val source: ObjectFilter, val cause: EventPattern) : EventPattern
 }
 
 /** Who received damage or is attacked: objects matching [objects], players matching [players]. Both null = any. */
@@ -205,6 +224,10 @@ sealed interface Trigger {
         /** With [oneOrMore]: only a batch whose objects' [Total.property] adds up to at least [Total.atLeast] ("whenever you
          * attack with creatures with total power 12 or greater"); with [nthThisTurn], only such batches count. */
         val batchTotal: Total? = null,
+        // spm
+        /** With [nthThisTurn]: each of the first [nthThisTurn] such events, not only the last of them ("whenever you draw your first or
+         * second card each turn"). */
+        val throughNth: Boolean = false,
     ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
     }

@@ -641,6 +641,13 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "firebending"; override val text: String get() = "Firebending"; override val rule: String get() = "702.189" }
     }
+    // tla
+    /** "Firebending X, where X is [amount]" (CR 702.189a): firebending with a computed amount, read as the ability resolves. It is a
+     * firebending ability, so "gains firebending" and "with firebending" find it: its kind is firebending's. */
+    @Serializable @SerialName("firebending-x") data class FirebendingX(val amount: Value) : Keyword {
+        override val kind: KeywordKind get() = Firebending.Kind
+        override val text: String get() = "Firebending"; override val rule: String get() = "702.189"
+    }
     /** Teamwork (CR 702.194) */
     @Serializable @SerialName("teamwork") data class Teamwork(override val amount: Int) : Keyword, HasAmount {
         init { requireAmount(amount) }
@@ -884,8 +891,9 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "warp"; override val text: String get() = "Warp"; override val rule: String get() = "702.185" }
     }
-    /** Mayhem (CR 702.187) */
-    @Serializable @SerialName("mayhem") data class Mayhem(override val cost: Cost) : Keyword, HasCost {
+    /** Mayhem (CR 702.187): cast from the graveyard for [cost] if discarded this turn; spm: [cost] null is "Mayhem" without a cost,
+     * play the card from the graveyard (CR 702.187c). */
+    @Serializable @SerialName("mayhem") data class Mayhem(val cost: Cost?) : Keyword {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "mayhem"; override val text: String get() = "Mayhem"; override val rule: String get() = "702.187" }
     }
@@ -945,7 +953,13 @@ sealed interface Keyword : Ability {
     /** Enchant creature / player / land you control …: what the Aura can target and enchant. (CR 702.5) */
     @Serializable @SerialName("enchant") data class Enchant(val what: TargetKind) : Keyword {
         override val kind: KeywordKind get() = Kind
-        companion object Kind : KeywordKind { override val id: String get() = "enchant"; override val text: String get() = "Enchant"; override val rule: String get() = "702.5" }
+        companion object Kind : KeywordKind {
+            override val id: String get() = "enchant"; override val text: String get() = "Enchant"; override val rule: String get() = "702.5"
+            // tla
+            /** The target slot of an Aura spell, the one its enchant keyword gives (CR 303.4a): what its other abilities name when they read
+             * that target ("This spell costs {1} less to cast if it targets a creature with flying"). */
+            const val SLOT: String = "enchant"
+        }
     }
     /** Protection from [quality]; [from] matches the sources it protects from ("everything" = Any). (CR 702.16) */
     @Serializable @SerialName("protection") data class Protection(val from: ObjectFilter) : Keyword {

@@ -115,6 +115,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val permission: Pair<Mechanic.MayPlay, AbilityOrigin?>? = if (byEffect) (c.what as Announced.Spell).permitted?.let { it to null }
         else way.permission?.let { p -> (c.what as? Announced.Spell)?.permitted?.let { it to p.ability } ?: permissionMechanic(plain, p) }
 
+    /** tla: the source, when the cost taps it ({T}, CR 107.5): not also tapped for mana in a suggested payment. */
+    val tappedByCost: Set<ObjectId> get() = if (total.parts.any { it.part == arcanum.api.CostPart.TapSelf }) setOf(sourceId) else emptySet()
+
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
     // gtc
     val fused = way.fused
@@ -424,8 +427,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2); ecl: also those
      * other objects give the spell ("Creature spells you cast have convoke", CR 601.2a). */
-    val manaWays: List<ManaPaymentWay> = if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
-        withGrantedAsSpell().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }
+    val manaWays: List<ManaPaymentWay> by lazy {
+        (if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
+            withGrantedAsSpell().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
+            // tla: one Waterbend for each generic mana of its waterbend costs (CR 701.67b; Mana.specialPayers)
+            List(total.waterbend) { ManaPaymentWay.Waterbend }
+    }
 
     /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b). */
     val manaAsAnyColor: Boolean get() = permission?.first?.manaAsAnyColor == true
@@ -439,8 +446,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         .filterIsInstance<Mechanic.XAtMost>().minOfOrNull { eval.value(it.max) }
 
     /** The least X may be ("X can't be 0", CR 107.3). */
-    private fun xMinimum(): Int = snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
-        .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
+    private fun xMinimum(): Int = if (!isSpell) (ability as? Ability.Activated)?.rules?.minimumX ?: 0 // tla: an activated ability's own
+        else snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
+            .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
 
     // ---- The next question
 
@@ -626,18 +634,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
             Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, excluding = tappedByCost))
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, notSources = tappedByCost))
     }
-
-    /** blb backfill: an ability whose cost taps or untaps its own source can't also be paid with that source's mana
-     * (CR 601.2h: the {T} is paid after the mana abilities are activated), so the suggestion leaves it out. */
-    private val tappedByCost: Set<ObjectId>
-        get() = if ((ability as? Ability.Activated)?.cost?.parts.orEmpty().any { it is arcanum.api.CostPart.TapSelf || it is arcanum.api.CostPart.UntapSelf })
-            setOf(sourceId) else emptySet()
 
     companion object {
         /** The target slot of an Aura spell (CR 303.4a) and of a bestowed spell (CR 702.103b). */
-        const val ENCHANT_SLOT = "enchant"
+        const val ENCHANT_SLOT = arcanum.api.Keyword.Enchant.SLOT
 
         // Keys in [arcanum.engine.decision.Choices.names] the casting flow keeps for itself; [publicNames] drops them.
         const val ITEM = "\$item"

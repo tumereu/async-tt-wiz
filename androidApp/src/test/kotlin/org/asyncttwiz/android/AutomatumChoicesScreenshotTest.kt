@@ -311,6 +311,28 @@ class AutomatumChoicesScreenshotTest {
         assertNotEquals(true, skipped.tag?.folded, "an event of its own in the timeline")
     }
 
+    // TRN-065 (I-D53, pivot review #1): Alice's Storm Spark takes Bob from 3 life to 0: the rules end the game, and both
+    // players see the result at once from their own side, with one OK that either may press
+    @Test fun theRulesEndTheGameAndBothSeeTheResult() {
+        val start = board().let { it.copy(board = it.board.copy(players = it.board.players.map { p -> if (p.accountId == f.b) p.copy(life = "3") else p })) }
+        val alice = toolkit(start, f.a)
+        assertTrue(alice.cast.start(aCard), alice.error)
+        val target = TablePresentation.scene(f.game, start, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
+        alice.open(TableIntent.Actions(target.id, null), target)
+        if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
+        val (batch, request) = sent.single()
+        val ended = accepted(start, batch, request, f.a)
+        assertEquals("0", ended.board.players.single { it.accountId == f.b }.life)
+        val result = assertNotNull(ended.board.resultSuggestion, "the rules' result is recorded")
+        assertTrue(result.byRules)
+        assertEquals("You won", ResultActions.pendingPresentation(f.game, ended, f.a)!!.text)
+        render(ended, f.b)
+        compose.onNodeWithText("You lost").assertExists()
+        compose.onNodeWithText("OK").assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/automatum/rules-result-lost.png",
+            "Alice's Storm Spark took Bob from 3 life to 0: on Bob's table a panel over the board reads \"You lost\" with one OK button (a check icon and \"OK\"); Alice sees \"You won\", and either of them may press OK.")
+    }
+
     // TRN-063, STK-029, I-D46 d: with Alice's spell on the Stack, Bob (who could answer) holds priority: his step arrow says
     // Resolve, and a tap passes as Let it resolve does, so the spell resolves
     @Test fun resolveOnTheStepArrowPasses() {

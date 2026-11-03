@@ -19,7 +19,7 @@ text in `docs/design/` or `docs/decisions.md`, the catalog wins.
 ## Entry format
 
 ```
-- **TBL-012** Double-tapping a library draws its top card into its owner's hand. (r1)
+- **TBL-012** A double tap on empty battlefield without dragging zooms to fit the whole table (empty columns are not counted). (r2)
 ```
 
 - One line, plain words, what a player sees or can do. Exact numbers the owner

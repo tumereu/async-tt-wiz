@@ -20,6 +20,7 @@ import org.asyncttwiz.server.database.RoundTripProxy
 import org.asyncttwiz.server.decks.DeckHttp
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
+import org.asyncttwiz.server.game.boarded
 import org.asyncttwiz.server.lobby.LobbyHttp
 import org.asyncttwiz.server.lobby.LobbyService
 import org.asyncttwiz.server.pods.PodHttp
@@ -147,7 +148,7 @@ class RequestCostTest {
                     }
                     repeat(10) {
                         // Game action: socket admission, execution, then publication to both players' open tables.
-                        val command = org.asyncttwiz.server.game.boarded(games, a, GameCommand(id(), GameScope(game.id, playId = play.id),
+                        val command = games.boarded(pa, GameCommand(id(), GameScope(game.id, playId = play.id),
                             org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(pa.account.accountId, "1")), streamA.streamId, streamA.generation))
                         measure("game action: admit") { socket(a.token) { games.admit(it, hello, connection, command) } }
                         measure("game action: execute") { assertTrue(games.executeOne()) }

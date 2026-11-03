@@ -261,6 +261,42 @@ class GameResultLifecycleTest {
     }
 
     // LOB-114, TRN-027
+    // TRN-065, LOB-111 (I-D53, pivot review #1): the result the rules gave waits for either player's OK; nobody declines or
+    // withdraws it and only Automatum records it; Undo takes it back until it is confirmed; once one player confirms it
+    // (its author too) the game is over for both and the other is told the result from their side
+    @Test fun `the rules' result is confirmed by either player and told to the other`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            Fixture(db).use { f ->
+                val activity = org.asyncttwiz.server.activity.ActivityService(f.runtime)
+                val play = GameScope(f.game.id, playId = f.games.head(f.a, f.game.id).summary.playId)
+                fun board() = f.games.head(f.a, f.game.id).play!!.board
+                val rules = PlayAction.SuggestResult(SuggestedResult.WIN, byRules = true)
+                assertEquals(RuleRefusals.AUTOMATUM_ONLY, f.owner.execute(GameAction.Play(rules)).reason, "only Automatum records it")
+                assertEquals("accepted", f.owner.execute(automatedPlay(rules)).outcome)
+                var suggestion = board().resultSuggestion!!
+                assertTrue(suggestion.byRules); assertEquals(f.a.account.accountId, suggestion.author)
+                assertEquals("inapplicable", f.other.execute(GameAction.Play(PlayAction.DeclineResult(suggestion.id))).reason)
+                assertEquals("inapplicable", f.owner.execute(GameAction.Play(PlayAction.WithdrawResult(suggestion.id))).reason)
+                assertEquals("inapplicable", f.other.execute(f.other.command(GameAction.Concede, play)).reason, "the game is over already")
+                // Undo takes it back until it is confirmed
+                assertEquals("accepted", f.owner.execute(f.owner.command(GameAction.Undo, play)).outcome)
+                assertNull(board().resultSuggestion)
+                assertEquals("accepted", f.owner.execute(automatedPlay(rules)).outcome)
+                suggestion = board().resultSuggestion!!
+                // Either player confirms it, its author too
+                val accept = f.owner.command(GameAction.AcceptResult(suggestion.id))
+                assertEquals("accepted", f.owner.execute(accept).outcome)
+                val head = f.games.head(f.b, f.game.id)
+                assertEquals(GameLifecycle.LOBBY, head.summary.lifecycle); assertNull(head.play)
+                val notice = activity.page(f.b, null).readyNotices!!.single { it.kind == ActivityKind.GAME && it.gameId == f.game.id }
+                assertEquals(accept.requestId, notice.identity)
+                assertEquals(SuggestedResult.LOSS, notice.notice!!.gameOver, "from Bob's side")
+                assertTrue(notice.notice!!.byRules); assertFalse(notice.notice!!.conceded)
+            }
+        }
+    }
+
     @Test fun `setting Ready while the other player still mulligans tells them their opponent is ready`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

@@ -67,8 +67,9 @@ object AutomatumOnly {
     /** Whether [actor] may send [action] outside an automated batch on [board] (an opening action only as part of its
      * batch, which [refusal] checks). */
     fun allowed(board: BoardState, actor: String, action: PlayAction): Boolean = when (action) {
-        is PlayAction.SuggestResult, is PlayAction.DeclineResult, is PlayAction.WithdrawResult, is PlayAction.InspectFace,
-        PlayAction.PassAttention -> true
+        // I-D53: the rules' result is Automatum's alone
+        is PlayAction.SuggestResult -> !action.byRules
+        is PlayAction.DeclineResult, is PlayAction.WithdrawResult, is PlayAction.InspectFace, PlayAction.PassAttention -> true
         is PlayAction.Mtg -> when (val mtg = action.action) {
             is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
             is MtgAction.SetMulligans -> opening(board, actor) && mtg.before == mulligans(board, actor) &&

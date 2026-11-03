@@ -1,0 +1,1 @@
+Alice's Storm Spark took Bob from 3 life to 0: on Bob's table a panel over the board reads "You lost" with one OK button (a check icon and "OK"); Alice sees "You won", and either of them may press OK.

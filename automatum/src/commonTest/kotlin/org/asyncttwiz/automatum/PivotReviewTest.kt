@@ -13,9 +13,9 @@ import arcanum.parser.OracleCard
 import arcanum.parser.OracleParser
 import org.asyncttwiz.protocol.MtgPriority
 import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.SuggestedResult
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.TurnState
-import kotlin.test.Ignore
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -32,13 +32,12 @@ class PivotReviewTest {
     private val alice get() = table.alice
     private val bob get() = table.bob
 
-    // pivotreview #1 — SYS-055, TRN-064, CR 104.2a, 104.3b, 704.5a (I-D52: every game is played by the rules): Alice's
+    // pivotreview #1 (I-D53) — SYS-055, TRN-064, CR 104.2a, 104.3b, 704.5a (I-D52: every game is played by the rules): Alice's
     // Storm Spark takes Bob from 3 life to 0; the engine says Alice won, but the game doesn't end and nobody is told: the
     // play has no result or suggestion, and the engine gives nobody anything to do (no priority holder, no declaration),
     // so the step arrow (read from ATW's board) still offers a step that Automatum refuses. The players must find
     // "Suggest game end" (or Concede) themselves. Expected: the engine's result ends the game the way an accepted result
     // does, or at least shows as a result suggestion both players see (see the report's owner question).
-    @Ignore("pivotreview #1: a game the rules ended goes on")
     @Test fun aPlayerAtZeroLifeEndsTheGame() {
         table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
         table.put(alice, PlayZone.HAND, "Storm Spark")
@@ -54,12 +53,14 @@ class PivotReviewTest {
         // Automatum has nothing left for anyone to do
         val flow = SharedFlow(rt.state, rt.definitions, EngineLog.from(rt.tags, rt.state, rt.definitions), rt::seed)
         assertNull(flow.holder); assertNull(flow.declaring); assertNull(flow.decision)
-        assertNotNull(rt.state.board.resultSuggestion, "the rules' result reaches the game's result")
+        val result = assertNotNull(rt.state.board.resultSuggestion, "the rules' result reaches the game's result")
+        // I-D53: recorded as the rules' result, Alice's win from either side, for either player to confirm
+        assertTrue(result.byRules)
+        assertEquals(SuggestedResult.WIN, result.outcomeFor(alice)); assertEquals(SuggestedResult.LOSS, result.outcomeFor(bob))
     }
 
     // pivotreview #1 — TRN-060, CR 104.4b (I-D52: loop protection is the engine's Continue / Draw choice): choosing Draw
     // makes the engine's game a draw, but ATW's play goes on as before, with no result and nothing to do
-    @Ignore("pivotreview #1: a game the rules ended goes on")
     @Test fun aDrawChosenOnALoopEndsTheGame() {
         val revenant = Cards.invent("Restless Revenant", "{1}{B}", "Creature — Spirit",
             "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
@@ -76,7 +77,8 @@ class PivotReviewTest {
         rt.run(alice) { StepFlow.pass(it, alice) }
         rt.run(bob) { StepFlow.answer(it, Answer.Option(LoopStop.DRAW)) }
         assertEquals(GameResult.Draw, Engine.result(rt.engine()))
-        assertNotNull(rt.state.board.resultSuggestion, "the draw reaches the game's result")
+        val result = assertNotNull(rt.state.board.resultSuggestion, "the draw reaches the game's result")
+        assertTrue(result.byRules); assertEquals(SuggestedResult.DRAW, result.outcome)
     }
 
     // pivotreview #6 — I-D51, LOB-115: a card is unsupported only when Automatum leaves part of it to the players. The

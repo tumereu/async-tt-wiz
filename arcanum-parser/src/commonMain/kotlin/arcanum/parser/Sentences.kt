@@ -1561,7 +1561,7 @@ internal class Sentences(
             it.objects == ObjectFilter.Is(Objects.AttachedTo(Objects.Self)) }
         val defined = WHERE_X.find(text)?.let { w ->
             if (diedOther != null && w.groupValues[1] == "its power") Value.Of(arcanum.api.NumericProperty.Power, Objects.EventObject(EventRole.Before), arcanum.api.Combine.Single)
-            else tlaValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
+            else finValue(w.groupValues[1], event) /* fin */ ?: tlaValue(w.groupValues[1], event) ?: sosValue(w.groupValues[1], event) ?: SosPhrases.value(w.groupValues[1]) ?: Values.value(w.groupValues[1], exiledCard) ?: mshValue(w.groupValues[1]) // msh, sos
                 ?: TmtPhrases.value(w.groupValues[1], self) // tmt
         }
         // blb gaps 2: "where X is Helga's power" (this object's), when no sentence rule reads that X itself
@@ -17160,6 +17160,18 @@ internal class Sentences(
             return Ability.Static(listOf(Mechanic.Replacement(EventPattern.Transform(Filters.all(ObjectFilter.Is(Objects.Self), ObjectFilter.Named(face))),
                 modify = listOf(Modification.AsTransforms(steps)))), affects = arcanum.api.Affected.Objects(Objects.Self))
         }
+        // fin chunk 07: "If you would gain life, you gain twice that much life instead." (CR 614.1a)
+        if (line == "If you would gain life, you gain twice that much life instead.")
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.GainLife(PlayerFilter.You), modify = listOf(Modification.MultiplyAmount(2)))),
+                affects = arcanum.api.Affected.Objects(Objects.Self))
+        // fin chunk 07: "As long as Cloud is equipped, if a triggered ability of Cloud or an Equipment attached to it triggers, that ability triggers an
+        // additional time." (CR 603.2d)
+        Fin.EQUIPPED_TRIGGERS_ADDITIONAL.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) && isSelf(it.groupValues[2]) }?.let {
+            val equipment = ObjectFilter.Sub(Subtype("Equipment"))
+            return Ability.Static(listOf(Mechanic.TriggersAdditionalTime(null, ObjectFilter.Or(listOf(ObjectFilter.Is(Objects.Self),
+                Filters.all(equipment, ObjectFilter.Attached(to = Objects.Self)))))), affects = arcanum.api.Affected.Objects(Objects.Self),
+                condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(to = null, attachments = equipment)))
+        }
         // fin-late-end
         return null
     }
@@ -17262,6 +17274,15 @@ internal class Sentences(
             val then = instructions(m.groupValues[1].replaceFirstChar { it.uppercase() } + ".")?.takeIf { it.targets.isEmpty() } ?: return null
             return steps.dropLast(1) + last.copy(then = listOf(Step.Pay(steps = may.steps, payer = may.player, bind = "put"))) +
                 Step.If(arcanum.api.Condition.Did("put"), then = then.steps)
+        }
+        // fin chunk 07: "If this spell was cast from a graveyard, put that card onto the battlefield instead." after putting a found card into the
+        // hand (CR 608.2c)
+        if (sentence == "If this spell was cast from a graveyard, put that card onto the battlefield instead.") {
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val move = last.effect as? Effect.Move ?: return null
+            if (move.to.zone != Zone.Hand) return null
+            return steps.dropLast(1) + Step.If(arcanum.api.Condition.CastFrom(Zone.Graveyard, Objects.Self),
+                then = listOf(Step.Do(move.copy(to = Destination(Zone.Battlefield)))), otherwise = listOf(last))
         }
         // fin-modify-end
         return null
@@ -17490,6 +17511,21 @@ internal class Sentences(
             val amount = if (m.groupValues[1] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
             return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(amount, colors = colors, combination = true)), Players.You)))
         }
+        // fin chunk 07: "End the turn." (CR 724.1)
+        if (sentence == "End the turn.") return listOf(Step.Do(Effect.EndTurn))
+        // fin chunk 07: "You may return another permanent you control to its owner's hand." (chosen as it resolves, not targeted)
+        Fin.MAY_RETURN_TO_HAND.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // fin chunk 07: "You may attach any number of Equipment you control to target creature you control." (CR 701.3)
+        Fin.MAY_ATTACH_ANY_NUMBER.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null), bind = "equipment", chooser = Players.You),
+                Step.Do(Effect.Attach(Objects.Bound("equipment"), Recipients(objects = target))))
+        }
         // fin-effect-end
         return null
     }
@@ -17517,6 +17553,35 @@ internal class Sentences(
         if (text == "Each player discards a card. Then you draw a card for each card type among cards discarded this way.") {
             return listOf(Step.Do(Effect.Discard(Players.Each(PlayerFilter.Any), Value.Fixed(1), ObjectFilter.Any, postBind = "discarded")),
                 Step.Do(Effect.Draw(Players.You, Value.CountDistinct(Objects.Bound("discarded"), arcanum.api.SharedQuality.CardType))))
+        }
+        // fin chunk 07: "Search your library and/or graveyard for an artifact card with mana value 2 or less, reveal it, and put it into your hand.
+        // If you search your library this way, shuffle." (CR 701.23)
+        Fin.SEARCH_LIBRARY_AND_OR_GRAVEYARD.matchEntire(text)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.Search(Players.You, filter, max = Value.Fixed(1), reveal = true, zones = listOf(Zone.Library, Zone.Graveyard), bind = "found",
+                searcher = Players.You)), Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Hand))),
+                Step.If(arcanum.api.Condition.Searched("found", Zone.Library), then = listOf(Step.Do(Effect.Shuffle(Players.You)))))
+        }
+        // fin chunk 07: "Target opponent gains control of another target permanent you control. If they do, you draw a card." (CR 613.1b)
+        Fin.OPPONENT_GAINS_CONTROL_IF_THEY_DO.matchEntire(text)?.let { m ->
+            context.targets += TargetSlot("opponent", TargetKind.Players(PlayerFilter.Opponent), min = Value.Fixed(1), max = Value.Fixed(1))
+            val opponent = Players.Target("opponent")
+            val permanent = context.target(Filters.slotName(m.groupValues[1]), Filters.noun("another " + m.groupValues[1]) ?: return null)
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ControlledBy(opponent)), arcanum.api.Affected.Objects(permanent), arcanum.api.Duration.Indefinitely)),
+                Step.If(arcanum.api.Condition.ObjectMatches(permanent, ObjectFilter.ControlledBy(PlayerFilter.Is(opponent))), then = then))
+        }
+        // fin chunk 07: "Target creature you control gains indestructible until end of turn. Put Zack's counters on that creature and attach an
+        // Equipment that was attached to Zack to that creature." (the sacrificed creature as it last existed, CR 608.2h)
+        Fin.GAINS_PUT_COUNTERS_ATTACH_EQUIPMENT.matchEntire(text)?.takeIf { isSelf(it.groupValues[3]) && isSelf(it.groupValues[4]) }?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val granted = keywords(m.groupValues[2]) ?: return null
+            val equipment = ObjectFilter.Sub(Subtype("Equipment"))
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)),
+                Step.Do(Effect.PutCountersOf(target, Objects.Self)),
+                Step.Choose(arcanum.api.Choice.Objects(equipment, Value.Fixed(1), Value.Fixed(1), from = Objects.AttachmentsOf(Objects.Self, equipment)), bind = "equipment",
+                    chooser = Players.You),
+                Step.Do(Effect.Attach(Objects.Bound("equipment"), Recipients(objects = target))))
         }
         // fin-whole-end
         return null
@@ -17556,6 +17621,17 @@ internal class Sentences(
         // fin chunk 05: "Whenever an opponent loses life" (CR 119.3)
         if (events == "an opponent loses life") return arcanum.api.Trigger.On(EventPattern.LoseLife(PlayerFilter.Opponent))
         // fin-trigger-end
+        return null
+    }
+    /** fin: values "where X is …" names, tried first. */
+    private fun finValue(text: String, event: EventPattern?): Value? {
+        // fin chunk 07: "the number of +1/+1 counters on Aerith" (in its dies trigger: on it as it last existed, CR 603.10a)
+        Fin.NUMBER_OF_COUNTERS_ON.matchEntire(text)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val died = (event as? EventPattern.ZoneChange)?.let { it.objects == ObjectFilter.Is(Objects.Self) && it.from == Zone.Battlefield } == true
+            return Value.Of(arcanum.api.NumericProperty.Counters(kind), if (died) Objects.EventObject(EventRole.Before) else Objects.Self, arcanum.api.Combine.Single)
+        }
+        // fin-fvalue-end
         return null
     }
     // ---- fin end

@@ -317,7 +317,22 @@ object OracleParser {
                 if (ability is Ability.Spell || ability.isCastingCost()) Ability.Unparsed(raws[index]) else ability.withText(raws[index])
             }.distinct()
         }
-        return result.mapIndexed { index, ability -> ability.withText(raws[index]) }
+        return finCostTargets(result).mapIndexed { index, ability -> ability.withText(raws[index]) }
+    }
+
+    /** fin chunk 07: "This spell costs {2} less to cast if it targets a tapped creature." read before the spell's "target nonland permanent":
+     * the condition names a slot the spell doesn't have; it is the spell's only object target, which must also be that noun (CR 601.2f). */
+    private fun finCostTargets(abilities: List<Ability>): List<Ability> {
+        val slots = abilities.filterIsInstance<Ability.Spell>().flatMap { it.instructions.targets }
+        val only = slots.singleOrNull()?.takeIf { it.what is arcanum.api.TargetKind.Objects } ?: return abilities
+        return abilities.map { ability ->
+            val static = ability as? Ability.Static ?: return@map ability
+            val condition = static.condition as? arcanum.api.Condition.ObjectMatches ?: return@map ability
+            val target = condition.objects as? arcanum.api.Objects.Target ?: return@map ability
+            if (target.slot == only.name || static.mechanics.none { it is arcanum.api.Mechanic.CostChange }) return@map ability
+            val noun = Filters.noun(target.slot) ?: return@map ability
+            static.copy(condition = arcanum.api.Condition.ObjectMatches(arcanum.api.Objects.Target(only.name), Filters.all(condition.filter, noun)))
+        }
     }
 
     /** The ability with its printed [raw] lines as its text, reminder text left out (shown to players: "you may"

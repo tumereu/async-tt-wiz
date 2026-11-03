@@ -137,4 +137,12 @@ internal object Fin {
     val COUNTER_ON_SELF_AND_IT = Regex("""Put an? (\S+) counter on (.+?) and it (.+)\.""")
     val SACRIFICE_SELF_AND_DEALS_THAT_MUCH = Regex("""Sacrifice (.+?) and it deals that much damage to each opponent\.""")
     val ADD_X_ANY_COMBINATION = Regex("""Add (X|\w+) mana in any combination of \{([WUBRG])\} and/or \{([WUBRG])\}\.""")
+    // fin chunk 07
+    val MAY_RETURN_TO_HAND = Regex("""You may return (another .+?) to its owner's hand\.""")
+    val MAY_ATTACH_ANY_NUMBER = Regex("""You may attach any number of (.+?) to target (.+)\.""")
+    val SEARCH_LIBRARY_AND_OR_GRAVEYARD = Regex("""Search your library and/or graveyard for an? (.+?), reveal it, and put it into your hand\. If you search your library this way, shuffle\.""")
+    val OPPONENT_GAINS_CONTROL_IF_THEY_DO = Regex("""Target opponent gains control of another target (.+?)\. If they do, (.+)\.""")
+    val GAINS_PUT_COUNTERS_ATTACH_EQUIPMENT = Regex("""Target (.+?) gains (.+?) until end of turn\. Put (.+?)'s counters on that creature and attach an Equipment that was attached to (.+?) to that creature\.""")
+    val EQUIPPED_TRIGGERS_ADDITIONAL = Regex("""As long as (.+?) is equipped, if a triggered ability of (.+?) or an Equipment attached to it triggers, that ability triggers an additional time\.""")
+    val NUMBER_OF_COUNTERS_ON = Regex("""the number of (\S+) counters on (.+)""")
 }

@@ -127,6 +127,22 @@ class AuthorityTest {
         assertTrue(server.submit(Submission("x5", head, table = listOf(settings)), bob).isSuccess)
     }
 
+    // I-D55: each player acts only for themselves: Bob can't answer Alice's open declaration, nor declare for her
+    @Test
+    fun aPlayerActsOnlyForThemselves() {
+        val server = Server(EngineGames(8))
+        server.start(start)
+        val alice = server.games.alice; val bob = server.games.bob
+        val open = server.state().engine.pending!!.decision
+        assertEquals(alice, open.player)
+        val answer = Input.Answer(open.id, Answer.Option("Keep"))
+        assertTrue(Input.SetupAnswer(alice, Answer.Option("Keep")).let { !Authority.mayMake(server.state().engine, it, bob) })
+        assertEquals(false, Authority.mayMake(server.state().engine, answer, bob))
+        assertTrue(server.submit(Submission("o1", server.head, listOf(Act.Perform(answer))), bob).isFailure)
+        // Alice answers it herself
+        assertTrue(server.submit(Submission("o2", server.head, listOf(Act.Perform(answer))), alice).isSuccess)
+    }
+
     @Test
     fun aSuggestedResultIsAgreedByTheOtherPlayer() {
         val server = Server(EngineGames(4))
@@ -178,7 +194,7 @@ class AuthorityTest {
             while (events < 150 && Engine.result(server.state().engine) == null) {
                 val device = devices[rnd.nextInt(2)]
                 val state = device.model.engine
-                val listed = Engine.options(state, device.me).filter { it !is Input.Concede }
+                val listed = Engine.options(state, device.me).filter { it !is Input.Concede && Authority.mayMake(state, it, device.me) }
                 val input = listed.randomOrNull(rnd) ?: continue
                 val submission = device.act("e$seed-${++events}", input)
                 val event = server.submit(submission, device.me).getOrThrow()

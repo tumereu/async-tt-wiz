@@ -7,6 +7,7 @@ import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.RandomKind
 import arcanum.engine.input.Input
+import arcanum.engine.state.GameState
 import arcanum.engine.state.PlayerId
 import kotlin.random.Random
 import kotlinx.serialization.SerialName
@@ -51,10 +52,12 @@ class Refusal(val reason: String) : RuntimeException(reason)
 /**
  * The server's gate (I-D54 §3): a submission is accepted when every engine input is one the engine accepts on the state
  * (the engine is the only rules check, so no ATW rules gate is left) and every table change fits the table and is the
- * author's to make. Every player may make every gameplay input (all-actions policy, P7); what stays the player's own:
- * conceding (CR 104.3a), their settings and early answers, their result suggestion, and accepting a result the other
- * player suggested (an [Input.AgreedResult] only answers the other player's [TableState.suggestion] of that result).
- * Random results come from the device and are taken as given (owner, 2026-11-03).
+ * author's to make. Each player acts only for themselves (I-D55): an input naming a player, or answering a player's
+ * decision, is the author's only when they are its decider ([Engine.decider], CR 723); the host's pass for a player
+ * whose own setting passes now ([Engine.shouldPassFor]) and the host's random answers and fills are anyone's. Also
+ * the player's own: conceding (CR 104.3a), their settings and early answers, their result suggestion, and accepting a
+ * result the other player suggested (an [Input.AgreedResult] only answers the other player's [TableState.suggestion]
+ * of that result). Random results come from the device and are taken as given (owner, 2026-11-03).
  */
 object Authority {
     /**
@@ -67,7 +70,7 @@ object Authority {
             val suggestion = model.table.suggestion
             for (act in submission.acts) when (act) {
                 is Act.Perform -> {
-                    allowed(act.input, author, suggestion)
+                    allowed(act.input, author, suggestion, model.engine)
                     try { builder.perform(act.input) }
                     catch (e: IllegalArgumentException) { throw Refusal("Refused by the engine: ${e.message}") }
                     catch (e: IllegalStateException) { throw Refusal("Refused by the engine: ${e.message}") }
@@ -90,12 +93,35 @@ object Authority {
         }
     }
 
-    private fun allowed(input: Input, author: PlayerId, suggestion: ResultSuggestion?) {
+    /** Whether [author] may make [input] on [state] (I-D55), the engine's own check aside: what a device offers its
+     * player of [Engine.options], which lists answers to every player. */
+    fun mayMake(state: GameState, input: Input, author: PlayerId, suggestion: ResultSuggestion? = null): Boolean =
+        try { allowed(input, author, suggestion, state); true } catch (_: Refusal) { false }
+
+    /** I-D55: [author] makes [input] on [state] only as the player who decides it ([Engine.decider], CR 723). */
+    private fun allowed(input: Input, author: PlayerId, suggestion: ResultSuggestion?, state: GameState) {
+        fun own(player: PlayerId) {
+            if (Engine.decider(state, player) != author) throw Refusal("Only ${Engine.decider(state, player)} acts for $player (I-D55)")
+        }
         when (input) {
-            is Input.Concede -> if (input.player != author) throw Refusal("Only ${input.player} concedes for themselves (CR 104.3a)")
+            is Input.Concede -> if (input.player != author) throw Refusal("Only ${input.player} concedes for themselves (CR 104.3a, 723.6)")
             is Input.AgreedResult -> if (suggestion == null || suggestion.result != input.result || suggestion.by == author)
                 throw Refusal("A result is agreed by accepting the other player's suggestion of it")
-            else -> {}
+            // The host's pass for a player whose own setting passes now (Engine.shouldPassFor): no choice of anyone's
+            is Input.PassPriority -> if (!Engine.shouldPassFor(state, input.player)) own(input.player)
+            is Input.PlayLand -> own(input.player)
+            is Input.Cast -> own(input.player)
+            is Input.Activate -> own(input.player)
+            is Input.DeclareAttackers -> own(input.player)
+            is Input.DeclareBlockers -> own(input.player)
+            is Input.Cancel -> own(input.player)
+            is Input.SetupAnswer -> own(input.player)
+            // Random results and fills are the host's (D25, D60): the device that made the event answers them
+            is Input.Answer -> when (val d = state.pending?.decision) {
+                null, is Decision.Random, is Decision.HostFill -> {}
+                else -> own(d.player)
+            }
+            is Input.StartGame, Input.MandatoryLoop -> {}
         }
     }
 

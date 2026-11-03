@@ -178,7 +178,10 @@ model is untouched):**
   mulligans are still taken together; listed by `options`). Concede was already an engine input.
 - **Submissions** (`protocol` `game/Submission.kt`): `Submission(id, parentId, acts, table)`: inputs, not results
   (`Act.Perform(input)`, `Act.SkipWhenNoChoice`), random answers among them; `Submission.of(event)` for a device's own
-  event. `Authority.make` is the gate: the engine is the only rules check; what stays a player's own: conceding,
+  event. `Authority.make` is the gate: the engine is the only rules check; each player acts only for themselves
+  (I-D55: an input naming a player, or an answer to a player's decision, only from its `Engine.decider`; the host's
+  pass where `Engine.shouldPassFor` says and its random answers are anyone's; `Authority.mayMake` filters what a device
+  offers of `Engine.options`); also a player's own: conceding,
   settings, early answers, making a suggestion, agreeing a result (an `AgreedResult` only answers the other player's
   suggestion of it), confirming a result the engine reports. `Acceptance.accept`: arrival order on the live line,
   `stale` when the parent isn't its last event, unless a deliberate branch; the state from the warm one (moved) or a

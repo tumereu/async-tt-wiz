@@ -206,6 +206,8 @@ internal object Steps {
      * battlefield, then shuffle": each decides in turn order (CR 101.4), then those who do take the inner steps one by
      * one together, so the cards are put onto the battlefield before anyone shuffles. */
     private fun stepTogether(scope: Scope, scopes: List<Scope>, s: Step) {
+        // ecl: "each opponent exiles cards … until …": a process each player repeats on their own, its moves done one by one (CR 608.2c)
+        if (s is Step.RepeatWhile) { scopes.forEach { run(it, listOf(s)) }; return }
         if (s is Step.May) {
             val doing = scopes.filter { sc ->
                 val player = sc.players(s.player).firstOrNull() ?: return@filter false

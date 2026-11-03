@@ -142,6 +142,8 @@ internal object Actions {
                     position = mod.to.libraryPosition?.let { libraryPosition(it) },
                     tapped = move.tapped || mod.to.tapped, faceDown = mod.to.faceDown, transformed = mod.to.transformed,
                     controller = mod.to.controller?.let { e.players(it).firstOrNull() } ?: move.controller,
+                    // ecl: "exile that card with a dream counter on it" (CR 122.1)
+                    counters = move.counters + mod.to.counters.map { it.kind to e.value(it.amount) },
                 )
                 Modification.EntersTapped -> if (move.to == Zone.Battlefield) move.copy(tapped = true) else move
                 is Modification.EntersWithCounters -> if (move.to == Zone.Battlefield)

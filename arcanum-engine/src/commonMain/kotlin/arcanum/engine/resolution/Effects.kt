@@ -488,7 +488,9 @@ internal object Effects {
         val moves = ordered.mapIndexed { i, id ->
             val from = act.state.obj(id)!!.zone
             PlannedMove(
-                id, dest.zone, position, if (dest.zone == Zone.Battlefield) controller else null,
+                // ecl: "under their owners' control": each card under its own owner's (CR 110.2)
+                id, dest.zone, position, if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
+                    ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller,
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
                 attachTo = attachTo, transformed = dest.transformed, attacking = attacking,
                 newId = newIds?.getOrNull(i) as ObjectId.Card?,

@@ -258,4 +258,16 @@ internal object Fin {
     val IF_TOWNS_CREATE_ALL_COLORS = Regex("""At the beginning of combat on your turn, if you control (\w+) or more Towns, create a (\d+)/(\d+) ([A-Z][a-z]+) creature token that's all colors\.""")
     val DURING_YOUR_TURN_SELF_AND_HAVE = Regex("""During your turn, (.+?) and (.+? you control) have (.+)\.""")
     val END_STEP_RETURN_UP_TO_ONE_FINALITY = Regex("""At the beginning of your end step, return up to one target (.+?) from your graveyard to the battlefield with a finality counter on it\.""")
+    // fin chunk 15
+    val COUNTER_ON_LAND_LOSES_TYPES = Regex("""Whenever (.+?) attacks, put an? (\S+) counter on target land\. For as long as that land has an? \S+ counter on it, it loses all land types and abilities and has "\{T\}: Add \{C\}\."""")
+    val TAP_LAND_FOR_ADD_ADDITIONAL = Regex("""Whenever you tap a land for (\{[WUBRGC]\}), add an additional (\{[WUBRGC]\})\.""")
+    val ACTIVATE_ONLY_IF_LEGEND_DEALT_DAMAGE = Regex("""(.+?): Draw (\w+) cards\. Activate only if an opponent was dealt combat damage by a legendary creature this turn\.""")
+    val SHUFFLE_GRAVEYARD_GAIN_PER_CARD = Regex("""(.+?): Shuffle all (.+?) from your graveyard into your library\. You gain life equal to the number of cards shuffled into your library this way\.""")
+    val BASE_POWER_BECOMES = Regex("""(.+?): Until end of turn, (.+?)'s base power becomes equal to (the number of .+)\.""")
+    val CANT_BE_BLOCKED_EXCEPT_BY_N = Regex("""(.+?) can't be blocked except by (\w+) or more creatures\.""")
+    val MAY_ATTACH_IF_YOU_DO_FIRST_STRIKE_LURE = Regex("""When (.+?) enters, you may attach it to target creature you control\. If you do, that creature gains first strike until end of turn and must be blocked this turn if able\.""")
+    val PLAY_HIDEAWAY_IF_LEGENDS = Regex("""(.+?): You may play the exiled card without paying its mana cost if you control (\w+) or more legendary creatures\.""")
+    val ENTERS_TAPPED_UNLESS_EARLY_TURN = Regex("""(.+?) enters tapped unless it's your first, second, or third turn of the game\.""")
+    val MELD_AT_FIRST_MAIN = Regex("""At the beginning of your first main phase, if you both own and control (.+?) and a creature named (.+?), you may pay ((?:\{[^}]+\})+)\. If you do, exile them, then meld them into (.+)\.""")
+    val DIES_DESTROY_AND_RETURN = Regex("""When (.+?) dies, destroy target permanent and return target (.+?) from your graveyard to the battlefield\.""")
 }

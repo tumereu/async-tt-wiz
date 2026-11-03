@@ -18164,6 +18164,7 @@ internal class Sentences(
                 Step.Do(Effect.DealDamage(Recipients(objects = Objects.Target(slot.name)), Value.Of(arcanum.api.NumericProperty.Power, bound, arcanum.api.Combine.Single), bound)))))))
         }
         finLine14(line)?.let { return it }
+        finLine15(line)?.let { return it }
         // fin-line-end
         return null
     }
@@ -18330,6 +18331,129 @@ internal class Sentences(
         if (line == "Whenever an opponent gains control of a permanent from you, you create a Treasure token.")
             return Ability.Triggered(on(EventPattern.ControlChange(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent), from = PlayerFilter.You,
                 to = PlayerFilter.Opponent)), Instructions(steps = listOf(Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.Predefined("Treasure"), Value.Fixed(1), Players.You)))))
+        return null
+    }
+    /** fin chunk 15: whole lines of artifacts, lands and the meld pair, each read as one wording. */
+    private fun finLine15(line: String): Ability? {
+        val you = ObjectFilter.ControlledBy(PlayerFilter.You)
+        val selfIs = ObjectFilter.Is(Objects.Self)
+        val equipped = Objects.AttachedTo(Objects.Self)
+        val creature = ObjectFilter.Type(arcanum.api.CardType.Creature)
+        val land = ObjectFilter.Type(arcanum.api.CardType.Land)
+        val legendary = ObjectFilter.Super(Supertype.Legendary)
+        fun on(vararg events: EventPattern) = arcanum.api.Trigger.On(events.toList())
+        fun rules(condition: arcanum.api.Condition? = null) = arcanum.api.ActivationRules(timing = arcanum.api.Timing.Any, activatedBy = PlayerFilter.You, condition = condition)
+        val addC = Ability.Activated(Cost(listOf(CostPart.TapSelf)), Instructions(steps = listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse("{C}")!!)),
+            Players.You)))), rules())
+        // "Whenever Ultima attacks, put a blight counter on target land. For as long as that land has a blight counter on it, it loses all land types and
+        // abilities and has "{T}: Add {C}."" (CR 611.2b)
+        Fin.COUNTER_ON_LAND_LOSES_TYPES.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val target = Objects.Target("land")
+            return Ability.Triggered(on(EventPattern.Attack(selfIs)), Instructions(targets = listOf(TargetSlot("land", TargetKind.Objects(land), min = Value.Fixed(1),
+                max = Value.Fixed(1))), steps = listOf(Step.Do(Effect.PutCounters(target, kind, Value.Fixed(1))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetTypes(replaceSubtypes = true), Mechanic.LoseAbilities(), Mechanic.GainAbilities(listOf(addC))),
+                    arcanum.api.Affected.Objects(target), arcanum.api.Duration.AsLongAs(arcanum.api.Condition.ObjectMatches(target, ObjectFilter.HasCounter(kind, atLeast = 1))))))))
+        }
+        // "Whenever you tap a land for {C}, add an additional {C}." (CR 106.12)
+        Fin.TAP_LAND_FOR_ADD_ADDITIONAL.matchEntire(line)?.let { m ->
+            val mana = ManaCost.parse(m.groupValues[1]) ?: return null
+            return Ability.Triggered(on(EventPattern.Tap(Filters.all(land, you), forMana = true, producing = mana)), Instructions(steps = listOf(
+                Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse(m.groupValues[2]) ?: return null)), Players.You)))))
+        }
+        // "Equipped creature has base power and toughness X/X, where X is your life total." (layer 7b)
+        if (line == "Equipped creature has base power and toughness X/X, where X is your life total.")
+            return Ability.Static(listOf(Mechanic.SetPowerToughness(Value.LifeOf(Players.You), Value.LifeOf(Players.You))), affects = arcanum.api.Affected.Objects(equipped))
+        // "{T}, Sacrifice this artifact: Draw two cards. Activate only if an opponent was dealt combat damage by a legendary creature this turn."
+        Fin.ACTIVATE_ONLY_IF_LEGEND_DEALT_DAMAGE.matchEntire(line)?.let { m ->
+            val cost = cost(m.groupValues[1]) ?: return null
+            val n = Numbers.count(m.groupValues[2]) ?: return null
+            return Ability.Activated(cost, Instructions(steps = listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(n))))), rules(arcanum.api.Condition.HappenedThisTurn(
+                EventPattern.Damage(Filters.all(legendary, creature), RecipientFilter(players = PlayerFilter.Opponent), combat = true), atLeast = 1,
+                measure = arcanum.api.Measure.Events)))
+        }
+        // "Whenever equipped creature deals combat damage to a player, draw a card, then you may cast a spell from your hand with mana value less than or
+        // equal to that damage without paying its mana cost." (CR 601.2a, 118.9)
+        if (line == "Whenever equipped creature deals combat damage to a player, draw a card, then you may cast a spell from your hand with mana value less than or equal to that damage without paying its mana cost.") {
+            val spells = Filters.all(ObjectFilter.Not(land), ObjectFilter.ManaValue(arcanum.api.Comparison.AtMost, Value.EventAmount), ObjectFilter.InZone(Zone.Hand),
+                ObjectFilter.OwnedBy(PlayerFilter.You))
+            return Ability.Triggered(on(EventPattern.Damage(ObjectFilter.Is(equipped), RecipientFilter(players = PlayerFilter.Any), combat = true)), Instructions(steps = listOf(
+                Step.Do(Effect.Draw(Players.You, Value.Fixed(1))),
+                Step.Choose(arcanum.api.Choice.Objects(spells, Value.Fixed(0), Value.Fixed(1)), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.Cast(Objects.Bound("chosen"), PlayKind.Cast, withoutPaying = true, caster = Players.You)))))
+        }
+        // "{5}, {T}, Exile this artifact: Shuffle all nonland cards from your graveyard into your library. You gain life equal to the number of cards
+        // shuffled into your library this way."
+        Fin.SHUFFLE_GRAVEYARD_GAIN_PER_CARD.matchEntire(line)?.let { m ->
+            val cost = cost(m.groupValues[1]) ?: return null
+            val cards = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return Ability.Activated(cost, Instructions(steps = listOf(Step.Do(Effect.Move(Objects.Each(cards), Destination(Zone.Library), postBind = "shuffled")),
+                Step.Do(Effect.Shuffle(Players.You)), Step.Do(Effect.GainLife(Players.You, Value.Count(Objects.Bound("shuffled")))))), rules())
+        }
+        // "As long as equipped creature is attacking, it has first strike and must be blocked if able." (CR 509.1c)
+        if (line == "As long as equipped creature is attacking, it has first strike and must be blocked if able.")
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.FirstStrike)), Mechanic.MustBeBlocked), affects = arcanum.api.Affected.Objects(equipped),
+                condition = arcanum.api.Condition.ObjectMatches(equipped, ObjectFilter.HasStatus(arcanum.api.Status.Attacking)))
+        // 'Equipped creature has "If a creature dying causes a triggered ability of this creature or an emblem you own to trigger, that ability triggers an
+        // additional time."' (CR 603.2d)
+        if (line == "Equipped creature has \"If a creature dying causes a triggered ability of this creature or an emblem you own to trigger, that ability triggers an additional time.\"") {
+            val granted = Ability.Static(listOf(Mechanic.TriggersAdditionalTime(EventPattern.ZoneChange(creature, from = Zone.Battlefield, to = Zone.Graveyard),
+                ObjectFilter.Or(listOf(selfIs, Filters.all(ObjectFilter.InZone(Zone.Command), ObjectFilter.OwnedBy(PlayerFilter.You)))))), affects = arcanum.api.Affected.Objects(Objects.Self))
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(granted))), affects = arcanum.api.Affected.Objects(equipped))
+        }
+        // "{3}: Until end of turn, this creature's base power becomes equal to the number of Towns you control." (layer 7b)
+        Fin.BASE_POWER_BECOMES.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
+            val value = Values.value(m.groupValues[3]) ?: return null
+            return Ability.Activated(cost(m.groupValues[1]) ?: return null, Instructions(steps = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.SetPowerToughness(value, null)),
+                arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))), rules())
+        }
+        // "This creature can't be blocked except by three or more creatures." (CR 509.1b)
+        Fin.CANT_BE_BLOCKED_EXCEPT_BY_N.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            return Ability.Static(listOf(Mechanic.MinimumBlockers(Numbers.count(m.groupValues[2]) ?: return null)), affects = arcanum.api.Affected.Objects(Objects.Self))
+        }
+        // "When this Equipment enters, you may attach it to target creature you control. If you do, that creature gains first strike until end of turn and
+        // must be blocked this turn if able."
+        Fin.MAY_ATTACH_IF_YOU_DO_FIRST_STRIKE_LURE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            val target = Objects.Target("creature")
+            return Ability.Triggered(on(EventPattern.ZoneChange(selfIs, to = Zone.Battlefield)), Instructions(targets = listOf(TargetSlot("creature",
+                TargetKind.Objects(Filters.all(creature, you)), min = Value.Fixed(1), max = Value.Fixed(1))), steps = listOf(
+                Step.Pay(steps = listOf(Step.Do(Effect.Attach(Objects.Self, Recipients(objects = target)))), payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.FirstStrike)),
+                    Mechanic.MustBeBlocked), arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))))))
+        }
+        // "{2}, {T}: You may play the exiled card without paying its mana cost if you control four or more legendary creatures." (hideaway, CR 702.75a)
+        Fin.PLAY_HIDEAWAY_IF_LEGENDS.matchEntire(line)?.let { m ->
+            return Ability.Activated(cost(m.groupValues[1]) ?: return null, Instructions(steps = listOf(Step.If(arcanum.api.Condition.Exists(Filters.all(legendary, creature, you),
+                atLeast = Numbers.count(m.groupValues[2]) ?: return null), then = listOf(Step.May(listOf(Step.Do(Effect.Cast(Objects.LinkedTo(arcanum.api.Keyword.Hideaway.Kind),
+                PlayKind.Play, withoutPaying = true, caster = Players.You))), Players.You))))), rules())
+        }
+        // "This land enters tapped unless it's your first, second, or third turn of the game."
+        Fin.ENTERS_TAPPED_UNLESS_EARLY_TURN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(selfIs, to = Zone.Battlefield), modify = listOf(Modification.EntersTapped))),
+                affects = arcanum.api.Affected.Objects(Objects.Self), condition = arcanum.api.Condition.Not(arcanum.api.Condition.And(listOf(arcanum.api.Condition.YourTurn,
+                    arcanum.api.Condition.Compare(Value.TurnsTaken(Players.You), arcanum.api.Comparison.AtMost, Value.Fixed(3))))))
+        }
+        // "At the beginning of your first main phase, if you both own and control Vanille and a creature named Fang, Fearless l'Cie, you may pay {3}{B}{G}.
+        // If you do, exile them, then meld them into Ragnarok, Divine Deliverance." (CR 701.42a, 712.4)
+        Fin.MELD_AT_FIRST_MAIN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val partner = Filters.all(creature, ObjectFilter.Named(m.groupValues[2]), you, ObjectFilter.OwnedBy(PlayerFilter.You))
+            return Ability.Triggered(on(EventPattern.StepBegins(arcanum.api.TurnStep.PrecombatMain, PlayerFilter.You)), Instructions(steps = listOf(
+                Step.Pay(cost(m.groupValues[3]) ?: return null, payer = Players.You, bind = "paid"),
+                Step.If(arcanum.api.Condition.Did("paid"), then = listOf(
+                    Step.Choose(arcanum.api.Choice.Objects(partner, Value.Fixed(1), Value.Fixed(1)), bind = "partner", chooser = Players.You),
+                    Step.Do(Effect.Move(Objects.Union(listOf(Objects.Self, Objects.Bound("partner"))), Destination(Zone.Exile), postBind = "exiled")),
+                    Step.Do(Effect.Action(arcanum.api.KeywordAction.Meld(Objects.Bound("exiled"), m.groupValues[4]))))))),
+                interveningIf = arcanum.api.Condition.And(listOf(arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.OwnedBy(PlayerFilter.You)),
+                    arcanum.api.Condition.Exists(partner, atLeast = 1))))
+        }
+        // "When Ragnarok dies, destroy target permanent and return target nonlegendary permanent card from your graveyard to the battlefield."
+        Fin.DIES_DESTROY_AND_RETURN.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val returned = Filters.all(Filters.noun(m.groupValues[2]) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            return Ability.Triggered(on(EventPattern.ZoneChange(selfIs, from = Zone.Battlefield, to = Zone.Graveyard)), Instructions(targets = listOf(
+                TargetSlot("permanent", TargetKind.Objects(ObjectFilter.Category(arcanum.api.ObjectCategory.Permanent)), min = Value.Fixed(1), max = Value.Fixed(1)),
+                TargetSlot("card", TargetKind.Objects(returned), min = Value.Fixed(1), max = Value.Fixed(1))), steps = listOf(
+                Step.Do(Effect.Destroy(Objects.Target("permanent"))), Step.Do(Effect.Move(Objects.Target("card"), Destination(Zone.Battlefield))))))
+        }
         return null
     }
     // ---- fin end

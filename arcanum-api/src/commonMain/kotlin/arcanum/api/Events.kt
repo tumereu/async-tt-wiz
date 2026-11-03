@@ -92,6 +92,9 @@ sealed interface EventPattern {
         val objects: ObjectFilter, val forMana: Boolean? = null,
         // msh
         @Serializable(with = KeywordKindSerializer::class) val forCost: KeywordKind? = null,
+        // fin
+        /** With [forMana]: only when the mana produced includes this ("Whenever you tap a land for {C}", CR 106.12). */
+        val producing: ManaCost? = null,
     ) : EventPattern
     @Serializable @SerialName("untap") data class Untap(val objects: ObjectFilter) : EventPattern
     /** A creature attacks; [alone] for "attacks alone"; [target] narrows what it attacks. Roles object (the attacker),

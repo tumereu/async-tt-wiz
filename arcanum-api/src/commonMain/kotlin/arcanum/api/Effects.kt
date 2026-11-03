@@ -438,6 +438,10 @@ sealed interface KeywordAction {
      * remains exiled, its owner may cast it by paying {2} rather than paying its mana cost. The bind of [Effect.Action] names the
      * exiled cards. Triggers "whenever you airbend" once for the instruction (701.65b). */
     @Serializable @SerialName("airbend") data class Airbend(val objects: Objects) : KeywordAction
+    // fin
+    /** "Meld them into [into]" (CR 701.42a): the two cards of [objects], a meld pair, are put onto the battlefield with their back faces up and
+     * combined as one permanent (CR 712.4): [into], the back face both cards share. If they can't be melded, they stay where they are (701.42c). */
+    @Serializable @SerialName("meld") data class Meld(val objects: Objects, val into: String) : KeywordAction
     // ecl
     /** "[Players] blight(s) N" (CR 701.68a): each of [players] puts [count] -1/-1 counters on a creature they control. A player who
      * can't do it (no creatures) can't choose to blight (701.68b); the bind of [Effect.Action] or [CostPart.Action] names the creature

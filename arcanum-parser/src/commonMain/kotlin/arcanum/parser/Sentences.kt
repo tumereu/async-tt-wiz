@@ -12263,6 +12263,13 @@ internal class Sentences(
     }
 
     private fun mshEffect4(sentence: String, context: Context): List<Step>? {
+        // msh chunk 19: "tap target creature defending player controls" when the equipped creature attacks: the player it attacks
+        if (sentence == "Tap target creature defending player controls." &&
+            (context.event as? EventPattern.Attack)?.attacker == ObjectFilter.Is(Objects.AttachedTo(Objects.Self))) {
+            val target = context.target("creature", Filters.all(ObjectFilter.Type(CardType.Creature),
+                ObjectFilter.ControlledBy(PlayerFilter.Is(Players.DefendingPlayerOf(Objects.AttachedTo(Objects.Self))))))
+            return listOf(Step.Do(Effect.Tap(target)))
+        }
         // msh chunk 13: "it deals 1 damage to each opponent" in a trigger on the equipped creature: that creature deals it (CR 120.1)
         Regex("""It deals (\d+) damage to each opponent\.""").matchEntire(sentence)?.let { m ->
             val attached = ObjectFilter.Is(Objects.AttachedTo(Objects.Self))

@@ -273,14 +273,14 @@ class MshChunk02PowerUpMoreTest {
 
     // a flavor word (CR 207.2d); "draw a card if her power is 4 or greater" is checked as it resolves
     @Test
-    fun synthezoidScion() = card(
-        name = "Synthezoid Scion",
+    fun syntheticScion() = card(
+        name = "Synthetic Scion",
         cost = "{3}",
         type = "Legendary Artifact Creature — Robot Hero",
         text = """
             Flying
-            Cybernetic Senses — Whenever Synthezoid Scion attacks, draw a card if her power is 4 or greater.
-            Power-up — {7}: Put two +1/+1 counters on Synthezoid Scion. (Activate each power-up ability only once. Reduce the cost by her mana cost if she entered this turn.)
+            Cybernetic Senses — Whenever Synthetic Scion attacks, draw a card if her power is 4 or greater.
+            Power-up — {7}: Put two +1/+1 counters on Synthetic Scion. (Activate each power-up ability only once. Reduce the cost by her mana cost if she entered this turn.)
         """,
         pt = "2/2",
     ) parsesTo abilities(

@@ -83,8 +83,8 @@ class MshChunk12BlackTest {
     )
 
     @Test
-    fun decoyGambit() = card(
-        name = "Decoy Gambit",
+    fun decoyFeint() = card(
+        name = "Decoy Feint",
         cost = "{1}{B}",
         type = "Instant",
         text = """

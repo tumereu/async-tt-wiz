@@ -122,6 +122,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     // gtc
     val fused = way.fused
     val bestowed = alternative?.second?.keyword == Keyword.Bestow.Kind
+    /** Cast for its mutate cost: a mutating creature spell (CR 702.140a). */
+    val mutating = alternative?.second?.keyword == Keyword.Mutate.Kind
 
     /** A card in the caster's hand with "splice onto [quality]" that matches this spell (CR 702.47a): its mechanic and
      * the instructions it would add. */
@@ -165,7 +167,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             else -> Instructions()
         }
         val enchant = if (isSpell) enchantSlot() else null
-        if (enchant != null) base.copy(targets = listOf(enchant) + base.targets) else base
+        // CR 702.140a: a mutating creature spell targets a non-Human creature with the same owner
+        val mutate = if (mutating) arcanum.engine.mutate.Mutate.slot else null
+        val extra = listOfNotNull(enchant, mutate)
+        if (extra.isNotEmpty()) base.copy(targets = extra + base.targets) else base
     }
 
     /** The provisional Stack item: everything chosen so far. */

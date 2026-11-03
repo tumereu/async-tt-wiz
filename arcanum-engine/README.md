@@ -423,10 +423,19 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
+- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`): mutate and merged permanents
+  (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
+  same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
+  `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
+  other components in `GameObject.mergedAbove` / `mergedBelow` as `MergedPart`s: layer 1 gives it the topmost component's
+  characteristics and every component's abilities, `AbilityOrigin.Printed.card` naming the component, and a token only when the
+  topmost is one, 730.2d; leaving the battlefield each component becomes its own object in the new zone, `Move.parts`, right
+  after its own card, 730.3; merged on top of a face-down permanent it is face up and its card filled in publicly, 730.2e, D60).
+  Not done: a copy of a mutating spell merging (it enters as a token), effects that find "it" after a merged permanent leaves
+  find its own card only (730.3c), turning a merged permanent face down (730.2f, j).
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: epic (copying, each upkeep, a spell that has left the Stack: copies are made from Stack items only), assist (another
-    player paying part of the mana: the payment flow has one payer), mutate (merging permanents, CR 730: an object represented by
-    several cards, through zone changes, layers and hidden information), banding (bands and the defending player assigning damage,
+    player paying part of the mana: the payment flow has one payer), banding (bands and the defending player assigning damage,
     CR 702.22) and hidden agenda (conspiracies, outside normal play).
   - Keyword actions: venture into the dungeon and the initiative (dungeon cards, outside the game and the deck, and their rooms;
     the parser doesn't read them either).

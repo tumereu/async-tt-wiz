@@ -283,4 +283,20 @@ class MechanicWordingsTest {
             targets = listOf(TargetSlot("player", TargetKind.Players(PlayerFilter.Any), Value.Fixed(1), Value.Fixed(1))),
             steps = listOf(Step.Do(Effect.Discard(arcanum.api.Players.Target("player"), Value.Fixed(1), ObjectFilter.Any)))),
             functionsIn = listOf(Zone.Exile)))
+
+    // CR 702.140a, d: mutate is a keyword with a cost; "Whenever this creature mutates" is its own event
+    @Test
+    fun wheneverThisCreatureMutates() = card(
+        name = "Gnarled Mutant",
+        cost = "{3}{G}",
+        type = "Creature — Beast",
+        pt = "4/4",
+        text = """
+            Mutate {1}{G}{G}
+            Whenever this creature mutates, draw a card.
+        """.trimIndent(),
+    ) parsesTo abilities(
+        arcanum.api.Keyword.Mutate(arcanum.parser.cube.manaCost("{1}{G}{G}")),
+        Ability.Triggered(Trigger.On(EventPattern.Mutates(ObjectFilter.Is(Objects.Self))), Instructions(steps = listOf(drawCards(1)))),
+    )
 }

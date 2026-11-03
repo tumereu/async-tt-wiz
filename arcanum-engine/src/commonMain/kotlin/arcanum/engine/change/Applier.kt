@@ -45,8 +45,12 @@ internal object Applier {
     private fun applyState(state: GameState, change: Change) {
         when (change) {
             is Change.ZoneChange -> change.moves.forEach { move ->
+                // CR 730.3: a merged permanent's components arrive as their own objects; taken back, they leave again first
+                val splits = move.before.merged
+                if (!splits) move.parts.reversed().forEach { remove(state, it.obj, it.index) }
                 remove(state, move.before, move.fromIndex)
                 insert(state, move.after, move.toIndex)
+                if (splits) move.parts.forEach { insert(state, it.obj, it.index) }
             }
             is Change.Created -> change.objects.forEach { insert(state, it.obj, it.index) }
             is Change.Removed -> change.objects.forEach { remove(state, it.obj, it.index) }

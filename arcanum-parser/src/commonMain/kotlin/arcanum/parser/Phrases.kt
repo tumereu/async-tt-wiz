@@ -511,6 +511,7 @@ internal object Events {
 
     fun event(text: String, self: Set<String>): EventPattern? {
         MechanicWordings.event(text)?.let { return it }
+        MechanicWordings.subjectEvent(text) { subject(it, self) }?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together

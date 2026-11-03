@@ -40,6 +40,14 @@ internal object MechanicWordings {
         else -> null
     }
 
+    private val MUTATES = Regex("""(.+) mutates""")
+
+    /** Trigger events with a subject ("this creature mutates", CR 702.140d); [subject] reads it. */
+    fun subjectEvent(text: String, subject: (String) -> ObjectFilter?): EventPattern? {
+        MUTATES.matchEntire(text)?.let { m -> return EventPattern.Mutates(subject(m.groupValues[1]) ?: return null) }
+        return null
+    }
+
     /** "the creature it haunts dies" (CR 702.55b): the creature the haunt ability targeted, kept by the exiled card. */
     val hauntedDies: EventPattern = EventPattern.ZoneChange(ObjectFilter.Is(Objects.LinkedTo(Keyword.Haunt)), from = arcanum.api.Zone.Battlefield,
         to = arcanum.api.Zone.Graveyard)

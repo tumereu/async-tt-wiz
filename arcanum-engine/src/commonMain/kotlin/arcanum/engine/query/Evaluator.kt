@@ -292,8 +292,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Is -> id in objects(filter.objects)
             is ObjectFilter.Category -> when (filter.category) {
                 // dsk gaps: a copy of a card isn't a card (CR 109.1)
-                ObjectCategory.Card -> (o != null && !o.token && !o.copyOfCard) || (o == null && lki(id)?.token == false)
-                ObjectCategory.Token -> o?.token ?: lki(id)?.token ?: false
+                ObjectCategory.Card -> (o != null && !o.isToken && !o.copyOfCard) || (o == null && lki(id)?.token == false)
+                ObjectCategory.Token -> o?.isToken ?: lki(id)?.token ?: false
                 // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
                 ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
                 // msh: a card tested as the spell it would be or is becoming as it is cast (CR 601.2a)

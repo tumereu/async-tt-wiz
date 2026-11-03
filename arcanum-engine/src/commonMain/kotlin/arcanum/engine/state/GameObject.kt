@@ -65,6 +65,11 @@ data class GameObject(
     val facts: ObjectFacts = ObjectFacts(),
     /** Players who goaded it (CR 701.15). */
     val goadedBy: List<PlayerId> = emptyList(),
+    /** A merged permanent's other components above its own card, topmost first (mutate, CR 730.2, 702.140c): the topmost
+     * component gives its characteristics other than abilities (730.2a, 702.140e). */
+    val mergedAbove: List<MergedPart> = emptyList(),
+    /** A merged permanent's other components under its own card, topmost first (CR 730.2). */
+    val mergedBelow: List<MergedPart> = emptyList(),
 ) {
     val card: CardId get() = id.card
 
@@ -83,7 +88,29 @@ data class GameObject(
     val flipped: Boolean get() = definition?.layout == Layout.Flip && face == 1
 
     fun counters(kind: CounterKind): Int = counters.firstOrNull { it.kind == kind }?.count ?: 0
+
+    /** A merged permanent: represented by more than one card or token (CR 730.2). */
+    val merged: Boolean get() = mergedAbove.isNotEmpty() || mergedBelow.isNotEmpty()
+
+    /** A token (CR 111.1); a merged permanent only if its topmost component is one (CR 730.2d). */
+    val isToken: Boolean get() = mergedAbove.firstOrNull()?.token ?: token
 }
+
+/**
+ * One card or token among those representing a merged permanent other than its own card (CR 730.2): the object it was as it
+ * merged ([id]; as the merged permanent leaves the battlefield it becomes [ObjectId.Card.next] in the new zone, CR 730.3), with
+ * what the object knew of it.
+ */
+@Serializable
+data class MergedPart(
+    val id: ObjectId.Card,
+    val owner: PlayerId,
+    /** Null: unknown to the caller (D60). */
+    val definition: CardDefinition?,
+    val face: Int = 0,
+    val token: Boolean = false,
+    val copyOfCard: Boolean = false,
+)
 
 /** [count] counters of [kind], with the timestamp the kind last got (CR 613.7c). */
 @Serializable

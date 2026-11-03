@@ -82,11 +82,29 @@ object Changes {
                 Position.Bottom -> target.size
                 is Position.At -> position.index.coerceIn(0, target.size)
             }
-            val move = Move(before, after, fromIndex, toIndex, (Meanings.implied(before.zone, to) + meanings).distinct())
+            val parts = mergedParts(scratch, before, after, toIndex)
+            val move = Move(before, after, fromIndex, toIndex, (Meanings.implied(before.zone, to) + meanings).distinct(), parts = parts)
             scratch.apply(Change.ZoneChange(listOf(move)))
             move
         }
         return Change.ZoneChange(moves)
+    }
+
+    /**
+     * CR 730.3, 730.3a: as a merged permanent leaves the battlefield, each of its other components is put into the new zone as its
+     * own new object: in [after]'s zone of its owner, right after [after] (above it on a library, CR 730.3a: the plainest order,
+     * the components topmost first).
+     */
+    private fun mergedParts(scratch: GameState, before: GameObject, after: GameObject, toIndex: Int): List<Placed> {
+        if (!before.merged) return emptyList()
+        val placed = mutableMapOf<PlayerId, Int>()
+        return (before.mergedAbove + before.mergedBelow).map { p ->
+            val k = placed[p.owner] ?: 0
+            placed[p.owner] = k + 1
+            val index = if (p.owner == after.owner) toIndex + 1 + k else scratch.zone(after.zone, p.owner).size + k
+            Placed(GameObject(id = p.id.next(), owner = p.owner, zone = after.zone, definition = p.definition, token = p.token,
+                copyOfCard = p.copyOfCard, faceDown = after.faceDown, timestamp = after.timestamp), index)
+        }
     }
 
     fun move(state: GameState, id: ObjectId, to: Zone, meanings: List<Meaning> = emptyList()): Change.ZoneChange =

@@ -6,6 +6,9 @@ package arcanum.api
  */
 internal object KeywordExpansionsMore {
     fun expand(keyword: Keyword): List<Ability>? = when (keyword) {
+        // CR 702.140a: "You may pay [cost] rather than pay this spell's mana cost. If you do, it becomes a mutating creature spell and
+        // targets a non-Human creature with the same owner as this spell." (the target and the merging are the engine's, CR 702.140b–f)
+        is Keyword.Mutate -> listOf(alternative(Keyword.Mutate.Kind, keyword.cost))
         // CR 702.55a: on a permanent "When this permanent is put into a graveyard from the battlefield, exile it haunting target creature";
         // on an instant or sorcery "When this spell is put into a graveyard during its resolution, exile it haunting target creature"
         Keyword.Haunt -> {

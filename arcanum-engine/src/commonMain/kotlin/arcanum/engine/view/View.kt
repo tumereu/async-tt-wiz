@@ -136,8 +136,12 @@ sealed interface AbilityOrigin {
 
     /** Printed on face [face] (of its copiable values, so a copy's printed abilities are the copied card's) at
      * [index]. */
-    @Serializable @SerialName("printed") data class Printed(val face: Int, val index: Int) : AbilityOrigin {
-        override val key: String get() = "p$face.$index"
+    @Serializable @SerialName("printed") data class Printed(
+        val face: Int, val index: Int,
+        /** Printed on this other component of a merged permanent (CR 702.140e), not on its own card. */
+        val card: arcanum.engine.state.CardId? = null,
+    ) : AbilityOrigin {
+        override val key: String get() = if (card == null) "p$face.$index" else "p$face.$index@$card"
     }
 
     /** From keyword ability [keyword]'s expansion ([arcanum.api.KeywordExpansions]), at [index]. */

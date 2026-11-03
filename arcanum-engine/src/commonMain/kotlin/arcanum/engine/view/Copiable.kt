@@ -47,7 +47,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                 return (faces(kind.copied, visiting)
                     ?: state.stackItems[id]?.snapshots?.firstOrNull { it.id == kind.copied }?.characteristics?.let { listOf(IndexedFace(0, it.asFace())) })
                     // spm: its own exceptions (CR 707.9b)
-                    ?.map { if (kind.except.isEmpty()) it else IndexedFace(it.index, exceptions(it.face, kind.except)) }
+                    ?.map { if (kind.except.isEmpty()) it else it.copy(face = exceptions(it.face, kind.except)) }
             }
         }
         val o = state.obj(id) ?: return null
@@ -62,17 +62,29 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
         }
         // CR 718.3: cast prototyped, on the Stack and the battlefield its mana cost, colour, power and toughness are its prototype's
         if (o.facts.alternative?.keyword == arcanum.api.Keyword.Prototype.Kind && (o.zone == Zone.Stack || o.zone == Zone.Battlefield))
-            faces = faces.map { IndexedFace(it.index, prototyped(it.face)) }
+            faces = faces.map { it.copy(face = prototyped(it.face)) }
         // CR 613.2a, 707.2: copy effects in timestamp order
         copyEffectsOn(id).forEach { (effect, copy) ->
             val copied = effect.copied?.let { listOf(IndexedFace(0, it)) } ?: copiedFaces(effect, copy, visiting)
-            if (copied != null) faces = copied.map { IndexedFace(it.index, exceptions(it.face, copy.except)) }
+            if (copied != null) faces = copied.map { it.copy(face = exceptions(it.face, copy.except)) }
         }
+        // CR 730.2a, 702.140e: a merged permanent has the characteristics of its topmost component and the abilities of all
+        if (o.merged) faces = merged(o, faces)
         // CR 702.103b: a bestowed spell or permanent is an Aura enchantment with enchant creature
-        if (o.bestowed) faces = faces.map { IndexedFace(it.index, bestowed(it.face)) }
+        if (o.bestowed) faces = faces.map { it.copy(face = bestowed(it.face)) }
         // CR 709.5: a Room's locked halves have no name, mana cost or rules text
         faces = arcanum.engine.room.Rooms.lockedHalves(o, faces)
         return faces
+    }
+
+    /** CR 730.2a, 702.140e: the topmost component's faces, then the other components' abilities ([IndexedFace.abilitiesOnly]). */
+    private fun merged(o: GameObject, own: List<IndexedFace>): List<IndexedFace> {
+        fun part(p: arcanum.engine.state.MergedPart): IndexedFace? =
+            p.definition?.faces?.getOrNull(p.face)?.let { IndexedFace(p.face, it, card = p.id.card) }
+        val top = o.mergedAbove.firstOrNull()?.let { listOfNotNull(part(it)) } ?: own
+        val others = (o.mergedAbove.drop(1) + o.mergedBelow).mapNotNull(::part) +
+            (if (o.mergedAbove.isEmpty()) emptyList() else own)
+        return top + others.map { it.copy(abilitiesOnly = true) }
     }
 
     private fun copyEffectsOn(id: ObjectId): List<Pair<EffectObject, Mechanic.CopyOf>> =
@@ -144,7 +156,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
 
         /** An object's characteristics before layers 2–7, from its copiable faces. */
         fun initial(o: GameObject?, faces: List<IndexedFace>, timestamp: Long?): Characteristics {
-            val merged = faces.map { it.face }
+            val merged = faces.filterNot { it.abilitiesOnly }.map { it.face }
             val symbols = merged.flatMap { it.manaCost?.symbols.orEmpty() }
             val onBattlefield = o?.zone == Zone.Battlefield
             return Characteristics(
@@ -162,7 +174,7 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
                 defense = if (onBattlefield && merged.any { it.defense != null }) o.counters(CounterKind.Defense)
                     else merged.firstNotNullOfOrNull { it.defense }?.let(::number),
                 abilities = expand(faces.flatMap { f ->
-                    f.face.abilities.mapIndexed { i, a -> AbilityInstance(a, AbilityOrigin.Printed(f.index, i), timestamp) }
+                    f.face.abilities.mapIndexed { i, a -> AbilityInstance(a, AbilityOrigin.Printed(f.index, i, f.card), timestamp) }
                 }),
             )
         }
@@ -200,8 +212,12 @@ internal class Copiable(private val state: GameState, val reads: ViewReads = Vie
     }
 }
 
-/** A face and its index on the card. */
-internal data class IndexedFace(val index: Int, val face: FaceDefinition)
+/** A face and its index on the card; [card]: of another component of a merged permanent, [abilitiesOnly]: only its abilities
+ * count (CR 702.140e). */
+internal data class IndexedFace(
+    val index: Int, val face: FaceDefinition,
+    val card: arcanum.engine.state.CardId? = null, val abilitiesOnly: Boolean = false,
+)
 
 /** The board as printed (copiable values only): what copy effects look at to find their original. */
 internal class PrintedBoard(override val state: GameState, private val copiable: Copiable) : Board {

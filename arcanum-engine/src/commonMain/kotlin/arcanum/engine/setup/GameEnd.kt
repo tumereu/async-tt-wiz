@@ -98,8 +98,16 @@ internal object GameEnd {
         val progress: Progress = when {
             setup != null -> Setup.run(recorder, setup.stage, setup.options, emptyList())
             keep != null && stillOpen(s, keep.continuation) -> {
-                recorder.record(Changes.pending(s, keep))
-                return Outcome(recorder.changes.toList(), keep)
+                // CR 800.4g, h: their open decision goes to whoever decides it now, as the flow will ask it again (a cost
+                // they were choosing whether to pay stays open for "no", 800.4f)
+                val d = keep.decision
+                val asked = when (val r = LeftPlayers.redirect(s, d)) {
+                    is LeftPlayers.Redirect.To -> keep.copy(decision = LeftPlayers.reassigned(d, d.id, r.player))
+                    is LeftPlayers.Redirect.ChosenBy -> keep.copy(decision = arcanum.engine.decision.Decision.ChoosePlayer(d.id, r.chooser, d.source, r.options))
+                    else -> keep
+                }
+                recorder.record(Changes.pending(s, asked))
+                return Outcome(recorder.changes.toList(), asked)
             }
             else -> Progress.Done
         }

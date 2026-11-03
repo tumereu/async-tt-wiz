@@ -232,6 +232,8 @@ sealed interface Effect {
         val bind: String? = null, val caster: Players,
         /** Only if the resulting spell matches ("if the resulting spell's mana value is less", cascade, CR 702.85a). */
         val resultingSpell: ObjectFilter? = null,
+        /** "Cast it transformed": a transforming double-faced card cast with its back face up (a Siege, CR 310.12b, 712.11a). */
+        val transformed: Boolean = false,
     ) : Effect
     /** "When you do, …" (CR 603.12): a reflexive triggered ability, put on the Stack as its own item, targets chosen
      * then. Placed inside a [Step.If] on what was done. It triggers once per time the action is taken, but only once

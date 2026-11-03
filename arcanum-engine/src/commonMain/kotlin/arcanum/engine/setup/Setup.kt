@@ -51,7 +51,8 @@ data class Seat(val player: PlayerId, val deck: List<DeckCard>, val sideboard: L
  * - [startingPlayer]: given by the host (a variant or the players agreed): nobody chooses.
  * - [chooser]: who chooses the starting player, the loser of the previous game of a match (CR 103.1). Null: a random
  *   result the host answers (D25) picks the chooser, the "mutually agreeable method" of a match's first game.
- * - [handSize]: the starting hand size (CR 103.5).
+ * - [handSize]: the starting hand size (CR 103.5); [handSizes]: a player's own (a variant's hand modifier, CR 103.5a). Effects
+ *   that modify it ([arcanum.api.Mechanic.StartingHandSize]) change either.
  * - [freeFirstMulligan]: the first mulligan doesn't count (CR 103.5c); null: only in a multiplayer game.
  */
 @Serializable
@@ -62,6 +63,7 @@ data class StartOptions(
     val freeFirstMulligan: Boolean? = null,
     /** A Conspiracy Draft game (CR 103.2e, 905.4): each player may put conspiracy cards from their sideboard into the command zone. */
     val conspiracies: Boolean = false,
+    val handSizes: Map<PlayerId, Int> = emptyMap(),
     /**
      * A host variant of CR 103.5 for players who don't sit together: each round's mulligan declarations, and the
      * choices of cards to put on the bottom, may be made in any order. The open decision is still the next one in turn
@@ -135,13 +137,16 @@ val GameState.started: Boolean get() = turn.number > 0
  *    mulligans taken (the first one free in multiplayer, CR 103.5c) put on the bottom of the library, in the order chosen
  *    (the last chosen lowest). This repeats until all have kept; a player whose hand is down to zero cards keeps.
  * 5. Opening-hand actions (CR 103.6): starting player first, each player may put cards with "if this card is in your
- *    opening hand, you may begin the game with it on the battlefield" onto the battlefield (CR 103.6a). Actions "any
- *    time you could mulligan" (CR 103.5b) are not offered.
+ *    opening hand, you may begin the game with it on the battlefield" onto the battlefield (CR 103.6a). Actions "any time you could mulligan" (CR 103.5b,
+ *    [arcanum.api.Mechanic.WhenYouCouldMulligan]) are offered with each declaration, as further options ([USE] and the card's
+ *    name): the action is taken, then the player declares.
  * 6. The first turn begins (CR 103.8): the starting player skips its draw when [GameState.skipFirstDraw] (CR 103.8a).
  */
 internal object Setup {
     const val KEEP = "Keep"
     const val MULLIGAN = "Mulligan"
+    /** The start of an option taking an action "any time you could mulligan" (CR 103.5b): "Use 1: [card name]". */
+    const val USE = "Use"
 
     fun newGame(seats: List<Seat>, startingLife: Int, skipFirstDraw: Boolean): GameState {
         require(seats.isNotEmpty()) { "A game needs players" }
@@ -251,7 +256,7 @@ internal object Setup {
 
     /** A hand already down to zero cards can't be mulliganed again (CR 103.5). */
     private fun canMulligan(s: GameState, m: Mulligans, player: PlayerId, options: StartOptions): Boolean =
-        counted(m.taken[player] ?: 0, freeFirst(s, options)) < options.handSize
+        counted(m.taken[player] ?: 0, freeFirst(s, options)) < handSize(arcanum.engine.view.Layers.view(s), player, options)
 
     /** How many cards [player] puts on the bottom in this round (CR 103.5, 103.5c). */
     private fun bottomCount(s: GameState, m: Mulligans, player: PlayerId, options: StartOptions): Int =
@@ -307,7 +312,7 @@ internal object Setup {
             SetupStage.Draw
         }
         SetupStage.Draw -> {
-            order(act.state).forEach { Actions.draw(act, null, it, options.handSize) }
+            order(act.state).forEach { Actions.draw(act, null, it, handSize(act, it, options)) }
             SetupStage.Declare(Mulligans())
         }
         is SetupStage.Declare -> declare(act, stage.mulligans, options)
@@ -410,6 +415,23 @@ internal object Setup {
 
     // ---- CR 103.5
 
+    /** CR 103.5, 103.5a: [player]'s starting hand size: the options' (their own, else everyone's) changed by the effects that
+     * modify it ([arcanum.api.Mechanic.StartingHandSize]); not below zero. */
+    private fun handSize(act: Act, player: PlayerId, options: StartOptions): Int = handSize(act.view(), player, options)
+
+    private fun handSize(view: arcanum.engine.view.View, player: PlayerId, options: StartOptions): Int {
+        val change = view.players[player]?.mechanics.orEmpty().sumOf { (it.mechanic as? arcanum.api.Mechanic.StartingHandSize)?.change ?: 0 }
+        return ((options.handSizes[player] ?: options.handSize) + change).coerceAtLeast(0)
+    }
+
+    /** CR 103.5b: the cards in [player]'s hand with an action they may take any time they could mulligan, and its instructions. */
+    private fun mulliganActions(act: Act, player: PlayerId): List<Pair<ObjectId, arcanum.api.Instructions>> =
+        act.state.player(player).hand.flatMap { id ->
+            act.view()[id]?.characteristics?.abilities.orEmpty().mapNotNull { (it.ability as? arcanum.api.Ability.Static) }
+                .flatMap { it.mechanics.filterIsInstance<arcanum.api.Mechanic.WhenYouCouldMulligan>() }
+                .map { id to it.instructions }
+        }
+
     /** Mulligans that count towards cards put on the bottom and the limit (CR 103.5c: the first is free in multiplayer). */
     private fun counted(taken: Int, free: Boolean): Int = if (free) (taken - 1).coerceAtLeast(0) else taken
 
@@ -420,8 +442,20 @@ internal object Setup {
         val player = order(s).firstOrNull { it !in m.kept && it !in m.taking }
             // CR 103.6: opening-hand actions, once nobody takes a mulligan any more
             ?: return if (order(s).none { it in m.taking }) SetupStage.OpeningHand() else SetupStage.Mulligan(m)
-        val choice = if (canMulligan(s, m, player, options)) act.chooseOption(player, null, listOf(KEEP, MULLIGAN)) else KEEP
-        require(choice == KEEP || choice == MULLIGAN) { "Answer $KEEP or $MULLIGAN" }
+        // A hand already down to zero cards can't be mulliganed again (CR 103.5)
+        val canMulligan = counted(m.taken[player] ?: 0, freeFirst(s, options)) < handSize(act, player, options)
+        // CR 103.5b: actions "any time you could mulligan" of cards in their hand, then they declare
+        val uses = mulliganActions(act, player)
+        val labels = uses.mapIndexed { i, (id, _) -> "$USE ${i + 1}: ${act.state.obj(id)?.definition?.faces?.firstOrNull()?.name ?: "a card"}" }
+        val choice = if (canMulligan || uses.isNotEmpty()) act.chooseOption(player, null, listOf(KEEP) + (if (canMulligan) listOf(MULLIGAN) else emptyList()) + labels)
+            else KEEP
+        labels.indexOf(choice).takeIf { it >= 0 }?.let { i ->
+            val (card, instructions) = uses[i]
+            val cause = arcanum.engine.action.Cause(player, card, key = "mulligan-action:$card")
+            arcanum.engine.resolution.Steps.run(arcanum.engine.resolution.Scope(act, cause, arcanum.engine.state.Bindings.EMPTY, null), instructions.steps)
+            return SetupStage.Declare(m)
+        }
+        require(choice == KEEP || (choice == MULLIGAN && canMulligan)) { "Answer $KEEP or $MULLIGAN" }
         if (choice == MULLIGAN) return SetupStage.Declare(m.copy(taking = m.taking + player))
         act.record(Change.Happened(GameEvent.Kept(player, s.player(player).hand.size)))
         return SetupStage.Declare(m.copy(kept = m.kept + player))
@@ -437,7 +471,7 @@ internal object Setup {
             val hand = s.player(p).hand
             if (hand.isNotEmpty()) act.record(Changes.move(s, hand, Zone.Library, meanings = listOf(Meaning.PutIntoLibrary)))
             Actions.shuffle(act, p)
-            Actions.draw(act, null, p, options.handSize)
+            Actions.draw(act, null, p, handSize(act, p, options))
         }
         return SetupStage.Bottom(m.copy(taken = taken))
     }

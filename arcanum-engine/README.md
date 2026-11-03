@@ -86,8 +86,8 @@ committed once done (D58) and redone with its answers when it waits (D29): the s
 chooser, or chosen by a player a host-answered die roll picks, CR 103.1); companion reveals in turn order when the deck
 meets the condition (CR 103.2b); the host's shuffles (D25); opening hands; mulligans (CR 103.5: declarations in turn
 order, mulligans at once, then each puts as many cards on the bottom as mulligans taken, the first free in multiplayer,
-103.5c); turn 1 from its upkeep with priority. Opening-hand actions (CR 103.6) have no cube card yet: the stage list
-marks where they go.
+103.5c; actions "any time you could mulligan", 103.5b, and starting hand sizes, 103.5a: see Status); opening-hand actions
+(CR 103.6a); turn 1 from its upkeep with priority.
 
 With `StartOptions.simultaneousMulligans` (a host variant for players who don't sit together) each round's
 declarations and bottom choices may be made in any order: the open decision is still the next in turn order, and any
@@ -103,7 +103,8 @@ for the agreement, as for a mandatory loop, and `options` never lists it.
 input. In a game that goes on, a player who lost or conceded leaves it (CR 800.4a): their objects leave the game, what
 they control is exiled, their abilities on the Stack and waiting triggers go, their face-down permanents and spells are
 revealed (CR 708.9; in a viewer's state those it doesn't know stay unknown, as leaving can't wait for the host),
-priority they held passes on, and their turn goes on without them (CR 800.4j).
+priority they held passes on, their turn goes on without them (CR 800.4j), and their decisions are made by others or not at
+all (CR 800.4f–h, see Status).
 
 ## Loops
 
@@ -431,7 +432,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   with the abilities its temptation count gives, `Value.RingTemptations`; the Ring-bearer, `ObjectMark.RingBearer`, ended by another
   choice or another player gaining control; `EventPattern.RingTempts`, the chosen creature as its object); enlist (CR 702.154, an
   optional cost to attack, CR 508.1g: `Attack.enlisted` names the creatures tapped, one per enlist ability, checked with the
-  declaration; the linked trigger reads `EventPattern.Enlists`; `options` doesn't list enlisting, a host adds it to a declaration;
+  declaration; the linked trigger reads `EventPattern.Enlists`; `options` lists a declaration with each attacker enlisting what it can;
   two enlist abilities on one creature both trigger for each creature enlisted, a simplification of 702.154d);
   soulbond (`soulbond/Soulbond`, CR 702.95: `Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`, the pair kept in both
   creatures' memory and ended with the state-based actions, 702.95e); haunt (CR 702.55: `Effect.Haunt` exiles the card haunting the target, kept as
@@ -465,13 +466,46 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   Banding (`combat/Banding`, CR 702.22, scenarios in `combat/BandingTest`): attackers declared with the same `Attack.band` form an
   attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature
   blocking a member blocks the whole band; the defending player assigns the damage of an attacker blocked by a creature with banding,
-  the active player that of a blocker blocking one. `options` doesn't list bands; a host adds them to a declaration. "Bands with
+  the active player that of a blocker blocking one. `options` lists a declaration with one band of the attackers that can form it. "Bands with
   other" isn't an API keyword yet. Hidden agenda and double agenda (`conspiracy/Conspiracies`, CR 702.106, 103.2e, 905.4,
   scenarios in `conspiracy/HiddenAgendaTest`): with `StartOptions.conspiracies` (a Conspiracy Draft game) each player in turn order
   may put conspiracy cards from outside the game into the command zone, those with hidden agenda face down with their owner's
   secretly chosen name(s) as memory under "name" (what "the chosen name" reads; double agenda's second name counts too); the
   keyword expands to the special action turning it face up (CR 116.2j). D60: the owner may look at it; in another player's view
   the host answers which chosen cards go face down, and the name is asked of the owner (the host answering) as it is revealed.
+- Done, engine lane 4 (2026-11-03, scenarios in `combat/CombatCostsTest`): costs to attack of any kind (`Mechanic.AttackCost`:
+  sacrificing, tapping, life, … with the mana, CR 508.1h–j) and costs to block (`Mechanic.BlockCost`, CR 509.1d–f), paid as the
+  declaration is made (`PlannedEvent.DeclareAttackers` / `DeclareBlockers`, waiting for the payment's choices, D29); a declaration
+  that can't be paid isn't made or offered, and a requirement never makes a creature pay one (CR 508.1d, 509.1c). Optional "as it
+  attacks" costs (`Mechanic.AsAttacks`, CR 508.1g: exert, 701.43d) are chosen with the declaration (`Attack.paying`, their origins),
+  paid with the other costs, and their "when you do" triggers (CR 607.2h). Exert and other keyword actions as costs of activated
+  abilities are done as the action, the source as "this" (CR 701.43a, b); an exerted permanent's "doesn't untap" now ends after its
+  controller's next untap step (the step's player read with the effect's names). `options` lists, beside the plain declarations, one
+  with every optional cost paid, one with enlisting and one with a band.
+  Battles (`combat/Battles`, CR 310, scenarios in `combat/BattleTest`): a battle's protector (`GameObject.protector`) is chosen as
+  it enters by its controller (a Siege's among their opponents, 310.12a; one with no battle type is its controller's, 310.9a) and
+  by the state-based actions when it has none or one who can't be (704.5x, y; none possible: the graveyard). Battles are attack
+  targets of players their protector defends against, a Siege of its own controller's too, never of the protector (310.9b, 508.1b);
+  the protector is the defending player of those attacks and the only one who blocks them (310.9c, d, `Players.DefendingPlayerOf`).
+  A Siege has the intrinsic trigger of 310.12b (`AbilityOrigin.Rule("siege")`: exiled, then it may be cast transformed without
+  paying its mana cost, `Effect.Cast.transformed`) and waits for it at 0 defense (704.5v).
+  `Trigger.On.during` (scenarios in `trigger/NthDuringStepTest`): "the nth … during each of your draw steps" counts only the events
+  since that step began, and triggers only in it. Copy effects of static abilities (`view/Copiable`, CR 613.2a, 707.2, scenarios in
+  `view/StaticCopyTest`): a permanent's printed static ability with `Mechanic.CopyOf` applies in layer 1 to what its `affects`
+  names while its condition holds, both read on the copiable values, in timestamp order with the effect objects' copies (a static
+  copy ability a copy effect gives isn't one, and one doesn't see its own result while it finds what it affects).
+  Starting a game (scenarios in `setup/MulliganActionsTest`): actions "any time you could mulligan" (CR 103.5b,
+  `Mechanic.WhenYouCouldMulligan` of cards in the hand) are further options of each declaration (`Setup.USE` and the card's name):
+  the action is taken, then the player declares, in any round; the starting hand size is a player's own
+  (`StartOptions.handSizes`, CR 103.5a) or everyone's, changed by `Mechanic.StartingHandSize` effects (a conspiracy in the command
+  zone), for draws, mulligans and the zero-card limit. In another player's view the hidden hand's cards offer no such action (the
+  host takes the declaration from the player's own state). Decisions of a player who left (`setup/LeftPlayers`, CR 800.4f–h,
+  scenarios in `setup/LeftPlayersTest`): every question a flow asks goes through `Act.ask`, which decides one of a player who
+  left: a cost they'd choose whether to pay isn't paid, without asking (800.4f); another choice an object asks of them is made by
+  a player its controller chooses (another opponent of the controller if possible; one possible player: no question, 800.4g);
+  a choice the rules ask (no object, or its controller left too) by the next player in turn order (800.4h). A decision open as
+  its player concedes goes to that player at once (or to the controller's choice of who); an open cost choice stays open for
+  "no".
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
@@ -481,14 +515,8 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round).
-- Not yet: `nthThisTurn`'s
-  `during`; in the flow: costs to attack other than mana and enlist, and
-  "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
-  other keyword actions as costs (exert); no cube card has any of these. Also missing: copy effects from static
-  abilities (effect objects only). Around the game:
-  actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
-  starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
-  choosing, are not applied); restarting a game (CR 104.1).
+- Not yet, around the game:
+  team and other variant starts; restarting a game (CR 104.1).
 
 ## Tests
 

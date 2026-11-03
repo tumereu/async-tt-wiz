@@ -206,6 +206,8 @@ internal object Steps {
      * battlefield, then shuffle": each decides in turn order (CR 101.4), then those who do take the inner steps one by
      * one together, so the cards are put onto the battlefield before anyone shuffles. */
     private fun stepTogether(scope: Scope, scopes: List<Scope>, s: Step) {
+        // ecl: "each opponent exiles cards … until …": a process each player repeats on their own, its moves done one by one (CR 608.2c)
+        if (s is Step.RepeatWhile) { scopes.forEach { run(it, listOf(s)) }; return }
         if (s is Step.May) {
             val doing = scopes.filter { sc ->
                 val player = sc.players(s.player).firstOrNull() ?: return@filter false
@@ -252,6 +254,8 @@ internal object Steps {
                 NamedValue.Colors(chosen)
             }
             Choice.CreatureType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, null))
+            // ecl: one of the listed creature types
+            is Choice.CreatureTypeAmong -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, choice.among))
             Choice.BasicLandType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, Subtypes.basicLandTypes.keys.toList()))
             is Choice.CardType -> NamedValue.CardTypeValue(act.chooseCardType(chooser, source, choice.among ?: ALL_TYPES))
             is Choice.CardName -> NamedValue.Name(act.chooseCardName(chooser, source, choice.filter))

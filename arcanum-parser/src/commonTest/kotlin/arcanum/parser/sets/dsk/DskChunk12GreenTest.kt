@@ -262,7 +262,7 @@ class DskChunk12GreenTest {
         """,
     ) parsesTo abilities(
         Ability.Static(
-            mechanics = listOf(Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Action(KeywordAction.Behold(creature), bind = "beheld"))))),
+            mechanics = listOf(Mechanic.AdditionalCost(cost = Cost(listOf(CostPart.Action(KeywordAction.Behold(creature, arcanum.api.Value.Fixed(1)), bind = "beheld"))))),
             affects = Affected.Objects(Objects.Self),
         ),
         spell(

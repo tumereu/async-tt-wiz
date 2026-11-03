@@ -108,7 +108,7 @@ class FraChunk03EmpowerJaceTest {
         """,
     ) parsesTo abilities(
             static(Mechanic.AdditionalCost(cost = cost(CostPart.OneOf(listOf(
-                cost(CostPart.Action(KeywordAction.Behold(sub("Jace")), bind = "beheld")),
+                cost(CostPart.Action(KeywordAction.Behold(sub("Jace"), arcanum.api.Value.Fixed(1)), bind = "beheld")),
                 cost(mana("{1}")),
             ))))),
             spell(Step.Do(Effect.Counter(target("spell"))), empower(1), targets = listOf(slot("spell", spellFilter))),
@@ -367,7 +367,7 @@ class FraChunk03EmpowerJaceTest {
     ) parsesTo abilities(
             Ability.Static(listOf(Mechanic.Replacement(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield),
                 modify = listOf(Modification.AsEnters(listOf(
-                    Step.Pay(cost(CostPart.Action(KeywordAction.Behold(sub("Jace")), bind = "beheld")), payer = Players.You, bind = "paid"),
+                    Step.Pay(cost(CostPart.Action(KeywordAction.Behold(sub("Jace"), arcanum.api.Value.Fixed(1)), bind = "beheld")), payer = Players.You, bind = "paid"),
                     Step.If(Condition.Not(Condition.Did("paid")), then = listOf(Step.Modify(Modification.EntersTapped)))))))), affects = Affected.Objects(Objects.Self)),
             activated(cost(mana("{2}{U}"), tap), empower(2)),
         )

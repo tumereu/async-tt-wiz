@@ -343,6 +343,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   cost the card had where it was cast from is kept as it moves to the Stack, CR 601.2a, b; `MayPlay.viaAlternative` is enforced),
   disappear, the card types among spells cast this turn (`Measure.Distinct`), creatures that crewed a Vehicle this turn (tapping for a
   crew cost is recorded with `Meaning.Crewed`, CR 702.122b), an equip cost paid once each turn, searching outside the game.
+- Done, Lorwyn Eclipsed (scenarios in `commonTest/…/sets/ecl/`): all 273 cards play. Blight as a cost (the source may blight itself;
+  not payable without a creature, CR 701.68b), as an optional or alternative additional cost and as an effect for each player; behold
+  of several objects; "behold … and exile it" with the exiled card kept by the permanent the spell becomes (cost-kept cards become its
+  card memory, CR 607.2a); a creature type chosen with the costs and read by later cost parts and the spell; mana of each colour among
+  permanents; X limited by a value as it is announced; losing all creature types; targets that share a quality; cards returned "under
+  their owners' control" each under its own owner; counters on a card a replacement exiles ("with a dream counter on it"); and repeated
+  processes inside each-player loops done one by one ("until they have exiled cards with total mana value 5").
 - Not yet: several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and

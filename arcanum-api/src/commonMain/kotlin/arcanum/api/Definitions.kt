@@ -339,6 +339,9 @@ data class TargetSlot(
     /** The chosen objects' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("up to two target creatures
      * with total mana value 6 or less", CR 601.2c). */
     val totalAtMost: Choice.TotalLimit? = null,
+    // ecl
+    /** The chosen objects must all share this quality ("two target creature cards that share a creature type", CR 601.2c). */
+    val sharing: SharedQuality? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */
@@ -424,6 +427,10 @@ sealed interface Choice {
      * [ColorRef.Remembered] stand for each of them ("one of the chosen colors"). */
     @Serializable @SerialName("colors") data class Colors(val count: Int) : Choice
     @Serializable @SerialName("creature-type") data object CreatureType : Choice
+    // ecl
+    /** One creature type of [among] ("choose Elemental, Elf, Faerie, Giant, Goblin, Kithkin, Merfolk, or Treefolk", CR 205.3m); read as
+     * [SubtypeRef.Chosen] or, kept, [SubtypeRef.Remembered] like [CreatureType]. */
+    @Serializable @SerialName("creature-type-among") data class CreatureTypeAmong(val among: List<Subtype>) : Choice
     @Serializable @SerialName("basic-land-type") data object BasicLandType : Choice
     /** A card type, one of [among] when given ("Choose artifact, creature, or land"). */
     @Serializable @SerialName("card-type") data class CardType(val among: List<arcanum.api.CardType>? = null) : Choice

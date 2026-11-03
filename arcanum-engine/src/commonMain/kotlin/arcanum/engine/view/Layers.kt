@@ -211,6 +211,8 @@ private sealed interface Op {
         val remove: List<CardType>, val replaceTypes: Boolean, val replaceSubtypes: Boolean,
     ) : Op
     data object AllCreatureTypes : Op
+    /** ecl: no creature types (layer 4). */
+    data object LoseAllCreatureTypes : Op
     data class Colors(val colors: List<Color>, val add: Boolean) : Op
     data class Gain(val abilities: List<AbilityInstance>) : Op
     data class Lose(val keyword: KeywordKind?) : Op
@@ -526,6 +528,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
                 mechanic.replaceTypes, mechanic.replaceSubtypes,
             )
             Mechanic.AllCreatureTypes -> Op.AllCreatureTypes
+            Mechanic.LoseAllCreatureTypes -> Op.LoseAllCreatureTypes
             is Mechanic.SetColors -> Op.Colors(mechanic.colors.flatMap { ev.colors(it) }.distinct(), mechanic.add)
             is Mechanic.GainAbilities -> Op.Gain(Copiable.expand(mechanic.abilities.mapIndexed { i, ability ->
                 AbilityInstance(ability, grantOrigin(e, index, i), e.timestamp)
@@ -591,6 +594,8 @@ internal class LayerRun(private val state: GameState, private val traced: Object
                 ))
             }
             Op.AllCreatureTypes -> p.copy(chars = c.copy(allCreatureTypes = true))
+            // ecl: its creature types (also every creature type from changeling) are gone; other subtypes stay
+            Op.LoseAllCreatureTypes -> p.copy(chars = c.copy(allCreatureTypes = false, subtypes = c.subtypes.filterNot { Subtypes.kindOf(it) == SubtypeKind.Creature }))
             is Op.Colors -> p.copy(chars = c.copy(colors = Color.all.filter { it in op.colors || (op.add && it in c.colors) }))
             is Op.Gain -> p.copy(chars = c.copy(abilities = c.abilities + op.abilities.filterNot { it.isKeywordIn(p.cantHave) }))
             is Op.Lose -> p.copy(chars = c.copy(abilities = if (op.keyword == null) emptyList() else c.abilities.without(op.keyword)))

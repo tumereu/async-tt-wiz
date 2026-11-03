@@ -729,7 +729,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 (combat.picked as? CombatController.Picking.Band)?.let { picking ->
                     if (attacking && card != picking.attacker) { combat.toggleBandMember(play, card); return true }
                 }
-                combat.clearSelection()
+                combat.stopPicking()
                 if (attacking) return unstage(occurrence!!.id, card)
                 if (card !in choices.attacks && !creature(play, card)) return false
                 return stage(play, listOf(card), combat.activeTarget(play))

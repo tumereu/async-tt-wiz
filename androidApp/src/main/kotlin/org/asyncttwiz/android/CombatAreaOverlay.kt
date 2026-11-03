@@ -332,7 +332,7 @@ private fun StagingChipView(chip: StagingChip, width: Float) {
     val shape = RoundedCornerShape(6.dp)
     val room = (width - if (chip.icon != null) 18f else 6f).coerceAtLeast(8f)
     val natural = CombatStackPresentation.laneTextWidth(chip.text, 10f)
-    val size = if (chip.cost) 11f else if (natural <= room) 10f else maxOf(6f, 10f * room / natural)
+    val size = if (chip.cost) 13f else if (natural <= room) 10f else maxOf(6f, 10f * room / natural)
     HoldTip(chip.hold) {
         Row(Modifier.width(width.dp).heightIn(min = 22.dp).background(if (chip.on) color else Color.White, shape)
             .border(if (chip.picking) 2.5.dp else 1.5.dp, color, shape)

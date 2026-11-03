@@ -234,6 +234,35 @@ class AutomatumCombatChoicesTest {
         assertEquals(mapOf(f.b to -9), shown().preview!!.life.filterValues { it != 0 }, "5 exerted + 4 enlisted")
     }
 
+    // CMB-038, CMB-037: unstaging an attacker drops its choices with it; Clear drops them all
+    @Test fun unstagingDropsTheChoices() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(raider, sergeant, bear), bobField = listOf(ogre)))
+        val alice = device(f.a)
+        val (raiderCard, sergeantCard, bearCard) = listOf(card(raider), card(sergeant), card(bear))
+        tapCard(alice, raiderCard)
+        tapCard(alice, sergeantCard)
+        val exert = assertNotNull(shown().choices.optional[raiderCard]).single()
+        assertTrue(alice.combat.toggleOptional(raiderCard, exert.key))
+        alice.combat.pickEnlisted(sergeantCard)
+        tapCard(alice, bearCard)
+        assertEquals(setOf(raiderCard, sergeantCard), choices().keys)
+        tapCard(alice, raiderCard)
+        assertEquals(setOf(sergeantCard), choices().keys, "the Raider left the staging with its exert")
+        assertTrue(alice.clearCombatDraft(play), alice.error)
+        assertTrue(choices().isEmpty())
+        assertNull(play.board.engineRecords.firstOrNull { it.kind == EngineRecordKind.PreAnswer })
+    }
+
+    // CMB-038: the history line of the attacker's choices
+    @Test fun attackChoicesHistoryText() {
+        val names = mapOf("v" to "Drillmaster Vey", "b" to "Stout Bear", "k" to "Shieldwall Knight", "r" to "Sunscorch Raider")
+        assertEquals("Attack choices: Sunscorch Raider pays as it attacks · Drillmaster Vey enlists Stout Bear · band: Shieldwall Knight, Stout Bear",
+            attackChoicesText(listOf(org.asyncttwiz.automatum.AttackChoice("r", paying = listOf("p0.0")),
+                org.asyncttwiz.automatum.AttackChoice("v", enlisted = listOf("b")), org.asyncttwiz.automatum.AttackChoice("k", band = 1),
+                org.asyncttwiz.automatum.AttackChoice("b", band = 1)), names::getValue))
+        assertEquals("Attack choices cleared", attackChoicesText(emptyList(), names::getValue))
+    }
+
     // CMB-038, CMB-031, CR 702.22c, 702.22h: Alice's Band chip on the Knight, then a tap on the staged Bear's copy, bands
     // them (the Bear stays staged); Bob's Ogre blocking the Bear blocks the whole band
     @Test fun aBandFormedByTaps() {

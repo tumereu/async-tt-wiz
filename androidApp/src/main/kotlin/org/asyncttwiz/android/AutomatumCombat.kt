@@ -83,6 +83,8 @@ internal class CombatController(
 
     fun select(card: String?) { selection = card?.let { it to step(board()) } }
     fun clearSelection() { selection = null; picking = null }
+    /** CMB-036, CMB-038: the viewer stops picking for a staged attacker (its selection stays). */
+    fun stopPicking() { picking = null }
     fun toggleNumbers() { numbersHidden = !numbersHidden }
 
     // ---- The attacker's choices with their staged attackers (CMB-036–CMB-038): shared as an early answer of its own

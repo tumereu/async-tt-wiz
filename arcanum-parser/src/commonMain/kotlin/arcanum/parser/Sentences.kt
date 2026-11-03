@@ -15550,14 +15550,15 @@ internal class Sentences(
         }
         // spm chunk 05: "Look at the top five cards of your library. You may put a creature card from among them onto the battlefield. Put the
         // rest on the bottom of your library in a random order."
+        // (the names tla gives the same wording)
         Spm.LOOK_TOP_N_MAY_PUT_ONTO_BATTLEFIELD.matchEntire(text)?.let { m ->
             val seen = spmN(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
             return listOf(
-                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "seen", players = Players.You)),
-                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("seen")), bind = "chosen", chooser = Players.You),
+                Step.Do(Effect.LookAt(Objects.LibraryCards(Players.You, Value.Fixed(seen), fromTop = true), bind = "looked", players = Players.You)),
+                Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), Value.Fixed(1), from = Objects.Bound("looked")), bind = "chosen", chooser = Players.You),
                 Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Battlefield))),
-                Step.Do(Effect.Move(Objects.Except(Objects.Bound("seen"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
+                Step.Do(Effect.Move(Objects.Except(Objects.Bound("looked"), Objects.Bound("chosen")), Destination(Zone.Library, libraryPosition = -1, randomOrder = true))))
         }
         // spm chunk 05: "look at that many cards from the top of your library. Put one of them into your hand and the rest into your
         // graveyard." (the damage dealt)

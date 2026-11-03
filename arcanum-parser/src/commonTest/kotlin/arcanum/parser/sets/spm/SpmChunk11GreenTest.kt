@@ -432,16 +432,16 @@ class SpmChunk11GreenTest {
             doing(Effect.LookAt(
                     objects = Objects.LibraryCards(of = Players.You, count = n(5), fromTop = true),
                     players = Players.You,
-                    bind = "seen",
+                    bind = "looked",
                 )),
             Step.Choose(
-                choice = Choice.Objects(filter = creature, min = n(0), max = n(1), from = Objects.Bound("seen")),
+                choice = Choice.Objects(filter = creature, min = n(0), max = n(1), from = Objects.Bound("looked")),
                 bind = "chosen",
                 chooser = Players.You,
             ),
             doing(Effect.Move(objects = Objects.Bound("chosen"), to = Destination(Zone.Battlefield))),
             doing(Effect.Move(
-                    objects = Objects.Except(base = Objects.Bound("seen"), minus = Objects.Bound("chosen")),
+                    objects = Objects.Except(base = Objects.Bound("looked"), minus = Objects.Bound("chosen")),
                     to = Destination(zone = Zone.Library, libraryPosition = -1, randomOrder = true),
                 )),
         ),

@@ -22,6 +22,9 @@ internal object FinPhrases {
     private val CARDS_ARE_IN_GRAVEYARD = Regex("""(\w+) or more cards are in your graveyard""")
     private val AND_SUBTYPE_YOU_CONTROL = Regex("""([A-Za-z]+ creatures) and ([A-Z][a-z]+?)(?:es|s) you control""")
     private val ABILITIES_OR_SPELL = Regex("""activated ability, triggered ability, or (.+ spell)""")
+    private val SUBTYPE_LIST_YOU_CONTROL = Regex("""([A-Z][a-z]+), ([A-Z][a-z]+), and(?:/or)? ([A-Z][a-z]+) you control""")
+    /** A subtype written singular or plural ("Scouts", "Scout"); null when neither is a subtype. */
+    private fun singular(word: String): String? = listOf(word, word.removeSuffix("s"), word.removeSuffix("es")).firstOrNull { it in RulesWords.subtypes }
     fun noun(phrase: String): ObjectFilter? {
         THAT_ISNT.matchEntire(phrase)?.let { m ->
             val kind = Filters.noun(m.groupValues[1]) ?: return null
@@ -41,6 +44,15 @@ internal object FinPhrases {
             fun ability(kind: arcanum.api.AbilityKind) = Filters.all(ObjectFilter.Category(arcanum.api.ObjectCategory.StackAbility), ObjectFilter.AbilityOf(kind = kind))
             val spell = Filters.noun(m.groupValues[1]) ?: return null
             return ObjectFilter.Or(listOf(ability(arcanum.api.AbilityKind.Activated), ability(arcanum.api.AbilityKind.Triggered), spell))
+        }
+        // fin chunk 12: "attacking equipped creature" (CR 301.5c)
+        if (phrase == "attacking equipped creature")
+            return Filters.all(ObjectFilter.HasStatus(arcanum.api.Status.Attacking), ObjectFilter.Type(arcanum.api.CardType.Creature),
+                ObjectFilter.Attached(to = null, attachments = ObjectFilter.Sub(arcanum.api.Subtype("Equipment"))))
+        // fin chunk 12: "Scouts, Pirates, and/or Rogues you control", "Scout, Pirate, and Rogue you control"
+        SUBTYPE_LIST_YOU_CONTROL.matchEntire(phrase)?.let { m ->
+            val names = listOf(m.groupValues[1], m.groupValues[2], m.groupValues[3]).map { singular(it) ?: return null }
+            return Filters.all(ObjectFilter.Or(names.map { ObjectFilter.Sub(arcanum.api.Subtype(it)) }), ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You))
         }
         // fin-noun-end
         return null
@@ -188,4 +200,15 @@ internal object Fin {
     val WOULD_DIE_INSTEAD_EXILE_GAIN = Regex("""If an? (.+?) would die, instead exile it and you gain (\d+) life\.""")
     val PUT_TARGET_EXILED_WITH_ONTO_BATTLEFIELD = Regex("""(.+?): Put target (.+?) exiled with (.+?) onto the battlefield tapped under your control with (\w+) additional \+1/\+1 counters on it\.""")
     val PLAYER_SACRIFICES = Regex("""a player sacrifices (another creature|a creature)""")
+    // fin chunk 12
+    val COPY_OF_IT_EQUIP_LESS_SACRIFICE = Regex("""Create a token that's a copy of it, except it has "This Equipment's equip abilities cost (\{\d+\}) less to activate\." Sacrifice that token at the beginning of the next (upkeep|end step)\.""")
+    val LOOK_PUT_EQUIPMENT_ATTACH = Regex("""Look at the top (\w+) cards of your library\. You may put any number of Equipment cards from among them onto the battlefield\. Put the rest on the bottom of your library in a random order\. When you put one or more Equipment onto the battlefield this way, you may attach one of them to an? (.+)\.""")
+    val DAMAGE_THEN_DESTROY_EQUIPMENT_ATTACHED = Regex("""(.+?) deals (\d+) damage to target creature\. Destroy up to one Equipment attached to that creature\.""")
+    val SHUFFLE_MILL_PUT_CREATURES_HASTE_RETURN = Regex("""Shuffle your library, then mill (\w+) cards\. Put each creature card milled this way onto the battlefield\. They gain haste\. At the beginning of the next end step, return those creatures to their owner's hand\.""")
+    val ADD_ONLY_EQUIPMENT = Regex("""Add ((?:\{[WUBRGC]\})+)\. Spend this mana only to cast an Equipment spell or activate an equip ability\.""")
+    val DEALS_DAMAGE_EQUAL_TO_DEFENDING = Regex("""(.+?) deals damage equal to (the number of .+?) to defending player\.""")
+    val DAMAGE_TARGET_AND_X_TO_CONTROLLER = Regex("""(.+?) deals (\d+) damage to target creature and X damage to that creature's controller\.""")
+    val ATTACH_UP_TO_ONE_TARGET_TO_TARGET = Regex("""Attach up to one target (.+?) to target (.+)\.""")
+    val PAY_LIFE_EQUAL_TO_POWER = Regex("""Pay life equal to ([A-Z].*?)'s power""")
+    val WHENEVER_COPY_OF_IT_EQUIP_LESS = Regex("""Whenever (.+?), create a token that's a copy of it, except it has "This Equipment's equip abilities cost (\{\d+\}) less to activate\." Sacrifice that token at the beginning of the next (upkeep|end step)\.""")
 }

@@ -267,7 +267,9 @@ internal object Payment {
             is CostPart.TapObjects -> {
                 val ids = objects(part.what)
                 check(ids, Zone.Battlefield)
-                ids.forEach { if (recorder.state.obj(it)?.tapped != false) refuse("$it is tapped"); recorder.record(Changes.tap(recorder.state, it)) }
+                // msh: tapped to pay a keyword's cost ("becomes tapped to pay a teamwork cost", CR 702.194a)
+                val paidFor = plan.costKeyword(kp.key)?.let { listOf(Meaning.PaidFor(it)) }.orEmpty()
+                ids.forEach { if (recorder.state.obj(it)?.tapped != false) refuse("$it is tapped"); recorder.record(Changes.tap(recorder.state, it, meanings = paidFor)) }
                 part.bind?.let { bound[it] = NamedValue.Objects(ids) }
             }
             is CostPart.Sacrifice -> {
@@ -332,6 +334,8 @@ internal object Payment {
                     recorder.record(Changes.counters(recorder.state, TargetRef.Object(id), kind, -n, listOf(Meaning.Paid)))
                 }
             }
+            // msh: "Get five poison counters" (ward, CR 122.1)
+            is CostPart.GetCounters -> Actions.putCounters(act, cause, TargetRef.Player(player), part.kind, eval.value(part.amount), listOf(Meaning.Paid))
             is CostPart.PutCounters -> {
                 val n = eval.value(part.amount)
                 // CR 122.6, 614.1a: counters put as a cost are put on it: replacements that change counters being put apply

@@ -298,6 +298,12 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // fra: a prepare spell (CR 722.3c, d)
             ObjectFilter.PrepareSpell -> o?.prepareSpellOf != null
             ObjectFilter.HasDealtCombatDamage -> o?.facts?.dealtCombatDamage == true
+            // msh: the only creature declared as an attacker in this combat (CR 506.5)
+            ObjectFilter.AttackingAlone -> state.combat?.attackers.orEmpty().any { it.id == id } && attackedAlone(id)
+            // msh: a target of one of these spells or abilities (CR 115.1)
+            is ObjectFilter.TargetedBy -> objects(filter.objects).any { item ->
+                state.stackItems[item]?.targets?.values.orEmpty().any { refs -> refs.any { it == TargetRef.Object(id) } }
+            }
             // hob: the condition read with this object as the tested one
             is ObjectFilter.Where -> with(ctx.copy(tested = id)).holds(filter.condition)
             ObjectFilter.Colorless -> c != null && c.colors.isEmpty()
@@ -621,7 +627,30 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             }
             // CR 709.5c
             NumericProperty.UnlockedDoors -> o?.marks.orEmpty().count { it is arcanum.api.ObjectMark.Unlocked }
+            // msh: mana symbols of a colour in its mana cost, hybrid ones included (CR 107.4, 202.1)
+            is NumericProperty.ManaSymbols -> c?.manaCost?.symbols.orEmpty().count { s ->
+                when (s) {
+                    is arcanum.api.ManaSymbol.Colored -> s.color == property.color
+                    is arcanum.api.ManaSymbol.Hybrid -> s.first == property.color || s.second == property.color
+                    is arcanum.api.ManaSymbol.GenericHybrid -> s.color == property.color
+                    is arcanum.api.ManaSymbol.ColorlessHybrid -> s.color == property.color
+                    is arcanum.api.ManaSymbol.Phyrexian -> s.color == property.color
+                    is arcanum.api.ManaSymbol.PhyrexianHybrid -> s.first == property.color || s.second == property.color
+                    else -> false
+                }
+            }
         }
+    }
+
+    /** msh: whether [id] was the only creature declared as an attacker in the latest declaration of attackers this turn
+     * (CR 506.5: a creature put onto the battlefield attacking doesn't change that). */
+    private fun attackedAlone(id: ObjectId): Boolean {
+        val declared = state.eventsOf(state.turn.number).lastOrNull { c ->
+            c is arcanum.engine.change.Change.Combat && arcanum.engine.change.Meaning.AttackersDeclared in c.meanings
+        } as? arcanum.engine.change.Change.Combat ?: return false
+        val before = declared.before?.attackers.orEmpty().map { it.id }.toSet()
+        val now = declared.after?.attackers.orEmpty().filter { it.id !in before }
+        return now.singleOrNull()?.id == id
     }
 
     /** Mana value; X counts its announced value on the Stack (CR 202.3e), also for a spell that has left the Stack and is

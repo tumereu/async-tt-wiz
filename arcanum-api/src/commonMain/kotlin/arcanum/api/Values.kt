@@ -111,6 +111,10 @@ sealed interface NumericProperty {
     /** How many of its halves are unlocked (CR 709.5c): 0–2 for a Room, 0 for other objects ("the number of unlocked
      * doors among Rooms you control" is their total). */
     @Serializable @SerialName("unlocked-doors") data object UnlockedDoors : NumericProperty
+    // msh
+    /** The number of [color] mana symbols in its mana cost, hybrid symbols of that colour included (CR 107.4, 202.1: "a spell
+     * with one or more blue mana symbols in its mana cost"). */
+    @Serializable @SerialName("mana-symbols") data class ManaSymbols(val color: Color) : NumericProperty
 }
 
 /** How [Value.Of] turns the objects' numbers into one. */

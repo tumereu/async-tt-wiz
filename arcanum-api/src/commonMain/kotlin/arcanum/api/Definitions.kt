@@ -244,6 +244,9 @@ sealed interface AbilityLabel {
     /** "If this permanent entered this turn, this ability's cost is reduced by its mana cost. Activate only once"
      * (CR 702.193a). */
     @Serializable @SerialName("power-up") data object PowerUp : AbilityLabel
+    // msh
+    /** "∞ — [ability]": "As long as this permanent is harnessed, it has [ability]" (CR 702.186b, 701.64). */
+    @Serializable @SerialName("infinity") data object Infinity : AbilityLabel
 }
 
 /**
@@ -283,6 +286,10 @@ data class Modes(
     val pawprintLimit: Int? = null,
     /** Who chooses ("target opponent chooses one —"). */
     val chooser: Players,
+    // msh
+    /** "Choose up to X —", "choose up to that many —": at most this many modes, worked out as they are chosen; [max] is
+     * then the most it can be. */
+    val maxCount: Value? = null,
 )
 
 /** One mode. [extraCost] is paid for choosing it (spree, CR 702.172). A target slot of a mode not chosen is empty: the
@@ -325,6 +332,10 @@ data class TargetSlot(
     /** At most one target for each value of this quality, each target standing for one value it has ("up to one target
      * nonland card of each card type", as [Choice.Objects.onePer]); [max] then counts all of them. */
     val onePer: SharedQuality? = null,
+    // msh
+    /** The chosen objects' [Choice.TotalLimit.property] adds up to at most [Choice.TotalLimit.atMost] ("up to two target creatures
+     * with total mana value 6 or less", CR 601.2c). */
+    val totalAtMost: Choice.TotalLimit? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */

@@ -32,7 +32,9 @@ internal object Numbers {
         "twenty" to 20,
         // hob chunk 10
         "eleven" to 11, "twelve" to 12, "thirteen" to 13, "fourteen" to 14, "fifteen" to 15)
-    private val ORDINALS = mapOf("first" to 1, "second" to 2, "third" to 3, "fourth" to 4, "fifth" to 5)
+    private val ORDINALS = mapOf("first" to 1, "second" to 2, "third" to 3, "fourth" to 4, "fifth" to 5,
+        // msh
+        "sixth" to 6, "seventh" to 7, "eighth" to 8, "ninth" to 9, "tenth" to 10)
 }
 
 /** Noun phrases naming objects and players ("nonbasic land", "a Mountain or Plains card", "creature you control"). */
@@ -42,6 +44,7 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        MshPhrases.noun(phrase)?.let { return it } // msh
         FraPhrases.noun(phrase)?.let { return it } // fra
         gtcNoun(phrase)?.let { return it }
         // blb chunk 12: "creatures you control of the chosen type" (the creature type chosen as this permanent entered)
@@ -393,7 +396,9 @@ internal object Filters {
     private val IRREGULAR_PLURALS = mapOf("Elves" to "Elf", "Dwarves" to "Dwarf", "Wolves" to "Wolf", "Goblins" to "Goblin",
         "Zombies" to "Zombie", "Humans" to "Human", "Spirits" to "Spirit", "Merfolk" to "Merfolk", "Soldiers" to "Soldier",
         // blb chunk 04
-        "Mice" to "Mouse")
+        "Mice" to "Mouse",
+        // msh
+        "Heroes" to "Hero")
     // chunk 31
     private val IN_YOUR_GRAVEYARD = Regex("""(.+) in your graveyard""")
     private val FROM_A_GRAVEYARD = Regex("""(.+) from a graveyard""")
@@ -893,6 +898,7 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        MshPhrases.condition(text, self)?.let { return it } // msh
         HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         // dgm: "this creature isn't a token" (CR 111.1)

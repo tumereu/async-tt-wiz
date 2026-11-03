@@ -93,7 +93,8 @@ internal object EventMatcher {
         is EventPattern.PlayLand -> moves(change).filter { Meaning.PlayedLand in it.meanings && e.matches(pattern.lands, it.after.id) &&
             e.matches(pattern.players, it.after.controller ?: it.after.owner) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.after.id))), listOf(it.after.controller ?: it.after.owner)) }
-        is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy)) counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
+        is EventPattern.CountersPut -> if (causedBy(e, change, pattern.causedBy) && reaches(change, pattern.reaching))
+            counters(e, change, pattern.objects, pattern.kind, put = true, last = false) else emptyList()
         is EventPattern.CountersRemoved -> counters(e, change, pattern.objects, pattern.kind, put = false, last = pattern.last)
         is EventPattern.PlayerCountersPut -> (change as? Change.Counters)?.let { c ->
             val holder = c.holder as? TargetRef.Player ?: return@let null
@@ -103,7 +104,9 @@ internal object EventMatcher {
         }.orEmpty()
         is EventPattern.Tap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && !it.before && it.after }?.let { c ->
             val forMana = Meaning.ManaAdded in c.meanings
-            if ((pattern.forMana == null || pattern.forMana == forMana) && e.matches(pattern.objects, c.id))
+            // msh: tapped to pay a keyword's cost (CR 702.194a)
+            val forCost = pattern.forCost == null || c.meanings.any { it is Meaning.PaidFor && it.keyword == pattern.forCost }
+            if ((pattern.forMana == null || pattern.forMana == forMana) && forCost && e.matches(pattern.objects, c.id))
                 listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(c.id))), listOfNotNull(e.controllerOf(c.id)))) else null
         }.orEmpty()
         is EventPattern.Untap -> (change as? Change.Status)?.takeIf { it.flag == StatusFlag.Tapped && it.before && !it.after }?.let { c ->
@@ -121,8 +124,14 @@ internal object EventMatcher {
         is EventPattern.BecomesTarget -> targeted(change).flatMap { (item, refs) ->
             refs.filterIsInstance<TargetRef.Object>().map { it.id }.distinct()
                 .filter { e.matches(pattern.objects, it) && e.matches(pattern.by, item) }
-                .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it)), RoleObjects(EventRole.Source, listOf(item)))) }
+                .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it)), RoleObjects(EventRole.Source, listOf(item)))) } +
+                // msh: "a player or permanent becomes the target of …"
+                (pattern.players?.let { players -> refs.filterIsInstance<TargetRef.Player>().map { it.id }.distinct()
+                    .filter { e.matches(players, it) && e.matches(pattern.by, item) }
+                    .map { TriggerEvent(listOf(RoleObjects(EventRole.Source, listOf(item))), listOf(it)) } }.orEmpty())
         }
+        // msh: conniving is only replaced (CR 614.1a, see Effects); nothing triggers on it yet
+        is EventPattern.Connive -> emptyList()
         is EventPattern.CreateToken -> (change as? Change.Created)?.takeIf { Meaning.TokenCreated in it.meanings }?.objects.orEmpty()
             .filter { e.matches(pattern.tokens, it.obj.id) }
             .map { TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(it.obj.id))), listOfNotNull(it.obj.controller ?: it.obj.owner)) }
@@ -261,6 +270,14 @@ internal object EventMatcher {
         if (!e.matches(objects, holder.id)) return emptyList()
         return listOf(TriggerEvent(listOf(RoleObjects(EventRole.Object, listOf(holder.id))), listOfNotNull(e.controllerOf(holder.id)),
             kotlin.math.abs(delta)))
+    }
+
+    /** msh: whether the counters put make the count reach [reaching] ("the fourth plan counter is put"): fewer before, at least that
+     * many after. */
+    private fun reaches(change: Change, reaching: Int?): Boolean {
+        if (reaching == null) return true
+        val c = change as? Change.Counters ?: return false
+        return (c.before?.count ?: 0) < reaching && (c.after?.count ?: 0) >= reaching
     }
 
     /** blb: whether counters were put by an effect of a spell or ability matching [filter] (its Stack item; "you put": one

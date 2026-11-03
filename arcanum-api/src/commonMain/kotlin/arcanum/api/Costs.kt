@@ -74,6 +74,9 @@ sealed interface CostPart {
     /** Choose a player matching [filter] ("you may choose an opponent", gift, CR 702.174a); kept with the spell and the
      * permanent it becomes, read with [Players.ChosenAsCost]. */
     @Serializable @SerialName("choose-player") data class ChoosePlayer(val filter: PlayerFilter) : CostPart
+    // msh
+    /** The payer gets [amount] [kind] counters ("Ward—Get five poison counters", CR 122.1). */
+    @Serializable @SerialName("get-counters") data class GetCounters(val kind: CounterKind, val amount: Value) : CostPart
     /** Text the definition can't express as a cost part; shown as a reminder. */
     @Serializable @SerialName("manual") data class Manual(val text: String) : CostPart
 }

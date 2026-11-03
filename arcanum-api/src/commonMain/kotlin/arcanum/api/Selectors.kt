@@ -196,6 +196,13 @@ sealed interface ObjectFilter {
     /** It has dealt combat damage since it became this object (CR 400.7): "as long as they haven't dealt combat damage
      * yet". */
     @Serializable @SerialName("has-dealt-combat-damage") data object HasDealtCombatDamage : ObjectFilter
+    // msh
+    /** An attacking creature that attacked alone: the only creature declared as an attacker in its combat (CR 506.5, "a
+     * creature you control that's attacking alone"). */
+    @Serializable @SerialName("attacking-alone") data object AttackingAlone : ObjectFilter
+    /** Targeted by one of [objects], spells or abilities ("Whenever you cast a spell that targets one or more creatures, those
+     * creatures gain flying": the creatures that spell targets, CR 115.1). */
+    @Serializable @SerialName("targeted-by") data class TargetedBy(val objects: Objects) : ObjectFilter
     // hob
     /** The object passes [condition], read with [Objects.Tested] as that object ("a spell with mana value of the chosen
      * quality"). */

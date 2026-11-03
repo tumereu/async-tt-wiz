@@ -480,6 +480,11 @@ sealed interface Meaning {
     @Serializable @SerialName("mana-spent") data object ManaSpent : Meaning
     @Serializable @SerialName("mana-emptied") data object ManaEmptied : Meaning
     @Serializable @SerialName("paid") data object Paid : Meaning
+    // msh
+    /** Done to pay that keyword's cost (tapped for teamwork, CR 702.194a). */
+    @Serializable @SerialName("paid-for") data class PaidFor(
+        @Serializable(with = arcanum.api.KeywordKindSerializer::class) val keyword: arcanum.api.KeywordKind,
+    ) : Meaning
     @Serializable @SerialName("priority-passed") data object PriorityPassed : Meaning
     @Serializable @SerialName("priority-granted") data object PriorityGranted : Meaning
     @Serializable @SerialName("turn-began") data object TurnBegan : Meaning

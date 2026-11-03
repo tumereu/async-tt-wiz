@@ -121,6 +121,12 @@ internal object Costs {
                     val i = symbols.indexOfFirst { it == ManaSymbol.Colored(r.color) || it == r }
                     if (i >= 0) symbols.removeAt(i) else genericOff += 1
                 }
+                // msh: CR 118.7e: the payer chooses a half; the same hybrid symbol, then a symbol of either colour, then generic
+                is ManaSymbol.Hybrid -> {
+                    val i = symbols.indexOf(r).takeIf { it >= 0 }
+                        ?: symbols.indexOfFirst { it == ManaSymbol.Colored(r.first) || it == ManaSymbol.Colored(r.second) }
+                    if (i >= 0) symbols.removeAt(i) else genericOff += 1
+                }
                 else -> genericOff += 1
             }
         }

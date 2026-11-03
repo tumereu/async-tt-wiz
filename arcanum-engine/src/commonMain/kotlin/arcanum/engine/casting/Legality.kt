@@ -281,7 +281,7 @@ internal object Legality {
         }
         val key = instance.origin.key
         ability.rules.perTurn?.let { if (activationsThisTurn(snap, source, key) >= it) return "only $it time(s) each turn (CR 602.5b)" }
-        if (ability.rules.once && activationsEver(snap, source, key) > 0) return "only once"
+        if (ability.rules.once && activationsEver(snap, source, key) >= 1 + additionalUses(snap, source, ability)) return "only once"
         return null
     }
 
@@ -303,6 +303,11 @@ internal object Legality {
             snap.view[source]?.has { it == arcanum.api.Mechanic.CantBeTurnedFaceUp } == true) return "it can't be turned face up"
         return null
     }
+
+    /** msh: "Each power-up ability of permanents you control can be activated an additional time" (CR 702.193a). */
+    private fun additionalUses(snap: Snapshot, source: ObjectId, ability: Ability.Activated): Int = ability.label?.let { label ->
+        snap.view[source]?.mechanics.orEmpty().sumOf { (it.mechanic as? arcanum.api.Mechanic.LabelAdditionalUses)?.takeIf { m -> m.label == label }?.count ?: 0 }
+    } ?: 0
 
     fun activationsThisTurn(snap: Snapshot, source: ObjectId, key: String): Int =
         snap.state.obj(source)?.facts?.activations.orEmpty().filter { it.key == key && it.turn == snap.state.turn.number }.sumOf { it.count }

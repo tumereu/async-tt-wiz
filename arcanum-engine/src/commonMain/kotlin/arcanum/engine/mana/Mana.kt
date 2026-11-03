@@ -122,7 +122,7 @@ internal object Mana {
     fun sick(snap: Snapshot, id: ObjectId): Boolean {
         val ov = snap.view[id] ?: return false
         val creature = ov.characteristics?.isType(CardType.Creature) == true
-        return creature && ov.summoningSick && !ov.has { it is Mechanic.IgnoresSummoningSickness }
+        return creature && ov.summoningSick && !ov.has { it is Mechanic.IgnoresSummoningSickness || it is Mechanic.AbilitiesIgnoreSummoningSickness }
     }
 
     /** A mana ability that pays without any choice but a colour: only tap/untap/sacrifice itself/fixed life, and it does

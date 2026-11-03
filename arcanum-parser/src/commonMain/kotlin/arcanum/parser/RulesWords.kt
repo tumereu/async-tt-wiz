@@ -546,6 +546,12 @@ internal object RulesWords {
         "curse of the walking pox",
         "magical tinkering",
         "rage",
+        // msh
+        "avian telepathy", "boomerang", "brontosaurus", "cosmic awareness", "cybernetic senses", "density control",
+        "designed only for killing", "do you like squirrels?", "embiggen fist", "explosive", "i love squirrels!", "intangibility",
+        "legal justice", "mental organism", "net", "no one dies!", "photographic reflexes", "radar sense", "seismic takedown",
+        "solar beam", "sonic attack", "street justice", "technopathy", "trick arrows", "tyrannosaurus rex", "unbreakable skin",
+        "wasp's sting",
     )
 
     /** An ability word or flavor word ([abilityWords], [flavorWords]), compared without case. */

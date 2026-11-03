@@ -264,6 +264,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     fun optionalKey(inst: AbilityInstance) = "opt:${inst.origin.key}"
 
+    /** msh: the keyword whose additional cost the cost part keyed [key] is part of (teamwork, CR 702.194a), if any. */
+    fun costKeyword(key: String): arcanum.api.KeywordKind? =
+        additionalCosts.firstOrNull { (inst, _) -> key.startsWith("add:${inst.origin.key}.") }?.second?.keyword
+
     /** blb: the target slots, without those whose [arcanum.api.TargetSlot.onlyIf] doesn't hold as the targets are chosen,
      * after the optional costs are (CR 601.2b, c; a gift's targets only if it was promised, 702.174m). */
     private fun targetSlots(): List<SlotOf> = Targets.slots(instructions, choices.modes).filter { s -> s.slot.onlyIf?.let { holdsAsCast(it) } ?: true }
@@ -364,6 +368,13 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         (ability as? Ability.Activated)?.rules?.costChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0
+        }
+        // msh: CR 702.193a, b: a power-up ability costs less by its permanent's mana cost (X as 0) if the permanent entered this turn
+        (ability as? Ability.Activated)?.takeIf { it.label == arcanum.api.AbilityLabel.PowerUp }?.let {
+            val entered = snap.evaluator(player, self = sourceId).matches(ObjectFilter.ThisTurn(arcanum.api.EventPattern.ZoneChange(ObjectFilter.Any,
+                to = arcanum.api.Zone.Battlefield), role = arcanum.api.EventRole.After), sourceId)
+            val own = snap.view[sourceId]?.characteristics?.manaCost
+            if (entered && own != null) reductions += Costs.withX(own, emptyMap()) to 0
         }
         return increases to reductions
     }

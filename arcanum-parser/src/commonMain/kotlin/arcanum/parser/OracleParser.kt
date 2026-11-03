@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 20
+    const val VERSION: Int = 21
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -69,12 +69,18 @@ object OracleParser {
     /** What the card calls itself: its name, a legendary card's short name ("Thalia"), "this [type]", "this [subtype]"
      * ("this Equipment", "this Vehicle"). */
     private fun selfNames(name: String, face: FaceDefinition): Set<String> =
-        setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
+        (setOf(name, name.substringBefore(',')) + face.types.map { "this " + it.toString().lowercase() } +
             listOf("this card", "this permanent", "this spell") +
             // chunk 26: a legendary card's first name ("Kaito" of "Kaito Shizuki", CR 201.5c)
             listOfNotNull(name.substringBefore(' ').takeIf { arcanum.api.Supertype.Legendary in face.supertypes && ',' !in name && it != "The" }) +
             // chunk 20
-            face.subtypes.map { "this " + it.name }
+            face.subtypes.map { "this " + it.name }).let { names ->
+            // msh: dotless aliases ("MODOK" for "M.O.D.O.K.", "Ms Marvel"), which [dotless] writes the lines with
+            names + names.filter { it.contains('.') }.map { it.replace(".", "") } }
+
+    /** msh: [line] with each of [self]'s names that has a full stop written as its dotless alias (also a name of [self]). */
+    private fun dotless(line: String, self: Set<String>): String =
+        self.filter { it.contains('.') }.sortedByDescending { it.length }.fold(line) { l, name -> l.replace(name, name.replace(".", "")) }
 
     /** Lines that are only reminder text ("({W/P} can be paid with either {W} or 2 life.)") give no ability. */
     private fun abilities(text: String, self: Set<String>, isSpell: Boolean = false): List<Ability> {
@@ -98,7 +104,8 @@ object OracleParser {
         var i = 0
         while (i < lines.size) {
             val raw = lines[i++]
-            val line = REMINDER.replace(raw, "").trim()
+            // msh: a name with full stops ("M.O.D.O.K.", "Ms. Marvel") is read as its dotless alias, so sentences split right
+            val line = dotless(REMINDER.replace(raw, "").trim(), self)
             // blb chunk 05: a class level bar "[cost]: Level N" with the abilities of its section, up to the next bar (CR 716.2a).
             // A section with an unread line stays printed text as a whole.
             val classLevel = CLASS_LEVEL.matchEntire(line)
@@ -137,6 +144,18 @@ object OracleParser {
                     else Ability.Unparsed(printed)
                 raws += printed
                 continue
+            }
+            // msh chunk 08: "Choose up to two. Return those cards from your graveyard to your hand." and its "• Target …" modes
+            if (isSpell && i < lines.size && lines[i].startsWith("• ") && line.startsWith("Choose up to ")) {
+                val modeLines = mutableListOf<String>()
+                var j = i
+                while (j < lines.size && lines[j].startsWith("• ")) modeLines += REMINDER.replace(lines[j++].removePrefix("• "), "").trim()
+                sentences.mshModes(line, modeLines)?.let { spell ->
+                    i = j
+                    result += spell
+                    raws += (listOf(raw) + modeLines.map { "• $it" }).joinToString("\n")
+                    continue
+                }
             }
             // dsk chunk 07: "Delirium — Choose one. If …, choose one or more instead." and its "• " modes (CR 700.2)
             if (isSpell && i < lines.size && lines[i].startsWith("• ") && line.contains(" instead.")) {
@@ -184,6 +203,10 @@ object OracleParser {
             // dsk chunk 07: "If …, instead …" replaces the whole spell
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) ?: sentences.insteadAll(line, previous) else null
             var parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            // msh: a legendary creature's "he"/"she"/"him"/"her" read as "it" when the line can't be read as written
+            if (instead == null && parsed == null) ungendered(line, self).takeIf { it != line }?.let { u ->
+                parsed = sentences.multi(u) ?: sentences.line(u)?.let(::listOf)
+            }
             // dsk chunk 07: a later paragraph of a spell that refers to its earlier targets is read with them (CR 113.3a)
             if (instead == null && parsed == null && isSpell && previous is Ability.Spell) {
                 sentences.continuation(line, previous.instructions)?.let { joined ->

@@ -94,6 +94,12 @@ object KeywordExpansions {
         is Keyword.Kicker -> keyword.costs.map { cost ->
             Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Kicker.Kind, cost, optional = true)), affects = Affected.Objects(Objects.Self))
         }
+        // msh: CR 702.194a: "As an additional cost to cast this spell, you may tap any number of creatures you control with total
+        // power N or more" (untapped ones; summoning sickness doesn't matter, CR 302.6)
+        is Keyword.Teamwork -> static(Mechanic.AdditionalCost(Keyword.Teamwork.Kind, Cost(listOf(CostPart.TapObjects(CostObjects.Choose(
+            ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped)))), count = null,
+            total = Total(NumericProperty.Power, Value.Fixed(keyword.amount)))))), optional = true))
         is Keyword.Multikicker -> static(Mechanic.AdditionalCost(Keyword.Kicker.Kind,
             keyword.cost, optional = true, repeatable = true))
         // blb: CR 702.174a, b, j: "As an additional cost to cast this spell, you may choose an opponent"; the chosen
@@ -652,7 +658,7 @@ object KeywordExpansions {
             condition = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.FaceDown)), timing = Timing.Any))
 
     /**
-     * [ability] with the rules its [AbilityLabel] adds (CR 702.142a, 702.169b–d, 702.177a, 702.178a, 702.193a). Power-up's
+     * [ability] with the rules its [AbilityLabel] adds (CR 702.142a, 702.169b–d, 702.177a, 702.178a, 702.186b, 702.193a). Power-up's
      * cost reduction ("reduced by this permanent's mana cost if it entered this turn") is applied by the engine when the
      * cost is determined; "activate only once" is added here.
      */
@@ -664,15 +670,18 @@ object KeywordExpansions {
                 condition = and(ability.rules.condition, attackedThisTurn)))
             AbilityLabel.Solved -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, solved)))
             AbilityLabel.MaxSpeed -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, Condition.MaxSpeed)))
+            AbilityLabel.Infinity -> ability.copy(rules = ability.rules.copy(condition = and(ability.rules.condition, harnessed)))
         }
         is Ability.Triggered -> when (ability.label) {
             AbilityLabel.Solved -> ability.copy(triggersOnlyIf = and(ability.triggersOnlyIf, solved))
             AbilityLabel.MaxSpeed -> ability.copy(triggersOnlyIf = and(ability.triggersOnlyIf, Condition.MaxSpeed))
+            AbilityLabel.Infinity -> ability.copy(triggersOnlyIf = and(ability.triggersOnlyIf, harnessed))
             else -> ability
         }
         is Ability.Static -> when (ability.label) {
             AbilityLabel.Solved -> ability.copy(condition = and(ability.condition, solved))
             AbilityLabel.MaxSpeed -> ability.copy(condition = and(ability.condition, Condition.MaxSpeed))
+            AbilityLabel.Infinity -> ability.copy(condition = and(ability.condition, harnessed))
             else -> ability
         }
         else -> ability
@@ -680,6 +689,8 @@ object KeywordExpansions {
 
     private val attackedThisTurn = Condition.ObjectMatches(Objects.Self, ObjectFilter.ThisTurn(EventPattern.Attack(ObjectFilter.Is(Objects.Self))))
     private val solved = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Solved)))
+    // msh: CR 702.186b, 701.64b
+    private val harnessed = Condition.ObjectMatches(Objects.Self, ObjectFilter.HasStatus(Status.Marked(ObjectMark.Harnessed)))
     private fun and(existing: Condition?, added: Condition) = if (existing == null) added else Condition.And(listOf(existing, added))
 
     private fun static(vararg mechanics: Mechanic) = listOf(Ability.Static(mechanics.toList(), affects = Affected.Objects(Objects.Self)))

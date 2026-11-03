@@ -656,6 +656,8 @@ internal object Payment {
                     effect.counters.forEach { c ->
                         Actions.putCounters(act, costCause(plan), TargetRef.Object(self), c.kind, plan.eval.value(c.amount))
                     }
+                    // CR 702.106c: a conspiracy's hidden agenda reveals the chosen name
+                    arcanum.engine.conspiracy.Conspiracies.revealed(act, self)
                 }
                 // CR 709.5e: paying a locked door's unlock cost unlocks it
                 effect is Effect.UnlockDoor && effect.objects == Objects.Self && effect.door != null ->

@@ -332,7 +332,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             // CR 709.4a: a split card has each of its halves' names
             is ObjectFilter.SameNameAs -> names(c).let { mine -> mine.isNotEmpty() && objects(filter.objects).any { other -> names(characteristics(other)).any { it in mine } } }
             is ObjectFilter.ChosenName -> c?.name != null && (ctx.names[filter.name] as? NamedValue.Name)?.name == c.name
-            is ObjectFilter.RememberedName -> c?.name != null && (selfMemory(filter.key) as? NamedValue.Name)?.name == c.name
+            // CR 702.106f: double agenda's second name counts as the chosen name too
+            is ObjectFilter.RememberedName -> c?.name != null && ((selfMemory(filter.key) as? NamedValue.Name)?.name == c.name ||
+                (filter.key == arcanum.engine.conspiracy.Conspiracies.CHOSEN_NAME &&
+                    (selfMemory(arcanum.engine.conspiracy.Conspiracies.SECOND_NAME) as? NamedValue.Name)?.name == c.name))
             is ObjectFilter.HasKeyword -> c?.hasKeyword(filter.keyword) == true
             is ObjectFilter.HasAbilityKind -> c?.abilities.orEmpty().any { it.ability.isKind(filter.kind) }
             is ObjectFilter.AbilityOf -> matchesAbility(filter, id)

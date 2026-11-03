@@ -59,7 +59,9 @@ object TypeLine {
         "Enchantment" to CardType.Enchantment, "Instant" to CardType.Instant, "Kindred" to CardType.Kindred, "Land" to CardType.Land,
         "Planeswalker" to CardType.Planeswalker, "Sorcery" to CardType.Sorcery,
         // CR 309.1
-        "Dungeon" to CardType.Dungeon)
+        "Dungeon" to CardType.Dungeon,
+        // CR 905.4
+        "Conspiracy" to CardType.Conspiracy)
 }
 
 /** Reads a printed P/T, loyalty or defense ("2", "*", "1+*", "X"). */

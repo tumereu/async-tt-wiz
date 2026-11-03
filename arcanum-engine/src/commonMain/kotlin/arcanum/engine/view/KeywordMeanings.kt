@@ -122,13 +122,7 @@ object KeywordMeanings {
 
     private val self: ObjectFilter get() = ObjectFilter.Is(Objects.Self)
 
-    /** The natural moment(s) of each by-hand keyword; a keyword missing here comes up as its spell is cast. */
-    val moments: Map<KeywordKind, List<Moment>> by lazy {
-        val m = mutableMapOf<KeywordKind, List<Moment>>()
-        fun at(vararg moment: Moment, kinds: () -> List<KeywordKind>) = kinds().forEach { m[it] = moment.toList() }
-        at(Moment.Enters) {
-            listOf(Keyword.HiddenAgenda)
-        }
-        m
-    }
+    /** The natural moment(s) of each by-hand keyword; a keyword missing here comes up as its spell is cast. None since the third
+     * by-hand round (2026-11-03): every keyword of the API has an expansion or is engine code. */
+    val moments: Map<KeywordKind, List<Moment>> = emptyMap()
 }

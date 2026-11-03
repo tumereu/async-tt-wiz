@@ -423,7 +423,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `Objects.LinkedTo(haunt)`; a spell's own trigger on leaving the Stack is found on its card). The parser reads their wordings
   and spree and tiered modes, "partner with", "if this spell was bargained", "if tribute wasn't paid" and "If [this] would be put
   into a graveyard from anywhere, exile it instead".
-- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`, `dungeon/VentureTest`, `combat/BandingTest`): mutate and merged permanents
+- Done, by-hand mechanics, third round (2026-11-03, scenarios in `mutate/MutateTest`, `epic/EpicTest`, `casting/AssistTest`, `dungeon/VentureTest`, `combat/BandingTest`, `conspiracy/HiddenAgendaTest`): mutate and merged permanents
   (`mutate/Mutate`, CR 702.140, 730: the mutate cost is an alternative cost whose spell targets a non-Human creature with the
   same owner; resolving with that target legal it merges on top or under as its controller chooses, `GameEvent.Mutated` and
   `EventPattern.Mutates`, else it enters as a creature spell, 702.140b; the merged permanent stays the same object, keeping its
@@ -451,9 +451,15 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   attacking band (creatures with banding and at most one without, one target; kept as `Attacker.band` for the combat); a creature
   blocking a member blocks the whole band; the defending player assigns the damage of an attacker blocked by a creature with banding,
   the active player that of a blocker blocking one. `options` doesn't list bands; a host adds them to a declaration. "Bands with
-  other" isn't an API keyword yet.
+  other" isn't an API keyword yet. Hidden agenda and double agenda (`conspiracy/Conspiracies`, CR 702.106, 103.2e, 905.4,
+  scenarios in `conspiracy/HiddenAgendaTest`): with `StartOptions.conspiracies` (a Conspiracy Draft game) each player in turn order
+  may put conspiracy cards from outside the game into the command zone, those with hidden agenda face down with their owner's
+  secretly chosen name(s) as memory under "name" (what "the chosen name" reads; double agenda's second name counts too); the
+  keyword expands to the special action turning it face up (CR 116.2j). D60: the owner may look at it; in another player's view
+  the host answers which chosen cards go face down, and the name is asked of the owner (the host answering) as it is revealed.
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
-  - Keywords: hidden agenda (conspiracies, outside normal play).
+  - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
+    read).
   - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
     whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
     the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.

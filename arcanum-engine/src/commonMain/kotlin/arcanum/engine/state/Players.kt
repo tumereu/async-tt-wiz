@@ -81,6 +81,9 @@ data class TurnState(
     val extraPhases: List<TurnStep> = emptyList(),
     /** Where the turn's own order goes on once the additional phases are over (CR 500.8). */
     val resumeAt: TurnStep? = null,
+    // sos
+    /** One entry for each turn a player will skip: their next turns that don't happen (CR 614.10, "skips their next X turns"). */
+    val skippedTurns: List<PlayerId> = emptyList(),
 )
 
 /** Who has priority and how many players in a row have passed (CR 117, D57). Null holder: nobody (untap, cleanup). */

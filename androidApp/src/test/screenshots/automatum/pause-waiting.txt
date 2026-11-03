@@ -1,1 +1,1 @@
-Alice cast Storm Spark at Bob, who is online and could answer: her device shows "Bob may respond to Storm Spark" with a bar emptying over her 2 s response time while it waits for him, and Pass for them.
+Alice cast Storm Spark at Bob, who is online and could answer: her device shows "Bob may respond to Storm Spark" on one line beside the spell's card, with a bar emptying over her 2 s response time while it waits for him; passing for him is her step arrow's Resolve.

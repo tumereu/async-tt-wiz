@@ -471,6 +471,32 @@ out of anything stuck.
   another choice is open, piles' second question stays the engine's "first / second" option buttons, AlertDialogs keep
   text buttons. Catalog: TRN-017, TRN-018, TRN-063, STK-023, STK-024, STK-027–STK-031, STK-037, STK-038, STK-040,
   STK-043, STK-044, CMB-033.
+- **Built (UI review round 2, 2026-11-03; decisions made for the owner, vision-aligned, to be confirmed):** (1) one "go
+  on" control: the step arrow is the only Pass / Resolve / Attack / Block / Done with Automatum on, shown with the toggles
+  on either player's turn; the pause bar keeps Hold and the eye, the respond panel and its bar have no Let it resolve,
+  the other player's bar has no Pass for them (the arrow's Resolve asks first, I-D40), a "By hand" choice has no Done of
+  its own, and combat's quick actions are only Rest → <target> and Clear (`CombatTool.AUTOMATUM_DECLARE`, `_PASS`,
+  `_NO_BLOCKS` and `ActingFor.Kind.NoBlocks` are gone); at a held pause behind the live game the arrow returns to it as
+  the panels' passes did (`PauseController.ownPause`). (2) The waiting bar is one line in the observer's words, "Bob is
+  choosing · Fertile Passing" (`observerWhat`: the source's name, else what the choice is), the source drawn as a card.
+  (3) `stepBlocked` greys the arrow while the viewer's cast is open, during the opening, while another choice is open,
+  and while the lanes' declaration isn't one Automatum allows (its reason); a tap shakes it, hold shows the reason
+  (`ActionSquare.tooltip`) instead of End turn. (4) `targetGlow` glows a spell or ability on the Stack only as its entry.
+  (5) No Declare in the Automatum card menu; Attack → stays, greyed unless the card attacks. (6) Refusals are visual: a
+  tap on a non-target shakes it (`tapTarget` false), BUSY shakes the tapped card or pile (else the card being cast,
+  `busyShake`), a cast dropped because it can't be cast or paid or the table changed shakes its card
+  (`CastController.visual`), and a refused step inside the open panel shows in red in it (`CastController.notice`). (7)
+  Order triggers and Which applies first are source cards with their own line (`LabelledChoiceCard`), tap then OK;
+  "Order triggers · <source>" when one source; the combat damage division (`CombatDivisionPanel`) and the Stack target
+  picker (`StackTargetPicker`) dock above the hand; a choice's buttons go to the dock's bottom row (`DockSlot`,
+  `DockButtons`; outside a dock, e.g. the cast panel, right-aligned under it). (8) Toggles: filled violet with a check
+  when on, white with an empty ring when off, 11 sp words. (9) With Automatum on a hand card whose spell is on the Stack
+  isn't drawn in its hand (`castSpellSources`; a display choice, the card stays there, STK-001). (10) Swords for To
+  combat / Attack (N), a plain arrow for Next. Choices made: the arrow shows for both players with Automatum on (it is
+  the only way to pass for the other player now); Hold is outlined everywhere, Respond is the respond panel's filled
+  main button; Attack → stays as a greyed cell rather than leaving a gap; a choice's buttons read No then Yes (main last).
+  Catalog: TRN-015, TRN-059, TRN-061, TRN-063, CMB-028, CMB-029, CMB-033, CMB-034, STK-023–STK-025, STK-027–STK-034,
+  STK-037–STK-039, STK-044, STK-045 (new), TBL-116, TBL-118, SYS-067.
 
 ## 4. Shared state ATW adds
 

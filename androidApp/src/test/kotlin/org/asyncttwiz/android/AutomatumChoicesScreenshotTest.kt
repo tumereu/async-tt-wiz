@@ -173,8 +173,8 @@ class AutomatumChoicesScreenshotTest {
         compose.onNodeWithText("Top · 2").assertExists()
         compose.onNodeWithText("Bottom · 1").assertExists()
         captureShot("$SCREENSHOTS/automatum/choice-scry.png",
-            "Alice cast Ember Divination (Scry 3) with Automatum on: the panel is titled \"Scry 3 · Ember Divination\" with a short instruction, her top three cards are drawn as cards in a Top area, numbered in order, and a tap on Tinkered Mite moved it into the Bottom area at once; OK confirms.")
-        compose.onNodeWithText("OK").performScrollTo().performClick()
+            "Alice cast Ember Divination (Scry 3) with Automatum on: the panel is titled \"Scry 3 · Ember Divination\" with a short instruction, her top three cards are drawn as cards in a Top area, numbered in order, and a tap on Tinkered Mite moved it into the Bottom area at once; OK sits in the bottom row beside the eye.")
+        compose.onNodeWithText("OK").performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(open, batch, request, f.a)
@@ -210,7 +210,7 @@ class AutomatumChoicesScreenshotTest {
         compose.onNodeWithText("Graveyard · 1").assertExists()
         captureShot("$SCREENSHOTS/automatum/choice-surveil.png",
             "Alice cast Grim Survey (Surveil 2): \"Surveil 2 · Grim Survey\" with her top two cards as cards, Storm Spark tapped into the Graveyard area and Tinkered Mite left on Top.")
-        compose.onNodeWithText("OK").performScrollTo().performClick()
+        compose.onNodeWithText("OK").performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(open, batch, request, f.a)
@@ -231,8 +231,8 @@ class AutomatumChoicesScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithText("OK").assertIsEnabled()
         captureShot("$SCREENSHOTS/automatum/choice-discard.png",
-            "Alice cast Ember Rummage, drew two and must discard one: \"Discard 1 · Ember Rummage\" shows her hand as cards in a Hand area, one tapped into the Discard area, and OK is enabled once exactly one is there.")
-        compose.onNodeWithText("OK").performScrollTo().performClick()
+            "Alice cast Ember Rummage, drew two and must discard one: \"Discard 1 · Ember Rummage\" shows her hand as cards in a Hand area, one tapped into the Discard area, and OK beside the eye is enabled once exactly one is there.")
+        compose.onNodeWithText("OK").performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(open, batch, request, f.a)
@@ -284,7 +284,7 @@ class AutomatumChoicesScreenshotTest {
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Attack (1)").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/step-arrow-states.png",
-            "The step arrow with Automatum on in each situation, white with a grey outline and an icon above what a tap does: To combat (own main phase), Pass (the other player's priority), Next, Attack (1) and No attack (declaring attackers with one or no creature in the lanes), Block (1) and No blocks, Resolve (a spell on the Stack) and End turn (from the second main phase on).")
+            "The step arrow with Automatum on in each situation, white with a grey outline and an icon above what a tap does: To combat (crossed swords, own main phase), Pass (the other player's priority), Next (a plain arrow), Attack (1) under crossed swords and No attack (declaring attackers with one or no creature in the lanes), Block (1) and No blocks, Resolve (a spell on the Stack) and End turn (from the second main phase on).")
     }
 
     @OptIn(ExperimentalLayoutApi::class)
@@ -330,7 +330,7 @@ class AutomatumChoicesScreenshotTest {
         render(cast, f.b)
         compose.onNodeWithContentDescription("Resolve").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/step-arrow-resolve.png",
-            "Alice cast Storm Spark at Bob, who holds one too: by the Stack Bob sees the respond panel, and his step arrow in the bottom-right corner, neutral white, reads \"Resolve\" under a play icon.")
+            "Alice cast Storm Spark at Bob, who holds one too: above his hand Bob sees the respond panel with Respond (no Let it resolve of its own), and his step arrow in the bottom-right corner, neutral white, reads \"Resolve\" under a play icon: the one way to let it resolve.")
         compose.onNodeWithContentDescription("Resolve").performClick()
         compose.waitForIdle()
         val (passed, id) = sent.single()

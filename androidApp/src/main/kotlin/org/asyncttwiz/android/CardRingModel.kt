@@ -48,12 +48,14 @@ internal object CardRingPages {
 
     /**
      * Automatum on (§3 I4, I-D28, I-D46): the engine's actions for the card are rows above these cells, then only what
-     * has no game effect (inspecting, notes, pings, links, the six colour counters Automatum ignores) and the combat
-     * draft. Today's menu ([pages]) is shown instead only while Automatum waits for something done by hand (I-D37).
+     * has no game effect (inspecting, notes, pings, links, the six colour counters Automatum ignores) and an attacker's
+     * target (Attack →). Today's menu ([pages]) is shown instead only while Automatum waits for something done by hand (I-D37).
      */
     fun automatumPages(layout: CardMenuLayout, token: Boolean = false, attacker: Boolean = false): List<CardRingPage> = when (layout) {
+        // UI review round 2 #5: no Declare (a manual combat action; taps stage attackers, CMB-028); Attack → stays in its
+        // place, greyed unless the card attacks
         CardMenuLayout.CARD -> listOf(CardRingPage("Automatum", listOf("inspect", "otherSide", "note", "Ping / Unping",
-            if (attacker) "Attack →" else "Declare without tapping", "Link", "Unlink")), card[1])
+            "Attack →", "Link", "Unlink")), card[1])
         CardMenuLayout.COMBAT -> listOf(CardRingPage("Combat", listOf("inspect", "note", "Ping / Unping", "Attack →",
             "Remove from combat", "Link", "Links")))
         CardMenuLayout.HAND -> listOf(CardRingPage("Hand", listOf("inspect")))

@@ -214,7 +214,8 @@ internal class SharedFlowController(
     fun tapTarget(item: TableItem): Boolean {
         val decision = answering as? Decision.Targets ?: return false
         val flow = view ?: return false
-        val target = targetOf(flow, decision, item) ?: return true.also { fail("That isn't a legal target.") }
+        // UI review round 2 #4 (I-D46 b): not a legal target: false, the table shakes it
+        val target = targetOf(flow, decision, item) ?: return false
         fail(null)
         if (decision.max == 1 && decision.min <= 1) return answer(Answer.Targets(listOf(target)))
         picked = if (target in picked) picked - target else picked + target
@@ -397,7 +398,5 @@ internal class ActingFor(val board: BoardState, val player: String, val until: S
         data class DeclareAttackers(val count: Int) : Kind
         /** [player]'s blocks are declared as the combat lanes hold them: [count] blockers. */
         data class DeclareBlockers(val count: Int) : Kind
-        /** "No blocks" (CMB-034): the blocks in the lanes are cleared and [player] declares no blocks. */
-        data object NoBlocks : Kind
     }
 }

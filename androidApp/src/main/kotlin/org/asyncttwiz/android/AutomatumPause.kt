@@ -6,7 +6,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.outlined.PanTool
-import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,7 +21,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import org.asyncttwiz.automatum.PausePoints
-import org.asyncttwiz.automatum.StepFlow
 import org.asyncttwiz.protocol.*
 
 /**
@@ -124,8 +122,8 @@ internal class PauseController {
     /** Whether the viewer holds at [node]. */
     fun holding(node: String): Boolean = heldNode == node && routes?.holding(node) == true
 
-    /** Whether [viewer]'s own pause bar (with its Pass) is shown on [play]'s board: running, or held there. */
-    fun barWithPass(play: PlayState, viewer: String): Boolean = play.board.automatum &&
+    /** Whether [viewer]'s own pause is shown on [play]'s board: running, or held there. */
+    fun ownPause(play: PlayState, viewer: String): Boolean = play.board.automatum &&
         (running(play.currentNodeId)?.role is PauseRole.Yours || holding(play.currentNodeId) && PausePoints.pauseFor(play.board, viewer))
 
     /** The board (node) whose pause bar the viewer hid with its eye (I-D10, finalreview-combat #2); null: none. */
@@ -251,9 +249,9 @@ internal fun PauseProgress(pause: PauseController, shown: ShownPause) {
 }
 
 /**
- * A pause on an empty Stack (STK-037, STK-038): the step in which the viewer may act now, with the time running, Hold and
- * Pass; held, "take your time"; the other player's, while the viewer's device waits for them. Nothing otherwise (on the
- * Stack the respond panel shows the pause, STK-027).
+ * A pause on an empty Stack (STK-037, STK-038): the step in which the viewer may act now, with the time running and Hold
+ * (the step arrow goes on, UI review round 2 #1: no Pass of its own); held, "take your time"; the other player's, while
+ * the viewer's device waits for them. Nothing otherwise (on the Stack the respond panel shows the pause, STK-027).
  */
 @Composable
 internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>) {
@@ -282,10 +280,7 @@ internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scen
         }
         // I-D10 (finalreview-combat #2): the eye hides the panel to see the table under it; its time runs on meanwhile
         AutomatumDockPanel("Your pause", pause.hiddenAt == node, { pause.toggleHidden(node) }, "pause", buttons = {
-            if (running != null) BarButton("Hold", androidx.compose.material.icons.Icons.Outlined.PanTool) { pause.hold(node) }
-            ChoiceButton("Pass", androidx.compose.material.icons.Icons.Outlined.SkipNext, primary = true) {
-                if (!pause.passBehind(node)) toolkit.flows.step(StepFlow.Until.Pass)
-            }
+            if (running != null) ChoiceButton("Hold", androidx.compose.material.icons.Icons.Outlined.PanTool) { pause.hold(node) }
         }) {
             Text(if (held) "$step: take your time" else "$step: you may act", fontSize = 14.sp, fontWeight = FontWeight.Bold)
             if (running != null) PauseProgress(pause, running)

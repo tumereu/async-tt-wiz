@@ -67,7 +67,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { castMessage(it) },
-        automatumWork, beginning = ::holdForReaction, preview = castPreview, tokenArt = tokenArt)
+        automatumWork, beginning = ::holdForReaction, preview = castPreview, tokenArt = tokenArt, shake = { shake(it) })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
@@ -177,6 +177,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     var shaking by mutableStateOf<Shake?>(null); private set
     private var shakes = 0
     fun shake(id: String) { error = null; shaking = Shake(id, ++shakes) }
+    /** UI review round 2 #4 (I-D46 b): an action refused because the viewer's own cast is open ("Finish or cancel the cast
+     * first.") shakes what it was made on (the card or pile whose menu it came from), else the card being cast, instead
+     * of a message. */
+    private fun busyShake() {
+        val target = capture?.contextViewId ?: popupItem?.id ?: cast.castCard
+        if (target != null) shake(target) else error = null
+    }
     /** Automatum on (I-D28): the ordinary actions an Automatum interaction is made of (moving a card within its own
      * Battlefield or hand, the combat draft) go through while this is above zero; other manual changes are refused. */
     private var engineRoute = 0
@@ -216,7 +223,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun batch(block: () -> Unit) { batchResult { block(); true } }
     private fun batchResult(requestId: String = DeviceRandom.uuid(), block: () -> Boolean): Boolean {
         if (draft != null) return block()
-        if (cast.open) { error = CastController.BUSY; return false }
+        if (cast.open) { busyShake(); return false }
         val initial = current() ?: return block()
         val pending = if (playTree == null) PlayBatchDraft(initial, viewer, requestId)
             else PlayBatchDraft(initial, viewer, requestId, playTree.invoke() ?: return false, continuation())
@@ -245,7 +252,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
-        refusal(action)?.let { error = it; return false }
+        refusal(action)?.let { if (it == CastController.BUSY) busyShake() else error = it; return false }
         val play = current()
         val source = ((action as? PlayAction.Stack)?.action as? StackAction.AddEffect)?.sourceId
         val baseline = draft?.initial ?: play
@@ -331,16 +338,18 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     override fun automatumStep(intent: TableActionIntent): Boolean? {
         val play = current() ?: return null
         if (!play.board.automatum) return null
-        if (cast.open) { error = CastController.BUSY; return false }
+        if (cast.open) { busyShake(); return false }
         val until = when (intent) {
             is TableActionIntent.Next -> {
-                // I-D46 d: the step arrow's "Done" finishes Automatum's step done by hand (I-D37); its "Resolve" at the
-                // viewer's pause held behind the live game returns to it, as Let it resolve does (STK-039)
+                // I-D46 d: the step arrow's "Done" finishes Automatum's step done by hand (I-D37); at the viewer's pause
+                // held behind the live game it returns to it (STK-039), on the Stack or an empty one (UI review round 2 #1:
+                // the arrow is the panels' only way on)
                 if (Automatum.flowOpen(play.board) && AutomatumBoards.byHand(play)) {
                     val manual = flows.view?.takeIf { it.play.board === play.board }?.decision as? arcanum.engine.decision.Decision.Manual
                     if (manual != null) { error = null; return flows.answer(arcanum.engine.decision.Answer.Done) }
                 }
-                if (CombatStackRules.stack(play.board).cards.isNotEmpty() && pause.passBehind(play.currentNodeId)) return true
+                if ((CombatStackRules.stack(play.board).cards.isNotEmpty() || pause.ownPause(play, viewer)) &&
+                    pause.passBehind(play.currentNodeId)) return true
                 org.asyncttwiz.automatum.StepFlow.Until.Pass
             }
             is TableActionIntent.End -> org.asyncttwiz.automatum.StepFlow.Until.EndOfTurn
@@ -485,12 +494,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return (mtg == MtgAction.SetAutomatum(false) || mtg == MtgAction.ClearRecords) && Automatum.flowOpen(play.board)
     }
     fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
-    /** Manage Stack is open to pick a target from (an entry below the top, I-D6). */
+    /** The Stack target picker is open (an entry below the top is a legal target, I-D6; [StackTargetPicker]). */
     var stackTargeting by mutableStateOf(false); private set
+    /** Back in the Stack target picker: targets are picked on the table again. */
+    fun closeStackTargets() { stackTargeting = false }
     /** The Stack entries the open cast or choice may target now, top first; empty when none. */
     fun stackTargets(play: PlayState): List<String> = if (cast.targeting) cast.stackTargets(play)
         else if (flows.targeting) flows.stackTargets(play) else emptyList()
-    /** Picks the Stack entry [entryId] as a target in Manage Stack; the panel closes once picked. */
+    /** Picks the Stack entry [entryId] as a target in the Stack target picker, which closes once it is picked. */
     fun pickStackTarget(entryId: String) {
         val play = current() ?: return
         val entry = play.board.stackEffects.singleOrNull { it.id == entryId } ?: return
@@ -526,6 +537,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** The pile opened to pick targets from ([open]), closed again once the targets are chosen. */
     private var targetPile: String? = null
     internal fun targetingEnded() {
+        stackTargeting = false
         val pile = targetPile ?: return
         targetPile = null
         if (layoutState.value.localPileId == pile) layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false)
@@ -577,12 +589,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 layoutState.value = layoutState.value.copy(localPileTargets = true)
                 return
             }
-            // An entry below the top of the Stack is a legal target: Manage Stack opens to pick it from
+            // An entry below the top of the Stack is a legal target: the Stack target picker opens to pick it from
             if (play != null && item.zone == PlayZone.STACK && CombatStackRules.stack(play.board).id in cast.glow(play) + flows.glow(play)) {
-                stackContents(); stackTargeting = true
+                dismiss(); showStackBubbles(null); stackTargeting = true
                 return
             }
-            if (cast.targeting) cast.tapTarget(item) else flows.tapTarget(item)
+            // UI review round 2 #4 (I-D46 b): a tap on anything that isn't a legal target shakes it
+            val taken = if (cast.targeting) cast.tapTarget(item) else flows.tapTarget(item)
+            if (taken == false) shake(item.id)
             return
         }
         val play = current() ?: return
@@ -1168,21 +1182,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     fun perform(intent: TableActionIntent): Boolean {
         // Automatum on (CMB-028, CMB-034): staging and clearing the declaration's draft
-        if (intent is TableActionIntent.Combat && intent.tool in setOf(CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR,
-                CombatTool.AUTOMATUM_NO_BLOCKS)) {
+        if (intent is TableActionIntent.Combat && intent.tool in setOf(CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR)) {
             if (!table.enabled(intent.scope)) return false
-            if (cast.open) { error = CastController.BUSY; return false }
+            if (cast.open) { busyShake(); return false }
             return automatumCombatTool(intent)
-        }
-        // Automatum on (I3): declarations and passing on to the damage are engine calls of their own
-        if (intent is TableActionIntent.Combat && (intent.tool == CombatTool.AUTOMATUM_DECLARE || intent.tool == CombatTool.AUTOMATUM_PASS)) {
-            if (!table.enabled(intent.scope)) return false
-            if (cast.open) { error = CastController.BUSY; return false }
-            // The same as Next step (TRN-057): a declaration awaited declares what the lanes hold, else the holder passes
-            error = null
-            return flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass).also {
-                if (it) { selectionState.value = TableSelection(); combat.clearSelection() }
-            }
         }
         // Close + next returns its whole-batch success, not the void route receipt.
         if (intent is TableActionIntent.Combat && intent.tool in combatDamageTools) {
@@ -1238,34 +1241,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
             CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
             CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
-            CombatTool.AUTOMATUM_DECLARE, CombatTool.AUTOMATUM_PASS -> flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass)
-            CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR, CombatTool.AUTOMATUM_NO_BLOCKS -> automatumCombatTool(intent)
+            CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR -> automatumCombatTool(intent)
         }
     }
-    /** "Rest → <target>", "Clear" and "No blocks" with Automatum on (CMB-028, CMB-034). */
+    /** "Rest → <target>" and "Clear" with Automatum on (CMB-028, CMB-034). */
     private fun automatumCombatTool(intent: TableActionIntent.Combat): Boolean {
         val play = current() ?: return false
         return when (intent.tool) {
             CombatTool.AUTOMATUM_STAGE -> stage(play, intent.sourceIds, combat.activeTarget(play))
-            CombatTool.AUTOMATUM_CLEAR -> clearCombatDraft(play)
-            else -> noBlocks(play, confirmed = null)
+            else -> clearCombatDraft(play)
         }.also { if (it) combat.clearSelection() }
-    }
-
-    /** "No blocks" (CMB-034): the blocks in the lanes are cleared, then the declaration is the step button's (TRN-057).
-     * I-D40: for the other player it asks first, before anything is cleared ([confirmed]: the player agreed to). */
-    private fun noBlocks(play: PlayState, confirmed: String?): Boolean {
-        val clear = CombatStackRules.blocks(play.board.combat).isNotEmpty()
-        val defender = CombatStackRules.defendingPlayer(play.board)
-        if (clear && defender != null && defender != viewer && defender != confirmed) {
-            flows.ask(ActingFor(play.board, defender, org.asyncttwiz.automatum.StepFlow.Until.Pass, ActingFor.Kind.NoBlocks) { player ->
-                (current()?.let { noBlocks(it, player) } ?: false).also { if (it) combat.clearSelection() }
-            })
-            return false
-        }
-        if (clear && !clearCombatDraft(play)) return false
-        error = null
-        return flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass, confirmed)
     }
     /** Declare blockers, then Combat damage, as two separate invocations (two undo steps, two events). */
     private fun assumeNoBlocks(): Boolean {

@@ -414,10 +414,14 @@ class AutomatumFinalCombatGamesTest {
                             scene(d.view, d.player).items.firstOrNull { it.cardId == c && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD }?.let { tapItem(d, it) }
                             d.toolkit.dismissError()
                         }
-                        val commit = quick(d).lastOrNull()
-                        val action = if (commit?.enabled == true) commit else { quick(d).firstOrNull { it.name == "Clear" }?.takeIf { it.enabled }?.let { d.toolkit.perform(it.intent) }; quick(d).lastOrNull() }
-                        if (action == null || !action.enabled || !d.toolkit.perform(action.intent)) stats.failures += "attack: ${action?.name} ${action?.refused ?: d.toolkit.error}"
-                        else stats.count("attack ${action.name.substringBefore(" (")}")
+                        // The step arrow attacks (TRN-063); greyed (a staging Automatum doesn't allow), Clear first
+                        fun blocked() = stepBlocked(d.view, false, AutomatumBoards.combat(d.view) { tags(d.view) })
+                        if (blocked() != null) quick(d).firstOrNull { it.name == "Clear" }?.takeIf { it.enabled }?.let { d.toolkit.perform(it.intent) }
+                        val label = AutomatumStep.of(d.view).label
+                        val why = blocked()
+                        if (why != null || !d.toolkit.perform(TableActionIntent.Next(TableActionScope(d.view.gameId, d.view.id))))
+                            stats.failures += "attack: $label ${why ?: d.toolkit.error}"
+                        else stats.count("attack ${label.substringBefore(" (")}")
                         drain(d)
                     } else {
                         val attackers = d.view.board.combat?.pairs.orEmpty().flatMap { it.attackers }.map { it.sourceId }
@@ -426,10 +430,14 @@ class AutomatumFinalCombatGamesTest {
                             if (d.toolkit.combat.selected == c) scene(d.view, d.player).items.firstOrNull { it.viewport == "combat" && it.sourceId == attackers.random(random) }?.let { tapItem(d, it) }
                             d.toolkit.combat.clearSelection(); d.toolkit.dismissError()
                         }
-                        val commit = quick(d).firstOrNull { it.name == "Commit blocks" }
-                        val action = if (commit?.enabled == true) commit else quick(d).firstOrNull { it.name == "No blocks" }
-                        if (action == null || !action.enabled || !d.toolkit.perform(action.intent)) stats.failures += "blocks: ${action?.name} ${action?.refused ?: d.toolkit.error}"
-                        else stats.count(action.name)
+                        // The step arrow declares (TRN-063): Block (N), or No blocks once Clear emptied a draft it greys
+                        fun blocked() = stepBlocked(d.view, false, AutomatumBoards.combat(d.view) { tags(d.view) })
+                        if (blocked() != null) quick(d).firstOrNull { it.name == "Clear" }?.takeIf { it.enabled }?.let { d.toolkit.perform(it.intent) }
+                        val label = AutomatumStep.of(d.view).label
+                        val why = blocked()
+                        if (why != null || !d.toolkit.perform(TableActionIntent.Next(TableActionScope(d.view.gameId, d.view.id))))
+                            stats.failures += "blocks: $label ${why ?: d.toolkit.error}"
+                        else stats.count(label.substringBefore(" ("))
                         drain(d)
                     }
                 }

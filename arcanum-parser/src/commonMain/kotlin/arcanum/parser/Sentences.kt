@@ -14682,7 +14682,7 @@ internal class Sentences(
         // ecl chunk 14: "Once each turn, you may cast a spell with mana value less than or equal to the number of Elves and Faeries you control from
         // among cards exiled with Maralen this turn without paying its mana cost." (CR 601.2a)
         Ecl.ONCE_EACH_TURN_CAST_EXILED_WITH.matchEntire(line)?.takeIf { isSelf(it.groupValues[2]) }?.let { m ->
-            val count = Value.Count(Objects.Each(Filters.noun(m.groupValues[1].replace(" and ", " or ")) ?: return null))
+            val count = Value.Count(Objects.Each(Filters.noun(m.groupValues[1].replace(" and ", " or ") + " you control") ?: return null))
             val cards = Filters.all(ObjectFilter.Is(Objects.Remembered(EXILED_WITH)), ObjectFilter.InZone(Zone.Exile),
                 ObjectFilter.ThisTurn(EventPattern.ZoneChange(ObjectFilter.Any, to = Zone.Exile), role = EventRole.After))
             return Ability.Static(listOf(Mechanic.MayPlay(Zone.Exile, PlayKind.Cast, withoutPaying = true, perTurn = 1, holder = PlayerFilter.You,

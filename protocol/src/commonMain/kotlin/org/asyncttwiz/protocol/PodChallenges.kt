@@ -2,8 +2,10 @@ package org.asyncttwiz.protocol
 
 import kotlinx.serialization.Serializable
 
+/** [automatum]: the game starts with Automatum on (I-D44); the app always asks for it, absent means off (as for
+ * [CreateInvitation]). */
 @Serializable data class ChallengeFromPod(val requestId: String, val opponentId: String, val gameName: String,
-    val basicDefinitions: List<SubmittedDefinition>)
+    val basicDefinitions: List<SubmittedDefinition>, val automatum: Boolean = false)
 @Serializable enum class BasicLand(val cardName: String) {
     PLAINS("Plains"), ISLAND("Island"), SWAMP("Swamp"), MOUNTAIN("Mountain"), FOREST("Forest");
     fun count(basics: PodDeckBasics): Int = when (this) {

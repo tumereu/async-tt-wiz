@@ -390,4 +390,116 @@ class HistoryRuntimeIntegrationTest {
             }
         }
     }
+
+    /** Every retained position as the server stores and reads it, and as built afresh from the full history. */
+    private fun positions(db: TestPostgres, f: GameplayFixture): Pair<Map<String, RetainedPosition>, Map<String, RetainedPosition>> =
+        db.connection().use {
+            val sql = DSL.using(it, SQLDialect.POSTGRES)
+            val state = f.games.head(f.a, f.game.id).play!!
+            val stored = GameplayStore().read(sql, state).endpointIndex().positions
+            stored.keys.associateWith { key -> stored.getValue(key) } to RetainedIndex.build(GameplayStore().readFull(sql, state)).positions.toMap()
+        }
+    private data class TargetRows(val inline: Int, val referenced: Int, val sets: Int, val dangling: Int)
+    private fun targetRows(db: TestPostgres, f: GameplayFixture) = db.connection().use { c ->
+        c.createStatement().executeQuery("""SELECT
+            count(*) FILTER (WHERE kind = 'position' AND payload->'targets' IS NOT NULL),
+            count(*) FILTER (WHERE kind = 'position' AND payload->'targetsRef' IS NOT NULL),
+            count(*) FILTER (WHERE kind = 'targets'),
+            count(*) FILTER (WHERE kind = 'position' AND payload->'targetsRef' IS NOT NULL AND NOT EXISTS (SELECT 1
+                FROM gameplay_endpoint_record t WHERE t.play_id = r.play_id AND t.kind = 'targets' AND t.id = r.payload->>'targetsRef'))
+            FROM gameplay_endpoint_record r WHERE play_id = '${f.root.id}'""").use { it.next(); TargetRows(it.getInt(1), it.getInt(2), it.getInt(3), it.getInt(4)) }
+    }
+    private fun ping(db: TestPostgres, f: GameplayFixture, node: String, card: String) = PlayAction.Ping(
+        EventReference(f.root.id, node, tree(db, f).contextVersion(node)), PingTarget(PingTargetKind.CARD, card))
+    private fun outcome(stream: GameplayFixture.Stream, input: GameCommand, expected: String = "accepted") =
+        stream.execute(input).also { assertEquals(expected, it.outcome, "${input.action}: ${it.reason}") }
+
+    /** A history whose ping-target sets change (a token comes and goes, a Stack entry) with Undo/Redo, pings and a
+     * comment on earlier events, a fork from the start and a continuation of the displaced branch; [after] runs after
+     * each step. The token and the event that made it. */
+    private fun targetHistory(db: TestPostgres, f: GameplayFixture, after: () -> Unit): Pair<String, String> {
+        val actor = f.a.account.accountId
+        fun state() = f.games.head(f.a, f.game.id).play!!
+        fun step(input: GameCommand, expected: String = "accepted") { outcome(f.owner, input, expected); after() }
+        fun play(action: PlayAction, expected: String = "accepted") = step(f.owner.command(action), expected)
+        val library = state().board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == actor }
+        val field = state().board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == actor }
+        val card = library.cards.first()
+        play(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
+            MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))))
+        play(PlayAction.CloneToken(card))
+        val token = state().board.cards.single { it.token }.id
+        val created = state().currentNodeId
+        play(PlayAction.Stack(StackAction.AddEffect(card, GameplayRules.stackDigest(state()))))
+        play(PlayAction.AdjustLife(actor, "-1"))
+        step(control(f.owner, GameAction.Undo)); step(control(f.owner, GameAction.Redo))
+        play(ping(db, f, created, token))
+        // Not a ping target before it was made
+        play(ping(db, f, f.root.root.id, token), "rejected")
+        val displaced = state().currentNodeId
+        step(f.owner.command(PlayAction.SetLife(actor, "25")).copy(continuation = Continuation(f.root.root.id, true)))
+        step(f.owner.command(PlayAction.AdjustLife(actor, "1")).copy(continuation = Continuation(displaced, true)))
+        play(PlayAction.RemoveToken(token))
+        play(PlayAction.EventComment(EventReference(f.root.id, created, tree(db, f).contextVersion(created)), "token made"))
+        step(control(f.owner, GameAction.Undo))
+        return token to created
+    }
+
+    // Each event's position names its ping-target set (every card id on the board), stored once per play: it reads back
+    // as the positions built afresh from the full history, through Undo/Redo, branches, pings and maintenance.
+    @Test fun `position target sets are stored once and read back as built from the full history`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime, deckSize = 10)
+                fun same() { val (stored, built) = positions(db, f); assertEquals(built, stored) }
+                targetHistory(db, f, ::same)
+                val rows = targetRows(db, f)
+                assertEquals(0, rows.inline); assertEquals(0, rows.dangling)
+                assertTrue(rows.sets in 1 until rows.referenced, "$rows")
+                assertEquals(tree(db, f), download(f.games, f).second)
+                // Checkpoint maintenance rewrites the positions and keeps the sets they name
+                f.games.checkpointGameplay()
+                f.games = GameService(runtime)
+                same()
+                assertEquals(0, targetRows(db, f).dangling)
+                outcome(f.owner, control(f.owner, GameAction.Undo)); same()
+            }
+        }
+    }
+
+    // Positions stored before the sets were shared carry their set inline: they read the same, and play goes on over them.
+    @Test fun `positions stored with their target sets inline still read and play on`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); gameplayAwait(runtime::ready)
+                val f = GameplayFixture(runtime, deckSize = 10)
+                val actor = f.a.account.accountId
+                val (token, created) = targetHistory(db, f) {}
+                val before = positions(db, f).first
+                sql(db, """UPDATE gameplay_endpoint_record p SET payload = (p.payload - 'targetsRef') || jsonb_build_object('targets', t.payload)
+                    FROM gameplay_endpoint_record t WHERE t.play_id = p.play_id AND p.kind = 'position' AND t.kind = 'targets'
+                        AND t.id = p.payload->>'targetsRef';
+                    DELETE FROM gameplay_endpoint_record WHERE kind = 'targets'""")
+                f.games = GameService(runtime) // Nothing read before
+                val legacy = targetRows(db, f)
+                assertEquals(TargetRows(before.size, 0, 0, 0), legacy)
+                assertEquals(before, positions(db, f).first)
+                fun same() { val (stored, built) = positions(db, f); assertEquals(built, stored) }
+                same()
+                outcome(f.owner, control(f.owner, GameAction.Undo)); same()
+                outcome(f.owner, control(f.owner, GameAction.Redo)); same()
+                outcome(f.owner, f.owner.command(ping(db, f, created, token).let { PlayAction.Unping(it.reference, it.target) })); same()
+                outcome(f.owner, f.owner.command(ping(db, f, created, token))); same()
+                outcome(f.owner, f.owner.command(ping(db, f, f.root.root.id, token)), "rejected")
+                outcome(f.owner, f.owner.command(PlayAction.SetLife(actor, "30")).copy(continuation = Continuation(created, true))); same()
+                outcome(f.owner, f.owner.command(PlayAction.CloneToken(token))); same()
+                val mixed = targetRows(db, f)
+                assertTrue(mixed.inline > 0 && mixed.referenced > 0 && mixed.dangling == 0, "$mixed")
+                assertEquals(tree(db, f), download(f.games, f).second)
+            }
+        }
+    }
 }

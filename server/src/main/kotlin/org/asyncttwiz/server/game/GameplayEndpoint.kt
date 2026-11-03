@@ -40,10 +40,9 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         for (chunk in removals.chunked(1000)) sql.deleteFrom(R).where(R.PLAY_ID.eq(id))
             .and(DSL.row(R.KIND, R.ID).`in`(chunk.map { DSL.row(it.first, it.second) })).execute()
         val upserts = pending.filterValues { it != null }
-        val rendered = java.util.IdentityHashMap<JsonElement, String>()
         for (chunk in upserts.entries.chunked(1000)) {
             val insert = sql.insertInto(R, R.PLAY_ID, R.KIND, R.ID, R.PAYLOAD)
-            for ((key, value) in chunk) insert.values(id, key.first, key.second, JSONB.valueOf(text(value!!, rendered)))
+            for ((key, value) in chunk) insert.values(id, key.first, key.second, JSONB.valueOf(value!!.toString()))
             insert.onConflict(R.PLAY_ID, R.KIND, R.ID).doUpdate().set(R.PAYLOAD, DSL.excluded(R.PAYLOAD)).execute()
         }
         pending.clear()
@@ -54,13 +53,53 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         sql.select(R.ID, R.PAYLOAD).from(R).where(R.PLAY_ID.eq(id)).and(R.KIND.eq(kind)).and(R.ID.`in`(missing))
             .fetch().associate { it.value1()!! to json.parseToJsonElement(it.value2()!!.data()) }
     }
-    /** [value]'s JSON text, as its toString() writes it, each array shared by several records (the targets of a
-     * batch's positions) written out once. */
-    private fun text(value: JsonElement, rendered: MutableMap<JsonElement, String>): String = when (value) {
-        is JsonObject -> value.entries.joinToString(",", "{", "}") { (key, element) -> JsonPrimitive(key).toString() + ":" + text(element, rendered) }
-        is JsonArray -> rendered.getOrPut(value) { value.toString() }
-        else -> value.toString()
+
+    /* A position's ping-target set (the board's every card id, ~45 KB on a 600-card board) is stored once per play as a
+     * "targets" record keyed by the digest of its JSON text, and the position names it by "targetsRef". Positions
+     * written before that carry the set inline as "targets"; both read back the same. Target records are never
+     * removed (content-addressed, so a reference stays valid; checkpoint maintenance keeps them too). */
+    private fun position(stored: JsonElement): RetainedPosition {
+        val fields = stored.jsonObject
+        val ref = fields[TARGETS_REF]?.jsonPrimitive?.content ?: return json.decodeFromJsonElement(stored)
+        val targets = cache.targets(ref) {
+            val set = get(TARGETS, ref)
+            StoredData.intact("game play", play, "position targets", set != null)
+            json.decodeFromJsonElement<Set<PingTarget>>(set!!)
+        }
+        return json.decodeFromJsonElement<RetainedPosition>(JsonObject(fields - TARGETS_REF)).copy(targets = targets)
     }
+    private fun stored(position: RetainedPosition): JsonElement {
+        val encoded = json.encodeToJsonElement(position.copy(targets = null)).jsonObject
+        val targets = position.targets ?: return encoded
+        val ref = cache.targetsRef(targets) ?: run {
+            val element = json.encodeToJsonElement(targets)
+            val ref = GameplaySync.digest(element.toString().toByteArray(Charsets.UTF_8))
+            if (!cache.knowsTargets(ref)) put(TARGETS, ref, element)
+            cache.rememberTargets(ref, targets)
+            ref
+        }
+        return JsonObject(encoded + (TARGETS_REF to JsonPrimitive(ref)))
+    }
+    /** The position records of [keys] (absent ones left out) as [get] reads them, with the target sets they name in the
+     * same read: those not decoded yet go to the record cache for [position]. */
+    private fun positionRecords(keys: List<String>): Map<String, JsonElement> {
+        recordsRead += keys.size
+        val p = R.`as`("p"); val t = R.`as`("t")
+        return sql.select(p.ID, p.PAYLOAD, t.ID, t.PAYLOAD).from(p).leftJoin(t).on(t.PLAY_ID.eq(p.PLAY_ID)).and(t.KIND.eq(TARGETS))
+            .and(t.ID.eq(DSL.field("{0} ->> {1}", String::class.java, p.PAYLOAD, DSL.inline(TARGETS_REF))))
+            .where(p.PLAY_ID.eq(id)).and(p.KIND.eq(POSITION)).and(p.ID.`in`(keys)).fetch().associate { row ->
+                row.value3()?.takeUnless(cache::knowsTargets)?.let { ref ->
+                    cache.write("record/$TARGETS/$ref", json.parseToJsonElement(row.value4()!!.data())) }
+                row.value1()!! to json.parseToJsonElement(row.value2()!!.data())
+            }
+    }
+    private fun positions(): Map<String, RetainedPosition> = EndpointMap({ key ->
+        recordsRead++
+        cache.read("record/$POSITION/$key") { positionRecords(listOf(key))[key] }?.let(::position)
+    }, { keys(POSITION) }, bulk = { keys ->
+        cache.readAll(keys.associateBy { "record/$POSITION/$it" }, ::positionRecords)
+            .mapNotNull { (key, value) -> value?.let { key to position(it) } }.toMap()
+    })
     private fun keys(kind: String) = sql.select(R.ID).from(R).where(R.PLAY_ID.eq(id)).and(R.KIND.eq(kind)).fetch(R.ID).filterNotNull().toSet()
     private inline fun <reified T : Any> map(kind: String): Map<String, T> = EndpointMap(
         { key -> get(kind, key)?.let { json.decodeFromJsonElement<T>(it) } }, { keys(kind) },
@@ -135,12 +174,12 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         StoredData.intact("game", state.gameId, "checkpoint revision", checkpoint.revision >= 0)
         return GameplayTree(root, nodes, state.currentNodeId, redo, controls("removed-parent"), controls("branch-lineage"),
             state.currentBranchId, controls("branch-head"), controls<String>("selection-control")["current"])
-            .restoreEndpoint(state.copy(annotations = annotations()), RetainedIndex(edges("children"), edges("readers"), map("position"), true, edges("annotations")))
+            .restoreEndpoint(state.copy(annotations = annotations()), RetainedIndex(edges("children"), edges("readers"), positions(), true, edges("annotations")))
     }
 
     fun initialize(tree: GameplayTree, revision: Long) {
         val index = tree.endpointIndex()
-        for ((key, value) in index.positions) put("position", key, json.encodeToJsonElement(value))
+        for ((key, value) in index.positions) put(POSITION, key, stored(value))
         for (node in tree.nodes.values) for (key in edgeKeys(node)) edgeChanges[key] = true
         val state = requireNotNull(tree.stateAt(tree.currentNodeId))
         for ((key, value) in state.annotations.commentsById) put("comment", key, json.encodeToJsonElement(value))
@@ -202,13 +241,8 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
         // Reparenting changes every descendant's ancestry identity, even when its recorded
         // transition bytes are unchanged and therefore absent from the wire upserts.
         val positionKeys = (index.positions as? EndpointMap)?.changedKeys ?: ids
-        // A batch's events mostly share one targets set (the same object): it is encoded once
-        val targets = java.util.IdentityHashMap<Set<PingTarget>, JsonElement>()
-        for (key in positionKeys) put("position", key, index.positions[key]?.let { position ->
-            val encoded = json.encodeToJsonElement(position.copy(targets = null)).jsonObject
-            if (position.targets == null) encoded else JsonObject(encoded + ("targets" to targets.getOrPut(position.targets) {
-                json.encodeToJsonElement(position.targets) }))
-        })
+        // A batch's events mostly share one target set (the same object): it is encoded and stored once
+        for (key in positionKeys) put(POSITION, key, index.positions[key]?.let(::stored))
         val state = requireNotNull(next.stateAt(next.currentNodeId))
         val commentKeys = (state.annotations.commentsById as? EndpointMap)?.changedKeys.orEmpty()
         val pingKeys = (state.annotations.pingsById as? EndpointMap)?.changedKeys.orEmpty()
@@ -241,6 +275,11 @@ internal class GameplayEndpoint(private val sql: DSLContext, private val play: S
     }
     data class Checkpoint(val payload: String, val revision: Long)
     companion object {
+        private const val POSITION = "position"
+        /** Record kind of a stored target set, kept by checkpoint maintenance (positions name them). */
+        const val TARGETS = "targets"
+        private const val TARGETS_REF = "targetsRef"
+
         fun checkpoint(sql: DSLContext, id: UUID): Checkpoint {
             val row = sql.select(GAME_PLAY.CHECKPOINT_VERSION, GAME_PLAY.CHECKPOINT_REVISION, GAME_PLAY.CHECKPOINT_DIGEST, GAME_PLAY.PAYLOAD,
                 GAME_PLAY.GAME_ID).from(GAME_PLAY).where(GAME_PLAY.ID.eq(id)).fetchSingle()

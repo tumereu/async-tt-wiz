@@ -195,11 +195,13 @@ object DraftEngine {
         val rest = cards.filter { it !in pick.keep }
         val nearEnd = state.settings.keepsOnly(cards.size, keep)
         if (nearEnd) {
-            if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet()) return reject(DraftPickRejection.WRONG_COUNTS)
+            // No burns, all of the rest, or (needed by nobody, still accepted) an ordinary burn-count choice.
+            if (pick.burn.isNotEmpty() && pick.burn.toSet() != rest.toSet() && pick.burn.size != state.settings.burn)
+                return reject(DraftPickRejection.WRONG_COUNTS)
         } else if (pick.burn.size != state.settings.burn) return reject(DraftPickRejection.WRONG_COUNTS)
-        // Near the end the first burn-count of the rest burn (all of them when that is all) and the discard threshold
-        // throws away what is left.
-        val burned = if (nearEnd) rest.take(state.settings.burn) else pick.burn
+        // Near the end, unless burn-count cards were chosen, the first burn-count of the rest burn (all of them when that
+        // is all) and the discard threshold throws away what is left.
+        val burned = if (nearEnd && pick.burn.size != state.settings.burn) rest.take(state.settings.burn) else pick.burn
         return DraftPickResult(state = Working(state).applyPick(pick, burned))
     }
 

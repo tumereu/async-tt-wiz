@@ -285,7 +285,11 @@ class DraftEngineTest {
             val id = initial.queues.getValue(actor).first()
             val cards = initial.packs.first { it.id == id }.cards
             assertEquals(DraftPickRejection.WRONG_COUNTS,
-                DraftEngine.pick(initial, DraftPick(actor, id, cards.take(2), cards.subList(2, 3))).reason)
+                DraftEngine.pick(initial, DraftPick(actor, id, cards.take(2), cards.subList(2, 4))).reason)
+            // Choosing the ordinary burn count is still accepted: those burn and the rest are discarded.
+            val chosen = assertNotNull(DraftEngine.pick(initial, DraftPick(actor, id, cards.take(2), cards.subList(5, 6))).state)
+            assertEquals(cards.subList(5, 6), chosen.log.single().burned)
+            assertEquals(cards.subList(2, 5), chosen.log.single().discarded)
             val after = assertNotNull(DraftEngine.pick(initial, DraftPick(actor, id, cards.take(2),
                 if (explicit) cards.drop(2) else emptyList())).state)
             val event = after.log.single()

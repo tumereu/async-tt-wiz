@@ -22,6 +22,12 @@ object ResultNotes {
 data class ResultAcceptance(val preparation: LobbyPreparation? = null, val reason: String? = null)
 
 object GameResultRules {
+    /** The actions that concede for [actor] on [board] (CR 104.3a, [GameAction.Concede]): a waiting suggestion withdrawn
+     * (their own) or declined (the other player's), then their own loss suggested; the server then accepts it for them. */
+    fun concession(board: BoardState, actor: String): List<PlayAction> = listOfNotNull(board.resultSuggestion?.let {
+        if (it.author == actor) PlayAction.WithdrawResult(it.id) else PlayAction.DeclineResult(it.id) }) +
+        PlayAction.SuggestResult(SuggestedResult.LOSS)
+
     /** Acceptance is a lifecycle request, deliberately not a PlayAction/history mutation. */
     fun accept(game: GameSummary, play: PlayState?, prepared: LobbyPreparation, actor: String,
         command: GameCommand): ResultAcceptance {

@@ -96,9 +96,8 @@ class AutomatumRuntimeTest {
         }
     }
 
-    // SYS-069, TRN-046, TRN-062 (I-D52): outside Automatum batches the server refuses every change made by hand, and still
-    // takes the player's own settings, result suggestions, their opening and conceding (CR 104.3a: their own loss,
-    // accepted by themselves)
+    // SYS-069, SYS-073, TRN-046, TRN-062 (I-D52): outside Automatum batches the server refuses every change made by hand,
+    // and still takes the player's own settings, result suggestions, their opening and conceding (CR 104.3a)
     @Test fun `changes made by hand are refused and what is no change by hand goes on`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -137,17 +136,21 @@ class AutomatumRuntimeTest {
                 // Ready, the opening is over for Alice: no more mulligans by hand
                 assertEquals(RuleRefusals.AUTOMATUM_ONLY, manualBatch(f.owner, listOf(PlayAction.Mulligan(library.id, hand.id,
                     state().board.zoneContainer(owner, PlayZone.HAND)!!.cards, 7, RandomV1.encodeSeed(ByteArray(32))))).reason)
-                // A draw suggested, declined; then Alice concedes: her own loss, accepted by herself
+                // A draw suggested and waiting; Alice concedes all the same (CR 104.3a): she loses at once, the play ends
                 val draw = manual(f.recipient, PlayAction.SuggestResult(SuggestedResult.DRAW))
                 assertEquals("accepted", draw.outcome)
-                val suggestion = state().board.resultSuggestion!!
-                assertEquals("accepted", manual(f.owner, PlayAction.DeclineResult(suggestion.id)).outcome)
-                assertEquals("accepted", manual(f.owner, PlayAction.SuggestResult(SuggestedResult.LOSS)).outcome)
-                val loss = state().board.resultSuggestion!!
-                val conceded = f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.AcceptResult(loss.id),
-                    scope = GameScope(f.game.id, playId = f.root.id)))
+                val played = state()
+                val concession = f.owner.command(PlayAction.NextStep).copy(action = GameAction.Concede)
+                val conceded = f.owner.execute(concession)
                 assertEquals("accepted", conceded.outcome, conceded.reason)
                 assertEquals(GameLifecycle.LOBBY, f.games.head(f.a, f.game.id).summary.lifecycle)
+                // The play ended with the concession
+                db.connection().use { c -> c.createStatement().executeQuery(
+                    "SELECT ended_request_id FROM game_play p WHERE p.id = '${played.id}'").use {
+                    assertTrue(it.next()); assertEquals(concession.requestId, it.getString(1))
+                } }
+                // Conceding again: the play is over
+                assertEquals("lifecycleEnded", f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action = GameAction.Concede)).reason)
             }
         }
     }

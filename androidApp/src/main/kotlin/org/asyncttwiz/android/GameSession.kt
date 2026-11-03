@@ -258,7 +258,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
         if (action == GameAction.DeleteGame) return deleteGame(game)
-        if (action.isPlay || action is GameAction.AcceptResult || action is GameAction.SendChat ||
+        if (action.isPlay || action is GameAction.AcceptResult || action == GameAction.Concede || action is GameAction.SendChat ||
             action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
             action is GameAction.SetStarter || action is GameAction.SetAlternateStarter || action is GameAction.SetPodGameBasics || action is GameAction.ShowDeck ||
             action == GameAction.Ready || action == GameAction.WithdrawReady) return false
@@ -358,7 +358,8 @@ class GameSession(private val connection: GameConnection, private val credential
         // Unpredicted controls remain a capture barrier: never drag from a pre-Undo board. Exact
         // latest-head predictions allow rapid play/control sequences on the same original FIFO.
         if (action.isPlay && resultIntents.values.any { it.command.scope.gameId == game.id &&
-                it.command.action !is GameAction.AcceptResult && !replica.predicted(it.command.requestId) }) return refused("controlBarrier")
+                it.command.action !is GameAction.AcceptResult && it.command.action != GameAction.Concede &&
+                !replica.predicted(it.command.requestId) }) return refused("controlBarrier")
         if (replica.pendingIds.size >= 256 || replica.accepted?.id != current.playId) return refused("predictionCapacityOrPlayChanged")
         val stream = streams.getValue(game.id)
         // Ordinary play names the active line it was made on (including an own pending branch): one that races
@@ -405,6 +406,15 @@ class GameSession(private val connection: GameConnection, private val credential
             play.board.resultSuggestion?.author == actor || actor !in play.board.players.map { it.accountId }) return false
         if (resultIntents.values.any { it.command.scope.playId == target.play.playId && it.command.action == GameAction.AcceptResult(target.suggestionId) }) return false
         val command = resultCommand(target.play, GameAction.AcceptResult(target.suggestionId)) ?: return false
+        return enqueueResult(command, actor)
+    }
+    /** CR 104.3a (I-D52): [actor] concedes the shown play; a lifecycle request like accepting a result. */
+    fun concede(game: GameSummary, actor: String, target: ResultTarget): Boolean = measureLatency(game, GameAction.Concede) {
+        val current = summary(game)
+        val play = acceptedPlay(current) ?: return false
+        if (ResultActions.capture(current, play) != target || actor !in play.board.players.map { it.accountId }) return false
+        if (resultIntents.values.any { it.command.scope.playId == target.playId && it.command.action == GameAction.Concede }) return false
+        val command = resultCommand(target, GameAction.Concede) ?: return false
         return enqueueResult(command, actor)
     }
     fun rejectResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean {

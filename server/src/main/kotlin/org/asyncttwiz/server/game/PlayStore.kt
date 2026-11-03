@@ -37,9 +37,11 @@ internal object PlayStore {
         return state
     }
 
-    fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand, summary: (UUID) -> GameSummary): String? {
+    /** [play]: the play's current state when the caller just changed it in this transaction (a concession). */
+    fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand, play: PlayState? = null,
+        summary: (UUID) -> GameSummary): String? {
         val id = UUID.fromString(game.id)
-        val change = GameResultRules.accept(game, read(sql, id), PreparationStore.read(sql, game), actor, command)
+        val change = GameResultRules.accept(game, play ?: read(sql, id), PreparationStore.read(sql, game), actor, command)
         change.preparation?.let { preparation ->
             sql.update(GAME_PLAY).set(GAME_PLAY.ENDED_REQUEST_ID, UUID.fromString(command.requestId))
                 .where(GAME_PLAY.ID.eq(UUID.fromString(game.playId!!))).and(GAME_PLAY.ENDED_REQUEST_ID.isNull)

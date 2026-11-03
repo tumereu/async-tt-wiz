@@ -21,7 +21,7 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 - **TRN-007** The step button in the top bar is a square in the current phase's colour, showing the step's icon and its short name, the same names as in the phase dialog (TRN-008) (no border colour, no turn number). It flashes on a step change and opens the phase dialog. (r35)
 - **TRN-008** The phase dialog is a real dialog, not a floating popup. Its title is the step with its phase (e.g. "Combat · Declare attackers"), then the turn player ("Your turn" / "<name>'s turn"); phase labels sit above each row of step squares, and the current step is outlined in the turn player's colour. Step squares use short names that always fit on one line on a phone: Untap, Upkeep, Draw · Main 1 · Begin, Attackers, Blockers, Damage, End · Main 2 · End, Cleanup (and with Automatum "1st strike" between Blockers and Damage while a combat has that step, TRN-056). (r37)
 - **TRN-009** The phase dialog has Next step and End turn buttons. Choosing a later step records the steps passed on the way; choosing an earlier step is one single correction event. (r33)
-- **TRN-010** The top bar's Table actions button opens the Table actions dialog: Timeline, and Suggest game end (or Accept result while the opponent's suggestion is waiting). Nothing in it changes the board by hand: no combat area, tokens, dice or coins (TBL-119). (r45)
+- **TRN-010** The top bar's Table actions button opens the Table actions dialog: Timeline, Suggest game end (or Accept result while the opponent's suggestion is waiting) and Concede (TRN-064), each an icon and its name. Nothing in it changes the board by hand: no combat area, tokens, dice or coins (TBL-119). (r45)
 - **TRN-011** Opening a game shows "Loading table…" until the table loads; "Table unavailable" only when it really fails. (r13)
 
 ### Whose turn and whose move
@@ -65,8 +65,9 @@ Turn and step tracking, whose move it is, the top and bottom game bars, life, ga
 
 ### Result suggestions
 
-- **TRN-046** Suggest game end opens a chooser My win / My loss / Draw game, then a confirm dialog ("Suggest my win?", "Suggest my loss?" or "Suggest draw?") with an optional one-line "Reason", at most 200 characters (placeholder "Infinite combo"). (r24)
+- **TRN-046** Suggest game end opens a chooser My win / Draw game, then a confirm dialog ("Suggest my win?" or "Suggest draw?") with an optional one-line "Reason", at most 200 characters (placeholder "Infinite combo"). (r45)
 - **TRN-047** A waiting suggestion shows as a panel on the table, not a dialog: "<name> proposed their win." (or loss, or "a draw"; "You proposed your win." for the author) with the reason in quotes. The opponent gets Decline and Accept, the author Withdraw. (r24)
+- **TRN-064** Concede (a flag icon) in Table actions asks "Concede?" ("You lose this game at once.", Cancel / Concede, red); Concede ends the game at once as your loss, without the other player's agreement (CR 104.3a, SYS-073), also while a suggestion is waiting. (r45)
 - **TRN-048** Decline and Withdraw are their own events, not undos. (r18)
 - **TRN-049** While a suggestion waits, every other game action is blocked for both players; chat, timeline browsing, hold-preview and Inspect still work. (r27)
 - **TRN-050** In the timeline the lock applies only when the shown board already includes the suggestion: from an earlier point or another branch you can continue and play on, leaving the suggestion behind on the old branch. (r27)

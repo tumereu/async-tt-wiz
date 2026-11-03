@@ -128,7 +128,7 @@ internal class CombatController(
     fun choices(play: PlayState): CombatShown {
         ready(play)?.let { return it }
         val last = shownBoard
-        if (last != null && last.automatum && sameDeclaration(last, play.board)) return view
+        if (last != null && sameDeclaration(last, play.board)) return view
         return if (work === AutomatumWork.Inline) shown(play) else WORKING
     }
 

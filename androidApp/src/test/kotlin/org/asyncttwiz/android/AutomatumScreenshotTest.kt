@@ -54,7 +54,7 @@ class AutomatumScreenshotTest {
     /** Alice's Meadow Sentinel (1/3) with a +1/+1 counter and +2/+2 until end of turn; Bob's Lantern Guide (2/3)
      * with −1/−1 and flying, both from a card in Alice's graveyard. */
     private fun board(): PlayState = f.initial.copy(definitions = f.initial.definitions + surge,
-        board = f.initial.board.copy(automatum = true,
+        board = f.initial.board.copy(
         cards = f.initial.board.cards.map { when (it.id) {
             source.id -> it.copy(definition = surge.digest, faceId = "surge")
             sentinel.id -> it.copy(timestamp = 1, typedCounters = listOf(TypedCounter("+1/+1", 1, 2)))

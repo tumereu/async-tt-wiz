@@ -95,7 +95,6 @@ class PlayTest {
     // their shuffled library, both players still mulliganing
     @Test fun automatumStartDrawsEachOpeningHand() {
         val state = StartRules.initialize(game, ready(), id(11), seeds)
-        assertTrue(state.board.automatum)
         assertEquals(listOf(PlayerStatus.OPENING, PlayerStatus.OPENING), state.board.players.map { it.status })
         for (player in ready().players) {
             val order = state.shuffles.single { it.accountId == player.accountId }.order

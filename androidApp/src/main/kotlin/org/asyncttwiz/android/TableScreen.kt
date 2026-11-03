@@ -342,6 +342,7 @@ internal fun tableToolkit(controller: LobbyController, history: TableHistoryCont
             EndingTool.SUGGEST_DRAW -> controller.suggestResult(target, SuggestedResult.DRAW, intent.note)
             EndingTool.ACCEPT -> intent.suggestionId?.takeIf { history.gate?.suggestionId == it }
                 ?.let { controller.acceptResult(ResultAcceptanceTarget(target, it)) } ?: false
+            EndingTool.CONCEDE -> controller.concede(target)
         }
     }, acceptedInspection = controller::inspectFace,
     waitingForConnection = { game.id !in controller.table.value.connectedGames }, playBatch = controller::gameplayBatch,

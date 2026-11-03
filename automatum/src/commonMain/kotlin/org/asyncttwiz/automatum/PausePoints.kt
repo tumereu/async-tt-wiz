@@ -98,7 +98,7 @@ object PausePoints {
      * board it shows, live or in the timeline.
      */
     fun at(board: BoardState): At? {
-        if (!board.automatum || Automatum.flowOpen(board)) return null
+        if (Automatum.flowOpen(board)) return null
         val holder = board.priority?.holder ?: return null
         val top = CombatStackRules.stack(board).cards.firstOrNull()?.let { entry ->
             board.stackEffects.firstOrNull { it.id == entry }?.let { it.item?.controller ?: it.controller ?: "" } ?: ""

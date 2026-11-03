@@ -243,9 +243,6 @@ object CardVisibility {
     val stackTextMarks: Map<String, StackTextMarks> = emptyMap(),
     /** Null retains the legacy meaning: attention follows the turn player. */
     val attentionHolder: String? = null,
-    /** I-D52: every play the server starts has it on ([StartRules.initialize]) and no event changes it: there is no
-     * switch. False only on boards built by hand for the app's manual paths, which still ask, until they are gone. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: Boolean = false,
     /** Rules v36: who has priority and how many passed in a row (D57); null while nobody tracks it. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val priority: MtgPriority? = null,
     /** Rules v36: the engine's own records (§4.3), sorted by id, each changed on its own. */
@@ -360,7 +357,7 @@ object StartRules {
         val needed = cards.map { it.definition }.toSet()
         return PlayState(game.id, playId, preparation.roundId, requestId, root, root.id,
             BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers,
-                TurnState(starter.accountId), automatum = true),
+                TurnState(starter.accountId)),
             needed.sorted().map { definitions.getValue(it) }, shuffles, starter, librarySecret = librarySecret)
     }
 }

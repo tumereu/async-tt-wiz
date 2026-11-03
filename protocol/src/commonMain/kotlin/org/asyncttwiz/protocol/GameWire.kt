@@ -25,6 +25,9 @@ const val GAME_PROTOCOL_MINOR = 4
     @Serializable @SerialName("undo") data object Undo : GameAction
     @Serializable @SerialName("redo") data object Redo : GameAction
     @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
+    /** CR 104.3a (I-D52): the actor concedes and loses at once, no agreement needed: their loss is recorded as the play's
+     * result (a waiting suggestion withdrawn or declined first) and the play ends as an accepted result ends it. */
+    @Serializable @SerialName("concede") data object Concede : GameAction
     /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent only for what a player may
      * send outside Automatum ([AutomatumOnly]). */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -142,9 +145,9 @@ object GameWire {
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.SendChat) require(ChatValidation.text(command.action.text))
-        } else if (command.action is GameAction.AcceptResult) {
+        } else if (command.action is GameAction.AcceptResult || command.action == GameAction.Concede) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
-            require(DeckValidation.uuid(command.action.suggestionId))
+            if (command.action is GameAction.AcceptResult) require(DeckValidation.uuid(command.action.suggestionId))
         } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action) &&

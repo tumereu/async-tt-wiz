@@ -134,7 +134,7 @@ class FinalSyncGamesTest {
                     val call = game.call().also(body)
                     val sent = game.send(call, who)
                     if (call.changes.isNotEmpty() && sent.tree == null) problem("the server refused a batch planned on its own head: ${sent.reason} " +
-                        "(automatum ${game.state.board.automatum}, ${TurnPosition.of(game.state.board.turn)}, recent: ${ops.takeLast(4)})")
+                        "(${TurnPosition.of(game.state.board.turn)}, recent: ${ops.takeLast(4)})")
                 }
             } catch (e: AssertionError) {
                 problem("${e.message?.take(400)}"); return counts

@@ -58,7 +58,7 @@ class AutomatumOpeningTest {
         val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
         return PlayState(id("game"), id("play"), id("round"), id("start"), PlayRoot(id("root"), id("branch")), id("root"),
             BoardState(listOf(alice, bob).map { PlayPlayer(it, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id },
-                containers, TurnState(alice), automatum = true),
+                containers, TurnState(alice)),
             listOf(mountain), listOf(alice, bob).map { p -> InitialShuffle(p, seed, cards.filter { it.owner == p }.map { it.id }) },
             InitialStarter(StarterChoice(alice), alice))
     }

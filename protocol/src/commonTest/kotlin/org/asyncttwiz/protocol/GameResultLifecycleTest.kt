@@ -149,8 +149,20 @@ class GameResultLifecycleTest {
         assertEquals(proposal.state.board.resultSuggestion, following.state.board.resultSuggestion)
     }
 
-    // TRN-046, CR 104.3a (I-D52): a player concedes by suggesting their own loss and accepting it themselves; any other
-    // suggestion still needs the other player
+    // SYS-073, CR 104.3a (I-D52): conceding records the player's own loss (a waiting suggestion withdrawn or declined
+    // first), which they accept themselves; any other suggestion still needs the other player
+    @Test fun aConcessionRecordsTheOwnLossAfterAWaitingSuggestion() {
+        assertEquals(listOf(PlayAction.SuggestResult(SuggestedResult.LOSS)), GameResultRules.concession(play().board, a.accountId))
+        val waiting = suggest(SuggestedResult.DRAW, b.accountId).state!!
+        val id = waiting.board.resultSuggestion!!.id
+        assertEquals(listOf(PlayAction.DeclineResult(id), PlayAction.SuggestResult(SuggestedResult.LOSS)),
+            GameResultRules.concession(waiting.board, a.accountId))
+        assertEquals(listOf(PlayAction.WithdrawResult(id), PlayAction.SuggestResult(SuggestedResult.LOSS)),
+            GameResultRules.concession(waiting.board, b.accountId))
+    }
+
+    // SYS-073, CR 104.3a (I-D52): the server accepts the conceding player's own loss for them; any other suggestion still
+    // needs the other player
     @Test fun aPlayerMayAcceptTheirOwnLoss() {
         val prepared = PreparationRules.empty(game).copy(players = listOf(PlayerPreparation(a.accountId, true), PlayerPreparation(b.accountId, true)))
         for ((outcome, accepted) in listOf(SuggestedResult.LOSS to true, SuggestedResult.WIN to false, SuggestedResult.DRAW to false)) {

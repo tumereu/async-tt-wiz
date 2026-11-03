@@ -96,7 +96,7 @@ class AutomatumChoicesScreenshotTest {
         fun as_(card: PlayCard, what: Invented) = card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner,
             tapped = false)
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> when (card.id) {
                     aCard -> as_(card, spell)
                     bSpark -> as_(card, spark)

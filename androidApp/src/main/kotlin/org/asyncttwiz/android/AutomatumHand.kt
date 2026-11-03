@@ -91,7 +91,7 @@ internal class HandController(
         compute(play)
     }
 
-    /** Lowers the raised card (a tap elsewhere, a cast, Automatum switched off). */
+    /** Lowers the raised card (a tap elsewhere, a cast). */
     fun lower() {
         if (layout.value.raised != null) layout.value = layout.value.copy(raised = null)
         generation++

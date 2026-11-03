@@ -106,7 +106,7 @@ class AutomatumCombatScreenshotTest {
             first(aHand, aliceHand.size).zip(aliceHand) + first(bHand, bobHand.size).zip(bobHand)).toMap()
         val dropped = initial.board.cards.filter { it.containerId in setOf(aField, bField, aHand, bHand) && it.id !in roles }.map { it.id }.toSet()
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = priority,
+            board = initial.board.copy(priority = priority,
                 turn = TurnState(f.a, "3", position.phase, position.step),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> roles[card.id]?.let { what ->
                     card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner, tapped = false,
@@ -157,10 +157,8 @@ class AutomatumCombatScreenshotTest {
 
     private fun render(toolkit: TableToolkitController) {
         // Worked out before showing, as the table's worker would have (SYS-025), so the pictures don't race it
-        if (play.board.automatum) {
-            AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
-            AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
-        }
+        AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) }
+        AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
         compose.setContent {
             MaterialTheme {
                 NoRipples {

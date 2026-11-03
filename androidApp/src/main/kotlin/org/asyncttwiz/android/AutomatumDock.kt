@@ -30,17 +30,21 @@ import androidx.compose.ui.unit.dp
 /**
  * One place for every Automatum panel (UI review #4, decided for the owner 2026-11-03): like the cast panel (I-D47), the
  * table's full width with its bottom exactly on the top of the viewer's hand row [hand] (the table's bottom without one),
- * so the hand is never covered.
+ * so the hand is never covered. In landscape it is at most [LANDSCAPE_WIDTH] wide from the left edge, so the combat area and
+ * its damage preview in the middle of the wide table stay visible (CMB-029).
  */
 @Composable
 internal fun AboveHand(hand: TableBounds?, content: @Composable () -> Unit) {
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val bottom = (hand?.y?.dp?.roundToPx() ?: constraints.maxHeight).coerceIn(0, constraints.maxHeight)
-        val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = constraints.maxWidth, maxWidth = constraints.maxWidth,
-            maxHeight = bottom))
+        val width = if (constraints.maxWidth > constraints.maxHeight) minOf(LANDSCAPE_WIDTH.roundToPx(), constraints.maxWidth)
+            else constraints.maxWidth
+        val placeable = measurables.firstOrNull()?.measure(Constraints(minWidth = width, maxWidth = width, maxHeight = bottom))
         layout(constraints.maxWidth, constraints.maxHeight) { placeable?.place(0, bottom - placeable.height) }
     }
 }
+
+internal val LANDSCAPE_WIDTH = 420.dp
 
 /** The viewer's hand row on [scene], where Automatum's panels dock ([AboveHand]). */
 internal fun handRow(scene: TableScene?, viewer: String): TableBounds? =
@@ -64,7 +68,7 @@ internal fun AutomatumDockPanel(description: String, hidden: Boolean, toggleHidd
         }) {
         AnimatedVisibility(!hidden, enter = fadeIn(tween(180)) + expandVertically(tween(180), expandFrom = Alignment.Bottom),
             exit = fadeOut(tween(180)) + shrinkVertically(tween(180), shrinkTowards = Alignment.Bottom)) {
-            Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 360.dp).verticalScroll(rememberScrollState()),
+            Column(Modifier.padding(start = 10.dp, end = 10.dp, top = 8.dp).heightIn(max = 440.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(6.dp), content = content)
         }
         DockButtonRow(hidden, shown, toggleHidden, what, buttons)

@@ -174,7 +174,7 @@ class AutomatumChoicesScreenshotTest {
         compose.onNodeWithText("Bottom · 1").assertExists()
         captureShot("$SCREENSHOTS/automatum/choice-scry.png",
             "Alice cast Ember Divination (Scry 3) with Automatum on: the panel is titled \"Scry 3 · Ember Divination\" with a short instruction, her top three cards are drawn as cards in a Top area, numbered in order, and a tap on Tinkered Mite moved it into the Bottom area at once; OK confirms.")
-        compose.onNodeWithText("OK").performClick()
+        compose.onNodeWithText("OK").performScrollTo().performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(open, batch, request, f.a)
@@ -210,7 +210,7 @@ class AutomatumChoicesScreenshotTest {
         compose.onNodeWithText("Graveyard · 1").assertExists()
         captureShot("$SCREENSHOTS/automatum/choice-surveil.png",
             "Alice cast Grim Survey (Surveil 2): \"Surveil 2 · Grim Survey\" with her top two cards as cards, Storm Spark tapped into the Graveyard area and Tinkered Mite left on Top.")
-        compose.onNodeWithText("OK").performClick()
+        compose.onNodeWithText("OK").performScrollTo().performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(open, batch, request, f.a)
@@ -232,7 +232,7 @@ class AutomatumChoicesScreenshotTest {
         compose.onNodeWithText("OK").assertIsEnabled()
         captureShot("$SCREENSHOTS/automatum/choice-discard.png",
             "Alice cast Ember Rummage, drew two and must discard one: \"Discard 1 · Ember Rummage\" shows her hand as cards in a Hand area, one tapped into the Discard area, and OK is enabled once exactly one is there.")
-        compose.onNodeWithText("OK").performClick()
+        compose.onNodeWithText("OK").performScrollTo().performClick()
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(open, batch, request, f.a)

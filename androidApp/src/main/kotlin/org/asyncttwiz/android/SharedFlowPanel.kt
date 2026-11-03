@@ -299,7 +299,8 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: P
     decision: Decision, forOther: Boolean, otherName: String) {
     val viewer = LocalChoiceFrame.current.viewer
     val inspector = remember(decision.id) { ChoiceInspector() }
-    val item = decision.source?.let { flow.state.stackItems[it] }
+    // The Stack item the choice belongs to: named by the decision, or the resolving top of the Stack from its source
+    val item = decision.source?.let { source -> flow.state.stackItems[source] ?: flow.top?.takeIf { it.source == source || it.id == source } }
     val sourceCard = item?.source ?: decision.source?.takeIf { it !is ObjectId.StackItem }
     AutomatumDockPanel("Automatum choice", flows.hidden, flows::toggleHidden, "Automatum panel") {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -320,6 +321,9 @@ private fun DecisionPanel(flows: SharedFlowController, flow: SharedFlow, play: P
         // UI review #5: which objects the choice is about, e.g. the creature that died
         val about = item?.let { (it.event?.objects.orEmpty().flatMap { r -> r.ids } +
             it.targets.values.flatten().filterIsInstance<TargetRef.Object>().map { t -> t.id }).distinct() - setOfNotNull(sourceCard) }.orEmpty()
+            // One card once: an object that changed zones is the same card (its earlier object can't be shown any more)
+            .groupBy { flows.atwCard(it) ?: it.toString() }.filterKeys { it != sourceCard?.let(flows::atwCard) }
+            .values.map { same -> same.firstOrNull(flows::shown) ?: same.first() }
         if (about.isNotEmpty()) AboutRow("About", about.map { AboutItem.Card(choiceCardOf(flows, play, viewer, it)) }, inspector)
         choiceHint(decision)?.let { ChoiceHintText(it) }
         CompositionLocalProvider(LocalChoiceFrame provides LocalChoiceFrame.current.copy(headed = true)) {

@@ -1,0 +1,1 @@
+mod: With Automatum on, the step button says what pressing it does: Pass, To combat, Attack (2), No blocks, Resolve, End turn or Done.

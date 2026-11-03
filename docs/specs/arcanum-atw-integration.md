@@ -442,6 +442,22 @@ out of anything stuck.
   Manage Stack drop their manual entries. Catalog: TBL-043, TBL-046, TBL-071, TBL-114–TBL-118, ZON-004, ZON-007,
   ZON-013, ZON-077, ZON-078, TRN-010, TRN-015, TRN-020, TRN-031, TRN-059, TRN-061, STK-035, SYS-063, SYS-069, SYS-071,
   LOB-113.
+- **Built (I-D46 (d), I-D47 choices, I-D48, UI review 2026-11-03 #1, #4–#6, #9):** the step arrow with Automatum on is
+  `AutomatumStepArrow`, its words from `AutomatumStep.of(play)` (ATW's board alone): Pass / Next / To combat / End turn /
+  Attack (N) / No attack / Block (N) / No blocks / Resolve / Done; "Resolve" is the holder's pass
+  (`SharedFlowController.step` with `Until.Pass` on a Stack holding Automatum's items), "Done" answers the open `Manual`
+  decision. Choices: `choiceWhat`/`choiceHint` title and instruct every decision kind; cards are `ChoiceCardFace`
+  (battlefield look, hold = Inspect, covered when not `shown`). `ObjectsShape.of` reads a `ChooseObjects` by the engine's
+  sentence: two places (scry, surveil, piles, discard, a library bottom) are `TwoAreaChoice` over `TwoAreas` (tap: other
+  area's end; drag: a position; "All to …"), reusable as is for the London-mulligan Keep / Bottom screen (I-D49); one
+  area orders; anything else picks. `SharedFlow.answer(answer, then)` answers the orders the engine asks next of the same
+  cards in the same call (scry's "Order on top" / "Order on the bottom"). Every Automatum panel docks above the hand
+  (`AboveHand`, `AutomatumDockPanel`, `AutomatumDockBar`; in landscape at most 420 dp wide), eye bottom-left, Hold first
+  on the right; the respond panel and choices show the source card and "About:" cards (the trigger's event objects and
+  targets). Choices made: tap = move to the other area's end, "No attack" for an empty declaration, a greyed "Next" while
+  another choice is open, piles' second question stays the engine's "first / second" option buttons, AlertDialogs keep
+  text buttons. Catalog: TRN-017, TRN-018, TRN-063, STK-023, STK-024, STK-027–STK-031, STK-037, STK-038, STK-040,
+  STK-043, STK-044, CMB-033.
 
 ## 4. Shared state ATW adds
 

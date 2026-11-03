@@ -157,9 +157,11 @@ class AutomatumResolveScreenshotTest {
         assertEquals(1, cast.board.stackEffects.size)
         val toolkit = render(cast, f.b)
         compose.onNodeWithText("Alice cast Storm Spark").assertExists()
-        compose.onNodeWithText("Target: You").assertExists()
+        // STK-027 (UI review #5): the spell is shown as its card, its target as "Target:" and a player's name
+        compose.onNode(hasText("Target:") and hasAnyAncestor(hasContentDescription("Respond prompt"))).assertExists()
+        compose.onNode(hasText("You") and hasAnyAncestor(hasContentDescription("Respond prompt"))).assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/respond-prompt.png",
-            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: by the Stack Bob sees \"Alice cast Storm Spark\" with its text, \"Target: You\", Respond and Let it resolve, and the move is his (\"Your move\", green bars) since he must act.")
+            "Alice cast Storm Spark at Bob with Automatum on and Bob holds a Storm Spark he could answer with: docked above his hand Bob sees Storm Spark's card beside \"Alice cast Storm Spark\", \"Target: You\", the eye at the bottom left and Respond and Let it resolve at the right, and the move is his (\"Your move\") since he must act.")
         compose.runOnIdle { assertFalse(toolkit.submit(PlayAction.NextStep)); assertEquals(SharedFlowController.STACK_WAITING, toolkit.error) }
         compose.onNodeWithText("Respond").performClick()
         compose.waitForIdle()

@@ -48,7 +48,7 @@ class TimelineNavigationRegressionTest {
                 assertEquals(sent, f.commands().size)
             }
             compose.onNodeWithContentDescription("Cancel continuation").assertDoesNotExist()
-            assertNotEquals(null, root)
+            assertNotNull(root)
         } finally { f.lobby.close(); f.worker.drain() }
     }
 

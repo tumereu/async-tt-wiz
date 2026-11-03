@@ -327,8 +327,8 @@ class AutomatumPauseReviewTest {
             GameplayMutation(id(n), id(parent), id(50), id(n + 100), id(author), null, action, GameplayTransition(),
                 grouping = HistorySemantic(HistorySignificance.CROSS_ZONE_MOVE, HistoryIcon.FLAG, key))
         val before = node(1, 0, "a1")
-        // Alice's step that ends at Bob's pause: here a comment, which the default auto-pauses stop at
-        val step = node(2, 1, "b2", action = PlayAction.EventComment(EventReference(id(99), id(1)), "go"))
+        // Alice's step that ends at Bob's pause: here one passing Bob the move, which the default auto-pauses stop at
+        val step = node(2, 1, "b2", action = PlayAction.PassAttention).copy(transition = GameplayTransition(attention = AttentionChange(id(70), id(71))))
         val pass = node(3, 2, "c3", action = PlayAction.Mtg(MtgAction.SetPriority(MtgPriority(id(71), 1), MtgPriority(id(70)))))
         val after = node(4, 3, "d4")
         val nodes = listOf(before, step, pass, after)
@@ -336,7 +336,7 @@ class AutomatumPauseReviewTest {
         player.openFrom(id(1)); player.play()
         player.next(automatic = true, viewer = id(71), autoPause = PlaybackAutoPause.defaults)
         assertEquals(id(2), player.position.cursorId)
-        assertTrue(player.pauseAfterAnimation(), "the comment's auto-pause")
+        assertTrue(player.pauseAfterAnimation(), "the move's auto-pause")
         player.play()
         assertFalse(player.stopAtPause(id(71), pause = true), "already stopped at this point once")
     }

@@ -146,6 +146,10 @@ sealed interface Announced {
     @Serializable @SerialName("spell") data class Spell(
         val card: ObjectId, val way: CastWay, val permitted: arcanum.api.Mechanic.MayPlay? = null,
         val byEffect: Boolean = false,
+        // tmt
+        /** The alternative cost [way] names as the card had it where it was cast from, before it moved to the Stack (CR 601.2a,
+         * b): "creature cards in your graveyard have sneak" is used though the spell no longer has it. */
+        val alternativeAsCast: arcanum.api.Mechanic.AlternativeCost? = null,
     ) : Announced
     /** Ability [origin] of [source] (CR 602.2a), with a copy of the [ability] (D23). */
     @Serializable @SerialName("ability") data class Ability(

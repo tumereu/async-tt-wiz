@@ -333,6 +333,11 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   "can't become untapped", damage that heals other damage, ward paid with poison counters, modal double-faced cards that transform
   (CR 701.27a), and alternative costs for "the next spell" effects (a card tested as the spell it would be, CR 601.2a). Controlling
   another player's next turn (CR 723) is done by hand: who decides and sees for that player is the host's.
+- Done, Teenage Mutant Ninja Turtles (scenarios in `commonTest/…/sets/tmt/`): all 190 cards play. Mutagen tokens, sneak's "if
+  his sneak cost was paid" (this turn too), sneak given to cards in a graveyard and casting them from there only with it (the alternative
+  cost the card had where it was cast from is kept as it moves to the Stack, CR 601.2a, b; `MayPlay.viaAlternative` is enforced),
+  disappear, the card types among spells cast this turn (`Measure.Distinct`), creatures that crewed a Vehicle this turn (tapping for a
+  crew cost is recorded with `Meaning.Crewed`, CR 702.122b), an equip cost paid once each turn, searching outside the game.
 - Not yet: skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and

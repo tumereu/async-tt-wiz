@@ -76,7 +76,8 @@ internal object Casting {
         if (faceDown) names = names.with(FACE_DOWN, NamedValue.Option(alternative!!.second.keyword?.id ?: "morph"))
         // gtc: a fused split spell is both halves, left then right (CR 702.102d): as its two "modes", both chosen
         if (way.fused) names = names.with(Plan.MODES_ASKED, NamedValue.Number(1))
-        val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way, permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay), AnnounceStage.Modes,
+        val c = Continuation.Announcing(input.player, Announced.Spell(onStack, way, permitted?.second?.mechanic as? arcanum.api.Mechanic.MayPlay,
+            alternativeAsCast = alternative?.second), AnnounceStage.Modes,
             Choices(names = names, modes = if (way.fused) listOf(0, 1) else emptyList()))
         return advance(recorder, c, start)
     }

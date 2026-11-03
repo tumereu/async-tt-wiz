@@ -423,6 +423,7 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         }
         effectObjects(board).forEach { e -> if (e.key !in found && e.mechanicsIn(layer).isNotEmpty()) found[e.key] = e }
         counterEffects(board, layer).forEach { e -> if (e.key !in found) found[e.key] = e }
+        suspectedEffects(board, layer).forEach { e -> if (e.key !in found) found[e.key] = e }
         return found.values.toList()
     }
 
@@ -458,6 +459,18 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         }
 
     /** CR 613.4c, 613.1f, 613.7c: P/T counters in 7c and keyword counters in layer 6, at the counters' timestamps. */
+    /** spm: a suspected permanent has menace (CR 701.60c), whatever its abilities: not from an ability, so "loses all abilities"
+     * before it doesn't remove it; its "can't block" is a rule ([collect]). */
+    private fun suspectedEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = if (layer != Layer.Ability) emptyList() else
+        state.battlefield.filter { id -> id in board.work && state.obj(id)?.let { !it.phasedOut && arcanum.api.ObjectMark.Suspected in it.marks } == true }.map { id ->
+            val o = state.obj(id)!!
+            ContinuousEffect(
+                key = "suspected:$id", timestamp = o.timestamp, cda = false, mechanics = listOf(Mechanic.GainAbilities(listOf(Keyword.Menace))),
+                you = board.controller(id) ?: o.owner, self = id, names = Bindings.EMPTY, affects = Affected.Objects(Objects.Self), locked = null,
+                condition = null, holder = null, instance = AbilityInstance(arcanum.api.Ability.Unparsed("suspected"), AbilityOrigin.Rule("suspected")), effect = null,
+            )
+        }
+
     private fun counterEffects(board: WorkBoard, layer: Layer): List<ContinuousEffect> = board.work.keys.flatMap { id ->
         val o = state.obj(id) ?: return@flatMap emptyList()
         if (o.phasedOut) return@flatMap emptyList()
@@ -507,7 +520,10 @@ internal class LayerRun(private val state: GameState, private val traced: Object
     private fun affected(board: WorkBoard, e: ContinuousEffect): Set<ObjectId> {
         started[e.key]?.let { return it.affected }
         val ids = e.locked ?: when (val a = e.affects) {
-            is Affected.Objects -> evaluator(board, e).objects(a.objects)
+            // spm: a keyword with an alternative cost given to spells is on the cards as the spells they would be (CR 601.2a, b)
+            is Affected.Objects -> if (e.mechanics.isNotEmpty() && e.mechanics.all { grantsAlternativeCost(it) })
+                evaluator(board, e).let { ev -> ev.with(ev.ctx.copy(prospectiveCast = true)) }.objects(a.objects).filter { state.obj(it)?.zone != Zone.Battlefield }
+                else evaluator(board, e).objects(a.objects)
             else -> emptyList()
         }
         return ids.filter { it in board.work && state.obj(it)?.phasedOut != true }.toSet()
@@ -698,6 +714,13 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             if (o.phasedOut || o.counters(CounterKind.Finality) == 0) return@forEach
             rules += AppliedMechanic(Layers.FINALITY, board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
         }
+        // spm: a suspected creature can't block (CR 701.60c)
+        state.battlefield.forEach { id ->
+            val o = state.obj(id) ?: return@forEach
+            if (o.phasedOut || arcanum.api.ObjectMark.Suspected !in o.marks) return@forEach
+            objectMechanics.getOrPut(id) { mutableListOf() } += AppliedMechanic(Mechanic.CantBlock(arcanum.api.ObjectFilter.Any),
+                board.work[id]?.controller ?: o.controller ?: o.owner, o.timestamp, source = id)
+        }
         // fra: a prepared permanent's controller may cast the copy of its prepare spell (CR 722.3c)
         arcanum.engine.prepare.Prepare.permissions(state) { board.work[it]?.controller }.forEach { (id, applied) ->
             if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
@@ -743,6 +766,10 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         if (mechanic !is Mechanic.MayPlay) return eval.objects(objects)
         return state.players.flatMap { p -> eval.with(eval.ctx.copy(holder = p.id)).objects(objects) }.distinct()
     }
+
+    /** spm: abilities given are all keywords that are alternative costs (web-slinging): the spells get them as they are cast. */
+    private fun grantsAlternativeCost(mechanic: Mechanic): Boolean = mechanic is Mechanic.GainAbilities && mechanic.abilities.isNotEmpty() &&
+        mechanic.abilities.all { a -> a is Keyword && arcanum.api.KeywordExpansions.expand(a).orEmpty().any { e -> e is Ability.Static && e.mechanics.any { it is Mechanic.AlternativeCost } } }
 
     private fun AbilityOrigin.isOwn(): Boolean = when (root) {
         is AbilityOrigin.Printed, is AbilityOrigin.LandType -> true

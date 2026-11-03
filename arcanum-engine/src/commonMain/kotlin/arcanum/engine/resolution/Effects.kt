@@ -766,8 +766,9 @@ internal object Effects {
                     else act.chooseTargets(controller, copyId, slot, options, chosen.size, chosen.size)
                 }
             }
+            // spm: the copy's exceptions, after those of a copy it copies (CR 707.9b)
             val kind = if (original.kind == StackItemKind.Spell || original.kind is StackItemKind.SpellCopy) StackItemKind.SpellCopy(
-                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id) else original.kind
+                (original.kind as? StackItemKind.SpellCopy)?.copied ?: id, (original.kind as? StackItemKind.SpellCopy)?.except.orEmpty() + effect.except) else original.kind
             val snapshots = original.snapshots + listOfNotNull(act.snapshot(id))
             val copy = original.copy(id = copyId, kind = kind, controller = controller, targets = targets, snapshots = snapshots, timestamp = ts,
                 facts = if (kind is StackItemKind.SpellCopy) copiedFacts(original.facts ?: act.state.obj(id)?.facts) else original.facts)

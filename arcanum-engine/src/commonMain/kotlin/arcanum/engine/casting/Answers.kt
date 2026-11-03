@@ -65,6 +65,12 @@ internal object Answers {
                     val e = plan.snap.evaluator(plan.player)
                     if (ids.any { a -> ids.any { b -> a != b && !e.shares(quality, a, b) } }) refuse("The targets must share $quality")
                 }
+                // spm: "up to six target creature cards with different names" (CR 601.2c)
+                q.slot.slot.distinct?.let { quality ->
+                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
+                    val e = plan.snap.evaluator(plan.player)
+                    if (ids.any { a -> ids.any { b -> a != b && e.shares(quality, a, b) } }) refuse("The targets must differ in $quality")
+                }
                 // gtc chunk 10: "from a single graveyard": one owner (CR 601.2c)
                 if (q.slot.slot.sameOwner &&
                     chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id?.let { id -> plan.snap.state.obj(id)?.owner } }.distinct().size > 1)

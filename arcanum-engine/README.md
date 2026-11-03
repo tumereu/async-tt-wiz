@@ -379,8 +379,16 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   permanents; X limited by a value as it is announced; losing all creature types; targets that share a quality; cards returned "under
   their owners' control" each under its own owner; counters on a card a replacement exiles ("with a dream counter on it"); and repeated
   processes inside each-player loops done one by one ("until they have exiled cards with total mana value 5").
+- Done, Marvel's Spider-Man (scenarios in `commonTest/…/sets/spm/`): all 193 cards play. Web-slinging (also given to legendary spells by
+  another permanent: a keyword with an alternative cost given to spells is on the cards as the spells they would be, CR 601.2a, b) and
+  "the returned creature" read by the permanent; mayhem with and without a cost and given to graveyard cards at their mana costs;
+  modified permanents; copies of spells with exceptions (layer 1, the token a permanent spell's copy becomes too); an entering copy's
+  linked trigger naming the copied card; the excess damage of a fight; lands played from a zone; triggers on any of the first n events;
+  turn counts (from the latest turn each player began); unspent mana of a colour kept; mana of any type for spells cast with a permission
+  (`MayPlay.manaAsAnyColor`); targets with different names; suspected creatures (menace and can't block, CR 701.60c).
 - Done, Avatar: The Last Airbender (scenarios in `commonTest/…/sets/tla/`): all 281 cards play (another player's next combat phase or
-  turn controlled, CR 723, and foretell, CR 702.143, are the engine's since 2026-11-03). Airbend (the owner may cast the card from exile for {2}), earthbend (the land returns tapped when it dies or is exiled), waterbend
+  turn controlled, CR 723, and foretell, CR 702.143, are the engine's since 2026-11-03). Airbend (the owner may cast the card from exile
+  for {2}), earthbend (the land returns tapped when it dies or is exiled), waterbend
   costs paid by tapping artifacts and creatures (only the waterbend cost's generic mana), firebending's mana kept until end of combat,
   unspent mana kept or turned red, the bend triggers, triggered abilities of attackers copied, names set by effects, extra combats for
   some attackers, mana of any type spent through a permission, a spell's own "as though it had flash" from the hand, the spell being

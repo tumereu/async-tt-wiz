@@ -99,7 +99,9 @@ object DefinitionChecks {
                 if (type == "as-enters") {
                     // Deep: steps nested in an If are steps of the entering too.
                     visitAll(element["steps"] ?: JsonArray(emptyList())) { step ->
-                        if (step.typeName() == "do") found += "\"as enters\" may only pay, choose, check or modify how it enters, not do effects (CR 614.12)"
+                        // spm: looking at cards changes nothing ("As this creature enters, look at an opponent's hand, then choose …")
+                        if (step.typeName() == "do" && ((step["effect"] as? JsonObject)?.typeName() != "look"))
+                            found += "\"as enters\" may only pay, choose, check or modify how it enters, not do effects (CR 614.12)"
                     }
                     visitShallow(element["steps"]) { step ->
                         if (step.typeName() !in asEntersSteps && step.typeName() != "do") found += "\"as enters\" may only pay, choose, check or modify how it enters, not \"${step.typeName()}\" (CR 614.12)"
@@ -231,6 +233,10 @@ object DefinitionChecks {
             found += "a characteristic-defining ability affects only its own object and has no condition (CR 604.3a)"
     }
 
+    /** The names the costs of keyword expansions make, by the keyword's JSON type name. */
+    private val keywordCostNames = mapOf("web-slinging" to KeywordExpansions.WEB_SLINGING_RETURNED, "sneak" to KeywordExpansions.SNEAK_RETURNED)
+        .also { check(it.values.toSet() == KeywordExpansions.COST_NAMES) }
+
     private fun checkCounts(what: String, min: Int, max: Int, found: MutableList<String>) {
         if (min > max) found += "$what: minimum $min is more than maximum $max"
     }
@@ -245,6 +251,8 @@ object DefinitionChecks {
             (static["mechanics"] as? JsonArray).orEmpty().filter { (it as? JsonObject)?.typeName() in setOf("additional-cost", "alternative-cost") }
                 .forEach { collectNames(it, costNames) }
         }
+        // spm: the names a keyword's alternative cost makes ("the returned creature" of web-slinging, sneak)
+        abilities.forEach { a -> keywordCostNames[a.typeName()]?.let { costNames += it } }
         fun check(ability: JsonObject, extra: Set<String>, extraSlots: Set<String> = emptySet(), extraAnnounced: Set<String> = emptySet()) {
             val scope = Scope()
             scope.named += extra

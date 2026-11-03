@@ -184,11 +184,6 @@ internal object KeywordExpansionsMore {
         is Keyword.Freerunning -> listOf(alternative(Keyword.Freerunning.Kind, keyword.cost, Condition.HappenedThisTurn(EventPattern.Damage(
             ObjectFilter.And(listOf(ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Sub(Subtype("Assassin")))),
             RecipientFilter(players = PlayerFilter.Any), combat = true), atLeast = 1, measure = Measure.Events)))
-        // CR 702.188a: "You may cast this spell by paying [cost] and returning a tapped creature you control to its owner's hand rather
-        // than paying this spell's mana cost."
-        is Keyword.WebSlinging -> listOf(alternative(Keyword.WebSlinging.Kind, Cost(keyword.cost.parts + CostPart.ReturnToHand(CostObjects.Choose(
-            ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.HasStatus(Status.Tapped))),
-            Value.Fixed(1))))))
         // CR 702.185a: "You may cast this card from your hand by paying [cost] rather than its mana cost" and "If this spell's warp cost was
         // paid, exile the permanent this spell becomes at the beginning of the next end step. Its owner may cast this card after the
         // current turn has ended for as long as it remains exiled." (exiled in an end step, it is cast on a later turn as the card's own
@@ -206,10 +201,6 @@ internal object KeywordExpansionsMore {
         // face's "If it would be put into a graveyard from anywhere, exile it instead" is printed there)
         is Keyword.Disturb -> listOf(Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, cost = keyword.cost, transformed = true,
             holder = PlayerFilter.You)), affects = self))
-        // CR 702.187b: "As long as you discarded this card this turn, you may cast it from your graveyard by paying [cost] rather than paying
-        // its mana cost."
-        is Keyword.Mayhem -> listOf(Ability.Static(listOf(Mechanic.MayPlay(Zone.Graveyard, PlayKind.Cast, cost = keyword.cost, holder = PlayerFilter.You,
-            condition = discardedThisTurn)), affects = self))
         // CR 702.59a: "When a creature is put into your graveyard from the battlefield, you may pay [cost]. If you do, return this card from
         // your graveyard to your hand. Otherwise, exile this card." (functions only in the graveyard)
         is Keyword.Recover -> listOf(Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature),
@@ -397,9 +388,6 @@ internal object KeywordExpansionsMore {
     private val nextEndStep = Trigger.On(EventPattern.StepBegins(TurnStep.End, PlayerFilter.Any))
     private val otherUntappedCreatureYouControl = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
         ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped))))
-    /** This card was discarded this turn (as the card it is now, CR 400.7: the discard made it this object). */
-    private val discardedThisTurn = Condition.ObjectMatches(Objects.Self,
-        ObjectFilter.ThisTurn(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.Any), role = EventRole.After))
 
     private fun paid(keyword: KeywordKind) = Condition.Paid(keyword, times = 1, of = Objects.Self)
     private fun steps(vararg effects: Effect) = Instructions(steps = effects.map { Step.Do(it) })

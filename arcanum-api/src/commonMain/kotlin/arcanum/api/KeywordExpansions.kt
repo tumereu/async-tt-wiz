@@ -277,6 +277,14 @@ object KeywordExpansions {
                 ObjectFilter.HasStatus(Status.Attacking), ObjectFilter.HasStatus(Status.Unblocked))), count = Value.Fixed(1)), preBind = SNEAK_RETURNED)),
             duringYour = TurnStep.DeclareBlockers))
         is Keyword.CommanderNinjutsu -> listOf(ninjutsu(keyword.cost, listOf(Zone.Hand, Zone.Command)))
+        // spm: CR 702.188a: cast for [cost] by also returning a tapped creature you control to its owner's hand (an alternative cost)
+        is Keyword.WebSlinging -> static(webSlinging(keyword.cost))
+        // spm: CR 702.187b: as long as you discarded this card this turn, you may cast it from your graveyard for [cost] rather than its
+        // mana cost; CR 702.187c: without a cost, you may play it from your graveyard (a land too). The discard is the event whose
+        // card in the graveyard is this object (CR 400.7).
+        is Keyword.Mayhem -> static(Mechanic.MayPlay(Zone.Graveyard, if (keyword.cost == null) PlayKind.Play else PlayKind.Cast, cost = keyword.cost,
+            holder = PlayerFilter.You, condition = Condition.ObjectMatches(Objects.Self,
+                ObjectFilter.ThisTurn(EventPattern.Discard(ObjectFilter.Any, PlayerFilter.You), role = EventRole.After))))
         // CR 702.84a: return to the battlefield; it gains haste; exile it at the next end step; if it would leave the
         // battlefield, exile it instead; activate only as a sorcery
         is Keyword.Unearth -> listOf(Ability.Activated(keyword.cost, Instructions(steps = listOf(
@@ -766,6 +774,18 @@ object KeywordExpansions {
      * Put this card onto the battlefield tapped and attacking" (the same player or planeswalker as the returned creature). */
     /** The name the creature returned to pay a sneak cost is bound to (msh, CR 702.190b). */
     const val SNEAK_RETURNED: String = "sneak-returned"
+
+    /** The name the creature returned to pay a web-slinging cost is bound to (spm: "the mana value of the returned creature"). */
+    const val WEB_SLINGING_RETURNED: String = "web-slinging-returned"
+
+    /** The names keyword costs make for the spell, which its permanent keeps too (CR 400.7d: "the returned creature"). */
+    val COST_NAMES: Set<String> = setOf(SNEAK_RETURNED, WEB_SLINGING_RETURNED)
+
+    /** spm: the alternative cost of web-slinging [cost] (CR 702.188a): [cost] and returning a tapped creature you control to its
+     * owner's hand; also what "each legendary spell you cast … has web-slinging" gives those spells. */
+    fun webSlinging(cost: Cost): Mechanic.AlternativeCost = Mechanic.AlternativeCost(Keyword.WebSlinging.Kind, Cost(cost.parts + CostPart.ReturnToHand(
+        CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+            ObjectFilter.HasStatus(Status.Tapped))), count = Value.Fixed(1)), preBind = WEB_SLINGING_RETURNED)))
 
     private fun ninjutsu(cost: Cost, zones: List<Zone>) = Ability.Activated(
         Cost(cost.parts + CostPart.Reveal(CostObjects.Self) + CostPart.ReturnToHand(CostObjects.Choose(ObjectFilter.And(listOf(

@@ -891,8 +891,9 @@ sealed interface Keyword : Ability {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "warp"; override val text: String get() = "Warp"; override val rule: String get() = "702.185" }
     }
-    /** Mayhem (CR 702.187) */
-    @Serializable @SerialName("mayhem") data class Mayhem(override val cost: Cost) : Keyword, HasCost {
+    /** Mayhem (CR 702.187): cast from the graveyard for [cost] if discarded this turn; spm: [cost] null is "Mayhem" without a cost,
+     * play the card from the graveyard (CR 702.187c). */
+    @Serializable @SerialName("mayhem") data class Mayhem(val cost: Cost?) : Keyword {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "mayhem"; override val text: String get() = "Mayhem"; override val rule: String get() = "702.187" }
     }

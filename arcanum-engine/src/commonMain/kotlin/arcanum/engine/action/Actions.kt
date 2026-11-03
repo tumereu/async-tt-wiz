@@ -107,7 +107,7 @@ internal object Actions {
                 // rtr chunk 06: the proposed move names its cause, for "a spell or ability an opponent controls causes you to discard"
                 proposed = { m -> Changes.move(act.state, listOf(m.id), m.to, meanings = m.meanings).let { c ->
                     if (cause == null) c else c.causedBy(arcanum.engine.change.CausedBy(cause.source, null, cause.controller, cause.item?.id)) } },
-                modify = { m, r, _ -> modifyMove(act, m, r) },
+                modify = { m, r, _ -> modifyMove(act, m, r, linked) },
                 instead = { r, instance -> runInstead(act, r, instance) },
                 linked = linked,
                 // CR 701.19c: "can't be regenerated"
@@ -139,9 +139,11 @@ internal object Actions {
 
     private fun isRegeneration(r: Replacement): Boolean = r.names[REGENERATED] != null
 
-    private fun modifyMove(act: Act, m: PlannedMove, r: Replacement): PlannedMove? {
+    private fun modifyMove(act: Act, m: PlannedMove, r: Replacement, linked: MutableList<WaitingTrigger>): PlannedMove? {
         var move = m
-        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = r.names))
+        // spm: the entering permanent's own replacements read the names its spell's keyword costs made ("the returned creature")
+        val names = if (m.memory.values.isEmpty() || r.source != m.id) r.names else Bindings(m.memory.values + r.names.values)
+        val e = Evaluator(act.board(), Context(you = r.controller, self = r.source ?: m.id, names = names))
         for (mod in r.mechanic.modify) {
             move = when (mod) {
                 Modification.Skip -> return null
@@ -164,7 +166,15 @@ internal object Actions {
                     val options = e.each(mod.of).filter { it != move.id }
                     val chooser = r.controller
                     val chosen = act.chooseObjects(chooser, move.id, options, if (mod.optional) 0 else 1, 1, "Enter as a copy of")
-                    chosen.firstOrNull()?.let { move.copy(copyOf = it to mod.except) } ?: move
+                    chosen.firstOrNull()?.let { of ->
+                        // spm: "When you do, exile that card": the linked trigger knows the object copied (CR 603.12)
+                        val bind = mod.bind
+                        val then = r.mechanic.whenApplied
+                        if (bind != null && then != null) linked += WaitingTrigger(controller = r.controller,
+                            ability = arcanum.api.Ability.Triggered(arcanum.api.Trigger.On(emptyList()), then), origin = null, source = r.source,
+                            names = r.names.with(bind, NamedValue.Objects(listOf(of))))
+                        move.copy(copyOf = of to mod.except)
+                    } ?: move
                 }
                 is Modification.AsEnters -> Steps.asEnters(act, r, move, mod.steps) ?: return null
                 // fra: "enters prepared" (CR 722.3a)

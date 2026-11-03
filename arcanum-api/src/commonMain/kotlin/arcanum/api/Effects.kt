@@ -130,6 +130,10 @@ sealed interface Effect {
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
     @Serializable @SerialName("copy-spell") data class CopySpell(
         val objects: Objects, val controller: Players, val newTargets: Boolean, val bind: String? = null,
+        // spm
+        /** Exceptions to the copy ("copy that spell, except the copy isn't legendary", CR 707.9b, 707.10): part of its copiable
+         * values, so the token a permanent spell's copy becomes has them too (CR 707.10c). */
+        val except: List<CopyException> = emptyList(),
     ) : Effect
     /** Counter a spell or ability (CR 701.6); "unless its controller pays" is a [Step.Pay] by that player and a
      * [Step.If] that counters when they didn't (CR 118.12a). */

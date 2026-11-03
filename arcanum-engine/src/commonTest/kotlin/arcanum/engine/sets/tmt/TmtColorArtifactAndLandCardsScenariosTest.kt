@@ -1233,14 +1233,17 @@ class TmtColorArtifactAndLandCardsScenariosTest {
 
     @Test
     fun grogGroundsABlocker() = scenario {
-        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain")
+        alice.battlefield("Mountain", "Mountain", "Mountain", "Mountain", "Mountain", bear)
         alice.hand(grogHornedCastaway)
         bob.battlefield(ogre)
         alice.casts(grogHornedCastaway)
         resolveAll()
         targetsIfAsked(ogre)
         resolveAll()
-        expect { alice.battlefield has grogHornedCastaway }
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(bear)
+        advanceTo(TurnStep.DeclareBlockers)
+        assertFailsWith<IllegalArgumentException> { bob.blocks(ogre to bear) }
     }
 
     // ---- Chunk 13: green
@@ -1274,13 +1277,31 @@ class TmtColorArtifactAndLandCardsScenariosTest {
     }
 
     @Test
-    fun hidebackShatterOnDamage() = scenario {
+    fun hidebackEntersWithHexproof() = scenario {
         alice.battlefield("Forest", "Forest", "Forest", "Forest")
         alice.hand(hidebackSwampStalker)
-        bob.battlefield(idol)
         alice.casts(hidebackSwampStalker)
         resolveAll()
         expect { hidebackSwampStalker hasKeyword Keyword.Hexproof }
+    }
+
+    // CR 603.12: the reflexive "when you do" after removing a counter
+    @Test
+    fun hidebackTradesACounterForAnArtifact() = scenario {
+        alice.battlefield(hidebackSwampStalker, counters = listOf(p1p1 to 1))
+        bob.battlefield(idol)
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(hidebackSwampStalker)
+        advanceTo(TurnStep.CombatDamage)
+        resolveAll()
+        may(true)
+        resolveAll()
+        targetsIfAsked(idol)
+        resolveAll()
+        expect {
+            bob.graveyard has idol
+            hidebackSwampStalker.counters(p1p1) shouldBe 0
+        }
     }
 
     @Test

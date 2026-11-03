@@ -277,6 +277,7 @@ class HobMoreMechanicAndColorCardsScenariosTest {
     private val counterspell = Cards.invent("Lonely Hill Refusal", "{U}{U}", "Instant", "Counter target spell.")
     private val hoard = Cards.invent("Lonely Hill Hoard", "{R}", "Sorcery", "Create three Treasure tokens.")
     private val lesson = Cards.invent("Lonely Hill Lesson", "{1}{U}", "Sorcery", "Draw a card.")
+    private val muster = Cards.invent("Lonely Hill Muster", "{W}", "Instant", "Create a 1/1 white Soldier creature token.")
     private val draw2 = Cards.invent("Lonely Hill Letters", "{U}", "Sorcery", "Draw two cards.")
 
     // ---- Chunk 07: drawing and landfall
@@ -460,7 +461,21 @@ class HobMoreMechanicAndColorCardsScenariosTest {
 
     // CR 509.1b: a blocking restriction
     @Test
-    fun gloamwatchStalkerIgnoresTokens() = scenario {
+    fun gloamwatchStalkerCantBeBlockedByTokens() = scenario {
+        alice.battlefield(gloamwatchStalker)
+        bob.battlefield("Plains")
+        bob.hand(muster)
+        alice.passes()
+        bob.casts(muster)
+        resolveAll()
+        advanceTo(TurnStep.DeclareAttackers)
+        alice.attacks(gloamwatchStalker)
+        advanceTo(TurnStep.DeclareBlockers)
+        assertFailsWith<IllegalArgumentException> { bob.blocks("Soldier Token" to gloamwatchStalker) }
+    }
+
+    @Test
+    fun gloamwatchStalkerCountersOnEntering() = scenario {
         alice.battlefield("Swamp", "Swamp", "Swamp", bear)
         alice.hand(gloamwatchStalker)
         alice.casts(gloamwatchStalker)

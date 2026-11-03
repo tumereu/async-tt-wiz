@@ -497,7 +497,9 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
   existing in ATW at once (TBL-103); the engine keeps it in its new zone until state-based actions are next checked (CR
   704.5d), so while a flow waits for a decision mid-resolution (a destroyed token's "its controller may search") the
   continuation record keeps those objects and their place (`FlowRecord.lingering`), never shown to players; without an
-  open decision such an object is unmappable.
+  open decision such an object is unmappable. Its picture (SYS-072, built): the planning device's `TokenArt` finds the
+  best catalog token printing (the source card's related tokens, else a full characteristics match, else none) and its
+  Scryfall id goes into the `CreateToken`'s card data; the engine's definition is unchanged.
 - **Copies of cards** (CR 707.12, made where the card is): an ATW token card made in its owner's Exile
   (`CreateToken(definition, containerId)`), showing the copied card's own card data marked as a token's (as ATW's
   manual copy, `CloneToken`); its ledger keeps the engine's id, definition and `copyOfCard`. Cast, it stays in Exile

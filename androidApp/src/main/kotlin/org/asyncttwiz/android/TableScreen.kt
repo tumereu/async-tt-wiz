@@ -196,9 +196,11 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         AccountTokenFavoritesSource(it, accountId, auth::sessionToken)
     } }
     val catalogMount = rememberTableTokenCatalog(accountId, game.id, live?.id, catalogLifetime, catalog?.state, favorites)
+    val appContext = LocalContext.current.applicationContext
+    val tokenArt = remember(appContext) { AndroidTokenArt.of(appContext) }
     val toolkit = remember(controller, game.id, live?.id, accountId) {
         val playId = live?.id
-        val create = { tableToolkit(controller, history, game, accountId, playId) }
+        val create = { tableToolkit(controller, history, game, accountId, playId, tokenArt) }
         retained?.obtain(controller, listOf(game.id, playId.orEmpty(), accountId), create) ?: create()
     }
     DisposableEffect(toolkit) { onDispose { if (activity?.isChangingConfigurations != true) retained?.release(toolkit) } }
@@ -384,7 +386,8 @@ private tailrec fun tableActivity(context: Context): ComponentActivity? = when (
 /** The table's toolkit wiring: every toolkit/gesture/menu action is gated here by the connection, the personal
  * timeline (review is read-only until Continue) and [LobbyController.resultLocked]. */
 internal fun tableToolkit(controller: LobbyController, history: TableHistoryController, game: GameSummary,
-    accountId: String, playId: String?): TableToolkitController = TableToolkitController(accountId, {
+    accountId: String, playId: String?, tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
+): TableToolkitController = TableToolkitController(accountId, {
         val personal = controller.history
         (if (personal.playback?.position?.mode == HistoryMode.PLAYBACK && !personal.provisional) personal.view?.state else controller.table.value.play)
             ?.takeIf { it.id == playId && it.gameId == game.id }
@@ -404,4 +407,4 @@ internal fun tableToolkit(controller: LobbyController, history: TableHistoryCont
     playTree = controller::displayTree, continuation = { history.armed?.let { Continuation(it, true) } },
     automatedBatch = { batch, requestId -> controller.gameplayBatch(batch.actions, requestId, batch.tags) },
     exitFlow = { controller.historyControl(GameAction.ExitFlow(it)) },
-    automatumWork = AutomatumWork.Background)
+    automatumWork = AutomatumWork.Background, tokenArt = tokenArt)

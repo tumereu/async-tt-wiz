@@ -81,15 +81,15 @@ object EngineBatch {
     /**
      * The batch for [call]'s changes, sent by [actor] as [command] (its request id names the members). The plan's
      * [BatchPlan.state] is the board the server will make of it: the acting client shows it as its prediction without
-     * running the members through the reducer again.
+     * running the members through the reducer again. [tokenArt] finds the picture of each token the call makes.
      *
      * @throws Unmappable when a change can't be said with ATW's actions, or the batch wouldn't pass the server's checks
      *   ([GameWire.valid]) or fit one game message.
      */
-    fun plan(call: EngineCall, actor: String, command: GameCommand): BatchPlan {
+    fun plan(call: EngineCall, actor: String, command: GameCommand, tokenArt: TokenArt = TokenArt.None): BatchPlan {
         val game = call.state.gameId
         val plan = try {
-            Planner(call, actor, command).run()
+            Planner(call, actor, command, tokenArt).run()
         } catch (problem: Unmappable) {
             // I-D43: a batch that can't be said in ATW is a mapping problem worth a report
             AutomatumLog.refusal(game, "plan of call ${call.logNumber ?: "-"}", problem.message.orEmpty())
@@ -108,7 +108,8 @@ object EngineBatch {
 /** The seed of a shuffle of at most one card, which the engine orders without asking the host ([Planner]). */
 private val SINGLE_CARD_SEED = org.asyncttwiz.protocol.RandomV1.encodeSeed(ByteArray(32))
 
-private class Planner(private val call: EngineCall, private val actor: String, command: GameCommand) {
+private class Planner(private val call: EngineCall, private val actor: String, command: GameCommand,
+    private val tokenArt: TokenArt) {
     private val template = command.copy(action = GameAction.PlayBatch(listOf(PlayAction.PassAttention)))
     private var atw: PlayState = call.state
     private val engine: GameState = call.start.deepCopy()
@@ -369,13 +370,39 @@ private class Planner(private val call: EngineCall, private val actor: String, c
         if (o.zone != Zone.Battlefield) throw Unmappable("a token created in ${o.zone}")
         val definition = o.definition ?: throw Unmappable("a token without a definition")
         val before = board.cards.map { it.id }.toSet()
-        play(PlayAction.CreateToken(AtwTokens.submitted(definition)))
+        play(PlayAction.CreateToken(pictured(AtwTokens.submitted(definition), by)))
         val token = board.cards.single { it.id !in before }
         ids.alias(token.id, o.card)
         val controller = (o.controller ?: o.owner).value
         val field = container(PlayZone.BATTLEFIELD, controller)
         if (token.containerId != field.id) play(PlayAction.MoveCard(token.id, source(token),
             MoveDestination(field.id, MoveInsertion.EMPTY, BattlefieldPlacement.cell(atw, field.id, token))))
+    }
+
+    /**
+     * [token] (a one-faced token's ATW card data) drawn with the picture [tokenArt] finds for it and the card whose
+     * effect made it ([by]). Without one, or when looking fails, [token] as it is (the plain frame).
+     */
+    private fun pictured(token: org.asyncttwiz.protocol.SubmittedDefinition, by: arcanum.engine.change.CausedBy?):
+        org.asyncttwiz.protocol.SubmittedDefinition {
+        val face = token.definition.faces.singleOrNull() ?: return token
+        val source = by?.let(::sourceDefinition)
+        val id = try {
+            tokenArt.find(TokenArtQuery(face, source?.name ?: by?.name, source?.printingId))
+        } catch (problem: Exception) {
+            if (problem is kotlin.coroutines.cancellation.CancellationException) throw problem
+            null
+        } ?: return token
+        val shown = face.copy(scryfallId = id)
+        val card = token.definition.copy(faces = listOf(shown))
+        return org.asyncttwiz.protocol.SubmittedDefinition(org.asyncttwiz.protocol.DeckJson.digest(card), card)
+    }
+
+    /** The game's card data of the card whose effect made something ([by]): its card, else a card of its name. */
+    private fun sourceDefinition(by: arcanum.engine.change.CausedBy): org.asyncttwiz.protocol.CardDefinition? {
+        val digest = (by.source as? ObjectId.Card)?.let { card(atwId(it.card))?.definition }
+        return atw.definitions.firstOrNull { it.digest == digest }?.definition
+            ?: by.name?.let { name -> atw.definitions.firstOrNull { !it.definition.token && it.definition.name == name }?.definition }
     }
 
     /**

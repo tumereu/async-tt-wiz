@@ -13585,6 +13585,14 @@ internal class Sentences(
 
     private fun eclEffect3(sentence: String, context: Context): List<Step>? {
         if (sentence == "Proliferate.") return listOf(Step.Do(Effect.Action(arcanum.api.KeywordAction.Proliferate)))
+        // ecl chunk 02: "Whenever another Elemental you control enters, it deals damage equal to its power to each opponent." ("it": the creature
+        // that entered, the source of the damage)
+        if (sentence == "It deals damage equal to its power to each opponent.") (context.event as? EventPattern.ZoneChange)
+            ?.takeIf { it.to == Zone.Battlefield && it.objects != ObjectFilter.Is(Objects.Self) }?.let {
+                val entered = Objects.EventObject(EventRole.After)
+                return listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                    Value.Of(arcanum.api.NumericProperty.Power, entered, arcanum.api.Combine.Single), entered)))
+            }
         // ecl chunk 06: "Add two mana of any one color. Spend this mana only to cast spells with mana value 4 or greater." (CR 106.1b, 106.6)
         Ecl.ADD_N_ANY_ONE_COLOR_SPEND_ONLY.matchEntire(sentence)?.let { m ->
             val n = eclN(m.groupValues[1]) ?: return null

@@ -561,9 +561,10 @@ internal class Evaluator(val board: Board, val ctx: Context) {
 
     fun value(value: Value): Int = when (value) {
         is Value.Fixed -> value.value
-        // spm: the turns that player has had this game, this one included (counted as turns begin; else estimated from the turn number)
+        // spm: the turns that player has had this game, this one included: worked out from the number of the latest turn they began,
+        // players taking turns in order from turn 1 (extra turns aren't counted apart)
         is Value.TurnsTaken -> players(value.players).firstOrNull()?.let { p ->
-            state.turn.turnsTaken[p] ?: ((state.turn.number + state.players.size - 1) / state.players.size)
+            ((state.turn.turnStarted[p] ?: 0) + state.players.size - 1) / state.players.size
         } ?: 0
         is Value.Announced -> (ctx.names[value.name] as? NamedValue.Number)?.value ?: ctx.stackItem?.announced?.get(value.name) ?: 0
         is Value.Bound -> boundNumber(ctx.names[value.name])

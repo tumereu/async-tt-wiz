@@ -352,6 +352,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   permanents; X limited by a value as it is announced; losing all creature types; targets that share a quality; cards returned "under
   their owners' control" each under its own owner; counters on a card a replacement exiles ("with a dream counter on it"); and repeated
   processes inside each-player loops done one by one ("until they have exiled cards with total mana value 5").
+- Done, Marvel's Spider-Man (scenarios in `commonTest/…/sets/spm/`): all 193 cards play. Web-slinging (also given to legendary spells by
+  another permanent: a keyword with an alternative cost given to spells is on the cards as the spells they would be, CR 601.2a, b) and
+  "the returned creature" read by the permanent; mayhem with and without a cost and given to graveyard cards at their mana costs;
+  modified permanents; copies of spells with exceptions (layer 1, the token a permanent spell's copy becomes too); an entering copy's
+  linked trigger naming the copied card; the excess damage of a fight; lands played from a zone; triggers on any of the first n events;
+  turn counts (from the latest turn each player began); unspent mana of a colour kept; mana of any type for spells cast with a permission
+  (`MayPlay.manaAsAnyColor`); targets with different names; suspected creatures (menace and can't block, CR 701.60c).
 - Not yet: several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and

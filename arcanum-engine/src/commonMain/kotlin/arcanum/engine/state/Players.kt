@@ -74,9 +74,6 @@ data class TurnState(
     /** Lands each player played this turn (CR 305.2). */
     val landsPlayed: Map<PlayerId, Int> = emptyMap(),
     val turnStarted: Map<PlayerId, Int> = emptyMap(),
-    // spm
-    /** How many turns each player has begun this game ("your first, second, or third turns of the game"). */
-    val turnsTaken: Map<PlayerId, Int> = emptyMap(),
     /** Players taking extra turns after this one, in order (CR 500.7). */
     val extraTurns: List<PlayerId> = emptyList(),
     // gtc

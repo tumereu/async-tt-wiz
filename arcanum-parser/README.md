@@ -46,6 +46,11 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   `EclWordings.kt` (`Ecl`, and `EclPhrases` for values, conditions, nouns and events) and the `ecl*` functions of `Sentences.kt`, tried
   first; a face name with a comma in "transforms into [name]" is read through a comma-free alias, and a creature type chosen as a spell
   resolves ("Choose a creature type. … of the chosen type") is the chosen one, not a remembered one.
+  Marvel's Spider-Man (`spm`): all 193 cards parse (the five heroes as modal double-faced cards; four of the five surveil lands and the five
+  basic lands untested); its rules are in `SpmWordings.kt` (`Spm`, and `SpmPhrases` for nouns, conditions and events) and the `spm*`
+  functions of `Sentences.kt`, tried first; flavor words of the set are listed in `RulesWords`, "this card's other abilities" is written
+  out with the face's other abilities, the modes of "choose one or both" get distinct target names, and "it" in a trigger on this
+  creature dealing damage to a player is this creature.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

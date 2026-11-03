@@ -108,6 +108,13 @@ The definition model (overview in `Definitions.kt`):
   among permanents you control, add one mana of that color"), `Mechanic.XAtMost` ("X can't be greater than …"),
   `Mechanic.LoseAllCreatureTypes` and `TargetSlot.sharing` ("two target creature cards that share a creature type"). Vivid is an
   ability word; "the number of colors among permanents you control" is `Value.CountDistinct` by colour.
+- Marvel's Spider-Man (set `spm`): web-slinging and mayhem as `KeywordExpansions` entries (CR 702.188a, 702.187b; `Keyword.Mayhem.cost`
+  null is mayhem without a cost, CR 702.187c; `KeywordExpansions.webSlinging` and `WEB_SLINGING_RETURNED`, kept with `COST_NAMES` for the
+  permanent: "the returned creature"), `ObjectFilter.Modified` (CR 700.9), `Effect.CopySpell.except` ("except the copy isn't
+  legendary"), `Effect.Fight.bind` (the damage to the second creature and its excess), `TargetSlot.distinct` ("with different names"),
+  `EventPattern.PlayLand.from`/`notFrom`, `Trigger.On.throughNth` ("your first or second card each turn"), `Value.TurnsTaken` ("during
+  your first, second, or third turns"), `Modification.EntersAsCopy.bind` (the copied card for "When you do, exile that card") and
+  `Mechanic.KeepsUnspentMana`; `DefinitionChecks` allows looking at cards as a permanent enters.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

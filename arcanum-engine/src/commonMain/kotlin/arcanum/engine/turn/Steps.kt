@@ -159,7 +159,6 @@ internal object Steps {
         val turn = TurnState(
             number = number, active = next, step = TurnStep.Untap,
             turnStarted = s.turn.turnStarted + (next to number),
-            turnsTaken = s.turn.turnsTaken + (next to (s.turn.turnsTaken[next] ?: 0) + 1),
             extraTurns = if (extra != null) s.turn.extraTurns.drop(s.turn.extraTurns.indexOf(extra) + 1) else s.turn.extraTurns,
             skippedTurns = skipped,
         )

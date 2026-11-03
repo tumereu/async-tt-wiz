@@ -114,7 +114,7 @@ class SpmMoreCardsScenariosTest {
     private val destroy = Cards.invent("Sudden End", "{1}{B}", "Instant", "Destroy target creature.")
     private val counterspell = Cards.invent("Hard Refusal", "{U}{U}", "Instant", "Counter target spell.")
     private val jolt = Cards.invent("Static Jolt", "{R}", "Instant", "Static Jolt deals 2 damage to any target.")
-    private val trinket = Cards.invent("Brass Trinket", "{2}", "Artifact", "")
+    private val trinket = Cards.invent("Webbed Trinket", "{2}", "Artifact", "")
     private val bear = spmBear
     private val ogre = spmOgre
     private val giant = spmGiant

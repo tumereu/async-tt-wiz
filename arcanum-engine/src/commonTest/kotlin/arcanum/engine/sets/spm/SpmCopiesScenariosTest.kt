@@ -79,7 +79,7 @@ class SpmCopiesScenariosTest {
         When this artifact enters, exile the top two cards of your library. Until the end of your next turn, you may play those cards.
         {T}: Add two mana in any combination of colors. Spend this mana only to cast spells from exile.
     """)
-    private val trinket = Cards.invent("Brass Trinket", "{2}", "Artifact", "")
+    private val trinket = Cards.invent("Webbed Trinket", "{2}", "Artifact", "")
     private val jolt = Cards.invent("Static Jolt", "{R}", "Instant", "Static Jolt deals 2 damage to any target.")
     private val bear = spmBear
     private val ogre = spmOgre

@@ -90,9 +90,7 @@ class Scenario internal constructor(playerCount: Int, seed: Long, start: ((List<
             val order = players.indexOf(p) - players.indexOf(active)
             p.id to (number + order - (if (order > 0) players.size else 0)).coerceAtLeast(0)
         }
-        // spm: each player's turns so far, the players taking turns in order from turn 1
-        state.turn = TurnState(number, active.id, step, turnStarted = started,
-            turnsTaken = started.mapValues { (_, n) -> (n + players.size - 1) / players.size }.filterValues { it > 0 })
+        state.turn = TurnState(number, active.id, step, turnStarted = started)
         state.priority = PriorityState(priority?.id)
     }
 

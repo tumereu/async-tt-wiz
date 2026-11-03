@@ -568,6 +568,24 @@ class PodBuildViewTest {
         compose.onNodeWithText("Kept 1 · 1 to Main").assertIsDisplayed()
     }
 
+    // DRF-107, DRF-108: the Trash review: a tap keeps, swipes and the buttons under the card move it (right → Main,
+    // left → Side)
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun trashReviewScreenshot() {
+        val (build, move) = movingBuild(PodDeckBuild(listOf(PodDeckCopy("first"), PodDeckCopy("trash", PodDeckCategory.TRASH),
+            PodDeckCopy("burnt", PodDeckCategory.TRASH))))
+        compose.setContent { NoRipples { MaterialTheme {
+            PodBuildView(build(), listOf("first", "trash", "burnt").associateWith { DraftCopy(it, "digest") },
+                mapOf("digest" to card), null, true, false, move, { _, _ -> }, {})
+        } } }
+        compose.onNodeWithTag("pod-build-feed-header-TRASH").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("Trash · MV 1").assertIsDisplayed()
+        captureShot("$SCREENSHOTS/pod-build-review-trash.png",
+            "Tapping the Trash header's Review opens the one-by-one review of the two trashed cards: \"Trash · MV 1\", 1 / 2 and the Main count at the top, the card in the middle, and under it ◀ Side, ✓ Keep and Main ▶ in their colours (a tap keeps, swipes move it as in the columns).")
+    }
+
     // DRF-092
     @Test
     @Config(qualifiers = "w412dp-h400dp-port-mdpi")

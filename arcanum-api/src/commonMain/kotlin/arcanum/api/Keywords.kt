@@ -922,6 +922,9 @@ sealed interface Keyword : Ability {
         /** "This ability costs {1} less to activate for each +1/+1 counter on the creature it targets" ([Objects.Target]
          * "creature" is the equip target, CR 601.2f, 602.2b). */
         val costChange: CostChange? = null,
+        // tmt
+        /** "Activate only once each turn" written after the equip cost: its activations each turn (CR 602.5b). */
+        val perTurn: Int? = null,
     ) : Keyword, HasCost {
         override val kind: KeywordKind get() = Kind
         companion object Kind : KeywordKind { override val id: String get() = "equip"; override val text: String get() = "Equip"; override val rule: String get() = "702.6" }

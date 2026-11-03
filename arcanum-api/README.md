@@ -92,6 +92,10 @@ The definition model (overview in `Definitions.kt`):
   `TargetSlot.totalAtMost`, `CostPart.GetCounters` (ward—get poison counters), `Effect.OneMoreCounterOfEachKind`,
   `Effect.ControlNextTurn` (CR 723), and the mechanics `CantBecomeUntapped`, `AbilitiesIgnoreSummoningSickness` and the
   modification `HealsOtherDamage` (CR 701.69a).
+- Teenage Mutant Ninja Turtles (set `tmt`): the Mutagen token (CR 111.10v, `PredefinedTokens`), `ObjectFilter.CrewedThisTurn`
+  ("target creature that crewed it this turn", CR 702.122c), `Measure.Distinct` ("for each card type among spells you've cast this
+  turn", each event's object as it was) and `Keyword.Equip.perTurn` ("Equip—Sacrifice another nonland permanent. Activate only once
+  each turn"); sneak's "if his sneak cost was paid" is `Condition.Paid` of the sneak keyword.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

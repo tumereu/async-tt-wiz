@@ -100,6 +100,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             (inst.ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.AlternativeCost>()?.firstOrNull()?.let { inst to it }
         } ?: way.alternative?.takeIf { it is AbilityOrigin.FromAbility || it is AbilityOrigin.FromEffect }?.let { origin ->
             Legality.alternativeCosts(plain, itemId, player).firstOrNull { it.first.origin == origin }
+        } ?: (c.what as? Announced.Spell)?.alternativeAsCast?.let { m ->
+            // tmt: an alternative cost the card had only where it was cast from (granted to cards in a graveyard, CR 601.2a, b)
+            AbilityInstance(Ability.Static(listOf(m), affects = arcanum.api.Affected.Objects(arcanum.api.Objects.Self)), way.alternative!!) to m
         }
 
     /** Cast while another spell or ability resolves (CR 608.2g). */

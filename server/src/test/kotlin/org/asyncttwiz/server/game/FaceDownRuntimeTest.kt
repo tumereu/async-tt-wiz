@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class FaceDownRuntimeTest {
-    // STK-005, STK-003, ZON-008: a face-down entry on the Stack, resolved face down; manifest top too; both replay exactly.
+    // STK-003: a face-down entry on the Stack, resolved face down; manifest top too; both replay exactly.
     @Test fun `face-down casts go through a face-down Stack entry onto the battlefield, manifest top too, and both replay exactly`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -19,14 +19,14 @@ class FaceDownRuntimeTest {
                 val opponent = f.b.account.accountId
                 fun state() = f.games.head(f.a, f.game.id).play!!
                 fun batch(actions: List<PlayAction>) = f.owner.execute(f.owner.command(PlayAction.NextStep)
-                    .copy(action = GameAction.PlayBatch(actions)))
+                    .copy(action = automatedBatch(actions)))
                 val library = state().board.zoneContainer(owner, PlayZone.LIBRARY)!!
                 val hand = state().board.zoneContainer(owner, PlayZone.HAND)!!
                 val field = state().board.zoneContainer(owner, PlayZone.BATTLEFIELD)!!
                 assertEquals("accepted", batch(LibraryActions.draw(state().board, library.id, hand.id, 2)).outcome)
                 val ids = state().board.containers.single { it.id == hand.id }.cards.take(2)
                 // Each cast and its resolve are lowered against the predicted state, like the client's batch draft.
-                val envelope = f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(emptyList()))
+                val envelope = f.owner.command(PlayAction.NextStep).copy(action = automatedBatch(emptyList()))
                 var predicted = state()
                 val actions = mutableListOf<PlayAction>()
                 fun add(action: PlayAction) {
@@ -39,7 +39,7 @@ class FaceDownRuntimeTest {
                     assertTrue(entry.faceDown)
                     StackQuickActions.actions(predicted, entry.id, PlayZone.BATTLEFIELD).forEach(::add)
                 }
-                val cast = f.owner.execute(envelope.copy(action = GameAction.PlayBatch(actions)))
+                val cast = f.owner.execute(envelope.copy(action = automatedBatch(actions)))
                 assertEquals("accepted", cast.outcome, cast.reason)
                 assertTrue(CombatStackRules.stack(state().board).cards.isEmpty())
                 for (id in ids) {
@@ -64,7 +64,7 @@ class FaceDownRuntimeTest {
         }
     }
 
-    // STK-005, ZON-073, ZON-075, TBL-109: what the server sends the opponent never shows a face-down entry's card.
+    // ZON-073, ZON-075, TBL-109: what the server sends the opponent never shows a face-down entry's card.
     @Test fun `a face-down Stack entry reveals nothing to the opponent in heads, results or history`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)
@@ -78,9 +78,9 @@ class FaceDownRuntimeTest {
                 val library = state().board.zoneContainer(owner, PlayZone.LIBRARY)!!
                 val hand = state().board.zoneContainer(owner, PlayZone.HAND)!!
                 val draw = f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action =
-                    GameAction.PlayBatch(LibraryActions.draw(state().board, library.id, hand.id, 1))))
+                    automatedBatch(LibraryActions.draw(state().board, library.id, hand.id, 1))))
                 assertEquals("accepted", draw.outcome, draw.reason)
-                val id = state().board.containers.single { it.id == hand.id }.cards.single()
+                val id = state().board.containers.single { it.id == hand.id }.cards.single { it !in hand.cards }
                 val history = f.games.history(f.b, f.game.id, f.root.id, "0").mutations.size
 
                 // Either player may cast the owner's hand card face down: the opponent too, still without seeing it.

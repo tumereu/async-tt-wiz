@@ -258,7 +258,7 @@ class GameSession(private val connection: GameConnection, private val credential
     }
     fun submit(game: GameSummary, action: GameAction): Boolean {
         if (action == GameAction.DeleteGame) return deleteGame(game)
-        if (action.isPlay || action is GameAction.AcceptResult || action is GameAction.SendChat ||
+        if (action.isPlay || action is GameAction.AcceptResult || action == GameAction.Concede || action is GameAction.SendChat ||
             action == GameAction.Undo || action == GameAction.Redo || action is GameAction.SelectDeck || action is GameAction.TransferPreparedCard ||
             action is GameAction.SetStarter || action is GameAction.SetAlternateStarter || action is GameAction.SetPodGameBasics || action is GameAction.ShowDeck ||
             action == GameAction.Ready || action == GameAction.WithdrawReady) return false
@@ -328,7 +328,7 @@ class GameSession(private val connection: GameConnection, private val credential
     /** Exact typed shared controls use the SAME original queue and processing-time target.
      * No fixed Undo target, alternate endpoint, or durable offline command queue. */
     fun historyControl(game: GameSummary, actor: String, action: GameAction): Boolean {
-        if (action != GameAction.Undo && action != GameAction.Redo && action != GameAction.RevertFlow && action !is GameAction.ExitFlow) return false
+        if (action != GameAction.Undo && action != GameAction.Redo) return false
         return gameplayCommand(game, actor, action, null, null) != null
     }
 
@@ -358,7 +358,8 @@ class GameSession(private val connection: GameConnection, private val credential
         // Unpredicted controls remain a capture barrier: never drag from a pre-Undo board. Exact
         // latest-head predictions allow rapid play/control sequences on the same original FIFO.
         if (action.isPlay && resultIntents.values.any { it.command.scope.gameId == game.id &&
-                it.command.action !is GameAction.AcceptResult && !replica.predicted(it.command.requestId) }) return refused("controlBarrier")
+                it.command.action !is GameAction.AcceptResult && it.command.action != GameAction.Concede &&
+                !replica.predicted(it.command.requestId) }) return refused("controlBarrier")
         if (replica.pendingIds.size >= 256 || replica.accepted?.id != current.playId) return refused("predictionCapacityOrPlayChanged")
         val stream = streams.getValue(game.id)
         // Ordinary play names the active line it was made on (including an own pending branch): one that races
@@ -405,6 +406,15 @@ class GameSession(private val connection: GameConnection, private val credential
             play.board.resultSuggestion?.author == actor || actor !in play.board.players.map { it.accountId }) return false
         if (resultIntents.values.any { it.command.scope.playId == target.play.playId && it.command.action == GameAction.AcceptResult(target.suggestionId) }) return false
         val command = resultCommand(target.play, GameAction.AcceptResult(target.suggestionId)) ?: return false
+        return enqueueResult(command, actor)
+    }
+    /** CR 104.3a (I-D52): [actor] concedes the shown play; a lifecycle request like accepting a result. */
+    fun concede(game: GameSummary, actor: String, target: ResultTarget): Boolean = measureLatency(game, GameAction.Concede) {
+        val current = summary(game)
+        val play = acceptedPlay(current) ?: return false
+        if (ResultActions.capture(current, play) != target || actor !in play.board.players.map { it.accountId }) return false
+        if (resultIntents.values.any { it.command.scope.playId == target.playId && it.command.action == GameAction.Concede }) return false
+        val command = resultCommand(target, GameAction.Concede) ?: return false
         return enqueueResult(command, actor)
     }
     fun rejectResult(game: GameSummary, actor: String, target: ResultAcceptanceTarget): Boolean {
@@ -656,16 +666,13 @@ class GameSession(private val connection: GameConnection, private val credential
         inspections.notifyInspections()
     }
     /** I-D43: an Automatum batch the server refused was planned on a board the server no longer had (or failed its
-     * checks): the client and the server disagree. A flow revert's outcome is logged too. */
+     * checks): the client and the server disagree. */
     private fun automatumResult(original: GameCommand, result: GameResult) {
         val game = original.scope.gameId
         val batch = original.action as? GameAction.PlayBatch
         if (batch != null && batch.tags.isNotEmpty() && result.outcome != "accepted")
             org.asyncttwiz.automatum.AutomatumLog.mismatch(game, "server refused a batch",
                 "${result.outcome}: ${result.reason} (${batch.actions.size} actions, request ${original.requestId})")
-        if (original.action == GameAction.RevertFlow || original.action is GameAction.ExitFlow)
-            org.asyncttwiz.automatum.AutomatumLog.flow(game, "shared", "${if (original.action is GameAction.ExitFlow) "exit" else "revert"} " +
-                "${result.outcome}", result.reason.orEmpty())
     }
 
     private fun result(result: GameResult) {

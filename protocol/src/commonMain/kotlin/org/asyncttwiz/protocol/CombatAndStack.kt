@@ -494,12 +494,9 @@ object CombatStackRules {
                 blocked = pair.blocked || rulesVersion >= 20 && (pair.blockers.isNotEmpty() || blockedFromElsewhere(area, pair.id) ||
                     before.combat?.takeIf { it.id == area.id }?.let { old ->
                         old.pairs.any { it.id == pair.id && it.blockers.isNotEmpty() } || blockedFromElsewhere(old, pair.id) } == true),
-                // Played by hand the pair of a target leaving the battlefield moves to the defending player's lane. With
-                // Automatum on its attackers keep the target that left: they attack nothing and deal no combat damage (CR
-                // 506.4c, combat review #3), also once Automatum is switched off and on again
-                attackTarget = if (rulesVersion >= 18 && pair.attackTarget != null && !candidate.automatum &&
-                    live[pair.attackTarget]?.containerId !in battlefield &&
-                    before.cards.any { it.id == pair.attackTarget && it.containerId in battlefield }) null else pair.attackTarget)
+                // Attackers keep a target that left the battlefield: they attack nothing and deal no combat damage (CR
+                // 506.4c, combat review #3; I-D52)
+                attackTarget = pair.attackTarget)
         }.filterNot(::empty)) }
         val effects = candidate.stackEffects.map { effect ->
             val old = vanished.singleOrNull { it.id == effect.sourceId }

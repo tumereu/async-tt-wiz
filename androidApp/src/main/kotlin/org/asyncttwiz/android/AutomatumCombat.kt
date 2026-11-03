@@ -128,7 +128,7 @@ internal class CombatController(
     fun choices(play: PlayState): CombatShown {
         ready(play)?.let { return it }
         val last = shownBoard
-        if (last != null && last.automatum && sameDeclaration(last, play.board)) return view
+        if (last != null && sameDeclaration(last, play.board)) return view
         return if (work === AutomatumWork.Inline) shown(play) else WORKING
     }
 
@@ -244,9 +244,7 @@ internal class CombatController(
  * the drags, the damage preview and early divisions ([CombatController.show]). */
 @Composable
 internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: PlayState) {
-    val on = play.board.automatum
-    LaunchedEffect(IdentityKey(play.board), on) {
-        if (!on) { toolkit.combat.show(play, CombatShown.NONE); return@LaunchedEffect }
+    LaunchedEffect(IdentityKey(play.board)) {
         val shown = AutomatumBoards.cachedCombat(play)
             ?: kotlinx.coroutines.withContext(AutomatumBoards.boardWorker) { AutomatumBoards.combat(play, toolkit::engineTags) }
         toolkit.combat.show(play, shown)
@@ -261,13 +259,12 @@ internal fun AutomatumCombatHost(toolkit: TableToolkitController, play: PlayStat
 /** CMB-028: [this] context with the viewer's active attack target lane and its name ([playerName]: the defending
  * player's). */
 internal fun QuickContext.withCombatTarget(combat: CombatController, play: PlayState, playerName: String?): QuickContext {
-    if (!play.board.automatum || play.board.combat == null && TurnPosition.of(play.board.turn) != TurnPosition.DECLARE_ATTACKERS) return this
+    if (play.board.combat == null && TurnPosition.of(play.board.turn) != TurnPosition.DECLARE_ATTACKERS) return this
     val target = combat.activeTarget(play)
     return copy(combatTarget = target, combatTargetName = if (target == null) playerName ?: "the player" else CastController.cardName(play, target))
 }
 
 internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext, scope: TableActionScope): List<QuickAction>? {
-    if (!play.board.automatum) return null
     val position = TurnPosition.of(play.board.turn)
     if (position !in setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS, TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE)) return null
     val shown = context.automatumCombat ?: return emptyList()

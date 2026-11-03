@@ -125,7 +125,7 @@ internal object Perform {
             }
             is Continuation.Setup -> Setup.resume(recorder, continuation, answer)
             is Continuation.Played -> Casting.resumePlayed(recorder, continuation, answer)
-            is Continuation.Loop -> Loops.resume(recorder, continuation)
+            is Continuation.Loop -> Loops.resume(recorder, answer)
         }
         return progress
     }

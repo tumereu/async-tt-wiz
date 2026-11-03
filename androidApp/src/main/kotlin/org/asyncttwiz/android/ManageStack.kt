@@ -17,71 +17,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import org.asyncttwiz.protocol.*
 
-/** Identity-bound menu lowering. Stack order is not editable. */
-internal object StackMenuActions {
-    fun remove(entryId: String): PlayAction = PlayAction.Stack(StackAction.RemoveEffect(entryId))
-    fun mark(entryId: String, index: Int?): PlayAction = PlayAction.Stack(StackAction.MarkText(entryId, index))
-    fun toggleMark(entryId: String, index: Int): PlayAction = PlayAction.Stack(StackAction.ToggleTextMark(entryId, index))
-    fun copy(state: PlayState, entryId: String): PlayAction =
-        PlayAction.Stack(StackAction.CopyEffect(entryId, CombatStackRules.stackDigest(state)))
-    fun changeController(state: PlayState, entryId: String): PlayAction = PlayAction.Stack(StackAction.SetController(entryId,
-        state.board.players.single { it.accountId != CombatStackRules.controller(state.board, entryId) }.accountId))
-    /** [note] and [ping] act on the entry itself, never on its real card (STK-009). */
-    fun controls(state: PlayState, entryId: String, enabled: Boolean, perform: (TableIntent) -> Unit,
-        note: (() -> Unit)? = null, ping: (() -> Unit)? = null): List<MenuControl> {
-        val effect = state.board.stackEffects.find { it.id == entryId }
-        val movable = effect?.isCopy != true
-        // Automatum on (§3 I4, I-D28, I-D46): Automatum resolves the Stack; its entries change only by the rules, so the
-        // manual controls aren't offered (except while Automatum waits for something done by hand)
-        val manual = AutomatumBoards.manualAllowed(state)
-        // TBL-119 (I-D50): nor are notes and pings
-        if (!manual) return emptyList()
-        return (listOf(
-            MenuControl("Remove from Stack", enabled && effect != null) { perform(TableIntent.Submit(remove(entryId), null)) },
-            MenuControl("Put to battlefield", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.BATTLEFIELD)) },
-            MenuControl("Put to graveyard", enabled && movable) { perform(TableIntent.StackDestination(entryId, PlayZone.GRAVEYARD)) },
-            MenuControl("Copy", enabled) { perform(TableIntent.Submit(copy(state, entryId), null)) },
-            MenuControl("Change controller", enabled && effect != null) { perform(TableIntent.Submit(changeController(state, entryId), null)) })) +
-            listOf(MenuControl("Edit note", enabled && effect != null && note != null) { note?.invoke() },
-            MenuControl("Ping / Unping", enabled && ping != null) { ping?.invoke() })
-    }
-
-    /** The icon of a Manage Stack control ([controls]). */
-    fun icon(name: String): androidx.compose.ui.graphics.vector.ImageVector = when (name) {
-        "Remove from Stack" -> androidx.compose.material.icons.Icons.Outlined.Close
-        "Put to battlefield" -> androidx.compose.material.icons.Icons.Outlined.TableRows
-        "Put to graveyard" -> androidx.compose.material.icons.Icons.Outlined.Inventory2
-        "Copy" -> androidx.compose.material.icons.Icons.Outlined.ContentCopy
-        "Change controller" -> androidx.compose.material.icons.Icons.Outlined.SwapHoriz
-        "Edit note" -> androidx.compose.material.icons.Icons.AutoMirrored.Outlined.StickyNote2
-        else -> androidx.compose.material.icons.Icons.Outlined.AdsClick
-    }
-    /** Pings the entry as its own occurrence, never its real card (STK-009). */
-    fun ping(state: PlayState, entryId: String, annotations: TableMenuAnnotations): Boolean =
-        annotations.submit(tablePingIntent(state, annotations.reference, PingTarget(PingTargetKind.OCCURRENCE, entryId)).actions())
-    fun destination(state: PlayState, entryId: String, zone: PlayZone): List<PlayAction> {
-        require(entryId in CombatStackRules.stack(state.board).cards)
-        require(zone in setOf(PlayZone.BATTLEFIELD, PlayZone.GRAVEYARD, PlayZone.EXILE))
-        require(state.board.stackEffects.none { it.id == entryId && it.isCopy })
-        // Every entry points at a real card (STK-001); a real card is never in the Stack itself (STK-003).
-        val source = CombatStackRules.liveSource(state.board, entryId)
-        if (source != null && state.board.containers.single { it.id == source.containerId }.zone == zone) return listOf(remove(entryId))
-        if (zone == PlayZone.EXILE) {
-            val card = source ?: return listOf(remove(entryId))
-            val target = state.board.containers.single { it.accountId == card.owner && it.zone == PlayZone.EXILE }
-            return GameplayRules.moveActions(state, PlayAction.MoveCard(card.id, MoveSource(card.containerId, card.placement),
-                MoveDestination(target.id, MoveInsertion.UNORDERED), removeStackEntryId = entryId))
-        }
-        return StackQuickActions.actions(state, entryId, zone)
-    }
-}
-
-/** Exceptional Stack edits stay in one compact, live shared-state view. (An Automatum target on the Stack is picked in
- * the docked [StackTargetPicker].) */
+/** The Stack's entries in one compact, live view (STK-019): look and inspect only; the Stack changes only by the rules
+ * (I-D52). (An Automatum target on the Stack is picked in the docked [StackTargetPicker].) */
 @Composable
-internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolean, dismiss: () -> Unit,
-    perform: (TableIntent) -> Unit, editNote: ((String) -> Unit)? = null) {
-    val annotations = LocalTableMenuAnnotations.current
+internal fun ManageStackDialog(state: PlayState, viewer: String, dismiss: () -> Unit) {
     val order = CombatStackRules.stack(state.board).cards
     val size = rememberCardAppearance().size(CardArea.STACK)
     if (order.isEmpty()) { LaunchedEffect(Unit) { dismiss() }; return }
@@ -95,8 +34,7 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
             ManualDisclosure.permittedFaces(state, card, viewer, inspecting = true).map { it.faceId },
             snapshot = card.takeIf { CombatStackRules.liveSource(state.board, id) == null }, stackEntryId = id)
     }
-    // Wide enough for one row of seven 48 dp entry buttons.
-    InlinePopupPanel(dismiss, title = "Manage Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
+    InlinePopupPanel(dismiss, title = "Stack · ${order.size}", width = 384.dp, height = 520.dp, key = "manage-stack", sheet = true) {
         LazyColumn(Modifier.fillMaxWidth().heightIn(max = 440.dp).ringInputTarget(draggable = true), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(entries, key = { _, entry -> entry.cardId }) { index, entry ->
                 val id = entry.cardId
@@ -120,24 +58,6 @@ internal fun ManageStackDialog(state: PlayState, viewer: String, enabled: Boolea
                         }
                         Text("${if (index == 0) "Top" else "${index + 1}"} · ${entry.name}", Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-                        // TBL-119 (I-D50): no text marks with Automatum on
-                        if (AutomatumBoards.manualAllowed(state)) StackMarkChips(state.board.stackTextMarks[id].orEmpty())
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        StackMenuActions.controls(state, id, enabled, perform, note = editNote?.let { { it(id) } },
-                            ping = annotations?.let { { StackMenuActions.ping(state, id, it) } }).forEach { control ->
-                            FilledTonalIconButton(onClick = control.click, enabled = control.enabled,
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(6.dp), modifier = Modifier.size(48.dp).ringInputTarget()) {
-                                Icon(StackMenuActions.icon(control.name), control.name, Modifier.size(22.dp))
-                            }
-                        }
-                    }
-                    (if (AutomatumBoards.manualAllowed(state)) stackTextOptions(state, id, viewer) else emptyList()).forEachIndexed { option, text ->
-                        FilterChip(selected = option in state.board.stackTextMarks[id].orEmpty(),
-                            onClick = { perform(TableIntent.Submit(StackMenuActions.toggleMark(id, option), null)) },
-                             enabled = enabled, modifier = Modifier.ringInputTarget().tableChangeFlash(LocalTableChanges.current,
-                                 TableChangeKey(id, TableChangeKind.TEXT_MARK, line = option)), leadingIcon = { StackMarkChip(option) },
-                            label = { CardText(text.text, maxLines = 3) })
                     }
                     HorizontalDivider()
                 }

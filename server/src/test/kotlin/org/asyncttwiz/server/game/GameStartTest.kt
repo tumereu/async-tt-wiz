@@ -131,27 +131,6 @@ class GameStartTest {
         }
     }
 
-    // SYS-055, LOB-031 (I-D44): the game's first state has Automatum on when the game was created with it
-    @Test fun `a game created with Automatum starts with it on and one created without starts with it off`() {
-        FreshDatabase().start().use { db ->
-            FoundationMigrations.migrate(db.settings)
-            ServiceRuntime(db.settings).use { runtime ->
-                runtime.start(); ready(runtime)
-                val a = account(runtime, "SwitchA"); val b = account(runtime, "SwitchB")
-                fun start(automatum: Boolean): PlayState {
-                    val game = game(runtime, a, b, automatum); val games = GameService(runtime)
-                    val owner = Stream(games, a, game); val recipient = Stream(games, b, game)
-                    recipient.execute(GameAction.AcceptInvitation)
-                    owner.execute(owner.select(deck(runtime, a))); recipient.execute(recipient.select(deck(runtime, b)))
-                    owner.execute(GameAction.Ready); assertEquals("accepted", recipient.execute(GameAction.Ready).outcome)
-                    return games.head(b, game.id).play!!
-                }
-                assertTrue(start(automatum = true).board.automatum)
-                assertFalse(start(automatum = false).board.automatum)
-            }
-        }
-    }
-
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
     private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
@@ -166,10 +145,9 @@ class GameStartTest {
         accounts.register(name, "$name@example.invalid", "synthetic password")
         return accounts.authenticate(accounts.login("$name@example.invalid", "synthetic password")!!.token)!!
     }
-    private fun game(runtime: ServiceRuntime, a: AccountService.Principal, b: AccountService.Principal,
-        automatum: Boolean = false): GameSummary {
+    private fun game(runtime: ServiceRuntime, a: AccountService.Principal, b: AccountService.Principal): GameSummary {
         val lobby = LobbyService(runtime); lobby.add(a, AddContact(id(), b.account.accountId))
-        return json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Starting Spark", automatum)).body)
+        return json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Starting Spark")).body)
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, sideOnly: Boolean = false): SavedDeck {
         val defs = listOf(CardDefinition("Retained first", listOf(DefinitionFace(id(), "First", corner = "3/5")), sourceVersion = "synthetic-v1"),
@@ -204,14 +182,17 @@ class GameStartTest {
         assertEquals(listOf("20", "20"), state.board.players.map { it.life })
         assertTrue(state.board.players.all { it.counters.isEmpty() })
         assertTrue(state.board.cards.all { !it.tapped && it.covered && it.counters.isEmpty() && it.note.isEmpty() })
-        assertTrue(state.board.containers.filter { it.zone != PlayZone.LIBRARY }.all { it.cards.isEmpty() })
+        // I-D49, I-D52: each opening hand is drawn from the top of the shuffled library
+        assertTrue(state.board.containers.filter { it.zone != PlayZone.LIBRARY && it.zone != PlayZone.HAND }.all { it.cards.isEmpty() })
         for (player in preparation.players) {
             val deck = player.deck!!
             val members = deck.entries.filter { it.section == SavedDeckSection.MAINBOARD }.flatMap { entry ->
                 List(entry.quantity) { deck.card(entry, it).id } }.toSet()
             val library = state.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == player.accountId }
+            val hand = state.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player.accountId }
             val shuffled = state.shuffles.single { it.accountId == player.accountId }
-            assertEquals(members, library.cards.toSet()); assertEquals(library.cards, shuffled.order)
+            assertEquals(members, (hand.cards + library.cards).toSet())
+            assertEquals(hand.cards + library.cards, shuffled.order); assertEquals(GameRules.STANDARD.openingHand.coerceAtMost(members.size), hand.cards.size)
             assertEquals(shuffled.order, RandomV1.shuffle(members.toList(), shuffled.seed))
             assertEquals(members, state.board.cards.filter { it.owner == player.accountId }.map { it.id }.toSet())
         }

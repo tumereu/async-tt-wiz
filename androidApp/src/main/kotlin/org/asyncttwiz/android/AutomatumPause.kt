@@ -123,7 +123,7 @@ internal class PauseController {
     fun holding(node: String): Boolean = heldNode == node && routes?.holding(node) == true
 
     /** Whether [viewer]'s own pause is shown on [play]'s board: running, or held there. */
-    fun ownPause(play: PlayState, viewer: String): Boolean = play.board.automatum &&
+    fun ownPause(play: PlayState, viewer: String): Boolean =
         (running(play.currentNodeId)?.role is PauseRole.Yours || holding(play.currentNodeId) && PausePoints.pauseFor(play.board, viewer))
 
     /** The board (node) whose pause bar the viewer hid with its eye (I-D10, finalreview-combat #2); null: none. */
@@ -222,9 +222,9 @@ internal fun AutomatumPauseDriver(toolkit: TableToolkitController, playback: His
     // it; only after it was changed on this device, so the game's value (another device of the player may have set it)
     // otherwise wins
     val own = play?.board?.players?.firstOrNull { it.accountId == toolkit.viewer }?.fullControl
-    LaunchedEffect(liveShown, play?.board?.automatum, own, settings.fullControl, settings.fullControlChanged, node) {
+    LaunchedEffect(liveShown, own, settings.fullControl, settings.fullControlChanged, node) {
         val board = play?.board ?: return@LaunchedEffect
-        if (!liveShown || !board.automatum || own == null) return@LaunchedEffect
+        if (!liveShown || own == null) return@LaunchedEffect
         val game = play.gameId
         val changed = settings.fullControlChanged
         if (own == settings.fullControl) { if (sync.synced(game) < changed) sync.synced(game, changed); return@LaunchedEffect }
@@ -255,7 +255,7 @@ internal fun PauseProgress(pause: PauseController, shown: ShownPause) {
  */
 @Composable
 internal fun PauseBarHost(toolkit: TableToolkitController, play: PlayState, scene: TableScene?, names: Map<String, String>) {
-    if (!play.board.automatum || AutomatumBoards.sharedFlowShown(play) || toolkit.cast.open) return
+    if (AutomatumBoards.sharedFlowShown(play) || toolkit.cast.open) return
     val pause = toolkit.pause
     val node = play.currentNodeId
     val viewer = toolkit.viewer

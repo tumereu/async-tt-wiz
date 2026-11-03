@@ -80,26 +80,6 @@ class I3ReviewTest {
         while (position(rt) != TurnPosition.DECLARE_ATTACKERS) passBob(rt)
     }
 
-    // #1 (I-D24, I-D28, SYS-067; CR 511.3): a combat Automatum declared, then played out by hand with Automatum off
-    // (closed, the turn ended), is still the engine's combat once Automatum is switched on again in a later turn: the
-    // engine's combat record outlives its combat, so the engine sees Alice's creature attacking in Bob's turn
-    @Test fun aCombatFinishedByHandWhileOffIsNotTheEnginesCombatLater() {
-        val (bear) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear")
-        val rt = game()
-        toAttackers(rt)
-        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(bear))) }
-        assertTrue(CombatFlow.throughEngine(rt.state.board))
-        // Switched off (no open choice: nothing to revert), combat finished and the turn ended by hand
-        manual(rt, alice, PlayAction.Mtg(MtgAction.SetAutomatum(false)))
-        manual(rt, alice, PlayAction.Combat(CombatAction.Close(rt.state.board.combat!!.id)))
-        manual(rt, alice, PlayAction.EndTurn)
-        assertEquals(bob, rt.state.board.turn.accountId)
-        manual(rt, bob, PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-        assertNull(rt.state.board.combat, "no combat on the table")
-        assertNull(rt.engine().combat, "the engine sees no combat in Bob's turn")
-        assertTrue(!CombatFlow.throughEngine(rt.state.board), "a later combat isn't taken as Automatum's")
-    }
-
     // #2 (CMB-028 "a pair per attacker", CR 509.1a): two attackers drafted into one pair (CMB-027: dropped beside each
     // other) keep sharing it once declared, so the defender can only block both or neither: a blocker in that pair is
     // read as blocking every attacker of the pair, and the lanes can't be rearranged once attackers are declared
@@ -221,28 +201,6 @@ class I3ReviewTest {
         assertNull(CombatFlow.division(rt.call()), "Bob's division was answered with his early answer")
         assertEquals("", rt.state.board.cards.single { it.id == brute }.damage, "the Brute got none of the Ogre's damage")
         assertTrue(PreAnswers.of(rt.state.board).isEmpty(), "used up")
-    }
-
-    // #10 (CR 117.4, SYS-067): passes in a row survive a turn changed by hand while Automatum was off. Alice passed in her
-    // main phase (Bob holds priority, 1 pass); off, the turn goes to Bob's main phase by hand; on again. Bob holds priority
-    // there with the stale pass counted, so his own pass ends his main phase without Alice ever getting priority in it
-    // (she holds Storm Spark and a Mountain, so the host wouldn't pass for her)
-    // (with "Full control", I-D41, so the host doesn't pass for players who could act)
-    @Test fun passesInARowDoNotSurviveATurnChangedByHand() {
-        table.put(alice, PlayZone.BATTLEFIELD, "Mountain")
-        table.put(alice, PlayZone.HAND, "Storm Spark")
-        table.fullControl += listOf(alice, bob)
-        val rt = game()
-        rt.run(alice) { StepFlow.pass(it, alice) }
-        assertEquals(MtgPriority(bob, 1), rt.state.board.priority)
-        manual(rt, alice, PlayAction.Mtg(MtgAction.SetAutomatum(false)))
-        manual(rt, alice, PlayAction.EndTurn)
-        manual(rt, bob, PlayAction.ChooseStep(TurnPosition.PRECOMBAT_MAIN))
-        manual(rt, bob, PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-        assertEquals(bob, rt.state.board.turn.accountId)
-        rt.run(bob) { StepFlow.pass(it, bob) }
-        assertEquals(TurnPosition.PRECOMBAT_MAIN, position(rt), "Bob's pass alone doesn't end his main phase")
-        assertEquals(alice, rt.state.board.priority?.holder, "Alice gets priority in Bob's main phase")
     }
 
     // #9 (I-D27): Bob drags his tapped Stout Bear into the pair of Alice's face-down attacker: the refusal reason (the

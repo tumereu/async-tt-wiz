@@ -213,13 +213,15 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
             .orderBy(SUMMARY.ACTIVITY_ID.desc()).fetch().asSequence().mapNotNull { row ->
                 // LOB-111: the game and, in the same query, the outcome of the result suggestion whose acceptance is this
                 // activity (the play it ended records that request); null for any other activity.
-                val joined = sql.select(GAME.fields().toList() + outcome).from(GAME).leftJoin(GAME_PLAY)
+                val joined = sql.select(GAME.fields().toList() + outcome + suggestionAuthor).from(GAME).leftJoin(GAME_PLAY)
                     .on(GAME_PLAY.GAME_ID.eq(GAME.ID)).and(GAME_PLAY.ENDED_REQUEST_ID.eq(row.identity))
                     .where(GAME.ID.eq(row.gameId)).fetchOne() ?: return@mapNotNull null
                 val gameRow = joined.into(GAME)
                 val gameOver = joined[outcome]?.let { o -> SuggestedResult.entries.firstOrNull { it.name == o } }
                 if (gameRow.lifecycle !in listOf("LOBBY", "ACTIVE")) return@mapNotNull null
                 val authorId = row.authorId ?: return@mapNotNull null
+                // CR 104.3a (I-D52): the accepter accepted their own loss: they conceded
+                val conceded = gameOver != null && joined[suggestionAuthor] == authorId.toString()
                 val recipient = ActivityTiming.leases(sql, row.gameId!!, owner)
                 // A push already sent for this activity decided it was due; a later actor input must not hide it.
                 val pushed = row.pushedThrough!! >= row.activityId!! && !ActivityTiming.present(recipient, now())
@@ -229,7 +231,7 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
                 ActivityHint(row.activityId.toString(), ActivityKind.GAME, row.gameId.toString(), row.identity.toString(),
                     authorId.toString(), GameNoticeContent(gameRow.gameName!!, opponent.username!!,
                         row.lastEventAt.toString(), row.yourMove!!, row.newMessage!!, gameOver = gameOver,
-                        opponentReady = row.opponentReady!!))
+                        opponentReady = row.opponentReady!!, conceded = conceded))
             }.take(50).toList()
         // A sent reminder stays listed (client watermarks dedupe it) until the recipient moves.
         val reminders = sql.select(SUMMARY.fields().toList() + GAME.GAME_NAME + ACCOUNT.USERNAME).from(SUMMARY)
@@ -246,6 +248,8 @@ class ActivityService(private val runtime: ServiceRuntime, private val clock: Cl
 
     /** LOB-111: a suggestion's outcome as recorded in the play its acceptance ended. */
     private val outcome = DSL.field("({0})::jsonb -> 'board' -> 'resultSuggestion' ->> 'outcome'", String::class.java, GAME_PLAY.PAYLOAD)
+    /** Who suggested it: the accepter themselves when they conceded (CR 104.3a). */
+    private val suggestionAuthor = DSL.field("({0})::jsonb -> 'board' -> 'resultSuggestion' ->> 'author'", String::class.java, GAME_PLAY.PAYLOAD)
 
     /** The app's own fallback when push and the feed poll missed a game or a pod: games in play where the opponent made
      * the latest event (the other player's row holds the account's own latest event), the move is the account's,

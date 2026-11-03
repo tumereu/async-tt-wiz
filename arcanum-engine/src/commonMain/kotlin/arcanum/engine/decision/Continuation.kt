@@ -108,21 +108,29 @@ sealed interface Continuation {
         val planned: PlannedEvent? = null,
     ) : Continuation
 
-    /** The game stopped for a loop ([stop]), waiting on a [Decision.Manual] that says why (CR 104.4b). */
+    /** The game stopped for a loop ([stop]), waiting on the loop choice: a [Decision.ChooseOption] of
+     * [LoopStop.CONTINUE] and [LoopStop.DRAW] whose text says why (CR 104.4b). */
     @Serializable @SerialName("loop")
     data class Loop(val stop: LoopStop, override val then: Continuation? = null) : Continuation
 }
 
-/** Why a [Continuation.Loop] stopped the game. */
+/** Why a [Continuation.Loop] stopped the game. Either way the loop choice follows: [CONTINUE] goes on with the game,
+ * [DRAW] ends it as a draw (CR 104.4b). */
 @Serializable
 sealed interface LoopStop {
     /** The safety cap of one [arcanum.engine.Engine.perform] call: too many rounds of state-based actions and triggers,
-     * or too many changes (a possible loop no player can stop). Once answered, the game goes on. */
+     * or too many changes (a possible loop no player can stop). */
     @Serializable @SerialName("cap") data object Cap : LoopStop
 
-    /** A loop of mandatory actions the host found (CR 104.4b, 732.4) at a state with [key]. Once answered, the game is a
-     * draw while the state still has that key; changed by hand to break the loop, it goes on. */
+    /** A loop of mandatory actions the host found (CR 104.4b, 732.4) at a state with [key]. */
     @Serializable @SerialName("mandatory") data class Mandatory(val key: arcanum.engine.turn.LoopKey) : LoopStop
+
+    companion object {
+        /** The loop choice's option that goes on with the game (in a new call, up to the cap again). */
+        const val CONTINUE = "Continue"
+        /** The loop choice's option that ends the game as a draw (CR 104.4b). */
+        const val DRAW = "Draw"
+    }
 }
 
 /** A resolution worked out as in [player]'s view ([Decision.OtherView]): [source] and [reason] are those of the look that

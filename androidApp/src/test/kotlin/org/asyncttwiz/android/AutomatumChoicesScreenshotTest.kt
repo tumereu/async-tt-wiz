@@ -96,7 +96,7 @@ class AutomatumChoicesScreenshotTest {
         fun as_(card: PlayCard, what: Invented) = card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner,
             tapped = false)
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> when (card.id) {
                     aCard -> as_(card, spell)
                     bSpark -> as_(card, spark)
@@ -319,7 +319,7 @@ class AutomatumChoicesScreenshotTest {
         val alice = toolkit(play, f.a)
         assertTrue(alice.cast.start(aCard), alice.error)
         val target = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
-        alice.open(TableIntent.Actions(target.id, null), target, TableSelection())
+        alice.open(TableIntent.Actions(target.id, null), target)
         // STK-023: with Autotap on the cast goes out once its target is chosen
         if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         val (batch, request) = sent.single()

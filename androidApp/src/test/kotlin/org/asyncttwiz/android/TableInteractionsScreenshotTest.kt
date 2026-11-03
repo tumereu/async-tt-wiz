@@ -56,14 +56,11 @@ class TableInteractionsScreenshotTest {
         compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
         val screen = "${width.toInt()}x${height.toInt()} ${if (width > height) "landscape" else "portrait"} table in combat, " +
             "text size ${font}x: card menu on your attacking Meadow Sentinel"
-        capture("menu-${width.toInt()}x${height.toInt()}-font$font", "$screen, opened on its Everyday page.")
-        for ((page, label) in listOf(1 to "Set corner", 2 to "Set gray counter", 2 to "Decrease gray counter", 3 to "Temp 1")) {
-            compose.ringPage(page)
-            compose.onNodeWithContentDescription(label).performScrollTo().assertIsDisplayed()
+        capture("menu-${width.toInt()}x${height.toInt()}-font$font", "$screen.")
+        for (label in listOf("Inspect", "Inspect other side", "Attack →")) {
             val bounds = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
-            assertTrue(bounds.width >= (if (label.startsWith("Decrease")) 24f else 48f) && bounds.height >= 48f, "$label retains its widget target")
+            assertTrue(bounds.width >= 48f && bounds.height >= 48f, "$label keeps its touch target")
         }
-        capture("menu-${width.toInt()}x${height.toInt()}-font$font-move", "$screen, after paging through to its More page.")
         assertTrue(sent.isEmpty())
     }
 
@@ -72,38 +69,21 @@ class TableInteractionsScreenshotTest {
     @Test @Config(qualifiers = "w360dp-h640dp-port-mdpi") fun contextMenuSmallLargeFont() { menu(360f, 640f, 1.3f) }
     @Test @Config(qualifiers = "w640dp-h360dp-land-mdpi") fun contextMenuLandscapeLargeFont() { menu(640f, 360f, 1.3f) }
 
-    // SYS-042, TBL-042, TBL-068
-    @Test fun physicalSecondTapThroughJustOpenedMenuRotatesOnceAndDismissesIt() {
-        val (toolkit, scene) = render()
-        val item = scene.items.single { it.cardId == f.source(f.a, "1/3").id }
-        val p = item.visible.first().center
-        compose.mainClock.autoAdvance = false
-        compose.onNodeWithContentDescription("Shared table").performTouchInput { click(Offset(p.x, p.y)) }
-        compose.waitForIdle(); compose.mainClock.advanceTimeByFrame()
-        compose.onNodeWithContentDescription("Inspect").assertIsDisplayed()
-        // The transparent ring relays only this same-card replacement; it owns other outside taps.
-        compose.onNodeWithContentDescription("Card action ring").performTouchInput { advanceEventTime(80); click(Offset(p.x, p.y)) }
-        compose.mainClock.autoAdvance = true
-        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
-        compose.runOnIdle { assertNull(toolkit.manual.scope) }
-        assertEquals(listOf<PlayAction>(PlayAction.SetTapped(item.cardId!!, !item.tapped)), sent)
-    }
 
-    private fun drag(hand: Boolean) {
+    private fun drag() {
         val (_, scene) = render()
         val source = scene.items.first { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.owner == f.a && it.visible.isNotEmpty() }
         val start = source.visible.first().center
-        val end = if (hand) scene.items.single { it.kind == TableItemKind.HAND && it.owner == f.a }.bounds.let { TablePoint(it.right - 4, it.center.y) }
-            else scene.fields.last().let { TablePoint(it.bounds.right - 70, it.landsBounds(true, scene.camera).center.y) }
+        val end = scene.fields.last().let { TablePoint(it.bounds.right - 70, it.landsBounds(true, scene.camera).center.y) }
         compose.mainClock.autoAdvance = false
         compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            down(Offset(start.x, start.y)); moveTo(Offset(end.x, end.y), 80)
+            // ZON-081: a hand card is dragged by first moving up (sideways pans the hand)
+            down(Offset(start.x, start.y)); moveTo(Offset(start.x, start.y - 30f), 40); moveTo(Offset(end.x, end.y), 80)
         }
         compose.waitForIdle(); compose.mainClock.advanceTimeByFrame(); compose.mainClock.advanceTimeByFrame()
         try {
-            capture(if (hand) "hand-insertion" else "landing-lands", "Portrait table in combat, dragging a hand card " +
-                (if (hand) "to the right end of your hand: an insertion line shows where it would go."
-                else "onto your battlefield's lands row: landing placeholders show where it would go."))
+            capture("landing-lands", "Portrait table in combat, dragging a hand card onto your battlefield's lands row: " +
+                "landing placeholders show where it would go.")
             assertTrue(sent.isEmpty(), "A preview never submits a move")
         } finally {
             compose.onNodeWithContentDescription("Shared table").performTouchInput { cancel() }
@@ -112,6 +92,5 @@ class TableInteractionsScreenshotTest {
     }
 
     // TBL-052
-    @Test fun dragShowsLandingPlaceholders() { drag(false) }
-    @Test fun handDragShowsInsertionLine() { drag(true) }
+    @Test fun dragShowsLandingPlaceholders() { drag() }
 }

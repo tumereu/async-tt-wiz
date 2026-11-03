@@ -1,117 +1,59 @@
 # Zones
 
-Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Look, Reveal, graveyard/exile view), mulligan, and who sees what in each zone.
+Hand, library, graveyard and exile, the graveyard/exile view, and who sees what in each zone.
 
 ### Hand
 
 - **ZON-001** Your hand row shows your cards face up; the opponent's hand row looks just like yours but shows card backs. (r7)
-- **ZON-002** A hand keeps its card order: a card dropped into a hand lands in the gap where you let go, and hand cards slide aside when cards come or go. With Automatum on a hand is never reordered (ZON-081). (r44)
+- **ZON-002** A hand keeps its card order: hand cards slide aside when cards come or go, and a hand is never reordered (ZON-081). (r45)
 - **ZON-003** Holding a finger on an empty part of a hand previews nothing. (r28)
-- **ZON-004** Double-tapping a hand card plays it like a drag: a land (by its front face) goes to the first free slot of the land row, anything else onto the Stack; a non-land permanent then resolves onto the battlefield by itself (STK-004). With Automatum on, a double-tap casts the card through Automatum instead (STK-023), its first tap raising it and its second casting it the way its cost chips say (ZON-079, ZON-080): a land is played at once onto its owner's battlefield, and a trigger the land sets off (landfall) is passed on by its player as after a cast (STK-026); a card Automatum doesn't allow now (a card in the other player's hand too) stays in the hand and shakes, without a message (TBL-118). (r44)
-- **ZON-005** A played hand card whose every face is a permanent goes onto the Stack and then resolves by itself onto the main battlefield row as a separate timeline step; one Undo takes back both. Not with Automatum on: a spell cast through Automatum stays on the Stack (STK-023). (r37)
+- **ZON-004** Double-tapping a hand card casts it through Automatum (STK-023), its first tap raising it and its second casting it the way its cost chips say (ZON-079, ZON-080): a land is played at once onto its owner's battlefield, and a trigger the land sets off (landfall) is passed on by its player as after a cast (STK-026); a card Automatum doesn't allow now (a card in the other player's hand too) stays in the hand and shakes, without a message (TBL-118). (r45)
 - **ZON-006** Hand cards can't be tapped; a double-tap never turns them. (r12)
-- **ZON-007** Tapping a hand card opens a one-page hand menu: Inspect, Play, Face down, Reveal, Battlefield, Discard, Exile, Library top, Library bottom, Shuffle into library, Temp 1, Discard random, Reveal random, Exile random, Random to library bottom. With Automatum on there is no hand menu: a tap raises the card instead (ZON-079); while Automatum waits for something done by hand the usual menu shows, with Automatum's Cast in place of Play. (r44)
 - **ZON-077** With Automatum on, a drag is what it means to Automatum: a hand card dragged onto the Battlefield or the Stack is played or cast as with a double-tap (ZON-004, STK-023), one card at a time; a creature dragged into the combat area joins the declaration Automatum waits for (CMB-028); a card moved within its own Battlefield only changes place, and one dropped back into its own hand goes back where it was without a shake (no reordering, ZON-081); the raised hand card is cast the way its chips say (ZON-080). Every other drag that would move a card by hand (to another zone, from a pile or panel, the Stack's top entry), several hand cards dragged at once, and a creature Automatum doesn't let join the declaration are refused: the card goes back and shakes, without a message (TBL-118). Menus have no manual moves (TBL-116). (r44)
-- **ZON-078** With Automatum on, the Library menu shows only what Automatum offers for the library's top card (playing or casting it from the top, as a card that lets you play lands from the top of your library allows), one row each with the card's name ("Play · Forest", "Cast · Storm Spark"), used as in a card menu (TBL-115); when it offers nothing, tapping the Library opens no menu and the Library shakes (TBL-118), as a tap on a Temp pile does; the Graveyard and Exile pile menus are only Search. While Automatum waits for something done by hand the usual menus (ZON-015, ZON-033, ZON-041) show instead. (r43)
-- **ZON-079** With Automatum on, your hand has no menu: tapping one of your hand cards raises it a little above the row, and the mana sources Autotap would tap to cast it are outlined in amber on your battlefield (none for a land or a cast your mana pool pays); tapping the raised card again casts or plays it the way its cost chips say (ZON-080), as a double-tap does (ZON-004). Tapping anywhere else, or another hand card (which is raised instead), lowers it, as do casting it, the card leaving your hand and turning Automatum off; when the board changes, its chips and outlined sources are worked out again. A card Automatum doesn't let you cast or play now is raised with a small shake, with no chips and no sources outlined; Inspect says why (TBL-118). Holding a hand card inspects it. A card in the other player's hand does nothing when tapped. (r44)
+- **ZON-078** With Automatum on, the Library menu shows only what Automatum offers for the library's top card (playing or casting it from the top, as a card that lets you play lands from the top of your library allows), one row each with the card's name ("Play · Forest", "Cast · Storm Spark"), used as in a card menu (TBL-115); when it offers nothing, tapping the Library opens no menu and the Library shakes (TBL-118); the Graveyard and Exile pile menus are only Search. (r45)
+- **ZON-079** With Automatum on, your hand has no menu: tapping one of your hand cards raises it a little above the row, and the mana sources Autotap would tap to cast it are outlined in amber on your battlefield (none for a land or a cast your mana pool pays); tapping the raised card again casts or plays it the way its cost chips say (ZON-080), as a double-tap does (ZON-004). Tapping anywhere else, or another hand card (which is raised instead), lowers it, as do casting it and the card leaving your hand; when the board changes, its chips and outlined sources are worked out again. A card Automatum doesn't let you cast or play now is raised with a small shake, with no chips and no sources outlined; Inspect says why (TBL-118). Holding a hand card inspects it. A card in the other player's hand does nothing when tapped. (r44)
 - **ZON-080** With Automatum on, chips sit in a row just above a raised hand card (ZON-079), one per way to cast it, even when there is only one, each its name and its mana cost drawn as mana symbols: first the ways to cast it (white with a violet outline, the chosen one filled violet: the regular "Cast" first and chosen, or "Play" for a land, then the card's other ways such as another face or Adventure, "Flashback" or "Evoke"); tapping a way chooses it and tapping the chosen way again casts the card that way. Then the extras (amber outline, with "+" before the name and a check box: kicker, buyback, offspring, gift and other optional additional costs): tapping one turns it on or off and never casts; one that can be paid several times (multikicker) counts up with each tap, showing "×N", and has a small "−". A chip whose choice your mana can't pay now is greyed and does nothing when tapped. The outlined sources follow the chosen way and extras. Holding a chip shows its details in a card-like popup: its name and cost, its printed text and, for the chosen way, the total cost with its extras. The cast then asks only for targets, modes and X (STK-023). (r44)
 - **ZON-081** With Automatum on, your hand row keeps every card at its full size and never reorders: a drag that starts on it and first moves sideways pans the hand, one that first moves up or down drags the card (ZON-077). When the hand is wider than its row it pans between its ends, and pulling past an end stretches like a rubber band and springs back on release, as the battlefield does (TBL-014); a hand that fits springs back to the middle. (r44)
-- **ZON-008** "Face down" puts a face-down entry for the hand card on the Stack (the opponent sees a back), and it resolves at once onto its owner's battlefield as a face-down 2/2 (STK-005). (r35)
-- **ZON-009** Hand "Reveal" opens a Reveal panel of the chosen hand cards for both players; its "Done" button puts them back in the hand in their old places. (r16)
-- **ZON-010** The random hand actions pick one card at random from the selected hand cards, or from the whole hand when none is selected, with a fresh random seed of their own. (r16)
-- **ZON-011** Either player can use the hand menu on the opponent's hand (with Automatum on there is none, ZON-079); those cards stay face down for them, and Play picks the zone by the card's real type. (r44)
 
 ### Library
 
-- **ZON-012** A library pile never shows a card face to either player (no "known card" marker), unless "Keep top card revealed" is on. (r10)
-- **ZON-013** Tapping a library opens its menu at once (with Automatum on, only when Automatum offers something for its top card, ZON-078); double-tapping a library draws its top card into its owner's hand (refused with Automatum on: the library shakes, SYS-069). (r43)
-- **ZON-014** Dragging from a library, graveyard, exile or Temp pile takes its top card; a card dropped on a library goes on top. (r1)
-- **ZON-015** Library menu rows: Draw 1, Reveal 1, Look 1, Mill 1, Exile 1; the same five as "N…"; Search, Shuffle, Manifest; Mulligan N…, Mulligan −1; then the "Keep top card revealed" button. (r20)
-- **ZON-016** Each "N…" opens a floating row [−][+][number][action] with the number selected, prefilled with the last number used for that action on this device. (r10)
-- **ZON-017** Draw goes to the library owner's hand, Mill to the graveyard, Exile to exile, all from the top. (r8)
-- **ZON-018** "Manifest" puts the library's top card onto its owner's battlefield face down, in the main row, without revealing it. (r20)
-- **ZON-019** The opponent's library menu offers every action, Mulligan included; cards still go to the library owner's zones. (r10)
-- **ZON-020** "Keep top card revealed" is an on/off button (eye icon) that either player can switch on any library, recorded in history; while on, the top card shows face up on the pile for both. (r13)
-- **ZON-021** While it is on, the top card stays known: branch re-rolls never change it, while a real shuffle (Shuffle, closing a Search, mulligan) re-randomizes it and the new top shows at once; no auto-pause per new top card. (r13)
-- **ZON-022** Dragging a library's top card onto the Stack works like "Stack" in a Search, Look or Reveal panel: it goes there, shown to both players while on the Stack. The library menu has no Stack action, and other library cards can't be dragged there. (r35)
+- **ZON-012** A library pile never shows a card face to either player (no "known card" marker). (r45)
+- **ZON-013** Tapping a library opens its menu only when Automatum offers something for its top card (ZON-078), otherwise the library shakes; double-tapping a library does nothing (nothing is drawn by hand, SYS-069). (r45)
 
 ### Library order
 
 - **ZON-023** Library order is hidden: cards put on top or bottom keep a known place, top-end actions (draw, mill, look, reveal) take the known top first and bottom-end actions the known bottom; a shuffle makes it all unknown. (r29)
 - **ZON-024** Every new branch re-randomizes the unknown parts of both libraries the same way each time: draw, undo, draw again (or branching again from the same point) gives the same card. (r29)
-- **ZON-025** Two or more cards moved at once onto a library top or bottom from a panel or pile menu go in random order, unknown to both players. (r29)
 - **ZON-026** You may undo your own look, scry or reveal. (r9)
-
-### Mulligan
-
-- **ZON-027** Mulligan N shuffles your hand into your library and draws N; Mulligan −1 draws one fewer than your current hand size; each is one event and one Undo. (r13)
-- **ZON-028** Mulligan N… asks for the number, 7 by default, remembering your last number for that game. (r17)
-- **ZON-029** While a player's status is the opening "Mulliganing", their quick actions are Mull N, Mull −1 and Ready (with Automatum off; on: Mulligan and Keep, TRN-062). (r25)
 
 ### Graveyard and exile
 
 - **ZON-030** A graveyard or exile pile shows its newest card on top; removing it shows the next one down, and cards arriving together land in order so the last one is on top (milling 3 puts the third on top). (r27)
-- **ZON-031** Library, graveyard, exile and Temp piles show only their top card at single-card size, with a card count. (r13)
+- **ZON-031** Library, graveyard and exile piles show only their top card at single-card size, with a card count. (r45)
 - **ZON-032** Holding a graveyard or exile pile previews its top card. (r8)
-- **ZON-033** Tapping either player's graveyard or exile opens its menu: Search, All top, All bottom (random order), Shuffle all into library, All → Exile (or → Graveyard), All → Temp 1; there is no "All to hand". (r29)
-- **ZON-034** Each mass pile move sends the cards to their owners' zones as one Undo step. (r29)
+- **ZON-033** Tapping either player's graveyard or exile opens its menu, whose only button is Search (looking has no game effect); nothing moves a pile's cards by hand. (r45)
 - **ZON-035** Double-tapping a graveyard or exile pile opens its search view, as does Search in the pile menu (also while reviewing or offline). (r29)
-- **ZON-036** Graveyards and exiles are public, so looking through either player's is free: the view is personal, records no history, is never shown to the opponent, and doesn't count toward the one-panel limit. (r35)
+- **ZON-036** Graveyards and exiles are public, so looking through either player's is free: the view is personal, records no history and is never shown to the opponent. (r45)
 - **ZON-037** The view groups cards under coloured type headers with counts like "Creature (3)" (non-empty types only), types in the shared order (SYS-051), names alphabetical, copies grouped ×N. (r35)
-- **ZON-038** The view closes on ✕, on a tap outside it, or when its pile empties; changing the interaction mode keeps it open. (r29)
+- **ZON-038** The view closes on ✕, on a tap outside it, or when its pile empties. (r45)
 
-### Temp piles
+### Moving between piles
 
-- **ZON-039** Each player has up to four Temp piles after exile; they are face down and hidden from both players like a library. (r28)
-- **ZON-040** Temp 1 always shows (empty: its number as a placeholder, no "0"); Temps 2–4 appear when a card moves in, and Close removes one only while it is empty. Either player can do this to either player's piles. (r31)
-- **ZON-041** Temp pile menu: Shuffle, Look, Shuffle into library, Close / All top, All bottom (both in pile order), All → Graveyard, All → Exile / All → n and Top → n for each other pile. (r31)
-- **ZON-042** Battlefield, hand and panel menus have only Temp 1, moving the cards into their owner's Temp 1 and creating it if needed; cards in a panel showing a Temp pile (its Look) have Temp 1–4. Temps 2–4 are otherwise filled from a Temp pile's own menu (ZON-041) or by dragging onto them. Tokens never go into Temp piles. (r36)
-- **ZON-043** Look on a Temp pile shows all its cards; closing it never shuffles or asks where cards go, and cards put on the pile meanwhile stay on top. (r31)
-- **ZON-044** Cards moved into a Temp pile from a library Search or Look stay hidden. (r31)
-- **ZON-045** With more than one Temp pile and no room, the counters take their own row under the piles (above them on the opponent's side) instead of crowding the piles. (r28)
-- **ZON-046** Cards moving between any piles (library, graveyard, exile, Temp; yours or the opponent's) fly across the table. (r31)
+- **ZON-046** Cards moving between any piles (library, graveyard, exile; yours or the opponent's) fly across the table. (r45)
 
-### Card panels
+### Graveyard and exile view
 
-- **ZON-047** Search, Look and Reveal open a card panel at the left edge over the battlefield (beside a graveyard/exile view if open); header: icon, count, Select all (2+ cards) and ✕, in the opener's colour. (r29)
-- **ZON-048** Only one Search, Look or Reveal panel can be open in the whole game; while one is open, every button that would open another is greyed out, with no message. (r10)
-- **ZON-049** Panel cards sit in up to 3 columns (2 each when two panels show), left to right then down, position 1 = library top; a partial last row starts at the left. (r14)
-- **ZON-050** Look shows the top N in order to the looker; the opponent sees a panel of backs with the count. Drag inside the panel to reorder (an insertion bar shows where). (r10)
-- **ZON-051** Search shows the whole library to the searcher sorted by type then name under type headers with counts, copies grouped ×N (a drag takes one); the opponent sees backs. Its type headers follow the shared order (SYS-051). (r35)
-- **ZON-052** Reveal N shows the top N face up to both players. (r8)
-- **ZON-053** Reveal hand / Reveal top from a Search or Look flips the card face up in the panel for both, then moves it on as a separate timeline step. (r8)
-- **ZON-054** Only the panel's opener sees a white-disc eye on the art of Look/Search cards the opponent can currently see. (r11)
-- **ZON-055** Reveals don't last: a card is public only while in the revealed panel; once it goes to a hand or library it is hidden again. (r11)
-- **ZON-056** Cards put on top or bottom of a library while it is searched (by anyone, from anywhere) stay there after the closing shuffle; the panel shows "After shuffle:", "N on top", "N on bottom". (r30)
+- **ZON-049** The graveyard/exile view's cards sit in up to 3 columns, left to right then down; a partial last row starts at the left. (r45)
 - **ZON-057** Holding any face-up panel card inspects it. (r8)
-
-### Panel card menu and gestures
-
-- **ZON-058** Tapping a panel card opens one menu right of the panels, top row lined up with the cards: Inspect, Other side, Ping, Hand, Reveal hand, Battlefield, Tapped, Stack, Graveyard, Exile, Library top, Reveal top, Library bottom, Shuffle into library, Temp 1 (Temp 1–4 in a Temp pile's panel). (r36)
-- **ZON-059** Buttons that don't apply are greyed: Reveal ones on cards already visible or in Reveal and graveyard/exile panels, the panel's own zone, Shuffle into library in library panels (Library top/bottom stay on). (r29)
-- **ZON-060** If the tapped card is selected, the menu acts on every selected card of that panel only, as one Undo step. (r29)
-- **ZON-061** Drag a panel card out to move it. Drag on empty panel space for a selection box (it takes all copies of a grouped card); scroll a panel with two fingers or double-tap-drag. (r29)
-- **ZON-062** Panel cards sent to Battlefield take the first free cell of their row: lands the land row, others the main row. (r34)
-- **ZON-063** Either player can use any panel's cards and menu, including the opponent's private Look or Search, where the cards stay face down for them. (r30)
-
-### Closing panels
-
-- **ZON-064** Closing a library Look or Reveal with cards left shows one floating row at the ✕: Top, Bottom (both in panel order), Shuffle, Graveyard, Exile. (r10)
-- **ZON-065** Closing a Search always shuffles the library, with no choices. (r15)
-- **ZON-066** When the last card leaves a Search, Look or Reveal panel, it closes in the same event with no choices. (r11)
-- **ZON-067** Either player can close any panel, with exactly the opener's choices. (r29)
-- **ZON-068** Closing a panel is its own timeline step; nothing groups with it. (r29)
-- **ZON-069** Search, Look and Reveal panels stay open on taps outside them. (r13)
+- **ZON-058** Tapping a card in the graveyard/exile view opens its card menu (TBL-116): what Automatum offers for it (a flashback cast, say) as rows, then Inspect and Other side. (r45)
+- **ZON-061** A drag on empty space in the view, a double-tap-drag anywhere in it or two fingers scroll it; there is no selection box. (r45)
 
 ### Moving cards between zones
 
-- **ZON-070** A card going to a hand, library, graveyard or exile always goes to its owner's zone; a drop on the opponent's such zone goes to the owner's, and the drag preview shows that. (r5)
 - **ZON-071** Leaving the battlefield untaps a card and resets notes, P/T, counters, links, face (back to front) and owner; face down survives only a move to exile. (r13)
-- **ZON-072** Pile and panel mass moves leave tokens out of hands and libraries. (r29)
 
 ### Hidden information
 
 - **ZON-073** Library cards are hidden from everyone, hand cards are seen only by their holder, and face-up graveyard, exile, battlefield cards and Stack entries are public; face-down cards show backs everywhere. (r35)
 - **ZON-074** A hand card put on the Stack is shown to both players while it is there. (r2)
 - **ZON-075** Ordinary inspects never show a face-down card's hidden front to the opponent; only the deliberate, logged "Inspect other side" does. The holder sees their own face-down card dimmed with "Face down". (r21)
-- **ZON-076** Hidden cards show no values (P/T, notes, counters) in menus, but they can still be edited blind. (r30)

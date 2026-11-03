@@ -157,7 +157,6 @@ internal class CastController(
     fun start(cardId: String, way: Input? = null, extras: List<Int> = emptyList()): Boolean {
         beginning()
         val play = current() ?: return false
-        if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }
         // A shared flow waits for an answer (D32): nothing is cast meanwhile
         if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
@@ -195,7 +194,6 @@ internal class CastController(
     fun begin(cardId: String, input: Input, text: String? = null): Boolean {
         beginning()
         val play = current() ?: return false
-        if (!play.board.automatum) return false
         if (open) { fail(BUSY); return false }
         if (Automatum.flowOpen(play.board)) { fail(SharedFlowController.BUSY); return false }
         val history = tags()
@@ -278,7 +276,6 @@ internal class CastController(
         val f = flow ?: return false
         if (busy) return false
         val play = current() ?: run { fail(CANT_ACT); return false }
-        if (!play.board.automatum) { cancel("dropped: switched off"); fail(SWITCHED_OFF); return false }
         val autotapOn = autotap
         val picked = (f.pending as? Decision.ManaPayment)?.let { payment -> if (autotapOn) payment.suggestion else mana }
         if (picked == null && !f.complete) return false
@@ -332,8 +329,7 @@ internal class CastController(
     /**
      * The board the player acts on may have changed under the open cast (D32: the other player acted, an Undo): the cast
      * is worked out again on it, keeping the choices that still fit, the player's own mana tapping included while its
-     * sources are still there; dropped with a message when it can't be cast there any more, or when Automatum was
-     * switched off (I-D24). Only the board the player acts on counts: while the timeline is reviewed or the connection
+     * sources are still there; dropped with a message when it can't be cast there any more. Only the board the player acts on counts: while the timeline is reviewed or the connection
      * is down nothing changes.
      */
     fun follow() {
@@ -342,7 +338,6 @@ internal class CastController(
         if (busy) return
         val play = current() ?: return
         if (f.play.id != play.id) return
-        if (!play.board.automatum) { cancel("dropped: switched off"); fail(SWITCHED_OFF); return }
         if (f.play.board === play.board) return
         val history = tags()
         val keep = mana
@@ -404,7 +399,7 @@ internal class CastController(
      * gone, while its batch is worked out; not shown when the board moved on meanwhile or there is no preview here. */
     private fun showPreview(outcome: Step.Preview) {
         val play = current() ?: return
-        if (play.board !== outcome.board || !play.board.automatum) return
+        if (play.board !== outcome.board) return
         val shown = preview?.show(outcome.plan.action, outcome.requestId) == true
         if (!shown) return
         previewId = outcome.requestId
@@ -440,7 +435,7 @@ internal class CastController(
     }
 
     /** Sends a planned cast, on the board the player acts on now: worked out again when that board moved on meanwhile;
-     * kept, ready to cast, while the player can't act; dropped when Automatum was switched off (I-D24). */
+     * kept, ready to cast, while the player can't act. */
     private fun sendPlanned(planned: Step.Send): Boolean {
         val shown = previewId
         // I-D47: the board shown is the planned one with this cast's preview on it
@@ -450,7 +445,6 @@ internal class CastController(
             if (shown != null) { cancel("dropped: can't act"); fail(CANT_ACT); return false }
             showReady(planned.flow); fail(CANT_ACT); return false
         }
-        if (!play.board.automatum) { cancel("dropped: switched off"); fail(SWITCHED_OFF); return false }
         if (play.board !== planned.board && !previewed) {
             // The board moved on under a preview: it is taken back, and the cast with it (the plainest, I-D47)
             if (shown != null) { drop(TABLE_CHANGED); return false }
@@ -573,7 +567,6 @@ internal class CastController(
         /** Whether a dropped cast's [message] is shown by shaking its card (a refusal) rather than said (a failure). */
         fun visual(message: String) = message.endsWith("can't be cast now.") || message.endsWith("can't be played now.") ||
             message.endsWith("that can't be done now.") || message.startsWith("Not enough mana") || message.startsWith("The table changed")
-        const val SWITCHED_OFF = "Automatum was switched off: the cast was dropped."
         const val CANT_ACT = "You can't cast right now (reviewing the timeline, or offline). The cast stays open."
         /** I-D27: the same for every card in the other player's hand, whatever it is. */
         const val NOT_YOURS = "Only its owner can cast that card."

@@ -1,1 +1,0 @@
-Landscape table where you have the status "!" and the opponent "?": each one-character bubble is as wide as its life square, its character centred.

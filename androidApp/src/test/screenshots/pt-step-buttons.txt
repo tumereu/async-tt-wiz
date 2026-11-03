@@ -1,1 +1,0 @@
-The More page's P/T step buttons drawn at three times normal size: each single step on the left and its until-end-of-turn twin on the right, the same icon with a small hourglass in its top-right corner.

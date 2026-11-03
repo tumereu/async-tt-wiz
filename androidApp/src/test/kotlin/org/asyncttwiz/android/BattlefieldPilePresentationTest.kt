@@ -37,37 +37,13 @@ class BattlefieldPilePresentationTest {
         }
     }
 
-    // TBL-059
-    @Test fun exposedPileMembersCanBeSelectedAndDoubleTappedAsASelection() {
-        val scene = TableFixture.scene(play())
-        val events = mutableListOf<TableIntent>()
-        var selection = TableSelection(mode = TableMode.SELECT)
-        val gestures = TableGestureCoordinator({ intent ->
-            events += intent
-            if (intent is TableIntent.Selection) selection = intent.selection
-        })
-        gestures.update(scene, selection, true)
-        for ((index, member) in members(scene).withIndex()) {
-            val p = point(scene, member)
-            gestures.down(p, index * 1000L); gestures.up(p, index * 1000L + 20)
-            gestures.update(scene, selection, true)
-        }
-        assertEquals(members(scene).mapNotNull { it.cardId }.toSet(), selection.ids)
-        events.clear()
-        val p = point(scene, members(scene).last())
-        gestures.down(p, 3000); gestures.up(p, 3020)
-        gestures.update(scene, selection, true)
-        gestures.down(p, 3100); gestures.up(p, 3120)
-        assertEquals(members(scene).mapNotNull { it.cardId }.toSet(),
-            events.filterIsInstance<TableIntent.Rotate>().single().scope.cardIds.toSet())
-    }
 
     // TBL-053
     @Test fun fullBattlefieldPileRejectsDropWithoutSendingMove() {
         val scene = TableFixture.scene(play())
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
-        gestures.update(scene, TableSelection(), true)
+        gestures.update(scene, true)
         val start = point(scene, scene.items.single { it.cardId == "a/BATTLEFIELD/3" })
         val target = point(scene, members(scene).first())
         gestures.down(start, 0); gestures.move(target, 100)

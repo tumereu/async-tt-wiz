@@ -69,15 +69,6 @@ class TableLayoutScreenshotTest {
         val region = scene.stackRegion!!
         assertEquals(0xff2a1740.toInt(), image.getRGB((region.x + 2).toInt(), region.center.y.toInt()))
         assertEquals(0xffeee3f5.toInt(), image.getRGB(region.center.x.toInt(), (region.y + 8).toInt()))
-        // TRN-034, TRN-035: every counter slot shows in both orientations, a faint outline when empty.
-        assertEquals(12, scene.items.count { it.kind == TableItemKind.COUNTER })
-        for (counter in scene.items.filter { it.kind == TableItemKind.COUNTER && it.value.isEmpty() && it.visible.isNotEmpty() }) {
-            val b = counter.bounds
-            assertEquals(0xffffffff.toInt(), image.getRGB(b.center.x.toInt(), b.center.y.toInt()))
-            assertTrue((b.x.toInt() until b.right.toInt()).any { x ->
-                (b.y.toInt() until b.bottom.toInt()).any { y -> image.getRGB(x, y) != 0xffffffff.toInt() }
-            }, "Missing faint outline for ${counter.id}")
-        }
         val stack = scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }
         compose.onNodeWithContentDescription(stack.label).assertIsDisplayed().assertHasClickAction()
         if (!landscape) {
@@ -88,7 +79,7 @@ class TableLayoutScreenshotTest {
                 ?: scene.viewports.single { it.id == "dock/b" }
             assertEquals(scene.items.single { it.id == "b/HAND" }.bounds.y, topArea.bounds.bottom)
             assertEquals(scene.items.single { it.id == "a/HAND" }.bounds.bottom, scene.viewports.single { it.id == "dock/a" }.bounds.y)
-            assertTrue(scene.items.filter { it.kind == TableItemKind.COUNTER || it.kind == TableItemKind.LIFE ||
+            assertTrue(scene.items.filter { it.kind == TableItemKind.LIFE ||
                 it.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
                 .flatMap { it.visible }.all { it.intersection(region) == null })
             if (!populated) {

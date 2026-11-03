@@ -80,7 +80,7 @@ class AutomatumHandScreenshotTest {
         val kept = (own + extra.map { it.id }).take(lands)
         val cubCard = initial.board.cards.single { it.id == landId }.copy(id = cubId, definition = cub.submitted.digest, faceId = "cub")
         val spare = (0 until more).map { n -> initial.board.cards.single { it.id == landId }.copy(id = f.id("spare-$n")) }
-        val board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+        val board = initial.board.copy(priority = MtgPriority(f.a),
             cards = initial.board.cards.map { when (it.id) {
                 sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                 surgeId -> it.copy(definition = surge.submitted.digest, faceId = "surge")
@@ -132,7 +132,7 @@ class AutomatumHandScreenshotTest {
     /** A single tap on [card] in a hand, as the table's gestures make it. */
     private fun tap(toolkit: TableToolkitController, play: PlayState, card: String) {
         val item = scene(play, toolkit).items.single { it.cardId == card && it.zone == PlayZone.HAND }
-        toolkit.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item, TableSelection())
+        toolkit.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item)
     }
 
     private fun lifeSquare(play: PlayState, player: String): TableItem = scene(play).items.single { it.id == "life/$player" }
@@ -173,7 +173,7 @@ class AutomatumHandScreenshotTest {
         captureShot("$SCREENSHOTS/automatum/hand-raised-kicker.png",
             "The same raised Flash Surge after tapping its Kicker chip: the extra is checked and tinted amber, and all five Mountains Autotap would tap for {4}{R} are outlined in amber.")
         // ZON-079: a tap anywhere else lowers it
-        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b), TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         assertNull(toolkit.hand.raised)
         assertTrue(toolkit.hand.sources(play).isEmpty())
     }
@@ -191,7 +191,7 @@ class AutomatumHandScreenshotTest {
         assertNull(toolkit.hand.raised, "casting lowers it")
         assertTrue(toolkit.cast.targeting, "straight to the target")
         compose.onNodeWithText("Pay the Kicker cost?").assertDoesNotExist()
-        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b), TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         compose.waitForIdle()
         val (batch, request) = sent.single()
         val after = accepted(play, batch, request)
@@ -302,8 +302,7 @@ class AutomatumHandScreenshotTest {
         val intents = mutableListOf<TableIntent>()
         val coordinator = TableGestureCoordinator({ intents += it })
         val scene = scene(play)
-        assertTrue(scene.automatumHand)
-        coordinator.update(scene, TableSelection(), writable = true)
+        coordinator.update(scene, writable = true)
         val port = scene.viewports.single { it.id == handId }
         assertTrue(port.maxScroll > 0f, "the hand is wider than its row")
         val card = scene.items.first { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.owner == f.a && it.visible.isNotEmpty() }
@@ -361,31 +360,14 @@ class AutomatumHandScreenshotTest {
         assertTrue(sent.isEmpty())
     }
 
-    // TBL-119, I-D50: notes, colour counters, statuses, links, text marks, pings and dice/coins are gone with Automatum on
-    // (not deleted); with it off they are back
+    // TBL-119 (I-D52): menus offer no notes, pings, links or colour counters: Inspect, Other side and the combat draft
     @Test fun virtualTabletopControlsAreGone() {
-        val marked = board(marks = true).let { p -> p.copy(board = p.board.copy(
-            players = p.board.players.map { if (it.accountId == f.a) it.copy(status = "Thinking…", counters = mapOf(CounterColor.BLUE to "3")) else it })) }
-        val on = scene(marked)
-        val noted = marked.board.cards.single { it.note == "Remember me" }.id
-        assertEquals("", on.items.single { it.cardId == noted && it.zone == PlayZone.BATTLEFIELD }.note)
-        assertTrue(on.items.single { it.cardId == noted && it.zone == PlayZone.BATTLEFIELD }.counters.isEmpty())
-        assertEquals("", on.items.single { it.id == "life/${f.a}" }.status)
-        assertTrue(on.items.none { it.kind == TableItemKind.COUNTER })
-        assertNull(TablePresentation.stackBubbles(on, marked, CombatStackRules.stack(marked.board).cards.firstOrNull(), 412f, 892f))
-        assertEquals(listOf(listOf("inspect", "otherSide", "Attack →")), CardRingPages.automatumPages(CardMenuLayout.CARD).map { it.actions })
-        assertEquals(listOf(listOf("inspect", "Attack →", "Remove from combat")), CardRingPages.automatumPages(CardMenuLayout.COMBAT).map { it.actions })
-        assertEquals(listOf(listOf("inspect", "otherSide")), CardRingPages.automatumPages(CardMenuLayout.PANEL).map { it.actions })
-        assertEquals(TableMode.NORMAL, TableMode.SELECT.next(pingAvailable = !on.automatumHand), "no Ping mode")
-        // Kept in the game: with Automatum off they show again
-        val off = scene(marked.copy(board = marked.board.copy(automatum = false)))
-        assertEquals("Remember me", off.items.single { it.cardId == noted && it.zone == PlayZone.BATTLEFIELD }.note)
-        assertEquals("Thinking…", off.items.single { it.id == "life/${f.a}" }.status)
-        assertTrue(off.items.any { it.kind == TableItemKind.COUNTER })
-        assertFalse(off.automatumHand)
+        assertEquals(listOf("inspect", "otherSide", "Attack →"), CardRingPages.page(CardMenuLayout.CARD).actions)
+        assertEquals(listOf("inspect", "Attack →", "Remove from combat"), CardRingPages.page(CardMenuLayout.COMBAT).actions)
+        assertEquals(listOf("inspect", "otherSide"), CardRingPages.page(CardMenuLayout.PANEL).actions)
     }
 
-    // TBL-119: Table actions have no Roll die… or Flip coin with Automatum on
+    // TRN-010, TBL-119: Table actions have no Roll die…, Flip coin, Create token or combat area
     @Test fun noDiceInTableActions() {
         val play = board()
         val toolkit = render(play)
@@ -394,6 +376,8 @@ class AutomatumHandScreenshotTest {
         compose.onNodeWithText("Timeline").assertExists()
         compose.onNodeWithText("Roll die…").assertDoesNotExist()
         compose.onNodeWithText("Flip coin").assertDoesNotExist()
+        compose.onNodeWithText("Create token").assertDoesNotExist()
+        compose.onNodeWithText("Create combat area").assertDoesNotExist()
     }
 
     /** [player]'s device on the board [tree] is at (no screen). */
@@ -407,7 +391,7 @@ class AutomatumHandScreenshotTest {
     private fun tapOn(device: TableToolkitController, play: PlayState, viewer: String, card: String) {
         val item = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false, device.layoutState.value).items
             .single { it.cardId == card && it.zone == PlayZone.HAND }
-        device.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item, TableSelection())
+        device.open(TableIntent.Actions(item.id, TableScope(card, listOf(card))), item)
     }
 
     // ZON-079, ZON-080, I-D11, SYS-057: Alice casts Flash Surge kicked through its chips on her device; the server takes the

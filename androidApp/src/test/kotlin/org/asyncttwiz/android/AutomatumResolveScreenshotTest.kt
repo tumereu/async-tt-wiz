@@ -82,7 +82,7 @@ class AutomatumResolveScreenshotTest {
         fun as_(card: PlayCard, what: Invented) = card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner,
             tapped = false)
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> when (card.id) {
                     aSpark, bSpark -> as_(card, spark)
                     in aLands -> as_(card, aLands.indexOf(card.id).let { i -> if (i < 2) mountain else aliceExtra[i - 2] })
@@ -118,7 +118,7 @@ class AutomatumResolveScreenshotTest {
             playTree = { tree })
         assertTrue(toolkit.cast.start(aSpark))
         val tapped = if (target.startsWith("life/")) item(play, f.a) { it.id == target } else item(play, f.a) { it.cardId == target }
-        toolkit.open(TableIntent.Actions(tapped.id, null), tapped, TableSelection())
+        toolkit.open(TableIntent.Actions(tapped.id, null), tapped)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
         val (batch, request) = sent.single()

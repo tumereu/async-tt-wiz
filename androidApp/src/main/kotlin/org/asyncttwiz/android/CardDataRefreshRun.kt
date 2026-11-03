@@ -46,7 +46,7 @@ internal class CardDataRefreshRun(private val decks: Decks, private val cubes: C
             for (summary in page.cubes) {
                 val saved = cubes.readCube(token, summary.id)
                 val digests = saved.entries.map { it.definition }.distinct()
-                val definitions = digests.chunked(500).flatMap { chunk ->
+                val definitions = digests.chunked(CubeValidation.MAX_DEFINITIONS_PER_READ).flatMap { chunk ->
                     cubes.cubeDefinitions(token, summary.id, ReadCubeDefinitions(chunk)).definitions
                 }.associate { it.digest to it.definition }
                 val replaced = replacements(definitions, summary.name, notRebuilt)

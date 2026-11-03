@@ -61,6 +61,12 @@ internal class LobbyTableActions(private val scope: LobbyScope, private val tabl
         val actor = accountId() ?: return false
         return !closed && session?.acceptResult(game, actor, target) == true
     }
+    /** CR 104.3a (I-D52): the viewer concedes and loses at once ([GameAction.Concede]). */
+    fun concede(target: ResultTarget): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        return !closed && session?.concede(game, actor, target) == true
+    }
     fun rejectResult(target: ResultAcceptanceTarget): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false
@@ -106,21 +112,6 @@ internal class LobbyTableActions(private val scope: LobbyScope, private val tabl
     }
     fun previewShownOn(requestId: String): String? = state.detail?.let { session?.previewShownOn(it, requestId) }
     fun dropPreview(requestId: String) { state.detail?.let { session?.dropPreview(it, requestId) } }
-    /** Annotating a viewed boundary appends to ordinary current history; it does not activate that
-     * boundary or silently acquire historical continuation intent. */
-    fun annotate(action: PlayAction): Boolean {
-        if (action !is PlayAction.EventComment && action !is PlayAction.Ping && action !is PlayAction.Unping) return false
-        val game = state.detail ?: return false
-        val actor = accountId() ?: return false
-        return !closed && session?.gameplay(game, actor, action) == true
-    }
-    fun annotateBatch(actions: List<PlayAction>): Boolean {
-        if (actions.isEmpty() || actions.any { it !is PlayAction.EventComment && it !is PlayAction.Ping && it !is PlayAction.Unping }) return false
-        if (actions.size == 1) return annotate(actions.single())
-        val game = state.detail ?: return false
-        val actor = accountId() ?: return false
-        return !closed && session?.gameplayBatch(game, actor, actions, java.util.UUID.randomUUID().toString()) == true
-    }
     /** Accepted disclosure observer, not Boolean enqueue -> inspection. The UI supplies its exact
      * inspector lifetime and closes the returned subscription on Back/dismissal/replacement. */
     fun inspectFace(action: PlayAction.InspectFace, lifetimeId: String, isCurrent: () -> Boolean,

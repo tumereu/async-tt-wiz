@@ -9,17 +9,16 @@ import kotlinx.serialization.json.*
 
 /**
  * Rules v36 (Arcanum integration spec §4, phase I0): the shared game state and events ATW keeps for the Arcanum rules
- * engine. Plumbing only: nothing here changes how a game plays with Automatum off, and events recorded under older
- * rules replay from their sealed deltas unchanged (SYS-031).
+ * engine. Every game is played through it (I-D52: Automatum is always on); the server takes board changes only as
+ * Automatum batches ([AutomatumOnly]).
  *
  * What ATW stores, in MTG terms the engine's `GameState` maps to one to one:
- * - the Automatum switch ([BoardState.automatum], [MtgAction.SetAutomatum]);
  * - per card: [PlayCard.zoneChanges] (the engine's `ObjectId.Card(card, zoneChanges)`, D21), [PlayCard.timestamp]
  *   (CR 613.7, D34), [PlayCard.typedCounters], [PlayCard.attachedTo], [PlayCard.ledger] (opaque, D22); damage is the
  *   existing [PlayCard.damage] (TBL-024);
  * - per player: [PlayPlayer.manaPool], [PlayPlayer.typedCounters], [PlayPlayer.ledger];
  * - the priority holder and passes in a row ([BoardState.priority], D57);
- * - structured Stack items on Stack entries ([StackEffect.item], D19), beside today's manual entries;
+ * - structured Stack items on Stack entries ([StackEffect.item], D19);
  * - opaque engine records, each its own ([BoardState.engineRecords]: effect objects, delayed triggers, the game
  *   ledger, turn and combat extras, waiting triggers, the open continuation of a shared flow, D58, I-D11);
  * - MTG tags and `CausedBy` on history events ([GameplayMutation.tag], D33).
@@ -49,51 +48,6 @@ object Automatum {
 
     /** Whether a shared flow is open: the board holds the continuation (I-D8). */
     fun flowOpen(board: BoardState): Boolean = board.engineRecords.any { it.id == CONTINUATION_ID }
-
-    /**
-     * [board] with its open flow closed where it is, without taking it back (I-D24; finalreview-sync #6, #7): the
-     * continuation goes, and each Stack entry whose spell or ability was half resolved ([EngineRecord.resolving]) becomes
-     * a manual entry (no structured item), so the rest of it is done by hand and switching Automatum on asks to deal with
-     * it first (I-D15) instead of resolving it again from its start (CR 608.2); Automatum is then off, as it never runs
-     * over a manual entry. [board] itself when no flow is open.
-     */
-    fun closeFlow(board: BoardState): BoardState {
-        val flow = board.engineRecords.singleOrNull { it.id == CONTINUATION_ID } ?: return board
-        val manual = board.stackEffects.filter { it.id in flow.resolving && it.item != null }.map { it.id }.toSet()
-        return board.copy(engineRecords = board.engineRecords.filterNot { it.id == CONTINUATION_ID },
-            automatum = board.automatum && manual.isEmpty(),
-            stackEffects = if (manual.isEmpty()) board.stackEffects
-                else board.stackEffects.map { if (it.id in manual) it.copy(item = null) else it })
-    }
-
-    /** Whether [board] holds data "Clear Automatum data" removes ([MtgAction.ClearRecords]): engine records, the priority
-     * holder, card and player ledgers. Typed counters and mana pools are game values and stay. */
-    fun recorded(board: BoardState): Boolean = board.engineRecords.isNotEmpty() || board.priority != null ||
-        board.cards.any { it.ledger.isNotEmpty() } || board.players.any { it.ledger.isNotEmpty() }
-
-    /** I-D42: engine data that belongs to the combat, step or turn it was recorded in, dropped when Automatum is turned on
-     * on [board] ([MtgAction.SetAutomatum]): triggered abilities waiting for the Stack, early answers, and the combat
-     * record once the board shows no combat (finalreview-sync #1: the current combat stays, so a declared attack or
-     * block isn't lost; Automatum reads it only while the lanes still match it). */
-    fun turnScoped(record: EngineRecord, board: BoardState): Boolean =
-        record.kind == EngineRecordKind.Combat && !inCombat(board) ||
-            record.kind == EngineRecordKind.Triggered || record.kind == EngineRecordKind.PreAnswer
-
-    /** Whether [board] is in a combat step from declare attackers to end of combat with the combat area open. */
-    fun inCombat(board: BoardState): Boolean = board.combat != null && TurnPosition.of(board.turn) in COMBAT_STEPS
-
-    private val COMBAT_STEPS = setOf(TurnPosition.DECLARE_ATTACKERS, TurnPosition.DECLARE_BLOCKERS,
-        TurnPosition.FIRST_STRIKE_DAMAGE, TurnPosition.COMBAT_DAMAGE, TurnPosition.END_COMBAT)
-
-    /** I-D15: why Automatum can't be turned on now (a [RuleRefusals] code), or null when it can: the Stack holds a
-     * manual entry (one without a structured item, STK-016) or a Temp pile holds cards (D38). */
-    fun turnOnRefusal(board: BoardState): String? {
-        val stack = board.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
-        val entries = board.stackEffects.associateBy { it.id }
-        if (stack.any { entries[it]?.item == null }) return RuleRefusals.AUTOMATUM_MANUAL_STACK
-        if (board.containers.any { it.temp && it.cards.isNotEmpty() }) return RuleRefusals.AUTOMATUM_TEMP_PILES
-        return null
-    }
 
     /** Empty, or one JSON value of at most [MAX_DATA_BYTES] without NUL characters. */
     fun data(value: String): Boolean = value.isEmpty() || DeckValidation.text(value, MAX_DATA_BYTES) &&
@@ -177,15 +131,11 @@ object Automatum {
 
 /** One engine record ATW stores and doesn't interpret (P2, §4.3); [timestamp] for effect objects, delayed triggers
  * and emblems (CR 613.7b), so ATW's timestamp clock ([MtgFacts.clock]) sees every stamp. An [EngineRecordKind.Emblem]
- * also says what ATW shows of it: whose it is ([player]) and its rules [text] (I-D25); other records have neither.
- * [resolving], on the continuation only: the Stack entries (ids of [StackEffect]s) whose spell or ability is half
- * resolved while the flow waits; closing the flow without taking it back makes them manual entries
- * ([Automatum.closeFlow], finalreview-sync #6, #7). */
+ * also says what ATW shows of it: whose it is ([player]) and its rules [text] (I-D25); other records have neither. */
 @Serializable data class EngineRecord(val id: String, val kind: EngineRecordKind,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val timestamp: Long? = null, val data: String,
     @EncodeDefault(EncodeDefault.Mode.NEVER) val player: String? = null,
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val text: String = "",
-    @EncodeDefault(EncodeDefault.Mode.NEVER) val resolving: List<String> = emptyList())
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val text: String = "")
 
 /** What made a change, for history lines ("Storm Spark dealt 3 damage to Grizzly Cub"): the spell's or ability's
  * [source], by the [name] it had then, its [controller], and the Stack [item] resolving. */
@@ -218,20 +168,6 @@ object Automatum {
 /** Rules v36 events of the engine's state. Each `Set…` names the value it expects ([before]) and the one it sets
  * ([after]); it is refused ("inapplicable") when the current value differs, and does nothing when they are equal. */
 @Serializable sealed interface MtgAction {
-    /** The Automatum switch for the whole game, both players (D20, I-D4). Turning it on is refused while the Stack holds
-     * a manual entry or a Temp pile holds cards (I-D15, [Automatum.turnOnRefusal]), and gives the Battlefield's and
-     * Exile's cards that have no timestamp yet (games begun before rules v36) stamps in a stated order
-     * ([MtgFacts.stampUnstamped]). Turning it on also drops the turn-scoped engine data recorded before it
-     * ([Automatum.turnScoped]: waiting triggers, early answers and a combat record the board no longer shows, I-D42),
-     * since play by hand may have ended that step or turn; priority (its holder and passes in a row) stays. Undoing the switch brings them
-     * back. Turning it off always applies and closes an open flow's continuation ([Automatum.closeFlow]); effect records
-     * stay (I-D24). The app switches off during a flow with [GameAction.ExitFlow], which takes the flow back first. */
-    @Serializable @SerialName("setAutomatum") data class SetAutomatum(val on: Boolean) : MtgAction
-    /** "Clear Automatum data" (I-D24): removes every engine record (effects, delayed triggers, the open continuation, …),
-     * the priority holder and the card and player ledgers ([Automatum.recorded]); typed counters and mana pools stay.
-     * Always applies; changes nothing when there is nothing to clear. An open flow is closed as switching off closes it
-     * ([Automatum.closeFlow]). */
-    @Serializable @SerialName("clearRecords") data object ClearRecords : MtgAction
     /** The actor's own "Skip when I have no choice" (I-D18, [PlayPlayer.skipWhenNoChoice]); only its player changes it. */
     @Serializable @SerialName("setSkipWhenNoChoice") data class SetSkipWhenNoChoice(val on: Boolean) : MtgAction
     /** The actor's own "Full control" (I-D41, [PlayPlayer.fullControl]); only its player changes it. */
@@ -280,8 +216,6 @@ object MtgRules {
 
     private fun valid(record: EngineRecord?, id: String) = record == null || record.id == id && Automatum.data(record.data) &&
         stamp(record.timestamp ?: 0) && (record.kind == EngineRecordKind.Continuation) == (id == Automatum.CONTINUATION_ID) &&
-        (record.resolving.isEmpty() || record.kind == EngineRecordKind.Continuation && record.resolving.size <= Automatum.MAX_LIST &&
-            record.resolving.all(DeckValidation::uuid)) &&
         if (record.kind == EngineRecordKind.Emblem) record.player?.let(DeckValidation::uuid) == true &&
             DeckValidation.text(record.text, Automatum.MAX_TEXT_BYTES)
         else if (record.kind == EngineRecordKind.PreAnswer) record.player?.let(DeckValidation::uuid) == true && record.text.isEmpty()
@@ -300,7 +234,7 @@ object MtgRules {
         pool.all { it.color in PoolMana.COLORS && Automatum.data(it.data) }
 
     fun valid(action: MtgAction): Boolean = when (action) {
-        is MtgAction.SetAutomatum, MtgAction.ClearRecords, is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
+        is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> true
         is MtgAction.SetMulligans -> listOf(action.before, action.after).all { it in 0..GameRules.MAX_MULLIGANS }
         is MtgAction.SetPriority -> valid(action.before) && valid(action.after)
         is MtgAction.SetManaPool -> DeckValidation.uuid(action.accountId) && valid(action.before) && valid(action.after)
@@ -325,23 +259,6 @@ object MtgRules {
         fun players(id: String, change: (PlayPlayer) -> PlayPlayer) =
             board.copy(players = board.players.map { if (it.accountId == id) change(it) else it })
         val next: BoardState = when (action) {
-            is MtgAction.SetAutomatum -> when {
-                board.automatum == action.on && (action.on || !Automatum.flowOpen(board)) -> return unchanged
-                action.on -> {
-                    Automatum.turnOnRefusal(board)?.let { return reject(it) }
-                    // I-D42: turn-scoped engine data from before the switch is dropped (best effort); priority stays as it is
-                    // (combat review #11: passes in a row restart by themselves once the step changed, TurnExtras.passesAt)
-                    MtgFacts.stampUnstamped(board)?.copy(automatum = true,
-                        engineRecords = board.engineRecords.filterNot { Automatum.turnScoped(it, board) }) ?: return reject("invalidStructure")
-                }
-                // I-D24: switching off closes the open flow (a half-resolved spell or ability becomes a manual entry,
-                // finalreview-sync #6); every other record stays.
-                else -> Automatum.closeFlow(board).copy(automatum = false)
-            }
-            MtgAction.ClearRecords -> if (!Automatum.recorded(board)) return unchanged
-                else Automatum.closeFlow(board).copy(engineRecords = emptyList(), priority = null,
-                    cards = board.cards.map { if (it.ledger.isEmpty()) it else it.copy(ledger = "") },
-                    players = board.players.map { if (it.ledger.isEmpty()) it else it.copy(ledger = "") })
             is MtgAction.SetSkipWhenNoChoice -> {
                 val player = player(actor) ?: return reject("missingReference")
                 if (player.skipWhenNoChoice == action.on) return unchanged
@@ -474,25 +391,6 @@ object MtgFacts {
             source.id.takeIf { shuffles && source.zone == PlayZone.LIBRARY }
         }.let(::setOfNotNull)
         else -> emptySet()
-    }
-
-    /** #11: [board] with a timestamp for every Battlefield and Exile card that has none (0: games begun before rules
-     * v36, cards that never moved since), above the clock, in this order: the turn it entered the Battlefield
-     * ([PlayCard.enteredTurn], unknown first), then its order in its container, Battlefield before Exile, players in
-     * account order. Null when the stamps would pass [Automatum.MAX_TIMESTAMP]. */
-    internal fun stampUnstamped(board: BoardState): BoardState? {
-        var clock = clock(board)
-        val byId = board.cards.associateBy { it.id }
-        val order = listOf(PlayZone.BATTLEFIELD, PlayZone.EXILE).flatMap { zone ->
-            board.containers.filter { it.zone == zone }.sortedBy { it.accountId }.flatMap { container ->
-                container.cards.mapNotNull(byId::get).filter { it.timestamp == 0L }
-            }.withIndex().sortedWith(compareBy({ if (zone == PlayZone.BATTLEFIELD) it.value.enteredTurn.toLongOrNull() ?: 0 else 0 },
-                { it.index })).map { it.value }
-        }
-        if (order.isEmpty()) return board
-        if (clock > Automatum.MAX_TIMESTAMP - order.size) return null
-        val stamps = order.associate { it.id to ++clock }
-        return board.copy(cards = board.cards.map { card -> stamps[card.id]?.let { card.copy(timestamp = it) } ?: card })
     }
 
     /** #4: what an automated batch was planned on ([MtgTag.board]): the board without what is only shown (piles

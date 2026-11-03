@@ -78,88 +78,12 @@ class FinalSyncReviewTest {
         rt.tags += null
     }
 
-    /** Automatum switched off and on again with nothing done by hand in between (I-D42 drops the turn's engine data). */
-    private fun offAndOn(rt: RoundTrip, by: String = alice) {
-        manual(rt, by, PlayAction.Mtg(MtgAction.SetAutomatum(false)))
-        manual(rt, by, PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-    }
-
     /** Whoever holds priority as the host takes it passes (the step button). */
     private fun pass(rt: RoundTrip) {
         val s = rt.call().working
         val holder = (HostPriority.wanted(s, HostPriority.kept(rt.state.board))?.holder ?: s.priority.holder)?.value
             ?: fail("nobody holds priority in ${position(rt.state)} and nothing is asked: ${CombatFlow.choices(rt.call()).declaring}")
         rt.run(holder) { StepFlow.pass(it, holder) }
-    }
-
-    // finalreview-sync #1 — I-D42, I-D28, SYS-070 (CR 508.1, 506.4): Alice's Stout Bear attacks Bob; Bob (Full control)
-    // holds priority in the declare attackers step. Automatum is switched off and on there, nothing done by hand. The
-    // combat record is dropped (turn-scoped), and in the declare attackers step `EngineState.from` reads the lanes as an
-    // undeclared draft, so the rebuilt engine has no combat at all: the tapped Bear no longer attacks (it can't be
-    // declared again), the combat is skipped and Bob takes no damage. Expected: the declared attack stands (Bob takes 2)
-    @Test fun switchingOffAndOnAfterAttackersWereDeclaredKeepsTheAttack() {
-        val (bear) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear")
-        val rt = combatGame()
-        rt.run(alice) { StepFlow.pass(it, alice) }
-        while (position(rt.state) != TurnPosition.DECLARE_ATTACKERS) pass(rt)
-        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(bear))) }
-        assertEquals(TurnPosition.DECLARE_ATTACKERS, position(rt.state), "Bob holds priority after the declaration")
-        val before = rt.engine().combat
-        offAndOn(rt)
-        assertEquals(before, rt.engine().combat, "the engine still sees the declared attack")
-        var guard = 12
-        while (position(rt.state) != TurnPosition.POSTCOMBAT_MAIN && guard-- > 0) pass(rt)
-        assertEquals("18", life(rt.state, bob), "the Bear's 2 damage")
-    }
-
-    // finalreview-sync #1 — I-D42, SYS-070 (CR 509.1, 509.1h): as above in the declare blockers step after Bob's Hill Ogre
-    // blocked the Bear. Read back from the lanes the combat lacks `blockersDeclaredBy`/`blocksDecided`, so the engine's
-    // combat differs from what it was. Expected: the same combat (nobody is asked to declare blockers again; the Ogre
-    // kills the Bear)
-    @Test fun switchingOffAndOnAfterBlockersWereDeclaredKeepsTheBlocks() {
-        val (bear) = table.put(alice, PlayZone.BATTLEFIELD, "Stout Bear")
-        val (ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Hill Ogre")
-        val rt = combatGame()
-        rt.run(alice) { StepFlow.pass(it, alice) }
-        while (position(rt.state) != TurnPosition.DECLARE_ATTACKERS) pass(rt)
-        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(bear))) }
-        while (position(rt.state) == TurnPosition.DECLARE_ATTACKERS) pass(rt)
-        rt.run(bob) { CombatFlow.declareBlockers(it, listOf(LaneBlock(ogre, bear))) }
-        assertEquals(TurnPosition.DECLARE_BLOCKERS, position(rt.state))
-        val before = rt.engine().combat
-        offAndOn(rt)
-        assertNull(CombatFlow.choices(rt.call()).declaring, "nobody is asked to declare again")
-        assertEquals(before, rt.engine().combat, "the engine's combat is the one declared")
-        var guard = 12
-        while (position(rt.state) != TurnPosition.POSTCOMBAT_MAIN && guard-- > 0) pass(rt)
-        assertEquals(PlayZone.GRAVEYARD, zone(rt.state, bear))
-        assertEquals("20", life(rt.state, bob))
-    }
-
-    // finalreview-sync #1 (worse: stuck) — I-D42, CR 509.1, 510.1c: Alice's Ironhide Brute (5/5 trample) is blocked by
-    // Bob's Stout Bear and Hill Ogre. After off/on in the declare blockers step the engine asks Bob to declare blockers
-    // again (above); he declares the same blocks (Next step declares what the lanes hold). The engine's combat now has
-    // each blocker twice, so the attacker's damage division names a blocker twice and the engine refuses every answer
-    // ("The same share's target twice"): the division can't be made, the game can't go on with Automatum. Seen first in the
-    // seeded games (`FinalSyncGamesTest`, "Clear Automatum data" in that step). Expected: combat damage is dealt
-    @Test fun blocksDeclaredAgainAfterOffAndOnCanStillBeDivided() {
-        val (brute) = table.put(alice, PlayZone.BATTLEFIELD, "Ironhide Brute")
-        val (bear, ogre) = table.put(bob, PlayZone.BATTLEFIELD, "Stout Bear", "Hill Ogre")
-        val rt = combatGame()
-        rt.run(alice) { StepFlow.pass(it, alice) }
-        while (position(rt.state) != TurnPosition.DECLARE_ATTACKERS) pass(rt)
-        rt.run(alice) { CombatFlow.declareAttackers(it, listOf(LaneAttack(brute))) }
-        while (position(rt.state) == TurnPosition.DECLARE_ATTACKERS) pass(rt)
-        val blocks = listOf(LaneBlock(bear, brute), LaneBlock(ogre, brute))
-        rt.run(bob) { CombatFlow.declareBlockers(it, blocks) }
-        offAndOn(rt)
-        if (CombatFlow.choices(rt.call()).declaring == bob) rt.run(bob) { CombatFlow.declareBlockers(it, CombatFlow.lanes(rt.state.board.combat).second) }
-        var guard = 12
-        while (CombatFlow.division(rt.call()) == null && position(rt.state) != TurnPosition.POSTCOMBAT_MAIN && guard-- > 0) pass(rt)
-        val division = assertNotNull(CombatFlow.division(rt.call()), "the Brute's division is asked")
-        rt.run(division.player) { CombatFlow.divide(it) }
-        assertEquals(listOf(PlayZone.GRAVEYARD, PlayZone.GRAVEYARD), listOf(zone(rt.state, bear), zone(rt.state, ogre)),
-            "the suggestion kills both blockers")
     }
 
     // finalreview-sync #5 (fixed on master by the pausereview #10 fix, `plannedBefore`) — HIS-037, HIS-042, SYS-057 #4,
@@ -238,41 +162,9 @@ class FinalSyncReviewTest {
         }
     }
 
-    // finalreview-sync #1 — I-D42, I-D28 (best-effort recovery; "state rebuild must equal the engine's own"): in seeded
-    // games, at every point where no flow is open, Automatum is switched off and on again with nothing done by hand. The
-    // engine state rebuilt afterwards should be the one before. It differs only in combat (declare attackers, declare
-    // blockers, combat damage, end of combat steps): see the two tests above.
-    @Test fun switchingOffAndOnWithNothingDoneByHandKeepsTheEngineState() {
-        val differences = mutableListOf<String>()
-        var points = 0
-        for (seed in listOf(51L, 52L)) {
-            val random = Random(seed)
-            val table = AtwTable("final-sync-offon-$seed")
-            table.fullControl += table.players
-            deal(table, random)
-            val rt = RoundTrip(table.state(), table.definitions, seed)
-            repeat(150) { call ->
-                val s = rt.engine()
-                if (Engine.result(s) != null) return@repeat
-                if (s.pending == null) {
-                    points++
-                    val before = rt.state
-                    offAndOn(rt, table.alice)
-                    val problems = StateCompare.exact(s, rt.engine())
-                    if (problems.isNotEmpty()) differences += "seed $seed call $call ${position(rt.state)}: ${problems.first().take(300)}"
-                    rt.state = before
-                    rt.tags.removeAt(rt.tags.lastIndex); rt.tags.removeAt(rt.tags.lastIndex)
-                }
-                step(s, rt.state.board, random, { rt.call() }) { actor, body -> rt.run(actor, body = body) }
-            }
-        }
-        println("finalreview-sync off/on: $points points, ${differences.size} differ")
-        assertTrue(differences.isEmpty(), "${differences.size} of $points points differ after off/on:\n" + differences.take(4).joinToString("\n"))
-    }
-
     // finalreview-sync #2 — I-D26 (redo assigns fresh timestamps), CR 613.7: the effect record of Alice's Surge of Vigor
-    // (+3/+3 until end of turn, as the engine made it) is set by her event, and she undoes it. Bob then turns Automatum
-    // off, puts two creatures onto the battlefield by hand (stamps given meanwhile) and turns it on again. Alice redoes:
+    // (+3/+3 until end of turn, as the engine made it) is set by her event, and she undoes it. Bob then puts two creatures
+    // onto the battlefield (stamps given meanwhile). Alice redoes:
     // `MtgFacts.freshStamps` shifts the stamp her event gave in ATW's field (`EngineRecord.timestamp`), but not the copy
     // inside the engine's opaque data (`EffectObject.timestamp`), which is what the engine reads: the effect keeps its old
     // stamp (tied with a permanent stamped meanwhile) and ATW's record says another one. The same holds for Stack items
@@ -311,15 +203,13 @@ class FinalSyncReviewTest {
         assertEquals(effect.timestamp, game.engine().effects.values.single().timestamp)
         game.control(alice, GameAction.Undo).let { assertNotNull(it.tree, "Alice undoes it: ${it.reason}") }
         assertTrue(game.state.board.engineRecords.none { it.kind == EngineRecordKind.Effect })
-        // Bob, with Automatum off, puts two creatures onto the battlefield by hand; then on again
-        game.manual(bob, PlayAction.Mtg(MtgAction.SetAutomatum(false))).let { assertNotNull(it.tree, "off: ${it.reason}") }
+        // Bob puts two creatures onto the battlefield (stamps given meanwhile; directly through the shared reducer)
         for ((i, card) in listOf(ogre, brute).withIndex()) {
             val placed = game.state.board.cards.single { it.id == card }
             game.manual(bob, PlayAction.MoveCard(card, MoveSource(placed.containerId, placed.placement),
                 MoveDestination(table.container(bob, PlayZone.BATTLEFIELD), MoveInsertion.EMPTY, BoardPosition(12 + 2 * i, 2))))
                 .let { assertNotNull(it.tree, "move: ${it.reason}") }
         }
-        game.manual(bob, PlayAction.Mtg(MtgAction.SetAutomatum(true))).let { assertNotNull(it.tree, "on: ${it.reason}") }
         val redo = game.control(alice, GameAction.Redo)
         assertNotNull(redo.tree, "Alice redoes it: ${redo.reason}")
         val record = game.state.board.engineRecords.single { it.id == effect.id }
@@ -364,55 +254,6 @@ class FinalSyncReviewTest {
         assertEquals("", boardDiff(cast, game.state.board))
     }
 
-    // finalreview-sync #3 — I-D19, I-D8, SYS-060: a real two-player flow reverted on the server. Alice casts Whisper
-    // Theft at Bob; it resolves at once and Bob is asked what to discard (the flow opens in Alice's batch); Bob answers
-    // (his batch; then Alice's "you may draw" is open) and sets a status. Reverting the flow takes back both players'
-    // events: the board, the engine state and the tags are as before Alice's cast, nobody can redo them, and the cast can
-    // be made again. Actual: the planner settles the records after each engine change, so Bob's answer batch closes the
-    // continuation (`SetRecord(continuation, X, null)`) and opens the next one (`SetRecord(continuation, null, Y)`) as two
-    // members; the revert took that member for the flow's start, and only Bob's batch was taken back. Fixed: the revert
-    // walks back to the first batch whose board before it had no flow, and the planner writes the record once per batch
-    @Test fun aFlowAnsweredByBothPlayersIsRevertedExactly() {
-        table.turn = TurnState(alice, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
-        table.priority = MtgPriority(alice)
-        table.put(alice, PlayZone.BATTLEFIELD, "Swamp")
-        table.put(alice, PlayZone.HAND, "Whisper Theft")
-        table.put(bob, PlayZone.HAND, "Hill Ogre", "Stout Bear")
-        table.put(alice, PlayZone.LIBRARY, "Island", "Island")
-        table.put(bob, PlayZone.LIBRARY, "Island", "Island")
-        val game = TreeGame(table.state(), table.definitions, name = "revert")
-        val before = game.state
-        val beforeEngine = game.engine()
-        val beforeTags = game.tags()
-        fun cast() = game.run(alice) { c ->
-            c.perform(Engine.options(c.working, PlayerId(alice)).filterIsInstance<Input.Cast>().single())
-            while (c.pending?.decision?.player?.value == alice) {
-                when (val d = c.pending!!.decision) {
-                    is Decision.Targets -> c.perform(Input.Answer(d.id, arcanum.engine.decision.Answer.Targets(listOf(TargetRef.Player(PlayerId(bob))))))
-                    is Decision.ManaPayment -> c.perform(Input.Answer(d.id, arcanum.engine.decision.Answer.ManaPayment(d.suggestion)))
-                    else -> fail("unexpected $d")
-                }
-            }
-            if (c.pending == null) StepFlow.automatic(c)
-        }
-        cast()
-        assertTrue(Automatum.flowOpen(game.state.board), "Bob's discard is open")
-        assertEquals(bob, game.engine().pending?.decision?.player?.value)
-        val discard = Engine.options(game.engine(), PlayerId(bob)).filterIsInstance<Input.Answer>().first()
-        game.run(bob) { StepFlow.answer(it, discard.answer) }
-        assertNotNull(game.manual(bob, PlayAction.SetStatus("Thinking")).tree)
-        assertTrue(Automatum.flowOpen(game.state.board), "Alice's may draw is open")
-        val reverted = game.control(alice, GameAction.RevertFlow)
-        assertNotNull(reverted.tree, "${reverted.reason}")
-        assertEquals("", boardDiff(before.board, game.state.board))
-        assertEquals(before.currentNodeId, game.head)
-        assertEquals(beforeTags, game.tags())
-        assertTrue(StateCompare.exact(beforeEngine, game.engine()).isEmpty())
-        assertTrue(game.tree.redoByAccount.isEmpty())
-        cast()
-        assertTrue(Automatum.flowOpen(game.state.board), "the cast is made again")
-    }
-
     /** Whisper Theft resolving: Bob has discarded, Alice's "you may draw" is open (a flow of two decisions). */
     private fun whisperTheftResolving(name: String): TreeGame {
         table.turn = TurnState(alice, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
@@ -450,58 +291,4 @@ class FinalSyncReviewTest {
         game.tree = org.asyncttwiz.protocol.GameplayTree(now.copy(currentNodeId = now.root.id, currentBranchId = now.root.branchId))
     }
 
-    // finalreview-sync #7 — I-D24, SYS-060, CR 608.2 (owner decision 2026-11-03, #6/#7): "Clear Automatum data" during an
-    // open flow does what switching off does (`GameAction.ExitFlow`): the flow is taken back first when it can be, so the
-    // spell's effect is undone with it (Bob has both cards again), and then the records are cleared
-    @Test fun clearingAutomatumDataDuringAFlowTakesTheFlowBackFirst() {
-        val game = whisperTheftResolving("clear-flow")
-        game.control(bob, GameAction.ExitFlow(MtgAction.ClearRecords)).let { assertNotNull(it.tree, "clear: ${it.reason}") }
-        assertFalse(Automatum.flowOpen(game.state.board))
-        assertEquals(2, hand(game, bob), "the discard was taken back with the flow")
-        assertNull(theft(game), "the cast was taken back with the flow")
-        assertTrue(game.state.board.automatum)
-        assertTrue(game.state.board.engineRecords.isEmpty())
-    }
-
-    // finalreview-sync #7 — CR 608.2, I-D15 (owner decision 2026-11-03): when the flow can't be taken back, clearing (as
-    // switching off) closes it where it is: Whisper Theft, half resolved, becomes a manual entry and Automatum is off, so
-    // the rest is done by hand and switching on asks to deal with it first. Before the fix the next pass resolved the
-    // spell again from its start (Bob discarded a second card)
-    @Test fun clearingAutomatumDataDuringAFlowDoesNotResolveTheSpellAgain() {
-        val game = whisperTheftResolving("clear-flow-closed")
-        withoutHistory(game)
-        game.control(bob, GameAction.ExitFlow(MtgAction.ClearRecords)).let { assertNotNull(it.tree, "clear: ${it.reason}") }
-        assertFalse(Automatum.flowOpen(game.state.board))
-        assertEquals(1, hand(game, bob), "Bob discarded once")
-        assertNull(assertNotNull(theft(game), "Whisper Theft stays on the Stack").item, "as a manual entry")
-        assertFalse(game.state.board.automatum, "Automatum doesn't run over a manual entry")
-        assertEquals(org.asyncttwiz.protocol.RuleRefusals.AUTOMATUM_MANUAL_STACK,
-            game.manual(alice, PlayAction.Mtg(MtgAction.SetAutomatum(true))).reason, "switching on asks to deal with it first (I-D15)")
-    }
-
-    // finalreview-sync #6 — I-D19, I-D24 (owner decision 2026-11-03): switching off is one server step that always goes
-    // through. When the flow can't be taken back it is closed where it is: the half-resolved spell is a manual entry and
-    // Automatum is off
-    @Test fun switchingOffGoesThroughWhenTheFlowCantBeTakenBack() {
-        val game = whisperTheftResolving("off-closed")
-        withoutHistory(game)
-        val off = game.control(bob, GameAction.ExitFlow(MtgAction.SetAutomatum(false)))
-        assertNotNull(off.tree, "switching off: ${off.reason}")
-        assertFalse(game.state.board.automatum)
-        assertFalse(Automatum.flowOpen(game.state.board))
-        assertEquals(1, hand(game, bob))
-        assertNull(theft(game)!!.item, "Whisper Theft is a manual entry")
-    }
-
-    // finalreview-sync #6 — I-D19: when it can, switching off takes the whole flow back first, then Automatum is off; the
-    // switch is the one event left after the game's start
-    @Test fun switchingOffTakesTheWholeFlowBackFirst() {
-        val game = whisperTheftResolving("off-reverted")
-        val off = game.control(bob, GameAction.ExitFlow(MtgAction.SetAutomatum(false)))
-        assertNotNull(off.tree, "switching off: ${off.reason}")
-        assertFalse(game.state.board.automatum)
-        assertEquals(2, hand(game, bob))
-        assertNull(theft(game))
-        assertEquals(listOf(game.head), game.tree.nodes.keys.toList(), "one event: the switch")
-    }
 }

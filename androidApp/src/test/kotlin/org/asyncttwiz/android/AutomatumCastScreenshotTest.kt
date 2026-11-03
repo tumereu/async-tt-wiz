@@ -77,7 +77,7 @@ class AutomatumCastScreenshotTest {
             covered = false, tapped = tapped, placement = PlayPlacement(BoardPosition(2 + n, 0), id)) }
         val cubCard = initial.board.cards.single { it.id == landId }.copy(id = cubId, definition = cub.submitted.digest, faceId = "cub")
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 cards = initial.board.cards.map { when (it.id) {
                     sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                     surgeId -> it.copy(definition = surge.submitted.digest, faceId = "surge")
@@ -149,7 +149,7 @@ class AutomatumCastScreenshotTest {
             assertEquals(sparkId, toolkit.shaking?.id, "the card being cast shakes")
             assertEquals(CastController.BUSY, stepBlocked(play, toolkit.cast.open, null), "the step arrow is greyed and says why on hold")
         }
-        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b), TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Cast panel").assertDoesNotExist()
         assertNull(toolkit.cast.flow)
@@ -203,7 +203,7 @@ class AutomatumCastScreenshotTest {
         compose.onNodeWithText("Yes").performClick()
         compose.waitForIdle()
         assertTrue(sent.isEmpty())
-        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b), TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         compose.waitForIdle()
         assertNull(toolkit.cast.flow)
         val (batch, request) = sent.single()
@@ -217,7 +217,7 @@ class AutomatumCastScreenshotTest {
         val toolkit = render(play, autotap = false)
         compose.runOnIdle { assertTrue(doubleTap(toolkit, sparkId)) }
         compose.waitForIdle()
-        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b), TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Cast panel").assertExists()
         compose.onNodeWithText("Mana · {R}").assertExists()
@@ -255,7 +255,7 @@ class AutomatumCastScreenshotTest {
         compose.onNodeWithText("Pay the Kicker cost?").assertExists()
         compose.onNodeWithText("Yes").performClick()
         compose.waitForIdle()
-        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b), TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions("life/${f.b}", null), lifeSquare(play, f.b)) }
         compose.waitForIdle()
         compose.onNodeWithText("Mana · {4}{R}").assertExists()
         compose.onAllNodes(tappedSource).assertCountEquals(5)

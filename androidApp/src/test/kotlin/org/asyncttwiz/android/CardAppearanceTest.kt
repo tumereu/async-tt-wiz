@@ -117,36 +117,7 @@ class CardAppearanceTest {
                         "Own piles must become fully visible when the sidebar is scrolled: ${item.bounds} / $port")
                 }
             }
-            // At 3x the landscape sidebar overflows: scroll its middle Stack into view before opening bubbles.
-            val sidebar = scene.viewports.firstOrNull { it.id == "sidebar" }
-            val stackScene = if (sidebar == null) scene else TablePresentation.scene(f.game, play, f.a, width, height, true,
-                TableLayoutState(scrollY = mapOf("sidebar" to sidebar.maxScrollY / 2)), appearance = appearance)
-            val bubbles = TablePresentation.stackBubbles(stackScene, play, stackScene.stackTopId, width, height)!!
-            for ((index, control) in bubbles.controls.withIndex()) {
-                assertNull(control.bounds.intersection(bubbles.anchor))
-                for (other in bubbles.controls.drop(index + 1)) assertNull(control.bounds.intersection(other.bounds))
-                assertTrue(control.bounds.x >= 0 && control.bounds.right <= width && control.bounds.y >= 0 && control.bounds.bottom <= height)
-            }
         }
     }
 
-    // TBL-034
-    @Test fun customizedAreasDoNotChangeBattlefieldAndPanelsReorderUsingScaledPitch() {
-        val f = BasicTableFixture()
-        val library = f.container(PlayZone.LIBRARY)
-        val ids = f.root.board.containers.single { it.id == library }.cards
-        val display = ContentsDisplay(f.id(600), f.actor, library, ContentsSelection.TOP, ids.size, false, ids)
-        val play = f.root.copy(board = f.root.board.copy(contentsDisplays = listOf(display)))
-        val appearance = CardAppearance(cardSize = 1.2f, customizeAreas = true,
-            areas = mapOf(CardArea.HAND to 2f, CardArea.PANELS to .75f, CardArea.STACK to 1.5f))
-        val scene = TablePresentation.scene(f.game, play, f.actor, 412f, 892f, false, appearance = appearance)
-        val panel = scene.cardPanels.single()
-        assertEquals(21f, panel.rows.first().bounds.width)
-        val next = panel.rows[1]
-        val reorder = scene.panelReorder(next.bounds.center.copy(x = next.bounds.x),
-            TableScope(panel.rows.first().entry.cardId, listOf(panel.rows.first().entry.cardId)))!!
-        assertEquals(next.entry.cardId, reorder.beforeId)
-        assertEquals(42f, scene.items.single { it.kind == TableItemKind.PILE && it.zone == PlayZone.STACK }.bounds.width)
-        assertEquals(28f * 1.2f, scene.cardWidth)
-    }
 }

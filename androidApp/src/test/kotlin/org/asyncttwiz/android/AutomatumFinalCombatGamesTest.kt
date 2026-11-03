@@ -129,7 +129,7 @@ class AutomatumFinalCombatGamesTest {
         for (library in initial.board.containers.filter { it.zone == PlayZone.LIBRARY }) for (id in library.cards) keep[id] = deck()
         val owner = { card: PlayCard -> initial.board.containers.single { c -> c.id == card.containerId }.accountId ?: card.owner }
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 turn = TurnState(f.a, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step),
                 cards = initial.board.cards.filter { it.id in keep }.map { card -> keep.getValue(card.id).let { w ->
                     card.copy(owner = owner(card), definition = w.submitted.digest, faceId = w.face.faceId, corner = w.face.corner, tapped = false,
@@ -342,8 +342,8 @@ class AutomatumFinalCombatGamesTest {
         fun flowOf(d: Device) = AutomatumBoards.sharedFlow(d.view, tags(d.view))
         fun hand(d: Device) = d.view.board.containers.single { it.id == (if (d.player == f.a) aHand else bHand) }.cards
         fun field(play: PlayState, player: String) = play.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == player }.cards
-        fun tapItem(d: Device, item: TableItem) = d.toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
-        fun quick(d: Device) = automatumCombatQuickActions(d.view, toolkitQuickContext(d.view, TableSelection(), d.player)
+        fun tapItem(d: Device, item: TableItem) = d.toolkit.open(TableIntent.Actions(item.id, null), item)
+        fun quick(d: Device) = automatumCombatQuickActions(d.view, toolkitQuickContext(d.view, d.player)
             .copy(automatumCombat = AutomatumBoards.combat(d.view) { tags(d.view) })
             .withCombatTarget(d.toolkit.combat, d.view, "them"), TableActionScope(d.view.gameId, d.view.id)).orEmpty()
         /** Begins casting [card]; picks a target when asked: an attacking creature of the other player when there is one,

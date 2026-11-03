@@ -1,1 +1,0 @@
-Portrait table in combat: after double-tapping the top Stack effect into Manage Stack, its Inspect view open with the marked paragraph.

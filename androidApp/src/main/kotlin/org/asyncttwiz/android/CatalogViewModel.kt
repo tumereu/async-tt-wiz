@@ -50,7 +50,8 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
     internal val repository = AndroidCatalogStorage.repository(application)
     private val cadence = CatalogCadence(File(directory, "cadence.properties"))
     /** I-D51 (DRF-161): draft sets' Automatum support, worked out in the background once card records are installed. */
-    internal val setSupport = CatalogSetSupport(repository, org.asyncttwiz.automatum.AutomatumSupport::byHand)
+    internal val setSupport = CatalogSetSupport(repository, org.asyncttwiz.automatum.AutomatumSupport::byHand,
+        engineVersion = arcanum.engine.Engine.SUPPORT_VERSION)
     private val supportWorker = Executors.newSingleThreadExecutor { Thread(it, "set-support").apply { priority = Thread.MIN_PRIORITY } }
     @Volatile private var supportRunning = false
     private fun refreshSetSupport() {
@@ -199,7 +200,7 @@ class CatalogViewModel(application: Application) : AndroidViewModel(application)
                 phase = progress.phase
                 main.post { if (!cleared) state = state.copy(progress = progress, status = progress.label(), background = false) }
             }
-        }.also { AndroidTokenCatalog.refresh(getApplication()) }
+        }
     }
     private fun publish(value: CatalogUiState) { main.post { if (!cleared) {
         state = catalogConsentPresentation(value.copy(loaded = true), initialDownloadAccepted)

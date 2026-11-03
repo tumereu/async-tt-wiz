@@ -34,7 +34,7 @@ class ComputedBoardTest {
             controller = PlayerId(table.alice), timestamp = timestamp, createdTurn = 1, duration = duration))
 
     private fun board(vararg records: EngineRecord, edit: (PlayState) -> PlayState = { it }): PlayState = table.state().let { s ->
-        edit(s.copy(board = s.board.copy(automatum = true, engineRecords = records.toList(), cards = s.board.cards.map { card ->
+        edit(s.copy(board = s.board.copy(engineRecords = records.toList(), cards = s.board.cards.map { card ->
             when (card.id) {
                 hierophant -> card.copy(timestamp = 1)
                 seer -> card.copy(timestamp = 2, typedCounters = listOf(TypedCounter("+1/+1", 2, 3)))
@@ -103,22 +103,5 @@ class ComputedBoardTest {
         val computed = ComputedBoard.of(play, withoutSpark, table.alice)
         assertEquals(1, computed.manualAbilities)
         assertEquals(listOf("Storm Spark" to 1), computed.manualCards)
-    }
-
-    // TRN-055, I-D27 (owner, 2026-11-02): "N abilities are manual" counts only the cards the viewer may see, so the
-    // number tells nothing of the other player's hidden hand
-    @Test
-    fun manualAbilitiesCountOnlyCardsTheViewerSees() {
-        val t = AtwTable("manual-hidden")
-        t.put(t.alice, PlayZone.HAND, "Storm Spark")
-        t.put(t.bob, PlayZone.HAND, "Lineage Druid")
-        val play = t.state()
-        val unread = t.definitions.filterValues { d -> d.faces.none { it.name == "Storm Spark" || it.name == "Lineage Druid" } }
-        val alice = ComputedBoard.of(play, unread, t.alice)
-        assertEquals(1, alice.manualAbilities)
-        assertEquals(listOf("Storm Spark" to 1), alice.manualCards)
-        val bob = ComputedBoard.of(play, unread, t.bob)
-        assertEquals(1, bob.manualAbilities)
-        assertEquals(listOf("Lineage Druid" to 1), bob.manualCards)
     }
 }

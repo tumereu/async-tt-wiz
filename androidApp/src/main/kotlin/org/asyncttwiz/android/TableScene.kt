@@ -34,9 +34,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     accepted: PlayState? = null, runtime: TableRuntimeHooks = TableRuntimeHooks()) {
     PrefetchGameArtwork(play, accountId)
     val layoutState: MutableState<TableLayoutState> = toolkit?.layoutState ?: remember(play.id, accountId) { mutableStateOf(TableLayoutState()) }
-    val selectionState: MutableState<TableSelection> = toolkit?.selectionState ?: remember(play.id, accountId) { mutableStateOf(TableSelection()) }
     var layout by layoutState
-    var selection by selectionState
     var gestureError by remember(play.id, accountId) { mutableStateOf<String?>(null) }
     val peekScroll = rememberScrollState()
     val peekScreenHeight by rememberUpdatedState(holdPreviewScreenHeight())
@@ -45,14 +43,11 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
     val callback by rememberUpdatedState(onIntent)
     val writable = connected && onIntent != null
     val currentWritable by rememberUpdatedState(writable)
-    val currentSelection by rememberUpdatedState(selection)
     val currentRuntime by rememberUpdatedState(runtime)
     var presentation by remember(play.id, accountId) { mutableStateOf<(() -> TableScene)?>(null) }
-    var pressedPing by remember(play.id, accountId) { mutableStateOf<EventPingIntent?>(null) }
     val density = LocalDensity.current.density
     val coordinator = remember(play.id, accountId, density) {
         lateinit var owner: TableGestureCoordinator
-        var beforeSelection = selection
         owner = TableGestureCoordinator({ intent ->
             // A pending result blocks game actions only; looking at cards (hold preview, inspect) stays personal and allowed.
             if (currentRuntime.gameActionsBlocked && !gameLockAllows(intent)) return@TableGestureCoordinator
@@ -68,7 +63,6 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                     if (intent.cardId != null) peekScroll.dispatchRawDelta(-peekScroll.value.toFloat())
                     toolkit?.peek(intent.cardId)
                 }
-                is TableIntent.StackBubbles -> toolkit?.showStackBubbles(intent.entryId)
                 is TableIntent.SearchPile -> toolkit?.openPublicPile(intent.containerId, toggle = false)
                 is TableIntent.Camera -> layout = layout.copy(camera = intent.camera)
                 is TableIntent.Overscroll -> layout = layout.copy(overscroll = if (intent.offset == 0f) layout.overscroll - intent.viewportId
@@ -76,36 +70,27 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 is TableIntent.Scroll -> layout = if (intent.vertical)
                     layout.copy(scrollY = layout.scrollY + (intent.viewportId to intent.offset))
                     else layout.copy(scroll = layout.scroll + (intent.viewportId to intent.offset))
-                is TableIntent.Selection -> if (!currentRuntime.reviewing) {
-                    beforeSelection = selection; selection = intent.selection
+                TableIntent.EmptyTap -> if (!currentRuntime.reviewing) {
                     // CMB-032, CMB-034: a tap on the empty table clears the combat selection (a blocker finishes early)
-                    if (intent.selection.ids.isEmpty()) toolkit?.combat?.clearSelection()
+                    toolkit?.combat?.clearSelection()
                     // ZON-079: tapping anywhere else lowers a raised hand card
-                    if (intent.selection.ids.isEmpty()) toolkit?.hand?.lower()
+                    toolkit?.hand?.lower()
                 }
                 is TableIntent.Actions -> {
                     val captured = owner.capturedActions ?: intent
                     if (toolkit != null) {
                         val item = owner.actionItem
-                        if (item != null) toolkit.open(captured, item, currentSelection)
+                        if (item != null) toolkit.open(captured, item)
                     }
                 }
                 is TableIntent.Inspect -> toolkit?.inspect(intent.cardId)
-                is TableIntent.Ping -> {
-                    val captured = pressedPing
-                    pressedPing = null
-                    if (captured != null && currentRuntime.controlsConnected == true && captured.reference.playId == currentPlay.id)
-                        currentRuntime.ping?.invoke(captured)
-                }
                 else -> {
-                    if (intent is TableIntent.StackDestination) toolkit?.showStackBubbles(null)
                     val sent = currentWritable && callback?.invoke(intent) == true
                     if (intent is TableIntent.Rotate && intent.toggle) {
                         gestureError = if (sent) null else "Rotation not queued. Reconnect and try again."
                         DebugLatency.tap(game.id, if (sent) "rotated" else if (!currentWritable) "dropped:sceneNotWritable" else "dropped:controllerRefused",
                             cardId = intent.scope.contextId)
                     }
-                    if (!sent && intent is TableIntent.Move) selection = beforeSelection
                 }
             }
         }, density = density, onPeekScroll = { peekScroll.holdPreviewScroll(it * density, peekScreenHeight) }, diagnostic = { event ->
@@ -134,22 +119,18 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
         }
     }
     // Composition reads only these parts of the gesture preview; drag points reach just the Canvas.
-    val previewDragging by remember(coordinator) { derivedStateOf { preview.scope != null || preview.delta != null } }
-    val previewValue by remember(coordinator) { derivedStateOf { preview.delta?.let { preview.pressedId to it } } }
+    val previewDragging by remember(coordinator) { derivedStateOf { preview.scope != null } }
     val relay = remember(coordinator) { TableTapRelay(
         accepts = { p, t -> coordinator.replacesTap(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
         down = { p, t -> coordinator.down(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t) },
         up = { p, t ->
             coordinator.up(coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y), t)
-            pointerTime = t; clockEpoch++; preview = coordinator.preview; pressedPing = null
+            pointerTime = t; clockEpoch++; preview = coordinator.preview
         },
-        cancel = { coordinator.cancel(); clockEpoch++; preview = coordinator.preview; pressedPing = null },
+        cancel = { coordinator.cancel(); clockEpoch++; preview = coordinator.preview },
         dismiss = { toolkit?.dismissTapUi() },
         ringDown = { p, t, card ->
             val point = coordinator.pointFromPixels(p.x - screenOrigin.x, p.y - screenOrigin.y)
-            val state = currentPlay
-            val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
-            pressedPing = presentation?.invoke()?.let { TableAnnotationGeometry(it, game.inviter.accountId).capture(state, reference, point) }
             coordinator.down(point, t, card)
             pointerTime = t; clockEpoch++; preview = coordinator.preview
         },
@@ -162,30 +143,19 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 coordinator.pointFromPixels(center.x - screenOrigin.x, center.y - screenOrigin.y))
             preview = coordinator.preview
         }) }
-    val context = LocalContext.current
-    val statusStore = remember(context, accountId, game.id) { StatusBubbleStore(context, accountId, game.id) }
-    val statusBubbles = remember(statusStore, runtime.statusHistory) { StatusBubbles(statusStore, runtime.statusHistory ?: { null }) }
-    val statusVersion = statusBubbles.version
-    val statusModes = remember(statusBubbles, statusVersion, play.currentNodeId, play.board.players) { statusBubbles.modes(play) }
     val presenceDot = rememberPresenceDot(runtime.opponentPresence)
     val computedBoard = rememberComputedBoard(play, accountId, toolkit?.let { t -> { t.engineTags() } })
     CompositionLocalProvider(LocalTableTapRelay provides relay, LocalTableChanges provides runtime.changes, LocalComputedBoard provides computedBoard,
-        LocalStatusBubbles provides statusBubbles, LocalOpponentPresence provides runtime.opponentPresence) {
+        LocalOpponentPresence provides runtime.opponentPresence) {
     BoxWithConstraints(modifier.fillMaxWidth().onGloballyPositioned { screenOrigin = it.localToScreen(Offset.Zero) }.tableRingRelay(relay)
         .background(Color(0xfff5f8f7)).pointerInput(coordinator) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             val point = coordinator.pointFromPixels(down.position.x, down.position.y)
             val presented = presentation?.invoke()
-            // Changing the interaction mode keeps the Graveyard/Exile panel open.
-            val modeButton = presented?.modeButton ?: TableBounds(size.width / density - 56f, size.height / density - 112f, 48f, 48f)
-            if (presented?.localPanelOutside(point) == true && !modeButton.contains(point) &&
+            if (presented?.localPanelOutside(point) == true &&
                 relay.ring?.outside?.invoke(screenOrigin + down.position) != false &&
                 presented.hit(point)?.id != toolkit?.layoutState?.value?.localPileId) toolkit?.closeLocalPile()
-            val bubble = presented?.stackBubbles
-            if (bubble != null && bubble.controls.none { it.bounds.contains(point) }) {
-                toolkit?.showStackBubbles(null)
-            }
         }
     }) {
         val compactHeader = maxWidth < 400.dp
@@ -227,20 +197,18 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             withFrameNanos { }
             settled?.invoke(play.currentNodeId)
         }
-        val bubbleId = if (runtime.reviewing) null else toolkit?.stackBubbleEntry
         // Only draw/layout/semantics (and the small open-overlay host) observe the clock. Sampling
         // and clipping are shared once per frame, not repeated for every accessibility child.
-        val rendered = remember(animation, targetScene, bubbleId, runtime.reviewing, IdentityKey(play), maxWidth, maxHeight) { derivedStateOf {
+        val rendered = remember(animation, targetScene, runtime.reviewing, IdentityKey(play), maxWidth, maxHeight) { derivedStateOf {
             animationRevision
             val frame = animation.frame(progress.value, targetScene)
             val base = TablePresentation.clip(targetScene.copy(items = frame.filter { it.alpha > 0f }
                 .map { it.item.copy(bounds = it.bounds) }), maxWidth.value, maxHeight.value)
-            TableRenderFrame(base.copy(stackBubbles = TablePresentation.stackBubbles(base, play, bubbleId, maxWidth.value, maxHeight.value)),
-                frame.associate { it.item.id to it.alpha })
+            TableRenderFrame(base, frame.associate { it.item.id to it.alpha })
         } }
         val scene = targetScene
-        JankTableState(runtime.reviewing, selection.mode,
-            toolkit?.panel ?: "card".takeIf { toolkit?.capture != null || toolkit?.manual?.scope != null },
+        JankTableState(runtime.reviewing,
+            toolkit?.panel ?: "card".takeIf { toolkit?.capture != null },
             previewDragging, { progress.isRunning },
             { rendered.value.scene.items.count { it.kind == TableItemKind.CARD && it.visible.isNotEmpty() } })
         val semanticItems = remember(animation, targetScene, animationRevision) {
@@ -248,41 +216,20 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             // during a flip. Bounds continue to come exclusively from the rendered frame below.
             (targetScene.items + animation.frame(0f, targetScene).map { it.item }).distinctBy { it.id }
         }
-        LaunchedEffect(toolkit, bubbleId, IdentityKey(play)) {
-            // The rendered history/animation boundary can briefly lag the session prediction during
-            // acceptance. Validate personal focus against the session, not that older rendered board.
-            toolkit?.refreshStackBubbles()
-        }
         LaunchedEffect(IdentityKey(play), layout.localPileId) {
             if (layout.localPileId != null && play.board.containers.none { it.id == layout.localPileId && it.cards.isNotEmpty() })
                 layout = layout.copy(localPileId = null)
         }
-        val pingProjection = remember(play.id) { ActivePingProjection() }
-        val annotations = TableAnnotationGeometry(scene, game.inviter.accountId, pingProjection)
         val artwork = tableArtwork(scene.copy(items = semanticItems))
         val drawCache = remember(density, play.id) { TableDrawCache(density) }
         val refreshRate = androidx.compose.ui.platform.LocalView.current.display?.refreshRate ?: 60f
-        val pingReference = runtime.pingReference ?: EventReference(play.id, play.currentNodeId)
-        val activePings = pingProjection.records(play)
-        val pingPulse = if (activePings.isNotEmpty()) pingPulseProgress() else null
-        var visitedGroup by remember(play.id, accountId) { mutableStateOf(play.currentGroup?.id) }
         SideEffect { previousLayout = layout; previousSize = maxWidth to maxHeight }
         SideEffect {
             presentation = { rendered.value.scene }
-            var retained = selection.atStep(TurnPosition.of(play.board.turn)).retain((play.board.cards.map { it.id } + play.board.stackEffects.map { it.id } +
-                CombatStackRules.occurrences(play.board.combat).map { it.id }).toSet())
-            if (runtime.reviewing) retained = retained.copy(ids = emptySet(), mode = if (retained.mode == TableMode.SELECT) TableMode.NORMAL else retained.mode)
-            if (visitedGroup != play.currentGroup?.id && retained.mode == TableMode.PING) retained = retained.copy(mode = TableMode.NORMAL)
-            // TBL-119: no Ping mode with Automatum on
-            if (scene.automatumHand && retained.mode == TableMode.PING) retained = retained.copy(mode = TableMode.NORMAL)
-            visitedGroup = play.currentGroup?.id
-            if (retained != selection) selection = retained
-            coordinator.update(scene, retained, writable || (retained.mode == TableMode.PING &&
-                runtime.ping != null && runtime.controlsConnected == true), sceneSource = { rendered.value.scene }, reviewing = runtime.reviewing)
+            coordinator.update(scene, writable, sceneSource = { rendered.value.scene }, reviewing = runtime.reviewing)
         }
         Box(Modifier.fillMaxSize().semantics {
             contentDescription = "Shared table"
-            stateDescription = "${selection.ids.size} selected, ${selection.mode.name.lowercase()} mode"
             customActions = listOf(
                 CustomAccessibilityAction("Zoom in") { coordinator.transform(TablePoint(0f, 0f), 1.2f, scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
                 CustomAccessibilityAction("Zoom out") { coordinator.transform(TablePoint(0f, 0f), 1 / 1.2f, scene.fields.last().bounds.center); coordinator.cancel(); clockEpoch++; true },
@@ -290,8 +237,7 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 CustomAccessibilityAction("Pan right") { coordinator.panBy(84f, 0f); true },
                 CustomAccessibilityAction("Pan up") { coordinator.panBy(0f, -84f); true },
                 CustomAccessibilityAction("Pan down") { coordinator.panBy(0f, 84f); true },
-                 CustomAccessibilityAction("Fit table") { scene.world?.fit()?.let { layout = layout.copy(camera = it) }; true },
-                CustomAccessibilityAction("Clear selection") { selection = selection.copy(ids = emptySet()); true }
+                 CustomAccessibilityAction("Fit table") { scene.world?.fit()?.let { layout = layout.copy(camera = it) }; true }
             ) + scene.viewports.filter { it.maxScrollY > 0 }.flatMap { p -> listOf(
                 CustomAccessibilityAction("Scroll docks up") { layout = layout.copy(scrollY = layout.scrollY + (p.id to (p.scrollY - 68f).coerceAtLeast(0f))); true },
                 CustomAccessibilityAction("Scroll docks down") { layout = layout.copy(scrollY = layout.scrollY + (p.id to (p.scrollY + 68f).coerceAtMost(p.maxScrollY))); true }
@@ -301,9 +247,6 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                 awaitEachGesture {
                     val first = awaitFirstDown()
                     val point = coordinator.pointFromPixels(first.position.x, first.position.y)
-                    val state = currentPlay
-                    val reference = currentRuntime.pingReference ?: EventReference(state.id, state.currentNodeId)
-                    pressedPing = presentation?.invoke()?.let { TableAnnotationGeometry(it, game.inviter.accountId, pingProjection).capture(state, reference, point) }
                     coordinator.down(point, first.uptimeMillis)
                     pointerTime = first.uptimeMillis; clockEpoch++; preview = coordinator.preview
                     first.consume()
@@ -335,9 +278,8 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
                         preview = coordinator.preview
                     } while (event.changes.any { it.pressed })
                     if (transformed) coordinator.cancel()
-                    pressedPing = null
                 }
-            } finally { coordinator.cancel(); preview = coordinator.preview; pressedPing = null }
+            } finally { coordinator.cancel(); preview = coordinator.preview }
         }) {
             val barColor by animateColorAsState(tableBarColor(play.board, accountId, runtime.reviewing), tween(200), label = "Table bars")
             // A cast or an Automatum decision choosing targets (I-D6): its legal targets glow
@@ -355,56 +297,24 @@ internal fun TableSurface(game: GameSummary, play: PlayState, accountId: String,
             Canvas(Modifier.fillMaxSize()) {
                 DebugLatency.tapFrame(game.id, progress.value, refreshRate)
                 val frame = rendered.value
-                val panelCard = toolkit?.popupItem?.cardId?.takeIf { toolkit.panel?.startsWith("panelCard/") == true }
-                // TBL-119 (I-D50): with Automatum on no links or pings are drawn
-                val tabletop = !frame.scene.automatumHand
-                drawTable(frame.scene, accountId, play.board.turn.accountId, selection.copy(ids = selection.ids + listOfNotNull(panelCard)), preview,
-                    if (tabletop) play.board.links else emptyList(), frame.alphas, if (tabletop) activePings else emptyList(),
-                    if (tabletop) play.board.projectionLinks else emptyList(), TableAnnotationGeometry(frame.scene, game.inviter.accountId), artwork, drawCache,
-                    pingPulse?.value ?: 0f, statusModes, presenceDot, castGlow, playable,
-                    shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources)
+                drawTable(frame.scene, accountId, play.board.turn.accountId, preview, frame.alphas, artwork, drawCache,
+                    presenceDot, castGlow, playable, shaking?.let { it.id to shakeOffset.value }?.takeIf { it.second != 0f }, raisedSources)
             }
-            previewValue?.let { (pressedId, delta) ->
-                scene.items.firstOrNull { it.id == pressedId }?.let { item ->
-                    val anchor = item.visible.maxByOrNull { it.width * it.height } ?: item.bounds
-                    Box(Modifier.offset(anchor.x.dp, anchor.y.dp).size(anchor.width.dp, anchor.height.dp)) {
-                        HoldTooltip(valueDragLabel(item.value, delta.toLong()))
-                    }
-                }
-            }
-            TableSemanticNodes(game, play, scene, semanticItems, rendered, annotations, pingProjection, pingReference,
-                activePings, runtime, { currentRuntime }, coordinator, writable, toolkit, selectionState, { preview }, layoutState)
-            // TBL-119: with Automatum on no text marks are shown
-            if (!scene.automatumHand) for (item in scene.items.filter { it.zone == PlayZone.STACK && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }) {
-                play.board.stackTextMarks[item.cardId]?.let { indices ->
-                    StackMarkChips(indices, Modifier.offset {
-                        val b = rendered.value.items[item.id]?.bounds ?: item.bounds
-                        androidx.compose.ui.unit.IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx())
-                    }
-                        .width(item.bounds.width.dp)
-                        .semantics { contentDescription = "Stack text marks ${indices.sorted().joinToString { (it + 1).toString() }}" })
-                }
-            }
+            TableSemanticNodes(game, play, scene, semanticItems, rendered, runtime, { currentRuntime }, coordinator, writable, toolkit,
+                { preview }, layoutState)
             // Automatum (I3, I-D29): the damage preview and blockers blocking several attackers, for both players
             // I-D32: arrows of every block, and with Automatum the staging, selection, preview and badges
-            if (play.board.combat != null || play.board.automatum)
-                CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
+            CombatAreaOverlay(toolkit?.combat, play, scene, accountId, writable && !runtime.reviewing,
                     fold = { hide -> layout = layout.copy(combatHidden = if (hide) play.board.combat?.id else null) }) { item ->
                     rendered.value.items[item.id]?.bounds ?: item.bounds }
-            if (bubbleId != null) AnimatedStackBubbleOverlay(rendered, play, accountId, { preview }, writable) { intent ->
-                if (intent is TableIntent.StackDestination) toolkit?.showStackBubbles(null)
-                callback?.invoke(intent)
-            }
         }
         TableBoardOverlays(game, play, accountId, runtime, scene, rendered)
         TableChromeHeader(game, play, accountId, landscape, runtime, toolkit, compactHeader, scene.appearance)
-        CardPanelHeaders(scene, accountId, writable, toolkit)
-        TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, selectionState, coordinator,
-            { gestureError }, { gestureError = null })
+        CardPanelHeaders(scene, accountId, toolkit)
+        TableControlsLayer(play, accountId, landscape, connected, runtime, toolkit, scene, { gestureError }, { gestureError = null })
         AnimatedCardRingAnchors(rendered, toolkit?.capture != null) {
-         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, selection, accepted,
-              tokenCatalog = runtime.tokenCatalog, peekScroll = peekScroll, scene = scene, onTimeline = runtime.history,
-              selectionEnabled = !runtime.reviewing)
+         if (toolkit != null) TableToolkitScreen(toolkit, play, game, landscape, accepted,
+              peekScroll = peekScroll, scene = scene, onTimeline = runtime.history)
         }
     }
     }

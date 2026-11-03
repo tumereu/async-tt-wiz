@@ -52,7 +52,6 @@ internal object GameplayDeltas {
             "result" -> b.resultSuggestion?.let { json.encodeToJsonElement(it) }
             "attention" -> JsonPrimitive(b.attentionHolder)
             "marks" -> marks(b)
-            "automatum" -> JsonPrimitive(b.automatum)
             "priority" -> b.priority?.let { json.encodeToJsonElement(it) }
             "record" -> b.engineRecords.singleOrNull { it.id == id }?.let { json.encodeToJsonElement(it) }
             "comment" -> state.annotations.commentsById[id]?.let { json.encodeToJsonElement(it) }
@@ -145,7 +144,6 @@ internal object GameplayDeltas {
         entity("attention", "", 0, JsonPrimitive(a.attentionHolder), JsonPrimitive(b.attentionHolder), JsonElement.serializer())
         entity("marks", "", 0, marks(a), marks(b), JsonElement.serializer())
         // Rules v36: each engine record is its own entity, so later events concern only the records they touch.
-        entity("automatum", "", 0, JsonPrimitive(a.automatum), JsonPrimitive(b.automatum), JsonElement.serializer())
         entity("priority", "", 0, a.priority, b.priority, MtgPriority.serializer())
         members("record", a.engineRecords, b.engineRecords, EngineRecord.serializer()) { it.id }
         if (from.annotations !== to.annotations) {
@@ -347,8 +345,6 @@ internal object GameplayDeltas {
                 "combat" -> result.copy(board = b.copy(combat = value(b.combat, CombatArea.serializer())))
                 "result" -> result.copy(board = b.copy(resultSuggestion = value(b.resultSuggestion, ResultSuggestion.serializer())))
                 "attention" -> result.copy(board = b.copy(attentionHolder = value(JsonPrimitive(b.attentionHolder), JsonElement.serializer())?.jsonPrimitive?.contentOrNull))
-                "automatum" -> result.copy(board = b.copy(automatum = value(JsonPrimitive(b.automatum), JsonElement.serializer())
-                    ?.jsonPrimitive?.booleanOrNull ?: throw Mismatch()))
                 "priority" -> result.copy(board = b.copy(priority = value(b.priority, MtgPriority.serializer())))
                 "record" -> result.copy(board = b.copy(engineRecords = members(b.engineRecords, EngineRecord.serializer()) { it.id }))
                 "marks" -> result.copy(board = b.copy(stackTextMarks = value(marks(b), JsonElement.serializer())!!.jsonObject

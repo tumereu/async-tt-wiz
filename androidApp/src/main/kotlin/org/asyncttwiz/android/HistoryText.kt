@@ -333,8 +333,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 if (transition.rulesVersion >= TempPiles.SEARCH_RULES_VERSION) "Search closed → ${zone(search.containerId)} unchanged"
                 else "Search closed → ${zone(search.containerId)} shuffled" }
             ?: transition.contents?.from?.takeIf { it.search }?.let { search -> "Search closed → Library shuffled" +
-                listOfNotNull(searchQueueCount(SearchQueue.topCount(search), "top"),
-                    searchQueueCount(SearchQueue.bottomCount(search), "bottom")).joinToString("") { " · $it" } }
+                listOfNotNull(SearchQueue.topCount(search).takeIf { it > 0 }?.let { "$it on top" },
+                    SearchQueue.bottomCount(search).takeIf { it > 0 }?.let { "$it on bottom" }).joinToString("") { " · $it" } }
             ?: "Card panel closed → ${action.rest.name.lowercase().replace('_', ' ')}", "Close panel")
         is PlayAction.RevealContentsCard -> text("${card(action.cardId)} revealed in panel", "Reveal card")
         is PlayAction.ReorderContents -> text("Card panel reordered", "Reorder panel")
@@ -420,7 +420,6 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
         // engine's own history lines (CausedBy, D33) are built.
         is PlayAction.Mtg -> when (val mtg = action.action) {
             // HIS-091 (I1): the switch names who turned it, "alice turned Automatum on"
-            is MtgAction.SetAutomatum -> text("${historyPlayerName(event.author, usernames)} turned Automatum ${if (mtg.on) "on" else "off"}", "Automatum")
             // HIS-091 (pausereview #12): a pass made for the player holding priority (after their pause, or Pass for
             // them) names both players
             is MtgAction.SetPriority -> mtg.before?.holder?.takeIf { it != event.author && it != mtg.after?.holder }?.let { holder ->
@@ -447,7 +446,6 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
                 text(if (mtg.after == null) "Early answer withdrawn$forWhom" else "Answer given early$forWhom", "Early answer")
             } ?: text("Automatum records updated", "Automatum")
             is MtgAction.Restamp, is MtgAction.SetLedger -> text("Automatum records updated", "Automatum")
-            MtgAction.ClearRecords -> text("Automatum data cleared", "Automatum")
             is MtgAction.SetSkipWhenNoChoice -> text("${playerPrefix(event.author)}Skip when no choice ${if (mtg.on) "on" else "off"}", "Automatum")
             is MtgAction.SetFullControl -> text("${playerPrefix(event.author)}Full control ${if (mtg.on) "on" else "off"}", "Automatum")
             is MtgAction.SetMulligans -> text("${playerPrefix(event.author)}Mulligans taken → ${mtg.after}", "Mulligan")

@@ -79,7 +79,7 @@ class AutomatumStepsScreenshotTest {
         val dropped = initial.board.cards.filter { (it.containerId == aHand || it.containerId == bHand) && it.id !in kept }.map { it.id }.toSet()
         fun as_(card: PlayCard, what: Invented) = card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = "", tapped = false)
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 players = initial.board.players.map { it.copy(fullControl = it.accountId in fullControl) },
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> when (card.id) {
                     aSpark, bSpark -> as_(card, spark)
@@ -160,7 +160,7 @@ class AutomatumStepsScreenshotTest {
         val toolkit = toolkit(play, f.a)
         assertTrue(toolkit.cast.start(aSpark))
         val life = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
-        toolkit.open(TableIntent.Actions(life.id, null), life, TableSelection())
+        toolkit.open(TableIntent.Actions(life.id, null), life)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
         val (batch, request) = sent.single()
@@ -186,8 +186,8 @@ class AutomatumStepsScreenshotTest {
     // TRN-056, TRN-008: in a combat's first-strike damage step the phase dialog shows that step's square between
     // Blockers and Damage, current; TRN-007: the step button shows "1st strike"
     @Test fun phaseDialogShowsTheFirstStrikeStep() {
-        val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE, "5").let { it.copy(board = it.board.copy(automatum = true)) }
-        val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
+        val play = TableToolFixture.play(TurnPosition.FIRST_STRIKE_DAMAGE, "5").let { it.copy(board = it.board) }
+        val controller = TableActionController({ play }, { true }, RecordingRoutes())
         compose.setContent { MaterialTheme {
             Column {
                 TurnIndicator(play.board.turn, "Alice", Color(0xff2e7d5b), {})
@@ -202,27 +202,6 @@ class AutomatumStepsScreenshotTest {
             "With Automatum on, in the first-strike combat damage step: the step button shows a bolt and \"1st strike\", and the phase dialog shows that square between Blockers and Damage, outlined as the current step.")
     }
 
-    // STK-032, I-D37: while Automatum waits for something done by hand, manual edits are allowed until Done
-    @Test fun manualEditsWhileSomethingIsDoneByHand() {
-        val play = board(bobSpark = false).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
-            if (it.id == aSpark) it.copy(definition = odd.submitted.digest, faceId = odd.face.faceId) else it })) }
-        val toolkit = toolkit(play, f.a)
-        assertTrue(toolkit.cast.start(aSpark), toolkit.error)
-        if (toolkit.cast.open) assertTrue(toolkit.cast.cast(), toolkit.error)
-        val (batch, request) = sent.single()
-        val open = accepted(play, batch, request, f.a)
-        assertTrue(Automatum.flowOpen(open.board))
-        val flow = assertNotNull(AutomatumBoards.sharedFlow(open, engineTags(tree, open.currentNodeId)))
-        assertTrue(flow.decision is arcanum.engine.decision.Decision.Manual, "${flow.decision}")
-        sent.clear()
-        val waiting = toolkit(open, f.a)
-        assertTrue(waiting.submit(PlayAction.AdjustLife(f.b, "-2")), waiting.error)
-        // SYS-069, TBL-116: the manual controls (today's menus) work until Done
-        assertTrue(AutomatumBoards.manualAllowed(open))
-        // The spell is still resolving on the Stack: the step waits (STK-029)
-        assertFalse(waiting.submit(PlayAction.NextStep))
-        assertEquals(SharedFlowController.STACK_WAITING, waiting.error)
-    }
 
     // TRN-057, I-D28: with Automatum on the turn moves on only through Automatum: an earlier or the same step, a step
     // passed into by a quick action and a step change made any other way are refused; STK-029 while the Stack holds anything

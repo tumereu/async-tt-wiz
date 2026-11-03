@@ -15,7 +15,7 @@ class LobbyStartTest {
     private val definition = CardDefinition("Retained without catalog", listOf(DefinitionFace(id(), "Retained without catalog")))
     private val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
     private val source = SavedDeck(DeckSummary(id(), "Prepared source", "1", game.createdAt, 4, 2), listOf(
-        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 4), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 2)))
+        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 11), SavedDeckEntry(SavedDeckSection.SIDEBOARD, submitted.digest, 2)))
     private fun prepared(): LobbyPreparation {
         var state = PreparationRules.empty(game)
         for (player in listOf(owner, other)) state = PreparationRules.select(game, state, player.accountId, id(),
@@ -204,8 +204,9 @@ class LobbyStartTest {
         Fixture().use { fresh ->
             fresh.head(game.copy(lifecycle = GameLifecycle.ACTIVE, playId = play.id, revision = "2"), play = play)
             assertEquals(play, fresh.lobby.state.play); assertTrue(fresh.commands().isEmpty())
+            // I-D49: the opening hand of seven drawn, four left in the library
             assertEquals(4, play.board.containers.single { it.accountId == owner.accountId && it.zone == PlayZone.LIBRARY }.cards.size)
-            assertTrue(play.board.containers.filter { it.zone != PlayZone.LIBRARY }.all { it.cards.isEmpty() })
+            assertTrue(play.board.containers.filter { it.zone != PlayZone.LIBRARY && it.zone != PlayZone.HAND }.all { it.cards.isEmpty() }) // I-D49: opening hands drawn
             assertTrue(play.board.players.all { it.life == "20" }); assertEquals("UNTAP", play.board.turn.step)
         }
     }
@@ -216,15 +217,8 @@ class LobbyStartTest {
             for (viewer in listOf(owner, other)) {
                 val scene = TablePresentation.scene(active, play, viewer.accountId, width, height, landscape)
                 assertEquals(2, scene.fields.size)
-                // ... including both players' always-shown (still empty) Temp 1 piles.
-                assertEquals(13, scene.items.count { it.kind != TableItemKind.COUNTER })
-                val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
-                // TRN-034, TRN-035: all six (still empty) counters per player in both orientations.
-                assertEquals(12, counters.size)
-                for (player in listOf(owner, other)) {
-                    assertEquals(CounterColor.entries.toSet(),
-                        counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
-                }
+                // ... and the opening hands of seven (I-D49)
+                assertEquals(25, scene.items.size)
                 for (item in scene.items) {
                     // Scrollable docks may extend offscreen; only clipped drawings are exposed.
                     for (visible in item.visible) {
@@ -250,10 +244,9 @@ class LobbyStartTest {
                 }
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),
-                    scene.items.filter { it.zone != null && !it.temp }.map { it.id }.toSet())
-                // Each player's Temp 1 is shown under its deterministic ID before it exists.
-                assertEquals(play.board.players.map { TempPiles.containerId(play.id, it.accountId) }.toSet(),
-                    scene.items.filter { it.temp }.map { it.id }.toSet())
+                    scene.items.filter { it.zone != null && !it.temp && it.kind != TableItemKind.CARD }.map { it.id }.toSet())
+                // No Temp piles (I-D52)
+                assertTrue(scene.items.none { it.temp })
             }
         }
     }

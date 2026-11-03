@@ -281,7 +281,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             if (tree == null) GameplayTreeChange(reason = "lifecycleEnded")
             else {
                 historyLoaded = System.nanoTime()
-                HistoryContinuation.change(tree, inbox.accountId.toString(), command).also { change ->
+                // I-D52: the board changes only through Automatum; the rest of a play command is the shared reducer's
+                (AutomatumOnly.refusal(tree, inbox.accountId.toString(), command)?.let { GameplayTreeChange(reason = it) }
+                    ?: HistoryContinuation.change(tree, inbox.accountId.toString(), command)).also { change ->
                     reduced = System.nanoTime()
                     change.tree?.let { next ->
                         treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1), command.requestId)
@@ -296,6 +298,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         } else null
         val rejection = if (game.lifecycle !in listOf("LOBBY", "ACTIVE")) "lifecycleEnded" else if (isGameplay) gameplay!!.reason else when (command.action) {
             is GameAction.AcceptResult -> PlayStore.accept(sql, lobby.summary(sql, game.id!!), inbox.accountId.toString(), command) { lobby.summary(sql, it) }
+            GameAction.Concede -> applyConcession(sql, game, inbox.accountId.toString(), command, Math.addExact(before, 1))
+                .also { (_, next) -> next?.let { committedTree = Math.addExact(before, 1) to it } }.first
             GameAction.DeleteGame -> applyDeletion(sql, game, command)
             is GameAction.SendChat -> ChatStore.apply(sql, game, inbox.accountId!!, command).also { insertedChat = it.message }.reason
             GameAction.CancelSetup -> applyCancellation(sql, game, inbox.accountId!!, command)
@@ -368,7 +372,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             }
             // LOB-111: the suggestion's author (the accepter's opponent) hears that the game is over. The identity is
             // this request, which the ended play records, so the feed can tell the outcome; no move, so no reminder.
-            if (command.action is GameAction.AcceptResult) {
+            if (command.action is GameAction.AcceptResult || command.action == GameAction.Concede) {
                 val opponent = if (inbox.accountId == game.inviterId) game.recipientId!! else game.inviterId!!
                 org.asyncttwiz.server.activity.ActivityService.record(sql, opponent, ActivityKind.GAME,
                     game.id!!, uuid(command.requestId), inbox.accountId)
@@ -386,7 +390,7 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
                 listOf(member.id) + listOfNotNull(member.transition.movement?.to?.placement?.pileId?.takeIf {
                     (member.action as? PlayAction.MoveCard)?.destination?.insertion == MoveInsertion.EMPTY })
             }
-            command.action is GameAction.AcceptResult -> listOf(update!!.summary.preparationRound)
+            command.action is GameAction.AcceptResult || command.action == GameAction.Concede -> listOf(update!!.summary.preparationRound)
             mutation != null -> listOf(mutation.id) + listOfNotNull(
                 mutation.transition.movement?.to?.placement?.pileId?.takeIf {
                     (command.action as? GameAction.Play)?.action.let { action -> action is PlayAction.MoveCard && action.destination.insertion == MoveInsertion.EMPTY } })
@@ -439,6 +443,23 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         sql.insertInto(GAME_OUTBOX).set(GAME_OUTBOX.GAME_ID, game).set(GAME_OUTBOX.ACCOUNT_ID, inbox.accountId)
             .set(GAME_OUTBOX.REQUEST_ID, inbox.requestId).set(GAME_OUTBOX.RESULT, GameWire.encode(result)).execute()
         return true
+    }
+
+    /** CR 104.3a (I-D52, [GameAction.Concede]): [actor]'s loss is recorded on the live line ([GameResultRules.concession],
+     * one batch) and accepted by them at once, ending the play; the reason it can't be, or the play's new history. */
+    private fun applyConcession(sql: DSLContext, game: GameRecord, actor: String, command: GameCommand, revision: Long): Pair<String?, GameplayTree?> {
+        if (game.lifecycle != "ACTIVE") return "lifecycleEnded" to null
+        val tree = gameplayStore.readCurrent(sql, game) ?: return "lifecycleEnded" to null
+        val board = tree.stateAt(tree.currentNodeId)?.board ?: return "historyUnavailable" to null
+        val change = HistoryContinuation.change(tree, actor, command.copy(action = GameAction.PlayBatch(GameResultRules.concession(board, actor)),
+            continuation = null, expectedSelection = null))
+        val next = change.tree ?: return (change.reason ?: "inapplicable") to null
+        gameplayStore.save(sql, tree, next, revision, command.requestId)
+        val played = next.stateAt(next.currentNodeId) ?: return "historyUnavailable" to null
+        val suggestion = played.board.resultSuggestion ?: return "inapplicable" to null
+        val reason = PlayStore.accept(sql, lobby.summary(sql, game.id!!), actor, command.copy(action = GameAction.AcceptResult(suggestion.id)),
+            played) { lobby.summary(sql, it) }
+        return reason to next.takeIf { reason == null }
     }
 
     private fun applyDeletion(sql: DSLContext, game: GameRecord, command: GameCommand): String? {

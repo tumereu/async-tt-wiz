@@ -90,7 +90,7 @@ class AutomatumI3ReviewTest {
             first(aHand, aliceHand.size).zip(aliceHand) + first(bHand, bobHand.size).zip(bobHand)).toMap()
         val dropped = initial.board.cards.filter { it.containerId in setOf(aField, bField, aHand, bHand) && it.id !in roles }.map { it.id }.toSet()
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = priority,
+            board = initial.board.copy(priority = priority,
                 turn = TurnState(f.a, "3", position.phase, position.step),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> roles[card.id]?.let { what ->
                     val down = what in faceDown && card.containerId in setOf(aField, bField)
@@ -171,7 +171,7 @@ class AutomatumI3ReviewTest {
         assertFalse("Hidden Basilisk" in name, "the face-down blocker is named \"$name\" to Alice")
     }
 
-    // #11 (I-D27, STK-005, STK-027): Alice casts a morph face down; Bob, who may respond, is shown its name and rules text in
+    // #11 (I-D27, SYS-065, STK-027): Alice casts a morph face down; Bob, who may respond, is shown its name and rules text in
     // the respond prompt ("Alice cast Veiled Thicket Stalker"): the prompt names the top entry's card from the game's card
     // data without asking whether the viewer may see it (the Stack entry itself is face down)
     @Test fun theRespondPromptDoesNotNameAFaceDownSpell() {
@@ -189,7 +189,7 @@ class AutomatumI3ReviewTest {
             call.perform(Input.PassPriority(PlayerId(f.a)))
             StepFlow.automatic(call)
         }
-        assertTrue(play.board.stackEffects.single().faceDown == true, "the entry is face down (STK-005)")
+        assertTrue(play.board.stackEffects.single().faceDown == true, "the entry is face down (SYS-065)")
         assertEquals(f.b, play.board.priority?.holder, "Bob may respond")
         AutomatumBoards.compute(play, f.b)
         AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
@@ -207,25 +207,7 @@ class AutomatumI3ReviewTest {
             "Alice cast a morph creature face down and Bob may respond: his prompt reads \"Alice cast a face-down spell\" without its name or text, its card covered, with Respond (the step arrow reads Resolve).")
     }
 
-    // #5 (STK-032, I-D37): while Automatum waits for something done by hand, manual edits work until Done. After the first
-    // edit the board is new and its flow isn't worked out yet (SharedFlowHost does it on a worker), so the next edit is
-    // refused as if a choice were waiting ("Automatum is waiting for a choice …"): quick taps on a stepper fail
-    @Test fun manualEditsInARowWhileSomethingIsDoneByHand() {
-        val alice = byHandOpen()
-        assertTrue(alice.submit(PlayAction.AdjustLife(f.b, "-1")), alice.error)
-        assertTrue(alice.submit(PlayAction.AdjustLife(f.b, "-1")), alice.error)
-    }
 
-    // #6 (STK-032 vs ZON-077, I-D37): "the table's manual edits (life, counters, moves) work until Done", but drags, the
-    // way cards are moved and life is changed on the table, are still refused as Automatum drags
-    @Test fun dragsWorkWhileSomethingIsDoneByHand() {
-        val alice = byHandOpen()
-        val creature = card(play, brute, aField)
-        assertTrue(alice.handle(TableIntent.Move(TableScope(creature, listOf(creature)),
-            TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)), alice.error)
-        AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
-        assertTrue(alice.handle(TableIntent.PlayerDelta(f.b, null, -2)), alice.error)
-    }
 
     // #12 (SYS-025): drafting attackers doesn't work combat out again on the main thread: the board after a drafted card
     // is checked against what the last shown board allowed (the same declaration is awaited; the engine doesn't read the

@@ -1,1 +1,0 @@
-Change tags on two smallest-size cards over stripes, 1.2 seconds in: fading out after the hold.

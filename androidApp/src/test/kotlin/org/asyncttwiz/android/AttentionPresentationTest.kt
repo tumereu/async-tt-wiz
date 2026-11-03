@@ -81,20 +81,4 @@ class AttentionPresentationTest {
             historyText(changed.mutation, d.initial, d.actor, names).description)
     }
 
-    @Test fun combatAdvanceQuickActionUsesTheSharedAttentionReset() {
-        val d = GameplayFixture()
-        var play = d.initial.copy(board = d.initial.board.copy(
-            turn = d.initial.board.turn.copy(phase = "COMBAT", step = "END_COMBAT"), attentionHolder = d.other))
-        val sent = mutableListOf<PlayAction>()
-        val toolkit = TableToolkitController(d.actor, { play }, { true }, { action, _ ->
-            sent += action
-            val change = GameplayRules.change(play, d.actor, d.command(action))
-            change.state?.also { play = it } != null
-        })
-        assertTrue(toolkit.perform(TableActionIntent.Combat(TableActionScope(play.gameId, play.id),
-            CombatTool.ADVANCE_AND_CLOSE, null)))
-        assertEquals(listOf<PlayAction>(PlayAction.NextStep), sent)
-        assertEquals(TurnPosition.POSTCOMBAT_MAIN, TurnPosition.of(play.board.turn))
-        assertEquals(d.actor, play.board.effectiveAttentionHolder)
-    }
 }

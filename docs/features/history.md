@@ -1,6 +1,6 @@
 # History
 
-The game timeline: the event strip, timeline mode and playback, catching up on what happened, branches and rewinds, undo/redo, event texts and icons, event groups and pings.
+The game timeline: the event strip, timeline mode and playback, catching up on what happened, branches and rewinds, undo/redo, event texts and icons and event groups.
 
 ### Play-mode event strip
 
@@ -13,7 +13,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 ### Timeline mode
 
 - **HIS-006** Timeline mode starts by itself only when a game opens (or the app returns) with unseen events; otherwise only when the player enters it. Opponent actions, hold-inspect and menu actions keep the table live. (r29)
-- **HIS-007** Timeline mode and play mode use the same bottom area height and cross-fade in about 200 ms, so the board never jumps; the hand, piles, life and counters sit unchanged directly above the timeline panel. (r14)
+- **HIS-007** Timeline mode and play mode use the same bottom area height and cross-fade in about 200 ms, so the board never jumps; the hand, piles and life sit unchanged directly above the timeline panel. (r45)
 - **HIS-008** In timeline mode the top and bottom bars turn grey, the battlefield is dimmed, and the board centre shows a faint "Timeline mode" label with icon and, on its own line, the playback status "Playing", "Paused" or "Rewinding" with its icon. (r31)
 - **HIS-009** When playback starts or stops (by hand, by auto-pause or at the end), a large play or pause sign flashes in the board's top-right corner; while a rewind runs, a rewind sign stays there. (r31)
 - **HIS-010** The timeline panel has the strip with a playback settings gear and a game tree button at its end, and below it Previous, the Auto button and Next. Previous/Next are plain borderless arrows. (r21)
@@ -22,7 +22,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-013** The Auto button reads "Auto: off" (green play icon) or "Auto: on" (orange pause icon); tapping toggles automatic playback. Whenever it does not read "Rewind", a small "Hold to branch" line shows under the label. (r35)
 - **HIS-014** Auto always heads for the live game. On an old branch, or when the opponent branched, the button shows the rewind sign and "Rewind": it first rewinds to where the lines split, then plays on. (r31)
 - **HIS-015** Navigating to the last event by hand stays in timeline mode; only automatic playback reaching the end returns to play mode, even if the last event would auto-pause, and its animation still plays. (r14)
-- **HIS-016** In timeline mode double tap does nothing (no error), multi-select is off, a one-finger drag on empty table pans, and card menus and bubbles do not act on the game. (r13)
+- **HIS-016** In timeline mode double tap does nothing (no error), a one-finger drag on empty table pans, and card menus do not act on the game. (r45)
 - **HIS-017** Hold-inspect works on every face-up card in timeline mode too, and holding a card pauses playback. (r8)
 - **HIS-018** "Return to current" in the top bar leaves timeline mode for the live game. Back leaves timeline mode at once without playing the rest back. (r6)
 - **HIS-019** Leaving timeline mode never asks a question and always returns to the live game; branching needs its own action (HIS-036). (r6)
@@ -95,7 +95,7 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-066** Random moves read e.g. "Discarded X at random", "Exiled X from hand at random", "Put … on top of library in random order"; moves made during a search add "(after search)". (r33)
 - **HIS-067** A group of card moves merges same-kind moves into one text, joined with "; " ("Drew Shock, Opt, 2 cards; Discarded a card"), listing every card the viewer saw; longer than 180 characters ends in "…". Other groups read as their most important event. (r33)
 - **HIS-068** Other texts include "Moved to <step>", "Turn N → <player>", "Move passed → <player>", "d20 → 14", "Heads / win" / "Tails / loss", "Mulligan to N", "Status → <first 48 characters>…", "Library searched → N cards" and "Search closed → Library shuffled". (r34)
-- **HIS-091** The Automatum switch reads "alice turned Automatum on" / "bob turned Automatum off" with the name of who turned it, and a pass made for the player holding priority (after their pause, or Pass for them) reads "alice passed for bob", the texts that name their actor (HIS-061); other Automatum events read plainly ("Priority → bob", "Mana → RG", "X +1/+1 counters 1 → 2", "Automatum records updated") until the engine's own history lines are built. An emblem reads like a status: "Emblem → " and the first 48 characters of its text, "alice's Emblem → …" when someone else made it, and "Emblem removed". (r37)
+- **HIS-091** A pass made for the player holding priority (after their pause, or Pass for them) reads "alice passed for bob", the texts that name their actor (HIS-061); other Automatum events read plainly ("Priority → bob", "Mana → RG", "X +1/+1 counters 1 → 2", "Automatum records updated") until the engine's own history lines are built. An emblem reads like a status: "Emblem → " and the first 48 characters of its text, "alice's Emblem → …" when someone else made it, and "Emblem removed". (r37)
 - **HIS-069** Texts are made when the event is applied and also exist for older moves; when the app lacks the board context it says only "X moved", never a guessed zone. (r30)
 
 ### Event icons
@@ -112,20 +112,11 @@ The game timeline: the event strip, timeline mode and playback, catching up on w
 - **HIS-076** In timeline mode it shows for every group shown, yours too, also when scrubbing (a partial group shows its partial text); live it shows only for the opponent's new groups, and stays quiet on open, return and undo. (r29)
 - **HIS-077** The chip appears and changes at once and fades out in 450 ms after the longer of 2 s and the playback pause, on its own clock even while paused; moving to another board drops it at once. (r31)
 
-### Pings
-
-- **HIS-078** The table mode button cycles Normal → Select → Ping. In Ping mode, tapping a card, a Stack/combat entry, a life total or counter (the player), an area or an empty spot pings it; tapping a ping removes it. The card menu has Ping too. With Automatum on there is no Ping mode, no Ping in menus and no ping is shown (TBL-119). (r44)
-- **HIS-079** A ping belongs to the event group being shown and joins its author's group. Ping mode turns back to Normal when the shown group changes. (r7)
-- **HIS-080** An active ping shows a numbered marker with an expanding ring loop (about 1.2 s) in the pinger's colour. Numbers always count the active pings of the group (ping a, b, unping a → b becomes 1). (r7)
-- **HIS-081** When the shown group moves past a ping group, its rings linger about 2.5 s and fade out instead of vanishing; jumps never leave lingering rings. (r14)
-- **HIS-082** Stack and combat entries can have their own pings, separate from the real card. (r13)
-
 ### Undo and redo
 
 - **HIS-083** The Undo button sits at the left end of the bottom bar: tap = Undo, hold = Redo with a small haptic tick. (r3)
 - **HIS-084** Undo always targets your own latest action, even if the opponent acted after it; it is refused when the opponent made more than 50 actions since then. (r6)
-- **HIS-085** One invocation (a quick action, a multi-selection action, a batched double-tap cast) undoes and redoes as one. (r15)
+- **HIS-085** One invocation (a quick action, a batched cast) undoes and redoes as one. (r45)
 - **HIS-086** Undo removes the event from history: the game is exactly as if it never happened, with no trace in the timeline. (r6)
 - **HIS-087** Undo/redo is allowed only if every later event still changes the fields it concerns from and to exactly the same values; what players have seen never matters, so undoing your own look, scry or reveal is allowed. When unsure, it refuses. (r11)
-- **HIS-088** A ping concerns only its target: an opponent's ping on your attacking copy blocks undoing that attack; a ping on the card itself does not. (r11)
 - **HIS-089** Undo never changes an existing branch. A refused undo/redo shows a short reason starting "Can't undo:" / "Can't redo:", e.g. "your opponent has made too many moves since your last one." (r6)

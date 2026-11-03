@@ -1,9 +1,8 @@
 package org.asyncttwiz.protocol
 
 val GameAction.isPlay: Boolean get() = this is GameAction.Play || this is GameAction.PlayBatch
-/** An action on a play's history tree: play, Undo, Redo and (rules v36) reverting or leaving an Automatum flow. */
-val GameAction.isGameplay: Boolean get() = isPlay || this == GameAction.Undo || this == GameAction.Redo || this == GameAction.RevertFlow ||
-    this is GameAction.ExitFlow
+/** An action on a play's history tree: play, Undo and Redo. */
+val GameAction.isGameplay: Boolean get() = isPlay || this == GameAction.Undo || this == GameAction.Redo
 
 /** A batch is transport/atomicity only: each member still uses the ordinary gameplay reducer. */
 object PlayBatches {

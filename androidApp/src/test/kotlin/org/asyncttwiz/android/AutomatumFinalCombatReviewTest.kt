@@ -92,7 +92,7 @@ class AutomatumFinalCombatReviewTest {
             first(aHand, aliceHand.size).zip(aliceHand) + first(bHand, bobHand.size).zip(bobHand)).toMap()
         val dropped = initial.board.cards.filter { it.containerId in setOf(aField, bField, aHand, bHand) && it.id !in roles }.map { it.id }.toSet()
         return initial.copy(definitions = initial.definitions + all.map { it.submitted },
-            board = initial.board.copy(automatum = true, priority = priority,
+            board = initial.board.copy(priority = priority,
                 turn = TurnState(f.a, "3", position.phase, position.step),
                 cards = initial.board.cards.filter { it.id !in dropped }.map { card -> roles[card.id]?.let { what ->
                     card.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner, tapped = false,
@@ -129,12 +129,12 @@ class AutomatumFinalCombatReviewTest {
 
     private fun scene(viewer: String, landscape: Boolean = false) =
         if (landscape) TablePresentation.scene(f.game, play, viewer, 892f, 412f, true) else TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
-    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
+    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
     private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
-    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, TableSelection(), toolkit.viewer)
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
     /** The step arrow (TRN-063): it reads [label] (when given), isn't greyed, and a tap goes on. */
@@ -243,7 +243,7 @@ class AutomatumFinalCombatReviewTest {
         assertTrue(reacting.cast.start(bobSpark), reacting.error)
         val bearItem = TablePresentation.scene(f.game, at, f.b, 412f, 892f, false).items
             .first { it.cardId == bearCard && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD }
-        reacting.open(TableIntent.Actions(bearItem.id, null), bearItem, TableSelection())
+        reacting.open(TableIntent.Actions(bearItem.id, null), bearItem)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (reacting.cast.open) assertTrue(reacting.cast.cast(), reacting.error)
         assertTrue(play.currentNodeId != live && tree!!.nodes.values.count { it.parentId == held } == 2, "a branch from the held point")
@@ -351,7 +351,7 @@ class AutomatumFinalCombatReviewTest {
     // pause bar has Hold but no Pass, and combat offers no quick action of its own
     @Test fun thePauseOnTheBlocksHasOnePass() {
         val alice = blocked()
-        val context = toolkitQuickContext(play, TableSelection(), f.a)
+        val context = toolkitQuickContext(play, f.a)
             .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         val scope = TableActionScope(play.gameId, play.id)
         assertTrue(automatumCombatQuickActions(play, context, scope).orEmpty().isEmpty(), "no combat quick action")

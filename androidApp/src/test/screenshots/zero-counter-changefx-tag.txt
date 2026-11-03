@@ -1,1 +1,0 @@
-0.65 seconds after player A's blue counter drops from 1 to 0: the flash is over, a -1 tag stays beside the empty slot.

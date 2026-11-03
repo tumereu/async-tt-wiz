@@ -101,7 +101,7 @@ class IndexedEndpointScaleTest {
                 endpointBytes[size] = json.encodeToString(initial).length
                 assertTrue(initial.annotations.commentsById.isEmpty() && initial.annotations.pingsById.isEmpty())
                 val anchor = EventReference(initial.id, initial.currentNodeId)
-                val command = F.command(fixture, GameAction.Play(PlayAction.AdjustLife(F.a, "1")), 800001)
+                val command = F.command(fixture, automatedPlay(PlayAction.AdjustLife(F.a, "1")), 800001)
                 fun read(s: GameplayStore = store): GameplayTree {
                     val state = PlayStore.read(observed, uuid(initial.gameId))!!
                     val revision = observed.fetchOne("SELECT checkpoint_revision FROM game_play WHERE id=?::uuid", initial.id)!!.get(0, Long::class.java)
@@ -119,14 +119,14 @@ class IndexedEndpointScaleTest {
                     "cold-command" to { change(read(GameplayStore()), command.action); Unit },
                     "warm-command" to { val tree = read(); store.committed(size.toLong(), tree); change(read(), command.action); Unit },
                     "comment" to {
-                        val next = change(read(), GameAction.Play(PlayAction.EventComment(anchor, "indexed comment")))
+                        val next = change(read(), automatedPlay(PlayAction.EventComment(anchor, "indexed comment")))
                         assertEquals("indexed comment", next.stateAt(next.currentNodeId)!!.annotations.commentsById[next.currentNodeId]!!.text)
                         assertTrue(PlayStore.read(observed, uuid(initial.gameId))!!.annotations.commentsById.isEmpty())
                     },
-                    "ping" to { change(read(), GameAction.Play(PlayAction.Ping(anchor, F.pingTarget))); Unit },
+                    "ping" to { change(read(), automatedPlay(PlayAction.Ping(anchor, F.pingTarget))); Unit },
                     "unping" to {
-                        change(read(), GameAction.Play(PlayAction.Ping(anchor, F.pingTarget)))
-                        change(read(), GameAction.Play(PlayAction.Unping(anchor, F.pingTarget)), request = 800002); Unit
+                        change(read(), automatedPlay(PlayAction.Ping(anchor, F.pingTarget)))
+                        change(read(), automatedPlay(PlayAction.Unping(anchor, F.pingTarget)), request = 800002); Unit
                     },
                     "undo" to { change(read(), GameAction.Undo, F.b); Unit },
                     "redo" to {
@@ -164,7 +164,7 @@ class IndexedEndpointScaleTest {
                 // their complete ancestry identities. A subsequent cold read must see all of
                 // those sparse index writes, not only the wire's changed mutation payloads.
                 val suffix = (800001..800004).map { request -> change(read(),
-                    GameAction.Play(PlayAction.AdjustLife(F.b, "1")), F.b, request).currentNodeId }
+                    automatedPlay(PlayAction.AdjustLife(F.b, "1")), F.b, request).currentNodeId }
                 val removed = change(read(), GameAction.Undo, F.a, 800009, maxIndexed = 64)
                 val cold = read(GameplayStore())
                 for (node in suffix) assertEquals(removed.materializationId(node), cold.materializationId(node))

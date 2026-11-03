@@ -16,7 +16,8 @@ import org.asyncttwiz.protocol.SuggestedResult
 internal data class GameNotificationText(val title: String, val text: String, val whenMillis: Long)
 internal fun gameNotificationText(content: GameNoticeContent) = GameNotificationText(
     "${content.gameName} · vs ${content.opponentName}",
-    (content.gameOver?.let { "Game over · ${content.opponentName} accepted ${gameOverResult(it)}" }
+    (content.gameOver?.let { if (content.conceded) "Game over · ${content.opponentName} conceded"
+        else "Game over · ${content.opponentName} accepted ${gameOverResult(it)}" }
         ?: if (content.reminder) "${content.opponentName} is waiting for you"
         else if (content.opponentReady) "${content.opponentName} is ready" // LOB-114
         else if (content.yourMove) "Your move"

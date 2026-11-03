@@ -106,7 +106,7 @@ class R23RulesTest {
         } }))
     }
 
-    // ZON-039, ZON-042
+    // I-D52
     @Test fun firstMoveIntoTempCreatesTheHiddenPileAndItsInverseRemovesIt() {
         val start = graveyardState()
         assertNull(TempPiles.container(start.board, a))
@@ -201,7 +201,7 @@ class R23RulesTest {
         assertEquals(gameplayId(13), bottom.board.containers.single { it.id == library }.cards.last())
     }
 
-    // ZON-042
+    // I-D52
     @Test fun tokensAreNotPutIntoAMissingTempPile() {
         val start = gameplayFixture()
         val token = accepted(start, PlayAction.CreateToken(TokenCatalog.blank), 100).state!!

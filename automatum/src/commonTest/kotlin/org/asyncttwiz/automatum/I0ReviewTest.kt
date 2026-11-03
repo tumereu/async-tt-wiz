@@ -347,7 +347,7 @@ class I0ReviewTest {
         cast(rt, alice, "Barkwood Pathfinders") { it.way.alternative != null }
         rt.settle()
         assertTrue(rt.engine().objects.values.single { it.card.value == card }.faceDown, "the spell is face down on the Stack")
-        // STK-005: its ATW Stack entry is face down, so the opponent sees a back
+        // I-D52: its ATW Stack entry is face down, so the opponent sees a back
         assertTrue(rt.state.board.stackEffects.single { it.sourceId == card }.faceDown, "the entry is face down")
         assertTrue(rt.engine(bob).objects.values.single { it.card.value == card }.unknown, "Bob doesn't know the spell")
         drive(rt) { stackEmpty(it) }

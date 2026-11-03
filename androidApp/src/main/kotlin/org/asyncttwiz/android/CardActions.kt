@@ -20,264 +20,48 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import org.asyncttwiz.protocol.*
 
-internal fun counterColor(color: CounterColor): Color = when (color) {
-    CounterColor.RED -> Color(0xffedafb3)
-    CounterColor.BLUE -> Color(0xffb0d6f0)
-    CounterColor.GREEN -> Color(0xffb1dab9)
-    CounterColor.YELLOW -> Color(0xfff3e49e)
-    CounterColor.PURPLE -> Color(0xffd8b8ec)
-    CounterColor.GRAY -> Color(0xffcdd1d4)
-}
-
-internal fun nextPrintedFace(state: PlayState, card: PlayCard): PlayAction.SetFace? {
-    val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
-    if (faces.size < 2) return null
-    return PlayAction.SetFace(card.id, faces[(faces.indexOfFirst { it.faceId == card.faceId } + 1) % faces.size].faceId)
-}
-
-internal fun cardModificationEnabled(zone: PlayZone, note: Boolean = false, projection: Boolean = false) =
-    if (note) projection || zone == PlayZone.BATTLEFIELD
-    else !projection && zone == PlayZone.BATTLEFIELD
-
-internal fun resetCardCounters(state: PlayState, scope: ManualScope): List<PlayAction> =
-    CounterColor.entries.flatMap { color -> scope.cardActions(state) { card ->
-        if (color in card.counters && state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD })
-            PlayAction.ClearCardCounter(card.id, color) else null
-    } }
-
-/** The combat layout's P/T, damage and EOT cells for a copy whose real card left play: shown, greyed out (CMB-003). */
-internal fun leftPlayMarkEntries(): List<RingEntry> {
-    fun off(name: String) = MenuControl(name, false) {}
-    return listOf(
-        RingEntry("corner", "P/T", off("Set corner"), RingCompound("—", off("Decrease corner"), off("Increase corner"), corner = true)),
-        RingEntry("damage", "Damage", MenuControl("Set damage", false, color = Color(0xffb3261e)) {},
-            RingCompound("—", off("Decrease damage"), off("Increase damage"))),
-        RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", false, color = Color(EotPowerToughnessColor)) {},
-            RingCompound("—", off("Decrease EOT P/T"), off("Increase EOT P/T"), corner = true)),
-        RingEntry("eotNote", "EOT note", off("Edit EOT note")),
-        RingEntry("eotKeywords", "EOT keywords", off("Edit EOT keywords")))
-}
-
-/** Captures no board snapshot: every composition reads the provided current accepted/predicted state. */
+/**
+ * A card's menu (TBL-115, TBL-116; battlefield card, combat copy, Graveyard or Exile panel card): what Automatum offers
+ * for it as rows, then only Inspect, Other side and the combat draft's Attack → and Remove from combat. Nothing changes
+ * the game by hand (I-D52). A hand card has no menu (ZON-079).
+ */
 @Composable
-internal fun CardActions(state: PlayState, viewer: String, scope: ManualScope, actions: ManualActions,
-    enabled: Boolean, names: Map<String, String>,
-    submitAll: ((List<PlayAction>) -> Unit)? = null, tools: List<MenuControl> = emptyList(), previewViewId: String? = null,
-    inspect: (() -> Unit)? = null, editProjectionNote: (() -> Unit)? = null, automatumRows: List<EngineRow> = emptyList(),
-    submit: (PlayAction) -> Boolean) {
-    val card = TablePresentation.cardForActions(state, scope.contextId)
-    val zone = state.board.containers.single { it.id == card.containerId }.zone
-    // Values of a card whose face this viewer cannot see never show; they can still be edited blind (rules v30 policy:
-    // every action for both players), with masked values and editors that start empty.
-    val hidden = cardValuesHidden(state.board, state.board.cards.single { it.id == scope.contextId }, viewer)
-    val battlefield = enabled && cardModificationEnabled(zone)
-    fun emit(actions: List<PlayAction>) { if (submitAll != null) submitAll(actions) else actions.forEach { submit(it) } }
-    fun send(factory: (PlayCard) -> PlayAction?) { emit(scope.cardActions(state, factory)) }
-    // Automatum on (I1, I-D28): a card whose P/T the engine computes shows it, and its P/T can't be edited by hand.
-    val computed = LocalComputedBoard.current
-    val computedCorner = computed.cards[card.id]?.corner
-    fun cornerLocked(target: PlayCard) = computed.cards[target.id]?.corner != null
-    val cornerEditable = computedCorner == null
-    SideEffect { actions.cornerLocked = { id -> computed.cards[id]?.corner != null } }
-    val faces = state.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
+internal fun EngineCardMenu(toolkit: TableToolkitController, play: PlayState, bound: ToolkitCapture, names: Map<String, String>,
+    enabled: Boolean) {
+    val view = bound.contextViewId
+    val card = CombatStackRules.liveSource(play.board, view) ?: return
+    val viewer = toolkit.viewer
+    val layout = CardRingPages.context(play.board, view) ?: CardMenuLayout.CARD
+    if (layout == CardMenuLayout.HAND) return
+    val faces = play.definitions.singleOrNull { it.digest == card.definition }?.definition?.faces.orEmpty()
     val other = if (card.covered) faces.singleOrNull { it.faceId == card.faceId } else faces.firstOrNull { it.faceId != card.faceId }
-    val entries = mutableListOf<RingEntry>()
-    fun add(id: String, label: String, control: MenuControl) { entries += RingEntry(id, label, control) }
-    add("inspect", "Inspect", MenuControl("Inspect") { if (inspect != null) inspect() else actions.inspect(state, viewer) })
-    // The deliberate, logged way to see another face, also an opponent's face-down front.
-    add("otherSide", "Other side", MenuControl("Inspect other side", enabled && other != null) {
-        other?.let { submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
-    })
-    add("flip", if (card.covered) "Face up" else "Face down",
-        MenuControl(if (card.covered) "Turn face up" else "Turn face down", enabled) { send { PlayAction.SetCovered(it.id, !card.covered) } })
-    add("resetCorner", "Reset P/T", MenuControl("Reset corner", battlefield && cornerEditable) {
-        send { if (cornerLocked(it)) null else PlayAction.ResetCorner(it.id) } })
-    add("resetCounters", "Reset", MenuControl("Reset counters", battlefield) { emit(resetCardCounters(state, scope)) })
-    val projection = previewViewId in CombatStackRules.projectionIds(state.board)
-    add("note", "Note", MenuControl("Edit card note", enabled && cardModificationEnabled(zone, note = true, projection = projection)) {
-        if (projection && editProjectionNote != null) editProjectionNote()
-        else actions.edit(ManualValue(ManualValueKind.NOTE), state, viewer)
-    })
+    val combat = bound.viewIds.filter { id -> CombatStackRules.occurrences(play.board.combat).any { it.id == id } }
+    // A battlefield card's own "Attack →" retargets its attacker copies, exactly like the copy's
+    val attackers = play.board.combat?.pairs.orEmpty().flatMap { it.attackers }.filter { it.sourceId == card.id }.map { it.id }
+    fun entry(control: MenuControl, id: String = control.name) = RingEntry(id, ringShortLabel(control.name), control)
+    val entries = listOf(
+        entry(MenuControl("Inspect") { toolkit.inspect(view) }, "inspect"),
+        // The deliberate, logged way to see another face, also an opponent's face-down front (TBL-088)
+        entry(MenuControl("Inspect other side", enabled && other != null) {
+            other?.let { toolkit.submit(PlayAction.InspectFace(card.id, it.faceId, card.containerId)) }
+        }, "otherSide").copy(label = "Other side"),
+        if (layout == CardMenuLayout.COMBAT)
+            entry(MenuControl("Attack →", enabled && CombatStackController.attackerPairs(play.board, bound.viewIds).isNotEmpty()) {
+                toolkit.openAttackTargets() })
+        else entry(MenuControl("Attack →", enabled && attackers.isNotEmpty()) { toolkit.openAttackTargets(attackers) }),
+        entry(MenuControl("Remove from combat", enabled && combat.isNotEmpty()) {
+            if (toolkit.removeFromCombat(bound.copy(viewIds = combat))) toolkit.dismiss()
+        }))
     val ownerColor = if (card.owner == viewer) OwnTableColor else OpponentTableColor
-    add("owner", "Owner", MenuControl("Owner ${names[card.owner] ?: "Player"}; switch to other player", battlefield && card.token, color = ownerColor) {
-        val next = state.board.players.firstOrNull { it.accountId != card.owner }
-        if (next != null) send { if (it.token) PlayAction.SetOwner(it.id, next.accountId) else null }
-    })
-    add("switchFace", "Switch face", MenuControl("Switch face", enabled && faces.size > 1) {
-        send { target -> nextPrintedFace(state, target) }
-    })
-    fun corner(part: CornerPart, delta: Int) = scope.cardActions(state) {
-        if (!cornerLocked(it) && ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
-    }
-    fun whole(delta: Int) = scope.cardActions(state) {
-        if (cornerLocked(it)) return@cardActions null
-        val part = if ('/' in it.corner) CornerPart.BOTH else CornerPart.WHOLE
-        if (ManualText.corner(it.corner, part, delta) != null) PlayAction.AdjustCorner(it.id, part, delta) else null
-    }
-    fun adjustment(name: String, requests: List<PlayAction>) = MenuControl(name, battlefield && requests.isNotEmpty()) { emit(requests) }
-    // Damage and the EOT marks change battlefield cards only; a combat copy sets them on its real card (CMB-003).
-    val marksEnabled = enabled && zone == PlayZone.BATTLEFIELD
-    fun markActions(factory: (PlayCard) -> PlayAction?) = scope.cardActions(state) { target ->
-        if (state.board.containers.any { it.id == target.containerId && it.zone == PlayZone.BATTLEFIELD }) factory(target) else null
-    }
-    fun markAdjustment(name: String, requests: List<PlayAction>) = MenuControl(name, marksEnabled && requests.isNotEmpty()) { emit(requests) }
-    fun damage(delta: Long) = markActions {
-        if (TableActions.addNumber(it.damage.ifEmpty { "0" }, delta.toString()) != null) PlayAction.AdjustDamage(it.id, delta.toString()) else null
-    }
-    entries += RingEntry("damage", "Damage", MenuControl("Set damage", marksEnabled, color = Color(0xffb3261e)) {
-        actions.edit(ManualValue(ManualValueKind.DAMAGE), state, viewer)
-    }, RingCompound(if (hidden) "—" else card.damage.ifEmpty { "0" }, markAdjustment("Decrease damage", damage(-1)), markAdjustment("Increase damage", damage(1)),
-        drag = { if (marksEnabled) emit(damage(it)) }, dragValue = if (hidden) "" else card.damage.ifEmpty { "0" }))
-    fun eot(part: CornerPart, delta: Int) = markActions {
-        if (!cornerLocked(it) && ManualText.adjustEotCorner(it.eotCorner, part, delta) != null) PlayAction.AdjustEotCorner(it.id, part, delta) else null
-    }
-    entries += RingEntry("eotCorner", "EOT P/T", MenuControl("Set EOT P/T", marksEnabled && cornerEditable, color = Color(EotPowerToughnessColor)) {
-        actions.edit(ManualValue(ManualValueKind.EOT_CORNER), state, viewer)
-    }, RingCompound(if (hidden) "—" else "⌛${card.eotCorner.ifEmpty { "0/0" }}", markAdjustment("Decrease EOT P/T", eot(CornerPart.BOTH, -1)),
-        markAdjustment("Increase EOT P/T", eot(CornerPart.BOTH, 1)), drag = { delta ->
-            if (marksEnabled && cornerEditable) emit(markActions { target -> if (cornerLocked(target)) null else cornerDragValue(target.eotCorner.ifEmpty { "0/0" }, delta)?.let { PlayAction.SetEotCorner(target.id, it) } })
-        }, dragValue = if (hidden) "" else card.eotCorner.ifEmpty { "0/0" }, corner = true))
-    add("eotNote", "EOT note", MenuControl("Edit EOT note", marksEnabled) {
-        actions.edit(ManualValue(ManualValueKind.EOT_NOTE), state, viewer)
-    })
-    // Keywords follow the note gates; a note with any non-keyword text disables its toggles. The toggles would show
-    // a hidden card's note, so that card offers the blind note editor instead.
-    fun keywordsParseable(eot: Boolean) = CardKeywords.state(scope.keywordCards(state, eot).map { CardKeywords.note(it, eot) }) != null
-    add("keywords", "Keywords", MenuControl("Edit keywords",
-        enabled && !hidden && cardModificationEnabled(zone, note = true) && keywordsParseable(false)) { actions.keywords(false, state) })
-    add("eotKeywords", "EOT keywords", MenuControl("Edit EOT keywords", marksEnabled && !hidden && keywordsParseable(true)) {
-        actions.keywords(true, state)
-    })
-    for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "EOT +1/+0"), Triple(CornerPart.RIGHT, 1, "EOT +0/+1"),
-        Triple(CornerPart.LEFT, -1, "EOT −1/−0"), Triple(CornerPart.RIGHT, -1, "EOT +0/−1"))) {
-        add("eotCorner/${part.name}/$delta", symbol, markAdjustment("EOT P/T ${symbol.removePrefix("EOT ")}", eot(part, delta)))
-    }
-    entries += RingEntry("corner", "P/T", MenuControl("Set corner", battlefield && cornerEditable) { actions.edit(ManualValue(ManualValueKind.CORNER), state, viewer) },
-        RingCompound(if (hidden) "—" else (computedCorner ?: card.corner).ifEmpty { "—" }, adjustment("Decrease corner", whole(-1)), adjustment("Increase corner", whole(1)), drag = { delta ->
-            if (battlefield && cornerEditable) emit(scope.cardActions(state) { target ->
-                if (cornerLocked(target)) null else cornerDragValue(target.corner, delta)?.let { PlayAction.SetCorner(target.id, it) }
-            })
-        }, dragValue = if (hidden) "" else computedCorner ?: card.corner, corner = true))
-    // Always shown; disabled on cards without a two-part P/T.
-    for ((part, delta, symbol) in listOf(Triple(CornerPart.LEFT, 1, "+1/+0"), Triple(CornerPart.RIGHT, 1, "+0/+1"),
-        Triple(CornerPart.LEFT, -1, "−1/−0"), Triple(CornerPart.RIGHT, -1, "+0/−1"))) {
-        add("corner/${part.name}/$delta", symbol, adjustment("P/T $symbol", corner(part, delta)))
-    }
-    for (color in CounterColor.entries) {
-        fun adjust(delta: Int) = adjustment("${if (delta > 0) "Increase" else "Decrease"} ${color.name.lowercase()} counter", scope.cardActions(state) {
-            if (ManualText.add(it.counters[color] ?: "0", delta.toLong()) != null)
-                PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
-        })
-        entries += RingEntry("counter/${color.name}", color.name.lowercase(), MenuControl("Set ${color.name.lowercase()} counter", battlefield,
-            color = counterOutline(color)) { actions.edit(ManualValue(ManualValueKind.COUNTER, color), state, viewer) },
-            RingCompound(ManualText.cardCounterText(card.counters[color]?.takeUnless { hidden }), adjust(-1), adjust(1), drag = { delta ->
-                if (battlefield) emit(scope.cardActions(state) {
-                    if (ManualText.add(it.counters[color] ?: "0", delta) != null)
-                        PlayAction.AdjustCounter(CounterTarget.CARD, it.id, color, delta.toString()) else null
-                })
-            }, dragValue = if (hidden) "" else card.counters[color]?.takeIf { it.isNotEmpty() } ?: "0"), counterColor(color))
-    }
-    for (tool in tools.distinctBy { it.name }) add(tool.name, ringShortLabel(tool.name), tool)
-    val layout = CardRingPages.context(state.board, previewViewId ?: card.id) ?: CardMenuLayout.CARD
-    val attacker = CardRingPages.declaredAttacker(state.board, listOf(card.id))
-    // Automatum on (§3 I4, I-D28, I-D46): only the engine's actions and what has no game effect; while Automatum waits
-    // for something done by hand (I-D37) the menu is today's
-    val automatum = state.board.automatum
-    val engineMenu = automatum && !AutomatumBoards.manualAllowed(state)
-    val pages = if (engineMenu) CardRingPages.automatumPages(layout, token = card.token, attacker = attacker)
-        else CardRingPages.pages(layout, token = card.token, attacker = attacker,
-            cast = automatum && CastController.playLabel(state, card.id, viewer) == "Cast")
-    val rows = if (engineMenu) automatumRows else emptyList()
-    val view = previewViewId ?: card.id
+    val rows = automatumRows(toolkit, play, bound, names, enabled)
+    val page = CardRingPages.page(layout)
     val anchors = LocalCardRingAnchors.current
-    CompositionLocalProvider(LocalValueDragSide provides cardValueDragSide(state.board, card, viewer)) {
-    if (view in anchors) CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages,
-        rows, remembered = !engineMenu)
+    if (view in anchors) CardActionRing(card.id, view, entries, card.owner == viewer, ownerColor, toolkit::dismiss, page, rows)
     else BoxWithConstraints(Modifier.fillMaxSize()) {
-        // A browser/off-screen source has no table drawing: retain the old preview, not an invisible anchor.
-        val size = rememberCardAppearance().size(CardArea.PANELS)
-        val anchor = TableBounds(maxWidth.value / 2 - 24 * size, maxHeight.value / 2 - 50 * size, 48f * size, 100f * size)
-        Box(Modifier.offset(anchor.x.dp, anchor.y.dp)) { ManualCardPreview(state, viewer, card.id, scope.targetIds.size, names, previewViewId) }
+        // A card without a table drawing: the menu centres on the screen
+        val anchor = TableBounds(maxWidth.value / 2 - 24, maxHeight.value / 2 - 50, 48f, 100f)
         CompositionLocalProvider(LocalCardRingAnchors provides (anchors + (view to anchor))) {
-            CardActionRing(state.gameId, viewer, scope.contextId, view, entries, card.owner == viewer, ownerColor, actions::close, layout, pages,
-                rows, remembered = !engineMenu)
-        }
-    }
-    }
-}
-
-@Composable
-internal fun ManualCardPreview(state: PlayState, viewer: String, cardId: String, count: Int, names: Map<String, String> = emptyMap(),
-    viewId: String? = null) {
-    val card = state.board.cards.singleOrNull { it.id == cardId } ?: return
-    val faces = ManualDisclosure.permittedFaces(state, card, viewer, inspecting = false)
-    val face = faces.singleOrNull()
-    val values = !cardValuesHidden(state.board, card, viewer)
-    val faceDown = publicFaceDown(state.board, card)
-    val appearance = rememberCardAppearance()
-    val size = appearance.size(CardArea.PANELS)
-    val titleScale = size * appearance.text(CardTextScalePart.TITLE)
-    val noteScale = size * appearance.text(CardTextScalePart.NOTE)
-    val valueScale = size * appearance.text(CardTextScalePart.VALUES)
-    val owner = if (card.owner == viewer) Color(0xff287f85) else Color(0xffa84f58)
-    val tapped = card.tapped && viewId !in CombatStackRules.projectionIds(state.board) &&
-        state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD }
-    Column(Modifier.width(48.dp * size).height(100.dp * size).cardFrame(card.token, owner, viewId in CombatStackRules.projectionIds(state.board))
-        .padding(horizontal = if (card.token) 8.dp else 3.dp, vertical = 4.dp)
-        .semantics { contentDescription = "${face?.name ?: "Covered card"}, owner ${names[card.owner] ?: "Player"}, ${if (tapped) "tapped" else "untapped"}, $count captured targets" }) {
-        Text(face?.name ?: if (card.covered) "Covered" else "Unavailable", maxLines = 1,
-            overflow = TextOverflow.Clip, fontSize = 8.sp * titleScale, lineHeight = 9.sp * titleScale, fontWeight = FontWeight.Bold)
-        Box(Modifier.weight(1f).fillMaxWidth().graphicsLayer { rotationZ = if (tapped) 90f else 0f }) {
-            if (face != null) {
-                val definition = state.definitions.single { it.digest == card.definition }.definition
-                val inspected = InspectedCard.retained(card.definition, definition)
-                if (!face.scryfallId.isNullOrBlank() || !face.imageUri.isNullOrBlank())
-                    CardArtwork(inspected.artwork[definition.faces.indexOf(face)], face.name, 180, 240, Modifier.fillMaxSize())
-                else MenuIcon("Declare blockers", Modifier.align(Alignment.Center), tint = owner.copy(alpha = .65f))
-            } else MenuIcon("Turn face down", Modifier.align(Alignment.Center))
-        }
-        if (values && card.note.isNotEmpty()) Text(card.note, maxLines = 1,
-            fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale, overflow = TextOverflow.Clip)
-        if (values && card.eotNote.isNotEmpty()) Text("⌛ ${card.eotNote}", maxLines = 1,
-            color = Color(EotPowerToughnessColor), fontSize = 8.sp * noteScale, lineHeight = 9.sp * noteScale)
-        if (values) Row { for ((color, value) in card.counters.filterValues(TablePresentation::nonzero)) Text(value, Modifier.background(counterColor(color)),
-            maxLines = 1, fontSize = 8.sp * valueScale, lineHeight = 9.sp * valueScale) }
-        Row(Modifier.align(Alignment.End), verticalAlignment = Alignment.CenterVertically) {
-        if (values && TablePresentation.nonzero(card.damage)) Text(card.damage, Modifier
-            .background(if (damageIsLethal(card.damage, effectiveCorner(card))) Color(0xffb3261e) else Color.White, CircleShape)
-            .border(1.dp, Color(0xffb3261e), CircleShape).padding(horizontal = 3.dp),
-            color = if (damageIsLethal(card.damage, effectiveCorner(card))) Color.White else Color(0xffb3261e), fontSize = 9.sp * valueScale)
-        Text("${if (count > 1) "×$count " else ""}${if (values && card.eotCorner.isNotEmpty()) "⌛" else ""}${if (values) effectiveCorner(card) else ""}", maxLines = 1,
-            color = if (values && card.eotCorner.isNotEmpty()) Color(EotPowerToughnessColor)
-                else if (if (faceDown) changedFaceDownPowerToughness(card.corner) else changedPowerToughness(card.corner, face)) Color(ChangedPowerToughnessColor)
-                else LocalContentColor.current,
-            fontSize = 10.sp * valueScale, lineHeight = 11.sp * valueScale, overflow = TextOverflow.Clip)
-        }
-    }
-}
-
-@Composable
-internal fun CounterControls(values: Map<CounterColor, String>, player: Boolean, enabled: Boolean,
-    set: (CounterColor) -> Unit, applicable: (CounterColor, Int) -> Boolean, adjust: (CounterColor, Long) -> Unit) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val columns = if (maxWidth >= 296.dp) 2 else 1
-        val horizontalOverflow = maxWidth < 144.dp
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            for (pair in CounterColor.entries.chunked(columns)) Row(Modifier.fillMaxWidth()
-                .then(if (horizontalOverflow) Modifier.horizontalScroll(rememberScrollState()) else Modifier),
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                for ((index, color) in pair.withIndex()) {
-                    if (index > 0) VerticalDivider(Modifier.height(36.dp))
-                    val name = color.name.lowercase()
-                    val value = values[color]
-                    fun step(delta: Int) = MenuControl("${if (delta > 0) "Increase" else "Decrease"} $name counter",
-                        enabled && applicable(color, delta)) { adjust(color, delta.toLong()) }
-                    ValueControl(if (player) ManualText.playerCounterText(value) else ManualText.cardCounterText(value),
-                        MenuControl("Set $name counter", enabled) { set(color) }, step(-1), step(1),
-                        color = counterOutline(color), fill = counterColor(color), dragValue = value ?: "0",
-                        drag = { adjust(color, it) })
-                }
-            }
+            CardActionRing(card.id, view, entries, card.owner == viewer, ownerColor, toolkit::dismiss, page, rows)
         }
     }
 }
@@ -288,7 +72,7 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
     selected: Boolean = false, circle: Boolean = false, tooltipName: String = name,
     assignedHold: (() -> Unit)? = null, holdName: String? = null, iconTint: Color? = null,
     bordered: Boolean = true, modifier: Modifier = Modifier, labelled: Boolean = false,
-    dragValue: String? = null, onDelta: ((Long) -> Unit)? = null, refused: String? = null, onClick: () -> Unit) {
+    refused: String? = null, onClick: () -> Unit) {
     // I-D46: a refused square stays greyed; a tap shakes it and holding it says why
     val reason = refused.takeIf { !enabled }
     val tappable = enabled || reason != null
@@ -296,12 +80,9 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
     val currentClick by rememberUpdatedState(if (reason != null) { { shakes += 1 } } else onClick)
     val currentHold by rememberUpdatedState(assignedHold)
     var tooltip by remember { mutableStateOf(false) }
-    var delta by remember { mutableStateOf<Long?>(null) }
     val background = fill ?: Color.White
-    val dragModifier = if (onDelta != null) Modifier.valueDragGestures(enabled && TableActions.numeric(dragValue ?: "0"),
-        preview = { delta = it }, commit = onDelta) else Modifier
-    Box(modifier.shaken(shakes).then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp)).ringInputTarget(draggable = onDelta != null)
-        .pressFeedback(enabled).then(dragModifier).semantics(mergeDescendants = true) {
+    Box(modifier.shaken(shakes).then(if (labelled) Modifier.fillMaxWidth().heightIn(min = 48.dp) else Modifier.size(48.dp)).ringInputTarget()
+        .pressFeedback(enabled).semantics(mergeDescendants = true) {
         contentDescription = name
         role = Role.Button
         this.selected = selected
@@ -375,15 +156,6 @@ internal fun ManualActionSquare(name: String, symbol: String, enabled: Boolean =
         }
         }
         if (tooltip) HoldTooltip(reason ?: tooltipName)
-        delta?.let { HoldTooltip(valueDragLabel(dragValue, it)) }
     }
 }
 
-internal fun counterOutline(color: CounterColor): Color = when (color) {
-    CounterColor.RED -> Color(0xffb64754)
-    CounterColor.BLUE -> Color(0xff287fbb)
-    CounterColor.GREEN -> Color(0xff268477)
-    CounterColor.YELLOW -> Color(0xffaa902f)
-    CounterColor.PURPLE -> Color(0xff8952b6)
-    CounterColor.GRAY -> Color(0xff71817a)
-}

@@ -79,9 +79,6 @@ internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: 
             ActionSquare("Chat, ${runtime.chatUnread} unread messages", "", runtime.chat != null, Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("chat") }, onClick = { runtime.chat?.invoke() })
             if (runtime.chatUnread > 0) Box(Modifier.align(Alignment.TopEnd).padding(6.dp).size(6.dp).background(OpponentTableColor, androidx.compose.foundation.shape.CircleShape))
         }
-        // Integration spec §5 (I-D4): the Automatum switch beside Table actions; hold opens its panel.
-        if (!runtime.reviewing) AutomatumSwitch(play.board.automatum, toolkit != null && !runtime.gameActionsBlocked,
-            onToggle = { toolkit?.askAutomatum(!play.board.automatum) }, onHold = { toolkit?.automatumPanel() })
         if (!runtime.reviewing) ActionSquare("Table actions", "", toolkit != null && !runtime.gameActionsBlocked,
             Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("grid") },
             onClick = { toolkit?.tableMenu() })

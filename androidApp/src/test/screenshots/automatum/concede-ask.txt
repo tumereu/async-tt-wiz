@@ -1,0 +1,1 @@
+Concede in Table actions asks first: "Concede?", "You lose this game at once.", with Cancel and a red Concede.

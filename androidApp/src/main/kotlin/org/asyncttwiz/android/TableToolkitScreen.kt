@@ -139,6 +139,8 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     PauseBarHost(toolkit, play, scene, names)
     // I-D40: a step that would act for the other player asks first
     ActingForDialog(toolkit.flows, names)
+    // I-D45: tapping the Automatum switch asks first
+    AutomatumSwitchDialog(toolkit, play)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background
     AutomatumCombatHost(toolkit, play)
 }

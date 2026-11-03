@@ -240,7 +240,7 @@ object CardVisibility {
     val stackTextMarks: Map<String, StackTextMarks> = emptyMap(),
     /** Null retains the legacy meaning: attention follows the turn player. */
     val attentionHolder: String? = null,
-    /** Rules v36: the Automatum switch for this game (D20), off in every game until a player turns it on. */
+    /** Rules v36: the Automatum switch for this game (D20); a play starts with the game's choice (I-D44). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: Boolean = false,
     /** Rules v36: who has priority and how many passed in a row (D57); null while nobody tracks it. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val priority: MtgPriority? = null,
@@ -305,8 +305,10 @@ object StartRules {
         preparation.players.size == 2 && preparation.players.all { it.ready && it.deck != null }
 
     /** Inputs are acquired independently by the server only after the readiness transition applies. */
+    /** [automatum]: the play starts with Automatum on, the game's choice when it was created (I-D44, SYS-055). */
     fun initialize(game: GameSummary, preparation: LobbyPreparation, requestId: String,
-        librarySeeds: Map<String, String>, starterSeed: String? = null, librarySecret: String? = null): PlayState {
+        librarySeeds: Map<String, String>, starterSeed: String? = null, librarySecret: String? = null,
+        automatum: Boolean = false): PlayState {
         librarySecret?.let(RandomV1::decodeSeed)
         require(canStart(game, preparation) && preparation.gameId == game.id && preparation.roundId == game.preparationRound)
         val players = preparation.players.sortedBy { it.accountId }
@@ -346,7 +348,8 @@ object StartRules {
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
         val needed = cards.map { it.definition }.toSet()
         return PlayState(game.id, playId, preparation.roundId, requestId, root, root.id,
-            BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers, TurnState(starter.accountId)),
+            BoardState(players.map { PlayPlayer(it.accountId, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id }, containers,
+                TurnState(starter.accountId), automatum = automatum),
             needed.sorted().map { definitions.getValue(it) }, shuffles, starter, librarySecret = librarySecret)
     }
 }

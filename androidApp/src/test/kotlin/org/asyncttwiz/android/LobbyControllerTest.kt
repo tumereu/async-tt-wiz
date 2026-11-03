@@ -213,6 +213,22 @@ class LobbyControllerTest {
         finally { api.close() }
     }
 
+    // LOB-031 (I-D44): a new game asks for Automatum on unless the switch in the dialog is turned off
+    @Test fun newGameAutomatumIsOnByDefaultAndCanBeTurnedOff() {
+        val worker = Worker(); val api = Api()
+        val controller = LobbyController(api, { "A".repeat(43) }, worker, { it() }, { }, { "Suggestion" })
+        try {
+            controller.refresh(); worker.drain(); controller.begin(recipient)
+            assertTrue(controller.state.draft!!.automatum)
+            controller.create(); worker.drain()
+            assertTrue(api.creates.single().automatum)
+            controller.begin(recipient); controller.automatum(false)
+            assertFalse(controller.state.draft!!.automatum)
+            controller.create(); worker.drain()
+            assertFalse(api.creates.last().automatum)
+        } finally { controller.close(); worker.drain() }
+    }
+
     // LOB-031
     @Test fun capturedRecipientSuggestionsCancelBlankAndUncertainOriginalCreate() {
         val worker = Worker(); val api = Api(); var opens = 0; var names = 0

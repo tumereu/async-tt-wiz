@@ -81,7 +81,7 @@ internal fun BoxWithConstraintsScope.TableChromeHeader(game: GameSummary, play: 
         }
         // Integration spec §5 (I-D4): the Automatum switch beside Table actions; hold opens its panel.
         if (!runtime.reviewing) AutomatumSwitch(play.board.automatum, toolkit != null && !runtime.gameActionsBlocked,
-            onToggle = { toolkit?.setAutomatum(!play.board.automatum) }, onHold = { toolkit?.automatumPanel() })
+            onToggle = { toolkit?.askAutomatum(!play.board.automatum) }, onHold = { toolkit?.automatumPanel() })
         if (!runtime.reviewing) ActionSquare("Table actions", "", toolkit != null && !runtime.gameActionsBlocked,
             Modifier.width(buttonWidth.dp), icon = { TableChromeIcon("grid") },
             onClick = { toolkit?.tableMenu() })

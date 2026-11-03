@@ -381,6 +381,25 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return submit(PlayAction.Mtg(MtgAction.SetAutomatum(on)))
     }
 
+    /** What the open "Turn Automatum on/off?" confirmation would switch to (I-D45); null while none is open. Local only. */
+    var automatumAsk by mutableStateOf<Boolean?>(null); private set
+
+    /**
+     * Tapping the Automatum switch (I-D45, TRN-054): asks first, sending nothing until confirmed. Turning on where it would
+     * be refused (I-D15) shows the refusal at once instead, so there is only ever one dialog.
+     */
+    fun askAutomatum(on: Boolean) {
+        val play = current() ?: return
+        if (on && Automatum.turnOnRefusal(play.board) != null) { setAutomatum(true); return }
+        automatumAsk = on
+    }
+    fun confirmAutomatum(): Boolean {
+        val on = automatumAsk ?: return false
+        automatumAsk = null
+        return setAutomatum(on)
+    }
+    fun cancelAutomatum() { automatumAsk = null }
+
     /** Switching off or "Clear Automatum data" during an open flow goes as one [GameAction.ExitFlow] (finalreview-sync #6,
      * #7): the flow is taken back first when it can be. */
     private fun leavesFlow(play: PlayState, action: PlayAction): Boolean {

@@ -46,7 +46,7 @@ Everything outside the game table: accounts, profile, navigation, game list, gam
 - **LOB-028** Contacts and Choose opponent share one screen with two tabs: Contacts (default, with a local "Filter contacts" field) and Search (search usernames). Empty results say "No players found"; loading shows a spinner. (r17)
 - **LOB-029** Contacts tab rows have a remove button (Contacts screen) or an invite button (Choose opponent); Search rows have icon-only Add contact and, when choosing an opponent, Invite. Inviting someone also adds them as a contact. (r15)
 - **LOB-030** Removing a contact asks "Remove <name>?" with "Existing games and invitations will not change." (r15)
-- **LOB-031** "New game" opens Choose opponent; picking a player opens the "New game" dialog ("Invite <name>") with an editable random fantasy game name (like "Azure Spark"), a reroll button, Cancel and Create. (r15)
+- **LOB-031** "New game" opens Choose opponent; picking a player opens the "New game" dialog ("Invite <name>") with an editable random fantasy game name (like "Azure Spark"), a reroll button, an "Automatum" switch ("Plays by the rules for you. Can be turned off in the game."), on by default, that decides whether the game starts with Automatum on (SYS-055), Cancel and Create. (r42)
 - **LOB-032** Adding a contact is one-sided: no friend request, and it never accepts anything for the other player. (r1)
 
 ### Game lobby

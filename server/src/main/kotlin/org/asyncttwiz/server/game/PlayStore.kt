@@ -6,6 +6,7 @@ import kotlinx.serialization.encodeToString
 import org.asyncttwiz.protocol.*
 import org.asyncttwiz.server.StoredData
 import org.asyncttwiz.server.generated.tables.Game.GAME
+import org.asyncttwiz.server.generated.tables.EnginePlay.ENGINE_PLAY
 import org.asyncttwiz.server.generated.tables.GamePlay.GAME_PLAY
 import org.asyncttwiz.server.generated.tables.GameplayTreeControl.GAMEPLAY_TREE_CONTROL
 import org.jooq.DSLContext
@@ -21,13 +22,16 @@ internal object PlayStore {
         .and(GAMEPLAY_TREE_CONTROL.ID.eq("current")))
 
     /** The current play, refused unless it passes the same integrity check as startup recovery: a damaged game is
-     * contained like an unreadable one (SYS-052). Only explicit maintenance reads it [unverified] to rebuild it. */
-    fun read(sql: DSLContext, game: UUID, unverified: Boolean = false): PlayState? {
+     * contained like an unreadable one (SYS-052). Only explicit maintenance reads it [unverified] to rebuild it.
+     * [engine], when given, hears in the same query whether the play's state is the engine's (I-D54, [EngineGames]). */
+    fun read(sql: DSLContext, game: UUID, unverified: Boolean = false, engine: ((Boolean) -> Unit)? = null): PlayState? {
         val current = control("current"); val branch = control("selected-branch")
+        val engineState = DSL.field(DSL.exists(DSL.selectOne().from(ENGINE_PLAY).where(ENGINE_PLAY.PLAY_ID.eq(GAME_PLAY.ID))))
         val row = sql.select(GAME_PLAY.PAYLOAD, GAME_PLAY.CHECKPOINT_VERSION, GAME_PLAY.CHECKPOINT_REVISION,
-            GAME_PLAY.CHECKPOINT_DIGEST, current, branch).from(GAME)
+            GAME_PLAY.CHECKPOINT_DIGEST, current, branch, engineState).from(GAME)
             .join(GAME_PLAY).on(GAME_PLAY.ID.eq(GAME.CURRENT_PLAY).and(GAME_PLAY.GAME_ID.eq(GAME.ID)))
             .where(GAME.ID.eq(game)).fetchOne() ?: return null
+        engine?.invoke(row.value7() == true)
         val payload = row.value1()!!
         val state = StoredData.decode("game play", game) { GameWire.json.decodeFromString<PlayState>(payload) }
         if (unverified) return state

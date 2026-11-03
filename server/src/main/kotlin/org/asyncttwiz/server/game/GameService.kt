@@ -173,9 +173,10 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     }
     /** [game] is the row locked by this transaction: the play is read (and checked) once, for the summary too. */
     private fun readHead(sql: DSLContext, principal: AccountService.Principal, gameId: String, game: GameRecord): GameHead {
-        val play = PlayStore.read(sql, game.id!!)
+        var engineState = false
+        val play = PlayStore.read(sql, game.id!!) { engineState = it }
         // I-D54: a play whose state is the engine's says whose move it is from the engine
-        val engine = game.currentPlay?.takeIf { game.lifecycle == "ACTIVE" }?.let { engineGames.snapshot(sql, it) }
+        val engine = game.currentPlay?.takeIf { engineState && game.lifecycle == "ACTIVE" }?.let { engineGames.snapshot(sql, it) }
         val summary = lobby.summary(sql, game, if (game.lifecycle != "ACTIVE") null
             else if (engine != null) engine.second else play?.board?.effectiveAttentionHolder)
         return GameHead(gameId, summary.revision, summary, preparation =

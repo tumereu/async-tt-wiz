@@ -202,6 +202,22 @@ object OracleParser {
                     continue
                 }
             }
+            // fin: "Tiered" and its "• [name] — [cost] — [effect]" modes, perhaps after a paragraph the modes complete: choose one, its cost an
+            // additional cost of the spell (CR 702.183a, 700.2)
+            if (isSpell && line == "Tiered" && i < lines.size) {
+                var j = i
+                val body = if (!lines[j].startsWith("• ")) REMINDER.replace(lines[j++], "").trim() else null
+                val modeLines = mutableListOf<String>()
+                while (j < lines.size && lines[j].startsWith("• ")) modeLines += REMINDER.replace(lines[j++].removePrefix("• "), "").trim()
+                sentences.finTiered(body, modeLines)?.let { spell ->
+                    i = j
+                    result += Keyword.Tiered
+                    raws += raw.trim()
+                    result += spell
+                    raws += (listOfNotNull(body) + modeLines.map { "• $it" }).joinToString("\n")
+                    continue
+                }
+            }
             // "Choose one —" and its "• " modes (CR 700.2)
             val choose = CHOOSE.matchEntire(line)
             if (choose != null && isSpell) {
@@ -236,7 +252,7 @@ object OracleParser {
             val previous = result.lastOrNull()
             // dsk chunk 07: "If …, instead …" replaces the whole spell
             val instead = if (previous is Ability.Spell) sentences.insteadOf(line, previous) ?: sentences.insteadAll(line, previous) else null
-            var parsed = if (instead == null) keywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
+            var parsed = if (instead == null) keywordLine(line) ?: flavorKeywordLine(line) ?: sentences.multi(line) ?: sentences.line(line)?.let(::listOf) ?: keywordThenSentence(line, sentences) else null
             // msh: a legendary creature's "he"/"she"/"him"/"her" read as "it" when the line can't be read as written
             if (instead == null && parsed == null) ungendered(line, self).takeIf { it != line }?.let { u ->
                 parsed = sentences.multi(u) ?: sentences.line(u)?.let(::listOf)
@@ -342,6 +358,12 @@ object OracleParser {
             PROTECTION_FROM_AND_FROM.matchEntire(p)?.let { m -> listOf("protection from " + m.groupValues[1], "protection from " + m.groupValues[2]) } ?: listOf(p)
         }
         return listOf(first) + split.map { keyword(it) ?: Ability.Unparsed(it) }
+    }
+
+    /** fin: "Gae Bolg — Equip {4}": a keyword line after a flavor word (CR 207.2d), which has no rules meaning. */
+    private fun flavorKeywordLine(line: String): List<Ability>? {
+        val m = FLAVOR_WORD.matchEntire(line)?.takeIf { RulesWords.isAbilityOrFlavorWord(it.groupValues[1]) } ?: return null
+        return keywordLine(m.groupValues[2])?.takeIf { parts -> parts.none { it is Ability.Unparsed } }
     }
 
     /** chunk 33: "Kicker {X}. X can't be 0.": a keyword line, then a sentence about it on the same line. */
@@ -497,6 +519,8 @@ object OracleParser {
     private val PAWPRINT_MODE = Regex("""((?:\{P\})+) — (.+)""")
     // blb chunk 05
     private val CLASS_LEVEL = Regex("""((?:\{[^}]+\})+): Level (\d+)""")
+    // fin
+    private val FLAVOR_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\- ]+) — (.+)""")
     // blb chunk 02
     private val GIFT =Regex("""Gift (a Food|a card|a tapped Fish|an extra turn|a Treasure|an Octopus)""")
 }

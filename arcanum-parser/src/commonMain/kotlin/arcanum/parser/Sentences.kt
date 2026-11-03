@@ -54,6 +54,7 @@ internal class Sentences(
 
     /** Lines that are more than one ability. */
     fun multi(line: String): List<Ability>? {
+        finMulti(line)?.let { return it } // fin
         eclMulti(line)?.let { return it } // ecl
         sosMulti(line)?.let { return it } // sos
         tmtMulti(line)?.let { return it } // tmt
@@ -172,8 +173,9 @@ internal class Sentences(
         // chunk 56: a Saga's "I, II — [effect]" is a chapter ability for each listed chapter (CR 714.2b, c)
         CHAPTERS.matchEntire(line)?.let { m ->
             val chapters = m.groupValues[1].split(", ").mapNotNull { ROMAN[it] }
+            // fin: "IV — Mega Flare — [effect]": a flavor word after the chapter numbers (CR 207.2d)
             if (chapters.size == m.groupValues[1].split(", ").size)
-                return Ability.Triggered(arcanum.api.Trigger.Chapter(chapters), instructions(m.groupValues[2]) ?: return null)
+                return Ability.Triggered(arcanum.api.Trigger.Chapter(chapters), instructions(modeBody(m.groupValues[2])) ?: return null)
         }
         // "Channel — [ability]": an ability word, no rules meaning (CR 207.2c). Keywords with a dash ("Ward—{2}") have
         // no spaces around it.
@@ -195,10 +197,12 @@ internal class Sentences(
                 is Ability.Triggered -> ability.copy(abilityWord = word)
                 is Ability.Static -> ability.copy(abilityWord = word)
                 is Ability.Spell -> ability.copy(abilityWord = word)
+                // fin: "Chaosbringer — Equip—Pay 3 life. Activate only once each turn." (a keyword after a flavor word, CR 207.2d)
+                is arcanum.api.Keyword -> ability
                 else -> null
             }
         }
-        return static(line) ?: triggered(line) ?: activated(line) ?: spell(line) ?: fraStaticLate(line) // fra
+        return static(line) ?: triggered(line) ?: activated(line) ?: spell(line) ?: fraStaticLate(line) /* fra */ ?: finLate(line) // fin
     }
 
     /**
@@ -1585,7 +1589,8 @@ internal class Sentences(
                 ?: sosWhole(body.replaceFirstChar { it.uppercase() }, context) // sos
                 ?: tmtWhole(body.replaceFirstChar { it.uppercase() }, context) // tmt
                 ?: mshWhole(body.replaceFirstChar { it.uppercase() }, context)
-                ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context) else null
+                ?: hobEffect(body.replaceFirstChar { it.uppercase() }, context)
+                ?: finWhole(body.replaceFirstChar { it.uppercase() }, context) /* fin */ else null
             if (whole == null) while (context.targets.size > wholeFrom) context.targets.removeAt(context.targets.lastIndex)
             if (whole != null) steps += whole
             else for (sentence in sentences(if (whereX == null) text else text.removeRange(whereX.range))) {
@@ -1610,6 +1615,7 @@ internal class Sentences(
     /** Sentences that change the step before them ("If this spell was kicked, it deals 4 damage instead.", "It can't be
      * regenerated."). */
     private fun modify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        finModify(sentence, steps, context)?.let { return it } // fin
         spmModify(sentence, steps, context)?.let { return it } // spm
         tlaModify(sentence, steps, context)?.let { return it } // tla
         eclModify(sentence, steps, context)?.let { return it } // ecl
@@ -2824,12 +2830,13 @@ internal class Sentences(
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
         fraEffect(sentence, context)?.let { return it }
         while (context.targets.size > targets) context.targets.removeAt(context.targets.lastIndex)
-        return sosLateEffect(sentence, context) // sos
+        return sosLateEffect(sentence, context) /* sos */ ?: finLateEffect(sentence, context) // fin
     }
 
     private fun effectRules(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        finEffect(sentence, context)?.let { return it } // fin
         spmEffect(sentence, context)?.let { return it } // spm
         tlaEffect(sentence, context)?.let { return it } // tla
         eclEffect(sentence, context)?.let { return it } // ecl
@@ -9439,7 +9446,7 @@ internal class Sentences(
         // chunk 35: also after a quoted ability that ends a sentence ('… with "This token can't block." If …')
         val SENTENCE_END = Regex("""(?<=\.)\s+|(?<=\.")\s+""")
         // msh: "Power-up —", "I LOVE Squirrels! —", "Do You Like Squirrels? —"
-        val ABILITY_WORD = Regex("""([A-Z][A-Za-z'!?\-ā ]+) — (.+)""") // spm: "Pavitr's Sevā"
+        val ABILITY_WORD = Regex("""([A-Z0-9][A-Za-z0-9,'!?\-ā ]+) — (.+)""") // spm: "Pavitr's Sevā"; fin: "10,000 Needles"
         const val IMPRINTED = "imprinted"
         val LABELS = mapOf("boast" to arcanum.api.AbilityLabel.Boast, "solved" to arcanum.api.AbilityLabel.Solved,
             "exhaust" to arcanum.api.AbilityLabel.Exhaust, "max speed" to arcanum.api.AbilityLabel.MaxSpeed,
@@ -17020,6 +17027,284 @@ internal class Sentences(
         }
         return instructions(eclCap(text), event = dies)
     }
+
+    // ---- fin: Final Fantasy wordings (the set's parser tests, sets/fin/FinChunk*Test.kt); regexes in [Fin], phrases in [FinPhrases]
+
+    /** fin: a tiered spell's modes "[name] — [cost] — [effect]" (CR 702.183a), the name a flavor word (CR 207.2d); with [body], a paragraph each
+     * mode completes ("… has the chosen base power and toughness." and "• Galian Beast — {0} — 3/2."). */
+    fun finTiered(body: String?, modeLines: List<String>): Ability.Spell? {
+        if (modeLines.isEmpty()) return null
+        val options = modeLines.map { modeLine ->
+            val m = Fin.TIERED_MODE.matchEntire(modeLine) ?: return null
+            val cost = arcanum.api.ManaCost.parse(m.groupValues[2]) ?: return null
+            val effect = if (body == null) m.groupValues[3] else {
+                val pt = Fin.PT_MODE.matchEntire(m.groupValues[3]) ?: return null
+                if (!body.contains(" the chosen base power and toughness")) return null
+                body.replace(" the chosen base power and toughness", " base power and toughness ${pt.groupValues[1]}")
+            }
+            arcanum.api.Mode(instructions(effect) ?: return null, extraCost = arcanum.api.Cost.mana(cost), text = modeLine)
+        }
+        return Ability.Spell(Instructions(modes = arcanum.api.Modes(options, min = 1, max = 1, chooser = Players.You)))
+    }
+
+    /** fin: lines that are more than one ability, tried first by [multi]. */
+    private fun finMulti(line: String): List<Ability>? {
+        // fin chunk 01: "Whenever [A] and whenever [B], [effect]": two trigger conditions, written as two abilities with one effect (as dgm's
+        // "… and when this creature dies")
+        Fin.WHENEVER_AND_WHENEVER.matchEntire(line)?.let { m ->
+            val first = triggered("Whenever ${m.groupValues[1]}, ${m.groupValues[3]}") ?: return null
+            val second = triggered("Whenever ${m.groupValues[2]}, ${m.groupValues[3]}") ?: return null
+            return listOf(first, second)
+        }
+        // fin-multi-end
+        return null
+    }
+
+    /** fin: whole lines no other rule reads, tried last by [line]. */
+    private fun finLate(line: String): Ability? {
+        // fin chunk 01: "Equipped creature gets +1/+1, has "[ability]," and is a Cleric in addition to its other types.": each clause read as a
+        // sentence of its own about the same objects, their mechanics one static ability
+        Fin.ATTACHED_CLAUSES.matchEntire(line)?.let { m ->
+            val subject = m.groupValues[1]
+            val clauses = finClauses(m.groupValues[2]) ?: return null
+            if (clauses.size < 2) return null
+            var affects: arcanum.api.Affected? = null
+            val mechanics = clauses.flatMap { clause ->
+                val quote = Fin.HAS_QUOTE.matchEntire(clause)
+                val isA = Fin.IS_A_IN_ADDITION.matchEntire(clause)
+                val ability = if (isA != null) {
+                    val types = isA.groupValues[1].split(' ')
+                    if (types.any { it !in RulesWords.subtypes }) return null
+                    Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = types.map { arcanum.api.SubtypeRef.Literal(arcanum.api.Subtype(it)) })),
+                        affects = affects ?: arcanum.api.Affected.Objects(Objects.AttachedTo(Objects.Self)))
+                } else if (quote != null) {
+                    val text = quote.groupValues[1].trimEnd(',', '.') + "."
+                    val granted = Sentences(setOf("this creature", "This creature")).let { it.multi(text) ?: listOf(it.line(text) ?: return null) }
+                    Ability.Static(listOf(Mechanic.GainAbilities(granted)), affects = affects ?: arcanum.api.Affected.Objects(Objects.AttachedTo(Objects.Self)))
+                } else static("$subject $clause.") as? Ability.Static ?: return null
+                if (affects != null && ability.affects != affects) return null
+                if (ability.condition != null) return null
+                affects = ability.affects
+                ability.mechanics
+            }
+            return Ability.Static(mechanics, affects = affects ?: return null)
+        }
+        // fin-late-end
+        return null
+    }
+
+    /** fin chunk 01: the clauses of "gets +1/+1, has "…," and is a Cleric in addition to its other types": split at top-level ", ", ", and "
+     * and " and " before "is"/"has"/"gets", never inside quotes. */
+    private fun finClauses(text: String): List<String>? {
+        val parts = mutableListOf<String>()
+        var quoted = false
+        var start = 0
+        var i = 0
+        while (i < text.length) {
+            val c = text[i]
+            if (c == '"') quoted = !quoted
+            if (!quoted) {
+                val sep = Fin.CLAUSE_SEPARATOR.matchAt(text, i)
+                if (sep != null) {
+                    parts += text.substring(start, i).trim()
+                    i += sep.value.length
+                    start = i
+                    continue
+                }
+            }
+            i++
+        }
+        if (quoted) return null
+        parts += text.substring(start).trim()
+        return parts.filter { it.isNotEmpty() }
+    }
+
+    /** fin: sentences that change the steps before them, tried first by [modify]. */
+    private fun finModify(sentence: String, steps: List<Step>, context: Context): List<Step>? {
+        // fin chunk 01: "If that card is an enchantment card, it enters tapped and attacking." after putting a chosen card onto the battlefield
+        // (CR 508.4: attacking, not declared as an attacker)
+        Fin.IF_THAT_CARD_ENTERS_TAPPED_ATTACKING.matchEntire(sentence)?.let { m ->
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val move = last.effect as? Effect.Move ?: return null
+            if (move.to.zone != Zone.Battlefield || move.objects !is Objects.Bound) return null
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return steps.dropLast(1) + Step.If(arcanum.api.Condition.ObjectMatches(move.objects, filter),
+                then = listOf(Step.Do(move.copy(to = move.to.copy(tapped = true, attacking = arcanum.api.AttackTarget.Chosen)))), otherwise = listOf(last))
+        }
+        // fin chunk 01: "That player loses life equal to the discarded card's mana value." after "discard a card" in a trigger on damage to a
+        // player: the card discarded this way (CR 608.2h), the player dealt damage
+        if (sentence == "That player loses life equal to the discarded card's mana value." && context.event is EventPattern.Damage) {
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val discard = last.effect as? Effect.Discard ?: return null
+            return steps.dropLast(1) + Step.Do(discard.copy(postBind = "discarded")) + Step.Do(Effect.LoseLife(Players.EventPlayer,
+                Value.Of(arcanum.api.NumericProperty.ManaValue, Objects.Bound("discarded"), arcanum.api.Combine.Single)))
+        }
+        // fin chunk 02: "Put a stun counter on one of them." after an effect on a target slot of several: one of those targets, chosen now
+        Fin.COUNTER_ON_ONE_OF_THEM.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val slot = context.targets.lastOrNull() ?: return null
+            if ((slot.max as? Value.Fixed)?.value == 1) return null
+            return steps + Step.Choose(arcanum.api.Choice.Objects(ObjectFilter.Any, Value.Fixed(1), Value.Fixed(1), from = Objects.Target(slot.name)),
+                bind = "chosen", chooser = Players.You) + Step.Do(Effect.PutCounters(Objects.Bound("chosen"), kind, Value.Fixed(1)))
+        }
+        // fin chunk 03: "You may choose new targets for the copies." after "Copy it twice."
+        if (sentence == "You may choose new targets for the copies.") {
+            val repeat = steps.lastOrNull() as? Step.Repeat ?: return null
+            val copy = (repeat.steps.singleOrNull() as? Step.Do)?.effect as? Effect.CopySpell ?: return null
+            return steps.dropLast(1) + repeat.copy(steps = listOf(Step.Do(copy.copy(newTargets = true))))
+        }
+        // fin chunk 03: "Put an indestructible counter on each of them." after an effect on a group: the same objects
+        Fin.COUNTER_ON_EACH_OF_THEM.matchEntire(sentence)?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val last = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.ApplyMechanics ?: return null
+            val objects = (last.affects as? arcanum.api.Affected.Objects)?.objects as? Objects.Each ?: return null
+            return steps + Step.Do(Effect.PutCounters(objects, kind, Value.Fixed(1)))
+        }
+        // fin chunk 03: "During any turn you put a lore counter on this Saga, you may play that card." after exiling a card
+        if (sentence == "During any turn you put a lore counter on this Saga, you may play that card.") {
+            val move = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Move ?: return null
+            val bind = move.postBind ?: "exiled"
+            val loreThisTurn = arcanum.api.Condition.HappenedThisTurn(EventPattern.CountersPut(ObjectFilter.Is(Objects.Self), arcanum.api.CounterKind.Lore),
+                atLeast = 1, measure = arcanum.api.Measure.Events)
+            return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile,
+                PlayKind.Play, holder = PlayerFilter.You, condition = loreThisTurn)), arcanum.api.Affected.Objects(Objects.Bound(bind)), arcanum.api.Duration.Indefinitely))
+        }
+        // fin-modify-end
+        return null
+    }
+
+    /** fin: effect sentences, tried first by [effectRules]; each reads one wording and falls through when it can't. */
+    private fun finEffect(sentence: String, context: Context): List<Step>? {
+        // fin chunk 02: "Target creature's owner shuffles it into their library." (CR 701.24)
+        Fin.TARGETS_OWNER_SHUFFLES.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.Move(target, Destination(Zone.Library))), Step.Do(Effect.Shuffle(Players.OwnerOf(target))))
+        }
+        // fin chunk 02: "Remove a lore counter from target Saga you control." (CR 122.8)
+        Fin.REMOVE_COUNTER_FROM_TARGET.matchEntire(sentence)?.let { m ->
+            val n = Numbers.count(m.groupValues[1]) ?: return null
+            val kind = Counters.kind(m.groupValues[2]) ?: return null
+            val noun = m.groupValues[3]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            return listOf(Step.Do(Effect.RemoveCounters(target, kind, Value.Fixed(n))))
+        }
+        // fin chunk 02: "Triple target creature's power and toughness until end of turn." (+X/+Y, X and Y twice the values, CR 701.11b)
+        Fin.TRIPLE_TARGET_PT.matchEntire(sentence)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val power = Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single)
+            val toughness = Value.Of(arcanum.api.NumericProperty.Toughness, target, arcanum.api.Combine.Single)
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.ModifyPowerToughness(Value.Times(power, 2), Value.Times(toughness, 2))),
+                arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin chunk 02: "Exile up to two target cards from a single graveyard." (one owner, CR 115.1)
+        Fin.UP_TO_FROM_SINGLE_GRAVEYARD.matchEntire(sentence)?.let { m ->
+            val max = Numbers.count(m.groupValues[2]) ?: return null
+            val noun = m.groupValues[3]
+            val filter = if (noun == "cards") ObjectFilter.InZone(Zone.Graveyard) else Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Graveyard))
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(0), max = Value.Fixed(max), sameOwner = true)
+            val zone = if (m.groupValues[1] == "Exile") Zone.Exile else return null
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(zone))))
+        }
+        // fin chunk 02: 'Until end of turn, target creature you control gains "[ability]" and has base power and toughness 3/2.' (layers 6, 7b)
+        Fin.GAINS_QUOTE_AND_BASE_PT.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val target = context.target(Filters.slotName(noun), Filters.noun(noun) ?: return null)
+            val granted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[2].trimEnd('.') + ".") ?: return null
+            if (granted is Ability.Unparsed) return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(granted)),
+                Mechanic.SetPowerToughness(Value.Fixed(m.groupValues[3].toInt()), Value.Fixed(m.groupValues[4].toInt()))),
+                arcanum.api.Affected.Objects(target), arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin chunk 03: "Copy it twice." (CR 707.10), then "You may choose new targets for the copies." (a modifier, [finModify])
+        Fin.COPY_IT_TIMES.matchEntire(sentence)?.let { m ->
+            val times = when (m.groupValues[1]) { "twice" -> 2; "three times" -> 3; else -> return null }
+            val it = context.it ?: return null
+            return listOf(Step.Repeat(Value.Fixed(times), listOf(Step.Do(Effect.CopySpell(it, Players.You, newTargets = false)))))
+        }
+        // fin chunk 03: "Each opponent sacrifices a creature of their choice and loses 3 life." (two effects of one subject)
+        Fin.SACRIFICES_AND_LOSES.matchEntire(sentence)?.let { m ->
+            val sacrifice = effect("${m.groupValues[1]} sacrifices ${m.groupValues[2]}.", context) ?: return null
+            val lose = effect("${m.groupValues[1]} loses ${m.groupValues[3]} life.", context) ?: return null
+            return sacrifice + lose
+        }
+        // fin chunk 03: 'This creature gains "[ability]"' with no duration: for as long as it's on the battlefield (CR 611.2a)
+        Fin.SELF_GAINS_QUOTE.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val granted = Sentences(setOf("this creature", "This creature")).line(m.groupValues[2].trimEnd('.') + ".") ?: return null
+            if (granted is Ability.Unparsed) return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(granted))), arcanum.api.Affected.Objects(Objects.Self),
+                arcanum.api.Duration.Indefinitely)))
+        }
+        // fin chunk 03: "Until end of turn, [target] gains trample and gets +X/+X" read as "[target] gets +X/+X and gains trample until end of turn."
+        Fin.UNTIL_EOT_GAINS_AND_GETS.matchEntire(sentence)?.let { m ->
+            return effect("${m.groupValues[1].replaceFirstChar { it.uppercase() }} gets ${m.groupValues[3]} and gains ${m.groupValues[2]} until end of turn.", context)
+        }
+        // fin chunk 03: "Until end of turn, whenever a Kraken … attacks, draw a card." (a delayed trigger that triggers each time, CR 603.7c)
+        Fin.UNTIL_EOT_WHENEVER.matchEntire(sentence)?.let { m ->
+            val ability = triggered("Whenever ${m.groupValues[1]}") as? Ability.Triggered ?: return null
+            return listOf(Step.Do(Effect.CreateDelayedTrigger(ability.trigger, ability.instructions, arcanum.api.Duration.EndOfTurn, repeats = true)))
+        }
+        // fin chunk 03: "Draw a card if you control the creature with the greatest power or tied for the greatest power."
+        if (sentence == "Draw a card if you control the creature with the greatest power or tied for the greatest power.") {
+            val greatest = { filter: ObjectFilter -> Value.Of(arcanum.api.NumericProperty.Power, Objects.Each(filter), arcanum.api.Combine.Greatest) }
+            val creature = ObjectFilter.Type(arcanum.api.CardType.Creature)
+            return listOf(Step.If(arcanum.api.Condition.Compare(greatest(Filters.all(creature, ObjectFilter.ControlledBy(PlayerFilter.You))),
+                arcanum.api.Comparison.AtLeast, greatest(creature)), then = listOf(Step.Do(Effect.Draw(Players.You, Value.Fixed(1))))))
+        }
+        // fin chunk 03: "That creature enters with an additional +1/+1 counter on it [for each Dog and/or Wolf you control]." about a creature spell
+        // just cast: the spell gets a replacement of how it enters (CR 614.1c)
+        Fin.THAT_CREATURE_ENTERS_WITH_ADDITIONAL.matchEntire(sentence)?.takeIf { context.event is EventPattern.Cast }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val amount = if (m.groupValues[2].isEmpty()) Value.Fixed(1) else Value.Count(Objects.Each(Filters.noun(m.groupValues[2]) ?: return null))
+            return listOf(Step.Do(Effect.SpellGets(Objects.EventObject(EventRole.Object), listOf(Mechanic.Replacement(
+                EventPattern.ZoneChange(ObjectFilter.Is(Objects.Affected), to = Zone.Battlefield), modify = listOf(Modification.EntersWithCounters(kind, amount)))))))
+        }
+        // fin chunk 03: "This creature deals damage equal to the total mana value of other permanents you control to each opponent."
+        Fin.DEALS_DAMAGE_EQUAL_TOTAL.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val amount = FinPhrases.value(m.groupValues[2]) ?: return null
+            return effect("${m.groupValues[1]} deals X damage to ${m.groupValues[3]}.", context)?.map { step ->
+                val deal = (step as? Step.Do)?.effect as? Effect.DealDamage ?: return null
+                Step.Do(deal.copy(amount = amount))
+            }
+        }
+        // fin chunk 03: "It gains haste until end of turn." about a spell just cast (in a delayed trigger too): the spell and the permanent it
+        // becomes, as the cast triggers read it
+        if (sentence == "It gains haste until end of turn." && context.event is EventPattern.Cast) {
+            return listOf(Step.Do(Effect.SpellGets(Objects.EventObject(EventRole.Object), listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))),
+                arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin-effect-end
+        return null
+    }
+
+    /** fin: texts of several sentences read as a whole, tried after every other set's. */
+    private fun finWhole(text: String, context: Context): List<Step>? {
+        finNextCast(text, context)?.let { return it }
+        // fin-whole-end
+        return null
+    }
+
+    /** fin: effect sentences no other rule reads, tried last by [effect]. */
+    private fun finLateEffect(sentence: String, context: Context): List<Step>? {
+        finNextCast(sentence, context)?.let { return it }
+        // fin-late-effect-end
+        return null
+    }
+
+    /** fin chunk 03: "When you next cast [a spell] this turn, [effect]" (a delayed trigger that triggers once, CR 603.7c), the effect read
+     * with the spell cast as "it" and "that creature". */
+    private fun finNextCast(text: String, context: Context): List<Step>? {
+        val m = Fin.WHEN_YOU_NEXT_CAST.matchEntire(text) ?: return null
+        val spells = Filters.noun(m.groupValues[1]) ?: return null
+        val event = EventPattern.Cast(spells, PlayerFilter.You)
+        val body = m.groupValues[2].replaceFirstChar { it.uppercase() }
+        val read = instructions(body, event = event) ?: return null
+        if (read.targets.isNotEmpty()) return null
+        return listOf(Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(event), read, arcanum.api.Duration.EndOfTurn)))
+    }
+
+    // ---- fin end
 }
 
 /** rtr chunk 08: "second [name]" ("third …"), the first such name not in [taken] (CR 115.3: another instance of "target"). */

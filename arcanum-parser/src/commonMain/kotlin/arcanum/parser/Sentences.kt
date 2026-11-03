@@ -17473,6 +17473,23 @@ internal class Sentences(
             return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.noun("creature an opponent controls") ?: return null, Value.Fixed(1), Value.Fixed(1)),
                 bind = "chosen", chooser = Players.You, remember = true))
         }
+        // fin chunk 06: "Put a +1/+1 counter on this creature and it can't be blocked this turn." ("it" is this creature, not the spell cast)
+        Fin.COUNTER_ON_SELF_AND_IT.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[2]) && it.groupValues[3] == "can't be blocked this turn" }?.let { m ->
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.PutCounters(Objects.Self, kind, Value.Fixed(1))),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.CantBeBlocked), arcanum.api.Affected.Objects(Objects.Self), arcanum.api.Duration.EndOfTurn)))
+        }
+        // fin chunk 06: "Sacrifice Tellah and it deals that much damage to each opponent." in a cast trigger: the mana spent to cast that spell
+        Fin.SACRIFICE_SELF_AND_DEALS_THAT_MUCH.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) && context.event is EventPattern.Cast }?.let {
+            return listOf(Step.Do(Effect.Sacrifice(Objects.Self)), Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                Value.ManaSpent(of = Objects.EventObject(EventRole.Object)), Objects.Self)))
+        }
+        // fin chunk 06: "Add X mana in any combination of {U} and/or {R}." (CR 106.1b)
+        Fin.ADD_X_ANY_COMBINATION.matchEntire(sentence)?.let { m ->
+            val colors = listOf(m.groupValues[2], m.groupValues[3]).map { arcanum.api.ColorRef.Literal(Color.of(it[0]) ?: return null) }
+            val amount = if (m.groupValues[1] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Choose(amount, colors = colors, combination = true)), Players.You)))
+        }
         // fin-effect-end
         return null
     }

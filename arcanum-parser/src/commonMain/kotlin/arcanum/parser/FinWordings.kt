@@ -133,4 +133,8 @@ internal object Fin {
     val AS_TRANSFORMS_CHOOSE_OPPONENT = Regex("""As (.+?) transforms into (.+), choose an opponent\.""")
     val AS_TRANSFORMS_INTO = Regex("""As (.+?) transforms into (.+)""")
     val WHEN_CHOSEN_LEAVES = Regex("""When the chosen creature leaves the battlefield, (.+)""")
+    // fin chunk 06
+    val COUNTER_ON_SELF_AND_IT = Regex("""Put an? (\S+) counter on (.+?) and it (.+)\.""")
+    val SACRIFICE_SELF_AND_DEALS_THAT_MUCH = Regex("""Sacrifice (.+?) and it deals that much damage to each opponent\.""")
+    val ADD_X_ANY_COMBINATION = Regex("""Add (X|\w+) mana in any combination of \{([WUBRG])\} and/or \{([WUBRG])\}\.""")
 }

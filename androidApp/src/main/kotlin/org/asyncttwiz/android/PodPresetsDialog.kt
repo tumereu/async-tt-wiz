@@ -89,8 +89,8 @@ private fun PodPresetRow(preset: PodPreset, enabled: Boolean, load: () -> Unit, 
         }
         // Built-in presets can't be renamed or deleted (DRF-033).
         if (!preset.builtIn) {
-            IconButton(rename, enabled = enabled) { EntryIcon("Rename ${preset.name}", "rename") }
-            IconButton(delete, enabled = enabled) { EntryIcon("Delete ${preset.name}", "delete") }
+            HoldTip("Rename ${preset.name}") { IconButton(rename, enabled = enabled) { EntryIcon("Rename ${preset.name}", "rename") } }
+            HoldTip("Delete ${preset.name}") { IconButton(delete, enabled = enabled) { EntryIcon("Delete ${preset.name}", "delete") } }
         }
     }
 }

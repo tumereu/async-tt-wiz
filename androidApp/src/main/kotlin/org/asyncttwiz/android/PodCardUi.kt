@@ -164,10 +164,12 @@ internal fun PodColumnControl(label: String, description: String, value: Int, ra
 
 @Composable
 private fun PodColumnButton(description: String, add: Boolean, enabled: Boolean, action: () -> Unit) {
+    HoldTip(description) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         IconButton(action, Modifier.size(32.dp), enabled = enabled) {
             Icon(if (add) Icons.Default.Add else Icons.Default.Remove, description, Modifier.size(20.dp))
         }
+    }
     }
 }
 

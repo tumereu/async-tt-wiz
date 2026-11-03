@@ -130,9 +130,11 @@ internal fun PodBuildFeedDialog(
                                         Icons.AutoMirrored.Outlined.ArrowBack, leftColor, editable, iconFirst = true,
                                         modifier = Modifier.testTag("pod-build-feed-left")) { decide(-1, 0f) }
                                     Spacer(Modifier.weight(1f))
-                                    if (faces.size > 1) IconButton({ face = (face + 1) % faces.size }, Modifier.size(40.dp)
-                                        .testTag("pod-build-feed-flip")) {
-                                        Icon(Icons.Outlined.FlipToBack, "Other side", Modifier.size(20.dp))
+                                    if (faces.size > 1) HoldTip("Other side") {
+                                        IconButton({ face = (face + 1) % faces.size }, Modifier.size(40.dp)
+                                            .testTag("pod-build-feed-flip")) {
+                                            Icon(Icons.Outlined.FlipToBack, "Other side", Modifier.size(20.dp))
+                                        }
                                     }
                                     PodBuildFeedButton("Keep", "Keep", Icons.Outlined.Check, keepColor, editable, iconFirst = true,
                                         modifier = Modifier.testTag("pod-build-feed-keep")) { decide(0, 0f) }

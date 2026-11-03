@@ -91,10 +91,14 @@ internal fun MenuPodRow(entry: QuickContinuePod, accountId: String?, stackWidth:
 @Composable
 internal fun MenuInvitationActions(enabled: Boolean, acceptEnabled: Boolean = true, respond: (Boolean) -> Unit) {
     Row {
-        FilledTonalIconButton(onClick = { respond(true) }, enabled = enabled && acceptEnabled) { EntryIcon("Accept invitation", "ready") }
-        OutlinedIconButton(onClick = { respond(false) }, enabled = enabled,
-            colors = IconButtonDefaults.outlinedIconButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
-            EntryIcon("Decline invitation", "close")
+        HoldTip("Accept invitation") {
+            FilledTonalIconButton(onClick = { respond(true) }, enabled = enabled && acceptEnabled) { EntryIcon("Accept invitation", "ready") }
+        }
+        HoldTip("Decline invitation") {
+            OutlinedIconButton(onClick = { respond(false) }, enabled = enabled,
+                colors = IconButtonDefaults.outlinedIconButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                EntryIcon("Decline invitation", "close")
+            }
         }
     }
 }

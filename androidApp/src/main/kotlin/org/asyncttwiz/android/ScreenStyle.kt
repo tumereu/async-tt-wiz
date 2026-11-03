@@ -110,8 +110,11 @@ internal fun ScreenIconButton(description: String, kind: String, onClick: () -> 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HoldTip(description: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    TooltipBox(modifier = modifier, positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
-        tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState(), content = content)
+    // The outer Box takes the caller's layout modifiers (weight, align), which the tooltip's own layout doesn't pass on
+    Box(modifier, propagateMinConstraints = true) {
+        TooltipBox(positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState(), content = content)
+    }
 }
 
 // A shell-wide catalog task takes precedence over a screen's shorter-lived busy indicator.
@@ -187,7 +190,7 @@ internal fun ScreenHeader(title: String, navigation: (() -> Unit)? = null, title
     // Fixed height: the title keeps its place whatever actions (or none) a screen shows.
     Row(Modifier.fillMaxWidth().height(56.dp).padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (navigation != null) IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") }
+        if (navigation != null) HoldTip("Open navigation") { IconButton(onClick = navigation) { EntryIcon("Open navigation", "menu") } }
         Text(title, Modifier.weight(1f).then(titleModifier), style = MaterialTheme.typography.titleLarge,
             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         actions()

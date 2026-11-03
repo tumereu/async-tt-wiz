@@ -74,7 +74,8 @@ class CardInspectionUiTest {
             TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize(), connected = true,
                 toolkit = toolkit, onIntent = toolkit::handle)
         } }
-        val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape)
+        val scene = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f, if (landscape) 412f else 892f, landscape,
+            landscapeHome = true)
         val card = scene.items.first { it.owner == f.a && it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD && it.visible.isNotEmpty() }
         val point = card.visible.first().center
         val table = compose.onNodeWithContentDescription("Shared table")

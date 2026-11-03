@@ -1,1 +1,1 @@
-Bob, offline while Alice cast Storm Spark at him, catches up in timeline mode: Auto stopped at his pause (the respond panel shows Alice's spell) and waits there until he plays on or holds Auto to respond on a branch.
+Bob, offline while Alice cast Storm Spark at him, catches up in timeline mode: Auto stopped at his pause; the respond panel shows Alice's spell with Respond greyed and "Hold Auto to respond on a branch", and waits there until he plays on or holds Auto.

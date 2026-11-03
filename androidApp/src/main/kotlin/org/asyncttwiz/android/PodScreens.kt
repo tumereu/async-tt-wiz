@@ -145,8 +145,8 @@ internal fun PodsDestination(controller: PodController, accountId: String, navig
 internal fun PodChallengeFeedback(state: LobbyState, retry: () -> Unit, dismiss: () -> Unit, modifier: Modifier = Modifier) {
     Box(modifier) {
         if (state.retryPodChallengeName != null) {
-            FilledTonalIconButton(retry, Modifier.align(Alignment.TopEnd).padding(12.dp), enabled = !state.mutating) {
-                EntryIcon("Retry challenge", "refresh")
+            HoldTip("Retry challenge", Modifier.align(Alignment.TopEnd).padding(12.dp)) {
+                FilledTonalIconButton(retry, enabled = !state.mutating) { EntryIcon("Retry challenge", "refresh") }
             }
         }
         FloatingTransientError(state.error, dismiss, Modifier.align(Alignment.BottomCenter))
@@ -158,7 +158,7 @@ private fun PodOverflow(controller: PodController, creator: Boolean, phase: PodP
     startNow: Boolean = false) {
     var expanded by remember { mutableStateOf(false) }
     Box {
-        if (compact) IconButton({ expanded = true }, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") }
+        if (compact) HoldTip("Pod actions") { IconButton({ expanded = true }, Modifier.size(32.dp)) { EntryIcon("Pod actions", "more") } }
         else ScreenIconButton("Pod actions", "more", { expanded = true })
         DropdownMenu(expanded, { expanded = false }) {
             // Starting is otherwise "Start when everyone accepts" while invitations are pending.
@@ -405,7 +405,7 @@ internal fun PodPlayHeader(detail: PodDetail, navigation: (() -> Unit)?, trailin
     Surface {
         Row(Modifier.fillMaxWidth().height(PodPlayHeaderHeight).testTag("pod-play-header"),
             verticalAlignment = Alignment.CenterVertically) {
-            if (navigation != null) IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") }
+            if (navigation != null) HoldTip("Open navigation") { IconButton(navigation, Modifier.size(48.dp)) { EntryIcon("Open navigation", "menu") } }
             else Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(detail.name, Modifier.height(16.dp).testTag("pod-play-title"), style = MaterialTheme.typography.labelSmall,
@@ -485,9 +485,11 @@ internal fun PodGamesTab(detail: PodDetail, accountId: String, lobby: LobbyContr
         detail.members.forEach { member ->
             MemberLine(member.account, if (member.submitted) "deck submitted" else "building") {
                 if (podChallengeOffered(detail, member, accountId) && lobby != null)
+                    HoldTip("Challenge") {
                     FilledIconButton({ lobby.challengeFromPod(detail.id, member.account.accountId, gameNameSuggestion()) },
                         enabled = mine?.submitted == true && !lobby.state.mutating) {
                         Icon(painterResource(R.drawable.swords_outlined), contentDescription = "Challenge")
+                    }
                     }
             }
         }

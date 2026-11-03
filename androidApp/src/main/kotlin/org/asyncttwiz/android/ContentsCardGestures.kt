@@ -33,7 +33,6 @@ internal fun Modifier.contentsCardGestures(id: String, zone: PlayZone, actions: 
     val coordinator = remember(id, density, double != null, holdMillis) {
         TableGestureCoordinator({ intent -> when (intent) {
             is TableIntent.Actions -> if (zone == PlayZone.STACK && currentDouble != null) currentDouble?.invoke() else currentActions()
-            is TableIntent.StackBubbles -> currentActions()
             is TableIntent.Rotate -> currentDouble?.invoke()
             is TableIntent.Peek -> currentPeek(intent.cardId != null)
             TableIntent.DismissTapUi -> parent?.dismiss?.invoke()

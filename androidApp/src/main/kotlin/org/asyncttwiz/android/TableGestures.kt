@@ -5,12 +5,9 @@ import kotlin.math.abs
 import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.hypot
-import kotlin.math.roundToInt
 
 data class TableGesturePreview(val pressedId: String? = null, val scope: TableScope? = null,
-    val point: TablePoint? = null, val rectangle: TableBounds? = null,
-    val destination: TableDestination? = null, val delta: Int? = null,
-    val marking: Boolean = false, val markIndex: Int? = null, val panel: String? = null)
+    val point: TablePoint? = null, val destination: TableDestination? = null)
 
 /** The ONLY pointer arbiter on the table, including docks/hands. Scene, preview and gesture distances
  * are dp; hosts convert raw pointer pixels with [pointFromPixels], including pan deltas/centroids. */
@@ -22,13 +19,12 @@ class TableGestureCoordinator(
     private val diagnostic: (String) -> Unit = {}
 ) {
     init { require(density.isFinite() && density > 0f) }
-    private val markStepDp = 28f
     fun pointFromPixels(x: Float, y: Float) = TablePoint(x / density, y / density)
-    private enum class Phase { PRESS, DRAG, RECTANGLE, SCROLL, HOLD, TRANSFORM, MARK, PAN, HAND_PAN }
+    private enum class Phase { PRESS, DRAG, SCROLL, HOLD, TRANSFORM, PAN, HAND_PAN }
     private data class Capture(val item: TableItem?, val start: TablePoint, val time: Long,
         val selection: TableSelection, val scope: TableScope?, val viewport: TableViewport?, var phase: Phase = Phase.PRESS,
         var point: TablePoint = start, var double: Boolean = false, val sources: Map<String, TableMoveSource> = emptyMap(),
-        var destination: TableDestination? = null, val bubble: StackBubbleGeometry? = null, var replacingLocal: Boolean = false,
+        var destination: TableDestination? = null, var replacingLocal: Boolean = false,
         val suppressTapUi: Boolean = false, val camera: TableCamera = TableCamera(), val panRegion: String? = null,
         /** ZON-081: where a hand pan started (its scroll plus the pull past its end shown then). */
         var handStart: Float = 0f)
@@ -76,7 +72,7 @@ class TableGestureCoordinator(
         reviewing: Boolean = false) {
         this.scene = scene; this.sceneSource = sceneSource; lastSample = null
         this.reviewing = reviewing
-        this.selection = if (reviewing) selection.copy(ids = emptySet(), mode = if (selection.mode == TableMode.SELECT) TableMode.NORMAL else selection.mode) else selection
+        this.selection = if (reviewing) selection.copy(ids = emptySet()) else selection
         this.writable = writable
         // Removed cards cannot become the card that has slid into their old bounds.
         val c = capture
@@ -103,8 +99,6 @@ class TableGestureCoordinator(
         transforming = false; transformRegion = null
         navigationCamera = scene.world?.unresist(scene.camera) ?: scene.camera
         val item = scene.hit(point)
-        if (scene.stackBubbles != null && item?.id?.startsWith("stackBubble/") != true)
-            emit(TableIntent.StackBubbles(null))
         val id = item?.cardId ?: if (item?.kind == TableItemKind.PILE && item.zone != PlayZone.STACK) {
             item.cards.firstOrNull() // the displayed real card, not an invented logical top in unordered bins
         } else null
@@ -115,8 +109,6 @@ class TableGestureCoordinator(
         val region = scene.panRegion(point)
         val next = Capture(item, point, time, selection, scope, scene.viewports.firstOrNull { it.id == region },
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() },
-            bubble = scene.stackBubbles,
-            phase = if (item?.id == "stackBubble/mark") Phase.MARK else Phase.PRESS,
             suppressTapUi = dismissedRingCard != null && (item?.cardId == dismissedRingCard || item?.id == dismissedRingCard),
             camera = navigationCamera ?: scene.camera, panRegion = region)
         val old = pending
@@ -146,7 +138,6 @@ class TableGestureCoordinator(
             } else { pending = null; if (!old.shown) single(old.capture); capture = next }
         } else capture = next
         preview = TableGesturePreview(pressedId = item?.id)
-        if (next.phase == Phase.MARK) preview = preview.copy(marking = true, markIndex = next.bubble?.selected)
     }
     fun tick(time: Long) {
         spring?.let { s ->
@@ -192,22 +183,20 @@ class TableGestureCoordinator(
             pending = null
             c.phase = when {
                 // ZON-081 (I-D50): with Automatum on a drag on a hand that first moves sideways pans it (a card's too)
-                scene.automatumHand && c.viewport?.hand == true && abs(dx) > abs(dy) && !c.double -> Phase.HAND_PAN.also {
+                c.viewport?.hand == true && abs(dx) > abs(dy) && !c.double -> Phase.HAND_PAN.also {
                     c.handStart = c.viewport.scroll + (handPull[c.viewport.id] ?: 0f)
                 }
                 c.double && c.item == null && c.panRegion == WORLD_PAN_REGION -> Phase.PAN
-                // Panels pan like the table: double-tap-drag anywhere (also over cards) scrolls; a one-finger
-                // drag on empty panel space draws the selection rectangle, on a card it drags the card.
-                c.panRegion.isCardPanel && c.double -> Phase.SCROLL
-                c.panRegion.isCardPanel && c.item == null -> if (reviewing) Phase.SCROLL else Phase.RECTANGLE
-                c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> Phase.DRAG
+                // Panels pan like the table: a drag on empty panel space (or a double-tap-drag anywhere) scrolls; a
+                // one-finger drag on a card drags the card.
+                c.panRegion.isCardPanel && (c.double || c.item == null) -> Phase.SCROLL
                 c.viewport?.maxScrollY?.let { it > 0 } == true && abs(dy) > abs(dx) && c.item == null -> Phase.SCROLL
                 c.viewport?.maxScroll?.let { it > 0 } == true && abs(dx) > abs(dy) &&
                     c.item?.kind != TableItemKind.CARD -> Phase.SCROLL
-                reviewing && (c.item?.kind == TableItemKind.HAND || c.item == null) ->
+                // TBL-011 (I-D52): a one-finger drag starting on empty table pans it (there is no selection rectangle)
+                c.item?.kind == TableItemKind.HAND || c.item == null ->
                     if (c.panRegion == WORLD_PAN_REGION) Phase.PAN else Phase.HOLD
-                c.item?.kind == TableItemKind.HAND || c.item == null -> Phase.RECTANGLE
-                c.scope != null && scene.canDrag(c.item) || c.item.kind == TableItemKind.LIFE || c.item.kind == TableItemKind.COUNTER -> Phase.DRAG
+                c.scope != null && scene.canDrag(c.item) -> Phase.DRAG
                 else -> Phase.HOLD // non-draggable control consumes movement, not a release-time click
             }
         }
@@ -220,19 +209,10 @@ class TableGestureCoordinator(
                 pull(port.id, over / (2f + abs(over) / 96f))
             }
             Phase.PAN -> navigate(c.camera.copy(x = c.camera.x - dx / c.camera.zoom, y = c.camera.y - dy / c.camera.zoom), elastic = true)
-            Phase.MARK -> {
-                val bubble = c.bubble ?: return
-                val index = ((bubble.selected ?: -1) + (dy / markStepDp).roundToInt()).coerceIn(-1, bubble.optionCount - 1)
-                preview = TableGesturePreview(c.item?.id, point = point, marking = true, markIndex = index.takeIf { it >= 0 })
-            }
             Phase.SCROLL -> c.viewport?.let { p -> if (p.maxScrollY > 0 && (p.id.startsWith("cardPanel/") || abs(dy) > abs(dx)))
                 emit(TableIntent.Scroll(p.id, (p.scrollY - dy).coerceIn(0f, p.maxScrollY), vertical = true))
                 else emit(TableIntent.Scroll(p.id, (p.scroll - dx).coerceIn(0f, p.maxScroll))) }
-            Phase.RECTANGLE -> preview = TableGesturePreview(rectangle = rectangle(c.start, point), panel = c.panRegion?.takeIf { it.isCardPanel })
-            Phase.DRAG -> if (c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
-                preview = TableGesturePreview(c.item?.id, point = point,
-                    delta = valueDragDelta(dx, dy, side = requireNotNull(c.item).valueDragSide).toInt())
-            } else {
+            Phase.DRAG -> {
                 if (changed) c.destination = destination(point, c.scope)
                 preview = TableGesturePreview(c.item?.id, c.scope, point, destination = c.destination)
             }
@@ -259,9 +239,8 @@ class TableGestureCoordinator(
                 // Graveyard/Exile double-tap: the search panel (the single tap already opened the pile menu).
                 emit(TableIntent.SearchPile(c.item.id))
             } else if (c.double && c.item?.zone == PlayZone.LIBRARY) {
-                val hand = c.item.drawHandId
-                val top = c.scope?.contextId
-                if (writable && hand != null && top != null) emit(TableIntent.Draw(c.item.id, hand, top))
+                // I-D52: nothing is drawn by hand; the single tap already opened (or shook) the Library
+                Unit
             } else if (c.double && c.item?.viewport == "combat") {
                 // Combat has no double-tap source action or ordinary card menu.
                 diagnostic("dropped:combatHasNoRotation")
@@ -272,23 +251,22 @@ class TableGestureCoordinator(
                 val item = scene.items.firstOrNull { it.cardId == id && it.zone == PlayZone.HAND }
                 val destination = item?.let { handDoubleTapDestination(scene, it) }
                 if (writable && id != null && destination != null) {
-                    emit(TableIntent.Selection(c.selection.afterMove(id)))
                     emit(TableIntent.Move(TableScope(id, listOf(id)), destination, c.sources.filterKeys { it == id }, handDoubleTap = true))
                 }
             } else if (c.double && c.item?.kind == TableItemKind.CARD && c.item.zone != PlayZone.BATTLEFIELD) {
                 // Non-Battlefield cards have no orientation gesture, including legacy tapped cards.
                 Unit
             } else if (c.double && c.item?.kind == TableItemKind.CARD) {
+                // TBL-043: Automatum taps it for mana (nothing is tapped by hand)
                 if (writable && c.scope != null && targetsExist(c.scope)) {
-                    emit(TableIntent.Selection(c.selection.afterDoubleTap(c.scope.contextId)))
                     emit(TableIntent.Rotate(rotatable(c.scope), !c.item.tapped, c.sources, toggle = true))
                 } else diagnostic("dropped:" + when {
                     !writable -> "writable"
                     c.scope == null -> "scopeMissing"
                     else -> "targetMissing"
                 })
-            } else if (doubleTapEnabled && ((c.selection.mode != TableMode.PING && c.item?.kind == TableItemKind.CARD) ||
-                (c.selection.mode != TableMode.PING && (c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK) || c.item?.publicPile == true)))) {
+            } else if (doubleTapEnabled && (c.item?.kind == TableItemKind.CARD ||
+                c.item?.zone in listOf(PlayZone.LIBRARY, PlayZone.STACK) || c.item?.publicPile == true)) {
                 // Opening personal UI never waits for double-tap recognition. The second gesture
                 // dismisses that UI before drawing/rotating/entering explicit Stack actions.
                 single(c)
@@ -300,30 +278,10 @@ class TableGestureCoordinator(
                 if (doubleTapEnabled && c.item == null && (scene.worldInput(c.start) || c.panRegion.isCardPanel))
                     pending = Tap(c, time + doubleMillis, true)
             }
-            Phase.MARK -> if (writable && c.bubble != null && (preview.markIndex != c.bubble.selected || c.bubble.multipleMarks) &&
-                c.bubble.entryId in scene.items.flatMap { it.cards + listOfNotNull(it.cardId) }) {
-                emit(TableIntent.Submit(org.asyncttwiz.protocol.PlayAction.Stack(
-                    org.asyncttwiz.protocol.StackAction.MarkText(c.bubble.entryId, preview.markIndex)), null))
-            }
             Phase.DRAG -> {
-                if (writable && c.item?.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER)) {
-                    val bound = requireNotNull(c.item)
-                    val delta = valueDragDelta(point.x - c.start.x, point.y - c.start.y, side = bound.valueDragSide).toInt()
-                    // A counter row can disappear during sync. The captured semantic field still exists.
-                    if (delta != 0 && (bound.value.isEmpty() || Regex("[+-]?[0-9]+").matches(bound.value)))
-                        emit(TableIntent.PlayerDelta(requireNotNull(bound.owner), bound.counter, delta))
-                } else if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true) {
-                    scene.panelReorder(point, c.scope)?.let {
-                        emit(TableIntent.Submit(it, null)); preview = TableGesturePreview(); return
-                    }
-                    c.destination?.let { d ->
-                        emit(TableIntent.Selection(c.selection.afterMove(c.scope.contextId)))
-                        emit(TableIntent.Move(c.scope, d, c.sources, drag = true))
-                    }
-                }
+                if (writable && c.scope != null && targetsExist(c.scope) && c.item?.let(scene::canDrag) == true)
+                    c.destination?.let { d -> emit(TableIntent.Move(c.scope, d, c.sources, drag = true)) }
             }
-            Phase.RECTANGLE -> if (!reviewing) emit(TableIntent.Selection(c.selection.withRectangle(if (c.panRegion.isCardPanel)
-                scene.panelRectangle(c.panRegion!!, rectangle(c.start, point)) else scene.rectangle(rectangle(c.start, point)))))
             Phase.HOLD -> if (peekId(c.item) != null) emit(TableIntent.Peek(null))
             else -> Unit
         }
@@ -406,44 +364,22 @@ class TableGestureCoordinator(
             sources = scene.sources.filterKeys { it in scope?.cardIds.orEmpty() }), explicit = true)
     }
     fun inspect(item: TableItem) { peekId(item)?.let { emit(TableIntent.Inspect(it)) } }
-    fun rotate(item: TableItem, tapped: Boolean) {
-        if (item.zone != PlayZone.BATTLEFIELD || item.projection) return
-        val id = item.cardId ?: return
-        val scope = rotatable(selection.scope(id, order()))
-        if (writable) emit(TableIntent.Rotate(scope, tapped, scene.sources.filterKeys { it in scope.cardIds }))
-    }
     fun accessibleMove(item: TableItem, destination: TableDestination) {
         if (!scene.canDrag(item)) return
         val id = item.cardId ?: return
         val scope = if (item.zone == PlayZone.STACK) TableScope(id, listOf(id)) else selection.scope(id, order())
         if (writable && targetsExist(scope)) emit(TableIntent.Move(scope, destination, scene.sources.filterKeys { it in scope.cardIds }, drag = true))
     }
-    fun select(item: TableItem) { if (!reviewing) item.cardId?.let { emit(TableIntent.Selection(selection.toggle(it))) } }
     private fun rotatable(scope: TableScope) = scope.copy(cardIds = scope.cardIds.filter { id ->
         scene.items.any { it.cardId == id && it.zone == PlayZone.BATTLEFIELD && !it.projection }
     })
     private fun targetsExist(scope: TableScope) = scope.cardIds.all { id -> scene.items.any { it.cardId == id || id in it.cards } }
     private fun single(c: Capture, explicit: Boolean = false) {
         val item = c.item
-        if (item?.id?.startsWith("stackBubble/") == true) {
-            if (writable && c.bubble != null) when (item.id) {
-                "stackBubble/battlefield" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.BATTLEFIELD, fromBubble = true))
-                "stackBubble/graveyard" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.GRAVEYARD, fromBubble = true))
-                "stackBubble/exile" -> emit(TableIntent.StackDestination(c.bubble.entryId, PlayZone.EXILE, fromBubble = true))
-                "stackBubble/remove" -> emit(TableIntent.StackBubbleRemove(c.bubble.entryId))
-            }
-            return
-        }
         if (item != null && scene.items.none { it.id == item.id }) return
-        if (!explicit && c.selection.mode == TableMode.PING) {
-            if (writable) emit(TableIntent.Ping(item?.id, c.start))
-        } else if (!explicit && c.selection.mode == TableMode.SELECT && item?.cardId != null) {
-            emit(TableIntent.Selection(c.selection.toggle(item.cardId)))
-        } else if (!explicit && c.suppressTapUi) {
+        if (!explicit && c.suppressTapUi) {
             // Closing this card's ring is the single-tap action, but still seeds a normal double tap.
             return
-        } else if (!explicit && item?.zone == PlayZone.STACK) {
-            if (item.kind == TableItemKind.CARD && item.cardId == scene.stackTopId) emit(TableIntent.StackBubbles(item.cardId))
         } else if (item == null || item.kind == TableItemKind.HAND) {
             emit(TableIntent.Selection(c.selection.copy(ids = emptySet())))
         } else if (c.scope == null || targetsExist(c.scope)) {
@@ -507,29 +443,11 @@ class TableGestureCoordinator(
         return TableDestination.Grid(f.containerId, floor(x / scene.columnPitch).toInt(), floor(y / f.rowHeight).toInt().coerceAtLeast(0))
     }
     private fun distance(a: TablePoint, b: TablePoint) = hypot(a.x - b.x, a.y - b.y)
-    private fun rectangle(a: TablePoint, b: TablePoint) = TableBounds(minOf(a.x, b.x), minOf(a.y, b.y), abs(a.x - b.x), abs(a.y - b.y))
 }
 
 private val String?.isCardPanel get() = this?.startsWith("cardPanel/") == true
 /** A Graveyard or Exile pile control (not a card inside a panel). */
 internal val TableItem.publicPile get() = kind == TableItemKind.PILE && zone in PublicPiles.zones
-/** Cards of one panel viewport under the rectangle (every copy of a grouped row); nothing outside that panel. */
-internal fun TableScene.panelRectangle(viewport: String, bounds: TableBounds): Set<String> {
-    val groups = cardPanels.firstOrNull { it.viewport.id == viewport }?.rows.orEmpty().associate { it.entry.cardId to it.cardIds }
-    return items.filter {
-        it.kind == TableItemKind.CARD && it.viewport == viewport && it.visible.any { part -> part.intersection(bounds) != null }
-    }.flatMap { item -> item.cardId?.let { groups[it] ?: listOf(it) }.orEmpty() }.toSet()
-}
-
-/** The cards a rectangle being drawn would select (null when none is drawn). */
-internal fun TableScene.rectangleSelection(preview: TableGesturePreview): Set<String>? = preview.rectangle?.let { b ->
-    preview.panel?.let { panelRectangle(it, b) } ?: rectangle(b)
-}
-
-/** The cards shown selected: while a rectangle is drawn, the selection it would leave on release. */
-internal fun TableScene.highlightedSelection(preview: TableGesturePreview, selection: TableSelection): Set<String> =
-    rectangleSelection(preview)?.let { selection.withRectangle(it).ids } ?: selection.ids
-
 /** The same semantic destination and Move intent as a drag; no special mutation/animation path. */
 internal fun handDoubleTapDestination(scene: TableScene, item: TableItem): TableDestination? {
     if (item.zone != PlayZone.HAND) return null

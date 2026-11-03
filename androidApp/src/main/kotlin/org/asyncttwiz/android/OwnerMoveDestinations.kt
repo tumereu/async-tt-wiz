@@ -48,11 +48,6 @@ internal fun ownerMoveDestination(board: BoardState, id: String, destination: Mo
 internal fun TableScene.ownerMoveDestination(id: String, destination: TableDestination): TableDestination {
     if (destination !is TableDestination.Container || destination.zone !in ownerOnlyZones) return destination
     val owner = cardOwners[id] ?: items.firstOrNull { it.cardId == id }?.owner ?: return destination
-    val pile = tempPiles.values.firstNotNullOfOrNull { ids -> ids.indexOf(destination.id).takeIf { it >= 0 } }
-    if (pile != null) {
-        val target = tempPiles[owner]?.getOrNull(pile) ?: return destination
-        return if (target == destination.id) destination else destination.copy(id = target, handGap = null)
-    }
     val target = items.firstOrNull { it.zone == destination.zone && it.owner == owner && !it.temp &&
         it.kind in listOf(TableItemKind.HAND, TableItemKind.PILE) } ?: return destination
     return if (target.id == destination.id) destination else destination.copy(id = target.id, handGap = null)

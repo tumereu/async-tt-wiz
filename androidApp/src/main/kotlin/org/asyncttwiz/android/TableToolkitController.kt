@@ -4,7 +4,6 @@ import androidx.compose.runtime.*
 import org.asyncttwiz.protocol.*
 import androidx.lifecycle.ViewModel
 
-data class ToolkitLibrary(val controller: LibraryController, val handIds: List<String>, val tool: LibraryTool)
 data class ToolkitCapture(val viewIds: List<String>, val contextViewId: String,
     val sourceIds: List<String>, val sources: Map<String, TableMoveSource>, val areaId: String?)
 
@@ -50,7 +49,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      */
     internal fun acting(): PlayState? {
         val play = current() ?: return null
-        if (draft != null || !play.board.automatum) return play
+        if (draft != null) return play
         val from = continuation()?.nodeId?.takeIf { it == play.currentNodeId } ?: return play
         val tree = playTree?.invoke() ?: return play
         if (tree.initial.id != play.id || !tree.forksAt(from)) return play
@@ -114,7 +113,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * off, while a cast or an Automatum choice is open, while the viewer can't act, and until it is worked out.
      */
     internal fun playable(play: PlayState): Set<String> {
-        if (!play.board.automatum || !enabled() || cast.open || Automatum.flowOpen(play.board)) return emptySet()
+        if (!enabled() || cast.open || Automatum.flowOpen(play.board)) return emptySet()
         // The game begins only once both players are Ready (TRN-062)
         if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
         val plays = cardPlays(play) ?: return emptySet()
@@ -140,27 +139,20 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         error = null
         return cast.begin(cardId, input, play.text)
     }
-    val manual = ManualActions()
     val layoutState = mutableStateOf(TableLayoutState())
     /** I-D50 (ZON-079, ZON-080): the viewer's hand with Automatum on: a tap raises a card with its cost chips. */
     internal val hand = HandController(viewer, { acting()?.takeIf { enabled() } }, layoutState, automatumWork, ::engineTags,
         cast = { card, way, extras -> error = null; castGesture = card; cast.start(card, way, extras) },
         shake = { shake(it) }, unplayable = { play, card -> AutomatumBoards.cachedCardPlays(play, viewer)?.let { unplayable(play, card) } })
     val selectionState = mutableStateOf(TableSelection())
-    val tokens = TokenLinkController(::current, { action -> submit(action) }, submitInvocation = { actions ->
-        batchResult {
-            var allQueued = true
-            actions.forEach { if (!submit(it)) allQueued = false }
-            allQueued
-        }
-    })
-    val table = TableActionController(::current, ::enabled, { submit(it) }, this, batch = { block -> batchResult(block = block) })
+    val table = TableActionController(::current, ::enabled, this)
     private val basic = BasicTableController(::current, ::enabled, ::enqueue)
     private var invocation: String? = null
     private var lastInvocation: String? = null
     var panel by mutableStateOf<String?>(null); private set
     var popupItem by mutableStateOf<TableItem?>(null); private set
-    var library by mutableStateOf<ToolkitLibrary?>(null); private set
+    /** The player whose Life panel is open (TRN-030), tapped on their life square; personal UI. */
+    var player by mutableStateOf<String?>(null); private set
     var capture by mutableStateOf<ToolkitCapture?>(null); private set
     var inspection by mutableStateOf<ManualInspection?>(null); private set
     var peek by mutableStateOf<ManualInspection?>(null); private set
@@ -192,35 +184,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * Battlefield or hand, the combat draft) go through while this is above zero; other manual changes are refused. */
     private var engineRoute = 0
     private fun <T> engineRoute(block: () -> T): T { engineRoute++; try { return block() } finally { engineRoute-- } }
-    var stackBubbleEntry by mutableStateOf<String?>(null); private set
-    fun dismissTapUi() { dismiss(); showStackBubbles(null) }
-    private data class PendingStackBubble(val nodeId: String, val before: Set<String>, val sourceId: String)
-    private var pendingStackBubble: PendingStackBubble? = null
-    private data class PendingStackAdvance(val nodeId: String, val entryId: String)
-    private var pendingStackAdvance: PendingStackAdvance? = null
-    fun showStackBubbles(id: String?) { pendingStackBubble = null; pendingStackAdvance = null; stackBubbleEntry = id }
-    /** Follow the session's prediction as soon as it is published, without waiting for acceptance.
-     * Request-derived effect IDs are identical in prediction and accepted state. */
-    fun refreshStackBubbles() {
-        val play = current() ?: return
-        val stack = play.board.containers.singleOrNull { it.zone == PlayZone.STACK }?.cards.orEmpty()
-        pendingStackBubble?.let { pending ->
-            val added = stack.firstOrNull { id -> id !in pending.before &&
-                play.board.stackEffects.any { it.id == id && it.sourceId == pending.sourceId } }
-            if (added != null) stackBubbleEntry = stack.firstOrNull()
-            if (added != null || play.currentNodeId != pending.nodeId) pendingStackBubble = null
-        }
-        pendingStackAdvance?.let { pending ->
-            if (pending.entryId !in stack) stackBubbleEntry = stack.firstOrNull()
-            if (pending.entryId !in stack || play.currentNodeId != pending.nodeId) pendingStackAdvance = null
-        }
-        if (stackBubbleEntry != stack.firstOrNull()) stackBubbleEntry = null
-    }
     private var inspectionSubscription: InspectionSubscription? = null
     private var inspectionLifetime: String? = null
     private var reviewContext: String? = null
     fun reviewContext(context: String) {
-        if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss(); tokens.close(); showStackBubbles(null) }
+        if (reviewContext != null && reviewContext != context) { closeInspection(); dismiss() }
         reviewContext = context
     }
 
@@ -239,35 +207,14 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val sent = if (pending.actions.size == 1) gameplay(pending.actions.single(), pending.requestId)
             else playBatch?.invoke(pending.actions.toList(), pending.requestId) == true
         if (!sent) error = "Action could not be queued. Reconnect and try again."
-        refreshStackBubbles()
         return result && sent
     }
     fun submitAll(actions: List<PlayAction>) { batch { actions.forEach { submit(it) } } }
-    fun completeValue(): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val editor = manual.editor
-        val actions = manual.valueActions(play, viewer)
-        if (actions.isEmpty()) return false
-        val sent = if (actions.size == 1) submit(actions.single()) else batchResult {
-            actions.fold(true) { all, action -> submit(action) && all }
-        }
-        if (sent && manual.editor === editor) manual.cancelEditor()
-        return sent
-    }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
         refusal(action)?.let { if (it == CastController.BUSY) busyShake() else error = it; return false }
-        val play = current()
-        val source = ((action as? PlayAction.Stack)?.action as? StackAction.AddEffect)?.sourceId
-        val baseline = draft?.initial ?: play
-        val pending = if (source != null && baseline != null) PendingStackBubble(baseline.currentNodeId,
-            CombatStackRules.stack(baseline.board).cards.toSet(), source) else null
         return (draft?.add(action) ?: gameplay(action, invocationId)).also { sent ->
             if (!sent) error = "Action could not be queued. Reconnect and try again."
-            else {
-                if (pending != null) pendingStackBubble = pending
-                if (draft == null) refreshStackBubbles()
-            }
         }
     }
 
@@ -281,22 +228,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (cast.open) return CastController.BUSY
         val play = current() ?: return null
         val board = play.board
-        if (!board.automatum) return null
         val own = (action as? PlayAction.Mtg)?.action.let {
             it is MtgAction.SetAutomatum || it is MtgAction.SetSkipWhenNoChoice || it is MtgAction.SetFullControl ||
                 it is MtgAction.ClearRecords }
         if (own) return null
-        // I-D37: while Automatum waits for something done by hand, manual edits are what it waits for (until Done)
-        val byHand = AutomatumBoards.byHand(play)
-        if (Automatum.flowOpen(board) && !byHand && !shownOnly(play, action)) return SharedFlowController.BUSY
+        if (Automatum.flowOpen(board) && !shownOnly(play, action)) return SharedFlowController.BUSY
         val step = action == PlayAction.NextStep || action == PlayAction.EndTurn || action is PlayAction.ChooseStep ||
             action is PlayAction.BeginTurn
         if (step && CombatStackRules.stack(board).cards.isNotEmpty()) return SharedFlowController.STACK_WAITING
         if (step) return SharedFlowController.STEPS_FORWARD
         // TRN-027: the viewer's own mulligans and library bottom during their opening, the host's setup before the game
         if (AutomatumDrags.openingAction(board, viewer, action)) return null
-        // I4, I-D28: only what the rules allow; manual changes only while Automatum waits for something done by hand
-        if (!byHand && engineRoute == 0 && AutomatumDrags.manual(action)) return when (action) {
+        // I4, I-D28, I-D52: only what the rules allow; nothing changes the game by hand
+        if (engineRoute == 0 && AutomatumDrags.manual(action)) return when (action) {
             is PlayAction.Stack -> AutomatumDrags.STACK
             is PlayAction.SetLife, is PlayAction.AdjustLife -> AutomatumDrags.LIFE
             else -> AutomatumDrags.MANUAL
@@ -339,13 +283,12 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return batchResult { actions.all { submit(it) } }.also { if (it) keeping = false }
     }
 
-    override fun automatumStep(intent: TableActionIntent): Boolean? {
-        val play = current() ?: return null
-        if (!play.board.automatum) return null
+    override fun automatumStep(intent: TableActionIntent): Boolean {
+        val play = current() ?: return false
         if (cast.open) { busyShake(); return false }
         val until = when (intent) {
             is TableActionIntent.Next -> {
-                // I-D46 d: the step arrow's "Done" finishes Automatum's step done by hand (I-D37); at the viewer's pause
+                // I-D46 d: the step arrow's "Done" answers Automatum's "By hand" choice (I-D37); at the viewer's pause
                 // held behind the live game it returns to it (STK-039), on the Stack or an empty one (UI review round 2 #1:
                 // the arrow is the panels' only way on)
                 if (Automatum.flowOpen(play.board) && AutomatumBoards.byHand(play)) {
@@ -364,7 +307,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 }
                 org.asyncttwiz.automatum.StepFlow.Until.Step(intent.position)
             }
-            else -> return null
+            else -> return false
         }
         error = null
         return flows.step(until)
@@ -406,7 +349,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         actions.drop(1).forEach { if (enabled()) enqueue(it, group) }
         // This is ordinary provisional disclosure, NOT an accepted result inferred from Boolean receipt.
         if (action is PlayAction.InspectFace) {
-            manual.closeInspection()
             val card = current()?.board?.cards?.singleOrNull { it.id == action.cardId && it.containerId == action.containerId }
             if (card != null) inspection = ManualInspection(play.gameId, play.id, card.id,
                 listOf(action.faceId), explicit = true, provisional = true)
@@ -414,22 +356,19 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return true
     }
 
-    fun dismiss() { panel = null; library = null; manual.close(); capture = null; popupItem = null; stackTargeting = false }
-    internal val hasBackOverlay get() = inspection != null || peek != null || manual.inspection != null ||
-        manual.editor != null || manual.scope != null || panel != null || stackBubbleEntry != null ||
-        tokens.showingCatalog || tokens.showingLinks || keeping
+    fun dismiss() { panel = null; player = null; capture = null; popupItem = null; stackTargeting = false }
+    fun dismissTapUi() = dismiss()
+    internal val hasBackOverlay get() = inspection != null || peek != null || capture != null || player != null ||
+        panel != null || keeping
     internal fun dismissBackOverlay() {
         when {
-            inspection != null || manual.inspection != null -> closeInspection()
+            inspection != null -> closeInspection()
             peek != null -> peek(null)
-            manual.editor != null -> manual.cancelEditor()
-            tokens.showingCatalog || tokens.showingLinks -> tokens.close()
-            manual.scope != null || panel != null -> dismissTapUi()
-            stackBubbleEntry != null -> showStackBubbles(null)
+            capture != null || player != null || panel != null -> dismiss()
             keeping -> closeKeep()
         }
     }
-    fun closeInspection() { inspectionLifetime = null; inspectionSubscription?.close(); inspectionSubscription = null; inspection = null; manual.closeInspection() }
+    fun closeInspection() { inspectionLifetime = null; inspectionSubscription?.close(); inspectionSubscription = null; inspection = null }
     private fun loggedInspection(action: PlayAction.InspectFace): Boolean {
         val play = current() ?: return false
         closeInspection()
@@ -442,9 +381,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         }) { event ->
             when (event) {
                 is InspectionEvent.Accepted -> {
-                    manual.inspected(event.state, viewer, event.disclosure)
-                    inspection = manual.inspection
-                    manual.closeInspection()
+                    val disclosure = event.disclosure
+                    val card = event.state.board.cards.singleOrNull { it.id == disclosure.cardId }
+                    if (viewer in disclosure.viewers && card != null && card.containerId == disclosure.containerId &&
+                        event.state.definitions.any { it.digest == card.definition && it.definition.faces.any { face -> face.faceId == disclosure.faceId } })
+                        inspection = ManualInspection(event.state.gameId, event.state.id, card.id, listOf(disclosure.faceId), explicit = true)
                 }
                 is InspectionEvent.NotAccepted -> { closeInspection(); error = "Inspection was not accepted." }
             }
@@ -497,7 +438,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val mtg = (action as? PlayAction.Mtg)?.action
         return (mtg == MtgAction.SetAutomatum(false) || mtg == MtgAction.ClearRecords) && Automatum.flowOpen(play.board)
     }
-    fun stackContents() { dismiss(); tokens.close(); showStackBubbles(null); panel = "manageStack" }
+    fun stackContents() { dismiss(); panel = "manageStack" }
     /** The Stack target picker is open (an entry below the top is a legal target, I-D6; [StackTargetPicker]). */
     var stackTargeting by mutableStateOf(false); private set
     /** Back in the Stack target picker: targets are picked on the table again. */
@@ -522,20 +463,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val container = current()?.board?.containers?.singleOrNull { it.id == id &&
             it.zone in setOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK) } ?: return
         if (container.zone == PlayZone.STACK) { stackContents(); return }
-        dismiss(); showStackBubbles(null)
+        dismiss()
         layoutState.value = layoutState.value.copy(localPileId = container.id.takeUnless { toggle && it == layoutState.value.localPileId },
             localPileTargets = false)
     }
     /** A Graveyard/Exile pile tap opens that pile's menu (either player's pile), like the Library menu. */
     fun openPileMenu(id: String) {
         current()?.board?.containers?.singleOrNull { it.id == id && it.zone in PublicPiles.zones } ?: return
-        dismiss(); showStackBubbles(null)
+        dismiss()
         panel = "pile/$id"
-    }
-    /** Personal selection only: a whole card panel joins (or leaves) the current selection. */
-    fun selectAll(ids: List<String>, selected: Boolean) {
-        val current = selectionState.value
-        selectionState.value = current.copy(ids = if (selected) current.ids + ids else current.ids - ids.toSet())
     }
     fun closeLocalPile() { layoutState.value = layoutState.value.copy(localPileId = null, localPileTargets = false); dismiss() }
     /** The pile opened to pick targets from ([open]), closed again once the targets are chosen. */
@@ -570,16 +506,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun openCard(scope: TableScope, sources: Map<String, TableMoveSource> = emptyMap()) {
         val play = current() ?: return
         val bound = bind(scope, sources) ?: return
-        dismiss(); tokens.close(); capture = bound; showStackBubbles(null)
-        val source = CombatStackRules.liveSource(play.board, scope.contextId)?.id
-        if (source != null) {
-            manual.cards(play, source, bound.sourceIds, scope.contextId.takeIf {
-                CombatStackRules.projectionNote(play.board, it) != null })
-        } else panel = "occurrence"
-        val occurrence = ProjectionEndpoint(bound.contextViewId)
-        if (CombatStackRules.exists(play.board, occurrence)) {
-            tokens.openOccurrences(occurrence, bound.viewIds.map(::ProjectionEndpoint).filter { CombatStackRules.exists(play.board, it) })
-        } else if (source != null) tokens.open(source, bound.sourceIds)
+        // A combat copy whose card left play has nothing to offer (TBL-116)
+        CombatStackRules.liveSource(play.board, scope.contextId) ?: return
+        dismiss(); capture = bound
     }
 
     fun open(captured: TableIntent.Actions, item: TableItem, selection: TableSelection) {
@@ -595,7 +524,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             }
             // An entry below the top of the Stack is a legal target: the Stack target picker opens to pick it from
             if (play != null && item.zone == PlayZone.STACK && CombatStackRules.stack(play.board).id in cast.glow(play) + flows.glow(play)) {
-                dismiss(); showStackBubbles(null); stackTargeting = true
+                dismiss(); stackTargeting = true
                 return
             }
             // UI review round 2 #4 (I-D46 b): a tap on anything that isn't a legal target shakes it
@@ -604,30 +533,26 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             return
         }
         val play = current() ?: return
-        // ZON-079 (I-D50): with Automatum on a hand has no menu: a tap raises the card (or casts the raised one); a tap on
-        // anything else lowers it
-        if (item.zone == PlayZone.HAND && item.kind == TableItemKind.CARD && !AutomatumBoards.manualAllowed(play)) {
-            dismiss(); showStackBubbles(null)
+        // ZON-079 (I-D50): a hand has no menu: a tap raises the card (or casts the raised one); a tap on anything else
+        // lowers it
+        if (item.zone == PlayZone.HAND && item.kind == TableItemKind.CARD) {
+            dismiss()
             item.cardId?.let(hand::tap)
             return
         }
         hand.lower()
         // CMB-028, CMB-032, CMB-034: with Automatum on a tap in combat stages, blocks or selects
         if (combatTap(play, item)) { dismiss(); return }
+        // A card in a Graveyard or Exile panel: its engine menu (TBL-116)
         if (item.viewport.startsWith("cardPanel/")) {
-            val display = (play.board.contentsDisplays + listOfNotNull(localPanelDisplay(play, viewer, layoutState.value)))
-                .singleOrNull { it.id == item.viewport.substringAfter('/') } ?: return
-            // Either player acts on any panel's cards (rules v30), blind on faces hidden from them.
-            if (!enabled()) return
-            dismiss(); popupItem = item; panel = "panelCard/${display.id}/${item.cardId}"
+            item.cardId?.let { openCard(TableScope(it, listOf(it))) }
+            popupItem = item
             return
         }
         when {
             item.zone == PlayZone.STACK -> stackContents()
             captured.scope != null -> openCard(captured.scope, captured.sources)
-            item.kind in listOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> {
-                dismiss(); manual.player(play, requireNotNull(item.owner), counters = item.kind == TableItemKind.COUNTER)
-            }
+            item.kind == TableItemKind.LIFE -> { dismiss(); player = requireNotNull(item.owner) }
             item.zone == PlayZone.LIBRARY -> if (zoneMenuEmpty(play, item.id)) { dismiss(); shake(item.id); return }
                 else openLibrary(item.id)
             item.zone in PublicPiles.zones -> openPileMenu(item.id)
@@ -636,10 +561,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         popupItem = item
     }
 
-    /** I-D46: with Automatum on (and nothing to do by hand, I-D37) a Temp pile, and a Library whose top card Automatum
-     * offers nothing for, have nothing in their menu: a tap shakes the pile instead of opening it. */
+    /** I-D46: a Library whose top card Automatum offers nothing for has nothing in its menu: a tap shakes the pile
+     * instead of opening it. */
     private fun zoneMenuEmpty(play: PlayState, id: String): Boolean {
-        if (AutomatumBoards.manualAllowed(play)) return false
         val pile = play.board.containers.singleOrNull { it.id == id }
         if (pile == null || pile.temp) return true
         if (pile.zone != PlayZone.LIBRARY) return false
@@ -649,227 +573,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return plays.of(top).none { it.legal }
     }
 
-    fun openLibrary(id: String, tool: LibraryTool = LibraryTool.CONTENTS, handIds: List<String>? = null) {
-        val play = current() ?: return
-        val source = play.board.containers.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY }
-        // A Temp pile that is not created yet (pile 1 placeholder) still opens its pile menu.
-        val ref = if (source == null) TempPiles.refs(play)[id] ?: return else null
-        val owner = source?.accountId ?: ref!!.accountId
-        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == owner }
-        dismiss()
-        val controller = libraryController(id, hand.id) ?: return
-        library = ToolkitLibrary(controller, handIds?.toList() ?: hand.cards.toList(), tool)
-        panel = if (source?.temp != false) "temp" else if (tool == LibraryTool.MULLIGAN_N) "mulligan" else "library"
-    }
-    /** The captured cards into each owner's Temp pile [pile] (1..4, created/turned on by the first move)
-     * as ONE invocation. Tokens and cards already in that pile stay where they are. */
-    fun toTemp(sourceIds: List<String>, pile: Int): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val cards = tempPileMovable(play, sourceIds, pile)
-        if (cards.isEmpty()) return false
-        val actions = cards.groupBy { it.owner }.flatMap { (owner, members) ->
-            val board = TempPiles.ensure(play.board, play.id, owner, pile)
-            org.asyncttwiz.protocol.LibraryActions.moveCaptured(board, members.map { it.id },
-                MoveDestination(TempPiles.container(board, owner, pile)!!.id, MoveInsertion.TOP))
-        }
-        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
-    }
-    /** The whole Temp pile, in its current order, onto its owners' Library top or bottom as ONE invocation. */
-    fun tempToLibrary(tempId: String, bottom: Boolean): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val actions = TempPiles.allToLibrary(play.board, tempId, bottom)
-        if (actions.isEmpty()) return false
-        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
-    }
-    /** The cards onto the top or bottom of their owners' Libraries in random order: one event (and one hidden
-     * layer) per owner's Library, each with a fresh seed, as ONE invocation. Tokens are left out. */
-    fun toLibraryRandom(ids: List<String>, bottom: Boolean): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val actions = org.asyncttwiz.protocol.LibraryActions.toLibraryRandom(play.board, ids, bottom) { DeviceRandom.seed() }
-        if (actions.isEmpty()) return false
-        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
-    }
-    /** The whole Temp pile, in its current order, onto the top of its owner's pile [number] as ONE invocation. */
-    fun tempToPile(tempId: String, number: Int): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val actions = TempPiles.allToPile(play.board, play.id, tempId, number)
-        if (actions.isEmpty()) return false
-        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
-    }
-    /** The Temp pile's top card onto the top of its owner's pile [number] (created by the move if needed). */
-    fun tempTopToPile(tempId: String, number: Int): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val actions = TempPiles.topToPile(play.board, play.id, tempId, number)
-        if (actions.isEmpty()) return false
-        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
-    }
-    /** The whole Temp pile into its owner's Graveyard or Exile as ONE invocation. */
-    fun tempToZone(tempId: String, zone: PlayZone): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val actions = TempPiles.allToZone(play.board, tempId, zone)
-        if (actions.isEmpty()) return false
-        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
-    }
-    /** The whole Temp pile into its owner's Library, then that Library shuffled, as ONE invocation (one Undo). */
-    fun tempShuffleIntoLibrary(tempId: String): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val seed = DeviceRandom.seed()
-        val actions = TempPiles.shuffleIntoLibrary(play.board, tempId, seed)
-        if (actions.isEmpty()) return false
-        return batchResult { actions.all { submit(it) } }.also { if (it) dismiss() }
-    }
-    /** Turns a player's Temp pile 2..4 off (only while empty); a shared, undoable event. Piles are only
-     * created by moving cards there. */
-    fun closeTempPile(owner: String, number: Int): Boolean {
-        if (current() == null || !enabled()) return false
-        return submit(PlayAction.SetTempPile(owner, number, false)).also { if (it) dismiss() }
-    }
-    /** Shared panels render directly from the board, including after reconnect and during review. */
-    fun showLibraryContents(selection: ContentsSelection, count: Int, reveal: Boolean) {
-        val controller = library?.controller ?: return
-        val result = controller.show(selection, count, reveal)
-        if (result.refused != 0 || result.submitted == 0) return
-        dismiss()
-    }
-    /** Either player closes any panel (rules v29) with the author's flow, so a forgotten panel never blocks the game. */
-    fun closeCardPanel(display: ContentsDisplay) {
-        if (!enabled()) return
-        // Hand reveals return their cards in place with Done; Library reveals keep the rest chooser.
-        if (display.reveal && current()?.board?.containers?.any { it.id == display.containerId && it.zone == PlayZone.HAND } == true) {
-            if (submit(PlayAction.DismissContents(display.id))) dismiss()
-            return
-        }
-        // A Temp pile panel just closes, leaving the pile in its shown order: no rest choices, no shuffle.
-        val temp = current()?.board?.containers?.any { it.id == display.containerId && it.temp } == true
-        if (!temp && !display.search && display.cardIds.isNotEmpty()) { dismiss(); panel = "panelRest/${display.id}" }
-        else resolveCardPanel(display)
-    }
-    fun resolveCardPanel(display: ContentsDisplay, rest: ContentsRest = ContentsRest.TOP) {
-        val play = current() ?: return
-        val owner = play.board.containers.single { it.id == display.containerId }.accountId
-        val hand = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == owner }
-        val result = libraryController(display.containerId, hand.id)?.dismiss(display.id, rest)
-        if (result?.refused == 0) dismiss()
-    }
-    fun playHand(ids: List<String>): Boolean = batchResult {
-        ids.isNotEmpty() && ids.distinct().all { id ->
-            val play = current() ?: return@all false
-            val card = play.board.cards.singleOrNull { it.id == id } ?: return@all false
-            if (play.board.containers.none { it.id == card.containerId && it.zone == PlayZone.HAND }) return@all false
-            val destination = handPlayDestination(play, card) ?: return@all false
-            basic.handle(TableIntent.Move(TableScope(id, listOf(id)), destination,
-                BasicTableController.sources(play, listOf(id)), handDoubleTap = true))
-        }
-    }
-    /** Morph/disguise (STK-005): every selected hand card gets a face-down Stack entry that, always being a 2/2
-     * permanent, auto-resolves onto its owner's Battlefield face down like a hand double-tap: separate history
-     * group, same invocation (one-step Undo), all in one batch. */
-    fun castFaceDown(ids: List<String>): Boolean = batchResult {
-        ids.isNotEmpty() && ids.distinct().all { id ->
-            val play = current() ?: return@all false
-            val before = CombatStackRules.stack(play.board).cards.toSet()
-            if (!submit(HandActions.castFaceDown(play, id) ?: return@all false)) return@all false
-            val next = current()?.takeIf { enabled() } ?: return@all true
-            val entry = CombatStackRules.stack(next.board).cards.firstOrNull { entry -> entry !in before &&
-                next.board.stackEffects.any { it.id == entry && it.sourceId == id && it.faceDown } } ?: return@all true
-            // Exactly the manual resolver, as the double-tap uses: it keeps the card face down as a 2/2.
-            for (action in StackMenuActions.destination(next, entry, PlayZone.BATTLEFIELD))
-                if (!enqueue(action, invocation)) break
-            true
-        }
-    }
-    fun randomHand(handId: String, selectedIds: List<String>, result: HandRandomResult): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val seed = DeviceRandom.seed()
-        val action = runCatching { HandActions.random(play.board, handId, selectedIds, seed, result) }.getOrNull() ?: return false
-        return submit(action)
-    }
-    fun cardPanelAction(display: ContentsDisplay, id: String, zone: PlayZone, reveal: Boolean = false,
-        bottom: Boolean = false, tapped: Boolean = false) = cardPanelAction(display, listOf(id), zone, reveal, bottom, tapped)
-    /** Panel cards [ids] (the tapped card, or the selected cards of this panel) as ONE invocation.
-     * Disclosure and onward movement keep distinct history groups inside it. */
-    fun cardPanelAction(display: ContentsDisplay, ids: List<String>, zone: PlayZone, reveal: Boolean = false,
-        bottom: Boolean = false, tapped: Boolean = false, shuffle: Boolean = false): Boolean {
-        if (ids.isEmpty() || ids.any { it !in display.cardIds } || !enabled()) return false
-        return moveToOwnerZones(ids, zone, bottom, tapped, shuffle, reveal = display.takeIf { reveal }).also { if (it) dismiss() }
-    }
-    fun localPanelAction(id: String, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false) =
-        localPanelAction(listOf(id), zone, bottom, tapped)
-    /** Cards of the open Graveyard/Exile panel, each into its OWNER's [zone], as ONE invocation. */
-    fun localPanelAction(ids: List<String>, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false,
-        shuffle: Boolean = false): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        val pile = layoutState.value.localPileId ?: return false
-        if (ids.isEmpty() || ids.any { id -> play.board.cards.none { it.id == id && it.containerId == pile } }) return false
-        return moveToOwnerZones(ids, zone, bottom, tapped, shuffle).also { if (it) dismiss() }
-    }
-    /** The whole Graveyard/Exile pile [containerId] into its cards' owners' [zone] (Library: random order,
-     * or shuffled in with [shuffle]) as ONE invocation. Never into a Hand. */
-    fun pileToZone(containerId: String, zone: PlayZone, bottom: Boolean = false, shuffle: Boolean = false): Boolean {
-        val play = current()?.takeIf { enabled() } ?: return false
-        if (zone == PlayZone.HAND) return false
-        val pile = play.board.containers.singleOrNull { it.id == containerId && it.zone in PublicPiles.zones } ?: return false
-        return moveToOwnerZones(PublicPiles.movable(play.board, pile.cards, zone), zone, bottom, shuffle = shuffle)
-            .also { if (it) dismiss() }
-    }
-    /** [ids] each into its OWNER's [zone] as ONE invocation. Two or more cards onto a Library top or bottom
-     * go in random order ([toLibraryRandom]); [shuffle] instead shuffles every receiving Library afterwards.
-     * [reveal] first reveals the not yet revealed cards of that panel. */
-    internal fun moveToOwnerZones(ids: List<String>, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false,
-        shuffle: Boolean = false, reveal: ContentsDisplay? = null): Boolean = batchResult {
-        val play = current()?.takeIf { enabled() } ?: return@batchResult false
-        val cards = PublicPiles.movable(play.board, ids, zone)
-        if (cards.isEmpty()) return@batchResult false
-        if (reveal != null) for (id in cards.filter { it !in reveal.revealedIds })
-            if (!submit(PlayAction.RevealContentsCard(reveal.id, id))) return@batchResult false
-        if (zone == PlayZone.LIBRARY && !shuffle && cards.size >= 2) return@batchResult toLibraryRandom(cards, bottom)
-        if (!moveEachToOwnerZone(cards, zone, bottom, tapped)) return@batchResult false
-        if (shuffle) {
-            val board = current()?.board ?: return@batchResult false
-            for (library in cards.mapNotNull { id -> board.cards.singleOrNull { it.id == id }?.owner }.distinct()
-                .mapNotNull { board.zoneContainer(it, PlayZone.LIBRARY) })
-                if (!submit(PlayAction.ShuffleLibrary(library.id, DeviceRandom.seed()))) return@batchResult false
-        }
-        true
-    }
-    /** One ordinary move per card, in [ids] order, into each card's OWNER's [zone], inside the current batch. */
-    internal fun moveEachToOwnerZone(ids: List<String>, zone: PlayZone, bottom: Boolean = false, tapped: Boolean = false): Boolean = batchResult {
-        var sent = false
-        // Battlefield cells planned earlier in this batch, in case a later read does not show them yet.
-        val taken = mutableSetOf<BoardPosition>()
-        for (id in ids.distinct()) {
-            val play = current()?.takeIf { enabled() } ?: return@batchResult false
-            val card = play.board.cards.singleOrNull { it.id == id } ?: return@batchResult false
-            val destination = libraryDestinations(play.board, sourceIds = listOf(id)).map { it.second }.firstOrNull { d ->
-                play.board.containers.any { it.id == d.containerId && it.zone == zone } &&
-                    (zone != PlayZone.LIBRARY || d.insertion == if (bottom) MoveInsertion.BOTTOM else MoveInsertion.TOP)
-            }?.let { d -> if (zone != PlayZone.BATTLEFIELD) d
-                else d.copy(position = BattlefieldPlacement.cell(play, d.containerId, card, taken).also { taken += it }) }
-                ?: return@batchResult false
-            if (!submit(PlayAction.MoveCard(id, MoveSource(card.containerId, card.placement), destination))) return@batchResult false
-            if (tapped && !submit(PlayAction.SetTapped(id, true))) return@batchResult false
-            sent = true
-        }
-        sent
-    }
-    fun libraryController(source: String, hand: String): LibraryController? {
-        val playId = current()?.id ?: return null
-        return LibraryController(playId, source, hand, ::current, ::enabled, { submit(it) },
-        request = { action, group -> submit(action, group) }, moveRequest = { intent ->
-            var submitted = 0
-            val adapter = BasicTableController(::current, ::enabled) { action, group ->
-                enqueue(action, group).also { if (it && (action is PlayAction.MoveCard ||
-                    (action as? PlayAction.Stack)?.action is StackAction.AddEffect)) submitted++ }
-            }
-            val sent = batchResult(intent.invocationId ?: DeviceRandom.uuid()) { adapter.handle(intent) }
-            LibrarySubmission(if (sent) submitted else 0, if (sent) intent.scope.cardIds.size - submitted else intent.scope.cardIds.size)
-        }, viewer = viewer, batchRequest = { actions, group ->
-            if (actions.size == 1) submit(actions.single(), group) else batchResult(group) {
-                var sent = false
-                actions.forEach { sent = submit(it) || sent }
-                sent
-            }
-        })
+    /** ZON-078: the Library menu: what Automatum offers for its top card. */
+    fun openLibrary(id: String) {
+        current()?.board?.containers?.singleOrNull { it.id == id && it.zone == PlayZone.LIBRARY } ?: return
+        dismiss(); panel = "library/$id"
     }
 
     fun inspect(viewId: String) {
@@ -884,7 +591,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     fun handle(intent: TableIntent): Boolean {
         // I-D46: with Automatum on, a gesture Automatum doesn't allow shakes the card, pile or life square it was made on
         // instead of saying why (Inspect says it); genuine failures (offline, still working out) keep their message
-        val target = gestureTarget(intent)?.takeIf { current()?.board?.automatum == true }
+        val target = gestureTarget(intent)
         if (target == null) return handleIntent(intent)
         castGesture = target
         error = null
@@ -894,13 +601,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return result
     }
 
-    /** The item a refused gesture shakes (I-D46): a double-tapped or dragged card, a double-tapped library, a dragged
-     * life square; null for anything else. */
+    /** The item a refused gesture shakes (I-D46): a double-tapped or dragged card; null for anything else. */
     private fun gestureTarget(intent: TableIntent): String? = when (intent) {
         is TableIntent.Move -> intent.scope.contextId.takeIf { intent.handDoubleTap || intent.drag }
         is TableIntent.Rotate -> intent.scope.contextId
-        is TableIntent.Draw -> intent.libraryId
-        is TableIntent.PlayerDelta -> "life/${intent.accountId}".takeIf { intent.color == null }
         else -> null
     }
 
@@ -929,31 +633,21 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         castGesture = null
         val unplayable = message != null && !message.startsWith("The table changed") &&
             (message.endsWith("can't be cast now.") || message.endsWith("can't be played now."))
-        if (unplayable && card != null && current()?.board?.automatum == true) shake(card) else error = message
+        if (unplayable && card != null) shake(card) else error = message
     }
 
     private fun handleIntent(intent: TableIntent): Boolean {
-        // Automatum on (I2a, ZON-004): a hand double-tap casts (or plays, a land) through the engine
-        if (intent is TableIntent.Move && intent.handDoubleTap && current()?.board?.automatum == true) return castFromHand(intent.scope.contextId)
-        // Automatum on (I-D36, I-D28): a drag is the engine action it means, or refused with the reason; while Automatum
-        // waits for something done by hand drags work as with it off (I-D37, SYS-069)
-        val engineDrags = current()?.let { it.board.automatum && !AutomatumBoards.byHand(it) } == true
-        if (intent is TableIntent.Move && intent.drag && engineDrags) return automatumDrag(intent)
-        // I-D47: a double-tap on a battlefield card taps it for mana through Automatum (the mana goes to the pool)
-        if (intent is TableIntent.Rotate && intent.toggle && engineDrags) tapForMana(intent)?.let { return it }
-        if (intent is TableIntent.PlayerDelta && intent.color == null && engineDrags) {
-            error = AutomatumDrags.LIFE; return false
-        }
+        // ZON-004: a hand double-tap casts (or plays, a land) through the engine
+        if (intent is TableIntent.Move && intent.handDoubleTap) return castFromHand(intent.scope.contextId)
+        // I-D36, I-D52: a drag is the engine action it means, or refused
+        if (intent is TableIntent.Move && intent.drag) return automatumDrag(intent)
+        // I-D47: a double-tap on a battlefield card taps it for mana through Automatum; nothing is tapped by hand
+        if (intent is TableIntent.Rotate) return tapForMana(intent) ?: run { error = AutomatumDrags.MANUAL; false }
         if (intent is TableIntent.Batch) return batchResult(intent.invocationId) {
             intent.intents.all { handle(it) }
         }
-        val multiple = when (intent) {
-            is TableIntent.Move -> intent.scope.cardIds.size > 1 || intent.handDoubleTap
-            is TableIntent.Rotate -> intent.scope.cardIds.size > 1
-            is TableIntent.StackDestination, is TableIntent.StackBubbleRemove -> true
-            else -> false
-        }
-        return if (multiple) batchResult((intent as? TableIntent.Move)?.invocationId ?: DeviceRandom.uuid()) {
+        val multiple = intent is TableIntent.Move && intent.scope.cardIds.size > 1
+        return if (multiple) batchResult((intent as TableIntent.Move).invocationId ?: DeviceRandom.uuid()) {
             handleOne(intent)
         } else handleOne(intent)
     }
@@ -1016,22 +710,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     private fun handleOne(intent: TableIntent): Boolean {
         return when (intent) {
-            is TableIntent.StackBubbles -> { showStackBubbles(intent.entryId); true }
-            is TableIntent.StackDestination, is TableIntent.StackBubbleRemove -> {
-                val play = current()?.takeIf { enabled() } ?: return false
-                val actions = when (intent) {
-                    is TableIntent.StackDestination -> runCatching { StackMenuActions.destination(play, intent.entryId, intent.zone) }.getOrNull()
-                    is TableIntent.StackBubbleRemove -> listOf(StackMenuActions.remove(intent.entryId))
-                    else -> null
-                } ?: return false
-                val advance = stackBubbleAdvanceEntry(intent, play.board)?.let { PendingStackAdvance(play.currentNodeId, it) }
-                showStackBubbles(null)
-                var sent = false
-                // The shared lowering already includes move-entry defaults; do not expand the move twice.
-                for (action in actions) { if (!enqueue(action, invocation)) return sent; sent = true }
-                if (sent) { pendingStackAdvance = advance; if (draft == null) refreshStackBubbles() }
-                sent
-            }
             is TableIntent.Move -> {
                 val board = current()?.board ?: return false
                 if (intent.scope.cardIds.any { id -> board.cards.none { it.id == id } && board.stackEffects.none { it.id == id } &&
@@ -1039,24 +717,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 if (intent.scope.cardIds.any { it in CombatStackRules.stack(board).cards })
                     return basic.handle(intent.copy(invocationId = intent.invocationId ?: invocation))
                 val bound = bind(intent.scope, intent.sources) ?: return false
-                if (intent.destination is TableDestination.Combat) current()?.takeIf { enabled() }
-                    ?.let { arrowDrop(it, bound, intent.destination.destination) } ?: place(bound, intent.destination.destination)
+                if (intent.destination is TableDestination.Combat) place(bound, intent.destination.destination)
                 else if (bound.sourceIds.isEmpty()) false else basic.handle(intent.copy(
                     scope = TableScope(bound.contextViewId.takeIf { it in bound.sourceIds }
                         ?: intent.sources[bound.contextViewId]?.sourceId ?: bound.sourceIds.first(), bound.sourceIds), sources = bound.sources))
-            }
-            is TableIntent.Rotate -> {
-                val stackIds = current()?.board?.let { CombatStackRules.stack(it).cards }.orEmpty()
-                if (intent.scope.contextId in stackIds) return false
-                val scope = intent.scope.copy(cardIds = intent.scope.cardIds.filterNot { it in stackIds })
-                val bound = bind(scope, intent.sources) ?: return false
-                val context = CombatStackRules.liveSource(current()!!.board, scope.contextId)?.id ?: return false
-                val board = current()!!.board
-                if (board.cards.none { card -> card.id == context && board.containers.any {
-                         it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }) return false
-                basic.handle(intent.copy(scope = TableScope(context, bound.sourceIds))).also {
-                    if (!it && error == null) error = "Rotation could not be queued. Reconnect and try again."
-                }
             }
             is TableIntent.Submit -> submit(intent.action, intent.invocationId ?: invocation)
             else -> basic.handle(intent)
@@ -1082,7 +746,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * one's menu opening on the next tap. False when the tap opens the card's menu as usual.
      */
     private fun combatTap(play: PlayState, item: TableItem): Boolean {
-        if (!play.board.automatum || AutomatumBoards.byHand(play) || item.kind != TableItemKind.CARD) return false
+        if (item.kind != TableItemKind.CARD) return false
         val card = item.sourceId ?: return false
         val copy = item.viewport == "combat"
         if (!copy && (item.zone != PlayZone.BATTLEFIELD || item.projection)) return false
@@ -1177,25 +841,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return engineRoute { batchResult { ids.map { submit(PlayAction.Combat(CombatAction.Remove(area.id, it))) }.any { it } } }
     }
 
-    /** CMB-031: with Automatum off, a card of the defending player dropped on an attacker ([destination] in an attacker
-     * row) blocks it: one more arrow for a blocker of another attacker, the arrow removed when it already blocks it by
-     * one. Null when the drop is an ordinary placement. */
-    private fun arrowDrop(play: PlayState, bound: ToolkitCapture, destination: CombatDestination): Boolean? {
-        val pair = destination.pairId?.takeIf { destination.role == CombatRole.ATTACKER } ?: return null
-        val area = play.board.combat?.takeIf { it.id == destination.areaId } ?: return null
-        val card = bound.sourceIds.singleOrNull() ?: return null
-        if (controllerOf(play, card) != CombatStackRules.defendingPlayer(play.board)) return null
-        val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
-        if (occurrence != null && area.pairs.any { p -> p.attackers.any { it.id == occurrence.id } }) return null
-        val now = occurrence?.let { CombatStackRules.blockedPairs(area, it.id) }.orEmpty()
-        val next = when {
-            now.firstOrNull() == pair -> return true
-            pair in now -> now - pair
-            else -> now + pair
-        }
-        return submit(PlayAction.Combat(CombatAction.SetBlocks(area.id, card, next, now)))
-    }
-
     fun perform(intent: TableActionIntent): Boolean {
         // Automatum on (CMB-028, CMB-034): staging and clearing the declaration's draft
         if (intent is TableActionIntent.Combat && intent.tool in setOf(CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR)) {
@@ -1203,63 +848,10 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             if (cast.open) { busyShake(); return false }
             return automatumCombatTool(intent)
         }
-        // Close + next returns its whole-batch success, not the void route receipt.
-        if (intent is TableActionIntent.Combat && intent.tool in combatDamageTools) {
-            if (!table.enabled(intent.scope)) return false
-            return performCombatDamage(intent)
-        }
-        // Deliberately NOT one batch: two events; Declare blockers stays a timeline point (rules v29).
-        if (intent is TableActionIntent.Combat && intent.tool == CombatTool.ASSUME_NO_BLOCKS) {
-            if (!table.enabled(intent.scope)) return false
-            return assumeNoBlocks().also { refreshAttackSelection() }
-        }
-        val multiple = when (intent) {
-            is TableActionIntent.Bundle, is TableActionIntent.Combat -> true
-            is TableActionIntent.Untap -> intent.cardIds.size + (if (intent.advance) 1 else 0) > 1
-            is TableActionIntent.Orient -> intent.cardIds.size > 1
-            is TableActionIntent.Draw -> intent.advance && intent.cardId != null
-            else -> false
-        }
-        return (if (multiple) batchResult { table.perform(intent) } else table.perform(intent)).also { refreshAttackSelection() }
+        return table.perform(intent)
     }
-    fun refreshAttackSelection() {
-        current()?.let { selectionState.value = selectionState.value.atStep(TurnPosition.of(it.board.turn)) }
-    }
-    override fun selectAttackers(intent: TableActionIntent.SelectAttackers) {
-        if (intent.advance && !table.perform(TableActionIntent.Choose(intent.scope, TurnPosition.DECLARE_ATTACKERS))) return
-        selectionState.value = selectionState.value.selectAttackers()
-    }
-
-    override fun library(intent: TableActionIntent.Library) {
-        if (intent.tool == LibraryTool.MULLIGAN_MINUS_ONE) {
-            val controller = libraryController(intent.targets.libraryId, intent.targets.handId) ?: return
-            controller.mulligan(intent.handIds, minusOne = true)
-        } else openLibrary(intent.targets.libraryId, intent.tool, intent.handIds)
-    }
-    override fun player(intent: TableActionIntent.Player) { current()?.let { dismiss(); manual.player(it, intent.accountId) } }
-    override fun token(intent: TableActionIntent.Token) { dismiss(); tokens.catalog() }
     override fun ending(intent: TableActionIntent.Ending) { if (!ending.invoke(intent)) error = "Result action is unavailable." }
-    override fun combat(intent: TableActionIntent.Combat) {
-        when (intent.tool) {
-            CombatTool.CREATE -> submit(PlayAction.Combat(CombatAction.Open))
-            CombatTool.CLOSE -> intent.areaId?.let { submit(PlayAction.Combat(CombatAction.Close(it))) }
-            CombatTool.ADVANCE_AND_CLOSE -> {
-                submit(PlayAction.NextStep)
-                intent.areaId?.let { submit(PlayAction.Combat(CombatAction.Close(it))) }
-            }
-            CombatTool.NO_ATTACK -> {
-                val combat = current()?.board?.combat
-                if (combat != null && combat.id == intent.areaId && CombatStackRules.occurrences(combat).isEmpty())
-                    submit(PlayAction.Combat(CombatAction.Close(combat.id)))
-                // Rules v33: End of combat is recorded on the way. The close stays first so it all reads as one group.
-                current()?.let { play -> StepRun.choose(play.board, TurnPosition.POSTCOMBAT_MAIN).forEach { submit(it) } }
-            }
-            CombatTool.DECLARE, CombatTool.DECLARE_AND_TAP -> declare(intent.sourceIds, intent.tool == CombatTool.DECLARE_AND_TAP)
-            CombatTool.ASSUME_NO_BLOCKS -> assumeNoBlocks()
-            CombatTool.DAMAGE_CLOSE_AND_NEXT -> performCombatDamage(intent)
-            CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR -> automatumCombatTool(intent)
-        }
-    }
+    override fun combat(intent: TableActionIntent.Combat) { automatumCombatTool(intent) }
     /** "Rest → <target>" and "Clear" with Automatum on (CMB-028, CMB-034). */
     private fun automatumCombatTool(intent: TableActionIntent.Combat): Boolean {
         val play = current() ?: return false
@@ -1268,63 +860,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
             else -> clearCombatDraft(play)
         }.also { if (it) combat.clearSelection() }
     }
-    /** Declare blockers, then Combat damage, as two separate invocations (two undo steps, two events). */
-    private fun assumeNoBlocks(): Boolean {
-        if (draft != null) return false
-        current()?.takeIf { enabled() && TurnPosition.of(it.board.turn) == TurnPosition.DECLARE_ATTACKERS } ?: return false
-        if (!submit(PlayAction.ChooseStep(TurnPosition.DECLARE_BLOCKERS), null)) return false
-        return submit(PlayAction.ChooseStep(TurnPosition.COMBAT_DAMAGE), null)
-    }
-    private val combatDamageTools = setOf(CombatTool.DAMAGE_CLOSE_AND_NEXT)
-    /** CMB-022: "Close + next" at Combat damage. */
-    private fun performCombatDamage(intent: TableActionIntent.Combat): Boolean {
-        current()?.takeIf { enabled() && it.board.combat?.id == intent.areaId } ?: return false
-        // Rules v33: End of combat is recorded on the way. The close comes first: a close after a step change would
-        // start a second history group.
-        return batchResult {
-            (intent.areaId == null || submit(PlayAction.Combat(CombatAction.Close(intent.areaId)))) &&
-                StepRun.choose(current()!!.board, TurnPosition.POSTCOMBAT_MAIN).all { submit(it) }
-        }
-    }
-    fun declare(ids: List<String>, tap: Boolean): Boolean = batchResult {
-        val play = current()?.takeIf { enabled() } ?: return@batchResult false
-        val eligible = ids.distinct().filter { id -> play.board.cards.any { card -> card.id == id &&
-            play.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } } }
-        if (eligible.isEmpty()) return@batchResult false
-        // Automatum on (I3): Declare puts them into the draft in the lanes, only as the engine allows; attacking taps
-        // them when the attack is declared (CR 508.1f)
-        if (play.board.automatum) {
-            combat.draftRefusal(play, eligible, CombatRole.ATTACKER, null, null)?.let { error = it; return@batchResult false }
-            return@batchResult engineRoute {
-                if (current()?.board?.combat == null) submit(PlayAction.Combat(CombatAction.Open))
-                val area = current()?.board?.combat?.id ?: return@engineRoute false
-                var drafted = false
-                eligible.forEach { drafted = submit(PlayAction.Combat(CombatAction.Declare(area, it))) || drafted }
-                if (drafted) selectionState.value = selectionState.value.afterDeclare()
-                drafted
-            }
-        }
-        // Taps first: a tap group folds the following declarations into one history group.
-        if (tap) eligible.forEach { submit(PlayAction.SetTapped(it, true)) }
-        if (current()?.board?.combat == null) submit(PlayAction.Combat(CombatAction.Open))
-        val area = current()?.board?.combat?.id ?: return@batchResult false
-        var sent = false
-        eligible.forEach { sent = submit(PlayAction.Combat(CombatAction.Declare(area, it))) || sent }
-        if (sent) selectionState.value = selectionState.value.afterDeclare()
-        sent
-    }
-    fun addEffects(ids: List<String>): Boolean = batchResult {
-        var sent = false
-        ids.distinct().forEach { id -> current()?.takeIf { play -> play.board.cards.any { card -> card.id == id &&
-            CombatStackRules.canProject(play.board, card) } }
-            ?.let { sent = submit(PlayAction.Stack(StackAction.AddEffect(id, CombatStackRules.stackDigest(it)))) || sent } }
-        sent
-    }
     /** Combat copies leave the combat area: with Automatum on only what is still a draft of the declaration it awaits
      * (CMB-028): any copy while attackers are awaited, blockers while blockers are. */
     fun removeFromCombat(bound: ToolkitCapture): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        return if (play.board.automatum && !AutomatumBoards.byHand(play)) leaveDraft(play, bound) else removeOccurrences(bound)
+        return leaveDraft(play, bound)
     }
     private fun leaveDraft(play: PlayState, bound: ToolkitCapture): Boolean {
         val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
@@ -1352,12 +892,11 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** [viewIds] re-captures attacker copies when opened from the real card's menu. */
     fun openAttackTargets(viewIds: List<String>? = null) {
         if (viewIds != null) capture = capture?.copy(viewIds = viewIds)
-        manual.close(); panel = "attackTarget"
+        panel = "attackTarget"
     }
     fun setAttackTarget(bound: ToolkitCapture, cardId: String?): Boolean {
         val play = current()?.takeIf { enabled() } ?: return false
-        if (!play.board.automatum || AutomatumBoards.byHand(play)) return retarget(bound, cardId)
-        // Automatum on (CMB-028): a drafted attacker attacks another target only as Automatum allows
+        // CMB-028: a drafted attacker attacks another target only as Automatum allows
         val sources = CombatStackController.attackerPairs(play.board, bound.viewIds).flatMap { it.attackers }.map { it.sourceId }
         sources.firstNotNullOfOrNull { combat.draftRefusal(play, listOf(it), CombatRole.ATTACKER, null, cardId) }?.let { error = it; return false }
         return engineRoute { retarget(bound, cardId) }
@@ -1416,14 +955,14 @@ class TableToolkitViewModel : ViewModel() {
     private var retained: TableToolkitController? = null
     fun obtain(owner: Any, key: List<String>, create: () -> TableToolkitController): TableToolkitController {
         if (this.owner !== owner || this.key != key) {
-            retained?.dismiss(); retained?.tokens?.close(); retained?.closeInspection()
+            retained?.dismiss(); retained?.closeInspection()
             this.owner = owner; this.key = key; retained = create()
         }
         return requireNotNull(retained)
     }
     fun release(toolkit: TableToolkitController) {
         if (retained === toolkit) {
-            toolkit.dismiss(); toolkit.tokens.close(); toolkit.closeInspection()
+            toolkit.dismiss(); toolkit.closeInspection()
             retained = null; owner = null; key = null
         }
     }

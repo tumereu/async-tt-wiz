@@ -57,17 +57,9 @@ internal fun Modifier.ringInputTarget(draggable: Boolean = false): Modifier = co
         register(key, TableBounds(windowOrigin.x + bounds.left, windowOrigin.y + bounds.top, bounds.width, bounds.height), draggable)
     }
 }
-internal data class RingCompound(val value: String, val minus: MenuControl, val plus: MenuControl,
-    val drag: ((Long) -> Unit)? = null, val dragValue: String = value, val corner: Boolean = false)
-internal data class RingEntry(val id: String, val label: String, val control: MenuControl,
-    val compound: RingCompound? = null, val fill: Color? = null,
-    val drag: ((Long) -> Unit)? = null, val dragValue: String = "0")
+internal data class RingEntry(val id: String, val label: String, val control: MenuControl, val fill: Color? = null)
 
 internal fun ringShortLabel(name: String): String = when (name) {
-    "Declare + tap" -> "Decl+tap"
-    "Declare without tapping" -> "Declare"
-    "Ping / Unping" -> "Ping"
-    "Add Stack effect" -> "Effect"
     "Remove from combat" -> "Rm combat"
     else -> name.removePrefix("Move to ").removePrefix("Move ").substringBefore(" · ")
 }
@@ -76,9 +68,7 @@ internal fun ringShortLabel(name: String): String = when (name) {
 internal fun ringPlaceholder(id: String): RingEntry {
     val name = when (id) {
         "inspect" -> "Inspect"
-        "note" -> "Edit card note"
         "otherSide" -> "Inspect other side"
-        "owner" -> "Owner"
         else -> id
     }
     return RingEntry(id, ringShortLabel(name), MenuControl(name, false) {})
@@ -135,9 +125,7 @@ internal fun CardActionRing(game: String, viewer: String, identity: String, view
                                 val slot = slots.firstOrNull { it.cell == row * CardRingPages.columns + column }
                                 val entry = slot?.let { s -> entries.firstOrNull { it.id == s.id } ?: ringPlaceholder(s.id) }
                                 if (entry == null) Spacer(Modifier.size(CardRingGeometry.cell.dp))
-                                else if (entry.compound != null) RingWidget(entry, ownerColor)
-                                else InlinePopupCell(entry.control, entry.label, ownerColor,
-                                    fill = entry.fill, drag = entry.drag, dragValue = entry.dragValue)
+                                else InlinePopupCell(entry.control, entry.label, ownerColor, fill = entry.fill)
                                 column += slot?.span ?: 1
                             }
                         }
@@ -360,22 +348,10 @@ internal fun InlinePopupPanel(dismiss: () -> Unit, title: String, width: Dp = 36
 }
 
 @Composable
-private fun RingWidget(entry: RingEntry, owner: Color) {
-    val compound = requireNotNull(entry.compound)
-    ValueControl(compound.value, entry.control, compound.minus, compound.plus, entry.control.color ?: owner,
-        entry.fill ?: Color.White, compound.dragValue, compound.corner, compound.drag)
-}
-
-@Composable
 internal fun InlinePopupCell(control: MenuControl, label: String = control.name, owner: Color = LocalInlinePopupColor.current,
-    modifier: Modifier = Modifier.size(CardRingGeometry.cell.dp), fill: Color? = null,
-    drag: ((Long) -> Unit)? = null, dragValue: String = "0") {
-    val entry = RingEntry(control.name, label, control, fill = fill, drag = drag, dragValue = dragValue)
-    var delta by remember(entry.id) { mutableStateOf<Long?>(null) }
-    val dragModifier = if (entry.drag != null) Modifier.ringInputTarget(draggable = true)
-        .valueDragGestures(entry.control.enabled && TableActions.numeric(entry.dragValue),
-            preview = { delta = it }, commit = entry.drag) else Modifier
-    RingPress(entry.control, modifier.then(dragModifier), entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
+    modifier: Modifier = Modifier.size(CardRingGeometry.cell.dp), fill: Color? = null) {
+    val entry = RingEntry(control.name, label, control, fill = fill)
+    RingPress(entry.control, modifier, entry.control.color ?: owner, fill = entry.fill ?: Color.White) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             val twoLines = '\n' in entry.label
             MenuIcon(entry.control.name, Modifier.size(if (twoLines) 18.dp else 24.dp),
@@ -385,7 +361,6 @@ internal fun InlinePopupCell(control: MenuControl, label: String = control.name,
             CellLabel(entry.label, MenuInk.copy(alpha = if (entry.control.enabled) 1f else .38f),
                 Modifier.padding(horizontal = 2.dp), textModifier)
         }
-        delta?.let { HoldTooltip(valueDragLabel(entry.dragValue, it)) }
     }
 }
 

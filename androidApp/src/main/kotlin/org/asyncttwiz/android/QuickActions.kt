@@ -25,8 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.asyncttwiz.protocol.*
 
-data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: List<String> = emptyList(),
-    val combatAreaId: String? = null,
+data class QuickContext(val combatAreaId: String? = null,
     val playable: Boolean = true, val viewer: String? = null,
     /** Automatum on (I3): what the engine allows in combat now, once worked out ([automatumCombatQuickActions]). */
     val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null,
@@ -42,113 +41,28 @@ data class QuickAction(val name: String, val glyph: String, val intent: TableAct
 /** Complete G11/G12 catalog. Phase offerings precede an explicit Stack target; never guess top. */
 object QuickActions {
     const val contextualPositions = 3
-    const val READY = "Ready"
     /** I-D49: the opening's quick actions with Automatum on. */
     const val MULLIGAN = "Mulligan"
     const val KEEP = "Keep"
     const val NO_MORE_MULLIGANS = "No more mulligans: the hand you keep would have no cards."
-    const val ASSUME_NO_BLOCKS = "Assume no blocks"
-    /** While the viewer's status is exactly the opening status, they are still mulliganing: Mull N, Mull −1, Ready
-     * (with Automatum on: Mulligan and Keep, I-D49). */
+    /** While the viewer's status is exactly the opening status, they are still mulliganing: Mulligan and Keep (I-D49). */
     fun openingMulligan(play: PlayState, viewer: String?) = PlayerStatus.opening(play.board, viewer)
     /** Only mulligan offerings: no step arrow for a player who would not otherwise see the strip. */
     fun mulliganOnly(play: PlayState, viewer: String?) = openingMulligan(play, viewer) &&
         play.board.turn.accountId != viewer && play.board.effectiveAttentionHolder != viewer
     fun visible(play: PlayState, viewer: String?) = viewer != null &&
         (play.board.turn.accountId == viewer || play.board.effectiveAttentionHolder == viewer || openingMulligan(play, viewer))
-    fun contextual(play: PlayState, context: QuickContext, controller: TableActionController): List<QuickAction> {
+    /** The quick actions besides the Automatum toggles: Automatum's combat staging while it offers it (CMB-028,
+     * CMB-034), else the viewer's opening (Mulligan and Keep, TRN-062). Nothing changes the game by hand (I-D52). */
+    fun contextual(play: PlayState, context: QuickContext): List<QuickAction> {
         if (!context.playable) return emptyList()
         val scope = TableActionScope(play.gameId, play.id)
-        val result = mutableListOf<QuickAction>()
-        fun add(name: String, glyph: String, intent: TableActionIntent?, badge: String? = null) {
-            if (intent != null) result += QuickAction(name, glyph, intent, badge)
-        }
-        fun bundle(vararg actions: TableActionIntent?) = if (actions.any { it == null }) null
-            else TableActionIntent.Bundle(scope, actions.filterNotNull())
-        fun choose(position: TurnPosition) = TableActionIntent.Choose(scope, position)
-        // Rules v33: the steps on the way are recorded, and the draw happens in the Draw step itself.
-        val toDraw = TableActionIntent.Choose(scope, TurnPosition.DRAW, pass = true)
-        val turnPlayer = context.viewer == play.board.turn.accountId
-        // Turn numbers count both players' turns, so "1" is only the starting player's first turn: no draw.
-        val firstTurn = play.board.turn.number == "1"
-        // Automatum on (I3): combat goes through the engine; its own offerings replace the manual ones
-        val automatumCombat = automatumCombatQuickActions(play, context, scope)
-        if (automatumCombat != null) return result.apply { addAll(automatumCombat) }
-        // The starting player's turn-1 shortcuts wait until neither player is still mulliganing.
-        if (turnPlayer && !(firstTurn && PlayerStatus.anyOpening(play.board))) when (TurnPosition.of(play.board.turn)) {
-            TurnPosition.UNTAP -> {
-                add("Untap all", "↶", controller.untap(play, false))
-                add("Untap all + next", "↶", controller.untap(play, true), "↦")
-                if (firstTurn) add("Go to main", "", choose(TurnPosition.PRECOMBAT_MAIN))
-                else add("Untap, draw → main", "", bundle(controller.untap(play, false), toDraw, controller.draw(play, false),
-                    choose(TurnPosition.PRECOMBAT_MAIN)))
-            }
-            TurnPosition.UPKEEP -> if (firstTurn) add("Go to main", "", choose(TurnPosition.PRECOMBAT_MAIN))
-                else add("Draw + go to main", "", bundle(toDraw, controller.draw(play, false), choose(TurnPosition.PRECOMBAT_MAIN)))
-            TurnPosition.DRAW -> if (firstTurn) add("Go to main", "", choose(TurnPosition.PRECOMBAT_MAIN)) else {
-                add("Draw one", "↓", controller.draw(play, false))
-                add("Draw one + next", "↓", controller.draw(play, true), "↦")
-            }
-            TurnPosition.PRECOMBAT_MAIN -> {
-                add("Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = true))
-                add("Skip combat", "", choose(TurnPosition.END_STEP))
-            }
-            TurnPosition.DECLARE_ATTACKERS -> if (context.selectedSourceIds.isNotEmpty()) {
-                add("Declare + tap", "⚔", TableActionIntent.Combat(scope, CombatTool.DECLARE_AND_TAP,
-                    context.combatAreaId, context.selectedSourceIds.distinct()), "↷")
-                add("Declare without tapping", "⚔", TableActionIntent.Combat(scope, CombatTool.DECLARE,
-                    context.combatAreaId, context.selectedSourceIds.distinct()))
-            } else {
-                val declared = play.board.combat?.pairs?.any { it.attackers.isNotEmpty() } == true
-                add(if (declared) "Select more attackers" else "Select attackers", "", TableActionIntent.SelectAttackers(scope, advance = false))
-                if (!declared) add("No attack", "", TableActionIntent.Combat(scope, CombatTool.NO_ATTACK, context.combatAreaId))
-                // Two separate steps (Declare blockers, then Combat damage): the defender can continue from blocks.
-                else add(ASSUME_NO_BLOCKS, "", TableActionIntent.Combat(scope, CombatTool.ASSUME_NO_BLOCKS, context.combatAreaId))
-            }
-            // Experimental damage aid; all offerings live in one removable helper.
-            // CMB-022 (I-D39): no damage maths by hand; players deal the damage themselves
-            TurnPosition.COMBAT_DAMAGE -> add("Close + next", "", TableActionIntent.Combat(scope, CombatTool.DAMAGE_CLOSE_AND_NEXT, context.combatAreaId))
-            TurnPosition.END_COMBAT -> add("Advance + close combat", "▱",
-                TableActionIntent.Combat(scope, CombatTool.ADVANCE_AND_CLOSE, context.combatAreaId), "↦")
-            TurnPosition.POSTCOMBAT_MAIN, TurnPosition.END_STEP -> add("End turn", "", TableActionIntent.End(scope))
-            else -> Unit
-        }
-        // TRN-062 (I-D49): with Automatum on the opening follows the game's rules: Mulligan or Keep
-        if (play.board.automatum && openingMulligan(play, context.viewer)) {
-            val taken = play.board.players.firstOrNull { it.accountId == context.viewer }?.mulligans ?: 0
-            val more = GameRules.STANDARD.canMulligan(taken)
-            result += QuickAction(MULLIGAN, "⇄", TableActionIntent.OpeningMulligan(scope), enabled = more,
-                refused = if (more) null else NO_MORE_MULLIGANS)
-            result += QuickAction(KEEP, "", TableActionIntent.Keep(scope))
-            if (!turnPlayer) return result
-        }
-        // TRN-027: the opening's mulligans by hand (Automatum off)
-        else if (openingMulligan(play, context.viewer)) {
-            val targets = context.viewer?.let { controller.targets(play, it) }
-            val mullN = controller.library(play, LibraryTool.MULLIGAN_N, targets)
-            val mullOne = controller.library(play, LibraryTool.MULLIGAN_MINUS_ONE, targets)
-            add("Mull N", "⇄", mullN, "↓")
-            add("Mull −1", "⇄", mullOne, "−1")
-            add(READY, "", TableActionIntent.Status(scope, ""))
-            if (!turnPlayer) return result
-        }
-        if (!turnPlayer && play.board.players.any { it.accountId == context.viewer } &&
-            TurnPosition.of(play.board.turn) == TurnPosition.DECLARE_BLOCKERS)
-            add("No blocks + next", "", TableActionIntent.Next(scope))
-        // Automatum on (§3 I4, I-D28): quick actions that change the game by hand (untapping, drawing, mulligans,
-        // closing the combat area) stay in place, greyed, and say why; step changes go through Automatum (TRN-057)
-        if (play.board.automatum && !AutomatumBoards.manualAllowed(play))
-            return result.map { if (manualIntent(it.intent)) it.copy(enabled = false, refused = AutomatumDrags.MANUAL) else it }
-        return result
-    }
-
-    /** Whether [intent] changes the game by hand rather than moving the turn on. */
-    fun manualIntent(intent: TableActionIntent): Boolean = when (intent) {
-        is TableActionIntent.Bundle -> intent.actions.any(::manualIntent)
-        is TableActionIntent.Untap, is TableActionIntent.Draw, is TableActionIntent.Library, is TableActionIntent.Orient,
-        is TableActionIntent.Token -> true
-        is TableActionIntent.Combat -> intent.tool !in setOf(CombatTool.AUTOMATUM_STAGE, CombatTool.AUTOMATUM_CLEAR, CombatTool.DECLARE)
-        else -> false
+        automatumCombatQuickActions(play, context, scope)?.let { return it }
+        if (!openingMulligan(play, context.viewer)) return emptyList()
+        val taken = play.board.players.firstOrNull { it.accountId == context.viewer }?.mulligans ?: 0
+        val more = GameRules.STANDARD.canMulligan(taken)
+        return listOf(QuickAction(MULLIGAN, "⇄", TableActionIntent.OpeningMulligan(scope), enabled = more,
+            refused = if (more) null else NO_MORE_MULLIGANS), QuickAction(KEEP, "", TableActionIntent.Keep(scope)))
     }
 }
 
@@ -187,10 +101,8 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
         }
         return
     }
-    val actions = if (toggles) emptyList() else QuickActions.contextual(play, context, controller)
+    val actions = if (toggles) emptyList() else QuickActions.contextual(play, context)
     val scope = TableActionScope(play.gameId, play.id)
-    val style = advanceButtonStyle(play.board, requireNotNull(context.viewer))
-    val nextLabel = nextStepLabel(play.board.turn)
     BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         val compact = maxWidth < 480.dp && (toggles || actions.size >= 3)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -203,20 +115,9 @@ fun QuickActionStrip(play: PlayState, context: QuickContext, controller: TableAc
             }
             // I-D46 d: with Automatum on the arrow says what a tap does, in a neutral colour; it is the one way to go on
             // (UI review round 2 #1), so it shows with the toggles on either player's turn
-            if (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer) && play.board.automatum) AutomatumStepArrow(play,
+            if (toggles || visible && !QuickActions.mulliganOnly(play, context.viewer)) AutomatumStepArrow(play,
                 controller.enabled(scope), compact, onHold = { perform(TableActionIntent.End(scope)) },
                 blocked = stepBlocked(play, context.castOpen, context.automatumCombat)) { perform(TableActionIntent.Next(scope)) }
-            else if (visible && !QuickActions.mulliganOnly(play, context.viewer)) ActionSquare(nextLabel, "↦", controller.enabled(scope), Modifier.width(if (compact) 68.dp else 72.dp).shadow(3.dp, AdvanceArrowShape)
-                .background(style.fill, AdvanceArrowShape).border(1.dp, style.outline, AdvanceArrowShape).clip(AdvanceArrowShape),
-                fill = style.fill, ink = style.ink, compactContent = true,
-                holdName = "End turn", onHold = { perform(TableActionIntent.End(scope)) },
-                gestureKey = scope,
-                icon = { Column(Modifier.fillMaxWidth().padding(start = 2.dp, end = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    MenuIcon(nextStep(play.board.turn)?.label ?: "End turn", Modifier.size(20.dp), tint = LocalContentColor.current)
-                    Text(nextLabel, Modifier.fillMaxWidth(), fontSize = 10.sp, lineHeight = 12.sp, letterSpacing = 0.sp,
-                        maxLines = 2, textAlign = TextAlign.Center)
-                } },
-                onClick = { perform(TableActionIntent.Next(scope)) })
         }
     }
 }
@@ -231,16 +132,7 @@ internal val AdvanceArrowShape = GenericShape { size, _ ->
     close()
 }
 
-internal fun quickActionLabel(name: String) = when (name) {
-    "Untap, draw → main" -> "Untap, draw\n→ main"
-    "Untap all + next" -> "Untap + next"
-    "Return Hand → Shuffle → Draw N" -> "Mulligan N"
-    "Return Hand → Shuffle → Draw previous Hand size −1" -> "Mulligan −1"
-    "Declare without tapping" -> "Declare"
-    "Draw + go to main" -> "Draw + main"
-    "Advance + close combat" -> "Close + next"
-    else -> ringShortLabel(name)
-}
+internal fun quickActionLabel(name: String) = ringShortLabel(name)
 
 /** Name-only hold tooltip, unless a real hold command is assigned. Never invokes click on release. */
 @Composable

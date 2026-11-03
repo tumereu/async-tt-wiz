@@ -10,29 +10,6 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
         val state = play() ?: return false
         val invocation = (intent as? TableIntent.Move)?.invocationId ?: DeviceRandom.uuid()
         return when (intent) {
-            is TableIntent.Draw -> {
-                val library = state.board.containers.singleOrNull { it.id == intent.libraryId && it.zone == PlayZone.LIBRARY }
-                val hand = state.board.containers.singleOrNull { it.id == intent.handId && it.zone == PlayZone.HAND }
-                if (library == null || hand == null || library.accountId != hand.accountId || library.cards.firstOrNull() != intent.topId) false
-                else LibraryActions.draw(state.board, library.id, hand.id, 1).any {
-                    submit(it.copy(destination = ownerMoveDestination(state.board, it.cardId, it.destination)), invocation)
-                }
-            }
-            is TableIntent.Rotate -> {
-                // The animated hit item can lag prediction/remote updates. Resolve once from the
-                // session's current board at emission; all selected cards follow the context card.
-                val context = state.board.cards.singleOrNull { it.id == intent.scope.contextId } ?: return false
-                if (state.board.containers.none { it.id == context.containerId && it.zone == PlayZone.BATTLEFIELD }) return false
-                val tapped = if (intent.toggle) !context.tapped else intent.tapped
-                var sent = false
-                for (id in intent.scope.cardIds.distinct()) if (state.board.cards.any { card -> card.id == id &&
-                    state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } })
-                    sent = submit(PlayAction.SetTapped(id, tapped), invocation) || sent
-                sent
-            }
-            is TableIntent.PlayerDelta -> if (intent.delta == 0) false else submit(
-                intent.color?.let { PlayAction.AdjustCounter(CounterTarget.PLAYER, intent.accountId, it, intent.delta.toString()) }
-                    ?: PlayAction.AdjustLife(intent.accountId, intent.delta.toString()), invocation)
             is TableIntent.Move -> move(state, intent, invocation)
             is TableIntent.Submit -> {
                 val action = intent.action
@@ -65,31 +42,8 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             }
             return sent
         }
-        val stack = CombatStackRules.stack(state.board)
-        if (intent.scope.cardIds.any { it in stack.cards }) {
-            val entry = intent.scope.cardIds.singleOrNull() ?: return false
-            if (entry != stack.cards.firstOrNull()) return false
-            val effect = state.board.stackEffects.singleOrNull { it.id == entry }
-            val destination = when (val d = intent.destination) {
-                is TableDestination.Container -> state.board.containers.singleOrNull { it.id == d.id && it.zone == d.zone }
-                is TableDestination.Grid -> state.board.containers.singleOrNull { it.id == d.containerId && it.zone == PlayZone.BATTLEFIELD }
-                is TableDestination.CardPile -> state.board.containers.singleOrNull { it.id == d.source?.containerId && it.zone == PlayZone.BATTLEFIELD }
-                is TableDestination.Combat -> null
-            } ?: return false
-            if (destination.zone == PlayZone.STACK) return false
-            if (effect != null) {
-                val card = CombatStackRules.liveSource(state.board, entry) ?: return false
-                val captured = intent.sources[entry] ?: return false
-                if (captured.sourceId != null && captured.sourceId != card.id) return false
-                val source = captured.source() ?: return false
-                if (source.containerId != card.containerId || source.placement != card.placement) return false
-                // A zone drop onto the source's current zone dismisses only this projection.
-                if (state.board.containers.single { it.id == card.containerId }.zone == destination.zone)
-                    return submit(StackMenuActions.remove(entry), invocation)
-                return move(state, intent.copy(scope = TableScope(card.id, listOf(card.id)),
-                    sources = mapOf(card.id to captured)), invocation, entry)
-            }
-        }
+        // I-D52: Stack entries move only by the rules
+        if (intent.scope.cardIds.any { it in CombatStackRules.stack(state.board).cards }) return false
         val ids = ordered(state, intent.scope.cardIds)
         if (ids.isEmpty() || ids.size != intent.scope.cardIds.distinct().size) return false
         // Compare semantic locations, not animated pixels, and never repair a stale source by recapture.
@@ -102,28 +56,7 @@ class BasicTableController(private val play: () -> PlayState?, private val conne
             is TableDestination.CardPile -> state.board.containers.singleOrNull { it.id == d.source?.containerId && it.zone == PlayZone.BATTLEFIELD }
             is TableDestination.Combat -> return false // Toolkit owns occurrence placement, not a real-card move.
         } ?: return false
-        if (target.zone == PlayZone.STACK) {
-            if (ids.any { !CombatStackRules.canProject(state.board, state.board.cards.single { card -> card.id == it }) }) return false
-            var sent = false
-            for (id in ids) {
-                val predecessor = play()?.takeIf { connected() && it.id == state.id } ?: break
-                val before = CombatStackRules.stack(predecessor.board).cards.toSet()
-                val added = submit(PlayAction.Stack(StackAction.AddEffect(id, GameplayRules.stackDigest(predecessor))), invocation)
-                sent = added || sent
-                val card = predecessor.board.cards.single { it.id == id }
-                if (added && intent.handDoubleTap && state.board.containers.any { it.id == card.containerId && it.zone == PlayZone.HAND } &&
-                    StackContexts.permanentOnly(predecessor.definitions.find { it.digest == card.definition }?.definition)) {
-                    val next = play()?.takeIf { connected() && it.id == state.id } ?: break
-                    val entry = CombatStackRules.stack(next.board).cards.firstOrNull { entry -> entry !in before &&
-                        CombatStackRules.liveSource(next.board, entry)?.id == id } ?: continue
-                    // Exactly the manual resolver: separate history group, same atomic invocation.
-                    val resolveInvocation = invocation
-                    for (action in StackMenuActions.destination(next, entry, PlayZone.BATTLEFIELD))
-                        if (!submit(action, resolveInvocation)) break
-                }
-            }
-            return sent
-        }
+        if (target.zone == PlayZone.STACK) return false
         val pileTarget = (intent.destination as? TableDestination.CardPile)?.let { d ->
             val captured = d.source?.source()?.placement ?: return false
             val card = state.board.cards.singleOrNull { it.id == d.cardId } ?: return false

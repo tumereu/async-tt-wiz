@@ -20,16 +20,6 @@ internal fun Modifier.tableFrameBounds(bounds: () -> TableBounds?): Modifier = l
 }
 
 @Composable
-internal fun AnimatedStackBubbleOverlay(frame: State<TableRenderFrame>, play: PlayState, viewer: String,
-    preview: () -> TableGesturePreview, enabled: Boolean, perform: (TableIntent) -> Unit) {
-    val scene = frame.value.scene
-    val bubble = scene.stackBubbles ?: return
-    val card = scene.items.find { it.cardId == bubble.entryId && it.zone == PlayZone.STACK }
-    StackBubbleOverlay(bubble, stackTextOptions(play, bubble.entryId, viewer),
-        if (card?.owner == viewer) OwnTableColor else OpponentTableColor, preview(), enabled, perform)
-}
-
-@Composable
 internal fun AnimatedCardRingAnchors(frame: State<TableRenderFrame>, active: Boolean, content: @Composable () -> Unit) {
     val anchors = if (!active) emptyMap() else frame.value.scene.items.filter { it.visible.isNotEmpty() }.mapNotNull { item ->
         item.cardId?.let { id -> id to if (item.visible.any { it.contains(item.bounds.center) }) item.bounds

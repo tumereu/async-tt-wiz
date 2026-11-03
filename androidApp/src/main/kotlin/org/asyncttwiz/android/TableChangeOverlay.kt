@@ -119,8 +119,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                 return@Canvas
             }
             val shown = tableChangeTarget(key, item) ?: return@Canvas
-             val color = key.color?.let(::counterColor)
-                ?: if ((change.owner ?: shown.owner) == viewer) OwnTableColor else OpponentTableColor
+             val color = if ((change.owner ?: shown.owner) == viewer) OwnTableColor else OpponentTableColor
             val b = shown.bounds
             val transform = shown.faceTransform()
             val card = shown.kind == TableItemKind.CARD
@@ -134,24 +133,8 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                      val height = maxOf(10f, 7f * valueScale + 3f)
                      local(TableBounds(1f, 40f - height, 26f, height))
                  }
-                TableChangeKind.NOTE, TableChangeKind.COUNTER -> {
-                    paint.textSize = 7f * noteScale * z * density
-                    val noteHeight = (paint.fontMetrics.bottom - paint.fontMetrics.top) / (z * density) + 2f
-                    paint.textSize = 7f * valueScale * z * density
-                    val counterHeight = maxOf(10f * valueScale, (paint.fontMetrics.bottom - paint.fontMetrics.top) / (z * density) + 2f)
-                    val colors = CounterColor.entries.filter { it in shown.counters || it == key.color }
-                    val layout = cardAnnotationLayout(maxOf(11f, 7f * appearance.text(CardTextScalePart.TITLE) + 3f),
-                        40f - maxOf(10f, 7f * valueScale + 3f), noteHeight, counterHeight,
-                        shown.note.isNotEmpty() || key.kind == TableChangeKind.NOTE, colors.size)
-                    val r = if (key.kind == TableChangeKind.NOTE) layout.note else layout.counters.getOrNull(colors.indexOf(key.color))
-                     r?.let {
-                         val width = if (key.kind == TableChangeKind.COUNTER)
-                             minOf(it.width, maxOf(counterHeight, paint.measureText(shown.counters[key.color].orEmpty().take(3)) / (z * density) + 2f))
-                         else it.width
-                         local(it.copy(width = width))
-                     } ?: return@Canvas
-                }
-                TableChangeKind.TEXT_MARK -> TableBounds(b.x, b.y, b.width, 16f)
+                // I-D52: notes, colour counters and text marks aren't shown
+                TableChangeKind.NOTE, TableChangeKind.COUNTER, TableChangeKind.TEXT_MARK -> return@Canvas
                 else -> b
             }
              if (!tagsOnly) {
@@ -189,7 +172,7 @@ private fun TableElementChange(active: ActiveTableChange, progress: State<Float>
                   val y = (tagY - height / 2)
                      .coerceIn(48f, (size.height / density - height - 2f).coerceAtLeast(48f))
                  val tag = TableBounds(x, y, width, height)
-                 val fill = if (key.kind == TableChangeKind.COUNTER) key.color?.let(::counterColor) ?: TableChangeTagFill else TableChangeTagFill
+                 val fill = TableChangeTagFill
                  val alpha = tableChangeTagAlpha(t)
                  drawRoundRect(fill.copy(alpha = alpha), point(TablePoint(tag.x, tag.y)),
                      Size(tag.width * density, tag.height * density), CornerRadius(height * density / 2))

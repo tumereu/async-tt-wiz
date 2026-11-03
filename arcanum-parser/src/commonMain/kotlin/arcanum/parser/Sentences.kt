@@ -12263,6 +12263,17 @@ internal class Sentences(
     }
 
     private fun mshEffect4(sentence: String, context: Context): List<Step>? {
+        // msh chunk 13: "it deals 1 damage to each opponent" in a trigger on the equipped creature: that creature deals it (CR 120.1)
+        Regex("""It deals (\d+) damage to each opponent\.""").matchEntire(sentence)?.let { m ->
+            val attached = ObjectFilter.Is(Objects.AttachedTo(Objects.Self))
+            val about = when (val event = context.event) {
+                is EventPattern.Tap -> event.objects
+                is EventPattern.Attack -> event.attacker
+                else -> null
+            }
+            if (about == attached) return listOf(Step.Do(Effect.DealDamage(arcanum.api.Recipients(players = Players.Each(PlayerFilter.Opponent)),
+                Value.Fixed(m.groupValues[1].toInt()), Objects.EventObject(EventRole.Object))))
+        }
         // msh chunk 08: "For each kind of counter on target permanent or player, give that permanent or player another counter of that kind."
         Msh.ONE_MORE_OF_EACH_KIND.matchEntire(sentence)?.let { m ->
             if (m.groupValues[1] != "permanent or player") return null

@@ -318,10 +318,10 @@ object OracleParser {
         return Ability.Static(mechanics, condition = condition, affects = Affected.Objects(Objects.Self))
     }
 
-    /** eoe chunk 01: a station symbol's static ability (CR 721.2a) granting the abilities of its striation, each with its printed text;
-     * null when one can't be read. */
+    /** eoe chunk 01: a station symbol's static ability (CR 721.2a) granting the abilities of its striation (the static keeps the printed
+     * line as its text); null when one can't be read. */
     private fun stationSymbol(threshold: Int, body: String, sentences: Sentences): Ability? {
-        val granted = (keywordLine(body) ?: sentences.multi(body) ?: listOf(sentences.line(body) ?: return null)).map { it.withText(body) }
+        val granted = keywordLine(body) ?: sentences.multi(body) ?: listOf(sentences.line(body) ?: return null)
         if (granted.any { it is Ability.Unparsed }) return null
         return Ability.Static(listOf(arcanum.api.Mechanic.GainAbilities(granted)), affects = Affected.Objects(Objects.Self),
             condition = stationed(threshold))

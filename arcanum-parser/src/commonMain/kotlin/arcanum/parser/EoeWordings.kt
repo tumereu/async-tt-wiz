@@ -173,7 +173,7 @@ internal object Eoe {
     val DESTROY_IF_NOT_DAMAGED_CONTROLLER_DRAWS = Regex("""[Dd]estroy (up to one (?:other )?target .+?)\. If that creature wasn't dealt damage this turn, its controller draws (\w+) cards\.""")
     val MILL_THEN_RETURN_FROM_GRAVEYARD = Regex("""[Mm]ill (\w+) cards, then return an? (.+?) from your graveyard to your hand\.""")
     val DRAW_ANOTHER_CARD = Regex("""[Dd]raw another card\.""")
-    val YOU_SACRIFICE = Regex("""you sacrifice (another )?(.+)""")
+    val YOU_SACRIFICE = Regex("""you sacrifice (another )(.+ or .+)""")
     val UNTIL_EOT_X_AND_MINUS_X = Regex("""[Uu]ntil end of turn, target (.+?) gets \+X/\+0 and target (.+?) gets -0/-X\.""")
     val UNTIL_EOT_GETS_AND_GAINS_QUOTED = Regex("""[Uu]ntil end of turn, (another target .+?|target .+?) gets ([+-]\d+)/([+-]\d+) and gains "(.+)"\.?""")
     val UNTIL_EOT_GAINS_QUOTED_CONTROLLER_MAY_DAMAGE = Regex("""Until end of turn, target (.+?) gains "(.+?)" That creature's controller may have (.+?) deal (\d+) damage to it\.""")
@@ -183,6 +183,10 @@ internal object Eoe {
     val DESTROY_LOSE_X_IF_X_RETURN = Regex("""Destroy all (.+?) with toughness X or less\. You lose X life\. If X is (\d+) or more, return an? (.+?) put into a graveyard this way to the battlefield under your control\.""")
     val A_PLAYER_CONTROLS_NO = Regex("""a player controls no (.+)""")
     val UNTIL_EOT_GAINS_QUOTED_THEN = Regex("""(Until end of turn, target .+? gains ".+?") (That creature's controller may .+)""")
+
+    val IF_IT_HAS_COUNTER = Regex("""If it has an? (\S+) counter on it, (.+)""")
+    val GET_IF_NOT_YOUR_TURN_UNTAP_THOSE = Regex("""(Creatures you control) get \+(\d+)/\+(\d+) until end of turn\. If it's not your turn, untap those creatures\.""")
+    val IT_DEALS_THAT_MUCH_TO_EACH_OPPONENT = Regex("""[Ii]t deals that much damage to each opponent\.""")
 
     // eoe chunk 10: red wordings
     val DEALS_DAMAGE_TO_ITSELF_TWICE_IF = Regex("""Target (.+?) deals damage to itself equal to its power\. If that creature has (\w+), it deals twice that much damage to itself instead\.""")

@@ -17240,11 +17240,11 @@ internal class Sentences(
             return listOf(CostPart.Discard(CostObjects.Choose(ObjectFilter.Category(arcanum.api.ObjectCategory.Card), count = Value.Fixed(1)), random = true))
         // eoe chunk 13: "Exile The Dominion Bracelet" in an ability the Equipment gives: exile the Equipment (tla chunk 04, [Objects.Granter])
         if (granterName != null && text == "Exile $granterName") return listOf(CostPart.Exile(CostObjects.These(Objects.Granter), from = Zone.Battlefield))
-        // eoe chunk 13: "Tap X untapped artifacts you control" (X announced, CR 107.3a)
+        // eoe chunk 13: "Tap X untapped artifacts you control" (X announced, CR 107.3a); as "Tap two untapped Elves you control" reads, only the
+        // kind is named (a cost taps untapped permanents its payer controls, CR 602.2b)
         Eoe.TAP_X_UNTAPPED.matchEntire(text)?.let { m ->
-            val noun = Filters.noun(m.groupValues[1]) ?: return null
-            return listOf(CostPart.TapObjects(CostObjects.Choose(Filters.all(noun, ObjectFilter.Not(ObjectFilter.HasStatus(arcanum.api.Status.Tapped))),
-                count = Value.Announced(name = "X"))))
+            val noun = Filters.noun(m.groupValues[1].removeSuffix(" you control")) ?: return null
+            return listOf(CostPart.TapObjects(CostObjects.Choose(noun, count = Value.Announced(name = "X"))))
         }
         return null
     }
@@ -17336,6 +17336,14 @@ internal class Sentences(
             val then = effect(m.groupValues[1].replaceFirstChar { it.uppercase() }, context) ?: return null
             return steps + Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.NonEmpty(chosen)), then = then)
         }
+        // eoe chunk 07: "If it has a +1/+1 counter on it, draw a card." after an effect on a spell's target: "it" is that target
+        Eoe.IF_IT_HAS_COUNTER.matchEntire(sentence)?.let { m ->
+            if (!isSpell) return@let
+            val slot = context.targets.singleOrNull { it.what is TargetKind.Objects }?.name ?: return@let
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() }, context) ?: return null
+            return steps + Step.If(arcanum.api.Condition.ObjectMatches(Objects.Target(slot), ObjectFilter.HasCounter(kind, atLeast = 1)), then = then)
+        }
         // eoe chunk 09: "Then if that creature's power is 0 or less, destroy it." (the target of the pump before it, checked as it resolves)
         Eoe.THEN_IF_POWER_DESTROY.matchEntire(sentence)?.let { m ->
             val slot = context.targets.lastOrNull { it.what is TargetKind.Objects }?.name ?: return null
@@ -17348,6 +17356,22 @@ internal class Sentences(
 
     /** eoe chunk 10: red effect wordings. */
     private fun eoeEffect4(sentence: String, context: Context): List<Step>? {
+        // eoe chunk 08: "Creatures you control get +2/+0 until end of turn. If it's not your turn, untap those creatures." (the creatures the
+        // effect got as it resolved, CR 611.2c)
+        Eoe.GET_IF_NOT_YOUR_TURN_UNTAP_THOSE.matchEntire(sentence)?.let { m ->
+            val those = Objects.Bound("those")
+            return listOf(Step.Bind(Objects.Each(Filters.noun(m.groupValues[1].replaceFirstChar { it.lowercase() }) ?: return null), "those"),
+                eoeUntilEndOfTurn(those, Mechanic.ModifyPowerToughness(Value.Fixed(m.groupValues[2].toInt()), Value.Fixed(m.groupValues[3].toInt()))),
+                Step.If(arcanum.api.Condition.Not(arcanum.api.Condition.YourTurn), then = listOf(Step.Do(Effect.Untap(those)))))
+        }
+        // eoe chunk 12: "it deals that much damage to each opponent." after "Whenever enchanted creature is dealt damage": the creature dealt
+        // damage deals it (as it last existed if it died, CR 603.10a)
+        Eoe.IT_DEALS_THAT_MUCH_TO_EACH_OPPONENT.matchEntire(sentence)?.let {
+            val event = context.event as? EventPattern.Damage ?: return@let
+            if (event.to.objects != ObjectFilter.Is(Objects.AttachedTo(Objects.Self))) return@let
+            return listOf(Step.Do(Effect.DealDamage(Recipients(players = Players.Each(PlayerFilter.Opponent)), Value.EventAmount,
+                Objects.EventObject(EventRole.Object))))
+        }
         // "Target creature deals damage to itself equal to its power. If that creature has flying, it deals twice that much damage to itself
         // instead." (its power as the spell resolves, CR 608.2h)
         Eoe.DEALS_DAMAGE_TO_ITSELF_TWICE_IF.matchEntire(sentence)?.let { m ->
@@ -17507,7 +17531,8 @@ internal class Sentences(
         // graveyard to the battlefield tapped."
         Eoe.RETURN_UP_TO_HAND_THEN_UP_TO_BATTLEFIELD.matchEntire(sentence)?.let { m ->
             fun slot(n: String, noun: String): Objects? {
-                val name = Filters.slotName(noun)
+                val base = Filters.slotName(noun)
+                val name = if (context.targets.none { it.name == base }) base else nextTargetName(base, context.targets.map { it.name })
                 context.targets += TargetSlot(name, TargetKind.Objects(Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Graveyard),
                     ObjectFilter.OwnedBy(PlayerFilter.You))), min = Value.Fixed(0), max = Value.Fixed(Numbers.count(n) ?: return null))
                 return Objects.Target(name)

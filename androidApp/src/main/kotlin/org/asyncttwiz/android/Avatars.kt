@@ -102,7 +102,7 @@ internal fun CatalogDownloadStatus(catalog: CatalogViewModel) {
         Column(Modifier.fillMaxWidth().padding(8.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(state.status ?: "Preparing card records…", style = MaterialTheme.typography.bodySmall)
             state.progress?.let { CatalogProgressBar(it, Modifier.fillMaxWidth()) }
-            if (state.error) TextButton(onClick = { catalog.foreground(force = true) }) { Text("Retry download") }
+            if (state.error) TextButton(onClick = { catalog.foreground(force = true) }) { ButtonLabel("refresh", "Retry download") }
         }
     }
 }
@@ -114,7 +114,7 @@ internal fun AvatarChooser(controller: AuthController, catalog: CatalogViewModel
     Column(Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Choose your avatar", style = MaterialTheme.typography.headlineSmall)
         AvatarPicker(account, catalog, { controller.saveAvatar(it) }, Modifier.weight(1f))
-        OutlinedButton(onClick = { controller.chooseAvatar(false) }) { Text("Skip") }
+        OutlinedButton(onClick = { controller.chooseAvatar(false) }) { ButtonLabel("chevron", "Skip") }
     }
 }
 
@@ -222,7 +222,7 @@ internal fun ProfileSettings(controller: AuthController, catalog: CatalogViewMod
                             keyboardActions = submitKeyboardActions(!state.profileBusy) { controller.saveProfile(name, avatar) })
                         DialogActionsRow {
                             DialogCancelButton("Cancel", { controller.editProfile(false) })
-                            DialogMainButton("Save", { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy)
+                            DialogMainButton("Save", { controller.saveProfile(name, avatar) }, enabled = !state.profileBusy, icon = "save")
                         }
                     }
                 }

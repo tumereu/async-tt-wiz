@@ -258,7 +258,7 @@ fun PodBuildView(
                 }, Modifier.size(48.dp).testTag("pod-build-undo").semantics { contentDescription = "Undo last change" },
                     enabled = editable && canUndo) { TableChromeIcon("undo") }
                 Button({ confirmSubmit = true }, Modifier.weight(1f).fillMaxHeight(), enabled = submitEnabled,
-                    shape = MaterialTheme.shapes.extraSmall) { Text("Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
+                    shape = MaterialTheme.shapes.extraSmall) { ButtonLabel("send", "Submit deck (${podBuildCount(build, PodDeckCategory.MAIN) + build.basics.total})") }
             }
         }
       }
@@ -274,14 +274,14 @@ fun PodBuildView(
     }
     if (confirmSubmit && submitEnabled) ScreenDialog({ confirmSubmit = false }, title = "Submit deck?", actions = {
         DialogCancelButton("Cancel", { confirmSubmit = false })
-        DialogMainButton("Submit", { confirmSubmit = false; onSubmit() })
+        DialogMainButton("Submit", { confirmSubmit = false; onSubmit() }, icon = "send")
     })
     if (naming) {
         val name = rememberDialogField(deckName)
         val save = { onRename(name.text.trim()); naming = false }
         ScreenDialog({ naming = false }, title = "Deck name", actions = {
             DialogCancelButton("Cancel", { naming = false })
-            DialogMainButton("Save name", save, enabled = name.text.isNotBlank())
+            DialogMainButton("Save name", save, enabled = name.text.isNotBlank(), icon = "rename")
         }) {
             OutlinedTextField(name.value, { name.value = it.copy(text = it.text.take(120)) }, Modifier.fillMaxWidth().dialogField(name),
                 singleLine = true, label = { Text("Name") }, keyboardOptions = imeOptions(ImeAction.Done),

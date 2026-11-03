@@ -90,6 +90,12 @@ data class TableWorld(val viewport: TableBounds, val bounds: TableBounds, val pa
     }
     fun horizontalBand(band: TableBounds) = TableBounds(viewport.x, band.y, viewport.width, band.height)
         .intersection(visibleViewport) ?: TableBounds(viewport.x, viewport.y, viewport.width, 0f)
+    /** TBL-121: the opening view in landscape: zoomed out (to at most 1x, at least the smallest zoom) until the
+     * battlefields' rows fit the height, centred on them, with column 0 still at the left edge as at 1x. */
+    fun landscapeHome(): TableCamera {
+        val zoom = (viewport.height / bounds.height).coerceIn(TablePresentation.MIN_ZOOM, 1f)
+        return TableCamera(home.x / zoom - home.x, bounds.center.y - home.y, zoom)
+    }
     fun fit(): TableCamera = clamp(TableCamera(bounds.center.x - home.x, bounds.center.y - home.y,
         minOf(viewport.width / bounds.width, viewport.height / bounds.height).coerceIn(TablePresentation.MIN_ZOOM, TablePresentation.MAX_ZOOM)))
 }
@@ -142,6 +148,8 @@ data class TableItem(
     val coveredTitle: String = "",
     /** LIFE only: the player's emblems' texts (I-D25), oldest first, drawn as chips beside the square. */
     val emblems: List<String> = emptyList(),
+    /** LIFE only (TRN-053): the free room right of the player's piles the emblem chips stack in; null: by the square. */
+    val emblemArea: TableBounds? = null,
     /** Automatum on (I1): the colour of a computed P/T (up, down, mixed); null for the manual corner's colours. */
     val cornerColor: Int? = null,
     /** Automatum on (I1): an until-end-of-turn effect changes the computed P/T (⌛ as TBL-023). */
@@ -283,7 +291,8 @@ object TablePresentation {
         toolbarWidth: Float = TOOLBAR, reviewing: Boolean = false,
         appearance: CardAppearance = CardAppearance(),
         logicalPositions: Map<String, TablePlacement> = logicalPlacements(play),
-        computed: org.asyncttwiz.automatum.ComputedBoard = org.asyncttwiz.automatum.ComputedBoard.NONE): TableScene {
+        computed: org.asyncttwiz.automatum.ComputedBoard = org.asyncttwiz.automatum.ComputedBoard.NONE,
+        landscapeHome: Boolean = false): TableScene {
         require(play.gameId == game.id && play.id == game.playId)
         require(width > 0 && height > 0 && width.isFinite() && height.isFinite())
         val positions = logicalPositions + placements
@@ -369,7 +378,8 @@ object TablePresentation {
         val world = TableWorld(worldViewport, contentBounds,
             contentBounds.copy(x = worldLeft - 3 * columnPitch, width = contentBounds.width + 6 * columnPitch))
         // Gestures own resistance/settling. Do not hard-clamp away their overscroll animation here.
-        val camera = world.normalize(ui.camera)
+        // TBL-121: [landscapeHome] (the table screen): an untouched camera in landscape opens on the whole height
+        val camera = if (landscape && landscapeHome && ui.camera == TableCamera()) world.landscapeHome() else world.normalize(ui.camera)
         val zoom = camera.zoom
         val fieldScale = battlefieldScale * zoom
         val cw = hudWidth * fieldScale; val ch = hudHeight * fieldScale; val envelope = GRID * fieldScale
@@ -497,10 +507,14 @@ object TablePresentation {
                 else maxOf(width - gridWidth, minOf(portraitDock, width))
             val dock = TableBounds(0f, rowY, dockWidth, dockRow)
             val dp = port("dock/${player.accountId}", dock, if (landscape) landscapeDockWidth(pileWidth) else portraitDock)
+            // TRN-053: in portrait the emblem chips sit in the empty room right of the piles, clear of the hands
+            val pilesRight = PILE_START + 2 * spacing + pileWidth - dp.scroll
+            val emblemArea = if (landscape) null else TableBounds(pilesRight + 8f, rowY + 4f, width - pilesRight - 16f, dockRow - 8f)
+                .takeIf { it.width >= EmblemChips.MIN_AREA_WIDTH }
             items += TableItem("life/${player.accountId}", TableBounds(10f - dp.scroll, rowY + 8f, 48f, 48f),
                 "${name(player.accountId)}, life ${player.life}",
                 player.life, player.accountId, kind = TableItemKind.LIFE, viewport = dp.id,
-                emblems = EmblemChips.texts(play.board, player.accountId))
+                emblems = EmblemChips.texts(play.board, player.accountId), emblemArea = emblemArea)
             val counterRowY = if (ownSide) rowY + dockRow else rowY - counterHeight
             for ((n, c) in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE).map { container(player.accountId, it) }.withIndex()) {
                 val zone = c.zone

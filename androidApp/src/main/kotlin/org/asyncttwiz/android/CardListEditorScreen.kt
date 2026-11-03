@@ -97,7 +97,9 @@ internal fun CardListEditorScaffold(title: String, navigation: (() -> Unit)?, la
             else ScreenIconButton(IMPORT_FROM_LINK, "link", open, Modifier.testTag("open-import-link"), enabled = linkEnabled)
             if (deleteLabel != null) TextButton({ keyboard?.hide(); focus.clearFocus(); delete() },
                 Modifier.heightIn(min = 48.dp).testTag("delete-list"), enabled = deleteEnabled,
-                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text(deleteLabel, maxLines = 1) }
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(screenIcon("delete"), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(deleteLabel, maxLines = 1)
+                }
         }
         if (landscape) Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -141,8 +143,8 @@ internal fun DiscardChangesDialog(keepEditing: () -> Unit, discard: () -> Unit) 
     ScreenDialog(keepEditing) {
         Text("Discard unsaved changes?", style = MaterialTheme.typography.titleMedium)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            ScreenOutlinedButton(keepEditing) { Text("Keep editing") }
-            ScreenButton(discard) { Text("Discard") }
+            ScreenOutlinedButton(keepEditing) { ButtonLabel("edit", "Keep editing") }
+            ScreenButton(discard) { ButtonLabel("delete", "Discard") }
         }
     }
 }

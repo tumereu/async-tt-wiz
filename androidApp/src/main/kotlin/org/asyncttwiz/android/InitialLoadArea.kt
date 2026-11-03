@@ -18,7 +18,7 @@ internal fun InitialLoadArea(loaded: Boolean, modifier: Modifier = Modifier.fill
         else Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
             CircularProgressIndicator(Modifier.size(32.dp))
             Box(Modifier.height(48.dp)) {
-                if ((failed || hadFailure) && retry != null) TextButton(onClick = retry, enabled = !loading) { Text("Retry") }
+                if ((failed || hadFailure) && retry != null) TextButton(onClick = retry, enabled = !loading) { ButtonLabel("refresh", "Retry") }
             }
         }
     }

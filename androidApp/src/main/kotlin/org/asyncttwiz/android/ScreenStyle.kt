@@ -106,6 +106,14 @@ internal fun ScreenIconButton(description: String, kind: String, onClick: () -> 
     }
 }
 
+/** An icon- or symbol-only control (I-D48): holding it shows [description], what it does, in a plain tooltip. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun HoldTip(description: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    TooltipBox(modifier = modifier, positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(description) } }, state = rememberTooltipState(), content = content)
+}
+
 // A shell-wide catalog task takes precedence over a screen's shorter-lived busy indicator.
 internal val LocalBusySuppressed = compositionLocalOf { false }
 
@@ -282,18 +290,28 @@ internal fun DialogActionsRow(modifier: Modifier = Modifier, content: @Composabl
         verticalAlignment = Alignment.CenterVertically, content = content)
 }
 
-/** Dialog dismiss action: outlined, left of the main action. */
+/** A button's content (I-D48, LOB-101): the [screenIcon] of [kind] and the label, never the text alone. */
 @Composable
-internal fun DialogCancelButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    ScreenOutlinedButton(onClick, modifier, enabled) { Text(label) }
+internal fun RowScope.ButtonLabel(kind: String, label: String) {
+    Icon(screenIcon(kind), null, Modifier.size(18.dp))
+    Spacer(Modifier.width(6.dp))
+    Text(label)
 }
 
-/** Dialog main action: filled, rightmost; red when it destroys or removes something. */
+/** Dialog dismiss action: outlined, left of the main action; a cross before its text unless [icon] says otherwise. */
+@Composable
+internal fun DialogCancelButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
+    icon: String = "close") {
+    ScreenOutlinedButton(onClick, modifier, enabled) { ButtonLabel(icon, label) }
+}
+
+/** Dialog main action: filled, rightmost; red when it destroys or removes something. Its [icon] (a [screenIcon] kind)
+ * is a check, or a bin when [danger], unless the call names a better one. */
 @Composable
 internal fun DialogMainButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true,
-    danger: Boolean = false) {
+    danger: Boolean = false, icon: String = if (danger) "delete" else "ready") {
     ScreenButton(onClick, modifier, enabled, colors = if (danger) ButtonDefaults.buttonColors(
-        containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White) else ButtonDefaults.buttonColors()) { Text(label) }
+        containerColor = MaterialTheme.colorScheme.error, contentColor = Color.White) else ButtonDefaults.buttonColors()) { ButtonLabel(icon, label) }
 }
 
 internal fun screenIcon(kind: String): ImageVector = when (kind) {
@@ -339,5 +357,8 @@ internal fun screenIcon(kind: String): ImageVector = when (kind) {
     "sync" -> Icons.Outlined.Sync
     "presets" -> Icons.Outlined.Bookmarks
     "switch" -> Icons.Outlined.SwapHoriz
+    "start" -> Icons.Outlined.PlayArrow
+    "pass" -> Icons.AutoMirrored.Outlined.ArrowForward
+    "take" -> Icons.Outlined.Download
     else -> Icons.AutoMirrored.Outlined.Login
 }

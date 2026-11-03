@@ -32,7 +32,7 @@ internal fun PodPresetsDialog(controller: PodPresetController) {
         busyMessage = state.busy.takeIf { prompt == null }, error = state.error.takeIf { prompt == null },
         dismissError = controller::dismissError, actions = {
             DialogMainButton("Save current settings as preset…", controller::startSave,
-                Modifier.testTag("pod-preset-save"), enabled = state.busy == null && controller.canSave)
+                Modifier.testTag("pod-preset-save"), enabled = state.busy == null && controller.canSave, icon = "save")
         }) {
         if (state.searchable) OutlinedTextField(state.query, controller::query, Modifier.fillMaxWidth().testTag("pod-preset-search"),
             label = { Text("Search presets") }, singleLine = true,
@@ -52,7 +52,7 @@ internal fun PodPresetsDialog(controller: PodPresetController) {
                 if (!state.loaded) item(key = "loading") {
                     Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
                         if (state.busy != null) CircularProgressIndicator()
-                        else ScreenOutlinedButton(controller::reload) { Text("Retry") }
+                        else ScreenOutlinedButton(controller::reload) { ButtonLabel("refresh", "Retry") }
                     }
                 }
             }
@@ -63,7 +63,7 @@ internal fun PodPresetsDialog(controller: PodPresetController) {
         is PodPresetPrompt.Overwrite -> ScreenDialog(controller::cancelPrompt, title = "Replace preset",
             busyMessage = state.busy, error = state.error, dismissError = controller::dismissError, actions = {
                 DialogCancelButton("Cancel", controller::cancelPrompt, enabled = state.busy == null)
-                DialogMainButton("Replace", controller::confirmOverwrite, enabled = state.busy == null, danger = true)
+                DialogMainButton("Replace", controller::confirmOverwrite, enabled = state.busy == null, danger = true, icon = "save")
             }) {
             Text("A preset called “${prompt.existing}” already exists. Replace it with the current settings?")
         }
@@ -104,7 +104,8 @@ private fun PodPresetNameDialog(controller: PodPresetController, prompt: PodPres
     ScreenDialog(controller::cancelPrompt, title = if (prompt.renaming == null) "Save preset" else "Rename preset",
         busyMessage = state.busy, actions = {
             DialogCancelButton("Cancel", controller::cancelPrompt, enabled = state.busy == null)
-            DialogMainButton(if (prompt.renaming == null) "Save" else "Rename", submit, enabled = state.busy == null && valid)
+            DialogMainButton(if (prompt.renaming == null) "Save" else "Rename", submit, enabled = state.busy == null && valid,
+                icon = if (prompt.renaming == null) "save" else "rename")
         }) {
         OutlinedTextField(input.value, { if (it.text.length <= PodPresetValidation.MAX_NAME) input.value = it },
             Modifier.fillMaxWidth().dialogField(input).testTag("pod-preset-name"), label = { Text("Preset name") }, singleLine = true,

@@ -72,19 +72,55 @@ internal object CardRingGeometry {
     const val squareSide = gridSide + 24f
     private const val margin = 12f
     private const val gap = 8f
-    /** Beside the card, [focusY] (default: the middle) of the popup is lined up with the card's center. */
+    /** Beside the card, [focusY] (default: the middle) of the popup is lined up with the card's center. A popup keeps
+     * off the [avoid] areas (the hands, TBL-067) whenever it fits elsewhere, e.g. above the hand rather than over it. */
     fun place(width: Float, height: Float, card: TableBounds, own: Boolean,
-        popupWidth: Float = squareSide, popupHeight: Float = squareSide, focusY: Float = popupHeight / 2): CardRingPlacement? {
+        popupWidth: Float = squareSide, popupHeight: Float = squareSide, focusY: Float = popupHeight / 2,
+        avoid: List<TableBounds> = emptyList()): CardRingPlacement? {
         val screen = TableBounds(margin, margin, (width - 2 * margin).coerceAtLeast(0f), (height - 2 * margin).coerceAtLeast(0f))
         val spaces = listOf(
             screen.copy(height = (card.y - gap - screen.y).coerceIn(0f, screen.height)),
             screen.copy(y = (card.bottom + gap).coerceIn(screen.y, screen.bottom), height = (screen.bottom - card.bottom - gap).coerceIn(0f, screen.height)),
             screen.copy(width = (card.x - gap - screen.x).coerceIn(0f, screen.width)),
             screen.copy(x = (card.right + gap).coerceIn(screen.x, screen.right), width = (screen.right - card.right - gap).coerceIn(0f, screen.width)))
+        // An area the card itself lies in (a menu of a hand card) isn't avoided.
+        val blocks = avoid.filter { it.intersection(card) == null }
+        if (blocks.isNotEmpty()) {
+            val free = spaces.mapIndexed { side, space -> clear(space, blocks, side, card) }
+            place(free, card, own, popupWidth, popupHeight, focusY)?.let { return it }
+        }
+        return place(spaces, card, own, popupWidth, popupHeight, focusY)
+    }
+
+    /** The part of [space] (on [side] of [card]) free of every block, nearest the card, that a popup could use:
+     * the space is cut into horizontal bands between the blocks. */
+    private fun clear(space: TableBounds, blocks: List<TableBounds>, side: Int, card: TableBounds): List<TableBounds> {
+        var bands = listOf(space)
+        for (block in blocks) bands = bands.flatMap { band ->
+            if (band.intersection(block) == null) listOf(band)
+            else listOfNotNull(band.copy(height = block.y - gap - band.y).takeIf { it.height > 0f },
+                band.copy(y = block.bottom + gap, height = band.bottom - block.bottom - gap).takeIf { it.height > 0f })
+        }
+        return when (side) {
+            0 -> bands.sortedByDescending { it.bottom }
+            1 -> bands.sortedBy { it.y }
+            else -> bands.sortedBy { if (it.contains(card.center.copy(x = it.x))) 0f else minOf(kotlin.math.abs(it.y - card.center.y),
+                kotlin.math.abs(it.bottom - card.center.y)) }
+        }
+    }
+
+    private fun place(spaces: List<TableBounds>, card: TableBounds, own: Boolean,
+        popupWidth: Float, popupHeight: Float, focusY: Float): CardRingPlacement? =
+        place(spaces.map { listOf(it) }, card, own, popupWidth, popupHeight, focusY)
+
+    @JvmName("placeInBands")
+    private fun place(sides: List<List<TableBounds>>, card: TableBounds, own: Boolean,
+        popupWidth: Float, popupHeight: Float, focusY: Float): CardRingPlacement? {
+        val spaces = sides.map { bands -> bands.firstOrNull { it.width >= popupWidth && it.height >= popupHeight } }
         val preferred = if (own) 0 else 1
-        val side = spaces.indices.filter { spaces[it].width >= popupWidth && spaces[it].height >= popupHeight }
-            .maxWithOrNull(compareBy<Int> { spaces[it].width * spaces[it].height }.thenBy { it == preferred }) ?: return null
-        val region = spaces[side]
+        val side = spaces.indices.filter { spaces[it] != null }
+            .maxWithOrNull(compareBy<Int> { spaces[it]!!.width * spaces[it]!!.height }.thenBy { it == preferred }) ?: return null
+        val region = spaces[side]!!
         val x = (when (side) {
             2 -> region.right - popupWidth
             3 -> region.x

@@ -307,7 +307,7 @@ internal fun SetupCancellationDialogs(controller: LobbyController) {
     cancellation.context?.let { game ->
         ScreenDialog(cancellation::dismissContext, Modifier.widthIn(max = 300.dp), title = game.gameName,
             close = "Close game actions", actions = {
-                DialogMainButton("Cancel game", { controller.requestCancelSetup(game) }, danger = true)
+                DialogMainButton("Cancel game", { controller.requestCancelSetup(game) }, danger = true, icon = "cancel")
             })
     }
     cancellation.confirmation?.let { game ->
@@ -316,7 +316,7 @@ internal fun SetupCancellationDialogs(controller: LobbyController) {
         ScreenDialog(cancellation::dismiss, busyMessage = if (pending) "Checking game outcome…" else null,
             error = cancellation.error, dismissError = cancellation::clearError, title = "Cancel ${game.gameName}?", actions = {
                 DialogCancelButton("Keep game", cancellation::dismiss)
-                DialogMainButton("Cancel game", controller::confirmCancelSetup, enabled = connected && !pending, danger = true)
+                DialogMainButton("Cancel game", controller::confirmCancelSetup, enabled = connected && !pending, danger = true, icon = "cancel")
             }) {
             Text("Removes this unstarted game and its pending invitation.")
             Box(Modifier.fillMaxWidth().height(36.dp)) {
@@ -450,7 +450,7 @@ private fun GameNameDialog(controller: LobbyController) {
     ScreenDialog(controller::dismiss, busyMessage = if (state.mutating) "Creating game…" else null,
         error = state.error, dismissError = controller::dismissSessionError, title = "New game", actions = {
             DialogCancelButton("Cancel", controller::dismiss, enabled = !state.mutating)
-            DialogMainButton("Create", controller::create, enabled = !state.mutating)
+            DialogMainButton("Create", controller::create, enabled = !state.mutating, icon = "add")
         }) {
                 Text("Invite ${draft.recipient.username}")
                     OutlinedTextField(value, { next -> value = next; controller.name(next.text) },

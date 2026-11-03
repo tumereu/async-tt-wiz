@@ -1,0 +1,1 @@
+mod: Buttons in dialogs, the lobby, decks and drafts show an icon with their text.

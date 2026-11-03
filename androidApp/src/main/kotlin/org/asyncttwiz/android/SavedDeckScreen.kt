@@ -44,7 +44,9 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
             // LOB-057: a draft deck is read-only: Delete draft deck beside Save as deck, which gives an editable copy that is kept.
             if (draft != null) {
                 TextButton(onClick = { controller.edit(DeckDialog.DELETE) }, Modifier.heightIn(min = 48.dp), enabled = !state.mutating,
-                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) { Text("Delete draft deck", maxLines = 1) }
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)) {
+                    Icon(screenIcon("delete"), null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text("Delete draft deck", maxLines = 1)
+                }
                 ScreenOutlinedButton(onClick = controller::saveAsDeck, enabled = !state.mutating) {
                     EntryIcon(null, "ready"); Spacer(Modifier.width(6.dp)); Text("Save as deck", maxLines = 1)
                 }
@@ -100,7 +102,7 @@ internal fun SavedDeckScreen(controller: DeckLibraryController, openNavigation: 
             title = if (deleting) "Delete ${deckKind(state.detail?.saved?.deck)}?" else "Rename deck", actions = {
                 DialogCancelButton(if (deleting) "Keep deck" else "Cancel", controller::dismiss)
                 DialogMainButton(if (deleting) "Delete ${deckKind(state.detail?.saved?.deck)}" else "Save name", controller::confirm,
-                    enabled = !state.mutating, danger = deleting)
+                    enabled = !state.mutating, danger = deleting, icon = if (deleting) "delete" else "rename")
             }) {
                     if (deleting) {
                         Text(state.detail?.saved?.deck?.name.orEmpty(), fontWeight = FontWeight.Bold)

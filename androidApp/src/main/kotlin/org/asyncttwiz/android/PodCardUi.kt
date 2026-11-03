@@ -173,10 +173,13 @@ private fun PodColumnButton(description: String, add: Boolean, enabled: Boolean,
 
 @Composable
 internal fun PodSmallButton(description: String, text: String, enabled: Boolean, width: Dp = 32.dp, action: () -> Unit) {
+    // I-D48: a symbol-only button says what it does on hold
+    HoldTip(description) {
     CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides 0.dp) {
         TextButton(action, enabled = enabled, modifier = Modifier.size(width, 32.dp)
             .semantics { contentDescription = description }, contentPadding = PaddingValues(0.dp)) {
             Text(text, fontSize = 12.sp, maxLines = 1)
         }
+    }
     }
 }

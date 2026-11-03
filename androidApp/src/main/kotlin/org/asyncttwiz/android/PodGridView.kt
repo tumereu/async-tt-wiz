@@ -154,7 +154,7 @@ fun PodGridView(
             selected?.takeIf { !busy && rules?.canSelect(it) == true }?.let { onConfirm(head.id, it.type, it.index) }
         }, enabled = !busy && selected?.let { rules?.canSelect(it) } == true,
             modifier = Modifier.fillMaxWidth()) {
-            Text("Confirm")
+            ButtonLabel("ready", "Confirm")
         }
     }
     inspected?.let { PodPickArtPreview(it, definitions[it.definition], previewScroll) }
@@ -296,11 +296,15 @@ internal fun BoxScope.PodPickerBadge(account: AccountIdentity?, color: Color, ta
 @Composable
 private fun PodGridArrow(line: GridLine, rules: PodGridRules?, selected: GridLine?, enabled: Boolean,
     modifier: Modifier, onSelect: (GridLine) -> Unit) {
-    TextButton({ onSelect(line) }, modifier.height(40.dp).semantics {
-        contentDescription = "Select ${if (line.type == GridLineType.ROW) "row" else "column"} ${line.index + 1}"
+    val description = "Select ${if (line.type == GridLineType.ROW) "row" else "column"} ${line.index + 1}"
+    // I-D48: a symbol-only button says what it does on hold
+    HoldTip(description, modifier) {
+    TextButton({ onSelect(line) }, Modifier.fillMaxWidth().height(40.dp).semantics {
+        contentDescription = description
         this.selected = selected == line
     }, enabled = enabled && rules?.canSelect(line) == true, contentPadding = PaddingValues(0.dp)) {
         Text(if (line.type == GridLineType.ROW) "→" else "↓")
+    }
     }
 }
 

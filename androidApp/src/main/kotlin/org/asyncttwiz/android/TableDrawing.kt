@@ -302,15 +302,20 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     // Emblem chips (TRN-053) are drawn only: taps and drags reach whatever lies beneath them.
     for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.emblems.isNotEmpty() && it.visible.isNotEmpty() }) {
         val below = i.owner != viewer
-        val maxChipText = (minOf(ChipText.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * ChipText.PADDING).coerceAtLeast(12f)
-        /** I-D25: each emblem as a chip beside the life square, away from it. */
+        val area = i.emblemArea
+        val maxChipText = if (area != null) (area.width - 2 * ChipText.PADDING).coerceAtLeast(12f)
+            else (minOf(ChipText.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * ChipText.PADDING).coerceAtLeast(12f)
+        /** I-D25: each emblem as a chip right of the piles (TRN-053), or beside the life square, away from it. */
         run {
             var last: TableBounds? = null
             val previousSize = paint.textSize
             paint.textSize = ChipText.TEXT * density; paint.isFakeBoldText = false
-            for (text in i.emblems) {
-                val lines = ChipText.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density }
-                val chip = EmblemChips.bounds(last, i.bounds, below, lines.maxOf { cache.measure(it) } / density, lines.size)
+            val texts = i.emblems.map { text -> ChipText.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density } }
+            val stacked = area?.let { a -> EmblemChips.stacked(a, below,
+                texts.map { lines -> lines.maxOf { cache.measure(it) } / density }, texts.map { it.size }) }
+            for ((index, lines) in texts.withIndex()) {
+                val chip = stacked?.get(index)
+                    ?: EmblemChips.bounds(last, i.bounds, below, lines.maxOf { cache.measure(it) } / density, lines.size)
                 drawRoundRect(Color(0xfff3effb), xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density))
                 drawRoundRect(EmblemChipColor, xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density), style = Stroke(density))
                 paint.color = android.graphics.Color.rgb(48, 30, 82)

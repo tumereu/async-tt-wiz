@@ -57,7 +57,7 @@ internal fun ImportLinkDialog(value: String, onValue: (String) -> Unit, placehol
             })
         ImportError(error)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)) {
-            ScreenOutlinedButton(dismiss, Modifier.testTag("cancel-link")) { Text("Cancel") }
+            ScreenOutlinedButton(dismiss, Modifier.testTag("cancel-link")) { ButtonLabel("close", "Cancel") }
             ScreenButton(onClick = { start(); import() }, Modifier.testTag("import-link"), enabled = importEnabled && !fetching) {
                 if (fetching) CircularProgressIndicator(Modifier.size(20.dp), LocalContentColor.current, 2.dp)
                 else EntryIcon(null, "download")

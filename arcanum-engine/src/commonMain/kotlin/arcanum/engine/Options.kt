@@ -109,7 +109,7 @@ internal object Options {
     /** Whether a payment is found for the plan's total mana cost as it stands (§7.8), with its other ways to pay too
      * (convoke, delve, CR 702.51, 702.66) when mana alone doesn't. */
     private fun manaFound(plan: Plan): Boolean =
-        !plan.total.hasMana || Mana.suggest(plan.snap, plan.player, plan.total.mana, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.anyColorMana,
+        !plan.total.hasMana || Mana.suggest(plan.snap, plan.player, plan.total.mana, plan.itemId, plan.manaWays, !plan.cantSpendMana, plan.manaAsAnyColor,
             plan.tappedByCost).isNotEmpty()
 
     /**

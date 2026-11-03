@@ -137,6 +137,25 @@ internal object Mana {
             }
 
     /** What [ability] of [id] adds when [player] activates it, per adding step (CR 106.1). [names] holds announced X. */
+    /**
+     * ecl: [step] of [ability] with mana "of the colour chosen" by the ability's own colour choice ("{1}: Add one mana of any color.
+     * This creature becomes that color", a [Step.Choose] of a colour bound and then named) read as mana of any of the colours that
+     * choice offers: the colour is chosen as the mana is made (CR 605.3b), and the choice step then reuses it.
+     */
+    fun withChosenColors(ability: Ability.Activated, step: Step): Step {
+        val add = (step as? Step.Do)?.effect as? Effect.AddMana ?: return step
+        val kind = add.mana.kind as? ManaKind.Choose ?: return step
+        val refs = kind.colors ?: return step
+        val choices = ability.instructions.steps.filterIsInstance<Step.Choose>()
+            .mapNotNull { c -> (c.choice as? arcanum.api.Choice.Color)?.let { c.bind to it } }.toMap()
+        if (refs.none { it is arcanum.api.ColorRef.Chosen && it.name in choices }) return step
+        val among = refs.flatMap { r ->
+            val choice = (r as? arcanum.api.ColorRef.Chosen)?.let { choices[it.name] } ?: return@flatMap listOf(r)
+            choice.among ?: return Step.Do(add.copy(mana = add.mana.copy(kind = kind.copy(colors = null))))
+        }
+        return Step.Do(add.copy(mana = add.mana.copy(kind = kind.copy(colors = among))))
+    }
+
     fun yields(snap: Snapshot, player: PlayerId, id: ObjectId, ability: Ability.Activated, names: Bindings = Bindings.EMPTY): List<Yield> {
         val eval = snap.evaluator(player, self = id, names = names)
         val snow = snap.view[id]?.characteristics?.supertypes?.contains(Supertype.Snow) == true
@@ -304,8 +323,8 @@ internal object Mana {
         return if (go(0)) payers.filterIndexed { j, _ -> used[j] } else null
     }
 
-    /** Payers from mana in [player]'s pool that may be spent on [paysFor] (CR 106.6); [anyColor]: the spell's permission lets mana be
-     * spent as though it were mana of any colour (tla, CR 609.4b). */
+    /** Payers from mana in [player]'s pool that may be spent on [paysFor] (CR 106.6); [anyColor]: spent as though it were
+     * mana of any colour for it anyway (ecl: a permission that says so, CR 609.4b). */
     fun poolPayers(snap: Snapshot, player: PlayerId, paysFor: ObjectId?, indices: List<Int>? = null, anyColor: Boolean = false): List<Payer> {
         val pool = snap.state.player(player).manaPool
         val anyColor = anyColor || spendsAsAnyColor(snap, player, paysFor)
@@ -437,10 +456,7 @@ internal object Mana {
         fun payersOf(list: List<Pair<Source, Color?>>): List<Payer> = list.flatMap { (s, c) ->
             s.yields.flatMap { y ->
                 units(y, c, s.id).filter { allowed(snap, player, it, paysFor) }
-                    .map { u ->
-                        Payer(if (anyColor) (Color.all + u.color).toSet() else setOf(u.color), u.snow,
-                            ManaUse.Ability(s.id, s.origin, if (y.choice) c else s.colors.singleOrNull()), u)
-                    }
+                    .map { u -> Payer(if (anyColor) (Color.all + u.color).toSet() else setOf(u.color), u.snow, ManaUse.Ability(s.id, s.origin, if (y.choice) c else s.colors.singleOrNull()), u) }
             }
         }
         fun go(from: Int): List<ManaUse>? {

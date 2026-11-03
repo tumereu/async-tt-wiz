@@ -38,7 +38,8 @@ object Functioning {
         // CR 113.6a
         ability.characteristicDefining -> EVERYWHERE
         ability.mechanics.isEmpty() -> usual
-        // CR 113.6e, f: how and from where this object can be played or cast (tla: "you may cast this spell as though it had flash")
+        // CR 113.6e, f: how and from where this object can be played or cast (tla, ecl: "you may cast this spell as though it had
+        // flash [if …]" works where the card is cast from, its condition checked as the static applies)
         ability.mechanics.all { it is Mechanic.MayPlay || it is Mechanic.CastRestriction || it == Mechanic.InstantSpeed } && ability.selfOnly() -> EVERYWHERE
         // CR 113.6h: how it enters
         ability.mechanics.all { it is Mechanic.Replacement && it.event.isSelfEntering() } -> EVERYWHERE

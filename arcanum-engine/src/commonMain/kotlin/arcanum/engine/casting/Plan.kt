@@ -118,9 +118,6 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     /** tla: the source, when the cost taps it ({T}, CR 107.5): not also tapped for mana in a suggested payment. */
     val tappedByCost: Set<ObjectId> get() = if (total.parts.any { it.part == arcanum.api.CostPart.TapSelf }) setOf(sourceId) else emptySet()
 
-    /** tla: the permission lets mana of any type be spent on it (CR 609.4b). */
-    val anyColorMana: Boolean get() = permission?.first?.manaAsAnyColor == true
-
     val overloaded = alternative?.second?.keyword == Keyword.Overload.Kind
     // gtc
     val fused = way.fused
@@ -428,13 +425,17 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             increases, reductions)
     }
 
-    /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2). */
+    /** Other ways to pay its mana (CR 702.51, 702.66, 702.126); an activated ability's own ways (blb gaps 2); ecl: also those
+     * other objects give the spell ("Creature spells you cast have convoke", CR 601.2a). */
     val manaWays: List<ManaPaymentWay> by lazy {
         (if (!isSpell) (ability as? Ability.Activated)?.rules?.payManaBy.orEmpty() else
-            snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
+            withGrantedAsSpell().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.PayManaBy>().map { m -> m.way } }) +
             // tla: one Waterbend for each generic mana of its waterbend costs (CR 701.67b; Mana.specialPayers)
             List(total.waterbend) { ManaPaymentWay.Waterbend }
     }
+
+    /** ecl: the permission it is cast with lets mana be spent as though it were mana of any type (CR 609.4b). */
+    val manaAsAnyColor: Boolean get() = permission?.first?.manaAsAnyColor == true
 
     /** "You can't spend mana to cast this spell": only its other ways pay (convoke, delve). */
     val cantSpendMana: Boolean = isSpell &&
@@ -452,9 +453,12 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     // ---- The next question
 
     fun next(): Question? {
-        // CR 601.2b: modes, optional and additional costs, announced values
-        instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
+        // CR 601.2b: modes, optional and additional costs, announced values; ecl: optional costs first when how many modes may be
+        // chosen depends on them ("If this spell's additional cost was paid, choose both instead")
+        val modesFirst = instructions.modes?.maxIf == null
+        if (modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
         additionalCosts.forEach { (inst, m) -> if (m.optional && optionalTimes(inst) == null) return Question.OptionalCost(optionalKey(inst), m) }
+        if (!modesFirst) instructions.modes?.let { modes -> if (choices.names[MODES_ASKED] == null) return Question.Modes(modes) }
         spliceable.forEach { if (choices.costs[spliceKey(it.card)] == null) return Question.Splice(spliceKey(it.card), it) }
         val announce = (instructions.announced + (if (Costs.mentionsX(contributions)) listOf("X") else emptyList())).distinct()
         announce.forEach { name -> if (name !in choices.announced) return Question.Announce(name, if (name == "X") xMinimum() else 0) }
@@ -575,7 +579,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             // "In any combination of colors": a colour for each mana, else one for all of it
             val combination = (add.mana.kind as? ManaKind.Choose)?.combination == true
             if (choices.names[key] != null && !combination) return@forEachIndexed
-            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), manaNames())
+            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(Mana.withChosenColors(a, step)))), manaNames())
             if (combination && chosen.size >= yields.sumOf { it.amount }) return@forEachIndexed
             val among = yields.flatMap { it.colors }.filterNotNull().distinct()
             if (among.size > 1) return Question.ManaColor(key, among)
@@ -601,12 +605,15 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     fun decision(q: Question, id: DecisionId): Decision = when (q) {
         is Question.Modes -> {
             val chosenBefore = snap.state.obj(sourceId)?.facts?.modesChosen.orEmpty()
-            val printed = if (q.modes.maxIf != null && eval.holds(q.modes.maxIf!!)) q.modes.maxIfCount ?: q.modes.max else q.modes.max
+            val raised = q.modes.maxIf != null && holdsAsCast(q.modes.maxIf!!)
+            val printed = if (raised) q.modes.maxIfCount ?: q.modes.max else q.modes.max
             // msh: "choose up to X"
             val max = q.modes.maxCount?.let { minOf(printed, maxOf(q.modes.min, eval.value(it))) } ?: printed
+            // ecl: "Choose one. If …, choose both instead": exactly that many
+            val min = if (raised && q.modes.min == q.modes.max) max else q.modes.min
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
                 ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
-            }, q.modes.min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
+            }, min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)
         }
         is Question.OptionalCost -> if (q.mechanic.repeatable) Decision.ChooseNumber(id, player, sourceId, 0, null)
             else Decision.May(id, player, sourceId, "Pay the ${q.mechanic.keyword?.text ?: "optional"} cost?", q.mechanic.cost)
@@ -622,11 +629,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
         is Question.CostChoice -> Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
-            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays)
+            Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))
         } else Decision.ManaPayment(id, player, sourceId, q.cost,
-            Mana.options(snap, player, q.cost, itemId, manaWays, anyColorMana),
-            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = anyColorMana, notSources = tappedByCost))
+            Mana.options(snap, player, q.cost, itemId, manaWays, manaAsAnyColor),
+            Mana.suggest(snap, player, q.cost, itemId, manaWays, anyColor = manaAsAnyColor, notSources = tappedByCost))
     }
 
     companion object {

@@ -87,6 +87,17 @@ object KeywordExpansions {
             Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any)),
                 steps(Effect.CopySpell(Objects.Self, Players.You, newTargets = true)),
                 interveningIf = Condition.Paid(Keyword.Casualty.Kind, times = 1, of = Objects.Self)))
+        // ecl: CR 702.78a: "As an additional cost to cast this spell, you may tap two untapped creatures you control that each share a
+        // color with it" and "When you cast this spell, if its conspire cost was paid, copy it. If the spell has any targets, you may
+        // choose new targets for the copy."
+        Keyword.Conspire -> listOf(
+            Ability.Static(listOf(Mechanic.AdditionalCost(Keyword.Conspire, Cost(listOf(CostPart.TapObjects(CostObjects.Choose(ObjectFilter.And(listOf(
+                ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You), ObjectFilter.Not(ObjectFilter.HasStatus(Status.Tapped)),
+                ObjectFilter.Shares(SharedQuality.Color, Objects.Self))), Value.Fixed(2))))), optional = true)),
+                affects = Affected.Objects(Objects.Self)),
+            Ability.Triggered(Trigger.On(EventPattern.Cast(ObjectFilter.Is(Objects.Self), by = PlayerFilter.Any)),
+                steps(Effect.CopySpell(Objects.Self, Players.You, newTargets = true)),
+                interveningIf = Condition.Paid(Keyword.Conspire, times = 1, of = Objects.Self)))
         // sos: CR 702.94a: "You may reveal this card from your hand as you draw it if it's the first card you've drawn this turn. When you reveal
         // this card this way, you may cast it by paying [cost] rather than its mana cost." (the reveal is shown as the trigger)
         is Keyword.Miracle -> listOf(Ability.Triggered(Trigger.On(listOf(EventPattern.Draw(PlayerFilter.You)), nthThisTurn = 1),

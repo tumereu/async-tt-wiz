@@ -117,7 +117,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is Objects.Bound -> boundObjects(ctx.names[objects.name])
         is Objects.Remembered -> boundObjects(selfMemory(objects.key))
         is Objects.EventObject -> ctx.event?.objects.orEmpty().filter { it.role == objects.role }.flatMap { it.ids }
-        // tla: an Aura or Equipment sacrificed to pay the cost: what it was attached to as it last existed (CR 608.2h)
+        // ecl: an Aura sacrificed to pay its own ability's cost still names what it was attached to (CR 608.2h)
         is Objects.AttachedTo -> objects(objects.of).mapNotNull { ((state.obj(it)?.attachedTo ?: lki(it)?.attachedTo) as? TargetRef.Object)?.id }
         // tla: in an ability another object's static ability gives, that object (CR 113.10)
         Objects.Granter -> listOfNotNull((ctx.stackItem?.origin as? arcanum.engine.view.AbilityOrigin.FromAbility)?.source ?: ctx.self)
@@ -161,9 +161,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     fun each(filter: ObjectFilter): List<ObjectId> = inZonesOf(filter).filter { matches(filter, it) }
 
     /** The objects [each] looks at for [filter]: everything in the zones it names (the battlefield, or the Stack, when
-     * it names none). */
+     * it names none; both for "spell or creature", ecl). */
     fun inZonesOf(filter: ObjectFilter): List<ObjectId> {
-        val zones = zonesIn(filter).ifEmpty { if (filter.mentionsStack()) setOf(Zone.Stack) else setOf(Zone.Battlefield) } + prospectiveZones(filter)
+        val zones = zonesIn(filter).ifEmpty { defaultZones(filter) } + prospectiveZones(filter)
         return zones.flatMap { zone ->
             when (zone) {
                 Zone.Stack -> state.stack
@@ -836,6 +836,15 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.And -> filter.all.flatMap { zonesIn(it) }.toSet()
             is ObjectFilter.Or -> filter.any.flatMap { zonesIn(it) }.toSet()
             else -> emptySet()
+        }
+
+        /** Where a filter naming no zone looks: the Stack for spells and abilities, the battlefield otherwise, and both for
+         * "either" filters with one of each ("target spell or creature", CR 115.4). */
+        private fun defaultZones(filter: ObjectFilter): Set<Zone> = when {
+            filter is ObjectFilter.Or && filter.any.any { it.mentionsStack() } && filter.any.any { !it.mentionsStack() && zonesIn(it).isEmpty() } ->
+                setOf(Zone.Stack, Zone.Battlefield)
+            filter.mentionsStack() -> setOf(Zone.Stack)
+            else -> setOf(Zone.Battlefield)
         }
 
         private fun ObjectFilter.mentionsStack(): Boolean = when (this) {

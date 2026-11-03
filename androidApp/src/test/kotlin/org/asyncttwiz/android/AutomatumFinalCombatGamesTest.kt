@@ -342,8 +342,8 @@ class AutomatumFinalCombatGamesTest {
         fun flowOf(d: Device) = AutomatumBoards.sharedFlow(d.view, tags(d.view))
         fun hand(d: Device) = d.view.board.containers.single { it.id == (if (d.player == f.a) aHand else bHand) }.cards
         fun field(play: PlayState, player: String) = play.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == player }.cards
-        fun tapItem(d: Device, item: TableItem) = d.toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
-        fun quick(d: Device) = automatumCombatQuickActions(d.view, toolkitQuickContext(d.view, TableSelection(), d.player)
+        fun tapItem(d: Device, item: TableItem) = d.toolkit.open(TableIntent.Actions(item.id, null), item)
+        fun quick(d: Device) = automatumCombatQuickActions(d.view, toolkitQuickContext(d.view, d.player)
             .copy(automatumCombat = AutomatumBoards.combat(d.view) { tags(d.view) })
             .withCombatTarget(d.toolkit.combat, d.view, "them"), TableActionScope(d.view.gameId, d.view.id)).orEmpty()
         /** Begins casting [card]; picks a target when asked: an attacking creature of the other player when there is one,

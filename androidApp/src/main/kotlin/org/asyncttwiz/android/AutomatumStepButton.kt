@@ -98,7 +98,6 @@ internal val AutomatumStepOutline = Color(0xff9aa7a3)
  * ([AutomatumStep.Waiting]), or the declaration the lanes hold isn't one Automatum allows ([combat]: what it worked out).
  */
 internal fun stepBlocked(play: PlayState, castOpen: Boolean, combat: org.asyncttwiz.automatum.CombatShown?): String? {
-    if (!play.board.automatum) return null
     if (castOpen) return CastController.BUSY
     if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return SharedFlowController.OPENING
     val step = AutomatumStep.of(play)

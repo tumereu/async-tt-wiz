@@ -1,1 +1,0 @@
-Just after player A's blue counter drops from 1 to 0: the now empty counter slot flashes.

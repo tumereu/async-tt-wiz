@@ -75,17 +75,4 @@ class HistoryTimelineTest {
         assertEquals(112f, HistoryTimelineLayout.splitGapX(100f, 24f))
     }
 
-    // HIS-079
-    @Test fun pingUniformSelectionOrderExplicitUnpingAndModeLifetime() {
-        val reference = EventReference(id(1), id(2))
-        val x = PingTarget(PingTargetKind.CARD,id(3)); val y = PingTarget(PingTargetKind.CARD,id(4))
-        val intent = EventPingIntent(reference,listOf(y,x,y),true)
-        assertEquals(listOf(PlayAction.Ping(reference,y),PlayAction.Ping(reference,x)), intent.actions())
-        assertEquals(listOf(PlayAction.Unping(reference,y),PlayAction.Unping(reference,x)), intent.copy(add=false).actions())
-        val mode = EventPingMode(contextId = "group-a").enablePing()
-        assertEquals(EventInputMode.PING, mode.visit("group-a").mode) // Anchor fill preserves mode.
-        assertEquals(EventInputMode.NONE, mode.visit("group-b").mode)
-        assertEquals(EventInputMode.NONE, mode.visit("group-b").visit("group-a").mode) // Revisit doesn't enable mode.
-        assertEquals(EventInputMode.SELECTION, mode.enableSelection().mode)
-    }
 }

@@ -86,7 +86,7 @@ class R13RulesTest {
         assertEquals("", s.board.cards.single { it.id == id(20) }.note)
     }
 
-    // TBL-094, SYS-053
+    // SYS-053
     @Test fun manualEditsAreZoneRestrictedAndOffBattlefieldNotesAndMarksAreRefusedWithAReason() {
         for (zone in PlayZone.entries.filter { it != PlayZone.BATTLEFIELD && it != PlayZone.STACK }) {
             val s = exact(root(), move(root(), zone)).state!!
@@ -102,7 +102,7 @@ class R13RulesTest {
         }
     }
 
-    // TBL-094
+    // I-D52
     @Test fun projectionsHaveIndependentNotesAndRemovalRetainsAnExactInverse() {
         var s = exact(root(), PlayAction.SetNote(id(20), "source")).state!!
         s = exact(s, PlayAction.Stack(StackAction.AddEffect(id(20), GameplayRules.stackDigest(s)))).state!!
@@ -189,7 +189,7 @@ class R13RulesTest {
         assertEquals(tree.stateAt(tree.currentNodeId), redone.stateAt(redone.currentNodeId))
     }
 
-    // ZON-027
+    // I-D52
     @Test fun mulliganIsOneDeterministicRecordedEventWithAtomicUndoRedoAndStaleHandRejection() {
         val s = root()
         val library = container(s, PlayZone.LIBRARY)

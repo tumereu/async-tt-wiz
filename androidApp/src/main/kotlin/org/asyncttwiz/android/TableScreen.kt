@@ -21,29 +21,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModelProvider
 import kotlinx.coroutines.delay
 
-/** Personal panel identity, not catalog/replica authority or an outgoing journal. */
-data class TableTokenCatalogIdentity(val accountId: String, val gameId: String, val playId: String?,
-    val installedGeneration: String?, val lifecycleEpoch: Long)
-data class TableTokenCatalog(val identity: TableTokenCatalogIdentity, val source: TokenSearchSource?,
-    val loading: Boolean = false, val error: String? = null, internal val favorites: TokenFavoritesSource? = null)
-
-/** The production table mount shares startup/import's process snapshot, including live generation changes. */
-@Composable
-internal fun rememberTableTokenCatalog(accountId: String, gameId: String, playId: String?, lifecycleEpoch: Long,
-    state: CatalogUiState? = null, favorites: TokenFavoritesSource? = null): TableTokenCatalog {
-    val context = LocalContext.current.applicationContext
-    val source = remember(context) { AndroidTokenCatalog.source(context) }
-    val snapshot by source.snapshots.collectAsState()
-    return TableTokenCatalog(TableTokenCatalogIdentity(accountId, gameId, playId, snapshot?.page?.generation, lifecycleEpoch),
-        source, error = state?.takeIf { it.error }?.status, favorites = favorites)
-}
-
 /** Other runtime owners supply real routes. Null means unavailable, never a successful-looking stub. */
 data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() -> Unit)? = null,
     val undo: (() -> Boolean)? = null, val redo: (() -> Boolean)? = null, val reviewing: Boolean = false,
     val controlsConnected: Boolean? = null,
-    val ping: ((EventPingIntent) -> Boolean)? = null, val tokenCatalog: TableTokenCatalog? = null,
-    val pingReference: EventReference? = null, val navigation: (() -> Unit)? = null,
+    val navigation: (() -> Unit)? = null,
     val returnCurrent: (() -> Unit)? = null, val chatUnread: Int = 0,
     val reviewPanel: (@Composable () -> Unit)? = null, val liveTimeline: (@Composable () -> Unit)? = null,
     val bottomPanel: (@Composable (@Composable () -> Unit) -> Unit)? = null,
@@ -55,8 +37,6 @@ data class TableRuntimeHooks(val chat: (() -> Unit)? = null, val history: (() ->
     /** The opponent's presence: a dot on their life square and a line in their life panel. */
     val opponentPresence: ReceivedPresence? = null,
     val gameActionsBlocked: Boolean = false, val resultControls: TableResultControls? = null,
-    /** History lookup for personal status bubble hides; see [StatusBubbleRules]. */
-    val statusHistory: ((String) -> GameplayMutation?)? = null,
     /** The shown timeline point was left behind by a different continuation; see [HistoryPlayback.branched]. */
     val opponentBranched: Boolean = false,
     /** The shown timeline point is on an old branch the player went to themselves; see [HistoryPlayback.oldBranch]. */
@@ -135,14 +115,8 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         endpoint.presented(play)
         play?.let {
             history.showChanges(it.currentNodeId)
-            history.changes.feedback.present(it,
-                stopped = reviewing && position?.playing == false && position.cursorId == it.currentNodeId,
-                nodes = playback?.tree?.nodes.orEmpty())
         }
     }
-    val reviewNodes = playback?.tree?.nodes
-    val liveNodes = displayTree?.nodes
-    val statusHistory = remember(reviewNodes, liveNodes) { { id: String -> reviewNodes?.get(id) ?: liveNodes?.get(id) } }
     var loadTimedOut by remember(game.id) { mutableStateOf(false) }
     var loadAttempt by remember(game.id) { mutableIntStateOf(0) }
     LaunchedEffect(game.id, play == null, game.id in state.connectedGames, loadAttempt) {
@@ -161,12 +135,11 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         }
     }
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
-    var catalogLifetime by remember(history) { mutableLongStateOf(0L) }
     DisposableEffect(history, lifecycleOwner) {
         history.updateForeground(lifecycleOwner.lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.STARTED))
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) { history.updateForeground(false); catalogLifetime++ }
-            if (event == androidx.lifecycle.Lifecycle.Event.ON_START) { history.updateForeground(true); catalogLifetime++ }
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_STOP) history.updateForeground(false)
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_START) history.updateForeground(true)
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -190,12 +163,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
     }
     val activity = tableActivity(LocalContext.current)
     val retained = remember(activity) { activity?.let { ViewModelProvider(it)[TableToolkitViewModel::class.java] } }
-    val catalog = remember(activity) { activity?.let { ViewModelProvider(it)[AuthViewModel::class.java].catalog } }
-    val favorites = remember(activity, accountId) { activity?.let {
-        val auth = ViewModelProvider(it)[AuthViewModel::class.java].controller
-        AccountTokenFavoritesSource(it, accountId, auth::sessionToken)
-    } }
-    val catalogMount = rememberTableTokenCatalog(accountId, game.id, live?.id, catalogLifetime, catalog?.state, favorites)
     val appContext = LocalContext.current.applicationContext
     val tokenArt = remember(appContext) { AndroidTokenArt.of(appContext) }
     val toolkit = remember(controller, game.id, live?.id, accountId) {
@@ -222,24 +189,21 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
         settings = pauseSettings, sync = pausePreferences)
     LaunchedEffect(resultLocked) {
         if (resultLocked) {
-            toolkit.dismiss(); toolkit.closeInspection(); toolkit.tokens.close(); toolkit.showStackBubbles(null)
-            toolkit.selectionState.value = TableSelection()
+            toolkit.dismiss(); toolkit.closeInspection()
         }
     }
     SideEffect { toolkit.reviewContext("${target?.boundaryNodeId}/${if (reviewing) position?.cursorId else "live"}") }
     val back = remember(game.id) { TableBackStateMachine() }
     val context = LocalContext.current
-    val selection = toolkit.selectionState.value
     SideEffect { DebugJank.state("screen" to "table", "history_nodes" to (tree?.nodes?.size ?: 0).toString()) }
     DisposableEffect(Unit) { onDispose { DebugJank.state("screen" to "games", "table_mode" to "play",
         "history_nodes" to "0", "visible_cards" to "0", "popup" to "none", "dragging" to "false") } }
     val overlay = toolkit.hasBackOverlay || explorerOpen || state.chatOpen
-    LaunchedEffect(overlay, reviewing, history.armed, selection) {
-        if (overlay || reviewing || history.armed != null || selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty()) back.reset()
+    LaunchedEffect(overlay, reviewing, history.armed) {
+        if (overlay || reviewing || history.armed != null) back.reset()
     }
     BackHandler {
-        when (back.back(SystemClock.elapsedRealtime(), overlay, reviewing || history.armed != null,
-            selection.mode != TableMode.NORMAL || selection.ids.isNotEmpty())) {
+        when (back.back(SystemClock.elapsedRealtime(), overlay, reviewing || history.armed != null)) {
             TableBackAction.CLOSE_OVERLAY -> when {
                 state.chatOpen -> controller.closeChat()
                 explorerOpen -> explorerOpen = false
@@ -247,7 +211,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
             }
             // Back abandons personal review immediately rather than playing the path back to live.
             TableBackAction.EXIT_REVIEW -> history.cancelContinuation()
-            TableBackAction.CLEAR_SELECTION -> toolkit.selectionState.value = TableSelection()
             TableBackAction.PROMPT -> Toast.makeText(context, "Press back again to leave", Toast.LENGTH_SHORT).show()
             TableBackAction.LEAVE -> controller.back()
         }
@@ -261,17 +224,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                 returnCurrent = if (waitingActivity) controller::leaveActivityReview else null)
         } else {
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                val menuAnnotations = TableMenuAnnotations(EventReference(play.id, play.currentNodeId,
-                    history.view?.takeIf { it.cursor == play.currentNodeId }?.contextVersion)) { actions ->
-                    if (!history.foreground || controller.state.detail?.id != game.id ||
-                        controller.state.detail?.playId != play.id ||
-                        game.id in controller.state.reconnectingGames) false else {
-                        if (controller.resultLocked()) false
-                        else if (history.armed != null) controller.gameplayBatch(actions, java.util.UUID.randomUUID().toString())
-                        else controller.annotateBatch(actions)
-                    }
-                }
-                CompositionLocalProvider(LocalTableMenuAnnotations provides menuAnnotations) {
                 TableSurface(game, play, accountId, landscape, Modifier.fillMaxSize(),
                     connected = interactive && editable && !resultLocked, onIntent = onIntent ?: toolkit::handle, placements = placements,
                     toolkit = toolkit, accepted = state.acceptedPlay.takeIf { history.gate != null },
@@ -288,7 +240,6 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                                         !controller.acceptResult(it)) Toast.makeText(context, "Result action unavailable", Toast.LENGTH_SHORT).show()
                                     else history.cancelContinuation()
                                }),
-                          statusHistory = statusHistory,
                           opponentPresence = state.opponentPresence,
                           liveView = position?.mode == HistoryMode.LIVE || resumeHeld, changes = history.changes,
                          attentionEvent = displayTree?.nodes?.get(play.currentNodeId),
@@ -331,9 +282,7 @@ internal fun TableScreen(controller: LobbyController, accountId: String, hamburg
                         opponentBranched = playback?.branched == true, oldBranch = playback?.oldBranch == true,
                         timelinePlayback = if (!editable) playback?.status else null,
                         continuationArmed = history.armed != null,
-                          controlsConnected = interactive && history.foreground && !resultLocked,
-                        pingReference = menuAnnotations.reference, ping = menuAnnotations.ping, tokenCatalog = catalogMount))
-                }
+                          controlsConnected = interactive && history.foreground && !resultLocked))
                 // Over the top row (whose move/step/turn), never taking its taps.
                 EventTextOverlay(history.eventText, playbackPause, Modifier.align(Alignment.TopCenter))
             }
@@ -363,16 +312,6 @@ internal fun tableIsLoading(state: LobbyTableView, gameId: String, historyError:
     historyError == null && state.connectionMessage == null && gameId !in state.reconnectingGames && !timedOut
 
 private fun activityPost(action: () -> Unit) { android.os.Handler(android.os.Looper.getMainLooper()).post { action() } }
-
-internal fun tablePingTarget(play: PlayState, item: TableItem?): PingTarget? = when {
-    item == null -> null
-    item.cardId != null && play.board.cards.any { it.id == item.cardId } -> PingTarget(PingTargetKind.CARD, item.cardId)
-    item.cardId != null && (play.board.stackEffects.any { it.id == item.cardId } ||
-        CombatStackRules.occurrences(play.board.combat).any { it.id == item.cardId }) -> PingTarget(PingTargetKind.OCCURRENCE, item.cardId)
-    item.owner != null && item.kind in setOf(TableItemKind.LIFE, TableItemKind.COUNTER) -> PingTarget(PingTargetKind.PLAYER, item.owner)
-    play.board.containers.any { it.id == item.id } -> PingTarget(PingTargetKind.AREA, item.id)
-    else -> null
-}
 
 internal val OwnTableColor = Color(0xff237d68)
 internal val OpponentTableColor = Color(0xffb44853)

@@ -55,7 +55,7 @@ class R29TempPilesTest {
         assertEquals(listOf(1), TempPiles.visibleNumbers(state.board, a))
     }
 
-    // ZON-042
+    // I-D52
     @Test fun firstMoveIntoPileThreeCreatesItWithoutPileTwoAndItsInverseRemovesIt() {
         val start = graveyardState()
         val next = accepted(start, toPile(10, pile(start, 3)), 100).state!!
@@ -75,7 +75,7 @@ class R29TempPilesTest {
         assertEquals(listOf(gameplayId(10)), TempPiles.container(four.board, a, 3)!!.cards)
     }
 
-    // ZON-040
+    // I-D52
     @Test fun togglingPilesOnAndOff() {
         val start = graveyardState()
         val on = accepted(start, PlayAction.SetTempPile(a, 2, true), 100)
@@ -99,7 +99,7 @@ class R29TempPilesTest {
         assertEquals("missingReference", gameplayChange(start, PlayAction.SetTempPile(gameplayId(9), 2, true), 107).reason)
     }
 
-    // SYS-004, ZON-041
+    // SYS-004
     @Test fun allToAnotherPileMovesTheWholePileInOrderAsOneUndo() {
         val root = graveyardState()
         var tree = GameplayTree(root)

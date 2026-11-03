@@ -53,7 +53,7 @@ class PendingOutcomeTableTest {
             drain(f)
             compose.onNodeWithContentDescription(resolve).assertIsDisplayed().assertIsEnabled()
             compose.onAllNodes(isDialog()).assertCountEquals(0)
-            for (label in listOf("Table actions", "Interaction mode", "Undo", nextStepLabel(f.play.board.turn))) {
+            for (label in listOf("Table actions", "Undo", AutomatumStep.of(f.play).label)) {
                 compose.onNodeWithContentDescription(label).assertIsNotEnabled().performClick()
             }
             compose.onNodeWithContentDescription("Choose phase/step", substring = true).assertIsNotEnabled().performClick()
@@ -87,7 +87,8 @@ class PendingOutcomeTableTest {
                 drain(f)
                 compose.runOnIdle { assertEquals(before, f.lobby.history.armed); assertFalse(f.lobby.resultLocked()) }
                 compose.onNodeWithContentDescription("Table actions").assertIsEnabled()
-                compose.onRoot().performTouchInput { swipe(Offset(hand.x, hand.y), Offset(field.x, field.y)) }
+                // (the table moves nothing by hand any more, I-D52: the next play goes straight to the session)
+                compose.runOnIdle { assertTrue(f.lobby.gameplay(PlayAction.AdjustLife(f.actor, "2"))) }
                 drain(f)
                 val sent = f.commands().single()
                 assertEquals(Continuation(before, true), sent.continuation)

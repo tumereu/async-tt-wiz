@@ -48,15 +48,6 @@ class ResultTablePanelTest {
         compose.onNodeWithText("“", substring = true).assertDoesNotExist()
     }
 
-    @Test fun singleValuePowerToughnessStepsUseGeneratedSideIcons() {
-        assertEquals(PowerToughnessStep(1, 0, false), powerToughnessStep("P/T +1/+0"))
-        assertEquals(PowerToughnessStep(0, 1, true), powerToughnessStep("EOT P/T +0/+1"))
-        assertEquals(PowerToughnessStep(-1, 0, false), powerToughnessStep("−1/−0"))
-        assertEquals(PowerToughnessStep(0, -1, true), powerToughnessStep("EOT +0/−1"))
-        assertNull(powerToughnessStep("Set EOT P/T"))
-        assertEquals(powerToughnessStepIcon(PowerToughnessStep(1, 0, false)), menuIcon("P/T +1/+0"))
-        assertNotEquals(menuIcon("P/T +1/+0"), menuIcon("EOT P/T +1/+0"))
-    }
 
     // TRN-047
     @Test fun onTablePanelHasRoleSpecificButtonsWithoutModalBackOrOutsideTapHandling() {

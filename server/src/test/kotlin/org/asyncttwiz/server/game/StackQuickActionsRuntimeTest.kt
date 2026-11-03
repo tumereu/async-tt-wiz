@@ -8,7 +8,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class StackQuickActionsRuntimeTest {
-    // STK-019
+    // I-D52
     @Test fun `Stack copies and controllers are validated persisted and exactly undoable without changing the source`() {
         FreshDatabase().start().use { db ->
             FoundationMigrations.migrate(db.settings)

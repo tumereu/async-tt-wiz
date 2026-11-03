@@ -38,7 +38,7 @@ class CombatDragGeometryTest {
             val scene = scene(play, zoom)
             val events = mutableListOf<TableIntent>()
             val gestures = TableGestureCoordinator(events::add)
-            gestures.update(scene, TableSelection(), true)
+            gestures.update(scene, true)
             val origin = scene.items.single { it.cardId == ids[from] }
             val target = scene.items.single { it.cardId == ids[to] }
             gestures.down(origin.bounds.center, 0)
@@ -74,7 +74,7 @@ class CombatDragGeometryTest {
             val origin = scene.items.single { it.cardId == attackers[from].id }
             val target = scene.items.single { it.cardId == attackers[to].id }
             val gestures = TableGestureCoordinator({})
-            gestures.update(scene, TableSelection(), true)
+            gestures.update(scene, true)
             gestures.down(origin.bounds.center, 0)
             gestures.move(target.bounds.center, 80)
             val destination = assertIs<TableDestination.Combat>(gestures.preview.destination).destination

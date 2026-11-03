@@ -40,7 +40,7 @@ class R35FaceCornerTest {
         assertTrue(ManualEditRules.FACE_CORNER_RULES_VERSION <= CURRENT_GAMEPLAY_RULES_VERSION)
     }
 
-    // TBL-076, TBL-021
+    // TBL-021
     @Test fun switchingEitherWaySetsTheNewFacesPrintedCornerForEachKindOfCard() {
         for ((front, back, printed) in listOf(Triple(creature, werewolf, "4/5"), Triple(creature, planeswalker, "3"),
             Triple(battle, creature, "2/3"), Triple(saga, creature, "2/3"), Triple(creature, saga, "1"),
@@ -64,7 +64,7 @@ class R35FaceCornerTest {
         assertEquals(listOf("4/5", "3", "5", "1", ""), listOf(werewolf, planeswalker, battle, saga, land).map { it.defaultCorner() })
     }
 
-    // TBL-076
+    // I-D52
     @Test fun oneUndoTakesBackBothTheFaceAndTheCorner() {
         val start = GameplayTree(root(creature, werewolf, corner = "7/7"))
         val switched = switch(start, werewolf)
@@ -74,7 +74,7 @@ class R35FaceCornerTest {
         assertEquals(board(switched), board(redone))
     }
 
-    // TBL-076: the corner is assigned even when it already shows the printed value, so an earlier corner edit
+    // I-D52: the corner is assigned even when it already shows the printed value, so an earlier corner edit
     // underneath cannot be taken back while the switch stands on it.
     @Test fun anUnchangedCornerIsStillTheSwitchsOwnValue() {
         val start = GameplayTree(root(creature, werewolf))
@@ -91,7 +91,7 @@ class R35FaceCornerTest {
         assertEquals(werewolf.faceId, board(undone).cards.single { it.id == card }.faceId)
     }
 
-    // TBL-076: a face-down card keeps its corner (the public face-down 2/2 on the Battlefield).
+    // I-D52: a face-down card keeps its corner (the public face-down 2/2 on the Battlefield).
     @Test fun faceDownCardsKeepTheirCorner() {
         val start = GameplayTree(root(creature, werewolf, corner = "2/2", faceDown = true))
         val switched = switch(start, werewolf)

@@ -54,28 +54,13 @@ class TableToolkitGeometryTest {
         val region = scene.combatDrops.first { it.destination.role == CombatRole.BLOCKER && it.destination.pairId == null }
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator({ events += it })
-        gestures.update(scene, TableSelection(setOf(source.cardId!!)), true)
+        gestures.update(scene, true)
         gestures.down(source.visible.first().center, 0)
         gestures.move(region.bounds.center, 20)
         gestures.update(scene.copy(combatDrops = scene.combatDrops.map { it.copy(destination = it.destination.copy(areaId = f.id(999))) }),
-            TableSelection(), true)
+            true)
         gestures.up(region.bounds.center, 30)
         assertEquals(region.destination, (events.filterIsInstance<TableIntent.Move>().single().destination as TableDestination.Combat).destination)
     }
 
-    @Test fun frozenEffectHasNoEditableSourceAndDoesNotExpandOccurrenceSelection() {
-        val f = BasicTableFixture(); val live = state(f)
-        val source = live.board.cards.single().copy(token = true, corner = "5/2")
-        val effect = live.board.stackEffects.first().copy(frozen = source)
-        val frozen = live.copy(board = live.board.copy(cards = emptyList(), combat = null,
-            stackEffects = listOf(effect), containers = live.board.containers.map { it.copy(cards = if (it.zone == PlayZone.STACK) listOf(effect.id) else emptyList()) }))
-        val scene = TablePresentation.scene(f.game, frozen, f.actor, 480f, 1000f, false)
-        val drawing = scene.items.single { it.id.startsWith("stackDrawing/") }
-        assertTrue(drawing.frozen); assertNull(drawing.sourceId)
-        assertFalse(effect.id in scene.sources)
-        val selected = TableSelection(setOf(effect.id))
-        assertEquals(setOf(effect.id), selected.ids)
-        assertTrue(toolkitQuickContext(frozen, selected).selectedSourceIds.isEmpty())
-        assertEquals(1, scene.items.single { it.zone == PlayZone.STACK && it.kind == TableItemKind.PILE }.cards.size)
-    }
 }

@@ -25,11 +25,9 @@ import org.asyncttwiz.protocol.*
 /** ZON-079, ZON-080 (I-D50): the mana sources Autotap would tap for the raised hand card, and the extras' chips. */
 internal val AutotapAmber = Color(0xffe09a1c)
 
-internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, selection: TableSelection, preview: TableGesturePreview,
-    links: List<PlayLink> = emptyList(), alphas: Map<String, Float> = emptyMap(), pings: List<RecordedPingChange> = emptyList(),
-    projectionLinks: List<ProjectionLink> = emptyList(), annotations: TableAnnotationGeometry, artwork: Map<String, ImageBitmap> = emptyMap(),
-    cache: TableDrawCache, pingPhase: Float = 0f, statusModes: Map<String, StatusBubbleMode> = emptyMap(),
-    presenceDot: PresenceDot? = null,
+internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: String, preview: TableGesturePreview,
+    alphas: Map<String, Float> = emptyMap(), artwork: Map<String, ImageBitmap> = emptyMap(),
+    cache: TableDrawCache, presenceDot: PresenceDot? = null,
     /** Automatum cast (I-D6): legal targets glow violet: cards by card id (and their Stack entries and combat copies),
      * players by their life square's id. */
     glow: Set<String> = emptySet(),
@@ -120,18 +118,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             }
         }
     }
-    fun endpoint(endpoint: LinkEndpoint): TablePoint? = scene.items.firstOrNull { item ->
-        if (endpoint.kind == LinkEndpointKind.CARD) item.cardId == endpoint.id else item.id == "life/${endpoint.id}"
-    }?.visibleAnchor
-    for (link in links) {
-        val a = endpoint(link.first); val b = endpoint(link.second)
-        if (a != null && b != null) drawLine(Color(0xff667b89), xy(a.x, a.y), xy(b.x, b.y), 2 * density)
-    }
-    for (link in projectionLinks) {
-        val first = scene.items.firstOrNull { it.cardId == link.first }?.visibleAnchor
-        val second = scene.items.firstOrNull { it.cardId == link.second }?.visibleAnchor
-        if (first != null && second != null) drawLine(Color(0xff667b89), xy(first.x, first.y), xy(second.x, second.y), 2 * density)
-    }
     // HUD surfaces cover world drawings and link lines, including the screen-pinned Stack gutter.
     for (port in scene.viewports.filter { it.hand || it.id.startsWith("dock/") || it.id.startsWith("counters/") }) {
         val b = port.bounds
@@ -171,19 +157,9 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                 fittedText(header.title, header.bounds.x + 3, header.bounds.y + 13, header.bounds.width - 6)
                 paint.textSize = 11 * density; paint.isFakeBoldText = false
             }
-            scene.panelReorder(preview.point ?: TablePoint(-1f, -1f), preview.scope)?.let { reorder ->
-                val before = panel.rows.firstOrNull { it.entry.cardId == reorder.beforeId }?.bounds
-                val last = panel.rows.lastOrNull()?.bounds
-                val cell = before ?: last
-                if (reorder.displayId == panel.display.id && cell != null) {
-                    val x = if (before != null) cell.x - 2 else cell.right + 2
-                    drawLine(color, xy(x, cell.y), xy(x, cell.bottom), 2 * density)
-                }
-            }
         }
     }
-    val highlighted = scene.highlightedSelection(preview, selection)
-    val focused = highlighted + listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
+    val focused = listOfNotNull(preview.pressedId?.let { id -> scene.items.firstOrNull { it.id == id }?.cardId })
     val relatedSources = scene.items.filter { it.cardId in focused }.mapNotNull { it.sourceId }.toSet()
     fun outlines(i: TableItem, b: TableBounds, card: Boolean = false) {
         if (i.sourceId != null && i.sourceId in relatedSources) {
@@ -192,8 +168,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                 size((b.width - 2 * inset).coerceAtLeast(0f), (b.height - 2 * inset).coerceAtLeast(0f)), style = Stroke(2 * density))
         }
         val outset = if (card) 2f else 0f
-        if (i.cardId in highlighted) drawRect(Color(0xff397ccc), xy(b.x - outset, b.y - outset),
-            size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(3 * density))
         if (i.id == preview.pressedId) drawRect(Color(0xffe7ab24), xy(b.x - outset, b.y - outset),
             size(b.width + 2 * outset, b.height + 2 * outset), style = Stroke(2 * density))
         if (sources.isNotEmpty() && i.zone == PlayZone.BATTLEFIELD && !i.projection && i.cardId in sources) {
@@ -238,21 +212,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                     drawCircle(presenceDot.color, 3.5f * density, center)
                 }
             }
-            TableItemKind.COUNTER -> {
-                val marker = when (i.counter) {
-                    CounterColor.RED -> Color(0xffb44b51); CounterColor.BLUE -> Color(0xff426f97)
-                    CounterColor.GREEN -> Color(0xff3c744f); CounterColor.YELLOW -> Color(0xffc7ab3d)
-                    CounterColor.PURPLE -> Color(0xff8c639d); else -> Color(0xff626b6e)
-                }
-                val radius = minOf(14f, b.height / 2 - 6f)
-                val hasValue = TablePresentation.nonzero(i.value)
-                drawCircle(if (hasValue) marker else marker.copy(alpha = .3f), radius * density,
-                    xy(b.center.x, b.center.y), style = if (hasValue) androidx.compose.ui.graphics.drawscope.Fill else Stroke(density))
-                paint.isFakeBoldText = true
-                paint.color = if (i.counter == CounterColor.YELLOW) android.graphics.Color.rgb(32, 42, 46) else android.graphics.Color.WHITE
-                if (hasValue) centeredText(i.value, TableBounds(b.center.x - radius, b.center.y - radius, 2 * radius, 2 * radius), 11f)
-                paint.color = android.graphics.Color.DKGRAY; paint.textSize = 11 * density; paint.isFakeBoldText = false
-            }
             TableItemKind.PILE -> {
                 if (i.cards.isEmpty()) {
                     if (i.zone in listOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.STACK)) emptySlot(i, color)
@@ -288,13 +247,6 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
                               size(cardWidth + 2 * spread, cardHeight + 2 * spread), CornerRadius((2 + spread) * density))
                       }
                       scale(i.flipScale, 1f, xy(b.center.x, b.center.y)) { cardFace(i, x, y, color, i.value) }
-                      if (i.panelRevealed && !i.covered) {
-                          // Center in the art crop (11..30), clear of the title and corner text.
-                           val cx = x + cardWidth / 2; val cy = y + 21f * z
-                           drawCircle(Color.White, 3.5f * z * density, xy(cx, cy))
-                           drawOval(color, xy(cx - 3f * z, cy - 1.8f * z), size(6f * z, 3.6f * z), style = Stroke(.6f * z * density))
-                           drawCircle(color, 1f * z * density, xy(cx, cy))
-                      }
                       if (i.copies > 1) {
                           val label = "×${i.copies}"
                           paint.textSize = 11 * density
@@ -341,81 +293,29 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             }
         }
     }
-    // Status bubbles and emblem chips are drawn only: taps and drags reach whatever lies beneath them.
-    for (i in scene.items.filter { it.kind == TableItemKind.LIFE && (it.status.isNotEmpty() || it.emblems.isNotEmpty()) && it.visible.isNotEmpty() }) {
-        val color = if (i.owner == viewer) OwnTableColor else OpponentTableColor
-        val mode = if (i.status.isEmpty()) StatusBubbleMode.NONE else statusModes[i.owner] ?: StatusBubbleMode.BUBBLE
-        val below = i.valueDragSide == ValueDragSide.TOP
-        val maxChipText = (minOf(StatusBubble.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * StatusBubble.PADDING).coerceAtLeast(12f)
-        /** I-D25: each emblem as a chip after [previous] (the status bubble, or the life square), away from the square. */
-        fun emblems(previous: TableBounds?) {
-            var last = previous
+    // Emblem chips (TRN-053) are drawn only: taps and drags reach whatever lies beneath them.
+    for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.emblems.isNotEmpty() && it.visible.isNotEmpty() }) {
+        val below = i.owner != viewer
+        val maxChipText = (minOf(ChipText.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * ChipText.PADDING).coerceAtLeast(12f)
+        /** I-D25: each emblem as a chip beside the life square, away from it. */
+        run {
+            var last: TableBounds? = null
             val previousSize = paint.textSize
-            paint.textSize = StatusBubble.TEXT * density; paint.isFakeBoldText = false
+            paint.textSize = ChipText.TEXT * density; paint.isFakeBoldText = false
             for (text in i.emblems) {
-                val lines = StatusBubble.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density }
+                val lines = ChipText.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density }
                 val chip = EmblemChips.bounds(last, i.bounds, below, lines.maxOf { cache.measure(it) } / density, lines.size)
                 drawRoundRect(Color(0xfff3effb), xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density))
                 drawRoundRect(EmblemChipColor, xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density), style = Stroke(density))
                 paint.color = android.graphics.Color.rgb(48, 30, 82)
                 lines.forEachIndexed { n, line ->
-                    text(line, chip.x + StatusBubble.PADDING, chip.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
+                    text(line, chip.x + ChipText.PADDING, chip.y + ChipText.HEIGHT / 2 + n * ChipText.LINE -
                         cache.centerOffset() / density, line.length)
                 }
                 last = chip
             }
             paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
         }
-        if (mode == StatusBubbleMode.NONE) { emblems(null); continue }
-        if (mode == StatusBubbleMode.DOT) {
-            val dot = StatusBubble.dot(i.bounds, below = below)
-            drawCircle(Color.White, (StatusBubble.DOT / 2 + 1f) * density, xy(dot.center.x, dot.center.y))
-            drawCircle(color, StatusBubble.DOT / 2 * density, xy(dot.center.x, dot.center.y))
-            emblems(null)
-            continue
-        }
-        val previousSize = paint.textSize
-        paint.textSize = StatusBubble.TEXT * density; paint.isFakeBoldText = false
-        val canvasWidth = this@drawTable.size.width / density
-        val maxText = (minOf(StatusBubble.MAX_WIDTH, canvasWidth - i.bounds.x - 4f) - 2 * StatusBubble.PADDING).coerceAtLeast(12f)
-        val lines = StatusBubble.lines(i.status, maxText) { cache.measure(it) / density }
-        val bubble = StatusBubble.bounds(i.bounds, below = i.valueDragSide == ValueDragSide.TOP,
-            lines.maxOf { cache.measure(it) } / density, lines.size)
-        val tipX = i.bounds.center.x
-        val tail = androidx.compose.ui.graphics.Path().apply {
-            val base = if (i.valueDragSide == ValueDragSide.TOP) bubble.y + .5f else bubble.bottom - .5f
-            val tip = if (i.valueDragSide == ValueDragSide.TOP) bubble.y - StatusBubble.TAIL else bubble.bottom + StatusBubble.TAIL
-            moveTo((tipX - 5f) * density, base * density); lineTo(tipX * density, tip * density)
-            lineTo((tipX + 5f) * density, base * density); close()
-        }
-        drawRoundRect(Color.White, xy(bubble.x, bubble.y), size(bubble.width, bubble.height), CornerRadius(6 * density))
-        drawPath(tail, Color.White)
-        drawRoundRect(color, xy(bubble.x, bubble.y), size(bubble.width, bubble.height), CornerRadius(6 * density), style = Stroke(density))
-        drawPath(tail, color, style = Stroke(density))
-        // Hide the outline where the tail joins the bubble.
-        drawLine(Color.White, xy(tipX - 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom),
-            xy(tipX + 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom), 1.5f * density)
-        paint.color = android.graphics.Color.rgb(32, 42, 46)
-        lines.forEachIndexed { n, line ->
-            text(line, StatusBubble.lineX(bubble, cache.measure(line) / density), bubble.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
-                cache.centerOffset() / density, line.length)
-        }
-        paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize
-        emblems(bubble)
-    }
-    for (ping in pings) {
-        val p = annotations.endpoint(ping.target) ?: continue
-        val color = if (ping.recording.author == viewer) OwnTableColor else OpponentTableColor
-        drawCircle(color.copy(alpha = 1f - pingPhase), (10 + 18 * pingPhase) * density, xy(p.x, p.y), style = Stroke(2 * density))
-        drawCircle(color, 10 * density, xy(p.x, p.y))
-        paint.color = android.graphics.Color.WHITE
-        val number = ping.to!!.ordinal
-        text(number, p.x - cache.measure(number) / density / 2, p.y + 4, 5)
-        paint.color = android.graphics.Color.DKGRAY
-    }
-    preview.rectangle?.let { b ->
-        drawRect(OwnTableColor.copy(alpha = .14f), xy(b.x, b.y), size(b.width, b.height))
-        drawRect(OwnTableColor, xy(b.x, b.y), size(b.width, b.height), style = Stroke(density))
     }
     val landing = tableDragLanding(scene, preview)
     landing.combatInsertion?.let { (from, to) -> scene.world?.viewport?.let { port ->
@@ -446,14 +346,12 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
 @Composable
 internal fun SampleTableCard(appearance: CardAppearance, scale: Float, modifier: Modifier = Modifier) {
     val bounds = TableBounds(0f, 0f, 28f * scale, 40f * scale)
-    val sample = TableItem("sample", bounds, "Sample card: Sprite, note Flying, 2/3, one blue counter", "Sprite",
-        owner = "sample", kind = TableItemKind.CARD, corner = "2/3", note = "Flying",
-        counters = mapOf(CounterColor.BLUE to "1"), typeIcon = "♙")
+    val sample = TableItem("sample", bounds, "Sample card: Sprite, 2/3", "Sprite",
+        owner = "sample", kind = TableItemKind.CARD, corner = "2/3", typeIcon = "♙")
     val scene = TableScene(listOf(sample), emptyList(), appearance = appearance)
     val density = LocalDensity.current.density
     val cache = remember(density) { TableDrawCache(density) }
     Canvas(modifier.size(bounds.width.dp, bounds.height.dp).semantics { contentDescription = sample.label }) {
-        drawTable(scene, "sample", "sample", TableSelection(), TableGesturePreview(),
-            annotations = TableAnnotationGeometry(scene, "sample"), cache = cache)
+        drawTable(scene, "sample", "sample", TableGesturePreview(), cache = cache)
     }
 }

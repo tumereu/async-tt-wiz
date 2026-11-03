@@ -34,10 +34,8 @@ import org.asyncttwiz.protocol.*
 /** Text remains available regardless of artwork/network state. No gameplay permission policy here. */
 @Composable
 internal fun CardInspection(controller: CardInspectionController, annotation: String? = null,
-    markedOptions: List<Pair<Int, StackTextOption>> = emptyList(),
     token: Boolean = false, owner: Color? = null, projection: Boolean = false, peek: Boolean = false,
-    peekScroll: ScrollState? = null, stackEntryId: String? = null,
-    textOptions: List<StackTextOption> = emptyList(), faceDown: Boolean = false) {
+    peekScroll: ScrollState? = null, faceDown: Boolean = false) {
     val state = controller.state ?: return
     val card = state.card
     val localScroll = key(card, state.face) { rememberScrollState() }
@@ -61,7 +59,7 @@ internal fun CardInspection(controller: CardInspectionController, annotation: St
                         InspectionArtwork(state, heightLimit, peek, owner, projection, faceDown, controller)
                     }
                     val text: @Composable () -> Unit = {
-                        InspectionText(state, annotation, markedOptions, textOptions, stackEntryId, peek)
+                        InspectionText(state, annotation, peek)
                     }
                     BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
                         val availableHeight = maxHeight
@@ -134,36 +132,17 @@ private fun InspectionArtwork(state: CardInspectionState, heightLimit: Dp, peek:
     }
 }
 
-/** One card's text in an inspection or hold preview: annotation, Stack marks, name, cost, type, rules and printed values. */
+/** One card's text in an inspection or hold preview: annotation, name, cost, type, rules and printed values. */
 @Composable
-private fun InspectionText(state: CardInspectionState, annotation: String?, markedOptions: List<Pair<Int, StackTextOption>>,
-    textOptions: List<StackTextOption>, stackEntryId: String?, peek: Boolean) {
+private fun InspectionText(state: CardInspectionState, annotation: String?, peek: Boolean) {
     val face = state.card.definition.faces[state.face]
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(if (peek) 4.dp else 12.dp)) {
         annotation?.let { Text(it) }
-        // Current-face marks are highlighted inline below; list other faces too.
-        for ((index, option) in markedOptions.filter { it.second.faceId != face.faceId }) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            StackMarkChip(index)
-            CardText(option.text)
-        }
-        val marked = markedOptions.filter { it.second.faceId == face.faceId }
-        @Composable fun markedText(value: String, paragraph: Int?, title: Boolean = false) {
-            val selected = marked.firstOrNull { it.second.paragraph == paragraph }
-            val lineIndex = textOptions.indexOfFirst { it.faceId == face.faceId && it.paragraph == paragraph }
-            val flash = if (stackEntryId != null && lineIndex >= 0) Modifier.tableChangeFlash(LocalTableChanges.current,
-                TableChangeKey(stackEntryId, TableChangeKind.TEXT_MARK, line = lineIndex)) else Modifier
-            Row((if (selected != null) Modifier.fillMaxWidth().background(stackMarkColor(selected.first).copy(alpha = .16f),
-                RoundedCornerShape(4.dp)).padding(6.dp).semantics { stateDescription = "Stack text mark ${selected.first + 1}" } else Modifier).then(flash),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (selected != null) StackMarkChip(selected.first)
-                CardText(value, style = if (title) MaterialTheme.typography.titleLarge else MaterialTheme.typography.bodyLarge)
-            }
-        }
-        markedText(face.name, null, title = true)
+        CardText(face.name, style = MaterialTheme.typography.titleLarge)
         if (face.manaCost.isNotEmpty()) CardText(face.manaCost)
         if (face.typeLine.isNotEmpty()) Text(face.typeLine)
-        face.rulesText.lines().map(String::trim).filter(String::isNotEmpty).forEachIndexed { index, paragraph ->
-            markedText(paragraph, index)
+        face.rulesText.lines().map(String::trim).filter(String::isNotEmpty).forEach { paragraph ->
+            CardText(paragraph, style = MaterialTheme.typography.bodyLarge)
         }
          if (face.power.isNotEmpty() || face.toughness.isNotEmpty()) Text("${face.power}/${face.toughness}")
         if (face.loyalty.isNotEmpty()) Text("Loyalty: ${face.loyalty}")
@@ -223,8 +202,7 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
             text = { Text(listOfNotNull("Owner ${names[card.owner] ?: "Player"}",
                 // A face-down Battlefield card's values are public (rules v23); its face stays hidden.
                 *(if (publicFaceDown(state.board, card)) arrayOf(computedCorner(computed, card, viewer) ?: inspectedCorner(card).takeIf(String::isNotBlank),
-                    card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
-                    *tabletopMarks(state, card)) else emptyArray())).joinToString("\n")) },
+                    card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" }) else emptyArray())).joinToString("\n")) },
             confirmButton = { TextButton(onClick = close) { Text("Close") } })
     } else {
         // The full name only when every face is permitted: a partial view never names a face it hides.
@@ -232,25 +210,19 @@ internal fun GameplayCardInspection(state: PlayState, viewer: String, inspection
         val full = remember(card.definition, definition) { InspectedCard.retained(card.definition, definition) }
         val permitted = remember(full, filtered) { InspectedCard(filtered,
             faces.map { face -> full.artwork[definition.faces.indexOf(face)] }) }
-        val marks = inspection.stackEntryId?.let { entry -> state.board.stackTextMarks[entry].orEmpty().sorted().mapNotNull { index ->
-            StackText.options(state, entry).getOrNull(index)?.takeIf { it.faceId in allowed }?.let { index to it }
-        } }.orEmpty()
         // Open on the face the card currently shows (a transformed card shows its back), among the permitted faces only.
         val shown = faces.indexOfFirst { it.faceId == card.faceId }
         val flipped = flippedOnTable(definition, card.faceId)
         val controller = remember(inspection) { CardInspectionController().apply {
             open(permitted, shown, flipped)
-            marks.firstOrNull()?.second?.faceId?.let { id -> faces.indexOfFirst { it.faceId == id }.takeIf { it >= 0 }?.let(::face) }
         } }
         LaunchedEffect(permitted) { if (controller.state?.card != permitted) controller.open(permitted, shown, flipped) }
         val annotation = remember(card, names, inspection.provisional, computed, viewer, IdentityKey(state.board)) {
             listOfNotNull(inspectionAnnotation(card, names, inspection.provisional, computed, viewer, state).ifBlank { null },
                 automatumReasons(state, viewer, card.id, names).joinToString("\n").ifBlank { null }).joinToString("\n") }
         if (controller.state != null) CardInspection(controller, annotation,
-            markedOptions = marks,
             token = card.token, owner = if (card.owner == viewer) OwnTableColor else OpponentTableColor,
              projection = inspection.cardId in CombatStackRules.projectionIds(state.board), peek = peek, peekScroll = peekScroll,
-             stackEntryId = inspection.stackEntryId, textOptions = inspection.stackEntryId?.let { StackText.options(state, it) }.orEmpty(),
              faceDown = faceDown)
         // Inner dialog's native Back/outside/close must also release the retained outer route.
         LaunchedEffect(controller.state) { if (controller.state == null) close() }
@@ -264,15 +236,7 @@ private fun inspectionAnnotation(card: PlayCard, names: Map<String, String>, pro
     "Provisional inspection · awaiting shared result".takeIf { provisional },
     "Owner ${names[card.owner] ?: "Player"} · ${if (card.tapped) "tapped" else "untapped"}",
     computedCorner(computed, card, viewer) ?: inspectedCorner(card).takeIf(String::isNotBlank),
-    card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" },
-    *tabletopMarks(state, card)).joinToString("\n")
-
-/** A card's until-end-of-turn note, colour counters and note; none with Automatum on (TBL-119, I-D50: not shown while on). */
-private fun tabletopMarks(state: PlayState?, card: PlayCard): Array<String?> =
-    if (state != null && !AutomatumBoards.manualAllowed(state)) emptyArray() else arrayOf(
-        card.eotNote.takeIf(String::isNotBlank)?.let { "⌛ $it (until end of turn)" },
-        card.counters.entries.joinToString(" · ") { "${it.key.name.lowercase()}: ${it.value}" }.takeIf(String::isNotBlank),
-        card.note.takeIf(String::isNotBlank))
+    card.damage.takeIf(TablePresentation::nonzero)?.let { "Damage: $it" }).joinToString("\n")
 
 /**
  * I-D46 (b): with Automatum on, why the viewer can't do now what Automatum offers for [cardId] (cast or play it, an
@@ -280,7 +244,6 @@ private fun tabletopMarks(state: PlayState?, card: PlayCard): Array<String?> =
  * for this board (none while they aren't, and none for other players' cards).
  */
 internal fun automatumReasons(state: PlayState, viewer: String, cardId: String, names: Map<String, String>): List<String> {
-    if (!state.board.automatum) return emptyList()
     val plays = AutomatumBoards.cachedCardPlays(state, viewer) ?: return emptyList()
     val name = CastController.cardName(state, cardId)
     return plays.of(cardId).mapNotNull { offered ->
@@ -364,7 +327,7 @@ private fun PilePeek(cards: List<PilePeekCard>, scroll: ScrollState) {
                                         InspectionArtwork(card.state, limit, true, card.owner, false, card.faceDown, null)
                                     }
                                     val text: @Composable () -> Unit = {
-                                        InspectionText(card.state, card.annotation, emptyList(), emptyList(), null, true)
+                                        InspectionText(card.state, card.annotation, true)
                                     }
                                     // Like the single preview: side by side on a wide screen, the picture above the text otherwise.
                                     if (wide) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {

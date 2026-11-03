@@ -107,7 +107,7 @@ class MoveTextTest {
         assertEquals("Cast", text(move(opt, hand, stack)).label)
     }
 
-    // HIS-062, HIS-063, STK-005: since r35 a face-down cast is a face-down Stack entry; the text never names it to the opponent.
+    // HIS-062, HIS-063, SYS-065: since r35 a face-down cast is a face-down Stack entry; the text never names it to the opponent.
     @Test fun aFaceDownEntryIsACastFaceDown() {
         val entry = PlayAction.Stack(StackAction.AddEffect(opt, GameplayRules.stackDigest(before), faceDown = true))
         says("Cast a card face down", entry, viewer = b)

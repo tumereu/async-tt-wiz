@@ -118,7 +118,7 @@ class AutomatumPauseTest {
         val alice = device(play, f.a)
         assertTrue(alice.cast.start(aSpark))
         val life = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
-        alice.open(TableIntent.Actions(life.id, null), life, TableSelection())
+        alice.open(TableIntent.Actions(life.id, null), life)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         return takeSent(play, f.a)
@@ -250,7 +250,7 @@ class AutomatumPauseTest {
         AutomatumBoards.compute(cast, f.b)
         assertTrue(bob.cast.start(bSpark), bob.error)
         val life = TablePresentation.scene(f.game, cast, f.b, 412f, 892f, false).items.first { it.id == "life/${f.a}" }
-        bob.open(TableIntent.Actions(life.id, null), life, TableSelection())
+        bob.open(TableIntent.Actions(life.id, null), life)
         // I-D47: Autotap (on) sends the cast once its last choice is made; only a cast still open waits for Cast
         if (bob.cast.open) assertTrue(bob.cast.cast(), bob.error)
         val branched = takeSent(cast, f.b, from = cast.currentNodeId)

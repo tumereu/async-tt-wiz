@@ -53,7 +53,7 @@ class HistoryRuntimeIntegrationTest {
             }
         } }
     }
-    @Test fun tapCapturedDuringCatchUpPredictsImmediatelyAndSendsOnceAfterPublication() {
+    @Test fun actionCapturedDuringCatchUpPredictsImmediatelyAndSendsOnceAfterPublication() {
         val root = f.root().initial
         val initial = GameplayTree(root.copy(board = root.board.copy(containers = root.board.containers +
             PlayContainer(f.id(6000), PlayZone.STACK))))
@@ -70,9 +70,8 @@ class HistoryRuntimeIntegrationTest {
             assertEquals(2, x.wire.reads.size)
             assertTrue(x.reconnects.last().steps.any { it.stage.startsWith("headDeltaGraceExpired:") })
             assertFalse(x.session.ready(x.game.id))
-            val toolkit = TableToolkitController(f.a, { x.session.play(x.game) }, { true },
-                { action, group -> x.session.gameplay(x.game, f.a, action, group) }, waitingForConnection = { true })
-            assertTrue(toolkit.handle(TableIntent.Rotate(TableScope(f.id(9), listOf(f.id(9))), true, toggle = true)))
+            // I-D52: the table taps nothing by hand any more; the session's capture path is the same for any action
+            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.SetTapped(f.id(9), true), null))
             assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
             assertTrue(x.commands().isEmpty(), "Capture must not send through a recovering stream")
             x.publish()
@@ -348,48 +347,6 @@ class HistoryRuntimeIntegrationTest {
                 listOf(PlayContainer(f.id(20), PlayZone.LIBRARY, f.a), PlayContainer(f.id(21), PlayZone.HAND, f.a)))))
     }
 
-    @Test fun untapUndoUntapUndoRedoPredictImmediatelyAndReconcileWithoutAcknowledgementWaypoints() {
-        for (resultFirst in listOf(false, true)) Fixture(initial = untapRoot()).use { x ->
-            x.connect(); x.publish()
-            val initial = x.tree
-            val actions = TableActionController({ x.session.play(x.game) }, { true },
-                { x.session.gameplay(x.game, f.a, it) }, RecordingRoutes())
-            fun untap() {
-                val play = x.session.play(x.game)!!
-                val quick = QuickActions.contextual(play, QuickContext(viewer = f.a), actions).single { it.name == "Untap all" }
-                assertEquals(listOf(f.id(9)), (quick.intent as TableActionIntent.Untap).cardIds)
-                assertTrue(actions.perform(quick.intent))
-                assertFalse(x.session.play(x.game)!!.board.cards.first().tapped)
-            }
-            fun control(action: GameAction, tapped: Boolean) {
-                assertTrue(x.session.historyControl(x.game, f.a, action))
-                assertEquals(tapped, x.session.play(x.game)!!.board.cards.first().tapped)
-                assertEquals(x.session.play(x.game), x.session.displayTree(x.game.id)!!.let { it.stateAt(it.currentNodeId) })
-            }
-            untap(); control(GameAction.Undo, true)
-            assertEquals(initial.currentNodeId, x.session.play(x.game)!!.currentNodeId)
-            untap(); control(GameAction.Undo, true); control(GameAction.Redo, false)
-            val originals = x.commands()
-            assertEquals(5, originals.size, "Every original is sent before any acknowledgement")
-            assertEquals(initial.initial, x.session.acceptedPlay(x.game))
-            val predicted = x.session.play(x.game)
-            val predictedTree = x.session.displayTree(x.game.id)
-            for (command in originals) {
-                val update = x.execute(command)
-                val result = GameResult(command.requestId, command.scope, "accepted", ingressOrdinal = "1",
-                    commitRevision = update.resultRevision)
-                if (resultFirst) x.message(result)
-                assertEquals(predicted, x.session.play(x.game))
-                x.message(update)
-                if (!resultFirst) x.message(result)
-                x.message(update); x.message(result)
-                assertEquals(predicted, x.session.play(x.game), "No accepted-prefix flash")
-            }
-            assertEquals(predictedTree, x.session.retainedTree(x.game.id))
-            assertEquals(predicted, x.session.acceptedPlay(x.game))
-            assertFalse(x.session.pending(x.game.id))
-        }
-    }
 
     @Test fun rejectedAndAdmissionRefusedControlsRollBackAndKeepExistingExplanations() {
         for (admission in listOf(false, true)) Fixture(initial = untapRoot()).use { x ->
@@ -495,23 +452,6 @@ class HistoryRuntimeIntegrationTest {
         }
     }
 
-    @Test fun predictedStepUndoRestoresContextualQuickActionsBeforeTheServerResponds() {
-        Fixture(initial = untapRoot()).use { x ->
-            x.connect(); x.publish()
-            val actions = TableActionController({ x.session.play(x.game) }, { true },
-                { x.session.gameplay(x.game, f.a, it) }, RecordingRoutes())
-            fun quickNames() = QuickActions.contextual(x.session.play(x.game)!!, QuickContext(viewer = f.a), actions).map { it.name }
-            val initial = quickNames()
-            assertTrue("Untap all" in initial)
-            assertTrue(x.session.gameplay(x.game, f.a, PlayAction.NextStep))
-            assertEquals(listOf("Go to main"), quickNames()) // opening turn: no draw
-            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Undo))
-            assertEquals(initial, quickNames())
-            assertTrue(x.session.historyControl(x.game, f.a, GameAction.Redo))
-            assertEquals(listOf("Go to main"), quickNames()) // opening turn: no draw
-            assertEquals(3, x.commands().size)
-        }
-    }
 
     @Test fun selectiveControlsAndOwnRevealUndoBothPredictAndMatchAcceptedState() {
         for (revealed in listOf(false, true)) Fixture(initial = f.root(PlayZone.LIBRARY)).use { x ->
@@ -699,9 +639,7 @@ class HistoryRuntimeIntegrationTest {
             x.connect(); x.publish()
             val events = mutableListOf<InspectionEvent>()
             val action = PlayAction.InspectFace(f.id(9), f.id(11), f.id(10))
-            val local = ManualActions()
-            local.cards(x.tree.initial, action.cardId, listOf(action.cardId)); local.inspect(x.tree.initial, f.a)
-            assertTrue(x.commands().isEmpty(), "own-area local inspection is not logged")
+            assertTrue(x.commands().isEmpty())
             val subscription = assertNotNull(x.session.inspectFace(x.game, f.a, action, "inspector-one", { true }, events::add))
             val command = x.commands().single()
             assertEquals(command.requestId, subscription.request.requestId)
@@ -719,8 +657,6 @@ class HistoryRuntimeIntegrationTest {
             assertEquals(x.session.acceptedPlay(x.game), accepted.state)
             assertEquals(update.resultRevision, accepted.throughRevision)
             x.message(update); x.message(result); assertEquals(1, events.size)
-            local.inspected(accepted.state, f.a, accepted.disclosure)
-            assertEquals(listOf(action.faceId), local.inspection!!.faceIds)
         }
     }
 

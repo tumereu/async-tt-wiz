@@ -27,9 +27,6 @@ internal inline fun TableBoardOverlays(game: GameSummary, play: PlayState, accou
     }
     TableChangeOverlay(runtime.changes, accountId, scene.appearance,
         item = { id -> rendered.value.items[id] })
-    TableEventFeedbackOverlay(runtime.changes?.feedback, accountId, game.inviter.accountId, scene,
-        renderedScene = { rendered.value.scene },
-        usernames = mapOf(game.inviter.accountId to game.inviter.username, game.recipient.accountId to game.recipient.username))
     ResultActions.pendingPresentation(game, play, accountId)?.let { result ->
         val board = scene.world?.visibleViewport
         Box(if (board == null) Modifier.fillMaxSize() else

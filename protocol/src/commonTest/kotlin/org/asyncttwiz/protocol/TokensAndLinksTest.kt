@@ -86,7 +86,7 @@ class TokensAndLinksTest {
         assertEquals("accessDenied", apply(original, PlayAction.CreateToken(TokenCatalog.blank), actor = id(99)).reason)
     }
 
-    // TBL-077
+    // I-D52
     @Test fun cloneReadsLiveFieldsNotPredictionAndDoesNotReadSourceLocationOrOwner() {
         val original = state()
         val linked = apply(original, PlayAction.Link(cardEndpoint(9), playerEndpoint(8)), 21).state!!
@@ -123,7 +123,7 @@ class TokensAndLinksTest {
         assertEquals("missingReference", apply(original, PlayAction.CloneToken(id(99))).reason)
     }
 
-    // TBL-077
+    // I-D52
     @Test fun cloneTokenAlsoCreatesIndependentTokenAndRetainsDefaults() {
         val initial = apply(state(), PlayAction.CreateToken(TokenCatalog.blank)).state!!
         val source = initial.board.cards.single { it.token }

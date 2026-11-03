@@ -86,7 +86,7 @@ class FaceDownInspectionTest {
         compose.onNodeWithText("Morph {3}{U}").assertExists()
     }
 
-    // STK-005, TBL-109, ZON-075: a face-down Stack entry's front is its hand card's holder's alone.
+    // SYS-065, TBL-109, ZON-075: a face-down Stack entry's front is its hand card's holder's alone.
     @Test fun aFaceDownStackEntryShowsItsHolderTheMarkedFrontAndTheOpponentNothing() {
         val (base, held) = state("a/HAND")
         val card = held.copy(explicitlyCovered = false)

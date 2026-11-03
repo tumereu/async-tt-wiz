@@ -136,12 +136,12 @@ class AutomatumCombatReviewTest {
 
     private fun tags() = engineTags(tree, play.currentNodeId)
     private fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
-    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
+    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
     private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
-    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, TableSelection(), toolkit.viewer)
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { tags() })
         .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
     private fun perform(toolkit: TableToolkitController, name: String) = quick(toolkit).single { it.name == name }.let { action ->

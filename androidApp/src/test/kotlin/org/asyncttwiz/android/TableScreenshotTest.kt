@@ -69,7 +69,8 @@ class TableScreenshotTest {
             compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist() // HIS-036
         } else {
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
-            for (label in listOf("Auto advance", "Previous", "Next", "Continue playing from here", "Return to current"))
+            // ("Next" is also the step arrow's word, TRN-063)
+            for (label in listOf("Auto advance", "Previous", "Continue playing from here", "Return to current"))
                 compose.onNodeWithContentDescription(label).assertDoesNotExist()
             for (label in listOf("Live", "Download history", "Event details")) compose.onNodeWithText(label).assertDoesNotExist()
         }
@@ -178,60 +179,33 @@ class TableScreenshotTest {
             if (turn == null) play else play.copy(board = play.board.copy(turn = turn)) }
         val sentinel = initial.board.cards.first { it.containerId == "a/BATTLEFIELD" && it.corner == "1/3" }
         val occurrenceId = "00000000-0000-4000-8000-000000000777"
-        val staged = when (kind) {
-            "stack-contents", "stack-actions" -> initial.copy(board = initial.board.copy(
+        val play = when (kind) {
+            "stack-contents" -> initial.copy(board = initial.board.copy(
                 stackEffects = listOf(StackEffect(occurrenceId, sentinel.id)),
                 containers = initial.board.containers.map { if (it.zone == PlayZone.STACK) it.copy(cards = listOf(occurrenceId)) else it }))
-            "combat-actions" -> initial.copy(board = initial.board.copy(combat = CombatArea("combat",
-                listOf(CombatPair("pair", attackers = listOf(CombatOccurrence(occurrenceId, sentinel.id)))))))
+            "phase-picker" -> initial.copy(board = initial.board.copy(turn = TurnState("b", "4", "BEGINNING", "DRAW")))
             else -> initial
         }
-        val play = if (kind == "owner-choice") initial.copy(board = initial.board.copy(cards = initial.board.cards.map {
-            if (it.id == sentinel.id) it.copy(owner = "b", corner = "2/4", counters = mapOf(CounterColor.BLUE to "3")) else it
-        })) else if (kind == "phase-picker") initial.copy(board = initial.board.copy(turn = TurnState("b", "4", "BEGINNING", "DRAW"))) else staged
         val sent = mutableListOf<PlayAction>()
         val toolkit = TableToolkitController("a", { play }, { true }, { action, _ -> sent += action; submitOk })
         when (kind) {
-            "card-actions", "owner-choice", "action-tooltip", "value-editor", "link-actions" -> toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id)))
-            "player-actions" -> toolkit.manual.player(play, "a", counters = true)
-            "table-actions", "die" -> toolkit.tableMenu()
+            "card-actions", "action-tooltip" -> toolkit.openCard(TableScope(sentinel.id, listOf(sentinel.id)))
+            "player-actions" -> toolkit.open(TableIntent.Actions("life/b", null),
+                TableItem("life/b", TableBounds(0f, 0f, 48f, 48f), "Bob, life 20", "20", "b", kind = TableItemKind.LIFE))
+            "table-actions" -> toolkit.tableMenu()
             "phase-picker" -> toolkit.phasePicker()
-            "library-actions" -> toolkit.openLibrary("a/LIBRARY", LibraryTool.DRAW_N)
+            "library-actions" -> toolkit.openLibrary("a/LIBRARY")
             "pile-contents" -> toolkit.open(TableIntent.Actions("a/GRAVEYARD", null),
-                TableItem("a/GRAVEYARD", TableBounds(0f, 0f, 48f, 48f), "Graveyard", "2", "a", PlayZone.GRAVEYARD), TableSelection())
+                TableItem("a/GRAVEYARD", TableBounds(0f, 0f, 48f, 48f), "Graveyard", "2", "a", PlayZone.GRAVEYARD))
             "stack-contents" -> toolkit.stackContents()
-            "token-catalog" -> toolkit.tokens.catalog()
             "card-inspection" -> toolkit.inspect(sentinel.id)
-            "token-actions" -> toolkit.tokens.open(sentinel.id, listOf(sentinel.id))
         }
-        if (kind == "value-editor") toolkit.manual.edit(ManualValue(ManualValueKind.CORNER), play, "a")
-        if (kind == "link-actions") { toolkit.tokens.links(); toolkit.manual.close() }
-        val tokenSource = object : TokenSearchSource {
-            override suspend fun search(query: String, cursor: org.asyncttwiz.storage.CatalogTokenCursor?) =
-                TokenSearchPage("fixture", emptyList(), null)
-            override suspend fun isCurrent(generation: String) = true
-        }
-        // Do not launch an installed-catalog/network search from a screenshot.
         compose.setContent {
             MaterialTheme {
-                CompositionLocalProvider(LocalTableMenuAnnotations provides TableMenuAnnotations(EventReference(play.id, play.currentNodeId)) {
-                    sent += it; true
-                }) {
                 TableSurface(LiveTableFixture.game, play, "a", landscape, Modifier.fillMaxSize(),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                     runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {},
-                        undo = { true }, redo = { true }, controlsConnected = true,
-                        tokenCatalog = TableTokenCatalog(TableTokenCatalogIdentity("a", play.gameId, play.id, "fixture", 0), tokenSource)))
-                if (kind == "combat-actions") TableMenuPanel({}, title = "Combat") {
-                    CombatActions(play, "a", listOf(CombatStackTarget(occurrenceId, sentinel.id)), true,
-                        command = { error("Screenshot does not submit commands") }, onPlan = {})
-                }
-                if (kind == "stack-actions") TableMenuPanel({}, title = "Stack actions") {
-                    StackActions(play, "a", listOf(CombatStackTarget(occurrenceId, sentinel.id)), true,
-                        command = { error("Screenshot does not submit commands") }, onPlan = {})
-                }
-                if (kind == "token-actions") TokenActionMenu(toolkit.tokens, play)
-                }
+                        undo = { true }, redo = { true }, controlsConnected = true))
             }
         }
         compose.waitForIdle()
@@ -243,41 +217,18 @@ class TableScreenshotTest {
             compose.mainClock.advanceTimeBy(700)
             compose.onNodeWithText("Inspect").assertExists()
         }
-        if (kind == "die") compose.onNodeWithText("Roll die…").performClick()
-        if (kind == "life-drag" || kind == "counter-drag") {
-            // Freeze an in-flight pointer frame; auto-advancing a held drag can never become idle.
-            compose.mainClock.autoAdvance = false
-            val label = if (kind == "life-drag") "Alice, life 20" else "Alice, blue, 3"
-            compose.onNodeWithContentDescription(label).performTouchInput {
-                down(center)
-                moveBy(Offset(0f, if (kind == "life-drag") -12f else 12f))
-                moveBy(Offset(0f, if (kind == "life-drag") -60f else 36f))
-            }
-            compose.mainClock.advanceTimeByFrame()
-        }
         compose.waitForIdle()
         val output = File("$SCREENSHOTS/gameplay-$kind${if (turn != null) "-custom-turn" else ""}-${if (landscape) "landscape" else "portrait"}.png")
         requireNotNull(output.parentFile).mkdirs()
         val shown = when (kind) {
             "card-actions" -> "card menu open on your Meadow Sentinel"
-            "owner-choice" -> "card menu open on an opponent-owned 2/4 creature with blue counter 3 on your battlefield"
-            "player-actions" -> "your player menu open with its counters"
+            "player-actions" -> "the Life panel open on Bob's life square"
             "table-actions" -> "Table actions menu open"
             "phase-picker" -> "phase and step picker open"
             "action-tooltip" -> "card menu open on your Meadow Sentinel, holding Inspect to show its name tooltip"
             "library-actions" -> "your library menu open"
-            "die" -> "Roll die… tapped in the Table actions menu"
-            "life-drag" -> "mid-drag holding your life total (20) and dragging up"
-            "counter-drag" -> "mid-drag holding your blue counter (3) and dragging down"
-            "token-ping-reveal" -> "a Soldier token, two numbered pings and your top two library cards revealed"
-            "value-editor" -> "P/T value editor open from your Meadow Sentinel's card menu"
-            "link-actions" -> "link actions open for your Meadow Sentinel"
             "pile-contents" -> "actions open for your two-card graveyard"
             "stack-contents" -> "Stack contents open, holding one Meadow Sentinel effect"
-            "combat-actions" -> "Combat actions menu open for your attacking Meadow Sentinel"
-            "stack-actions" -> "Stack actions menu open for a Meadow Sentinel effect on the Stack"
-            "token-catalog" -> "token catalog open with an empty search result"
-            "token-actions" -> "token actions open from your Meadow Sentinel"
             "card-inspection" -> "Inspect view open for your Meadow Sentinel"
             else -> error("No caption for $kind")
         }
@@ -290,19 +241,13 @@ class TableScreenshotTest {
         val image = ImageIO.read(output)
         assertEquals(if (landscape) 892 else 412, image.width)
         assertEquals(if (landscape) 412 else 892, image.height)
-        if (kind in listOf("life-drag", "counter-drag", "action-tooltip")) assertTrue(sent.isEmpty())
-        if (kind == "life-drag" || kind == "counter-drag") {
-            compose.onRoot().performTouchInput { cancel() }
-            compose.mainClock.autoAdvance = true
-        }
+        if (kind == "action-tooltip") assertTrue(sent.isEmpty())
         return toolkit to sent
     }
 
-    // SYS-045, TBL-081, TRN-008, TRN-010, TRN-032
+    // SYS-045, TRN-008, TRN-010
     @Test fun cardActionsPortrait() { menu("card-actions", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cardActionsLandscape() { menu("card-actions", true) }
-    @Test fun ownerChoicePortrait() { menu("owner-choice", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownerChoiceLandscape() { menu("owner-choice", true) }
     @Test fun playerActionsPortrait() { menu("player-actions", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun playerActionsLandscape() { menu("player-actions", true) }
     @Test fun tableActionsPortrait() { menu("table-actions", false) }
@@ -313,105 +258,35 @@ class TableScreenshotTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun actionTooltipLandscape() { menu("action-tooltip", true) }
     @Test fun libraryActionsPortrait() { menu("library-actions", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun libraryActionsLandscape() { menu("library-actions", true) }
-    @Test fun diePortrait() { menu("die", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun dieLandscape() { menu("die", true) }
-    @Test fun lifeDragPortrait() { menu("life-drag", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun lifeDragLandscape() { menu("life-drag", true) }
-    @Test fun counterDragPortrait() { menu("counter-drag", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun counterDragLandscape() { menu("counter-drag", true) }
-    @Test fun tokenPingRevealPortrait() { menu("token-ping-reveal", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun tokenPingRevealLandscape() { menu("token-ping-reveal", true) }
-    @Test fun valueEditorPortrait() { menu("value-editor", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun valueEditorLandscape() { menu("value-editor", true) }
-    @Test fun linkActionsPortrait() { menu("link-actions", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun linkActionsLandscape() { menu("link-actions", true) }
     @Test fun pileContentsPortrait() { menu("pile-contents", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun pileContentsLandscape() { menu("pile-contents", true) }
     @Test fun stackContentsPortrait() { menu("stack-contents", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackContentsLandscape() { menu("stack-contents", true) }
-    @Test fun combatActionsPortrait() { menu("combat-actions", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun combatActionsLandscape() { menu("combat-actions", true) }
-    @Test fun stackActionsPortrait() { menu("stack-actions", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun stackActionsLandscape() { menu("stack-actions", true) }
-    @Test fun tokenCatalogPortrait() { menu("token-catalog", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun tokenCatalogLandscape() { menu("token-catalog", true) }
-    @Test fun tokenActionsPortrait() { menu("token-actions", false) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun tokenActionsLandscape() { menu("token-actions", true) }
     @Test fun cardInspectionPortrait() { menu("card-inspection", false) }
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun cardInspectionLandscape() { menu("card-inspection", true) }
 
-    @Test fun counterEditsRetainMenuAndDrawClosesIt() {
-        val (toolkit, sent) = menu("player-actions", false)
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Increase blue counter").performTouchInput { advanceEventTime(350); click() }
-        assertTrue(sent.last() is PlayAction.AdjustCounter)
-        compose.onNodeWithContentDescription("Counters").assertExists()
-        compose.runOnIdle { toolkit.openLibrary("a/LIBRARY", LibraryTool.DRAW_N) }
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Draw 1").performTouchInput { advanceEventTime(350); click() }
-        compose.onNodeWithContentDescription("Library").assertDoesNotExist()
-        assertEquals(null, toolkit.panel)
-    }
 
-    @Test fun graveyardMoveClosesMenu() {
-        val (toolkit, sent) = menu("card-actions", false)
-        compose.ringPage(1)
-        compose.onNodeWithContentDescription("Graveyard").performClick()
-        assertTrue(sent.any { it is PlayAction.MoveCard })
-        assertEquals(null, toolkit.manual.scope)
-    }
 
     @Test fun tooltipReleaseDoesNotInspect() {
         val (toolkit, sent) = menu("action-tooltip", false)
         compose.onNodeWithText("Inspect").assertExists()
         compose.onNodeWithContentDescription("Inspect").performTouchInput { up() }
         compose.runOnIdle {
-            assertEquals(null, toolkit.manual.inspection)
             assertEquals(null, toolkit.inspection)
             assertTrue(sent.isEmpty())
         }
     }
 
-    // TRN-017
-    @Test fun progressionHoldOnlyEndsTurn() {
-        // From Cleanup ending the turn is the single End turn event. Longer runs (rules v33) are batched against the
-        // real reducer, which this fixture's non-wire IDs cannot pass; StepRunActionsTest covers them.
-        val cleanup = LiveTableFixture.menuPlay(true).board.turn.copy(phase = TurnPosition.CLEANUP.phase, step = TurnPosition.CLEANUP.step)
-        val (_, sent) = menu("token-ping-reveal", false, turn = cleanup)
-        compose.onNodeWithContentDescription(nextStepLabel(cleanup)).performTouchInput { down(center) }
-        compose.mainClock.advanceTimeBy(700)
-        compose.onNodeWithContentDescription(nextStepLabel(cleanup)).performTouchInput { up() }
-        compose.runOnIdle { assertEquals(listOf(PlayAction.EndTurn), sent) }
-    }
 
-    @Test fun failedDrawKeepsLibraryMenuOpen() {
-        val (toolkit, _) = menu("library-actions", false, submitOk = false)
-        compose.onNodeWithContentDescription("Draw 1").performClick()
-        assertEquals("library", toolkit.panel)
-        compose.onNodeWithContentDescription("Library").assertExists()
-    }
 
-    @Test fun choosingStepClosesPickerAndDoesNotPerformCardActions() {
-        val (toolkit, sent) = menu("phase-picker", false)
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Untap").performClick()
-        assertEquals(listOf(PlayAction.ChooseStep(TurnPosition.UNTAP)), sent)
-        assertEquals(null, toolkit.panel)
-    }
 
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun libraryMulliganRemainsReachableInLandscape() {
-        menu("library-actions", true)
-        compose.onNodeWithContentDescription("Mulligan −1").performScrollTo().assertIsDisplayed()
-    }
-
-    // TBL-071
-    @Test fun battlefieldMenuHasExactlyItsThreePages() {
+    // TBL-071, TBL-116 (I-D52): one page, Inspect, Other side and Attack →; nothing changes the card by hand
+    @Test fun battlefieldMenuHasOnlyInspectOtherSideAndAttack() {
         val (_, sent) = menu("card-actions", false)
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Choose action page").performTouchInput { advanceEventTime(350); click() }
-        for (name in listOf("Everyday", "Counters", "More")) compose.onNodeWithContentDescription("$name page").assertExists()
-        compose.onNodeWithContentDescription("More 2 page").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Move to Stack").assertDoesNotExist()
+        compose.waitForIdle()
+        for (name in listOf("Inspect", "Inspect other side", "Attack →")) compose.onNodeWithContentDescription(name).assertExists()
+        for (name in listOf("Choose action page", "Graveyard", "Edit card note", "Clone", "Ping / Unping", "Move to Stack"))
+            compose.onNodeWithContentDescription(name).assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
 }

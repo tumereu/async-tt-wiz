@@ -56,7 +56,7 @@ internal object AutomatumToggles {
      * CMB-034).
      */
     fun shown(play: PlayState, context: QuickContext): Boolean {
-        if (!play.board.automatum || context.viewer == null) return false
+        if (context.viewer == null) return false
         if (play.board.players.none { it.accountId == context.viewer }) return false
         if (QuickActions.openingMulligan(play, context.viewer)) return false
         val scope = TableActionScope(play.gameId, play.id)

@@ -94,7 +94,7 @@ class CombatMirrorTest {
         val ids = play.board.combat!!.pairs.map { it.attackers.single().id }
         val events = mutableListOf<TableIntent>()
         val gestures = TableGestureCoordinator(events::add)
-        gestures.update(scene, TableSelection(), true)
+        gestures.update(scene, true)
         val origin = scene.items.single { it.cardId == ids[0] }
         val target = scene.items.single { it.cardId == ids[1] }
         assertTrue(origin.bounds.bottom <= scene.combatLabels.minOf { it.bounds.y } + .01f)

@@ -319,7 +319,7 @@ class AutomatumChoicesScreenshotTest {
         val alice = toolkit(play, f.a)
         assertTrue(alice.cast.start(aCard), alice.error)
         val target = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
-        alice.open(TableIntent.Actions(target.id, null), target, TableSelection())
+        alice.open(TableIntent.Actions(target.id, null), target)
         // STK-023: with Autotap on the cast goes out once its target is chosen
         if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         val (batch, request) = sent.single()

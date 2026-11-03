@@ -60,31 +60,26 @@ class CardSettingsUiTest {
     }
 
     @OptIn(ExperimentalRoborazziApi::class)
-    private fun screenshots(landscape: Boolean, annotations: Boolean = false) {
+    private fun screenshots(landscape: Boolean) {
         val f = TableStatesFixture
-        val initial = f.combat()
-        val library = initial.board.containers.first { it.zone == PlayZone.LIBRARY && it.accountId == f.a }
-        val play = initial.copy(board = initial.board.copy(contentsDisplays = listOf(
-            ContentsDisplay("sample-panel", f.a, library.id, ContentsSelection.TOP, library.cards.size, false, library.cards)),
-            cards = initial.board.cards.map { it.copy(note = "Flying", counters = mapOf(CounterColor.BLUE to "1", CounterColor.RED to "2")) }))
+        val play = f.combat()
         val preferences = CardAppearancePreferences(context)
         val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme { TableSurface(f.game, play, f.a, landscape, Modifier.fillMaxSize(), toolkit = toolkit) } }
         for (scale in listOf(.5f, 3f)) for (zoom in listOf(.65f, 1f, 2f)) {
             compose.runOnIdle {
-                preferences.setSize(if (annotations) 1f else scale); preferences.setText(scale)
+                preferences.setSize(scale); preferences.setText(scale)
                 toolkit.layoutState.value = TableLayoutState(camera = TableCamera(zoom = zoom))
             }
             compose.waitForIdle()
             compose.mainClock.advanceTimeBy(1000)
             compose.waitForIdle()
-            val name = if (annotations) "card-annotations" else "card-sizes"
+            val name = "card-sizes"
             val file = File("$SCREENSHOTS/$name-${if (landscape) "landscape" else "portrait"}-$scale-$zoom.png")
             file.parentFile!!.mkdirs()
-            val situation = "${if (landscape) "Landscape" else "Portrait"} table in combat, look panel open, every card noted and " +
-                "countered; card size ${if (annotations) 1f else scale}x, text ${scale}x, zoom ${zoom}x"
+            val situation = "${if (landscape) "Landscape" else "Portrait"} table in combat; card size ${scale}x, text ${scale}x, zoom ${zoom}x"
             captureShot(file.path, "$situation.")
-            if (!annotations && scale == 3f && zoom == 1f) {
+            if (scale == 3f && zoom == 1f) {
                 val home = TablePresentation.scene(f.game, play, f.a, if (landscape) 892f else 412f,
                     if (landscape) 412f else 892f, landscape, appearance = preferences.read())
                 val world = home.world!!
@@ -99,17 +94,6 @@ class CardSettingsUiTest {
                         "$situation, panned to ${if (field.owner == f.a) "your" else "the opponent's"} battlefield.")
                 }
             }
-            if (annotations) {
-                val image = ImageIO.read(file)
-                val scene = TablePresentation.scene(f.game, play, f.a, image.width.toFloat(), image.height.toFloat(), landscape,
-                    toolkit.layoutState.value, appearance = preferences.read())
-                // Piles must retain their top card's counters too, not just its note.
-                assertTrue(scene.items.any { it.kind == TableItemKind.PILE && !it.covered && it.counters.size == 2 })
-                assertTrue(scene.items.any { it.zone == PlayZone.HAND && !it.covered && it.counters.size == 2 })
-                assertTrue(scene.items.any { it.zone == PlayZone.STACK && !it.covered && it.counters.size == 2 })
-                assertTrue(scene.items.any { it.viewport.startsWith("cardPanel/") && it.counters.size == 2 })
-                assertCounterPixels(image, scene, scale)
-            }
         }
     }
 
@@ -117,36 +101,5 @@ class CardSettingsUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
     fun landscapeSizeExtremes() { screenshots(true) }
 
-    // TBL-026
-    @Test fun portraitAnnotationTextAndZoomExtremes() { screenshots(false, annotations = true) }
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi")
-    fun landscapeAnnotationTextAndZoomExtremes() { screenshots(true, annotations = true) }
 
-    private fun assertCounterPixels(image: java.awt.image.BufferedImage, scene: TableScene, textScale: Float) {
-        val metrics = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 7f * textScale }.fontMetrics
-        val lineHeight = metrics.bottom - metrics.top + 2f
-        val layout = cardAnnotationLayout(maxOf(11f, 7f * textScale + 3f), 40f - maxOf(10f, 7f * textScale + 3f),
-            lineHeight, maxOf(10f * textScale, lineHeight), true, 2)
-        // Check unobstructed upright faces in every HUD/world region that is on screen.
-        val checked = mutableSetOf<String>()
-        for (item in scene.items.filter { !it.covered && !it.tapped && it.counters.size == 2 &&
-            (it.kind == TableItemKind.CARD || it.kind == TableItemKind.PILE) }) {
-            if (item.visible.none { it == item.bounds } || item.bounds.bottom >= image.height || item.bounds.x < 0) continue
-            if (scene.items.any { other -> other !== item && other.kind != TableItemKind.HAND &&
-                scene.items.indexOf(other) > scene.items.indexOf(item) && other.visible.any { it.intersection(item.bounds) != null } }) continue
-            val z = item.bounds.width / 28f
-            for ((index, color) in listOf(CounterColor.RED, CounterColor.BLUE).withIndex()) {
-                val slot = layout.counters[index]
-                val x0 = (item.bounds.x + slot.x * z).toInt().coerceAtLeast(0)
-                val x1 = (item.bounds.x + slot.right * z).toInt().coerceAtMost(image.width - 1)
-                val y0 = (item.bounds.y + slot.y * z).toInt().coerceAtLeast(0)
-                val y1 = (item.bounds.y + slot.bottom * z).toInt().coerceAtMost(image.height - 1)
-                val expected = counterColor(color).toArgb()
-                assertTrue((x0..x1).any { x -> (y0..y1).any { y -> image.getRGB(x, y) == expected } },
-                    "Missing $color counter on ${item.id}, text $textScale, zoom ${scene.camera.zoom}")
-            }
-            checked += item.viewport
-        }
-        assertTrue(checked.isNotEmpty(), "No unobstructed cards checked")
-    }
 }

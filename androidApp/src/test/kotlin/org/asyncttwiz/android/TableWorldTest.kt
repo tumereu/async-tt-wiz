@@ -152,7 +152,7 @@ class TableWorldTest {
             val start = scene.items.single { it.cardId == "a/HAND/0" }.visible.first().center
             val events = mutableListOf<TableIntent>()
             val gesture = TableGestureCoordinator(events::add)
-            gesture.update(scene, TableSelection(), true)
+            gesture.update(scene, true)
             gesture.down(start, 0); gesture.move(region.center, 80); gesture.up(region.center, 100)
             assertEquals(TableDestination.Container("stack", PlayZone.STACK), events.filterIsInstance<TableIntent.Move>().single().destination)
         }

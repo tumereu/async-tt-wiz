@@ -23,7 +23,7 @@ class BattlefieldTokenPileTest {
     }.first { scene.hit(it)?.id == item.id }
     private fun destination(scene: TableScene, from: Int, onto: Int): TableDestination? {
         val gestures = TableGestureCoordinator({ })
-        gestures.update(scene, TableSelection(), true)
+        gestures.update(scene, true)
         gestures.down(point(scene, item(scene, from)), 0); gestures.move(point(scene, item(scene, onto)), 100)
         return gestures.preview.destination
     }

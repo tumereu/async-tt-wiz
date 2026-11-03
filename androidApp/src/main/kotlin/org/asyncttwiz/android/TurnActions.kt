@@ -75,19 +75,12 @@ internal fun stepLabel(position: TurnPosition): String = when (position) {
     else -> position.label
 }
 
-/** The step Next step goes to by hand (the first-strike damage step is Automatum's alone, TRN-056). */
-internal fun nextStep(turn: TurnState): TurnPosition? = TurnPosition.of(turn)?.let(TurnPosition::nextManual)
-
 /** The phase dialog's steps (TRN-008): the twelve, and the first-strike damage step while the turn is in it or its
  * combat had one (TRN-056). */
 internal fun pickerSteps(board: BoardState): List<TurnPosition> =
     if (TurnPosition.of(board.turn) == TurnPosition.FIRST_STRIKE_DAMAGE ||
-        board.automatum && AutomatumBoards.hadFirstStrikeStep(board)) TurnPosition.entries
+        AutomatumBoards.hadFirstStrikeStep(board)) TurnPosition.entries
     else TurnPosition.MANUAL
-
-internal fun nextStepLabel(turn: TurnState, compact: Boolean = false): String =
-    if (TurnPosition.of(turn) == TurnPosition.CLEANUP) "End turn"
-    else nextStep(turn)?.let { if (compact) it.shortCode else stepLabel(it) } ?: "Next step"
 
 @Composable
 internal fun TurnStepIcon(turn: TurnState) {
@@ -152,86 +145,5 @@ fun PhaseStepPicker(play: PlayState, viewerId: String, endingPlayerColor: Color,
                 if (controller.perform(TableActionIntent.End(scope))) onComplete()
             }
         }
-    }
-}
-
-data class PlayerDeltaRelease(val target: PlayerValueTarget, val delta: Long)
-
-/** Local preview only. One immutable target and at most one nonzero release; movement sends nothing. */
-class PlayerDeltaDrag(val target: PlayerValueTarget, private val pixelsPerStep: Float = VALUE_DRAG_STEP_DP,
-    private val side: ValueDragSide = ValueDragSide.BOTTOM) {
-    init { require(pixelsPerStep.isFinite() && pixelsPerStep > 0) }
-    private var x = 0f
-    private var y = 0f
-    private var finished = false
-    val delta: Long get() = valueDragDelta(x, y, pixelsPerStep, side)
-    fun move(upPixels: Float) = move(0f, -upPixels)
-    fun move(dx: Float, dy: Float) { if (!finished && dx.isFinite() && dy.isFinite()) { x += dx; y += dy } }
-    fun cancel() { finished = true }
-    fun release(): PlayerDeltaRelease? {
-        if (finished) return null
-        finished = true
-        return delta.takeIf { it != 0L }?.let { PlayerDeltaRelease(target, it) }
-    }
-}
-
-/** Table life/counter affordance. Menu/Set and +/- are explicit native alternatives, not timed holds.
- * The target key excludes the current text so sync/reflow cannot redirect or cancel a valid capture. */
-@Composable
-fun PlayerDeltaControl(target: PlayerValueTarget, value: String?, color: Color, enabled: Boolean,
-    controller: TableActionController, modifier: Modifier = Modifier) {
-    val label = if (target.color == null) "Life" else "${target.color.name.lowercase()} counter"
-    val currentText by rememberUpdatedState(value)
-    val currentEnabled by rememberUpdatedState(enabled)
-    var preview by remember(target) { mutableStateOf(0L) }
-    var tooltip by remember(target) { mutableStateOf(false) }
-    var held by remember(target) { mutableStateOf(false) }
-    var press by remember(target) { mutableStateOf(ActionPress(false)) }
-    val open = {
-        if (currentEnabled) controller.perform(TableActionIntent.Player(target.scope, target.accountId))
-        Unit
-    }
-    Box(modifier.size(48.dp).pressFeedback(enabled).background(color.copy(alpha = .15f)).onKeyEvent { event ->
-        if (enabled && event.key in listOf(Key.Enter, Key.Spacebar, Key.DirectionCenter, Key.DirectionUp, Key.DirectionDown)) {
-            if (event.type == KeyEventType.KeyUp) when (event.key) {
-                Key.DirectionUp -> controller.adjust(target, 1)
-                Key.DirectionDown -> controller.adjust(target, -1)
-                else -> open()
-            }
-            true
-        } else false
-    }.focusable(enabled).semantics(mergeDescendants = true) {
-        contentDescription = "$label, ${value ?: "empty"}"
-        role = Role.Button
-        if (!enabled) disabled()
-        onClick("Edit $label") { if (enabled) { open(); true } else false }
-        customActions = listOf(
-            CustomAccessibilityAction("Increase $label") { enabled && controller.adjust(target, 1) },
-            CustomAccessibilityAction("Decrease $label") { enabled && controller.adjust(target, -1) },
-            CustomAccessibilityAction("Set $label") { if (enabled) { open(); true } else false })
-    }.pointerInput(target) {
-        awaitPointerEventScope {
-            while (true) {
-                val event = awaitPointerEvent()
-                if (event.changes.any { it.position != it.previousPosition || !it.pressed }) tooltip = false
-            }
-        }
-    }.valueDragGestures(enabled, preview = { preview = it ?: 0 }, start = {
-            val allowed = currentEnabled && TableActions.numeric(currentText ?: if (target.color != null) "0" else "") && !held
-            press.cancel()
-            tooltip = false
-            allowed
-        }, commit = { if (currentEnabled) controller.adjust(target, it) }).pointerInput(target) {
-        detectTapGestures(onPress = {
-            press = ActionPress(false)
-            held = false
-            if (!tryAwaitRelease()) press.cancel()
-            tooltip = false
-        }, onTap = { if (currentEnabled && press.release() == PressAction.TAP) open() },
-            onLongPress = { if (currentEnabled && press.hold() == PressAction.TOOLTIP) { held = true; tooltip = true } })
-    }, contentAlignment = Alignment.Center) {
-        Text(value.orEmpty(), color = color, modifier = Modifier.clearAndSetSemantics {})
-        if (preview != 0L) HoldTooltip(valueDragLabel(value, preview))
-        if (tooltip) HoldTooltip(label)
     }
 }

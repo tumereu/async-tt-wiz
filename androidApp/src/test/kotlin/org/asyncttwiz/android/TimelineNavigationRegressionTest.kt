@@ -66,7 +66,8 @@ class TimelineNavigationRegressionTest {
                 assertEquals(f.play.currentNodeId, f.lobby.history.armed)
                 assertTrue(player.tree.contains(f.play.currentNodeId))
             }
-            compose.onNode(isSelected(), useUnmergedTree = true).assertIsDisplayed()
+            // (the Automatum toggles that are on count as selected too)
+            assertTrue(compose.onAllNodes(isSelected(), useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
             compose.onNodeWithContentDescription("Cancel continuation").performClick()
             drain(f)
             compose.onNodeWithContentDescription("Timeline mode").assertIsDisplayed()

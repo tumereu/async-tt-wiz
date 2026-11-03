@@ -1,1 +1,0 @@
-Portrait table in combat, dragging a hand card to the right end of your hand: an insertion line shows where it would go.

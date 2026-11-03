@@ -5,11 +5,6 @@ import org.junit.Test
 import kotlin.test.*
 
 class TableChangeTargetsTest {
-    @Test fun tagTextUsesTheHigherContrastInkForEveryCounterColour() {
-        for (color in CounterColor.entries)
-            assertEquals(androidx.compose.ui.graphics.Color.Black, tableChangeTagInk(counterColor(color)))
-        assertEquals(androidx.compose.ui.graphics.Color.White, tableChangeTagInk(TableChangeTagFill))
-    }
 
     private fun assertCardTarget(scene: TableScene, id: String) {
         val items = scene.items.associateBy { it.id }
@@ -62,23 +57,6 @@ class TableChangeTargetsTest {
             projectionLink = ProjectionLink("link", id, "buried")), items::get))
     }
 
-    @Test fun zeroedPortraitCounterKeepsItsOutlineSlotAndChangeTarget() {
-        val initial = LiveTableFixture.menuPlay()
-        val before = initial.copy(board = initial.board.copy(players = initial.board.players.map {
-            it.copy(counters = if (it.accountId == "a") mapOf(CounterColor.BLUE to "1") else emptyMap())
-        }))
-        val after = before.copy(board = before.board.copy(players = before.board.players.map { it.copy(counters = emptyMap()) }))
-        val key = TableChangeKey("a", TableChangeKind.PLAYER_COUNTER, CounterColor.BLUE)
-        val oldItems = ChangeTargetFixture.scene(before).items.associateBy { it.id }
-        assertEquals("counter/a/BLUE", tableChangeTarget(key, oldItems::get)?.id)
-        val scene = ChangeTargetFixture.scene(after)
-        val items = scene.items.associateBy { it.id }
-        assertEquals(12, scene.items.count { it.kind == TableItemKind.COUNTER })
-        val hud = assertNotNull(tableChangeTarget(key, items::get))
-        assertEquals("counter/a/BLUE", hud.id)
-        assertEquals("", hud.value)
-        assertEquals(TableItemKind.COUNTER, scene.hit(hud.bounds.center)?.kind)
-    }
 
     @Test fun coveredCardsAllowOnlyPublicOwnerPulsesNotHiddenValueEffects() {
         val (play, id) = ChangeTargetFixture.stack(projection = false, covered = true)

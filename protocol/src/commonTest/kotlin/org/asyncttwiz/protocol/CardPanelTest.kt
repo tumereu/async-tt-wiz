@@ -50,7 +50,7 @@ class CardPanelTest {
         assertTrue(search.cardIds.none { search.faceVisibleTo(it, b) })
         assertTrue(search.cardIds.all { search.faceVisibleTo(it, a) })
     }
-    // HIS-056, ZON-053, ZON-055
+    // HIS-056
     @Test fun privatePanelRevealsOneCardThenMovesInASeparateGroupAndKnowledgeExpires() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3))
         val display = opened.board.contentsDisplays.single()
@@ -71,7 +71,7 @@ class CardPanelTest {
         assertFalse(returned.board.cards.first().knownToAll)
         assertFalse(CardVisibility.isVisibleFaceUp(returned.board, returned.board.cards.first(), b))
     }
-    // HIS-056, ZON-065, ZON-068
+    // HIS-056
     @Test fun searchOpenAndMovesHaveOneGroupTheCloseShuffleItsOwnAndNoRevealedKnowledgeSurvivesShuffle() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.ALL))
         val display = opened.board.contentsDisplays.single()
@@ -101,7 +101,7 @@ class CardPanelTest {
         assertFalse(reordered.mutation!!.revealsInformation)
         assertTrue(reordered.mutation.transition.disclosures.isEmpty())
     }
-    // ZON-055, ZON-066
+    // I-D52
     @Test fun revealTopExpiresEvenForASameContainerMoveAndAutoClosesTheLastCard() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 1))
         val panel = opened.board.contentsDisplays.single()
@@ -115,7 +115,7 @@ class CardPanelTest {
         assertFalse(drawn.board.cards.first().knownToAll)
         assertFalse(CardVisibility.isVisibleFaceUp(drawn.board, drawn.board.cards.first(), b))
     }
-    // ZON-066
+    // I-D52
     @Test fun everyPanelAutoClosesInTheLastMoveAndAllowsAnImmediateNewPanel() {
         for ((selection, reveal) in listOf(ContentsSelection.TOP to false, ContentsSelection.TOP to true, ContentsSelection.ALL to false)) {
             var state = step(root(), PlayAction.ShowContents(id(10), selection, 2, reveal))
@@ -136,7 +136,7 @@ class CardPanelTest {
             step(state, PlayAction.ShowContents(id(10), ContentsSelection.TOP))
         }
     }
-    // ZON-055
+    // I-D52
     @Test fun revealedRestInEveryHiddenLibraryPositionExpiresAndUndoRestoresTheWindow() {
         for (reveal in listOf(false, true)) for (rest in listOf(ContentsRest.TOP, ContentsRest.BOTTOM, ContentsRest.BOTTOM_RANDOM, ContentsRest.SHUFFLE)) {
             val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2, reveal))
@@ -187,7 +187,7 @@ class CardPanelTest {
         assertTrue(moved.board.contentsDisplays.single().cardIds.isEmpty())
         assertTrue(CardVisibility.isVisibleFaceUp(moved.board, moved.board.cards.first(), b))
     }
-    // ZON-064
+    // I-D52
     @Test fun restResolvesInPanelOrderForEveryDestinationAndReordersAreReversible() {
         for (resolution in ContentsRest.entries) {
             val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3, reveal = true))
@@ -214,7 +214,7 @@ class CardPanelTest {
             }
         }
     }
-    // ZON-048
+    // I-D52
     @Test fun wholeGameHasOnePanelAndOlderRulesLetOnlyTheAuthorChangeItAndLegacyPanelsCanClose() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 2))
         val display = opened.board.contentsDisplays.single()
@@ -236,7 +236,7 @@ class CardPanelTest {
         assertFalse(GameplayRules.valid(PlayAction.RevealContentsCard(display.id, "bad")))
         assertFalse(GameplayRules.valid(PlayAction.DismissContents(display.id, seed = "bad")))
     }
-    // SYS-036, ZON-067
+    // SYS-036
     @Test fun eitherPlayerClosesAnyPanelWithTheAuthorsChoices() {
         val opened = step(root(), PlayAction.ShowContents(id(10), ContentsSelection.TOP, 3))
         val display = opened.board.contentsDisplays.single()

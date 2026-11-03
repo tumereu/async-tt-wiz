@@ -1,1 +1,0 @@
-Portrait table with player A's selected battlefield card mid-way through untapping: the blue selection border turns with the card.

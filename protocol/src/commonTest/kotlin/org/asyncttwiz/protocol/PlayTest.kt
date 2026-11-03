@@ -54,7 +54,7 @@ class PlayTest {
         }
     }
 
-    // TRN-029, TRN-033
+    // TRN-029
     @Test fun sharedInitialBoardPreservesConcreteCopiesDefaultsAndDefinitionsExcludesSideboardAndNeverDraws() {
         val preparation = ready()
         val original = preparation.copy()

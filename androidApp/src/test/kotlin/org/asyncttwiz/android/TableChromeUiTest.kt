@@ -52,18 +52,11 @@ class TableChromeUiTest {
                     turn = initial.board.turn.copy(accountId = turn, phase = position.phase, step = position.step)))
             }
             val prefix = "chrome-${if (landscape) "landscape" else "portrait"}-$who-turn-$turn-move-$move"
-            val visible = who == turn || who == move
-            val next = compose.onNodeWithContentDescription(nextStepLabel(play.board.turn))
-            if (visible) next.assertIsDisplayed() else {
-                next.assertDoesNotExist()
-                if (QuickActions.openingMulligan(play, who)) {
-                    compose.onNodeWithContentDescription("Mull N").assertIsDisplayed()
-                    compose.onNodeWithContentDescription("Mull −1").assertIsDisplayed()
-                    compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
-                } else compose.onNodeWithText("Opponent's turn").assertIsDisplayed()
-                compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()
-            }
-            if (who != turn && who == move) compose.onNodeWithContentDescription("No blocks + next").assertIsDisplayed()
+            // TRN-015, TRN-059, TRN-063: the toggles and the step arrow show on either player's turn
+            val next = compose.onNodeWithContentDescription(AutomatumStep.of(play).label)
+            next.assertIsDisplayed()
+            compose.onNodeWithText("Opponent's turn").assertDoesNotExist()
+            compose.onNodeWithContentDescription("Untap all").assertDoesNotExist()
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
             val output = File("$SCREENSHOTS/$prefix.png").also { it.parentFile!!.mkdirs() }
             val situation = "${if (landscape) "Landscape" else "Portrait"} table seen by player ${who.uppercase()}: " +
@@ -75,16 +68,13 @@ class TableChromeUiTest {
             assertEquals(tint, pixels.getRGB(2, 35))
             assertEquals(tint, pixels.getRGB(pixels.width - 2, 35), "Tint continues to the screen edge")
             assertEquals(tint, pixels.getRGB(2, pixels.height - 2))
-            if (visible) {
+            run {
                 val b = next.fetchSemanticsNode().boundsInRoot
                 assertTrue(b.width in 68f..72f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
-                assertEquals(advanceButtonStyle(play.board, who).fill.toArgb(), pixels.getRGB(b.left.toInt() + 4, b.top.toInt() + 4))
-                val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
-                val actions = QuickActions.contextual(play, QuickContext(viewer = who), controller)
-                val cells = actions.map { compose.onNodeWithContentDescription(it.name).fetchSemanticsNode().boundsInRoot }
-                assertTrue(cells.isNotEmpty())
-                for (cell in cells) assertEquals(cells.first().width, cell.width, 1f, "Equal quick action widths")
+                val cells = listOf(AutomatumToggles.FULL_CONTROL, AutomatumToggles.SKIP, AutomatumToggles.AUTOTAP)
+                    .map { compose.onNodeWithContentDescription(it, substring = true).fetchSemanticsNode().boundsInRoot }
+                for (cell in cells) assertEquals(cells.first().width, cell.width, 1f, "Equal toggle widths")
                 assertEquals((if (landscape) pixels.width / 2f else 0f) + 60f, cells.first().left)
                 assertEquals(b.left - 4f, cells.last().right)
             }
@@ -102,7 +92,7 @@ class TableChromeUiTest {
             assertEquals(latestBefore, compose.onNode(hasContentDescription(events.last().description) and isSelected(), useUnmergedTree = true)
                 .assertIsSelected().fetchSemanticsNode().boundsInRoot, "The strip must not jump on mode change")
             val transport = compose.onNodeWithContentDescription("Auto advance").fetchSemanticsNode().boundsInRoot
-            if (visible) assertEquals(pixels.height - 4f, transport.bottom)
+            assertEquals(pixels.height - 4f, transport.bottom)
             val reviewOutput = "$SCREENSHOTS/$prefix-review.png"
             compose.onRoot().captureShot(reviewOutput, "$situation, after tapping Timeline mode: history at the latest event.")
             val reviewPixels = ImageIO.read(File(reviewOutput))
@@ -117,7 +107,7 @@ class TableChromeUiTest {
         compose.onNodeWithContentDescription("Auto advance").assertIsDisplayed()
     }
 
-    // HIS-001, HIS-004, HIS-007, HIS-008, TRN-013, TRN-015, TRN-016, TRN-018
+    // HIS-001, HIS-004, HIS-007, HIS-008, TRN-013, TRN-015, TRN-016
     @Test fun portraitBothPlayersTurnAndMoveMatrix() = chrome(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscapeBothPlayersTurnAndMoveMatrix() = chrome(true)
 

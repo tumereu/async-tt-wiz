@@ -131,7 +131,7 @@ object KeywordMeanings {
                 Keyword.Casualty.Kind, Keyword.Entwine.Kind, Keyword.Replicate.Kind, Keyword.Prowl.Kind,
                 Keyword.Dash.Kind, Keyword.Surge.Kind, Keyword.Emerge.Kind, Keyword.Spectacle.Kind, Keyword.Mutate.Kind,
                 Keyword.Foretell.Kind, Keyword.Blitz.Kind, Keyword.Squad.Kind, Keyword.Disguise.Kind, Keyword.Plot.Kind,
-                Keyword.Freerunning.Kind, Keyword.Warp.Kind, Keyword.WebSlinging.Kind, Keyword.Sneak.Kind,
+                Keyword.Freerunning.Kind, Keyword.Warp.Kind, Keyword.WebSlinging.Kind,
                 Keyword.Awaken.Kind, Keyword.Impending.Kind, Keyword.Prototype.Kind)
         }
         at(Moment.Enters) {

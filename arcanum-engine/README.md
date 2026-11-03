@@ -326,6 +326,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   a condition holds, two piles with the face-up one revealed, a permission's cost reading the spell it lets be cast ("life equal to
   its mana value"), names a spell's own replacement binds read by its later steps ("exile it instead … you may cast that card"),
   and "the nth draw each turn" counted per player.
+- Done, Marvel Super Heroes (scenarios in `commonTest/…/sets/msh/`): all 281 cards play. Power-up's cost reduced by the
+  permanent's mana cost the turn it entered (hybrid symbols too, CR 702.193b) and its extra uses, teamwork tapping creatures by total
+  power (CR 702.194), connive and its replacement, plan counters, harness and ∞, sneak (castable in your declare blockers step, entering
+  tapped and attacking what the returned creature attacked, CR 702.190), "choose up to X" modes, targets with a total mana value,
+  "can't become untapped", damage that heals other damage, ward paid with poison counters, modal double-faced cards that transform
+  (CR 701.27a), and alternative costs for "the next spell" effects (a card tested as the spell it would be, CR 601.2a). Controlling
+  another player's next turn (CR 723) is done by hand: who decides and sees for that player is the host's.
 - Not yet: skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and

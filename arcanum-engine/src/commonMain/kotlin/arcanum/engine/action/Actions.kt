@@ -649,6 +649,9 @@ internal object Actions {
 
     fun tap(act: Act, ids: List<ObjectId>, tapped: Boolean, meanings: List<Meaning> = emptyList()): List<ObjectId> =
         ids.distinct().filter { act.obj(it)?.zone == Zone.Battlefield && act.obj(it)?.tapped != tapped }.filter {
+            // msh: "can't become untapped"
+            tapped || act.view()[it]?.has { m -> m == Mechanic.CantBecomeUntapped } != true
+        }.filter {
             // CR 122.1d: a permanent with a stun counter that would become untapped loses a stun counter instead
             if (tapped || act.obj(it)!!.counters(CounterKind.Stun) == 0) true else {
                 act.record(Changes.counters(act.state, TargetRef.Object(it), CounterKind.Stun, -1))

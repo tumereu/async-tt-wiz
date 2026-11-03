@@ -66,6 +66,12 @@ internal object Answers {
                     val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
                     if (!plan.snap.evaluator(plan.player).eachStandsForOne(quality, ids)) refuse("Each target must stand for a different $quality")
                 }
+                // msh: "with total mana value 6 or less" (CR 601.2c)
+                q.slot.slot.totalAtMost?.let { limit ->
+                    val e = plan.snap.evaluator(plan.player)
+                    val ids = chosen.mapNotNull { (it as? arcanum.engine.state.TargetRef.Object)?.id }
+                    if (ids.sumOf { e.property(limit.property, it) } > e.value(limit.atMost)) refuse("The targets' total is more than allowed")
+                }
                 val key = q.slot.key
                 if (q.forPlayer == null) c.copy(targets = c.targets + (key to chosen))
                 else c.copy(

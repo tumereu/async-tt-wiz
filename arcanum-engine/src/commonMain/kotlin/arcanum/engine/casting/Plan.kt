@@ -98,7 +98,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val alternative: Pair<AbilityInstance, Mechanic.AlternativeCost>? = if (!isSpell || way.alternative == null) null
         else plain.view[itemId]?.characteristics?.abilities.orEmpty().firstOrNull { it.origin == way.alternative }?.let { inst ->
             (inst.ability as? Ability.Static)?.mechanics?.filterIsInstance<Mechanic.AlternativeCost>()?.firstOrNull()?.let { inst to it }
-        } ?: (way.alternative as? AbilityOrigin.FromAbility)?.let { origin ->
+        } ?: way.alternative?.takeIf { it is AbilityOrigin.FromAbility || it is AbilityOrigin.FromEffect }?.let { origin ->
             Legality.alternativeCosts(plain, itemId, player).firstOrNull { it.first.origin == origin }
         }
 
@@ -566,7 +566,9 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     fun decision(q: Question, id: DecisionId): Decision = when (q) {
         is Question.Modes -> {
             val chosenBefore = snap.state.obj(sourceId)?.facts?.modesChosen.orEmpty()
-            val max = if (q.modes.maxIf != null && eval.holds(q.modes.maxIf!!)) q.modes.maxIfCount ?: q.modes.max else q.modes.max
+            val printed = if (q.modes.maxIf != null && eval.holds(q.modes.maxIf!!)) q.modes.maxIfCount ?: q.modes.max else q.modes.max
+            // msh: "choose up to X"
+            val max = q.modes.maxCount?.let { minOf(printed, maxOf(q.modes.min, eval.value(it))) } ?: printed
             Decision.Modes(id, player, sourceId, q.modes.options.mapIndexed { i, m ->
                 ModeOption(i, m.text, available = !(q.modes.onlyUnchosen && i in chosenBefore), pawprints = m.pawprints)
             }, q.modes.min, max, q.modes.repeatable, pawprintLimit = q.modes.pawprintLimit)

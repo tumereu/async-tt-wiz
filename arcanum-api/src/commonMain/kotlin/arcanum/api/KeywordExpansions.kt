@@ -222,6 +222,13 @@ object KeywordExpansions {
                 ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
                 ObjectFilter.Power(Comparison.Greater, Value.Of(NumericProperty.Power, Objects.Self, Combine.Single)))), atLeast = 1)))
         is Keyword.Ninjutsu -> listOf(ninjutsu(keyword.cost, listOf(Zone.Hand)))
+        // msh: CR 702.190a: cast for [cost] by also returning an unblocked attacker you control to its owner's hand, during
+        // your declare blockers step; the engine puts the permanent onto the battlefield tapped and attacking what the
+        // returned creature attacked (CR 702.190b)
+        is Keyword.Sneak -> static(Mechanic.AlternativeCost(Keyword.Sneak.Kind, Cost(keyword.cost.parts + CostPart.ReturnToHand(
+            CostObjects.Choose(ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.HasStatus(Status.Attacking), ObjectFilter.HasStatus(Status.Unblocked))), count = Value.Fixed(1)), preBind = SNEAK_RETURNED)),
+            duringYour = TurnStep.DeclareBlockers))
         is Keyword.CommanderNinjutsu -> listOf(ninjutsu(keyword.cost, listOf(Zone.Hand, Zone.Command)))
         // CR 702.84a: return to the battlefield; it gains haste; exile it at the next end step; if it would leave the
         // battlefield, exile it instead; activate only as a sorcery
@@ -642,6 +649,9 @@ object KeywordExpansions {
 
     /** CR 702.49a, d: "[Cost], Reveal this card, Return an unblocked attacking creature you control to its owner's hand:
      * Put this card onto the battlefield tapped and attacking" (the same player or planeswalker as the returned creature). */
+    /** The name the creature returned to pay a sneak cost is bound to (msh, CR 702.190b). */
+    const val SNEAK_RETURNED: String = "sneak-returned"
+
     private fun ninjutsu(cost: Cost, zones: List<Zone>) = Ability.Activated(
         Cost(cost.parts + CostPart.Reveal(CostObjects.Self) + CostPart.ReturnToHand(CostObjects.Choose(ObjectFilter.And(listOf(
             ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),

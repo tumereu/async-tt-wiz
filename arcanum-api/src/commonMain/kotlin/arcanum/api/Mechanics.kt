@@ -260,10 +260,13 @@ sealed interface Mechanic {
      * may pay {W}{U}{B}{R}{G} rather than pay the mana cost for spells you cast": [ObjectFilter.WasCast]); a card is
      * tested as the spell it becomes as it is cast from where it is (CR 601.2a), so "a spell you cast from exile" is
      * `WasCast(Zone.Exile)`. [perTurn]: that player may use it only that many times each turn ("Once each turn, you may
-     * pay {0} rather than pay the mana cost for a spell you cast from exile"), counted on the ability's object. */
+     * pay {0} rather than pay the mana cost for a spell you cast from exile"), counted on the ability's object.
+     * [duringYour] (msh, sneak, CR 702.190a): used only during that step of the caster's turn, any time they could cast
+     * an instant then. */
     @Serializable @SerialName("alternative-cost") data class AlternativeCost(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind? = null,
         val cost: Cost, val faceDown: Boolean = false, val perTurn: Int? = null,
+        val duringYour: TurnStep? = null,
     ) : Mechanic
     /** "As an additional cost to cast this spell, …" (CR 601.2f); [optional]/[repeatable] for kicker/multikicker;
      * [times] for a cost paid a computed number of times (escalate: once per mode beyond the first). */

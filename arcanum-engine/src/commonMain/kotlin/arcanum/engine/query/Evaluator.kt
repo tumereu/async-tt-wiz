@@ -88,7 +88,8 @@ internal data class Context(
     val dividedShare: Int? = null,
     // dsk gaps
     /** Cards not on the Stack or the battlefield are tested as the spell they would be if cast from where they are
-     * (CR 601.2a): [ObjectFilter.WasCast] from their zone. For alternative costs given to spells cast from a zone. */
+     * (CR 601.2a): [ObjectFilter.WasCast] from their zone, a spell, controlled by [you]. For alternative costs given to
+     * spells cast from a zone and to the next spells cast. */
     val prospectiveCast: Boolean = false,
 )
 
@@ -285,7 +286,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
                 ObjectCategory.Token -> o?.token ?: lki(id)?.token ?: false
                 // A permanent that left is read as it last existed (CR 608.2h): "a permanent you controlled left"
                 ObjectCategory.Permanent -> zoneOf(id) == Zone.Battlefield || (o == null && lki(id)?.zone == Zone.Battlefield)
-                ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy }
+                // msh: a card tested as the spell it would be or is becoming as it is cast (CR 601.2a)
+                ObjectCategory.Spell -> state.stackItems[id]?.kind.let { it == StackItemKind.Spell || it is StackItemKind.SpellCopy } ||
+                    ctx.prospectiveCast && (prospectiveCastFrom(id) != null || state.obj(id)?.zone == Zone.Stack)
                 ObjectCategory.StackAbility -> state.stackItems[id]?.kind.let { it == StackItemKind.Activated || it == StackItemKind.Triggered }
             }
             is ObjectFilter.Type -> {
@@ -310,7 +313,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             ObjectFilter.Multicolored -> c != null && c.colors.size >= 2
             ObjectFilter.Monocolored -> c != null && c.colors.size == 1
             is ObjectFilter.Shares -> objects(filter.objects).any { other -> other != id && shares(filter.quality, id, other) }
-            is ObjectFilter.ControlledBy -> controllerOf(id)?.let { matches(filter.players, it) } ?: false
+            // msh: a card tested as the spell it would be is controlled by the player who would cast it (CR 601.2a)
+            is ObjectFilter.ControlledBy -> (controllerOf(id) ?: prospectiveCastFrom(id)?.let { ctx.you })?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.OwnedBy -> ownerOf(id)?.let { matches(filter.players, it) } ?: false
             is ObjectFilter.InZone -> zoneOf(id) == filter.zone
             is ObjectFilter.Named -> filter.name in names(c)

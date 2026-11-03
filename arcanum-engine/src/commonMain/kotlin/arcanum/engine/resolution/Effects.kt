@@ -170,7 +170,11 @@ internal object Effects {
             // CR 701.28: only a transforming double-faced permanent transforms; it gets a new timestamp (CR 613.7g)
             is Effect.Transform -> onBattlefield(scope, effect.objects).forEach { id ->
                 val o = act.state.objOrThrow(id)
-                if (o.definition?.layout != Layout.Transform) return@forEach
+                // msh: a modal double-faced permanent transforms too (CR 701.27a), not into an instant or sorcery face (701.27d)
+                val layout = o.definition?.layout
+                if (layout != Layout.Transform && layout != Layout.ModalDoubleFaced) return@forEach
+                val other = o.definition!!.faces.getOrNull(1 - o.face) ?: return@forEach
+                if (layout == Layout.ModalDoubleFaced && (arcanum.api.CardType.Instant in other.types || arcanum.api.CardType.Sorcery in other.types)) return@forEach
                 act.record(Change.Face(id, o.face, 1 - o.face, listOf(Meaning.Transformed)))
                 act.record(Change.Restamped(id, o.timestamp, act.state.nextTimestamp()))
             }
@@ -516,8 +520,7 @@ internal object Effects {
     private fun attackTarget(scope: Scope, target: arcanum.api.AttackTarget): TargetRef? = when (target) {
         arcanum.api.AttackTarget.Chosen -> scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
         is arcanum.api.AttackTarget.SameAs -> {
-            val of = scope.objects(target.objects).toSet()
-            scope.act.state.combat?.attackers.orEmpty().firstOrNull { it.id in of }?.target
+            arcanum.engine.combat.Combat.lastTarget(scope.act.state, scope.objects(target.objects))
                 ?: scope.act.state.opponents(scope.actor).firstOrNull()?.let { TargetRef.Player(it) }
         }
         is arcanum.api.AttackTarget.These -> recipients(scope, target.recipients).firstOrNull()

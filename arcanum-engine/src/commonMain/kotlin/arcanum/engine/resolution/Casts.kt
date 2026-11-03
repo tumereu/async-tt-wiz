@@ -72,8 +72,11 @@ internal object Casts {
             }
             if (m.options.size - used.size < m.min) return null
             val options = m.options.mapIndexed { i, mode -> ModeOption(i, mode.text, available = i !in used, pawprints = mode.pawprints) }
-            val chosen = if (used.isEmpty() && m.min == m.max && m.max == m.options.size && !m.repeatable) options.map { it.index }
-                else (act.asker.ask { Decision.Modes(it, controller, source, options, m.min, m.max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
+            // msh: "choose up to X": at most that many
+            val max = m.maxCount?.let { minOf(m.max, maxOf(m.min, act.evaluator(arcanum.engine.query.Context(controller, source, names, event = event)).value(it))) } ?: m.max
+            val chosen = if (used.isEmpty() && m.min == max && max == m.options.size && !m.repeatable) options.map { it.index }
+                else (act.asker.ask { Decision.Modes(it, controller, source, options, m.min, max, m.repeatable, m.pawprintLimit) } as Answer.Modes).chosen
+            require(chosen.size <= max) { "At most $max modes" }
             require(chosen.none { it in used }) { "Mode already chosen: $chosen" }
             if (o != null && (m.onlyUnchosen || m.onlyUnchosenThisTurn) && chosen.isNotEmpty()) {
                 act.record(Change.Facts(o.id, o.facts, o.facts.copy(
@@ -114,6 +117,11 @@ internal object Casts {
                 slot.atRandom -> listOfNotNull(options.getOrNull((act.random(controller, source,
                     arcanum.engine.decision.RandomKind.Die(options.size, 1)) as Answer.DieRolls).results.single() - 1))
                 else -> act.chooseTargets(controller, source, slot.name, options, min, max)
+            }
+            // msh: "up to two target creatures with total mana value 6 or less" (CR 601.2c)
+            slot.totalAtMost?.let { limit ->
+                val ids = chosen.mapNotNull { (it as? TargetRef.Object)?.id }
+                require(ids.sumOf { e.property(limit.property, it) } <= e.value(limit.atMost)) { "The targets' total is more than allowed" }
             }
             if (chosen.isNotEmpty()) targets[slot.name] = chosen
         }

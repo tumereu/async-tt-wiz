@@ -83,6 +83,15 @@ The definition model (overview in `Definitions.kt`):
   `ObjectFilter.Where` with `Condition.Odd` and `Condition.RememberedOption` ("a spell with mana value of the chosen quality"),
   `Effect.SeparatePiles.faceDownPile`; "its controller amasses" is a loop over that player (`DefinitionChecks` allows a single keyword
   action in such a loop, since the action takes no players).
+- Marvel Super Heroes (set `msh`): power-up (CR 702.193, an ability label; `Mechanic.LabelAdditionalUses` for "can be activated an
+  additional time"), teamwork (CR 702.194: an optional additional cost tapping creatures by total power; `Tap.forCost` for "becomes
+  tapped to pay a teamwork cost"), harness and ∞ (CR 701.64, 702.186: `ObjectMark.Harnessed`, `AbilityLabel.Infinity` working only
+  while harnessed), sneak (CR 702.190: an alternative cost with `AlternativeCost.duringYour`, `KeywordExpansions.SNEAK_RETURNED`),
+  `EventPattern.Connive`, `CountersPut.reaching` ("when the fourth plan counter is put on"), `BecomesTarget.players`,
+  `ObjectFilter.AttackingAlone` and `TargetedBy`, `NumericProperty.ManaSymbols`, `Modes.maxCount` ("choose up to X"),
+  `TargetSlot.totalAtMost`, `CostPart.GetCounters` (ward—get poison counters), `Effect.OneMoreCounterOfEachKind`,
+  `Effect.ControlNextTurn` (CR 723), and the mechanics `CantBecomeUntapped`, `AbilitiesIgnoreSummoningSickness` and the
+  modification `HealsOtherDamage` (CR 701.69a).
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

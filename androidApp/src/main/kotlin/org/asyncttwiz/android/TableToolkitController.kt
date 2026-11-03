@@ -111,6 +111,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      */
     internal fun playable(play: PlayState): Set<String> {
         if (!play.board.automatum || !enabled() || cast.open || Automatum.flowOpen(play.board)) return emptySet()
+        // The game begins only once both players are Ready (TRN-062)
+        if (play.board.turn.number == "1" && PlayerStatus.anyOpening(play.board)) return emptySet()
         val plays = cardPlays(play) ?: return emptySet()
         playableCache?.takeIf { it.first === plays }?.let { return it.second }
         return plays.byCard.filterValues { offered -> offered.any { it.legal } }.keys.also { playableCache = plays to it }

@@ -373,7 +373,7 @@ class AutomatumControlsScreenshotTest {
         compose.runOnIdle { toolkit.openCard(TableScope(sparkId, listOf(sparkId))) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
-        compose.onNodeWithText(CardRingPages.PUT_ON_BOTTOM).assertExists()
+        compose.onNodeWithContentDescription("Library bottom").assertIsEnabled()
         captureShot("$SCREENSHOTS/automatum/opening-put-on-bottom.png",
             "During Alice's opening with Automatum on, Storm Spark's hand menu shows its greyed Cast row, Inspect and \"Put on bottom\", the London mulligan's way to put a card on the bottom of her library.")
         compose.ringClick("Library bottom")

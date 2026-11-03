@@ -776,7 +776,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
                 val destination = (intent.destination as TableDestination.Combat).destination
                 val bound = bind(intent.scope, intent.sources) ?: return false
                 // CMB-034: one of the defender's creatures dropped on an attacker's pair blocks it, as tapping does
-                val choices = combat.choices(play).choices
+                val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
                 val card = bound.sourceIds.singleOrNull()
                 val pair = destination.pairId
                 if (choices.declaring != null && !choices.attackers && card != null && pair != null &&
@@ -869,7 +869,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         val copy = item.viewport == "combat"
         if (!copy && (item.zone != PlayZone.BATTLEFIELD || item.projection)) return false
         if (copy && play.board.combat == null) return false
-        val choices = combat.choices(play).choices
+        // Finalreview-combat #5: not worked out yet (the other player's event just arrived): said, never worked out here
+        val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return true } }.choices
         if (choices.unsupported.isNotEmpty()) return false
         val area = play.board.combat
         val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == card }
@@ -930,7 +931,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      * moves to it. Deselected once it blocks as many attackers as it can. */
     internal fun block(play: PlayState, blocker: String, pairId: String): Boolean {
         val area = play.board.combat ?: return false
-        val choices = combat.choices(play).choices
+        val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
         val occurrence = CombatStackRules.occurrences(area).firstOrNull { it.sourceId == blocker }
         val now = occurrence?.let { CombatStackRules.blockedPairs(area, it.id) }.orEmpty()
         val capacity = if (blocker in choices.capacity) choices.capacity[blocker] else 1
@@ -951,7 +952,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** CMB-028, CMB-034: the staged attackers, or the blocks, leave the lanes; one Undo step. */
     internal fun clearCombatDraft(play: PlayState): Boolean {
         val area = play.board.combat ?: return false
-        val attackers = combat.choices(play).choices.attackers
+        val attackers = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices.attackers
         val ids = area.pairs.flatMap { if (attackers) it.attackers else it.blockers }.map { it.id }
         if (ids.isEmpty()) return false
         combat.clearSelection()
@@ -1137,7 +1138,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         return if (play.board.automatum && !AutomatumBoards.byHand(play)) leaveDraft(play, bound) else removeOccurrences(bound)
     }
     private fun leaveDraft(play: PlayState, bound: ToolkitCapture): Boolean {
-        val choices = combat.choices(play).choices
+        val choices = combat.choices(play).also { if (combat.working(it)) { error = CombatController.WORKING_OUT; return false } }.choices
         val blockers = bound.viewIds.all { id -> play.board.combat?.pairs?.any { p -> p.blockers.any { it.id == id } } == true }
         if (choices.declaring == null || (!choices.attackers && !blockers)) {
             error = if (choices.declaring == null) CombatController.DECLARED else CombatController.DECLARED_ATTACKERS

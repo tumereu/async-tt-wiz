@@ -31,7 +31,9 @@ data class QuickContext(val selectMode: Boolean = false, val selectedSourceIds: 
     /** Automatum on (I3): what the engine allows in combat now, once worked out ([automatumCombatQuickActions]). */
     val automatumCombat: org.asyncttwiz.automatum.CombatShown? = null,
     /** CMB-028: the active attack target lane (null: the defending player) and its name, for "Rest → <target>". */
-    val combatTarget: String? = null, val combatTargetName: String = "")
+    val combatTarget: String? = null, val combatTargetName: String = "",
+    /** Finalreview-combat #7: the viewer's pause bar is shown with its own Pass, so combat offers no second one. */
+    val pauseBar: Boolean = false)
 
 /** A disabled action stays in place, greyed and inert; one [refused] says why on tap (Automatum on, I-D28). */
 data class QuickAction(val name: String, val glyph: String, val intent: TableActionIntent, val badge: String? = null,

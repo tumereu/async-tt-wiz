@@ -291,7 +291,18 @@ internal data class TurnExtras(
      * any (#10): a step or turn changed by hand since starts the count again; also while a player other than the active
      * one holds priority, so the host keeps it with them in that step ([HostPriority.kept]). Null otherwise. */
     val passesAt: String? = null,
+    // gtc
+    /** Additional phases still to come this turn (the engine's `TurnState.extraPhases`, CR 500.8), with [phasesTurn]. */
+    val extraPhases: List<TurnStep> = emptyList(),
+    /** Where the turn's own order goes on once the additional phases are over (the engine's `TurnState.resumeAt`). */
+    val resumeAt: TurnStep? = null,
+    /** The turn (ATW's turn number) [extraPhases] and [resumeAt] belong to: a later turn has none (finalreview-combat #1). */
+    val phasesTurn: Int? = null,
 ) {
+    /** [extraPhases] and [resumeAt] when they are of [turn], else none. */
+    fun phases(turn: Int): Pair<List<TurnStep>, TurnStep?> =
+        if (phasesTurn == turn) extraPhases to resumeAt else emptyList<TurnStep>() to null
+
     companion object {
         fun at(turn: Any, position: TurnPosition) = "$turn/${position.name}"
     }

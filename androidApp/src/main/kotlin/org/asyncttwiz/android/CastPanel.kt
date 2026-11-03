@@ -91,16 +91,25 @@ internal interface FlowQuestions {
     fun shown(id: ObjectId): Boolean = true
 }
 
-/** Left of the Stack (or of the table's right edge), centred on it vertically (or on [middle], dp), inside the table. */
+/** Left of the Stack (or of the table's right edge), centred on it vertically (or on [middle], dp), inside the table.
+ * [dock] (the viewer's hand row, finalreview-combat #2): in portrait the content docks just above it instead, across
+ * the table's middle, clear of the combat area's panel and its preview. */
 @Composable
-internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, content: @Composable () -> Unit) {
+internal fun CastPanelPlacement(stack: TableBounds?, middle: Float?, dock: TableBounds? = null, content: @Composable () -> Unit) {
     Layout(content = content, modifier = Modifier.fillMaxSize()) { measurables, constraints ->
         val margin = 8.dp.roundToPx()
-        val width = minOf(300.dp.roundToPx(), constraints.maxWidth - 2 * margin).coerceAtLeast(0)
+        val docked = dock != null && constraints.maxHeight > constraints.maxWidth
+        val width = minOf((if (docked) 420 else 300).dp.roundToPx(), constraints.maxWidth - 2 * margin).coerceAtLeast(0)
         val placeable = measurables.firstOrNull()?.measure(Constraints(maxWidth = width,
             maxHeight = (constraints.maxHeight * .78f).toInt().coerceAtLeast(0)))
         layout(constraints.maxWidth, constraints.maxHeight) {
             placeable ?: return@layout
+            if (docked) {
+                val above = dock!!.y.dp.roundToPx() - margin
+                placeable.place(((constraints.maxWidth - placeable.width) / 2).coerceAtLeast(margin),
+                    (above - placeable.height).coerceIn(margin, (constraints.maxHeight - placeable.height - margin).coerceAtLeast(margin)))
+                return@layout
+            }
             val stackX = stack?.x?.dp?.roundToPx() ?: constraints.maxWidth
             val centerY = (middle ?: stack?.center?.y)?.dp?.roundToPx() ?: (constraints.maxHeight / 2)
             val x = (stackX - placeable.width - margin).coerceIn(margin, (constraints.maxWidth - placeable.width - margin).coerceAtLeast(margin))

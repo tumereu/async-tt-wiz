@@ -240,4 +240,14 @@ class AutomatumFlowTest {
         val shown = accept(accept(accept(state, PlayAction.SetNote(gameplayId(10), "watch")), PlayAction.SetStatus("Wait")), PlayAction.PassAttention)
         assertEquals("accepted", change(shown, PlayAction.AdjustLife(b, "-3"), tag = planned).outcome)
     }
+
+    // SYS-057, SYS-071 (finalreview-combat #7): the players' pause settings aren't part of the board a batch was planned
+    // on: Full control or Skip when I have no choice changed meanwhile (a device syncing it as the game opens) never
+    // refuses the other player's batch in flight
+    @Test fun aPauseSettingChangedMeanwhileDoesntRefuseABatch() {
+        val state = on()
+        val planned = MtgTag(listOf("life-changed"), board = MtgFacts.digest(state.board))
+        val changed = accept(accept(state, PlayAction.Mtg(MtgAction.SetFullControl(true))), PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false)))
+        assertEquals("accepted", change(changed, PlayAction.AdjustLife(b, "-3"), tag = planned).outcome)
+    }
 }

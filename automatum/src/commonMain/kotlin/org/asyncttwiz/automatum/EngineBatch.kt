@@ -766,7 +766,10 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
         state.turn.extraTurns, state.skipFirstDraw, state.turn.number.takeIf { state.turn.landsPlayed.isNotEmpty() },
         TurnExtras.at(state.turn.number, EngineCodec.position(state.turn.step, state.combat?.firstStrikeStep == true))
             // Final cast review #3: also where the engine left priority with a player other than the active one (HostPriority.kept)
-            .takeIf { state.priority.passes > 0 || state.priority.holder.let { it != null && it != state.turn.active } })
+            .takeIf { state.priority.passes > 0 || state.priority.holder.let { it != null && it != state.turn.active } },
+        // Finalreview-combat #1 (CR 500.8): an additional phase still to come is kept between calls
+        state.turn.extraPhases, state.turn.resumeAt,
+        state.turn.number.takeIf { state.turn.extraPhases.isNotEmpty() || state.turn.resumeAt != null })
     if (turn != TurnExtras()) add(EngineRecord(EngineCodec.TURN, EngineRecordKind.Turn, data = EngineCodec.encode(TurnExtras.serializer(), turn)))
     state.combat?.let { add(EngineCodec.combatRecord(it, state.turn.number)) }
     if (state.triggered.isNotEmpty())

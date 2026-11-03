@@ -212,6 +212,10 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
             Text("▾", color = Color(0xff263238), fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
     }
+    // Finalreview-combat #4 (CMB-029): the way to the damage needs a choice, which the preview took as suggested
+    if (preview?.assumed == true) Box(Modifier.offset { IntOffset((panel.x + 2f).dp.roundToPx(), (panel.bottom + 3f).dp.roundToPx()) }) {
+        PreviewChip("Depends on a choice", PreviewRed, Modifier, "The preview assumes the suggested answer to a choice on the way")
+    }
     val eyeY = panel.y + if (fold != null) 34f else 0f
     if (shown.preview != null && combat != null) {
         Box(Modifier.offset { IntOffset((panel.right + 3f).dp.roundToPx(), eyeY.dp.roundToPx()) }.size(30.dp)

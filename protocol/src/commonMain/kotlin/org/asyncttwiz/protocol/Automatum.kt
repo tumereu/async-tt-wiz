@@ -455,7 +455,7 @@ object MtgFacts {
 
     /** #4: what an automated batch was planned on ([MtgTag.board]): the board without what is only shown (piles
      * and positions, notes, the six colour counters, marks, statuses, panels, links, the move holder, the result
-     * suggestion, library layers). */
+     * suggestion, library layers) and the players' pause settings (Full control, Skip when I have no choice). */
     fun digest(board: BoardState): String {
         val json = GameWire.json
         fun without(element: JsonElement, vararg keys: String) = JsonObject((element as JsonObject).filterKeys { it !in keys })
@@ -465,7 +465,10 @@ object MtgFacts {
             engineRecords = board.engineRecords.filterNot { it.kind == EngineRecordKind.PreAnswer })
         val element = json.encodeToJsonElement(BoardState.serializer(), shown) as JsonObject
         val reduced = JsonObject(element + mapOf(
-            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters") }),
+            // Finalreview-combat #7: Full control and Skip when I have no choice only say where the host passes for a
+            // player, which the batch's planner already did: changing either (FullControlSync as a game opens) never
+            // refuses the other player's batch in flight
+            "players" to JsonArray(element.getValue("players").jsonArray.map { without(it, "status", "counters", "fullControl", "skipWhenNoChoice") }),
             "cards" to JsonArray(element.getValue("cards").jsonArray.map { without(it, "placement", "note", "eotNote", "counters", "knownToAll") }),
             "containers" to JsonArray(element.getValue("containers").jsonArray.map { without(it, "layers", "keepTopRevealed") }),
             "stackEffects" to JsonArray(element.getValue("stackEffects").jsonArray.map { without(it, "note") })))

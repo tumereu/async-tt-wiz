@@ -12627,7 +12627,7 @@ internal class Sentences(
                 Step.Do(Effect.PutCounters(Objects.Bound("tokens"), kind, x)) + Step.Do(Effect.GainLife(Players.You, x))
         }
         // sos chunk 11: "It's still a land." after "if this land isn't a creature, it becomes …": a reminder (CR 205.1b)
-        if (sentence == "It's still a land." && ((steps.lastOrNull() as? Step.If)?.then?.singleOrNull() as? Step.Do)?.effect is Effect.ApplyMechanics) return steps
+        if (sentence == "It's still a land." && ((steps.lastOrNull() as? Step.If)?.then?.singleOrNull() as? Step.Do)?.effect is Effect.ApplyMechanics) return steps.toList()
         // sos chunk 13: "Create a 3/3 … token with flying. It gains haste until end of turn." ("it" is the token)
         Sos.IT_GAINS_UNTIL_EOT.matchEntire(sentence)?.let { m ->
             val create = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.CreateToken ?: return@let

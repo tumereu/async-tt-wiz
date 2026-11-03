@@ -218,7 +218,9 @@ class HobChunk09WhiteTest {
         """,
     ) parsesTo abilities(
         spell(counters(target("creature")),
-            Step.If(Condition.CastFrom(Zone.Graveyard, Objects.Self), then = listOf(counters(Objects.Each(and(another, creature, you))))),
+            // "other": other than the target (the spell is never a creature)
+            Step.If(Condition.CastFrom(Zone.Graveyard, Objects.Self),
+                then = listOf(counters(Objects.Each(and(ObjectFilter.Not(ObjectFilter.Is(target("creature"))), creature, you))))),
             targets = listOf(slot("creature", creatureYouControl))),
         Keyword.Flashback(manaCost("{4}{W}")),
     )

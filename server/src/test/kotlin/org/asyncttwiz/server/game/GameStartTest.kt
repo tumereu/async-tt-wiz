@@ -131,6 +131,27 @@ class GameStartTest {
         }
     }
 
+    // SYS-055, LOB-031 (I-D44): the game's first state has Automatum on when the game was created with it
+    @Test fun `a game created with Automatum starts with it on and one created without starts with it off`() {
+        FreshDatabase().start().use { db ->
+            FoundationMigrations.migrate(db.settings)
+            ServiceRuntime(db.settings).use { runtime ->
+                runtime.start(); ready(runtime)
+                val a = account(runtime, "SwitchA"); val b = account(runtime, "SwitchB")
+                fun start(automatum: Boolean): PlayState {
+                    val game = game(runtime, a, b, automatum); val games = GameService(runtime)
+                    val owner = Stream(games, a, game); val recipient = Stream(games, b, game)
+                    recipient.execute(GameAction.AcceptInvitation)
+                    owner.execute(owner.select(deck(runtime, a))); recipient.execute(recipient.select(deck(runtime, b)))
+                    owner.execute(GameAction.Ready); assertEquals("accepted", recipient.execute(GameAction.Ready).outcome)
+                    return games.head(b, game.id).play!!
+                }
+                assertTrue(start(automatum = true).board.automatum)
+                assertFalse(start(automatum = false).board.automatum)
+            }
+        }
+    }
+
     private val json = GameWire.json
     private fun id() = UUID.randomUUID().toString()
     private fun sql(db: TestPostgres, statement: String) { db.connection().use { it.createStatement().execute(statement) } }
@@ -145,9 +166,10 @@ class GameStartTest {
         accounts.register(name, "$name@example.invalid", "synthetic password")
         return accounts.authenticate(accounts.login("$name@example.invalid", "synthetic password")!!.token)!!
     }
-    private fun game(runtime: ServiceRuntime, a: AccountService.Principal, b: AccountService.Principal): GameSummary {
+    private fun game(runtime: ServiceRuntime, a: AccountService.Principal, b: AccountService.Principal,
+        automatum: Boolean = false): GameSummary {
         val lobby = LobbyService(runtime); lobby.add(a, AddContact(id(), b.account.accountId))
-        return json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Starting Spark")).body)
+        return json.decodeFromString(lobby.create(a, CreateInvitation(id(), b.account.accountId, "Starting Spark", automatum)).body)
     }
     private fun deck(runtime: ServiceRuntime, actor: AccountService.Principal, sideOnly: Boolean = false): SavedDeck {
         val defs = listOf(CardDefinition("Retained first", listOf(DefinitionFace(id(), "First", corner = "3/5")), sourceVersion = "synthetic-v1"),

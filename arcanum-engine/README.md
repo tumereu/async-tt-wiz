@@ -479,7 +479,10 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   A Siege has the intrinsic trigger of 310.12b (`AbilityOrigin.Rule("siege")`: exiled, then it may be cast transformed without
   paying its mana cost, `Effect.Cast.transformed`) and waits for it at 0 defense (704.5v).
   `Trigger.On.during` (scenarios in `trigger/NthDuringStepTest`): "the nth … during each of your draw steps" counts only the events
-  since that step began, and triggers only in it.
+  since that step began, and triggers only in it. Copy effects of static abilities (`view/Copiable`, CR 613.2a, 707.2, scenarios in
+  `view/StaticCopyTest`): a permanent's printed static ability with `Mechanic.CopyOf` applies in layer 1 to what its `affects`
+  names while its condition holds, both read on the copiable values, in timestamp order with the effect objects' copies (a static
+  copy ability a copy effect gives isn't one, and one doesn't see its own result while it finds what it affects).
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
@@ -489,8 +492,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   - Parser side (`Ability.Unparsed`, not the engine's): keyword actions and wordings it doesn't read yet (the modal haunt trigger,
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round).
-- Not yet: copy effects from static
-  abilities (effect objects only). Around the game:
+- Not yet, around the game:
   actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
   starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
   choosing, are not applied); restarting a game (CR 104.1).

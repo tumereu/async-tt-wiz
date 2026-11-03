@@ -87,51 +87,6 @@ class HistoryUiSpineTest {
         }
     }
 
-    // HIS-078
-    @Test fun locationPingCapturesLogicalTransformAndOriginalReferenceForOneExplicitUnping() {
-        Harness().use { h ->
-            fun scene(camera: TableCamera): TableScene {
-                val world = TableWorld(TableBounds(30f, 10f, 400f, 840f), TableBounds(0f, 0f, 400f, 840f))
-                val fields = listOf(f.b to 0f, f.a to 440f).map { (owner, y) ->
-                    val grid = world.screen(TableBounds(0f, y, 400f, 400f), camera)
-                    TableField(grid.intersection(world.viewport)!!, owner, gridBounds = grid, rowHeight = 84f * camera.zoom)
-                }
-                return TableScene(emptyList(), fields, footprint = 56f * camera.zoom, camera = camera, world = world)
-            }
-            val scene = scene(TableCamera(-42f, 21f, 1.5f))
-            val geometry = TableAnnotationGeometry(scene, f.a)
-            val reference = EventReference(h.display.id, h.display.currentNodeId)
-            val target = PingTarget(PingTargetKind.LOCATION, position = BoardPosition(1, 2))
-            val point = assertNotNull(geometry.endpoint(target))
-            var captured = assertNotNull(geometry.capture(h.display, reference, point))
-            assertEquals(listOf(PlayAction.Ping(reference, target)), captured.actions())
-            assertEquals(point, geometry.endpoint(target))
-            assertNotEquals(target, geometry.location(scene.fields.first().bounds.center))
-            val moved = scene(TableCamera(84f, 42f, .75f))
-            val movedGeometry = TableAnnotationGeometry(moved, f.a)
-            val coordinator = TableGestureCoordinator({ intent ->
-                if (intent is TableIntent.Ping) captured.actions().forEach {
-                    assertTrue(h.history.gameplay(it, null) { h.display })
-                }
-            })
-            val selection = TableSelection(mode = TableMode.PING)
-            coordinator.update(scene, selection, true)
-            coordinator.down(point, 0)
-            coordinator.update(moved, selection, true) // Reflow/camera must not reinterpret the pressed pixels.
-            coordinator.up(point, 10); coordinator.tick(1000)
-            assertEquals(PlayAction.Ping(reference, target), (h.sent.single().action as GameAction.Play).action)
-            h.tree = HistoryContinuation.change(h.tree, f.a, h.sent.single()).tree!!
-            h.display = h.tree.stateAt(h.tree.currentNodeId)!!
-            val marker = assertNotNull(movedGeometry.endpoint(target))
-            assertEquals(target, movedGeometry.location(marker))
-            captured = assertNotNull(movedGeometry.capture(h.display, EventReference(h.display.id, h.display.currentNodeId), marker))
-            assertEquals(listOf(PlayAction.Unping(reference, target)), captured.actions())
-            coordinator.down(marker, 1100); coordinator.up(marker, 1110); coordinator.tick(2000)
-            assertEquals(2, h.sent.size)
-            assertEquals(PlayAction.Unping(reference, target), (h.sent.last().action as GameAction.Play).action)
-            assertTrue(h.display.currentGroup!!.id.let { EventAnnotations.activePings(h.display.annotations, it) }.isEmpty())
-        }
-    }
 
     // HIS-020
     @Test fun currentResultRequiresActuallyPresentedFinalBoardAndHistoricalSuggestionHasNoGate() {

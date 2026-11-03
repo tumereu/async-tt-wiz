@@ -180,7 +180,6 @@ class TableMotionRuntimeTest {
         val state = mutableStateOf(initial)
         val id = "a/BATTLEFIELD/0"
         val toolkit = TableToolkitController("a", { state.value }, { true }, { _, _ -> true })
-        toolkit.selectionState.value = TableSelection(ids = setOf(id))
         compose.setContent { MaterialTheme {
             TableSurface(TableFixture.game, state.value, "a", false, Modifier.fillMaxSize(), toolkit = toolkit)
         } }

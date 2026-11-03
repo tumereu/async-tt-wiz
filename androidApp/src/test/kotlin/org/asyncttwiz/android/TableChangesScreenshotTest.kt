@@ -102,61 +102,6 @@ class TableChangesScreenshotTest {
         return TableBounds(left.toFloat(), top.toFloat(), (right - left + 1).toFloat(), (bottom - top + 1).toFloat())
     }
 
-    @Test fun smallestCardTagsAreOpaqueUnclippedScreenBoundedAndTouchTransparent() {
-        val appearance = CardAppearance(cardSize = MIN_CARD_SCALE, textSize = MIN_CARD_SCALE)
-        val play = LiveTableFixture.menuPlay()
-        val original = TablePresentation.scene(LiveTableFixture.game, play, "a", 412f, 892f, false, appearance = appearance)
-            .items.first { it.kind == TableItemKind.CARD && !it.covered && it.zone == PlayZone.BATTLEFIELD }
-        // Same smallest-card face as the table, at a left edge and at the bottom/right screen edge.
-        val transform = original.faceTransform()
-        val left = original.copy(id = "card/left", cardId = "left", bounds = TableBounds(2f, 250f, transform.width, transform.height),
-            cardTransform = transform.copy(rotation = 0f), counters = mapOf(CounterColor.RED to "1"), note = "")
-            .let { it.copy(visible = listOf(it.bounds.copy(width = it.bounds.width / 2),
-                it.bounds.copy(x = it.bounds.center.x, width = it.bounds.width / 2))) }
-        val edge = left.copy(id = "card/edge", cardId = "edge",
-            bounds = TableBounds(410f - transform.width, 890f - transform.height, transform.width, transform.height))
-            .let { it.copy(visible = listOf(it.bounds)) }
-        val items = listOf(left, edge).associateBy { it.id }
-        val changes = TableChanges { 0L }
-        var taps = 0
-        compose.setContent {
-            Box(Modifier.fillMaxSize().pointerInput(Unit) { detectTapGestures { taps++ } }) {
-                Canvas(Modifier.fillMaxSize()) {
-                    for (x in 0 until size.width.toInt() step 4)
-                        drawRect(if (x % 8 == 0) Color.White else Color(0xff426f97), Offset(x.toFloat(), 0f), Size(4f, size.height))
-                    for (card in items.values) drawRect(Color.White, Offset(card.bounds.x, card.bounds.y), Size(card.bounds.width, card.bounds.height))
-                }
-                TableChangeOverlay(changes, "a", appearance, items::get)
-            }
-        }
-        compose.waitForIdle(); compose.mainClock.autoAdvance = false
-        animate(changes, GameplayTransition(fields = listOf(
-            GameplayFieldChange("left", GameplayField.CORNER, "1/1", "3/3"),
-            GameplayFieldChange("edge", GameplayField.CORNER, "1/1", "3/3"),
-            GameplayFieldChange("left", GameplayField.COUNTER, "0", "1", CounterColor.RED))))
-        compose.mainClock.advanceTimeBy(200); compose.waitForIdle()
-        val image = capture("changefx-smallest-card-300ms", "Change tags on two smallest-size cards over stripes, 0.3 seconds in: " +
-            "+2/+2 on both, red +1 counter on one, the other in the screen corner.")
-        val flashLeft = image.getRGB((left.bounds.x + 3).toInt(), (left.bounds.bottom - 3).toInt())
-        val flashRight = image.getRGB((left.bounds.right - 3).toInt(), (left.bounds.bottom - 3).toInt())
-        assertNotEquals(Color.White.toArgb(), flashLeft, "Value flash must remain visible at 300 ms")
-        assertEquals(flashLeft, flashRight, "Value flash must cover every visible fragment")
-        val pt = assertOpaquePill(image, TableBounds(left.bounds.right, left.bounds.bottom - 24, 90f, 40f), TableChangeTagFill, "+2/+2")
-        assertTrue(pt.x >= left.bounds.right, "P/T tag belongs beside the bottom-right value, not over the art")
-        assertTrue(pt.width > left.bounds.width, "The full tag must extend beyond the smallest card width")
-        assertOpaquePill(image, TableBounds(310f, 850f, 102f, 42f), TableChangeTagFill, "+2/+2")
-        assertOpaquePill(image, TableBounds(2f, left.bounds.y - 24f, 110f, left.bounds.height + 34), counterColor(CounterColor.RED), "+1")
-        compose.onRoot().performTouchInput { click(Offset(pt.center.x, pt.center.y)) }
-        compose.runOnIdle { assertEquals(1, taps, "Tags must not intercept touches") }
-        compose.mainClock.advanceTimeBy(550); compose.waitForIdle()
-        val held = capture("changefx-smallest-card-held",
-            "Change tags on two smallest-size cards over stripes, 0.85 seconds in: still fully opaque during the hold.")
-        assertEquals(0, changedPixels(image, held, pt), "Pill stays fully opaque throughout the hold")
-        compose.mainClock.advanceTimeBy(350); compose.waitForIdle()
-        val fading = capture("changefx-smallest-card-fading",
-            "Change tags on two smallest-size cards over stripes, 1.2 seconds in: fading out after the hold.")
-        assertTrue(changedPixels(held, fading, pt) > 40, "Pill fades only after the hold")
-    }
 
     // HIS-031
     @Test fun realStackEntryHighlightsAndLinkGlowDrawInBothPlaybackDirections() = stackFeedback(projection = false)

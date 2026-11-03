@@ -33,25 +33,5 @@ class InlinePopupTest {
         assertNull(bounds.intersection(anchor))
     }
 
-    @Test fun quantitySelectionAndStepsAreBoundedWithoutOverflow() {
-        val value = selectedLibraryQuantity("123")
-        assertEquals(androidx.compose.ui.text.TextRange(0, 3), value.selection)
-        assertEquals(0, stepLibraryQuantity("0", -1))
-        assertEquals(2, stepLibraryQuantity("1", 1))
-        assertEquals(0, stepLibraryQuantity("invalid", -1))
-        assertEquals(Int.MAX_VALUE, stepLibraryQuantity(Int.MAX_VALUE.toString(), 1))
-    }
 
-    @Test fun eitherLibraryOpensTheSameActionsWithoutSubmittingSharedView() {
-        val play = LiveTableFixture.play()
-        val sent = mutableListOf<org.asyncttwiz.protocol.PlayAction>()
-        val toolkit = TableToolkitController("a", { play }, { true }, { action, _ -> sent += action; true })
-        toolkit.openLibrary("b/LIBRARY")
-        assertEquals("library", toolkit.panel); assertNotNull(toolkit.library)
-        assertEquals("b/LIBRARY", toolkit.library!!.controller.libraryId)
-        assertEquals("b/HAND", toolkit.library!!.controller.handId)
-        toolkit.openLibrary("a/LIBRARY")
-        assertEquals("library", toolkit.panel); assertNotNull(toolkit.library)
-        assertTrue(sent.isEmpty())
-    }
 }

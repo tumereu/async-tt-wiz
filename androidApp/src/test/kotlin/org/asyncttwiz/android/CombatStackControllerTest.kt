@@ -227,19 +227,4 @@ class CombatStackControllerTest {
         assertTrue(replay(frozen, CombatStackController.remove(frozen, actor, listOf(target), commands::command)).board.stackEffects.isEmpty())
     }
 
-    @Test fun quickVisibilityIsNotFullActionPhaseRestriction() {
-        val turn = combatState().board.turn
-        assertTrue(CombatOfferings.declare(turn, true))
-        assertFalse(CombatOfferings.declare(turn, false))
-        for (position in TurnPosition.entries) {
-            val tracking = turn.copy(phase = position.phase, step = position.step)
-            assertEquals(position == TurnPosition.DECLARE_ATTACKERS, CombatOfferings.declare(tracking, true))
-            assertEquals(position == TurnPosition.END_COMBAT, CombatOfferings.advanceAndClose(tracking))
-        }
-        val outside = combatState().let { it.copy(board = it.board.copy(turn = turn.copy(phase = "ENDING", step = "CLEANUP"))) }
-        val commands = CombatCommands()
-        val plan = CombatStackController.declare(outside, actor, targets(outside, 20), true, commands::command)
-        assertEquals(1, plan.commands.size)
-        assertEquals(3, plan.commands.single().playActions().size)
-    }
 }

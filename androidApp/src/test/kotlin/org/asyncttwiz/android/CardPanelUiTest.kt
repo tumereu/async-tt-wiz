@@ -73,23 +73,6 @@ class CardPanelUiTest {
         assertTrue(CardVisibility.isVisibleFaceUp(f.play.board, f.card(40), f.other))
     }
 
-    // ZON-042, ZON-058
-    @Test fun aTempPilesLookPanelOffersTempOneToFourWhileOtherPanelsOfferTempOne() {
-        setup()
-        assertTrue(ui.toTemp(listOf(f.card(40).id), 1))
-        val temp = TempPiles.containerId(f.play.id, f.actor, 1)
-        assertEquals(temp, f.card(40).containerId)
-        assertTrue(f.lobby.gameplay(PlayAction.ShowContents(temp, ContentsSelection.TOP, 1)))
-        mount()
-        val item = scene().items.single { it.viewport.startsWith("cardPanel/") }
-        compose.onNodeWithContentDescription(item.label).performClick()
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Panel card actions").assertExists()
-        for (n in 1..4) compose.onNodeWithContentDescription("Temp $n").assertExists()
-        compose.onNodeWithContentDescription("Temp 1").assertIsNotEnabled()
-        click("Temp 3")
-        assertEquals(TempPiles.containerId(f.play.id, f.actor, 3), f.card(40).containerId)
-    }
 
     // ZON-066
     @Test fun libraryPanelAutoClosesOnLastMenuMoveAndAnotherCanOpenImmediately() {
@@ -134,29 +117,6 @@ class CardPanelUiTest {
         assertEquals(f.play.currentNodeId, f.play.currentGroup!!.firstNodeId)
     }
 
-    // ZON-053
-    @Test fun revealAndHandAreOneRequestWithSeparateHistoryGroups() {
-        setup(); show(); mount()
-        val item = scene().items.first { it.viewport.startsWith("cardPanel/") }
-        compose.onAllNodesWithContentDescription(item.label)[0].performClick()
-        val count = f.commands().size
-        click("Reveal+Hand")
-        assertEquals(1, f.commands().drop(count).size)
-        val commands = f.commands().drop(count).playMembers()
-        assertTrue((commands[0].action as GameAction.Play).action is PlayAction.RevealContentsCard)
-        assertTrue((commands[1].action as GameAction.Play).action is PlayAction.MoveCard)
-        assertEquals(commands[0].invocationId, commands[1].invocationId)
-        val disclosure = GameplayRules.change(f.root, f.actor, f.commands().first()).state!!
-        val revealed = GameplayRules.change(disclosure, f.actor, commands[0]).state!!
-        assertNotEquals(revealed.currentGroup!!.id, f.play.currentGroup!!.id)
-        assertFalse(f.card(40).knownToAll)
-        val opponent = scene(f.other).items.single { it.cardId == f.id(40) }
-        assertTrue(opponent.covered); assertFalse(opponent.panelRevealed)
-        assertEquals("", opponent.value)
-        assertNull(opponent.artwork)
-        val moved = f.lobby.displayTree()!!.nodes.values.last { it.action is PlayAction.MoveCard }
-        assertTrue(historyText(moved, revealed, f.other).description.contains(f.definition.faces.single().name))
-    }
 
     // ZON-064
     @Test fun panelDragUsesTableLandingAndRestChooserPreservesPanelOrder() {
@@ -359,117 +319,6 @@ class CardPanelUiTest {
         }
     }
 
-    @Test fun quickActionsUseShortLabelsWithoutGrowingCells() {
-        setup(); show(count = 2); mount()
-        val item = scene().items.first { it.viewport.startsWith("cardPanel/") }
-        compose.onAllNodesWithContentDescription(item.label)[0].performClick()
-        compose.mainClock.advanceTimeBy(350)
-        for ((name, label) in listOf("Reveal+Hand" to "Reveal\nhand", "Battlefield tapped" to "Tapped",
-            "Reveal+Top" to "Reveal\ntop", "Inspect other side" to "Other side")) {
-            compose.onNodeWithContentDescription(name).assertWidthIsEqualTo(CardRingGeometry.cell.dp)
-                .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
-            assertEquals(label, panelCardActionLabel(panelCardActions.single { it.name == name }))
-        }
-        compose.onNodeWithContentDescription("Hand").assertWidthIsEqualTo(CardRingGeometry.cell.dp)
-            .assertHeightIsEqualTo(CardRingGeometry.cell.dp)
-    }
 
-    // ZON-042, ZON-058
-    @Test fun localViewSitsBesideLookHasFixedGreyedMenuAndSupportsHoldAndDragOut() {
-        setup()
-        assertTrue(f.move(40, TableDestination.Container(f.container(PlayZone.GRAVEYARD), PlayZone.GRAVEYARD)))
-        show(count = 2)
-        val beforeOpen = f.commands().size
-        ui.openPublicPile(f.container(PlayZone.GRAVEYARD))
-        mount()
-        assertEquals(beforeOpen, f.commands().size)
-        val s = scene()
-        val local = s.cardPanels.last()
-        assertEquals(PlayZone.GRAVEYARD, local.localZone)
-        assertTrue(s.cardPanels.first().bounds.right < local.bounds.x)
-        val item = s.items.single { it.cardId == f.id(40) }
-        compose.onNodeWithContentDescription(item.label).performClick()
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription(item.label).assertIsSelected()
-        for (label in listOf("Graveyard", "Reveal+Hand", "Reveal+Top"))
-            compose.onNodeWithContentDescription(label).assertIsNotEnabled()
-        // ZON-042: Temp 1 only outside a Temp pile's panel.
-        assertEquals(15, panelCardActions.size)
-        compose.onNodeWithContentDescription("Temp 1").assertExists()
-        compose.onNodeWithContentDescription("Temp 2").assertDoesNotExist()
-        val menu = compose.onNodeWithContentDescription("Inspect").fetchSemanticsNode().boundsInRoot
-        assertEquals(s.cardPanels.maxOf { it.bounds.right } + 4, menu.left, .1f)
-        assertEquals(local.viewport.bounds.y + 2, menu.top, .1f)
-        compose.runOnIdle { ui.dismiss() }
-        compose.mainClock.autoAdvance = false
-        compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            down(Offset(item.bounds.center.x, item.bounds.center.y))
-        }
-        compose.mainClock.advanceTimeBy(800)
-        compose.runOnIdle { assertEquals(f.id(40), ui.peek?.cardId) }
-        compose.onNodeWithContentDescription("Shared table").performTouchInput { up() }
-        compose.mainClock.autoAdvance = true
-        compose.waitForIdle()
-        val target = s.fields.last().bounds.let { TablePoint(it.right - 28f, it.center.y) }
-        compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            down(Offset(item.bounds.center.x, item.bounds.center.y)); moveTo(Offset(target.x, target.y), 100); up()
-        }
-        compose.waitForIdle()
-        assertEquals(f.container(PlayZone.BATTLEFIELD), f.card(40).containerId)
-        assertTrue(scene().cardPanels.none { it.localZone != null })
-        assertTrue(f.commands().drop(beforeOpen).none { (it.action as GameAction.Play).action is PlayAction.ReorderContents })
-        assertNull(ui.layoutState.value.localPileId)
-        assertEquals(1, scene().cardPanels.size)
-    }
 
-    @Test fun remoteLiveRevealSettlesFaceUpThenWaitsTheConfiguredPauseBeforeOnwardMove() {
-        setup(); show(count = 2)
-        val opened = f.lobby.displayTree()!!.materializedCopy()
-        val id = panel().cardIds.first()
-        ui.cardPanelAction(panel(), id, PlayZone.HAND, reveal = true)
-        val onward = f.lobby.displayTree()!!.materializedCopy()
-        val revealed = onward.nodes.values.single { it.action is PlayAction.RevealContentsCard }.id
-        val player = HistoryPlayback(HistoryTree(opened.initial.root.id, emptyList(), opened.currentNodeId, "open", source = opened))
-        var settled by mutableStateOf<String?>(null)
-        var animate by mutableStateOf(false)
-        var displayed: TableScene? = null
-        compose.mainClock.autoAdvance = false
-        compose.setContent { MaterialTheme {
-            val play = onward.stateAt(player.position.cursorId)!!
-            SideEffect { displayed = TablePresentation.scene(f.game, play, f.other, 412f, 892f, false) }
-            LivePanelRevealPacing(player, 1_500, animate && settled == player.position.cursorId)
-            TableSurface(f.game, play, f.other, false,
-                runtime = TableRuntimeHooks(onSceneSettled = { settled = it }, sceneVersion = player.position.displayVersion))
-        } }
-        compose.mainClock.advanceTimeBy(250)
-        compose.runOnIdle {
-            player.receive(HistoryTree(onward.initial.root.id, emptyList(), onward.currentNodeId, "onward", source = onward), f.other)
-        }
-        compose.mainClock.advanceTimeByFrame()
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(400)
-        compose.runOnIdle {
-            assertEquals(HistoryMode.LIVE, player.position.mode)
-            assertEquals(revealed, player.position.cursorId)
-            assertEquals(revealed, settled)
-            assertFalse(displayed!!.items.single { it.cardId == id }.covered)
-        }
-        // No pause starts until the host says the endpoint animation is done.
-        compose.mainClock.advanceTimeBy(2_000)
-        compose.runOnIdle { assertEquals(revealed, player.position.cursorId); animate = true }
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeByFrame()
-        compose.waitForIdle()
-        compose.mainClock.advanceTimeBy(1_400)
-        compose.runOnIdle {
-            assertEquals(revealed, player.position.cursorId)
-            assertTrue(displayed!!.items.single { it.cardId == id }.viewport.startsWith("cardPanel/"))
-        }
-        compose.mainClock.advanceTimeBy(150)
-        compose.runOnIdle {
-            assertEquals(onward.currentNodeId, player.position.cursorId)
-            assertEquals(HistoryMode.LIVE, player.position.mode)
-            assertFalse(player.livePanelReveal)
-        }
-    }
 }

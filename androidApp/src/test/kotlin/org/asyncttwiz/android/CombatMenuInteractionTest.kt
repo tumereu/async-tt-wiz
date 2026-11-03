@@ -68,31 +68,6 @@ class CombatMenuInteractionTest {
         assertNull(toolkit.panel)
     }
 
-    @Test fun selectAttackersVisiblyEnablesTheInteractionModeToggle() {
-        val toolkit = render(menu = false)
-        compose.runOnIdle {
-            toolkit.selectAttackers(TableActionIntent.SelectAttackers(toolkit.table.scope()!!, advance = false))
-        }
-        compose.onNodeWithContentDescription("Interaction mode").assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "select, 0 selected"))
-        assertEquals(TableMode.SELECT, toolkit.selectionState.value.mode)
-    }
 
-    @Test fun projectionNoteEditsEverySelectedOccurrenceInOneBatch() {
-        render(menu = true)
-        compose.ringClick("Edit card note")
-        compose.onNode(hasSetTextAction()).performTextReplacement("combat note")
-        compose.onNodeWithText("Set", useUnmergedTree = true).performClick()
-        val notes = batches.single().map { assertIs<PlayAction.SetProjectionNote>(it) }
-        assertEquals(setOf(f.id("attacker1"), f.id("attacker2")), notes.map { it.occurrenceId }.toSet())
-        assertTrue(notes.all { it.value == "combat note" })
-    }
 
-    // CMB-004
-    @Test fun projectionGraveyardMovesEverySelectedSourceInOneBatch() {
-        render(menu = true)
-        compose.ringClick("Graveyard")
-        val moves = batches.single().map { assertIs<PlayAction.MoveCard>(it) }
-        assertEquals(setOf(f.source(f.a, "1/3").id, f.source(f.a, "1/2").id), moves.map { it.cardId }.toSet())
-    }
 }

@@ -44,22 +44,18 @@ class PlayerPopupUiTest {
         compose.onNodeWithContentDescription(scene.items.single { it.id == "life/$owner" }.label).performClick()
         compose.mainClock.advanceTimeBy(350)
         compose.onNodeWithContentDescription("Life", substring = false).assertIsDisplayed()
-        compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Counters").assertDoesNotExist()
+        val life = play.board.players.single { it.accountId == owner }.life
+        compose.onNodeWithContentDescription("Life $life").assertIsDisplayed()
+        // I-D52: life changes only by the rules: no steppers, value editor or counters
+        for (name in listOf("Set life", "Increase life", "Decrease life", "Counters", "Edit status"))
+            compose.onNodeWithContentDescription(name).assertDoesNotExist()
         for (color in CounterColor.entries)
             compose.onNodeWithContentDescription("Set ${color.name.lowercase()} counter").assertDoesNotExist()
+        compose.runOnIdle { assertEquals(owner, toolkit.player) }
         assertTrue(sent.isEmpty())
-        compose.onNodeWithContentDescription("Increase life").performClick()
-        compose.onNodeWithContentDescription("Decrease life").performClick()
-        assertEquals(listOf(PlayAction.AdjustLife(owner, "1"), PlayAction.AdjustLife(owner, "-1")), sent)
-        compose.onNodeWithContentDescription("Set life").performClick()
-        compose.runOnIdle {
-            assertEquals(ManualValue(ManualValueKind.LIFE), toolkit.manual.editor!!.field)
-            assertEquals(owner, toolkit.manual.editor!!.scope.contextId)
-        }
     }
 
-    // TRN-030, TRN-031
+    // TRN-030
     @Test fun ownPortraitLife() = life("a")
     @Test fun opponentPortraitLife() = life("b")
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownLandscapeLife() = life("a", true)
@@ -68,53 +64,4 @@ class PlayerPopupUiTest {
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownEmptyLandscapeLife() = life("a", true, empty = true)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentEmptyLandscapeLife() = life("b", true, empty = true)
 
-    private fun counters(owner: String, empty: Boolean = false) {
-        val (play, toolkit, sent) = render(true, empty = empty)
-        val scene = TablePresentation.scene(TableFixture.game, play, "a", 892f, 412f, true)
-        // All six slots show, empty ones too; tapping any of them opens the Counters popup.
-        val slots = scene.items.filter { it.owner == owner && it.kind == TableItemKind.COUNTER }
-        assertEquals(CounterColor.entries.toList(), slots.map { it.counter })
-        if (empty) assertTrue(slots.all { it.value.isEmpty() })
-        compose.onNodeWithContentDescription(scene.items.single { it.id == "counter/$owner/BLUE" }.label).performClick()
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Counters").assertIsDisplayed()
-        compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
-        for (color in CounterColor.entries) {
-            val name = color.name.lowercase()
-            compose.onNodeWithContentDescription("Set $name counter").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Decrease $name counter").assertIsDisplayed()
-            compose.onNodeWithContentDescription("Increase $name counter").assertIsDisplayed()
-        }
-        assertTrue(sent.isEmpty())
-        compose.onNodeWithContentDescription("Increase red counter").performClick()
-        compose.onNodeWithContentDescription("Decrease blue counter").performClick()
-        assertEquals(listOf(PlayAction.AdjustCounter(CounterTarget.PLAYER, owner, CounterColor.RED, "1"),
-            PlayAction.AdjustCounter(CounterTarget.PLAYER, owner, CounterColor.BLUE, "-1")), sent)
-        compose.onNodeWithContentDescription("Set blue counter").performClick()
-        compose.runOnIdle {
-            assertEquals(ManualValue(ManualValueKind.COUNTER, CounterColor.BLUE), toolkit.manual.editor!!.field)
-            assertEquals(owner, toolkit.manual.editor!!.scope.contextId)
-        }
-    }
-
-    // TRN-031, TRN-033, TRN-035
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownLandscapeCounters() = counters("a")
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentLandscapeCounters() = counters("b")
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun ownEmptyLandscapeCounters() = counters("a", empty = true)
-    @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun opponentEmptyLandscapeCounters() = counters("b", empty = true)
-
-    @Test fun lifeValueStillDrags() {
-        val (play, _, sent) = render(false)
-        val scene = TablePresentation.scene(TableFixture.game, play, "a", 412f, 892f, false)
-        compose.onNodeWithContentDescription(scene.items.single { it.id == "life/a" }.label).performClick()
-        compose.mainClock.advanceTimeBy(350)
-        compose.onNodeWithContentDescription("Set life").performTouchInput {
-            advanceEventTime(350)
-            down(center)
-            moveBy(Offset(60f, 0f))
-            up()
-        }
-        assertEquals(listOf(PlayAction.AdjustLife("a", "1")), sent)
-        compose.onNodeWithContentDescription("Set life").assertIsDisplayed()
-    }
 }

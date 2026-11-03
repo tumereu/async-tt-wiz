@@ -216,15 +216,7 @@ class LobbyStartTest {
             for (viewer in listOf(owner, other)) {
                 val scene = TablePresentation.scene(active, play, viewer.accountId, width, height, landscape)
                 assertEquals(2, scene.fields.size)
-                // ... including both players' always-shown (still empty) Temp 1 piles.
-                assertEquals(13, scene.items.count { it.kind != TableItemKind.COUNTER })
-                val counters = scene.items.filter { it.kind == TableItemKind.COUNTER }
-                // TRN-034, TRN-035: all six (still empty) counters per player in both orientations.
-                assertEquals(12, counters.size)
-                for (player in listOf(owner, other)) {
-                    assertEquals(CounterColor.entries.toSet(),
-                        counters.filter { it.owner == player.accountId }.map { it.counter }.toSet())
-                }
+                assertEquals(11, scene.items.size)
                 for (item in scene.items) {
                     // Scrollable docks may extend offscreen; only clipped drawings are exposed.
                     for (visible in item.visible) {

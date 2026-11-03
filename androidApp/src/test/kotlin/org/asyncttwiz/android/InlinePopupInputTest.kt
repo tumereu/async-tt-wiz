@@ -42,20 +42,6 @@ class InlinePopupInputTest {
         return downs
     }
 
-    @Test fun manageStackCopySubmitsAndKeepsPopupOpen() {
-        val state = TableStatesFixture.combat()
-        val id = CombatStackRules.stack(state.board).cards.first()
-        val intents = mutableListOf<TableIntent>()
-        val downs = renderPopup { dismiss ->
-            ManageStackDialog(state, TableStatesFixture.a, true, dismiss, intents::add)
-        }
-        compose.onAllNodesWithContentDescription("Copy")[0].performTouchInput { click() }
-        compose.onNodeWithContentDescription("Context action grid").assertExists()
-        compose.runOnIdle {
-            assertEquals(listOf<TableIntent>(TableIntent.Submit(StackMenuActions.copy(state, id), null)), intents)
-            assertTrue(downs.isEmpty())
-        }
-    }
 
     // SYS-042
     @Test fun emptyCellAndGapDismissAndRelayBothPressAndReleaseButControlSwipeChangesPage() {

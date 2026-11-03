@@ -147,7 +147,7 @@ object CombatStackPresentation {
             val targetCard = board.cards.find { it.id == target }
             // Combat review #3 (CR 506.4c): with Automatum on attackers keep a target that left the battlefield; they
             // attack nothing
-            val gone = board.automatum && target != null && board.containers.none { it.zone == PlayZone.BATTLEFIELD && it.id == targetCard?.containerId }
+            val gone = target != null && board.containers.none { it.zone == PlayZone.BATTLEFIELD && it.id == targetCard?.containerId }
             val hidden = !gone && targetCard != null && (targetCard.isFaceDown || !CardVisibility.isVisibleFaceUp(board, targetCard, viewer))
             val defender = CombatStackRules.defendingPlayer(board)
             val avatar = if (target == null) avatars[defender]?.takeIf { it.face in 0..15 } else null
@@ -163,7 +163,7 @@ object CombatStackPresentation {
                 target == null -> board.players.firstOrNull { it.accountId == defender }?.life.orEmpty()
                 hidden || gone -> ""
                 // Combat review #5: with Automatum on loyalty and defense are the typed counters Automatum changes
-                board.automatum && targetCard != null -> {
+                targetCard != null -> {
                     val kind = if (AttackTargets.hasType(face?.typeLine.orEmpty(), "Planeswalker")) "loyalty" else "defense"
                     (targetCard.typedCounters.firstOrNull { it.kind == kind }?.count ?: 0).toString()
                 }

@@ -51,11 +51,8 @@ class CombatRetargetDragTest {
         /** Press the attacker's drawing and drag it to [to], exactly like a finger. */
         fun drag(occurrenceId: String, to: (TableScene) -> TablePoint): TableDestination? {
             val scene = scene()
-            val gestures = TableGestureCoordinator({ intent -> when (intent) {
-                is TableIntent.Selection -> ui.selectionState.value = intent.selection
-                else -> { ui.handle(intent) }
-            } })
-            gestures.update(scene, TableSelection(), true)
+            val gestures = TableGestureCoordinator({ intent -> ui.handle(intent) })
+            gestures.update(scene, true)
             val origin = scene.items.single { it.cardId == occurrenceId }
             val target = to(scene)
             gestures.down(origin.bounds.center, 0)

@@ -83,25 +83,11 @@ class AutomatumOpeningTest {
     private fun library(player: String) = play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == player }
     private fun handId(player: String) = play.board.containers.single { it.zone == PlayZone.HAND && it.accountId == player }.id
     private fun quick(toolkit: TableToolkitController, name: String) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer), toolkit.table).single { it.name == name }
+        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).single { it.name == name }
     private fun quickNames(toolkit: TableToolkitController) =
-        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer), toolkit.table).map { it.name }
+        QuickActions.contextual(play, QuickContext(viewer = toolkit.viewer)).map { it.name }
     private fun mulligans(player: String) = play.board.players.single { it.accountId == player }.mulligans
     private fun opening(player: String) = PlayerStatus.opening(play.board, player)
-    /** "Mull N" with 7 in its dialog (TRN-027, ZON-028), as the player taps it (Automatum off). */
-    private fun mullSeven(toolkit: TableToolkitController) {
-        val mull = quick(toolkit, "Mull N")
-        assertTrue(mull.enabled, "Mull N works during the opening: ${mull.refused}")
-        assertTrue(toolkit.table.perform(mull.intent))
-        val library = assertNotNull(toolkit.library, "the mulligan dialog opened")
-        assertEquals(0, library.controller.mulligan(library.handIds, 7).refused, toolkit.error)
-        toolkit.dismiss()
-    }
-    private fun ready(toolkit: TableToolkitController) {
-        val ready = quick(toolkit, QuickActions.READY)
-        assertTrue(ready.enabled)
-        assertTrue(toolkit.table.perform(ready.intent), toolkit.error)
-    }
     /** "Mulligan" (I-D49), as the player taps it. */
     private fun mulligan(toolkit: TableToolkitController) {
         val mulligan = quick(toolkit, QuickActions.MULLIGAN)
@@ -248,7 +234,6 @@ class AutomatumOpeningTest {
     @Test fun switchedOnBeforeTheHandsAreDrawn() {
         tree = GameplayTree(newGame())
         val a = device(alice)
-        assertEquals(listOf("Mull N", "Mull −1", QuickActions.READY), quickNames(a), "Automatum off: by hand (TRN-027)")
         assertTrue(a.setAutomatum(true), a.error)
         assertEquals(listOf(QuickActions.MULLIGAN, QuickActions.KEEP), quickNames(a))
         mulligan(a)
@@ -261,21 +246,4 @@ class AutomatumOpeningTest {
         assertEquals(7, hand(alice).size)
     }
 
-    // TRN-027, TRN-029 (I-D28): the opening played with Automatum off, Automatum switched on once both are Ready: the
-    // first turn begins from its untap step through Automatum all the same
-    @Test fun switchedOnAfterTheOpeningTheFirstTurnBegins() {
-        tree = GameplayTree(newGame())
-        val a = device(alice)
-        val b = device(bob)
-        mullSeven(a)
-        mullSeven(b)
-        ready(a)
-        ready(b)
-        assertTrue(b.setAutomatum(true), b.error)
-        assertTrue(next(a), a.error)
-        assertEquals(TurnPosition.PRECOMBAT_MAIN, TurnPosition.of(play.board.turn))
-        assertEquals(7, hand(alice).size)
-        playLand(a)
-        assertEquals(6, hand(alice).size)
-    }
 }

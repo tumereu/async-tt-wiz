@@ -182,7 +182,6 @@ class TableAnimationTest {
                 val moving = animation.frame(progress).single { it.item.cardId == id }.item
                 if (moving.inTransit || progress == 0f) {
                     assertTrue(moving.covered)
-                    assertFalse(moving.panelRevealed)
                     assertNull(moving.artwork)
                     assertEquals("", moving.value)
                 }

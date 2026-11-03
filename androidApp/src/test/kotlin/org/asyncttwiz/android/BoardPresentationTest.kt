@@ -53,11 +53,8 @@ class BoardPresentationTest {
         assertTrue(drawings.all { it.bounds.intersection(pile.stackBadge) == null }, "Count must not cover names")
         assertEquals(pile, scene.hit(pile.stackBadge.center))
         val panel = scene.items.single { it.cardId == shown }
-        assertTrue(panel.panelRevealed)
-        assertEquals("Shield until end of turn", panel.note)
         assertFalse(panel.covered)
         val graveyard = scene.items.single { it.id == "a/GRAVEYARD" }
-        assertEquals("Shield until end of turn", graveyard.note)
         assertEquals("Forest", graveyard.faceTitle)
 
         val output = File("$SCREENSHOTS/board-notes-stack-${zoom.toInt()}x.png")
@@ -79,8 +76,6 @@ class BoardPresentationTest {
         val hidden = TablePresentation.scene(LiveTableFixture.game, concealed, "a", 412f, 892f, false)
             .items.single { it.cardId == source }
         assertTrue(hidden.covered)
-        // Rules v23: a face-down Battlefield card's note is public; its face stays covered.
-        assertEquals("Shield until end of turn", hidden.note)
         assertEquals("", hidden.value)
     }
 }

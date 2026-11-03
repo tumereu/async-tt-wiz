@@ -64,13 +64,12 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         }
     }
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
-    val automatum = play.board.automatum
-    val shown = if (automatum && combat != null) combat.ready(play) ?: CombatShown.NONE else CombatShown.NONE
+    val shown = if (combat != null) combat.ready(play) ?: CombatShown.NONE else CombatShown.NONE
     val choices = shown.choices
     val copies = scene.items.filter { it.viewport == "combat" && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }
     val byOccurrence = copies.associateBy { it.cardId }
     val blocks = CombatStackRules.blocks(area)
-    val selected = if (automatum) combat?.selected else null
+    val selected = combat?.selected
     val fights = selected?.let { s ->
         blocks.filter { it.first.sourceId == s }.map { it.second.sourceId } + blocks.filter { it.second.sourceId == s }.map { it.first.sourceId }
     }.orEmpty().toSet()
@@ -111,7 +110,6 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
             }
         }
     }
-    if (area == null && !automatum) return
     val damage = preview?.damage.orEmpty()
     val dies = preview?.dies.orEmpty().toSet()
     val inCombat = copies.mapNotNull { it.sourceId }.toSet()
@@ -132,7 +130,7 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         val chips = mutableListOf<Triple<String, Color, String>>()
         val b = bounds(item)
         val attackerCopy = copy && area?.pairs?.any { p -> p.attackers.any { it.id == item.cardId } } == true
-        if (attackerCopy && automatum) {
+        if (attackerCopy) {
             val keywords = computed.cards[card]?.keywords.orEmpty()
             COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }
                 .forEach { chips += Triple(it.lowercase(), AutomatumViolet, it.lowercase()) }
@@ -141,7 +139,7 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
                 chips += Triple(text, PreviewRed, text)
             }
         }
-        if (real && automatum && card in inCombat) {
+        if (real && card in inCombat) {
             val occurrence = CombatStackRules.occurrences(area).first { it.sourceId == card }
             val pair = area!!.pairs.first { p -> (p.attackers + p.blockers).any { it.id == occurrence.id } }
             val attacker = pair.attackers.any { it.id == occurrence.id }

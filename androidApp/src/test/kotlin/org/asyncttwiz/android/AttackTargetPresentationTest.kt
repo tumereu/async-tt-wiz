@@ -366,13 +366,4 @@ class AttackTargetPresentationTest {
         assertEquals(plan.prediction, change.state)
     }
 
-    @Test fun defaultSingleCornersUseTheSameDragAsPowerToughness() {
-        for (face in listOf(DefinitionFace("walker", "Walker", typeLine = "Planeswalker", loyalty = "4"),
-            DefinitionFace("battle", "Battle", typeLine = "Battle", defense = "7"),
-            DefinitionFace("saga", "Saga", typeLine = "Enchantment — Saga"))) {
-            val value = face.defaultCorner()
-            assertEquals((value.toInt() + 1).toString(), cornerDragValue(value, 1))
-            assertEquals((value.toInt() - 1).toString(), cornerDragValue(value, -1))
-        }
-    }
 }

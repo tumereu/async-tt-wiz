@@ -149,7 +149,7 @@ class AutomatumI12ReviewTest {
         assertTrue(hidden.id in toolkit.cast.glow(play), "the face-down 2/2 is a legal target")
         val item = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
             .single { it.cardId == hidden.id && it.zone == PlayZone.BATTLEFIELD }
-        compose.runOnIdle { toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions(item.id, null), item) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Cast panel").assertExists()
         compose.onAllNodesWithText("Hidden Basilisk", substring = true).assertCountEquals(0)
@@ -189,34 +189,6 @@ class AutomatumI12ReviewTest {
         assertFalse(Automatum.recorded(after.board), "nothing left: the button is greyed")
     }
 
-    // i12review #9 (I-D27, ZON-004, ZON-007; rules v30: the other player acts on a hand blind): with Automatum on, Bob's
-    // hidden hand cards all read "Cast" (greyed) in Alice's hand menu, and her double-tap on one only shakes it (I-D46,
-    // TBL-118), whatever the card is
-    @Test fun opponentsHiddenHandCardIsNeitherNamedNorTyped() {
-        assertTrue(bobHand.size >= 2)
-        val play = board(emptyList(), listOf(mountain)) { card -> when (card.id) {
-            bobHand[0] -> card.copy(definition = mountain.submitted.digest, faceId = mountain.face.faceId)
-            bobHand[1] -> card.copy(definition = spark.submitted.digest, faceId = spark.face.faceId)
-            else -> card
-        } }
-        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true }, automatedBatch = { batch, _ -> sent += batch; true }).also { it.cast.autotap = false }
-        fun doubleTap(card: String): String? {
-            toolkit.dismissError()
-            toolkit.handle(TableIntent.Move(TableScope(card, listOf(card)), TableDestination.Container(f.id("stack"), PlayZone.STACK),
-                handDoubleTap = true))
-            assertEquals(card, toolkit.shaking?.id, "the card shakes")
-            return toolkit.error
-        }
-        val land = doubleTap(bobHand[0])
-        val instant = doubleTap(bobHand[1])
-        assertNull(land, "no message tells a hidden land")
-        assertNull(instant, "no message tells a hidden spell")
-        fun control(card: String) = handMenuTools(toolkit, play, ToolkitCapture(listOf(card), card, listOf(card), emptyMap(), null),
-            TableSelection(), emptyMap(), true).single { it.name == "Play" || it.name == "Cast" }
-        assertEquals(control(bobHand[0]).name, control(bobHand[1]).name, "the menu doesn't tell a hidden land from a hidden spell")
-        assertFalse(control(bobHand[0]).enabled || control(bobHand[1]).enabled, "only their owner casts them")
-        assertTrue(sent.isEmpty())
-    }
 
     // i12review #10 (STK-025, TableToolkitController.enabled): while the player can't act (the personal timeline is
     // open, the connection is down) Cast sends nothing and says why; the cast stays open and follows no reviewed board
@@ -283,7 +255,7 @@ class AutomatumI12ReviewTest {
         assertTrue(pile in glow, "the Graveyard holding them glows")
         val items = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
         val pileItem = items.single { it.id == pile }
-        toolkit.open(TableIntent.Actions(pileItem.id, null), pileItem, TableSelection())
+        toolkit.open(TableIntent.Actions(pileItem.id, null), pileItem)
         assertNull(toolkit.error)
         assertEquals(pile, toolkit.layoutState.value.localPileId, "the pile opens as its card panel")
         assertTrue(toolkit.cast.targeting, "still choosing targets")
@@ -305,7 +277,7 @@ class AutomatumI12ReviewTest {
         captureShot("$SCREENSHOTS/automatum/cast-graveyard-target.png",
             "Casting the invented Grave Recall, Alice tapped her glowing Graveyard: it opens as its card panel with each Grave Hound on its own, both glowing as legal targets, under the slim target bar.")
         val second = panel.single { it.cardId == graveyard[1] }
-        compose.runOnIdle { toolkit.open(TableIntent.Actions(second.id, null), second, TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions(second.id, null), second) }
         compose.waitForIdle()
         val chosen = (toolkit.cast.flow?.steps?.single()?.second as Answer.Targets).chosen.single() as TargetRef.Object
         assertEquals(graveyard[1], toolkit.cast.atwCard(chosen.id))

@@ -80,8 +80,8 @@ class TableChromeUiTest {
                 assertTrue(b.width in 68f..72f); assertEquals(48f, b.height)
                 assertEquals(pixels.width - 8f, b.right, "Step button belongs in the right corner")
                 assertEquals(advanceButtonStyle(play.board, who).fill.toArgb(), pixels.getRGB(b.left.toInt() + 4, b.top.toInt() + 4))
-                val controller = TableActionController({ play }, { true }, { true }, RecordingRoutes())
-                val actions = QuickActions.contextual(play, QuickContext(viewer = who), controller)
+                val controller = TableActionController({ play }, { true }, RecordingRoutes())
+                val actions = QuickActions.contextual(play, QuickContext(viewer = who))
                 val cells = actions.map { compose.onNodeWithContentDescription(it.name).fetchSemanticsNode().boundsInRoot }
                 assertTrue(cells.isNotEmpty())
                 for (cell in cells) assertEquals(cells.first().width, cell.width, 1f, "Equal quick action widths")

@@ -193,12 +193,10 @@ class AutomatumCombatScreenshotTest {
         assertTrue(alice.handle(TableIntent.Move(TableScope(land, listOf(land)), TableDestination.Grid(aField, 2, 0), drag = true)), alice.error)
         assertEquals(PlayZone.BATTLEFIELD, zone(land), "played through Automatum")
         assertTrue(play.board.engineRecords.any { it.id == "turn" }, "counted as the turn's land play")
-        // A card moved by hand out of its zone, life dragged: refused, shaking what was dragged (I-D46)
+        // A card moved by hand out of its zone: refused, shaking what was dragged (I-D46)
         assertFalse(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)),
             TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)))
         assertEquals(fieldLand, alice.shaking?.id)
-        assertFalse(alice.handle(TableIntent.PlayerDelta(f.b, null, -2)))
-        assertEquals("life/${f.b}", alice.shaking?.id)
         assertNull(alice.error)
         // Within its own Battlefield a card only changes place
         assertTrue(alice.handle(TableIntent.Move(TableScope(fieldLand, listOf(fieldLand)), TableDestination.Grid(aField, 5, 1), drag = true)))
@@ -216,14 +214,14 @@ class AutomatumCombatScreenshotTest {
     // ---- The combat area with Automatum (I-D32)
 
     private fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
-    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
+    private fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
     /** Taps [card] on its Battlefield as [toolkit]'s player sees it. */
     private fun tapCard(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.cardId == card && it.viewport != "combat" && it.zone == PlayZone.BATTLEFIELD })
     /** Taps [card]'s combat copy as [toolkit]'s player sees it. */
     private fun tapCopy(toolkit: TableToolkitController, card: String) = tap(toolkit,
         scene(toolkit.viewer).items.first { it.viewport == "combat" && it.sourceId == card })
-    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, TableSelection(), toolkit.viewer)
+    private fun quick(toolkit: TableToolkitController) = automatumCombatQuickActions(play, toolkitQuickContext(play, toolkit.viewer)
         .copy(automatumCombat = AutomatumBoards.combat(play) { engineTags(tree, play.currentNodeId) })
         .withCombatTarget(toolkit.combat, play, "Bob"), TableActionScope(play.gameId, play.id)).orEmpty()
     private fun perform(toolkit: TableToolkitController, name: String) = quick(toolkit).single { it.name == name }.let { action ->
@@ -297,10 +295,9 @@ class AutomatumCombatScreenshotTest {
     @Test fun mainPhaseNextStepGoesToDeclareAttackers() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(brute), bobField = listOf(ogre)))
         val alice = toolkit(f.a)
-        assertTrue(AutomatumToggles.shown(play, toolkitQuickContext(play, TableSelection(), f.a)))
+        assertTrue(AutomatumToggles.shown(play, toolkitQuickContext(play, f.a)))
         assertTrue(alice.perform(TableActionIntent.Next(TableActionScope(play.gameId, play.id))), alice.error)
         assertEquals(TurnPosition.DECLARE_ATTACKERS, TurnPosition.of(play.board.turn))
-        assertEquals(TableMode.NORMAL, alice.selectionState.value.mode, "taps stage; no selection mode")
     }
 
     // CMB-028: a tap on another target's header makes its lane the active one; taps then stage there
@@ -535,37 +532,6 @@ class AutomatumCombatScreenshotTest {
         assertEquals(PlayZone.BATTLEFIELD, zone(bruteCard), "the Warden's 3 went to the Wall: the Brute got only the Ogre's 3")
         assertEquals(PlayZone.GRAVEYARD, zone(wardenCard), "Alice's suggestion: lethal 3 to the Warden first")
     }
-    // CMB-031, CMB-022: with Automatum off, a defender's card dropped on an attacker blocks it; dropped on a second
-    // attacker it gets one more arrow, and again there the arrow goes; at Combat damage only Close + next is offered
-    // (I-D39: the damage is dealt by hand)
-    @Test fun manualBlocksByArrows() {
-        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(brute, bear), bobField = listOf(ogre)).let {
-            it.copy(board = it.board.copy(automatum = false, priority = null)) })
-        val alice = toolkit(f.a)
-        val (bruteCard, bearCard, ogreCard) = listOf(card(play, brute), card(play, bear), card(play, ogre))
-        assertTrue(alice.declare(listOf(bruteCard, bearCard), tap = true), alice.error)
-        val bob = toolkit(f.b)
-        fun drop(card: String, attacker: String) = bob.handle(TableIntent.Move(TableScope(card, listOf(card)),
-            TableDestination.Combat(CombatDestination(play.board.combat!!.id, CombatRole.ATTACKER, pairId = pairOf(attacker).id)), drag = true))
-        assertTrue(drop(ogreCard, bruteCard), bob.error)
-        assertTrue(drop(ogreCard, bearCard), bob.error)
-        assertEquals(listOf(ogreCard to bruteCard, ogreCard to bearCard), blocks())
-        assertEquals(1, CombatStackRules.occurrences(play.board.combat).count { it.sourceId == ogreCard }, "one copy, two arrows")
-        render(bob)
-        captureShot("$SCREENSHOTS/automatum/combat-manual.png",
-            "Automatum off, Bob's mirrored view: he dropped Hill Ogre on Ironhide Brute and then on Stout Bear, so one blocker copy sits under the Brute with an arrow to each attacker; no glows, numbers or badges.")
-        compose.runOnIdle { assertTrue(drop(ogreCard, bearCard)) }
-        compose.waitForIdle()
-        assertEquals(listOf(ogreCard to bruteCard), blocks(), "dropped there again: that arrow goes")
-        compose.runOnIdle { assertTrue(drop(ogreCard, bearCard)) }
-        compose.waitForIdle()
-        assertTrue(play.board.combat!!.pairs.single { p -> p.attackers.any { it.sourceId == bearCard } }.let { pair ->
-            CombatStackRules.blockedFromElsewhere(play.board.combat, pair.id) }, "the Bear counts as blocked by the arrow")
-        live.value = play.copy(board = play.board.copy(turn = play.board.turn.copy(phase = TurnPosition.COMBAT_DAMAGE.phase,
-            step = TurnPosition.COMBAT_DAMAGE.step)))
-        assertEquals(listOf("Close + next"), QuickActions.contextual(play, toolkitQuickContext(play, TableSelection(), f.a), alice.table)
-            .map { it.name })
-    }
     // ---- A Stack entry below the top as a target (STK-023)
 
     // STK-023, I-D6, CR 115.1: Alice's Quash may counter either spell on the Stack; the one below the top is picked in
@@ -576,7 +542,7 @@ class AutomatumCombatScreenshotTest {
             aliceHand = listOf(spark, quash), bobHand = listOf(spark)))
         val alice = toolkit(f.a)
         val bob = toolkit(f.b)
-        fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item, TableSelection())
+        fun tap(toolkit: TableToolkitController, item: TableItem) = toolkit.open(TableIntent.Actions(item.id, null), item)
         fun scene(viewer: String) = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false)
         assertTrue(alice.cast.start(card(play, spark, aHand)))
         tap(alice, scene(f.a).items.first { it.id == "life/${f.b}" })

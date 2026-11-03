@@ -240,7 +240,7 @@ class AutomatumControlsScreenshotTest {
         val toolkit = render(play)
         val pile = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items
             .first { it.zone == PlayZone.LIBRARY && it.id == library }
-        compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile, TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile) }
         compose.waitForIdle()
         compose.onNodeWithContentDescription("Play · Forest").assertIsEnabled()
         compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
@@ -259,7 +259,7 @@ class AutomatumControlsScreenshotTest {
         val toolkit = render(play)
         val library = f.id("a/LIBRARY")
         val pile = TablePresentation.scene(f.game, play, f.a, 412f, 892f, false).items.first { it.zone == PlayZone.LIBRARY && it.id == library }
-        compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile, TableSelection()) }
+        compose.runOnIdle { toolkit.open(TableIntent.Actions(pile.id, null), pile) }
         compose.waitForIdle()
         compose.runOnIdle {
             assertNull(toolkit.panel)
@@ -315,8 +315,6 @@ class AutomatumControlsScreenshotTest {
             val tappedMountain = play.board.cards.first { it.definition == mountain.submitted.digest && it.tapped }.id
             assertFalse(toolkit.handle(TableIntent.Rotate(TableScope(tappedMountain, listOf(tappedMountain)), false, toggle = true)))
             assertEquals(tappedMountain, toolkit.shaking?.id)
-            assertFalse(toolkit.handle(TableIntent.PlayerDelta(f.a, null, -1)))
-            assertEquals("life/${f.a}", toolkit.shaking?.id)
             assertFalse(toolkit.handle(TableIntent.Move(TableScope(druidId, listOf(druidId)),
                 TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)))
             assertEquals(druidId, toolkit.shaking?.id)
@@ -342,20 +340,6 @@ class AutomatumControlsScreenshotTest {
         compose.onNodeWithContentDescription("Timeline").assertExists()
     }
 
-    // STK-035, TBL-119, I-D46, I-D50: with Automatum on there are no Stack bubbles and Manage Stack has no buttons (no
-    // Note, Ping or text marks either); with it off all are there
-    @Test fun stackOffersNoManualMoves() {
-        val off = f.combat()
-        val on = off.copy(board = off.board.copy(automatum = true))
-        val entry = f.id("effect")
-        fun shown(play: PlayState) = TablePresentation.stackBubbles(
-            TablePresentation.scene(f.game, play, f.a, 412f, 892f, false), play, entry, 412f, 892f)
-        fun bubbles(play: PlayState) = assertNotNull(shown(play)).controls.map { it.id.substringAfter('/') }
-        assertNull(shown(on))
-        assertEquals(listOf("battlefield", "graveyard", "remove", "exile", "mark"), bubbles(off))
-        assertEquals(emptyList(), StackMenuActions.controls(on, entry, true, {}, {}, {}).map { it.name })
-        assertEquals(7, StackMenuActions.controls(off, entry, true, {}, {}, {}).size)
-    }
 
     // TRN-062, TRN-059, I-D49, I-D48: during Alice's opening with Automatum on her quick actions are Mulligan and Keep (icon
     // and text) and her hand cards' menu has no bottom; after two mulligans Keep opens the Keep / Bottom screen: OK only

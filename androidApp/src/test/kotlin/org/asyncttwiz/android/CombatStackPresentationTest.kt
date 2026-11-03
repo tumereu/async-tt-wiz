@@ -5,42 +5,6 @@ import org.junit.Test
 import kotlin.test.*
 
 class CombatStackPresentationTest {
-    // CMB-005, HIS-082, STK-009
-    @Test fun projectionNoteChipsUseOccurrenceTextNotTheSourceNoteAndPingTargetsTheOccurrence() {
-        val f = TableStatesFixture
-        val original = f.combat()
-        val state = original.copy(board = original.board.copy(cards = original.board.cards.map { it.copy(note = "source") },
-            stackEffects = original.board.stackEffects.map { it.copy(note = "effect") },
-            combat = original.board.combat!!.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
-                attackers = pair.attackers.map { it.copy(note = "attacker") }, blockers = pair.blockers.map { it.copy(note = "blocker") }) }) }))
-        val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
-        for (item in scene.items.filter { it.projection && !it.covered }) {
-            assertEquals(CombatStackRules.projectionNote(state.board, item.cardId!!), item.note)
-            assertEquals(PingTarget(PingTargetKind.OCCURRENCE, item.cardId), tablePingTarget(state, item))
-            assertNotEquals("source", item.note)
-        }
-        assertTrue(scene.items.any { it.projection && it.note.isNotEmpty() })
-    }
-    // CMB-005, STK-009
-    @Test fun projectionsWithoutTheirOwnNoteShowTheRealCardsNoteButHiddenValuesStayHidden() {
-        val f = TableStatesFixture
-        val original = f.combat()
-        val state = original.copy(board = original.board.copy(cards = original.board.cards.map { it.copy(note = "source") },
-            combat = original.board.combat!!.let { area -> area.copy(pairs = area.pairs.map { pair -> pair.copy(
-                attackers = pair.attackers.map { if (it.id == f.id("attacker1")) it.copy(note = "own") else it }) }) }))
-        val scene = TablePresentation.scene(f.game, state, f.a, 412f, 892f, false)
-        fun note(id: String) = scene.items.single { it.cardId == f.id(id) }.note
-        assertEquals("own", note("attacker1"))
-        assertEquals("source", note("attacker2"))
-        assertEquals("source", note("blocker"))
-        assertEquals("source", note("effect"))
-        assertEquals("", CombatStackRules.projectionNote(state.board, f.id("attacker2"))) // The copy keeps no note of its own.
-        // A face-down Stack entry (STK-005) hides its card, so the real card's note stays hidden too.
-        val faceDown = state.copy(board = state.board.copy(stackEffects = state.board.stackEffects.map { it.copy(faceDown = true) }))
-        val hidden = TablePresentation.scene(f.game, faceDown, f.b, 412f, 892f, false).items.single { it.cardId == f.id("effect") }
-        assertTrue(hidden.covered)
-        assertEquals("", hidden.note)
-    }
 
     // STK-003
     @Test fun stackAndCombatDrawingsIgnoreTappedSourcesWithoutChangingRealCards() {
@@ -210,60 +174,5 @@ class CombatStackPresentationTest {
         assertTrue(scene.visible.zipWithNext().all { (a, b) -> a.bounds.x > b.bounds.x && a.bounds.y > b.bounds.y })
     }
 
-    @Test fun contextualDestinationsAreExplicitTypedMetadataNotRulesInference() {
-        var state = combatState()
-        val source = state.board.cards.first()
-        state = state.copy(board = state.board.copy(cards = state.board.cards.map {
-            if (it.id == source.id) it.copy(containerId = combatId(12)) else it
-        }, containers = state.board.containers.map { when (it.zone) {
-            PlayZone.STACK -> it.copy(cards = listOf(source.id))
-            else -> it.copy(cards = it.cards - source.id)
-        } }))
-        val permanent = StackContexts.context(state, source.id)
-        assertEquals(PlayZone.BATTLEFIELD, permanent.destination)
-        val choices = listOf(StackMoveChoice("Graveyard", PlayZone.GRAVEYARD, MoveDestination(combatId(13), MoveInsertion.UNORDERED)),
-            StackMoveChoice("Battlefield", PlayZone.BATTLEFIELD, MoveDestination(combatId(10), MoveInsertion.EMPTY,
-                BoardPosition(4, 2))))
-        assertEquals(listOf(choices[1]), StackContexts.destinations(permanent, choices, true))
-        assertEquals(choices, StackContexts.destinations(permanent, choices, false))
-        val spell = state.copy(definitions = state.definitions.map { it.copy(definition = it.definition.copy(faces = it.definition.faces.map { face ->
-            face.copy(typeLine = "Instant", rulesText = "a creature text is not classification")
-        })) })
-        assertEquals(listOf(choices[0]), StackContexts.destinations(StackContexts.context(spell, source.id), choices, true))
-        val unknown = state.copy(definitions = emptyList())
-        assertTrue(StackContexts.destinations(StackContexts.context(unknown, source.id), choices, true).isEmpty())
-        assertEquals(choices, StackContexts.destinations(StackContexts.context(unknown, source.id), choices, false))
-        val ambiguous = spell.copy(definitions = spell.definitions.map { it.copy(definition = it.definition.copy(
-            faces = it.definition.faces.map { face -> face.copy(typeLine = "Instant Creature") })) })
-        assertEquals(StackContextKind.UNCLASSIFIED, StackContexts.context(ambiguous, source.id).kind)
-        val otherFace = state.copy(definitions = state.definitions.map { it.copy(definition = it.definition.copy(
-            faces = it.definition.faces + DefinitionFace(combatId(699), "Other face", typeLine = "Instant"))) })
-        assertEquals(StackContextKind.PERMANENT, StackContexts.context(otherFace, source.id).kind)
-        assertFailsWith<IllegalArgumentException> { StackContexts.context(state, combatId(999)) }
-    }
 
-    @Test fun liveEffectMovesBindSourceButFrozenEffectOnlyRemovesAndInspects() {
-        val state = combatState()
-        val commands = CombatCommands()
-        val live = CombatStackController.addEffects(state, combatId(8),
-            listOf(CombatStackController.bind(state.board, combatId(25))), commands::command).prediction
-        val effect = live.board.stackEffects.single()
-        val context = StackContexts.context(live, effect.id)
-        val choice = StackMoveChoice("Graveyard", PlayZone.GRAVEYARD, MoveDestination(combatId(13), MoveInsertion.UNORDERED))
-        assertEquals(combatId(25), context.target.sourceId)
-        assertTrue(StackContexts.destinations(context, listOf(choice), true).isEmpty())
-        assertEquals(listOf(choice), StackContexts.destinations(context, listOf(choice), false))
-        val token = live.board.cards.single { it.id == effect.sourceId }.copy(corner = "5/2")
-        val frozen = live.copy(board = live.board.copy(cards = live.board.cards.filterNot { it.id == token.id },
-            stackEffects = listOf(effect.copy(frozen = token))))
-        val frozenContext = StackContexts.context(frozen, effect.id)
-        assertNull(frozenContext.target.sourceId)
-        assertTrue(StackContexts.destinations(frozenContext, listOf(choice), false).isEmpty())
-        val scene = CombatStackPresentation.stack(frozen.board, 48f, 68f)
-        assertTrue(scene.visible.single().frozen)
-        val label = CombatStackPresentation.label(frozen, scene.visible.single())
-        assertTrue(label.contains("Covered card") && label.contains("read-only"))
-        assertFalse(label.contains("Sample"))
-        assertEquals("5/2", CombatStackRules.inspection(frozen.board, effect.id)!!.corner)
-    }
 }

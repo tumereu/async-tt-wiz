@@ -136,7 +136,7 @@ class AutomatumPauseReviewTest {
     }
     private fun targetLife(toolkit: TableToolkitController, play: PlayState, viewer: String, target: String) {
         val life = TablePresentation.scene(f.game, play, viewer, 412f, 892f, false).items.first { it.id == "life/$target" }
-        toolkit.open(TableIntent.Actions(life.id, null), life, TableSelection())
+        toolkit.open(TableIntent.Actions(life.id, null), life)
     }
     private fun life(play: PlayState, player: String) = play.board.players.single { it.accountId == player }.life.toInt()
 

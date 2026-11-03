@@ -122,7 +122,7 @@ internal object AutomatumBoards {
     private fun seed(): String = DeviceRandom.seed()
 
     /** Whether [play]'s board has a shared flow to show (I2): an open decision, or something on the Stack. */
-    fun sharedFlowShown(play: PlayState): Boolean = play.board.automatum &&
+    fun sharedFlowShown(play: PlayState): Boolean =
         (org.asyncttwiz.protocol.Automatum.flowOpen(play.board) || play.board.stackEffects.any { it.item != null })
 
     /** Whether Automatum's open choice on [play]'s board is something to do by hand (I-D37): manual edits are allowed
@@ -178,7 +178,7 @@ internal object AutomatumBoards {
      * for the latest boards; worked out now when not yet (blocking: a few engine calls). [CombatShown.NONE] outside
      * combat or with Automatum off. [tags]: the history's tags (D33), read only when it has to be worked out. */
     fun combat(play: PlayState, tags: () -> List<MtgTag?>): CombatShown {
-        if (!play.board.automatum || play.board.turn.let { TurnPosition.of(it) } !in COMBAT_STEPS) return CombatShown.NONE
+        if (play.board.turn.let { TurnPosition.of(it) } !in COMBAT_STEPS) return CombatShown.NONE
         cachedCombat(play)?.let { return it }
         val result = try {
             val definitions = definitions(play.definitions)
@@ -287,17 +287,15 @@ internal val LocalComputedBoard = staticCompositionLocalOf { ComputedBoard.NONE 
  */
 @Composable
 internal fun rememberComputedBoard(play: PlayState, viewer: String, tags: (() -> List<MtgTag?>)? = null): ComputedBoard {
-    val on = play.board.automatum
     var last by remember(play.id, viewer) { mutableStateOf(ComputedBoard.NONE) }
-    val ready = if (on) AutomatumBoards.cached(play, viewer) else null
-    LaunchedEffect(IdentityKey(play.board), viewer, on) {
-        if (!on) { last = ComputedBoard.NONE; return@LaunchedEffect }
+    val ready = AutomatumBoards.cached(play, viewer)
+    LaunchedEffect(IdentityKey(play.board), viewer) {
         last = ready ?: withContext(AutomatumBoards.boardWorker) { AutomatumBoards.compute(play, viewer) }
         // I2: what the viewer may cast from their hand, ready before their hand menu or a double-tap asks (the history's
         // tags read on the worker too)
         if (tags != null) withContext(AutomatumBoards.boardWorker) { AutomatumBoards.handPlays(play, viewer, tags) }
     }
-    return if (!on) ComputedBoard.NONE else ready ?: last
+    return ready ?: last
 }
 
 /** The tags of the history's events from the start up to [nodeId], in order (D33: the engine's event log rides on them).

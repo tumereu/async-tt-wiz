@@ -216,16 +216,6 @@ class AutomatumI3ReviewTest {
         assertTrue(alice.submit(PlayAction.AdjustLife(f.b, "-1")), alice.error)
     }
 
-    // #6 (STK-032 vs ZON-077, I-D37): "the table's manual edits (life, counters, moves) work until Done", but drags, the
-    // way cards are moved and life is changed on the table, are still refused as Automatum drags
-    @Test fun dragsWorkWhileSomethingIsDoneByHand() {
-        val alice = byHandOpen()
-        val creature = card(play, brute, aField)
-        assertTrue(alice.handle(TableIntent.Move(TableScope(creature, listOf(creature)),
-            TableDestination.Container(f.id("a/GRAVEYARD"), PlayZone.GRAVEYARD), drag = true)), alice.error)
-        AutomatumBoards.sharedFlow(play, engineTags(tree, play.currentNodeId))
-        assertTrue(alice.handle(TableIntent.PlayerDelta(f.b, null, -2)), alice.error)
-    }
 
     // #12 (SYS-025): drafting attackers doesn't work combat out again on the main thread: the board after a drafted card
     // is checked against what the last shown board allowed (the same declaration is awaited; the engine doesn't read the

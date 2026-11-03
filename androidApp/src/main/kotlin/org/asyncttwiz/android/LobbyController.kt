@@ -170,8 +170,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
         override fun send(batch: GameAction.PlayBatch, requestId: String, replaces: String) =
             tableActions.gameplayBatch(batch.actions, requestId, batch.tags, replaces)
     }
-    fun annotate(action: PlayAction): Boolean = tableActions.annotate(action)
-    fun annotateBatch(actions: List<PlayAction>): Boolean = tableActions.annotateBatch(actions)
     fun inspectFace(action: PlayAction.InspectFace, lifetimeId: String, isCurrent: () -> Boolean,
         observed: (InspectionEvent) -> Unit): InspectionSubscription? = tableActions.inspectFace(action, lifetimeId, isCurrent, observed)
     fun retainedTree() = tableActions.retainedTree()

@@ -12,7 +12,7 @@ class HistoryPlaybackTest {
         val scene = TableFixture.scene()
         val card = scene.items.first { it.kind == TableItemKind.CARD && it.zone == PlayZone.BATTLEFIELD }
         val gestures = TableGestureCoordinator({ if (it is TableIntent.Peek && it.cardId != null) player.pause() })
-        gestures.update(scene, TableSelection(), true)
+        gestures.update(scene, true)
         player.openFrom(id(0)); player.play()
         while (player.position.mode == HistoryMode.PLAYBACK) { player.next(true); player.finishAnimation(player.position.cursorId) }
         gestures.down(card.bounds.center, 0); gestures.tick(400)

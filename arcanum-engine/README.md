@@ -394,6 +394,12 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   some attackers, mana of any type spent through a permission, a spell's own "as though it had flash" from the hand, the spell being
   cast counted as the next one cast ("the first … spell you cast each turn costs less"), what a sacrificed Aura enchanted and the
   counters of a permanent that left read as they last were, and a {T} cost's source not suggested for its mana.
+- Done, Edge of Eternities (scenarios in `commonTest/…/sets/eoe/`): all 261 cards play. Warp (from the hand only, unless a permission
+  says so: cast from the graveyard, or a warp another permanent gives the spell, which the spell keeps once cast), the warped card's
+  later permission from exile, "a spell was warped this turn" and void; station (the creature's power or toughness) and striations;
+  Lander tokens; devour of a kind ("devour land 3"); draw replacements that add to or multiply the number drawn (CR 121.2a); objects
+  chosen as a cost (tapped or sacrificed with the costs); delayed triggers that wait for a later turn; permissions that change a
+  spell's cost or make lands enter tapped; and counters put on each of several objects counted once before any is put (CR 608.2h).
 - Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
   `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
   (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action and the foretold card's permission),

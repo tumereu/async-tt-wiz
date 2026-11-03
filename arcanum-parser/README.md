@@ -54,6 +54,10 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Avatar: The Last Airbender (`tla`): all 286 cards parse (the Sagas that transform as two faces, the five basic lands untested); its
   rules are in `TlaWordings.kt` (`Tla`, and `TlaPhrases` for conditions and values) and the `tla*` functions of `Sentences.kt`, tried
   first; names with " and " ("Kiro and Tide") are read with singular verbs, and "waterbend {X}" as an additional cost announces X.
+  Edge of Eternities (`eoe`): all 261 cards parse (the five basic lands untested); its rules are in `EoeWordings.kt` (`Eoe`, and
+  `EoePhrases` for values, conditions, nouns and events) and the `eoe*` functions of `Sentences.kt`, tried first; station symbol lines
+  ("N+ | abilities") become statics of the Spacecraft or Planet with N or more charge counters, and the printed power and toughness
+  belong to the striation that makes it a creature ("It's an artifact creature at N+.").
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

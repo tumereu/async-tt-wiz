@@ -25,6 +25,13 @@ import org.jooq.impl.DSL
 class GameProtocolFailure(val code: String, val retryable: Boolean = false) : RuntimeException(code)
 
 /** One durable request/execution domain per persistent game, extended by preparation/gameplay. */
+/**
+ * Test seam (server tests only; null in the service): what the gate sees of a test's stand-in for an Automatum batch,
+ * Automatum's form on the board it is carried out on (pivot review #4: a tagged command names the board it was planned
+ * on), so tests of storage, history and sync can queue events ahead and compare them with their own predictions.
+ */
+@Volatile internal var automated: ((GameplayTree, GameCommand) -> GameCommand?)? = null
+
 class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
     private val clock: java.time.Clock = java.time.Clock.systemUTC()) {
     private val json = GameWire.json
@@ -282,7 +289,9 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
             else {
                 historyLoaded = System.nanoTime()
                 // I-D52: the board changes only through Automatum; the rest of a play command is the shared reducer's
-                AutomatumOnly.change(tree, inbox.accountId.toString(), command).also { change ->
+                // (AutomatumOnly.change, with the tests' stand-in for Automatum's form checked by the gate)
+                (AutomatumOnly.refusal(tree, inbox.accountId.toString(), automated?.invoke(tree, command) ?: command)
+                    ?.let { GameplayTreeChange(reason = it) } ?: HistoryContinuation.change(tree, inbox.accountId.toString(), command)).also { change ->
                     reduced = System.nanoTime()
                     change.tree?.let { next ->
                         treeDelta = gameplayStore.save(sql, tree, next, Math.addExact(before, 1), command.requestId)

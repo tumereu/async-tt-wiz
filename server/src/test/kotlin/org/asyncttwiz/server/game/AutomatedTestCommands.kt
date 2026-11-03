@@ -14,7 +14,13 @@ import org.asyncttwiz.server.accounts.AccountService
  * tests of what a player may send outside Automatum build their commands untagged. Automatum's form names the board the
  * event was planned on (pivot review #4): [boarded] adds it before a tagged command is sent.
  */
-internal val TEST_TAG = MtgTag(listOf("test"))
+internal val TEST_TAG = MtgTag(listOf("test")).also {
+    // Carried out on whatever board the server applies it to, as Automatum plans each batch on the board it acts on
+    automated = { tree, command ->
+        val board = tree.stateAt(command.continuation?.nodeId ?: tree.currentNodeId)?.board
+        if (board == null) null else command.copy(action = boarded(command.action, board))
+    }
+}
 
 /** [action] as an automated event (its board added by [boarded]). */
 internal fun automatedPlay(action: PlayAction): GameAction.Play = GameAction.Play(action, TEST_TAG)

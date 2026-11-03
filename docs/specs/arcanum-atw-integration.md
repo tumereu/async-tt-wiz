@@ -540,6 +540,23 @@ out of anything stuck.
   time. V54 deletes every game that ever started a play (as V41) and drops `game.automatum`. `GAME_PROTOCOL_MINOR` 4.
   Catalog: SYS-055, SYS-057, SYS-062, SYS-063, SYS-067, SYS-069, SYS-073 (new), TRN-031, TRN-060, STK-030, STK-032,
   LOB-031, HIS-091; removed SYS-059, SYS-060, SYS-070, TRN-054, TRN-055.
+- **Built (pivot review fixes, 2026-11-03; report `arcanum-pivot-review.md`):** #1 is I-D53. #2: pods keep their source's
+  stored support (V55 `pod.automatum_support`: a saved cube's stored result, or for a set the creator's device's result,
+  `PodSetSource.support`) and refuse Start draft, auto-start and challenges when it names cards; Ready and the game's start
+  refuse a deck whose stored support for the prepared revision names cards (also in lobbies V54 kept); results not known
+  yet (null) aren't refused by the server, and the device keeps Ready greyed until it knows ("Checking which cards
+  Automatum can play…"). #3: `AutomatumSupport` also finds the engine's run-time by-hand shapes (a resolution-time cost
+  of "its mana cost" or an undefined X, keyword actions it leaves to the players, double the mana, a mana ability with a
+  further asking step, a special action's leftover steps); a `Decision.Manual` that still opens is answered Done inside
+  the call (`EngineCall.gaps`, logged as an "engine gap" refusal) and the batch says it with `MtgAction.Skipped(text)`, an
+  unfolded event "Automatum skipped what it can't do yet: …"; the step arrow has no Done any more. #4: a tagged command is
+  Automatum's only when its (first) tag names the planned board (`MtgTag.board`, checked by the reducer). #5: the opening
+  goes only as a mulligan with its count (n → n+1 while another may be taken) or a keep with exactly the owed bottom
+  cards and Ready last. #6: `skip-next-turn` is supported (`Engine.SUPPORT_VERSION` 2). #7: `AutomatumOnly.allowed` is
+  the device's check too, `AutomatumOnly.change` (gate + shared reducer) the server's processing, the device's
+  prediction and the app's and automatum's multi-device test servers. Leftovers: the Note text size and the Pings /
+  comments and Die / coin auto-pauses are gone. Not done: deleting the protocol actions only manual play used, their
+  state (notes, links, pings, colour counters, Temp piles) and the dead test-only helpers of `CombatStackController`.
 
 ## 4. Shared state ATW adds
 

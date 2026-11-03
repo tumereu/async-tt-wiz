@@ -26,7 +26,8 @@ class AutomatumRuntimeTest {
                 val graveyard = state().board.zoneContainer(owner, PlayZone.GRAVEYARD)!!
                 val card = library.cards.first()
                 val effect = EngineRecord("effect-1", EngineRecordKind.Effect, 2, """{"mechanics":[]}""")
-                val tag = MtgTag(listOf("milled", "put-into-graveyard"), MtgCause(owner, name = "Thought Sieve"))
+                // Automatum's form: the first member names the board it was planned on (pivot review #4)
+                val tag = MtgTag(listOf("milled", "put-into-graveyard"), MtgCause(owner, name = "Thought Sieve"), board = MtgFacts.digest(state().board))
 
                 // An automated batch: a mill and an effect record, each member with its own tag.
                 val accepted = f.owner.execute(batch(listOf(PlayAction.MoveCard(card, MoveSource(library.id, edge = MoveSourceEdge.TOP),
@@ -124,10 +125,13 @@ class AutomatumRuntimeTest {
                 // The player's own settings
                 assertEquals("accepted", manual(f.owner, PlayAction.Mtg(MtgAction.SetFullControl(true))).outcome)
                 assertEquals("accepted", manual(f.recipient, PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false))).outcome)
-                // Alice's opening: a London mulligan, then Keep with one card on the bottom and Ready
-                val mulligan = manualBatch(f.owner, listOf(PlayAction.Mulligan(library.id, hand.id, hand.cards, 7,
-                    RandomV1.encodeSeed(ByteArray(32))), PlayAction.Mtg(MtgAction.SetMulligans(0, 1))))
-                assertEquals("accepted", mulligan.outcome, mulligan.reason)
+                // Alice's opening: two London mulligans (the first free), then Keep with one card on the bottom and Ready
+                for (taken in 0..1) {
+                    val mulligan = manualBatch(f.owner, listOf(PlayAction.Mulligan(library.id, hand.id,
+                        state().board.zoneContainer(owner, PlayZone.HAND)!!.cards, 7, RandomV1.encodeSeed(ByteArray(32))),
+                        PlayAction.Mtg(MtgAction.SetMulligans(taken, taken + 1))))
+                    assertEquals("accepted", mulligan.outcome, mulligan.reason)
+                }
                 val kept = state().board.zoneContainer(owner, PlayZone.HAND)!!
                 val keep = manualBatch(f.owner, listOf(PlayAction.MoveCard(kept.cards.first(), MoveSource(kept.id),
                     MoveDestination(library.id, MoveInsertion.BOTTOM)), PlayAction.SetStatus("")))

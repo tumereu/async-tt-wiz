@@ -571,7 +571,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             // "In any combination of colors": a colour for each mana, else one for all of it
             val combination = (add.mana.kind as? ManaKind.Choose)?.combination == true
             if (choices.names[key] != null && !combination) return@forEachIndexed
-            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(step))), manaNames())
+            val yields = Mana.yields(snap, player, sourceId, a.copy(instructions = a.instructions.copy(steps = listOf(Mana.withChosenColors(a, step)))), manaNames())
             if (combination && chosen.size >= yields.sumOf { it.amount }) return@forEachIndexed
             val among = yields.flatMap { it.colors }.filterNotNull().distinct()
             if (among.size > 1) return Question.ManaColor(key, among)

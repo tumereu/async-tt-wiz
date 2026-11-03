@@ -17116,6 +17116,13 @@ internal class Sentences(
             }
             return Ability.Static(mechanics, affects = affects ?: return null)
         }
+        // fin chunk 04: "During your turn, Aurel and other Knights you control have flying." (layer 6, only during your turn)
+        Fin.DURING_YOUR_TURN_SELF_AND_OTHERS_HAVE.matchEntire(line)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
+            val others = Filters.noun(m.groupValues[2]) ?: return null
+            val granted = keywords(m.groupValues[3]) ?: return null
+            return Ability.Static(listOf(Mechanic.GainAbilities(granted)), affects = arcanum.api.Affected.Objects(Objects.Union(listOf(Objects.Self,
+                Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), others))))), condition = arcanum.api.Condition.YourTurn)
+        }
         // fin-late-end
         return null
     }
@@ -17195,6 +17202,20 @@ internal class Sentences(
                 atLeast = 1, measure = arcanum.api.Measure.Events)
             return steps.dropLast(1) + Step.Do(move.copy(postBind = bind)) + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.MayPlay(Zone.Exile,
                 PlayKind.Play, holder = PlayerFilter.You, condition = loreThisTurn)), arcanum.api.Affected.Objects(Objects.Bound(bind)), arcanum.api.Duration.Indefinitely))
+        }
+        // fin chunk 04: "Put up to one enchantment card milled this way into your hand." needs the milled cards named
+        if (Fin.PUT_UP_TO_ONE_MILLED.matches(sentence)) {
+            val mill = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.Mill ?: return null
+            val chosen = effect(sentence, context) ?: return null
+            return steps.dropLast(1) + Step.Do(mill.copy(postBind = "milled")) + chosen
+        }
+        // fin chunk 04: "Those creatures gain flying until end of turn." after putting counters on each of a group: the same group
+        Fin.THOSE_CREATURES_GAIN.matchEntire(sentence)?.let { m ->
+            val last = (steps.lastOrNull() as? Step.Do)?.effect as? Effect.PutCounters ?: return null
+            if (last.objects !is Objects.Each) return null
+            val granted = keywords(m.groupValues[1]) ?: return null
+            return steps + Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(last.objects),
+                arcanum.api.Duration.EndOfTurn))
         }
         // fin-modify-end
         return null
@@ -17297,6 +17318,62 @@ internal class Sentences(
             return listOf(Step.Do(Effect.SpellGets(Objects.EventObject(EventRole.Object), listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))),
                 arcanum.api.Duration.EndOfTurn)))
         }
+        // fin chunk 04: "Tap all creatures your opponents control." (CR 701.26a)
+        Fin.TAP_ALL.matchEntire(sentence)?.let { m -> return listOf(Step.Do(Effect.Tap(Objects.Each(Filters.noun(m.groupValues[1]) ?: return null)))) }
+        // fin chunk 04: "Exile it, then return it to the battlefield transformed under its owner's control [with a finality counter on it]." about
+        // this object (CR 701.27); "put it onto the battlefield" the same; a spell exiling itself as it resolves too (CR 608.2n)
+        Fin.EXILE_SELF_THEN_RETURN.matchEntire(sentence)?.let { m ->
+            val who = m.groupValues[1]
+            if (!(isSelf(who) || (who == "it" && (context.it == Objects.Self || context.it == null)))) return null
+            val counters = m.groupValues[4].takeIf { it.isNotEmpty() }?.let { listOf(arcanum.api.CountersToPut(Counters.kind(it) ?: return null, Value.Fixed(1))) }.orEmpty()
+            val exiled = Objects.Bound("exiled")
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Move(exiled, Destination(Zone.Battlefield, transformed = m.groupValues[2].isNotEmpty(),
+                    controller = if (m.groupValues[3].isNotEmpty()) Players.OwnerOf(exiled) else null, counters = counters))))
+        }
+        // fin chunk 04: "Return this card from your graveyard to the battlefield transformed." (CR 113.6m, 712.14)
+        Fin.RETURN_SELF_TRANSFORMED.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let {
+            return listOf(Step.Do(Effect.Move(Objects.Self, Destination(Zone.Battlefield, transformed = true))))
+        }
+        // fin chunk 04: "Return any number of target creature cards with total mana value 6 or less from your graveyard to the battlefield."
+        Fin.RETURN_ANY_NUMBER_TOTAL.matchEntire(sentence)?.let { m ->
+            val noun = m.groupValues[1]
+            val filter = Filters.all(Filters.noun(noun) ?: return null, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You))
+            val name = Filters.slotName(noun)
+            context.targets += TargetSlot(name, TargetKind.Objects(filter), min = Value.Fixed(0), max = null,
+                totalAtMost = arcanum.api.Choice.TotalLimit(arcanum.api.NumericProperty.ManaValue, Value.Fixed(m.groupValues[2].toInt())))
+            return listOf(Step.Do(Effect.Move(Objects.Target(name), Destination(Zone.Battlefield))))
+        }
+        // fin chunk 04: "Put up to one enchantment card milled this way into your hand." after milling (CR 701.17)
+        Fin.PUT_UP_TO_ONE_MILLED.matchEntire(sentence)?.let { m ->
+            val filter = Filters.noun(m.groupValues[1]) ?: return null
+            return listOf(Step.Choose(arcanum.api.Choice.Objects(Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard)), Value.Fixed(0), Value.Fixed(1),
+                from = Objects.Bound("milled")), bind = "chosen", chooser = Players.You), Step.Do(Effect.Move(Objects.Bound("chosen"), Destination(Zone.Hand))))
+        }
+        // fin chunk 04: "Put it on the bottom of its owner's library." (in a dies trigger: the card in the graveyard, CR 400.7)
+        Fin.PUT_IT_ON_LIBRARY.matchEntire(sentence)?.let { m ->
+            val it = context.it ?: return null
+            return listOf(Step.Do(Effect.Move(it, Destination(Zone.Library, libraryPosition = if (m.groupValues[1] == "top") 0 else -1))))
+        }
+        // fin chunk 04: "Until your next turn, it gains indestructible." after an effect on a target: that target (CR 611.2a)
+        Fin.UNTIL_NEXT_TURN_IT_GAINS.matchEntire(sentence)?.let { m ->
+            val slot = context.targets.lastOrNull() ?: return null
+            val granted = keywords(m.groupValues[1]) ?: return null
+            return listOf(Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(granted)), arcanum.api.Affected.Objects(Objects.Target(slot.name)),
+                arcanum.api.Duration.UntilYourNextTurn)))
+        }
+        // fin chunk 04: "If that creature is legendary, draw a card." about the target (CR 608.2h: as it is now)
+        Fin.IF_THAT_CREATURE_IS.matchEntire(sentence)?.let { m ->
+            val slot = context.targets.lastOrNull() ?: return null
+            val filter = when (m.groupValues[1]) { "legendary" -> ObjectFilter.Super(Supertype.Legendary); else -> return null }
+            val then = effect(m.groupValues[2].replaceFirstChar { it.uppercase() } + ".", context) ?: return null
+            return listOf(Step.If(arcanum.api.Condition.ObjectMatches(Objects.Target(slot.name), filter), then = then))
+        }
+        // fin chunk 04: "Add {W}{W}, {U}{U}, {B}{B}, {R}{R}, and {G}{G}." (all of it, CR 106.3)
+        Fin.ADD_MANA_LIST.matchEntire(sentence)?.let { m ->
+            val all = Regex("""\{[^}]+\}""").findAll(m.groupValues[1]).joinToString("") { it.value }
+            return listOf(Step.Do(Effect.AddMana(ManaProduction(ManaKind.Fixed(ManaCost.parse(all) ?: return null)), Players.You)))
+        }
         // fin-effect-end
         return null
     }
@@ -17304,6 +17381,22 @@ internal class Sentences(
     /** fin: texts of several sentences read as a whole, tried after every other set's. */
     private fun finWhole(text: String, context: Context): List<Step>? {
         finNextCast(text, context)?.let { return it }
+        // fin chunk 04: "Create a token that's a copy of target nonlegendary enchantment you control. It gains haste. If it's a Saga, put up to three
+        // lore counters on it. Sacrifice it at the beginning of your next end step." (CR 707.2, 714.3a)
+        Fin.COPY_ENCHANTMENT_HASTE_LORE.matchEntire(text)?.let { m ->
+            val target = context.target(Filters.slotName(m.groupValues[1]), Filters.noun(m.groupValues[1]) ?: return null)
+            val tokens = Objects.Bound("tokens")
+            return listOf(
+                Step.Do(Effect.CreateToken(arcanum.api.TokenSpec.CopyOf(target), Value.Fixed(1), Players.You, bind = "tokens")),
+                Step.Do(Effect.ApplyMechanics(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Haste))), arcanum.api.Affected.Objects(tokens),
+                    arcanum.api.Duration.Indefinitely)),
+                Step.If(arcanum.api.Condition.ObjectMatches(tokens, ObjectFilter.Sub(Subtype("Saga"))), then = listOf(
+                    Step.Choose(arcanum.api.Choice.Number(Value.Fixed(0), Value.Fixed(3)), bind = "lore", chooser = Players.You),
+                    Step.Do(Effect.PutCounters(tokens, arcanum.api.CounterKind.Lore, Value.Bound("lore"))))),
+                Step.Do(Effect.CreateDelayedTrigger(arcanum.api.Trigger.On(EventPattern.StepBegins(arcanum.api.TurnStep.End, PlayerFilter.You)),
+                    Instructions(steps = listOf(Step.Do(Effect.Sacrifice(tokens)))))),
+            )
+        }
         // fin-whole-end
         return null
     }

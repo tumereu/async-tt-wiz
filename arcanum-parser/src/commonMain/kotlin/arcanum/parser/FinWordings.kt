@@ -68,4 +68,17 @@ internal object Fin {
     val WHEN_YOU_NEXT_CAST = Regex("""When you next cast an? (.+?) this turn, (.+)""")
     val THAT_CREATURE_ENTERS_WITH_ADDITIONAL = Regex("""That creature enters with an additional (\S+) counter on it(?: for each (.+?))?\.""")
     val DEALS_DAMAGE_EQUAL_TOTAL = Regex("""(.+?) deals damage equal to (the total mana value of .+?) to (each opponent|any target|target .+)\.""")
+    // fin chunk 04
+    val TAP_ALL = Regex("""Tap all (.+)\.""")
+    val EXILE_SELF_THEN_RETURN = Regex("""[Ee]xile (.+?), then (?:return it to|put it onto) the battlefield( transformed)?( under its owner's control)?(?: with an? (\S+) counter on it)?\.""")
+    val RETURN_SELF_TRANSFORMED = Regex("""Return (this card) from your graveyard to the battlefield transformed\.""")
+    val RETURN_ANY_NUMBER_TOTAL = Regex("""Return any number of target (.+?) with total mana value (\d+) or less from your graveyard to the battlefield\.""")
+    val PUT_UP_TO_ONE_MILLED = Regex("""Put up to one (.+?) milled this way into your hand\.""")
+    val DURING_YOUR_TURN_SELF_AND_OTHERS_HAVE = Regex("""During your turn, (.+?) and other (.+?) have (.+)\.""")
+    val PUT_IT_ON_LIBRARY = Regex("""Put it on the (top|bottom) of its owner's library\.""")
+    val UNTIL_NEXT_TURN_IT_GAINS = Regex("""Until your next turn, it gains (.+)\.""")
+    val IF_THAT_CREATURE_IS = Regex("""If that creature is (\w+), (.+)\.""")
+    val ADD_MANA_LIST = Regex("""Add ((?:\{[WUBRGC]\})+(?:, (?:and )?(?:\{[WUBRGC]\})+)+)\.""")
+    val THOSE_CREATURES_GAIN = Regex("""Those creatures gain (.+) until end of turn\.""")
+    val COPY_ENCHANTMENT_HASTE_LORE = Regex("""Create a token that's a copy of target (.+?)\. It gains haste\. If it's a Saga, put up to three lore counters on it\. Sacrifice it at the beginning of your next end step\.""")
 }

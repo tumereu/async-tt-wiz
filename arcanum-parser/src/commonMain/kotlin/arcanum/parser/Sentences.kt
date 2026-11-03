@@ -617,7 +617,11 @@ internal class Sentences(
                 }
             }
             val keywords = m.groupValues[2].takeIf { it.isNotEmpty() }?.split(" and ")?.map { OracleParser.keyword(it) ?: return null }.orEmpty()
-            val mechanics = listOf<Mechanic>(Mechanic.SetTypes(add = add, addSubtypes = subtypes, replaceTypes = m.groupValues[3].isNotEmpty())) +
+            // gtc backfill: "Enchanted land is a Swamp." sets its land type: the old land types go (CR 305.7)
+            val setsLandType = add.isEmpty() && subtypes.isNotEmpty() &&
+                subtypes.all { (it as? arcanum.api.SubtypeRef.Literal)?.subtype?.name in Filters.BASIC_LAND_TYPES }
+            val mechanics = listOf<Mechanic>(Mechanic.SetTypes(add = add, addSubtypes = subtypes, replaceTypes = m.groupValues[3].isNotEmpty(),
+                replaceSubtypes = setsLandType)) +
                 (if (keywords.isEmpty()) emptyList() else listOf(Mechanic.GainAbilities(keywords)))
             return Ability.Static(mechanics, affects = arcanum.api.Affected.Objects(Objects.AttachedTo(of = Objects.Self)))
         }

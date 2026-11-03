@@ -65,7 +65,7 @@ class GtcChunk08BlackTest {
         whenThisEnters(*revealUntilLand.toTypedArray(), targets = listOf(targetPlayer)),
     )
 
-    // CR 305.7 doesn't apply: "is a Swamp" alone adds the type (it's an Aura's effect, not replacing land types)
+    // CR 305.7: "is a Swamp" sets the land's subtype: its old land types and their abilities go
     @Test
     fun taintedGround() = card(
         name = "Tainted Ground",
@@ -78,7 +78,7 @@ class GtcChunk08BlackTest {
         """,
     ) parsesTo abilities(
         Keyword.Enchant(TargetKind.Objects(land)),
-        Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(SubtypeRef.Literal(Subtype("Swamp"))))), affects = Affected.Objects(enchanted)),
+        Ability.Static(listOf(Mechanic.SetTypes(addSubtypes = listOf(SubtypeRef.Literal(Subtype("Swamp"))), replaceSubtypes = true)), affects = Affected.Objects(enchanted)),
         Ability.Triggered(
             Trigger.On(EventPattern.Tap(ObjectFilter.Is(enchanted))),
             steps(Step.Do(Effect.LoseLife(Players.ControllerOf(Objects.EventObject(EventRole.Object)), n(2)))),

@@ -60,6 +60,8 @@ internal sealed interface Question {
     data class ManaColor(val key: String, val among: List<Color>) : Question { override val stage get() = AnnounceStage.Costs }
     /** blb: a player chosen as a cost ("you may choose an opponent", gift, CR 702.174a). */
     data class Player(val key: String, val among: List<PlayerId>) : Question { override val stage get() = AnnounceStage.Costs }
+    /** ecl: a creature type chosen as part of the cost ("you may choose a creature type and behold two creatures of that type", CR 601.2f). */
+    data class CostChoice(val key: String, val part: CostPart.Choose) : Question { override val stage get() = AnnounceStage.Costs }
     data class Pay(val cost: ManaCost) : Question { override val stage get() = AnnounceStage.Mana }
 }
 
@@ -428,6 +430,10 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
     val cantSpendMana: Boolean = isSpell &&
         snap0Abilities().any { (it.ability as? Ability.Static)?.mechanics.orEmpty().any { m -> m == Mechanic.CantSpendMana } }
 
+    /** ecl: the greatest X may be ("X can't be greater than the greatest toughness among creatures you control", CR 107.3a). */
+    fun xMaximum(): Int? = snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
+        .filterIsInstance<Mechanic.XAtMost>().minOfOrNull { eval.value(it.max) }
+
     /** The least X may be ("X can't be 0", CR 107.3). */
     private fun xMinimum(): Int = snap0Abilities().flatMap { (it.ability as? Ability.Static)?.mechanics.orEmpty() }
         .filterIsInstance<Mechanic.XAtLeast>().maxOfOrNull { it.min } ?: 0
@@ -462,6 +468,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         total.parts.forEach { kp ->
             val part = kp.part
             if (part is CostPart.OneOf) return Question.OneOf(kp.key, part, labels(part))
+            // ecl: the choice is made before the parts that read it
+            if (part is CostPart.Choose) {
+                if (choices.names[part.bind] == null) return Question.CostChoice(kp.key, part)
+                return@forEach
+            }
             if (part is CostPart.ChoosePlayer) {
                 if (choices.names[PLAYER + kp.key] == null) return Question.Player(kp.key, snap.state.playersFrom(player).filter { eval.matches(part.filter, it) })
                 return@forEach
@@ -489,6 +500,8 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         if (next is Question.Modes && !someModeWorks(next)) return "No mode can be chosen with what it needs (CR 700.2, 601.2c)"
         total.parts.forEach { kp ->
             val part = kp.part
+            // ecl: the parts after a choice not made yet may depend on it ("behold two creatures of that type")
+            if (part is CostPart.Choose && choices.names[part.bind] == null) return null
             if (part is CostPart.OneOf) {
                 if (part.options.none { option -> Answers.payable(this, option.parts) }) return "None of ${labels(part)} can be paid"
                 return@forEach
@@ -596,6 +609,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
         is Question.Objects -> Decision.ChooseObjects(id, player, sourceId, q.choice.options, q.choice.min, q.choice.max, q.choice.text)
         is Question.ManaColor -> Decision.ChooseColor(id, player, sourceId, q.among)
         is Question.Player -> Decision.ChoosePlayer(id, player, sourceId, q.among)
+        is Question.CostChoice -> Decision.ChooseSubtype(id, player, sourceId, (q.part.choice as? arcanum.api.Choice.CreatureTypeAmong)?.among)
         is Question.Pay -> if (cantSpendMana) {
             Decision.ManaPayment(id, player, sourceId, q.cost, Mana.options(snap, player, q.cost, itemId, manaWays)
                 .filter { it is ManaUse.Special || it is ManaUse.Life }, Mana.suggest(snap, player, q.cost, itemId, manaWays, canSpendMana = false))

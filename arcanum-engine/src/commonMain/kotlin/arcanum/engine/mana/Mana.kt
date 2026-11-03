@@ -175,6 +175,9 @@ internal object Mana {
             }
             // Triggered mana abilities (CR 605.1b) aren't activated; nothing to pay with here.
             is ManaKind.SameAsProduced -> emptyList()
+            // ecl: one mana of each colour among the objects (CR 105.4, 106.1)
+            is ManaKind.EachColorAmong -> eval.objects(kind.objects).flatMap { eval.characteristics(it)?.colors.orEmpty() }.distinct()
+                .map { Yield(listOf(it), 1, choice = false, production, snow) }
         }
 
     /** The mana units [yield] adds, all of [color] when it is a choice, from [source]. */

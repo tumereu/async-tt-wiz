@@ -172,8 +172,12 @@ internal object Costs {
             is CostPart.ReturnToHand -> part.what
             is CostPart.Reveal -> part.what
             // CR 701.4a: beholding is revealing a card from the hand or choosing a permanent you control
-            is CostPart.Action -> (part.action as? arcanum.api.KeywordAction.Behold)?.let { CostObjects.Choose(it.filter, count = arcanum.api.Value.Fixed(1)) }
-                ?: return null
+            is CostPart.Action -> when (val action = part.action) {
+                is arcanum.api.KeywordAction.Behold -> CostObjects.Choose(action.filter, count = action.count)
+                // ecl: CR 701.68a: a creature you control gets the counters
+                is arcanum.api.KeywordAction.Blight -> CostObjects.Choose(arcanum.api.ObjectFilter.Type(CardType.Creature), count = arcanum.api.Value.Fixed(1))
+                else -> return null
+            }
             is CostPart.RemoveCounters -> part.from
             is CostPart.PutCounters -> part.on
             else -> return null
@@ -185,7 +189,8 @@ internal object Costs {
             is CostPart.Sacrifice, is CostPart.ReturnToHand, is CostPart.TapObjects, is CostPart.RemoveCounters, is CostPart.PutCounters ->
                 s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Discard, is CostPart.Reveal -> s.player(player).hand
-            is CostPart.Action -> s.player(player).hand + s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
+            is CostPart.Action -> (if (part.action is arcanum.api.KeywordAction.Blight) emptyList() else s.player(player).hand) +
+                s.battlefield.filter { snap.board.controller(it) == player && s.obj(it)?.phasedOut != true }
             is CostPart.Exile -> when (part.from) {
                 Zone.Battlefield -> s.battlefield.filter { snap.board.controller(it) == player }
                 // rtr chunk 11: spells the payer controls ("Exile an instant or sorcery spell you control")
@@ -221,6 +226,8 @@ internal object Costs {
         is CostPart.Reveal -> "Reveal"
         is CostPart.Action -> when (part.action) {
             is arcanum.api.KeywordAction.Behold -> "Behold (reveal from your hand or choose one you control)"
+            // ecl
+            is arcanum.api.KeywordAction.Blight -> "Blight (put -1/-1 counters on a creature you control)"
             // blb
             arcanum.api.KeywordAction.Forage -> "Forage"
             else -> "Do"
@@ -232,6 +239,8 @@ internal object Costs {
         is CostPart.OneOf -> part.options.joinToString(" or ") { o -> o.parts.joinToString(", ") { describe(it) } }
         // blb
         is CostPart.ChoosePlayer -> "Choose a player"
+        // ecl
+        is CostPart.Choose -> "Choose"
         else -> part::class.simpleName ?: "cost"
     }
 

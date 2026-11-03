@@ -252,6 +252,8 @@ internal object Steps {
                 NamedValue.Colors(chosen)
             }
             Choice.CreatureType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, null))
+            // ecl: one of the listed creature types
+            is Choice.CreatureTypeAmong -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, choice.among))
             Choice.BasicLandType -> NamedValue.SubtypeValue(act.chooseSubtype(chooser, source, Subtypes.basicLandTypes.keys.toList()))
             is Choice.CardType -> NamedValue.CardTypeValue(act.chooseCardType(chooser, source, choice.among ?: ALL_TYPES))
             is Choice.CardName -> NamedValue.Name(act.chooseCardName(chooser, source, choice.filter))

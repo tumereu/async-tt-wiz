@@ -1,0 +1,1 @@
+mod: New games start with Automatum on (turn it off in the New game dialog), and tapping the Automatum switch now asks before turning it on or off.

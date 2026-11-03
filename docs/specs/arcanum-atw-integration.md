@@ -52,6 +52,8 @@ by the owner before release.
 | I-D41 | **Pause points and response windows** (owner, 2026-11-02; review item B): when the opponent does something you could react to, you're shown it with a short pause (1–3 s, progress bar) in which you can react easily. "Full control" (per player) adds pause points (e.g. your own spells). Both online: the reacting player may hold and think as long as they like; the acting player has a setting to proceed at once or to wait, but waits at most the response time. Opponent offline (async): the acting player never waits. Timeline playback with Automatum on stops at the same pause points, with no time limit. A reaction after the acting player moved on uses branching (a longer reaction time on one side than the other). Testing decides if it feels good. |
 | I-D42 | **Switching Automatum on drops turn-scoped engine data** (owner, 2026-11-02; review item C): leftover combat, passes, waiting triggers and early answers are dropped — best effort. Automatum off is mainly a "bug → report → fix by hand → continue" escape and for un-cards; the goal is that people play with it on. Refined 2026-11-03 (final sync review #1, decided overnight, to be confirmed): the current combat stays while the lanes still show it; only stale combat is dropped. |
 | I-D43 | **Logging for reproduction** (owner, 2026-11-02): engine and ATW Automatum logic log plenty, captured in error/problem reports, so a weird game situation can be reported, reproduced as an automated test and fixed. |
+| I-D44 | **Automatum on by default for new games** (owner, 2026-11-03): a new game's first state has Automatum on, so both players see it on from the start; the New game dialog has an "Automatum" switch (on by default) to start a game without it. Existing games are unchanged. Built: `CreateInvitation.automatum` (and `ChallengeFromPod.automatum`; a pod challenge has no dialog and asks for on) is stored on the game (V51, `game.automatum`, false for existing games and when absent) and every play of the game starts with it (`StartRules.initialize(automatum)`). |
+| I-D45 | **Toggling the switch asks first** (owner, 2026-11-03): tapping the Automatum switch shows a local "Turn Automatum on?" / "Turn Automatum off?" dialog with a short line on what it means; Cancel does nothing. Where turning on is refused (I-D15) the refusal shows at once instead, so there is one dialog, not two; turning off mentions an unfinished Automatum step or own cast it takes back. |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);
@@ -528,8 +530,8 @@ All in `protocol/` (`Automatum.kt` and the model files); the server stores and c
 - **Off:** a dim outlined rune at about 40% opacity.
 - **On:** the rune filled with a violet-to-cyan gradient and a soft outer glow that slowly breathes (about 3 s); one
   small spark orbits it.
-- **Tap:** switches Automatum for the whole game, as one shared event both players see; history: "Alice turned
-  Automatum on". Turning it on with manual Stack entries or other state the engine can't take over asks first (what
+- **Tap:** asks first (I-D45), then switches Automatum for the whole game, as one shared event both players see;
+  history: "Alice turned Automatum on". New games start with it on (I-D44). Turning it on with manual Stack entries or other state the engine can't take over asks first (what
   happens to them is decided when I0 is built).
 - **Hold:** a small status panel ("Automatum on · 2 abilities are manual") and the debug view of engine data.
 

@@ -31,6 +31,9 @@ sealed interface NamedValue {
     @Serializable @SerialName("flip") data class Flip(val won: Boolean) : NamedValue
     /** Die results, in rolling order. */
     @Serializable @SerialName("rolls") data class Rolls(val results: List<Int>) : NamedValue
+    /** A spell as it last was on the Stack, with its choices and what it looked like ([StackItem.snapshots]): epic copies it each
+     * upkeep after it has left (CR 702.50a). Read as objects, it is its id. */
+    @Serializable @SerialName("spell") data class Spell(val item: StackItem) : NamedValue
 }
 
 /** What became of a [arcanum.api.Step.Pay] (D40). */

@@ -770,7 +770,9 @@ internal object Effects {
         val controller = scope.players(effect.controller).firstOrNull() ?: scope.you
         val copies = mutableListOf<ObjectId>()
         scope.objects(effect.objects).forEach { id ->
-            val original = act.state.stackItems[id] ?: return@forEach
+            // epic: a spell that has left the Stack, as it last was there (CR 702.50a)
+            val original = act.state.stackItems[id] ?: scope.names.values.values.filterIsInstance<NamedValue.Spell>()
+                .firstOrNull { it.item.id == id }?.item ?: return@forEach
             // sos: "This spell can't be copied." (CR 707.10): no copy is created
             if (act.view()[id]?.has { it == Mechanic.CantBeCopied } == true) return@forEach
             val ts = act.state.nextTimestamp()

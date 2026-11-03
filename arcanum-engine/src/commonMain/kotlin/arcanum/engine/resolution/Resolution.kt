@@ -291,6 +291,8 @@ internal object Resolution {
 
     private fun finishLeaving(act: Act, item: StackItem, fizzled: Boolean) {
         val meaning = if (fizzled) Meaning.Fizzled else Meaning.Resolved
+        // CR 702.50a: epic's spell abilities, the last of the spell's instructions
+        if (!fizzled) arcanum.engine.epic.Epic.resolves(act, item)
         val card = act.state.obj(item.id)
         if (!fizzled && givesGift(act, item)) act.record(Change.Happened(arcanum.engine.change.GameEvent.GaveGift(item.controller)))
         // tla: CR 702.189b: a firebending ability its controller controls resolved

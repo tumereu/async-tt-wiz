@@ -206,6 +206,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
     private fun boundObjects(value: NamedValue?): List<ObjectId> = when (value) {
         is NamedValue.Objects -> value.ids
         is NamedValue.Targets -> value.refs.mapNotNull { (it as? TargetRef.Object)?.id }
+        is NamedValue.Spell -> listOf(value.item.id)
         else -> emptyList()
     }
 

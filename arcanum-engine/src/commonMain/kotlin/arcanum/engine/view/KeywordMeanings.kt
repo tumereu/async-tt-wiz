@@ -110,10 +110,6 @@ object KeywordMeanings {
             listOf(CostPart.TapObjects(CostObjects.Choose(otherCreatureYouControl, count = null,
                 total = Total(NumericProperty.Power, Value.Fixed((k as? HasAmount)?.amount ?: 0)))))
         }, { k -> if (k is Keyword.Saddle) listOf(Step.Do(arcanum.api.Effect.Mark(Objects.Self, arcanum.api.ObjectMark.Saddled))) else null })
-        /** "Tap another untapped creature you control: … Activate only as a sorcery." (station) */
-        data object TapAnotherCreature : Activated(Zone.Battlefield, Timing.Sorcery, {
-            listOf(CostPart.TapObjects(CostObjects.Choose(otherCreatureYouControl, count = Value.Fixed(1))))
-        })
     }
 
     private val self: ObjectFilter get() = ObjectFilter.Is(Objects.Self)
@@ -131,13 +127,13 @@ object KeywordMeanings {
                 Keyword.Entwine.Kind, Keyword.Replicate.Kind, Keyword.Prowl.Kind,
                 Keyword.Dash.Kind, Keyword.Surge.Kind, Keyword.Emerge.Kind, Keyword.Spectacle.Kind, Keyword.Mutate.Kind,
                 Keyword.Foretell.Kind, Keyword.Blitz.Kind, Keyword.Squad.Kind, Keyword.Disguise.Kind, Keyword.Plot.Kind,
-                Keyword.Freerunning.Kind, Keyword.Warp.Kind,
+                Keyword.Freerunning.Kind,
                 Keyword.Awaken.Kind, Keyword.Impending.Kind, Keyword.Prototype.Kind)
         }
         at(Moment.Enters) {
             listOf(Keyword.HiddenAgenda, Keyword.Riot, Keyword.Daybound, Keyword.Nightbound, Keyword.Compleated,
                 Keyword.ReadAhead, Keyword.Ravenous, Keyword.StartYourEngines, Keyword.Amplify.Kind,
-                Keyword.Bloodthirst.Kind, Keyword.Devour.Kind, Keyword.Tribute.Kind, Keyword.Backup.Kind, Keyword.Echo.Kind,
+                Keyword.Bloodthirst.Kind, Keyword.Tribute.Kind, Keyword.Backup.Kind, Keyword.Echo.Kind,
                 Keyword.PartnerWith.Kind)
         }
         at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
@@ -156,7 +152,6 @@ object KeywordMeanings {
         at(Moment.ExileFromGraveyard) { listOf(Keyword.Embalm.Kind, Keyword.Eternalize.Kind, Keyword.Encore.Kind) }
         at(Moment.DiscardAsSorcery) { listOf(Keyword.Transmute.Kind) }
         at(Moment.TapCreaturesWithTotalPower) { listOf(Keyword.Saddle.Kind) }
-        at(Moment.TapAnotherCreature) { listOf(Keyword.Station) }
         m
     }
 }

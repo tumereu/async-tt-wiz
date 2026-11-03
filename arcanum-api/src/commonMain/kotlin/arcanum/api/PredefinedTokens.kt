@@ -39,11 +39,18 @@ object PredefinedTokens {
             Instructions(targets = listOf(TargetSlot("creature", TargetKind.Objects(ObjectFilter.Type(CardType.Creature)), min = Value.Fixed(1), max = Value.Fixed(1))),
                 steps = listOf(Step.Do(Effect.PutCounters(Objects.Target("creature"), CounterKind.PowerToughness(1, 1), Value.Fixed(1))))),
             rules = ActivationRules(timing = Timing.Sorcery, activatedBy = PlayerFilter.You)))
+        // eoe: CR 111.10u: a Lander artifact token with "{2}, {T}, Sacrifice this token: Search your library for a basic land card, put
+        // it onto the battlefield tapped, then shuffle."
+        "Lander" -> artifact("Lander", Ability.Activated(Cost(listOf(mana("{2}"), CostPart.TapSelf, sacrificeSelf)), Instructions(steps = listOf(
+            Step.Do(Effect.Search(Players.You, ObjectFilter.And(listOf(ObjectFilter.Super(Supertype.Basic), ObjectFilter.Type(CardType.Land))),
+                max = Value.Fixed(1), bind = "found", zones = listOf(Zone.Library), searcher = Players.You)),
+            Step.Do(Effect.Move(Objects.Bound("found"), Destination(Zone.Battlefield, tapped = true))),
+            Step.Do(Effect.Shuffle(Players.You)))), rules = ActivationRules(timing = Timing.Any, activatedBy = PlayerFilter.You)))
         else -> null
     }
 
     /** Every name [face] knows. */
-    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen")
+    val names: List<String> = listOf("Treasure", "Food", "Gold", "Walker", "Shard", "Clue", "Blood", "Heartwood", "Mutagen", "Lander")
 
     private val sacrificeSelf = CostPart.Sacrifice(CostObjects.Self)
     private fun mana(text: String) = CostPart.Mana(ManaCost.parse(text)!!)

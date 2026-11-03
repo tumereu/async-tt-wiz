@@ -64,6 +64,9 @@ internal interface Board {
     /** Told before the tagged events (D33) are read, or last known information found in them: a view that read none
      * stays the same while only events are added ([arcanum.engine.view.ViewCache]). */
     fun readingLog() {}
+
+    /** eoe: whether a rule matching [mechanic] applies to [id] in the finished view (false part-way through the layers). */
+    fun hasMechanic(id: ObjectId, mechanic: (arcanum.api.Mechanic) -> Boolean): Boolean = false
 }
 
 /**
@@ -658,6 +661,9 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is NumericProperty.Counters -> counterList(id).orEmpty().let { counters ->
                 if (property.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == property.kind }.sumOf { it.count }
             }
+            // eoe: what it stations with: its power, or its toughness when a rule says so (CR 702.184a, c)
+            NumericProperty.Stationing -> property(if (board.hasMechanic(id) { it == arcanum.api.Mechanic.StationsWithToughness })
+                NumericProperty.Toughness else NumericProperty.Power, id)
             // tla: how many creature types it has (every one for a changeling, CR 702.73a)
             NumericProperty.CreatureTypes -> c?.let { if (it.allCreatureTypes) Subtypes.creatureTypeCount else creatureTypes(it).distinct().size } ?: 0
             // CR 709.5c

@@ -69,4 +69,6 @@ data class DelayedTrigger(
     /** Not a triggered ability: the second one-shot effect of an "until" (CR 610.3), done right after its event without
      * the Stack. */
     val oneShot: Boolean = false,
+    /** eoe: triggers only in a later turn than [createdTurn] ("at the beginning of the end step on your next turn"). */
+    val laterTurn: Boolean = false,
 )

@@ -381,6 +381,11 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
             val mana = Costs.expand(m.change, e)
             if (m.change is CostChange.More) increases += mana else reductions += mana to m.minimum
         }
+        // eoe: "Each spell cast this way costs {1} more to cast" (the permission it is cast with, CR 601.2f)
+        permission?.first?.costChange?.let { ch ->
+            val mana = Costs.expand(ch, eval)
+            if (ch is CostChange.More) increases += mana else reductions += mana to 0
+        }
         (ability as? Ability.Activated)?.rules?.costChange?.let { ch ->
             val mana = Costs.expand(ch, eval)
             if (ch is CostChange.More) increases += mana else reductions += mana to 0

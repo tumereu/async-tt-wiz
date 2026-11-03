@@ -31,6 +31,7 @@ internal class ViewBoard(override val state: GameState, val view: View) : Board 
         if (o == null) return state.stackItems[id]?.controller ?: view[id]?.controller
         return if (o.zone == Zone.Battlefield || o.zone == Zone.Stack) view[id]?.controller ?: o.controller ?: o.owner else o.owner
     }
+    override fun hasMechanic(id: ObjectId, mechanic: (arcanum.api.Mechanic) -> Boolean): Boolean = view[id]?.has(mechanic) == true
 }
 
 /** A state and its view, worked out once for a step of a flow. */

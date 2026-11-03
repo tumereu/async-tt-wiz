@@ -77,8 +77,8 @@ internal fun CastPanelHost(toolkit: TableToolkitController, play: PlayState, sce
     // The slim bar sits over the own hand row (hand cards are never targets), so the battlefield stays free to tap
     val handRow = scene?.items?.firstOrNull { it.kind == TableItemKind.HAND && it.owner == toolkit.viewer }?.bounds
     if (cast.targeting) {
-        // Picking a target in Manage Stack: its sheet stands in for the bar until it closes
-        AboveHand(handRow) { if (!toolkit.stackTargeting) TargetBar(cast, flow, play) }
+        // Picking a target on the Stack: its picker stands in for the bar until it closes
+        AboveHand(handRow) { if (toolkit.stackTargeting) StackTargetPicker(toolkit, play) else TargetBar(cast, flow, play) }
         return
     }
     // I-D48: the choices' cards know who looks at them (outlines, Inspect)
@@ -211,6 +211,8 @@ private fun CastPanel(toolkit: TableToolkitController, cast: CastController, flo
                         else Text("Ready to cast: Autotap pays ${open.cost}.", fontSize = 12.sp)
                     else -> OpenSection(cast, cast, play, names, open)
                 }
+                // UI review round 2 #4 (I-D46 b): why the last step was refused, inside the panel rather than over the table
+                cast.notice?.let { Text(it, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = Color(0xffb3261e)) }
             }
         }
         // A fixed height: the eye stays exactly where it is whether the buttons beside it show or not
@@ -328,9 +330,9 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
     when (decision) {
         is Decision.May -> Section(mayTitle(decision)) {
             Text(decision.text, fontSize = 12.sp)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChoiceButton("Yes", Icons.Outlined.Check, enabled = decision.payable, primary = true) { cast.answer(Answer.YesNo(true)) }
+            DockButtons {
                 ChoiceButton("No", Icons.Outlined.Close) { cast.answer(Answer.YesNo(false)) }
+                ChoiceButton("Yes", Icons.Outlined.Check, enabled = decision.payable, primary = true) { cast.answer(Answer.YesNo(true)) }
             }
             if (!decision.payable) Text("It can't be paid now.", fontSize = 11.sp, color = Color(0xff4b5a5f))
         }
@@ -339,11 +341,8 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
             val max = (decision as? Decision.Announce)?.max ?: (decision as? Decision.ChooseNumber)?.max
             var value by remember(decision.id) { mutableIntStateOf(min) }
             Section(choiceWhat(decision), choiceHint(decision)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Stepper(value, min, max) { value = it }
-                    Spacer(Modifier.weight(1f))
-                    ChoiceButton("OK", Icons.Outlined.Check, primary = true) { cast.answer(Answer.Number(value)) }
-                }
+                Stepper(value, min, max) { value = it }
+                DockButtons { ChoiceButton("OK", Icons.Outlined.Check, primary = true) { cast.answer(Answer.Number(value)) } }
             }
         }
         is Decision.Modes -> ModesSection(cast, decision)
@@ -380,7 +379,7 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
                         Modifier.weight(1f), fontSize = 12.sp)
                     Stepper(shares.getValue(target), decision.minEach, decision.amount) { shares = shares + (target to it) }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                DockButtons {
                     ChoiceButton("OK", Icons.Outlined.Check, enabled = shares.values.sum() == decision.amount, primary = true) {
                         cast.answer(Answer.Division(shares.map { arcanum.engine.decision.Share(it.key, it.value) }))
                     }
@@ -389,23 +388,28 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
         }
         is Decision.Manual -> Section(choiceWhat(decision), choiceHint(decision)) {
             Text(decision.text, fontSize = 12.sp)
-            ChoiceButton("Done", Icons.Outlined.Check, primary = true) { cast.answer(Answer.Done) }
+            // UI review round 2 #1: in a dock panel the step arrow's "Done" answers it (TRN-063); elsewhere its own button
+            if (LocalDockSlot.current == null) ChoiceButton("Done", Icons.Outlined.Check, primary = true) { cast.answer(Answer.Done) }
         }
         is Decision.OrderTriggers -> {
-            // CR 603.3b: the first tapped goes on the Stack first (and resolves last)
+            // CR 603.3b: the first tapped goes on the Stack first (and resolves last). UI review round 2 #7 (I-D48): each
+            // trigger is its source's card, numbered in the order tapped, its own short line under it
             var order by remember(decision.id) { mutableStateOf(listOf<Int>()) }
             Section(choiceWhat(decision), choiceHint(decision)) {
-                for (trigger in decision.triggers) {
-                    val place = order.indexOf(trigger.index)
-                    CardRow(card(trigger.source), inspector) {
-                        FilterChip(place >= 0, { order = if (place >= 0) order - trigger.index else order + trigger.index },
-                            modifier = Modifier.weight(1f),
-                            leadingIcon = { if (place >= 0) Text("${place + 1}", fontWeight = FontWeight.Bold, color = AutomatumViolet)
-                                else Icon(Icons.Outlined.RadioButtonUnchecked, null, Modifier.size(16.dp)) },
-                            label = { Text(triggerLabel(flow, play, trigger), fontSize = 12.sp) })
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (trigger in decision.triggers) {
+                        val place = order.indexOf(trigger.index)
+                        val shown = trigger.source?.let(flow::shown) != false
+                        LabelledChoiceCard(card(trigger.source), "trigger/${trigger.index}",
+                            trigger.source?.let { objectName(flow, play, it) } ?: "Trigger ${trigger.index + 1}",
+                            trigger.text?.takeIf { shown } ?: "Trigger ${trigger.index + 1}", inspector, selected = place >= 0,
+                            badge = (place + 1).takeIf { place >= 0 }?.toString()) {
+                            order = if (place >= 0) order - trigger.index else order + trigger.index
+                        }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                DockButtons {
+                    ChoiceButton("Clear", Icons.Outlined.ClearAll, enabled = order.isNotEmpty()) { order = emptyList() }
                     ChoiceButton("OK", Icons.Outlined.Check, enabled = order.size == decision.triggers.size, primary = true) {
                         cast.answer(Answer.Order(order))
                     }
@@ -413,10 +417,22 @@ internal fun OpenSection(cast: FlowQuestions, flow: FlowQuestions, play: PlaySta
             }
         }
         is Decision.LegendRule -> LegendRuleSection(cast, flow, play, decision)
-        is Decision.ChooseReplacement -> Section(choiceWhat(decision), choiceHint(decision)) {
-            for (option in decision.options) CardRow(card(option.source), inspector) {
-                ChoiceButton(option.text ?: (option.source?.let { objectName(flow, play, it) } ?: "Replacement ${option.index + 1}"),
-                    Icons.Outlined.RadioButtonUnchecked, Modifier.weight(1f)) { cast.answer(Answer.Replacement(option.index)) }
+        is Decision.ChooseReplacement -> {
+            // UI review round 2 #7 (I-D48): each replacement effect is its source's card with its short line; tap one, OK
+            var chosen by remember(decision.id) { mutableStateOf<Int?>(null) }
+            Section(choiceWhat(decision), choiceHint(decision)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    for (option in decision.options) {
+                        val name = option.source?.let { objectName(flow, play, it) } ?: "Replacement ${option.index + 1}"
+                        LabelledChoiceCard(card(option.source), "replacement/${option.index}", name, option.text ?: name, inspector,
+                            selected = chosen == option.index) { chosen = option.index }
+                    }
+                }
+                DockButtons {
+                    ChoiceButton("OK", Icons.Outlined.Check, enabled = chosen != null, primary = true) {
+                        chosen?.let { cast.answer(Answer.Replacement(it)) }
+                    }
+                }
             }
         }
         is Decision.ChoosePlayer -> Section(choiceWhat(decision), choiceHint(decision)) {
@@ -484,11 +500,11 @@ private fun ModesSection(cast: FlowQuestions, decision: Decision.Modes) {
         decision.pawprintLimit?.let { limit ->
             Text("Pawprints: $pawprints of $limit", fontSize = 11.sp, color = if (overLimit) Color(0xffb3261e) else Color(0xff4b5a5f))
         }
-        if (decision.max != 1) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (decision.max != 1) DockButtons {
+            if (decision.repeatable) ChoiceButton("Clear", Icons.Outlined.ClearAll, enabled = chosen.isNotEmpty()) { chosen = emptyList() }
             ChoiceButton("OK", Icons.Outlined.Check, enabled = chosen.size in decision.min..decision.max && !overLimit, primary = true) {
                 cast.answer(Answer.Modes(chosen))
             }
-            if (decision.repeatable) ChoiceButton("Clear", Icons.Outlined.ClearAll, enabled = chosen.isNotEmpty()) { chosen = emptyList() }
         }
     }
 }
@@ -661,10 +677,6 @@ internal fun objectName(flow: FlowQuestions, play: PlayState, id: ObjectId): Str
     if (!flow.shown(id)) "A hidden card"
     else flow.engine.obj(id)?.let { it.definition?.faces?.getOrNull(it.face)?.name }
         ?: flow.atwCard(id)?.let { CastController.cardName(play, it) } ?: "An object"
-
-/** A trigger waiting to be put on the Stack: its source's name and its printed text. */
-private fun triggerLabel(flow: FlowQuestions, play: PlayState, trigger: arcanum.engine.decision.TriggerOption): String =
-    listOfNotNull(trigger.source?.let { objectName(flow, play, it) }, trigger.text).joinToString(": ").ifEmpty { "Trigger ${trigger.index + 1}" }
 
 private fun manaLabel(flow: FlowQuestions, play: PlayState, use: ManaUse, group: List<ManaUse>): String = when (use) {
     is ManaUse.Ability -> objectName(flow, play, use.source) + " " + group.filterIsInstance<ManaUse.Ability>()

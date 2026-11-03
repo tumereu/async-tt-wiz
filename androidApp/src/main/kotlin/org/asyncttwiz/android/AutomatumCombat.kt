@@ -38,7 +38,7 @@ import org.asyncttwiz.protocol.*
  *
  * - while the engine waits for attackers or blockers the lanes are a draft of the declaration: cards join it by dragging
  *   (CMB-009) or Declare (CMB-017), checked against what the engine allows ([draftRefusal], I-D36);
- * - Attack / No attack, Block / No blocks and Deal damage are the step button's pass (TRN-057): with a declaration
+ * - Attack / No attack, Block / No blocks and Deal damage are the step arrow's pass (TRN-057): with a declaration
  *   awaited it declares what the lanes hold, else the priority holder passes and the engine deals the combat damage,
  *   asking for a division only where there is a choice (the shared flow's panel, I-D29);
  * - what the table shows ([shown]): the damage preview, "+N" on a blocker blocking several attackers, and divisions
@@ -276,12 +276,12 @@ internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext,
     if (position == TurnPosition.COMBAT_DAMAGE && !AutomatumBoards.throughEngine(play.board) && shown.passing == null) return null
     val viewer = context.viewer
     val area = context.combatAreaId
-    fun action(name: String, tool: CombatTool, ids: List<String> = emptyList()) =
-        QuickAction(name, "", TableActionIntent.Combat(scope, tool, area, ids))
     val choices = shown.choices
     val pairs = play.board.combat?.pairs.orEmpty()
     fun greyed(name: String, tool: CombatTool, reason: String?, ids: List<String> = emptyList()) =
         QuickAction(name, "", TableActionIntent.Combat(scope, tool, area, ids), enabled = reason == null, refused = reason)
+    // UI review round 2 #1 (decided for the owner): the step arrow alone declares and passes ("Attack (N)" / "No attack",
+    // "Block (N)" / "No blocks", "Next"); combat's quick actions are only the staging helpers
     return buildList {
         when {
             // CMB-028: the attacker's staging
@@ -293,24 +293,15 @@ internal fun automatumCombatQuickActions(play: PlayState, context: QuickContext,
                 add(greyed("Rest → $name", CombatTool.AUTOMATUM_STAGE,
                     if (rest.isEmpty()) "No other creature can attack $name now." else null, rest))
                 add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (staged.isEmpty()) "Nothing is staged." else null))
-                add(greyed(if (staged.isEmpty()) "No attack" else "Commit attack (${staged.size})", CombatTool.AUTOMATUM_DECLARE,
-                    if (staged.isEmpty()) shown.noneRefusal else shown.draftRefusal))
             }
             // CMB-034: the defender's blocks
             choices.declaring != null -> if (viewer == choices.declaring) {
                 val blocks = CombatStackRules.blocks(play.board.combat)
-                add(greyed("No blocks", CombatTool.AUTOMATUM_NO_BLOCKS, shown.noneRefusal))
                 add(greyed("Clear", CombatTool.AUTOMATUM_CLEAR, if (blocks.isEmpty()) "Nothing blocks yet." else null))
-                add(greyed("Commit blocks", CombatTool.AUTOMATUM_DECLARE,
-                    if (blocks.isEmpty()) "Nothing blocks yet: tap your creature, then the attacker it blocks." else shown.draftRefusal))
             }
-            // CMB-029: no separate prompt; passing priority goes on to the damage (the pause bar's Pass while it is shown,
-            // finalreview-combat #7: one Pass, not two)
-            shown.passing != null && shown.passing == viewer && !context.pauseBar -> add(action("Pass", CombatTool.AUTOMATUM_PASS))
         }
     }
 }
-
 
 /** A card in combat as everyone may see it named in combat's messages (I-D27, combat review #6): a face-down card stays
  * hidden. */

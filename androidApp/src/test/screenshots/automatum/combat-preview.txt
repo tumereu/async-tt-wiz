@@ -1,1 +1,1 @@
-Alice's view after Bob blocked her Ironhide Brute (5/5 trample) with Hill Ogre and left Stout Bear unblocked: the arrow, −3 ☠ on the Ogre, −3 on the Brute, 2 → Bob tags by both attackers and 17 → 13 in Bob's header; Alice holds priority with Pass in the quick actions.
+Alice's view after Bob blocked her Ironhide Brute (5/5 trample) with Hill Ogre and left Stout Bear unblocked: the arrow, −3 ☠ on the Ogre, −3 on the Brute, 2 → Bob tags by both attackers and 17 → 13 in Bob's header; Alice holds priority, her quick actions are her Automatum toggles and the step arrow reads Next.

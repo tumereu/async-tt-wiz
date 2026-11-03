@@ -24,7 +24,7 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
             if (toolkit != null) {
                 val endingColor = if (play.board.turn.accountId == accountId) OwnTableColor else OpponentTableColor
                 QuickActionStrip(play, toolkitQuickContext(play, selection, accountId)
-                    .copy(automatumCombat = toolkit.combat.ready(play), pauseBar = toolkit.pause.barWithPass(play, accountId))
+                    .copy(automatumCombat = toolkit.combat.ready(play), castOpen = toolkit.cast.open)
                     .withCombatTarget(toolkit.combat, play, scene.combatLabels.firstOrNull { it.cardId == null }?.label?.removePrefix("→ ")),
                     toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) })

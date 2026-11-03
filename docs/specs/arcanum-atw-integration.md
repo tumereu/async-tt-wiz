@@ -59,6 +59,7 @@ by the owner before release.
 | I-D48 | **Cards and buttons in Automatum panels (owner, 2026-11-03):** every card a panel or choice shows renders like a card on the battlefield — a small card you can drag, tap and hold to Inspect — never a text-only button; zones of a choice (e.g. Scry's Top / Bottom) are labelled areas the cards are dragged or tapped into. Buttons are icon or icon + text, not text-only; an icon-only button without its own hold action shows a tooltip saying what it does on hold. This allows small convenience buttons (e.g. "all to bottom") without clutter. **Two-area choices** (Scry: Top / Bottom; likewise surveil top / graveyard, two piles, keep / discard and any other choice between two places): the cards start in the first area; tapping a card moves it instantly to the end of the other area (and back); dragging places it at a position (order within an area matters where the rules say so, e.g. the order on top of the library). |
 | I-D49 | **Rules-driven opening with Automatum on (owner, 2026-11-03):** game rules (hardcoded for now, later per-game settings): opening hand 7, one free mulligan, London mulligan (CR 103.5). The game starts with both libraries shuffled and 7 cards drawn for each player; while mulliganing, the quick actions are "Mulligan" (hand back, shuffle, draw 7) and "Keep" (if cards are owed to the bottom: a Keep / Bottom two-area screen, I-D48, all 7 start in Keep, tap the owed number into Bottom, confirm → Ready). After the free mulligan each further mulligan owes one more card (keep 7, 6, 5, …). Both players decide at the same time; turn 1 begins when both have kept (no first-turn draw for the starting player). Automatum off keeps the manual Mull N / Ready flow (TRN-027–029). |
 | I-D50 | **Hand and table in Automatum mode (owner, 2026-11-03):** no hand context menu; hold = Inspect. Tapping a hand card raises it a little ("half a double-tap") and highlights the mana sources autotap would use; tapping it again casts/plays it. While raised, chips above it offer the ways to cast it, the regular cast first and selected, then each optional/alternative cost (kicker, flashback, evoke, offspring, …) with proper mana symbols: tapping a chip selects it (the highlighted sources update), tapping the selected chip again — or the card — casts it that way; unaffordable chips are disabled. Chips show just name + cost (proper mana symbols); hold on a chip shows its details like Inspect does for cards; the chip is shown even when there is only the regular cast. Two kinds, visibly different: **ways to cast** (regular, flashback, evoke, alternative costs, other faces — one at a time: tap selects, tapping the selected one casts) and **extras** that add to any way (kicker, buyback, offspring, gift and other optional additional costs — "+" chips with an on/off check: tap toggles, never casts; multikicker-like extras count up per tap with a ×N badge and a small "−"). The cast panel remains only for targets, modes and X. No hand reordering: a horizontal drag pans the hand (vertical drag still casts, I-D36); it snaps back like the battlefield (when wider than the screen, only the ends are pulled back into view); no compressing of the hand (small cards must stay easy to hit). Virtual-tabletop controls are dropped with Automatum on — notes, pings, text marks, links, colour counters, statuses, dice/coin — because with Automatum working they only get in the way; chat, Inspect, the timeline and settings stay. Automatum off keeps them all. |
+| I-D51 | **Automatum support shown for card collections (owner, 2026-11-03):** a card is supported when the parser reads it fully with no "do this by hand" parts (worked out from its rules text on the device, per parser version — not a hand-kept list; the explicitly tested sets are listed in the libraries' READMEs). A deck, cube or draft set is unsupported if it contains at least one unsupported card. Wherever such a collection can be selected or is selected (deck lists and pickers, cube lists, pod/draft creation, game creation, the deck/cube editor) a warning icon shows; hold = tooltip naming the unsupported cards. Decks and cubes get their status computed on save and stored with the parser version (recomputed in the background when the parser version changes); catalog sets get it at import. |
 
 Earlier library decisions that shape this: one switch for the whole game (D20); the engine may refuse moves while on
 (D32); anyone may decide for anyone (D11, P7); results are ordinary actions in one all-or-nothing batch (P1, SYS-010);
@@ -470,6 +471,32 @@ out of anything stuck.
   another choice is open, piles' second question stays the engine's "first / second" option buttons, AlertDialogs keep
   text buttons. Catalog: TRN-017, TRN-018, TRN-063, STK-023, STK-024, STK-027–STK-031, STK-037, STK-038, STK-040,
   STK-043, STK-044, CMB-033.
+- **Built (UI review round 2, 2026-11-03; decisions made for the owner, vision-aligned, to be confirmed):** (1) one "go
+  on" control: the step arrow is the only Pass / Resolve / Attack / Block / Done with Automatum on, shown with the toggles
+  on either player's turn; the pause bar keeps Hold and the eye, the respond panel and its bar have no Let it resolve,
+  the other player's bar has no Pass for them (the arrow's Resolve asks first, I-D40), a "By hand" choice has no Done of
+  its own, and combat's quick actions are only Rest → <target> and Clear (`CombatTool.AUTOMATUM_DECLARE`, `_PASS`,
+  `_NO_BLOCKS` and `ActingFor.Kind.NoBlocks` are gone); at a held pause behind the live game the arrow returns to it as
+  the panels' passes did (`PauseController.ownPause`). (2) The waiting bar is one line in the observer's words, "Bob is
+  choosing · Fertile Passing" (`observerWhat`: the source's name, else what the choice is), the source drawn as a card.
+  (3) `stepBlocked` greys the arrow while the viewer's cast is open, during the opening, while another choice is open,
+  and while the lanes' declaration isn't one Automatum allows (its reason); a tap shakes it, hold shows the reason
+  (`ActionSquare.tooltip`) instead of End turn. (4) `targetGlow` glows a spell or ability on the Stack only as its entry.
+  (5) No Declare in the Automatum card menu; Attack → stays, greyed unless the card attacks. (6) Refusals are visual: a
+  tap on a non-target shakes it (`tapTarget` false), BUSY shakes the tapped card or pile (else the card being cast,
+  `busyShake`), a cast dropped because it can't be cast or paid or the table changed shakes its card
+  (`CastController.visual`), and a refused step inside the open panel shows in red in it (`CastController.notice`). (7)
+  Order triggers and Which applies first are source cards with their own line (`LabelledChoiceCard`), tap then OK;
+  "Order triggers · <source>" when one source; the combat damage division (`CombatDivisionPanel`) and the Stack target
+  picker (`StackTargetPicker`) dock above the hand; a choice's buttons go to the dock's bottom row (`DockSlot`,
+  `DockButtons`; outside a dock, e.g. the cast panel, right-aligned under it). (8) Toggles: filled violet with a check
+  when on, white with an empty ring when off, 11 sp words. (9) With Automatum on a hand card whose spell is on the Stack
+  isn't drawn in its hand (`castSpellSources`; a display choice, the card stays there, STK-001). (10) Swords for To
+  combat / Attack (N), a plain arrow for Next. Choices made: the arrow shows for both players with Automatum on (it is
+  the only way to pass for the other player now); Hold is outlined everywhere, Respond is the respond panel's filled
+  main button; Attack → stays as a greyed cell rather than leaving a gap; a choice's buttons read No then Yes (main last).
+  Catalog: TRN-015, TRN-059, TRN-061, TRN-063, CMB-028, CMB-029, CMB-033, CMB-034, STK-023–STK-025, STK-027–STK-034,
+  STK-037–STK-039, STK-044, STK-045 (new), TBL-116, TBL-118, SYS-067.
 
 ## 4. Shared state ATW adds
 

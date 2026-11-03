@@ -172,14 +172,14 @@ class AutomatumPauseTest {
         compose.onNodeWithText("Alice cast Storm Spark").assertExists()
         compose.onNodeWithContentDescription("Pause time").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-respond-running.png",
-            "Alice cast Storm Spark at Bob with Automatum on and Bob could answer with his own: it is his pause, so his respond panel shows a violet bar emptying over his 2 s response time, with Hold beside Respond and Let it resolve.")
+            "Alice cast Storm Spark at Bob with Automatum on and Bob could answer with his own: it is his pause, so his respond panel shows a violet bar emptying over his 2 s response time, with Hold beside Respond; his step arrow reads Resolve.")
         compose.onNodeWithText("Hold").performClick()
         frames()
         assertEquals(cast.currentNodeId, routes.held)
         compose.onNodeWithText("Holding — take your time").assertExists()
         compose.onNodeWithContentDescription("Pause time").assertDoesNotExist()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-held.png",
-            "Bob tapped Hold during his pause: the bar is gone and the respond panel reads \"Holding — take your time\" with Respond and Let it resolve; he stays at that point as long as he likes.")
+            "Bob tapped Hold during his pause: the bar is gone and the respond panel reads \"Holding — take your time\" with Respond (the step arrow resolves); he stays at that point as long as he likes.")
         compose.mainClock.advanceTimeBy(3_000)
         assertTrue(sent.isEmpty(), "Bob's device doesn't pass for him")
         assertEquals(0, routes.released, "the table stays held")
@@ -195,7 +195,7 @@ class AutomatumPauseTest {
         compose.mainClock.advanceTimeBy(800)
         compose.onNodeWithText("Bob may respond to Storm Spark").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-waiting.png",
-            "Alice cast Storm Spark at Bob, who is online and could answer: her device shows \"Bob may respond to Storm Spark\" with a bar emptying over her 2 s response time while it waits for him, and Pass for them.")
+            "Alice cast Storm Spark at Bob, who is online and could answer: her device shows \"Bob may respond to Storm Spark\" on one line beside the spell's card, with a bar emptying over her 2 s response time while it waits for him; passing for him is her step arrow's Resolve.")
         compose.mainClock.advanceTimeBy(1_000)
         assertTrue(sent.isEmpty(), "still waiting")
         compose.mainClock.advanceTimeBy(300)
@@ -262,8 +262,8 @@ class AutomatumPauseTest {
         assertEquals(cast.currentNodeId, cursor, "the live line now goes on from Bob's pause")
     }
 
-    // STK-037, SYS-071 (I-D41): a pause on an empty Stack (Bob, with Full control, in Alice's main phase after her pass):
-    // the panel by the Stack names the step, with the time running out, Hold and Pass
+    // STK-037, SYS-071, TRN-063 (I-D41): a pause on an empty Stack (Bob, with Full control, in Alice's main phase after
+    // her pass): the panel above the hand names the step, with the time running out and Hold; the step arrow passes
     @Test fun aPauseOnAnEmptyStack() {
         val play = board(fullControl = setOf(f.b))
         sent.clear()
@@ -274,10 +274,11 @@ class AutomatumPauseTest {
         compose.mainClock.advanceTimeBy(800)
         compose.onNodeWithText("Precombat main: you may act").assertExists()
         compose.onNodeWithText("Hold").assertExists()
-        // TRN-063: the step arrow says Pass too; the pause panel's own Pass is beside Hold
-        compose.onNode(hasText("Pass") and hasAnyAncestor(hasContentDescription("Your pause"))).assertExists()
+        // UI review round 2 #1 (TRN-063): the step arrow alone says Pass; the pause panel has none of its own
+        compose.onNode(hasText("Pass") and hasAnyAncestor(hasContentDescription("Your pause"))).assertDoesNotExist()
+        compose.onNodeWithContentDescription("Pass").assertExists()
         compose.onRoot().captureShot("$SCREENSHOTS/automatum/pause-empty-stack.png",
-            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: docked full width above his hand \"Precombat main: you may act\" with a violet bar emptying over his response time, the eye at the bottom left, Hold and Pass at the right.")
+            "Bob has Full control and could cast Storm Spark, so Alice's pass in her main phase gives him a pause: docked full width above his hand \"Precombat main: you may act\" with a violet bar emptying over his response time, the eye at the bottom left and Hold at the right; his step arrow reads Pass.")
     }
 
     // SYS-071 (I-D41): the device's Full control goes into a game Automatum is on in when the game's value differs

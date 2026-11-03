@@ -1,1 +1,1 @@
-Double-tapping Storm Spark with Automatum on: the cast panel is a slim bar over the hand ("Storm Spark — choose any target" with Cancel and its icon) while every legal target, cards and both life squares, glows violet.
+Double-tapping Storm Spark with Automatum on: the cast panel is a slim bar just above the hand ("Storm Spark — choose any target" with Cancel and its icon) while the legal targets glow: the creatures on both battlefields and Bob's life square are outlined in violet; the step arrow is greyed while the cast is open.

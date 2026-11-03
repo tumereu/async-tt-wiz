@@ -4,6 +4,8 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.KeyframesSpec
 import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.RadioButtonUnchecked
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -78,8 +80,9 @@ internal object AutomatumToggles {
     }
 }
 
-/** The quick-actions row with Automatum on (I-D46 (c)): equal-width icon + text toggles; on ones are tinted violet,
- * hold shows what each does. */
+/** The quick-actions row with Automatum on (I-D46 (c)): equal-width icon + text toggles, the words at a readable size
+ * (UI review round 2 #8); an on toggle is filled violet with a check, an off one white with an empty ring; hold shows
+ * what each does. */
 @Composable
 internal fun RowScope.AutomatumToggleCells(play: PlayState, viewer: String, enabled: Boolean, submit: (PlayAction) -> Boolean) {
     val (pauseState, pausePreferences) = rememberPauseSettings(viewer)
@@ -92,12 +95,20 @@ internal fun RowScope.AutomatumToggleCells(play: PlayState, viewer: String, enab
     for (toggle in toggles) key(toggle.name) {
         val control = MenuControl(toggle.name, toggle.enabled, selected = toggle.on, color = AutomatumViolet) { toggle.toggle() }
         RingPress(control, Modifier.weight(1f).height(48.dp).semantics { stateDescription = if (toggle.on) "On" else "Off" },
-            AutomatumViolet, fill = if (toggle.on) AutomatumViolet.copy(alpha = .14f) else Color.White, role = Role.Switch,
+            AutomatumViolet, fill = if (toggle.on) AutomatumViolet else Color.White, role = Role.Switch,
             tooltip = toggle.tooltip) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                val ink = if (toggle.on) AutomatumViolet else MenuInk.copy(alpha = .55f)
-                Icon(toggle.icon, null, Modifier.size(18.dp), tint = ink.copy(alpha = if (toggle.enabled) ink.alpha else .3f))
-                CellLabel(toggle.label, MenuInk.copy(alpha = if (toggle.enabled) 1f else .38f), Modifier.padding(horizontal = 2.dp))
+            val ink = (if (toggle.on) Color.White else MenuInk).let { it.copy(alpha = if (toggle.enabled) 1f else .45f) }
+            Column(Modifier.fillMaxSize().padding(horizontal = 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Icon(toggle.icon, null, Modifier.size(16.dp), tint = ink)
+                    // The state at a glance: a check when on, an empty ring when off
+                    Icon(if (toggle.on) androidx.compose.material.icons.Icons.Filled.CheckCircle
+                        else androidx.compose.material.icons.Icons.Outlined.RadioButtonUnchecked, null, Modifier.size(13.dp), tint = ink)
+                }
+                Text(toggle.label, color = ink, fontSize = 11.sp, lineHeight = 12.sp, letterSpacing = 0.sp, maxLines = 2,
+                    textAlign = TextAlign.Center, fontWeight = if (toggle.on) FontWeight.Bold else FontWeight.Medium,
+                    overflow = TextOverflow.Ellipsis)
             }
         }
     }

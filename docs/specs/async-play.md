@@ -1,117 +1,478 @@
 # Async play: assumptions, waiting, branching and undo (I-D56)
 
-Status: **draft for adversarial review, then owner review** (owner design, 2026-11-03). Builds on I-D52 (Automatum
-always on) and I-D54 (`engine-state-architecture.md`: engine state is the game state, the server is authoritative,
-clients send inputs). Refines I-D55 and replaces parts of I-D40, I-D41 and the free-branching history features (§9).
+Status: **revised after the adversarial review, with the owner's answers (2026-11-03), then tightened after a second
+review (consistency, information-rule wording, entries list); for owner review.** Builds on
+I-D52 (Automatum always on) and I-D54 (`engine-state-architecture.md`: engine state is the game state, the server is
+authoritative, clients send inputs). Replaces I-D40, I-D41, I-D55 and free branching; §17 lists every entry it changes.
+CR numbers are from the pinned Comprehensive Rules (`ComprehensiveRules.EFFECTIVE_DATE`).
 
 ## 1. Goal
 
-Play two-player games well both live and asynchronously with as few **async rounds** per game as possible (a KPI to
-measure in playtests), while keeping play mistake-free and the interface clear. Players don't decide for each other;
-the acting player may **assume** the opponent's answer where that's crucial for progressing asynchronously. An
-assumption is never confirmed on the opponent's behalf: the opponent's real answer confirms it or branches the game.
-We trust the (unmodified) client, but not the players: no one can see more than the rules allow by playing ahead.
+Play two-player games well both live and asynchronously with as few **async rounds** per game as possible (a KPI the
+server measures, §15), while keeping play mistake-free and the interface clear. Players don't decide for each other;
+the acting player may **assume** a few of the opponent's answers where that is crucial for progressing asynchronously.
+An assumption is never confirmed on the opponent's behalf: the opponent's real answer confirms it or branches the game.
+We trust the (unmodified) client, but not the players: no one can see more than the rules allow, by playing ahead or by
+undoing.
 
 ## 2. Terms
 
-- **Response mode** (per player, changeable at any time, also when coming back to a game; MTG Arena-like):
-  **Full control** (a chance to respond at every point where you get priority), **Normal** (chances at common situations:
-  the opponent's spells and abilities, combat declarations that involve you, your own main phases — today's default pause
-  points), **Auto-skip** (Normal, but never offered when you can't respond — today's "Skip when I have no choice").
-- **Live / async:** whether a player is following the game right now. Start: *live = online* (presence); playtesting may
-  refine it (e.g. this game's table in the foreground, or not idle).
-- **Head:** the newest event of the game's main line (server). **Local head:** the newest event a player's client has
-  shown/played back to that player.
-- **Assumed input:** an input the acting player's client submits **for the opponent**, flagged "assumed by <player>".
-  Only the kinds in §3 can be assumed.
-- **Tentative events:** events that depend on at least one unconfirmed assumed input.
+- **Decider:** the player who makes a decision by the rules, as the engine reports it (`Engine.decider`). A player
+  controlling another player (CR 723.5) makes that player's decisions as their own real inputs; nothing is assumed.
+- **Main line, head:** the server's current line of events and its newest event.
+- **Local head** (per player, kept by the server per account): the newest main-line event shown to that player. It moves
+  forward when one of their devices shows the next event (live or in playback) or when they add an event, and falls back
+  when a rewind or a branch removes events past it. Everything shown to the player comes from it (§7).
+- **Response mode** (per player per game, private, §7): where your own device stops for you.
+  - **Full control:** at every point where you get priority; after casting a spell or activating an ability you keep
+    priority.
+  - **Normal:** at your **stops** (your own main phases with an empty Stack) and your **pauses** (STK-036: the other
+    player's spell or ability on top of the Stack, their attack, blocks, their end step).
+  - **Auto-skip:** Normal, but your device passes at a stop or pause where you can't respond, and answers your questions
+    that have only one answer (today's "Skip when I have no choice"). Default for new games.
+- **Live / async:** the opponent is live while TRN-042 shows their green dot (this game open, touched in the last
+  2 minutes); otherwise async, with the grace of §4.
+- **Assumed input:** an input of the opponent's that the acting player's device submits, flagged "assumed by
+  <player>". Only §3's kinds.
+- **Tentative:** a main-line event after an unconfirmed assumed input. An assumed input about Bob is **confirmed** when
+  Bob's local head moves past it (§7, §8).
+- **Engine-automatic answer:** an answer any device may make because it decides nothing for anyone (§6).
+- **Line** (for libraries and randomness): starts at the game's start and at every branch and rewind (§9).
 
-## 3. What can be assumed
+## 3. What can be assumed, and where
 
-- **"Let it resolve" / no response (a priority pass)** at any point where the opponent would get a chance to respond.
-  Which points those are depends on the **assumption mode** the acting player picks (setting, quick to toggle):
-  - *As if Full control* — assume passes at every point where the opponent gets priority.
-  - *As if Normal* — assume passes only at the Normal points (the opponent might still have Full control; if their
-    real mode stops them at a point the assumption skipped, they decide there and that's a branch only if they act).
-  - *Never* — don't assume automatically.
-  A manual **"Assume resolves"** button is always available while waiting on the opponent.
-- **Blocks:** at the defender's declare-blockers step, **"Assume blockers"** lets the attacker set the blocks they expect
-  (including no blocks), then continue. Hidden from the defender.
-- More kinds may be added when playtesting shows the need (each added explicitly to this list).
-- Nothing else is assumable: the opponent's other choices (their "may"s, choices on resolution, their triggers' targets,
-  discards, damage division as defender, mulligans…) are always real waits.
+Kinds (more only by owner decision, each added to this list):
+1. **A priority pass** ("Assume resolves"): one pass at one point.
+2. **Blocks** ("Assume blockers"): the defender's declaration, set by the attacker on a screen that opens with "No
+   blocks". Only blocks without a cost to block (CR 509.1d: the defending player determines and pays those); the engine
+   checks restrictions and requirements as usual (CR 509.1b–c).
+3. **An opening keep** ("Assume keep"): the opponent's keep while keeping needs nothing more from them (no card owed
+   to the bottom), offered only to the starting player after their own keep.
 
-## 4. When assumptions happen
+Where: only where the opponent is the decider of a decision of these kinds, at any point **except their stops**:
+passing in their own main phase with an empty Stack is skipping their turn, not letting something resolve. Priority in
+their upkeep, draw step, combat and end step stays assumable.
 
-- **Opponent live:** after your input that gives the opponent a chance to respond, your client **waits** for their
-  answer — no timeout, they have all the time they want. You may press "Assume resolves" (or "Assume blockers") to go on.
-  A setting lets you assume automatically even when the opponent is live (with the chosen assumption mode).
-- **Opponent async:** your client assumes automatically and instantly (with the chosen assumption mode).
-- **Information rule:** you can't act on an assumption if your next action would **reveal to you information hidden from
-  you** — at least the opponent's hand; per a game setting also the contents of libraries. Such an action requires the
-  opponent's real answers up to that point: the client stops and waits for them (no "Assume resolves" offered there).
-  Together with the per-branch reshuffle of unknown order (§6), this ensures no one gains information by playing ahead.
-- **Game results:** a result reached on a tentative line is final only when every assumption before it is confirmed
-  (I-D53's OK comes after that).
+A tentative line ends (the device waits for the opponent's real input) at the first of:
+- the opponent's next stop;
+- any other decision of theirs: "may"s, choices on resolution, their triggers' targets, modes and order, discards,
+  divisions of combat damage that aren't automatic (§6), mulligans and bottom choices, simultaneous choices
+  (CR 101.4), the legend rule and other state-based choices, the loop choice (TRN-060);
+- an information-rule stop (§5);
+- a pause where the device waits because the opponent is live (§4).
 
-## 5. The opponent's side
+So a line never passes the opponent's next main phase: "End turn" reaches their first main phase at most.
 
-- The opponent's local head may be behind the head. Live or after being away, they **play back** the events in order and
-  can pause at any time. Coming back after being away, they first get the chance to set their response mode, then start
-  the playback.
-- Playback stops at each of their decision points **before** showing anything after it. They answer as usual.
-- **Confirmation:** each real input is compared, in order, with the assumed inputs. A match confirms it and playback
-  continues. The **first mismatch** is a branch point: the game branches there with the real input; every tentative event
-  after it is discarded.
-- **Discarded lines are never shown** to the player whose real answer differed (they'd reveal the assumer's plans and
-  cards). The assumer is notified ("Bob responded to <spell> — your later actions were taken back").
-- A player can never view or play back beyond their own local head, nor see the opponent's assumptions.
+## 4. When the acting device assumes
 
-## 6. Branching
+At the opponent's priority points that §3 allows and that aren't engine-automatic (§6):
+- **Their pauses**, judged as if their Auto-skip were off, so it never depends on their hidden cards:
+  - opponent async: assumed at once;
+  - opponent live: the device **waits**, with no timeout. The waiting bar offers "Assume resolves" (this one pass). The
+    personal setting **"Always assume resolves"** (off by default) assumes at once even when the opponent is live.
+- **Every other point** where they get priority (the ones only Full control stops at, such as your upkeep, your
+  beginning of combat, their own trigger on top): assumed at once, never a wait. If they play with Full control and act
+  there, that is an ordinary branch (rare).
+- **Blocks:** opponent async: declaring attackers opens the Assume blockers screen with "No blocks"; OK assumes it (one
+  tap), the attacker may edit first, Back leaves it a wait. Opponent live: the waiting bar offers "Assume blockers".
+- **Keep:** opponent async: assumed at once after the starting player's keep. Live: "Assume keep" on the waiting bar.
+- **Grace:** a wait that began while the opponent was live stays a wait until you press an Assume button or they have
+  not been live for 60 s; then the device goes on as for async. The waiting bar shows their presence (TRN-043 words).
+- The Assume buttons show only at assumable points, never at a real wait or an information-rule stop.
 
-- Branching happens **only** when a player's real answer differs from an assumption, at the point they are paused at /
-  deciding. There is no free branching from the timeline or the game tree.
-- Branching resets the shuffle seed for unknown order (as today, per branch), so cards seen in a discarded line don't
-  stay known.
-- The server's main line moves to the new branch; inputs made on the old line are refused (stale parent, I-D54) and that
-  client resyncs.
+## 5. Information rule
 
-## 7. Undo
+- While your line is tentative, an event is refused when its whole outcome (the input and everything the engine does up
+  to the next decision) shows you, at any moment, a card identity that wasn't in `Engine.visible(parent, you)` —
+  **except cards from your own library** (your library is protected by the reseed, §9). "At any moment" counts what the
+  outcome only shows in passing (a look at a hand, a card revealed and put back, the cards of your next decision), not
+  only what is still visible at its end; identities are compared by card, not by object (a card changing zones isn't
+  new).
+- What counts: the opponent's hand and library, face-down cards (also revealed as they leave the battlefield,
+  CR 708.9), cards exiled face down (CR 406.3), random discards, anything else hidden from you. There is no game
+  setting for libraries: the opponent's always counts, your own never does.
+- It covers an assumed input's own outcome: an assumed pass in declare blockers whose combat damage kills a face-down
+  creature is refused like an assumed pass that lets a "look at target opponent's hand" resolve.
+- The device then doesn't send the event and waits for the opponent's real input at that point. Your own input that
+  would reveal is refused until the line is confirmed (the card shakes; holding it says "Wait for Bob to catch up: this
+  would show you hidden cards"). The waiting bar reads "Waiting for Bob · going on would show you hidden cards", never
+  naming what. The server checks the same rule (refusal `revealsHidden`).
+- Accepted tells, written down because they are rare or as in paper and MTG Arena: a wait caused by a hidden source
+  (an opponent's "you may reveal this from your hand" trigger) shows that something hidden exists; whether going on
+  would reveal can occasionally depend on hidden cards; live timing (an opponent whose Auto-skip passes at once,
+  I-D18), and its async form: how far the opponent's playback has confirmed (the assumer's indicator, §14) shows where
+  their Auto-skip stopped; chat about a tentative line (the players' own words). Undo can't turn a hidden-source wait
+  into a free probe (§10).
 
-- You may undo **your own** actions freely while no opponent action (real, or an assumption already confirmed) is more
-  recent than them.
-- Otherwise — and always by **holding** Undo — Undo opens a dialog to choose the point to rewind to, with a view of that
-  state and an optional message. Every opponent gets the request dialog with the same view and the message and must
-  accept or deny; while a request is open neither player can make moves until it is answered (the requester may cancel).
-- **Redo is removed.**
+## 6. Engine-automatic answers, and who may submit what
 
-## 8. Timeline and game tree
+The server gate (`WhoActs`) and the device follow the same rules:
+- **Your own real inputs:** where you are the decider, at your local head (§8). Conceding: at any time (§11). The passes
+  your own device makes for you by your response mode are your real inputs too; like today's passes at points without
+  a stop or pause (STK-026) they fold into the event that reached them.
+- **Assumed inputs:** only §3's kinds, for the opponent as decider at points §3 allows, at the head, by the other player
+  while their own local head is the head (so never by a player who is behind). The server checks the kind, the point
+  and the information rule.
+- **Engine-automatic answers** are made by whichever device runs the step and folded into its event (I-D35). They are
+  not assumed, never compared and never branch:
+  - (a) a pass of a player who could only pass, judged **without cards only they can see** (no cards in hand and no other
+    hidden cards they could use: STK-026's "Skip off" judgement);
+  - (b) a choice with one legal answer, judged the same way; and an order-free division of combat damage (CMB-033),
+    answered with the suggestion for every player;
+  - (c) the decider's own early answer (I-D33), applied when its decision opens;
+  - (d) later: stored answers (`arcanum-automatum.md` §7.10).
+- A device never uses cards only the other player can see to decide what is automatic, so event splits, waits and the
+  assumption counter are the same whatever their hand holds. Their Auto-skip runs only on their own device (§7).
+- **Table-only events** (placing your own cards on your battlefield): added at the head while it still applies there,
+  else dropped; they never confirm or branch anything. Early answers are offered only while your local head is the head.
+  Staging at a decision stop behind the head (your blocks, CMB-034) stays on your device and goes out only as the
+  declaration itself (§12).
+- Nothing else: no passing, choosing, dividing, declaring or ending the turn for the other player.
 
-View-only: see "how the game looked on turn X" and how things played out, up to your own local head. No branching, no
-playing ahead.
+## 7. The opponent's side: local head, playback, confirmation
 
-## 9. What this replaces (catalog and specs must be updated consistently)
+- **Response mode is private:** stored on the server for that player and game only, set from the quick control, the
+  catch-up screen or Settings (the default for new games); never an event, never in the table state, never sent to the
+  opponent. It may change at any time, also during playback; it applies to the points not yet played back.
+- **Buffer:** the device keeps received events past the local head unshown (`GameSession`).
+- **Playback** (live as events arrive, or catching up) shows the events in order and stops at each of your decision
+  points **before** showing anything after it, with no time limit:
+  - a real wait for you;
+  - an assumed input about you at a point your mode stops at (Full control: every assumed pass; Normal: your stops and
+    pauses; Auto-skip: those where you could respond, judged by your own device with your own cards); assumed blocks
+    and an assumed keep always stop.
+  Elsewhere your device confirms the assumed pass without asking and plays on. At a stop the table is live at that point
+  and you answer as usual (§8). Auto-pause switches (HIS-024) remain viewing comfort; a decision stop always wins.
+- **Coming back** with opponent events past your local head: a catch-up screen first (what each mode means, the mode
+  control, Play), with no count or preview of what is coming; then playback.
+- **"Return to current" and Back** while behind play on quickly to your next decision point; never a jump past it.
+- **The timeline** shows the main line up to your local head; looking back is free, nothing beyond it is reachable.
+- **Everything shown to a player comes from their local head** and their **next stop** (the first point after it where
+  their playback would stop, worked out by the server with their private mode): the event strip, timeline, chip, result
+  panel, move pill and bar colours, game list order, move chip, status and last-activity time, notifications and
+  reminders. "Your move" means you have a next stop; its time is that event's time; move notifications and "<opponent>
+  is waiting for you" are timed from that event (LOB-073, LOB-075), not from the opponent's last touch. Nothing about
+  the line beyond your next stop (its length, events, timing or result) reaches you.
+- **Devices:** the local head is per account; a second device opens at it.
 
-- I-D41 response windows (the 1–3 s pause bar and the acting player's proceed/wait setting) → waiting without timeout +
-  "Assume resolves" + assumption modes.
-- I-D40 "Pass for them", "Choose for them", acting-for confirmations → assumed inputs (§3) only; no acting for others.
-- I-D55 (in design) → this spec.
-- Free branching (live branch rewind, branching from timeline/tree, auto-rewind settings), redo, and the undo rule's
-  "anyone's event" path → §6, §7.
-- Pause points' "Hold" → pausing the playback.
+## 8. Confirmation and branching
 
-## 10. UI (initial; MTG Arena as the reference)
+The server takes Bob's real input made at his local head P:
+- the next main-line event after P is an assumed input about Bob:
+  - **the same input** (the engine input equal, compared canonically, e.g. blocks as a set; table parts ignored):
+    confirmed: Bob's local head moves past it and the submission is dropped as a duplicate;
+  - **any other input**, including a mana ability or a special action first (CR 605.3a, 116.2b): a **branch**: the new
+    event's parent is P, the main line moves to it, the old line after P is discarded, and a new line starts (§9);
+- P is the head: appended as usual;
+- otherwise: `stale`, as today.
 
-- An indicator while you have unconfirmed assumptions: how many assumptions, and how many actions you've taken since the
-  first one.
-- "Assume resolves" and "Assume blockers" buttons where they apply; assumption mode as a quick toggle (with the response
-  mode toggles) and in Settings.
-- Waiting state when the opponent must answer.
-- Undo request dialog (target point picker with preview + message) and the incoming request dialog.
-- Notification when an assumption broke.
+Invariant, checked by the server: a player adds real inputs only at their local head, so unconfirmed assumptions on the
+main line are always about one player and there is never more than one tentative line.
 
-## 11. Open points
+Expected race (live play): at the opponent's priority points that are assumed at once (§4), the assumer's assumed pass
+and the decider's own pass by their response mode may both go out. Whichever the server takes first stands: the later
+real pass is a confirming duplicate; the later assumed pass is `stale`, and the assumer's device goes on from the new
+head (its pending inputs dropped, I-D54 §3). Neither is shown as a refusal.
 
-- "Live" definition (online vs foreground vs idle) — playtesting.
-- Whether libraries count as hidden for the information rule — game setting; default to decide.
-- Whether the assumer can view their own discarded line afterwards (view-only).
+After a branch:
+- **Bob** plays on from his own event; he never sees the discarded line or that it existed.
+- **Alice (the assumer):** her table goes back to P with the rewind animation (Rewind pause, HIS-022), with the note
+  "Bob responded to Storm Spark — your later actions were taken back" ("Bob blocked differently", "Bob took a
+  mulligan"), and one Game activity notification per branch, collapsed per game. Her inputs still on the old line are
+  refused as stale; an open cast is worked out again or dropped (STK-025).
+- **Discarded lines** are kept in storage for problem reports and shown to nobody, the assumer included.
+- There is no other way to branch: no branching from the timeline, no armed continuation, no late reaction.
+
+## 9. Libraries and randomness
+
+- **Known places** are part of the I-D54 state: per library, the cards whose place any player knows since that
+  library's last shuffle (ZON-023: put on top, bottom or Nth from top by a known action, ordered groups, a top kept
+  revealed, and a card looked at or revealed where it lies and left there); the rest is the unknown part. A reshuffle
+  never moves a card a player legitimately knows the place of.
+- **Every line starts by reshuffling the unknown parts of both libraries**, as the first step of its first event (shown
+  nowhere). A line starts at the game's start, at every branch (§8) and at every rewind, free undo included (§10).
+- **Random answers are deterministic per line:** the k-th random answer of a line (its reshuffle, shuffles, mulligans,
+  coin flips, dice, random choices) comes from H(game secret, line number, k).
+- **Where the seed lives:** the server makes the game secret when the play starts, stores it with the play and sends it
+  to both devices with the game (I-D27: data a device holds isn't shown; the unmodified app never shows anything worked
+  out from it before it happens). The line number and the line's random index are kept on each event, so nothing walks
+  back; line numbers come from a counter on the play (0 at the start, each new line takes the next), never from the
+  parent's line, so a branch or rewind never reuses the stream of a discarded or deleted line (whose draws the assumer
+  may have seen). The server checks each random answer against them.
+- So the same input on a line gives the same result, a new line gives new results, and nothing seen can be re-rolled:
+  undoing past a random result or a seen card needs the opponent's approval (§10).
+
+## 10. Undo and rewind
+
+- **Undo (tap)** goes back to just before your latest own real input (your later assumed inputs go with it); when that
+  undo isn't free it opens the rewind dialog with that target chosen. **Holding Undo** opens the rewind dialog to pick
+  any earlier point of the main line.
+- **Free** (done at once) when everything after the target is your own (real inputs, or assumed inputs not yet
+  confirmed) or the opponent's table-only events the undo rule lets stand (I-D54 `UndoRule`), and none of it showed you
+  something new (as §5 counts it, at any moment): a card identity you couldn't see before (your draw, look, scry,
+  surveil, search, a reveal; your own library counts here), a random result (coin flip, die, random choice), or a wait
+  for the opponent's decision whose source you can't see (§5's hidden-source tell).
+- **Otherwise an undo request:** the rewind dialog (the timeline strip by event group as the target picker, with the
+  board at the target), an optional message, "Ask Bob". Bob gets the request dialog with the message and the target
+  board, shown only up to his local head (a target past it shows his local head's board and "and actions you haven't
+  seen yet"), and Accept / Deny; it never says how many events go. While a request is open neither player sends game
+  inputs: answers at a decision stop (confirming or branching) wait too. Looking and playback go on, and playback still
+  moves the local head (confirming the passes it doesn't stop at); the requester may cancel; a concession is still
+  taken and ends the request.
+- **A rewind** (free or approved) deletes the events after the target, as Undo does today (HIS-086), and starts a new
+  line (§9). A player whose local head was past the target falls back to it; their device plays the way back with the
+  note "Alice took back Storm Spark".
+- **Redo is removed.** There is no event-count window: any earlier point (checkpoint plus at most 63 events, I-D54).
+- Undo stays a convenience (SYS-006): no flow depends on a request being accepted. Recovering from an engine bug past
+  the opponent's input needs their approval; while they are away the requester waits or cancels.
+
+## 11. Results, concession and suggestions
+
+- **A result the engine reports on a tentative line** is final only once every earlier assumption is confirmed. The
+  assumer sees "You won · waiting for Bob to catch up" with OK greyed; OK is enabled once both local heads have
+  reached the result, then either player may press it (TRN-065). The other player's result notification (LOB-111) goes
+  out only after that.
+- **Conceding while behind** is your real input at your local head, taken at any time (CR 104.3a): when the main line
+  goes on past your local head, the game first branches there (the line beyond is discarded), so the result never
+  depends on what you haven't seen. The assumer's own concession is at the head and final at once.
+- **Suggestions** (TRN-046) are made at the head. The lock (TRN-049) applies to a player only once their local head
+  includes the suggestion; an earlier real input of the other player that branches leaves it behind on the discarded
+  line.
+
+## 12. Rules points
+
+- Only the exact assumed input matches (§8); anything the opponent does first is a branch.
+- The attacker's Assume blockers screen is local and sent only as the assumed input itself, never as shared block
+  staging; the defender's own staging (CMB-034) is theirs: shared as today when they block at the head, kept on their
+  device when they block at a decision stop behind it (playing back assumed blocks), and sent only as their
+  declaration.
+- A defender's division of combat damage for a blocker blocking several attackers (CR 510.1d) is a real wait unless it
+  is engine-automatic (§6 b, c).
+- The opponent's triggers in your turn go on the Stack first (APNAP, CR 603.3b): their targets, modes, order and "may"
+  are real waits; their priority with their own trigger on top is assumable (not a pause).
+- Extra combat phases (CR 500.8) and extra turns follow the same rules point by point.
+
+## 13. Event model, storage and order of work (with I-D54)
+
+- `EngineStep.assumedBy: player?` marks an assumed input. An assumed input always begins its own event: assumed and real
+  inputs never share an event; engine-automatic answers fold as before (I-D35, HIS-092).
+- **Local heads:** a server table per play and player (event id), moved by the devices' reports (throttled) and by own
+  submissions (a submission at P first moves its author's local head to P, so a report still in flight never refuses
+  an answer); not part of any event. **Confirmation** is the local head past the assumed input, so events stay
+  immutable and event digests and checkpoints are unchanged.
+- **Discarded lines** stay in `engine_event` as branches off the main line; problem reports include them (I-D43).
+  Rewinds delete events as Undo does.
+- Each event keeps its line number and random index; the play keeps the game secret and the line counter (§9).
+  Response modes, "Always assume resolves" and Autotap mana are per-player settings on the server, not table or engine
+  state: the shared engine state keeps every player's `skipWhenNoChoice` off (so `Engine.shouldPassFor` gives §6 (a)'s
+  public judgement), and a device judges its own player's Auto-skip on a local copy with it on.
+- **Server:** `WhoActs` per §6; `Acceptance` per §8 (a non-head parent only for a mismatch at the submitter's local head
+  or a concession); the information rule; the async-round measure (§15).
+- **Device:** `GameSession` buffers events past the local head; on a branch the assumer's device reverts to the branch
+  point, bounded because a line never passes the opponent's next main phase (else reload from a checkpoint).
+- **Order:** land this, the known library places and the deterministic randomness **before the I-D54 wipe**, so the
+  stored format changes once. Build it on the I-D54 model only; today's I-D41 machinery (`AutomatumPauseDriver`,
+  `HistoryPlayback.holdPause`, `TableHistoryController.holdAt`, `PauseController`) goes with the old model. Phases, on
+  the I-D54 branch (its switch-over list, items 1–6):
+  1. *Stored format* (with I-D54 item 5): `assumedBy`; line number and random index per event; the play's secret and
+     line counter; per-line random answers (`answerRandoms` seeded by H); known places in the engine state and the
+     line-start reshuffle; the local-head table; discarded lines kept as branches; private settings out of
+     `TableState`/the engine state (`PlaySettings.fullControl`, `Act.SkipWhenNoChoice`). The frozen sample is
+     re-recorded once.
+  2. *Server rules* (protocol + server, no UI): `WhoActs` (§6), `Acceptance` (§8: duplicate, branch, stale, the
+     local head moved by submissions), the information rule as one function shared by device and server, free undo
+     and rewinds (new line), undo requests and the input block, concession while behind, result OK and the suggestion
+     lock per local head, each player's next stop and `Attention` per viewer (lobby rows, notifications, reminders),
+     the async-round log. Two-device simulations with both oracles.
+  3. *Device core* (`GameSession`): the buffer, playback stops by mode, local-head reports, the assumer's
+     assume/wait/grace logic, revert on a branch.
+  4. *App* (with I-D54 item 2, which replaces the I-D41 UI anyway): waiting bar, Assume blockers, quick controls,
+     catch-up screen, rewind and request dialogs, notes, indicator, event texts; the tree dialog and redo go. Catalog
+     entries change with the code.
+  5. *Switch-over* (I-D54 item 6): the wipe, deleting the old model, then the adversarial review of two-device races.
+- **Tests:** two-device simulations with seeded randomness, plus two oracles: *equivalence* (with no branch, the final
+  main line equals synchronous play with the same answers, event for event; with branches it is a legal game of the real
+  answers) and *leak* (in every rendered frame, the table, strip, chip, notifications and game list show nothing outside
+  `Engine.visible` at the viewer's local head). Scenario tests for each review finding, citing the CR where a rule is
+  involved.
+
+## 14. UI (initial; MTG Arena as the reference)
+
+- **Assumer's indicator** while assumptions are unconfirmed: "N assumed · M actions since"; only the assumer sees it.
+- **Waiting bar** above the hand (STK-044), with the opponent's presence line and no timeout: "Bob may respond to Storm
+  Spark · Assume resolves", "Bob may act · End step · Assume resolves", "Bob is declaring blockers · Assume blockers",
+  "Bob is deciding on a mulligan · Assume keep", "Bob is choosing · <card>" (no button), "Waiting for Bob · going on
+  would show you hidden cards" (no button).
+- **Assume blockers screen:** like the defender's staging (CMB-034) but on the attacker's device only, starting with "No
+  blocks"; OK assumes, Back waits.
+- **Quick controls:** response mode (Full control / Normal / Auto-skip), "Always assume resolves", Autotap mana.
+  Settings → Automatum holds their defaults.
+- **Step arrow:** only your own actions; while the opponent must act it is hidden in either player's turn (the waiting
+  bar holds the Assume buttons).
+- **Events:** the assumer sees an assumed input in the opponent's colour with a dashed outline and "Bob passes
+  (assumed)" / "Bob: no blocks (assumed)" until confirmed, then plain ("Bob passed"). The opponent sees their confirmed
+  passes as their own.
+- **Undo:** the rewind dialog and the incoming request dialog (§10). **Notes:** the branch note and notification (§8),
+  the take-back note (§10). **Catch-up screen** (§7).
+- **The game tree dialog goes:** with discarded lines shown to nobody there is only one line, which the timeline shows.
+
+## 15. KPI
+
+- The server counts, per game, **async rounds**: waits (the main line needs a player's real input) that begin while that
+  player isn't live, each logged with its kind (opponent's stop, real choice, information rule, blocks, keep, pause).
+  Playtests compare it with today's build per game and per turn.
+- Not now (roadmap): **rebase** — when the opponent's real answer differs, re-apply the assumer's later inputs on the
+  new branch where they are still legal and independent of what changed (first case: keep the assumer's turn 1 when the
+  opponent mulligans and nothing touched the opponent's hand); **stored answers** (§7.10) as engine-automatic answers;
+  the responder's own "pass for me after N s" in live play; the opponent's Auto-skip answers to one-answer questions
+  applied by the server, if those waits turn out to matter.
+
+## 16. Choices made in this revision (owner to confirm) and open points
+
+Choices (plainest or most vision-aligned where the answers didn't say):
+1. Random results count as "something new shown to you" for free undo (with every rewind reseeding, this is what stops
+   re-rolls).
+2. The game secret is held by both devices (I-D27), answering the I-D54 note on where the seed lives.
+3. Order-free divisions are automatic for every player, without CMB-033's Skip condition (the mode is now private).
+4. One-answer questions that depend on the opponent's hidden cards are real waits for the acting device (no inference
+   from hidden cards); the opponent's own device answers them under Auto-skip.
+5. Assume keep: only for the starting player; automatic when the opponent is async.
+6. Live = the green presence dot; 60 s grace before a live wait turns async.
+7. Discarded lines are viewable by nobody; the game tree dialog goes.
+8. Response mode per player per game, default Auto-skip from Settings; "Always assume resolves" off by default.
+9. A concession while behind discards the line beyond the conceder's local head.
+10. While an undo request is open, answers at decision stops (confirming or branching) wait; playback, and the
+    confirmations it makes without asking, go on.
+11. Rewinds have no event-count limit.
+
+Added by the second review (plainest readings; owner to confirm):
+12. Autotap mana is private like the response mode (it shapes only your own casts), answering I-D54's open point 3
+    the other way: not a shared table setting.
+13. A tap on Undo that isn't free opens the rewind dialog with its target chosen.
+14. A wait for the opponent's decision from a source you can't see makes undo past it a request (no free probing).
+15. Accepted tell: the assumer's indicator shows how far the opponent's playback confirmed, so where their Auto-skip
+    stopped (the async form of I-D18's live timing).
+16. Your device's passes for you by your response mode are your real inputs, folded into the event that reached them.
+17. Passing the move by hand (TRN-006) goes: the move is no longer state (I-D54 keeps none) but each viewer's next
+    stop (§7); the move pill only shows it.
+
+Open: the live definition (playtesting); whether async rounds drop compared with today (§15).
+
+## 17. Entries to change
+
+Implementation updates these in the same commits as the code (AGENTS.md). "Remove" deletes the entry; "Change" rewrites
+it as stated.
+
+### Feature catalog
+
+**history.md**
+- Remove: HIS-014 (Rewind to the opponent's branch), HIS-036, HIS-037 (armed continuation), HIS-038, HIS-039
+  ("Opponent branched"; replaced by the assumer's take-back, §8), HIS-040 (Old branch chip), HIS-041 (auto-rewind
+  settings), HIS-044–HIS-048 (game tree dialog).
+- Change: HIS-001, HIS-002, HIS-004 (the strip and timeline end at your local head); HIS-005 (no branch marker);
+  HIS-006, HIS-033, HIS-034, HIS-035 (unseen = past your server-side local head; catch-up screen, then playback that
+  stops at your decision points; no "no saved point" case); HIS-010 (no tree button); HIS-012 (only the main line, up to
+  your local head); HIS-013 (no "Hold to branch" line); HIS-015, HIS-018, HIS-019 (playback turns live at your decision
+  point; Return to current/Back play on to it, never jump; no branching action); HIS-020 (suggestions per local head,
+  §11); HIS-022 (Rewind pause also paces take-backs and rewinds); HIS-024, HIS-093 (Auto stops at every decision point
+  by your response mode, no time limit, no branching by holding Auto); HIS-028 (no auto-rewind switches); HIS-030 (no
+  tree jump); HIS-032 (local head per account on the server); HIS-042 (reshuffle of unknown parts at every line start:
+  branch, free undo, approved rewind; random answers deterministic per line; "draw, undo, draw gives the same card"
+  goes); HIS-083 (hold = rewind dialog, not Redo); HIS-084 (§10's free undo or request, no 50-action limit); HIS-085
+  (undoes as one; no redo); HIS-087 (the concern rule stays; seeing something new makes undo a request); HIS-089 (no
+  Redo, no branches; new refusal reasons); HIS-091 ("alice passed for bob" goes; assumed-input texts, §14); HIS-092 (an
+  assumed input is its own event; only engine-automatic answers and your device's own passes fold); HIS-058 (an End
+  turn's assumed passes are their own events, and the other player's playback stops at those their mode stops at).
+
+**zones.md**
+- Change: ZON-024 (as HIS-042); ZON-026 (undoing your own look, scry or reveal needs the opponent's approval).
+
+**turns-combat-stack.md**
+- Remove: TRN-061 (acting-for confirmations), STK-031 (Choose for them), STK-038 (the acting device passes for the
+  other player after the bar), STK-039 (Hold and late-reaction branch).
+- Change: TRN-004, TRN-063 (the step arrow acts only for you; no "Pass" for the other player; hidden while they must
+  act); TRN-006 (the pill shows the move from your local head and next stop; no passing the move by hand, §16 choice
+  17); TRN-013, TRN-014 (the bars' colour and the move are worked out per viewer, not part of any event); TRN-015
+  (also hidden in your own turn while the opponent must act); TRN-027, TRN-028, TRN-062 (the starting player may play
+  turn 1 on an assumed keep); TRN-047, TRN-049, TRN-050 (suggestions and the lock per local head); TRN-057 (Next step
+  and End turn pass only for you; the opponent's points are assumed, automatic or waited for); TRN-058 (each player's
+  move and bar colours come from the point shown to them); TRN-059 (toggles: response mode, Always assume resolves,
+  Autotap mana); TRN-060 (the loop choice only by the player holding priority); TRN-064 (concede while behind, §11);
+  TRN-065 (OK once both local heads reached the result; Undo per §10); CMB-028, CMB-034 (staging only by the declaring
+  player; the attacker's assumed blocks are a separate local screen); CMB-029 (no "Pass" for the other player of the
+  turn); CMB-033 (no choosing for them; order-free divisions automatic for every player, answered by the device
+  running the step); STK-026 (automatic passes for the other player only when forced on public information; otherwise
+  assumed or waited for; your own device passes for you by your response mode); STK-027 (no Hold); STK-028 (the bar
+  offers Assume resolves; no Pass for Bob); STK-029 (Resolve passes only your own priority); STK-030 (no "Choose for
+  them" button); STK-034 (early answers only your own; applied when the division opens by the device running the
+  step); STK-036 (stops and pauses become the Normal response mode, Full control and Auto-skip, run by the player's
+  own device and playback); STK-037 (no bar, Response time or Hold: you decide with no time limit); STK-044 (no Hold
+  button; the bars of the other player's response or choice become the waiting bar, §14).
+
+**rules.md**
+- Remove: SYS-062 (branch inside a flow).
+- Change: SYS-005 (personal but kept on the server per account: the local head and the response mode; never shared
+  with the other player); SYS-007, SYS-025 (Undo and undo requests; no Redo; a request's answer can't be local);
+  SYS-012 (the main line changes only by a mismatch branch, a rewind, or a concession while behind; new stale
+  message); SYS-026 (example: rewinds use checkpoints, no 50-event window); SYS-036, SYS-037, SYS-038 (gameplay: only
+  your own inputs plus §3's assumed inputs; undo of others' inputs by request); SYS-057 (a player's Full control or
+  Skip setting is no longer part of the board); SYS-058 (no redo stamps); SYS-063, SYS-071 (Auto-skip and Full control
+  are the private response mode, run only by the player's own device; Full control never an event); SYS-069, SYS-073
+  (no passing the move by hand; Undo, undo requests and rewinds; response mode no longer a game setting; early answers
+  your own; assumed inputs); SYS-072 (no redo).
+
+**lobby.md**
+- Change: LOB-022, LOB-024, LOB-072, LOB-073, LOB-075, LOB-076, LOB-111, LOB-114 (computed from your local head and next
+  stop, §7, §11); LOB-082 (no auto-rewind switches); LOB-113 (no Response time and "When the opponent can react"; the
+  Full control switch becomes "Response mode" for new games (Full control / Normal / Auto-skip, default Auto-skip);
+  "Always assume resolves" added; these and Autotap stored per account on the server).
+
+**New entries:** response modes and their privacy; the local head and what derives from it; playback stops and
+confirmation; the catch-up screen; assumed passes (pauses, other points, grace, Always assume resolves); Assume
+blockers; Assume keep; the waiting bar; the information-rule stop; engine-automatic answers; the assumer's indicator;
+branch note and notification; free undo and its limits; undo requests (send, receive, cancel, the input block); rewinds
+and reshuffles; results and concession on tentative lines; the async-round measure.
+
+### `arcanum-atw-integration.md`
+
+- Add the I-D56 row (this spec). Superseded: I-D40 (acting for the other player asks first), I-D41 (pause points and
+  response windows), I-D55 (by I-D56).
+- Change: I-D3, I-D18 (automatic passing becomes Auto-skip on the player's own device; other devices judge only on
+  public information); I-D11 ("either may answer" goes); I-D17 (its rationale of answering for an offline player goes);
+  I-D20 (the undo window is replaced by §10); I-D22 (an assumed pass is shown as its own event); I-D23 (moot: branches
+  start only at a decision point); I-D26 (redo goes); I-D29 ("either player may accept for the other" goes); I-D33
+  (early answers applied as engine-automatic answers, §6 c); I-D34 (the move per viewer); I-D35 (an assumed input begins
+  its own event); I-D46 (c) (the toggles); I-D49 (assume keep); I-D52 (the recovery path is undo and rewind requests,
+  not branching); I-D53 (OK after both local heads; Undo per §10).
+- Build notes to mark historical: §2 step 5 ("Choose for him"); "Built (I-D40, I-D42)"; "Built (I-D41, pause points)";
+  the pause-point review fixes A (late-reaction branch) and C (hold signal); "UI review round 2" (1) (the arrow's
+  Resolve for the other player).
+
+### `engine-state-architecture.md` (I-D54)
+
+- §2: "undo, redo, branching and timeline playback work exactly as now" (→ §8, §10); per-player Full control, Skip and
+  Autotap in the shared table state (→ private settings, §13).
+- §3: "Branching from an older point stays an explicit action" (→ branches only at a mismatch, §8); "the server uses
+  [random answers] as given" (→ checked against the line's stream, §9); a refused input's exceptions (a confirming
+  duplicate, a mismatch branch, §8).
+- §6: the kept "timeline/history/branching UX" and "pause points (I-D41)" (→ this spec).
+- §8: attack staging and block draft stay shared, except the attacker's assumed blocks (§12).
+- §9 phase 2: `TableState.PlaySettings` Full control; `EngineStep` with a null input for "Skip when I have no choice".
+- §9 phase 3–4 notes (on the I-D54 branch): `WhoActs.Anyone` (→ §6); `Acceptance`'s "deliberate branch" (→ §8);
+  `GameSession.received` applying another player's event at once (→ the buffer, §7); `TableChange.Settings` sharing Full
+  control; `Act.SkipWhenNoChoice` (→ private, §13); `Attention.of(state)` at the head (→ per viewer from the local
+  head and next stop, §7); the engine state's `skipWhenNoChoice` (kept off, §13); switch-over item 2's "pause points",
+  "settings as table changes" and "Autotap becomes a shared table setting" (→ §7, §13); switch-over item 5 is now
+  specified by §9 and §13 (the seed's place: §9; undo no longer replays the same stream: every line is new).
+
+### `arcanum-automatum.md`
+
+- Change: D4, D11, P7, §7.9 (deciding for another player goes; assumptions only, I-D56), the §8 "Pending decisions" row
+  ("or on their behalf" goes), §9 (live play is decided here), §11 "Player access" (decisions only by their player,
+  plus §3's assumptions) and "History, undo, branches" (→ §8, §10).
+- Keep: §7.10 stored answers, now the next KPI step (§15).
+
+### Other documents
+
+- `docs/pre-release-review.md` (owner's list): the "Undo/redo" item names redo and the "Keep top card revealed" item
+  names branch reseeds; the owner updates them (every line reseeds, §9; no redo, §10).

@@ -40,8 +40,8 @@ class AutomatumOpeningTest {
     @After fun forget() { AutomatumBoards.reset(); AutomatumBoards.definitionSource = null }
 
     /** A new game as the server starts it: 12-card libraries in an unknown order, empty hands, both players
-     * "Mulliganing", Alice starting in her first untap step. */
-    private fun newGame(): PlayState {
+     * "Mulliganing", Alice starting in her first untap step; [automatum]: the game's choice (I-D44). */
+    private fun newGame(automatum: Boolean = false): PlayState {
         val cards = mutableListOf<PlayCard>()
         val containers = mutableListOf<PlayContainer>()
         for (player in listOf(alice, bob)) {
@@ -55,7 +55,7 @@ class AutomatumOpeningTest {
         val seed = RandomV1.encodeSeed(ByteArray(32) { it.toByte() })
         return PlayState(id("game"), id("play"), id("round"), id("start"), PlayRoot(id("root"), id("branch")), id("root"),
             BoardState(listOf(alice, bob).map { PlayPlayer(it, status = PlayerStatus.OPENING) }, cards.sortedBy { it.id },
-                containers, TurnState(alice)),
+                containers, TurnState(alice), automatum = automatum),
             listOf(mountain), listOf(alice, bob).map { p -> InitialShuffle(p, seed, cards.filter { it.owner == p }.map { it.id }) },
             InitialStarter(StarterChoice(alice), alice))
     }
@@ -108,11 +108,16 @@ class AutomatumOpeningTest {
     // a mulligan to six the London way (a new seven, then one of them on the bottom of her library), Bob with Mull −1; the
     // game doesn't begin until both are Ready; then Alice's step button begins her first turn through Automatum: no draw,
     // her main phase, where she plays a land
-    @Test fun bothMulliganWithAutomatumOnThenTheFirstTurnPlays() {
-        tree = GameplayTree(newGame())
+    @Test fun bothMulliganWithAutomatumOnThenTheFirstTurnPlays() = bothMulliganThenTheFirstTurnPlays(onFromTheStart = false)
+
+    // TRN-062 (I-D44): the same with Automatum on from the game's first state, as every new game now starts
+    @Test fun bothMulliganInAGameStartedWithAutomatumOn() = bothMulliganThenTheFirstTurnPlays(onFromTheStart = true)
+
+    private fun bothMulliganThenTheFirstTurnPlays(onFromTheStart: Boolean) {
+        tree = GameplayTree(newGame(automatum = onFromTheStart))
         val a = device(alice)
         val b = device(bob)
-        assertTrue(a.setAutomatum(true), a.error)
+        if (!onFromTheStart) assertTrue(a.setAutomatum(true), a.error)
         assertTrue(play.board.automatum)
 
         mullSeven(a)

@@ -247,6 +247,14 @@ internal object Effects {
                         Actions.putCounters(act, cause, TargetRef.Object(to), k, n)
                     }
                 }
+                // blb backfill: a source that left the battlefield ("when this creature dies, put its counters on target
+                // creature") has nothing to remove: the counters it had as it last existed are put (CR 608.2h)
+                scope.objects(effect.from).filter { act.state.obj(it) == null }.distinct().forEach { gone ->
+                    val had = arcanum.engine.query.Lki.find(act.state, gone)?.counters.orEmpty()
+                        .filter { it.count > 0 && (effect.kind == null || it.kind == effect.kind) }
+                    val limit = scope.value(effect.amount)
+                    had.forEach { c -> Actions.putCounters(act, cause, TargetRef.Object(to), c.kind, minOf(c.count, limit)) }
+                }
             }
             is Effect.ChangeTargets -> changeTargets(scope, effect)
             is Effect.SeparatePiles -> separatePiles(scope, effect)

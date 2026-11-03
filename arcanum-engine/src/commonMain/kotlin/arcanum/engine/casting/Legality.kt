@@ -198,7 +198,9 @@ internal object Legality {
     private fun castsAsThoughFlash(snap: Snapshot, player: PlayerId, card: ObjectId): Boolean =
         snap.view.players[player]?.mechanics.orEmpty().any { applied ->
             val m = applied.mechanic as? Mechanic.CastAsThoughFlash ?: return@any false
-            snap.evaluator(applied.controller, self = applied.source, holder = player).matches(m.spells, card)
+            // blb backfill: the card is judged as the spell it would be ("noncreature spells", CR 601.3a)
+            val e = snap.evaluator(applied.controller, self = applied.source, holder = player)
+            e.with(e.ctx.copy(prospectiveCast = true)).matches(m.spells, card)
         }
 
     /** "Cast this spell only …" (CR 601.3e): the card's own [Mechanic.CastRestriction]s; [timing] too unless an effect

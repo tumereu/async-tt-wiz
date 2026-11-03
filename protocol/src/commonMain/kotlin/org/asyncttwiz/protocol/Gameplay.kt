@@ -31,7 +31,10 @@ import kotlinx.serialization.json.*
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @Serializable @SerialName("suggestResult") data class SuggestResult(val outcome: SuggestedResult,
         /** Optional reason (rules v25), see [ResultNotes]. */
-        @EncodeDefault(EncodeDefault.Mode.NEVER) val note: String = "") : PlayAction
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val note: String = "",
+        /** I-D53: the result the rules gave ([ResultSuggestion.byRules]), recorded only by Automatum's batch; it takes
+         * the place of a suggestion waiting. */
+        @EncodeDefault(EncodeDefault.Mode.NEVER) val byRules: Boolean = false) : PlayAction
     @Serializable @SerialName("declineResult") data class DeclineResult(val suggestionId: String) : PlayAction
     @Serializable @SerialName("withdrawResult") data class WithdrawResult(val suggestionId: String) : PlayAction
     @Serializable @SerialName("setTapped") data class SetTapped(val cardId: String, val tapped: Boolean) : PlayAction
@@ -294,21 +297,21 @@ object GameplayRules {
                 transition = GameplayTransition(attention = AttentionChange(board.attentionHolder, holder))
             }
             is PlayAction.SuggestResult -> {
-                if (board.resultSuggestion != null) return reject("inapplicable")
+                if (board.resultSuggestion != null && (!action.byRules || board.resultSuggestion.byRules)) return reject("inapplicable")
                 val suggestion = ResultSuggestion(CommandIds.uuidV5(command.requestId, "result-suggestion"), actor,
-                    action.outcome, action.note)
+                    action.outcome, action.note, action.byRules)
                 next = board.copy(resultSuggestion = suggestion)
-                transition = GameplayTransition(resultSuggestion = ResultSuggestionChange(null, suggestion))
+                transition = GameplayTransition(resultSuggestion = ResultSuggestionChange(board.resultSuggestion, suggestion))
             }
             is PlayAction.DeclineResult -> {
-                val suggestion = board.resultSuggestion?.takeIf { it.id == action.suggestionId }
+                val suggestion = board.resultSuggestion?.takeIf { it.id == action.suggestionId && !it.byRules }
                     ?: return reject("inapplicable")
                 if (suggestion.author == actor) return reject("otherPlayerRequired")
                 next = board.copy(resultSuggestion = null)
                 transition = GameplayTransition(resultSuggestion = ResultSuggestionChange(suggestion, null))
             }
             is PlayAction.WithdrawResult -> {
-                val suggestion = board.resultSuggestion?.takeIf { it.id == action.suggestionId }
+                val suggestion = board.resultSuggestion?.takeIf { it.id == action.suggestionId && !it.byRules }
                     ?: return reject("inapplicable")
                 if (suggestion.author != actor) return reject("accessDenied")
                 next = board.copy(resultSuggestion = null)

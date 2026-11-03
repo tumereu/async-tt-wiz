@@ -33,8 +33,8 @@ import kotlin.test.assertTrue
  * gate ([AutomatumOnly]) before the shared reducer, as `GameService` takes them. The devices mulligan and keep (TRN-062),
  * then play as in [AutomatumFinalCombatGamesTest] (lands, creatures, casts at stops and reactions at pauses, staged
  * attacks and blocks, answers, holds, presence changes, Undo); now and then a player suggests a draw, which the other
- * declines or accepts (TRN-046); a game ends when a player loses by the rules (then they concede, TRN-064, since the
- * rules' result doesn't end it: pivotreview #1), a draw is accepted, or a player concedes at the end. Counted: requests
+ * declines or accepts (TRN-046); a game ends when a player loses by the rules (I-D53: the result waits for either player's
+ * OK, shown to both), a draw is accepted, or a player concedes at the end. Counted: requests
  * the server refused (the gate's refusals separately), stalls, controller failures, boards the engine can't take over.
  */
 @RunWith(RobolectricTestRunner::class)
@@ -151,8 +151,7 @@ class PivotReviewGamesTest {
         val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client"), "1",
             continuation = from?.let { Continuation(it, explicit = true) })
         // As GameService: the gate (I-D52), then the shared reducer
-        val change = AutomatumOnly.refusal(history, actor, command)?.let { GameplayTreeChange(reason = it) }
-            ?: HistoryContinuation.change(history, actor, command)
+        val change = AutomatumOnly.change(history, actor, command)
         if (change.reason == RuleRefusals.AUTOMATUM_ONLY) gateRefused += "${if (actor == f.a) "alice" else "bob"}: ${action.toString().take(160)}"
         change.tree?.let { tree = it }
         return change
@@ -481,13 +480,16 @@ class PivotReviewGamesTest {
             serveQueues()
             val live = head.value
             val loser = live.board.players.firstOrNull { (it.life.toIntOrNull() ?: 1) <= 0 }?.accountId
-            if (loser != null) {
-                // CR 104.3b: the rules ended the game; ATW's play goes on (pivotreview #1): the loser concedes (TRN-064)
+            if (loser != null || live.board.resultSuggestion?.byRules == true) {
+                // CR 104.3b, I-D53 (pivotreview #1): the rules ended the game; the result waits for either player's OK
                 val flow = AutomatumBoards.sharedFlow(live, tags(live))
-                if (flow?.holder != null || flow?.declaring != null) stats.failures += "the engine goes on after a loss"
-                if (live.board.resultSuggestion == null) stats.count("rules' result not recorded")
-                concede(loser, stats)
-                stats.end = "lost by the rules, conceded"; return stats
+                if (flow?.holder != null || flow?.declaring != null) stats.failures += "the engine goes on after the end"
+                val result = live.board.resultSuggestion
+                if (result?.byRules != true) { stats.failures += "the rules' result not recorded: $result"; return stats }
+                if (loser != null && result.outcomeFor(loser) != SuggestedResult.LOSS) stats.failures += "the result isn't $loser's loss: $result"
+                for (d in devices) if (ResultActions.pendingPresentation(f.game, live, d.player)?.let { it.byRules && it.canAccept } != true)
+                    stats.failures += "${d.name} isn't shown the result to confirm"
+                stats.end = "ended by the rules"; return stats
             }
             val suggestion = live.board.resultSuggestion
             if (suggestion != null) {

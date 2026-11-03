@@ -30,12 +30,11 @@ import org.asyncttwiz.automatum.CombatFlow
 import org.asyncttwiz.protocol.*
 
 /**
- * What the step arrow does with Automatum on (I-D46 d), said MTG Arena-style by its label: the priority holder passes
- * ("Pass" when it isn't the turn's player; for the turn's player "To combat" from the first main phase, "End turn" from
- * the second main phase on, when passing hands the turn over, else "Next"), the awaited declaration ("Attack (2)",
- * "No attack", "Block (1)", "No blocks"), "Resolve" with something on the Stack, "Done" for Automatum's step done by hand
- * (I-D37). [Waiting]: another choice is open, which its own panel answers (or the Stack holds only entries made by
- * hand): greyed ([stepBlocked]).
+ * What the step arrow does (I-D46 d), said MTG Arena-style by its label: the priority holder passes ("Pass" when it isn't
+ * the turn's player; for the turn's player "To combat" from the first main phase, "End turn" from the second main phase
+ * on, when passing hands the turn over, else "Next"), the awaited declaration ("Attack (2)", "No attack", "Block (1)",
+ * "No blocks"), "Resolve" with something on the Stack. [Waiting]: another choice is open, which its own panel answers:
+ * greyed ([stepBlocked]).
  */
 internal sealed class AutomatumStep(val label: String) {
     data object Pass : AutomatumStep("Pass")
@@ -43,18 +42,16 @@ internal sealed class AutomatumStep(val label: String) {
     data object ToCombat : AutomatumStep("To combat")
     data object EndTurn : AutomatumStep("End turn")
     data object Resolve : AutomatumStep("Resolve")
-    data object Done : AutomatumStep("Done")
     data object Waiting : AutomatumStep("Next")
     data class Attack(val count: Int) : AutomatumStep(if (count == 0) "No attack" else "Attack ($count)")
     data class Block(val count: Int) : AutomatumStep(if (count == 0) "No blocks" else "Block ($count)")
 
     companion object {
-        /** The step arrow on [play]'s board with Automatum on (read from ATW's board alone, so it shows at once). */
+        /** The step arrow on [play]'s board (read from ATW's board alone, so it shows at once). */
         fun of(play: PlayState): AutomatumStep {
             val board = play.board
-            if (Automatum.flowOpen(board)) return if (AutomatumBoards.byHand(play)) Done else Waiting
-            // Only Automatum's own Stack entries resolve through it (a manual entry is moved by hand)
-            if (CombatStackRules.stack(board).cards.isNotEmpty()) return if (board.stackEffects.any { it.item != null }) Resolve else Waiting
+            if (Automatum.flowOpen(board)) return Waiting
+            if (CombatStackRules.stack(board).cards.isNotEmpty()) return Resolve
             val position = TurnPosition.of(board.turn)
             val holder = board.priority?.holder
                 ?: return when (position) {
@@ -80,7 +77,6 @@ internal val AutomatumStep.icon: ImageVector get() = when (this) {
     AutomatumStep.ToCombat -> Icons.Outlined.Shield
     AutomatumStep.EndTurn -> Icons.AutoMirrored.Outlined.LastPage
     AutomatumStep.Resolve -> Icons.Outlined.PlayArrow
-    AutomatumStep.Done -> Icons.Outlined.Check
     is AutomatumStep.Attack -> if (count == 0) Icons.Outlined.Block else Icons.Outlined.Shield
     is AutomatumStep.Block -> if (count == 0) Icons.Outlined.RemoveModerator else Icons.Outlined.Shield
 }

@@ -26,10 +26,6 @@ class HistoryAutoPauseTest {
             it.copy(bookkeeping = GameplayBookkeeping(null, "branch", sameGroup))
         }, theirs.id, "v")
         assertFalse(grouped.autoPauseBetween("root", theirs.id, me, enabled, board))
-        // Suppression is specific to attention, not a blanket suppression of other triggers.
-        val ping = attention.copy(action = PlayAction.Ping(reference, PingTarget(PingTargetKind.AREA, "mine")))
-        assertTrue(HistoryTree("root", listOf(ping, own), own.id, "v").autoPauseBetween("root", ping.id,
-            me, setOf(PlaybackAutoPause.PINGS_COMMENTS), board))
     }
 
     // HIS-027
@@ -66,9 +62,6 @@ class HistoryAutoPauseTest {
     // HIS-024, HIS-025
     @Test fun opponentOnlyAndSeparateDefaultOffAttackers() {
         val actions = listOf(
-            node(PlayAction.RollDie(6, 4)),
-            node(PlayAction.Ping(reference, PingTarget(PingTargetKind.CARD, own.id))),
-            node(PlayAction.EventComment(reference, "hello")),
             node(PlayAction.ShowContents("theirs", ContentsSelection.TOP, reveal = true),
                 GameplayTransition(disclosures = listOf(GameplayDisclosure(other.id, "face", "theirs", listOf(me))))),
             node(PlayAction.SetTapped(own.id, true), GameplayTransition(fields = listOf(
@@ -84,8 +77,7 @@ class HistoryAutoPauseTest {
         }
         assertFalse(PlaybackAutoPause.ATTACKERS in PlaybackAutoPause.defaults)
         assertEquals(setOf(PlaybackAutoPause.ATTACKERS), triggers(actions.last().action))
-        assertFalse(PlaybackAutoPause.RANDOM in PlaybackAutoPause.defaults)
-        assertEquals(5, PlaybackAutoPause.defaults.size)
+        assertEquals(4, PlaybackAutoPause.defaults.size)
     }
 
     @Test fun revealMustShowCardsToViewerAndUnpingDoesNotStop() {
@@ -100,7 +92,8 @@ class HistoryAutoPauseTest {
             GameplayTransition(disclosures = listOf(disclosure))))
         assertTrue(triggers(show, GameplayTransition(disclosures = listOf(disclosure.copy(viewers = listOf(opponent))))).isEmpty())
         assertTrue(triggers(PlayAction.Unping(reference, PingTarget(PingTargetKind.CARD, own.id))).isEmpty())
-        assertEquals(setOf(PlaybackAutoPause.RANDOM), triggers(PlayAction.FlipCoin(CoinFace.HEADS)))
+        // HIS-025: pings, comments, dice and coins no longer stop playback (no such setting)
+        assertTrue(triggers(PlayAction.FlipCoin(CoinFace.HEADS)).isEmpty())
     }
 
     @Test fun stackEntryAndProjectionChangesIncludeMovesButNotTextMarks() {
@@ -291,7 +284,9 @@ class HistoryAutoPauseTest {
 
     // HIS-015, HIS-024
     @Test fun pauseIsAfterAnimationIncludesEarlierGroupMembersAndResumesWithoutRetriggering() {
-        val ping = node(PlayAction.Ping(reference, PingTarget(PingTargetKind.AREA, "mine")))
+        // The opponent taps the viewer's card (Your cards hit, on by default), then their own
+        val ping = node(PlayAction.SetTapped(own.id, true), GameplayTransition(fields = listOf(
+            GameplayFieldChange(own.id, GameplayField.TAPPED, "false", "true"))))
         val tap = node(PlayAction.SetTapped(other.id, true), id = "two", parent = ping.id)
         val group = GameplayGroup("group", opponent, ping.id, tap.id, "tap", null, "2")
         val end = node(PlayAction.FlipCoin(CoinFace.HEADS), id = "three", parent = tap.id)
@@ -323,7 +318,6 @@ class HistoryAutoPauseTest {
         val group = GameplayGroup("group", opponent, first.id, second.id, "tap", null, "2")
         val tree = HistoryTree("root", listOf(first, second).map { it.copy(bookkeeping = GameplayBookkeeping(null, "branch", group)) }, second.id, "v")
         assertFalse(tree.autoPauseBetween("root", second.id, me, PlaybackAutoPause.defaults, board))
-        assertTrue(tree.autoPauseBetween("root", second.id, me, setOf(PlaybackAutoPause.RANDOM), board))
         assertFalse(tree.autoPauseBetween(first.id, second.id, me, PlaybackAutoPause.defaults, board))
         val player = HistoryPlayback(tree)
         player.openFrom("root"); player.play(); player.next(true, me, emptySet(), board)

@@ -126,7 +126,7 @@ internal fun choiceWhat(decision: Decision): String = when (decision) {
     is Decision.OrderTriggers -> "Order triggers"
     is Decision.ChooseReplacement -> "Which applies first"
     is Decision.LegendRule -> "Legend rule"
-    is Decision.Manual -> "By hand"
+    is Decision.Manual -> "Skipped"
     is Decision.Random, is Decision.HostFill, is Decision.OtherView -> "Choice"
 }
 
@@ -145,7 +145,7 @@ internal fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.OrderTriggers -> "Tap them in the order they go on the Stack (the first goes on first and resolves last), then OK."
     is Decision.ChooseReplacement -> "Tap the one that applies first, then OK."
     is Decision.LegendRule -> "Tap the ${decision.name} to keep; the others go to the graveyard."
-    is Decision.Manual -> "Do it on the table, then Done."
+    is Decision.Manual -> "Automatum can't do this part yet: it is skipped."
     is Decision.Targets, is Decision.May, is Decision.Random, is Decision.HostFill, is Decision.OtherView -> null
 }
 

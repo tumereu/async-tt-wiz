@@ -7,6 +7,7 @@ import org.asyncttwiz.protocol.Continuation
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.GameCommand
 import org.asyncttwiz.protocol.GameScope
+import org.asyncttwiz.protocol.AutomatumOnly
 import org.asyncttwiz.protocol.GameplayTree
 import org.asyncttwiz.protocol.GameplayTreeChange
 import org.asyncttwiz.protocol.HistoryContinuation
@@ -72,7 +73,8 @@ internal class TreeGame(start: PlayState, val definitions: Map<String, CardDefin
         if (call.changes.isEmpty()) return GameplayTreeChange()
         val command = command(GameAction.PlayBatch(listOf(PlayAction.PassAttention)), from)
         val plan = EngineBatch.plan(call, actor, command)
-        val change = HistoryContinuation.change(tree, actor, command.copy(action = plan.action))
+        // As the server: its gate, then the shared reducer (pivot review #11)
+        val change = AutomatumOnly.change(tree, actor, command.copy(action = plan.action))
         val next = change.tree ?: return change
         tree = next
         if (check) {

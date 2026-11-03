@@ -449,6 +449,8 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             is MtgAction.SetSkipWhenNoChoice -> text("${playerPrefix(event.author)}Skip when no choice ${if (mtg.on) "on" else "off"}", "Automatum")
             is MtgAction.SetFullControl -> text("${playerPrefix(event.author)}Full control ${if (mtg.on) "on" else "off"}", "Automatum")
             is MtgAction.SetMulligans -> text("${playerPrefix(event.author)}Mulligans taken → ${mtg.after}", "Mulligan")
+            // Pivot review #3: a step Automatum left to the players, skipped (an engine gap worth a problem report)
+            is MtgAction.Skipped -> text("Automatum skipped what it can't do yet: ${mtg.text}", "Skipped")
         }
         is PlayAction.DeclineResult -> text("Result declined", "Decline result")
         is PlayAction.WithdrawResult -> text("Result withdrawn", "Withdraw result")

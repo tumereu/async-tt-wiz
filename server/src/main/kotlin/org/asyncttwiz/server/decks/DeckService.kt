@@ -213,6 +213,15 @@ class DeckService(private val runtime: ServiceRuntime) {
             automatumSupport(row.automatumSupport))
     }
 
+    /** I-D52 (pivot review #2): [owner]'s saved deck [id]'s stored Automatum support, when it is for [revision] (the
+     * revision a game's prepared deck was taken from); null when not known. */
+    internal fun storedSupport(sql: DSLContext, owner: UUID, id: String, revision: String): CardListSupport? {
+        if (!DeckValidation.uuid(id)) return null
+        val row = sql.select(SAVED_DECK.REVISION, SAVED_DECK.AUTOMATUM_SUPPORT).from(SAVED_DECK)
+            .where(SAVED_DECK.ID.eq(UUID.fromString(id))).and(SAVED_DECK.ACCOUNT_ID.eq(owner)).fetchOne() ?: return null
+        return automatumSupport(row.value2()).takeIf { row.value1().toString() == revision }
+    }
+
     /** I-D51: stores the owner's device's Automatum support for the deck's [SetCardListSupport.revision] only; a deck
      * changed meanwhile keeps none. Not an edit: the revision stays (draft decks take it too). */
     fun setSupport(principal: AccountService.Principal, id: String, input: SetCardListSupport): Result {

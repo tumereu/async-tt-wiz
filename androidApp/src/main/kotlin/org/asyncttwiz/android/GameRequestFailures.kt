@@ -33,8 +33,8 @@ internal fun refusalText(reason: String?): String = when (reason) {
     "starterRequired" -> "Choose the starting player to get ready."
     "branched" -> "Your opponent went back to an earlier point — your last action wasn't applied."
     // SYS-053
-    RuleRefusals.REAL_CARD_ON_STACK -> "A card can't go into the Stack itself. Put it on the Stack as an entry instead; the card stays where it is."
-    RuleRefusals.OFF_BATTLEFIELD -> "That card isn't on the battlefield. Damage, notes and until-end-of-turn marks go only on battlefield cards."
+    RuleRefusals.REAL_CARD_ON_STACK -> "A card can't go into the Stack itself."
+    RuleRefusals.OFF_BATTLEFIELD -> "That card isn't on the battlefield."
     // SYS-062
     RuleRefusals.FLOW_OPEN -> "Automatum is in the middle of something. Finish it before going back."
     // SYS-069

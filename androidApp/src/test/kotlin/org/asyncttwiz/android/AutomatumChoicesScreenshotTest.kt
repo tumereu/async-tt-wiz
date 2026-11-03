@@ -26,6 +26,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -296,20 +297,39 @@ class AutomatumChoicesScreenshotTest {
         }
     }
 
-    // TRN-063, STK-032, I-D46 d, I-D37: while Automatum waits for something done by hand the step arrow says Done, and a tap
-    // is Done: the spell finishes resolving
-    @Test fun doneOnTheStepArrowFinishesAStepDoneByHand() {
-        val open = aliceCasts(board(odd))
-        assertTrue(Automatum.flowOpen(open.board))
-        assertEquals(AutomatumStep.Done, AutomatumStep.of(open))
-        render(open, f.a)
-        compose.onNodeWithText("By hand · Odd Rearrangement").assertExists()
-        compose.onNodeWithContentDescription("Done").performClick()
-        compose.waitForIdle()
+    // STK-030, TRN-063, SYS-064 (I-D52, pivot review #3): a step Automatum leaves to the players (an engine gap) never
+    // waits for them: it is skipped at once, the spell finishes resolving in the same step, and the timeline says what
+    // was skipped
+    @Test fun aStepByHandIsSkippedAndSaid() {
+        val after = aliceCasts(board(odd))
+        assertFalse(Automatum.flowOpen(after.board), "nothing waits for the players")
+        assertTrue(after.board.stackEffects.isEmpty(), "the spell resolved")
+        val skipped = tree!!.nodes.values.single { (it.action as? PlayAction.Mtg)?.action is MtgAction.Skipped }
+        assertEquals("Automatum skipped what it can't do yet: Rearrange the permanents on the battlefield however you like.",
+            historyText(skipped, null, f.a).description)
+        assertNotEquals(true, skipped.tag?.folded, "an event of its own in the timeline")
+    }
+
+    // TRN-065 (I-D53, pivot review #1): Alice's Storm Spark takes Bob from 3 life to 0: the rules end the game, and both
+    // players see the result at once from their own side, with one OK that either may press
+    @Test fun theRulesEndTheGameAndBothSeeTheResult() {
+        val start = board().let { it.copy(board = it.board.copy(players = it.board.players.map { p -> if (p.accountId == f.b) p.copy(life = "3") else p })) }
+        val alice = toolkit(start, f.a)
+        assertTrue(alice.cast.start(aCard), alice.error)
+        val target = TablePresentation.scene(f.game, start, f.a, 412f, 892f, false).items.first { it.id == "life/${f.b}" }
+        alice.open(TableIntent.Actions(target.id, null), target)
+        if (alice.cast.open) assertTrue(alice.cast.cast(), alice.error)
         val (batch, request) = sent.single()
-        val after = accepted(open, batch, request, f.a)
-        assertFalse(Automatum.flowOpen(after.board))
-        assertTrue(after.board.stackEffects.isEmpty())
+        val ended = accepted(start, batch, request, f.a)
+        assertEquals("0", ended.board.players.single { it.accountId == f.b }.life)
+        val result = assertNotNull(ended.board.resultSuggestion, "the rules' result is recorded")
+        assertTrue(result.byRules)
+        assertEquals("You won", ResultActions.pendingPresentation(f.game, ended, f.a)!!.text)
+        render(ended, f.b)
+        compose.onNodeWithText("You lost").assertExists()
+        compose.onNodeWithText("OK").assertExists()
+        compose.onRoot().captureShot("$SCREENSHOTS/automatum/rules-result-lost.png",
+            "Alice's Storm Spark took Bob from 3 life to 0: on Bob's table a panel over the board reads \"You lost\" with one OK button (a check icon and \"OK\"); Alice sees \"You won\", and either of them may press OK.")
     }
 
     // TRN-063, STK-029, I-D46 d: with Alice's spell on the Stack, Bob (who could answer) holds priority: his step arrow says

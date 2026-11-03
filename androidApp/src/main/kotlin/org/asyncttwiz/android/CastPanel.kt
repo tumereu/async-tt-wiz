@@ -644,7 +644,7 @@ private fun sectionTitle(d: Decision): String = when (d) {
     is Decision.ChooseOption -> "Choice"
     is Decision.ChooseColor -> "Colour"
     is Decision.Divide -> "Division"
-    is Decision.Manual -> "By hand"
+    is Decision.Manual -> "Skipped"
     else -> "Choice"
 }
 

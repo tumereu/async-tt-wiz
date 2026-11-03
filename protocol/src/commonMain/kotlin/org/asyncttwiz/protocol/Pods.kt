@@ -27,8 +27,11 @@ import kotlinx.serialization.Serializable
 )
 /** Boards/log of the grids the caller has seen, plus only the caller's pool and pickable grids. */
 @Serializable data class PodGridView(val publicView: GridPublicView, val mine: GridPrivateView)
-/** Uploaded atomically with the source; every snapshot definition must be included. */
-@Serializable data class PodSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>)
+/** A draft set as a pod's source, uploaded atomically with it (every snapshot definition must be included); [support]: which of its cards Automatum plays by hand, as the creator's device worked it out
+ * (I-D51, null when not known yet), stored with the pod and checked when its draft and games start (I-D52). */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+@Serializable data class PodSetSource(val snapshot: SetSourceSnapshot, val definitions: List<SubmittedDefinition>,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val support: CardListSupport? = null)
 @Serializable data class PodMember(
     /**
      * packsWaiting: picks the member can make in a row if nobody else does anything (DraftEngine/GridEngine

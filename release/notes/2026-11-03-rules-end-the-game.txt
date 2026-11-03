@@ -1,0 +1,1 @@
+add: When the rules end a game, both players see "You won", "You lost" or "Draw" at once; either one taps OK to finish it, and Undo still works until then.

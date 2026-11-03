@@ -212,7 +212,7 @@ class GameplaySyncTest {
             send(OpenGameStream(head.gameId, id())); val stream = await(GameStreamReady::class.java)
             send(SubscribeGame(head.gameId)); await(GameHead::class.java)
             send(GameCommand(id(), GameScope(head.gameId, playId = play.id),
-                automatedPlay(PlayAction.AdjustLife(play.board.players.first().accountId, "3")), stream.streamId, stream.generation))
+                boarded(automatedPlay(PlayAction.AdjustLife(play.board.players.first().accountId, "3")), play.board), stream.streamId, stream.generation))
             return await(GameRevision::class.java)
         } finally { socket.sendClose(WebSocket.NORMAL_CLOSURE, "done").get(15, TimeUnit.SECONDS) }
     }

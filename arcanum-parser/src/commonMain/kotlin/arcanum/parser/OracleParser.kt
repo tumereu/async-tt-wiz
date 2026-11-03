@@ -41,7 +41,7 @@ object OracleParser {
         val self = selfNames(card.name, face)
         var abilities = abilities(card.text, self, isSpell)
         val hasX = face.manaCost?.symbols?.any { it is arcanum.api.ManaSymbol.Variable } == true ||
-            // ecl chunk 12: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
+            // ecl chunk 13: "As an additional cost to cast this spell, blight X." (X announced as it is cast, CR 601.2b)
             abilities.any { a -> a is Ability.Static && a.mechanics.any { it is arcanum.api.Mechanic.XAtMost } } ||
             // sos chunk 08: "As an additional cost to cast this spell, pay X life." (X announced as it is cast, CR 601.2b)
             (isSpell && card.text.contains("As an additional cost to cast this spell, pay X life."))

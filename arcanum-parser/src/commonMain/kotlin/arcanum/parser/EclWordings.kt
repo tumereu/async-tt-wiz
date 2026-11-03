@@ -47,7 +47,7 @@ internal object Ecl {
     val FOR_EACH_COLOR_ADD = Regex("""For each color among permanents you control, add one mana of that color\.""")
     val POWER_IS_EQUAL = Regex("""(.+?)'s power is equal to (.+)\.""")
 
-    // ecl chunk 09
+    // ecl chunk 10
     val AS_LONG_AS_EQUIPPED_TOUGHNESS_GREATER = Regex("""As long as equipped creature's toughness is greater than its power, it assigns combat damage equal to its toughness rather than its power\.""")
     val EACH_CREATURE_TARGET_OPPONENT_LOSES = Regex("""[Ee]ach creature target opponent controls loses all abilities, becomes an? ([A-Z]\w+) in addition to its other types, and has base power and toughness (\d+)/(\d+)\.""")
     val EXILE_UP_TO_N_TARGET_CARDS_FROM_GRAVEYARDS = Regex("""[Ee]xile up to (one|two|three) target cards from graveyards\.""")
@@ -59,7 +59,7 @@ internal object Ecl {
     val FOR_EACH_PLAYER_CHOOSE_SACRIFICE_NOT_SHARING = Regex("""For each player, you choose a creature that player controls\. Then each player sacrifices all other creatures they control that don't share a creature type with the chosen creature they control\.""")
     val TAP_UNTAPPED_CREATURES_COST = Regex("""Tap (two|three|four) untapped creatures you control""")
 
-    // ecl chunk 10
+    // ecl chunk 11
     val CANT_BECOME_UNTAPPED_AND_NO_COUNTERS = Regex("""Enchanted creature can't become untapped and can't have counters put on it\.""")
     val TAP_UP_TO_ONE_AND_STUN = Regex("""[Tt]ap up to (one|two) target (creatures?) and put a stun counter on (?:it|each of them)\.""")
     val TAP_UP_TO_TWO_STUN_EACH = Regex("""Tap up to (one|two) target (creatures?)\. Put a stun counter on (?:it|each of them)\.""")
@@ -84,11 +84,11 @@ internal object Ecl {
     val RETURN_ONE_OR_TWO_THEN_IF_CREATE_FOR_EACH = Regex("""Return one or two target (.+?) to their owners' hands\. Then if you control an? (.+?), create (.+?) for each permanent returned to its owner's hand this way\.""")
     val CREATURES_CONTROLLED_BY_DIFFERENT = Regex("""Choose two target creatures controlled by different players\. Return those creatures to their owners' hands\.""")
 
-    // ecl chunk 12
+    // ecl chunk 13
     val HAVE_QUOTED_KEYWORD = Regex("""(.+?) have "(.+)"""")
     val ALL_HAVE = Regex("""All (creatures) have ([a-z ,]+)\.""")
 
-    // ecl chunk 11
+    // ecl chunk 12
     val ENTERS_WHILE_HAS_COUNTER = Regex("""(.+?) while (.+?) has an? (-1/-1|\+1/\+1) counter on it""")
     val REVEALS_X_YOU_CHOOSE_EXILES = Regex("""Target opponent reveals X cards from their hand, where X is (.+?)\. You choose one of those cards\. That player exiles it\. If an instant or sorcery card is exiled this way, you may cast it for as long as you control (.+?), and mana of any type can be spent to cast that spell\.""")
     val CAST_DURING_OPPONENTS_TURN = Regex("""you cast a spell during an opponent's turn""")
@@ -105,7 +105,7 @@ internal object Ecl {
 
     // ecl: more wordings, by chunk
     val EXCEPT_IT_HAS = Regex("""it has (.+)""")
-    // ecl chunk 06
+    // ecl chunk 07
     val AS_ENTERS_CHOOSE_TYPE_AMONG = Regex("""As (.+?) enters, choose ((?:[A-Z]\w+, )+or [A-Z]\w+)\.""")
     val CHOOSE_A_CREATURE_TYPE_THEN = Regex("""Choose a creature type\. (.+)""")
     val ADD_N_ANY_ONE_COLOR_SPEND_ONLY = Regex("""[Aa]dd (\w+) mana of any one color\. Spend this mana only to (.+)\.""")
@@ -177,23 +177,23 @@ internal object EclPhrases {
 
     fun value(text: String): Value? {
         if (text == "the number of colors among permanents you control") return colorsAmongPermanents
-        // ecl chunk 09
+        // ecl chunk 10
         if (text == "your life total") return Value.LifeOf(Players.You)
         ENTERED_UNDER_YOUR_CONTROL.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return Value.EventsThisTurn(EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You)), to = Zone.Battlefield), Measure.Objects)
         }
-        // ecl chunk 11: "the number of Elves you control plus the number of Elf cards in your graveyard"
+        // ecl chunk 12: "the number of Elves you control plus the number of Elf cards in your graveyard"
         PLUS.matchEntire(text)?.let { m ->
             return Value.Sum(listOf(Values.value(m.groupValues[1]) ?: return null, Values.value(m.groupValues[2]) ?: return null))
         }
-        // ecl chunk 13: "the difference between the chosen creatures' powers" (the greater less the smaller)
+        // ecl chunk 14: "the difference between the chosen creatures' powers" (the greater less the smaller)
         if (text == "the difference between the chosen creatures' powers") {
             val chosen = Objects.Bound("chosen")
             return Value.Difference(Value.Of(arcanum.api.NumericProperty.Power, chosen, arcanum.api.Combine.Greatest),
                 Value.Of(arcanum.api.NumericProperty.Power, chosen, arcanum.api.Combine.Least))
         }
-        // ecl chunk 12: "the greatest toughness among creatures you control"
+        // ecl chunk 13: "the greatest toughness among creatures you control"
         if (text.startsWith("the greatest toughness among ")) {
             return Value.Of(arcanum.api.NumericProperty.Toughness, Filters.objects(text.removePrefix("the greatest toughness among ")) ?: return null, arcanum.api.Combine.Greatest)
         }
@@ -207,32 +207,32 @@ internal object EclPhrases {
             if (subject != "it" && subject !in self && subject.replaceFirstChar { it.lowercase() } !in self) return null
             return Condition.ObjectMatches(Objects.Self, ObjectFilter.HasCounter(Counters.kind(m.groupValues[2]) ?: return null, atLeast = 1))
         }
-        // ecl chunk 11: "there is an Elf card in your graveyard"
+        // ecl chunk 12: "there is an Elf card in your graveyard"
         THERE_IS_CARD_IN_YOUR_GRAVEYARD.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return Condition.Exists(Filters.all(filter, ObjectFilter.InZone(Zone.Graveyard), ObjectFilter.OwnedBy(PlayerFilter.You)), atLeast = 1)
         }
         // ecl chunk 01: "this spell's additional cost was paid" (CR 601.2f)
         if (text == "this spell's additional cost was paid") return Condition.Paid(null, times = 1, of = Objects.Self)
-        // ecl chunk 11: "it isn't your main phase" (CR 505.1)
+        // ecl chunk 12: "it isn't your main phase" (CR 505.1)
         if (text == "it isn't your main phase") return Condition.Not(Condition.And(listOf(Condition.YourTurn,
             Condition.Or(listOf(Condition.StepIs(TurnStep.PrecombatMain), Condition.StepIs(TurnStep.PostcombatMain))))))
-        // ecl chunk 14: "you attacked with three or more Merfolk this turn"
+        // ecl chunk 15: "you attacked with three or more Merfolk this turn"
         ATTACKED_WITH_N_THIS_TURN.matchEntire(text)?.let { m ->
             val n = Numbers.count(m.groupValues[1]) ?: return null
             val filter = Filters.noun(m.groupValues[2]) ?: return null
             return Condition.HappenedThisTurn(EventPattern.Attack(Filters.all(filter, ObjectFilter.ControlledBy(PlayerFilter.You))), atLeast = n, measure = Measure.Objects)
         }
-        // ecl chunk 15: "there are five colors among permanents you control"
+        // ecl chunk 16: "there are five colors among permanents you control"
         COLORS_AMONG.matchEntire(text)?.let { m ->
             return Condition.Compare(colorsAmongPermanents, Comparison.AtLeast, Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null))
         }
-        // ecl chunk 12: "you put a counter on a creature this turn" (by your spells and abilities)
+        // ecl chunk 13: "you put a counter on a creature this turn" (by your spells and abilities)
         PUT_A_COUNTER_THIS_TURN.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1]) ?: return null
             return Condition.HappenedThisTurn(EventPattern.CountersPut(filter, null, causedBy = ObjectFilter.ControlledBy(PlayerFilter.You)), atLeast = 1, measure = Measure.Events)
         }
-        // ecl chunk 10: "a creature is attacking you"
+        // ecl chunk 11: "a creature is attacking you"
         if (text == "a creature is attacking you") return Condition.Exists(Filters.all(ObjectFilter.Type(CardType.Creature),
             ObjectFilter.HasStatus(arcanum.api.Status.Attacking),
             ObjectFilter.Where(Condition.PlayerMatches(Players.DefendingPlayerOf(Objects.Tested), PlayerFilter.You))), atLeast = 1)
@@ -240,9 +240,9 @@ internal object EclPhrases {
     }
 
     fun noun(phrase: String): ObjectFilter? {
-        // ecl chunk 09: "cards from graveyards"
+        // ecl chunk 10: "cards from graveyards"
         if (phrase == "cards from graveyards" || phrase == "card from a graveyard") return Filters.all(ObjectFilter.Category(ObjectCategory.Card), ObjectFilter.InZone(Zone.Graveyard))
-        // ecl chunk 13: "Treefolk and Forests you control"
+        // ecl chunk 14: "Treefolk and Forests you control"
         AND_YOU_CONTROL.matchEntire(phrase)?.let { m ->
             val a = Filters.noun(m.groupValues[1]) ?: return null
             val b = Filters.noun(m.groupValues[2]) ?: return null
@@ -252,19 +252,19 @@ internal object EclPhrases {
     }
 
     fun events(text: String, self: Set<String>): List<EventPattern>? {
-        // ecl chunk 06: "this creature enters or transforms into Brigid, Clachan's Heart"
+        // ecl chunk 07: "this creature enters or transforms into Brigid, Clachan's Heart"
         ENTERS_OR_TRANSFORMS_INTO.matchEntire(text)?.let { m ->
             if (m.groupValues[2] !in self) return null
             val subject = Events.subjectOf(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Transform(Filters.all(subject, ObjectFilter.Named(m.groupValues[2]))))
         }
-        // ecl chunk 06: "this creature transforms into Ashling Rimebound and at the beginning of your first main phase", "this artifact enters and at
+        // ecl chunk 07: "this creature transforms into Ashling Rimebound and at the beginning of your first main phase", "this artifact enters and at
         // the beginning of your upkeep" (one ability, two events)
         AND_AT.matchEntire(text)?.let { m ->
             val first = Events.events(m.groupValues[1], self) ?: return null
             return first + (Events.event(m.groupValues[2], self) ?: return null)
         }
-        // ecl chunk 08: "this creature enters or becomes tapped"
+        // ecl chunk 09: "this creature enters or becomes tapped"
         ENTERS_OR_BECOMES_TAPPED.matchEntire(text)?.let { m ->
             val subject = Events.subjectOf(m.groupValues[1], self) ?: return null
             return listOf(EventPattern.ZoneChange(subject, to = Zone.Battlefield), EventPattern.Tap(subject))
@@ -273,7 +273,7 @@ internal object EclPhrases {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
-        // ecl chunk 10: "you cast a spell with mana value 4 or greater", "you cast an instant or sorcery spell from your hand"
+        // ecl chunk 11: "you cast a spell with mana value 4 or greater", "you cast an instant or sorcery spell from your hand"
         YOU_CAST_FROM_YOUR_HAND.matchEntire(text)?.let { m ->
             return EventPattern.Cast(Filters.noun(m.groupValues[1] + " spell") ?: return null, PlayerFilter.You, from = Zone.Hand)
         }
@@ -285,15 +285,15 @@ internal object EclPhrases {
                 manaValue(m.groupValues[1]) ?: return null)
             return EventPattern.Cast(spell, PlayerFilter.You)
         }
-        // ecl chunk 06: "this creature deals combat damage to a player or planeswalker" (CR 510.2)
+        // ecl chunk 07: "this creature deals combat damage to a player or planeswalker" (CR 510.2)
         DEALS_COMBAT_DAMAGE_TO_PLAYER_OR_PLANESWALKER.matchEntire(text)?.let { m ->
             val subject = Events.subjectOf(m.groupValues[1], self) ?: return null
             return EventPattern.Damage(subject, arcanum.api.RecipientFilter(objects = ObjectFilter.Type(CardType.Planeswalker), players = PlayerFilter.Any), combat = true)
         }
-        // ecl chunk 15: "you cast a spell of the chosen type"
+        // ecl chunk 16: "you cast a spell of the chosen type"
         if (text == "you cast a spell of the chosen type")
             return EventPattern.Cast(ObjectFilter.Sub(arcanum.api.SubtypeRef.Remembered("type")), PlayerFilter.You)
-        // ecl chunk 14: "a creature you control with one or more counters on it dies"
+        // ecl chunk 15: "a creature you control with one or more counters on it dies"
         WITH_COUNTERS_DIES.matchEntire(text)?.let { m ->
             val filter = Filters.noun(m.groupValues[1].removeArticle()) ?: return null
             return EventPattern.ZoneChange(Filters.all(filter, ObjectFilter.HasCounter(null, atLeast = 1)), from = Zone.Battlefield, to = Zone.Graveyard)

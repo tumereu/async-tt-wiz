@@ -1,7 +1,6 @@
 package arcanum.engine.sets.spm
 
 import arcanum.api.CardType
-import arcanum.api.Color
 import arcanum.api.Keyword
 import arcanum.api.Subtype
 import arcanum.api.TurnStep
@@ -89,10 +88,7 @@ class SpmCardsScenariosTest {
         Enchanted creature gets +2/+2 for each Aura and Equipment attached to it.
         All damage that would be dealt to you is dealt to enchanted creature instead.
     """)
-    private val bolt = Cards.invent("Galvanic Lash", "{2}{R}", "Sorcery", """
-        Galvanic Lash deals 4 damage to target creature.
-        Mayhem {1}{R} (You may cast this card from your graveyard for {1}{R} if you discarded it this turn. Timing rules still apply.)
-    """)
+
     private val jolt = Cards.invent("Static Jolt", "{R}", "Instant", "Static Jolt deals 2 damage to any target.")
     private val mercenaries = Cards.invent("Feral Pack Mercenaries", "{2}{W}", "Creature — Human Mercenary",
         "At the beginning of combat on your turn, up to one target creature gains first strike and vigilance until end of turn.", "2/3")
@@ -432,6 +428,4 @@ class SpmCardsScenariosTest {
             bear hasKeyword Keyword.Vigilance
         }
     }
-
-    @Suppress("unused") private val unused = listOf(bolt, Color.Red)
 }

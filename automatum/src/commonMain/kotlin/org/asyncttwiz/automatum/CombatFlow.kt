@@ -1,6 +1,9 @@
 package org.asyncttwiz.automatum
 
 import arcanum.api.CardDefinition
+import arcanum.api.CardType
+import arcanum.api.CostPart
+import arcanum.api.Keyword
 import arcanum.api.Mechanic
 import arcanum.api.TurnStep
 import arcanum.api.Zone
@@ -27,8 +30,15 @@ import org.asyncttwiz.protocol.PlayState
 import org.asyncttwiz.protocol.TurnPosition
 
 /** An attack as ATW's lanes hold it (CMB-012): the creature [cardId] attacks the planeswalker or battle card [target]
- * (its lane), or the defending player when null (as `CombatPair.attackTarget`). */
-data class LaneAttack(val cardId: String, val target: String? = null)
+ * (its lane), or the defending player when null (as `CombatPair.attackTarget`); with the choices made with it
+ * ([AttackChoice], CMB-036–CMB-038): the creatures it [enlisted] (CR 702.154a), the optional costs to attack it is
+ * [paying] (CR 508.1g, ability origin keys) and its [band] (CR 702.22c). */
+data class LaneAttack(val cardId: String, val target: String? = null, val enlisted: List<String> = emptyList(),
+    val paying: List<String> = emptyList(), val band: Int? = null)
+
+/** A cost of combat as the table shows it on a creature (CMB-037): [label] short ("Exert", "{2}", "2 life"), [text]
+ * the printed ability it comes from (held chip), [key] the ability origin's key of an optional cost. */
+data class CombatCostShown(val label: String, val text: String?, val key: String = "")
 
 /** A block as ATW's lanes hold it: [blockerId] in the pair of [attackerId] (CMB-007). */
 data class LaneBlock(val blockerId: String, val attackerId: String)
@@ -58,6 +68,17 @@ data class CombatChoices(
     val capacity: Map<String, Int?> = emptyMap(),
     /** Why the engine can't take this board (then nothing is offered). */
     val unsupported: List<String> = emptyList(),
+    /** CMB-036 (CR 702.154a): each creature that may attack with enlist, with how many creatures it may enlist (one per
+     * enlist ability). */
+    val enlist: Map<String, Int> = emptyMap(),
+    /** CMB-036: the declaring player's creatures that could be enlisted (untapped, without summoning sickness, CR
+     * 702.154a), unless they attack. */
+    val enlistable: List<String> = emptyList(),
+    /** CMB-037 (CR 508.1g): each creature that may attack with "you may [cost] as it attacks" abilities (exert, CR
+     * 701.43d), with those optional costs ([CombatCostShown.key] names each). */
+    val optional: Map<String, List<CombatCostShown>> = emptyMap(),
+    /** CMB-038 (CR 702.22): the creatures that may attack with banding. */
+    val banding: Set<String> = emptySet(),
 ) {
     companion object {
         val NONE = CombatChoices(null, attackers = false)
@@ -140,6 +161,9 @@ data class CombatShown(
     val early: List<DamageDivision> = emptyList(),
     val passing: String? = null,
     val firstStrikeStep: Boolean = false,
+    /** CMB-037 (CR 508.1h, 509.1d): while a declaration is awaited, the costs each drafted attacker (or blocker) must pay
+     * to attack (block) as the lanes hold it, paid as it is declared. */
+    val costs: Map<String, List<CombatCostShown>> = emptyMap(),
 ) {
     companion object {
         val NONE = CombatShown(CombatChoices.NONE)
@@ -203,17 +227,20 @@ object CombatFlow {
         val coming = if (open == null) emptyList() else preview?.divisions.orEmpty().map { it.first }
             .filter { it.source != open.source && it.firstStrike == open.firstStrike }.distinctBy { it.source }
         // CMB-028: the quick actions say why a declaration can't be made yet
-        val drafted = if (choices.declaring == null) null else lanes(call.state.board.combat)
+        val drafted = if (choices.declaring == null) null else lanes(call.state.board.combat).let { (attacks, blocks) ->
+            withChoices(attacks, call.state.board) to blocks }
         fun refusals(attacks: List<LaneAttack>, blocks: List<LaneBlock>) =
             if (choices.attackers) attackRefusal(call, attacks) else blockRefusal(call, blocks)
         val draftRefusal = drafted?.let { (attacks, blocks) -> refusals(attacks, blocks) }
         val noneRefusal = drafted?.let { refusals(emptyList(), emptyList()) }
+        val costs = drafted?.let { (attacks, blocks) ->
+            runCatching { if (choices.attackers) attackCosts(call, attacks) else blockCosts(call, blocks) }.getOrDefault(emptyMap()) }.orEmpty()
         val combat = s.combat
         val passing = s.priority.holder?.value?.takeIf {
             s.pending == null && s.stack.isEmpty() && combat != null && combat.attackers.isNotEmpty() &&
                 ((s.turn.step == TurnStep.DeclareBlockers && combat.blocksDecided) || firstStrike)
         }
-        return CombatShown(choices, preview, draftRefusal, noneRefusal, coming, passing, firstStrike)
+        return CombatShown(choices, preview, draftRefusal, noneRefusal, coming, passing, firstStrike, costs)
     }
 
     /** What may be declared in [call]'s state now. */
@@ -230,8 +257,8 @@ object CombatFlow {
                 val listed = declarations.filterIsInstance<Input.DeclareAttackers>()
                 val attacks = LinkedHashMap<String, MutableList<String?>>()
                 listed.flatMap { it.attacks }.distinct().forEach { a -> attacks.getOrPut(card(a.attacker)) { mutableListOf() } += lane(a.target) }
-                return CombatChoices(p.id.value, attackers = true, attacks = attacks,
-                    requiredAttacks = listed.first().attacks.map { LaneAttack(card(it.attacker), lane(it.target)) })
+                return attackExtras(call, p.id, CombatChoices(p.id.value, attackers = true, attacks = attacks,
+                    requiredAttacks = listed.first().attacks.map { LaneAttack(card(it.attacker), lane(it.target)) }))
             }
             val listed = declarations.filterIsInstance<Input.DeclareBlockers>()
             val pairs = listed.flatMap { it.blocks }.distinct().toMutableList()
@@ -289,11 +316,28 @@ object CombatFlow {
      * passes. Returns what the engine waits for.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
-    fun declareAttackers(call: EngineCall, attacks: List<LaneAttack>): Pending? {
+    fun declareAttackers(call: EngineCall, attacks: List<LaneAttack>, autotap: Boolean = false): Pending? {
         val input = attackInput(call, attacks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
-        call.perform(input)?.let { return it }
+        paid(call, input.player, call.perform(input), autotap)?.let { return it }
         return StepFlow.automatic(call)
+    }
+
+    /**
+     * CMB-037 (CR 508.1h–j, 509.1d–f, I-D47): what the engine waits for after a declaration with costs ([pending]): with
+     * [autotap] the mana it asks [player] to pay is paid with its suggestion in the same call, as casting does; any other
+     * choice of the payment (what to sacrifice) stays open for the shared flow's panel.
+     */
+    private fun paid(call: EngineCall, player: PlayerId, pending: Pending?, autotap: Boolean): Pending? {
+        var open = pending
+        while (autotap) {
+            val d = open?.decision as? Decision.ManaPayment ?: break
+            if (d.player != player) break
+            val answer = Input.Answer(d.id, Answer.ManaPayment(d.suggestion))
+            if (refusal(call.working, answer) != null) break
+            open = call.perform(answer)
+        }
+        return open
     }
 
     /**
@@ -301,12 +345,113 @@ object CombatFlow {
      * passes.
      * @throws CombatRefused when the engine refuses the declaration; nothing changes then.
      */
-    fun declareBlockers(call: EngineCall, blocks: List<LaneBlock>): Pending? {
+    fun declareBlockers(call: EngineCall, blocks: List<LaneBlock>, autotap: Boolean = false): Pending? {
         val input = blockInput(call, blocks)
         refusal(call.working, input)?.let { throw CombatRefused(reason(call, it)) }
-        call.perform(input)?.let { return it }
+        paid(call, input.player, call.perform(input), autotap)?.let { return it }
         return StepFlow.automatic(call)
     }
+
+    /**
+     * [attacks] (as the lanes hold them) with the attacking player's choices on [board] ([PreAnswer.AttackChoices],
+     * CMB-036–CMB-038) for the staged creatures: a staged creature enlists none of the others, and a band needs two staged
+     * members.
+     */
+    fun withChoices(attacks: List<LaneAttack>, board: BoardState): List<LaneAttack> {
+        val given = attackChoices(board).ifEmpty { return attacks }
+        val staged = attacks.map { it.cardId }.toSet()
+        val bands = attacks.mapNotNull { given[it.cardId]?.band }.groupingBy { it }.eachCount()
+        return attacks.map { a ->
+            val c = given[a.cardId] ?: return@map a
+            a.copy(enlisted = c.enlisted.filter { it !in staged }, paying = c.paying, band = c.band?.takeIf { (bands[it] ?: 0) >= 2 })
+        }
+    }
+
+    /** The attacking player's choices on [board] this turn ([PreAnswer.AttackChoices]), by staged card. */
+    fun attackChoices(board: BoardState): Map<String, AttackChoice> {
+        val record = PreAnswers.find(board, PreAnswer.ATTACK_CHOICES) as? PreAnswer.AttackChoices ?: return emptyMap()
+        if (record.turn != null && record.turn != board.turn.number.toIntOrNull()) return emptyMap()
+        return record.choices.associateBy { it.cardId }
+    }
+
+    /** The choices of [attackers]: who may enlist and what, the optional costs to attack and banding (CMB-036–CMB-038). */
+    private fun attackExtras(call: EngineCall, player: PlayerId, attackers: CombatChoices): CombatChoices {
+        val s = call.working
+        val view = Engine.view(s)
+        val candidates = attackers.attacks.keys.mapNotNull { atw -> runCatching { atw to objectOf(s, call.ids, atw) }.getOrNull() }
+        val enlist = candidates.mapNotNull { (atw, o) ->
+            view[o]?.characteristics?.abilities.orEmpty().count { it.ability == Keyword.Enlist }.takeIf { it > 0 }?.let { atw to it }
+        }.toMap()
+        // CR 702.154a: an untapped creature its controller controls, without summoning sickness (or with haste)
+        val enlistable = if (enlist.isEmpty()) emptyList() else s.battlefield.filter { o ->
+            val v = view[o]
+            val obj = s.obj(o)
+            o is ObjectId.Card && v?.controller == player && obj != null && !obj.tapped && !obj.phasedOut &&
+                v.characteristics?.isType(CardType.Creature) == true && (!v.summoningSick || v.has { it == Mechanic.IgnoresSummoningSickness })
+        }.map { call.ids.atw((it as ObjectId.Card).card) }
+        val optional = candidates.mapNotNull { (atw, o) ->
+            view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AsAttacks && it.origin != null }
+                .map { m -> CombatCostShown(costLabel((m.mechanic as Mechanic.AsAttacks).cost), abilityText(s, m.source ?: o, m.origin), m.origin!!.key) }
+                .takeIf { it.isNotEmpty() }?.let { atw to it }
+        }.toMap()
+        val banding = candidates.filter { (_, o) -> view[o]?.characteristics?.hasKeyword(Keyword.Banding) == true }.map { it.first }.toSet()
+        return attackers.copy(enlist = enlist, enlistable = enlistable, optional = optional, banding = banding)
+    }
+
+    /** CMB-037 (CR 508.1h): the costs to attack each of [attacks] must pay as the lanes hold it: its "can't attack …
+     * unless … pays" costs that apply to what it attacks (the engine asks for a payment when it attacks alone). */
+    private fun attackCosts(call: EngineCall, attacks: List<LaneAttack>): Map<String, List<CombatCostShown>> {
+        val s = call.working
+        val view = Engine.view(s)
+        return attacks.mapNotNull { a ->
+            val o = runCatching { objectOf(s, call.ids, a.cardId) }.getOrNull() ?: return@mapNotNull null
+            val costs = view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.AttackCost }.ifEmpty { return@mapNotNull null }
+            val alone = runCatching { attackInput(call, listOf(LaneAttack(a.cardId, a.target))) }.getOrNull()
+            if (alone != null && !asksPayment(s, alone)) return@mapNotNull null
+            a.cardId to costs.map { m -> CombatCostShown(costLabel((m.mechanic as Mechanic.AttackCost).cost), abilityText(s, m.source ?: o, m.origin)) }
+        }.toMap()
+    }
+
+    /** CMB-037 (CR 509.1d): the costs to block each blocker of [blocks] must pay, as for [attackCosts]. */
+    private fun blockCosts(call: EngineCall, blocks: List<LaneBlock>): Map<String, List<CombatCostShown>> {
+        val s = call.working
+        val view = Engine.view(s)
+        return blocks.distinctBy { it.blockerId }.mapNotNull { b ->
+            val o = runCatching { objectOf(s, call.ids, b.blockerId) }.getOrNull() ?: return@mapNotNull null
+            val costs = view[o]?.mechanics.orEmpty().filter { it.mechanic is Mechanic.BlockCost }.ifEmpty { return@mapNotNull null }
+            val alone = runCatching { blockInput(call, listOf(b)) }.getOrNull()
+            if (alone != null && !asksPayment(s, alone)) return@mapNotNull null
+            b.blockerId to costs.map { m -> CombatCostShown(costLabel((m.mechanic as Mechanic.BlockCost).cost), abilityText(s, m.source ?: o, m.origin)) }
+        }.toMap()
+    }
+
+    /** Whether declaring [input] in [s] pays something: the engine waits for a payment or pays life, mana, objects or
+     * counters with it (a refused declaration counts as one that would). */
+    private fun asksPayment(s: GameState, input: Input): Boolean = try {
+        val outcome = Engine.perform(s, input)
+        outcome.pending != null || outcome.changes.any { it is Change.Life || it is Change.ZoneChange || it is Change.ManaPool || it is Change.Counters }
+    } catch (_: RuntimeException) { true }
+
+    /** The printed text of [origin] on [source] (a held cost chip), when it has one. */
+    private fun abilityText(s: GameState, source: ObjectId, origin: arcanum.engine.view.AbilityOrigin?): String? =
+        origin?.let { CastFlow.abilityText(s.obj(source)?.definition, it) }
+
+    /** A cost of combat in a few words ("Exert", "{2}", "2 life", "Sacrifice"). */
+    fun costLabel(cost: arcanum.api.Cost): String = cost.parts.joinToString(", ") { part ->
+        when (part) {
+            is CostPart.Mana -> part.cost.toString()
+            is CostPart.PayLife -> "${(part.amount as? arcanum.api.Value.Fixed)?.value ?: "X"} life"
+            is CostPart.Action -> words(part.action::class.simpleName)
+            is CostPart.Sacrifice -> "Sacrifice"
+            CostPart.TapSelf, is CostPart.TapObjects -> "Tap"
+            is CostPart.Discard -> "Discard"
+            is CostPart.Exile -> "Exile"
+            else -> words(part::class.simpleName)
+        }
+    }
+
+    private fun words(name: String?): String = name.orEmpty().replace(Regex("(?<=[a-z])(?=[A-Z])"), " ").lowercase()
+        .replaceFirstChar { it.uppercase() }
 
     /**
      * Whether the combat damage step now is the first-strike one, a second following (CR 510.4). ATW shows it as its
@@ -420,10 +565,15 @@ object CombatFlow {
     private fun attackInput(call: EngineCall, attacks: List<LaneAttack>): Input.DeclareAttackers {
         val s = call.working
         val defender = s.players.firstOrNull { it.id != s.turn.active && !it.lost }?.id
+        val view by lazy { Engine.view(s) }
         return Input.DeclareAttackers(s.turn.active, attacks.map { a ->
             val target = a.target?.let { TargetRef.Object(objectOf(s, call.ids, it)) }
                 ?: TargetRef.Player(defender ?: throw CombatRefused("There is no player to attack"))
-            Attack(objectOf(s, call.ids, a.cardId), target)
+            val attacker = objectOf(s, call.ids, a.cardId)
+            // CMB-037: the optional costs chosen, by their origins on the attacker now (one no longer there is left out)
+            val paying = if (a.paying.isEmpty()) emptyList() else view[attacker]?.mechanics.orEmpty()
+                .filter { it.mechanic is Mechanic.AsAttacks }.mapNotNull { it.origin }.filter { it.key in a.paying }.distinct()
+            Attack(attacker, target, enlisted = a.enlisted.map { objectOf(s, call.ids, it) }, band = a.band, paying = paying)
         })
     }
 

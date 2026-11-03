@@ -707,7 +707,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             phasedOut = o.phasedOut, marks = o.marks, deathtouchDamage = o.deathtouchDamage,
             controlSince = o.controlSince.takeIf { it != Derived.controlSince(o.zone, container.accountId, card) },
             noControlSince = o.controlSince == null && Derived.controlSince(o.zone, container.accountId, card) != null,
-            memory = o.memory, facts = o.facts, goadedBy = o.goadedBy, counterOrder = EngineCodec.counterOrder(o.counters),
+            memory = o.memory, facts = o.facts, goadedBy = o.goadedBy, protector = o.protector, counterOrder = EngineCodec.counterOrder(o.counters),
         )
     }
 

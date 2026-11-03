@@ -108,6 +108,7 @@ object EngineState {
                 memory = ledger.memory,
                 facts = ledger.facts,
                 goadedBy = ledger.goadedBy,
+                protector = ledger.protector,
             )
             if (viewer != null && !known(board, card, obj, viewer)) obj = obj.copy(definition = null)
             objects[engineId] = obj

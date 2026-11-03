@@ -39,10 +39,33 @@ sealed interface PreAnswer {
         override val key: String get() = divisionKey(source, firstStrike)
     }
 
+    /**
+     * CMB-036–CMB-038: the choices the attacking [player] made with their staged attackers in turn [turn] (CR 508.1g,
+     * 702.154a, 702.22c): what each creature enlists, which optional costs to attack it pays, and the band it attacks in.
+     * Read as the attackers are declared (the step arrow's Attack); kept beside the staging in the lanes while that
+     * declaration can still be made, so both players see it, and dropped with it.
+     */
+    @Serializable @SerialName("attack-choices")
+    data class AttackChoices(override val player: String, val turn: Int?, val choices: List<AttackChoice>) : PreAnswer {
+        override val key: String get() = ATTACK_CHOICES
+    }
+
     companion object {
+        const val ATTACK_CHOICES = "attack-choices"
+
         fun divisionKey(source: MtgRef.Card, firstStrike: Boolean = false) =
             "division:${source.cardId}:${source.zoneChanges}" + if (firstStrike) ":first-strike" else ""
     }
+}
+
+/**
+ * One staged attacker's choices ([PreAnswer.AttackChoices]): the ATW card [cardId] enlists [enlisted] (CR 702.154a, one
+ * per enlist ability), pays the optional costs to attack [paying] (CR 508.1g: their ability origins' keys, exert), and
+ * attacks in band [band] with the other attackers of that number (CR 702.22c); null: in no band.
+ */
+@Serializable data class AttackChoice(val cardId: String, val enlisted: List<String> = emptyList(),
+    val paying: List<String> = emptyList(), val band: Int? = null) {
+    val empty: Boolean get() = enlisted.isEmpty() && paying.isEmpty() && band == null
 }
 
 /** [amount] of a division to [target]. */
@@ -151,6 +174,9 @@ object PreAnswers {
                         // The first-strike step is over once the regular one began (the engine's combat no longer marks it)
                         !(early.firstStrike && step == TurnStep.CombatDamage && !combat.firstStrikeStep)
                 }
+                // CMB-036: while the attackers it is for can still be declared
+                is PreAnswer.AttackChoices -> state.combat == null && state.turn.step == TurnStep.DeclareAttackers &&
+                    (early.turn == null || early.turn == state.turn.number)
                 null -> false
             }
         }

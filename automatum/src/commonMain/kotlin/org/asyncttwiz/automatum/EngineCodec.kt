@@ -258,6 +258,8 @@ internal data class CardLedger(
     val memory: Bindings = Bindings.EMPTY,
     val facts: ObjectFacts = ObjectFacts(),
     val goadedBy: List<PlayerId> = emptyList(),
+    /** A battle's protector (CR 310.9; CMB-012: the player who blocks for it). */
+    val protector: PlayerId? = null,
     /** The engine's order of counter kinds when it isn't by name (ATW sorts [org.asyncttwiz.protocol.PlayCard.typedCounters]). */
     val counterOrder: List<String>? = null,
 ) {

@@ -8,6 +8,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.outlined.PersonAddAlt
 import androidx.compose.material.icons.outlined.UnfoldLess
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -24,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -46,8 +51,9 @@ private val COMBAT_KEYWORDS = listOf("Flying", "Reach", "Menace", "Trample", "Fi
  * What the combat area shows over the table's drawing (I-D32): the arrow of every block (CMB-031, both modes); with
  * Automatum on also the active target lane of the attacker's staging (CMB-028, its headers tappable), the selection and
  * what it fights (CMB-032), the attackers a picked blocker may block (CMB-034), the damage preview with the eye (CMB-029),
- * keyword badges and the chips of real cards in combat (CMB-035). Drawn only: taps reach the table beneath, except the
- * headers while staging and the eye.
+ * keyword badges and the chips of real cards in combat (CMB-035), the attacker's choices and the costs of combat on the
+ * staged attackers and drafted blockers (CMB-036–CMB-038). Drawn only: taps reach the table beneath, except the headers
+ * while staging, the attacking player's own staging chips, held chips and the eye.
  */
 @Composable
 internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene: TableScene, viewer: String, writable: Boolean,
@@ -64,7 +70,7 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         }
     }
     val port = scene.viewports.firstOrNull { it.id == "combat" }?.bounds
-    val shown = if (combat != null) combat.ready(play) ?: CombatShown.NONE else CombatShown.NONE
+    val shown = if (combat != null) combat.readyOrLast(play) ?: CombatShown.NONE else CombatShown.NONE
     val choices = shown.choices
     val copies = scene.items.filter { it.viewport == "combat" && it.kind == TableItemKind.CARD && it.visible.isNotEmpty() }
     val byOccurrence = copies.associateBy { it.cardId }
@@ -81,6 +87,15 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
     val dealers = shown.preview?.dealt?.takeIf { d -> d.any { it.firstStrike } || AutomatumBoards.hadFirstStrikeStep(play.board) }
         ?.let { d -> d.filter { it.firstStrike == d.first().firstStrike }.map { it.source }.toSet() }.orEmpty()
     val activeLane = if (staging && combat != null) scene.combatLabels.firstOrNull { it.cardId == combat.activeTarget(play) } else null
+    // CMB-036–CMB-038: the attacker's choices with the staged attackers, which only the attacking player changes
+    val staged = area?.pairs.orEmpty().flatMap { it.attackers }.map { it.sourceId }.toSet()
+    val attackChoices = if (staging) CombatFlow.attackChoices(play.board).filterKeys { it in staged } else emptyMap()
+    val choosing = staging && writable && combat != null && viewer == choices.declaring
+    val picking = if (choosing) combat?.picked else null
+    val bands = attackChoices.values.filter { it.band != null }.groupBy { it.band!! }.mapValues { (_, c) -> c.map { it.cardId } }
+        .filterValues { it.size >= 2 }
+    val enlistedBy = attackChoices.values.flatMap { c -> c.enlisted.filter { it !in staged }.map { it to c.cardId } }.toMap()
+    val enlistable = if (picking is CombatController.Picking.Enlist) choices.enlistable.filter { it !in staged }.toSet() else emptySet()
     if (area != null && port != null) Canvas(Modifier.fillMaxSize()) {
         val d = density
         fun Offset(x: Float, y: Float) = androidx.compose.ui.geometry.Offset(x * d, y * d)
@@ -108,6 +123,26 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
                 if (card in fights) frame(FightsColor, 2.5f, 1.5f)
                 if (card == selected) frame(AutomatumViolet, 3f, 2f)
             }
+            // CMB-038: a band's copies joined by a violet bar on their arrows' side, with a tick to each member
+            for (members in bands.values) {
+                val boxes = copies.filter { it.sourceId in members }.map(bounds).sortedBy { it.x }
+                if (boxes.size < 2) continue
+                val down = port.center.y > boxes.first().center.y
+                val y = if (down) boxes.maxOf { it.bottom } + 4f else boxes.minOf { it.y } - 4f
+                drawLine(AutomatumViolet, Offset(boxes.first().center.x, y), Offset(boxes.last().center.x, y), 3f * d,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round)
+                for (box in boxes) drawLine(AutomatumViolet, Offset(box.center.x, y), Offset(box.center.x, if (down) box.bottom else box.y), 3f * d)
+            }
+        }
+        // CMB-036: while the viewer picks what a staged attacker enlists, the creatures it may enlist glow violet
+        if (enlistable.isNotEmpty()) for (item in scene.items) {
+            if (item.kind != TableItemKind.CARD || item.viewport == "combat" || item.zone != PlayZone.BATTLEFIELD || item.projection) continue
+            if (item.sourceId !in enlistable || item.visible.isEmpty()) continue
+            val b = bounds(item)
+            drawRoundRect(AutomatumViolet.copy(alpha = .25f), Offset(b.x - 3f, b.y - 3f), Size((b.width + 6f) * d, (b.height + 6f) * d),
+                CornerRadius(4 * d), style = Stroke(6f * d))
+            drawRoundRect(AutomatumViolet, Offset(b.x - 1.5f, b.y - 1.5f), Size((b.width + 3f) * d, (b.height + 3f) * d),
+                CornerRadius(3 * d), style = Stroke(1.5f * d))
         }
     }
     val damage = preview?.damage.orEmpty()
@@ -128,8 +163,15 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         val real = !copy && item.zone == PlayZone.BATTLEFIELD && !item.projection
         if (!copy && !real) continue
         val chips = mutableListOf<Triple<String, Color, String>>()
+        val actions = mutableListOf<StagingChip>()
         val b = bounds(item)
         val attackerCopy = copy && area?.pairs?.any { p -> p.attackers.any { it.id == item.cardId } } == true
+        if (attackerCopy && staging) actions += stagingChips(play, combat, choices, attackChoices, bands, picking, card, choosing, computed)
+        // CMB-037: the costs it must pay to attack or block as drafted
+        if (copy && choices.declaring != null) shown.costs[card]?.forEach { cost ->
+            actions += StagingChip(cost.label, null, on = false, picking = false, cost = true,
+                hold = cost.text ?: "Paid as it is declared", description = "Pays ${cost.label}")
+        }
         if (attackerCopy) {
             val keywords = computed.cards[card]?.keywords.orEmpty()
             COMBAT_KEYWORDS.filter { k -> keywords.any { it.equals(k, ignoreCase = true) } }
@@ -139,6 +181,9 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
                 chips += Triple(text, PreviewRed, text)
             }
         }
+        // CMB-036: a creature a staged attacker enlists
+        if (real && card in enlistedBy) chips += Triple("enlisted", AutomatumViolet,
+            "Enlisted by ${combatName(play, enlistedBy.getValue(card))}")
         if (real && card in inCombat) {
             val occurrence = CombatStackRules.occurrences(area).first { it.sourceId == card }
             val pair = area!!.pairs.first { p -> (p.attackers + p.blockers).any { it.id == occurrence.id } }
@@ -152,16 +197,19 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
         }
         val dealt = if (copy || card !in inCombat) damage[card] else null
         val dying = (copy || card !in inCombat) && card in dies
-        if (chips.isEmpty() && dealt == null && !dying) continue
+        if (chips.isEmpty() && actions.isEmpty() && dealt == null && !dying) continue
         // An attacker's badges sit on its side away from the arrows (below it in the attacker's view, above it mirrored),
         // stacked one per line no wider than the card, so neighbours' chips never run into each other (combat review #2)
         val below = attackerCopy && port != null && b.center.y > port.center.y
         Box(Modifier.offset { IntOffset(b.x.dp.roundToPx(), b.y.dp.roundToPx()) }.size(b.width.dp, b.height.dp)) {
-            if (chips.isNotEmpty()) Box(Modifier.align(if (below) Alignment.BottomCenter else Alignment.TopCenter).fillMaxWidth().height(0.dp)) {
+            if (chips.isNotEmpty() || actions.isNotEmpty()) Box(Modifier.align(if (below) Alignment.BottomCenter else Alignment.TopCenter).fillMaxWidth().height(0.dp)) {
                 Column(Modifier.fillMaxWidth().wrapContentHeight(if (below) Alignment.Top else Alignment.Bottom, unbounded = true)
                     .offset(y = if (below) (-3).dp else 3.dp), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    // CMB-036–CMB-038: the staging's own chips nearest the card, then the badges
+                    if (below) for (chip in actions) StagingChipView(chip, b.width)
                     for ((text, color, description) in (if (below) chips else chips.asReversed())) CombatChip(text, color, b.width, description)
+                    if (!below) for (chip in actions.asReversed()) StagingChipView(chip, b.width)
                 }
             }
             // The preview's badges sit over the card's middle, clear of its name (combat review #12)
@@ -234,6 +282,71 @@ internal fun CombatAreaOverlay(combat: CombatController?, play: PlayState, scene
                     EyeButton(hidden = combat.numbersHidden, combat::toggleNumbers, "damage preview")
                 }
             }
+        }
+    }
+}
+
+/** A chip of a staged attacker or drafted blocker (CMB-036–CMB-038): [onTap] null when the viewer can't change it (the
+ * other player sees the choices); [cost] an amber cost to pay (CMB-037). Holding it says [hold]. */
+internal class StagingChip(val text: String, val icon: androidx.compose.ui.graphics.vector.ImageVector?, val on: Boolean, val picking: Boolean,
+    val hold: String, val description: String, val cost: Boolean = false, val onTap: (() -> Unit)? = null)
+
+/** The chips of the staged attacker [card] (CMB-036–CMB-038): its optional costs to attack as toggles ("Exert"),
+ * "Enlist" with what it enlists, "Band" with banding; changeable only when [choosing]. */
+private fun stagingChips(play: PlayState, combat: CombatController?, choices: org.asyncttwiz.automatum.CombatChoices,
+    given: Map<String, org.asyncttwiz.automatum.AttackChoice>, bands: Map<Int, List<String>>, picking: CombatController.Picking?,
+    card: String, choosing: Boolean, computed: org.asyncttwiz.automatum.ComputedBoard): List<StagingChip> = buildList {
+    val choice = given[card]
+    fun tap(action: CombatController.() -> Unit): (() -> Unit)? = if (choosing && combat != null) ({ combat.action() }) else null
+    for (cost in choices.optional[card].orEmpty()) {
+        val on = choice?.paying?.contains(cost.key) == true
+        if (!choosing && !on) continue
+        add(StagingChip(cost.label, if (on) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+            on, false, cost.text ?: "${cost.label} as it attacks", "${cost.label} as it attacks", onTap = tap { toggleOptional(card, cost.key) }))
+    }
+    val enlists = choices.enlist[card]
+    if (enlists != null) {
+        val enlisted = choice?.enlisted.orEmpty()
+        val power = enlisted.sumOf { computed.cards[it]?.power ?: 0 }
+        val on = enlisted.isNotEmpty()
+        val pickingThis = picking == CombatController.Picking.Enlist(card)
+        if (choosing || on) add(StagingChip(if (on) "+$power" else "Enlist", Icons.Outlined.PersonAddAlt, on, pickingThis,
+            "Enlist: as it attacks, tap a creature of yours that isn't attacking and has no summoning sickness; its power is added until end of turn." +
+                if (on) " Enlists ${enlisted.joinToString(" and ") { combatName(play, it) }}." else "",
+            if (on) "Enlists ${enlisted.joinToString(" and ") { combatName(play, it) }}" else "Enlist",
+            onTap = tap { if (on && !pickingThis) clearEnlisted(card) else pickEnlisted(card) }))
+    }
+    val band = choice?.band?.takeIf { it in bands }
+    if (card in choices.banding || band != null) {
+        val pickingThis = picking == CombatController.Picking.Band(card)
+        if (choosing && card in choices.banding || band != null) add(StagingChip("Band", Icons.Outlined.Link,
+            band != null, pickingThis,
+            "Banding: tap Band, then the other attackers to band with it; a creature blocking one of a band blocks them all.",
+            if (band != null) "In a band" else "Band", onTap = if (card in choices.banding) tap { pickBand(card) } else null))
+    }
+}
+
+@Composable
+private fun StagingChipView(chip: StagingChip, width: Float) {
+    val color = if (chip.cost) AutotapAmber else AutomatumViolet
+    val shape = RoundedCornerShape(6.dp)
+    val room = (width - if (chip.icon != null) 18f else 6f).coerceAtLeast(8f)
+    val natural = CombatStackPresentation.laneTextWidth(chip.text, 10f)
+    val size = if (chip.cost) 11f else if (natural <= room) 10f else maxOf(6f, 10f * room / natural)
+    HoldTip(chip.hold) {
+        Row(Modifier.width(width.dp).heightIn(min = 22.dp).background(if (chip.on) color else Color.White, shape)
+            .border(if (chip.picking) 2.5.dp else 1.5.dp, color, shape)
+            .semantics {
+                contentDescription = chip.description
+                if (chip.onTap != null) stateDescription = listOfNotNull(if (chip.on) "on" else "off", "picking".takeIf { chip.picking }).joinToString()
+            }
+            .let { if (chip.onTap != null) it.clickable(onClick = chip.onTap) else it }
+            .padding(horizontal = 2.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            chip.icon?.let { Icon(it, null, Modifier.size(12.dp), tint = if (chip.on) Color.White else color); Spacer(Modifier.width(2.dp)) }
+            if (chip.cost) CardText(chip.text, style = androidx.compose.ui.text.TextStyle(fontSize = size.sp, fontWeight = FontWeight.Bold,
+                color = Color(0xff7a4a00)), maxLines = 1)
+            else Text(chip.text, color = if (chip.on) Color.White else color, fontSize = size.sp, fontWeight = FontWeight.Bold,
+                lineHeight = (size + 2f).sp, maxLines = 1, softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Clip)
         }
     }
 }

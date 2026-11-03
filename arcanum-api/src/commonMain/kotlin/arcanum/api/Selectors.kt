@@ -150,7 +150,8 @@ sealed interface ObjectFilter {
     /** A spell (or the permanent it became, CR 400.7d) that was cast, from [from] when given ("spells you cast from
      * exile"). */
     @Serializable @SerialName("was-cast") data class WasCast(val from: Zone? = null) : ObjectFilter
-    /** Its [keyword] optional cost was paid at least [times] ("kicked spells"). */
+    /** Its [keyword] optional cost was paid at least [times] ("kicked spells"), or its [keyword] alternative cost (eoe: "a spell was warped",
+     * CR 702.185c). */
     @Serializable @SerialName("was-paid") data class WasPaid(
         @Serializable(with = KeywordKindSerializer::class) val keyword: KeywordKind, val times: Int,
     ) : ObjectFilter

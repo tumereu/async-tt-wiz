@@ -113,7 +113,7 @@ class FinChunk16BlackRedGreenTest {
 
     @Test
     fun overwhelm() = card(
-        name = "Overwhelm",
+        name = "Crushing Gravity",
         cost = "{2}{B}",
         type = "Instant",
         text = "Target creature gets -0/-9999 until end of turn.",
@@ -121,7 +121,7 @@ class FinChunk16BlackRedGreenTest {
 
     @Test
     fun bitterRevelation() = card(
-        name = "Bitter Revelation",
+        name = "Rancorous Revelation",
         cost = "{1}{B}",
         type = "Sorcery",
         text = """

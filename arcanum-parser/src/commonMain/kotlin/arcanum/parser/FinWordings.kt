@@ -270,4 +270,5 @@ internal object Fin {
     val ENTERS_TAPPED_UNLESS_EARLY_TURN = Regex("""(.+?) enters tapped unless it's your first, second, or third turn of the game\.""")
     val MELD_AT_FIRST_MAIN = Regex("""At the beginning of your first main phase, if you both own and control (.+?) and a creature named (.+?), you may pay ((?:\{[^}]+\})+)\. If you do, exile them, then meld them into (.+)\.""")
     val DIES_DESTROY_AND_RETURN = Regex("""When (.+?) dies, destroy target permanent and return target (.+?) from your graveyard to the battlefield\.""")
+    val COUNTER_ON_IT_FOR_EACH = Regex("""Put an? (\S+) counter on it for each (.+)\.""")
 }

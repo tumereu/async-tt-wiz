@@ -261,7 +261,7 @@ class FinChunk07WhiteTest {
 
     @Test
     fun armsDealer() = card(
-        name = "Arms Dealer",
+        name = "Armament Peddler",
         cost = "{3}{W}",
         type = "Creature — Human Artificer",
         pt = "2/2",

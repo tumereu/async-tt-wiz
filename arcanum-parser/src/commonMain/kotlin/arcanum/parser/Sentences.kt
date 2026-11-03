@@ -17423,6 +17423,15 @@ internal class Sentences(
             return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(target)),
                 ObjectFilter.Type(arcanum.api.CardType.Creature)))), Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single), target)))
         }
+        // fin chunk 17: "Create a 1/1 colorless Hero creature token. Put a +1/+1 counter on it for each land you control." ("it" is the token)
+        Fin.COUNTER_ON_IT_FOR_EACH.matchEntire(sentence)?.let { m ->
+            val last = steps.lastOrNull() as? Step.Do ?: return null
+            val create = last.effect as? Effect.CreateToken ?: return null
+            val kind = Counters.kind(m.groupValues[1]) ?: return null
+            val per = Value.Count(Objects.Each(Filters.noun(m.groupValues[2]) ?: return null))
+            val bind = create.bind ?: "tokens"
+            return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) + Step.Do(Effect.PutCounters(Objects.Bound(bind), kind, per))
+        }
         // fin-modify-end
         return null
     }

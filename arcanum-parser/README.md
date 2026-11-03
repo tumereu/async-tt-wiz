@@ -58,6 +58,10 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   `EoePhrases` for values, conditions, nouns and events) and the `eoe*` functions of `Sentences.kt`, tried first; station symbol lines
   ("N+ | abilities") become statics of the Spacecraft or Planet with N or more charge counters, and the printed power and toughness
   belong to the striation that makes it a creature ("It's an artifact creature at N+.").
+  Final Fantasy (`fin`): all 312 cards parse (the transforming cards, Adventures and the meld pair as two faces; the basic lands and nine
+  Towns that only repeat a template untested); its rules are in `FinWordings.kt` (`Fin`, and `FinPhrases` for nouns, values and
+  conditions) and the `fin*` functions of `Sentences.kt` (whole lines first, effects, modifiers and late rules); flavor words (CR 207.2d)
+  are dropped before abilities, chapters, modes and keywords, and tiered modes ("• Cure — {0} — …") become modes with extra costs.
 - Mechanics that used to be by hand (`MechanicWordings.kt`, tried first; `MechanicWordingsTest`, one test per wording): the Ring tempting
   you (the effect, "whenever the Ring tempts you", "[this] is your Ring-bearer", "you don't control a Ring-bearer", "you chose a creature
   other than [this] as your Ring-bearer"), soulbond's "As long as [this] is paired with another creature, both creatures have …" /

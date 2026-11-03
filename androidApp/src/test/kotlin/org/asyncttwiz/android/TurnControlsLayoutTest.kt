@@ -70,7 +70,7 @@ class TurnControlsLayoutTest {
         } }
         for (step in TurnPosition.entries) {
             compose.runOnIdle { state.value = TableToolFixture.play(step) }
-            val label = nextStepLabel(state.value.board.turn)
+            val label = AutomatumStep.of(state.value).label
             val text = assertFits(label)
             val arrow = compose.onNodeWithContentDescription(label).fetchSemanticsNode().boundsInRoot
             assertTrue(arrow.width in 68f..72f)

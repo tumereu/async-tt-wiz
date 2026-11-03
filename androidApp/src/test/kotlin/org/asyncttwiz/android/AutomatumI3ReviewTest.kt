@@ -207,14 +207,6 @@ class AutomatumI3ReviewTest {
             "Alice cast a morph creature face down and Bob may respond: his prompt reads \"Alice cast a face-down spell\" without its name or text, its card covered, with Respond (the step arrow reads Resolve).")
     }
 
-    // #5 (STK-032, I-D37): while Automatum waits for something done by hand, manual edits work until Done. After the first
-    // edit the board is new and its flow isn't worked out yet (SharedFlowHost does it on a worker), so the next edit is
-    // refused as if a choice were waiting ("Automatum is waiting for a choice …"): quick taps on a stepper fail
-    @Test fun manualEditsInARowWhileSomethingIsDoneByHand() {
-        val alice = byHandOpen()
-        assertTrue(alice.submit(PlayAction.AdjustLife(f.b, "-1")), alice.error)
-        assertTrue(alice.submit(PlayAction.AdjustLife(f.b, "-1")), alice.error)
-    }
 
 
     // #12 (SYS-025): drafting attackers doesn't work combat out again on the main thread: the board after a drafted card

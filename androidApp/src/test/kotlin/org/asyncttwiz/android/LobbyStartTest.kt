@@ -243,9 +243,8 @@ class LobbyStartTest {
                 assertEquals(viewer.accountId, scene.fields.last().owner)
                 assertEquals(play.board.containers.map { it.id }.filterNot { id -> play.board.containers.single { it.id == id }.zone == PlayZone.BATTLEFIELD }.toSet(),
                     scene.items.filter { it.zone != null && !it.temp }.map { it.id }.toSet())
-                // Each player's Temp 1 is shown under its deterministic ID before it exists.
-                assertEquals(play.board.players.map { TempPiles.containerId(play.id, it.accountId) }.toSet(),
-                    scene.items.filter { it.temp }.map { it.id }.toSet())
+                // No Temp piles (I-D52)
+                assertTrue(scene.items.none { it.temp })
             }
         }
     }

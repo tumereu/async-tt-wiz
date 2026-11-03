@@ -96,7 +96,7 @@ The battlefield, how cards look on it, how you touch them, their menus and inspe
 
 - **TBL-093** A card leaving the battlefield loses its notes, P/T changes, counters, links and owner changes, turns to its front face and untaps; face-down survives only a move to exile. (r13)
 - **TBL-095** Damage, until-end-of-turn P/T and until-end-of-turn notes clear from every card when the turn passes and when a card changes zone; moving between battlefields keeps them. (r16)
-- **TBL-097** The owner is whose deck the card came from; the controller is whichever battlefield it is on; only the Owner button on tokens changes the owner. (r5)
+- **TBL-097** The owner is whose deck the card came from; the controller is whichever battlefield it is on. (r45)
 
 ### Tokens
 

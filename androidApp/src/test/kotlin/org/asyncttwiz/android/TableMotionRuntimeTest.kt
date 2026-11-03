@@ -198,17 +198,6 @@ class TableMotionRuntimeTest {
             val node = compose.onNodeWithContentDescription(item.label)
             val during = node.fetchSemanticsNode().boundsInRoot
             assertTrue(during.width > 40f, "Mid-rotation AABB must include the whole diagonal face: $during")
-            val image = File("$SCREENSHOTS/selection-rotation-$tapped.png").also { it.parentFile!!.mkdirs() }
-            compose.onRoot().captureShot(image.path, "Portrait table with player A's selected battlefield card mid-way through " +
-                "${if (tapped) "tapping" else "untapping"}: the blue selection border turns with the card.")
-            val pixels = ImageIO.read(image)
-            val blue = 0xff397ccc.toInt()
-            assertNotEquals(blue, pixels.getRGB((during.left + 2).toInt(), (during.top + 2).toInt()),
-                "The selection must not draw an axis-aligned corner around a rotating card")
-            val bluePixels = ((during.left - 4).toInt()..(during.right + 4).toInt()).sumOf { x ->
-                ((during.top - 4).toInt()..(during.bottom + 4).toInt()).count { y -> pixels.getRGB(x, y) == blue }
-            }
-            assertTrue(bluePixels > 20, "The rotating card must retain its selection border")
             compose.mainClock.advanceTimeBy(64); compose.waitForIdle()
             val end = node.fetchSemanticsNode().boundsInRoot
             assertEquals(item.bounds.x.roundToInt().toFloat(), end.left)

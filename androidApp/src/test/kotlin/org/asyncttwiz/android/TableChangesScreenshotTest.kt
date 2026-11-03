@@ -104,9 +104,9 @@ class TableChangesScreenshotTest {
 
 
     // HIS-031
-    @Test fun realStackEntryHighlightsAndLinkGlowDrawInBothPlaybackDirections() = stackFeedback(projection = false)
+    @Test fun realStackEntryHighlightsDrawInBothPlaybackDirections() = stackFeedback(projection = false)
 
-    @Test fun projectedStackEntryHighlightsAndLinkGlowDrawInBothPlaybackDirections() = stackFeedback(projection = true)
+    @Test fun projectedStackEntryHighlightsDrawInBothPlaybackDirections() = stackFeedback(projection = true)
 
     private fun stackFeedback(projection: Boolean) {
         val (initial, id) = ChangeTargetFixture.stack(projection)
@@ -122,27 +122,10 @@ class TableChangesScreenshotTest {
         val owner = if (!projection) GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.OWNER, "a", "b")))
             else GameplayTransition(combatStack = CombatStackTransition(effects = listOf(StackEffectChange(id,
                 play.board.stackEffects.single().copy(controller = "a"), play.board.stackEffects.single()))))
-        val note = if (!projection) GameplayTransition(fields = listOf(GameplayFieldChange(id, GameplayField.NOTE, "old", "new")))
-            else GameplayTransition(combatStack = CombatStackTransition(effects = listOf(StackEffectChange(id,
-                play.board.stackEffects.single().copy(note = "old"), play.board.stackEffects.single()))))
-        val text = GameplayTransition(combatStack = CombatStackTransition(textMarks = listOf(StackTextMarkChange(id, emptySet(), setOf(0)))))
-        val link = if (!projection) GameplayTransition(links = listOf(LinkChange(null, PlayLink("link",
-            LinkEndpoint(LinkEndpointKind.CARD, id), LinkEndpoint(LinkEndpointKind.PLAYER, "a")))))
-            else GameplayTransition(combatStack = CombatStackTransition(addedLinks = listOf(ProjectionLink("link", id, "combat-occurrence"))))
-        for (reverse in listOf(false, true)) for ((name, transition) in listOf("owner" to owner, "note" to note, "text" to text, "link" to link)) {
-            // Reversing a removal adds a link; reversing an addition correctly has no glow.
-            val recorded = if (reverse && name == "link") if (!projection)
-                link.copy(links = link.links.map { LinkChange(it.to, null) })
-                else GameplayTransition(combatStack = CombatStackTransition(removedLinks = link.combatStack!!.addedLinks))
-                else transition
-            animate(changes, recorded, reverse)
-            val change = when (name) {
-                "owner" -> "controller change"
-                "note" -> "note change"
-                "text" -> "text mark added"
-                else -> if (reverse) "link removal" else "link added"
-            }
-            val played = if (reverse && name == "link") "played backwards, so a link appears" else "played ${if (reverse) "backwards" else "forward"}"
+        for (reverse in listOf(false, true)) for ((name, transition) in listOf("owner" to owner)) {
+            animate(changes, transition, reverse)
+            val change = "controller change"
+            val played = "played ${if (reverse) "backwards" else "forward"}"
             val during = capture("stack-changefx-$projection-$name-$reverse", "Change highlight layer alone on white for $entry: " +
                 "$change $played, mid-animation.")
             assertTrue(changedPixels(before, during, drawing.bounds) > 10, "$name must draw on the exact Stack entry (reverse=$reverse)")
@@ -179,30 +162,6 @@ class TableChangesScreenshotTest {
             "Public owner feedback must only pulse the border")
     }
 
-    @Test fun zeroedCounterKeepsMinusOneTagOnItsOutlineSlotThenExpires() {
-        val initial = LiveTableFixture.menuPlay()
-        val play = initial.copy(board = initial.board.copy(players = initial.board.players.map { it.copy(counters = emptyMap()) }))
-        val scene = ChangeTargetFixture.scene(play)
-        val hud = scene.items.single { it.id == "counter/a/BLUE" }
-        assertEquals("", hud.value)
-        val changes = TableChanges { 0L }
-        overlay(scene, changes)
-        val before = capture("zero-counter-changefx-before",
-            "Change highlight layer alone on white, before player A's blue counter drops from 1 to 0.")
-        animate(changes, GameplayTransition(fields = listOf(GameplayFieldChange("a", GameplayField.PLAYER_COUNTER, "1", "0", CounterColor.BLUE))))
-        compose.runOnIdle { assertEquals("-1", changes.active.values.single().tag) }
-        assertTrue(changedPixels(before, capture("zero-counter-changefx-flash",
-            "Just after player A's blue counter drops from 1 to 0: the now empty counter slot flashes."), hud.bounds) > 20)
-        compose.mainClock.advanceTimeBy(650); compose.waitForIdle()
-        val tagArea = TableBounds(hud.bounds.x, hud.bounds.y - 20, hud.bounds.width + 24, 40f)
-        assertTrue(changedPixels(before, capture("zero-counter-changefx-tag",
-            "0.65 seconds after player A's blue counter drops from 1 to 0: the flash is over, a -1 tag stays beside the empty slot."), tagArea) > 20,
-            "The tag must outlive the flash on the empty counter slot")
-        compose.mainClock.advanceTimeBy(900); compose.waitForIdle()
-        compose.runOnIdle { assertTrue(changes.active.isEmpty()) }
-        assertEquals(0, changedPixels(before, capture("zero-counter-changefx-expired",
-            "Change highlight layer alone on white after player A's blue counter change has expired: nothing is drawn."), TableBounds(0f, 0f, 412f, 892f)))
-    }
 
     // HIS-031, TBL-033
     @Test fun accumulatedTagsAndHighlightsAtAMidAnimationFrame() {

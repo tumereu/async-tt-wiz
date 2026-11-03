@@ -191,7 +191,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         reviewContext = context
     }
 
-    fun batch(block: () -> Unit) { batchResult { block(); true } }
     private fun batchResult(requestId: String = DeviceRandom.uuid(), block: () -> Boolean): Boolean {
         if (draft != null) return block()
         if (cast.open) { busyShake(); return false }
@@ -208,7 +207,6 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (!sent) error = "Action could not be queued. Reconnect and try again."
         return result && sent
     }
-    fun submitAll(actions: List<PlayAction>) { batch { actions.forEach { submit(it) } } }
     private fun enqueue(action: PlayAction, invocationId: String?): Boolean {
         if (lastInvocation != invocationId) { lastInvocation = invocationId; error = null }
         refusal(action)?.let { if (it == CastController.BUSY) busyShake() else error = it; return false }

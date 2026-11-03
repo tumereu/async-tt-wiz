@@ -53,7 +53,7 @@ class HistoryRuntimeIntegrationTest {
             }
         } }
     }
-    @Test fun tapCapturedDuringCatchUpPredictsImmediatelyAndSendsOnceAfterPublication() {
+    @Test fun actionCapturedDuringCatchUpPredictsImmediatelyAndSendsOnceAfterPublication() {
         val root = f.root().initial
         val initial = GameplayTree(root.copy(board = root.board.copy(containers = root.board.containers +
             PlayContainer(f.id(6000), PlayZone.STACK))))
@@ -72,15 +72,16 @@ class HistoryRuntimeIntegrationTest {
             assertFalse(x.session.ready(x.game.id))
             val toolkit = TableToolkitController(f.a, { x.session.play(x.game) }, { true },
                 { action, group -> x.session.gameplay(x.game, f.a, action, group) }, waitingForConnection = { true })
-            assertTrue(toolkit.handle(TableIntent.Rotate(TableScope(f.id(9), listOf(f.id(9))), true, toggle = true)))
-            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped)
+            // I-D52: nothing is tapped by hand; a note goes through the same capture path
+            assertTrue(toolkit.submit(PlayAction.SetNote(f.id(9), "Noted")))
+            assertEquals("Noted", x.session.play(x.game)!!.board.cards.first().note)
             assertTrue(x.commands().isEmpty(), "Capture must not send through a recovering stream")
             x.publish()
             val original = x.commands().single()
-            assertTrue(x.session.play(x.game)!!.board.cards.first().tapped, "Publication must retain the captured prediction")
+            assertEquals("Noted", x.session.play(x.game)!!.board.cards.first().note, "Publication must retain the captured prediction")
             x.message(x.execute(original))
             x.message(GameResult(original.requestId, original.scope, "accepted", ingressOrdinal = "1", commitRevision = x.revision.toString()))
-            assertTrue(x.session.acceptedPlay(x.game)!!.board.cards.first().tapped)
+            assertEquals("Noted", x.session.acceptedPlay(x.game)!!.board.cards.first().note)
             assertEquals(1, x.commands().size)
             assertFalse(x.session.pending(x.game.id))
         }

@@ -69,7 +69,8 @@ class TableScreenshotTest {
             compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist() // HIS-036
         } else {
             compose.onNodeWithContentDescription("History", substring = false).assertDoesNotExist()
-            for (label in listOf("Auto advance", "Previous", "Next", "Continue playing from here", "Return to current"))
+            // ("Next" is also the step arrow's word, TRN-063)
+            for (label in listOf("Auto advance", "Previous", "Continue playing from here", "Return to current"))
                 compose.onNodeWithContentDescription(label).assertDoesNotExist()
             for (label in listOf("Live", "Download history", "Event details")) compose.onNodeWithText(label).assertDoesNotExist()
         }

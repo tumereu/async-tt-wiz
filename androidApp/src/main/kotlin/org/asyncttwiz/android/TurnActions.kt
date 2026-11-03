@@ -75,19 +75,12 @@ internal fun stepLabel(position: TurnPosition): String = when (position) {
     else -> position.label
 }
 
-/** The step Next step goes to by hand (the first-strike damage step is Automatum's alone, TRN-056). */
-internal fun nextStep(turn: TurnState): TurnPosition? = TurnPosition.of(turn)?.let(TurnPosition::nextManual)
-
 /** The phase dialog's steps (TRN-008): the twelve, and the first-strike damage step while the turn is in it or its
  * combat had one (TRN-056). */
 internal fun pickerSteps(board: BoardState): List<TurnPosition> =
     if (TurnPosition.of(board.turn) == TurnPosition.FIRST_STRIKE_DAMAGE ||
         AutomatumBoards.hadFirstStrikeStep(board)) TurnPosition.entries
     else TurnPosition.MANUAL
-
-internal fun nextStepLabel(turn: TurnState, compact: Boolean = false): String =
-    if (TurnPosition.of(turn) == TurnPosition.CLEANUP) "End turn"
-    else nextStep(turn)?.let { if (compact) it.shortCode else stepLabel(it) } ?: "Next step"
 
 @Composable
 internal fun TurnStepIcon(turn: TurnState) {

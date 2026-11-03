@@ -380,29 +380,6 @@ class TableGesturesTest {
         }
     }
 
-    // ZON-002
-    @Test fun handInsertionExcludesDraggedMembersAndUsesSamePreviewAndReleaseGap() {
-        val f = Fixture(TableFixture.scene(TableFixture.play(board = 1, hand = 5)))
-        val hand = f.scene.items.single { it.kind == TableItemKind.HAND && it.owner == "a" }
-        val start = f.point("a/HAND/2")
-        for ((x, left, right) in listOf(Triple(hand.bounds.x + 1, null, "a/HAND/0"),
-            Triple(f.item("a/HAND/3").bounds.x - 2, "a/HAND/1", "a/HAND/3"),
-            Triple(hand.bounds.right - 2, "a/HAND/4", null))) {
-            f.events.clear()
-            val end = TablePoint(x, hand.bounds.center.y)
-            f.gestures.down(start, 0); f.gestures.move(end, 80)
-            val destination = assertIs<TableDestination.Container>(f.gestures.preview.destination)
-            assertEquals(org.asyncttwiz.protocol.IdentityGap(left, right), destination.handGap)
-            val landing = tableDragLanding(f.scene, f.gestures.preview)
-            assertEquals(hand.bounds, landing.hand)
-            assertNotNull(landing.insertionX)
-            assertTrue(landing.insertionX in hand.bounds.x..hand.bounds.right)
-            if (left != null) assertTrue(landing.insertionX > start.x)
-            assertTrue(landing.outlines.isEmpty())
-            f.gestures.up(end, 100)
-            assertEquals(destination, f.events.filterIsInstance<TableIntent.Move>().single().destination)
-        }
-    }
 
     // TBL-052
     @Test fun landingOutlinesTrackSnappedRowsMultiCardOffsetsAndContainers() {
@@ -440,7 +417,9 @@ class TableGesturesTest {
                 val events = mutableListOf<TableIntent>()
                 val gesture = TableGestureCoordinator(events::add)
                 gesture.update(scene, true)
-                gesture.down(start, 0); gesture.move(end, 80); gesture.up(end, 100)
+                // ZON-081: a hand card is dragged by first moving up or down (sideways pans the hand)
+                gesture.down(start, 0); gesture.move(TablePoint(start.x, start.y + if (end.y > start.y) 20f else -20f), 40)
+                gesture.move(end, 80); gesture.up(end, 100)
                 val destination = assertIs<TableDestination.Grid>(events.filterIsInstance<TableIntent.Move>().single().destination)
                 assertEquals(0, destination.row)
             }
@@ -589,7 +568,9 @@ class TableGesturesTest {
             val events = mutableListOf<TableIntent>()
             val coordinator = TableGestureCoordinator(events::add)
             coordinator.update(scene, true)
-            coordinator.down(start, 0); coordinator.move(destination, 80); coordinator.up(destination, 100)
+            // ZON-081: a hand card is dragged by first moving up (sideways pans the hand)
+            coordinator.down(start, 0); coordinator.move(TablePoint(start.x, start.y - 20f), 40)
+            coordinator.move(destination, 80); coordinator.up(destination, 100)
             val move = events.filterIsInstance<TableIntent.Move>().single()
             assertEquals("a/BATTLEFIELD", (move.destination as TableDestination.Grid).containerId)
             assertEquals(listOf("a/HAND/2"), move.scope.cardIds)

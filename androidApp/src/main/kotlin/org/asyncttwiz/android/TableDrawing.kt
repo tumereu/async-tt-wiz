@@ -296,20 +296,20 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
     // Emblem chips (TRN-053) are drawn only: taps and drags reach whatever lies beneath them.
     for (i in scene.items.filter { it.kind == TableItemKind.LIFE && it.emblems.isNotEmpty() && it.visible.isNotEmpty() }) {
         val below = i.owner != viewer
-        val maxChipText = (minOf(StatusBubble.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * StatusBubble.PADDING).coerceAtLeast(12f)
+        val maxChipText = (minOf(ChipText.MAX_WIDTH, this@drawTable.size.width / density - i.bounds.x - 4f) - 2 * ChipText.PADDING).coerceAtLeast(12f)
         /** I-D25: each emblem as a chip beside the life square, away from it. */
         run {
             var last: TableBounds? = null
             val previousSize = paint.textSize
-            paint.textSize = StatusBubble.TEXT * density; paint.isFakeBoldText = false
+            paint.textSize = ChipText.TEXT * density; paint.isFakeBoldText = false
             for (text in i.emblems) {
-                val lines = StatusBubble.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density }
+                val lines = ChipText.lines(text, maxChipText, EmblemChips.MAX_LINES) { cache.measure(it) / density }
                 val chip = EmblemChips.bounds(last, i.bounds, below, lines.maxOf { cache.measure(it) } / density, lines.size)
                 drawRoundRect(Color(0xfff3effb), xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density))
                 drawRoundRect(EmblemChipColor, xy(chip.x, chip.y), size(chip.width, chip.height), CornerRadius(9 * density), style = Stroke(density))
                 paint.color = android.graphics.Color.rgb(48, 30, 82)
                 lines.forEachIndexed { n, line ->
-                    text(line, chip.x + StatusBubble.PADDING, chip.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
+                    text(line, chip.x + ChipText.PADDING, chip.y + ChipText.HEIGHT / 2 + n * ChipText.LINE -
                         cache.centerOffset() / density, line.length)
                 }
                 last = chip

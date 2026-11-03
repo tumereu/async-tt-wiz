@@ -217,5 +217,4 @@ internal fun MenuButton(name: String, modifier: Modifier = Modifier, enabled: Bo
 internal data class MenuControl(val name: String, val enabled: Boolean = true, val selected: Boolean = false,
     val color: Color? = null, val refused: String? = null, val click: () -> Unit)
 
-@Composable
-internal fun MenuControl.Square() = ManualActionSquare(name, "", enabled, selected = selected, iconTint = color, onClick = click)
+

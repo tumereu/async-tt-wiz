@@ -53,7 +53,7 @@ class PendingOutcomeTableTest {
             drain(f)
             compose.onNodeWithContentDescription(resolve).assertIsDisplayed().assertIsEnabled()
             compose.onAllNodes(isDialog()).assertCountEquals(0)
-            for (label in listOf("Table actions", "Interaction mode", "Undo", nextStepLabel(f.play.board.turn))) {
+            for (label in listOf("Table actions", "Undo", AutomatumStep.of(f.play).label)) {
                 compose.onNodeWithContentDescription(label).assertIsNotEnabled().performClick()
             }
             compose.onNodeWithContentDescription("Choose phase/step", substring = true).assertIsNotEnabled().performClick()

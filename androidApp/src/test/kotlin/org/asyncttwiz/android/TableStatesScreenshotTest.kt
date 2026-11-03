@@ -114,7 +114,7 @@ class TableStatesScreenshotTest {
                 // HIS-036: holding Auto is the only way to branch.
                 compose.onNodeWithContentDescription("Continue playing from here").assertDoesNotExist()
                 compose.onNodeWithContentDescription("Auto advance").performTouchInput { longClick() }
-                compose.onNodeWithContentDescription("Interaction mode").assertExists()
+                compose.onNodeWithContentDescription("Undo").assertExists()
                 compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
                 compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
                 compose.onNodeWithText("Continuing from", substring = true).assertDoesNotExist()
@@ -123,7 +123,7 @@ class TableStatesScreenshotTest {
             "stack-contents" -> {
                 compose.onNodeWithContentDescription("Stack, 2 entries").performTouchInput { doubleClick() }
                 compose.runOnIdle { assertEquals("manageStack", toolkit.panel) }
-                compose.onNodeWithText("Manage Stack · 2").assertExists()
+                compose.onNodeWithText("Stack · 2").assertExists()
             }
             "graveyard-contents" -> {
                 // A pile tap opens its menu; the double-tap opens the search panel.
@@ -131,7 +131,7 @@ class TableStatesScreenshotTest {
                 compose.mainClock.advanceTimeBy(500)
                 compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
                 compose.onNode(isDialog()).assertDoesNotExist()
-                compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+                compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
                 val scene = TablePresentation.scene(f.game, current(), f.a, 412f, 892f, landscape, toolkit.layoutState.value)
                 val panel = scene.cardPanels.single()
                 assertEquals(PlayZone.GRAVEYARD, panel.localZone)
@@ -214,14 +214,14 @@ class TableStatesScreenshotTest {
         compose.setContent { MaterialTheme {
             TableToolkitScreen(ui, state, f.game, false)
         } }
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 2").assertIsDisplayed()
         compose.runOnIdle {
             state = state.copy(board = state.board.copy(stackEffects = emptyList(), containers = state.board.containers.map {
                 if (it.zone == PlayZone.STACK) it.copy(cards = it.cards - f.id("effect")) else it }))
         }
-        compose.onNodeWithText("Manage Stack · 1").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 1").assertIsDisplayed()
         compose.runOnIdle { state = f.initial }
-        compose.onNodeWithText("Manage Stack · 1").assertDoesNotExist()
+        compose.onNodeWithText("Stack · 1").assertDoesNotExist()
         compose.runOnIdle { assertNull(ui.panel) }
     }
     // STK-021
@@ -231,7 +231,7 @@ class TableStatesScreenshotTest {
         compose.setContent { MaterialTheme {
             ManageStackDialog(state, f.a, {})
         } }
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 2").assertIsDisplayed()
         val dialog = android.view.inspector.WindowInspector.getGlobalWindowViews().last()
         val row = compose.onNodeWithText("Top ·", substring = true)
         compose.mainClock.autoAdvance = false
@@ -249,7 +249,7 @@ class TableStatesScreenshotTest {
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
-        compose.onNodeWithText("Manage Stack · 2").assertIsDisplayed()
+        compose.onNodeWithText("Stack · 2").assertIsDisplayed()
     }
     @OptIn(ExperimentalRoborazziApi::class)
     @Test fun tokensOnBattlefieldHandStackAndCombatPortrait() { render("tokens", false) }
@@ -270,7 +270,7 @@ class TableStatesScreenshotTest {
         compose.mainClock.advanceTimeBy(350)
         row.performTouchInput { advanceEventTime(350); down(center) }
         compose.waitForIdle(); compose.mainClock.advanceTimeBy(600)
-        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Card inspection content").assertIsDisplayed()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertExists()
@@ -278,7 +278,7 @@ class TableStatesScreenshotTest {
         row.performTouchInput { up() }
         compose.mainClock.autoAdvance = true
         compose.onNodeWithContentDescription("Card inspection content").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithText("Creature — Soldier", substring = false).assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
         assertTrue(sent.isEmpty())
@@ -295,12 +295,12 @@ class TableStatesScreenshotTest {
         row.performTouchInput { advanceEventTime(350); click() }
         compose.waitForIdle()
         compose.mainClock.advanceTimeBy(120)
-        compose.onNodeWithContentDescription("Panel card actions").assertIsDisplayed()
+        compose.onNodeWithContentDescription("Card action ring").assertIsDisplayed()
         compose.onRoot().performTouchInput { click(center) }
         compose.mainClock.advanceTimeBy(400)
         compose.mainClock.autoAdvance = true
         assertTrue(sent.isEmpty())
-        compose.onNodeWithContentDescription("Panel card actions").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Card action ring").assertDoesNotExist()
         compose.onNodeWithContentDescription("Your Graveyard panel, 3 cards").assertIsDisplayed()
     }
     // HIS-005, HIS-036, HIS-037, HIS-044, STK-018
@@ -347,7 +347,7 @@ class TableStatesScreenshotTest {
         val sent = render("combat", true)
         compose.onNodeWithContentDescription("Bob, life", substring = true).performClick()
         compose.onNodeWithContentDescription("Life", substring = false).assertExists()
-        compose.onNodeWithContentDescription("Set life").assertExists()
+        compose.onNodeWithContentDescription("Set life").assertDoesNotExist()
         compose.onNodeWithContentDescription("Set red counter").assertDoesNotExist()
         assertTrue(sent.isEmpty())
     }
@@ -360,7 +360,7 @@ class TableStatesScreenshotTest {
          compose.onNode(isDialog()).assertDoesNotExist()
          compose.onNodeWithContentDescription("Cancel continuation").assertIsDisplayed()
           compose.onNodeWithContentDescription("Auto advance").assertDoesNotExist()
-         compose.onNodeWithContentDescription("Interaction mode").assertIsDisplayed()
+         compose.onNodeWithContentDescription("Undo").assertIsDisplayed()
      }
 
      @Test fun returnToCurrentAtHeadLeavesTimelineWithoutDialog() {

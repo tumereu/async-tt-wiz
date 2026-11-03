@@ -72,7 +72,8 @@ class HistoryUiSpineTest {
             val toolkit = TableToolkitController(f.a, { h.history.view?.state }, { true }, { action, invocation ->
                 h.history.gameplay(action, invocation) { h.display }
             })
-            assertTrue(toolkit.submit(PlayAction.AdjustLife(f.a, "1")))
+            // I-D52: nothing changes the board by hand; a note goes through the same path
+            assertTrue(toolkit.submit(PlayAction.SetNote(f.id(9), "Noted")))
             val original = h.sent.single()
             assertEquals(Continuation(root, true), original.continuation)
             assertTrue(h.history.provisional)

@@ -70,21 +70,20 @@ class TableInteractionsScreenshotTest {
     @Test @Config(qualifiers = "w640dp-h360dp-land-mdpi") fun contextMenuLandscapeLargeFont() { menu(640f, 360f, 1.3f) }
 
 
-    private fun drag(hand: Boolean) {
+    private fun drag() {
         val (_, scene) = render()
         val source = scene.items.first { it.zone == PlayZone.HAND && it.kind == TableItemKind.CARD && it.owner == f.a && it.visible.isNotEmpty() }
         val start = source.visible.first().center
-        val end = if (hand) scene.items.single { it.kind == TableItemKind.HAND && it.owner == f.a }.bounds.let { TablePoint(it.right - 4, it.center.y) }
-            else scene.fields.last().let { TablePoint(it.bounds.right - 70, it.landsBounds(true, scene.camera).center.y) }
+        val end = scene.fields.last().let { TablePoint(it.bounds.right - 70, it.landsBounds(true, scene.camera).center.y) }
         compose.mainClock.autoAdvance = false
         compose.onNodeWithContentDescription("Shared table").performTouchInput {
-            down(Offset(start.x, start.y)); moveTo(Offset(end.x, end.y), 80)
+            // ZON-081: a hand card is dragged by first moving up (sideways pans the hand)
+            down(Offset(start.x, start.y)); moveTo(Offset(start.x, start.y - 30f), 40); moveTo(Offset(end.x, end.y), 80)
         }
         compose.waitForIdle(); compose.mainClock.advanceTimeByFrame(); compose.mainClock.advanceTimeByFrame()
         try {
-            capture(if (hand) "hand-insertion" else "landing-lands", "Portrait table in combat, dragging a hand card " +
-                (if (hand) "to the right end of your hand: an insertion line shows where it would go."
-                else "onto your battlefield's lands row: landing placeholders show where it would go."))
+            capture("landing-lands", "Portrait table in combat, dragging a hand card onto your battlefield's lands row: " +
+                "landing placeholders show where it would go.")
             assertTrue(sent.isEmpty(), "A preview never submits a move")
         } finally {
             compose.onNodeWithContentDescription("Shared table").performTouchInput { cancel() }
@@ -93,6 +92,5 @@ class TableInteractionsScreenshotTest {
     }
 
     // TBL-052
-    @Test fun dragShowsLandingPlaceholders() { drag(false) }
-    @Test fun handDragShowsInsertionLine() { drag(true) }
+    @Test fun dragShowsLandingPlaceholders() { drag() }
 }

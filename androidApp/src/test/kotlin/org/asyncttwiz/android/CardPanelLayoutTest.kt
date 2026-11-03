@@ -48,14 +48,12 @@ class CardPanelLayoutTest {
             faceId = d.definition.faces.single().faceId, containerId = grave) }
         val play = f.root.copy(definitions = definitions, board = f.root.board.copy(cards = cards,
             containers = f.root.board.containers.map { it.copy(cards = if (it.id == grave) cards.map { c -> c.id } else emptyList()) }))
-        for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE, PlayZone.LIBRARY)) {
+        for (zone in listOf(PlayZone.GRAVEYARD, PlayZone.EXILE)) {
             val container = f.container(zone)
             val ids = cards.map { it.id }
             val variant = play.copy(board = play.board.copy(cards = cards.map { it.copy(containerId = container) },
-                containers = play.board.containers.map { it.copy(cards = if (it.id == container) ids else emptyList()) },
-                contentsDisplays = if (zone == PlayZone.LIBRARY) listOf(ContentsDisplay("search", f.actor, container,
-                    ContentsSelection.ALL, ids.size, false, ids)) else emptyList()))
-            val panel = cardPanelGeometry(variant, f.actor, TableLayoutState(localPileId = container.takeIf { zone != PlayZone.LIBRARY }),
+                containers = play.board.containers.map { it.copy(cards = if (it.id == container) ids else emptyList()) }))
+            val panel = cardPanelGeometry(variant, f.actor, TableLayoutState(localPileId = container),
                 TableBounds(0f, 0f, 412f, 700f)).single()
             assertEquals(listOf("Creature (3)", "Artifact (1)", "Land (1)"), panel.typeHeaders.map { it.title })
             assertEquals(listOf("Beta", "Zulu", "Rock", "Alpha"), panel.rows.map { it.entry.name })

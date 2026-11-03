@@ -188,7 +188,6 @@ class AutomatumControlsScreenshotTest {
             phase = TurnPosition.DRAW.phase, step = TurnPosition.DRAW.step))) }
         assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.a)))
         assertTrue(AutomatumToggles.shown(drawStep, QuickContext(viewer = f.b)), "also on the other player's turn")
-        assertFalse(AutomatumToggles.shown(board(lands = 2, automatum = false), QuickContext(viewer = f.a)))
         render(drawStep)
         compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).assertIsDisplayed()
         compose.onNodeWithContentDescription(AutomatumToggles.SKIP).assertIsDisplayed()
@@ -268,16 +267,6 @@ class AutomatumControlsScreenshotTest {
         }
     }
 
-    // TBL-116: with Automatum off the menus are exactly as before: no engine rows, today's pages
-    @Test fun automatumOffKeepsTodaysMenu() {
-        val play = board(lands = 2, automatum = false)
-        val toolkit = render(play)
-        compose.runOnIdle { toolkit.openCard(TableScope(druidId, listOf(druidId))) }
-        compose.waitForIdle()
-        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
-        compose.onNodeWithContentDescription("{T}: Add {G}.").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Graveyard").assertExists()
-    }
 
     // TBL-117, I-D46 (a): the viewer's cards Automatum lets them use now glow: Storm Spark with Mountains untapped and the
     // Druid (its draw ability); lands with only their mana abilities don't; nothing of the other player's, nothing while
@@ -293,8 +282,6 @@ class AutomatumControlsScreenshotTest {
         assertTrue(playable.none { id -> play.board.cards.single { it.id == id }.owner != f.a }, "only the viewer's own cards")
         captureShot("$SCREENSHOTS/automatum/playable-glow.png",
             "With Automatum on in Alice's main phase, her cards she can use now glow softly in cyan from behind: Storm Spark in her hand and Grovewatch Druid (its draw ability); her Forest and untapped Mountains, which offer only mana, don't.")
-        val off = board(lands = 1, automatum = false)
-        assertTrue(TableToolkitController(f.a, { off }, { true }, { _, _ -> true }).playable(off).isEmpty())
     }
 
     // I-D46 (b), ZON-004, ZON-077: a double-tap or drag Automatum doesn't allow shakes the card instead of a message, and

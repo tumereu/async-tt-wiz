@@ -267,12 +267,9 @@ object TablePresentation {
     const val TOOLBAR = 264f
     private const val PILE_START = 76f
     private fun landscapePileSpacing(pileWidth: Float) = maxOf(52f, pileWidth + 12f)
-    /** Below this width the portrait counter grid's cells get too small to read and hit. */
-    internal const val MIN_COUNTER_GRID = 96f
     /** The counters' room may be squeezed this far before it scrolls. */
     private const val MIN_SHRUNK_COUNTER_GRID = 60f
     internal fun portraitDockWidth(pileWidth: Float, piles: Int) = PILE_START + (piles - 1) * (pileWidth + 12f) + pileWidth + 8f
-    internal fun portraitCountersFit(width: Float, dockWidth: Float) = width - dockWidth >= MIN_COUNTER_GRID
     /** Narrower landscape counter slots would overlap their value circles (28dp across in the 48dp row). */
     private const val MIN_LANDSCAPE_COUNTER = 28f
     private fun landscapeCountersFit(sidebar: Float) = sidebar / 6 >= MIN_LANDSCAPE_COUNTER

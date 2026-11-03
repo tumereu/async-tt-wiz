@@ -79,6 +79,16 @@ internal fun Scenario.pay() {
     resolveAll()
 }
 
+/** Answers the open target decision with the ability or spell [below] items under the top of the Stack (the top before the spell
+ * being cast, which is on the Stack already), then pays as suggested. */
+internal fun Scenario.targetStackItem(below: Int = 1) {
+    val d = pending as Decision.Targets
+    val item = state.stack.reversed().filter { arcanum.engine.state.TargetRef.Object(it) in d.options }.getOrNull(below - 1)
+        ?: state.stack.first { arcanum.engine.state.TargetRef.Object(it) in d.options }
+    answer(Answer.Targets(listOf(arcanum.engine.state.TargetRef.Object(item))))
+    pay()
+}
+
 /** Sets [name] up with its back face up (setup only). */
 internal fun Scenario.backFaceUp(name: String) {
     val id = card(name)

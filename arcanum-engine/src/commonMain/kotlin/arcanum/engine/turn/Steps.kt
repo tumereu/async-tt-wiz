@@ -397,6 +397,9 @@ internal object Steps {
             if (createdBefore != null && e.createdTurn >= createdBefore) return@forEach
             if (ends(e.duration, e.controller)) recorder.record(Change.EffectRemoved(e))
         }
+        // fin: control that returns as the effects end is lost before the delayed triggers of the same duration end ("when you lose control
+        // of that Equipment this turn", CR 514.2)
+        arcanum.engine.sba.ControlChanges.notice(recorder)
         recorder.state.delayedTriggers.values.toList().forEach { t: DelayedTrigger ->
             val d = t.duration ?: return@forEach
             if (onlyController != null && t.controller != onlyController) return@forEach

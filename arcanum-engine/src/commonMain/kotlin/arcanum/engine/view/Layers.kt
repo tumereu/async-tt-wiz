@@ -644,9 +644,13 @@ internal class LayerRun(private val state: GameState, private val traced: Object
             val landAbilities = if (CardType.Land in c.types) {
                 subtypes.mapNotNull { s -> Subtypes.basicLandTypes[s]?.let { Layers.landAbility(s, it) } }
             } else emptyList()
+            // CR 310.12b: a Siege has the intrinsic trigger of its last defense counter
+            val siege = listOfNotNull(arcanum.engine.combat.Battles.siegeAbility.takeIf {
+                CardType.Battle in c.types && arcanum.engine.combat.Battles.SIEGE in subtypes })
             p.copy(chars = c.copy(
                 subtypes = subtypes, allCreatureTypes = allCreatureTypes,
-                abilities = c.abilities.filterNot { it.origin is AbilityOrigin.LandType } + landAbilities,
+                abilities = c.abilities.filterNot { it.origin is AbilityOrigin.LandType || it.origin == arcanum.engine.combat.Battles.SIEGE_RULE } +
+                    landAbilities + siege,
             ))
         }
     }

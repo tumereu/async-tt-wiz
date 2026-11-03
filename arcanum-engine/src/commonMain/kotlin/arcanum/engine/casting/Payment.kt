@@ -396,8 +396,14 @@ internal object Payment {
             }
             // ecl: a choice made with the costs ("choose a creature type and behold two creatures of that type"): asked by the plan
             is CostPart.Choose -> Unit
+            // CR 701.43a, b: exerting the source (or what the cost names) is always possible on the battlefield; another keyword
+            // action as a cost is done as the action, its source as "this"
+            is CostPart.Action if part.action !is arcanum.api.KeywordAction.Behold -> {
+                val scope = arcanum.engine.resolution.Scope(act, cause, plan.names, null)
+                arcanum.engine.resolution.Effects.perform(scope, arcanum.api.Effect.Action(part.action, part.bind))
+                part.bind?.let { b -> scope.names[b]?.let { bound[b] = it } }
+            }
             is CostPart.Action -> {
-                if (part.action !is arcanum.api.KeywordAction.Behold) refuse("Keyword actions as costs (${part.action::class.simpleName}) aren't supported yet")
                 // CR 701.4a: a card from the hand is revealed; a permanent is only chosen
                 val ids = objects(CostObjects.Choose(ObjectFilter.Any, count = arcanum.api.Value.Fixed(1)))
                 val revealed = ids.filter { s.obj(it)?.zone == Zone.Hand }

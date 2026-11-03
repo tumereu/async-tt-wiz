@@ -26,15 +26,23 @@ internal object CombatRules {
 
     private fun mechanics(snap: Snapshot, id: ObjectId): List<AppliedMechanic> = snap.view[id]?.mechanics.orEmpty()
 
-    /** What [player] may attack: each opponent still in the game and the planeswalkers they control (CR 506.2, 508.1b). */
+    /** What [player] may attack: each opponent still in the game, the planeswalkers they control and the battles they
+     * protect, a Siege [player] controls among them (CR 506.2, 508.1b, 310.9b). */
     fun attackTargets(snap: Snapshot, player: PlayerId): List<TargetRef> {
         val opponents = snap.state.opponents(player)
         val walkers = snap.state.battlefield.filter { id ->
             onBattlefield(snap, id) && snap.view[id]?.characteristics?.isType(CardType.Planeswalker) == true &&
                 snap.board.controller(id) in opponents
         }
-        return opponents.map { TargetRef.Player(it) } + walkers.map { TargetRef.Object(it) }
+        val battles = snap.state.battlefield.filter { id ->
+            onBattlefield(snap, id) && snap.view[id]?.characteristics?.isType(CardType.Battle) == true &&
+                snap.state.obj(id)?.protector in opponents
+        }
+        return opponents.map { TargetRef.Player(it) } + walkers.map { TargetRef.Object(it) } + battles.map { TargetRef.Object(it) }
     }
+
+    /** The defending player of an attack on [target] (CR 506.2, 310.9d). */
+    fun defenderOf(snap: Snapshot, target: TargetRef): PlayerId? = Battles.defender(snap.state, { snap.board.controller(it) }, target)
 
     /** CR 508.1a, c: [id] could attack [target] (any target when null): an untapped creature [player] controls, not
      * summoning sick unless it has haste (CR 302.6), not restricted (defender, "can't attack"). */
@@ -108,6 +116,12 @@ internal object CombatRules {
         if (attacks.map { it.attacker }.distinct().size != attacks.size) return "A creature attacks only once"
         attacks.forEach { a -> if (!canAttack(snap, player, a.attacker, a.target)) return "${a.attacker} can't attack ${a.target}" }
         enlistProblem(snap, player, attacks)?.let { return it }
+        // CR 508.1g: only the attacker's own "as it attacks" costs, each once
+        attacks.forEach { a ->
+            if (a.paying.distinct().size != a.paying.size) return "An optional cost to attack is paid once"
+            val offered = optionalAttackCosts(snap, a.attacker).mapNotNull { it.origin }
+            a.paying.firstOrNull { it !in offered }?.let { return "${a.attacker} has no optional cost to attack $it (CR 508.1g)" }
+        }
         // CR 508.1c: "can't attack alone"
         attacks.singleOrNull()?.let { a ->
             if (mechanics(snap, a.attacker).any { it.mechanic == Mechanic.CantAttackAlone }) return "${a.attacker} can't attack alone"
@@ -127,30 +141,91 @@ internal object CombatRules {
         return null
     }
 
+    /** One cost to attack or block with [creature] (CR 508.1h, 509.1d): [cost] of a "can't attack/block … unless" or a
+     * chosen "as it attacks" ability, read with its own "you" ([controller], [source], [names]); [then] its "when you
+     * do" (CR 607.2h); X and repetitions worked out into the mana parts. */
+    data class CombatCost(
+        val creature: ObjectId, val cost: arcanum.api.Cost, val controller: PlayerId, val source: ObjectId?,
+        val names: arcanum.engine.state.Bindings, val then: arcanum.api.Instructions? = null, val origin: arcanum.engine.view.AbilityOrigin? = null,
+    )
+
+    /** The "as this creature attacks" optional costs [id] has (CR 508.1g, 701.43d): its [Mechanic.AsAttacks] with an origin. */
+    fun optionalAttackCosts(snap: Snapshot, id: ObjectId): List<AppliedMechanic> =
+        mechanics(snap, id).filter { it.mechanic is Mechanic.AsAttacks && it.origin != null }
+
+    /** [m]'s cost parts with X and repetitions of mana worked out (the mana fixed, CR 508.1h "locked in"). */
+    private fun fixed(snap: Snapshot, applied: AppliedMechanic, creature: ObjectId, cost: arcanum.api.Cost): arcanum.api.Cost {
+        val e = snap.evaluator(applied.controller, self = applied.source ?: creature, names = applied.names).let { it.with(it.ctx.copy(affected = creature)) }
+        return arcanum.api.Cost(cost.parts.flatMap { part ->
+            if (part !is arcanum.api.CostPart.Mana) return@flatMap listOf(part)
+            val mana = part.x?.let { arcanum.engine.mana.Mana.withX(part.cost, mapOf('X' to e.value(it))) } ?: part.cost
+            List(part.times?.let { e.value(it) } ?: 1) { arcanum.api.CostPart.Mana(mana) }
+        })
+    }
+
     /**
-     * rtr chunk 07: the total cost to attack with [attacks] (CR 508.1h): the mana of each "can't attack … unless their controller
-     * pays" that applies to an attacker and what it attacks ([Mechanic.AttackCost], read with its own "you"), X worked out;
-     * null when nothing is asked. Only mana parts are known (no card asks another kind of cost yet).
+     * rtr chunk 07: the costs to attack with [attacks] (CR 508.1h): each "can't attack … unless their controller pays" that
+     * applies to an attacker and what it attacks ([Mechanic.AttackCost]), and each optional "as it attacks" cost chosen for it
+     * ([arcanum.engine.input.Attack.paying], [Mechanic.AsAttacks], CR 508.1g).
      */
-    fun attackCost(snap: Snapshot, attacks: List<Attack>): arcanum.api.ManaCost? {
-        val symbols = attacks.flatMap { a ->
-            mechanics(snap, a.attacker).flatMap { applied ->
-                val m = applied.mechanic as? Mechanic.AttackCost ?: return@flatMap emptyList()
-                if (m.target != null && a.target !in recipients(snap, applied, a.attacker, m.target!!)) return@flatMap emptyList()
-                val e = snap.evaluator(applied.controller, self = applied.source ?: a.attacker, names = applied.names).let { it.with(it.ctx.copy(affected = a.attacker)) }
-                m.cost.parts.filterIsInstance<arcanum.api.CostPart.Mana>().flatMap { part ->
-                    val mana = part.x?.let { arcanum.engine.mana.Mana.withX(part.cost, mapOf('X' to e.value(it))) } ?: part.cost
-                    List(part.times?.let { e.value(it) } ?: 1) { mana.symbols }.flatten()
+    fun attackCosts(snap: Snapshot, attacks: List<Attack>): List<CombatCost> = attacks.flatMap { a ->
+        mechanics(snap, a.attacker).mapNotNull { applied ->
+            when (val m = applied.mechanic) {
+                is Mechanic.AttackCost -> if (m.target != null && a.target !in recipients(snap, applied, a.attacker, m.target!!)) null
+                    else CombatCost(a.attacker, fixed(snap, applied, a.attacker, m.cost), applied.controller, applied.source, applied.names)
+                is Mechanic.AsAttacks -> if (applied.origin == null || applied.origin !in a.paying) null
+                    else CombatCost(a.attacker, fixed(snap, applied, a.attacker, m.cost), applied.controller, applied.source ?: a.attacker,
+                        applied.names, m.then, applied.origin)
+                else -> null
+            }
+        }
+    }
+
+    /** CR 509.1d: the costs to block with [blocks]: each "can't block … unless their controller pays" ([Mechanic.BlockCost])
+     * that applies to a blocker and what it blocks, once for each attacker it blocks. */
+    fun blockCosts(snap: Snapshot, blocks: List<Block>): List<CombatCost> = blocks.flatMap { b ->
+        mechanics(snap, b.blocker).mapNotNull { applied ->
+            val m = applied.mechanic as? Mechanic.BlockCost ?: return@mapNotNull null
+            val e = snap.evaluator(applied.controller, self = applied.source ?: b.blocker, names = applied.names).let { it.with(it.ctx.copy(affected = b.blocker)) }
+            if (m.attackers != null && !e.matches(m.attackers!!, b.attacker)) null
+            else CombatCost(b.blocker, fixed(snap, applied, b.blocker, m.cost), applied.controller, applied.source, applied.names)
+        }
+    }
+
+    /** The mana of [costs] as one total (CR 508.1h, 509.1d); null when no mana is asked. */
+    fun manaOf(costs: List<CombatCost>): arcanum.api.ManaCost? =
+        arcanum.api.ManaCost(costs.flatMap { c -> c.cost.parts.filterIsInstance<arcanum.api.CostPart.Mana>().flatMap { it.cost.symbols } })
+            .takeIf { arcanum.engine.mana.Mana.needs(it).isNotEmpty() }
+
+    /** The total mana cost to attack with [attacks] (CR 508.1h), or null. */
+    fun attackCost(snap: Snapshot, attacks: List<Attack>): arcanum.api.ManaCost? = manaOf(attackCosts(snap, attacks))
+
+    /** rtr chunk 07: whether [player] could pay the costs to attack with [attacks] (CR 508.1d: a declaration needing a cost they
+     * don't pay isn't made). */
+    fun canPayToAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): Boolean = canPay(snap, player, attackCosts(snap, attacks))
+
+    /** CR 509.1d: whether [player] could pay the costs to block with [blocks]. */
+    fun canPayToBlock(snap: Snapshot, player: PlayerId, blocks: List<Block>): Boolean = canPay(snap, player, blockCosts(snap, blocks))
+
+    /** Whether [player] could pay all of [costs]: the mana as one payment, and each other part (objects to choose, life);
+     * parts that take no resource (exert, CR 701.43b) always can. Objects chosen by two costs aren't told apart. */
+    private fun canPay(snap: Snapshot, player: PlayerId, costs: List<CombatCost>): Boolean {
+        if (costs.isEmpty()) return true
+        manaOf(costs)?.let { if (arcanum.engine.mana.Mana.suggest(snap, player, it, null).isEmpty()) return false }
+        var life = snap.state.player(player).life
+        return costs.all { c ->
+            val e = snap.evaluator(player, self = c.creature, names = c.names)
+            c.cost.parts.all { part ->
+                when (part) {
+                    is arcanum.api.CostPart.Mana -> true
+                    is arcanum.api.CostPart.PayLife -> e.value(part.amount).let { n -> (life >= n).also { life -= n } }
+                    arcanum.api.CostPart.TapSelf -> snap.state.obj(c.creature)?.tapped == false
+                    arcanum.api.CostPart.UntapSelf -> snap.state.obj(c.creature)?.tapped == true
+                    else -> arcanum.engine.casting.Costs.objectChoice(snap, player, null, part, e)?.let { it.options.size >= it.min } ?: true
                 }
             }
         }
-        return arcanum.api.ManaCost(symbols).takeIf { arcanum.engine.mana.Mana.needs(it).isNotEmpty() }
     }
-
-    /** rtr chunk 07: whether [player] could pay the cost to attack with [attacks] (CR 508.1d: a declaration needing a cost they
-     * don't pay isn't made). */
-    fun canPayToAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): Boolean =
-        attackCost(snap, attacks)?.let { arcanum.engine.mana.Mana.suggest(snap, player, it, null).isNotEmpty() } ?: true
 
     /** One requirement on [creature] (CR 508.1d): it attacks, anything when [targets] is null. */
     private class AttackRequirement(val creature: ObjectId, val targets: List<TargetRef>?) {
@@ -177,7 +252,9 @@ internal object CombatRules {
     private fun mostObeyedAttack(snap: Snapshot, player: PlayerId, requirements: List<AttackRequirement>): Pair<Int, List<Attack>> {
         val targets = attackTargets(snap, player)
         val choices = requirements.map { it.creature }.distinct().map { id ->
-            targets.filter { canAttack(snap, player, id, it) }.map { t -> Attack(id, t) to requirements.count { it.creature == id && it.obeyedBy(t) } }
+            // CR 508.1d: a cost to attack needn't be paid to obey a requirement
+            targets.filter { canAttack(snap, player, id, it) && attackCosts(snap, listOf(Attack(id, it))).isEmpty() }
+                .map { t -> Attack(id, t) to requirements.count { it.creature == id && it.obeyedBy(t) } }
         }
         return mostObeyed(choices, { attackRestriction(snap, player, it) == null }, { true })
     }
@@ -225,11 +302,8 @@ internal object CombatRules {
         if (snap.view[blocker]?.characteristics?.isType(CardType.Battle) == true) return false
         val attack = snap.state.combat?.attackers?.firstOrNull { it.id == attacker } ?: return false
         if (!onBattlefield(snap, attacker)) return false
-        val defending = when (val t = attack.target) {
-            is TargetRef.Player -> t.id
-            is TargetRef.Object -> snap.board.controller(t.id)
-        }
-        if (defending != player) return false
+        // CR 310.9c: only a battle's protector blocks the creatures attacking it
+        if (defenderOf(snap, attack.target) != player) return false
         val blockerOk = mechanics(snap, blocker).none { applied ->
             val e = snap.evaluator(applied.controller, self = applied.source ?: blocker, names = applied.names)
             when (val m = applied.mechanic) {
@@ -339,9 +413,11 @@ internal object CombatRules {
         val helped = (needCompany + mustBeBlocked + if (alone) attackers else emptyList()).distinct()
         val helpers = snap.state.battlefield.filter { it !in required && helped.any { a -> canBlock(snap, player, it, a) } }
         fun score(id: ObjectId, a: ObjectId) = requirements.count { (it.anyBlocker || it.creature == id) && a in it.attackers }
+        // CR 509.1c: a cost to block needn't be paid to obey a requirement
+        fun free(id: ObjectId, a: ObjectId) = canBlock(snap, player, id, a) && blockCosts(snap, listOf(Block(id, a))).isEmpty()
         val choices = required.map { id ->
-            attackers.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to score(id, a) }
-        } + helpers.map { id -> helped.filter { canBlock(snap, player, id, it) }.map { a -> Block(id, a) to score(id, a) } }
+            attackers.filter { free(id, it) }.map { a -> Block(id, a) to score(id, a) }
+        } + helpers.map { id -> helped.filter { free(id, it) }.map { a -> Block(id, a) to score(id, a) } }
         return mostObeyed(choices, { blockRestriction(snap, player, it, whole = false) == null },
             { blockRestriction(snap, player, it, whole = true) == null })
     }
@@ -352,15 +428,11 @@ internal object CombatRules {
         return snap.state.battlefield.any { b -> attackers.any { a -> canBlock(snap, player, b, a) } }
     }
 
-    /** The defending players (CR 506.2): those attacked, and controllers of attacked planeswalkers. */
+    /** The defending players (CR 506.2): those attacked, controllers of attacked planeswalkers and protectors of attacked
+     * battles (310.9d). */
     fun defendingPlayers(snap: Snapshot): List<PlayerId> {
         val combat = snap.state.combat ?: return emptyList()
-        val players = combat.attackers.mapNotNull { a ->
-            when (val t = a.target) {
-                is TargetRef.Player -> t.id
-                is TargetRef.Object -> snap.board.controller(t.id)
-            }
-        }.toSet()
+        val players = combat.attackers.mapNotNull { a -> defenderOf(snap, a.target) }.toSet()
         return snap.state.apnap().filter { it in players && !snap.state.player(it).lost }
     }
 }

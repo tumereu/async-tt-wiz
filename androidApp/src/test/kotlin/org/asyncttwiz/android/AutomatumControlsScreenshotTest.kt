@@ -85,9 +85,11 @@ class AutomatumControlsScreenshotTest {
 
     private val sent = mutableListOf<Pair<GameAction.PlayBatch, String>>()
     private val manual = mutableListOf<PlayAction>()
-    private fun render(play: PlayState): TableToolkitController {
+    /** [batches]: ordinary batches are sent too (recorded in [manual]). */
+    private fun render(play: PlayState, batches: Boolean = false): TableToolkitController {
         AutomatumBoards.compute(play, f.a)
         val toolkit = TableToolkitController(f.a, { play }, { true }, { action, _ -> manual += action; true },
+            playBatch = if (batches) { actions, _ -> manual += actions; true } else null,
             automatedBatch = { batch, request -> sent += batch to request; true })
         compose.setContent {
             MaterialTheme {
@@ -365,24 +367,43 @@ class AutomatumControlsScreenshotTest {
         assertEquals(7, StackMenuActions.controls(off, entry, true, {}, {}, {}).size)
     }
 
-    // TRN-062, I-D46: during Alice's opening her hand card's menu offers "Put on bottom" (the London mulligan's bottom)
-    // without any "Manual…"; it puts the card on the bottom of her library
-    @Test fun openingHandMenuPutsOnBottom() {
+    // TRN-062, TRN-059, I-D49, I-D48: during Alice's opening with Automatum on her quick actions are Mulligan and Keep (icon
+    // and text) and her hand cards' menu has no bottom; after two mulligans Keep opens the Keep / Bottom screen: OK only
+    // with one card in Bottom, then that card goes to the bottom of her library and she is Ready, in one batch
+    @Test fun openingMulliganKeepAndBottom() {
         val base = board(lands = 2)
-        val play = base.copy(board = base.board.copy(turn = base.board.turn.copy(number = "1"),
-            players = base.board.players.map { it.copy(status = PlayerStatus.OPENING) }))
-        val toolkit = render(play)
+        val play = base.copy(board = base.board.copy(turn = base.board.turn.copy(number = "1"), priority = null,
+            players = base.board.players.map { it.copy(status = PlayerStatus.OPENING, mulligans = if (it.accountId == f.a) 2 else 0) }))
+        val toolkit = render(play, batches = true)
+        compose.onNodeWithContentDescription(QuickActions.MULLIGAN).assertIsEnabled()
+        compose.onNodeWithContentDescription(QuickActions.KEEP).assertIsEnabled()
+        compose.onNodeWithContentDescription("Mull N").assertDoesNotExist()
+        compose.onNodeWithContentDescription(AutomatumToggles.FULL_CONTROL).assertDoesNotExist()
+        captureShot("$SCREENSHOTS/automatum/opening-quick-actions.png",
+            "During Alice's opening in a game with Automatum on, her quick-actions row is Mulligan and Keep, each an icon with its name, beside the step arrow.")
         compose.runOnIdle { toolkit.openCard(TableScope(sparkId, listOf(sparkId))) }
         compose.waitForIdle()
-        compose.onNodeWithContentDescription(MANUAL).assertDoesNotExist()
-        compose.onNodeWithContentDescription("Library bottom").assertIsEnabled()
-        captureShot("$SCREENSHOTS/automatum/opening-put-on-bottom.png",
-            "During Alice's opening with Automatum on, Storm Spark's hand menu shows its greyed Cast row, Inspect and \"Put on bottom\", the London mulligan's way to put a card on the bottom of her library.")
-        compose.ringClick("Library bottom")
+        compose.onNodeWithContentDescription("Library bottom").assertDoesNotExist()
+        compose.runOnIdle { toolkit.dismiss() }
+        compose.onNodeWithContentDescription(QuickActions.KEEP).performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText(AutomatumOpening.title(1)).assertIsDisplayed()
+        val ok = hasText("OK") and hasClickAction()
+        compose.onNode(ok).assertIsNotEnabled()
+        compose.onNode(hasContentDescription("Storm Spark") and hasAnyAncestor(hasContentDescription("Keep area"))).performClick()
+        compose.waitForIdle()
+        compose.onNode(hasContentDescription("Storm Spark") and hasAnyAncestor(hasContentDescription("Bottom area"))).assertExists()
+        compose.onNode(ok).assertIsEnabled()
+        captureShot("$SCREENSHOTS/automatum/opening-keep-bottom.png",
+            "After two mulligans Alice tapped Keep: the panel above her hand reads \"Mulligan · put 1 on the bottom\", her other hand cards are in Keep, Storm Spark (tapped once) is in Bottom, and OK is enabled.")
+        assertTrue(manual.isEmpty(), "nothing is sent before OK")
+        compose.onNode(ok).performClick()
         compose.waitForIdle()
         val move = manual.filterIsInstance<PlayAction.MoveCard>().single()
         assertEquals(sparkId, move.cardId)
         assertEquals(MoveInsertion.BOTTOM, move.destination.insertion)
+        assertEquals(PlayAction.SetStatus(""), manual.last())
+        compose.runOnIdle { assertFalse(toolkit.keeping) }
     }
 
     private companion object { const val MANUAL = "Manual…" }

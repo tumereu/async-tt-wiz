@@ -26,6 +26,8 @@ interface TableActionRoutes {
     /** Next step, End turn or a chosen step through Automatum while it is on (TRN-057): whether it was taken; null when
      * the step changes by hand as usual (Automatum off). */
     fun automatumStep(intent: TableActionIntent): Boolean? = null
+    /** The viewer's opening with Automatum on (I-D49): "Mulligan" or "Keep"; whether it was taken. */
+    fun opening(intent: TableActionIntent): Boolean = false
 }
 
 sealed interface TableActionIntent {
@@ -52,6 +54,10 @@ sealed interface TableActionIntent {
     data class Player(override val scope: TableActionScope, val accountId: String) : TableActionIntent
     /** The viewer's own status; empty clears it (Ready). */
     data class Status(override val scope: TableActionScope, val text: String) : TableActionIntent
+    /** I-D49: the viewer's London mulligan with Automatum on (hand back, shuffle, draw the opening hand again). */
+    data class OpeningMulligan(override val scope: TableActionScope) : TableActionIntent
+    /** I-D49: the viewer keeps their hand with Automatum on: Ready, after putting the owed cards on the bottom. */
+    data class Keep(override val scope: TableActionScope) : TableActionIntent
 }
 
 data class PlayerValueTarget(val scope: TableActionScope, val accountId: String, val color: CounterColor? = null)
@@ -126,6 +132,7 @@ class TableActionController(private val state: () -> PlayState?, private val can
             is TableActionIntent.Choose -> return routes.automatumStep(intent) ?: run(if (intent.pass) StepRun.passTo(play.board, intent.position)
                 else StepRun.choose(play.board, intent.position))
             is TableActionIntent.Status -> return submit(PlayAction.SetStatus(intent.text))
+            is TableActionIntent.OpeningMulligan, is TableActionIntent.Keep -> return routes.opening(intent)
             is TableActionIntent.Orient -> return send(intent.cardIds.distinct().filter { id ->
                 play.board.cards.any { card -> card.id == id && play.board.containers.any {
                     it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }

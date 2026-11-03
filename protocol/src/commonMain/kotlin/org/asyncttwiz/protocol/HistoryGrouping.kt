@@ -277,6 +277,8 @@ object HistoryGrouping {
                 HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.STICKY_NOTE_2)
             is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
                 "automatum", isolated = true)
+            // I-D49: bookkeeping like priority: joins the mulligan it goes with (same batch) and never represents it
+            is MtgAction.SetMulligans -> HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.SHUFFLE)
         }
         is PlayAction.MoveCard -> {
             val fromContainer = containers.single { it.id == action.source.containerId }

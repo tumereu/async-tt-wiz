@@ -50,8 +50,8 @@ internal object AutomatumDrags {
     fun opening(board: BoardState, viewer: String?): Boolean = board.automatum && board.turn.number == "1" &&
         PlayerStatus.opening(board, viewer)
 
-    /** Whether [action] is one of [viewer]'s opening actions ([opening]): a mulligan of their own hand and library, or
-     * putting their own hand cards on the bottom of their library (the London mulligan's bottom, CR 103.5). */
+    /** Whether [action] is one of [viewer]'s opening actions ([opening], I-D49): a mulligan of their own hand and library,
+     * or putting their own hand cards on the bottom of their library (the London mulligan's bottom on keeping, CR 103.5). */
     fun openingAction(board: BoardState, viewer: String?, action: PlayAction): Boolean {
         if (!opening(board, viewer)) return false
         fun own(containerId: String, zone: PlayZone) = board.containers.any { it.id == containerId && it.zone == zone && it.accountId == viewer }

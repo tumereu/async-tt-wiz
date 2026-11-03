@@ -23,7 +23,10 @@ import kotlinx.serialization.Serializable
     /** I-D41: this player's "Full control", off unless they turned it on ([MtgAction.SetFullControl]): Automatum also
      * pauses for them where they usually wouldn't respond (their own spells, every step in which they could act); the
      * host reads it whoever's client makes the call. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val fullControl: Boolean = false)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val fullControl: Boolean = false,
+    /** I-D49: the mulligans this player took in their opening with Automatum on ([MtgAction.SetMulligans]); with
+     * [GameRules.owed] it says how many cards they put on the bottom of their library when they keep. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val mulligans: Int = 0)
 
 /** Rules v26: a player's own status shown in a bubble by their life total (up to 512 characters since rules v30;
  * the limit only ever grew, so every recorded status stays valid). */
@@ -305,7 +308,8 @@ object StartRules {
         preparation.players.size == 2 && preparation.players.all { it.ready && it.deck != null }
 
     /** Inputs are acquired independently by the server only after the readiness transition applies. */
-    /** [automatum]: the play starts with Automatum on, the game's choice when it was created (I-D44, SYS-055). */
+    /** [automatum]: the play starts with Automatum on, the game's choice when it was created (I-D44, SYS-055), and
+     * each player's opening hand ([GameRules.openingHand]) already drawn from their shuffled library (I-D49). */
     fun initialize(game: GameSummary, preparation: LobbyPreparation, requestId: String,
         librarySeeds: Map<String, String>, starterSeed: String? = null, librarySecret: String? = null,
         automatum: Boolean = false): PlayState {
@@ -326,6 +330,8 @@ object StartRules {
         val definitions = preparation.definitions.associateBy { it.digest }
         val cards = mutableListOf<PlayCard>(); val containers = mutableListOf<PlayContainer>()
         val shuffles = mutableListOf<InitialShuffle>()
+        // I-D49: with Automatum on each player's opening hand is drawn from the shuffled library at once
+        val opening = if (automatum) GameRules.STANDARD.openingHand else 0
         for (player in players) {
             val deck = player.deck!!
             val library = CommandIds.uuidV5(playId, "container/${player.accountId}/LIBRARY")
@@ -340,10 +346,15 @@ object StartRules {
             val seed = librarySeeds.getValue(player.accountId)
             val order = RandomV1.shuffle(members, seed)
             shuffles.add(InitialShuffle(player.accountId, seed, order))
+            val hand = CommandIds.uuidV5(playId, "container/${player.accountId}/HAND")
+            val drawn = order.take(opening)
+            val rest = order.drop(opening)
             for (zone in PlayZone.entries.filter { it != PlayZone.STACK }) containers.add(PlayContainer(
                 if (zone == PlayZone.LIBRARY) library else CommandIds.uuidV5(playId, "container/${player.accountId}/${zone.name}"),
-                zone, player.accountId, if (zone == PlayZone.LIBRARY) order else emptyList(),
-                layers = if (zone == PlayZone.LIBRARY) LibraryLayers.initial(CommandIds.uuidV5(library, "layer/0"), order) else emptyList()))
+                zone, player.accountId, when (zone) { PlayZone.LIBRARY -> rest; PlayZone.HAND -> drawn; else -> emptyList() },
+                layers = if (zone == PlayZone.LIBRARY) LibraryLayers.initial(CommandIds.uuidV5(library, "layer/0"), rest) else emptyList()))
+            val inHand = drawn.toSet()
+            for (index in cards.indices) if (cards[index].id in inHand) cards[index] = cards[index].copy(containerId = hand)
         }
         containers.add(PlayContainer(CommandIds.uuidV5(playId, "container/STACK"), PlayZone.STACK))
         val needed = cards.map { it.definition }.toSet()

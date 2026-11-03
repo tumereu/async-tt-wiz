@@ -450,6 +450,7 @@ fun historyText(event: GameplayMutation?, before: PlayState? = null, viewer: Str
             MtgAction.ClearRecords -> text("Automatum data cleared", "Automatum")
             is MtgAction.SetSkipWhenNoChoice -> text("${playerPrefix(event.author)}Skip when no choice ${if (mtg.on) "on" else "off"}", "Automatum")
             is MtgAction.SetFullControl -> text("${playerPrefix(event.author)}Full control ${if (mtg.on) "on" else "off"}", "Automatum")
+            is MtgAction.SetMulligans -> text("${playerPrefix(event.author)}Mulligans taken → ${mtg.after}", "Mulligan")
         }
         is PlayAction.DeclineResult -> text("Result declined", "Decline result")
         is PlayAction.WithdrawResult -> text("Result withdrawn", "Withdraw result")

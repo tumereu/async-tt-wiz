@@ -43,7 +43,7 @@ Hand, library, graveyard, exile and Temp piles, the left card panels (Search, Lo
 
 - **ZON-027** Mulligan N shuffles your hand into your library and draws N; Mulligan −1 draws one fewer than your current hand size; each is one event and one Undo. (r13)
 - **ZON-028** Mulligan N… asks for the number, 7 by default, remembering your last number for that game. (r17)
-- **ZON-029** While a player's status is the opening "Mulliganing", their quick actions are Mull N, Mull −1 and Ready. (r25)
+- **ZON-029** While a player's status is the opening "Mulliganing", their quick actions are Mull N, Mull −1 and Ready (with Automatum off; on: Mulligan and Keep, TRN-062). (r25)
 
 ### Graveyard and exile
 

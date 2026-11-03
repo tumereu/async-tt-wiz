@@ -147,6 +147,26 @@ class AutomatumFlowTest {
         assertEquals("noOp", change(on, mtg(MtgAction.SetFullControl(true)), b).outcome)
     }
 
+    // TRN-062 (I-D49, CR 103.5): the mulligans a player took in their opening are kept per player, only its player changes
+    // them, from the count it names; none is left out on the wire
+    @Test fun mulligansAreEachPlayersOwn() {
+        val state = base()
+        assertTrue(state.board.players.all { it.mulligans == 0 })
+        val one = accept(state, mtg(MtgAction.SetMulligans(0, 1)), b)
+        assertEquals(listOf(0, 1), one.board.players.map { it.mulligans })
+        assertEquals("""{"accountId":"$b","life":"20","counters":{},"mulligans":1}""",
+            GameWire.json.encodeToString(PlayPlayer.serializer(), one.board.players[1]))
+        assertFalse(GameWire.json.encodeToString(PlayPlayer.serializer(), state.board.players[1]).contains("mulligans"))
+        assertEquals("inapplicable", change(one, mtg(MtgAction.SetMulligans(0, 1)), b).reason)
+        assertEquals("noOp", change(one, mtg(MtgAction.SetMulligans(1, 1)), b).outcome)
+        assertFalse(MtgRules.valid(MtgAction.SetMulligans(0, GameRules.MAX_MULLIGANS + 1)))
+        // CR 103.5: London mulligans, the first free; no further mulligan once the hand kept would have no cards
+        val rules = GameRules.STANDARD
+        assertEquals(listOf(0, 0, 1, 2, 7), listOf(0, 1, 2, 3, 8).map(rules::owed))
+        assertTrue(rules.canMulligan(7))
+        assertFalse(rules.canMulligan(8))
+    }
+
     // SYS-060 (I-D19, I-D24): reverting an open flow takes back every event since its opening batch, whoever made them,
     // and goes to nobody's redo; switching off then closes nothing more, and effect records made before the flow stay
     @Test fun revertingAFlowTakesBackEveryStepSinceItsStart() {

@@ -78,6 +78,8 @@ internal fun Scenario.playOut(vararg picks: String, may: Boolean = true, options
                 answer(Answer.Objects(chosen))
             }
             is Decision.ManaPayment -> if (d.suggestion.isEmpty()) return else answer(Answer.ManaPayment(d.suggestion))
+            is Decision.Divide -> answer(Answer.Division(d.suggested.takeIf { it.sumOf { s -> s.amount } == d.amount } ?: d.among.mapIndexed { i, t ->
+                arcanum.engine.decision.Share(t, d.amount / d.among.size + if (i < d.amount % d.among.size) 1 else 0) }))
             else -> return
         }
     }

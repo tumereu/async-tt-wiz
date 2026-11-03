@@ -1,6 +1,6 @@
 # Engine state as the game state — proposal (I-D54)
 
-Status: **proposal for owner review** (2026-11-03). Not to be started until the current round is done and deployed to
+Status: **approved by the owner** (2026-11-03), queued. Not to be started until the current round is done and deployed to
 the test environment, so UI testing can go on while this is built. Follows from I-D52 (Automatum always on).
 
 ## 1. Why
@@ -80,10 +80,12 @@ behaviour; catalog entries change only where wording names internals.
 6. **Delete** the mapping layer, duplicate model and old gate; then an adversarial review (two-device races, branching,
    undo, reconnect, performance on the Pi) and fixes.
 
-## 8. Open points for the owner
+## 8. Owner decisions on the open points (2026-11-03)
 
-- Mulligans and other pre-game steps as engine inputs (the engine supports the London mulligan; simultaneous decisions
-  would need an engine extension) — proposed: yes, extend the engine.
-- Concede as an engine input (CR 104.3a); agreed draws/results: table events + a final engine "game over" input.
-- Whether the attack staging/block draft stays shared (table events) or becomes local until declared — proposed: keep
-  shared, as now.
+- **Game results live in the engine:** concede is an engine input (CR 104.3a), and the engine reports "player X won /
+  lost / draw" (rules losses, cards that win or lose the game, agreed results recorded through an engine input). ATW's
+  result flow (I-D53 confirm) renders what the engine reports.
+- **Attack staging / block draft stay shared** (table events); showing some of that information to the other player can
+  be delayed later if wanted.
+- **Mulligans and other pre-game steps:** as engine inputs (extend the engine for simultaneous decisions) — proposed,
+  not objected.

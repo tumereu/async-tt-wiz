@@ -89,3 +89,64 @@ behaviour; catalog entries change only where wording names internals.
   be delayed later if wanted.
 - **Mulligans and other pre-game steps:** as engine inputs (extend the engine for simultaneous decisions) — proposed,
   not objected.
+
+## 9. Built (I-D54 phase 1–2, 2026-11-03)
+
+**Phase 1 — spike: viable.** `:server` depends on `:arcanum-engine`/`:arcanum-api` (and `:protocol` on the engine;
+`verifyModuleBoundaries` updated, Arcanum still depends on nothing of ATW). `EngineOnServerSpikeTest`
+(`./scripts/gradle.sh :server:test -Patw.engineSpike=true --tests '*EngineOnServerSpikeTest*'`) runs `Engine.perform`
+in the server's test JVM (JDK 21, 512 MiB heap) on this dev machine (Ryzen 5 5600X, WSL, shared with other builds:
+heavy cases varied up to ~5× between two runs; both shown):
+- **Typical** (12 whole games of the themed cube decks, 15.5k inputs, warm JIT): median 0.8 ms, p95 3 ms, p99 5–6 ms,
+  max 20 ms per input. Pass 0.55 ms median; cast 1.4; mana payment answer 2.5; activate 1.4. Cold JVM (first game after
+  start): median 1.6 ms, max 110 ms. Applying the changes: microseconds.
+- **Heavy** (constructed boards, median of 5): turn change on 90 permanents (cleanup, untap 45, upkeep, draw) 18–105 ms;
+  board wipe killing 60 creatures (190 changes) 39–46 ms; cast + pay on a 61-permanent lord board 19–43 ms; resolving
+  there 9–11 ms; 20 blockers and combat damage 2.4–2.9 ms; ten triggers 0.9 ms.
+- **Storage:** event JSON median 0.6 KB, p95 3.4 KB, max 56 KB (a shuffle lists the library), about 1.2 KB per input;
+  definitions by reference save a third. A checkpoint of a turn-58 state with the log kept to this and last turn is
+  142 KB, 7 ms to write or read (with the whole log it would be 1.3 MB, 70–85 ms); the decks' definitions 55 KB once.
+- **Pi 5: not measured** (the Pi is production; running a benchmark there wasn't authorized). Estimate from single-thread
+  benchmarks (Cortex-A76 2.4 GHz vs Zen 3 4.6 GHz, about 2.5–3× in Geekbench; a JVM with less cache and memory bandwidth
+  more): **3–4× slower**, so typical inputs ~3 ms median and ~10 ms p95, heavy ones 50–400 ms, a cold-start game's first
+  inputs up to ~0.5 s. Fine for a turn-based async game; the owner can confirm with the spike test's numbers on the Pi.
+
+**Phase 2 — event model and storage (protocol package `org.asyncttwiz.protocol.game`; nothing uses it yet, the old
+model is untouched):**
+- `TableState` (placements by engine object id, per-player `PlaySettings` Full control/Autotap, early answers, shared
+  attack/block drafts as the engine's `Attack`/`Block`, result suggestion as the engine's `GameResult`, who confirmed the
+  engine's result) changed only by `TableChange`s with before/after values, checked on apply like the engine's changes.
+- `GameEvent(id, parentId, author, engine: EnginePart?, table)`; `EnginePart(timestampBefore, steps)`, each
+  `EngineStep(input, changes)` (input null: a host change such as Skip when I have no choice). One event = one acting
+  point (I-D35): `EventBuilder` performs the input, then the device's random answers, then adds the table part.
+  `GameModel` (engine `GameState` + `TableState`) applies and reverts events all-or-nothing.
+- **Design adjustments** (needed for "the same state however reached", which the server/client and checkpoint/replay
+  equality rest on; the engine's decision ids read its timestamp counter and log size):
+  - one **full-information** engine state on the server and on devices (I-D27: hidden information is display; shown
+    through `Engine.visible`), so no per-viewer states, host fills or other-view answers;
+  - reverting an event puts the engine's **timestamp counter** back (`EnginePart.timestampBefore`; the engine itself
+    never moves it back);
+  - after each event the engine **log is cut to this and last turn** (`forgetOlderTurns`; keeps checkpoints and the
+    engine's log lookups small). A model keeps the last 4 turns' cuts in memory to revert across turn starts; beyond
+    that it reports `stale` and the history takes the state from a checkpoint.
+- **Undo rule:** `Concerns.of(event)` (what it writes and reads: object presence/state by card, players, the rest of
+  the engine, table parts; an engine input reads the whole engine state); `UndoRule.blocking/undo`. So an engine event
+  can be undone past later table-only events that don't touch its objects, never past a later engine input.
+- **Checkpoints:** `GameHistory` (every 64 depths; a cold state = one checkpoint + at most 63 events; a state at hand
+  moves along the tree by revert/apply, bounded, else from a checkpoint); `HistoryStore`, `InMemoryHistory`.
+- **Serialization:** `EngineJson` (kotlinx JSON of the engine's own types, defaults left out; card definitions of the
+  game's decks stored once by digest and referenced as `"#sha256:…"`; tokens' stay written out). `EventFormatJvmTest`
+  keeps a frozen 60-event sample that must still read, write back byte for byte and apply: when the engine's format
+  changes it fails (then a reader or a wipe).
+- **Storage:** V56 `engine_play` (definitions, root), `engine_event` (tree, depth, accept order), `engine_checkpoint`;
+  `EngineHistoryStore` (one recursive query per cold read). Unused until phase 3.
+- **Wipe:** `server/src/main/resources/db/pending/wipe_plays_for_engine_state.sql` (V54's wipe plus the engine tables),
+  tested against the schema; it becomes the next `V<n>` in the release that switches the server over, so test-env games
+  aren't wiped twice.
+- **Tests:** apply/revert round trips per event (engine and table parts, mismatches change nothing), reverting back
+  across turns, branching and checkpoint states equal to direct ones with bounded work, undo-rule cases, JSON round
+  trips and the frozen sample, the PostgreSQL store and the wipe.
+
+**For the owner:** (1) the wipe's timing (kept for the switch rather than run now); (2) §8's agreed results and
+simultaneous pre-game decisions need new engine inputs (engine work, phase 3+); (3) Autotap becomes a shared table
+setting per §2 (today it is per device); (4) undo across more than 4 turn starts loads a checkpoint (≤ 63 events).

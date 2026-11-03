@@ -51,10 +51,11 @@ tasks.register("verifyModuleBoundaries") {
     doLast {
         val expected = mapOf(
             ":core" to emptySet(),
-            ":protocol" to setOf(":core", ":scale-fixtures"),
+            // I-D54: a game's state is the Arcanum engine's state, so protocol and the server use the engine.
+            ":protocol" to setOf(":core", ":scale-fixtures", ":arcanum-engine"),
             ":client-storage" to setOf(":core", ":protocol", ":arcanum-parser"),
             ":androidApp" to setOf(":core", ":protocol", ":client-storage", ":automatum", ":scale-fixtures"),
-            ":server" to setOf(":core", ":protocol", ":scale-fixtures"),
+            ":server" to setOf(":core", ":protocol", ":scale-fixtures", ":arcanum-api", ":arcanum-engine"),
             ":scale-fixtures" to setOf(":protocol"),
             // Arcanum libraries are generic MTG code: they never depend on ATW modules.
             ":arcanum-api" to emptySet(),
@@ -67,7 +68,8 @@ tasks.register("verifyModuleBoundaries") {
         // Project dependencies allowed only in test configurations: these tests parse the invented cube cards.
         val testOnly = mapOf(
             ":arcanum-engine" to setOf(":arcanum-parser"), ":automatum" to setOf(":arcanum-parser"),
-            ":androidApp" to setOf(":arcanum-parser"),
+            ":androidApp" to setOf(":arcanum-parser"), ":protocol" to setOf(":arcanum-parser"),
+            ":server" to setOf(":arcanum-parser"),
         )
         subprojects.forEach { project ->
             val allowedInTests = testOnly[project.path].orEmpty()

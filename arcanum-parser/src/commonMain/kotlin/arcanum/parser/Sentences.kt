@@ -17417,6 +17417,12 @@ internal class Sentences(
             return steps.dropLast(1) + Step.Do(create.copy(bind = bind)) + Step.If(arcanum.api.Condition.CastFrom(Zone.Graveyard, Objects.Self),
                 then = listOf(Step.Do(Effect.PutCounters(Objects.Bound(bind), kind, Value.Fixed(n)))))
         }
+        // fin chunk 16: "Choose target creature you control. It deals damage equal to its power to each other creature." ("it" is the chosen target)
+        if (sentence == "It deals damage equal to its power to each other creature." && steps.isEmpty() && context.targets.size == 1 && isSpell) {
+            val target = Objects.Target(context.targets.single().name)
+            return listOf(Step.Do(Effect.DealDamage(Recipients(objects = Objects.Each(Filters.all(ObjectFilter.Not(ObjectFilter.Is(target)),
+                ObjectFilter.Type(arcanum.api.CardType.Creature)))), Value.Of(arcanum.api.NumericProperty.Power, target, arcanum.api.Combine.Single), target)))
+        }
         // fin-modify-end
         return null
     }

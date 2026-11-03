@@ -279,6 +279,8 @@ fun pumpBy(objects: Objects, power: Value, toughness: Value): Step = untilEndOfT
 fun tapAndStun(objects: Objects): List<Step> = listOf(tapIt(objects), counters(objects, 1, CounterKind.Stun))
 /** A static ability of this object's own ("This spell costs …"). */
 val selfOnly: Affected = Affected.Objects(Objects.Self)
+/** "Whenever a creature you control attacks alone" (CR 506.5) */
+fun attacksAlone(filter: ObjectFilter): Trigger = on(EventPattern.Attack(filter, alone = true))
 /** "sacrifice this token/creature" */
 val sacrificeIt: Step = Step.Do(Effect.Sacrifice(Objects.Self))
 /** "the beginning of the end step" (each player's) */

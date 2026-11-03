@@ -6,7 +6,6 @@ import arcanum.api.EventPattern
 import arcanum.api.ObjectFilter
 import arcanum.api.Objects
 import arcanum.api.Trigger
-import arcanum.api.Zone
 import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.change.Change
@@ -50,14 +49,15 @@ class LoopTest {
         "When this creature enters, sacrifice a creature.\nWhen this creature dies, return it to the battlefield under its owner's control.",
         "1/1")
 
-    private fun Scenario.waitingOnLoop(): Pair<Decision.Manual, LoopStop> {
-        val manual = decision<Decision.Manual>()
+    private fun Scenario.waitingOnLoop(): Pair<Decision.ChooseOption, LoopStop> {
+        val manual = decision<Decision.ChooseOption>()
+        assertEquals(listOf(LoopStop.CONTINUE, LoopStop.DRAW), manual.options)
         val continuation = assertIs<Continuation.Loop>(state.pending!!.continuation)
         return manual to continuation.stop
     }
 
-    // CR 603.3, 704.3: triggered abilities without end before anyone gets priority; the call stops at its cap with a
-    // decision done by hand instead of hanging
+    // CR 603.3, 704.3: triggered abilities without end before anyone gets priority; the call stops at its cap with the
+    // loop choice instead of hanging
     @Test
     fun endlessTriggersInOneCallStopAtTheCap() = scenario {
         alice.battlefield(sprite, twin, "Island")
@@ -65,14 +65,25 @@ class LoopTest {
         alice.casts(glance, target = sprite)
         val (manual, stop) = waitingOnLoop()
         assertEquals(LoopStop.Cap, stop)
-        assertTrue(manual.text.startsWith("Possible loop"), manual.text)
+        assertTrue(manual.text!!.startsWith("Possible loop"), manual.text)
         assertEquals(alice.id, manual.player, "the caster, who would get priority next (CR 117.3c)")
         val stacked = state.stack.size
         assertTrue(stacked > Loops.MAX_ROUNDS / 2, "the triggers went on the Stack round after round: $stacked")
-        // Done: the game goes on in a new call, up to the cap again
-        answer(Answer.Done)
+        // Continue: the game goes on in a new call, up to the cap again
+        answer(Answer.Option(LoopStop.CONTINUE))
         assertEquals(LoopStop.Cap, waitingOnLoop().second)
         assertTrue(state.stack.size > stacked)
+    }
+
+    // CR 104.4b: at the cap the players may end the game as a draw instead
+    @Test
+    fun aDrawAtTheCapEndsTheGame() = scenario {
+        alice.battlefield(sprite, twin, "Island")
+        alice.hand(glance)
+        alice.casts(glance, target = sprite)
+        assertEquals(LoopStop.Cap, waitingOnLoop().second)
+        answer(Answer.Option(LoopStop.DRAW))
+        assertEquals(GameResult.Draw, Engine.result(state))
     }
 
     /** The host's automatic passes (I-D3) with loop detection: while a player can only pass, it passes for them; meeting a
@@ -105,26 +116,24 @@ class LoopTest {
         assertTrue(passes in 6..12, "found within two laps: $passes passes")
         val (manual, stop) = waitingOnLoop()
         assertIs<LoopStop.Mandatory>(stop)
-        assertTrue("draw" in manual.text, manual.text)
+        assertTrue("draw" in manual.text!!, manual.text)
         assertNull(Engine.result(state), "not over before it is answered")
-        answer(Answer.Done)
+        answer(Answer.Option(LoopStop.DRAW))
         assertEquals(GameResult.Draw, Engine.result(state))
         assertTrue(state.log.any { (it.change as? Change.Happened)?.event == GameEvent.MandatoryLoop })
         assertTrue(Engine.options(state, alice.id).isEmpty())
     }
 
-    // CR 104.4b: the loop reported, a player breaks it by hand (D42) before answering: the game goes on
+    // CR 104.4b: the loop reported, the players choose to continue: the game goes on where it was
     @Test
-    fun aLoopBrokenByHandGoesOn() = scenario {
+    fun aReportedLoopContinuedGoesOn() = scenario {
         alice.battlefield("Swamp", "Swamp")
         alice.hand(revenant)
         alice.casts(revenant)
         hostPasses()
         assertIs<LoopStop.Mandatory>(waitingOnLoop().second)
         val holder = state.priority.holder
-        val where = card(revenant).let { state.objOrThrow(it).zone }
-        move(revenant, if (where == Zone.Battlefield) Zone.Exile else Zone.Battlefield)
-        answer(Answer.Done)
+        answer(Answer.Option(LoopStop.CONTINUE))
         assertNull(Engine.result(state))
         assertNull(pending)
         assertEquals(holder, state.priority.holder)

@@ -22,7 +22,7 @@ The definition model (overview in `Definitions.kt`):
   names a keyword without values for filters ("creatures with flying").
   `KeywordExpansions` is the shared table mapping keywords to abilities built from
   mechanics (flying → `CanBeBlockedOnlyBy`, deathtouch → `Deathtouch`); a keyword without an entry is
-  null there (the engine then has it done by hand); ability labels (exhaust, boast, …)
+  null there (the engine then carries it out in its own code, or has it done by hand); ability labels (exhaust, boast, …)
   add their rules through `withLabelRules`; keyword actions expand through
   `KeywordExpansions.expand(action)`; `PredefinedTokens` defines Treasure, Food, Clue,
   Blood and the other tokens of CR 111.10.
@@ -122,6 +122,15 @@ The definition model (overview in `Definitions.kt`):
   `Effect.Fight.bind` (the excess damage), `Effect.ExtraCombat.onlyAttackers`, `Effect.ControlNextTurn.combatPhase`,
   `ActivationRules.minimumX` ("X can't be 0"), `Value.ManaInPool`, `Value.MostSharing`, `NumericProperty.CreatureTypes`,
   `Objects.Granter` and `Keyword.Enchant.SLOT`.
+- Keywords no longer by hand (2026-11-03): `KeywordExpansionsMore` (asked by `KeywordExpansions.expand` for keywords it doesn't list)
+  writes out dash, blitz, echo, cumulative upkeep, embalm, eternalize, encore, mobilize, myriad, melee, dethrone, provoke, rampage,
+  soulshift, bloodthirst, ingest, undaunted, ascend, gravestorm, replicate, squad, bargain, demonstrate, spectacle, surge, prowl,
+  freerunning, warp, disturb, recover, transmute, riot, ravenous, devour, amplify, graft, saddle, station, partner
+  with, entwine, disguise, plot, awaken, tribute, emerge, harmonize, prototype, aftermath and ripple from their CR definitions; spree and
+  tiered expand to nothing (their modes carry the costs, `Mode.extraCost`). Keyword actions written out: support (now
+  `KeywordAction.Support(count, slot)`, its targets a slot of the instructions), discover, endure and learn. New pieces:
+  `ObjectMark.Foretold`, `Plotted` and `Cloaked`, `Effect.IncreaseSpeed` (CR 702.179c) and `CostObjects.Choose.upTo` ("tapping up to one
+  untapped creature you control").
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

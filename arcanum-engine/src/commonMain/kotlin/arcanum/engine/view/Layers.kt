@@ -725,6 +725,14 @@ internal class LayerRun(private val state: GameState, private val traced: Object
         arcanum.engine.prepare.Prepare.permissions(state) { board.work[it]?.controller }.forEach { (id, applied) ->
             if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
         }
+        // CR 702.143a: a foretold card's owner may cast it for its foretell cost after the turn it was foretold
+        arcanum.engine.foretell.Foretell.permissions(state).forEach { (id, applied) ->
+            if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
+        }
+        // CR 702.170d: a plotted card's owner may cast it without paying its mana cost on a later turn
+        arcanum.engine.foretell.Plot.permissions(state).forEach { (id, applied) ->
+            if (id in board.work) objectMechanics.getOrPut(id) { mutableListOf() } += applied
+        }
 
         val evaluator = Evaluator(board, Context(you = state.turn.active))
         val objects = LinkedHashMap<ObjectId, ObjectView>()

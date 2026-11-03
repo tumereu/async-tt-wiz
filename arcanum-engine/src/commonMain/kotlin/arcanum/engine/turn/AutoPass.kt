@@ -28,7 +28,9 @@ internal object AutoPass {
         val hidden = Knowledge.privateTo(state, snap.view, player).filter { state.obj(it)?.zone != Zone.Outside }
         // The state can't tell what unknown cards would let them do (D60): their own view decides
         if (hidden.any { state.obj(it)?.unknown == true }) return false
-        return p.skipWhenNoChoice || hidden.isEmpty()
+        // CR 723.5: a controlled player's priority is passed the way their controller would have it
+        val setting = state.player(Control.decider(state, player)).skipWhenNoChoice
+        return setting || hidden.isEmpty()
     }
 
     private fun manaAbility(snap: Snapshot, input: Input): Boolean {

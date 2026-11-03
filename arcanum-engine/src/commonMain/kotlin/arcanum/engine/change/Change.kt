@@ -443,6 +443,8 @@ sealed interface GameEvent {
     @Serializable @SerialName("firebended") data class Firebended(val player: PlayerId) : GameEvent
     /** [player] waterbended: paid a waterbend cost (CR 701.67c). */
     @Serializable @SerialName("waterbended") data class Waterbended(val player: PlayerId) : GameEvent
+    /** Day became night ([night]) or night became day (CR 731.1a). */
+    @Serializable @SerialName("day-night") data class DayNightChanged(val night: Boolean) : GameEvent
     /** A triggered ability of [source] triggered on an event of [cause]'s kind and was put on the Stack as [item] (CR 603.2): what
      * "attacking causes a triggered ability of that creature to trigger" looks for. [attack]: the event was [source] attacking. */
     @Serializable @SerialName("ability-triggered") data class AbilityTriggered(val source: ObjectId, val item: ObjectId, val attack: Boolean) : GameEvent

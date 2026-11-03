@@ -52,9 +52,7 @@ class Refusal(val reason: String) : RuntimeException(reason)
 /**
  * The server's gate (I-D54 §3): a submission is accepted when every engine input is one the engine accepts on the state
  * (the engine is the only rules check, so no ATW rules gate is left) and every table change fits the table and is the
- * author's to make. Each player acts only for themselves (I-D55): an input naming a player, or answering a player's
- * decision, is the author's only when they are its decider ([Engine.decider], CR 723); the host's pass for a player
- * whose own setting passes now ([Engine.shouldPassFor]) and the host's random answers and fills are anyone's. Also
+ * author's to make. Who may submit which gameplay input is [WhoActs] (today: anyone, the all-actions policy). Always
  * the player's own: conceding (CR 104.3a), their settings and early answers, their result suggestion, and accepting a
  * result the other player suggested (an [Input.AgreedResult] only answers the other player's [TableState.suggestion]
  * of that result). Random results come from the device and are taken as given (owner, 2026-11-03).
@@ -64,13 +62,13 @@ object Authority {
      * Makes the event [submission] describes, by [author], on [model] (the state at its parent): on success [model] is
      * the event's state; refused ([Refusal]) it is as it was.
      */
-    fun make(model: GameModel, submission: Submission, author: PlayerId): GameEvent {
+    fun make(model: GameModel, submission: Submission, author: PlayerId, whoActs: WhoActs = WhoActs.Anyone): GameEvent {
         val builder = EventBuilder(model, submission.id, submission.parentId, author.value)
         try {
             val suggestion = model.table.suggestion
             for (act in submission.acts) when (act) {
                 is Act.Perform -> {
-                    allowed(act.input, author, suggestion, model.engine)
+                    allowed(act.input, author, suggestion, model.engine, whoActs)
                     try { builder.perform(act.input) }
                     catch (e: IllegalArgumentException) { throw Refusal("Refused by the engine: ${e.message}") }
                     catch (e: IllegalStateException) { throw Refusal("Refused by the engine: ${e.message}") }
@@ -93,35 +91,18 @@ object Authority {
         }
     }
 
-    /** Whether [author] may make [input] on [state] (I-D55), the engine's own check aside: what a device offers its
-     * player of [Engine.options], which lists answers to every player. */
-    fun mayMake(state: GameState, input: Input, author: PlayerId, suggestion: ResultSuggestion? = null): Boolean =
-        try { allowed(input, author, suggestion, state); true } catch (_: Refusal) { false }
+    /** Whether [author] may make [input] on [state] by [whoActs] and the result rules, the engine's own check aside:
+     * what a device offers its player of [Engine.options]. */
+    fun mayMake(state: GameState, input: Input, author: PlayerId, suggestion: ResultSuggestion? = null,
+        whoActs: WhoActs = WhoActs.Anyone): Boolean =
+        try { allowed(input, author, suggestion, state, whoActs); true } catch (_: Refusal) { false }
 
-    /** I-D55: [author] makes [input] on [state] only as the player who decides it ([Engine.decider], CR 723). */
-    private fun allowed(input: Input, author: PlayerId, suggestion: ResultSuggestion?, state: GameState) {
-        fun own(player: PlayerId) {
-            if (Engine.decider(state, player) != author) throw Refusal("Only ${Engine.decider(state, player)} acts for $player (I-D55)")
-        }
+    private fun allowed(input: Input, author: PlayerId, suggestion: ResultSuggestion?, state: GameState, whoActs: WhoActs) {
         when (input) {
-            is Input.Concede -> if (input.player != author) throw Refusal("Only ${input.player} concedes for themselves (CR 104.3a, 723.6)")
+            is Input.Concede -> if (input.player != author) throw Refusal("Only ${input.player} concedes for themselves (CR 104.3a)")
             is Input.AgreedResult -> if (suggestion == null || suggestion.result != input.result || suggestion.by == author)
                 throw Refusal("A result is agreed by accepting the other player's suggestion of it")
-            // The host's pass for a player whose own setting passes now (Engine.shouldPassFor): no choice of anyone's
-            is Input.PassPriority -> if (!Engine.shouldPassFor(state, input.player)) own(input.player)
-            is Input.PlayLand -> own(input.player)
-            is Input.Cast -> own(input.player)
-            is Input.Activate -> own(input.player)
-            is Input.DeclareAttackers -> own(input.player)
-            is Input.DeclareBlockers -> own(input.player)
-            is Input.Cancel -> own(input.player)
-            is Input.SetupAnswer -> own(input.player)
-            // Random results and fills are the host's (D25, D60): the device that made the event answers them
-            is Input.Answer -> when (val d = state.pending?.decision) {
-                null, is Decision.Random, is Decision.HostFill -> {}
-                else -> own(d.player)
-            }
-            is Input.StartGame, Input.MandatoryLoop -> {}
+            else -> whoActs.refusal(state, input, author)?.let { throw Refusal(it) }
         }
     }
 
@@ -141,6 +122,21 @@ object Authority {
     }
 }
 
+/**
+ * The seam where "who may submit which input" is decided (I-D55, being refined by the owner: players acting only for
+ * themselves, proceeding on assumed answers of the other player that become a branch when the real answer differs).
+ * [refusal] says why [author] may not make [input] on [state], or null. Conceding and agreeing a result are checked
+ * by [Authority] itself.
+ */
+fun interface WhoActs {
+    fun refusal(state: GameState, input: Input, author: PlayerId): String?
+
+    companion object {
+        /** Today's behaviour: every player may make every gameplay input (all-actions policy, P7, D11). */
+        val Anyone: WhoActs = WhoActs { _, _, _ -> null }
+    }
+}
+
 /** A game's state [model] at event [at], kept between submissions (the server keeps active games warm, I-D54 §4). */
 class LiveState(val at: String, val model: GameModel)
 
@@ -155,7 +151,8 @@ object Acceptance {
     class Accepted(val event: GameEvent, val live: LiveState)
 
     /** Accepts [submission]; refused ([Refusal]), [warm] is no longer usable. */
-    fun accept(history: GameHistory, head: String, warm: LiveState?, submission: Submission, author: PlayerId, branch: Boolean): Accepted {
+    fun accept(history: GameHistory, head: String, warm: LiveState?, submission: Submission, author: PlayerId, branch: Boolean,
+        whoActs: WhoActs = WhoActs.Anyone): Accepted {
         val parent = submission.parentId
         if (!branch && parent != head) throw Refusal("stale")
         if (parent != history.store.rootId && history.store.node(parent) == null) throw Refusal("No event $parent")
@@ -164,7 +161,7 @@ object Acceptance {
             warm == null -> history.stateAt(parent)
             else -> history.move(warm.model, warm.at, parent)
         }
-        val event = Authority.make(model, submission, author)
+        val event = Authority.make(model, submission, author, whoActs)
         return Accepted(event, LiveState(event.id, model))
     }
 }

@@ -34,13 +34,13 @@ class CardListSupportTest {
                 else ParsedCard.Read(arcanum.api.CardDefinition(Layout.Normal, listOf(OracleParser.parse(OracleCard(face.name,
                     face.manaCost, face.typeLine, face.rulesText, power = face.power, toughness = face.toughness)))), 0)
         }
-    }, parserVersion = 21)
+    }, parserVersion = 21, engineVersion = 3)
     private fun submitted(vararg definitions: CardDefinition) = definitions.map { SubmittedDefinition(DeckJson.digest(it), it) }
 
     // LOB-115: unread text, a keyword done only by hand and unreadable card data are by hand; each card is read once
     @Test fun aListNamesItsCardsPlayedByHand() {
-        assertEquals(CardListSupport(21), check.support(submitted(plain)))
-        assertEquals(CardListSupport(21, listOf("Banded Cub", "Broken Cub", "Odd Cub")), check.support(submitted(plain, odd, banded, unreadable)))
+        assertEquals(CardListSupport(21, engineVersion = 3), check.support(submitted(plain)))
+        assertEquals(CardListSupport(21, listOf("Banded Cub", "Broken Cub", "Odd Cub"), 3), check.support(submitted(plain, odd, banded, unreadable)))
         assertEquals(listOf("Banded Cub", "Broken Cub", "Odd Cub", "Plain Cub"), parsed.sorted())
         assertEquals("Automatum plays 3 cards by hand: Banded Cub, Broken Cub, Odd Cub", automatumSupportTip(check.support(submitted(odd, banded, unreadable))))
         assertEquals("Automatum plays 1 card by hand: Odd Cub", automatumSupportTip(CardListSupport(21, listOf("Odd Cub"))))
@@ -113,31 +113,34 @@ class CardListSupportTest {
         worker.drain()
         editor.name("New cubs")
         editor.save(); worker.drain()
-        assertEquals(listOf(source.deck.id to SetCardListSupport("2", CardListSupport(21, listOf("Odd Cub")))), server.stored)
+        assertEquals(listOf(source.deck.id to SetCardListSupport("2", CardListSupport(21, listOf("Odd Cub"), 3))), server.stored)
         assertEquals("New cubs", saved!!.deck.name)
-        assertEquals(CardListSupport(21, listOf("Odd Cub")), saved!!.deck.automatum)
+        assertEquals(CardListSupport(21, listOf("Odd Cub"), 3), saved!!.deck.automatum)
     }
 
-    // LOB-115, DRF-161: lists without support for this parser version (none yet, or an older version's) get it in the background
+    // LOB-115, DRF-161: lists without support for this parser and engine version (none yet, or an older version's) get it in
+    // the background
     @Test fun theBackgroundRunWorksOutMissingAndOlderSupportOnly() {
         val server = Server()
         val missing = deck("Missing", "3", null, plain, odd)
         val older = deck("Older", "5", CardListSupport(20), plain)
-        val current = deck("Current", "2", CardListSupport(21, listOf("Plain Cub")), plain)
+        val current = deck("Current", "2", CardListSupport(21, listOf("Plain Cub"), 3), plain)
+        val olderEngine = deck("Older engine", "4", CardListSupport(21, engineVersion = 2), plain)
         val draft = deck("Cube night", "1", null, banded).let { it.copy(deck = it.deck.copy(draft = DraftDeckOrigin(id(), "Cube night"))) }
-        listOf(missing, older, current).forEach { server.decks[it.deck.id] = it }
+        listOf(missing, older, current, olderEngine).forEach { server.decks[it.deck.id] = it }
         server.drafts[draft.deck.id] = draft
         val cube = SavedCube(CubeSummary(id(), "Odd cube", "7", "2026-11-03T00:00:00Z", "2026-11-03T00:00:00Z", 2, automatum = CardListSupport(19)),
             listOf(SavedCubeEntry(DeckJson.digest(plain), 1), SavedCubeEntry(DeckJson.digest(unreadable), 1)))
-        val fine = SavedCube(CubeSummary(id(), "Fine cube", "1", "2026-11-03T00:00:00Z", "2026-11-03T00:00:00Z", 1, automatum = CardListSupport(21)),
+        val fine = SavedCube(CubeSummary(id(), "Fine cube", "1", "2026-11-03T00:00:00Z", "2026-11-03T00:00:00Z", 1, automatum = CardListSupport(21, engineVersion = 3)),
             listOf(SavedCubeEntry(DeckJson.digest(plain), 1)))
         server.cubes[cube.cube.id] = cube; server.cubes[fine.cube.id] = fine
-        val outcome = kotlinx.coroutines.runBlocking { AutomatumSupportRun(server, server, 21, check::support).run("token") }
-        assertEquals(AutomatumSupportRun.Outcome(decks = 3, cubes = 1), outcome)
+        val outcome = kotlinx.coroutines.runBlocking { AutomatumSupportRun(server, server, 21, 3, check::support).run("token") }
+        assertEquals(AutomatumSupportRun.Outcome(decks = 4, cubes = 1), outcome)
         assertEquals(mapOf(
-            missing.deck.id to SetCardListSupport("3", CardListSupport(21, listOf("Odd Cub"))),
-            older.deck.id to SetCardListSupport("5", CardListSupport(21)),
-            draft.deck.id to SetCardListSupport("1", CardListSupport(21, listOf("Banded Cub"))),
-            cube.cube.id to SetCardListSupport("7", CardListSupport(21, listOf("Broken Cub")))), server.stored.toMap())
+            missing.deck.id to SetCardListSupport("3", CardListSupport(21, listOf("Odd Cub"), 3)),
+            older.deck.id to SetCardListSupport("5", CardListSupport(21, engineVersion = 3)),
+            olderEngine.deck.id to SetCardListSupport("4", CardListSupport(21, engineVersion = 3)),
+            draft.deck.id to SetCardListSupport("1", CardListSupport(21, listOf("Banded Cub"), 3)),
+            cube.cube.id to SetCardListSupport("7", CardListSupport(21, listOf("Broken Cub"), 3))), server.stored.toMap())
     }
 }

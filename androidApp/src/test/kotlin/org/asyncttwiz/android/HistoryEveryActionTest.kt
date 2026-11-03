@@ -98,7 +98,7 @@ class HistoryEveryActionTest {
             PlayAction.Stack(StackAction.CopyEffect(id(62), "digest")), PlayAction.Stack(StackAction.SetController(id(62), b)),
             PlayAction.Stack(StackAction.RemoveEffect(id(62))),
             PlayAction.Stack(StackAction.ReorderEffect(id(62), IdentityGap(), IdentityGap(afterId = id(64)))),
-            PlayAction.Mtg(MtgAction.SetAutomatum(true)), PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(b))),
+            PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(b))),
             PlayAction.Mtg(MtgAction.SetManaPool(a, emptyList(), listOf(PoolMana("R")))),
             PlayAction.Mtg(MtgAction.SetCounter(MtgRef.Card(id(32), 0), "+1/+1", null, TypedCounter("+1/+1", 1, 1))),
             PlayAction.Mtg(MtgAction.SetCounter(MtgRef.Player(b), "poison", null, TypedCounter("poison", 1, 1))),
@@ -108,7 +108,7 @@ class HistoryEveryActionTest {
             PlayAction.Mtg(MtgAction.SetLedger(MtgRef.Card(id(32), 0), "", "{}")),
             PlayAction.Mtg(MtgAction.SetStackItem(id(62), null, MtgStackItem(MtgRef.StackItem("s"), MtgStackKind.Triggered, a, timestamp = 1))),
             PlayAction.Mtg(MtgAction.SetRecord("e", null, EngineRecord("e", EngineRecordKind.Effect, 1, "{}"))),
-            PlayAction.Mtg(MtgAction.ClearRecords), PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false)),
+            PlayAction.Mtg(MtgAction.SetSkipWhenNoChoice(false)),
             PlayAction.Mtg(MtgAction.SetFullControl(true)), PlayAction.Mtg(MtgAction.SetMulligans(0, 1)),
             PlayAction.BeginTurn(a),
             PlayAction.Stack(StackAction.AddAbility(CardDefinition("Spark", listOf(DefinitionFace(id(70), "Spark", rulesText = "Draw a card.")),
@@ -194,7 +194,6 @@ class HistoryEveryActionTest {
             is StackAction.ReorderEffect -> "reorderEffect"
         }
         is PlayAction.Mtg -> "mtg/" + when (action.action) {
-            is MtgAction.SetAutomatum -> "setAutomatum"
             is MtgAction.SetPriority -> "setPriority"
             is MtgAction.SetManaPool -> "setManaPool"
             is MtgAction.SetCounter -> "setCounter"
@@ -203,7 +202,6 @@ class HistoryEveryActionTest {
             is MtgAction.SetLedger -> "setLedger"
             is MtgAction.SetStackItem -> "setStackItem"
             is MtgAction.SetRecord -> "setRecord"
-            MtgAction.ClearRecords -> "clearRecords"
             is MtgAction.SetSkipWhenNoChoice -> "setSkipWhenNoChoice"
             is MtgAction.SetFullControl -> "setFullControl"
             is MtgAction.SetMulligans -> "setMulligans"

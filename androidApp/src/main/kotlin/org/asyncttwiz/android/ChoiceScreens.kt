@@ -114,7 +114,8 @@ internal fun choiceWhat(decision: Decision): String = when (decision) {
     is Decision.ManaPayment -> "Pay ${decision.cost}"
     is Decision.May -> if (decision.cost != null) "Optional cost" else "You may"
     is Decision.ChooseObjects -> ObjectsShape.of(decision).title
-    is Decision.ChooseOption -> "Choose one"
+    // I-D52: the engine's own question says what it is about (the loop choice: Continue / Draw)
+    is Decision.ChooseOption -> if (decision.text != null) "Loop" else "Choose one"
     is Decision.ChooseColor -> "Choose a colour"
     is Decision.ChooseSubtype -> if (decision.among == null) "Choose a creature type" else "Choose a type"
     is Decision.ChooseCardType -> "Choose a card type"
@@ -135,7 +136,8 @@ internal fun choiceHint(decision: Decision): String? = when (decision) {
     is Decision.Announce -> "Set the value, then OK."
     is Decision.ManaPayment -> "Tap the sources to pay with, then Pay."
     is Decision.ChooseObjects -> ObjectsShape.of(decision).instruction
-    is Decision.ChooseOption, is Decision.ChooseColor, is Decision.ChoosePlayer, is Decision.ChooseCardType -> "Tap one."
+    is Decision.ChooseOption -> decision.text ?: "Tap one."
+    is Decision.ChooseColor, is Decision.ChoosePlayer, is Decision.ChooseCardType -> "Tap one."
     is Decision.ChooseSubtype -> if (decision.among == null) "Find a type and tap it." else "Tap one."
     is Decision.ChooseCardName -> "Write any card name, then OK."
     is Decision.ChooseNumber -> "Set the number, then OK."

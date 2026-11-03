@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.decodeFromJsonElement
 import kotlinx.serialization.json.encodeToJsonElement
 import org.asyncttwiz.protocol.*
@@ -163,16 +164,16 @@ class ProductionUpgradeTest {
         val (s1, s2) = game("Started game"); prepare(s1, s2)
         s1.execute(GameAction.SetStarter(StarterChoice(ann.account.accountId)))
         s1.execute(GameAction.Ready); s2.execute(GameAction.Ready)
-        s1.execute(GameAction.Play(PlayAction.AdjustLife(ann.account.accountId, "-3")))
-        s2.execute(GameAction.Play(PlayAction.AdjustLife(ben.account.accountId, "2")))
-        s1.execute(GameAction.Play(PlayAction.PassAttention))
+        s1.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(ann.account.accountId, "-3")))
+        s2.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.AdjustLife(ben.account.accountId, "2")))
+        s1.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.PassAttention))
         val chat = listOf("Good luck", "You too", "Your move")
         for ((stream, text) in listOf(s1, s2, s1).zip(chat)) stream.execute(GameAction.SendChat(text))
         games.chatRead(ben, s1.gameId, ReadChat(games.chat(ben, s1.gameId).messages.first().id))
         // A game played to a result and back in its lobby, and another lobby game already holding Ann's deck.
         val (f1, f2) = game("Finished game"); prepare(f1, f2)
         f1.execute(GameAction.Ready); f2.execute(GameAction.Ready)
-        f1.execute(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.WIN)))
+        f1.execute(org.asyncttwiz.server.game.automatedPlay(PlayAction.SuggestResult(SuggestedResult.WIN)))
         f2.execute(GameAction.AcceptResult(games.head(ann, f1.gameId).play!!.board.resultSuggestion!!.id))
         val (w1, w2) = game("Waiting game"); w2.execute(GameAction.AcceptInvitation)
         w1.execute(GameAction.SelectDeck(annDeck.deck.id, annDeck.deck.revision))
@@ -291,9 +292,18 @@ class ProductionUpgradeTest {
             load(db, tables)
             val pending = FoundationMigrations.flyway(db.settings).info().pending().size
             assertEquals(pending, FoundationMigrations.migrate(db.settings)); assertEquals(0, FoundationMigrations.migrate(db.settings))
-            // No migration deleted anything.
+            // No migration deleted anything but V54's (I-D52, owner-approved): every game that had started a play, with
+            // everything that belongs to it.
+            val wipedGames = tables["game_play"].orEmpty().map { it.jsonObject.getValue("game_id").jsonPrimitive.content }.toSet()
+            val wipedPlays = tables["game_play"].orEmpty().map { it.jsonObject.getValue("id").jsonPrimitive.content }.toSet()
+            fun wiped(table: String, row: JsonObject): Boolean {
+                fun value(key: String) = row[key]?.jsonPrimitive?.contentOrNull
+                return (table == "game" && value("id") in wipedGames) || value("game_id") in wipedGames || value("play_id") in wipedPlays
+            }
+            assertTrue(started in wipedGames)
             for ((table, rows) in tables)
-                assertEquals(rows.size, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(), "$table rows after upgrade")
+                assertEquals(rows.count { !wiped(table, it.jsonObject) }, query(db, "SELECT count(*) FROM \"$table\"") { it.getInt(1) }.single(),
+                    "$table rows after upgrade")
 
             val config = EphemeralPorts.settings(db.settings)
             lateinit var settings: ServiceSettings
@@ -317,12 +327,10 @@ class ProductionUpgradeTest {
                 fun get(path: String, token: String): String = request(path, token).let {
                     assertEquals(200, it.statusCode(), "$path ${it.body()}"); it.body() }
 
-                assertEquals(e<List<String>>("annGames"), json.decodeFromString<GameList>(get("/v1/games", ann)).games.map { it.id }.sorted())
+                val annGames = e<List<String>>("annGames").filterNot { it in wipedGames }
+                assertEquals(annGames, json.decodeFromString<GameList>(get("/v1/games", ann)).games.map { it.id }.sorted())
                 assertEquals(e<List<String>>("benInvitations"), json.decodeFromString<GameList>(get("/v1/invitations", ben)).games.map { it.id }.sorted())
-                for (game in e<List<String>>("annGames")) get("/v1/games/$game/head", ann)
-                assertEquals(e<Int>("mutations"), json.decodeFromString<GameplayHistoryPage>(
-                    get("/v1/games/${started}/plays/${startedPlay}/mutations?after=0", ben)).mutations.size)
-                assertEquals(e<List<String>>("chat"), json.decodeFromString<ChatPage>(get("/v1/games/${started}/chat", ben)).messages.map { it.text })
+                for (game in annGames) get("/v1/games/$game/head", ann)
 
                 assertEquals(e<Map<String, String>>("pods"), json.decodeFromString<PodList>(get("/v1/pods", ann)).pods.associate { it.id to it.phase.name })
                 for (pod in e<Map<String, String>>("pods").keys) for (token in listOf(ann, ben)) get("/v1/pods/$pod", token)
@@ -340,18 +348,10 @@ class ProductionUpgradeTest {
                 fun principal(name: String) = accounts.authenticate(accounts.login("$name@example.invalid", PASSWORD)!!.token)!!
                 val ann = principal("Ann"); val ben = principal("Ben")
                 val games = GameService(runtime); val pods = PodService(runtime); val decks = DeckService(runtime)
-                val play = games.head(ann, started).play!!
-                assertEquals(startedPlay, play.id)
-                assertEquals(e<Map<String, String>>("life"), play.board.players.associate { it.accountId to it.life })
-                assertEquals(e<Int>("benUnread"), games.chatRead(ben, started).unread)
-                Stream(games, ben, started).execute(GameAction.Play(PlayAction.AdjustLife(e<String>("ben"), "-1")))
-                Stream(games, ann, started).execute(GameAction.SendChat("Still here after the upgrade"))
-                assertEquals(e<Int>("mutations") + 1, games.history(ann, started, startedPlay, "0").mutations.size)
                 // V46: Ann's deck finished a game against Ben, so the waiting game now shows it.
                 assertTrue(games.head(ann, e<String>("waiting")).preparation!!.players.single { it.accountId == e<String>("ann") }.deckShown)
                 val benDeck = json.decodeFromString<DeckList>(decks.list(ben, null).body).decks.single()
                 Stream(games, ben, e<String>("waiting")).execute(GameAction.SelectDeck(benDeck.id, benDeck.revision))
-                Stream(games, ann, e<String>("finished")).execute(GameAction.Ready)
                 Stream(games, ben, e<String>("podGame")).execute(GameAction.AcceptInvitation)
 
                 fun detail(who: AccountService.Principal, pod: String) = json.decodeFromString<PodDetail>(pods.read(who, pod).body)

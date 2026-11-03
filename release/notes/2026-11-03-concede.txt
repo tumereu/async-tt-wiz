@@ -1,0 +1,1 @@
+add: Concede in Table actions ends the game at once as your loss, without the other player having to agree.

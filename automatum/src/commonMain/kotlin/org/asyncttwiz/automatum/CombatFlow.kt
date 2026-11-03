@@ -167,12 +167,12 @@ object CombatFlow {
     }
 
     /**
-     * What the table shows of combat on [play] now ([CombatShown]); [CombatShown.NONE] with Automatum off, outside combat
+     * What the table shows of combat on [play] now ([CombatShown]); [CombatShown.NONE] outside combat
      * or on a board the engine can't take over. Worked out with full information (I-D17, I-D27; the app shows only what
      * each player may see). Never throws.
      */
     fun shown(play: PlayState, definitions: Map<String, CardDefinition>, log: List<LoggedChange>): CombatShown {
-        if (!play.board.automatum || TurnPosition.of(play.board.turn) !in COMBAT_POSITIONS) return CombatShown.NONE
+        if (TurnPosition.of(play.board.turn) !in COMBAT_POSITIONS) return CombatShown.NONE
         return try {
             shown(EngineCall(play, definitions, EngineState.flowViewer(play.board), log) { error("No randomness while looking") })
         } catch (problem: Unsupported) {

@@ -151,13 +151,11 @@ object RuleRefusals {
     const val REAL_CARD_ON_STACK = "realCardOnStack"
     /** Damage or an until-end-of-turn mark (or a note) on a card that isn't on the Battlefield. */
     const val OFF_BATTLEFIELD = "offBattlefield"
-    /** I-D15: Automatum can't be turned on while the Stack holds a manual entry. */
-    const val AUTOMATUM_MANUAL_STACK = "automatumManualStack"
-    /** I-D15: Automatum can't be turned on while a Temp pile holds cards. */
-    const val AUTOMATUM_TEMP_PILES = "automatumTempPiles"
     /** I-D23: no branch starts while an Automatum flow is open. */
     const val FLOW_OPEN = "flowOpen"
-    val ALL = setOf(REAL_CARD_ON_STACK, OFF_BATTLEFIELD, AUTOMATUM_MANUAL_STACK, AUTOMATUM_TEMP_PILES, FLOW_OPEN)
+    /** I-D52: a change made by hand; the game changes only through Automatum ([AutomatumOnly]). */
+    const val AUTOMATUM_ONLY = "automatumOnly"
+    val ALL = setOf(REAL_CARD_ON_STACK, OFF_BATTLEFIELD, FLOW_OPEN, AUTOMATUM_ONLY)
 }
 
 /** The sole gameplay processor, used for volatile prediction and authoritative execution alike. */
@@ -247,9 +245,7 @@ object GameplayRules {
     fun change(state: PlayState, actor: String, command: GameCommand,
         references: EventReferenceResolver = EventReferenceResolver.UNAVAILABLE, plannedBefore: BoardState? = null): GameplayChange {
         if (!GameWire.valid(command)) return GameplayChange(reason = "invalidInput")
-        // Rules v36 (SYS-057): an automated event applies only while Automatum is on (I-D24) ...
-        (command.action as? GameAction.Play)?.tag?.let { if (!state.board.automatum) return GameplayChange(reason = "inapplicable") }
-        // ... and an automated batch only to the board it was planned on (#4).
+        // Rules v36 (SYS-057): an automated batch applies only to the board it was planned on (#4).
         (command.action as? GameAction.Play)?.tag?.board?.let {
             if (MtgFacts.digest(state.board) != it && plannedBefore?.let(MtgFacts::digest) != it) return GameplayChange(reason = "inapplicable")
         }

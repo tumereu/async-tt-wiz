@@ -20,7 +20,7 @@ internal fun gameplayAwait(check: () -> Boolean) {
     val end = System.nanoTime() + TimeUnit.SECONDS.toNanos(15)
     while (!check()) { assertTrue(System.nanoTime() < end, "Timed out"); Thread.sleep(20) }
 }
-internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 5, rulesText: String = "",
+internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 12, rulesText: String = "",
     players: Pair<String, String> = "PlayA" to "PlayB") {
     /** Replaceable by a fresh service (an empty read cache), as after a restart; streams stay open. */
     var games = GameService(runtime)
@@ -62,7 +62,7 @@ internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 5, r
         fun lobby(action: GameAction) = GameCommand(gameplayId(), GameScope(game.id, game.preparationRound,
             if (action == GameAction.AcceptInvitation) game.invitationId else null), action, stream.streamId, stream.generation)
         fun command(action: PlayAction) = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
-            GameAction.Play(action), stream.streamId, stream.generation)
+            automatedPlay(action), stream.streamId, stream.generation)
         fun admit(input: GameCommand) = games.admit(actor, hello, connection, input)
         fun result(input: GameCommand) = games.results(actor, game.id, listOf(input.requestId)).statuses.single().result!!
         fun execute(input: GameCommand): GameResult {
@@ -119,7 +119,7 @@ class GameplayDurabilityTest {
                 assertEquals(accepted, games.head(a, fixture.game.id))
                 assertEquals(results.first(), fixture.owner.admit(inputs.first()))
                 assertEquals("requestIdentityMismatch", assertThrows(GameProtocolFailure::class.java) {
-                    fixture.owner.admit(inputs.first().copy(action = GameAction.Play(PlayAction.SetLife(a.account.accountId, "0")))) }.code)
+                    fixture.owner.admit(inputs.first().copy(action = automatedPlay(PlayAction.SetLife(a.account.accountId, "0")))) }.code)
                 val stale = fixture.owner.command(PlayAction.SetLife(a.account.accountId, "0")).let { it.copy(scope = it.scope.copy(playId = gameplayId())) }
                 assertEquals("inapplicable", fixture.owner.execute(stale).reason)
                 val history = games.history(a, fixture.game.id, root.id, "0")

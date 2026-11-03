@@ -72,8 +72,6 @@ class AutomatumTest {
             MtgAction.SetLedger(ref(state, 10), "", """{"kicked":1}"""),
             MtgAction.SetLedger(MtgRef.Player(a), "", """{"spells":2}"""),
             MtgAction.SetStackItem(entryId, null, item),
-            // SYS-059: with no manual entry left on the Stack
-            MtgAction.SetAutomatum(true),
             MtgAction.SetStackItem(entryId, item, item.copy(modes = listOf(0))),
             MtgAction.SetRecord(effect.id, null, effect),
             MtgAction.SetRecord(trigger.id, null, trigger),
@@ -81,15 +79,13 @@ class AutomatumTest {
             MtgAction.SetRecord(effect.id, effect, effect.copy(data = "{}")),
             MtgAction.SetRecord(trigger.id, trigger, null),
             MtgAction.Restamp(gameplayId(12), MtgStamp(0, 0), MtgStamp(1, 9)),
-            MtgAction.SetAutomatum(false),
+            MtgAction.SetRecord(Automatum.CONTINUATION_ID, continuation, null),
         )
         for (action in actions) {
             assertTrue(GameplayRules.valid(mtg(action)), "$action")
             state = accept(state, mtg(action)).state!!
         }
         val board = state.board
-        assertFalse(board.automatum)
-        // SYS-070 (I-D42, combat review #11): turning Automatum on keeps priority, its holder and passes in a row
         assertEquals(MtgPriority(b, 1), board.priority)
         assertEquals(listOf(PoolMana("R"), PoolMana("C", """{"source":"x"}""")), board.players.single { it.accountId == a }.manaPool)
         assertEquals(listOf(counter.copy(count = 3)), card(state, 10).typedCounters)
@@ -98,7 +94,6 @@ class AutomatumTest {
         assertEquals("""{"kicked":1}""", card(state, 10).ledger)
         assertEquals("""{"spells":2}""", board.players.single { it.accountId == a }.ledger)
         assertEquals(item.copy(modes = listOf(0)), board.stackEffects.single().item)
-        // SYS-060: switching off closed the flow; the effect stays
         assertEquals(listOf(effect.id), board.engineRecords.map { it.id })
         assertEquals(MtgStamp(1, 9), card(state, 12).let { MtgStamp(it.zoneChanges, it.timestamp) })
     }
@@ -116,9 +111,8 @@ class AutomatumTest {
         assertEquals("missingReference", change(state, mtg(MtgAction.SetCounter(older, "+1/+1", null, TypedCounter("+1/+1", 1, 1)))).reason)
         assertEquals("missingReference", change(state, mtg(MtgAction.SetStackItem(gameplayId(99), null, null))).reason)
         assertEquals("missingReference", change(state, mtg(MtgAction.SetPriority(null, MtgPriority(gameplayId(99))))).reason)
-        // Equal values change nothing; turning the switch to where it is changes nothing.
+        // Equal values change nothing.
         assertEquals("noOp", change(state, mtg(MtgAction.SetRecord(effect.id, null, null))).outcome)
-        assertEquals("noOp", change(state, mtg(MtgAction.SetAutomatum(false))).outcome)
     }
 
     // SYS-057
@@ -135,11 +129,11 @@ class AutomatumTest {
         assertFalse(valid(MtgAction.SetCounter(MtgRef.StackItem("s"), "poison", null, null)))
         assertFalse(valid(MtgAction.SetLedger(MtgRef.Card("not-a-uuid", 0), "", "{}")))
         assertFalse(valid(MtgAction.SetPriority(null, MtgPriority(a, -1))))
-        val tagged = command(GameAction.Play(mtg(MtgAction.SetAutomatum(true)), MtgTag(listOf("Died"))))
+        val tagged = command(GameAction.Play(mtg(MtgAction.SetFullControl(true)), MtgTag(listOf("Died"))))
         assertFalse(GameWire.valid(tagged))
-        val batch = command(GameAction.PlayBatch(listOf(mtg(MtgAction.SetAutomatum(true))), listOf(MtgTag(listOf("cast")), null)))
+        val batch = command(GameAction.PlayBatch(listOf(mtg(MtgAction.SetFullControl(true))), listOf(MtgTag(listOf("cast")), null)))
         assertFalse(GameWire.valid(batch))
-        assertTrue(GameWire.valid(batch.copy(action = GameAction.PlayBatch(listOf(mtg(MtgAction.SetAutomatum(true))),
+        assertTrue(GameWire.valid(batch.copy(action = GameAction.PlayBatch(listOf(mtg(MtgAction.SetFullControl(true))),
             listOf(MtgTag(listOf("cast"), MtgCause(a, ref(root(), 10), "Storm Spark")))))))
     }
 
@@ -186,7 +180,7 @@ class AutomatumTest {
     // SYS-056; D33, D42: a manual move is tagged with what the move alone means; an engine event carries the engine's tag.
     @Test fun movesAreTaggedAndEngineTagsAreRecordedAndSealed() {
         // Automatum on: its own (tagged) events apply only then (SYS-057)
-        var state = root().let { it.copy(board = it.board.copy(automatum = true)) }
+        var state = root().let { it.copy(board = it.board) }
         val died = accept(state, move(state, 11, MoveDestination(graveyard, MoveInsertion.UNORDERED)))
         assertEquals(MtgTag(listOf("left-battlefield", "died", "put-into-graveyard")), died.mutation!!.tag)
         val drawn = accept(state, move(state, 12, MoveDestination(hand, MoveInsertion.UNORDERED)))
@@ -201,7 +195,7 @@ class AutomatumTest {
         assertNotEquals(engine.mutation.transition.delta!!.seal, GameplayDeltas.seal(forged))
         // Batch members carry their own tags.
         state = base()
-        val batch = command(GameAction.PlayBatch(listOf(mtg(MtgAction.SetAutomatum(true)), PlayAction.SetTapped(gameplayId(10), true)),
+        val batch = command(GameAction.PlayBatch(listOf(mtg(MtgAction.SetFullControl(true)), PlayAction.SetTapped(gameplayId(10), true)),
             listOf(null, MtgTag(listOf("tapped-for-mana")))))
         val tree = GameplayTree(state)
         val played = assertNotNull(PlayBatches.change(tree, a, batch).tree)
@@ -261,7 +255,7 @@ class AutomatumTest {
     // member of an automated batch after its first that is tagged folded joins the visible event before it; the batch's
     // first event and untagged events never fold.
     @Test fun foldedBookkeepingJoinsTheBatchsVisibleEvent() {
-        val state = root().let { it.copy(board = it.board.copy(automatum = true)) }
+        val state = root().let { it.copy(board = it.board) }
         val batch = command(GameAction.PlayBatch(listOf(PlayAction.SetTapped(gameplayId(11), true),
             mtg(MtgAction.SetRecord("effect-1", null, effect)), mtg(MtgAction.SetPriority(null, MtgPriority(b))),
             mtg(MtgAction.SetRecord("emblem:1", null, EngineRecord("emblem:1", EngineRecordKind.Emblem, 9, "{}", a, "Flying"))),
@@ -284,108 +278,6 @@ class AutomatumTest {
             (first.action as GameAction.PlayBatch).actions[0])).mutation!!.grouping?.folded)
         assertNotEquals(true, change(state, mtg(MtgAction.SetPriority(null, MtgPriority(b))), MtgTag(folded = true)).mutation!!.grouping?.folded)
         assertTrue(MtgTag.valid(MtgTag(folded = true)))
-    }
-
-    // SYS-070 (I-D42): turning Automatum on drops the combat record, waiting triggers and early answers recorded before it;
-    // effects, delayed triggers, emblems, the turn record and priority (combat review #11) stay; undoing the switch
-    // restores them
-    @Test fun switchingOnDropsTurnScopedEngineData() {
-        val combat = EngineRecord("combat", EngineRecordKind.Combat, data = """{"attackers":[]}""")
-        val waiting = EngineRecord("triggered", EngineRecordKind.Triggered, data = "[]")
-        val early = EngineRecord("pre-answer:1", EngineRecordKind.PreAnswer, data = "{}", player = b)
-        val turn = EngineRecord("turn", EngineRecordKind.Turn, data = "{}")
-        val emblem = EngineRecord("emblem:1", EngineRecordKind.Emblem, 9, "{}", a, "Flying")
-        val kept = listOf(effect, trigger, emblem, turn)
-        val off = base().let { it.copy(board = it.board.copy(priority = MtgPriority(b, 1),
-            engineRecords = (kept + listOf(combat, waiting, early)).sortedBy { it.id })) }
-        val on = accept(off, mtg(MtgAction.SetAutomatum(true))).state!!
-        assertTrue(on.board.automatum)
-        assertEquals(kept.sortedBy { it.id }, on.board.engineRecords)
-        assertEquals(MtgPriority(b, 1), on.board.priority)
-        // Off and on again with nothing turn-scoped left: only the switch changes
-        val again = accept(accept(on, mtg(MtgAction.SetAutomatum(false))).state!!, mtg(MtgAction.SetAutomatum(true))).state!!
-        assertEquals(on.board, again.board)
-        // Undo of the switch brings them back
-        val switched = assertNotNull(GameplayTree(off).play(a, command(GameAction.Play(mtg(MtgAction.SetAutomatum(true))))).tree)
-        val undone = assertNotNull(SelectiveUndo.change(switched, a, command(GameAction.Undo)).tree)
-        assertEquals(off.board, undone.stateAt(undone.currentNodeId)!!.board)
-    }
-
-    // SYS-070 (finalreview-sync #1, I-D42 refined 2026-11-03): in a combat step with the combat area open, turning
-    // Automatum on keeps the combat record (Automatum reads it while the lanes still show it); once the board shows no
-    // combat it is dropped as before
-    @Test fun switchingOnKeepsTheCurrentCombat() {
-        val combat = EngineRecord("combat", EngineRecordKind.Combat, data = """{"attackers":[]}""")
-        val position = TurnPosition.DECLARE_BLOCKERS
-        val inCombat = base().let { it.copy(board = it.board.copy(engineRecords = listOf(combat),
-            turn = it.board.turn.copy(phase = position.phase, step = position.step), combat = CombatArea(gameplayId(70)))) }
-        assertEquals(listOf(combat), accept(inCombat, mtg(MtgAction.SetAutomatum(true))).state!!.board.engineRecords)
-        val closed = inCombat.copy(board = inCombat.board.copy(combat = null))
-        assertTrue(accept(closed, mtg(MtgAction.SetAutomatum(true))).state!!.board.engineRecords.isEmpty())
-    }
-
-    /** [root] with Automatum on, a structured item on its Stack entry and an open flow resolving it. */
-    private fun resolving(): PlayState {
-        var state = root()
-        val item = MtgStackItem(MtgRef.StackItem("ability-1"), MtgStackKind.Activated, a, timestamp = 5, data = "{}")
-        state = accept(state, mtg(MtgAction.SetStackItem(entry(state), null, item))).state!!
-        state = accept(state, mtg(MtgAction.SetAutomatum(true))).state!!
-        val open = continuation.copy(resolving = listOf(entry(state)))
-        return accept(state, mtg(MtgAction.SetRecord(open.id, null, open))).state!!
-    }
-
-    // SYS-060, CR 608.2, I-D15 (finalreview-sync #6, #7): switching off or clearing Automatum's data closes an open flow
-    // where it is; the spell or ability it was resolving becomes a manual entry (no structured item), so Automatum is
-    // off and switching it on asks to deal with the entry first, instead of resolving it again from its start
-    @Test fun closingAFlowMakesWhatItResolvedManual() {
-        val state = resolving()
-        for (action in listOf(MtgAction.SetAutomatum(false), MtgAction.ClearRecords)) {
-            val closed = accept(state, mtg(action)).state!!
-            assertFalse(Automatum.flowOpen(closed.board), "$action")
-            assertNull(closed.board.stackEffects.single().item, "$action")
-            assertFalse(closed.board.automatum, "$action")
-            assertEquals(RuleRefusals.AUTOMATUM_MANUAL_STACK, change(closed, mtg(MtgAction.SetAutomatum(true))).reason)
-        }
-        // A flow resolving nothing (a choice between steps) leaves the Stack as it is, and clearing leaves Automatum on
-        val between = accept(state, mtg(MtgAction.SetRecord(continuation.id, continuation.copy(resolving = listOf(entry(state))),
-            continuation))).state!!
-        val cleared = accept(between, mtg(MtgAction.ClearRecords)).state!!
-        assertNotNull(cleared.board.stackEffects.single().item)
-        assertTrue(cleared.board.automatum)
-        // Only the continuation names what it resolves, by Stack entry ids
-        for (bad in listOf(effect.copy(resolving = listOf(entry(state))), continuation.copy(resolving = listOf("not-an-id"))))
-            assertFalse(MtgRules.valid(MtgAction.SetRecord(bad.id, null, bad)), "$bad")
-    }
-
-    // SYS-060, TRN-054, TRN-055 (finalreview-sync #6, #7; owner decision 2026-11-03): switching off or clearing during a
-    // flow is one server step that always goes through: the flow is taken back when it can be (here its opening is in
-    // the history), else closed where it is (here the history starts inside it); then the switch or clear is the actor's
-    // own event
-    @Test fun exitingAFlowTakesItBackOrClosesIt() {
-        val open = resolving()
-        val beforeFlow = open.copy(board = open.board.copy(engineRecords = listOf(effect)), currentNodeId = open.root.id)
-        var tree = GameplayTree(beforeFlow)
-        tree = assertNotNull(HistoryContinuation.change(tree, a, command(GameAction.Play(
-            mtg(MtgAction.SetRecord(continuation.id, null, open.board.engineRecords.single()))))).tree)
-        tree = assertNotNull(HistoryContinuation.change(tree, b, command(GameAction.Play(PlayAction.SetLife(b, "17")))).tree)
-        for (then in listOf(MtgAction.SetAutomatum(false), MtgAction.ClearRecords)) {
-            val exited = assertNotNull(HistoryContinuation.change(tree, b, command(GameAction.ExitFlow(then))).tree, "$then")
-            val board = exited.stateAt(exited.currentNodeId)!!.board
-            assertEquals(listOf(exited.currentNodeId), exited.nodes.keys.toList(), "$then: the flow is taken back, one event left")
-            assertEquals("20", board.players.single { it.accountId == b }.life, "$then: Bob's event in the flow too")
-            assertNotNull(board.stackEffects.single().item, "$then: nothing was resolved by hand")
-            assertEquals(then == MtgAction.ClearRecords, board.automatum)
-            assertEquals(if (then == MtgAction.ClearRecords) emptyList() else listOf(effect), board.engineRecords)
-        }
-        // The flow's start out of reach: closed where it is
-        val closed = assertNotNull(HistoryContinuation.change(GameplayTree(open.copy(currentNodeId = open.root.id)), b,
-            command(GameAction.ExitFlow(MtgAction.SetAutomatum(false)))).tree)
-        val board = closed.stateAt(closed.currentNodeId)!!.board
-        assertFalse(board.automatum)
-        assertFalse(Automatum.flowOpen(board))
-        assertNull(board.stackEffects.single().item)
-        // Only the switch-off and the clear go this way
-        assertFalse(GameWire.valid(command(GameAction.ExitFlow(MtgAction.SetAutomatum(true)))))
     }
 
     // SYS-066 (I-D25): an emblem record says whose it is and its text; other records say neither

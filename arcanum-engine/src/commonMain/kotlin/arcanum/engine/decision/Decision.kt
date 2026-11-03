@@ -82,11 +82,13 @@ sealed interface Decision {
         val options: List<ObjectId>, val min: Int, val max: Int?, val text: String,
     ) : Decision
 
-    /** Choose one of named [options] ("odd or even"). */
+    /** Choose one of named [options] ("odd or even"). [text], when given, says what the choice is about where neither a
+     * source nor the options do: the engine's own questions, such as the loop choice ([LoopStop]). */
     @Serializable @SerialName("option")
     data class ChooseOption(
         override val id: DecisionId, override val player: PlayerId, override val source: ObjectId?,
         val options: List<String>,
+        val text: String? = null,
     ) : Decision
 
     /** Choose a colour among [among]. */

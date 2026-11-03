@@ -61,6 +61,12 @@ internal class LobbyTableActions(private val scope: LobbyScope, private val tabl
         val actor = accountId() ?: return false
         return !closed && session?.acceptResult(game, actor, target) == true
     }
+    /** CR 104.3a (I-D52): the viewer concedes and loses at once ([GameAction.Concede]). */
+    fun concede(target: ResultTarget): Boolean {
+        val game = state.detail ?: return false
+        val actor = accountId() ?: return false
+        return !closed && session?.concede(game, actor, target) == true
+    }
     fun rejectResult(target: ResultAcceptanceTarget): Boolean {
         val game = state.detail ?: return false
         val actor = accountId() ?: return false

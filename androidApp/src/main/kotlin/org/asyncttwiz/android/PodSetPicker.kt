@@ -37,7 +37,8 @@ internal data class PodSetPickerState(
     val support: Map<String, List<String>> = emptyMap(),
 ) {
     /** A set's Automatum support, null until worked out. */
-    fun support(code: String?): CardListSupport? = code?.let(support::get)?.let { CardListSupport(CardDefinitions.parserVersion, it) }
+    fun support(code: String?): CardListSupport? = code?.let(support::get)?.let { CardListSupport(CardDefinitions.parserVersion, it,
+        arcanum.engine.Engine.SUPPORT_VERSION) }
 
     val filtered get() = rows.filter { row ->
         row.set.draftable && row.set.releaseDate <= LocalDate.now(AppClock.clock()).toString() && query.trim().let { it.isEmpty() || row.set.name.contains(it, true) ||
@@ -66,7 +67,7 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
     private fun list() = work("Loading installed sets…", ::list, action = {
         val support = runCatching { checkNotNull(repository).automatum() }.getOrDefault(emptyMap())
         checkNotNull(repository).sets().map { set ->
-            PodSetRow(set, repository.isCached(set.code), support[set.code]?.let { CardListSupport(CardDefinitions.parserVersion, it) })
+            PodSetRow(set, repository.isCached(set.code), support[set.code]?.let { CardListSupport(CardDefinitions.parserVersion, it, arcanum.engine.Engine.SUPPORT_VERSION) })
         } to support
     }) { (rows, support) -> state = state.copy(rows = rows, loaded = true, support = support) }
 

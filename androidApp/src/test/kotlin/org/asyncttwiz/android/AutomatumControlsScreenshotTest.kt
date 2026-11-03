@@ -66,7 +66,7 @@ class AutomatumControlsScreenshotTest {
 
     /** Alice's main phase, holding priority: Grovewatch Druid and [lands] Forests on her battlefield (her other lands
      * Mountains), Storm Spark in hand. */
-    private fun board(lands: Int, automatum: Boolean = true): PlayState {
+    private fun board(lands: Int): PlayState {
         val initial = f.initial
         val others = initial.board.cards.filter { it.containerId == field }.map { it.id }
         val added = listOf(PlayCard(druidId, druid.submitted.digest, f.a, field, "druid", covered = false, corner = "1/2",
@@ -74,7 +74,7 @@ class AutomatumControlsScreenshotTest {
             forests.take(lands).mapIndexed { n, id -> PlayCard(id, forest.submitted.digest, f.a, field, "forest", covered = false,
                 placement = PlayPlacement(BoardPosition(3 + n, 0), id)) }
         return initial.copy(definitions = initial.definitions + invented.map { it.submitted },
-            board = initial.board.copy(automatum = automatum, priority = MtgPriority(f.a),
+            board = initial.board.copy(priority = MtgPriority(f.a),
                 cards = initial.board.cards.map { when (it.id) {
                     sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                     in others -> it.copy(definition = mountain.submitted.digest, faceId = "mountain", tapped = true, corner = "")
@@ -269,8 +269,7 @@ class AutomatumControlsScreenshotTest {
 
 
     // TBL-117, I-D46 (a): the viewer's cards Automatum lets them use now glow: Storm Spark with Mountains untapped and the
-    // Druid (its draw ability); lands with only their mana abilities don't; nothing of the other player's, nothing while
-    // Automatum is off
+    // Druid (its draw ability); lands with only their mana abilities don't; nothing of the other player's
     @Test fun playableCardsGlow() {
         val play = board(lands = 1).let { p -> p.copy(board = p.board.copy(cards = p.board.cards.map {
             if (it.definition == mountain.submitted.digest) it.copy(tapped = false) else it })) }
@@ -325,6 +324,25 @@ class AutomatumControlsScreenshotTest {
         compose.onNodeWithContentDescription("Create combat area").assertDoesNotExist()
         compose.onNodeWithContentDescription("Flip coin").assertDoesNotExist()
         compose.onNodeWithContentDescription("Timeline").assertExists()
+    }
+
+    // TRN-064, TRN-010, TRN-046 (I-D52, CR 104.3a): Table actions offer Concede beside Suggest game end (My win or Draw
+    // game); Concede asks first, and only its confirmation sends the concession
+    @Test fun concedeAsksFirst() {
+        val play = board(lands = 2)
+        val intents = mutableListOf<TableActionIntent>()
+        val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
+        compose.setContent { MaterialTheme { TableActionMenu(play, toolkit.table, {}, perform = { intents += it; true }) } }
+        compose.onNodeWithContentDescription("Suggest game end").assertExists()
+        compose.onNodeWithContentDescription("Concede").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithText("You lose this game at once.").assertExists()
+        assertTrue(intents.isEmpty(), "nothing is sent before the confirmation")
+        captureShot("$SCREENSHOTS/automatum/concede-ask.png",
+            "Concede in Table actions asks first: \"Concede?\", \"You lose this game at once.\", with Cancel and a red Concede.")
+        compose.onNodeWithText("Concede").performClick()
+        compose.waitForIdle()
+        assertEquals(listOf(EndingTool.CONCEDE), intents.map { (it as TableActionIntent.Ending).tool })
     }
 
 

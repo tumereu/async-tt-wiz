@@ -19,10 +19,9 @@ import kotlin.test.fail
 
 /**
  * Final sync review: long seeded games of two players on one shared history tree (the server's), with Undo and Redo,
- * flow reverts (the switch during a flow, I-D19, one server step), Automatum switched off and on and its data cleared,
  * branches from earlier acting points, and the stored history replayed. Invariants after every step: the rebuilt engine
  * state equals the engine's own ([TreeGame.send]); Undo of the latest batch gives back its board, Redo the board after it;
- * a revert gives back the board before the flow; a branch from an acting point starts from that point's engine state;
+ * a branch from an acting point starts from that point's engine state;
  * the history replays to the server's head; the incremental engine log ([EngineLog.Chain]) is the whole one; and the
  * engine can always take the board over. Invented cards only.
  */
@@ -38,8 +37,8 @@ class FinalSyncGamesTest {
 
     private class Batch(val actor: String, val head: String, val before: BoardState, val after: BoardState)
 
-    private class Counts(var calls: Int = 0, var undos: Int = 0, var redos: Int = 0, var reverts: Int = 0, var switches: Int = 0,
-        var branches: Int = 0, var clears: Int = 0, var known5: Int = 0, var refused: MutableMap<String, Int> = linkedMapOf(), var turn: Int = 0)
+    private class Counts(var calls: Int = 0, var undos: Int = 0, var redos: Int = 0,
+        var branches: Int = 0, var known5: Int = 0, var refused: MutableMap<String, Int> = linkedMapOf(), var turn: Int = 0)
 
     private val problems = mutableListOf<String>()
 
@@ -64,12 +63,6 @@ class FinalSyncGamesTest {
         fun players() = table.players.random(random)
 
         for (i in 0 until steps) {
-            // An Undo of a switch event may leave Automatum off: a player turns it on again
-            if (!game.state.board.automatum) {
-                val on = game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-                if (on.tree == null) { problem("switching on was refused: ${on.reason}"); return counts }
-                ops += "on"
-            }
             val play = game.state
             val s = try { game.engine() } catch (e: Exception) { problem("the engine can't take the board: $e"); return counts }
             if (Engine.result(s) != null) break
@@ -116,44 +109,6 @@ class FinalSyncGamesTest {
                     }
                     continue
                 }
-                // The switch during a flow (I-D19, #6): one server step that takes the whole flow back, then Automatum is
-                // off; a player turns it on again
-                r < 14 && flow -> {
-                    val off = game.control(players(), GameAction.ExitFlow(MtgAction.SetAutomatum(false)))
-                    if (off.tree == null) { refused("off", off.reason); problem("switching off during a flow was refused: ${off.reason}"); continue }
-                    counts.reverts++; ops += "revert"
-                    // #3 (fixed, its own test): the whole flow is taken back, both players' events
-                    if (Automatum.flowOpen(game.state.board)) problem("the switch left the flow open")
-                    else flowStart?.let { start ->
-                        val back = game.state.board.copy(automatum = true)
-                        if (back != start) problem("the revert didn't give back the board before the flow:\n" + boardDiff(start, back))
-                    }
-                    flowStart = null
-                    batches.removeAll { b -> b.head !in game.tree.nodes }
-                    if (game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(true))).tree == null) problem("switching on was refused")
-                    counts.switches++; ops += "revert-switch"
-                    continue
-                }
-                // Off and on, nothing done by hand: the engine state stays (best effort, I-D28; the current combat too, #1)
-                r < 18 && !flow -> {
-                    val before = game.engine()
-                    game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(false)))
-                    game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-                    counts.switches++; ops += "off/on ${TurnPosition.of(play.board.turn)}"
-                    val differs = StateCompare.exact(before, game.engine())
-                    if (differs.isNotEmpty()) problem("off/on in ${TurnPosition.of(play.board.turn)} changed the engine state: ${differs.first().take(300)}")
-                    continue
-                }
-                // "Clear Automatum data" while off, then on again (I-D24, I-D28 best effort): the engine still takes the board,
-                // in combat too (#1: blocks declared again never double)
-                r < 24 && !flow -> {
-                    game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(false)))
-                    game.manual(players(), PlayAction.Mtg(MtgAction.ClearRecords))
-                    game.manual(players(), PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-                    counts.clears++; ops += "clear ${TurnPosition.of(play.board.turn)} automatum ${game.state.board.automatum}"
-                    try { game.engine() } catch (e: Exception) { problem("after clearing the engine can't take the board: $e") }
-                    continue
-                }
                 // A branch from an earlier acting point (a batch's end, as Hold at a pause makes it, I-D41), by a shown-only event
                 r < 28 && !flow && batches.size > 2 -> {
                     val point = batches.dropLast(1).takeLast(6).random(random)
@@ -179,7 +134,7 @@ class FinalSyncGamesTest {
                     val call = game.call().also(body)
                     val sent = game.send(call, who)
                     if (call.changes.isNotEmpty() && sent.tree == null) problem("the server refused a batch planned on its own head: ${sent.reason} " +
-                        "(automatum ${game.state.board.automatum}, ${TurnPosition.of(game.state.board.turn)}, recent: ${ops.takeLast(4)})")
+                        "(${TurnPosition.of(game.state.board.turn)}, recent: ${ops.takeLast(4)})")
                 }
             } catch (e: AssertionError) {
                 problem("${e.message?.take(400)}"); return counts
@@ -253,7 +208,7 @@ class FinalSyncGamesTest {
         for (seed in listOf(61L, 62L, 63L, 64L, 65L, 66L)) {
             val counts = play(seed, steps = 220)
             println("finalreview-sync games seed $seed: ${counts.calls} calls, turn ${counts.turn}, undos ${counts.undos}, redos ${counts.redos}, " +
-                "reverts ${counts.reverts}, switches ${counts.switches}, branches ${counts.branches}, clears ${counts.clears}, branch points ${counts.known5}, refused ${counts.refused}")
+                "branches ${counts.branches}, branch points ${counts.known5}, refused ${counts.refused}")
         }
         problems.forEach { println("finalreview-sync PROBLEM $it") }
         assertTrue(problems.isEmpty(), "${problems.size} problems:\n" + problems.take(6).joinToString("\n"))

@@ -80,7 +80,7 @@ class AutomatumHandScreenshotTest {
         val kept = (own + extra.map { it.id }).take(lands)
         val cubCard = initial.board.cards.single { it.id == landId }.copy(id = cubId, definition = cub.submitted.digest, faceId = "cub")
         val spare = (0 until more).map { n -> initial.board.cards.single { it.id == landId }.copy(id = f.id("spare-$n")) }
-        val board = initial.board.copy(automatum = true, priority = MtgPriority(f.a),
+        val board = initial.board.copy(priority = MtgPriority(f.a),
             cards = initial.board.cards.map { when (it.id) {
                 sparkId -> it.copy(definition = spark.submitted.digest, faceId = "spark")
                 surgeId -> it.copy(definition = surge.submitted.digest, faceId = "surge")

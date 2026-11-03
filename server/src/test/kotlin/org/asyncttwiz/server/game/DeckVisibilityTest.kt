@@ -63,7 +63,7 @@ class DeckVisibilityTest {
         fun finish(owner: Stream, other: Stream) {
             owner.execute(GameAction.Ready); other.execute(GameAction.Ready)
             assertEquals(GameLifecycle.ACTIVE, games.head(owner.actor, owner.gameId).summary.lifecycle)
-            owner.execute(GameAction.Play(PlayAction.SuggestResult(SuggestedResult.WIN)))
+            owner.execute(automatedPlay(PlayAction.SuggestResult(SuggestedResult.WIN)))
             val suggestion = games.head(owner.actor, owner.gameId).play!!.board.resultSuggestion!!
             assertEquals("accepted", other.execute(GameAction.AcceptResult(suggestion.id)).outcome)
         }
@@ -178,12 +178,11 @@ class DeckVisibilityTest {
         fun sql(statement: String) = f.db.connection().use { it.createStatement().execute(statement) }
         sql("UPDATE player_preparation SET deck_shown = false")
         f.settings.set(f.b.account.accountId, AccountSettings(DeckVisibility.HIDDEN))
-        // Back to the V45 schema: undo V53 (lists' Automatum support), V52 (opponent ready notices), V51 (game Automatum), V50 (Automatum reports), V49 (automated batch members), V48 (prepared
+        // Back to the V45 schema: undo V54 (games with plays wiped, game Automatum dropped: nothing to undo here), V53 (lists' Automatum support), V52 (opponent ready notices), V51 (game Automatum), V50 (Automatum reports), V49 (automated batch members), V48 (prepared
         // cube), V47 (Maybe sections) and V46, then migrate forward again.
         sql("""
             ALTER TABLE saved_deck DROP COLUMN automatum_support; ALTER TABLE saved_cube DROP COLUMN automatum_support;
             ALTER TABLE activity_summary DROP COLUMN opponent_ready;
-            ALTER TABLE game DROP COLUMN automatum;
             ALTER TABLE problem_report DROP COLUMN automatum; ALTER TABLE debug_crash_report DROP COLUMN automatum;
             ALTER TABLE gameplay_mutation DROP CONSTRAINT gameplay_mutation_member_index_check;
             ALTER TABLE gameplay_mutation ADD CONSTRAINT gameplay_mutation_member_index_check CHECK (member_index BETWEEN 0 AND 99);
@@ -193,9 +192,11 @@ class DeckVisibilityTest {
             ALTER TABLE cube_entry ADD CONSTRAINT cube_entry_cube_id_definition_digest_key UNIQUE (cube_id, definition_digest);
             ALTER TABLE deck_entry DROP CONSTRAINT deck_entry_section_check;
             ALTER TABLE deck_entry ADD CONSTRAINT deck_entry_section_check CHECK (section IN ('MAINBOARD', 'SIDEBOARD'));
-            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53')
+            ALTER TABLE player_preparation DROP COLUMN deck_shown_chosen; DELETE FROM flyway_schema_history WHERE version IN ('46', '47', '48', '49', '50', '51', '52', '53', '54')
         """.trimIndent())
-        assertEquals(8, FoundationMigrations.migrate(f.db.settings))
+        // Up to V53: V54 would remove the finished game this checks
+        assertEquals(8, org.flywaydb.core.Flyway.configure().configuration(FoundationMigrations.flyway(f.db.settings).configuration)
+            .target("53").load().migrate().migrationsExecuted)
         assertTrue(f.shown(a1)); assertTrue(f.shown(b1, f.a))
         assertFalse(f.shown(b1), "An account that hides its decks stays hidden")
         assertFalse(f.shown(other), "Another deck has not finished a game against B")

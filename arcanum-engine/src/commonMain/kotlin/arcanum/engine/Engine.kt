@@ -20,6 +20,14 @@ import kotlinx.serialization.Serializable
  * reads; callers apply the changes with [GameState.apply].
  */
 object Engine {
+    /**
+     * The version of what the engine carries out itself rather than leaving to the players: raised whenever an effect,
+     * keyword or step it used to hand to the players (a [Decision.Manual], `KeywordMeanings.isManual`) becomes
+     * automatic, or the other way round. A host that keeps per-card "fully supported" results worked out with this
+     * engine keeps them per this version (and the parser's), so a new engine works them out again.
+     */
+    const val SUPPORT_VERSION: Int = 1
+
     /** The characteristics of every object after continuous effects (CR 613), the rules that apply to objects and
      * players, and the game rules in force (P3). A pure function of [state]. */
     fun view(state: GameState): View = Layers.view(state)
@@ -39,8 +47,8 @@ object Engine {
      * Performs [input] on a copy of [state] and returns what changed, up to the next decision (D58): after every input
      * the engine applies state-based actions, puts triggered abilities on the Stack and gives priority (P5). While
      * [GameState.pending] is set, only its [Input.Answer] (or [Input.Cancel] for a cast) is accepted. A call that goes
-     * round too often (an endless chain of mandatory triggers) stops with a [Decision.Manual] "possible loop"
-     * ([arcanum.engine.decision.LoopStop.Cap]) instead of hanging; once it is answered the game goes on.
+     * round too often (an endless chain of mandatory triggers) stops with the "possible loop" choice
+     * ([arcanum.engine.decision.LoopStop.Cap]) instead of hanging: continue, or end the game as a draw (CR 104.4b).
      *
      * [trace] gets one [TraceEntry] for the call (the input, what it did or why it was refused, how long it took) for a
      * host's logs and bug reports; the default records nothing and costs nothing.

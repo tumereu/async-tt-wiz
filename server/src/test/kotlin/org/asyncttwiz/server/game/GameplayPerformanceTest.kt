@@ -49,9 +49,9 @@ class GameplayPerformanceTest {
                     assertEquals(1, endpointWrites, "Batch endpoint records, including edge degrees")
                     return Sample(action.latencyType(), elapsed, statements)
                 }
-                val cold = execute(GameAction.Play(PlayAction.AdjustLife(actor, "1")))
+                val cold = execute(automatedPlay(PlayAction.AdjustLife(actor, "1")))
                 val samples = (0 until 12).map { n -> execute(when (n % 3) {
-                    0 -> GameAction.Play(PlayAction.AdjustLife(actor, "1"))
+                    0 -> automatedPlay(PlayAction.AdjustLife(actor, "1"))
                     1 -> GameAction.Undo
                     else -> GameAction.Redo
                 }) }

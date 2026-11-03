@@ -46,5 +46,11 @@ class CatalogSetSupportTest {
         assertEquals(3, next.refresh())
         assertEquals(setOf("AAA", "BBB", "CCC"), next.sets().filterValues { it.isEmpty() }.keys)
         assertTrue(support.sets().isEmpty(), "the older version's results are dropped")
+
+        // So does another engine support version with the same parser (I-D51)
+        val engine = CatalogSetSupport(repository, { false }, parserVersion = 8, engineVersion = 2)
+        assertTrue(engine.sets().isEmpty())
+        assertEquals(3, engine.refresh())
+        assertTrue(next.sets().isEmpty(), "the older engine version's results are dropped")
     }
 }

@@ -21,22 +21,29 @@ fun TableActionMenu(play: PlayState, controller: TableActionController, onDismis
     val scope = TableActionScope(play.gameId, play.id)
     var ending by remember(scope) { mutableStateOf(false) }
     var outcome by remember(scope) { mutableStateOf<Pair<String, EndingTool>?>(null) }
+    var conceding by remember(scope) { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.screenWidthDp > LocalConfiguration.current.screenHeightDp
     val enabled = controller.enabled(scope)
     val endingEntry = if (pendingSuggestionId == null) MenuControl("Suggest game end", enabled) { ending = true }
         else MenuControl("Accept result", enabled && mayAccept) {
             if (perform(TableActionIntent.Ending(scope, EndingTool.ACCEPT, pendingSuggestionId))) onDismiss()
         }
+    // CR 104.3a (I-D52): conceding needs nobody's agreement, also while a suggestion waits
     val entries = listOf(MenuControl("Timeline", onTimeline != null) { onDismiss(); onTimeline?.invoke() }) +
-        listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept })
-    if (!ending) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
+        listOfNotNull(endingEntry.takeIf { pendingSuggestionId == null || mayAccept }) + MenuControl("Concede", enabled) { conceding = true }
+    if (!ending && !conceding) TableMenuPanel(onDismiss, width = if (landscape) 776.dp else 400.dp, title = "Table actions") {
         for (row in entries.chunked(if (landscape) 3 else 2)) Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             for (entry in row) MenuButton(entry.name, Modifier.weight(1f), entry.enabled, entry.color, onClick = entry.click)
             repeat((if (landscape) 3 else 2) - row.size) { Spacer(Modifier.weight(1f)) }
         }
     }
+    if (conceding) ScreenDialog({ conceding = false }, title = "Concede?", actions = {
+        DialogCancelButton("Cancel", { conceding = false })
+        DialogMainButton("Concede", { if (perform(TableActionIntent.Ending(scope, EndingTool.CONCEDE))) onDismiss() }, enabled = enabled,
+            danger = true)
+    }) { Text("You lose this game at once.") }
     if (ending && outcome == null) TableMenuPanel({ ending = false }, title = "Suggest game end") {
-        for (choice in listOf("My win" to EndingTool.SUGGEST_WIN, "My loss" to EndingTool.SUGGEST_LOSS, "Draw game" to EndingTool.SUGGEST_DRAW))
+        for (choice in listOf("My win" to EndingTool.SUGGEST_WIN, "Draw game" to EndingTool.SUGGEST_DRAW))
             MenuButton(choice.first, Modifier.fillMaxWidth(), enabled) { outcome = choice }
     }
     outcome?.let { chosen ->

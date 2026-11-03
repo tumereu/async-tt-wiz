@@ -14,7 +14,7 @@ class KeepTopRevealedIntegrationTest {
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
-                val f = GameplayFixture(runtime, deckSize = 12)
+                val f = GameplayFixture(runtime, deckSize = 20)
                 val owner = f.a.account.accountId
                 val opponent = f.b.account.accountId
                 fun state() = f.games.head(f.a, f.game.id).play!!
@@ -73,7 +73,7 @@ class KeepTopRevealedIntegrationTest {
             FoundationMigrations.migrate(db.settings)
             ServiceRuntime(db.settings).use { runtime ->
                 runtime.start(); gameplayAwait(runtime::ready)
-                val f = GameplayFixture(runtime, deckSize = 10)
+                val f = GameplayFixture(runtime, deckSize = 20)
                 val actor = f.a.account.accountId
                 val opponent = f.b.account.accountId
                 fun state() = f.games.head(f.b, f.game.id).play!!

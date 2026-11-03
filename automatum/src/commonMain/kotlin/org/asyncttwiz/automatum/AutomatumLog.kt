@@ -62,9 +62,6 @@ object AutomatumLog {
     /** An early answer (pre-event, I-D33) given, withdrawn or used. */
     fun preEvent(game: String, what: String, detail: String = "") = add(AutomatumEntry.PreEvent(now(), game, what, detail.take(MAX_TEXT)))
 
-    /** The Automatum switch turned [on] or off on this device. */
-    fun switch(game: String, on: Boolean) = add(AutomatumEntry.Switch(now(), game, on))
-
     /** The entries kept for [game], oldest first. */
     fun entries(game: String): List<AutomatumEntry> = find(game)?.entries?.load().orEmpty()
 
@@ -197,11 +194,6 @@ sealed interface AutomatumEntry {
     @Serializable @SerialName("pre")
     data class PreEvent(override val at: Long, override val game: String, val what: String, val detail: String = "") : AutomatumEntry {
         override fun line() = "early answer $what${if (detail.isEmpty()) "" else ": $detail"}"
-    }
-
-    @Serializable @SerialName("switch")
-    data class Switch(override val at: Long, override val game: String, val on: Boolean) : AutomatumEntry {
-        override fun line() = "switched ${if (on) "on" else "off"}"
     }
 
     @Serializable @SerialName("refusal")

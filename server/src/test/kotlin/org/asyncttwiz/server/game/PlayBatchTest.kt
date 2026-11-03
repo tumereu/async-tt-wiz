@@ -19,7 +19,7 @@ class PlayBatchTest {
                 val action = PlayAction.AdjustLife(f.a.account.accountId, "1")
                 val prior = f.owner.command(action)
                 f.owner.execute(prior)
-                val batch = f.owner.command(action).copy(action = GameAction.PlayBatch(List(100) { action }))
+                val batch = f.owner.command(action).copy(action = automatedBatch(List(100) { action }))
                 val result = f.owner.execute(batch)
                 assertEquals("accepted", result.outcome, result.reason)
                 val opponent = f.recipient.command(PlayAction.AdjustLife(f.b.account.accountId, "1"))
@@ -49,7 +49,7 @@ class PlayBatchTest {
                 val before = f.games.head(f.a, f.game.id)
                 val actor = f.a.account.accountId
                 val actions = List(4) { PlayAction.AdjustLife(actor, "1") }
-                val command = f.owner.command(actions.first()).copy(action = GameAction.PlayBatch(actions))
+                val command = f.owner.command(actions.first()).copy(action = automatedBatch(actions))
                 val opponent = f.recipient.command(PlayAction.AdjustLife(f.b.account.accountId, "10"))
                 f.owner.admit(command); f.recipient.admit(opponent)
                 val pool = Executors.newFixedThreadPool(2)
@@ -102,7 +102,7 @@ class PlayBatchTest {
                 runtime.start(); gameplayAwait(runtime::ready)
                 val f = GameplayFixture(runtime)
                 val before = f.games.head(f.a, f.game.id)
-                val command = f.owner.command(PlayAction.AdjustLife(f.a.account.accountId, "1")).copy(action = GameAction.PlayBatch(listOf(
+                val command = f.owner.command(PlayAction.AdjustLife(f.a.account.accountId, "1")).copy(action = automatedBatch(listOf(
                     PlayAction.AdjustLife(f.a.account.accountId, "1"), PlayAction.SetTapped(gameplayId(), true))))
                 val result = f.owner.execute(command)
                 assertEquals("rejected", result.outcome)

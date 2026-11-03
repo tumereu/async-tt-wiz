@@ -263,11 +263,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                  compose.onNodeWithText("Choose cover").assertIsDisplayed()
                  compose.onNodeWithText("Meadow Sentinel").assertIsDisplayed()
              }
-            "create-game" -> {
-                dialogActions("Cancel", "Create")
-                // LOB-031 (I-D44): the Automatum switch starts on
-                compose.onNodeWithTag("new-game-automatum").assertIsOn()
-            }
+            "create-game" -> dialogActions("Cancel", "Create")
             "game-context" -> dialogActions(null, "Delete game")
             "delete-game" -> dialogActions("Keep game", "Delete game")
             "cancel-lobby" -> dialogActions("Keep game", "Cancel game")
@@ -304,7 +300,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "records-downloading-unknown" -> "Games screen while card records download with unknown total size, showing indeterminate progress"
             "records-indexing" -> "Games screen while downloaded card records are indexed, showing bytes and cards processed"
             "contacts" -> "Contacts screen with riley and morgan, and a search for sam showing one result"
-            "create-game" -> "Contacts screen with the new game dialog for riley, named Crackling Mist, its Automatum switch on by default, with Cancel and Create"
+            "create-game" -> "Contacts screen with the new game dialog for riley, named Crackling Mist, with Cancel and Create"
             "waiting-invite" -> "game lobby after riley declined the invitation, your deck chosen, with Change deck and Prepare deck"
             "game-context" -> "Games list with the options dialog of game Azure Spark open, offering Delete game"
             "delete-game" -> "Games list with the Delete game confirmation for Azure Spark, with Keep game and Delete game"

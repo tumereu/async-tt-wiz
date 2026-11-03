@@ -118,7 +118,7 @@ class GameplayTest {
                     val originals = mutableListOf<Pair<GameCommand, PlayState>>()
                     fun send(action: PlayAction) {
                         val command = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
-                            GameAction.Play(action), bst.streamId, bst.generation)
+                            automatedPlay(action), bst.streamId, bst.generation)
                         predicted = requireNotNull(GameplayRules.change(predicted, b.account.accountId, command).state)
                         originals.add(command to predicted)
                         bob.send(command)
@@ -204,7 +204,7 @@ class GameplayTest {
                     var previousUpdate = Instant.parse(listed(a).updatedAt)
                     for ((socket, stream, actor) in listOf(Triple(alice, ast, a), Triple(alice, ast, a), Triple(bob, bst, b))) {
                         val pass = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
-                            GameAction.Play(PlayAction.PassAttention), stream.streamId, stream.generation)
+                            automatedPlay(PlayAction.PassAttention), stream.streamId, stream.generation)
                         val expected = GameplayRules.change(attentionState, actor.account.accountId, pass)
                         socket.send(pass)
                         val result = socket.result(pass.requestId)
@@ -245,7 +245,7 @@ class GameplayTest {
                     val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
                     assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(gameplayId(), listOf(submitted)), actor.token).statusCode())
                     return json.decodeFromString(post(settings, "/v1/decks", CreateDeck(gameplayId(), "Source", listOf(
-                        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 5))), actor.token).body())
+                        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 12))), actor.token).body())
                 }
                 val ad = deck(a); val bd = deck(b)
                 Socket(settings, a.token).use { owner -> Socket(settings, b.token).use { recipient ->
@@ -267,7 +267,7 @@ class GameplayTest {
                         return liveTree.tree.stateAt(liveTree.tree.currentNodeId)!!
                     }
                     fun command(action: PlayAction, stream: GameStreamReady = ast) = GameCommand(gameplayId(), GameScope(game.id, playId = root.id),
-                        GameAction.Play(action), stream.streamId, stream.generation)
+                        automatedPlay(action), stream.streamId, stream.generation)
                     val field = root.board.containers.single { it.zone == PlayZone.BATTLEFIELD && it.accountId == a.account.accountId }
                     val draw = command(PlayAction.MoveCard(library.cards.first(), MoveSource(library.id, edge = MoveSourceEdge.TOP),
                         MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition(0, 0))))
@@ -373,7 +373,7 @@ class GameplayTest {
                     val submitted = SubmittedDefinition(DeckJson.digest(definition), definition)
                     assertEquals(200, post(settings, "/v1/definitions", SubmitDefinitions(gameplayId(), listOf(submitted)), actor.token).statusCode())
                     return json.decodeFromString(post(settings, "/v1/decks", CreateDeck(gameplayId(), "Source", listOf(
-                        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 5))), actor.token).body())
+                        SavedDeckEntry(SavedDeckSection.MAINBOARD, submitted.digest, 12))), actor.token).body())
                 }
                 val ad = deck(a); val bd = deck(b)
                 Socket(settings, a.token).use { alice -> Socket(settings, b.token).use { bob ->
@@ -391,7 +391,7 @@ class GameplayTest {
                     var tree = TreeSync.generation(GameplayTree(root))
                     fun command(action: GameAction, stream: GameStreamReady, seen: GameplayTree? = tree.tree) = GameCommand(gameplayId(),
                         GameScope(game.id, playId = root.id), action, stream.streamId, stream.generation, expectedSelection = seen?.selectionKey)
-                    fun command(action: PlayAction, stream: GameStreamReady, seen: GameplayTree? = tree.tree) = command(GameAction.Play(action), stream, seen)
+                    fun command(action: PlayAction, stream: GameStreamReady, seen: GameplayTree? = tree.tree) = command(automatedPlay(action), stream, seen)
                     /** Send on [socket]; both sockets see the accepted revision. */
                     fun play(socket: Socket, input: GameCommand): GameRevision {
                         socket.send(input)

@@ -124,8 +124,8 @@ internal class TreeCatchUp(private val session: Session, private val connection:
             session.install(message.summary, message.resultRevision, null, message.play)
         } else if (replica.apply(message)) session.install(message.summary, message.resultRevision, null, replica.accepted)
         else {
-            // I-D43: this client's game fell out of step with the server's while Automatum was on
-            if (replica.accepted?.board?.automatum == true)
+            // I-D43: this client's game fell out of step with the server's
+            if (replica.accepted != null)
                 org.asyncttwiz.automatum.AutomatumLog.mismatch(message.gameId, "replica", "rebuilt from the server: ${replica.applyFailure}")
             if (message.gameId !in recoveries) { recover(message.gameId, message.resultRevision, "replica:${replica.applyFailure}"); recoveries[message.gameId]?.tail?.add(message) }
         }

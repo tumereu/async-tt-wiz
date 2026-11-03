@@ -49,7 +49,7 @@ import org.asyncttwiz.protocol.StackAction
 import org.asyncttwiz.protocol.TurnPosition
 import org.asyncttwiz.protocol.zoneContainer
 
-/** An engine change ATW can't say with its actions; the call can't be sent (report it, D32's way out: turn Automatum off). */
+/** An engine change ATW can't say with its actions; the call can't be sent (report it; undo is the way out, I-D52). */
 class Unmappable(message: String) : IllegalStateException(message)
 
 /**
@@ -723,7 +723,7 @@ private class Planner(private val call: EngineCall, private val actor: String, c
             delayed = { memo(it.id, it) { EngineCodec.delayedRecord(it) } },
             emblemText = { o -> board.engineRecords.firstOrNull { it.id == EngineCodec.emblemId(o) }?.text
                 ?: emblemTexts[o.id] ?: EngineCodec.emblemText(o) },
-            held = { card(atwId(it)) != null }, entry = entries::get)
+            held = { card(atwId(it)) != null })
     }
 
     /** The texts of emblems this call made (I-D25), when their abilities carry none: the quoted ability of what made them. */
@@ -790,8 +790,7 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     effect: (arcanum.engine.state.EffectObject) -> EngineRecord = EngineCodec::effectRecord,
     delayed: (arcanum.engine.state.DelayedTrigger) -> EngineRecord = EngineCodec::delayedRecord,
     emblemText: (GameObject) -> String = EngineCodec::emblemText,
-    held: (arcanum.engine.state.CardId) -> Boolean = { true },
-    entry: (ObjectId) -> String? = { null }): List<EngineRecord> = buildList {
+    held: (arcanum.engine.state.CardId) -> Boolean = { true }): List<EngineRecord> = buildList {
     state.effects.values.forEach { add(effect(it)) }
     state.delayedTriggers.values.forEach { add(delayed(it)) }
     state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, emblemText(it))) }
@@ -811,21 +810,8 @@ internal fun records(state: GameState, board: org.asyncttwiz.protocol.BoardState
     if (state.triggered.isNotEmpty())
         add(EngineRecord(EngineCodec.TRIGGERED, EngineRecordKind.Triggered, data = EngineCodec.encode(triggeredSerializer, state.triggered)))
     state.pending?.let { add(EngineRecord(Automatum.CONTINUATION_ID, EngineRecordKind.Continuation,
-        data = codec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it, lingering(state, held))),
-        resolving = resolving(it.continuation).mapNotNull(entry).distinct())) }
+        data = codec.encode(FlowRecord.serializer(), FlowRecord(state.viewer?.value, it, lingering(state, held))))) }
 }.sortedBy { it.id }
-
-/** The Stack objects a flow's [continuation] is resolving (CR 608.2), outermost last: closed without being taken back,
- * their ATW entries become manual ([EngineRecord.resolving], finalreview-sync #6, #7). */
-internal fun resolving(continuation: arcanum.engine.decision.Continuation): List<ObjectId> {
-    val items = mutableListOf<ObjectId>()
-    var c: arcanum.engine.decision.Continuation? = continuation
-    while (c != null) {
-        if (c is arcanum.engine.decision.Continuation.Resolving && c.left == null) items += c.item
-        c = c.then
-    }
-    return items
-}
 
 /**
  * The tokens and copies of cards [state] still has outside the Battlefield and the Stack whose ATW card is gone

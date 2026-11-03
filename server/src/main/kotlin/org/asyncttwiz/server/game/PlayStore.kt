@@ -37,9 +37,11 @@ internal object PlayStore {
         return state
     }
 
-    fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand, summary: (UUID) -> GameSummary): String? {
+    /** [play]: the play's current state when the caller just changed it in this transaction (a concession). */
+    fun accept(sql: DSLContext, game: GameSummary, actor: String, command: GameCommand, play: PlayState? = null,
+        summary: (UUID) -> GameSummary): String? {
         val id = UUID.fromString(game.id)
-        val change = GameResultRules.accept(game, read(sql, id), PreparationStore.read(sql, game), actor, command)
+        val change = GameResultRules.accept(game, play ?: read(sql, id), PreparationStore.read(sql, game), actor, command)
         change.preparation?.let { preparation ->
             sql.update(GAME_PLAY).set(GAME_PLAY.ENDED_REQUEST_ID, UUID.fromString(command.requestId))
                 .where(GAME_PLAY.ID.eq(UUID.fromString(game.playId!!))).and(GAME_PLAY.ENDED_REQUEST_ID.isNull)
@@ -55,9 +57,7 @@ internal object PlayStore {
         check(StartRules.canStart(game, preparation))
         val state = StartRules.initialize(game, preparation, requestId,
             preparation.players.associate { it.accountId to seed() },
-            if (preparation.startingChoice.accountId == null) seed() else null, librarySecret = seed(),
-            // I-D44: every play of the game starts with the game's Automatum choice
-            automatum = sql.select(GAME.AUTOMATUM).from(GAME).where(GAME.ID.eq(UUID.fromString(game.id))).fetchSingle(GAME.AUTOMATUM)!!)
+            if (preparation.startingChoice.accountId == null) seed() else null, librarySecret = seed())
         val id = UUID.fromString(state.id)
         sql.insertInto(GAME_PLAY).set(GAME_PLAY.ID, id).set(GAME_PLAY.GAME_ID, UUID.fromString(game.id))
             .set(GAME_PLAY.PREPARATION_ROUND, UUID.fromString(preparation.roundId))

@@ -2,14 +2,8 @@ package org.asyncttwiz.android
 
 import org.asyncttwiz.protocol.*
 
-/** Player-facing text for a refused Undo/Redo/Automatum flow revert original; null for any other action. */
+/** Player-facing text for a refused Undo/Redo original; null for any other action. */
 internal fun historyControlFailure(action: GameAction?, reason: String?): String? {
-    // I-D19: switching Automatum off still closes the flow when its revert is refused (I-D24).
-    if (action == GameAction.RevertFlow) return if (reason == "noFlow") "Automatum had already finished its step."
-        else "Automatum's unfinished step couldn't be taken back; it was closed as it is."
-    // finalreview-sync #6: switching off (or clearing) during a flow is refused only as any play would be
-    if (action is GameAction.ExitFlow) return "Can't " + (if (action.then == MtgAction.ClearRecords) "clear Automatum data" else
-        "switch Automatum off") + ": " + refusalText(reason).replaceFirstChar { it.lowercase() }
     val verb = when (action) { GameAction.Undo -> "undo"; GameAction.Redo -> "redo"; else -> return null }
     val explanation = when (reason) {
         "tooFarBack" -> "your opponent has made too many moves since your last one."
@@ -41,10 +35,9 @@ internal fun refusalText(reason: String?): String = when (reason) {
     // SYS-053
     RuleRefusals.REAL_CARD_ON_STACK -> "A card can't go into the Stack itself. Put it on the Stack as an entry instead; the card stays where it is."
     RuleRefusals.OFF_BATTLEFIELD -> "That card isn't on the battlefield. Damage, notes and until-end-of-turn marks go only on battlefield cards."
-    // SYS-059
-    RuleRefusals.AUTOMATUM_MANUAL_STACK -> "Automatum can't take over a Stack with hand-made entries. Resolve or remove them first."
-    RuleRefusals.AUTOMATUM_TEMP_PILES -> "Automatum can't take over Temp piles. Empty them first."
     // SYS-062
-    RuleRefusals.FLOW_OPEN -> "Automatum is in the middle of something. Finish it or switch Automatum off before going back."
+    RuleRefusals.FLOW_OPEN -> "Automatum is in the middle of something. Finish it before going back."
+    // SYS-069
+    RuleRefusals.AUTOMATUM_ONLY -> "The game changes only by the rules."
     else -> "This game has changed. Refresh and try again."
 }

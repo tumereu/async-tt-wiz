@@ -44,7 +44,7 @@ class IncrementalHistoryMigrationTest {
                     val root = F.root().copy(gameId = game.toString(), id = play.toString(), preparationRound = round.toString(),
                         startRequestId = start.toString(), root = PlayRoot(F.id(600 + n), F.id(6)), currentNodeId = F.id(600 + n))
                     val command = GameCommand(request.toString(), GameScope(root.gameId, playId = root.id),
-                        GameAction.Play(PlayAction.AdjustLife(F.a, "1")), F.id(900), "1")
+                        automatedPlay(PlayAction.AdjustLife(F.a, "1")), F.id(900), "1")
                     val accepted = GameplayRules.change(root, F.a, command)
                     var node = accepted.mutation!!
                     when (n) {

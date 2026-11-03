@@ -200,18 +200,6 @@ object EngineState {
     fun flowViewer(board: BoardState): String? = board.engineRecords.singleOrNull { it.id == Automatum.CONTINUATION_ID }
         ?.let { runCatching { (EngineCodec.json.parseToJsonElement(it.data).jsonObject["viewer"] as? JsonPrimitive)?.contentOrNull }.getOrNull() }
 
-    /** Whether the open shared flow on [board] waits for something done by hand (`Decision.Manual`, I-D37), read straight
-     * from its continuation record without building the engine state (#5: known at once on every board). Never throws. */
-    fun byHand(board: BoardState): Boolean = board.engineRecords.singleOrNull { it.id == Automatum.CONTINUATION_ID }?.let { record ->
-        runCatching {
-            val decision = EngineCodec.json.parseToJsonElement(record.data).jsonObject["pending"]?.jsonObject?.get("decision")?.jsonObject
-            (decision?.get("type") as? JsonPrimitive)?.contentOrNull == MANUAL
-        }.getOrDefault(false)
-    } == true
-
-    /** The serial name of `Decision.Manual`. */
-    private const val MANUAL = "manual"
-
     /**
      * What on [state]'s board the engine can't take over (§5), each as a plain sentence players read (the Automatum
      * panel, a refused cast): empty when [from] can build it: manual Stack entries (STK-016, no structured item), cards

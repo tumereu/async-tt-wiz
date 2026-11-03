@@ -6,8 +6,6 @@ enum class PlaybackAutoPause(val label: String, val defaultEnabled: Boolean = tr
     STACK_ADDED("Added to Stack"),
     STACK_REMOVED("Removed from Stack", false),
     REVEAL("Reveal"),
-    PINGS_COMMENTS("Pings / comments"),
-    RANDOM("Die / coin results", false),
     /** An opponent's change to your life or your player counters. */
     LIFE_HIT("Your life hit", false),
     /** An opponent's action on a card you own or control (also its combat copies and Stack entries) or one giving you a card. */
@@ -78,8 +76,6 @@ internal class HistoryAutoPause(private val viewer: String, private val board: B
                 explicitDisclosure && t.disclosures.any { !it.automatic && viewer in it.viewers } || t.contents?.let { change ->
                     change.to?.let { display -> change.from == null && display.cardIds.any { display.faceVisibleTo(it, viewer) } } == true
                 } == true) result += PlaybackAutoPause.REVEAL
-            if (action is PlayAction.Ping || action is PlayAction.EventComment) result += PlaybackAutoPause.PINGS_COMMENTS
-            if (action is PlayAction.RollDie || action is PlayAction.FlipCoin) result += PlaybackAutoPause.RANDOM
             if (nextAuthor != viewer && t.attention?.let { it.to == viewer && (it.from ?: turnPlayer) != viewer } == true)
                 result += PlaybackAutoPause.ATTENTION
             if (action is PlayAction.Combat && (action.action is CombatAction.Declare ||

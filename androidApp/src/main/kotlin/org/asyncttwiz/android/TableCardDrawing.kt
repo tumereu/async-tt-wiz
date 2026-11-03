@@ -42,7 +42,7 @@ internal class TableCardPainter(val density: Float, scene: TableScene, val cache
     fun size(w: Float, h: Float) = Size(w * density, h * density)
     val paint = cache.paint
     val titleScale = scene.appearance.text(CardTextScalePart.TITLE)
-    val noteScale = scene.appearance.text(CardTextScalePart.NOTE)
+    val noteScale = scene.appearance.text(CardTextScalePart.VALUES)
     val valueScale = scene.appearance.text(CardTextScalePart.VALUES)
     val titleBand = maxOf(11f, 7f * titleScale + 3f)
     val artBottom = 40f - maxOf(10f, 7f * valueScale + 3f)

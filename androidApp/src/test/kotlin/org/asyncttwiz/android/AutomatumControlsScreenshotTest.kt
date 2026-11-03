@@ -197,7 +197,8 @@ class AutomatumControlsScreenshotTest {
             "With Automatum on, Alice's quick-actions row in her draw step is three toggles, Full control (off), Skip if no choice (on) and Autotap mana (on), beside the step arrow; there are no manual quick actions.")
     }
 
-    // I-D46 (c), SYS-063, SYS-071, I-D47: the toggles change Skip when I have no choice in the game, Full control and
+    // I-D46 (c), SYS-063, SYS-071, SYS-003, I-D47: the toggles change Skip when I have no choice in the game (sent at once,
+    // no confirmation or Send), Full control and
     // Autotap mana on the device; holding one says what it does
     @Test fun togglesChangeTheSettings() {
         val play = board(lands = 2)

@@ -304,7 +304,6 @@ class AutomatumChoicesScreenshotTest {
         val after = aliceCasts(board(odd))
         assertFalse(Automatum.flowOpen(after.board), "nothing waits for the players")
         assertTrue(after.board.stackEffects.isEmpty(), "the spell resolved")
-        assertNotEquals(AutomatumStep.Done, AutomatumStep.of(after))
         val skipped = tree!!.nodes.values.single { (it.action as? PlayAction.Mtg)?.action is MtgAction.Skipped }
         assertEquals("Automatum skipped what it can't do yet: Rearrange the permanents on the battlefield however you like.",
             historyText(skipped, null, f.a).description)

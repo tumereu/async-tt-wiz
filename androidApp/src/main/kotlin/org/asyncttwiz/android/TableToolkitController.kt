@@ -281,13 +281,8 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
         if (cast.open) { busyShake(); return false }
         val until = when (intent) {
             is TableActionIntent.Next -> {
-                // I-D46 d: the step arrow's "Done" answers Automatum's "By hand" choice (I-D37); at the viewer's pause
-                // held behind the live game it returns to it (STK-039), on the Stack or an empty one (UI review round 2 #1:
-                // the arrow is the panels' only way on)
-                if (Automatum.flowOpen(play.board) && AutomatumBoards.byHand(play)) {
-                    val manual = flows.view?.takeIf { it.play.board === play.board }?.decision as? arcanum.engine.decision.Decision.Manual
-                    if (manual != null) { error = null; return flows.answer(arcanum.engine.decision.Answer.Done) }
-                }
+                // At the viewer's pause held behind the live game the arrow returns to it (STK-039), on the Stack or an
+                // empty one (UI review round 2 #1: the arrow is the panels' only way on)
                 if ((CombatStackRules.stack(play.board).cards.isNotEmpty() || pause.ownPause(play, viewer)) &&
                     pause.passBehind(play.currentNodeId)) return true
                 org.asyncttwiz.automatum.StepFlow.Until.Pass

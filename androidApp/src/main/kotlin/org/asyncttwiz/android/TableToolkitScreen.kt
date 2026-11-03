@@ -203,7 +203,7 @@ internal fun attackTargetChoices(play: PlayState, names: Map<String, String>, vi
 
 /** Target picture (player avatar or card art) beside its full name; the current target is marked and inert. */
 @Composable
-private fun AttackTargetRow(play: PlayState, cardId: String?, label: String, defender: AccountIdentity?,
+internal fun AttackTargetRow(play: PlayState, cardId: String?, label: String, defender: AccountIdentity?,
     current: Boolean, enabled: Boolean, onClick: () -> Unit) {
     val ink = MenuInk.copy(alpha = if (enabled || current) 1f else .38f)
     // The same opaque, bordered, shadowed cell as every other floating popup control; the gaps stay outside.

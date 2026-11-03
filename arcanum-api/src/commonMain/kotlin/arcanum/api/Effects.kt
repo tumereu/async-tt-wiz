@@ -225,6 +225,11 @@ sealed interface Effect {
     @Serializable @SerialName("reveal-until") data class RevealUntil(
         val filter: ObjectFilter, val library: Players, val count: Value,
         val reveal: Boolean, val into: Zone? = null, val foundBind: String? = null, val restBind: String? = null,
+        // sos
+        /** Instead of [count] matching cards: until the matching cards turned over have [Total.property] adding up to at least
+         * [Total.atLeast] ("exile cards from the top of your library until you exile cards with total mana value 4 or greater"); every
+         * card turned over is then found ([foundBind]), [count] isn't used. */
+        val totalAtLeast: Total? = null,
     ) : Effect
     /** Create an emblem (CR 114) with [abilities] in the command zone of [players]; "you" in them is its owner, and the
      * names and choices they use are fixed when it is created. */

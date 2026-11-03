@@ -213,6 +213,14 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     private fun snap0Abilities(): List<AbilityInstance> = plain.view[itemId]?.characteristics?.abilities.orEmpty()
 
+    /** sos: the card's abilities and those other objects give it as the spell it is becoming ("Each instant and sorcery spell you cast has
+     * casualty 1": the spell has it as its costs are determined, CR 601.2a, 601.2b), seen with the provisional item on the Stack. */
+    private fun withGrantedAsSpell(): List<AbilityInstance> {
+        val own = snap0Abilities()
+        val origins = own.map { it.origin }.toSet()
+        return own + snap.view[itemId]?.characteristics?.abilities.orEmpty().filter { it.origin !in origins }
+    }
+
     private fun spellInstructions(): Instructions {
         if (overloaded) {
             snap0Abilities().firstNotNullOfOrNull { (it.ability as? Keyword.Overload)?.instructions }?.let { return it }
@@ -261,7 +269,7 @@ internal class Plan(private val base: GameState, val c: Continuation.Announcing)
 
     /** Static abilities of the spell with [Mechanic.AdditionalCost], by origin. */
     val additionalCosts: List<Pair<AbilityInstance, Mechanic.AdditionalCost>> = if (!isSpell) emptyList() else
-        snap0Abilities().flatMap { inst ->
+        withGrantedAsSpell().flatMap { inst ->
             (inst.ability as? Ability.Static)?.mechanics.orEmpty().filterIsInstance<Mechanic.AdditionalCost>().map { inst to it }
         }
 

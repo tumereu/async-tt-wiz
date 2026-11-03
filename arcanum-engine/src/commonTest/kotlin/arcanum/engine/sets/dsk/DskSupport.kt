@@ -24,6 +24,8 @@ internal object Dsk {
     val shock = Cards.invent("Hallway Spark", "{R}", "Instant", "Hallway Spark deals 2 damage to any target.")
     val ponder = Cards.invent("Hallway Study", "{U}", "Sorcery", "Draw a card.")
     val heal = Cards.invent("Hallway Balm", "{W}", "Instant", "You gain 2 life.")
+    val doom = Cards.invent("Hallway Doom", "{B}", "Instant", "Destroy target creature.")
+    val shatter = Cards.invent("Hallway Shatter", "{R}", "Instant", "Destroy target artifact.")
     val pump = Cards.invent("Hallway Vigor", "{G}", "Instant", "Target creature gets +1/+1 until end of turn.")
 }
 

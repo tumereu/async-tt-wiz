@@ -201,6 +201,7 @@ internal object Tla {
     val SCRY_OR_SURVEIL_LOOK_CAST = Regex("""Whenever you scry or surveil, look at the top card of your library\. You may cast that card without paying its mana cost\. Do this only once each turn\.""")
     val RETURN_GRANTER_TO_HAND = Regex("""Return (.+) to its owner's hand\.""")
     val ADD_X_ANY_ONE_COLOR_TYPE_IN_COMMON = Regex("""\{T\}: Add X mana of any one color, where X is the greatest number of (.+?) that have a creature type in common\.""")
+    val YOU_MAY_IF_YOU_DO_AND_PUT = Regex("""(You may [^.]+)\. If you do, ([^.]+?) and (put [^.]+)\.""")
     val TARGET_PLAYER_SCRIES = Regex("""Target player (scries|surveils) (\w+)\.""")
     val WHENEVER_YOU_BEND = Regex("""Whenever (you waterbend, earthbend, firebend, or airbend), (.+)""")
     val PUT_KEYWORD_COUNTER = Regex("""[Pp]ut an? ([a-z]+ [a-z]+) counter on (.+)\.""")

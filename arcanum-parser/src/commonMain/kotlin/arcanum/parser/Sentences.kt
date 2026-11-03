@@ -11695,6 +11695,21 @@ internal class Sentences(
 
     /** tla chunk 03: black, red, green and multicoloured effect wordings. */
     private fun tlaEffect3(sentence: String, context: Context): List<Step>? {
+        // tla chunk 14: "You may sacrifice another creature or artifact. If you do, draw a card and put a +1/+1 counter on this creature." (both
+        // parts happen only if you do, CR 118.12)
+        Tla.YOU_MAY_IF_YOU_DO_AND_PUT.matchEntire(sentence)?.let { m ->
+            val first = effect("${m.groupValues[1]}. If you do, ${m.groupValues[2]}.", context) ?: return@let
+            val last = first.lastOrNull() as? Step.If ?: return@let
+            val more = effect(tlaSentence(m.groupValues[3]), context) ?: return@let
+            return first.dropLast(1) + last.copy(then = last.then + more)
+        }
+        // tla chunk 14: "Whenever another nontoken creature dies, you may exile it." on a card that refers to the cards exiled with it: the
+        // card is kept as card memory (CR 607.2a)
+        if (linkedExile && sentence.equals("You may exile it.", ignoreCase = true) && (context.event as? EventPattern.ZoneChange)?.to == Zone.Graveyard &&
+            !context.selfDied()) {
+            return listOf(Step.May(listOf(Step.Do(Effect.Move(Objects.EventObject(EventRole.After), Destination(Zone.Exile), postBind = "exiled")),
+                Step.Do(Effect.Remember(EXILED_WITH, Objects.Bound("exiled")))), player = Players.You))
+        }
         // "Sacrifice this enchantment. If you do, scry 2." (CR 701.21a: it may be gone already)
         Tla.SACRIFICE_SELF_IF_YOU_DO.matchEntire(sentence)?.takeIf { isSelf(it.groupValues[1]) }?.let { m ->
             val then = instructions(m.groupValues[2]) ?: return null

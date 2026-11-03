@@ -507,6 +507,7 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        MechanicWordings.event(text)?.let { return it }
         EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
@@ -912,6 +913,7 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        MechanicWordings.condition(text, self)?.let { return it }
         SpmPhrases.condition(text, self)?.let { return it } // spm
         TlaPhrases.condition(text, self)?.let { return it } // tla
         EclPhrases.condition(text, self)?.let { return it } // ecl

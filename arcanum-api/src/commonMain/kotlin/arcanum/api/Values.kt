@@ -97,6 +97,8 @@ sealed interface Value {
     @Serializable @SerialName("mana-in-pool") data class ManaInPool(val players: Players) : Value
     /** The most of [objects] that share one value of [quality] ("the greatest number of creatures you control that have a creature type in
      * common"; a changeling shares every creature type). */
+    /** How many times the Ring has tempted [players] this game (CR 701.54c). */
+    @Serializable @SerialName("ring-temptations") data class RingTemptations(val players: Players) : Value
     @Serializable @SerialName("most-sharing") data class MostSharing(val objects: Objects, val quality: SharedQuality) : Value
 }
 

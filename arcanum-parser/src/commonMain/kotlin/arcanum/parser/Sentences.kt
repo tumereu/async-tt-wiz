@@ -160,6 +160,7 @@ internal class Sentences(
     private var triggerIt: Pair<Objects, Zone?>? = null
 
     fun line(line: String): Ability? {
+        MechanicWordings.static(line, ::isSelf, OracleParser::keyword) { Sentences(setOf("this creature")).line(it) }?.let { return it }
         spmLine(line)?.let { return it } // spm
         tlaLine(line)?.let { return it } // tla
         eclLine(line)?.let { return it } // ecl
@@ -2830,6 +2831,7 @@ internal class Sentences(
     private fun effectRules(sentence: String, context: Context): List<Step>? {
         // "Draw two cards. Then discard a card …": a sentence that starts with "Then" follows the one before it.
         if (sentence.startsWith("Then ")) return effect(sentence.removePrefix("Then ").replaceFirstChar { it.uppercase() }, context)
+        MechanicWordings.effect(sentence)?.let { return it }
         spmEffect(sentence, context)?.let { return it } // spm
         tlaEffect(sentence, context)?.let { return it } // tla
         eclEffect(sentence, context)?.let { return it } // ecl

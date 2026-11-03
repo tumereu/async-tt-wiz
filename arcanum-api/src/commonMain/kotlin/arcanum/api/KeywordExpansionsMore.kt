@@ -6,6 +6,30 @@ package arcanum.api
  */
 internal object KeywordExpansionsMore {
     fun expand(keyword: Keyword): List<Ability>? = when (keyword) {
+        // CR 702.95a: "When this creature enters, if you control both this creature and another creature and both are unpaired, you may
+        // pair this creature with another unpaired creature you control for as long as both remain creatures on the battlefield under
+        // your control" and "Whenever another creature you control enters, if you control both that creature and this one and both are
+        // unpaired, you may pair that creature with this creature …"
+        Keyword.Soulbond -> {
+            val unpairedYours = ObjectFilter.And(listOf(ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You),
+                ObjectFilter.Not(ObjectFilter.Paired)))
+            val other = ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)), unpairedYours))
+            val entered = Objects.EventObject(EventRole.After)
+            listOf(
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.Is(Objects.Self), to = Zone.Battlefield)),
+                    Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.Pair(Objects.Self, Objects.Each(other)))), Players.You))),
+                    interveningIf = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, unpairedYours), Condition.Exists(other, 1)))),
+                Ability.Triggered(Trigger.On(EventPattern.ZoneChange(ObjectFilter.And(listOf(ObjectFilter.Not(ObjectFilter.Is(Objects.Self)),
+                    ObjectFilter.Type(CardType.Creature), ObjectFilter.ControlledBy(PlayerFilter.You))), to = Zone.Battlefield)),
+                    Instructions(steps = listOf(Step.May(listOf(Step.Do(Effect.Pair(Objects.Self, entered))), Players.You))),
+                    interveningIf = Condition.And(listOf(Condition.ObjectMatches(Objects.Self, unpairedYours), Condition.ObjectMatches(entered, unpairedYours)))),
+            )
+        }
+        // CR 702.154a, b: the optional cost to attack is the engine's (a declared attacker's enlisted creature, CR 508.1g); the linked
+        // trigger: "When you do, this creature gets +X/+0 until end of turn, where X is the tapped creature's power."
+        Keyword.Enlist -> listOf(Ability.Triggered(Trigger.On(EventPattern.Enlists(ObjectFilter.Is(Objects.Self))), steps(Effect.ApplyMechanics(
+            listOf(Mechanic.ModifyPowerToughness(Value.Of(NumericProperty.Power, Objects.EventObject(EventRole.OtherCombatant), Combine.Single), Value.Fixed(0))),
+            self, Duration.EndOfTurn))))
         // CR 702.109a: "You may cast this card by paying [cost] rather than its mana cost," "If this spell's dash cost was paid, return
         // the permanent this spell becomes to its owner's hand at the beginning of the next end step," and "As long as this permanent's
         // dash cost was paid, it has haste." (the return as an end step trigger of the permanent: the first end step after it entered)

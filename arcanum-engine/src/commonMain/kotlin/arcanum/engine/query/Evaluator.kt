@@ -145,6 +145,8 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         }
         is Objects.Union -> objects.parts.flatMap { objects(it) }.distinct()
         Objects.Affected -> listOfNotNull(ctx.affected)
+        // CR 702.95b
+        is Objects.PairedWith -> objects(objects.of).mapNotNull { arcanum.engine.soulbond.Soulbond.partner(state, it) }.distinct()
         is Objects.LinkedTo -> boundObjects(selfMemory(objects.keyword.id))
         is Objects.PaidWith -> objects(objects.of).flatMap { id ->
             boundObjects(facts(id)?.paidWith?.get(objects.way.toString()))
@@ -192,7 +194,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         is ObjectFilter.Not -> could(filter.filter, id, !result)
         ObjectFilter.Any, is ObjectFilter.Is, is ObjectFilter.Category, is ObjectFilter.ControlledBy, is ObjectFilter.OwnedBy,
         is ObjectFilter.InZone, is ObjectFilter.AbilityOf, is ObjectFilter.WasCast, is ObjectFilter.WasPaid,
-        is ObjectFilter.HasStatus, ObjectFilter.SummoningSick, is ObjectFilter.HasCounter, is ObjectFilter.Targets,
+        is ObjectFilter.HasStatus, ObjectFilter.SummoningSick, ObjectFilter.Paired, is ObjectFilter.HasCounter, is ObjectFilter.Targets,
         is ObjectFilter.Blocking, is ObjectFilter.BlockedBy,
         is ObjectFilter.Attached, is ObjectFilter.ThisTurn -> matches(filter, id) == result
         else -> true
@@ -337,6 +339,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
             is ObjectFilter.Blocking -> objects(filter.objects).let { them -> state.combat?.blockers.orEmpty().any { b -> b.id == id && b.attackers.any { it in them } } }
             is ObjectFilter.BlockedBy -> objects(filter.objects).let { them -> state.combat?.blockers.orEmpty().any { b -> b.id in them && id in b.attackers } }
             ObjectFilter.SummoningSick -> o != null && summoningSick(o, controllerOf(id))
+            ObjectFilter.Paired -> arcanum.engine.soulbond.Soulbond.partner(state, id) != null
             is ObjectFilter.HasCounter -> counterList(id)?.let { counters ->
                 (if (filter.kind == null) counters.sumOf { it.count } else counters.filter { it.kind == filter.kind }.sumOf { it.count }) >= filter.atLeast
             } ?: false
@@ -592,6 +595,7 @@ internal class Evaluator(val board: Board, val ctx: Context) {
         // tla: unspent mana (CR 106.4)
         is Value.ManaInPool -> players(value.players).sumOf { state.player(it).manaPool.size }
         // tla: the most objects sharing one value of the quality (a changeling shares every creature type, CR 702.73a)
+        is Value.RingTemptations -> players(value.players).sumOf { arcanum.engine.ring.TheRing.temptations(state, it) }
         is Value.MostSharing -> mostSharing(value.quality, objects(value.objects))
         is Value.Of -> combine(value.how, objects(value.objects).map { property(value.property, it) })
         is Value.PlayerCounters -> players(value.players).sumOf { state.player(it).counters(value.kind) }

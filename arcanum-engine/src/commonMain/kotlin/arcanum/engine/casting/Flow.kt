@@ -42,9 +42,9 @@ internal class Snapshot(val state: GameState, private val viewOf: () -> View = {
 
     fun evaluator(
         you: PlayerId, self: ObjectId? = null, names: Bindings = Bindings.EMPTY, stackItem: StackItem? = null,
-        tested: ObjectId? = null, slotPlayer: PlayerId? = null, holder: PlayerId? = null,
+        tested: ObjectId? = null, slotPlayer: PlayerId? = null, holder: PlayerId? = null, affected: ObjectId? = null,
     ) = Evaluator(board, Context(you = you, self = self, names = names, stackItem = stackItem, tested = tested,
-        slotPlayer = slotPlayer, holder = holder))
+        slotPlayer = slotPlayer, holder = holder, affected = affected))
 
     /** Last known information of [id] as everyone can see it now (CR 608.2h, D33). */
     fun snapshot(id: ObjectId): ObjectSnapshot? {

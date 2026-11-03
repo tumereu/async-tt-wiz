@@ -333,6 +333,10 @@ internal object Effects {
                 names = scope.names,
             )))
             is Effect.RevealUntil -> revealUntil(scope, effect)
+            // CR 702.95a, c: soulbond's pairing
+            is Effect.Pair -> scope.objects(effect.objects).firstOrNull()?.let { first ->
+                arcanum.engine.soulbond.Soulbond.pair(act, scope.actor, scope.self, first, scope.objects(effect.with))
+            }
             is Effect.CreateEmblem -> scope.players(effect.players).forEach { p -> createEmblem(scope, p, effect.abilities) }
             is Effect.Action -> keywordAction(scope, effect.action, effect.bind)
             // CR 709.5f: the chooser picks a locked door of each (or the door named)
@@ -1312,6 +1316,8 @@ internal object Effects {
                 }
                 scope.bind(bind, NamedValue.Objects(blighted))
             }
+            // CR 701.54: the Ring tempts the player doing it
+            KeywordAction.TheRingTemptsYou -> arcanum.engine.ring.TheRing.tempt(act, cause, scope.actor)
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
     }

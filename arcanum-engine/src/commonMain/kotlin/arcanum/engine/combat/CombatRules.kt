@@ -63,6 +63,28 @@ internal object CombatRules {
             r.players?.let { e.players(it).map { p -> TargetRef.Player(p) } }.orEmpty()
     }
 
+    /** CR 702.154a, c, d: each attacker enlists at most one creature per enlist ability it has; each creature enlisted is an
+     * untapped creature [player] controls, chosen to attack by nobody, with haste or under their control since the turn began, and
+     * enlisted only once (it is tapped as the cost, CR 508.1g). */
+    private fun enlistProblem(snap: Snapshot, player: PlayerId, attacks: List<Attack>): String? {
+        val all = attacks.flatMap { it.enlisted }
+        if (all.isEmpty()) return null
+        if (all.distinct().size != all.size) return "A creature is enlisted only once"
+        val attackers = attacks.map { it.attacker }.toSet()
+        attacks.filter { it.enlisted.isNotEmpty() }.forEach { a ->
+            val instances = snap.view[a.attacker]?.characteristics?.abilities.orEmpty().count { it.ability == arcanum.api.Keyword.Enlist }
+            if (a.enlisted.size > instances) return "${a.attacker} has $instances enlist abilities (CR 702.154d)"
+            a.enlisted.forEach { id ->
+                val o = snap.state.obj(id) ?: return "$id isn't on the battlefield"
+                val view = snap.view[id]
+                val ok = id !in attackers && onBattlefield(snap, id) && creature(snap, id) && !o.tapped && snap.board.controller(id) == player &&
+                    view != null && (!view.summoningSick || view.has { it == Mechanic.IgnoresSummoningSickness })
+                if (!ok) return "${a.attacker} can't enlist $id (CR 702.154a)"
+            }
+        }
+        return null
+    }
+
     /** Why [attacks] isn't a legal declaration for [player], or null (CR 508.1a–d): it breaks a restriction, or obeys
      * fewer requirements than a declaration that breaks none could (CR 508.1d). */
     fun illegalAttack(snap: Snapshot, player: PlayerId, attacks: List<Attack>): String? {
@@ -85,6 +107,7 @@ internal object CombatRules {
     private fun attackRestriction(snap: Snapshot, player: PlayerId, attacks: List<Attack>): String? {
         if (attacks.map { it.attacker }.distinct().size != attacks.size) return "A creature attacks only once"
         attacks.forEach { a -> if (!canAttack(snap, player, a.attacker, a.target)) return "${a.attacker} can't attack ${a.target}" }
+        enlistProblem(snap, player, attacks)?.let { return it }
         // CR 508.1c: "can't attack alone"
         attacks.singleOrNull()?.let { a ->
             if (mechanics(snap, a.attacker).any { it.mechanic == Mechanic.CantAttackAlone }) return "${a.attacker} can't attack alone"
@@ -216,7 +239,8 @@ internal object CombatRules {
             }
         }
         val attackerOk = mechanics(snap, attacker).none { applied ->
-            val e = snap.evaluator(applied.controller, self = applied.source ?: attacker, names = applied.names)
+            // "can't be blocked by creatures with greater power" given by another object compares with the attacker (Objects.Affected)
+            val e = snap.evaluator(applied.controller, self = applied.source ?: attacker, names = applied.names, affected = attacker)
             when (val m = applied.mechanic) {
                 Mechanic.CantBeBlocked -> true
                 is Mechanic.CanBeBlockedOnlyBy -> !e.matches(m.blockers, blocker)

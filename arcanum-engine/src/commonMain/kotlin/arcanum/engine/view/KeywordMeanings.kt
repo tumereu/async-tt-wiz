@@ -126,8 +126,6 @@ object KeywordMeanings {
         at(Moment.Enters) {
             listOf(Keyword.HiddenAgenda)
         }
-        at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
-        at(Moment.Attacks) { listOf(Keyword.Enlist) }
         at(Moment.AttacksOrBlocks) { listOf(Keyword.Banding) }
         at(Moment.Dies, Moment.Cast) { listOf(Keyword.Haunt) }
         m

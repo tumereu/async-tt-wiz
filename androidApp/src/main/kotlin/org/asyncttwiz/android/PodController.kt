@@ -103,10 +103,11 @@ class PodController(private val api: Pods, private val cubes: Cubes, private val
     private var buildHistory by mutableStateOf<PodBuildHistory?>(null)
     /** The pick/grid/Build card inspector (Next face, Enlarge artwork); personal, closed on pod change. */
     val inspection = CardInspectionController()
-    internal val setPicker = PodSetPickerController(setRepository, worker, post,
+    internal val setPicker: PodSetPickerController = PodSetPickerController(setRepository, worker, post,
         choosing = { set -> state = state.copy(sourcePreview = PodSource(kind = PodSourceKind.SET, setCode = set.code, setName = set.name)) },
         failed = { state = state.copy(sourcePreview = null, error = "Could not load source.") }) { upload ->
-        val source = PodSetSource(upload.snapshot, upload.definitions.definitions)
+        // I-D52 (pivot review #2): the set's support as this device worked it out goes with it, for the server to check
+        val source = PodSetSource(upload.snapshot, upload.definitions.definitions, setPicker.state.support(upload.snapshot.setCode))
         state = state.copy(sourcePreview = null, sourceHint = null)
         if (state.creating != null) state = state.copy(creating = state.creating?.copy(cubeId = null, setSource = source))
         else editSetup(setSource = source)

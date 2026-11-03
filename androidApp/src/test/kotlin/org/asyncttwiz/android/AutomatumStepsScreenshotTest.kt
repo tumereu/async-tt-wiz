@@ -229,7 +229,7 @@ class AutomatumStepsScreenshotTest {
         assertEquals(SharedFlowController.STACK_WAITING, waiting.error)
     }
 
-    // TRN-061, TRN-004, I-D40: Bob presses Next step while Alice holds priority in her main phase: he is asked first and
+    // TRN-061, TRN-004, SYS-037, I-D40: Bob presses Next step while Alice holds priority in her main phase: he is asked first and
     // nothing is sent until he confirms; Cancel sends nothing; confirmed, it is Alice's pass as if she had pressed it
     @Test fun steppingForTheOtherPlayerAsksFirst() {
         val play = board(fullControl = setOf(f.b))

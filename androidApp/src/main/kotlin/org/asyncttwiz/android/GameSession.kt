@@ -403,7 +403,8 @@ class GameSession(private val connection: GameConnection, private val credential
         // Only an accepted current suggestion is actionable; a local prediction is not acceptance authority.
         val play = acceptedPlay(current) ?: return false
         if (ResultActions.capture(current, play) != target.play || play.board.resultSuggestion?.id != target.suggestionId ||
-            play.board.resultSuggestion?.author == actor || actor !in play.board.players.map { it.accountId }) return false
+            (play.board.resultSuggestion?.author == actor && play.board.resultSuggestion?.byRules != true) ||
+            actor !in play.board.players.map { it.accountId }) return false
         if (resultIntents.values.any { it.command.scope.playId == target.play.playId && it.command.action == GameAction.AcceptResult(target.suggestionId) }) return false
         val command = resultCommand(target.play, GameAction.AcceptResult(target.suggestionId)) ?: return false
         return enqueueResult(command, actor)

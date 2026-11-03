@@ -47,11 +47,13 @@ class AutomatumOnlyTest {
         assertEquals(RuleRefusals.AUTOMATUM_ONLY, AutomatumOnly.refusal(GameplayTree(state), a, command(batch)))
     }
 
-    // SYS-057, SYS-069: an automated event or batch (one member tagged is enough) is the engine's: it goes on to the reducer
+    // SYS-057, SYS-069, SYS-073: an automated batch (its first member names the board it was planned on) is the engine's:
+    // it goes on to the reducer; a tagged single event isn't Automatum's (pivot review #4)
     @Test fun automatedChangesGoOn() {
         val state = state()
         val tap = PlayAction.SetTapped(gameplayId(10), true)
-        assertNull(AutomatumOnly.refusal(GameplayTree(state), a, command(GameAction.Play(tap, MtgTag(listOf("tapped-for-mana"))))))
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY,
+            AutomatumOnly.refusal(GameplayTree(state), a, command(GameAction.Play(tap, MtgTag(listOf("tapped-for-mana"))))))
         assertNull(AutomatumOnly.refusal(GameplayTree(state), a, command(GameAction.PlayBatch(listOf(tap, PlayAction.NextStep),
             listOf(MtgTag(board = MtgFacts.digest(state.board)), null)))))
         // Other commands aren't play commands
@@ -78,22 +80,40 @@ class AutomatumOnlyTest {
         assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(state, PlayAction.Mtg(MtgAction.SetRecord(effect.id, null, effect))))
     }
 
-    // TRN-062 (I-D49, CR 103.5): a player's own opening — mulligan, its count, own hand cards to the bottom of own
-    // library, Ready — goes while they are mulliganing on turn 1, and only then
+    // TRN-062 (I-D49, CR 103.5): a player's own opening — a mulligan with its count, or keeping (the owed hand cards to the
+    // bottom of their own library, then Ready) — goes while they are mulliganing on turn 1, and only then, and only as
+    // those batches (pivot review #5)
     @Test fun theOpeningGoesOnlyWhileMulliganing() {
         val opening = state(opening = true)
+        val twice = opening.copy(board = opening.board.copy(players = opening.board.players.map {
+            if (it.accountId == a) it.copy(mulligans = 2) else it }))
+        fun batch(state: PlayState, actions: List<PlayAction>, actor: String = a) =
+            AutomatumOnly.refusal(GameplayTree(state), actor, command(GameAction.PlayBatch(actions)))
         val mulligan = PlayAction.Mulligan(library, hand, listOf(gameplayId(12)), 7, RandomV1.encodeSeed(ByteArray(32)))
         val bottom = move(opening, 12, MoveDestination(library, MoveInsertion.BOTTOM))
-        val actions = listOf(mulligan, PlayAction.Mtg(MtgAction.SetMulligans(0, 1)), bottom, PlayAction.SetStatus(""))
-        for (action in actions) assertNull(refusal(opening, action), "$action")
+        val take = listOf(mulligan, PlayAction.Mtg(MtgAction.SetMulligans(0, 1)))
+        val keep = listOf(PlayAction.SetStatus(""))
+        val keepOwing = listOf(bottom, PlayAction.SetStatus(""))
+        assertNull(batch(opening, take))
+        assertNull(batch(opening, keep), "the first mulligan is free: nothing to the bottom")
+        assertNull(batch(twice, keepOwing))
+        assertNull(batch(twice, listOf(mulligan, PlayAction.Mtg(MtgAction.SetMulligans(2, 3)))))
+        // Only as those batches: no count without a mulligan nor a mulligan without its count, no other count, no bottom
+        // without keeping, exactly the owed cards
+        for (wrong in listOf(listOf(mulligan), listOf(PlayAction.Mtg(MtgAction.SetMulligans(0, 1))), listOf(bottom),
+            listOf(mulligan, PlayAction.Mtg(MtgAction.SetMulligans(1, 0))), listOf(mulligan, PlayAction.Mtg(MtgAction.SetMulligans(0, 2))),
+            keepOwing, listOf(PlayAction.SetStatus(""), bottom)))
+            assertEquals(RuleRefusals.AUTOMATUM_ONLY, batch(opening, wrong), "$wrong")
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY, batch(twice, keep), "one card owed")
         // Bob's opening is his own: not Alice's hand and library
-        assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(opening, mulligan, b))
-        assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(opening, bottom, b))
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY, batch(opening, take, b))
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY, batch(twice, keepOwing, b))
         // Not to the top, and no other status
-        assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(opening, move(opening, 12, MoveDestination(library, MoveInsertion.TOP))))
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY, batch(twice, listOf(move(twice, 12, MoveDestination(library, MoveInsertion.TOP)),
+            PlayAction.SetStatus(""))))
         assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(opening, PlayAction.SetStatus("Keeping")))
         // Once Ready, or after the first turn, none of it
         for (state in listOf(state(), state(opening = true, turn = "2")))
-            for (action in actions) assertEquals(RuleRefusals.AUTOMATUM_ONLY, refusal(state, action), "$action")
+            for (actions in listOf(take, keep)) assertEquals(RuleRefusals.AUTOMATUM_ONLY, batch(state, actions), "$actions")
     }
 }

@@ -11,6 +11,7 @@ import org.asyncttwiz.server.database.FoundationMigrations
 import org.asyncttwiz.server.database.FreshDatabase
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
+import org.asyncttwiz.server.game.boarded
 import org.asyncttwiz.server.lobby.LobbyService
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
@@ -80,7 +81,7 @@ class PodChallengeTest {
             val scope = if (action is GameAction.Play || action is GameAction.AcceptResult) GameScope(game.id, playId = summary.playId)
                 else GameScope(game.id, summary.preparationRound,
                     if (action in listOf(GameAction.AcceptInvitation, GameAction.DeclineInvitation, GameAction.Reinvite)) summary.invitationId else null)
-            val command = GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation)
+            val command = games.boarded(who, GameCommand(UUID.randomUUID().toString(), scope, action, stream.streamId, stream.generation))
             assertTrue(games.admit(who, hello, connection, command) is GameReceipt)
             assertTrue(games.executeOne())
             return games.results(who, game.id, listOf(command.requestId)).statuses.single().result!!

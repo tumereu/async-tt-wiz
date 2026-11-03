@@ -40,7 +40,6 @@ class PivotReviewGateTest {
     // made-up meaning. Expected: a tag without the board digest of the board it applies to (or a tagged single event)
     // isn't Automatum's and is refused like any change by hand. (This only stops a stray or old client path; a client
     // made to cheat can still compute the digest: the server can't check Automatum's rules without running the engine.)
-    @Ignore("pivotreview #4: a hand-made tag makes any change Automatum's")
     @Test fun aHandMadeTagIsNotAutomatums() {
         val state = state()
         val tree = GameplayTree(state)
@@ -58,7 +57,6 @@ class PivotReviewGateTest {
     // pivotreview #5 — TRN-062 (I-D49, CR 103.5): during the opening the gate takes any change of the player's own
     // mulligan count. Alice took two mulligans (she owes one card), then sets her count back to 0 on its own and keeps
     // all seven. Expected: the count only goes up by one, together with a Mulligan in the same batch.
-    @Ignore("pivotreview #5: the opening's mulligan count can be set back by hand")
     @Test fun theMulliganCountOnlyGoesUpWithAMulligan() {
         val opening = state(opening = true, turn = "1")
         val twice = opening.copy(board = opening.board.copy(players = opening.board.players.map {

@@ -27,7 +27,7 @@ import kotlin.test.assertFailsWith
 
 /** Marvel Super Heroes' green, multicolored, artifact and land cards in play (parser chunks 15–20). Thundar
  * Allfatherson (double prowess) and Syndicate Synthoids (entering surveil 2) repeat tested templates; Scientist Supreme
- * of the Syndicate (copying an ability on the Stack) is left to [MshMechanicsScenariosTest]-style ability copies. */
+ * of the Syndicate is in [MshAbilityCopyCardsScenariosTest]. */
 class MshMulticolorArtifactAndLandCardsScenariosTest {
     private val tinySoldiersArmy = Cards.invent("Tiny Soldiers' Army", "{2}{G}", "Creature — Insect", "When this creature enters, create a Food token or a Treasure token. (A Food token is an artifact with \"{2}, {T}, Sacrifice this token: You gain 3 life.\" A Treasure token is an artifact with \"{T}, Sacrifice this token: Add one mana of any color.\")", "3/2")
     private val callTheCleanupCrew = Cards.invent("Call the Cleanup Crew", "{1}{G}", "Sorcery", """

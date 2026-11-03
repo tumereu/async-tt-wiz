@@ -88,6 +88,10 @@ sealed interface Value {
     // sos
     /** [base] raised to the power [exponent] ("draws 2ˣ cards": 2⁰ = 1); a negative exponent counts as 0. */
     @Serializable @SerialName("exponential") data class Exponential(val base: Int, val exponent: Value) : Value
+    // spm
+    /** How many turns [players] (one player) has had this game, the current turn included ("during your first, second, or third
+     * turns of the game": at most 3 during your turn). */
+    @Serializable @SerialName("turns-taken") data class TurnsTaken(val players: Players) : Value
 }
 
 /**

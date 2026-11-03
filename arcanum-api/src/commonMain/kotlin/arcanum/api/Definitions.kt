@@ -339,6 +339,9 @@ data class TargetSlot(
     // ecl
     /** The chosen objects must all share this quality ("two target creature cards that share a creature type", CR 601.2c). */
     val sharing: SharedQuality? = null,
+    // spm
+    /** The chosen objects must all differ in this quality ("up to six target creature cards with different names", CR 601.2c). */
+    val distinct: SharedQuality? = null,
 )
 
 /** What a target can be. "Any target" is [Either] of creatures, planeswalkers and battles, and players (CR 115.4). */

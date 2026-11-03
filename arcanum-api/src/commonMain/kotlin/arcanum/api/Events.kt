@@ -146,7 +146,13 @@ sealed interface EventPattern {
     /** A player commits a crime: targets an opponent or their objects (CR 700.13). */
     @Serializable @SerialName("crime") data class CommitCrime(val players: PlayerFilter) : EventPattern
     /** A player plays a land (a special action, CR 116.2a, 305.1). */
-    @Serializable @SerialName("play-land") data class PlayLand(val lands: ObjectFilter, val players: PlayerFilter) : EventPattern
+    @Serializable @SerialName("play-land") data class PlayLand(
+        val lands: ObjectFilter, val players: PlayerFilter,
+        // spm
+        /** Only a land played from this zone ("whenever you play a land from exile"); [notFrom]: from any zone but this one ("from
+         * anywhere other than your hand"). */
+        val from: Zone? = null, val notFrom: Zone? = null,
+    ) : EventPattern
     /** An Aura, Equipment or Fortification matching [objects] becomes attached to something matching [to]. Role object
      * (the attachment). */
     @Serializable @SerialName("attach") data class Attach(val objects: ObjectFilter, val to: ObjectFilter) : EventPattern
@@ -205,6 +211,10 @@ sealed interface Trigger {
         /** With [oneOrMore]: only a batch whose objects' [Total.property] adds up to at least [Total.atLeast] ("whenever you
          * attack with creatures with total power 12 or greater"); with [nthThisTurn], only such batches count. */
         val batchTotal: Total? = null,
+        // spm
+        /** With [nthThisTurn]: each of the first [nthThisTurn] such events, not only the last of them ("whenever you draw your first or
+         * second card each turn"). */
+        val throughNth: Boolean = false,
     ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
     }

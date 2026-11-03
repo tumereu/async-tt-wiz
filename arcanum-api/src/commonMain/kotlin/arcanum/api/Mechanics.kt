@@ -412,6 +412,11 @@ sealed interface Mechanic {
         val abilities: ObjectFilter, val cost: Cost, val firstEachTurn: Boolean = false,
     ) : Mechanic
 
+    // spm
+    /** The affected players don't lose unspent mana of [colors] as steps and phases end (CR 500.4, 106.4: "You don't lose unspent
+     * red mana as steps and phases end"). */
+    @Serializable @SerialName("keeps-unspent-mana") data class KeepsUnspentMana(val colors: List<Color>) : Mechanic
+
     // ---- Replacement and prevention (CR 614, 615) ----
     /**
      * "If [event] would happen, [instead]" (CR 614). [modify] changes the event instead of replacing it entirely
@@ -509,7 +514,12 @@ sealed interface Modification {
     @Serializable @SerialName("destination") data class ChangeDestination(val to: Destination) : Modification
     @Serializable @SerialName("enters-tapped") data object EntersTapped : Modification
     @Serializable @SerialName("enters-with-counters") data class EntersWithCounters(val kind: CounterKind, val amount: Value) : Modification
-    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean) : Modification
+    @Serializable @SerialName("enters-as-copy") data class EntersAsCopy(
+        val of: ObjectFilter, val except: List<CopyException> = emptyList(), val optional: Boolean,
+        // spm
+        /** Names the object copied, for the replacement's [Mechanic.Replacement.whenApplied] ("When you do, exile that card"). */
+        val bind: String? = null,
+    ) : Modification
     @Serializable @SerialName("multiply") data class MultiplyAmount(val factor: Int) : Modification
     @Serializable @SerialName("add") data class AddAmount(val amount: Value) : Modification
     /** "As ~ enters, …" (CR 614.12): [steps] happen as part of entering, not on the Stack: pay ("you may pay 2 life. If

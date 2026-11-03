@@ -25,7 +25,13 @@ sealed interface Effect {
         val bind: String? = null,
     ) : Effect
     /** [first] and [second] each deal damage equal to their power to the other (CR 701.14). */
-    @Serializable @SerialName("fight") data class Fight(val first: Objects, val second: Objects) : Effect
+    @Serializable @SerialName("fight") data class Fight(
+        val first: Objects, val second: Objects,
+        // spm
+        /** Names the damage [first] deals to [second] ("When excess damage is dealt to the creature an opponent controls this way":
+         * [Value.Excess] reads its excess, CR 120.4a). */
+        val bind: String? = null,
+    ) : Effect
 
     @Serializable @SerialName("destroy") data class Destroy(
         val objects: Objects, val noRegeneration: Boolean = false, val preBind: String? = null, val postBind: String? = null,
@@ -124,6 +130,10 @@ sealed interface Effect {
     /** Copy a spell or ability on the Stack (CR 707.10); [newTargets] lets the copy's controller choose new ones. */
     @Serializable @SerialName("copy-spell") data class CopySpell(
         val objects: Objects, val controller: Players, val newTargets: Boolean, val bind: String? = null,
+        // spm
+        /** Exceptions to the copy ("copy that spell, except the copy isn't legendary", CR 707.9b, 707.10): part of its copiable
+         * values, so the token a permanent spell's copy becomes has them too (CR 707.10c). */
+        val except: List<CopyException> = emptyList(),
     ) : Effect
     /** Counter a spell or ability (CR 701.6); "unless its controller pays" is a [Step.Pay] by that player and a
      * [Step.If] that counters when they didn't (CR 118.12a). */

@@ -46,6 +46,9 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   `EclWordings.kt` (`Ecl`, and `EclPhrases` for values, conditions, nouns and events) and the `ecl*` functions of `Sentences.kt`, tried
   first; a face name with a comma in "transforms into [name]" is read through a comma-free alias, and a creature type chosen as a spell
   resolves ("Choose a creature type. … of the chosen type") is the chosen one, not a remembered one.
+  Avatar: The Last Airbender (`tla`): all 286 cards parse (the Sagas that transform as two faces, the five basic lands untested); its
+  rules are in `TlaWordings.kt` (`Tla`, and `TlaPhrases` for conditions and values) and the `tla*` functions of `Sentences.kt`, tried
+  first; names with " and " ("Kiro and Tide") are read with singular verbs, and "waterbend {X}" as an additional cost announces X.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

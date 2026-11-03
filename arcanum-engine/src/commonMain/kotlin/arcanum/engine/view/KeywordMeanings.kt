@@ -143,8 +143,7 @@ object KeywordMeanings {
         at(Moment.Enters, Moment.AnotherCreatureYouControlEnters) { listOf(Keyword.Soulbond) }
         at(Moment.Enters, Moment.AnotherCreatureEnters) { listOf(Keyword.Graft.Kind) }
         at(Moment.Attacks) {
-            listOf(Keyword.Provoke, Keyword.Myriad, Keyword.Melee, Keyword.Dethrone, Keyword.Enlist, Keyword.Mobilize.Kind,
-                Keyword.Firebending.Kind)
+            listOf(Keyword.Provoke, Keyword.Myriad, Keyword.Melee, Keyword.Dethrone, Keyword.Enlist, Keyword.Mobilize.Kind)
         }
         at(Moment.AttacksOrBlocks) { listOf(Keyword.Banding) }
         at(Moment.BecomesBlocked) { listOf(Keyword.Rampage.Kind) }

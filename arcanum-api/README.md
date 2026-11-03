@@ -108,6 +108,14 @@ The definition model (overview in `Definitions.kt`):
   among permanents you control, add one mana of that color"), `Mechanic.XAtMost` ("X can't be greater than …"),
   `Mechanic.LoseAllCreatureTypes` and `TargetSlot.sharing` ("two target creature cards that share a creature type"). Vivid is an
   ability word; "the number of colors among permanents you control" is `Value.CountDistinct` by colour.
+- Avatar: The Last Airbender (set `tla`): airbend (CR 701.65, `KeywordAction.Airbend`), earthbend (CR 701.66, expanded with the land's
+  return when it dies or is exiled), waterbend costs (CR 701.67, `CostPart.Waterbend` and `ManaPaymentWay.Waterbend`), "firebending X,
+  where X is …" (`Keyword.FirebendingX`; firebending's mana lasts until end of combat), the bend events (`EventPattern.Airbend`,
+  `Earthbend`, `Firebend`, `Waterbend`), `EventPattern.AbilityTriggers` ("a creature you control attacking causes a triggered ability of
+  that creature to trigger"), `Mechanic.SetName`, `Mechanic.KeepsUnspentMana` and `UnspentManaBecomes`, `GainAbilitiesOf.triggered`,
+  `Effect.Fight.bind` (the excess damage), `Effect.ExtraCombat.onlyAttackers`, `Effect.ControlNextTurn.combatPhase`,
+  `ActivationRules.minimumX` ("X can't be 0"), `Value.ManaInPool`, `Value.MostSharing`, `NumericProperty.CreatureTypes`,
+  `Objects.Granter` and `Keyword.Enchant.SLOT`.
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

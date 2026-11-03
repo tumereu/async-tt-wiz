@@ -44,7 +44,8 @@ import org.asyncttwiz.protocol.PlayZone
 /**
  * The viewer's hand with Automatum on (integration spec I-D50, ZON-079, ZON-080): a tap raises a hand card and shows its
  * cost chips; the chips choose the way to cast it and its extras; tapping the raised card (or the chosen way's chip) casts
- * it that way. The raised card is personal UI ([TableLayoutState.raised]); its chips are worked out on [work] (the
+ * it that way. A card Automatum doesn't let the player cast or play now isn't raised: it only shakes (I-D46 (b); Inspect
+ * says why). The raised card is personal UI ([TableLayoutState.raised]); its chips are worked out on [work] (the
  * Automatum worker in the app) for the board the player acts on ([current]).
  */
 internal class HandController(
@@ -70,7 +71,8 @@ internal class HandController(
     /** The chip held for its details: a way's index, or [EXTRA] + an extra's index. */
     var held by mutableStateOf<Int?>(null)
     private var generation = 0
-    private var shaken = false
+    /** The tap that raised the card still waits for its chips: none castable lowers it again with a shake. */
+    private var answering = false
     private var board: Any? = null
 
     /** A tap on [cardId] in a hand (ZON-079): the viewer's own card is raised, or cast when it is the raised one; a card
@@ -79,15 +81,15 @@ internal class HandController(
         val play = current() ?: return false
         if (!CastController.ownHand(play, cardId, viewer)) { lower(); return true }
         if (raised == cardId) return castRaised()
+        // I-D50, I-D46 (b): a card Automatum doesn't allow now only shakes: no raise, no chips (Inspect says why)
+        if (unplayable(play, cardId) == true) { lower(); shake(cardId); return true }
         raise(play, cardId)
         return true
     }
 
     private fun raise(play: PlayState, cardId: String) {
         layout.value = layout.value.copy(raised = cardId)
-        choice = Choice(); options = null; held = null; shaken = false
-        // I-D46 (b): a card Automatum doesn't allow now shakes as it rises (Inspect says why)
-        if (unplayable(play, cardId) == true) { shaken = true; shake(cardId) }
+        choice = Choice(); options = null; held = null; answering = true
         compute(play)
     }
 
@@ -187,9 +189,11 @@ internal class HandController(
             }
         }) { result ->
             if (run != generation || raised != card) return@run
+            // A card raised before Automatum knew it can't be cast or paid for now goes back down with a shake
+            val tapped = answering
+            answering = false
+            if (tapped && (result == null || result.ways.none { it.affordable })) { lower(); shake(card); return@run }
             options = result
-            // A card the player can't cast or pay for now rises with a shake (once), with no sources outlined
-            if (!shaken && (result == null || result.ways.none { it.affordable })) { shaken = true; shake(card) }
         }
     }
 

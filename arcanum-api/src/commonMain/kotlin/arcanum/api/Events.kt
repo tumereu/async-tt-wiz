@@ -182,6 +182,10 @@ sealed interface Trigger {
          * player dealt damage, each with its own "that player" and amount). */
         val batchPerPlayer: Boolean = false,
         val nthThisTurn: Int? = null, val during: TurnStep? = null,
+        // hob
+        /** With [oneOrMore]: only a batch whose objects' [Total.property] adds up to at least [Total.atLeast] ("whenever you
+         * attack with creatures with total power 12 or greater"); with [nthThisTurn], only such batches count. */
+        val batchTotal: Total? = null,
     ) : Trigger {
         constructor(event: EventPattern, oneOrMore: Boolean = false) : this(listOf(event), oneOrMore)
     }

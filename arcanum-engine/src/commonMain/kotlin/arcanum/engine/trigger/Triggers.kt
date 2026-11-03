@@ -269,11 +269,16 @@ internal object Triggers {
                     if (p is arcanum.api.EventPattern.CountersPut && !trigger.oneOrMore) found.flatMap { t -> List(t.amount ?: 1) { t.copy(amount = 1) } }
                     else found
                 }
-                return when {
+                val batches = when {
                     !trigger.oneOrMore -> all
                     all.isEmpty() -> emptyList()
                     trigger.batchPerPlayer -> all.groupBy { it.players.firstOrNull() }.values.map { batch(it) }
                     else -> listOf(batch(all))
+                }
+                // hob: "with creatures with total power 12 or greater": only a batch whose objects add up to it (CR 603.2c)
+                val total = trigger.batchTotal ?: return batches
+                return batches.filter { b ->
+                    b.objects.filter { it.role == EventRole.Object }.flatMap { it.ids }.distinct().sumOf { e.property(total.property, it) } >= e.value(total.atLeast)
                 }
             }
             val now = units(change)
@@ -282,7 +287,9 @@ internal object Triggers {
                 val events = state.eventsOf(state.turn.number)
                 val at = events.indexOfLast { it === whole }.takeIf { it >= 0 } ?: events.indexOfLast { it == whole }
                 val earlier = (if (at >= 0) events.take(at) else events).flatMap { units(it) }
-                if (!trigger.oneOrMore) now.filterIndexed { i, _ -> earlier.size + i + 1 == n }
+                // hob: for that player ("an opponent draws their second card each turn": each opponent's own draws, CR 603.2)
+                fun same(a: TriggerEvent, b: TriggerEvent) = a.players.firstOrNull() == b.players.firstOrNull()
+                if (!trigger.oneOrMore) now.filterIndexed { i, unit -> earlier.count { same(it, unit) } + now.take(i).count { same(it, unit) } + 1 == n }
                 else now.filter { unit ->
                     earlier.count { !trigger.batchPerPlayer || it.players.firstOrNull() == unit.players.firstOrNull() } + 1 == n
                 }

@@ -107,6 +107,10 @@ internal class Act(val recorder: Recorder, val asker: Asker) {
 
     /** Keys of the replacements whose "instead" instructions are running: they don't apply to their own events (CR 614.5). */
     val replacing: MutableSet<String> = mutableSetOf()
+    // hob
+    /** Names bound by the resolving spell's own replacement as it applied ("exile it instead … You may cast that card"): the
+     * resolving steps take them after the effect that made the replaced event (CR 614.15). */
+    val ownInsteadBinds: MutableMap<String, arcanum.engine.state.NamedValue> = mutableMapOf()
 
     private var viewSize = -1
     private var viewLast: Change? = null

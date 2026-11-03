@@ -244,8 +244,9 @@ class RtrChunk04ScavengeAndGolgariTest {
         static(Objects.Self, Mechanic.ModifyPowerToughness(Value.Count(Objects.Each(creatureCardInYourGraveyard)), Value.Count(Objects.Each(creatureCardInYourGraveyard)))),
         activated(cost(manaPart("{1}{B}{G}"), CostPart.Sacrifice(CostObjects.Choose(all(another, creature), count = n(1)), preBind = "sacrificed")),
             Rtr.loseLife(Value.Of(NumericProperty.Power, Objects.Bound("sacrificed"), Combine.Single), Players.Each(PlayerFilter.Opponent))),
+        // hob: the ability works in the graveyard it returns the card from (CR 113.6m)
         activated(cost(CostPart.Sacrifice(CostObjects.Choose(sub("Swamp"), count = n(1))), CostPart.Sacrifice(CostObjects.Choose(sub("Forest"), count = n(1)))),
-            Rtr.move(Objects.Self, Zone.Hand)),
+            Rtr.move(Objects.Self, Zone.Hand)).copy(functionsIn = listOf(Zone.Graveyard)),
     )
 
     /** Up to two found; one of them into the hand, the other into the graveyard, as you choose. */

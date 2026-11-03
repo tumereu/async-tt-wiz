@@ -973,8 +973,13 @@ internal object Effects {
         val separator = scope.players(effect.separator).firstOrNull() ?: scope.actor
         val chooser = scope.players(effect.chooser).firstOrNull() ?: scope.actor
         act.fill(separator, scope.self, ids, "separate into piles")
-        val first = act.chooseObjects(separator, scope.self, ids, 0, ids.size, "First pile")
+        val first = act.chooseObjects(separator, scope.self, ids, 0, ids.size, if (effect.faceDownPile) "Face-up pile" else "First pile")
         val second = ids.filter { it !in first }
+        // hob: one pile face down: the face-up pile is shown to everyone, the other stays hidden (CR 701.20)
+        if (effect.faceDownPile && first.isNotEmpty()) {
+            act.fill(separator, scope.self, first, "face-up pile", public = true)
+            act.record(Change.Happened(GameEvent.Revealed(separator, first)))
+        }
         val chosen = act.chooseOption(chooser, scope.self, listOf("first", "second"))
         scope.bind(effect.chosenBind, NamedValue.Objects(if (chosen == "first") first else second))
         scope.bind(effect.otherBind, NamedValue.Objects(if (chosen == "first") second else first))
@@ -1072,6 +1077,10 @@ internal object Effects {
                     toughness = arcanum.api.PrintedNumber.Fixed(0)), 1, scope.actor).first()
                 else act.chooseObjects(scope.actor, scope.self, armies, 1, 1, "Amass").first()
                 Actions.putCounters(act, cause, TargetRef.Object(army), CounterKind.PowerToughness(1, 1), e.value(action.count))
+                // hob: "If it isn't a [subtype], it becomes a [subtype] in addition to its other types" (for good)
+                if (act.state.obj(army)?.zone == Zone.Battlefield && scope.eval().characteristics(army)?.hasSubtype(action.subtype) != true)
+                    applyMechanics(scope, listOf(Mechanic.SetTypes(addSubtypes = listOf(arcanum.api.SubtypeRef.Literal(action.subtype)))), null,
+                        Duration.Indefinitely, null, locked = listOf(army))
                 scope.bind(bind, NamedValue.Objects(listOf(army)))
             }
             // fra: CR 701.4a: reveal a matching card from your hand or choose a matching permanent you control

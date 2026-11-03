@@ -29,7 +29,9 @@ internal object Numbers {
     private val WORDS = mapOf("a" to 1, "an" to 1, "one" to 1, "two" to 2, "three" to 3, "four" to 4, "five" to 5, "six" to 6,
         "seven" to 7, "eight" to 8, "nine" to 9, "ten" to 10,
         // gtc chunk 09
-        "twenty" to 20)
+        "twenty" to 20,
+        // hob chunk 10
+        "eleven" to 11, "twelve" to 12, "thirteen" to 13, "fourteen" to 14, "fifteen" to 15)
     private val ORDINALS = mapOf("first" to 1, "second" to 2, "third" to 3, "fourth" to 4, "fifth" to 5)
 }
 
@@ -891,6 +893,7 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        HobPhrases.condition(text)?.let { return it } // hob
         FraPhrases.condition(text, self)?.let { return it } // fra
         // dgm: "this creature isn't a token" (CR 111.1)
         GTC_ISNT_A_TOKEN.matchEntire(text)?.takeIf { it.groupValues[1] in self || it.groupValues[1].replaceFirstChar { c -> c.lowercase() } in self }?.let {
@@ -1350,6 +1353,7 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra
         // gtc chunk 04: "the number of +1/+1 counters removed this way": the number chosen as the cost was paid (announced, CR 601.2f)
         if (Regex("""the number of \S+ counters removed this way""").matches(text)) return Value.Announced(name = "X")

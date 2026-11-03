@@ -179,6 +179,10 @@ sealed interface Effect {
      * [otherBind] name the piles. */
     @Serializable @SerialName("two-piles") data class SeparatePiles(
         val objects: Objects, val separator: Players, val chooser: Players, val chosenBind: String? = null, val otherBind: String? = null,
+        // hob
+        /** One pile is face down and one face up ("separate them into a face-down pile and a face-up pile"): only the face-up
+         * pile's cards are shown to the chooser and the other players. */
+        val faceDownPile: Boolean = false,
     ) : Effect
     /** Keep [objects] on the source as card memory under [key] (CR 607 linked abilities: "exiled with ~"). */
     /** Keep [objects] as card memory of the source under [key], added to what is already kept there ("exiled with ~"
@@ -368,4 +372,8 @@ sealed interface KeywordAction {
      * with 0 loyalty, "[−1]: Surveil 1" and "[−3]: Draw a card"; then choose a Jace planeswalker token you control and put
      * [count] loyalty counters on it. [KeywordExpansions.expand] writes it out. */
     @Serializable @SerialName("empower-jace") data class EmpowerJace(val count: Value) : KeywordAction
+    // hob
+    /** "Recruit" (CR 701.70a): draw a card, then discard a card; if a nonland card was discarded this way, create a 1/1 white
+     * Human Soldier creature token. [KeywordExpansions.expand] writes it out. */
+    @Serializable @SerialName("recruit") data object Recruit : KeywordAction
 }

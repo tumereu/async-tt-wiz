@@ -46,6 +46,9 @@ sealed interface Value {
      * from the spell it was (CR 400.7d). */
     @Serializable @SerialName("mana-spent") data class ManaSpent(
         val color: Color? = null, val distinctColors: Boolean = false, val of: Objects,
+        // hob
+        /** Only mana produced by a source matching this ("if mana from a Treasure was spent to cast it", CR 106.3). */
+        val source: ObjectFilter? = null,
     ) : Value
     /** How many times [keyword]'s optional cost was paid for [of] ("for each time it was kicked", CR 702.33d–f). */
     @Serializable @SerialName("times-paid") data class TimesPaid(
@@ -190,6 +193,12 @@ sealed interface Condition {
     @Serializable @SerialName("class-level") data class ClassLevelAtLeast(val level: Int) : Condition
     /** [value] is a prime number ("you control a prime number of lands"). */
     @Serializable @SerialName("prime") data class Prime(val value: Value) : Condition
+    // hob
+    /** [value] is odd (zero is even): "a spell with mana value of the chosen quality" after "choose odd or even". */
+    @Serializable @SerialName("odd") data class Odd(val value: Value) : Condition
+    /** The option [option] was chosen in a choice kept as card memory under [key] ("As this creature enters, choose odd or
+     * even", CR 607.2a); [Chose] reads a choice of the same resolution. */
+    @Serializable @SerialName("remembered-option") data class RememberedOption(val key: String, val option: String) : Condition
     @Serializable @SerialName("day") data object IsDay : Condition
     @Serializable @SerialName("night") data object IsNight : Condition
 }

@@ -25,7 +25,7 @@ object OracleParser {
      * wording newly read, a definition shaped differently, a fix), so stored definitions made by an older parser are
      * parsed again.
      */
-    const val VERSION: Int = 19
+    const val VERSION: Int = 20
 
     /**
      * Every subtype the pinned Comprehensive Rules list (CR 205.3g–m, 205.3q), as the parser reads them: what a host
@@ -351,6 +351,11 @@ object OracleParser {
                 else -> Keyword.Escape(cost)
             }
         }
+        // hob chunk 06: "Equip Wizard {1}": attaches only to a creature of that subtype (CR 702.6a, 702.6e)
+        EQUIP_SUBTYPE.matchEntire(part)?.let { m ->
+            if (m.groupValues[1] !in RulesWords.subtypes) return null
+            return Keyword.Equip(Cost.mana(ManaCost.parse(m.groupValues[2]) ?: return null), onto = arcanum.api.ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[1])))
+        }
         // dsk chunk 06: "Plainscycling {2}", "Basic landcycling {1}" (CR 702.29e)
         TYPECYCLING.matchEntire(part)?.let { m ->
             val cost = ManaCost.parse(m.groupValues[2]) ?: return null
@@ -416,6 +421,8 @@ object OracleParser {
     private val DASH_COST = Regex("""(Evoke|Escape|Equip|Ward|ward)—(.+?)\.?""")
     // dsk chunk 06
     private val TYPECYCLING = Regex("""([A-Z][a-z]+(?: land)?)cycling (\{.+\})""")
+    // hob chunk 06
+    private val EQUIP_SUBTYPE = Regex("""Equip ([A-Z][a-z]+) (\{.+\})""")
     // chunk 40
     private val LANDWALK = Regex("""([A-Z][a-z]+)walk""")
     // chunk 45

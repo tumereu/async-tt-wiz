@@ -130,6 +130,10 @@ data class ObjectFacts(
     // fra
     /** It has dealt combat damage since it became this object ("as long as they haven't dealt combat damage yet"). */
     val dealtCombatDamage: Boolean = false,
+    // hob
+    /** The sources of the mana spent to cast it, one entry per mana that had a source ("if mana from a Treasure was spent",
+     * CR 106.3); read as they last existed once they have left. */
+    val manaSources: List<ObjectId> = emptyList(),
 )
 
 /** Mana of one kind spent: a colour, or colourless when [color] is null. */

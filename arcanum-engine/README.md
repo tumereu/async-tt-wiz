@@ -319,6 +319,13 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   abilities too, a token replacement, an effect lasting until a card is cast (through its casting), copies of cards cast as
   permanent spells becoming tokens (CR 111.13), the game ending when a player wins (CR 104.2b), "if it wasn't attacking" as
   it last existed, and counters put naming who put them.
+- Done, The Hobbit (scenarios in `commonTest/…/sets/hob/`): all 193 cards play. Storied (the enduring story given with the
+  state-based actions' checks, any time its condition holds, CR 702.195a, c), recruit, amass making the Army the named subtype
+  (CR 701.47a) and done by another player, hone counters (CR 122.1j), a free alternative cost for the first equip ability each turn,
+  the sources of the mana spent on a spell ("mana from a Treasure"), attack batches by total power, permissions that work only while
+  a condition holds, two piles with the face-up one revealed, a permission's cost reading the spell it lets be cast ("life equal to
+  its mana value"), names a spell's own replacement binds read by its later steps ("exile it instead … you may cast that card"),
+  and "the nth draw each turn" counted per player.
 - Not yet: skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and

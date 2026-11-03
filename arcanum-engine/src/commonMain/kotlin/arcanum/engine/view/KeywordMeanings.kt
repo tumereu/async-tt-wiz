@@ -136,7 +136,7 @@ object KeywordMeanings {
         }
         at(Moment.Enters) {
             listOf(Keyword.HiddenAgenda, Keyword.Riot, Keyword.Daybound, Keyword.Nightbound, Keyword.Compleated,
-                Keyword.ReadAhead, Keyword.Ravenous, Keyword.StartYourEngines, Keyword.Storied, Keyword.Amplify.Kind,
+                Keyword.ReadAhead, Keyword.Ravenous, Keyword.StartYourEngines, Keyword.Amplify.Kind,
                 Keyword.Bloodthirst.Kind, Keyword.Devour.Kind, Keyword.Tribute.Kind, Keyword.Backup.Kind, Keyword.Echo.Kind,
                 Keyword.PartnerWith.Kind)
         }

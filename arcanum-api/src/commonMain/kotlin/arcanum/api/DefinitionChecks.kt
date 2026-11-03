@@ -155,7 +155,9 @@ object DefinitionChecks {
                     // "equal to the number of nonbasic lands that player controls") stays a loop
                     val bind = (element["bind"] as? JsonPrimitive)?.content
                     val uses = bind?.let { b -> Regex(""""name":"${Regex.escape(b)}"""").findAll(body.toString()).count() } ?: 0
-                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1)
+                    // hob chunk 03: a keyword action has no players to give ("its controller amasses Goblins X"): it stays a loop
+                    val action = ((body.getOrNull(0) as? JsonObject)?.get("effect") as? JsonObject)?.typeName() == "keyword-action"
+                    if (body.size == 1 && (body[0] as? JsonObject)?.typeName() == "do" && uses <= 1 && !action)
                         found += "a single effect for each player: give the effect the players (one event); loops are for several steps"
                 }
                 if (type == "each" && (element["filter"] as? JsonObject)?.typeName() == "is")

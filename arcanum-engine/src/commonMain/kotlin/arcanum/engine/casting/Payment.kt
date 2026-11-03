@@ -229,7 +229,10 @@ internal object Payment {
         val player = plan.player
         val s = recorder.state
         val snap = recorder.snapshot()
-        val eval = snap.evaluator(player, self = plan.sourceId, names = plan.names, stackItem = plan.item)
+        // hob: a permission's cost reads the spell as the affected object, as the plan does
+        val eval = snap.evaluator(player, self = plan.sourceId, names = plan.names, stackItem = plan.item).let { e ->
+            if (plan.isSpell) e.with(e.ctx.copy(affected = plan.itemId)) else e
+        }
         fun objects(what: CostObjects): List<ObjectId> = when (what) {
             CostObjects.Self -> listOf(plan.sourceId)
             is CostObjects.These -> eval.objects(what.objects)
@@ -380,6 +383,7 @@ internal object Payment {
             manaSpent = (Color.all + listOf<Color?>(null)).mapNotNull { c ->
                 spent.count { it.color == c }.takeIf { it > 0 }?.let { ManaSpent(c, it) }
             },
+            manaSources = spent.mapNotNull { it.source },
             paid = paidCosts(plan),
             alternative = alternativePaid(plan),
             modesChosen = (o.facts.modesChosen + plan.choices.modes).distinct(),
@@ -500,7 +504,8 @@ internal object Payment {
         val loyaltyCost = (plan.ability as? Ability.Activated)?.cost?.parts.orEmpty().filterIsInstance<CostPart.Loyalty>().firstOrNull()?.let { part ->
             plan.snap.evaluator(plan.player, self = plan.sourceId, names = plan.names.with(names), stackItem = plan.item).value(part.amount)
         }
-        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost)))
+        recorder.record(Change.Happened(GameEvent.Activated(plan.player, plan.sourceId, origin.key, manaAbility = false, loyalty = loyaltyCost,
+            keyword = plan.keyword()?.kind?.id)))
         val item = plan.item.copy(names = plan.item.names.with(names), snapshots = plan.item.snapshots + snapshots,
             divided = plan.item.divided + plan.wholeShares(), timestamp = s.nextTimestamp())
         recorder.record(Change.StackItemAdded(item, s.stack.size, listOf(Meaning.Activated)))

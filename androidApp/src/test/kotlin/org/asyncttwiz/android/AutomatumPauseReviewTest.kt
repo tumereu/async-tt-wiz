@@ -167,7 +167,7 @@ class AutomatumPauseReviewTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, now, viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                         AutomatumPauseDriver(toolkit, null, now, now.currentNodeId, liveShown = true, opponentOnline = online,
                             settings = settings)
                     }
@@ -233,7 +233,7 @@ class AutomatumPauseReviewTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, cast, f.b, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = bob::handle, toolkit = bob,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                         AutomatumPauseDriver(bob, null, cast, went.currentNodeId, liveShown = true, opponentOnline = true,
                             settings = PauseSettings())
                     }

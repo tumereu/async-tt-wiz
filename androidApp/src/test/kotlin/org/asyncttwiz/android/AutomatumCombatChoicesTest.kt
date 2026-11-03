@@ -153,7 +153,7 @@ class AutomatumCombatChoicesTest {
                         shownDevice.value?.let { device -> androidx.compose.runtime.key(device) {
                             TableSurface(f.game, live.value!!, device.viewer, false, Modifier.fillMaxSize(), connected = true,
                                 onIntent = device::handle, toolkit = device,
-                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                         } }
                     }
                 }

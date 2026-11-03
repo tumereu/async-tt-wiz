@@ -32,9 +32,11 @@ internal inline fun BoxWithConstraintsScope.TableControlsLayer(play: PlayState, 
                     .withCombatTarget(toolkit.combat, play, scene.combatLabels.firstOrNull { it.cardId == null }?.label?.removePrefix("→ ")),
                     toolkit.table, endingColor,
                     Modifier.fillMaxSize().padding(start = 60.dp, end = 8.dp), perform = toolkit::perform, submit = { toolkit.submit(it) })
+                // HIS-083 (I-D56 §10): holding Undo opens the rewind dialog to pick an earlier point; there is no Redo
                 runtime.undo?.let { undo -> ActionSquare("Undo", "↶", runtime.controlsConnected ?: connected,
-                    Modifier.align(Alignment.CenterStart).padding(start = 10.dp), holdName = if (runtime.redo != null) "Redo" else null,
-                    onHold = runtime.redo?.let { redo -> { redo() } }, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
+                    Modifier.align(Alignment.CenterStart).padding(start = 10.dp).shaken(runtime.undoShakes),
+                    holdName = if (runtime.undoHold != null) "Undo to an earlier point" else null,
+                    onHold = runtime.undoHold, icon = { TableChromeIcon("undo") }, onClick = { undo() }) }
             }
         }
     }

@@ -27,7 +27,9 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** The pictures of tokens Automatum makes (§4.6): the catalog's best matching token printings in the app. */
     tokenArt: org.asyncttwiz.automatum.TokenArt = org.asyncttwiz.automatum.TokenArt.None,
     /** I-D47: a complete cast shown at once on this device while its batch is worked out (null: not here). */
-    castPreview: CastPreview? = null) : TableActionRoutes {
+    castPreview: CastPreview? = null,
+    /** I-D56 step C: the routes of a game played on engine state (null: today's model). */
+    val engine: EngineRoutes? = null) : TableActionRoutes {
     private val identity = state()?.let { TableActionScope(it.gameId, it.id) }
     private var draft: PlayBatchDraft? = null
     fun current(): PlayState? = (draft?.state ?: state())?.takeIf { TableActionScope(it.gameId, it.id) == identity }
@@ -66,11 +68,13 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
 
     /** Casting from the hand through Automatum (I2a): a private flow; while it is open nothing else changes (D32). */
     internal val cast = CastController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { castMessage(it) },
-        automatumWork, beginning = ::holdForReaction, preview = castPreview, tokenArt = tokenArt, shake = { shake(it) })
+        automatumWork, beginning = ::holdForReaction, preview = castPreview.takeIf { engine == null }, tokenArt = tokenArt,
+        shake = { shake(it) }, engineSend = engine?.let { e -> e::send })
     /** Priority, responding, resolution and triggers through Automatum (I2b): shared flows; while one waits for an
      * answer nothing else changes (D32). */
     internal val flows = SharedFlowController(viewer, { acting()?.takeIf { enabled() } }, automatedBatch, ::engineTags, { error = it },
-        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt, autotap = { cast.autotap })
+        automatumWork, onRespond = ::holdForReaction, tokenArt = tokenArt, autotap = { cast.autotap },
+        engineSend = engine?.let { e -> e::send })
     private val automatumWork = automatumWork
 
     /**
@@ -273,6 +277,15 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
      */
     override fun opening(intent: TableActionIntent): Boolean {
         val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+        // I-D56 step C: the opening is the engine's setup (simultaneous mulligans, I-D54 §8)
+        engine?.let { e ->
+            return when (intent) {
+                is TableActionIntent.OpeningMulligan -> { keeping = false; e.mulligan().also { if (!it) error = QuickActions.NO_MORE_MULLIGANS } }
+                is TableActionIntent.Keep -> if (AutomatumOpening.owed(play.board, viewer) > 0) { error = null; keeping = true; true }
+                    else e.keep(emptyList())
+                else -> false
+            }
+        }
         return when (intent) {
             is TableActionIntent.OpeningMulligan -> {
                 val actions = AutomatumOpening.mulligan(play.board, viewer, DeviceRandom.seed())
@@ -289,6 +302,7 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     /** Keeps the viewer's hand with [bottom] put on the bottom of their library, then Ready (I-D49), as one batch. */
     fun confirmKeep(bottom: List<String>): Boolean {
         val play = current()?.takeIf { enabled() && AutomatumDrags.opening(it.board, viewer) } ?: return false
+        engine?.let { e -> return e.keep(bottom).also { if (it) keeping = false } }
         val actions = AutomatumOpening.keep(play.board, viewer, bottom) ?: return false
         return batchResult { actions.all { submit(it) } }.also { if (it) keeping = false }
     }
@@ -296,6 +310,16 @@ class TableToolkitController(val viewer: String, private val state: () -> PlaySt
     override fun automatumStep(intent: TableActionIntent): Boolean {
         val play = current() ?: return false
         if (cast.open) { busyShake(); return false }
+        // I-D56 step C (TRN-057): the arrow passes only the viewer's own priority, or declares what the lanes hold; End
+        // turn passes for them until the turn ends; the phase dialog is view-only
+        engine?.let { e ->
+            error = null
+            return when (intent) {
+                is TableActionIntent.Next -> if (flows.view?.declaring == viewer) flows.step(org.asyncttwiz.automatum.StepFlow.Until.Pass) else e.pass()
+                is TableActionIntent.End -> e.endTurn()
+                else -> { error = SharedFlowController.STEPS_FORWARD; false }
+            }
+        }
         val until = when (intent) {
             is TableActionIntent.Next -> {
                 // At the viewer's pause held behind the live game the arrow returns to it (STK-039), on the Stack or an

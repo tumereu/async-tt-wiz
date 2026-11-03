@@ -55,7 +55,7 @@ class TableScreenshotTest {
                     TableSurface(LiveTableFixture.game, play, "a", landscape, Modifier.weight(1f),
                         connected = !paused, onIntent = toolkit::handle, toolkit = toolkit,
                         runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {}, chatUnread = 1,
-                            undo = { true }, redo = { true }, reviewing = paused, controlsConnected = true,
+                            undo = { true }, reviewing = paused, controlsConnected = true,
                             returnCurrent = if (paused) ({}) else null,
                             reviewPanel = if (paused) ({ HistoryPlaybackPanel(playback, playback.tree.sharedHeadId, "a", true, 240L, {},
                                 overlay = true, landscape = landscape) }) else null))
@@ -205,7 +205,7 @@ class TableScreenshotTest {
                 TableSurface(LiveTableFixture.game, play, "a", landscape, Modifier.fillMaxSize(),
                     connected = true, onIntent = toolkit::handle, toolkit = toolkit,
                     runtime = TableRuntimeHooks(chat = {}, history = {}, navigation = {},
-                        undo = { true }, redo = { true }, controlsConnected = true))
+                        undo = { true }, controlsConnected = true))
             }
         }
         compose.waitForIdle()

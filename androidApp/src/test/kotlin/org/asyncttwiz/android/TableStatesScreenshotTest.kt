@@ -93,7 +93,7 @@ class TableStatesScreenshotTest {
                         TableSurface(f.game, current(), f.a, landscape, Modifier.fillMaxSize(), connected = !reviewing,
                             onIntent = toolkit::handle, toolkit = toolkit,
                             runtime = TableRuntimeHooks(navigation = {}, chat = {}, history = { history.select(playback.position.cursorId) },
-                                undo = { true }, redo = { true },
+                                undo = { true },
                                 controlsConnected = true, reviewing = reviewing, continuationArmed = history.armed != null,
                                  returnCurrent = if (review) history::current else null,
                                  cancelContinuation = history::cancelContinuation,

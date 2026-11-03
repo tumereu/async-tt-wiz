@@ -165,7 +165,7 @@ class AutomatumCombatScreenshotTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, live.value!!, toolkit.viewer, landscape, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                     }
                 }
             }

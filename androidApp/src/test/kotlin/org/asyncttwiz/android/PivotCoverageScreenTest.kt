@@ -60,7 +60,7 @@ class PivotCoverageScreenTest {
         toolkit.openPileMenu(graveyard.id)
         compose.setContent { MaterialTheme { Box(Modifier.fillMaxSize()) {
             TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
         } } }
         compose.onNodeWithContentDescription("Search").assertExists().assertIsNotEnabled()
         for (gone in listOf("Shuffle", "Move", "Put", "Exile all"))
@@ -77,7 +77,7 @@ class PivotCoverageScreenTest {
         val toolkit = TableToolkitController(f.a, { play }, { true }, { _, _ -> true })
         compose.setContent { MaterialTheme { Box(Modifier.fillMaxSize()) {
             TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
         } } }
         fun close() = compose.onAllNodes(hasContentDescription("Close", substring = true) and hasContentDescription("panel", substring = true))
         compose.runOnIdle { toolkit.openPublicPile(graveyard.id, toggle = false) }
@@ -98,7 +98,7 @@ class PivotCoverageScreenTest {
         var pauses = 0
         compose.setContent { MaterialTheme { Box(Modifier.fillMaxSize()) {
             TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true,
+                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true,
                     pauseForInspection = { pauses++ }))
         } } }
         compose.waitForIdle()

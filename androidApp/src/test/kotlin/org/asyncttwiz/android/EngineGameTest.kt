@@ -1,0 +1,94 @@
+package org.asyncttwiz.android
+
+import arcanum.api.TurnStep
+import arcanum.engine.input.Input
+import org.asyncttwiz.protocol.EngineSnapshot
+import org.asyncttwiz.protocol.GameAction
+import org.asyncttwiz.protocol.PlayZone
+import org.asyncttwiz.protocol.PlayerStatus
+import org.asyncttwiz.protocol.game.GameDevice
+import org.asyncttwiz.protocol.game.GameEvent
+import org.asyncttwiz.protocol.game.GameModel
+import org.junit.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/**
+ * I-D56 step C: the app's engine game ([EngineGame]) on the device core: the table's board from the engine's state, the
+ * player's own inputs sent as submissions and shown at once, assumptions while the other player is away (the
+ * indicator), the server's echo confirming them, and the other player's catch-up screen, playback and decision stop.
+ */
+class EngineGameTest {
+    private val f = EngineGameFixture()
+
+    private fun alice() = EngineGame(f.game.id, f.a, f.base, f.snapshot())
+
+    // TRN-062, I-D54 §8: the opening is the engine's setup: both players mulligan at the same time
+    @Test fun theOpeningShowsTheEnginesHandsToEachPlayer() {
+        val game = alice()
+        val board = game.play().board
+        assertNotNull(board.engine)
+        assertTrue(board.players.all { it.status == PlayerStatus.OPENING })
+        val own = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.a }
+        val other = board.containers.single { it.zone == PlayZone.HAND && it.accountId == f.b }
+        assertEquals(7, own.cards.size)
+        assertTrue(own.cards.all { id -> !board.cards.single { it.id == id }.covered }, "her own hand face up")
+        assertTrue(other.cards.all { id -> board.cards.single { it.id == id }.covered }, "Bob's hand hidden from her (I-D27)")
+        assertEquals(GameDevice.Status.YourMove, game.device.status)
+    }
+
+    // I-D56 §3, §4, §14: with Bob away the starting player keeps and plays on assumed answers: his keep and passes are
+    // assumed (the indicator counts them), everything goes out as submissions in order and shows at once
+    @Test fun keepingWhileTheOtherPlayerIsAwayPlaysOnAssumedAnswers() {
+        val game = alice()
+        game.tick(live = false, now = 1_000)
+        assertIs<GameDevice.Acted.Sent>(game.keep(emptyList()))
+        game.tick(live = false, now = 2_000)
+        val sent = game.take(2_000)
+        assertTrue(sent.isNotEmpty() && sent.all { it is GameAction.Submit || it is GameAction.EngineSeen })
+        val state = game.device.model.engine
+        assertEquals(f.a, state.turn.active.value)
+        assertEquals(TurnStep.PrecombatMain, state.turn.step)
+        assertEquals(GameDevice.Status.YourMove, game.device.status)
+        val indicator = assertNotNull(game.device.indicator(), "her line is tentative until Bob confirms")
+        assertTrue(indicator.assumed >= 1)
+        val board = game.play().board
+        assertTrue(board.players.none { it.status == PlayerStatus.OPENING })
+        assertEquals(f.a, board.turn.accountId)
+        // The server takes them in order: each echo confirms her own pending event
+        val pending = game.device.session.pending
+        pending.forEachIndexed { n, event -> game.revision(f.revision(event, n + 2, mapOf(f.a to event.id, f.b to f.start.id))) }
+        assertTrue(game.device.session.pending.isEmpty())
+        assertNotNull(game.device.indicator(), "still tentative: Bob hasn't seen them")
+    }
+
+    // I-D56 §7, §8: coming back, Bob sees the catch-up screen first, then playback that stops at the keep assumed for him;
+    // his same answer confirms it and playback goes on
+    @Test fun theOtherPlayerCatchesUpAndConfirmsTheAssumedKeep() {
+        val alice = alice()
+        alice.tick(false, 1_000)
+        alice.keep(emptyList())
+        alice.tick(false, 2_000)
+        val events: List<GameEvent> = alice.device.session.pending
+        val snapshot = EngineSnapshot(f.codec.encodeDefinitions(), f.snapshot().rootId, events.last().id,
+            f.codec.encodeModel(alice.device.model), localHeads = mapOf(f.a to events.last().id, f.b to f.start.id),
+            baseId = f.start.id, base = f.snapshot().state, events = events.map(f.codec::encodeEvent))
+        val bob = EngineGame(f.game.id, f.b, f.base, snapshot)
+        assertEquals(GameDevice.Status.CatchUp, bob.device.status)
+        bob.startPlayback()
+        var guard = 0
+        while (bob.device.status is GameDevice.Status.Playing && guard++ < 100) bob.step()
+        val stop = assertIs<GameDevice.Status.Stopped>(bob.device.status)
+        assertTrue(stop.assumed.let { it is Input.SetupAnswer || it is Input.Answer })
+        // The table is live before it: his opening hand, still Mulliganing
+        assertTrue(bob.play().board.players.single { it.accountId == f.b }.status == PlayerStatus.OPENING)
+        assertEquals(GameDevice.Acted.Confirmed, bob.keep(emptyList()))
+        assertNull((bob.device.status as? GameDevice.Status.Stopped)?.takeIf { it.event.id == stop.event.id })
+        assertTrue(bob.take(3_000).any { it is GameAction.Submit })
+    }
+
+    @Suppress("unused") private fun GameModel.unused() = Unit
+}

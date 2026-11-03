@@ -52,7 +52,8 @@ import org.asyncttwiz.protocol.ResultSuggestion as AtwSuggestion
 object EngineProjection {
     /** The board of [model] for [viewer], on [base] (the play as it started: its ids, containers, players, card data);
      * [nodeId] is the shown event; [attention]: whose move it is for the viewer (TRN-013). */
-    fun project(base: PlayState, model: GameModel, viewer: String, nodeId: String, attention: String? = null): PlayState {
+    fun project(base: PlayState, model: GameModel, viewer: String, nodeId: String, attention: String? = null,
+        staging: Staging? = null): PlayState {
         val state = model.engine
         val table = model.table
         val me = PlayerId(viewer)
@@ -211,12 +212,14 @@ object EngineProjection {
         val position = if (state.turn.number == 0) TurnPosition.UNTAP
             else EngineCodec.position(state.turn.step, state.combat?.firstStrikeStep == true)
         val turn = TurnState(state.turn.active.value, state.turn.number.coerceAtLeast(1).toString(), position.phase, position.step)
+        val staged = staging?.takeIf { it.key == Staging.keyOf(state) }
         val records = buildList {
             state.combat?.let { add(EngineCodec.combatRecord(it, state.turn.number)) }
             state.command.mapNotNull { state.objects[it] }.forEach { add(EngineCodec.emblemRecord(it, EngineCodec.emblemText(it))) }
-        }.sortedBy { it.id }
+            staged?.records?.let { addAll(it) }
+        }.distinctBy { it.id }.sortedBy { it.id }
         val board = BoardState(players = players, cards = withPlaces + shownAbilities, containers = containers, turn = turn,
-            schemaVersion = board0.schemaVersion, combat = combat(state, table),
+            schemaVersion = board0.schemaVersion, combat = if (staged != null) staged.combat else combat(state, table),
             stackEffects = effects, resultSuggestion = suggestion(table, nodeId),
             attentionHolder = attention, priority = state.priority.let { MtgPriority(it.holder?.value, it.passes) },
             engineRecords = records, engine = engineView)
@@ -258,6 +261,21 @@ object EngineProjection {
         }
         return AtwSuggestion("suggestion:${s.by.value}:$outcome", s.by.value, outcome)
     }
+
+    /**
+     * The declaring player's own staging of a declaration (CMB-028, CMB-034: their lanes and attack choices, as the
+     * combat controls make them) at the point [key] ([keyOf]: the turn, step and combat it belongs to): shown in place of
+     * the engine's combat while that point lasts, and sent only as the declaration itself (I-D56 §12).
+     */
+    data class Staging(val key: String, val combat: CombatArea?, val records: List<org.asyncttwiz.protocol.EngineRecord> = emptyList()) {
+        companion object {
+            fun keyOf(state: GameState): String = "${state.turn.number}/${state.turn.step}/${state.combat?.attackers?.map { it.id }}/" +
+                "${state.combat?.blockersDeclaredBy}/${state.priority.holder}"
+        }
+    }
+
+    /** ATW's turn position of the engine's [step] (its label for the table's words). */
+    fun position(step: arcanum.api.TurnStep): TurnPosition = EngineCodec.position(step)
 
     const val COMBAT_ID = "combat"
 

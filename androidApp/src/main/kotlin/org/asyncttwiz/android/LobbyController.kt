@@ -173,6 +173,12 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     }
     fun inspectFace(action: PlayAction.InspectFace, lifetimeId: String, isCurrent: () -> Boolean,
         observed: (InspectionEvent) -> Unit): InspectionSubscription? = tableActions.inspectFace(action, lifetimeId, isCurrent, observed)
+    /** I-D56 step C: the open game, when it is played on engine state ([EnginePath]). */
+    internal fun engineGame(): EngineGame? = state.detail?.let { session?.engineGame(it) }
+    /** The open engine game's own steps and what it sends ([GameSession.engineTick]); [connectionState] republishes. */
+    internal fun engineTick() { state.selected?.let { session?.engineTick(it) } }
+    /** After an action on the open engine game: what it sends goes out and the table shows its new board. */
+    internal fun engineSent() { state.selected?.let { session?.pumpEngine(it) }; connectionState() }
     fun retainedTree() = tableActions.retainedTree()
     fun retainedHistory() = tableActions.retainedHistory()
     fun displayTree() = tableActions.displayTree()

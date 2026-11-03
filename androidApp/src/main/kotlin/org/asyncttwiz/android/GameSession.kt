@@ -170,7 +170,7 @@ class GameSession(private val connection: GameConnection, private val credential
         ownPodDeckNames.remove(gameId); presences.remove(gameId)
         catchUp.remove(gameId)
         inspections.remove(gameId)
-        preparations.remove(gameId); plays.remove(gameId); acceptedRevisions.remove(gameId)
+        preparations.remove(gameId); plays.remove(gameId); engineGames.remove(gameId); acceptedRevisions.remove(gameId)
         chats.remove(gameId)
         resultIntents.entries.removeAll { it.value.command.scope.gameId == gameId }
         streams[gameId]?.head = false
@@ -179,9 +179,75 @@ class GameSession(private val connection: GameConnection, private val credential
         plays[gameId]?.pendingIds?.isNotEmpty() == true || resultIntents.values.any { it.command.scope.gameId == gameId }
     fun queuedTransfers(gameId: String) = preparations.queuedTransfers(gameId)
     fun acceptedPreparation(gameId: String) = preparations.acceptedPreparation(gameId)
-    fun acceptedPlay(game: GameSummary) = plays[game.id]?.accepted?.takeIf { summary(game).let { current ->
+    fun acceptedPlay(game: GameSummary) = engineGame(game)?.play() ?: plays[game.id]?.accepted?.takeIf { summary(game).let { current ->
         current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.id } }
-    fun play(game: GameSummary) = plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
+    fun play(game: GameSummary) = engineGame(game)?.play() ?: plays[game.id]?.display?.takeIf { acceptedPlay(game)?.id == it.id }
+
+    // ---- I-D56 step C: games played on engine state ([EnginePath], behind the seam until step D)
+    private val engineGames = mutableMapOf<String, EngineGame>()
+    /** The game [game] played on engine state on this device, while it is its current active play. */
+    internal fun engineGame(game: GameSummary): EngineGame? = engineGames[game.id]?.takeIf { summary(game).let { current ->
+        current.lifecycle == GameLifecycle.ACTIVE && current.playId == it.base.id } }
+    internal fun engineGame(gameId: String): EngineGame? = summaries[gameId]?.let(::engineGame)
+
+    /** Loads or reloads the engine game of [head] (a head of an active play whose state is the engine's). */
+    private fun engineHead(head: GameHead) {
+        val snapshot = head.engine ?: return
+        val play = head.play ?: return
+        val me = account ?: accountId() ?: return
+        val existing = engineGames[head.gameId]?.takeIf { it.base.id == play.id }
+        // A head while the device follows the server exactly changes nothing; a new play, or a device that asked to
+        // load again, loads from it
+        if (existing == null || existing.needsReload) {
+            if (existing == null) engineGames[head.gameId] = EngineGame(head.gameId, me, play, snapshot)
+            else existing.load(snapshot, play)
+        }
+        engineGames.getValue(head.gameId).revision = head.revision
+        acceptedRevisions[head.gameId] = head.revision
+        if (summaries[head.gameId]?.let { newerOrEqual(head.revision, it.revision) } != false) summaries[head.gameId] = head.summary
+        streams[head.gameId]?.head = true
+        changed(summary(head.summary))
+        pumpEngine(head.gameId)
+    }
+
+    /** An accepted revision of an engine game's play. */
+    private fun engineRevision(game: EngineGame, message: GameRevision) {
+        if (message.summary.lifecycle != GameLifecycle.ACTIVE || message.summary.playId != game.base.id) {
+            engineGames.remove(message.gameId)
+            install(message.summary, message.resultRevision, message.preparation, null)
+            return
+        }
+        game.revision(message)
+        acceptedRevisions[message.gameId] = message.resultRevision
+        if (summaries[message.gameId]?.let { newerOrEqual(message.resultRevision, it.revision) } != false) summaries[message.gameId] = message.summary
+        changed(summary(message.summary))
+        if (game.needsReload) send(SubscribeGame(message.gameId, message.resultRevision))
+        pumpEngine(message.gameId)
+    }
+
+    /** The opponent's presence and the time for [gameId]'s engine game: its own steps (passes, assumptions, a live wait
+     * turning async), then what it sends. Called by the open table every second and after every action. */
+    fun engineTick(gameId: String) {
+        val game = engineGame(gameId) ?: return
+        val live = presences[gameId]?.let { PresenceText.dot(it, now()) == PresenceDot.ONLINE } == true
+        game.tick(live, now())
+        pumpEngine(gameId)
+        statusChanged()
+    }
+
+    /** Sends what [gameId]'s engine game has to send, in order, on the ordinary queue. */
+    fun pumpEngine(gameId: String) {
+        val game = engineGames[gameId] ?: return
+        val stream = streams[gameId] ?: return
+        val generation = stream.generation ?: stream.lastGeneration ?: return
+        for (action in game.take(now())) {
+            val command = GameCommand(UUID.randomUUID().toString(), GameScope(gameId, playId = game.base.id), action, stream.id, generation)
+            if (!GameWire.valid(command)) { AppLog.warn("engine", "Invalid engine command ${action::class.simpleName}"); continue }
+            pending[command.requestId] = command
+        }
+        flush()
+        statusChanged()
+    }
     fun retainedTree(gameId: String) = plays[gameId]?.tree?.tree
     fun retainedHistory(gameId: String) = plays[gameId]?.history
     fun displayTree(gameId: String) = plays[gameId]?.displayTree
@@ -575,7 +641,10 @@ class GameSession(private val connection: GameConnection, private val credential
                 message.ownPodDeckName?.let { ownPodDeckNames[message.gameId] = it }
                 catchUp.headArrived(message.summary)
                 chats.installChatHead(message)
-                if (!catchUp.head(message)) {
+                // I-D56 step C: an active play on engine state is played on its engine game (behind the switch)
+                if (EnginePath.enabled && message.engine != null && message.play != null &&
+                    message.summary.lifecycle == GameLifecycle.ACTIVE) engineHead(message)
+                else if (!catchUp.head(message)) {
                     install(message.summary, message.revision, message.preparation, null)
                     streams[message.gameId]?.head = true
                 }
@@ -594,6 +663,12 @@ class GameSession(private val connection: GameConnection, private val credential
                 }
                 if (summaries[message.gameId]?.let { ended(it) && !ended(message.summary) } == true) return
                 message.chatMessage?.let { chats.installChat(message.gameId, message.resultRevision, listOf(it), snapshot = false) }
+                val engine = engineGames[message.gameId]
+                if (engine != null) {
+                    engineRevision(engine, message)
+                    correlateSelections(message)
+                    flush(); statusChanged(); return
+                }
                 if (catchUp.superseded(message)) {
                     // History of a play that is no longer current: nothing to catch up or observe.
                     correlateSelections(message); flush(); statusChanged(); return
@@ -681,6 +756,13 @@ class GameSession(private val connection: GameConnection, private val credential
         val original = pending[result.requestId] ?: return
         require(result.scope == original.scope)
         plays[original.scope.gameId]?.result(result)
+        // I-D56 step C: the engine game hears of its refused actions (a stale submission, a refused rewind)
+        engineGames[original.scope.gameId]?.let { engine ->
+            if (result.outcome != "accepted" && (original.action is GameAction.Submit || original.action.isEngine)) {
+                engine.refused(original.action, result.reason)
+                post { pumpEngine(original.scope.gameId) }
+            }
+        }
         pending.remove(result.requestId); sent.remove(result.requestId)
         if (result.outcome != "accepted") chats.failed(result.requestId,
             "Not sent. The original play is no longer available or this request was refused.")
@@ -690,7 +772,9 @@ class GameSession(private val connection: GameConnection, private val credential
             else resultIntents.remove(result.requestId)
             retireSelections(original.scope.gameId)
         }
-        error = if (result.outcome in setOf("accepted", "noOp")) null else historyControlFailure(original.action, result.reason) ?: refusalText(result.reason)
+        // An engine game's refusals are its device's notes (I-D56 §8: a stale race is never shown as a refusal)
+        error = if (result.outcome in setOf("accepted", "noOp") || original.action is GameAction.Submit || original.action.isEngine) null
+            else historyControlFailure(original.action, result.reason) ?: refusalText(result.reason)
         automatumResult(original, result)
         if (result.outcome != "accepted") inspections.notAccepted(result.requestId) { request ->
             InspectionEvent.NotAccepted(request, result = result) }

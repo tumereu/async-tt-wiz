@@ -149,7 +149,7 @@ class AutomatumPauseTest {
                     Box(Modifier.fillMaxSize()) {
                         TableSurface(f.game, play, viewer, false, Modifier.fillMaxSize(), connected = true,
                             onIntent = toolkit::handle, toolkit = toolkit,
-                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                            runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                         AutomatumPauseDriver(toolkit, null, play, play.currentNodeId, liveShown = true, opponentOnline = online,
                             settings = settings)
                     }

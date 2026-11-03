@@ -132,7 +132,7 @@ class AutomatumKeepDrawTest {
                         shown?.let { current ->
                             TableSurface(summary, current, alice, false, Modifier.fillMaxSize(), connected = true,
                                 onIntent = a::handle, toolkit = a,
-                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                                runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
                         }
                     }
                 }

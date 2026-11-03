@@ -110,7 +110,7 @@ class AutomatumI12ReviewTest {
         compose.setContent {
             MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
                 TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
             } } }
         }
         compose.waitForIdle()
@@ -223,7 +223,7 @@ class AutomatumI12ReviewTest {
         compose.setContent {
             MaterialTheme { NoRipples { Box(Modifier.fillMaxSize()) {
                 TableSurface(f.game, play, f.a, false, Modifier.fillMaxSize(), connected = true, onIntent = toolkit::handle, toolkit = toolkit,
-                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, redo = { true }, controlsConnected = true))
+                    runtime = TableRuntimeHooks(navigation = {}, chat = {}, undo = { true }, controlsConnected = true))
             } } }
         }
         compose.waitForIdle()

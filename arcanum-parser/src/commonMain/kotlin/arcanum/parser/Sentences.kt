@@ -17172,6 +17172,21 @@ internal class Sentences(
                 Filters.all(equipment, ObjectFilter.Attached(to = Objects.Self)))))), affects = arcanum.api.Affected.Objects(Objects.Self),
                 condition = arcanum.api.Condition.ObjectMatches(Objects.Self, ObjectFilter.Attached(to = null, attachments = equipment)))
         }
+        // fin chunk 08: "You have protection from each of your opponents." (CR 702.16j: from everything those players control)
+        if (line == "You have protection from each of your opponents.")
+            return Ability.Static(listOf(Mechanic.GainAbilities(listOf(arcanum.api.Keyword.Protection(ObjectFilter.ControlledBy(PlayerFilter.Opponent))))),
+                affects = arcanum.api.Affected.Players(Players.You))
+        // fin chunk 08: "Artifact creatures and Heroes you control get +1/+1 for each Artificer you control and each Artificer card in your graveyard."
+        Fin.GET_FOR_EACH_AND_EACH.matchEntire(line)?.let { m ->
+            val affected = Filters.noun(m.groupValues[1]) ?: return null
+            val p = m.groupValues[2].toInt()
+            val t = m.groupValues[3].toInt()
+            val first = Filters.noun(m.groupValues[4]) ?: return null
+            val second = Filters.noun(m.groupValues[5]) ?: return null
+            val per = Value.Sum(listOf(Value.Count(Objects.Each(first)), Value.Count(Objects.Each(second))))
+            fun times(n: Int) = if (n == 1) per else Value.Times(per, n)
+            return Ability.Static(listOf(Mechanic.ModifyPowerToughness(times(p), times(t))), affects = arcanum.api.Affected.Objects(Objects.Each(affected)))
+        }
         // fin-late-end
         return null
     }
@@ -17525,6 +17540,11 @@ internal class Sentences(
             val target = context.target(Filters.slotName(m.groupValues[2]), Filters.noun(m.groupValues[2]) ?: return null)
             return listOf(Step.Choose(arcanum.api.Choice.Objects(filter, Value.Fixed(0), null), bind = "equipment", chooser = Players.You),
                 Step.Do(Effect.Attach(Objects.Bound("equipment"), Recipients(objects = target))))
+        }
+        // fin chunk 08: "Each opponent mills X cards." (CR 701.17)
+        Fin.EACH_OPPONENT_MILLS.matchEntire(sentence)?.let { m ->
+            val amount = if (m.groupValues[1] == "X") Value.Announced("X") else Value.Fixed(Numbers.count(m.groupValues[1]) ?: return null)
+            return listOf(Step.Do(Effect.Mill(Players.Each(PlayerFilter.Opponent), amount)))
         }
         // fin-effect-end
         return null

@@ -44,8 +44,8 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
-        EoePhrases.noun(phrase)?.let { return it } // eoe
         FinPhrases.noun(phrase)?.let { return it } // fin
+        EoePhrases.noun(phrase)?.let { return it } // eoe
         SpmPhrases.noun(phrase)?.let { return it } // spm
         EclPhrases.noun(phrase)?.let { return it } // ecl
         SosPhrases.noun(phrase)?.let { return it } // sos

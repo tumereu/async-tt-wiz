@@ -20,11 +20,20 @@ internal object FinPhrases {
     private val PLAYER_DEALT_COMBAT_DAMAGE = Regex("""a player was dealt (\d+) or more combat damage this turn""")
     private val DIED_UNDER_CONTROL = Regex("""an? (\w+) died under (an opponent's|your) control this turn""")
     private val CARDS_ARE_IN_GRAVEYARD = Regex("""(\w+) or more cards are in your graveyard""")
+    private val AND_SUBTYPE_YOU_CONTROL = Regex("""([A-Za-z]+ creatures) and ([A-Z][a-z]+?)(?:es|s) you control""")
     fun noun(phrase: String): ObjectFilter? {
         THAT_ISNT.matchEntire(phrase)?.let { m ->
             val kind = Filters.noun(m.groupValues[1]) ?: return null
             val not = Filters.noun(m.groupValues[2]) ?: return null
             return Filters.all(kind, ObjectFilter.Not(not))
+        }
+        // fin chunk 08: "Artifact creatures and Heroes you control" (either kind, yours)
+        AND_SUBTYPE_YOU_CONTROL.matchEntire(phrase)?.let { m ->
+            val words = m.groupValues[1].replaceFirstChar { it.lowercase() }
+            val first = Filters.noun(words) ?: Filters.noun(words.removeSuffix("s")) ?: return null
+            if (m.groupValues[2] !in RulesWords.subtypes) return null
+            return Filters.all(ObjectFilter.Or(listOf(first, ObjectFilter.Sub(arcanum.api.Subtype(m.groupValues[2])))),
+                ObjectFilter.ControlledBy(arcanum.api.PlayerFilter.You))
         }
         // fin-noun-end
         return null
@@ -34,6 +43,9 @@ internal object FinPhrases {
         TOTAL_MANA_VALUE_OF.matchEntire(text)?.let { m ->
             return Value.Of(NumericProperty.ManaValue, Objects.Each(Filters.noun(m.groupValues[1]) ?: return null), Combine.Total)
         }
+        // fin chunk 08: "the amount of life you gained this turn"
+        if (text == "the amount of life you gained this turn")
+            return Value.EventsThisTurn(arcanum.api.EventPattern.GainLife(arcanum.api.PlayerFilter.You), arcanum.api.Measure.Amount)
         // fin-value-end
         return null
     }
@@ -145,4 +157,7 @@ internal object Fin {
     val GAINS_PUT_COUNTERS_ATTACH_EQUIPMENT = Regex("""Target (.+?) gains (.+?) until end of turn\. Put (.+?)'s counters on that creature and attach an Equipment that was attached to (.+?) to that creature\.""")
     val EQUIPPED_TRIGGERS_ADDITIONAL = Regex("""As long as (.+?) is equipped, if a triggered ability of (.+?) or an Equipment attached to it triggers, that ability triggers an additional time\.""")
     val NUMBER_OF_COUNTERS_ON = Regex("""the number of (\S+) counters on (.+)""")
+    // fin chunk 08
+    val GET_FOR_EACH_AND_EACH = Regex("""(.+?) get \+(\d+)/\+(\d+) for each (.+?) and each (.+?)\.""")
+    val EACH_OPPONENT_MILLS = Regex("""Each opponent mills (X|\w+) cards?\.""")
 }

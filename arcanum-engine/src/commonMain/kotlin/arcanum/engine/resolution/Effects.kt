@@ -867,6 +867,11 @@ internal object Effects {
     private fun fix(e: Evaluator, mechanic: Mechanic): Mechanic = when (mechanic) {
         is Mechanic.ModifyPowerToughness -> Mechanic.ModifyPowerToughness(fixValue(e, mechanic.power), fixValue(e, mechanic.toughness))
         is Mechanic.SetPowerToughness -> Mechanic.SetPowerToughness(mechanic.power?.let { fixValue(e, it) }, mechanic.toughness?.let { fixValue(e, it) })
+        // sos: "that creature enters with X additional +1/+1 counters, where X is the number of colors of mana spent to cast it": X fixed as
+        // the effect is created (CR 608.2h)
+        is Mechanic.Replacement -> mechanic.copy(modify = mechanic.modify.map { m ->
+            if (m is arcanum.api.Modification.EntersWithCounters) m.copy(amount = fixValue(e, m.amount)) else m
+        })
         // "Protection from the color of your choice": the colour chosen now (CR 608.2h), not looked up later
         is Mechanic.GainAbilities -> Mechanic.GainAbilities(mechanic.abilities.map { a ->
             if (a is arcanum.api.Keyword.Protection) arcanum.api.Keyword.Protection(fixColors(e, a.from)) else a

@@ -92,6 +92,12 @@ The definition model (overview in `Definitions.kt`):
   `TargetSlot.totalAtMost`, `CostPart.GetCounters` (ward—get poison counters), `Effect.OneMoreCounterOfEachKind`,
   `Effect.ControlNextTurn` (CR 723), and the mechanics `CantBecomeUntapped`, `AbilitiesIgnoreSummoningSickness` and the
   modification `HealsOtherDamage` (CR 701.69a).
+- Secrets of Strixhaven (set `sos`): paradigm (CR 702.192: `Keyword.Paradigm`, written out by `KeywordExpansions` with
+  `Condition.ResolvedEarlierThisGame`), increment (CR 702.191), casualty (CR 702.153) and miracle (CR 702.94) as `KeywordExpansions`
+  entries, and smaller pieces: `Mechanic.CantBeCopied` ("This spell can't be copied"), `Value.Exponential` ("2ˣ cards"),
+  `Duration.UntilEndOfNextTurnOf` ("until the end of their next turn"), `Effect.RevealUntil.totalAtLeast` ("until you exile cards with
+  total mana value 4 or greater"); `DefinitionChecks` lets a spell's cost statics read its announced X ("As an additional cost to cast
+  this spell, pay X life").
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

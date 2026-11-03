@@ -333,7 +333,12 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   "can't become untapped", damage that heals other damage, ward paid with poison counters, modal double-faced cards that transform
   (CR 701.27a), and alternative costs for "the next spell" effects (a card tested as the spell it would be, CR 601.2a). Controlling
   another player's next turn (CR 723) is done by hand: who decides and sees for that player is the host's.
-- Not yet: skipped turns (by hand), several keyword actions (manifest, cloak, venture, …),
+- Done, Secrets of Strixhaven (scenarios in `commonTest/…/sets/sos/`): all 271 cards play. Paradigm (the names of spells that
+  resolved this game kept per player in the player ledger, CR 702.192a), increment, converge and opus (mana spent and its colours),
+  infusion, repartee, stun counters, casualty and miracle (also when another object gives them; a spell has the abilities other objects
+  give it as its costs are determined, CR 601.2a–b), skipped turns (CR 614.10: `TurnState.skippedTurns`), "can't be copied", exiling
+  until a total mana value, "until the end of their next turn" for another player, and 2ˣ.
+- Not yet: several keyword actions (manifest, cloak, venture, …),
   day and night (not tracked: its event never triggers), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),

@@ -287,9 +287,9 @@ class StepsTest {
         }
     }
 
-    // D61: skipping a turn is done by hand for now
+    // CR 614.10: the player's next turn is skipped (sos: no longer done by hand)
     @Test
-    fun skipNextTurnIsManual() = scenario {
+    fun skipNextTurnIsRemembered() = scenario {
         /** "Target player skips their next turn." */
         val card = spell("Test Time Lock", Effect.SkipNextTurn(Players.Target("player")).step(), targets = listOf(playerSlot))
         alice.hand(card)
@@ -297,7 +297,7 @@ class StepsTest {
         alice.castsWithoutCosts(card, target = "bob")
         resolve()
 
-        assertEquals(bob.id, decision<Decision.Manual>().player)
+        assertEquals(listOf(bob.id), state.turn.skippedTurns)
     }
 
     // CR 702.33d: "if this spell was kicked"

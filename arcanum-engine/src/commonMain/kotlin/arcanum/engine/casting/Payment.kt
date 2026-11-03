@@ -61,6 +61,9 @@ import arcanum.engine.view.AbilityOrigin
  * decision stops the payment, which is redone from its start with the answers so far ([Paying], D29).
  */
 internal object Payment {
+    /** ecl: names of cost-kept cards the permanent the spell becomes remembers (CR 607.2a). */
+    const val REMEMBERED = "remembered:"
+
     private fun refuse(why: String): Nothing = throw IllegalArgumentException(why)
 
     fun finish(recorder: Recorder, c: Continuation.Announcing, uses: List<ManaUse>, from: Int, answers: List<Answer> = emptyList()): Progress {
@@ -291,7 +294,11 @@ internal object Payment {
                 val ids = objects(part.what)
                 check(ids, part.from)
                 val after = move(ids, Zone.Exile, emptyList(), part.preBind, part.postBind)
-                part.remember?.let { bound[it] = NamedValue.Objects(after) }
+                part.remember?.let {
+                    bound[it] = NamedValue.Objects(after)
+                    // ecl: kept by the permanent the spell becomes (CR 607.2a, 400.7d)
+                    bound[REMEMBERED + it] = NamedValue.Objects(after)
+                }
             }
             is CostPart.ReturnToHand -> {
                 val ids = objects(part.what)
@@ -361,6 +368,16 @@ internal object Payment {
             is CostPart.Manual -> Unit
             // blb: the chosen player is recorded with the spell's facts as it becomes cast (CR 702.174a)
             is CostPart.ChoosePlayer -> Unit
+            // ecl: CR 701.68a: N -1/-1 counters on the chosen creature you control; it is "the blighted creature" (701.68c)
+            is CostPart.Action if part.action is arcanum.api.KeywordAction.Blight -> {
+                val ids = objects(CostObjects.Choose(ObjectFilter.Any, count = arcanum.api.Value.Fixed(1)))
+                check(ids, Zone.Battlefield)
+                val n = eval.value((part.action as arcanum.api.KeywordAction.Blight).count)
+                ids.forEach { id -> Actions.putCounters(act, cause, TargetRef.Object(id), CounterKind.PowerToughness(-1, -1), n, listOf(Meaning.Paid)) }
+                part.bind?.let { bound[it] = NamedValue.Objects(ids) }
+            }
+            // ecl: a choice made with the costs ("choose a creature type and behold two creatures of that type"): asked by the plan
+            is CostPart.Choose -> Unit
             is CostPart.Action -> {
                 if (part.action !is arcanum.api.KeywordAction.Behold) refuse("Keyword actions as costs (${part.action::class.simpleName}) aren't supported yet")
                 // CR 701.4a: a card from the hand is revealed; a permanent is only chosen

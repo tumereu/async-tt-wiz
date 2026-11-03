@@ -308,8 +308,11 @@ internal object Resolution {
                 ?.let { returned -> arcanum.engine.combat.Combat.lastTarget(act.state, returned) }
                 ?: act.state.opponents(item.controller).firstOrNull()?.let { TargetRef.Player(it) }.takeIf { sneaked }
             // CR 708.4: a face-down spell enters face down
+            // ecl: cards a cost of the spell kept for the permanent ("the exiled card", CR 607.2a)
+            val memory = Bindings(item.names.values.filterKeys { it.startsWith(arcanum.engine.casting.Payment.REMEMBERED) }
+                .mapKeys { it.key.removePrefix(arcanum.engine.casting.Payment.REMEMBERED) })
             Actions.move(act, null, listOf(PlannedMove(item.id, Zone.Battlefield, controller = item.controller,
-                meanings = listOf(Meaning.Resolved), attachTo = attachTo, faceDown = card.faceDown, tapped = sneaked, attacking = attacking)))
+                meanings = listOf(Meaning.Resolved), attachTo = attachTo, faceDown = card.faceDown, tapped = sneaked, attacking = attacking, memory = memory)))
             return
         }
         // CR 715.4: a resolving Adventure is exiled instead, and its controller may cast the creature from exile later

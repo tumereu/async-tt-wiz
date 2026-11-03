@@ -44,6 +44,7 @@ internal object Filters {
      * controls", "land card with a basic land type", "legendary creature you control".
      */
     fun noun(phrase: String): ObjectFilter? {
+        EclPhrases.noun(phrase)?.let { return it } // ecl
         SosPhrases.noun(phrase)?.let { return it } // sos
         TmtPhrases.noun(phrase)?.let { return it } // tmt
         MshPhrases.noun(phrase)?.let { return it } // msh
@@ -453,6 +454,7 @@ internal object Events {
     /** One or more events of one trigger ("this artifact enters or leaves the battlefield", "attacks or blocks"). */
     // chunk 21
     fun events(text: String, self: Set<String>): List<EventPattern>? {
+        EclPhrases.events(text, self)?.let { return it } // ecl
         FraPhrases.events(text, self)?.let { return it } // fra
         // blb chunk 03: "this artifact enters and when you sacrifice it" (only its controller sacrifices it, CR 701.21a)
         ENTERS_AND_WHEN_YOU_SACRIFICE_IT.matchEntire(text)?.let { m ->
@@ -499,6 +501,7 @@ internal object Events {
     }
 
     fun event(text: String, self: Set<String>): EventPattern? {
+        EclPhrases.event(text, self)?.let { return it } // ecl
         FraPhrases.event(text, self)?.let { return it } // fra
         // gtc chunk 01: battalion, "this creature and at least two other creatures attack": declared as attackers together
         // (CR 508.1a)
@@ -781,6 +784,9 @@ internal object Events {
     private val GTC_SPELL_DEALS_DAMAGE = Regex("""an? (.+ spell you control) deals damage""")
 
     /** "this land", "this land or another land you control", "equipped creature", "a nontoken creature". */
+    /** ecl: [subject] for the set's phrases ([EclPhrases]). */
+    fun subjectOf(text: String, self: Set<String>): ObjectFilter? = subject(text, self)
+
     private fun subject(text: String, self: Set<String>): ObjectFilter? {
         if (text in self || text.replaceFirstChar { it.lowercase() } in self) return ObjectFilter.Is(Objects.Self)
         // chunk 20
@@ -900,6 +906,7 @@ internal object Events {
 /** Conditions ("if you control seven or more lands with different names"). */
 internal object Conditions {
     fun condition(text: String, self: Set<String> = emptySet()): Condition? {
+        EclPhrases.condition(text, self)?.let { return it } // ecl
         SosPhrases.condition(text, self)?.let { return it } // sos
         TmtPhrases.condition(text, self)?.let { return it } // tmt
         MshPhrases.condition(text, self)?.let { return it } // msh
@@ -1363,6 +1370,7 @@ internal const val EXILED_WITH = "exiled"
 internal object Values {
     /** [exiled]: what "the exiled card" refers to on this card (linked abilities, CR 607.2a). */
     fun value(text: String, exiled: Objects? = null): Value? {
+        EclPhrases.value(text)?.let { return it } // ecl
         SosPhrases.value(text)?.let { return it } // sos
         HobPhrases.value(text)?.let { return it } // hob
         FraPhrases.value(text)?.let { return it } // fra

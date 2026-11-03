@@ -488,7 +488,9 @@ internal object Effects {
         val moves = ordered.mapIndexed { i, id ->
             val from = act.state.obj(id)!!.zone
             PlannedMove(
-                id, dest.zone, position, if (dest.zone == Zone.Battlefield) controller else null,
+                // ecl: "under their owners' control": each card under its own owner's (CR 110.2)
+                id, dest.zone, position, if (dest.zone != Zone.Battlefield) null else (dest.controller as? arcanum.api.Players.OwnerOf)
+                    ?.takeIf { id in e.objects(it.objects) }?.let { act.state.obj(id)?.owner } ?: controller,
                 tapped = dest.tapped, faceDown = dest.faceDown, counters = counters, meanings = meaningsOf(from, dest.zone),
                 attachTo = attachTo, transformed = dest.transformed, attacking = attacking,
                 newId = newIds?.getOrNull(i) as ObjectId.Card?,
@@ -808,6 +810,8 @@ internal object Effects {
                 if (produced.size == 1) List(amount) { produced.single() }
                 else act.chooseColor(player, scope.self, produced.filterNotNull().ifEmpty { Color.all }).let { c -> List(amount) { c } }
             }
+            // ecl: CR 105.4, 106.1: one mana of each colour among the objects
+            is ManaKind.EachColorAmong -> e.objects(kind.objects).flatMap { e.characteristics(it)?.colors.orEmpty() }.distinct()
         }
         if (colors.isEmpty()) return
         val units = colors.map { ManaUnit(it, scope.self, restriction = production.restriction, spellGets = production.spellGets,
@@ -1085,6 +1089,13 @@ internal object Effects {
     private fun conniveGuard(applied: arcanum.engine.view.AppliedMechanic) = "\$connive-replaced:${applied.source}:${applied.origin?.key}"
     private const val CONNIVER = "\$conniver"
 
+    /** ecl: the creatures [player] could blight (CR 701.68a): creatures they control. */
+    fun blightable(scope: Scope, player: arcanum.engine.state.PlayerId): List<ObjectId> {
+        val e = scope.eval()
+        return scope.act.state.battlefield.filter { e.controllerOf(it) == player && e.characteristics(it)?.isType(arcanum.api.CardType.Creature) == true &&
+            scope.act.state.obj(it)?.phasedOut != true }
+    }
+
     fun beholdable(scope: Scope, player: arcanum.engine.state.PlayerId, filter: arcanum.api.ObjectFilter): List<ObjectId> {
         val e = scope.eval()
         val state = scope.act.state
@@ -1152,10 +1163,11 @@ internal object Effects {
                         Duration.Indefinitely, null, locked = listOf(army))
                 scope.bind(bind, NamedValue.Objects(listOf(army)))
             }
-            // fra: CR 701.4a: reveal a matching card from your hand or choose a matching permanent you control
+            // fra: CR 701.4a: reveal a matching card from your hand or choose a matching permanent you control; ecl: N different ones
             is KeywordAction.Behold -> {
                 val options = beholdable(scope, scope.actor, action.filter)
-                val chosen = act.chooseObjects(scope.actor, scope.self, options, 1, 1, "Behold")
+                val n = scope.value(action.count)
+                val chosen = act.chooseObjects(scope.actor, scope.self, options, n, n, "Behold")
                 val revealed = chosen.filter { act.state.obj(it)?.zone == Zone.Hand }
                 if (revealed.isNotEmpty()) act.record(Change.Happened(arcanum.engine.change.GameEvent.Revealed(scope.actor, revealed)))
                 scope.bind(bind, NamedValue.Objects(chosen))
@@ -1209,6 +1221,19 @@ internal object Effects {
                 act.record(Change.Happened(GameEvent.Foraged(scope.actor)))
             }
             is KeywordAction.ManifestDread -> scope.players(action.players).forEach { p -> manifestDread(scope, p, bind) }
+            // ecl: CR 701.68a: each player puts N -1/-1 counters on a creature they control; nothing without one (701.68b); the creature
+            // chosen is "the blighted creature" (701.68c)
+            is KeywordAction.Blight -> {
+                val n = scope.value(action.count)
+                val blighted = scope.players(action.players).flatMap { p ->
+                    val options = blightable(scope, p)
+                    if (options.isEmpty() || n <= 0) return@flatMap emptyList<ObjectId>()
+                    val chosen = act.chooseObjects(p, scope.self, options, 1, 1, "Blight $n").firstOrNull() ?: return@flatMap emptyList<ObjectId>()
+                    Actions.putCounters(act, cause, TargetRef.Object(chosen), CounterKind.PowerToughness(-1, -1), n)
+                    listOf(chosen)
+                }
+                scope.bind(bind, NamedValue.Objects(blighted))
+            }
             else -> act.manual(scope.actor, scope.self, "Do by hand: ${action::class.simpleName}")
         }
     }

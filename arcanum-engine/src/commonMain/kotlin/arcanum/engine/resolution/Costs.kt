@@ -95,10 +95,14 @@ internal object Costs {
             is CostPart.Action -> when (val action = part.action) {
                 arcanum.api.KeywordAction.Forage -> canPay(scope, payer, arcanum.engine.casting.Costs.forage)
                 // fra: something to behold (CR 701.4a)
-                is arcanum.api.KeywordAction.Behold -> Effects.beholdable(scope, payer, action.filter).isNotEmpty()
+                is arcanum.api.KeywordAction.Behold -> Effects.beholdable(scope, payer, action.filter).size >= scope.value(action.count)
+                // ecl: CR 701.68b: blighting needs a creature to put the counters on
+                is arcanum.api.KeywordAction.Blight -> Effects.blightable(scope, payer).isNotEmpty()
                 else -> true
             }
             is CostPart.ChoosePlayer -> state.players.any { scope.eval().matches(part.filter, it.id) }
+            // ecl: a choice made as the cost is paid can always be made
+            is CostPart.Choose -> true
         }
     }
 
@@ -176,6 +180,8 @@ internal object Costs {
             is CostPart.Action -> Effects.perform(scope, arcanum.api.Effect.Action(part.action, part.bind))
             // Only a casting cost (gift, CR 702.174a)
             is CostPart.ChoosePlayer -> Unit
+            // ecl: a choice made while paying (as a step of the same name)
+            is CostPart.Choose -> Steps.run(scope, listOf(arcanum.api.Step.Choose(part.choice, part.bind, chooser = arcanum.api.Players.You)))
         }
     }
 

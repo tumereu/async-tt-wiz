@@ -180,6 +180,7 @@ internal fun podPresetError(code: String?, renaming: Boolean = false): String = 
     "preset_exists" -> if (renaming) "Another preset already has that name." else "A preset with that name already exists."
     "too_many_presets" -> "You can keep up to ${PodPresetValidation.MAX_PRESETS} presets. Delete one first."
     "cube_not_found" -> "The chosen cube no longer exists. Choose another source first."
+    "automatum_unsupported" -> "Automatum can't play every card of this cube yet. Choose another source."
     "invalid_settings" -> "These settings are not valid. Fix them before saving."
     "invalid_name" -> "Enter a name of up to ${PodPresetValidation.MAX_NAME} characters."
     "invalid_source" -> "This source cannot be saved in a preset."

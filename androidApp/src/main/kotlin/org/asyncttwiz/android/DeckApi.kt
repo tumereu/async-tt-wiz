@@ -25,6 +25,8 @@ interface Decks : Closeable {
     suspend fun drafts(token: String): DeckList = DeckList(emptyList())
     /** "Save as deck": an independent ordinary copy. */
     suspend fun copy(token: String, id: String, value: CopyDeck): SavedDeck = throw DeckFailure("unsupported")
+    /** I-D51: stores the deck's Automatum support for its revision (not an edit; draft decks too). */
+    suspend fun setSupport(token: String, id: String, value: SetCardListSupport): CardListSupportStored = throw DeckFailure("unsupported")
 }
 
 /** Dedicated authenticated service transport; never shares provider caches or follows redirects. */
@@ -90,6 +92,14 @@ class DeckApi(private val origin: String, private val client: HttpClient = Accou
     override suspend fun copy(token: String, id: String, value: CopyDeck): SavedDeck {
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
         return call(token, HttpMethod.Post, "/v1/decks/$id/copy", DeckJson.format.encodeToString(value))
+    }
+    override suspend fun setSupport(token: String, id: String, value: SetCardListSupport): CardListSupportStored {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Put, "/v1/decks/$id/automatum", DeckJson.format.encodeToString(value))
+    }
+    override suspend fun setCubeSupport(token: String, id: String, value: SetCardListSupport): CardListSupportStored {
+        if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")
+        return call(token, HttpMethod.Put, "/v1/cubes/$id/automatum", DeckJson.format.encodeToString(value))
     }
     override suspend fun read(token: String, id: String): SavedDeck {
         if (!DeckValidation.uuid(id)) throw DeckFailure("invalid_response")

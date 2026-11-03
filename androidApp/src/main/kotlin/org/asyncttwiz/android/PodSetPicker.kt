@@ -12,23 +12,33 @@ interface PodSetRepository {
     fun isCached(code: String): Boolean
     fun load(code: String): SetSourceUpload
     fun redownload(code: String): SetSourceUpload
+    /** I-D51: the unsupported card names of the sets worked out so far, by set code. */
+    fun automatum(): Map<String, List<String>> = emptyMap()
 }
 
-internal class StoredPodSets(factory: () -> SetSourceRepository) : PodSetRepository {
+internal class StoredPodSets(factory: () -> SetSourceRepository,
+    private val support: () -> Map<String, List<String>> = { emptyMap() }) : PodSetRepository {
     // Repository construction also touches the filesystem; defer it to the worker.
     private val repository by lazy(factory)
     override fun sets() = repository.sets()
+    override fun automatum() = support()
     override fun isCached(code: String) = repository.isCached(code)
     override fun load(code: String) = repository.load(code)
     override fun redownload(code: String) = repository.redownload(code)
 }
 
-internal data class PodSetRow(val set: DraftableSet, val cached: Boolean)
+/** [automatum]: the set's Automatum support (DRF-161), null until worked out. */
+internal data class PodSetRow(val set: DraftableSet, val cached: Boolean, val automatum: CardListSupport? = null)
 internal data class PodSetPickerState(
     val open: Boolean = false, val rows: List<PodSetRow> = emptyList(), val query: String = "",
     val loaded: Boolean = false, val busy: Boolean = false, val status: String? = null,
     val error: String? = null, val warnings: List<String> = emptyList(),
+    /** DRF-161: the unsupported card names of the sets worked out so far, by set code ([PodSetPickerController.loadSupport]). */
+    val support: Map<String, List<String>> = emptyMap(),
 ) {
+    /** A set's Automatum support, null until worked out. */
+    fun support(code: String?): CardListSupport? = code?.let(support::get)?.let { CardListSupport(CardDefinitions.parserVersion, it) }
+
     val filtered get() = rows.filter { row ->
         row.set.draftable && row.set.releaseDate <= LocalDate.now(AppClock.clock()).toString() && query.trim().let { it.isEmpty() || row.set.name.contains(it, true) ||
             row.set.code.contains(it, true) || row.set.releaseDate.contains(it, true) }
@@ -54,8 +64,20 @@ internal class PodSetPickerController(private val repository: PodSetRepository?,
     fun query(value: String) { state = state.copy(query = value) }
     fun retry() { if (!state.busy) retryAction?.invoke() }
     private fun list() = work("Loading installed sets…", ::list, action = {
-        checkNotNull(repository).sets().map { PodSetRow(it, repository.isCached(it.code)) }
-    }) { state = state.copy(rows = it, loaded = true) }
+        val support = runCatching { checkNotNull(repository).automatum() }.getOrDefault(emptyMap())
+        checkNotNull(repository).sets().map { set ->
+            PodSetRow(set, repository.isCached(set.code), support[set.code]?.let { CardListSupport(CardDefinitions.parserVersion, it) })
+        } to support
+    }) { (rows, support) -> state = state.copy(rows = rows, loaded = true, support = support) }
+
+    /** DRF-161: reads the sets' Automatum support worked out so far, for the chosen source's icon. */
+    fun loadSupport() {
+        val source = repository ?: return
+        worker.execute {
+            val support = runCatching { source.automatum() }.getOrNull() ?: return@execute
+            post { state = state.copy(support = support) }
+        }
+    }
 
     fun choose(code: String) = acquire(code, false)
     fun redownload(code: String) = acquire(code, true)

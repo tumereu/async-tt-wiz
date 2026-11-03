@@ -55,6 +55,7 @@ internal object DraftDeckStore {
             sql.deleteFrom(DECK_ENTRY).where(DECK_ENTRY.DECK_ID.eq(id)).execute()
             sql.update(SAVED_DECK).set(SAVED_DECK.NAME, name).set(SAVED_DECK.DRAFT_POD_NAME, podName)
                 .set(SAVED_DECK.COVER_DIGEST, existing.coverDigest?.takeIf { cover -> entries.any { it.definition == cover } })
+                .set(SAVED_DECK.AUTOMATUM_SUPPORT, null as String?)
                 .set(SAVED_DECK.REVISION, SAVED_DECK.REVISION.plus(1L)).where(SAVED_DECK.ID.eq(id)).execute()
         }
         entries.forEachIndexed { index, entry ->

@@ -25,6 +25,7 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
@@ -60,12 +61,12 @@ class NonGameplayScreenshotTest(private val screen: String) {
         @JvmStatic @Parameters(name = "{0}") fun screens() = listOf(
             "sign-in", "register", "register-scrolled", "reset-email", "new-password", "home", "navigation-open", "navigation-accounts",
             "play", "games-loading", "catalog-startup", "catalog-update", "catalog-checking", "records-downloading", "records-downloading-unknown", "records-indexing", "contacts", "create-game", "waiting-invite", "game-context", "delete-game", "cancel-lobby",
-            "lobby-select-deck", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "ready-waiting",
+            "lobby-select-deck", "choose-lobby-deck", "choose-lobby-deck-automatum", "prepare-deck", "prepare-deck-faded", "ready-waiting",
              "decks", "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-edit", "deck-edit-text", "deck-edit-cover", "deck-art", "choose-cover", "delete-deck", "import-edit", "import-errors",
             "import-save", "import-link", "reconnecting", "gameplay-chat")
     }
 
-    // DRF-126, LOB-015, LOB-018, LOB-023, LOB-024, LOB-035, LOB-047, LOB-054, LOB-056, LOB-057, LOB-059, LOB-101, LOB-105
+    // DRF-126, LOB-015, LOB-018, LOB-023, LOB-024, LOB-035, LOB-047, LOB-054, LOB-056, LOB-057, LOB-059, LOB-101, LOB-105, LOB-115
     @Test fun portrait() = capture(false)
     @Test @Config(qualifiers = "w892dp-h412dp-land-mdpi") fun landscape() = capture(true)
 
@@ -129,7 +130,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                                 color = Color.White) { Navigation(fixtures.auth, !landscape, fixtures.lobby) }
                             Box(Modifier.weight(1f).fillMaxHeight()) {
                                 when (screen) {
-                                    "waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby" ->
+                                    "waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "choose-lobby-deck-automatum", "prepare-deck", "prepare-deck-faded", "cancel-lobby" ->
                                         WaitingLobby(fixtures.lobby, "a", if (landscape) null else ({}), landscape, importDeck = {})
                                     "deck-detail", "deck-detail-columns", "draft-deck-detail", "deck-art", "choose-cover" ->
                                         SavedDeckScreen(fixtures.library, if (landscape) null else ({}), importDeck = {})
@@ -157,6 +158,14 @@ class NonGameplayScreenshotTest(private val screen: String) {
         if (screen == "prepare-deck") { compose.mainClock.advanceTimeByFrame(); compose.waitForIdle() }
         if (screen == "register-scrolled") compose.onNodeWithText("Sign in").performScrollTo()
         if (screen == "deck-edit-text") compose.onNodeWithTag("card-list-tab-text").performClick()
+        // LOB-115: holding the warning icon names the cards Automatum plays by hand.
+        if (screen == "choose-lobby-deck-automatum") {
+            // Held, not released: the tooltip shows while the finger stays down.
+            compose.onNodeWithContentDescription(automatumSupportTip(ScreenFixtures.byHand), useUnmergedTree = true)
+                .performTouchInput { down(center) }
+            compose.mainClock.advanceTimeBy(1000)
+            compose.waitForIdle()
+        }
         // Assert the important geometry/semantics, not just that a PNG could be produced.
         fun paired(first: String, second: String) {
             val a = compose.onNode(hasText(first) and hasClickAction()).fetchSemanticsNode().boundsInRoot
@@ -215,6 +224,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
                 assertEquals(a.top, b.top, .5f, "Invitation actions must not stack")
             }
             "choose-lobby-deck" -> paired("Import deck", "Use selected deck")
+            "choose-lobby-deck-automatum" -> compose.onAllNodes(hasText(automatumSupportTip(ScreenFixtures.byHand))).assertCountEquals(1)
             "prepare-deck", "prepare-deck-faded" -> compose.onNodeWithContentDescription("Columns").assert(hasText("3"))
             "choose-cover" -> paired("Use cover", "Cancel")
               "import-link" -> {
@@ -301,6 +311,7 @@ class NonGameplayScreenshotTest(private val screen: String) {
             "cancel-lobby" -> "game lobby with the Cancel game confirmation, with Keep game and Cancel game"
             "lobby-select-deck" -> "game lobby where riley is ready and you have not chosen a deck yet"
             "choose-lobby-deck" -> "game lobby with the deck picker open on three saved decks, the first selected"
+            "choose-lobby-deck-automatum" -> "deck picker where Woodland practice has the amber Automatum warning icon, held to show the tooltip naming the 3 cards Automatum plays by hand"
             "prepare-deck" -> "deck preparation in the game lobby just after moving one Meadow Sentinel to the sideboard"
             "prepare-deck-faded" -> "deck preparation in the game lobby in its 3-column picture view, no recent move"
             "ready-waiting" -> "game lobby with your deck chosen and you ready, waiting for riley"
@@ -342,6 +353,8 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
     companion object {
         val alex = AccountIdentity("a", "alex")
         val riley = AccountIdentity("b", "riley")
+        /** Woodland practice's cards Automatum plays by hand in the Automatum support shot (invented names). */
+        val byHand = CardListSupport(21, listOf("Aegis Ward", "Ember Adept", "Quiet Grove"))
     }
     private val worker = object : AbstractExecutorService() {
         override fun execute(command: Runnable) = Unit // Captures never run requests or polling work.
@@ -378,14 +391,17 @@ internal class ScreenFixtures(accountSwitcher: Boolean = false) {
         val prep = LobbyPreparation(game.id, game.preparationRound, listOf(
             PlayerPreparation("a", ready = screen == "ready-waiting", deck = prepared.takeUnless { screen == "lobby-select-deck" }),
             PlayerPreparation("b", ready = screen == "lobby-select-deck")), definitions, StarterChoice())
-        val inLobby = screen in listOf("waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "prepare-deck", "prepare-deck-faded", "cancel-lobby")
+        val inLobby = screen in listOf("waiting-invite", "lobby-select-deck", "ready-waiting", "choose-lobby-deck", "choose-lobby-deck-automatum", "prepare-deck", "prepare-deck-faded", "cancel-lobby")
         lobby.seed(lobby.state.copy(busy = screen == "games-loading", contacts = listOf(riley, AccountIdentity("c", "morgan")), query = "sam", searched = true,
             results = listOf(AccountIdentity("d", "sam")), connectedGames = setOf("g1", "g2", "g3"),
             invitations = listOf(game.copy(id = "g3", inviter = riley, recipient = alex, invitationState = InvitationState.PENDING)),
             selected = if (inLobby) game.id else null, detail = if (inLobby) game else null,
             preparation = if (inLobby) prep else null, preparing = screen.startsWith("prepare-deck"),
             transferFeedback = if (screen == "prepare-deck") TransferFeedback(1, "1× Meadow Sentinel → Sideboard") else null,
-            picker = if (screen == "choose-lobby-deck") DeckPickerState(game, decks, decks.first(), loading = false) else null,
+            picker = if (screen == "choose-lobby-deck") DeckPickerState(game, decks, decks.first(), loading = false)
+                else if (screen == "choose-lobby-deck-automatum") DeckPickerState(game, decks.mapIndexed { n, deck ->
+                    if (n == 1) deck.copy(automatum = byHand) else deck.copy(automatum = CardListSupport(21)) }, decks.first(), loading = false)
+                else null,
             draft = if (screen == "create-game") GameNameDraft(riley, "Crackling Mist") else null))
         if (screen == "game-context") lobby.gameContext(lobby.state.games.first())
         if (screen == "delete-game") lobby.requestGameDeletion(lobby.state.games.first())

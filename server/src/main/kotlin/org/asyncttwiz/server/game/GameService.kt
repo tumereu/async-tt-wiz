@@ -465,6 +465,8 @@ class GameService @JvmOverloads constructor(private val runtime: ServiceRuntime,
         if (!canReadPreparation(summary, account.toString())) return "accessDenied"
         if (summary.podId != null) return "podDeckFixed"
         val source = DeckService(runtime).selectedSource(sql, account, action.deckId)
+        // I-D51/I-D52: a deck Automatum can't play fully (as the owner's device worked it out) can't start a game.
+        if (source?.deck?.automatum?.supported == false) return "automatumUnsupported"
         val definitions = PreparationStore.definitions(sql, source?.entries?.map { it.definition }?.toSet() ?: emptySet())
         val current = PreparationStore.read(sql, summary)
         val change = PreparationRules.select(summary, current, account.toString(),

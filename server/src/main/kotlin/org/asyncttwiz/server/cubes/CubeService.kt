@@ -48,8 +48,11 @@ class CubeService(private val runtime: ServiceRuntime) {
             val provenance = input.cubeCobraId ?: row.cubeCobraId
             if (next != previous || name != row.name || provenance != row.cubeCobraId) {
                 if (next != previous) replace(sql, owner, row.id!!, next)
+                // I-D51: changed cards need their Automatum support worked out again.
+                if (next != previous) row.automatumSupport = null
                 row.name = name; row.cubeCobraId = provenance; row.revision = row.revision!! + 1
                 row.updatedAt = sql.update(SAVED_CUBE).set(SAVED_CUBE.NAME, row.name).set(SAVED_CUBE.CUBE_COBRA_ID, provenance)
+                    .set(SAVED_CUBE.AUTOMATUM_SUPPORT, row.automatumSupport)
                     .set(SAVED_CUBE.REVISION, row.revision).set(SAVED_CUBE.UPDATED_AT, DSL.currentOffsetDateTime())
                     .where(SAVED_CUBE.ID.eq(row.id)).returning(SAVED_CUBE.UPDATED_AT).fetchSingle().updatedAt
             }
@@ -135,7 +138,22 @@ class CubeService(private val runtime: ServiceRuntime) {
     private fun summary(row: SavedCubeRecord, entries: List<SavedCubeEntry>) = CubeSummary(row.id.toString(), row.name!!,
         row.revision.toString(), row.createdAt!!.toInstant().toString(), row.updatedAt!!.toInstant().toString(),
         entries.filter { it.section == SavedDeckSection.MAINBOARD }.sumOf { it.quantity.toLong() }, row.cubeCobraId,
-        entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() })
+        entries.filter { it.section == SavedDeckSection.MAYBEBOARD }.sumOf { it.quantity.toLong() },
+        org.asyncttwiz.server.decks.automatumSupport(row.automatumSupport))
+
+    /** I-D51: stores the owner's device's Automatum support for the cube's [SetCardListSupport.revision] only. */
+    fun setSupport(principal: AccountService.Principal, id: String, input: SetCardListSupport): Result {
+        if (!DeckValidation.uuid(id)) return error(404, "not_found")
+        if (!CardListSupport.valid(input.support) || input.revision.toLongOrNull() == null) return error(400, "invalid_request")
+        return runtime.transaction { connection ->
+            val sql = DSL.using(connection, SQLDialect.POSTGRES)
+            val row = owned(sql, UUID.fromString(principal.account.accountId), id) ?: return@transaction error(404, "not_found")
+            val stored = row.revision == input.revision.toLong()
+            if (stored) sql.update(SAVED_CUBE).set(SAVED_CUBE.AUTOMATUM_SUPPORT, json.encodeToString(input.support))
+                .where(SAVED_CUBE.ID.eq(row.id)).execute()
+            Result(200, json.encodeToString(CardListSupportStored(stored)))
+        }
+    }
     private fun intent(id: String, input: JsonElement) = DeckJson.canonicalElement(buildJsonObject { put("cubeId", id); put("input", input) })
 
     private fun business(principal: AccountService.Principal, requestId: String, kind: String, canonical: String,

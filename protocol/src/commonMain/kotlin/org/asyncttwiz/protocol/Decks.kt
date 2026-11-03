@@ -81,8 +81,26 @@ data class CardDefinition(
     val mainboard: Long = 0, val sideboard: Long = 0, val cover: DeckCover? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val draft: DraftDeckOrigin? = null,
     /** Copies in Maybe; omitted when none. */
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeboard: Long = 0)
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val maybeboard: Long = 0,
+    /** Which cards Automatum plays by hand (I-D51), as the owner's device last worked it out for this revision; null
+     * until then, and after the contents change. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val automatum: CardListSupport? = null)
 @Serializable data class SavedDeck(val deck: DeckSummary, val entries: List<SavedDeckEntry>)
+/** I-D51: the cards of a deck, cube or set Automatum plays by hand, worked out on a device from the cards' rules text by
+ * the parser of [parserVersion]. [byHand] names those cards (distinct, sorted); empty: Automatum plays every card. */
+@Serializable data class CardListSupport(val parserVersion: Int, val byHand: List<String> = emptyList()) {
+    val supported: Boolean get() = byHand.isEmpty()
+    companion object {
+        const val MAX_NAMES = 3000
+        fun valid(value: CardListSupport) = value.parserVersion >= 0 && value.byHand.size <= MAX_NAMES &&
+            value.byHand.distinct().size == value.byHand.size &&
+            value.byHand.all { it.isNotBlank() && DeckValidation.text(it, 1024) }
+    }
+}
+/** PUT /v1/decks/{id}/automatum and /v1/cubes/{id}/automatum: stores [support] for the list's [revision] only (a list
+ * changed meanwhile keeps none). Not an edit: the revision stays, and draft decks take it too. */
+@Serializable data class SetCardListSupport(val revision: String, val support: CardListSupport)
+@Serializable data class CardListSupportStored(val stored: Boolean)
 @Serializable data class DeckList(val decks: List<DeckSummary>, val next: String? = null)
 /** Omitted fields are unchanged. Cover is an exact attached definition, never an arbitrary URL.
  * New contents always replace the whole list. */

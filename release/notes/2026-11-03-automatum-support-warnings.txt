@@ -1,0 +1,1 @@
+add: Decks, cubes and draft sets with cards Automatum can't play by the rules show a warning sign (hold it to see which cards) and can't be used to start a game or a draft.

@@ -55,7 +55,9 @@ internal object PlayStore {
         check(StartRules.canStart(game, preparation))
         val state = StartRules.initialize(game, preparation, requestId,
             preparation.players.associate { it.accountId to seed() },
-            if (preparation.startingChoice.accountId == null) seed() else null, librarySecret = seed())
+            if (preparation.startingChoice.accountId == null) seed() else null, librarySecret = seed(),
+            // I-D44: every play of the game starts with the game's Automatum choice
+            automatum = sql.select(GAME.AUTOMATUM).from(GAME).where(GAME.ID.eq(UUID.fromString(game.id))).fetchSingle(GAME.AUTOMATUM)!!)
         val id = UUID.fromString(state.id)
         sql.insertInto(GAME_PLAY).set(GAME_PLAY.ID, id).set(GAME_PLAY.GAME_ID, UUID.fromString(game.id))
             .set(GAME_PLAY.PREPARATION_ROUND, UUID.fromString(preparation.roundId))

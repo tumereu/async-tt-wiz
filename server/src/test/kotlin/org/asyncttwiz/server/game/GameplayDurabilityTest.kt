@@ -22,7 +22,8 @@ internal fun gameplayAwait(check: () -> Boolean) {
 }
 internal class GameplayFixture(val runtime: ServiceRuntime, deckSize: Int = 5, rulesText: String = "",
     players: Pair<String, String> = "PlayA" to "PlayB") {
-    val games = GameService(runtime)
+    /** Replaceable by a fresh service (an empty read cache), as after a restart; streams stay open. */
+    var games = GameService(runtime)
     private fun account(name: String): AccountService.Principal {
         val accounts = AccountService(runtime)
         accounts.register(name, "$name@example.invalid", "synthetic password")

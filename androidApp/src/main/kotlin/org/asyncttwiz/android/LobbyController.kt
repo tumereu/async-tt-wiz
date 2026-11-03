@@ -221,6 +221,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun begin(contact: AccountIdentity) = invitations.begin(contact)
     fun name(value: String) = invitations.name(value)
     fun reroll() = invitations.reroll()
+    fun automatum(on: Boolean) = invitations.automatum(on)
     fun dismiss() = invitations.dismiss()
     fun create() = invitations.create()
     fun retryPodChallenge() = invitations.retryPodChallenge()

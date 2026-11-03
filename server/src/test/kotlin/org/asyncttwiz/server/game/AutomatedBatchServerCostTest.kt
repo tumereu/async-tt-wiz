@@ -41,6 +41,14 @@ class AutomatedBatchServerCostTest {
                 var statements = 0
                 val listener = object : DefaultExecuteListener() { override fun executeEnd(ctx: ExecuteContext) { statements++ } }
                 val times = mutableListOf<Long>()
+                // What the server stores: every gameplay table's on-disk size (TOAST included), and the event records'
+                // stored bytes (after TOAST compression) and JSON text
+                fun stored() = db.connection().use { c -> c.createStatement().executeQuery("""SELECT
+                    pg_total_relation_size('gameplay_endpoint_record') + pg_total_relation_size('gameplay_mutation')
+                        + pg_total_relation_size('gameplay_group') + pg_total_relation_size('gameplay_endpoint_edge'),
+                    (SELECT coalesce(sum(pg_column_size(payload)), 0) FROM gameplay_endpoint_record),
+                    (SELECT coalesce(sum(octet_length(payload::text)), 0) FROM gameplay_endpoint_record),
+                    (SELECT coalesce(sum(pg_column_size(payload)), 0) FROM gameplay_mutation)""").use { it.next(); List(4) { i -> it.getLong(i + 1) } } }
                 repeat(5) { round ->
                     val board = state().board
                     val field = board.cards.filter { card -> board.containers.any { it.id == card.containerId && it.zone == PlayZone.BATTLEFIELD } }
@@ -53,6 +61,7 @@ class AutomatedBatchServerCostTest {
                     val command = f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(actions, tags))
                     assertTrue(f.owner.admit(command) is GameReceipt)
                     statements = 0
+                    val before = stored()
                     val start = System.nanoTime()
                     assertTrue(f.games.executeOne(listener))
                     times += System.nanoTime() - start
@@ -60,6 +69,10 @@ class AutomatedBatchServerCostTest {
                     assertEquals("accepted", result.outcome, result.reason)
                     assertEquals(PlayBatches.MAX_AUTOMATED, result.createdIds.size)
                     println("1000-member batch round $round on ${board.cards.size} cards: ${times.last() / 1_000_000.0} ms, $statements statements")
+                    val after = stored()
+                    val per = after.zip(before) { a, b -> (a - b) / PlayBatches.MAX_AUTOMATED }
+                    println("  stored per event: ${per[0]} bytes on disk (gameplay tables), endpoint records ${per[1]} bytes stored / " +
+                        "${per[2]} bytes JSON, event payload ${per[3]} bytes stored")
                 }
                 val warm = times.drop(2).sorted()
                 println("1000-member automated batch on the server: warm median ${warm[warm.size / 2] / 1_000_000.0} ms")

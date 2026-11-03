@@ -181,7 +181,8 @@ internal class GameplayStore(private val clock: Clock = Clock.systemUTC(),
         val tree = readFull(sql, state)
         // One-off maintenance is deliberately exhaustive, unlike readiness or normal reads.
         sql.deleteFrom(org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_ENDPOINT_RECORD)
-            .where(org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_ENDPOINT_RECORD.PLAY_ID.eq(id(state.id))).execute()
+            .where(org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_ENDPOINT_RECORD.PLAY_ID.eq(id(state.id)))
+            .and(org.asyncttwiz.server.generated.tables.GameplayEndpointRecord.GAMEPLAY_ENDPOINT_RECORD.KIND.ne(GameplayEndpoint.TARGETS)).execute()
         sql.deleteFrom(org.asyncttwiz.server.generated.tables.GameplayEndpointEdge.GAMEPLAY_ENDPOINT_EDGE)
             .where(org.asyncttwiz.server.generated.tables.GameplayEndpointEdge.GAMEPLAY_ENDPOINT_EDGE.PLAY_ID.eq(id(state.id))).execute()
         controls(sql, state.id, TreeSync.records(TreeSync.generation(tree)).filter { it.kind.startsWith("redo-") }.toList())

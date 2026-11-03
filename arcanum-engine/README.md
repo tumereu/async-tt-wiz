@@ -85,8 +85,8 @@ committed once done (D58) and redone with its answers when it waits (D29): the s
 chooser, or chosen by a player a host-answered die roll picks, CR 103.1); companion reveals in turn order when the deck
 meets the condition (CR 103.2b); the host's shuffles (D25); opening hands; mulligans (CR 103.5: declarations in turn
 order, mulligans at once, then each puts as many cards on the bottom as mulligans taken, the first free in multiplayer,
-103.5c); turn 1 from its upkeep with priority. Opening-hand actions (CR 103.6) have no cube card yet: the stage list
-marks where they go.
+103.5c; actions "any time you could mulligan", 103.5b, and starting hand sizes, 103.5a: see Status); opening-hand actions
+(CR 103.6a); turn 1 from its upkeep with priority.
 
 `Input.Concede(player)` is accepted at any time (CR 104.3a). `GameState.result` is `Won` when one player is left
 (CR 104.2a) and `Draw` when the last players lose at once (CR 104.4a); then `options` are empty and `perform` refuses
@@ -483,6 +483,12 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   `view/StaticCopyTest`): a permanent's printed static ability with `Mechanic.CopyOf` applies in layer 1 to what its `affects`
   names while its condition holds, both read on the copiable values, in timestamp order with the effect objects' copies (a static
   copy ability a copy effect gives isn't one, and one doesn't see its own result while it finds what it affects).
+  Starting a game (scenarios in `setup/MulliganActionsTest`): actions "any time you could mulligan" (CR 103.5b,
+  `Mechanic.WhenYouCouldMulligan` of cards in the hand) are further options of each declaration (`Setup.USE` and the card's name):
+  the action is taken, then the player declares, in any round; the starting hand size is a player's own
+  (`StartOptions.handSizes`, CR 103.5a) or everyone's, changed by `Mechanic.StartingHandSize` effects (a conspiracy in the command
+  zone), for draws, mulligans and the zero-card limit. In another player's view the hidden hand's cards offer no such action (the
+  host takes the declaration from the player's own state).
 - By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
   - Keywords: none (`KeywordMeanings.moments` is empty; "bands with other" and the other keywords the API doesn't list aren't
     read).
@@ -493,8 +499,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
     "whenever you choose a creature as your Ring-bearer" (`EventPattern.RingTempts.chosen`) and "your Ring-bearer" as an object
     are read since the third round).
 - Not yet, around the game:
-  actions "any time you could mulligan" (103.5b), effects that change the starting hand size, team and other variant
-  starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
+  team and other variant starts; a decision of a player who left (the decision stays open; CR 800.4f–h, a cost not paid or another player
   choosing, are not applied); restarting a game (CR 104.1).
 
 ## Tests

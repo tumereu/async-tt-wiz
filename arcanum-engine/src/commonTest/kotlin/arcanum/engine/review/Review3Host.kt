@@ -244,7 +244,10 @@ internal class FakeHost(
             it.copy(source = it.source?.let { s -> v.obj(s) })
         }))
         is Input.Activate -> input.copy(source = v.obj(input.source))
-        is Input.DeclareAttackers -> input.copy(attacks = input.attacks.map { Attack(v.obj(it.attacker), v.ref(it.target)) })
+        // Night review 2026-11-04: enlisted creatures, bands and optional costs go with the declaration (CR 702.154, 702.22c, 508.1g)
+        is Input.DeclareAttackers -> input.copy(attacks = input.attacks.map {
+            it.copy(attacker = v.obj(it.attacker), target = v.ref(it.target), enlisted = it.enlisted.map { e -> v.obj(e) })
+        })
         is Input.DeclareBlockers -> input.copy(blocks = input.blocks.map { Block(v.obj(it.blocker), v.obj(it.attacker)) })
         is Input.Answer -> Input.Answer(viewDecision?.id ?: input.decision, answer(v, input.answer, viewDecision))
         else -> input

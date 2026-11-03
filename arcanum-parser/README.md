@@ -42,6 +42,10 @@ Design: `docs/specs/arcanum-automatum.md` §6.
   Teenage Mutant Ninja Turtles (`tmt`): all 190 cards parse; its rules are in `TmtWordings.kt` and the `tmt*` functions of
   `Sentences.kt`, tried first like The Hobbit's; names of two characters ("Don & Raph attack", "The Neutrinos get") are read with
   singular verbs, and a modal trigger's "choose one that hasn't been chosen this turn." may end with a period.
+  Lorwyn Eclipsed (`ecl`): all 273 cards parse (the transforming legends as two faces, the five basic lands untested); its rules are in
+  `EclWordings.kt` (`Ecl`, and `EclPhrases` for values, conditions, nouns and events) and the `ecl*` functions of `Sentences.kt`, tried
+  first; a face name with a comma in "transforms into [name]" is read through a comma-free alias, and a creature type chosen as a spell
+  resolves ("Choose a creature type. … of the chosen type") is the chosen one, not a remembered one.
 - `TypeLine`, `PrintedNumbers`: type lines and printed numbers, both ways.
 - `OracleRenderer.render(ability)`: writes an ability back as oracle-style English,
   for checking parses against the original text.

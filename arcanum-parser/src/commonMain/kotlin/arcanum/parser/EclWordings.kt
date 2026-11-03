@@ -43,9 +43,6 @@ internal object Ecl {
     // ecl chunk 03: vivid
     val COSTS_LESS_FOR_EACH_COLOR = Regex("""This spell costs (\{\d+\}) less to cast for each color among permanents you control\.""")
     val COSTS_X_LESS_WHERE = Regex("""This spell costs \{X\} less to cast, where X is (.+)\.""")
-    val COSTS_LESS_IF = Regex("""This spell costs (\{\d+\}) less to cast if (.+)\.""")
-    val FOR_EACH_COLOR_ADD = Regex("""For each color among permanents you control, add one mana of that color\.""")
-    val POWER_IS_EQUAL = Regex("""(.+?)'s power is equal to (.+)\.""")
 
     // ecl chunk 10
     val AS_LONG_AS_EQUIPPED_TOUGHNESS_GREATER = Regex("""As long as equipped creature's toughness is greater than its power, it assigns combat damage equal to its toughness rather than its power\.""")
@@ -57,32 +54,25 @@ internal object Ecl {
     val UNTIL_YOUR_NEXT_TURN_PREVENT_TO_YOU = Regex("""Until your next turn, prevent all damage that would be dealt to you\.""")
     val EXILE_SELF = Regex("""Exile (.+?)\.""")
     val FOR_EACH_PLAYER_CHOOSE_SACRIFICE_NOT_SHARING = Regex("""For each player, you choose a creature that player controls\. Then each player sacrifices all other creatures they control that don't share a creature type with the chosen creature they control\.""")
-    val TAP_UNTAPPED_CREATURES_COST = Regex("""Tap (two|three|four) untapped creatures you control""")
 
     // ecl chunk 11
     val CANT_BECOME_UNTAPPED_AND_NO_COUNTERS = Regex("""Enchanted creature can't become untapped and can't have counters put on it\.""")
-    val TAP_UP_TO_ONE_AND_STUN = Regex("""[Tt]ap up to (one|two) target (creatures?) and put a stun counter on (?:it|each of them)\.""")
     val TAP_UP_TO_TWO_STUN_EACH = Regex("""Tap up to (one|two) target (creatures?)\. Put a stun counter on (?:it|each of them)\.""")
     val DELAYED_COMBAT_DAMAGE_DRAW = Regex("""Whenever a creature you control deals combat damage to a player or planeswalker this turn, draw a card\.""")
     val CHOOSE_UP_TO_ONE_OTHER_BASE_PT_ALL_TYPES = Regex("""[Cc]hoose up to one other target creature\. Until end of turn, that creature has base power and toughness (\d+)/(\d+) and gains all creature types\.""")
     val COUNTER_ALL_OPPONENTS_CREATE_FOR_EACH = Regex("""Counter all spells your opponents control and all abilities your opponents control\. Create (.+?) for each spell and ability countered this way\.""")
     val CHOOSE_TYPE_DRAW_FOR_EACH = Regex("""Choose a creature type\. Draw a card for each (.+?) of that type\.""")
     val HEXPROOF_AS_LONG_AS_UNTAPPED = Regex("""(.+?) has (hexproof|indestructible) as long as it's untapped\.""")
-    val MAY_CAST_AS_THOUGH_FLASH_IF = Regex("""You may cast (.+?) as though it had flash if (.+)\.""")
     val EACH_BECOMES_COPY_OF_TARGET = Regex("""Each (.+?) becomes a copy of target (.+)\.""")
     val ENCHANTED_LOSES_ALL_COLORLESS_BASE = Regex("""Enchanted creature loses all abilities and is a colorless ([A-Z]\w+) with base power and toughness (\d+)/(\d+)\.""")
     val GAINS_ALL_CREATURE_TYPES = Regex("""(Up to one target creature|Target creature) gains all creature types\.""")
     val GETS_UNTIL_YOUR_NEXT_TURN = Regex("""Target creature gets ([+-]\d+)/([+-]\d+) until your next turn\.""")
-    val EMBLEM_CHOSEN_TYPE = Regex("""Choose a creature type\. You get an emblem with "(.+)"""")
-    val MAY_ENTER_AS_COPY_EXCEPT_CHANGELING = Regex("""You may have (.+?) enter as a copy of any creature on the battlefield, except it has changeling\.""")
     val NEXT_INSTANT_SORCERY_COPY = Regex("""When you next cast an instant or sorcery spell this turn, copy it\. You may choose new targets for the copy\.""")
     val OWNER_PUTS_TOP_OR_BOTTOM = Regex("""The owner of target (.+?) puts it on their choice of the top or bottom of their library\.""")
     val OWNER_PUTS_SECOND_OR_BOTTOM = Regex("""The owner of target (.+?) puts it into their library second from the top or on the bottom\.""")
     val TARGET_GAINS_QUOTED = Regex("""[Tt]arget creature gains "(.+)" until end of turn\.""")
     val GAINS_PROTECTION_EACH_COLOR_UNTIL_NEXT_TURN = Regex("""[Tt]arget creature you control gains protection from each color until your next turn\.""")
-    val DRAW_THEN_DISCARD_UNLESS = Regex("""Draw three cards\. Then discard two cards unless you discard a creature card\.""")
     val RETURN_ONE_OR_TWO_THEN_IF_CREATE_FOR_EACH = Regex("""Return one or two target (.+?) to their owners' hands\. Then if you control an? (.+?), create (.+?) for each permanent returned to its owner's hand this way\.""")
-    val CREATURES_CONTROLLED_BY_DIFFERENT = Regex("""Choose two target creatures controlled by different players\. Return those creatures to their owners' hands\.""")
 
     // ecl chunk 13
     val HAVE_QUOTED_KEYWORD = Regex("""(.+?) have "(.+)"""")
@@ -90,18 +80,15 @@ internal object Ecl {
 
     // ecl chunk 12
     val ENTERS_WHILE_HAS_COUNTER = Regex("""(.+?) while (.+?) has an? (-1/-1|\+1/\+1) counter on it""")
-    val REVEALS_X_YOU_CHOOSE_EXILES = Regex("""Target opponent reveals X cards from their hand, where X is (.+?)\. You choose one of those cards\. That player exiles it\. If an instant or sorcery card is exiled this way, you may cast it for as long as you control (.+?), and mana of any type can be spent to cast that spell\.""")
     val CAST_DURING_OPPONENTS_TURN = Regex("""you cast a spell during an opponent's turn""")
     val DIES_IF_HAD_COUNTER_RETURN_LOSES = Regex("""When (.+?) dies, if it had an? (-1/-1) counter on it, return it to the battlefield under its owner's control and it loses all abilities\.""")
     val GETS_AND_LOSES_ALL_TYPES = Regex("""Target creature gets ([+-]\d+)/([+-]\d+) and loses all creature types until end of turn\.""")
-    val WHEN_THAT_CREATURE_DIES_THIS_TURN_CREATE = Regex("""When that creature dies this turn, create (.+)\.""")
     val ENTERED_OR_CAST_FROM_GRAVEYARD = Regex("""Whenever one or more other creatures you control enter, if they entered or were cast from a graveyard, create a token that's a copy of one of them\. This ability triggers only once each turn\.""")
     val RETURN_TWO_SHARING_TYPE = Regex("""Return two target (creature cards) that share a creature type from your graveyard to your hand\.""")
     val TARGET_OPPONENT_EXILES_FROM_HAND = Regex("""Target opponent exiles (two|three) cards from their hand\.""")
     val PLAYERS_CANT_DRAW_OR_GAIN = Regex("""Players can't draw cards or gain life\.""")
     val EACH_DRAW_STEP_LOSES_SEARCHES = Regex("""At the beginning of each player's draw step, that player loses (\d+) life, searches their library for a card, puts it into their hand, then shuffles\.""")
     val CAST_FROM_EXILED_WITH_REMOVING_COUNTERS = Regex("""During your turn, you may cast creature spells from among cards you own exiled with (.+?) by removing (\w+) counters from among creatures you control in addition to paying their other costs\.""")
-    val COPY_OF_BLIGHTED_EXCEPT_SACRIFICE = Regex("""create a tapped and attacking token that's a copy of the blighted creature, except it has "At the beginning of the end step, sacrifice this token\."""")
 
     // ecl: more wordings, by chunk
     val EXCEPT_IT_HAS = Regex("""it has (.+)""")

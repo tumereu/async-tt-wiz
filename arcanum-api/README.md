@@ -131,6 +131,10 @@ The definition model (overview in `Definitions.kt`):
   `KeywordAction.Support(count, slot)`, its targets a slot of the instructions), discover, endure and learn. New pieces:
   `ObjectMark.Foretold`, `Plotted` and `Cloaked`, `Effect.IncreaseSpeed` (CR 702.179c) and `CostObjects.Choose.upTo` ("tapping up to one
   untapped creature you control").
+- By-hand mechanics, second round (2026-11-03): enlist (its linked trigger on `EventPattern.Enlists`; the cost is the engine's), soulbond
+  (`Effect.Pair`, `ObjectFilter.Paired`, `Objects.PairedWith`) and haunt (`Effect.Haunt`, "the creature it haunts" is `Objects.LinkedTo`
+  haunt) are written out; the Ring tempting you gets `ObjectMark.RingBearer`, `Value.RingTemptations` and `EventPattern.RingTempts`;
+  `KeywordExpansions.TRIBUTE_PAID` is public for "if tribute wasn't paid".
 
 `ExampleCardsTest` shows about twenty invented cards written in the model and their
 JSON. Decisions from the API reviews (D19–D49) are built here where they concern card

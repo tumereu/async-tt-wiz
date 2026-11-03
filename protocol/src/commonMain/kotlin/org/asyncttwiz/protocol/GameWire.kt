@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 4
+const val GAME_PROTOCOL_MINOR = 5
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -28,6 +28,13 @@ const val GAME_PROTOCOL_MINOR = 4
     /** CR 104.3a (I-D52): the actor concedes and loses at once, no agreement needed: their loss is recorded as the play's
      * result (a waiting suggestion withdrawn or declined first) and the play ends as an accepted result ends it. */
     @Serializable @SerialName("concede") data object Concede : GameAction
+    /** I-D54 phase 3: one acting point of a game whose state is the engine's ([org.asyncttwiz.protocol.game]): engine
+     * inputs (with the device's random answers) and table changes on the event it was made on. The server makes the
+     * event ([org.asyncttwiz.protocol.game.Authority]), refusing it when its parent isn't the live line's last event
+     * ("stale": another player's event came first) unless [branch] (a deliberate branch from an older event), or when an
+     * input or table change isn't possible there. */
+    @Serializable @SerialName("submit") data class Submit(val submission: org.asyncttwiz.protocol.game.Submission,
+        val branch: Boolean = false) : GameAction
     /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent only for what a player may
      * send outside Automatum ([AutomatumOnly]). */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
@@ -108,12 +115,23 @@ const val GAME_PROTOCOL_MINOR = 4
     val ownPodDeckName: String? = null,
     /** Socket heads only; omitted otherwise. Not replay state or revision data. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val opponentPresence: OpponentPresence? = null) : GameServerMessage
+    val opponentPresence: OpponentPresence? = null,
+    /** I-D54: the play's engine state at its live line's last event, for a play whose state is the engine's. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val engine: EngineSnapshot? = null) : GameServerMessage
+/** A play's engine state as a device loads it (I-D54 phase 4): its card [definitions]
+ * ([org.asyncttwiz.protocol.game.EngineJson.encodeDefinitions]), its [rootId], the live line's last event [headId] and
+ * the [state] there ([org.asyncttwiz.protocol.game.EngineJson.encodeModel]). */
+@Serializable data class EngineSnapshot(val definitions: String, val rootId: String, val headId: String, val state: String)
 @Serializable @SerialName("revision") data class GameRevision(val gameId: String, val baseRevision: String,
     val resultRevision: String, val requestId: String, val author: String, val scope: GameScope,
     val summary: GameSummary, val preparation: LobbyPreparation? = null, val play: PlayState? = null,
     val mutation: GameplayMutation? = null, val group: GameplayGroup? = null,
-    val chatMessage: ChatMessage? = null, val treeDelta: GameplayTreeDelta? = null) : GameServerMessage
+    val chatMessage: ChatMessage? = null, val treeDelta: GameplayTreeDelta? = null,
+    /** I-D54: the engine event this revision accepted, in the play's engine format
+     * ([org.asyncttwiz.protocol.game.EngineJson.encodeEvent], definitions by reference to [GameHead.engine]'s). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val engineEvent: String? = null) : GameServerMessage
 /** The opponent's presence changed (opened/left the game, or came back from idle). */
 @Serializable @SerialName("presence") data class GamePresenceUpdate(val gameId: String, val opponent: OpponentPresence) : GameServerMessage
 @Serializable @SerialName("pong") data class GamePong(val correlationId: String) : GameServerMessage
@@ -126,6 +144,8 @@ object GameWire {
     /** The largest game socket message either way (I-D14): an automated batch of [PlayBatches.MAX_AUTOMATED] members
      * and the revision that answers it, at a few KB per member. */
     const val MAX_MESSAGE_BYTES = 8 * 1024 * 1024
+    /** The most engine inputs, and the most table changes, one [GameAction.Submit] may hold. */
+    const val MAX_SUBMITTED = 1024
     val json = DeckJson.format
     fun decodeClient(text: String): GameClientMessage {
         require(text.encodeToByteArray().size <= MAX_MESSAGE_BYTES)
@@ -145,6 +165,12 @@ object GameWire {
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.SendChat) require(ChatValidation.text(command.action.text))
+        } else if (command.action is GameAction.Submit) {
+            require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
+            val submission = command.action.submission
+            require(DeckValidation.uuid(submission.id) && DeckValidation.uuid(submission.parentId))
+            require(submission.acts.size <= MAX_SUBMITTED && submission.table.size <= MAX_SUBMITTED)
+            require(submission.acts.isNotEmpty() || submission.table.isNotEmpty())
         } else if (command.action is GameAction.AcceptResult || command.action == GameAction.Concede) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.AcceptResult) require(DeckValidation.uuid(command.action.suggestionId))

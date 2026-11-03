@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 /** Copy effects of static abilities (CR 613.2a, 707.2): applied in layer 1 to what the ability affects, while it functions. */
 class StaticCopyTest {
     /** "Enchant creature / Other creatures you control are copies of enchanted creature." (written by hand from the parsed
-     * "Other creatures you control get +1/+1." wording: the parser doesn't read "are copies of" yet) */
+     * "Other creatures you control get +1/+1." wording; `casting/ReadLaneWordingsScenariosTest` plays the parsed wording) */
     private val charm = run {
         val base = Cards.definition(Cards.invent("Mirrorlink Charm Base", "{2}{U}", "Enchantment — Aura",
             "Enchant creature\nOther creatures you control get +1/+1."))

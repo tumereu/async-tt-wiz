@@ -513,6 +513,10 @@ internal object Effects {
         val moved = Actions.move(act, scope.cause, moves)
         val after = moves.mapNotNull { moved[it.id] }
         scope.bind(effect.postBind, NamedValue.Objects(after))
+        // dgm backfill: cards put onto the battlefield by a name the effect chose ("Put a creature card from a graveyard onto the
+        // battlefield under your control. It gains haste") are found there by the rest of the effect (CR 400.7, 608.2c)
+        val bound = effect.objects as? Objects.Bound
+        if (effect.postBind == null && bound != null && dest.zone == Zone.Battlefield && after.isNotEmpty()) scope.bind(bound.name, NamedValue.Objects(after))
         effect.untilLeaves?.let { until ->
             // CR 610.3: when that object leaves the battlefield, a second one-shot effect returns the cards right after
             // that event, without the Stack (kept as a one-shot delayed trigger, D19)

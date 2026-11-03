@@ -19,6 +19,7 @@ import org.asyncttwiz.protocol.game.LiveState
 import org.asyncttwiz.protocol.game.Submission
 import org.asyncttwiz.protocol.game.answerRandoms
 import org.asyncttwiz.server.generated.tables.EngineEvent.ENGINE_EVENT
+import org.asyncttwiz.server.generated.tables.EnginePlay.ENGINE_PLAY
 import org.jooq.DSLContext
 
 /**
@@ -51,6 +52,12 @@ internal class EngineGames(private val capacity: Int = 32) {
 
     private fun take(play: UUID): LiveState? = synchronized(warm) { warm.remove(play) }
 
+    /** Whether any play may be engine state: found once (no query per head while the seam starts none), then set by
+     * [start]. Until the switch-over, reads of today's plays pay nothing for engine plays. */
+    @Volatile private var any: Boolean? = null
+
+    fun mayExist(sql: DSLContext): Boolean = any ?: sql.fetchExists(ENGINE_PLAY).also { any = it }
+
     /** Puts [accepted]'s state back as [accepted.play]'s warm state, once its transaction committed. */
     fun committed(accepted: Accepted) = synchronized(warm) { warm[accepted.play] = accepted.live }
 
@@ -63,6 +70,7 @@ internal class EngineGames(private val capacity: Int = 32) {
      * the server's own random results: the starting player as ATW chose, the shuffles).
      */
     fun start(sql: DSLContext, play: UUID, seats: List<Seat>, starter: PlayerId?, author: UUID): Accepted {
+        any = true
         val initial = GameModel(Engine.newGame(seats))
         val rootId = UUID.randomUUID()
         val store = EngineHistoryStore.create(sql, play, rootId, GameDefinitions.of(initial.engine), initial)

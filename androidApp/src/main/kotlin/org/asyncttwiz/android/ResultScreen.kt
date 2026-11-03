@@ -31,6 +31,14 @@ internal fun ResultTablePanel(model: ResultPresentation, controls: TableResultCo
         color = MaterialTheme.colorScheme.surface, contentColor = MenuInk, border = BorderStroke(1.dp, MenuBorder),
         shadowElevation = 2.dp) {
         Column(Modifier.padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // I-D53 (MTG Arena's result screen): the rules ended the game; one OK, which either player may press
+            if (model.byRules) {
+                Text(model.text, style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp))
+                Button(onClick = { controls?.accept?.invoke(model.target) }, enabled = controls?.enabled == true) {
+                    Icon(menuIcon("Accept"), null); Spacer(Modifier.width(8.dp)); Text("OK")
+                }
+                return@Column
+            }
             Text(model.text, style = MaterialTheme.typography.titleSmall)
             if (model.note.isNotEmpty()) Text("“${model.note}”", style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis)

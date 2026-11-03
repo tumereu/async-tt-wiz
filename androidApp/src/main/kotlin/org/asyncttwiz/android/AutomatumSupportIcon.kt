@@ -81,6 +81,8 @@ internal val AutomatumWarning = Color(0xffc77700)
 
 /** I-D52: why an unsupported list can't be used (hold the warning icon for its cards). */
 internal const val AUTOMATUM_DECK_BLOCKED = "Automatum can't play every card of this deck yet. Hold the warning sign to see which."
+/** Pivot review #2: Ready waits while the device works out which cards of the deck Automatum plays. */
+internal const val AUTOMATUM_CHECKING = "Checking which cards Automatum can play…"
 internal const val AUTOMATUM_SOURCE_BLOCKED = "Automatum can't play every card of this source yet. Hold the warning sign to see which."
 
 /**

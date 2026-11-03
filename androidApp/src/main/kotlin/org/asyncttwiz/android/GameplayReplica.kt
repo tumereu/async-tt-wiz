@@ -194,7 +194,8 @@ class GameplayReplica(private val tableChanges: (TableChangeBatch) -> Unit = {})
             it.commitRevision = update.resultRevision
         }
     }
-    /** The same bounded inverse/forward traversal as authoritative processing, including selective controls. */
+    /** The same bounded inverse/forward traversal as authoritative processing, including selective controls. (The
+     * server's gate is the table's own check before anything is sent, `AutomatumOnly.allowed`, pivot review #7.) */
     private fun predictChange(tree: GameplayTree, actor: String, command: GameCommand): GameplayTreeChange {
         if (!command.action.isGameplay)
             return GameplayTreeChange(reason = "predictionUnavailable")

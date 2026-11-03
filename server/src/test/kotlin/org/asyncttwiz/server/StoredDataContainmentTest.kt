@@ -17,6 +17,7 @@ import org.asyncttwiz.server.database.TestPostgres
 import org.asyncttwiz.server.database.UnreadableStoredData
 import org.asyncttwiz.server.decks.DeckService
 import org.asyncttwiz.server.game.GameService
+import org.asyncttwiz.server.game.boarded
 import org.asyncttwiz.server.lobby.LobbyService
 import org.asyncttwiz.server.pods.PodPresetService
 import org.asyncttwiz.server.pods.PodService
@@ -64,7 +65,8 @@ class StoredDataContainmentTest {
                 if (playId != null) GameScope(game.id, playId = playId)
                 else GameScope(game.id, game.preparationRound, if (action == GameAction.AcceptInvitation) game.invitationId else null),
                 action, stream.streamId, stream.generation)
-            fun admit(command: GameCommand) = assertTrue(games.admit(actor, hello, connection, command) is GameReceipt)
+            fun admit(command: GameCommand) = assertTrue(games.admit(actor, hello, connection,
+                games.boarded(actor, command)) is GameReceipt)
             fun execute(action: GameAction, playId: String? = null) {
                 val command = command(action, playId); admit(command); assertTrue(games.executeOne())
                 assertEquals("accepted", games.results(actor, game.id, listOf(command.requestId)).statuses.single().result!!.outcome)

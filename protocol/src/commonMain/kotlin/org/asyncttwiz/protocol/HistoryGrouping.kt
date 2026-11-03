@@ -277,6 +277,8 @@ object HistoryGrouping {
                 "automatum", isolated = true)
             // I-D49: bookkeeping like priority: joins the mulligan it goes with (same batch) and never represents it
             is MtgAction.SetMulligans -> HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.SHUFFLE)
+            // Pivot review #3: an engine gap stands alone so it is seen
+            is MtgAction.Skipped -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.BLOCK, "automatum-gap", isolated = true)
         }
         is PlayAction.MoveCard -> {
             val fromContainer = containers.single { it.id == action.source.containerId }

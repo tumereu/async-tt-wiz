@@ -95,8 +95,7 @@ class PivotReviewAppTest {
         val history = tree!!
         val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client/$actor"), "1",
             continuation = from?.let { Continuation(it, explicit = true) })
-        val change = AutomatumOnly.refusal(history, actor, command)?.let { GameplayTreeChange(reason = it) }
-            ?: HistoryContinuation.change(history, actor, command)
+        val change = AutomatumOnly.change(history, actor, command)
         if (change.reason != null) { refused += "${change.reason}: ${action.toString().take(200)}"; return false }
         tree = change.tree
         return true
@@ -270,22 +269,175 @@ class PivotReviewAppTest {
         assertEquals(emptyList(), refused)
     }
 
+    // ---- Behaviour whose every test went with the manual table (pivot review #11), on Automatum boards
+
+    /** [toolkit]'s gestures on [play]'s scene, each intent handled by the toolkit; returns the intents emitted. */
+    private fun gestures(toolkit: TableToolkitController): Pair<TableGestureCoordinator, MutableList<TableIntent>> {
+        val emitted = mutableListOf<TableIntent>()
+        val gestures = TableGestureCoordinator({ intent -> emitted += intent; toolkit.handle(intent) })
+        gestures.update(scene(toolkit.viewer), true)
+        return gestures to emitted
+    }
+    private fun doubleTap(gestures: TableGestureCoordinator, point: TablePoint) {
+        gestures.down(point, 1_000); gestures.up(point, 1_040); gestures.down(point, 1_120); gestures.up(point, 1_160)
+        gestures.tick(2_000)
+    }
+    private fun pile(viewer: String, zone: PlayZone, owner: String = viewer) =
+        scene(viewer).items.first { it.zone == zone && it.owner == owner && it.kind == TableItemKind.PILE }
+
+    /** Alice's first hand card made [what], in her hand (the fixture's own hand card). */
+    private fun withHandCard(state: PlayState, what: Invented): Pair<PlayState, String> {
+        val original = f.initial.board.cards.first { it.containerId == aHand }
+        val card = original.copy(definition = what.submitted.digest, faceId = what.face.faceId, corner = what.face.corner, tapped = false)
+        return state.copy(board = state.board.copy(cards = state.board.cards.filter { it.id != card.id } + card,
+            containers = state.board.containers.map { if (it.id == aHand) it.copy(cards = listOf(card.id)) else it.copy(cards = it.cards - card.id) })) to card.id
+    }
+
+    // ZON-013, TBL-046 (I-D52): a library whose top card Automatum offers nothing for shakes on a tap, opens no menu, and a
+    // double-tap draws nothing (no request at all)
+    @Test fun aLibraryTapShakesAndADoubleTapDrawsNothing() {
+        start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(mountain), bobField = listOf(ogre)))
+        val alice = toolkit(f.a)
+        val before = play
+        val library = pile(f.a, PlayZone.LIBRARY)
+        // Automatum has worked the board out (what it offers for the top card: nothing)
+        AutomatumBoards.compute(play, f.a); AutomatumBoards.cardPlays(play, f.a) { tags() }
+        kotlinx.coroutines.runBlocking(AutomatumBoards.boardWorker) {}
+        alice.open(TableIntent.Actions(library.id, null), library)
+        assertEquals(library.id, alice.shaking?.id, "the library shakes")
+        assertNull(alice.panel, "no menu")
+        val (gestures, emitted) = gestures(alice)
+        doubleTap(gestures, library.bounds.center)
+        assertTrue(emitted.none { it is TableIntent.Move || it is TableIntent.Submit }, "nothing drawn: $emitted")
+        assertEquals(before, play, "no request reached the server")
+    }
+
+    // TBL-045, ZON-004, ZON-006 (I-D52): double-tapping a hand card plays it through Automatum (a land onto the
+    // battlefield, untapped); a hand card is never turned
+    @Test fun aHandDoubleTapPlaysThroughAutomatumAndNeverTaps() {
+        val (state, land) = withHandCard(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(bear), bobField = listOf(ogre)), mountain)
+        start(state)
+        val alice = toolkit(f.a)
+        val item = scene(f.a).items.first { it.cardId == land && it.zone == PlayZone.HAND }
+        val (gestures, emitted) = gestures(alice)
+        doubleTap(gestures, item.bounds.center)
+        assertTrue(emitted.none { it is TableIntent.Rotate }, "a hand card is never turned: $emitted")
+        assertTrue(emitted.any { it is TableIntent.Move && it.handDoubleTap }, "$emitted")
+        kotlinx.coroutines.runBlocking(AutomatumBoards.boardWorker) {}
+        val played = play.board.cards.single { it.id == land }
+        assertEquals(aField, played.containerId, "played onto the battlefield: ${alice.error} $refused")
+        assertFalse(played.tapped)
+        assertTrue(tags().last() != null, "through Automatum")
+        assertEquals(emptyList(), refused)
+    }
+
+    // ZON-033, ZON-035, SYS-040, TBL-070 (I-D52): a tap on either player's graveyard opens its menu, which only looks
+    // (its one cell is Search, greyed while the pile is empty: shown, never hidden, in the screen tests); a double-tap
+    // opens its search view, also on the other player's pile
+    @Test fun aPileMenuOnlyLooksAndADoubleTapSearches() {
+        start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(bear), bobField = listOf(ogre)))
+        val alice = toolkit(f.a)
+        for (owner in listOf(f.a, f.b)) {
+            val graveyard = pile(f.a, PlayZone.GRAVEYARD, owner)
+            alice.open(TableIntent.Actions(graveyard.id, null), graveyard)
+            assertEquals("pile/${graveyard.id}", alice.panel)
+            alice.dismiss()
+            val (gestures, emitted) = gestures(alice)
+            doubleTap(gestures, graveyard.bounds.center)
+            assertTrue(emitted.any { it == TableIntent.SearchPile(graveyard.id) }, "$emitted")
+        }
+        assertEquals(emptyList(), refused)
+    }
+
+    // CMB-001 (I-D52): the combat area appears when an attacker is staged for Automatum's declaration, and nobody closes
+    // it by hand (the server refuses it, SYS-073); Automatum closes it when combat ends
+    @Test fun theCombatAreaOpensForStagingAndOnlyAutomatumClosesIt() {
+        start(board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(bear), bobField = listOf(ogre)))
+        val alice = toolkit(f.a)
+        assertNull(play.board.combat)
+        tapCard(alice, card(play, bear))
+        val area = assertNotNull(play.board.combat, "staging opened the area").id
+        assertFalse(serve(f.a, GameAction.Play(PlayAction.Combat(CombatAction.Close(area)))), "closing it by hand is refused")
+        assertEquals(RuleRefusals.AUTOMATUM_ONLY, refused.single().substringBefore(":"))
+        refused.clear()
+        assertTrue(arrow(alice, label = "Attack (1)"), alice.error)
+        var guard = 0
+        while (play.board.combat != null && guard++ < 6) {
+            val actor = AutomatumBoards.sharedFlow(play, tags())?.let { it.holder ?: it.declaring } ?: break
+            assertTrue(arrow(toolkit(actor)), "${toolkit(actor).error} $refused")
+        }
+        assertNull(play.board.combat, "Automatum closed it when combat ended")
+        assertEquals(emptyList(), refused)
+    }
+
+    // TBL-018: real cards are drawn as cards, tokens with their own (cut-corner) outline, and Stack and combat copies dashed
+    @Test fun cardsTokensAndCopiesLookDifferent() {
+        val state = board(TurnPosition.DECLARE_ATTACKERS, null, aliceField = listOf(bear, brute), bobField = listOf(ogre))
+        val token = card(state, brute)
+        start(state.copy(board = state.board.copy(cards = state.board.cards.map { if (it.id == token) it.copy(token = true) else it })))
+        val alice = toolkit(f.a)
+        tapCard(alice, card(play, bear))
+        val items = scene(f.a).items.filter { it.kind == TableItemKind.CARD }
+        val real = items.single { it.cardId == card(play, bear) && it.viewport != "combat" }
+        assertFalse(real.token); assertFalse(real.projection)
+        assertTrue(items.single { it.cardId == token && it.viewport != "combat" }.token, "a token has the token outline")
+        assertTrue(items.single { it.viewport == "combat" && it.sourceId == card(play, bear) }.projection, "a combat copy is dashed")
+    }
+
+    // TBL-097: a card's owner is whose deck it came from, its controller the battlefield it is on
+    @Test fun aCardKeepsItsOwnerOnTheOtherPlayersBattlefield() {
+        val state = board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(bear), bobField = listOf(ogre))
+        val taken = card(state, ogre)
+        start(state.copy(board = state.board.copy(containers = state.board.containers.map { when (it.id) {
+            aField -> it.copy(cards = it.cards + taken); bField -> it.copy(cards = it.cards - taken); else -> it } },
+            cards = state.board.cards.map { if (it.id == taken) it.copy(containerId = aField) else it })))
+        assertEquals(f.b, play.board.cards.single { it.id == taken }.owner, "owned by Bob")
+        val item = scene(f.a).items.single { it.cardId == taken && it.kind == TableItemKind.CARD }
+        assertEquals(f.b, item.owner, "drawn in Bob's colour")
+        assertEquals(scene(f.a).items.single { it.cardId == card(play, bear) && it.kind == TableItemKind.CARD }.viewport, item.viewport,
+            "on Alice's battlefield, which she controls")
+    }
+
+    // TRN-034: portrait: each player's row holds their life square and their packed piles
+    @Test fun eachPlayersRowHoldsTheirLifeAndPiles() {
+        start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(bear), bobField = listOf(ogre)))
+        val items = scene(f.a).items
+        for (player in listOf(f.a, f.b)) {
+            val life = items.single { it.kind == TableItemKind.LIFE && it.owner == player }
+            val piles = items.filter { it.kind == TableItemKind.PILE && it.owner == player && it.zone in setOf(PlayZone.LIBRARY, PlayZone.GRAVEYARD, PlayZone.EXILE) }
+            assertTrue(piles.isNotEmpty())
+            for (pile in piles) assertTrue(pile.bounds.y < life.bounds.bottom && life.bounds.y < pile.bounds.bottom,
+                "$player's ${pile.zone} on the life square's row")
+        }
+    }
+
+    // TBL-017: the camera is personal: panning and zooming send nothing to the game
+    @Test fun theCameraIsPersonal() {
+        start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(bear), bobField = listOf(ogre)))
+        val alice = toolkit(f.a)
+        val before = play
+        val camera = scene(f.a).camera
+        alice.handle(TableIntent.Camera(camera.copy(x = camera.x + 40f, y = camera.y - 30f, zoom = camera.zoom * 1.5f)))
+        assertEquals(before, play)
+        assertEquals(emptyList(), refused)
+    }
+
     // ---- Client and server agree on what goes without Automatum
 
-    // pivotreview #7 — SYS-069, SYS-073 (I-D52): the device's own check of a change by hand (`AutomatumDrags.manual`,
-    // used by `TableToolkitController.refusal`) still lets through what the tabletop used to allow (statuses, notes,
-    // pings, dice and coins, colour counters, comments, keeping a library's top card revealed, closing a panel), which the
-    // server now refuses ([AutomatumOnly]). Nothing in the app sends them today, but the next control that does gets a
-    // server refusal after its prediction was shown instead of the device's own quiet refusal. Expected: the device
-    // checks with the server's rule ([AutomatumOnly.allowed]), one list instead of two.
-    @Ignore("pivotreview #7: the device's check of hand-made changes isn't the server's")
+    // Pivot review #7 — SYS-069, SYS-073 (I-D52): the device checks a change by hand with the server's own rule
+    // ([AutomatumOnly.allowed]); what the server refuses the device refuses itself, without asking the server or showing a
+    // prediction first
     @Test fun theDeviceRefusesWhatTheServerRefuses() {
         start(board(TurnPosition.PRECOMBAT_MAIN, MtgPriority(f.a), aliceField = listOf(bear), bobField = listOf(ogre)))
-        val bearCard = card(play, bear)
-        val library = play.board.containers.single { it.zone == PlayZone.LIBRARY && it.accountId == f.a }.id
-        val samples = listOf(PlayAction.SetStatus("Thinking"), PlayAction.SetNote(bearCard, "note"), PlayAction.FlipCoin(CoinFace.HEADS),
-            PlayAction.RollDie(6, 3), PlayAction.SetKeepTopRevealed(library, true))
-        val disagree = samples.filter { action -> !AutomatumDrags.manual(action) && !AutomatumOnly.allowed(play.board, f.a, action) }
-        assertEquals(emptyList(), disagree.map { it::class.simpleName }, "let through by the device, refused by the server")
+        val alice = toolkit(f.a)
+        val bearCard = play.board.cards.single { it.id == card(play, bear) }
+        val graveyard = play.board.containers.single { it.zone == PlayZone.GRAVEYARD && it.accountId == f.a }.id
+        val samples = listOf(PlayAction.SetStatus("Thinking"), PlayAction.SetLife(f.b, "30"),
+            PlayAction.MoveCard(bearCard.id, MoveSource(bearCard.containerId, bearCard.placement), MoveDestination(graveyard, MoveInsertion.UNORDERED)))
+        for (action in samples) {
+            assertFalse(AutomatumOnly.allowed(play.board, f.a, action), "the server refuses $action")
+            assertFalse(alice.submit(action), "the device refuses $action")
+        }
+        assertEquals(emptyList(), refused, "nothing reached the server")
     }
 }

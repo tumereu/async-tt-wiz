@@ -10,7 +10,9 @@ data class ResultAcceptanceTarget(val play: ResultTarget, val suggestionId: Stri
 data class ResultPlaybackGate(val play: ResultTarget, val suggestionId: String)
 data class ResultPresentation(val target: ResultAcceptanceTarget, val text: String, val canAccept: Boolean,
     /** The suggester's optional reason, shown to both players. */
-    val note: String = "")
+    val note: String = "",
+    /** I-D53: the rules ended the game; [text] is the result from the viewer's side and OK confirms it. */
+    val byRules: Boolean = false)
 
 /** Typing aid for the optional result reason: one line, at most [ResultNotes.MAX_LENGTH] characters. */
 object ResultNoteInput {
@@ -60,6 +62,9 @@ object ResultActions {
         val target = capture(game, current) ?: return null
         val suggestion = current!!.board.resultSuggestion ?: return null
         if (gate?.play != target || gate.suggestionId != suggestion.id || viewer !in current.board.players.map { it.accountId }) return null
+        // I-D53: the rules' result, from the viewer's side; either player confirms it
+        if (suggestion.byRules) return ResultPresentation(ResultAcceptanceTarget(target, suggestion.id),
+            byRulesResult(suggestion.outcomeFor(viewer)), canAccept = true, byRules = true)
         val author = if (suggestion.author == viewer) "You" else
             listOf(game.inviter, game.recipient).find { it.accountId == suggestion.author }?.username ?: return null
         val text = when (suggestion.outcome) {

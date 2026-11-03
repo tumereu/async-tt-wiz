@@ -6,7 +6,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.platform.LocalContext
 
 enum class CardArea(val label: String) { HAND("Hand"), PILES("Piles"), STACK("Stack"), PANELS("Panels") }
-enum class CardTextScalePart(val label: String) { TITLE("Title"), NOTE("Note"), VALUES("P/T & counters") }
+/** TBL-035: the per-text sizes (notes are gone with the tabletop controls, I-D52). */
+enum class CardTextScalePart(val label: String) { TITLE("Title"), VALUES("P/T & counters") }
 
 /** Presentation only. Defaults deliberately preserve the existing table's dimensions. */
 data class CardAppearance(

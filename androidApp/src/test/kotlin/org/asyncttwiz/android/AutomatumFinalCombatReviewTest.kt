@@ -116,7 +116,8 @@ class AutomatumFinalCombatReviewTest {
         val history = tree!!
         val command = GameCommand(request, GameScope(play.gameId, playId = play.id), action, f.id("client"), "1",
             continuation = from?.let { Continuation(it, explicit = true) })
-        val change = HistoryContinuation.change(history, actor, command)
+        // As the server: its gate, then the shared reducer (pivot review #11)
+        val change = AutomatumOnly.change(history, actor, command)
         assertNull(change.reason, "the server takes $action")
         tree = change.tree
         live.value = tree!!.stateAt(tree!!.currentNodeId)

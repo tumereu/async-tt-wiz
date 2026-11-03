@@ -16,6 +16,7 @@ Engine.newGame(seats, startingLife): GameState   // a game before it begins; Inp
 Engine.result(state): GameResult?                // Won(player) or Draw once the game is over (CR 104)
 Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
 Engine.shouldPassFor(state, player): Boolean     // a host passes priority for this player now (I-D3, I-D18)
+Engine.decider(state, player): PlayerId          // who makes this player's decisions now (CR 723; see Controlling another player)
 Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
 Engine.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
 Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
@@ -149,8 +150,34 @@ tests play). One rule, in the event pipeline and the effects that look:
   - Another player's companion check at the start (CR 103.2b) is theirs, made in their own state: the viewer's state
     doesn't look at their deck and offers every card of theirs outside the game that may be a companion; the one they
     reveal (the host forwards their choice) is filled in publicly.
+  - Foretelling (CR 702.143) is a special action the rules give a card in a hand (`AbilityOrigin.Rule("foretell")`): another
+    player's state takes it with the card unknown, as the host forwards it, so the card isn't revealed; the foretold card is
+    face down in exile, `ObjectMark.Foretold`, known to its owner only (`Knowledge.mayKnow`), and filled publicly as it is cast.
   - Not yet: a face-down cast of a card unknown to the view is filled publicly (CR 708.2 would keep it unknown; the
     face-down cost comes from the card's own ability, which the view can't read).
+
+## Controlling another player (CR 723)
+
+`Effect.ControlNextTurn` records `PlayerControl(player, controller, combatOnly)` in `TurnState.controlNext`; as that player's
+next turn actually begins it becomes `TurnState.controlled` (723.1; the last one created wins, 723.1a; a skipped turn isn't
+taken, so it waits, 723.1b), until the next turn begins; "during their next combat phase" (723.2) applies only in that turn's
+combat phase, this turn's when it is their turn and its combat is still to come. The controlled player stays the active player
+and every decision, option and input stays theirs (`Decision.player`, `Input.player`), so only their resources pay (723.3,
+723.5a). The engine's part for a host:
+
+- `Engine.decider(state, player)`: who makes `player`'s decisions now: the controller, else `player` (a controller goes on
+  making their own, 723.8; a player controlling themselves decides as usual, 723.9; nobody controls a player who left).
+- `Engine.visible(state, controller)` adds what the controlled player may see of objects in the game (their hand, face-down
+  permanents they control, cards they may look at), not their cards outside the game (723.4). `Knowledge.privateTo` (the
+  "skip when I have no choice" rule) still counts only a player's own sight.
+- `Engine.shouldPassFor` follows the decider's "Skip when I have no choice" setting.
+
+What the host does (the ATW side, a follow-up): route each decision of the controlled player and their priority, casts,
+activations, attacks and blocks to the decider (`options(state, player)` are offered to the decider, inputs performed as
+`player`); show the decider the controlled player's hidden cards (`visible`; a host keeping one state per player shows the
+decider the controlled player's own state, or fills those cards into the decider's view); never let the controller concede
+for them (723.6: `Input.Concede` only from the player themself) or make choices no rule or object calls for (723.5b); and show
+both players who is controlling whom while `TurnState.controlled` is in force.
 
 ## Skip when I have no choice (I-D18)
 
@@ -334,7 +361,7 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   tapped and attacking what the returned creature attacked, CR 702.190), "choose up to X" modes, targets with a total mana value,
   "can't become untapped", damage that heals other damage, ward paid with poison counters, modal double-faced cards that transform
   (CR 701.27a), and alternative costs for "the next spell" effects (a card tested as the spell it would be, CR 601.2a). Controlling
-  another player's next turn (CR 723) is done by hand: who decides and sees for that player is the host's.
+  another player's next turn (CR 723): see Controlling another player.
 - Done, Secrets of Strixhaven (scenarios in `commonTest/…/sets/sos/`): all 271 cards play. Paradigm (the names of spells that
   resolved this game kept per player in the player ledger, CR 702.192a), increment, converge and opus (mana spent and its colours),
   infusion, repartee, stun counters, casualty and miracle (also when another object gives them; a spell has the abilities other objects
@@ -352,16 +379,40 @@ report and replay their inputs on a saved state. The default `EngineTrace.None` 
   permanents; X limited by a value as it is announced; losing all creature types; targets that share a quality; cards returned "under
   their owners' control" each under its own owner; counters on a card a replacement exiles ("with a dream counter on it"); and repeated
   processes inside each-player loops done one by one ("until they have exiled cards with total mana value 5").
-- Done, Avatar: The Last Airbender (scenarios in `commonTest/…/sets/tla/`): all 281 cards play except by hand: another player's next
-  turn controlled (CR 723, as for Marvel Super Heroes) and foretell (an engine-wide by-hand keyword: no special action to foretell yet).
-  Airbend (the owner may cast the card from exile for {2}), earthbend (the land returns tapped when it dies or is exiled), waterbend
+- Done, Avatar: The Last Airbender (scenarios in `commonTest/…/sets/tla/`): all 281 cards play (another player's next combat phase or
+  turn controlled, CR 723, and foretell, CR 702.143, are the engine's since 2026-11-03). Airbend (the owner may cast the card from exile for {2}), earthbend (the land returns tapped when it dies or is exiled), waterbend
   costs paid by tapping artifacts and creatures (only the waterbend cost's generic mana), firebending's mana kept until end of combat,
   unspent mana kept or turned red, the bend triggers, triggered abilities of attackers copied, names set by effects, extra combats for
   some attackers, mana of any type spent through a permission, a spell's own "as though it had flash" from the hand, the spell being
   cast counted as the next one cast ("the first … spell you cast each turn costs less"), what a sacrificed Aura enchanted and the
   counters of a permanent that left read as they last were, and a {T} cost's source not suggested for its mana.
-- Not yet: several keyword actions (manifest, cloak, venture, …),
-  day and night (not tracked: its event never triggers), `nthThisTurn`'s
+- Done, keywords that used to be by hand (2026-11-03, scenarios in `view/AutomatedKeywords*Test`, `casting/ForetellTest`,
+  `casting/AlternativeWaysTest`, `turn/ControlPlayerTest`, `turn/DayNightAndSpeedTest`): the expansions of `KeywordExpansionsMore`
+  (arcanum-api README) and engine code for foretell (`foretell/Foretell`: the special action and the foretold card's permission),
+  plot (`foretell/Plot`: plotted cards cast free on a later turn as a sorcery, CR 702.170d), disguise and cloak (face-down with ward
+  {2}, `Copiable.faceDown`), manifest, backup (the abilities printed below it, `KeywordMeanings.faceDependent`), entwine (every
+  mode may be chosen), prototype (copiable values, CR 718.3), aftermath (each half from its zone), a permission that casts
+  transformed (disturb, CR 712.11a), day and night (`turn/DayNight`: game ledger, untap check CR 731.2, daybound and nightbound
+  transforming and entering transformed), speed (`turn/Speed`: player ledger, start your engines! as a state-based action, the
+  inherent once-each-turn trigger as a sourceless repeating delayed trigger, max speed), compleated (Phyrexian symbols paid with
+  life, `ObjectFacts.phyrexianPaidWithLife`), read ahead (the lore counters chosen as it enters; only that chapter triggers that
+  turn), doubling mana, time travel, and controlling another player (above).
+- By hand still (D61; `KeywordMeanings.moments`, effects `act.manual` asks for), each for a reason:
+  - Keywords: epic (copying, each upkeep, a spell that has left the Stack), assist (another player paying part of the mana),
+    mutate (merging permanents, CR 730), soulbond (pairing two permanents), enlist (an optional cost to attack, CR 508.1g, which the
+    flow lacks, as for exert), banding (bands and the defending player assigning damage, CR 702.22), haunt (exiled haunting a
+    creature, with the "creature it haunts" link the parser doesn't read either) and hidden agenda (conspiracies, outside normal
+    play).
+  - Keyword actions: venture into the dungeon (dungeon cards and their rooms) and the Ring tempting you (the Ring-bearer and its
+    levels); the parser reads neither.
+  - Steps: mana paid on resolution whose amount isn't known there ("its mana cost", an unannounced X), the rest of a mana ability
+    whose other effect needs a decision, the rest of a special action the engine doesn't do (none of the keywords' any more), and
+    the parser's `Step.Manual` / `CostPart.Manual` for wordings it marks so.
+  - Parser side (`Ability.Unparsed`, not the engine's): spree and tiered mode lines ("+ {1} — …"), "partner with" (an expansion
+    exists), "if this spell was bargained", "if tribute wasn't paid", the haunt and soulbond wordings, a disturb back face's "exile
+    it instead", and the keyword actions above other than earthbend, airbend, behold, blight, connive, forage, recruit and the
+    cube's (discover, manifest, cloak, support, learn, endure and time travel are done by the engine once read).
+- Not yet: venture and the Ring (above), `nthThisTurn`'s
   `during`; in the flow: costs to attack other than mana and
   "as it attacks" costs (CR 508.1g–h), battles as attack targets (protectors, CR 310.8, 506.2),
   other keyword actions as costs (exert); no cube card has any of these. Also missing: copy effects from static

@@ -372,7 +372,7 @@ internal fun DrawScope.drawTable(scene: TableScene, viewer: String, turnPlayer: 
             xy(tipX + 4f, if (i.valueDragSide == ValueDragSide.TOP) bubble.y else bubble.bottom), 1.5f * density)
         paint.color = android.graphics.Color.rgb(32, 42, 46)
         lines.forEachIndexed { n, line ->
-            text(line, bubble.x + StatusBubble.PADDING, bubble.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
+            text(line, StatusBubble.lineX(bubble, cache.measure(line) / density), bubble.y + StatusBubble.HEIGHT / 2 + n * StatusBubble.LINE -
                 cache.centerOffset() / density, line.length)
         }
         paint.color = android.graphics.Color.DKGRAY; paint.textSize = previousSize

@@ -722,9 +722,12 @@ internal object Effects {
             shares.forEach { s -> Actions.putCounters(act, scope.cause, s.target, effect.kind, s.amount) }
             return
         }
+        // eoe: the amount is worked out once, before any counter is put ("put X +1/+1 counters on each creature you control, where X is
+        // this creature's power", CR 608.2h), unless each object has its own divided share
+        val once = if (divided.isEmpty()) scope.value(effect.amount) else null
         ids.forEach { id ->
             val share = divided.firstOrNull { it.target == TargetRef.Object(id) }?.amount
-            Actions.putCounters(act, scope.cause, TargetRef.Object(id), effect.kind, scope.eval(dividedShare = share).value(effect.amount))
+            Actions.putCounters(act, scope.cause, TargetRef.Object(id), effect.kind, once ?: scope.eval(dividedShare = share).value(effect.amount))
         }
     }
 

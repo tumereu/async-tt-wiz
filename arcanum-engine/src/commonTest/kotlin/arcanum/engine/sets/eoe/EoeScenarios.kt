@@ -85,3 +85,8 @@ internal fun Scenario.pay() {
 internal fun Scenario.warpWay(name: String): CastWay = CastWay(alternative = view()[card(name)]!!.characteristics!!.abilities.first { inst ->
     (inst.ability as? Ability.Static)?.mechanics?.any { it is Mechanic.AlternativeCost && it.keyword == Keyword.Warp.Kind } == true
 }.origin)
+
+/** The way to cast [name] with a permission (CR 601.2a: "may be cast without paying its mana cost") as [player]'s options list it. */
+internal fun Scenario.permissionWay(player: arcanum.engine.scenario.ScenarioPlayer, name: String): CastWay =
+    arcanum.engine.Engine.options(state, player.id).filterIsInstance<arcanum.engine.input.Input.Cast>()
+        .first { it.card == card(name) && it.way.permission != null }.way

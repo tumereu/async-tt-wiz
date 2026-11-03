@@ -4,6 +4,7 @@ import arcanum.engine.Engine
 import arcanum.engine.cards.Cards
 import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Decision
+import arcanum.engine.decision.LoopStop
 import arcanum.engine.setup.GameResult
 import org.asyncttwiz.protocol.MtgPriority
 import org.asyncttwiz.protocol.PlayZone
@@ -28,8 +29,8 @@ class MandatoryLoopTest {
 
     // TRN-060
     // CR 104.4b, 732.4: after Alice's pass the host passes for both (neither can do anything); the Revenant's triggers
-    // bring the game back to the same state, so the batch stops there with the engine's decision done by hand saying the
-    // game is a draw (the panel shows it, I-D37); answering it makes the game a draw
+    // bring the game back to the same state, so the batch stops there with the engine's loop choice saying the game is
+    // a draw (I-D52: Continue / Draw); choosing Draw makes the game a draw
     @Test fun automaticPassesStopOnAMandatoryLoop() {
         table.turn = TurnState(alice, "3", TurnPosition.PRECOMBAT_MAIN.phase, TurnPosition.PRECOMBAT_MAIN.step)
         table.priority = MtgPriority(alice)
@@ -41,12 +42,13 @@ class MandatoryLoopTest {
         rt.cast(alice, revenant)
         rt.settle()
         val call = rt.run(alice) { StepFlow.pass(it, alice) }
-        val manual = assertIs<Decision.Manual>(rt.decision)
-        assertTrue("draw" in manual.text, manual.text)
+        val choice = assertIs<Decision.ChooseOption>(rt.decision)
+        assertEquals(listOf(LoopStop.CONTINUE, LoopStop.DRAW), choice.options)
+        assertTrue("draw" in choice.text!!, choice.text)
         val passes = call.changes.count { it is arcanum.engine.change.Change.Priority }
         assertTrue(passes < 40, "stopped after a lap or two, not at the cap: $passes priority changes")
         assertNull(Engine.result(rt.engine()), "a draw once answered")
-        rt.run(bob) { StepFlow.answer(it, Answer.Done) }
+        rt.run(bob) { StepFlow.answer(it, Answer.Option(LoopStop.DRAW)) }
         assertEquals(GameResult.Draw, Engine.result(rt.engine()))
     }
 }

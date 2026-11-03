@@ -6,7 +6,6 @@ import arcanum.engine.state.PlayerId
 import arcanum.engine.state.TargetRef
 import org.asyncttwiz.protocol.Automatum
 import org.asyncttwiz.protocol.CommandIds
-import org.asyncttwiz.protocol.FlowRevert
 import org.asyncttwiz.protocol.GameAction
 import org.asyncttwiz.protocol.GameCommand
 import org.asyncttwiz.protocol.GameScope
@@ -168,38 +167,6 @@ class SharedFlowTest {
         val may = assertIs<Decision.May>(flow(rt).decision)
         assertEquals(PlayerId(alice), may.player)
         assertTrue("may draw a card" in may.text, may.text)
-    }
-
-    // I-D19, SYS-060: switching off during a shared flow takes every event since it began back on the server, the
-    // cast's batch included, whoever made them
-    @Test fun revertFlowTakesASharedFlowBack() {
-        table.put(alice, PlayZone.BATTLEFIELD, "Mountain", "Fertile Passing")
-        table.put(bob, PlayZone.BATTLEFIELD, "Tinkered Mite")
-        table.put(bob, PlayZone.LIBRARY, "Mountain")
-        val (spark) = table.put(alice, PlayZone.HAND, "Storm Spark")
-        val start = table.state().let { it.copy(board = it.board.copy(automatum = true)) }
-        val rt = RoundTrip(start, table.definitions)
-        var tree = GameplayTree(start)
-        var request = 0
-        fun command(action: GameAction) = GameCommand(CommandIds.uuidV5(AtwTable.NAMESPACE, "tree/${request++}"),
-            GameScope(start.gameId, playId = start.id), action, CommandIds.uuidV5(AtwTable.NAMESPACE, "stream"), "1")
-        fun send(call: EngineCall, actor: String) {
-            val command = command(GameAction.PlayBatch(listOf(org.asyncttwiz.protocol.PlayAction.PassAttention)))
-            val plan = EngineBatch.plan(call, actor, command)
-            val change = PlayBatches.change(tree, actor, command.copy(action = plan.action))
-            tree = assertNotNull(change.tree, "batch: ${change.reason}")
-            rt.state = tree.stateAt(tree.currentNodeId)!!
-        }
-        val plays = HandPlays.of(rt.state, table.definitions, alice, emptyList())
-        var cast = CastFlow.start(rt.state, table.definitions, alice, emptyList(), plays.of(spark).first(), seeds())
-        cast = cast.answer(Answer.Targets(listOf(TargetRef.Object(rt.obj("Tinkered Mite")))))
-        cast = cast.answer(Answer.ManaPayment((cast.pending as Decision.ManaPayment).suggestion))
-        send(cast.sent(), alice)
-        assertTrue(Automatum.flowOpen(rt.state.board))
-        val reverted = FlowRevert.change(tree, bob, command(GameAction.RevertFlow))
-        assertNull(reverted.reason)
-        val back = assertNotNull(reverted.tree).let { it.stateAt(it.currentNodeId)!! }
-        assertEquals(start.board, back.board, "back to before the cast")
     }
 
     // CR 701.22, I-D48: the two-area scry screen answers "Put on the bottom" and both orders that follow it at once, as one

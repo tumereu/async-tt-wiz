@@ -1,1 +1,0 @@
-Tapping Engine details at the bottom of the Automatum panel opens the engine's records in small grey type below it.

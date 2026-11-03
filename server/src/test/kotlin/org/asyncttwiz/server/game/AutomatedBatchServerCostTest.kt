@@ -31,11 +31,10 @@ class AutomatedBatchServerCostTest {
                     library.cards.take(250).chunked(100).forEachIndexed { chunk, ids ->
                         val moves = ids.mapIndexed { i, id -> PlayAction.MoveCard(id, MoveSource(library.id),
                             MoveDestination(field.id, MoveInsertion.EMPTY, BoardPosition((chunk * 100 + i) % 25 * 120, (chunk * 100 + i) / 25 * 170))) }
-                        val result = stream.execute(stream.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(moves)))
+                        val result = stream.execute(stream.command(PlayAction.NextStep).copy(action = automatedBatch(moves)))
                         assertEquals("accepted", result.outcome, result.reason)
                     }
                 }
-                assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.Mtg(MtgAction.SetAutomatum(true)))).outcome)
                 // A long game's history
                 repeat(200) { assertEquals("accepted", f.owner.execute(f.owner.command(PlayAction.AdjustLife(owner, "-1"))).outcome) }
                 var statements = 0

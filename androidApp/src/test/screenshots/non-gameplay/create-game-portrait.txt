@@ -1,1 +1,1 @@
-Portrait Contacts screen with the new game dialog for riley, named Crackling Mist, its Automatum switch on by default, with Cancel and Create.
+Portrait Contacts screen with the new game dialog for riley, named Crackling Mist, with Cancel and Create.

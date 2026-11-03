@@ -19,14 +19,14 @@ class FaceDownRuntimeTest {
                 val opponent = f.b.account.accountId
                 fun state() = f.games.head(f.a, f.game.id).play!!
                 fun batch(actions: List<PlayAction>) = f.owner.execute(f.owner.command(PlayAction.NextStep)
-                    .copy(action = GameAction.PlayBatch(actions)))
+                    .copy(action = automatedBatch(actions)))
                 val library = state().board.zoneContainer(owner, PlayZone.LIBRARY)!!
                 val hand = state().board.zoneContainer(owner, PlayZone.HAND)!!
                 val field = state().board.zoneContainer(owner, PlayZone.BATTLEFIELD)!!
                 assertEquals("accepted", batch(LibraryActions.draw(state().board, library.id, hand.id, 2)).outcome)
                 val ids = state().board.containers.single { it.id == hand.id }.cards.take(2)
                 // Each cast and its resolve are lowered against the predicted state, like the client's batch draft.
-                val envelope = f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(emptyList()))
+                val envelope = f.owner.command(PlayAction.NextStep).copy(action = automatedBatch(emptyList()))
                 var predicted = state()
                 val actions = mutableListOf<PlayAction>()
                 fun add(action: PlayAction) {
@@ -39,7 +39,7 @@ class FaceDownRuntimeTest {
                     assertTrue(entry.faceDown)
                     StackQuickActions.actions(predicted, entry.id, PlayZone.BATTLEFIELD).forEach(::add)
                 }
-                val cast = f.owner.execute(envelope.copy(action = GameAction.PlayBatch(actions)))
+                val cast = f.owner.execute(envelope.copy(action = automatedBatch(actions)))
                 assertEquals("accepted", cast.outcome, cast.reason)
                 assertTrue(CombatStackRules.stack(state().board).cards.isEmpty())
                 for (id in ids) {
@@ -78,9 +78,9 @@ class FaceDownRuntimeTest {
                 val library = state().board.zoneContainer(owner, PlayZone.LIBRARY)!!
                 val hand = state().board.zoneContainer(owner, PlayZone.HAND)!!
                 val draw = f.owner.execute(f.owner.command(PlayAction.NextStep).copy(action =
-                    GameAction.PlayBatch(LibraryActions.draw(state().board, library.id, hand.id, 1))))
+                    automatedBatch(LibraryActions.draw(state().board, library.id, hand.id, 1))))
                 assertEquals("accepted", draw.outcome, draw.reason)
-                val id = state().board.containers.single { it.id == hand.id }.cards.single()
+                val id = state().board.containers.single { it.id == hand.id }.cards.single { it !in hand.cards }
                 val history = f.games.history(f.b, f.game.id, f.root.id, "0").mutations.size
 
                 // Either player may cast the owner's hand card face down: the opponent too, still without seeing it.

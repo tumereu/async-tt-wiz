@@ -8,6 +8,7 @@ import arcanum.engine.casting.decisionId
 import arcanum.engine.change.Change
 import arcanum.engine.change.GameEvent
 import arcanum.engine.change.Recorder
+import arcanum.engine.decision.Answer
 import arcanum.engine.decision.Continuation
 import arcanum.engine.decision.Decision
 import arcanum.engine.decision.LoopStop
@@ -48,10 +49,10 @@ internal object Loops {
     const val MAX_CHANGES = 20_000
 
     /**
-     * Before another round of state-based actions and triggers: stops with a [Decision.Manual] ("possible loop") once
-     * the call made [MAX_ROUNDS] rounds or [MAX_CHANGES] changes, so a loop no player can stop (an unbounded chain of
-     * mandatory triggers) doesn't hang the call; answered, the game goes on with the next round in a new call. Null
-     * while under the cap.
+     * Before another round of state-based actions and triggers: stops with the loop choice ([choice], "possible loop")
+     * once the call made [MAX_ROUNDS] rounds or [MAX_CHANGES] changes, so a loop no player can stop (an unbounded chain
+     * of mandatory triggers) doesn't hang the call; [LoopStop.CONTINUE] goes on with the next round in a new call,
+     * [LoopStop.DRAW] ends the game as a draw (CR 104.4b). Null while under the cap.
      */
     fun capped(recorder: Recorder): Progress.Waiting? {
         val rounds = recorder.rounds
@@ -59,31 +60,31 @@ internal object Loops {
         if (rounds < MAX_ROUNDS && changes < MAX_CHANGES) return null
         val s = recorder.state
         val what = if (rounds >= MAX_ROUNDS) "$rounds rounds of state-based actions and triggered abilities" else "$changes changes"
-        val text = "Possible loop: the game stopped after $what in one action. Change what's needed by hand; Done goes on."
-        return Progress.Waiting(Pending(
-            Decision.Manual(decisionId(s, "loop"), s.priority.holder ?: s.turn.active, null, text),
-            Continuation.Loop(LoopStop.Cap),
-        ))
+        val text = "Possible loop: the game stopped after $what in one action. Continue, or end the game as a draw?"
+        return choice(s, s.priority.holder ?: s.turn.active, text, LoopStop.Cap)
     }
 
-    /** [arcanum.engine.input.Input.MandatoryLoop]: the host found a loop of mandatory actions; a [Decision.Manual] says
-     * the game is a draw. */
+    /** [arcanum.engine.input.Input.MandatoryLoop]: the host found a loop of mandatory actions; the loop choice ([choice])
+     * says the game is in a loop nobody can stop, which makes it a draw (CR 104.4b). */
     fun report(recorder: Recorder): Progress.Waiting {
         val s = recorder.state
         val holder = requireNotNull(s.priority.holder) { "A loop is reported where a player has priority (CR 104.4b)" }
-        val text = "The game is a draw: it is in a loop of actions nobody can stop (CR 104.4b). Done ends it as a draw, " +
-            "unless the loop was broken by hand."
-        return Progress.Waiting(Pending(
-            Decision.Manual(decisionId(s, "loop"), holder, null, text),
-            Continuation.Loop(LoopStop.Mandatory(key(s))),
-        ))
+        val text = "The game is in a loop of actions nobody can stop, which makes it a draw (CR 104.4b). End it as a draw, " +
+            "or continue?"
+        return choice(s, holder, text, LoopStop.Mandatory(key(s)))
     }
 
-    /** Goes on after a "possible loop" stop; or ends the game as a draw (CR 104.4b), unless the game was changed by hand
-     * since the loop was reported. */
-    fun resume(recorder: Recorder, continuation: Continuation.Loop): Progress {
-        val stop = continuation.stop
-        if (stop is LoopStop.Mandatory && key(recorder.state) == stop.key) {
+    /** The loop choice: [player] (or another player for them) chooses [LoopStop.CONTINUE] or [LoopStop.DRAW], told why
+     * by [text]. */
+    private fun choice(s: GameState, player: arcanum.engine.state.PlayerId, text: String, stop: LoopStop) = Progress.Waiting(Pending(
+        Decision.ChooseOption(decisionId(s, "loop"), player, null, listOf(LoopStop.CONTINUE, LoopStop.DRAW), text),
+        Continuation.Loop(stop),
+    ))
+
+    /** After the loop choice ([answer], checked against the options): [LoopStop.CONTINUE] goes on; [LoopStop.DRAW] ends
+     * the game as a draw (CR 104.4b). */
+    fun resume(recorder: Recorder, answer: Answer): Progress {
+        if ((answer as Answer.Option).chosen == LoopStop.DRAW) {
             val s = recorder.state
             recorder.record(Change.Happened(GameEvent.MandatoryLoop))
             // CR 104.4b: the game is a draw; the remaining players leave it together (GameResult.Draw)

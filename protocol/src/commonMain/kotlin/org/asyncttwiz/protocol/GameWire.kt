@@ -10,7 +10,7 @@ const val CURRENT_GAMEPLAY_RULES_VERSION = 36
 /** The socket protocol version of this build (SYS-033: one compatible set of apps and server). Apps offer it
  *  as [GameHello.maxMinor] and the server welcomes with its own: a lower offer gets [GameUpgradeRequired] (the app
  *  is older), and an app welcomed with a lower minor waits for the server update. Bump it with any socket wire change. */
-const val GAME_PROTOCOL_MINOR = 3
+const val GAME_PROTOCOL_MINOR = 4
 
 @Serializable enum class PresenceState { ONLINE, IDLE, OFFLINE }
 /** The opponent's presence in this game. Ages are whole seconds as of sending, so the clocks never need to agree.
@@ -24,16 +24,12 @@ const val GAME_PROTOCOL_MINOR = 3
 @Serializable sealed interface GameAction {
     @Serializable @SerialName("undo") data object Undo : GameAction
     @Serializable @SerialName("redo") data object Redo : GameAction
-    /** Rules v36 (I-D19): takes the open Automatum flow back to where it began, every event since its start in order
-     * whoever made it, as one server process ([FlowRevert]); sent when Automatum is switched off during a flow. */
-    @Serializable @SerialName("revertFlow") data object RevertFlow : GameAction
-    /** Rules v36 (I-D19, I-D24; finalreview-sync #6, #7): switching Automatum off ([MtgAction.SetAutomatum] false) or
-     * "Clear Automatum data" ([MtgAction.ClearRecords]) as [then], as one server process that always goes through
-     * ([FlowRevert.exit]): an open flow is taken back when it can be, else closed where it is ([Automatum.closeFlow]);
-     * then [then] is recorded as the actor's event. */
-    @Serializable @SerialName("exitFlow") data class ExitFlow(val then: MtgAction) : GameAction
     @Serializable @SerialName("acceptResult") data class AcceptResult(val suggestionId: String) : GameAction
-    /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent for manual play. */
+    /** CR 104.3a (I-D52): the actor concedes and loses at once, no agreement needed: their loss is recorded as the play's
+     * result (a waiting suggestion withdrawn or declined first) and the play ends as an accepted result ends it. */
+    @Serializable @SerialName("concede") data object Concede : GameAction
+    /** [tag] (rules v36): the Magic meaning of the event, made by the engine (D33); absent only for what a player may
+     * send outside Automatum ([AutomatumOnly]). */
     @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
     @Serializable @SerialName("play") data class Play(val action: PlayAction,
         @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER) val tag: MtgTag? = null) : GameAction
@@ -149,14 +145,11 @@ object GameWire {
         if (command.action == GameAction.DeleteGame || command.action is GameAction.SendChat) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
             if (command.action is GameAction.SendChat) require(ChatValidation.text(command.action.text))
-        } else if (command.action is GameAction.AcceptResult) {
+        } else if (command.action is GameAction.AcceptResult || command.action == GameAction.Concede) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
-            require(DeckValidation.uuid(command.action.suggestionId))
-        } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo ||
-            command.action == GameAction.RevertFlow || command.action is GameAction.ExitFlow) {
+            if (command.action is GameAction.AcceptResult) require(DeckValidation.uuid(command.action.suggestionId))
+        } else if (command.action.isPlay || command.action == GameAction.Undo || command.action == GameAction.Redo) {
             require(command.scope.playId != null && command.scope.preparationId == null && command.scope.invitationId == null)
-            if (command.action is GameAction.ExitFlow) require(command.action.then == MtgAction.SetAutomatum(false) ||
-                command.action.then == MtgAction.ClearRecords)
             if (command.action is GameAction.Play) require(GameplayRules.valid(command.action.action) &&
                 command.action.tag?.let(MtgTag::valid) != false)
             if (command.action is GameAction.PlayBatch) require(command.action.actions.size in 1..PlayBatches.limit(command.action) &&

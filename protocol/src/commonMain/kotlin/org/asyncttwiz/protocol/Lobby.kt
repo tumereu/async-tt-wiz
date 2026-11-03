@@ -6,10 +6,8 @@ import kotlinx.serialization.Serializable
 @Serializable data class UserSearch(val users: List<AccountIdentity>)
 @Serializable data class ContactList(val contacts: List<AccountIdentity>, val next: String? = null)
 @Serializable data class AddContact(val requestId: String, val accountId: String)
-/** [automatum]: the game's plays start with Automatum on (I-D44, LOB-031); the app's New game dialog asks for it on unless
- * the inviter turns it off. Absent means off, so plain API callers (tests, tools) start manual games as before. */
-@Serializable data class CreateInvitation(val requestId: String, val recipient: String, val gameName: String,
-    val automatum: Boolean = false)
+/** Every game is played with Automatum (I-D52). */
+@Serializable data class CreateInvitation(val requestId: String, val recipient: String, val gameName: String)
 @Serializable enum class InvitationState { PENDING, ACCEPTED, DECLINED }
 @Serializable enum class GameLifecycle { LOBBY, ACTIVE, CANCELLED, DELETED }
 @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)

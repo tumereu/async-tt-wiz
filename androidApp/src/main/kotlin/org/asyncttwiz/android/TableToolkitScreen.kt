@@ -59,7 +59,6 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
                 pendingSuggestionId = suggestion?.id, mayAccept = suggestion?.author?.let { it != toolkit.viewer } == true,
                 perform = toolkit::perform, names = names, onTimeline = onTimeline)
         }
-        "automatum" -> AutomatumPanel(play, toolkit.viewer, LocalComputedBoard.current, enabled, toolkit::dismiss) { toolkit.submit(it) }
         "phase" -> PhaseStepPicker(play, toolkit.viewer, endingColor, toolkit.table, toolkit::dismiss, names = names)
         else -> if (panel?.startsWith("library/") == true) {
             val id = panel.substringAfter('/')
@@ -92,8 +91,6 @@ internal fun TableToolkitScreen(toolkit: TableToolkitController, play: PlayState
     OpeningKeepHost(toolkit, play, scene)
     // I-D40: a step that would act for the other player asks first
     ActingForDialog(toolkit.flows, names)
-    // I-D45: tapping the Automatum switch asks first
-    AutomatumSwitchDialog(toolkit, play)
     // Automatum (I3): what combat allows and would do on this board, worked out in the background
     AutomatumCombatHost(toolkit, play)
 }

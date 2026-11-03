@@ -111,7 +111,7 @@ class ProjectionLinkRuntimeTest {
                 }
                 val firstLinkInput = inputs.first { (it.action as GameAction.Play).action is PlayAction.LinkProjections }
                 assertEquals("requestIdentityMismatch", assertThrows(GameProtocolFailure::class.java) {
-                    f.owner.admit(firstLinkInput.copy(action = GameAction.Play(link(b.id, c.id))))
+                    f.owner.admit(firstLinkInput.copy(action = automatedPlay(link(b.id, c.id))))
                 }.code)
                 assertEquals(head, f.games.head(f.a, f.game.id)); assertFalse(f.games.executeOne())
                 println("PASS actual PostgreSQL original/FIFO relational transitions: same-source distinct occurrences, deterministic exact endpoints, undirected no-op, reposition survives, same-node incident cleanup, frozen sibling links retained/recreated, explicit removal, immutable replay, original retries and no source alias")

@@ -48,7 +48,7 @@ class RuleRefusalsRuntimeTest {
                 // The opponent is refused the same way (either player may act on either player's cards).
                 refused(RuleRefusals.OFF_BATTLEFIELD, f.recipient.command(PlayAction.SetDamage(inGraveyard, "3")), f.recipient)
                 // A batch with one refused member is refused whole.
-                refused(RuleRefusals.OFF_BATTLEFIELD, f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(listOf(
+                refused(RuleRefusals.OFF_BATTLEFIELD, f.owner.command(PlayAction.NextStep).copy(action = automatedBatch(listOf(
                     PlayAction.SetDamage(onField, "1"), PlayAction.SetDamage(inHand, "1")))))
                 accept(PlayAction.SetDamage(onField, "2"))
                 accept(PlayAction.SetEotCorner(onField, "+1/+1"))
@@ -63,7 +63,7 @@ class RuleRefusalsRuntimeTest {
                     }
                 }
                 val card = state().board.cards.single { it.id == inHand }
-                refused(RuleRefusals.REAL_CARD_ON_STACK, f.owner.command(PlayAction.NextStep).copy(action = GameAction.PlayBatch(listOf(
+                refused(RuleRefusals.REAL_CARD_ON_STACK, f.owner.command(PlayAction.NextStep).copy(action = automatedBatch(listOf(
                     PlayAction.AdjustLife(owner, "1"), PlayAction.MoveCard(inHand, MoveSource(card.containerId),
                         MoveDestination(stack, MoveInsertion.BOTTOM), GameplayRules.stackDigest(state()))))))
                 // The same card goes onto the Stack as an entry pointing at it, and stays in the Hand.

@@ -156,6 +156,7 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun suggestResult(target: ResultTarget, outcome: SuggestedResult, note: String = ""): Boolean =
         tableActions.suggestResult(target, outcome, note)
     fun acceptResult(target: ResultAcceptanceTarget): Boolean = tableActions.acceptResult(target)
+    fun concede(target: ResultTarget): Boolean = tableActions.concede(target)
     fun rejectResult(target: ResultAcceptanceTarget): Boolean = tableActions.rejectResult(target)
     fun gameplay(action: PlayAction, invocationId: String? = null, continuation: Continuation? = null): Boolean =
         tableActions.gameplay(action, invocationId, continuation)
@@ -227,7 +228,6 @@ class LobbyController(private val api: Lobbies, private val credential: () -> St
     fun begin(contact: AccountIdentity) = invitations.begin(contact)
     fun name(value: String) = invitations.name(value)
     fun reroll() = invitations.reroll()
-    fun automatum(on: Boolean) = invitations.automatum(on)
     fun dismiss() = invitations.dismiss()
     fun create() = invitations.create()
     fun retryPodChallenge() = invitations.retryPodChallenge()

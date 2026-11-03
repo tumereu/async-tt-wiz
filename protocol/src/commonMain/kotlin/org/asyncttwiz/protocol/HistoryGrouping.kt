@@ -263,17 +263,15 @@ object HistoryGrouping {
             is StackAction.RemoveEffect -> HistorySemantic(HistorySignificance.STACK_REMOVAL, HistoryIcon.LAYERS_CLEAR)
             is StackAction.ReorderEffect -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.OPEN_WITH)
         }
-        // Rules v36: engine bookkeeping groups with the edits it resembles; the switch stands alone.
+        // Rules v36: engine bookkeeping groups with the edits it resembles; a player's own settings stand alone.
         is PlayAction.Mtg -> when (val mtg = action.action) {
-            is MtgAction.SetAutomatum -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
-                "automatum", isolated = true)
             is MtgAction.SetPriority -> HistorySemantic(HistorySignificance.PHASE_STEP_TRACKING, HistoryIcon.OUTLINED_FLAG)
             is MtgAction.SetManaPool -> HistorySemantic(HistorySignificance.LIFE_PLAYER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
             is MtgAction.SetCounter -> HistorySemantic(if (mtg.holder is MtgRef.Player) HistorySignificance.LIFE_PLAYER_COUNTER_EDIT
                 else HistorySignificance.CARD_CORNER_COUNTER_EDIT, HistoryIcon.EXPOSURE_PLUS_1)
             is MtgAction.Attach -> HistorySemantic(HistorySignificance.LINK_EDIT, if (mtg.after == null) HistoryIcon.LINK_OFF else HistoryIcon.LINK)
             is MtgAction.SetStackItem -> HistorySemantic(HistorySignificance.STACK_LAYOUT, HistoryIcon.LAYERS)
-            is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord, MtgAction.ClearRecords ->
+            is MtgAction.Restamp, is MtgAction.SetLedger, is MtgAction.SetRecord ->
                 HistorySemantic(HistorySignificance.CARD_TEXT_NOTE_EDIT, HistoryIcon.STICKY_NOTE_2)
             is MtgAction.SetSkipWhenNoChoice, is MtgAction.SetFullControl -> HistorySemantic(HistorySignificance.SAME_ZONE_PLACEMENT, HistoryIcon.SPACE_DASHBOARD,
                 "automatum", isolated = true)

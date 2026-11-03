@@ -9,28 +9,32 @@ import kotlinx.serialization.json.Json
 /**
  * I-D51: which cards of each draft set in the installed card records Automatum plays by hand, worked out on the device
  * from the cards' rules text with [OracleParser] ([OracleParser.VERSION]) and kept in the catalog generation beside the
- * records: per card by its oracle id and parser version (reprints are read once), per set as the names of its
- * unsupported cards. Sets missing a value for this parser version (after an import or a parser change) are worked out
- * by [refresh]. [byHand] says whether a parsed card has parts done by hand (Automatum's rule); it is given by the app,
- * which knows the engine. Blocking: run on a background worker only.
+ * records: per card by its oracle id and support version (reprints are read once), per set as the names of its
+ * unsupported cards. Sets missing a value for this support version (after an import, a parser or an engine change) are
+ * worked out by [refresh]. [byHand] says whether a parsed card has parts done by hand (Automatum's rule); it is given by
+ * the app, which knows the engine and its support version ([engineVersion], below 1000). Blocking: run on a background
+ * worker only.
  */
 class CatalogSetSupport(private val repository: CatalogRepository, private val byHand: (CardDefinition) -> Boolean,
-    private val parserVersion: Int = OracleParser.VERSION) {
-    /** Unsupported card names by set code, for the sets worked out with this parser version. */
+    parserVersion: Int = OracleParser.VERSION, engineVersion: Int = 0) {
+    /** The support version results are kept for (the tables' parser_version column): the parser's and the engine's. */
+    private val version: Long = parserVersion * 1000L + engineVersion
+
+    /** Unsupported card names by set code, for the sets worked out with this support version. */
     fun sets(): Map<String, List<String>> = repository.snapshot { index ->
         if (index == null || !index.hasSetSupport()) emptyMap()
-        else index.select("SELECT code, by_hand FROM automatum_set WHERE parser_version=?", listOf(parserVersion)) {
+        else index.select("SELECT code, by_hand FROM automatum_set WHERE parser_version=?", listOf(version)) {
             it.getString(0)!! to names(it.getString(1)!!)
         }.toMap()
     }
 
-    /** Works out every draftable set that has no value for this parser version yet, one set per catalog lock so the
+    /** Works out every draftable set that has no value for this support version yet, one set per catalog lock so the
      * records stay usable meanwhile; stops early when [cancelled]. Returns how many sets it worked out. */
     fun refresh(cancelled: () -> Boolean = { false }): Int {
         val missing = repository.snapshot { index ->
             if (index == null) return@snapshot emptyList()
-            index.prepareSetSupport(parserVersion)
-            val done = index.texts("SELECT code FROM automatum_set WHERE parser_version=$parserVersion").toSet()
+            index.prepareSetSupport(version)
+            val done = index.texts("SELECT code FROM automatum_set WHERE parser_version=$version").toSet()
             index.draftableSets().filter { it.draftable && it.code !in done }.map { it.code }
         }
         var count = 0
@@ -54,7 +58,7 @@ class CatalogSetSupport(private val repository: CatalogRepository, private val b
             val oracles = index.select("SELECT id, oracle FROM printing WHERE set_code=? AND token=0 AND side IN ('', 'a')",
                 listOf(code)) { it.getString(0)!! to it.getString(1)!! }.toMap()
             val known = index.select("SELECT oracle, by_hand FROM automatum_card WHERE parser_version=? AND oracle IN " +
-                "(SELECT oracle FROM printing WHERE set_code=? AND token=0)", listOf(parserVersion, code)) {
+                "(SELECT oracle FROM printing WHERE set_code=? AND token=0)", listOf(version, code)) {
                 it.getString(0)!! to (it.getLong(1) == 1L)
             }.toMap()
             val seen = HashSet<String>()
@@ -79,8 +83,8 @@ class CatalogSetSupport(private val repository: CatalogRepository, private val b
             if (index == null || !index.hasSetSupport()) return@snapshot
             index.transaction {
                 for ((oracle, hand) in results) if (oracle !in known)
-                    index.execute("INSERT OR REPLACE INTO automatum_card VALUES (?, ?, ?)", listOf(oracle, parserVersion, if (hand) 1L else 0L))
-                index.execute("INSERT OR REPLACE INTO automatum_set VALUES (?, ?, ?)", listOf(code, parserVersion, json.encodeToString(NAMES, names)))
+                    index.execute("INSERT OR REPLACE INTO automatum_card VALUES (?, ?, ?)", listOf(oracle, version, if (hand) 1L else 0L))
+                index.execute("INSERT OR REPLACE INTO automatum_set VALUES (?, ?, ?)", listOf(code, version, json.encodeToString(NAMES, names)))
             }
         }
     }
@@ -106,13 +110,13 @@ class CatalogSetSupport(private val repository: CatalogRepository, private val b
 internal fun CatalogIndex.hasSetSupport(): Boolean =
     long("SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE name='automatum_set')") != 0L
 
-/** Optional derived data like set names, not an index-version change: other parser versions' rows are dropped. */
-internal fun CatalogIndex.prepareSetSupport(parserVersion: Int) = transaction {
+/** Optional derived data like set names, not an index-version change: other support versions' rows are dropped. */
+internal fun CatalogIndex.prepareSetSupport(version: Long) = transaction {
     sql("CREATE TABLE IF NOT EXISTS automatum_card (oracle TEXT NOT NULL, parser_version INTEGER NOT NULL, " +
         "by_hand INTEGER NOT NULL, PRIMARY KEY(oracle, parser_version)) WITHOUT ROWID")
     sql("CREATE TABLE IF NOT EXISTS automatum_set (code TEXT NOT NULL, parser_version INTEGER NOT NULL, " +
         "by_hand TEXT NOT NULL, PRIMARY KEY(code, parser_version)) WITHOUT ROWID")
-    execute("DELETE FROM automatum_card WHERE parser_version != ?", listOf(parserVersion))
-    execute("DELETE FROM automatum_set WHERE parser_version != ?", listOf(parserVersion))
+    execute("DELETE FROM automatum_card WHERE parser_version != ?", listOf(version))
+    execute("DELETE FROM automatum_set WHERE parser_version != ?", listOf(version))
 }
 

@@ -501,15 +501,14 @@ class HistoryTextTest {
         assertTrue(format(PlayAction.EventComment(EventReference(id(2), id(5)), "x".repeat(1000))).description.length <= 180)
     }
 
-    /** bob draws four named cards in a row, then alice taps: a real tree, indexed and laid out by the explorer.
-     * [automatum]: the game's Automatum switch (its automated events apply only when on, SYS-057). */
-    private fun drawTree(automatum: Boolean = false): Pair<GameplayTree, List<String>> {
+    /** bob draws four named cards in a row, then alice taps: a real tree, indexed and laid out by the explorer. */
+    private fun drawTree(): Pair<GameplayTree, List<String>> {
         val names = listOf("Shock", "Opt", "Ponder", "Brainstorm")
         val definitions = names.mapIndexed { n, name -> CardDefinition(name, listOf(DefinitionFace(id(600 + n), name))) }
         val cards = definitions.mapIndexed { n, definition -> PlayCard(id(610 + n), DeckJson.digest(definition), f.b, id(13), id(600 + n)) }
         val base = state
         val initial = base.copy(definitions = base.definitions + definitions.map { SubmittedDefinition(DeckJson.digest(it), it) },
-            board = base.board.copy(automatum = automatum, cards = base.board.cards.filter { it.containerId != id(13) } + cards,
+            board = base.board.copy(cards = base.board.cards.filter { it.containerId != id(13) } + cards,
                 containers = base.board.containers.map { if (it.id == id(13)) it.copy(cards = cards.map(PlayCard::id)) else it }))
         var tree = GameplayTree(initial)
         val draws = cards.mapIndexed { n, card ->
@@ -595,9 +594,6 @@ class HistoryTextTest {
 
     // HIS-091
     @Test fun automatumEventsReadPlainly() {
-        val on = format(PlayAction.Mtg(MtgAction.SetAutomatum(true)))
-        assertEquals("alice turned Automatum on", on.description); assertEquals("Automatum", on.label)
-        assertEquals("bob turned Automatum off", format(PlayAction.Mtg(MtgAction.SetAutomatum(false)), author = f.b).description)
         assertEquals("Priority → bob", format(PlayAction.Mtg(MtgAction.SetPriority(null, MtgPriority(f.b)))).description)
         assertEquals("Mana → RG", format(PlayAction.Mtg(MtgAction.SetManaPool(f.a, emptyList(), listOf(PoolMana("R"), PoolMana("G"))))).description)
         assertEquals("Automatum records updated", format(PlayAction.Mtg(MtgAction.SetRecord("e", null,
@@ -608,7 +604,7 @@ class HistoryTextTest {
     // engine bookkeeping is folded into its visible event: the strip shows that event once, the cursor goes to the
     // batch's end, and a group never reads as its bookkeeping.
     @Test fun foldedBookkeepingIsNeitherShownNorStoppedAt() {
-        var (tree, _) = drawTree(automatum = true)
+        var (tree, _) = drawTree()
         val scope = GameScope(tree.initial.gameId, playId = tree.initial.id)
         val record = EngineRecord("effect-1", EngineRecordKind.Effect, 1, "{}")
         val batch = GameCommand(id(720), scope, GameAction.PlayBatch(listOf(PlayAction.SetLife(f.a, "17"),

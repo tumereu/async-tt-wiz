@@ -124,7 +124,7 @@ object StepFlow {
      * whole round of turns went by in this call (turn number two up from where the call is now) at the next stop (the
      * active player's main phase, even when they could do nothing there). A loop of mandatory
      * actions (CR 104.4b, 732.4: the same state, `Engine.loopKey`, again with only forced passes since) stops it with
-     * `Input.MandatoryLoop`: the engine's decision done by hand (I-D37) says the game is a draw, and answering it makes it one.
+     * `Input.MandatoryLoop`: the engine's loop choice says the game is a draw, and choosing Draw makes it one (I-D52).
      */
     fun automatic(call: EngineCall): Pending? = automatic(call, null)
 
@@ -167,7 +167,7 @@ object StepFlow {
             // A pass the player chose ("End turn" while they could act) is no forced action: a loop through it isn't one
             if (!forced) seen.clear()
             // The same state again with only forced passes since: a loop of mandatory actions, the game is a draw; the
-            // engine says so with a decision done by hand (I-D37)
+            // engine says so with its loop choice (Continue / Draw, I-D52)
             else if (s.stack.isNotEmpty() && !seen.add(Engine.loopKey(s))) return call.perform(Input.MandatoryLoop)
             call.perform(Input.PassPriority(holder), automatic = true)?.let { return it }
         }

@@ -86,8 +86,7 @@ class LobbyService(private val runtime: ServiceRuntime) {
             val invitation = UUID.randomUUID()
             sql.insertInto(GAME).set(GAME.ID, game).set(GAME.GAME_NAME, input.gameName)
                 .set(GAME.INVITER_ID, actor).set(GAME.RECIPIENT_ID, UUID.fromString(input.recipient))
-                .set(GAME.PREPARATION_ROUND, UUID.randomUUID()).set(GAME.CURRENT_INVITATION, invitation)
-                .set(GAME.AUTOMATUM, input.automatum).execute()
+                .set(GAME.PREPARATION_ROUND, UUID.randomUUID()).set(GAME.CURRENT_INVITATION, invitation).execute()
             sql.insertInto(INVITATION).set(INVITATION.ID, invitation).set(INVITATION.GAME_ID, game).execute()
             org.asyncttwiz.server.activity.ActivityService.record(sql, UUID.fromString(input.recipient),
                 ActivityKind.INVITATION, game, invitation, actor)

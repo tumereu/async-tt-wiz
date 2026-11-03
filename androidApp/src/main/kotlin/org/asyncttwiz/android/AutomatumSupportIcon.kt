@@ -27,10 +27,11 @@ import java.util.concurrent.ConcurrentHashMap
 /**
  * I-D51: works out which cards of a list Automatum plays by hand, from each card's rules text as a game parses it
  * ([parse]: the device's card definitions, cached per card data digest and parser version) and Automatum's rule
- * ([AutomatumSupport]). A card whose data can't be read counts as by hand. Blocking: call on a worker only.
+ * ([AutomatumSupport]), which follows the engine ([engineVersion]). A card whose data can't be read counts as by hand.
+ * Blocking: call on a worker only.
  */
 internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefinition>) -> Map<String, ParsedCard>,
-    val parserVersion: Int = CardDefinitions.parserVersion) {
+    val parserVersion: Int = CardDefinitions.parserVersion, val engineVersion: Int = arcanum.engine.Engine.SUPPORT_VERSION) {
     private val byHand = ConcurrentHashMap<String, Boolean>()
 
     /** The list's support; throws when the device couldn't read its cards at all (storage closed), so nothing is kept. */
@@ -47,7 +48,8 @@ internal class CardListSupportCheck(private val parse: (Collection<SubmittedDefi
                 }
             }
         }
-        return CardListSupport(parserVersion, cards.filter { byHand[it.digest] == true }.map { it.definition.name }.distinct().sorted())
+        return CardListSupport(parserVersion, cards.filter { byHand[it.digest] == true }.map { it.definition.name }.distinct().sorted(),
+            engineVersion)
     }
 }
 

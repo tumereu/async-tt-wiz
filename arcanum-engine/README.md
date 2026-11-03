@@ -17,6 +17,7 @@ Engine.result(state): GameResult?                // Won(player) or Draw once the
 Engine.visible(state, player): Set<ObjectId>     // the objects whose identity a player may know now (D60)
 Engine.shouldPassFor(state, player): Boolean     // a host passes priority for this player now (I-D3, I-D18)
 Engine.loopKey(state): LoopKey                   // the state without ids, timestamps, history: finding loops (CR 104.4b)
+Engine.SUPPORT_VERSION                           // raised when what the engine leaves to the players changes
 Engine.otherViewDecision(state, filled)          // what a player decides in their view while this view waits (D31)
 state.apply(change); state.revert(change)        // the only mutators (D56, D59)
 ```
@@ -96,18 +97,19 @@ priority they held passes on, and their turn goes on without them (CR 800.4j).
 ## Loops
 
 - **Safety cap:** one `perform` call makes at most `Loops.MAX_ROUNDS` rounds of state-based actions and triggers (200)
-  and `Loops.MAX_CHANGES` changes (20,000, checked between rounds); then it stops with `Decision.Manual` ("Possible
+  and `Loops.MAX_CHANGES` changes (20,000, checked between rounds); then it stops with the loop choice ("Possible
   loop: …", `Continuation.Loop(LoopStop.Cap)`) instead of hanging on a chain of mandatory triggers that never gives
-  priority. Answered, the game goes on with the next round in a new call. No cube, Bloomburrow or Duskmourn scenario
-  needs more than a handful of rounds.
+  priority. No cube, Bloomburrow or Duskmourn scenario needs more than a handful of rounds.
+- **The loop choice** is a `Decision.ChooseOption` with options `LoopStop.CONTINUE` and `LoopStop.DRAW` and a `text`
+  saying why: Continue goes on (at the cap, with the next round in a new call); Draw logs `GameEvent.MandatoryLoop`
+  and every remaining player leaves the game together (`GameResult.Draw`, CR 104.4b).
 - **Mandatory loops (CR 104.4b, 732.4):** the engine can't see what happens between calls, so the host finds them. A
   host passing for players (`shouldPassFor`) keeps `Engine.loopKey` of each state it passes in with something on the
   Stack (the state as JSON without its log, ledgers, "this turn" counts of uses and timestamps, cards by name, ids
   replaced by their place in the zones; hashed); meeting a key again with only such passes since, it performs
-  `Input.MandatoryLoop`. The engine waits on a `Decision.Manual` saying the game is a draw
-  (`LoopStop.Mandatory(key)`); answered, `GameEvent.MandatoryLoop` is logged and every remaining player leaves the game
-  together (`GameResult.Draw`), unless the state was changed by hand meanwhile so that its key differs: then the game
-  goes on. A loop through an optional action (a pass with something else to do, a decision answered) isn't one.
+  `Input.MandatoryLoop`. The engine waits on the loop choice saying the game is in a loop that makes it a draw
+  (`LoopStop.Mandatory(key)`). A loop through an optional action (a pass with something else to do, a decision
+  answered) isn't one.
 
 ## Hidden information
 

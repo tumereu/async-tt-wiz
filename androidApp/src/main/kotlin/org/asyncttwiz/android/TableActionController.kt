@@ -6,7 +6,7 @@ data class TableActionScope(val gameId: String, val playId: String)
 /** CMB-028, CMB-034: stage the given creatures as attackers of the active target; clear the staging or the blocks
  * (declaring is the step arrow's, TRN-063). */
 enum class CombatTool { AUTOMATUM_STAGE, AUTOMATUM_CLEAR }
-enum class EndingTool { SUGGEST_WIN, SUGGEST_LOSS, SUGGEST_DRAW, ACCEPT }
+enum class EndingTool { SUGGEST_WIN, SUGGEST_LOSS, SUGGEST_DRAW, ACCEPT, CONCEDE }
 
 /** The table host's routes for the table's actions; they introduce no second request/prediction queue. */
 interface TableActionRoutes {

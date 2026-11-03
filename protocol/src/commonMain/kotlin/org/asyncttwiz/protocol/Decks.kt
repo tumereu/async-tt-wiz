@@ -88,11 +88,13 @@ data class CardDefinition(
 @Serializable data class SavedDeck(val deck: DeckSummary, val entries: List<SavedDeckEntry>)
 /** I-D51: the cards of a deck, cube or set Automatum plays by hand, worked out on a device from the cards' rules text by
  * the parser of [parserVersion]. [byHand] names those cards (distinct, sorted); empty: Automatum plays every card. */
-@Serializable data class CardListSupport(val parserVersion: Int, val byHand: List<String> = emptyList()) {
+@Serializable data class CardListSupport(val parserVersion: Int, val byHand: List<String> = emptyList(),
+    /** The rules engine's support version (`Engine.SUPPORT_VERSION`) it was worked out with; 0 before it was kept. */
+    val engineVersion: Int = 0) {
     val supported: Boolean get() = byHand.isEmpty()
     companion object {
         const val MAX_NAMES = 3000
-        fun valid(value: CardListSupport) = value.parserVersion >= 0 && value.byHand.size <= MAX_NAMES &&
+        fun valid(value: CardListSupport) = value.parserVersion >= 0 && value.engineVersion >= 0 && value.byHand.size <= MAX_NAMES &&
             value.byHand.distinct().size == value.byHand.size &&
             value.byHand.all { it.isNotBlank() && DeckValidation.text(it, 1024) }
     }

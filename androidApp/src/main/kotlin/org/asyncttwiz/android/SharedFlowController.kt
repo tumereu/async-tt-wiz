@@ -373,7 +373,7 @@ internal class SharedFlowController(
     companion object {
         private val PUBLIC_ZONES = setOf(arcanum.api.Zone.Battlefield, arcanum.api.Zone.Stack, arcanum.api.Zone.Graveyard,
             arcanum.api.Zone.Exile, arcanum.api.Zone.Command)
-        const val BUSY = "Automatum is waiting for a choice. Answer it, or switch Automatum off, first."
+        const val BUSY = "Automatum is waiting for a choice. Answer it first."
         const val STACK_WAITING = "Let the Stack resolve before changing the step."
         /** TRN-027: with Automatum on the first turn begins once both players are Ready. */
         const val OPENING = "The game begins once both players are Ready."

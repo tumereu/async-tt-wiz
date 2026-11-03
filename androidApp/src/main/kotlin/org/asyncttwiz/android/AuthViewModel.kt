@@ -157,7 +157,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         cardDataWork.execute {
             try {
                 val outcome = DeckApi(BuildConfig.ACCOUNT_ORIGIN, authenticationRequired = ::authenticationRequired).use { api ->
-                    kotlinx.coroutines.runBlocking { AutomatumSupportRun(api, api, cardListSupport.parserVersion, cardListSupport::support).run(token) }
+                    kotlinx.coroutines.runBlocking { AutomatumSupportRun(api, api, cardListSupport.parserVersion, cardListSupport.engineVersion, cardListSupport::support).run(token) }
                 }
                 if (outcome.decks + outcome.cubes > 0)
                     AppLog.info("Automatum", "Automatum support worked out: ${outcome.decks} decks, ${outcome.cubes} cubes")

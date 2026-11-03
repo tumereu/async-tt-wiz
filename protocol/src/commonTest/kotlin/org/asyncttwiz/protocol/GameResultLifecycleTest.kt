@@ -149,6 +149,30 @@ class GameResultLifecycleTest {
         assertEquals(proposal.state.board.resultSuggestion, following.state.board.resultSuggestion)
     }
 
+    // SYS-073, CR 104.3a (I-D52): conceding records the player's own loss (a waiting suggestion withdrawn or declined
+    // first), which they accept themselves; any other suggestion still needs the other player
+    @Test fun aConcessionRecordsTheOwnLossAfterAWaitingSuggestion() {
+        assertEquals(listOf(PlayAction.SuggestResult(SuggestedResult.LOSS)), GameResultRules.concession(play().board, a.accountId))
+        val waiting = suggest(SuggestedResult.DRAW, b.accountId).state!!
+        val id = waiting.board.resultSuggestion!!.id
+        assertEquals(listOf(PlayAction.DeclineResult(id), PlayAction.SuggestResult(SuggestedResult.LOSS)),
+            GameResultRules.concession(waiting.board, a.accountId))
+        assertEquals(listOf(PlayAction.WithdrawResult(id), PlayAction.SuggestResult(SuggestedResult.LOSS)),
+            GameResultRules.concession(waiting.board, b.accountId))
+    }
+
+    // SYS-073, CR 104.3a (I-D52): the server accepts the conceding player's own loss for them; any other suggestion still
+    // needs the other player
+    @Test fun aPlayerMayAcceptTheirOwnLoss() {
+        val prepared = PreparationRules.empty(game).copy(players = listOf(PlayerPreparation(a.accountId, true), PlayerPreparation(b.accountId, true)))
+        for ((outcome, accepted) in listOf(SuggestedResult.LOSS to true, SuggestedResult.WIN to false, SuggestedResult.DRAW to false)) {
+            val play = suggest(outcome).state!!
+            val result = GameResultRules.accept(game, play, prepared, a.accountId, command(GameAction.AcceptResult(play.board.resultSuggestion!!.id), 15))
+            if (accepted) assertNotNull(result.preparation, "$outcome: ${result.reason}")
+            else assertEquals("otherPlayerRequired", result.reason, "$outcome")
+        }
+    }
+
     // LOB-046
     @Test fun exactOtherPlayerAcceptanceReturnsLastPreparationWithBothReadyClearedAndNewRound() {
         val play = suggest().state!!
